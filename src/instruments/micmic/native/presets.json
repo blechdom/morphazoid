@@ -1,8 +1,8 @@
 [
   {
     "id": "pythagorean",
-    "label": "Pythagorean Pine · Pythagorean tree",
-    "description": "The full reference canopy: clear forks, tapering time, and mirrored pitch. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Pythagorean Pine",
+    "description": "Original l-mic starting point. The full reference canopy: clear forks, tapering time, and mirrored pitch. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -37,8 +37,8 @@
   },
   {
     "id": "bramble",
-    "label": "Blackberry Bramble · Pythagorean tree",
-    "description": "A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Blackberry Bramble",
+    "description": "Original l-mic starting point. A shredded 4 ms robot swarm expands 1.65× through thorny, unruly forks. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -73,8 +73,8 @@
   },
   {
     "id": "venus",
-    "label": "Venus Flytrap · Branching plant",
-    "description": "Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Venus Flytrap",
+    "description": "Original l-mic starting point. Hard 14 ms servo jaws double their spacing across an extreme pitch span. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -109,8 +109,8 @@
   },
   {
     "id": "ivy",
-    "label": "Midnight Ivy · Pythagorean tree",
-    "description": "A tight 38 ms motor widens its spacing 1.35× through twelve skewed generations. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Midnight Ivy",
+    "description": "Original l-mic starting point. A tight 38 ms motor widens its spacing 1.35× through twelve skewed generations. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -145,8 +145,8 @@
   },
   {
     "id": "binary",
-    "label": "Silver Birch · Coral",
-    "description": "An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Silver Birch",
+    "description": "Original l-mic starting point. An 85 ms clockwork fork halves its timing cleanly at every crown. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -181,8 +181,8 @@
   },
   {
     "id": "coral",
-    "label": "Staghorn Coral · Coral",
-    "description": "A bright 160 ms ping lattice flickers with colorful mutation and a leftward bias. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Staghorn Coral",
+    "description": "Original l-mic starting point. A bright 160 ms ping lattice flickers with colorful mutation and a leftward bias. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -217,8 +217,8 @@
   },
   {
     "id": "moss",
-    "label": "Moss Carpet · Coral",
-    "description": "A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Moss Carpet",
+    "description": "Original l-mic starting point. A metallic 1 ms micro-comb doubles its spacing into a long robotic canopy. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -253,8 +253,8 @@
   },
   {
     "id": "plant",
-    "label": "Fern Frond · Branching plant",
-    "description": "A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Fern Frond",
+    "description": "Original l-mic starting point. A bouncing 420 ms organic rhythm grows gently biased, lightly varied leaflets. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -289,8 +289,8 @@
   },
   {
     "id": "kelp",
-    "label": "Kelp Forest · Branching plant",
-    "description": "A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Kelp Forest",
+    "description": "Original l-mic starting point. A rolling 750 ms smear expands gently through deep branches and broad pitch motion. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -325,8 +325,8 @@
   },
   {
     "id": "dragon",
-    "label": "Dragon Tree · Dragon curve",
-    "description": "Measured 1.05 second pulses travel through dramatic right-angle limbs. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Dragon Tree",
+    "description": "Original l-mic starting point. Measured 1.05 second pulses travel through dramatic right-angle limbs. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "dragon",
@@ -361,8 +361,8 @@
   },
   {
     "id": "koch",
-    "label": "Frosted Agave · Koch snowflake",
-    "description": "A 1.35 second geometric fold contracts into exact timing thirds. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Frosted Agave",
+    "description": "Original l-mic starting point. A 1.35 second geometric fold contracts into exact timing thirds. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "koch",
@@ -397,8 +397,8 @@
   },
   {
     "id": "clean",
-    "label": "Bamboo Shoot · Branching plant",
-    "description": "Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Bamboo Shoot",
+    "description": "Original l-mic starting point. Pure, unpitched repeats rise slowly at a long one-to-one interval. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -433,8 +433,8 @@
   },
   {
     "id": "orchid",
-    "label": "Ghost Orchid · Pythagorean tree",
-    "description": "A sparse 1.95 second bloom floats through wide, smooth harmonic turns. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Ghost Orchid",
+    "description": "Original l-mic starting point. A sparse 1.95 second bloom floats through wide, smooth harmonic turns. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "pythagorean",
@@ -469,8 +469,8 @@
   },
   {
     "id": "willow",
-    "label": "Weeping Willow · Coral",
-    "description": "A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Weeping Willow",
+    "description": "Original l-mic starting point. A smooth 2.3 second fold droops into a long, dark, gently pitched cascade. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -505,8 +505,8 @@
   },
   {
     "id": "mangrove",
-    "label": "Mangrove Roots · Branching plant",
-    "description": "Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Mangrove Roots",
+    "description": "Original l-mic starting point. Broad low forks emerge from a smooth 2.7 second submerged pulse. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "plant",
@@ -541,8 +541,8 @@
   },
   {
     "id": "sequoia",
-    "label": "Giant Sequoia · Coral",
-    "description": "The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
+    "label": "Giant Sequoia",
+    "description": "Original l-mic starting point. The longest smooth preset unfolds thirteen persistent generations over a 3 second fold. Complete topology, growth, pitch, mix and Original mastering. Input gain, output level, output boost, microphone, frozen input, active pitch backend and recorded history are retained.",
     "snapshot": {
       "parameters": {
         "lSystemType": "coral",
@@ -931,6 +931,4470 @@
           "attackMs": 3,
           "releaseMs": 180,
           "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "glasswort-dew",
+    "label": "Glasswort Dew · Pythagorean tree",
+    "description": "Glass: A 1 ms fold contracts into a deep narrow canopy, with small pitch shifts and an airy top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 15,
+        "intervalMs": 1,
+        "timeRatio": 0.55,
+        "angle": 32,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0.18,
+        "pruningBias": 0,
+        "depth": 0.94,
+        "spread": 0.72
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "silica-fern",
+    "label": "Silica Fern · Branching plant",
+    "description": "Glass: Tiny folds gather a delicate fern into a bright granular haze; restrained turns keep the pitch close.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 14,
+        "intervalMs": 2,
+        "timeRatio": 0.68,
+        "angle": 18,
+        "asymmetry": 0.08,
+        "mutation": 0.05,
+        "pitchScale": 0.32,
+        "pruningBias": 0.2,
+        "depth": 0.91,
+        "spread": 0.8
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "quartz-coral",
+    "label": "Quartz Coral · Coral",
+    "description": "Glass: Short contracting folds and clean forks make a compact glassy coral cloud, with gentle compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 12,
+        "intervalMs": 3,
+        "timeRatio": 0.62,
+        "angle": 42,
+        "asymmetry": -0.06,
+        "mutation": 0.03,
+        "pitchScale": 0.35,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.88
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "needle-dragon",
+    "label": "Needle Dragon · Dragon curve",
+    "description": "Glass: A sharply folded ribbon carries subtle grain shifts across a narrow, clear stereo field.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 14,
+        "intervalMs": 4,
+        "timeRatio": 0.7,
+        "angle": 85,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.12,
+        "pruningBias": 0.35,
+        "depth": 0.88,
+        "spread": 0.45
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "frostgrain-agave",
+    "label": "Frostgrain Agave · Koch snowflake",
+    "description": "Glass: Fast tapered folds trace a crisp snowflake; a bright filter keeps the dense grains light.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 15,
+        "intervalMs": 5,
+        "timeRatio": 0.36,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.24,
+        "pruningBias": 0.25,
+        "depth": 0.9,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "prism-clover",
+    "label": "Prism Clover · Sierpiński triangle",
+    "description": "Glass: Small pitch offsets and a deep triangular weave form a soft, airy grain cluster.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 16,
+        "intervalMs": 6,
+        "timeRatio": 0.5,
+        "angle": 61,
+        "asymmetry": -0.04,
+        "mutation": 0.04,
+        "pitchScale": 0.28,
+        "pruningBias": 0.3,
+        "depth": 0.92,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "crystal-maze",
+    "label": "Crystal Maze · Hilbert curve",
+    "description": "Glass: A tight square maze packs short folds into delicate pitch motion, with the compressor bypassed.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 16,
+        "intervalMs": 8,
+        "timeRatio": 0.58,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.15,
+        "pruningBias": 0.45,
+        "depth": 0.9,
+        "spread": 0.7
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "glass-acacia",
+    "label": "Glass Acacia · Gosper curve",
+    "description": "Glass: A fine hexagonal lace concentrates tiny folds and near-unison grains across a wide image.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 16,
+        "intervalMs": 10,
+        "timeRatio": 0.6,
+        "angle": 60,
+        "asymmetry": 0.03,
+        "mutation": 0.05,
+        "pitchScale": 0.12,
+        "pruningBias": 0.4,
+        "depth": 0.93,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "pearl-lichen",
+    "label": "Pearl Lichen · Cantor set",
+    "description": "Glass: An extremely short unpitched fold makes a compact comb of tiny islands, softened by a low-pass filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 20,
+        "intervalMs": 2,
+        "timeRatio": 0.2,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.08,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.96,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 20,
+          "highpassHz": 0,
+          "lowpassHz": 2800,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 1.8,
+          "attackMs": 45,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "mica-wings",
+    "label": "Mica Wings · Lévy C curve",
+    "description": "Glass: Closely spaced grains flutter along shallow wings; low pitch scaling keeps their range modest.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 14,
+        "intervalMs": 12,
+        "timeRatio": 0.68,
+        "angle": 45,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "pitchScale": 0.22,
+        "pruningBias": 0.25,
+        "depth": 0.9,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "opal-horsetail",
+    "label": "Opal Horsetail · Terdragon",
+    "description": "Glass: A clean three-way spiral gathers bright grain detail around a rapidly contracting fold.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 15,
+        "intervalMs": 7,
+        "timeRatio": 0.52,
+        "angle": 120,
+        "asymmetry": -0.04,
+        "mutation": 0.03,
+        "pitchScale": 0.1,
+        "pruningBias": 0.4,
+        "depth": 0.92,
+        "spread": 0.88
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "clockwork-spruce",
+    "label": "Clockwork Spruce · Pythagorean tree",
+    "description": "Clockwork: A brisk branching grain pattern uses uneven pitch forks, dry attack, and tight transient compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 11,
+        "intervalMs": 24,
+        "timeRatio": 0.92,
+        "angle": 70,
+        "asymmetry": 0.15,
+        "mutation": 0.15,
+        "pitchScale": 1.4,
+        "pruningBias": 0.25,
+        "depth": 0.73,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.68,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "servo-fern",
+    "label": "Servo Fern · Branching plant",
+    "description": "Clockwork: Expanding folds and wide servo-like turns carve a bent fern, filtered into a nasal mechanical register.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 11,
+        "intervalMs": 38,
+        "timeRatio": 1.08,
+        "angle": 110,
+        "asymmetry": -0.35,
+        "mutation": 0.28,
+        "pitchScale": 1.8,
+        "pruningBias": 0.35,
+        "depth": 0.67,
+        "spread": 0.75
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.14,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 350,
+          "lowpassHz": 3500,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 5,
+          "releaseMs": 120,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "tin-coral",
+    "label": "Tin Coral · Coral",
+    "description": "Clockwork: Short growing folds and skewed metallic forks add a dry click above a compressed coral mesh.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 11,
+        "intervalMs": 52,
+        "timeRatio": 1.12,
+        "angle": 82,
+        "asymmetry": 0.24,
+        "mutation": 0.22,
+        "pitchScale": 1.5,
+        "pruningBias": 0.1,
+        "depth": 0.7,
+        "spread": 0.88
+      },
+      "performance": {
+        "wet": 0.68,
+        "dry": 0.24,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "ratchet-dragon",
+    "label": "Ratchet Dragon · Dragon curve",
+    "description": "Clockwork: A compact folded ribbon puts grain pitch steps behind a clear direct attack and narrow stereo.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 9,
+        "intervalMs": 65,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0.06,
+        "pitchScale": 0.9,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.6
+      },
+      "performance": {
+        "wet": 0.62,
+        "dry": 0.28,
+        "mastering": {
+          "inputHighpassHz": 80,
+          "highpassHz": 80,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "clickthorn-agave",
+    "label": "Clickthorn Agave · Koch snowflake",
+    "description": "Clockwork: Expanding fast folds and large turns make a serrated snowflake, with a hard midrange filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 12,
+        "intervalMs": 18,
+        "timeRatio": 1.24,
+        "angle": 120,
+        "asymmetry": 0.12,
+        "mutation": 0.2,
+        "pitchScale": 2.2,
+        "pruningBias": 0.45,
+        "depth": 0.71,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.7,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 120,
+          "highpassHz": 650,
+          "lowpassHz": 2400,
+          "compressorEnabled": true,
+          "thresholdDb": -26,
+          "kneeDb": 2,
+          "ratio": 8,
+          "attackMs": 1.5,
+          "releaseMs": 75,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "tessellated-foxglove",
+    "label": "Tessellated Foxglove · Sierpiński triangle",
+    "description": "Clockwork: A triangular clockwork net combines measured pitch motion with a dry root and quick compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 13,
+        "intervalMs": 80,
+        "timeRatio": 0.88,
+        "angle": 60,
+        "asymmetry": -0.08,
+        "mutation": 0.1,
+        "pitchScale": 0.8,
+        "pruningBias": 0.35,
+        "depth": 0.74,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.64,
+        "dry": 0.3,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "gearbox-lotus",
+    "label": "Gearbox Lotus · Hilbert curve",
+    "description": "Clockwork: Slightly growing folds pass through a skewed square labyrinth, with a compact compressed top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 12,
+        "intervalMs": 42,
+        "timeRatio": 1.06,
+        "angle": 95,
+        "asymmetry": 0.18,
+        "mutation": 0.12,
+        "pitchScale": 0.55,
+        "pruningBias": 0.6,
+        "depth": 0.76,
+        "spread": 0.72
+      },
+      "performance": {
+        "wet": 0.7,
+        "dry": 0.22,
+        "mastering": {
+          "inputHighpassHz": 80,
+          "highpassHz": 80,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "copper-acacia",
+    "label": "Copper Acacia · Gosper curve",
+    "description": "Clockwork: Nearly even folds and angular pitch turns make a coppery lace, brightened without heavy compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 12,
+        "intervalMs": 110,
+        "timeRatio": 0.96,
+        "angle": 60,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "pitchScale": 1.05,
+        "pruningBias": 0.45,
+        "depth": 0.72,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.66,
+        "dry": 0.26,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "abacus-lichen",
+    "label": "Abacus Lichen · Cantor set",
+    "description": "Clockwork: Expanding unpitched islands spread distinct echoes along a broken line; telephone filtering makes the taps dry.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 14,
+        "intervalMs": 130,
+        "timeRatio": 1.35,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.12,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.78,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.7,
+        "dry": 0.24,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 350,
+          "lowpassHz": 3500,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 5,
+          "releaseMs": 120,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "riveted-moonflower",
+    "label": "Riveted Moonflower · Lévy C curve",
+    "description": "Clockwork: Growing folds and asymmetric wings open a grain-driven ratchet, with strong transient control.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 10,
+        "intervalMs": 32,
+        "timeRatio": 1.18,
+        "angle": 70,
+        "asymmetry": -0.18,
+        "mutation": 0.1,
+        "pitchScale": 1.6,
+        "pruningBias": 0.55,
+        "depth": 0.72,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "clockvine-spiral",
+    "label": "Clockvine Spiral · Terdragon",
+    "description": "Clockwork: A broad three-way spiral frames brisk grain steps and a direct attack, with dense mastering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 12,
+        "intervalMs": 95,
+        "timeRatio": 0.91,
+        "angle": 140,
+        "asymmetry": 0.16,
+        "mutation": 0.12,
+        "pitchScale": 0.65,
+        "pruningBias": 0.3,
+        "depth": 0.68,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.66,
+        "dry": 0.28,
+        "mastering": {
+          "inputHighpassHz": 80,
+          "highpassHz": 80,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "rain-cedar",
+    "label": "Rain Cedar · Pythagorean tree",
+    "description": "Water: A deep tapering canopy gathers overlapping echoes and mild pitch shifts into a wide, softened wash.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 15,
+        "intervalMs": 480,
+        "timeRatio": 0.74,
+        "angle": 35,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0.5,
+        "pruningBias": 0.35,
+        "depth": 0.92,
+        "spread": 0.94
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "water-fern",
+    "label": "Water Fern · Branching plant",
+    "description": "Water: Contracting echoes and restrained pitch turns form a wide fern with smooth, airy filtering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 13,
+        "intervalMs": 620,
+        "timeRatio": 0.63,
+        "angle": 24,
+        "asymmetry": 0.12,
+        "mutation": 0.08,
+        "pitchScale": 0.4,
+        "pruningBias": 0.2,
+        "depth": 0.9,
+        "spread": 0.98
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "sea-glass-coral",
+    "label": "Sea Glass Coral · Coral",
+    "description": "Water: A translucent coral fan combines medium folds, varied pitch, and light compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 14,
+        "intervalMs": 360,
+        "timeRatio": 0.78,
+        "angle": 38,
+        "asymmetry": -0.18,
+        "mutation": 0.14,
+        "pitchScale": 0.75,
+        "pruningBias": 0.25,
+        "depth": 0.87,
+        "spread": 0.92
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "cloud-dragon",
+    "label": "Cloud Dragon · Dragon curve",
+    "description": "Water: A clean folded ribbon spreads low-range pitch grains through medium echoes and an open top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.76,
+        "angle": 80,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0.26,
+        "pruningBias": 0.4,
+        "depth": 0.88,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "mist-agave",
+    "label": "Mist Agave · Koch snowflake",
+    "description": "Water: Strongly contracting echoes gather around a clear snowflake, softened by a warm low-pass filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 14,
+        "intervalMs": 750,
+        "timeRatio": 0.47,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "pitchScale": 0.35,
+        "pruningBias": 0.25,
+        "depth": 0.91,
+        "spread": 0.84
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "rainlace-clover",
+    "label": "Rainlace Clover · Sierpiński triangle",
+    "description": "Water: A deep triangle carries gently shifting echoes, with a wide field and a soft compression knee.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 15,
+        "intervalMs": 560,
+        "timeRatio": 0.7,
+        "angle": 60,
+        "asymmetry": 0.06,
+        "mutation": 0.05,
+        "pitchScale": 0.45,
+        "pruningBias": 0.45,
+        "depth": 0.9,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "water-lily-labyrinth",
+    "label": "Water Lily Labyrinth · Hilbert curve",
+    "description": "Water: Medium echoes weave through a square water garden with small pitch changes and warm transient control.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 15,
+        "intervalMs": 840,
+        "timeRatio": 0.82,
+        "angle": 88,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.22,
+        "pruningBias": 0.6,
+        "depth": 0.92,
+        "spread": 0.86
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "wind-acacia",
+    "label": "Wind Acacia · Gosper curve",
+    "description": "Water: A lightly warped hexagonal lace distributes contracting echoes and near pitch reflections across stereo.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 15,
+        "intervalMs": 430,
+        "timeRatio": 0.68,
+        "angle": 58,
+        "asymmetry": -0.12,
+        "mutation": 0.12,
+        "pitchScale": 0.4,
+        "pruningBias": 0.35,
+        "depth": 0.9,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "driftwood-lichen",
+    "label": "Driftwood Lichen · Cantor set",
+    "description": "Water: Slowly expanding unpitched islands move from small gaps to longer echoes, under an open filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 14,
+        "intervalMs": 900,
+        "timeRatio": 1.16,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.94,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 25,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "fogflower-wings",
+    "label": "Fogflower Wings · Lévy C curve",
+    "description": "Water: Longer overlapping wing echoes retain small pitch shifts, with a warm top and gentle compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 13,
+        "intervalMs": 320,
+        "timeRatio": 0.93,
+        "angle": 40,
+        "asymmetry": 0.08,
+        "mutation": 0.04,
+        "pitchScale": 0.2,
+        "pruningBias": 0.5,
+        "depth": 0.9,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "tidal-horsetail",
+    "label": "Tidal Horsetail · Terdragon",
+    "description": "Water: A broad spiral holds medium tapering echoes and restrained grain pitch, brightened by airy mastering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 14,
+        "intervalMs": 680,
+        "timeRatio": 0.8,
+        "angle": 115,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "pitchScale": 0.25,
+        "pruningBias": 0.35,
+        "depth": 0.86,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "redwood-nave",
+    "label": "Redwood Nave · Pythagorean tree",
+    "description": "Cathedral: Slow folds narrow into a deep upright canopy; restrained pitch and warm filtering favor lingering echoes.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 15,
+        "intervalMs": 2700,
+        "timeRatio": 0.87,
+        "angle": 20,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "pitchScale": 0.18,
+        "pruningBias": 0.65,
+        "depth": 0.93,
+        "spread": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 35,
+          "highpassHz": 25,
+          "lowpassHz": 4200,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 12,
+          "ratio": 3,
+          "attackMs": 35,
+          "releaseMs": 420,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "cathedral-fern",
+    "label": "Cathedral Fern · Branching plant",
+    "description": "Cathedral: Large echo spacing follows a tall fern with subtle pitch movement and a rounded low-pass tone.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 11,
+        "intervalMs": 2100,
+        "timeRatio": 0.9,
+        "angle": 30,
+        "asymmetry": 0.1,
+        "mutation": 0.06,
+        "pitchScale": 0.3,
+        "pruningBias": 0.45,
+        "depth": 0.91,
+        "spread": 0.86
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "basalt-coral",
+    "label": "Basalt Coral · Coral",
+    "description": "Cathedral: A three-second fold and gentle taper shape a weighty coral hall, with deep levels and soft compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 13,
+        "intervalMs": 3000,
+        "timeRatio": 0.92,
+        "angle": 25,
+        "asymmetry": -0.08,
+        "mutation": 0.04,
+        "pitchScale": 0.2,
+        "pruningBias": 0.35,
+        "depth": 0.94,
+        "spread": 0.92
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "sleeping-dragon",
+    "label": "Sleeping Dragon · Dragon curve",
+    "description": "Cathedral: Widely spaced echoes follow a folded ribbon, with low pitch scaling and a dark, uncompressed top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 10,
+        "intervalMs": 2400,
+        "timeRatio": 0.78,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.18,
+        "pruningBias": 0.4,
+        "depth": 0.9,
+        "spread": 0.75
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.14,
+        "mastering": {
+          "inputHighpassHz": 25,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "winter-agave",
+    "label": "Winter Agave · Koch snowflake",
+    "description": "Cathedral: Slow echoes contract sharply around a clean snowflake, with moderate pitch turns and a warm filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 13,
+        "intervalMs": 1800,
+        "timeRatio": 0.67,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.55,
+        "pruningBias": 0.3,
+        "depth": 0.88,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.16,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "belladonna-vault",
+    "label": "Belladonna Vault · Sierpiński triangle",
+    "description": "Cathedral: A large triangular vault carries slow tapering echoes and modest pitch changes, smoothed by long compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 14,
+        "intervalMs": 2600,
+        "timeRatio": 0.85,
+        "angle": 60,
+        "asymmetry": 0.04,
+        "mutation": 0.03,
+        "pitchScale": 0.35,
+        "pruningBias": 0.6,
+        "depth": 0.92,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 35,
+          "highpassHz": 25,
+          "lowpassHz": 4200,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 12,
+          "ratio": 3,
+          "attackMs": 35,
+          "releaseMs": 420,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "blackwater-lotus",
+    "label": "Blackwater Lotus · Hilbert curve",
+    "description": "Cathedral: A deep square labyrinth spreads long near-unison grain echoes behind a dark low-pass filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 14,
+        "intervalMs": 2800,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.12,
+        "pruningBias": 0.7,
+        "depth": 0.93,
+        "spread": 0.82
+      },
+      "performance": {
+        "wet": 0.92,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 20,
+          "highpassHz": 0,
+          "lowpassHz": 2800,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 1.8,
+          "attackMs": 45,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "acacia-hall",
+    "label": "Acacia Hall · Gosper curve",
+    "description": "Cathedral: A hexagonal hall holds slowly tapering echoes, with small pitch shifts and a soft, broad stereo field.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 14,
+        "intervalMs": 2300,
+        "timeRatio": 0.9,
+        "angle": 60,
+        "asymmetry": -0.05,
+        "mutation": 0.04,
+        "pitchScale": 0.3,
+        "pruningBias": 0.5,
+        "depth": 0.91,
+        "spread": 0.96
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "stone-lichen",
+    "label": "Stone Lichen · Cantor set",
+    "description": "Cathedral: A three-second fold expands through unpitched islands into longer sparse echoes, with a warm open bottom.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 18,
+        "intervalMs": 3000,
+        "timeRatio": 1.15,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.96,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 35,
+          "highpassHz": 25,
+          "lowpassHz": 4200,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 12,
+          "ratio": 3,
+          "attackMs": 35,
+          "releaseMs": 420,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "nightwing-basilica",
+    "label": "Nightwing Basilica · Lévy C curve",
+    "description": "Cathedral: Slow wing echoes retain a restrained pitch span and nearly even depth, with rounded compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 13,
+        "intervalMs": 1950,
+        "timeRatio": 0.93,
+        "angle": 45,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.22,
+        "pruningBias": 0.55,
+        "depth": 0.92,
+        "spread": 0.94
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "horsetail-observatory",
+    "label": "Horsetail Observatory · Terdragon",
+    "description": "Cathedral: A spacious three-way spiral carries widely spaced, gently shifting echoes through a warm filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 12,
+        "intervalMs": 2500,
+        "timeRatio": 0.88,
+        "angle": 120,
+        "asymmetry": -0.06,
+        "mutation": 0.03,
+        "pitchScale": 0.15,
+        "pruningBias": 0.4,
+        "depth": 0.9,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "unison-spruce",
+    "label": "Unison Spruce · Pythagorean tree",
+    "description": "Unison: Unpitched near-even echoes fill an orderly canopy; transparent mastering exposes the delay pattern.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 14,
+        "intervalMs": 96,
+        "timeRatio": 0.97,
+        "angle": 50,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.86,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "ribbon-bamboo",
+    "label": "Ribbon Bamboo · Branching plant",
+    "description": "Unison: A straight unpitched plant makes a narrow ribbon of even echoes, with a clear direct root.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 9,
+        "intervalMs": 340,
+        "timeRatio": 1,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.72,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.7,
+        "dry": 0.3,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "chalk-coral",
+    "label": "Chalk Coral · Coral",
+    "description": "Unison: A flattened coral chain gathers contracting unpitched echoes, with warm filtering and a muted direct root.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 13,
+        "intervalMs": 120,
+        "timeRatio": 0.9,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.05,
+        "pitchScale": 0,
+        "pruningBias": 0.35,
+        "depth": 0.9,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "paper-dragon",
+    "label": "Paper Dragon · Dragon curve",
+    "description": "Unison: A straight folded chain carries clean unpitched echoes, with no compression or stereo displacement.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 12,
+        "intervalMs": 210,
+        "timeRatio": 0.88,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.4,
+        "depth": 0.78,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.24,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "bone-agave",
+    "label": "Bone Agave · Koch snowflake",
+    "description": "Unison: An orderly snowflake turns unpitched copies into a short warm comb, preserving the direct attack.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 15,
+        "intervalMs": 54,
+        "timeRatio": 0.8,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.25,
+        "depth": 0.88,
+        "spread": 0.85
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "white-clover",
+    "label": "White Clover · Sierpiński triangle",
+    "description": "Unison: A clean triangular net holds tapering unpitched echoes with gentle compression and an airy edge.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 15,
+        "intervalMs": 880,
+        "timeRatio": 0.72,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.45,
+        "depth": 0.9,
+        "spread": 0.92
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.16,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "graphite-lotus",
+    "label": "Graphite Lotus · Hilbert curve",
+    "description": "Unison: A dense square maze spreads near-even unpitched taps, darkened by a rounded low-pass filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 16,
+        "intervalMs": 180,
+        "timeRatio": 0.96,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.9,
+        "spread": 0.8
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 35,
+          "highpassHz": 25,
+          "lowpassHz": 4200,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 12,
+          "ratio": 3,
+          "attackMs": 35,
+          "releaseMs": 420,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "parchment-acacia",
+    "label": "Parchment Acacia · Gosper curve",
+    "description": "Unison: A hexagonal lace distributes clear contracting echoes at the original pitch, with an open mastering chain.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 15,
+        "intervalMs": 420,
+        "timeRatio": 0.82,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.35,
+        "depth": 0.88,
+        "spread": 0.96
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 25,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "metronome-lichen",
+    "label": "Metronome Lichen · Cantor set",
+    "description": "Unison: Even unpitched islands create a broken echo ladder, with a dry root and gentle transient control.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 16,
+        "intervalMs": 1500,
+        "timeRatio": 1,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.88,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.28,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "milkweed-wings",
+    "label": "Milkweed Wings · Lévy C curve",
+    "description": "Unison: Slightly growing unpitched echoes spread along clean wings; a soft compressor holds the dense levels.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 14,
+        "intervalMs": 48,
+        "timeRatio": 1.05,
+        "angle": 45,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.45,
+        "depth": 0.9,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.84,
+        "dry": 0.14,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "porcelain-spiral",
+    "label": "Porcelain Spiral · Terdragon",
+    "description": "Unison: A clean three-way spiral carries contracting unpitched echoes and a bright, lightly compressed top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 14,
+        "intervalMs": 640,
+        "timeRatio": 0.82,
+        "angle": 120,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0.4,
+        "depth": 0.88,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "split-crown-tamarind",
+    "label": "Split Crown Tamarind · Pythagorean tree",
+    "description": "Wild: Skewed forks, growing folds, and extreme pitch grains fracture a wide canopy into a heavily compressed swarm.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 12,
+        "intervalMs": 16,
+        "timeRatio": 1.42,
+        "angle": 165,
+        "asymmetry": 0.72,
+        "mutation": 0.88,
+        "pitchScale": 3.5,
+        "pruningBias": 0.85,
+        "depth": 0.8,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "crooked-pitcher-plant",
+    "label": "Crooked Pitcher Plant · Branching plant",
+    "description": "Wild: Fully mutated servo turns twist a lopsided plant; wide grain pitch and a narrow midrange filter add grit.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 12,
+        "intervalMs": 22,
+        "timeRatio": 1.24,
+        "angle": 145,
+        "asymmetry": -0.8,
+        "mutation": 1,
+        "pitchScale": 4,
+        "pruningBias": 0.75,
+        "depth": 0.82,
+        "spread": 0.92
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 120,
+          "highpassHz": 650,
+          "lowpassHz": 2400,
+          "compressorEnabled": true,
+          "thresholdDb": -26,
+          "kneeDb": 2,
+          "ratio": 8,
+          "attackMs": 1.5,
+          "releaseMs": 75,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "splinter-coral",
+    "label": "Splinter Coral · Coral",
+    "description": "Wild: Strong mutation and uneven forks break a dense coral fan into expanding, brightly compressed pitch grains.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 12,
+        "intervalMs": 8,
+        "timeRatio": 1.6,
+        "angle": 105,
+        "asymmetry": 0.65,
+        "mutation": 0.92,
+        "pitchScale": 2.6,
+        "pruningBias": 0.8,
+        "depth": 0.84,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "thorn-dragon",
+    "label": "Thorn Dragon · Dragon curve",
+    "description": "Wild: A warped ribbon carries asymmetric pitch extremes over short contracting folds and sharp midrange compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 12,
+        "intervalMs": 70,
+        "timeRatio": 0.74,
+        "angle": 135,
+        "asymmetry": -0.6,
+        "mutation": 0.85,
+        "pitchScale": 2.8,
+        "pruningBias": 0.55,
+        "depth": 0.8,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 180,
+          "highpassHz": 240,
+          "lowpassHz": 4800,
+          "compressorEnabled": true,
+          "thresholdDb": -28,
+          "kneeDb": 0,
+          "ratio": 12,
+          "attackMs": 0.8,
+          "releaseMs": 65,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "burnt-agave",
+    "label": "Burnt Agave · Koch snowflake",
+    "description": "Wild: Wildly skewed snowflake turns and wide grain shifts grow through short folds, under a nasal filter.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 14,
+        "intervalMs": 6,
+        "timeRatio": 1.8,
+        "angle": 150,
+        "asymmetry": 0.7,
+        "mutation": 0.94,
+        "pitchScale": 3.2,
+        "pruningBias": 0.7,
+        "depth": 0.83,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 350,
+          "lowpassHz": 3500,
+          "compressorEnabled": true,
+          "thresholdDb": -22,
+          "kneeDb": 6,
+          "ratio": 4,
+          "attackMs": 5,
+          "releaseMs": 120,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "fractured-foxglove",
+    "label": "Fractured Foxglove · Sierpiński triangle",
+    "description": "Wild: A twisted triangular mesh combines strong mutation and broad pitch grains with a compact compressed tone.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 14,
+        "intervalMs": 45,
+        "timeRatio": 1.35,
+        "angle": 125,
+        "asymmetry": -0.72,
+        "mutation": 0.88,
+        "pitchScale": 2.4,
+        "pruningBias": 0.8,
+        "depth": 0.84,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 180,
+          "highpassHz": 240,
+          "lowpassHz": 4800,
+          "compressorEnabled": true,
+          "thresholdDb": -28,
+          "kneeDb": 0,
+          "ratio": 12,
+          "attackMs": 0.8,
+          "releaseMs": 65,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "warped-lotus",
+    "label": "Warped Lotus · Hilbert curve",
+    "description": "Wild: Uneven square turns stretch a maze into jagged grain motion, with expanding folds and quick compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 14,
+        "intervalMs": 100,
+        "timeRatio": 1.18,
+        "angle": 110,
+        "asymmetry": 0.68,
+        "mutation": 0.8,
+        "pitchScale": 1.9,
+        "pruningBias": 0.9,
+        "depth": 0.85,
+        "spread": 0.96
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "scorched-acacia",
+    "label": "Scorched Acacia · Gosper curve",
+    "description": "Wild: A lopsided hexagonal lace breaks into broad grain shifts, with strongly contracted folds and a gritty midrange.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 14,
+        "intervalMs": 170,
+        "timeRatio": 0.4,
+        "angle": 95,
+        "asymmetry": -0.65,
+        "mutation": 0.9,
+        "pitchScale": 2.2,
+        "pruningBias": 0.75,
+        "depth": 0.82,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 180,
+          "highpassHz": 240,
+          "lowpassHz": 4800,
+          "compressorEnabled": true,
+          "thresholdDb": -28,
+          "kneeDb": 0,
+          "ratio": 12,
+          "attackMs": 0.8,
+          "releaseMs": 65,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "frayed-lichen",
+    "label": "Frayed Lichen · Cantor set",
+    "description": "Wild: Strong timing mutation scatters expanding unpitched islands, while narrow filtering emphasizes the jagged echo pattern.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 16,
+        "intervalMs": 12,
+        "timeRatio": 1.6,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 1,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 120,
+          "highpassHz": 650,
+          "lowpassHz": 2400,
+          "compressorEnabled": true,
+          "thresholdDb": -26,
+          "kneeDb": 2,
+          "ratio": 8,
+          "attackMs": 1.5,
+          "releaseMs": 75,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "torn-moonflower",
+    "label": "Torn Moonflower · Lévy C curve",
+    "description": "Wild: Very uneven wings and wide pitch grains grow rapidly through short folds, with dry-edged compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 12,
+        "intervalMs": 4,
+        "timeRatio": 2,
+        "angle": 160,
+        "asymmetry": 0.8,
+        "mutation": 0.95,
+        "pitchScale": 3.8,
+        "pruningBias": 1,
+        "depth": 0.86,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 180,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -24,
+          "kneeDb": 4,
+          "ratio": 6,
+          "attackMs": 2,
+          "releaseMs": 90,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "brambled-horsetail",
+    "label": "Brambled Horsetail · Terdragon",
+    "description": "Wild: Extreme spiral turns, strong mutation, and a wide pitch span create a coarse, compressed grain thicket.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 14,
+        "intervalMs": 18,
+        "timeRatio": 1.5,
+        "angle": 180,
+        "asymmetry": -0.75,
+        "mutation": 0.96,
+        "pitchScale": 2.5,
+        "pruningBias": 0.85,
+        "depth": 0.84,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.88,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 180,
+          "highpassHz": 240,
+          "lowpassHz": 4800,
+          "compressorEnabled": true,
+          "thresholdDb": -28,
+          "kneeDb": 0,
+          "ratio": 12,
+          "attackMs": 0.8,
+          "releaseMs": 65,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "mycelium-crown",
+    "label": "Mycelium Crown · Pythagorean tree",
+    "description": "Canopy: A deep high-demand canopy keeps near pitch reflections and strong descendant levels; device adaptation chooses the sounding voices.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 16,
+        "intervalMs": 180,
+        "timeRatio": 0.82,
+        "angle": 38,
+        "asymmetry": -0.06,
+        "mutation": 0.08,
+        "pitchScale": 0.3,
+        "pruningBias": 0.65,
+        "depth": 0.96,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.96,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "fern-geode",
+    "label": "Fern Geode · Branching plant",
+    "description": "Canopy: A dense fern layers short tapering grain echoes with small pitch shifts and soft, warm compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 18,
+        "intervalMs": 240,
+        "timeRatio": 0.76,
+        "angle": 26,
+        "asymmetry": 0.1,
+        "mutation": 0.1,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 0.94,
+        "spread": 0.94
+      },
+      "performance": {
+        "wet": 0.92,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "coral-nebula",
+    "label": "Coral Nebula · Coral",
+    "description": "Canopy: Dense coral forks carry compact grain echoes, restrained pitch, and a wide, airy stereo field.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 16,
+        "intervalMs": 80,
+        "timeRatio": 0.84,
+        "angle": 42,
+        "asymmetry": -0.12,
+        "mutation": 0.12,
+        "pitchScale": 0.4,
+        "pruningBias": 0.6,
+        "depth": 0.94,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "dragon-filigree",
+    "label": "Dragon Filigree · Dragon curve",
+    "description": "Canopy: A deep folded ribbon accumulates many short grain echoes with low pitch scaling and gentle transient control.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 16,
+        "intervalMs": 140,
+        "timeRatio": 0.9,
+        "angle": 88,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "pitchScale": 0.2,
+        "pruningBias": 0.65,
+        "depth": 0.93,
+        "spread": 0.95
+      },
+      "performance": {
+        "wet": 0.92,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "agave-honeycomb",
+    "label": "Agave Honeycomb · Koch snowflake",
+    "description": "Canopy: A deep snowflake packs contracting grain echoes into a bright mesh, with strong descendant levels and soft compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 21,
+        "intervalMs": 360,
+        "timeRatio": 0.62,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0.3,
+        "pruningBias": 0.6,
+        "depth": 0.94,
+        "spread": 0.92
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "foxglove-constellation",
+    "label": "Foxglove Constellation · Sierpiński triangle",
+    "description": "Canopy: Dense triangular cells layer near pitch grains and short echoes, with a broad stereo field and an open top.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 21,
+        "intervalMs": 180,
+        "timeRatio": 0.86,
+        "angle": 60,
+        "asymmetry": 0.04,
+        "mutation": 0.06,
+        "pitchScale": 0.25,
+        "pruningBias": 0.65,
+        "depth": 0.94,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 90,
+          "highpassHz": 120,
+          "lowpassHz": 18000,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 6,
+          "ratio": 2,
+          "attackMs": 15,
+          "releaseMs": 150,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "lotus-tapestry",
+    "label": "Lotus Tapestry · Hilbert curve",
+    "description": "Canopy: A deep square tapestry layers short grain echoes with very small pitch changes and warm transient control.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 18,
+        "intervalMs": 260,
+        "timeRatio": 0.88,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.12,
+        "pruningBias": 0.8,
+        "depth": 0.95,
+        "spread": 0.9
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 35,
+          "highpassHz": 25,
+          "lowpassHz": 4200,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 12,
+          "ratio": 3,
+          "attackMs": 35,
+          "releaseMs": 420,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "acacia-cloudbank",
+    "label": "Acacia Cloudbank · Gosper curve",
+    "description": "Canopy: Dense hexagonal lace distributes compact grain echoes and low-range pitch motion through a wide, bright field.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 16,
+        "intervalMs": 96,
+        "timeRatio": 0.92,
+        "angle": 60,
+        "asymmetry": -0.06,
+        "mutation": 0.08,
+        "pitchScale": 0.2,
+        "pruningBias": 0.7,
+        "depth": 0.94,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.96,
+        "dry": 0.02,
+        "mastering": {
+          "inputHighpassHz": 110,
+          "highpassHz": 150,
+          "lowpassHz": 12000,
+          "compressorEnabled": true,
+          "thresholdDb": -20,
+          "kneeDb": 8,
+          "ratio": 3,
+          "attackMs": 12,
+          "releaseMs": 210,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "lichen-starfield",
+    "label": "Lichen Starfield · Cantor set",
+    "description": "Canopy: A deep unpitched island field expands from short gaps to long echoes, with every tap inside the captured history window.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 23,
+        "intervalMs": 2200,
+        "timeRatio": 1.23,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.95,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.92,
+        "dry": 0.06,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "moonflower-veil",
+    "label": "Moonflower Veil · Lévy C curve",
+    "description": "Canopy: Deep wings layer many compact grain echoes without an extreme pitch span, softened by warm mastering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 16,
+        "intervalMs": 32,
+        "timeRatio": 1.04,
+        "angle": 42,
+        "asymmetry": 0,
+        "mutation": 0.04,
+        "pitchScale": 0.15,
+        "pruningBias": 0.7,
+        "depth": 0.94,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "spiral-mycelium",
+    "label": "Spiral Mycelium · Terdragon",
+    "description": "Canopy: A dense spiral layers gently growing grain echoes, near pitch shifts, and a wide, softly compressed field.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 17,
+        "intervalMs": 80,
+        "timeRatio": 1.05,
+        "angle": 117,
+        "asymmetry": -0.04,
+        "mutation": 0.08,
+        "pitchScale": 0.12,
+        "pruningBias": 0.75,
+        "depth": 0.94,
+        "spread": 1
+      },
+      "performance": {
+        "wet": 0.94,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 45,
+          "highpassHz": 40,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -21,
+          "kneeDb": 16,
+          "ratio": 2.2,
+          "attackMs": 30,
+          "releaseMs": 480,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "spruce-cutting",
+    "label": "Spruce Cutting · Pythagorean tree",
+    "description": "Cuttings: A single clean fork puts a pair of shifting echoes behind a clear root, with transparent mastering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "pythagorean",
+        "generations": 1,
+        "intervalMs": 540,
+        "timeRatio": 1,
+        "angle": 35,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.6,
+        "pruningBias": 0,
+        "depth": 0.38,
+        "spread": 0.45
+      },
+      "performance": {
+        "wet": 0.5,
+        "dry": 0.3,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "fern-skeleton",
+    "label": "Fern Skeleton · Branching plant",
+    "description": "Cuttings: A sparse fern leaves only a few subdued grain echoes around a prominent direct root.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "plant",
+        "generations": 4,
+        "intervalMs": 920,
+        "timeRatio": 0.8,
+        "angle": 30,
+        "asymmetry": 0.06,
+        "mutation": 0.04,
+        "pitchScale": 0.25,
+        "pruningBias": 0,
+        "depth": 0.3,
+        "spread": 0.5
+      },
+      "performance": {
+        "wet": 0.45,
+        "dry": 0.4,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "coral-twig",
+    "label": "Coral Twig · Coral",
+    "description": "Cuttings: A small coral twig spreads a handful of growing pitch echoes, with a dry attack and warm filtering.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "coral",
+        "generations": 4,
+        "intervalMs": 280,
+        "timeRatio": 1.25,
+        "angle": 40,
+        "asymmetry": -0.08,
+        "mutation": 0.06,
+        "pitchScale": 0.7,
+        "pruningBias": 0.2,
+        "depth": 0.34,
+        "spread": 0.65
+      },
+      "performance": {
+        "wet": 0.48,
+        "dry": 0.35,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "dragon-hatchling",
+    "label": "Dragon Hatchling · Dragon curve",
+    "description": "Cuttings: A short folded ribbon gives a few clear pitch echoes, with light compression and a strong direct root.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dragon",
+        "generations": 3,
+        "intervalMs": 360,
+        "timeRatio": 0.9,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.5,
+        "pruningBias": 0,
+        "depth": 0.42,
+        "spread": 0.6
+      },
+      "performance": {
+        "wet": 0.52,
+        "dry": 0.32,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "agave-seedling",
+    "label": "Agave Seedling · Koch snowflake",
+    "description": "Cuttings: A small snowflake carries short tapering pitch echoes, with warm filtering and modest descendant levels.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "koch",
+        "generations": 4,
+        "intervalMs": 720,
+        "timeRatio": 0.65,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.85,
+        "pruningBias": 0.15,
+        "depth": 0.38,
+        "spread": 0.7
+      },
+      "performance": {
+        "wet": 0.48,
+        "dry": 0.35,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "three-leaf-clover",
+    "label": "Three Leaf Clover · Sierpiński triangle",
+    "description": "Cuttings: A shallow triangular trace exposes separate pitch echoes and a clear dry root, without compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "sierpinski",
+        "generations": 3,
+        "intervalMs": 1350,
+        "timeRatio": 0.5,
+        "angle": 60,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 1,
+        "pruningBias": 0,
+        "depth": 0.4,
+        "spread": 0.75
+      },
+      "performance": {
+        "wet": 0.52,
+        "dry": 0.3,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "lotus-shoot",
+    "label": "Lotus Shoot · Hilbert curve",
+    "description": "Cuttings: A small square loop adds a few gently growing grain echoes to a prominent direct signal.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "hilbert",
+        "generations": 3,
+        "intervalMs": 420,
+        "timeRatio": 1.08,
+        "angle": 90,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0.35,
+        "pruningBias": 0.35,
+        "depth": 0.32,
+        "spread": 0.55
+      },
+      "performance": {
+        "wet": 0.46,
+        "dry": 0.4,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "acacia-sprig",
+    "label": "Acacia Sprig · Gosper curve",
+    "description": "Cuttings: A sparse hexagonal sprig supports a few lightly shifted echoes, with an open mastering chain.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "gosper",
+        "generations": 4,
+        "intervalMs": 1100,
+        "timeRatio": 0.72,
+        "angle": 60,
+        "asymmetry": -0.05,
+        "mutation": 0.03,
+        "pitchScale": 0.45,
+        "pruningBias": 0.2,
+        "depth": 0.3,
+        "spread": 0.65
+      },
+      "performance": {
+        "wet": 0.44,
+        "dry": 0.4,
+        "mastering": {
+          "inputHighpassHz": 25,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "lichen-flecks",
+    "label": "Lichen Flecks · Cantor set",
+    "description": "Cuttings: One unpitched island returns a simple two-second echo, with a prominent dry root and no compression.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "cantor",
+        "generations": 2,
+        "intervalMs": 3000,
+        "timeRatio": 1,
+        "angle": 0,
+        "asymmetry": 0,
+        "mutation": 0,
+        "pitchScale": 0,
+        "pruningBias": 0,
+        "depth": 0.2,
+        "spread": 0
+      },
+      "performance": {
+        "wet": 0.38,
+        "dry": 0.4,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "moonflower-bud",
+    "label": "Moonflower Bud · Lévy C curve",
+    "description": "Cuttings: A small pair of wings carries growing pitch echoes, with restrained depth and a warm direct attack.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "levy",
+        "generations": 3,
+        "intervalMs": 180,
+        "timeRatio": 1.6,
+        "angle": 45,
+        "asymmetry": 0.08,
+        "mutation": 0.03,
+        "pitchScale": 0.75,
+        "pruningBias": 0.2,
+        "depth": 0.45,
+        "spread": 0.8
+      },
+      "performance": {
+        "wet": 0.54,
+        "dry": 0.3,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 6500,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 10,
+          "ratio": 2.5,
+          "attackMs": 25,
+          "releaseMs": 260,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "horsetail-cutting",
+    "label": "Horsetail Cutting · Terdragon",
+    "description": "Cuttings: A sparse three-way spiral carries a few slowly growing grain echoes around a clear direct root.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "terdragon",
+        "generations": 3,
+        "intervalMs": 620,
+        "timeRatio": 1.1,
+        "angle": 120,
+        "asymmetry": 0,
+        "mutation": 0.02,
+        "pitchScale": 0.3,
+        "pruningBias": 0.3,
+        "depth": 0.4,
+        "spread": 0.75
+      },
+      "performance": {
+        "wet": 0.5,
+        "dry": 0.32,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 35,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 9,
+          "ratio": 2,
+          "attackMs": 20,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-cutting",
+    "label": "Meadow Bush · Seedling",
+    "description": "Cuttings: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-glass",
+    "label": "Meadow Bush · Glass",
+    "description": "Glass: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-clockwork",
+    "label": "Meadow Bush · Clockwork",
+    "description": "Clockwork: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-canopy",
+    "label": "Meadow Bush · Canopy",
+    "description": "Canopy: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-cathedral",
+    "label": "Meadow Bush · Cathedral",
+    "description": "Cathedral: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-unison",
+    "label": "Meadow Bush · Unison",
+    "description": "Unison: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-cutting",
+    "label": "Frond Fan · Seedling",
+    "description": "Cuttings: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-glass",
+    "label": "Frond Fan · Glass",
+    "description": "Glass: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-clockwork",
+    "label": "Frond Fan · Clockwork",
+    "description": "Clockwork: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-canopy",
+    "label": "Frond Fan · Canopy",
+    "description": "Canopy: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-cathedral",
+    "label": "Frond Fan · Cathedral",
+    "description": "Cathedral: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-unison",
+    "label": "Frond Fan · Unison",
+    "description": "Unison: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-cutting",
+    "label": "Ladder Fern · Seedling",
+    "description": "Cuttings: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-glass",
+    "label": "Ladder Fern · Glass",
+    "description": "Glass: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-clockwork",
+    "label": "Ladder Fern · Clockwork",
+    "description": "Clockwork: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-canopy",
+    "label": "Ladder Fern · Canopy",
+    "description": "Canopy: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-cathedral",
+    "label": "Ladder Fern · Cathedral",
+    "description": "Cathedral: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-unison",
+    "label": "Ladder Fern · Unison",
+    "description": "Unison: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-cutting",
+    "label": "Whorled Shrub · Seedling",
+    "description": "Cuttings: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-glass",
+    "label": "Whorled Shrub · Glass",
+    "description": "Glass: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-clockwork",
+    "label": "Whorled Shrub · Clockwork",
+    "description": "Clockwork: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-canopy",
+    "label": "Whorled Shrub · Canopy",
+    "description": "Canopy: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-cathedral",
+    "label": "Whorled Shrub · Cathedral",
+    "description": "Cathedral: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-unison",
+    "label": "Whorled Shrub · Unison",
+    "description": "Unison: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-cutting",
+    "label": "Trident Tree · Seedling",
+    "description": "Cuttings: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-glass",
+    "label": "Trident Tree · Glass",
+    "description": "Glass: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-clockwork",
+    "label": "Trident Tree · Clockwork",
+    "description": "Clockwork: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-canopy",
+    "label": "Trident Tree · Canopy",
+    "description": "Canopy: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-cathedral",
+    "label": "Trident Tree · Cathedral",
+    "description": "Cathedral: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-unison",
+    "label": "Trident Tree · Unison",
+    "description": "Unison: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-cutting",
+    "label": "Four-way Canopy · Seedling",
+    "description": "Cuttings: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-glass",
+    "label": "Four-way Canopy · Glass",
+    "description": "Glass: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-clockwork",
+    "label": "Four-way Canopy · Clockwork",
+    "description": "Clockwork: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-canopy",
+    "label": "Four-way Canopy · Canopy",
+    "description": "Canopy: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-cathedral",
+    "label": "Four-way Canopy · Cathedral",
+    "description": "Cathedral: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-unison",
+    "label": "Four-way Canopy · Unison",
+    "description": "Unison: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
         }
       }
     }

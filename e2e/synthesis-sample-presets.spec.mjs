@@ -11,7 +11,8 @@ async function recall(page, preset) {
 }
 
 test('mixed sample presets restore the recording and processor while retaining live playback and output', async ({ page }, testInfo) => {
-  test.setTimeout(90_000);
+  // Each sample scene receives its full signal capture, including the expanded bank.
+  test.setTimeout(180_000);
   await page.addInitScript(() => {
     window.samplePresetDeviceRequests = 0;
     navigator.mediaDevices.getUserMedia = async () => { window.samplePresetDeviceRequests++; throw new Error('Unexpected device request'); };

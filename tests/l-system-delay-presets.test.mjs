@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { readFile } from 'node:fs/promises';
-import { captureScene, presetState, DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE } from '../src/instruments/micmic/native/model.js';
+import { captureScene, presetState, DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
 import { DEFAULT_MASTERING, captureMastering } from '../src/instruments/micmic/native/mastering.js';
 
 const presets = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
@@ -15,11 +15,43 @@ const changedMastering = { ...DEFAULT_MASTERING, inputHighpassHz: 320, highpassH
   thresholdDb: -41, ratio: 4, kneeDb: 20, attackMs: 40, releaseMs: 710,
   makeupDb: 9, compressorEnabled: false, autoMakeup: false };
 
-test('all factory presets remain in the former button order without a second preset surface', async () => {
-  assert.deepEqual(presets.map(preset => preset.id), order);
+test('the original factory presets remain first in the former button order without a second preset surface', async () => {
+  assert.deepEqual(presets.slice(0, order.length).map(preset => preset.id), order);
   const html = await readFile(new URL('../src/pages/l-mic-rust.html', import.meta.url), 'utf8');
   assert.doesNotMatch(html, /data-generation-preset/);
-  assert.equal(new Set(presets.map(preset => preset.id)).size, order.length);
+  assert.equal(new Set(presets.map(preset => preset.id)).size, presets.length);
+});
+
+test('the expanded bank covers every grammar and contrasting timing, pitch, density and mastering settings', () => {
+  const additions = presets.slice(order.length);
+  assert.ok(additions.length >= 80, 'the expansion supplies a substantial bank of new scenes');
+  assert.equal(new Set(presets.map(preset => JSON.stringify(preset.snapshot))).size, presets.length,
+    'every factory scene has distinct sound settings');
+  for (const grammar of L_SYSTEM_TYPES) {
+    assert.ok(additions.filter(preset => preset.snapshot.parameters.lSystemType === grammar).length >= 6,
+      `${grammar} offers several new sound choices`);
+  }
+  const parameters = additions.map(preset => preset.snapshot.parameters);
+  for (const [key, low, high] of [
+    ['intervalMs', 2, 2500], ['timeRatio', .3, 1.7], ['pitchScale', 0, 3.5],
+    ['depth', .35, .9], ['spread', 0, 1], ['mutation', 0, .85], ['generations', 6, 20],
+  ]) {
+    assert.ok(parameters.some(p => p[key] <= low), `${key} includes its low region`);
+    assert.ok(parameters.some(p => p[key] >= high), `${key} includes its high region`);
+  }
+  const mastering = additions.map(preset => preset.snapshot.performance.mastering);
+  assert.deepEqual(new Set(mastering.map(m => m.compressorEnabled)), new Set([false, true]));
+  assert.ok(new Set(mastering.map(m => JSON.stringify(m))).size >= 7, 'master buses have contrasting characters');
+  assert.ok(mastering.some(m => m.highpassHz >= 350 && m.lowpassHz <= 3500 && m.lowpassHz > 0),
+    'the bank includes a band-limited texture');
+  assert.ok(mastering.some(m => m.highpassHz === 0 && m.lowpassHz === 0 && !m.compressorEnabled),
+    'the bank includes unfiltered, uncompressed scenes');
+  for (const preset of additions) {
+    assert.deepEqual(Object.keys(preset.snapshot.performance).sort(), ['dry', 'mastering', 'wet'],
+      `${preset.id} cannot own input, gain or device capacity`);
+    assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(preset.snapshot.performance.mastering),
+      `${preset.id} contains a complete master bus without live output boost`);
+  }
 });
 
 test('every pair of factory recalls restores the destination full scene independently of its predecessor', () => {

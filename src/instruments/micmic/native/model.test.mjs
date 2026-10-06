@@ -6,7 +6,8 @@ import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-prese
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints } from './model.js';
+  admittedPreviewNodes, applyPreviewDepth, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
+  preparePreviewTransition, advancePreviewTransition } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering, captureMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
 const presets = JSON.parse(fs.readFileSync(new URL('./presets.json', import.meta.url)));
@@ -30,7 +31,7 @@ test('native bank preserves the sound settings in all sixteen original scenes', 
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry,
     }, `${preset.id} mix`);
-    assert.equal(preset.label, reference.label);
+    assert.equal(preset.label, original.label);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot));
     assert.deepEqual(captureScene(scene.parameters, scene.performance).performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
@@ -42,7 +43,7 @@ test('full preset recall preserves live gains, input, clocks and device policy',
   for (const preset of presets) {
     const scene = presetState(preset, live);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot), preset.id);
-    assert.deepEqual(scene.performance.mastering, { ...DEFAULT_MASTERING, makeupDb: mastering.makeupDb }, `${preset.id} recalls Original filters and compression`);
+    assert.deepEqual(scene.performance.mastering, { ...preset.snapshot.performance.mastering, makeupDb: mastering.makeupDb }, `${preset.id} recalls its filters and compression`);
     for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'inputGain', 'level', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
   }
   assert.deepEqual(live, before);
@@ -50,7 +51,7 @@ test('full preset recall preserves live gains, input, clocks and device policy',
 test('additional factory scenes retain every grammar in the single full-preset menu', () => {
   const originalIds = new Set(MICMIC_FULL_PRESETS.map(p => p.id));
   const additions = presets.filter(p => !originalIds.has(p.id));
-  assert.equal(additions.length, 10);
+  assert.ok(additions.length >= 90);
   assert.equal(new Set(presets.map(p => p.id)).size, presets.length);
   assert.equal(new Set(presets.map(p => JSON.stringify(p.snapshot))).size, presets.length);
   assert.deepEqual(new Set(presets.map(p => p.snapshot.parameters.lSystemType)), new Set(L_SYSTEM_TYPES));
@@ -58,9 +59,13 @@ test('additional factory scenes retain every grammar in the single full-preset m
   assert.doesNotMatch(html, /data-generation-preset|id="generationPresets"/);
   for (const preset of additions) {
     assert.ok(preset.label.includes(' · '), preset.id);
-    assert.ok(preset.snapshot.parameters.generations > 13, `${preset.id} explores the native generation range`);
     assert.deepEqual(Object.keys(preset.snapshot.parameters).sort(), ['lSystemType', ...Object.keys(PARAMETER_LIMITS)].sort());
     assert.deepEqual(Object.keys(preset.snapshot.performance).sort(), ['dry', 'mastering', 'wet']);
+    assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(preset.snapshot.performance.mastering));
+  }
+  for (const id of ['cedar', 'aspen', 'juniper', 'baobab', 'foxglove', 'lotus', 'acacia', 'lichen', 'moonflower', 'horsetail']) {
+    const preset = presets.find(p => p.id === id);
+    assert.ok(preset.snapshot.parameters.generations > 13, `${id} retains its native generation range`);
     assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
 });
@@ -97,7 +102,7 @@ test('native preview retains the original binary rewrite without its 128-per-gen
     assert.ok(Math.abs(actual[i][key] - original[i][key]) < 1e-10, `${i}/${key}`);
   }
 });
-test('all eleven native grammar previews use original canonical turtle geometry', () => {
+test('every native grammar preview uses its canonical turtle geometry', () => {
   for (const lSystemType of L_SYSTEM_TYPES.filter(id => id !== 'pythagorean')) {
     const p = { ...DEFAULT_PARAMETERS, lSystemType, generations: 7, mutation: .2, angle: 73, asymmetry: -.17, timeRatio: 1.4 };
     const actual = buildPreview(p, generationTopology), expected = generationTopology({ ...p, branching: 1 });
@@ -126,6 +131,64 @@ test('continuous preview interpolates locally and locked fit stays independent o
   assert.deepEqual(fitTransform(topologyBounds(a), 1000, 700), fitTransform(topologyBounds(b), 1000, 700));
   assert.deepEqual(gestureParameters(from, 0, 0, 1000, 700), from);
   const moved = gestureParameters(from, 100, -100, 1000, 700); assert.ok(moved.angle > from.angle && moved.intervalMs > from.intervalMs);
+});
+test('committed tree transitions reuse geometry and keep growing branches connected', () => {
+  const previous = new Map([
+    ['trunk', { id: 'trunk', x: 1, y: 0, startX: 0, startY: 0 }],
+    ['a', { id: 'a', parentId: 'trunk', x: 2, y: 1, startX: 1, startY: 0 }],
+  ]);
+  const targets = [
+    { ...previous.get('trunk'), generation: 0 },
+    { id: 'a', parentId: 'trunk', generation: 1, x: 3, y: 2, startX: 1, startY: 0, voiceIndex: 17, priority: 4, delay: .31, gain: .2 },
+    { id: 'b', parentId: 'a', generation: 2, x: 4, y: 3, startX: 3, startY: 2, voiceIndex: 29, priority: 5, delay: .45, gain: .1 },
+    { id: 'c', parentId: 'b', generation: 3, x: 5, y: 3, startX: 4, startY: 3, voiceIndex: 31, priority: 6, delay: .58, gain: .08 },
+  ];
+  const before = structuredClone(targets), transition = preparePreviewTransition(targets, previous);
+  const references = [...transition.nodes], coordinateStorage = transition.coordinates;
+  for (const fraction of [0, .2, .5, .8, 1]) {
+    assert.equal(advancePreviewTransition(transition, fraction), transition.nodes);
+    assert.equal(transition.coordinates, coordinateStorage);
+    for (let index = 0; index < transition.nodes.length; index++) assert.equal(transition.nodes[index], references[index]);
+    const byId = new Map(transition.nodes.map(node => [node.id, node]));
+    for (const node of transition.nodes.slice(1)) {
+      const parent = byId.get(node.parentId);
+      assert.equal(node.startX, parent.x, `${node.id} stays attached at ${fraction}`);
+      assert.equal(node.startY, parent.y, `${node.id} stays attached at ${fraction}`);
+      for (const field of ['voiceIndex', 'priority', 'delay', 'gain']) assert.equal(node[field], targets.find(target => target.id === node.id)[field]);
+    }
+  }
+  assert.equal(transition.moving, false);
+  assert.deepEqual(transition.nodes, targets);
+  assert.deepEqual(targets, before, 'the prepared audio topology remains immutable');
+});
+test('a second live tree edit starts from the current interpolated endpoints', () => {
+  const a = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4 }, generationTopology);
+  const b = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4, angle: 80 }, generationTopology);
+  const first = preparePreviewTransition(b, new Map(a.map(node => [node.id, node])));
+  advancePreviewTransition(first, .37);
+  const current = structuredClone(first.nodes);
+  const c = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4, angle: 15 }, generationTopology);
+  const next = preparePreviewTransition(c, new Map(first.nodes.map(node => [node.id, node])));
+  assert.deepEqual(next.nodes.map(node => [node.x, node.y, node.startX, node.startY]), current.map(node => [node.x, node.y, node.startX, node.startY]));
+  advancePreviewTransition(next, 1);
+  assert.deepEqual(next.nodes, c);
+});
+test('a topology captured at depth zero adopts the latest applied recursion without losing ranks', () => {
+  const structural = buildPreview({ ...DEFAULT_PARAMETERS, generations: 5 }, generationTopology);
+  const captured = structural.map(node => ({ ...node, gain: node.generation === 0 ? 1 : 0 }));
+  const transition = preparePreviewTransition(captured);
+  const references = [...transition.nodes], ranks = transition.nodes.map(node => node.priority);
+  for (const depth of [.8, .2, 0, .91]) {
+    assert.equal(applyPreviewDepth(transition.nodes, depth), transition.nodes);
+    assert.deepEqual(transition.nodes.map(node => node.priority), ranks);
+    for (let index = 0; index < transition.nodes.length; index++) {
+      const node = transition.nodes[index];
+      assert.equal(node, references[index]);
+      assert.equal(node.gain, node.generation === 0 ? 1 : .5 * depth ** (node.generation * .72));
+    }
+    assert.equal(admittedPreviewNodes(transition.nodes, 20).length, depth === 0 ? 1 : 21);
+  }
+  assert.ok(captured.slice(1).every(node => node.gain === 0), 'compiler snapshots remain immutable');
 });
 test('parameter sanitization retains finite controls and native limits', () => {
   assert.equal(sanitizeParameters({ angle: NaN }).angle, 45);
@@ -337,6 +400,23 @@ test('tap coloring rejects stale renderer revisions and different visible topolo
   }
   assert.equal(tapActivityFrame({ ...reply, status: { ...reply.status, tapActivity: undefined } }, parameters), null);
   assert.equal(tapActivityFrame({ ...reply, topologyRevision: undefined }, parameters), null);
+});
+
+test('completed audio tails clear residual tap meters while preserving faint live and legacy signals', () => {
+  const parameters = { ...DEFAULT_PARAMETERS }, residual = 1e-22;
+  const reply = { parameters, topologyRevision: 8, status: { topologyRevision: 8, wetBusGain: .5,
+    activeVoices: 0, tapVoiceIndices: [17], tapActivity: [residual] } };
+  const ended = tapActivityFrame(reply, parameters);
+  assert.equal(ended.levels.has(17), true, 'the stable pool slot remains measured');
+  assert.equal(ended.levels.get(17), 0, 'the engine confirms that no released voice remains');
+  assert.equal(smoothActivity(activityEnergy(residual), activityEnergy(ended.levels.get(17)), 16), 0,
+    'the last display tail reaches exact zero rather than sustaining availability');
+  const live = tapActivityFrame({ ...reply, status: { ...reply.status, activeVoices: 1 } }, parameters);
+  assert.equal(live.levels.get(17), residual * .5);
+  assert.ok(activityEnergy(live.levels.get(17)) > 0, 'a faint active voice is never amplitude-gated');
+  const { activeVoices, ...legacyStatus } = reply.status;
+  assert.equal(tapActivityFrame({ ...reply, status: legacyStatus }, parameters).levels.get(17), residual * .5,
+    'legacy telemetry without an active count retains its original meter behavior');
 });
 
 test('audio pressure changes frame detail while retaining every admitted branch eligible for signal response', () => {

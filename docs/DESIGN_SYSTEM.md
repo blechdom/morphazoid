@@ -113,7 +113,13 @@ knob without creating an `AudioContext`. `enhanceRangeKnob()` presents the
 original native range as a rotary control, retaining its identity, range,
 keyboard operation and instrument-owned `input`/`change` listeners. Vertical
 drag adjusts the value; Shift makes the drag ten times finer. No wheel gesture
-is captured, and taking hold of the knob never jumps its value. Applications own the engine and feed
+is captured, and taking hold of the knob never jumps its value. For very large
+count ranges, opt-in `scale: 'log'` changes the gesture and needle to a logarithmic
+curve while preserving the complete native range, including zero and exact
+integer endpoints. Existing linear and wrapping controls keep their behavior.
+Owners can call `cancelGesture()` before preset recall or page departure to
+release a held pointer without emitting another value change.
+Applications own the engine and feed
 its lifecycle back through `setAudioState()`.
 
 The same boundary applies to hardware and visual stories: MIDI examples never

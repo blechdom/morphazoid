@@ -3,10 +3,12 @@ import { dispatchNativeEvent } from "../internal.js";
 const knobs = new WeakMap();
 
 /** Rotary presentation for an existing native range; its owner keeps the value and events. */
-export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false, interactionRange = null } = {}) {
+export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.defaultView ?? globalThis, wrap = false, interactionRange = null, scale = "linear" } = {}) {
   if (knobs.has(input)) return knobs.get(input);
   const field = input.parentNode;
   if (input.type !== "range" || !field) throw new TypeError("A mounted native range is required");
+  if (!["linear", "log"].includes(scale)) throw new TypeError("A knob scale must be linear or log");
+  const logarithmic = scale === "log";
   // Some owners retain exact values beyond the normal dial span. This optional
   // fixed range controls gestures and the needle without changing their input.
   const fixedRange = interactionRange === null ? null : {
@@ -35,9 +37,20 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     step: input.step === "any" ? 0 : Number(input.step) || 1,
   });
   const wrapped = (value, min, max) => max > min ? min + ((value - min) % (max - min) + max - min) % (max - min) : min;
+  // log1p keeps zero in the complete native range, including very large counts.
+  // Scaling changes gestures and presentation only; the owner retains its bounds.
+  const fractionFromValue = (value, min, max) => max > min
+    ? Math.max(0, Math.min(1, logarithmic
+      ? Math.log1p(Math.max(0, value - min)) / Math.log1p(max - min)
+      : (value - min) / (max - min))) : 0;
+  const valueFromFraction = (fraction, min, max) => {
+    if (fraction <= 0 || max <= min) return min;
+    if (fraction >= 1) return max;
+    return Math.max(min, Math.min(max, min + Math.expm1(fraction * Math.log1p(max - min))));
+  };
   const update = () => {
     const { min, max } = limits();
-    const fraction = max > min ? Math.max(0, Math.min(1, (Number(input.value) - min) / (max - min))) : 0;
+    const fraction = fractionFromValue(Number(input.value), min, max);
     needle.setAttribute("style", `transform: rotate(${wrap ? fraction * 360 : -135 + fraction * 270}deg)`);
     field.classList.toggle("is-disabled", input.disabled);
   };
@@ -61,6 +74,7 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     // The first vertical movement begins at its nearest normal endpoint.
     const raw = fixedRange ? Math.max(fixedRange.min, Math.min(fixedRange.max, value)) : value;
     drag = { id: event.pointerId, y: event.clientY, raw, start: input.value };
+    if (logarithmic) { const { min, max } = limits(); drag.fraction = fractionFromValue(raw, min, max); }
     input.setPointerCapture?.(event.pointerId);
   });
   listen(input, "pointermove", event => {
@@ -68,12 +82,20 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     if (input.disabled) { end(event); return; }
     if (event.clientY === drag.y) return;
     const { min, max, step } = limits();
-    const next = drag.raw + (drag.y - event.clientY) * (max - min) / (event.shiftKey ? 1200 : 120);
-    drag.raw = wrap ? next : Math.max(min, Math.min(max, next));
+    if (logarithmic) {
+      const next = drag.fraction + (drag.y - event.clientY) / (event.shiftKey ? 1200 : 120);
+      drag.fraction = wrap ? next : Math.max(0, Math.min(1, next));
+      drag.raw = valueFromFraction(wrap ? wrapped(drag.fraction, 0, 1) : drag.fraction, min, max);
+    } else {
+      const next = drag.raw + (drag.y - event.clientY) * (max - min) / (event.shiftKey ? 1200 : 120);
+      drag.raw = wrap ? next : Math.max(min, Math.min(max, next));
+    }
     drag.y = event.clientY;
     const value = step ? min + Math.round((drag.raw - min) / step) * step : drag.raw;
     const before = input.value;
-    input.value = String(Number((wrap ? wrapped(value, min, max) : Math.max(min, Math.min(max, value))).toPrecision(12)));
+    const bounded = wrap ? wrapped(value, min, max) : Math.max(min, Math.min(max, value));
+    // Preserve exact integer endpoints such as Number.MAX_SAFE_INTEGER in log mode.
+    input.value = String(logarithmic ? bounded : Number(bounded.toPrecision(12)));
     update();
     if (input.value !== before) dispatchNativeEvent(input, "input", doc);
   });
@@ -94,11 +116,12 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
   observer?.observe(input, { attributes: true, attributeFilter: ["value", "min", "max", "step", "disabled"] });
   const controller = {
     update,
+    cancelGesture() { end(null, false); },
     setModulation(value) {
       modulationNeedle.hidden = !Number.isFinite(value);
       if (!Number.isFinite(value)) return;
       const { min, max } = limits();
-      const fraction = max > min ? Math.max(0, Math.min(1, (value - min) / (max - min))) : 0;
+      const fraction = fractionFromValue(value, min, max);
       modulationNeedle.setAttribute("style", `transform: rotate(${wrap ? fraction * 360 : -135 + fraction * 270}deg)`);
     },
     destroy() {

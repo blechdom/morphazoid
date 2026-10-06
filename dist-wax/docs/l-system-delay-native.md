@@ -5,8 +5,10 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page retains all sixteen original presets plus ten additional scenes,
-eleven grammars, the original slider curves, mastering controls and audio-clock
+The Rust page offers 150 full scenes, including all sixteen original presets,
+the ten earlier Rust scenes, 88 earlier additional scenes and 36 new branching
+scenes across seventeen grammars.
+It retains the original parameter curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
@@ -36,7 +38,7 @@ Input mode, the selected sample, the uploaded recording and loop preference are
 session state. Sound presets, reloads and dice retain them along with the live
 gain controls. Uploads stay in the browser; files may be up to 64 MiB and playback
 uses the first two minutes, with longer files labelled as excerpts. Built-in
-samples reuse Synthesaurus's
+samples reuse Synthesaurus's [33-input sample library](processing-input-samples.md), with
 locally bundled recordings and arrangements; the input section links their
 original credits, including CC0 acoustic drums, CMU ARCTIC voice syllables,
 public-domain birdsong and Morphazoid's original rendered musical loops.
@@ -91,10 +93,68 @@ ordinary browser playback does not imply DAW track-input integration.
 
 The native page uses the original `l-mic.html` sections, shared site styles,
 `micmic.css`, generation colors, all sixteen original full presets and slider mappings.
-The twenty-six-scene bank adds Cedar, Quaking Aspen, Juniper, Baobab, Foxglove,
-Lotus, Acacia, Lichen, Moonflower and Horsetail.
-The main preset menu contains all 26 scenes in the former button order. Each
-selection restores the complete grammar, growth, pruning, stereo spread, wet/dry
+Its parameter banks use compact knobs matching the header volume control. Drag
+up or down to adjust; hold Shift for finer motion, or use the native arrow,
+Home and End keys. Every parameter, range, step and readout remains available,
+including Tap, filter cutoffs, compression and signed pruning/asymmetry guidance.
+The optional voice-cap knob uses a logarithmic gesture across the full current
+memory-supported range; its adjacent numeric field accepts an exact count,
+with 0 retaining no user cap. This presentation adds no audio voice ceiling.
+Preset recall updates knob positions without restarting the selected input.
+The first sixteen entries use the exact original names, from Pythagorean Pine
+through Giant Sequoia, and retain their complete original sound settings.
+Search `l-mic` or `starting point` to show only these original starting points.
+The first 26 scenes retain their settings and order, including Cedar, Quaking
+Aspen, Juniper, Baobab, Foxglove, Lotus, Acacia, Lichen, Moonflower and Horsetail.
+The earlier expansion adds eight families, each with a scene for every original
+grammar. The six new branching grammars add Seedling, Glass, Clockwork, Canopy,
+Cathedral and Unison scenes, preserving the first 114 scenes and their order:
+
+| Search keyword | Range explored |
+| --- | --- |
+| Glass | Very short time folds and granular pitch textures |
+| Clockwork | Short, distinct rhythmic delays |
+| Water | Medium delays and open stereo movement |
+| Cathedral | Long, slowly unfolding delay patterns |
+| Unison | Unshifted delays, emphasizing rhythm and shape |
+| Wild | Strong mutation, asymmetry and pitch movement |
+| Canopy | Deep trees with high descendant levels |
+| Cuttings | Shallow, sparse trees with fewer descendants |
+
+The type menu now contains nine branching systems and eight classic fractals.
+The new rules extend both the Rust audio compiler and its matching JavaScript
+preview, with the same parent connections and voice-admission order. They use the
+same device-measured admission, inherited delays, pitch/pan and live smoothing.
+No additional audio-voice ceiling is introduced. The original JavaScript page
+and the shared eleven-grammar catalogue retain their original options.
+
+| New branching type | Axiom and productions | Basis |
+| --- | --- | --- |
+| Meadow bush | `F`; `F → F[+F]F[-F]F` | Published alternating side shoots |
+| Frond fan | `F`; `F → F[+F]F[-F][F]` | Published bracketed fan |
+| Ladder fern | `X`; `X → F[+X]F[-X]+X`, `F → FF` | Published continuing-apex fern |
+| Whorled shrub | `X`; `X → F[+X][-X]FX`, `F → FF` | Published paired sides plus continuing stem |
+| Trident tree | `FX`; `X → [+FX][FX][-FX]` | Original planar three-child bud rule |
+| Four-way canopy | `FX`; `X → [++FX][+FX][-FX][--FX]` | Original planar four-child bud rule |
+
+The first four productions follow Figure 1.24(a, b, d, e) of
+[The Algorithmic Beauty of Plants, Chapter 1](https://www.algorithmicbotany.org/papers/abop/abop-ch1.pdf).
+The last two use the book's bracketed-turtle method to create explicit planar
+fans. Their `F` stems remain unchanged while only `X` buds split, so every
+branching junction has exactly three or four children even after repeated
+expansion. The supplied preset angles separate their directions; deliberately
+choosing zero or coincident angles can overlap their geometry while retaining
+the separate voices. They are artistic two-dimensional trees, rather than
+species models or copies of the book's three-dimensional botanical examples.
+Preset angles of 25.5 degrees adapt the book's 25.7-degree examples to the
+existing half-degree knob step. All original parameters and ranges remain.
+
+On mobile, closed input/sample selector triggers scroll below the sticky tree
+preset row. Open chooser panels retain their existing viewport anchoring,
+scrolling, selection and outside-tap dismissal.
+
+The menu search matches names and descriptions, including these family keywords.
+Each selection restores the complete grammar, growth, pruning, stereo spread, wet/dry
 mix, filters and compression. Input gain, output level and output boost remain
 at the performer's current values, including when output is muted. The separate growth-button grid is
 removed. **Reload selected preset** uses the same complete recall. Missing mix
@@ -106,20 +166,37 @@ history and device policy remain live. Pending edits cannot replace a completed 
 are temporarily unavailable while the scene is being installed.
 Negative original pruning values remain exact preset data; both engines treat
 them as breadth first.
-Four new Pine scenes request fourteen to sixteen generations, while six
-new scenes cover the additional curve grammars. Actual audio admission remains
-device measured rather than guaranteed by a preset.
+The earlier Rust additions retain their fourteen-to-sixteen-generation Pine
+scenes and six additional curve grammars. The expansion explores both shallow
+and deep trees, time folds from 1 to 3,000 ms, unshifted and strongly shifted
+delays, narrow and wide stereo fields, and contrasting filter and compressor
+settings. Actual audio admission remains device measured rather than guaranteed
+by a preset. Presets do not set a voice cap. Cantor's straight grammar has no
+turn-derived pitch or stereo movement; its scenes vary timing, density and
+mastering instead. A short time fold does not change the shifted renderer's
+110 ms grain duration. Long cumulative delays beyond 39 seconds retain their
+geometry but cannot produce a tap from the 40-second history.
 Choose consumes Morphazoid's current shared catalogue, with the Rust entry beside
 the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,000 ms
 mapping. Native input, diagnostics and the optional voice cap use the same control
 styles. Audio remains explicitly armed.
 
-The drawing follows local control values on animation frames and interpolates
-the preview over 120 ms. Its fit stays fixed during a gesture and settles
-afterward, instead of waiting for returned HTTP geometry or repeatedly snapping
-to new bounds. Control requests carry the latest values and return lightweight
-status. Obsolete replies cannot replace a newer gesture. Classic grammar previews
-use the same generation ordering and connected pruning as the native audio model.
+Held knob gestures send their leading value immediately and coalesce further
+values at 16 ms intervals, including a final trailing value. Recursion uses a
+direct generation-gain update rather than compiling a new tree. Mix and mastering
+updates bypass structural compilation and acknowledge without copying the full
+meter/history payload. Existing DSP smoothing applies to these live coefficients.
+Zero Recursion retains structural ranks and recorded history for immediate resume.
+
+The drawing retains the committed audio tree while a structural edit is prepared.
+The topology worker prepares the classic preview once per structural reply;
+animation frames no longer rebuild the full tree. Compatible geometry morphs in
+place over 80 ms, retaining branch maps, wave history and gesture fit. WebGL2
+updates the position buffer during the morph without rebuilding its other data.
+Obsolete compiled replies are discarded before installation. Classic grammar
+previews use the same generation ordering and connected pruning as the native
+audio model. Recursion arriving during compilation also applies to the returned
+preview, avoiding a stale zero-gain drawing.
 Availability and amplitude have separate visual meanings. Every available
 branch stays colored at silence; unavailable branches remain grey. All branches
 use the same constant stroke width and opacity, including the input root.
@@ -235,8 +312,10 @@ Next, arrows, randomization and scene reloads.
 
 Focused mastering presets preserve the current tree, mix, recording, input
 source, voice policy, input gain, output level, output boost and Audio state.
-Full factory scenes recall Original filters and compression; saved full scenes
-include the edited filters and compression. Reset all returns those settings to
+The first 26 factory scenes recall Original filters and compression. New factory
+scenes include their own filters and compression, using the mastering profiles
+above and custom settings. Saved full scenes include the edited filters and
+compression. Reset all returns those settings to
 Original while retaining the live gain controls. Older external snapshots that
 omit mastering recall Original filters and compression. The full-state randomizer
 includes bounded mastering variation while preserving the live gain controls.
@@ -264,9 +343,18 @@ finish fading before repeatedly reducing the same budget. Severe or worsening
 overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
-Voice storage is prepared between processing callbacks and swapped into the
-engine without resetting recording, branch phase or delay-edit crossfades. The callback does not
-allocate or free that storage. Outgoing branches release smoothly, so active
+In the browser, a structural pool is uploaded, validated and prepared in batches
+of 4,096 records across audio blocks. The committed pool keeps rendering during
+preparation. An atomic handoff updates audible/releasing voices, while inactive
+slots adopt targets when admitted. Recording, branch phase and delay-edit
+crossfades survive the handoff. Allocation, memory growth and freeing replaced
+storage can still consume time; staging does not guarantee every device deadline.
+Old numeric voice storage retires in batches of at most 4,096 slots after
+rendering, avoiding a whole-vector destructor at growth commit. A retained,
+suspended graph temporarily processes controls with output muted, completes its
+retirement queue and suspends again. This neither arms Audio nor opens an input;
+a newer explicit Audio or microphone action retains the running graph.
+Outgoing branches release smoothly, so active
 counts can briefly exceed a reduced target. Available memory limits structural
 allocation; measured audio deadlines limit simultaneous playback. Per-grammar
 ranges reflect memory and exact numeric representation, rather than a fixed
@@ -378,6 +466,26 @@ motion. These checks use synthetic
 media, not a physical microphone or a listening evaluation. The input and delay
 branches use the same fixed stroke width; compression settings do not create
 a separate visual animation.
+
+## Expanded preset verification
+
+The October 5 expansion preserves the first 26 scenes exactly and adds 88 scenes.
+Repository verification passed with 5,954 tests passing and six skipped, including
+clean WAX parity. The five focused Chromium cases verified all 114 complete UI
+recalls with Mic/file/sample choices and live gains retained, 13 representative
+new scenes with actual Rust audio, a linear-to-original-Pine return, and searchable
+menus at 1440×900, 390×844 and 844×390. Preset selection with Audio off opened no
+microphone and started no playback.
+
+All 114 target pools compiled with finite data and no exact DSP duplicates. A
+separate 48 kHz Rust/WASM render covered 16 new scenes across all eleven grammars
+and eight families, each with its authored mix and a wet-only copy. The fixed
+64-voice admission belongs only to that offline fixture; it does not change the
+product's voice policy or measure device capacity. All 32 captures had finite
+processed output, exact cold silence and settled tails. Redwood Nave's wet output
+remained audible through 12.93 seconds after the source burst. Measured spectral
+and temporal differences distinguish the scenes without serving as a musical
+quality threshold. Human listening and physical-device checks remain unperformed.
 
 ## Historical native implementation verification
 

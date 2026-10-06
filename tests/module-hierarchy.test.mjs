@@ -26,6 +26,7 @@ const ioChanges = JSON.parse(await readFile(new URL("../docs/io-settings-runtime
 const iphoneChanges = JSON.parse(await readFile(new URL("../docs/iphone-audio-runtime-changes.json", import.meta.url))).changes;
 const sequencerChanges = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
 const shapesChanges = JSON.parse(await readFile(new URL("../docs/shapes-manual-notes-runtime-changes.json", import.meta.url))).changes;
+const lSystemDelayBranchingChanges = JSON.parse(await readFile(new URL("../docs/l-system-delay-branching-runtime-changes.json", import.meta.url))).changes;
 const lSystemPresetsChanges = JSON.parse(await readFile(new URL("../docs/l-systems-presets-runtime-changes.json", import.meta.url))).changes;
 const lSystemNotesChanges = JSON.parse(await readFile(new URL("../docs/l-systems-notes-runtime-changes.json", import.meta.url))).changes;
 const automataControlsChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-controls-runtime-changes.json", import.meta.url))).changes;
@@ -111,7 +112,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     // Keep the relocation baseline frozen. Reverse only the exact, separately
     // documented feature edits, whose behavior has focused DSP/browser tests.
-    for (const change of [...karplusCarpetChanges, ...documentLinkChanges, ...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
+    for (const change of [...karplusCarpetChanges, ...documentLinkChanges, ...roachMobileChanges, ...automataOutputChanges, ...synthesisChanges, ...chiptuneDanceChanges, ...automataControlsChanges, ...ioChanges, ...shapesChanges, ...lSystemDelayBranchingChanges, ...lSystemPresetsChanges, ...lSystemNotesChanges, ...automataBottomChanges, ...automataTransportChanges, ...automataClockChanges, ...automataChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one documented feature edit: ${change.file}`);
@@ -126,6 +127,22 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     const restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
   }
+});
+
+test("Rust delay branching amendment is limited to its local grammar registry with original-output and parity evidence", () => {
+  assert.deepEqual(lSystemDelayBranchingChanges.map(change => change.file), ["src/instruments/micmic/micmic.js"]);
+  const [change] = lSystemDelayBranchingChanges;
+  assert.ok(proof.files.some(record => record.after === change.file));
+  assert.deepEqual(change.regressionTests, [
+    "tests/l-system-delay-branching.test.mjs",
+    "src/instruments/micmic/native/model.test.mjs",
+    "e2e/l-system-delay-branching.spec.mjs",
+  ]);
+  assert.equal(change.replacements.length, 1);
+  assert.equal(change.replacements[0].before,
+    "const L_SYSTEM_PRESET_BY_ID = new Map(\n  L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]),\n);\n");
+  assert.match(change.replacements[0].after, /export const RUST_BRANCHING_GRAMMARS = Object\.freeze\(/);
+  assert.match(change.replacements[0].after, /\[\.\.\.L_SYSTEM_PRESETS, \.\.\.RUST_BRANCHING_GRAMMARS\]\.map/);
 });
 
 test("Automatapoeia preset lifecycle amendment is limited to its controller with regression evidence", () => {

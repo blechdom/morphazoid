@@ -359,8 +359,27 @@ function visualChildTimeRatio(timeRatio) {
   return 1 + Math.log2(ratio) * (MAX_VISUAL_CHILD_TIME_RATIO - 1);
 }
 
+// These additional bracketed grammars belong to the Rust delay. Keeping them
+// separate preserves the original synth/drum grammar bank and mic presets.
+// The first four are ABOP chapter 1, figure 1.24 (a, b, d, e):
+// https://www.algorithmicbotany.org/papers/abop/abop-ch1.pdf
+// The three- and four-way fans are original planar bracket constructions.
+export const RUST_BRANCHING_GRAMMARS = Object.freeze([
+  Object.freeze({ id: "bush", name: "Meadow bush", axiom: "F", rules: Object.freeze({ F: "F[+F]F[-F]F" }),
+    iterations: 5, maxIterations: 5, angle: 25.5, lengthScale: 1 }),
+  Object.freeze({ id: "fan", name: "Frond fan", axiom: "F", rules: Object.freeze({ F: "F[+F]F[-F][F]" }),
+    iterations: 5, maxIterations: 5, angle: 20, lengthScale: 1 }),
+  Object.freeze({ id: "fern", name: "Ladder fern", axiom: "X", rules: Object.freeze({ X: "F[+X]F[-X]+X", F: "FF" }),
+    iterations: 7, maxIterations: 7, angle: 20, lengthScale: 1 }),
+  Object.freeze({ id: "whorled", name: "Whorled shrub", axiom: "X", rules: Object.freeze({ X: "F[+X][-X]FX", F: "FF" }),
+    iterations: 7, maxIterations: 7, angle: 25.5, lengthScale: 1 }),
+  Object.freeze({ id: "ternary", name: "Trident tree", axiom: "FX", rules: Object.freeze({ X: "[+FX][FX][-FX]" }),
+    iterations: 5, maxIterations: 5, angle: 30, lengthScale: 1 }),
+  Object.freeze({ id: "quaternary", name: "Four-way canopy", axiom: "FX", rules: Object.freeze({ X: "[++FX][+FX][-FX][--FX]" }),
+    iterations: 4, maxIterations: 4, angle: 22.5, lengthScale: 1 }),
+]);
 const L_SYSTEM_PRESET_BY_ID = new Map(
-  L_SYSTEM_PRESETS.map((preset) => [preset.id, preset]),
+  [...L_SYSTEM_PRESETS, ...RUST_BRANCHING_GRAMMARS].map((preset) => [preset.id, preset]),
 );
 
 function canonicalTraceIterations(preset, generations) {

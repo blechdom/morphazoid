@@ -58,7 +58,9 @@
               </dl>
               <div id="nativeMidiControl"></div>
               <label class="native-check"><input id="automatic" type="checkbox" checked /> Adapt voices to this device</label>
-              <label class="control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
+              <div class="native-voice-cap">
+                <label class="control native-knob-control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
+              </div>
             </section>
             <p class="header-settings-copy">Rust audio runs directly in this browser. Choose an input, then enable Audio to hear the delay. Mic / line input uses your Audio Settings device.</p>
           </div>
@@ -119,7 +121,7 @@
                 <div><i id="inputMeterBar"></i><em id="inputPeakMarker"></em></div>
               </div>
 
-              <label class="control" for="inputTrim">
+              <label class="control native-knob-control" for="inputTrim">
                 <span><b>Input trim</b><output id="inputTrimOut" for="inputTrim">85%</output></span>
                 <input id="inputTrim" type="range" min="0" max="4" step="0.01" value="0.85" />
               </label>
@@ -159,6 +161,12 @@
                     <option value="pythagorean" selected>Pythagorean tree</option>
                     <option value="plant">Branching plant</option>
                     <option value="coral">Coral</option>
+                    <option value="bush">Meadow bush</option>
+                    <option value="fan">Frond fan</option>
+                    <option value="fern">Ladder fern</option>
+                    <option value="whorled">Whorled shrub · 3-way</option>
+                    <option value="ternary">Trident tree · 3-way</option>
+                    <option value="quaternary">Four-way canopy · 4-way</option>
                   </optgroup>
                   <optgroup label="Classic fractals">
                     <option value="dragon">Dragon curve</option>
@@ -175,31 +183,36 @@
             </label>
             <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
               <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
-              <label class="control generation-control" for="generations">
-                <span>
-                  <b>Generations <small id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small></b>
-                  <output id="generationsOut" for="generations">13 / 13</output>
-                </span>
-                <input id="generations" type="range" min="1" max="52" step="1" value="13" aria-describedby="generationCapacityInline" />
-              </label>
-              <label class="control signed-form-range" for="pruningBias">
-                <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
-                <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" aria-valuetext="breadth first" />
-                <span class="form-range-poles" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
-              </label>
-              <label class="control" for="depth">
-                <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
-                <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
-              </label>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control generation-control" for="generations">
+                  <span>
+                    <b>Generations</b>
+                    <output id="generationsOut" for="generations">13 / 13</output>
+                  </span>
+                  <input id="generations" type="range" min="1" max="52" step="1" value="13" aria-describedby="generationCapacityInline" />
+                </label>
+                <label class="control native-knob-control signed-form-range" for="pruningBias">
+                  <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
+                  <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" aria-valuetext="breadth first" aria-describedby="pruningBiasGuide" />
+                  <span class="form-range-poles" id="pruningBiasGuide" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
+                </label>
+                <label class="control native-knob-control" for="depth">
+                  <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
+                  <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+                </label>
+              </div>
+              <small class="native-capacity-note" id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small>
             </section>
 
             <section class="recursion-parameter-cluster" aria-labelledby="timingParametersTitle">
               <h3 class="parameter-cluster-title" id="timingParametersTitle">Timing</h3>
-              <label class="control" for="interval">
-                <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
-                <input id="interval" type="range" min="0" max="1000" step="1" value="300" aria-valuetext="240 ms" />
-              </label>
-              <label class="control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control" for="interval">
+                  <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+                  <input id="interval" type="range" min="0" max="1000" step="1" value="300" aria-valuetext="240 ms" />
+                </label>
+                <label class="control native-knob-control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+              </div>
             </section>
 
             <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
@@ -213,17 +226,21 @@
                 </span>
               </label>
               <small class="generation-safety-note" id="pitchDetailStatus" aria-live="polite">Independent pitch / time shift for every active voice</small>
-              <label class="control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
-              <label class="control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
+                <label class="control native-knob-control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+              </div>
             </section>
 
             <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
               <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
-              <label class="control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
-              <label class="control" for="mutation">
-                <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
-                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
-              </label>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="generationAsymmetryGuide" /><span class="form-range-poles" id="generationAsymmetryGuide" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+                <label class="control native-knob-control" for="mutation">
+                  <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
+                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+                </label>
+              </div>
             </section>
 
             <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
@@ -236,18 +253,20 @@
             <span class="section-state" id="mixSummary">76% descendants · root muted</span>
           </summary>
           <div class="group-body">
-            <label class="control" for="wet">
-              <span><b>Descendants</b><output id="wetOut" for="wet">76%</output></span>
-              <input id="wet" type="range" min="0" max="1" step="0.01" value="0.76" />
-            </label>
-            <label class="control" for="dry">
-              <span><b>Original voice</b><output id="dryOut" for="dry">muted</output></span>
-              <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0" />
-            </label>
-            <label class="control" for="spread">
-              <span><b>Stereo spread</b><output id="spreadOut" for="spread">90%</output></span>
-              <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
-            </label>
+            <div class="native-knob-grid">
+              <label class="control native-knob-control" for="wet">
+                <span><b>Descendants</b><output id="wetOut" for="wet">76%</output></span>
+                <input id="wet" type="range" min="0" max="1" step="0.01" value="0.76" />
+              </label>
+              <label class="control native-knob-control" for="dry">
+                <span><b>Original voice</b><output id="dryOut" for="dry">muted</output></span>
+                <input id="dry" type="range" min="0" max="0.5" step="0.01" value="0" />
+              </label>
+              <label class="control native-knob-control" for="spread">
+                <span><b>Stereo spread</b><output id="spreadOut" for="spread">90%</output></span>
+                <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
+              </label>
+            </div>
           </div>
         </details>
 
@@ -298,26 +317,32 @@
             </label>
             <section class="recursion-parameter-cluster" aria-labelledby="masteringFiltersTitle">
               <h3 class="parameter-cluster-title" id="masteringFiltersTitle">Filters</h3>
-              <label class="control" for="inputHighpassHz"><span><b>Input HPF</b><output id="inputHighpassHzOut" for="inputHighpassHz">55 Hz</output></span><input id="inputHighpassHz" type="range" min="0" max="1000" step="1" value="220" aria-valuetext="55 Hz" /></label>
-              <label class="control" for="highpassHz"><span><b>Output HPF</b><output id="highpassHzOut" for="highpassHz">Off</output></span><input id="highpassHz" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="Off" /></label>
-              <label class="control" for="lowpassHz"><span><b>Output LPF</b><output id="lowpassHzOut" for="lowpassHz">Off</output></span><input id="lowpassHz" type="range" min="0" max="1000" step="1" value="1000" aria-valuetext="Off" /></label>
-              <p class="native-mastering-note">Input HPF shapes the recorded source. Output filters shape the complete mix.</p>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control" for="inputHighpassHz"><span><b>Input HPF</b><output id="inputHighpassHzOut" for="inputHighpassHz">55 Hz</output></span><input id="inputHighpassHz" type="range" min="0" max="1000" step="1" value="220" aria-valuetext="55 Hz" /></label>
+                <label class="control native-knob-control" for="highpassHz"><span><b>Output HPF</b><output id="highpassHzOut" for="highpassHz">Off</output></span><input id="highpassHz" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="Off" /></label>
+                <label class="control native-knob-control" for="lowpassHz"><span><b>Output LPF</b><output id="lowpassHzOut" for="lowpassHz">Off</output></span><input id="lowpassHz" type="range" min="0" max="1000" step="1" value="1000" aria-valuetext="Off" /></label>
+              </div>
+              <details class="native-control-help"><summary>Filter help</summary><p class="native-mastering-note">Input HPF shapes the recorded source. Output filters shape the complete mix.</p></details>
             </section>
             <section class="recursion-parameter-cluster" aria-labelledby="masteringCompressorTitle">
               <h3 class="parameter-cluster-title" id="masteringCompressorTitle">Compression</h3>
-              <label class="native-check"><input id="compressorEnabled" type="checkbox" checked /> Enable compressor</label>
+              <div class="native-mastering-switches">
+                <label class="native-check"><input id="compressorEnabled" type="checkbox" checked /> Enable compressor</label>
+                <label class="native-check"><input id="autoMakeup" type="checkbox" checked /> Automatic makeup gain</label>
+              </div>
               <div class="fracta-meter native-reduction-meter" aria-label="Live compressor gain reduction">
                 <span><b>Gain reduction</b><output id="gainReductionOut">0.0 dB</output></span>
                 <div><i id="gainReductionBar"></i></div>
               </div>
-              <label class="control" for="thresholdDb"><span><b>Threshold</b><output id="thresholdDbOut" for="thresholdDb">−12 dB</output></span><input id="thresholdDb" type="range" min="-60" max="0" step="0.5" value="-12" /></label>
-              <label class="control" for="ratio"><span><b>Ratio</b><output id="ratioOut" for="ratio">18:1</output></span><input id="ratio" type="range" min="1" max="20" step="0.1" value="18" /></label>
-              <label class="control" for="kneeDb"><span><b>Knee</b><output id="kneeDbOut" for="kneeDb">5 dB</output></span><input id="kneeDb" type="range" min="0" max="40" step="0.5" value="5" /></label>
-              <label class="control" for="attackMs"><span><b>Attack</b><output id="attackMsOut" for="attackMs">3 ms</output></span><input id="attackMs" type="range" min="0.1" max="100" step="0.1" value="3" /></label>
-              <label class="control" for="releaseMs"><span><b>Release</b><output id="releaseMsOut" for="releaseMs">180 ms</output></span><input id="releaseMs" type="range" min="10" max="1500" step="1" value="180" /></label>
-              <label class="native-check"><input id="autoMakeup" type="checkbox" checked /> Automatic makeup gain</label>
-              <label class="control" for="makeupDb"><span><b>Output boost</b><output id="makeupDbOut" for="makeupDb">0 dB</output></span><input id="makeupDb" type="range" min="-12" max="24" step="0.1" value="0" aria-describedby="outputBoostHint" /></label>
-              <p class="native-mastering-note" id="outputBoostHint">Raises the complete mix, even with compression off. Input gain, output level and output boost stay independent of presets.</p>
+              <div class="native-knob-grid native-knob-grid--four">
+                <label class="control native-knob-control" for="thresholdDb"><span><b>Threshold</b><output id="thresholdDbOut" for="thresholdDb">−12 dB</output></span><input id="thresholdDb" type="range" min="-60" max="0" step="0.5" value="-12" /></label>
+                <label class="control native-knob-control" for="ratio"><span><b>Ratio</b><output id="ratioOut" for="ratio">18:1</output></span><input id="ratio" type="range" min="1" max="20" step="0.1" value="18" /></label>
+                <label class="control native-knob-control" for="kneeDb"><span><b>Knee</b><output id="kneeDbOut" for="kneeDb">5 dB</output></span><input id="kneeDb" type="range" min="0" max="40" step="0.5" value="5" /></label>
+                <label class="control native-knob-control" for="attackMs"><span><b>Attack</b><output id="attackMsOut" for="attackMs">3 ms</output></span><input id="attackMs" type="range" min="0.1" max="100" step="0.1" value="3" /></label>
+                <label class="control native-knob-control" for="releaseMs"><span><b>Release</b><output id="releaseMsOut" for="releaseMs">180 ms</output></span><input id="releaseMs" type="range" min="10" max="1500" step="1" value="180" /></label>
+                <label class="control native-knob-control" for="makeupDb"><span><b>Output boost</b><output id="makeupDbOut" for="makeupDb">0 dB</output></span><input id="makeupDb" type="range" min="-12" max="24" step="0.1" value="0" aria-describedby="outputBoostHint" /></label>
+              </div>
+              <details class="native-control-help"><summary>Output boost help</summary><p class="native-mastering-note" id="outputBoostHint">Raises the complete mix, even with compression off. Input gain, output level and output boost stay independent of presets.</p></details>
             </section>
           </div>
         </details>

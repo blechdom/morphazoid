@@ -1,3 +1,5 @@
+import { EXTRA_DEMO_SOURCES } from './extra-demo-sources.js';
+
 /** Browser input choices. Rust's source IDs remain unchanged. */
 export const PROCESSING_INPUT_OPTIONS = Object.freeze([
   { id: "microphone", label: "Mic / audio-in", group: "Live input / files", source: 0, kind: "microphone" },
@@ -11,6 +13,7 @@ export const PROCESSING_INPUT_OPTIONS = Object.freeze([
   { id: "voice-slt", label: "Higher voice syllables", group: "Sample loops", source: 0, kind: "demo" },
   { id: "speech", label: "Synthetic speech", group: "Sample loops", source: 0, kind: "demo" },
   { id: "birdsong", label: "Birdsong", group: "Sample loops", source: 0, kind: "demo" },
+  ...EXTRA_DEMO_SOURCES.map(({ id, label, group }) => ({ id, label, group, source: 0, kind: "demo" })),
   { id: "noise", label: "White noise", group: "Test signals", source: 3, kind: "signal" },
   { id: "pink-noise", label: "Pink noise", group: "Test signals", source: 8, kind: "signal" },
   { id: "brown-noise", label: "Brown noise", group: "Test signals", source: 9, kind: "signal" },
@@ -30,6 +33,7 @@ export function getProcessingInput(id) {
 // Locally bundled recordings and original rendered musical loops. CMU banks
 // contain edited phoneme excerpts, not sentence recordings. Credits stay with the assets.
 const DEMOS = Object.freeze({
+  ...Object.fromEntries(EXTRA_DEMO_SOURCES.map(demo => [demo.id, demo])),
   "sample-drums": {
     paths: ["puggler/kick.wav", "puggler/snare.wav", "puggler/hat.wav", "puggler/tom.wav"],
     credit: "Karoryfer acoustic drums · CC0 · two-bar arrangement at 120 BPM",

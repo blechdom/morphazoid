@@ -1,6 +1,8 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
-export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon']);
+const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
+export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
+  ...RUST_BRANCHING_TYPES]);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
   timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
@@ -50,7 +52,7 @@ export function presetState(preset, performance) {
 export function randomState(parameters, performance, random = Math.random) {
   const unit = () => clamp(Number(random()) || 0);
   const between = (a, b) => a + (b - a) * unit();
-  return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(10, Math.floor(unit() * 11))],
+  return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
     asymmetry: between(-.8, .8), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
@@ -62,6 +64,13 @@ export function gestureParameters(start, dx, dy, width, height, fine = false) {
     angle: start.angle - dy / Math.max(1, height) * 180 * scale });
 }
 export function isVoiceActive(node, limit) { return Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0; }
+/** Preview gain follows the applied coefficient, including a newer live edit
+ * than the topology compiler captured. Structural ranks stay untouched. */
+export function applyPreviewDepth(nodes, depth) {
+  const applied = clamp(depth, 0, .96);
+  for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
+  return nodes;
+}
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
 export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }
@@ -72,9 +81,13 @@ export function tapActivityFrame(reply, parameters) {
     || JSON.stringify(sanitizeParameters(reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
+  // The engine's active count ends a released tail. Residual smoothed meter
+  // values must not keep an inactive branch colored indefinitely; faint live
+  // taps retain their full response without an amplitude threshold.
+  const inactive = Number.isFinite(status.activeVoices) && status.activeVoices === 0;
   for (let rank = 0; rank < Math.min(status.tapActivity.length, status.tapVoiceIndices.length); rank++) {
     const slot = status.tapVoiceIndices[rank], rms = status.tapActivity[rank];
-    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, Math.max(0, rms) * wetBusGain);
+    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, inactive ? 0 : Math.max(0, rms) * wetBusGain);
   }
   return { revision, identity: topologyIdentity(parameters), levels };
 }
@@ -203,9 +216,9 @@ function binaryNodes(p) {
   return nodes;
 }
 /** Exact connected breadth/depth blend from the original pruning algorithm. */
-export function priorityOrder(voices, bias = 0) {
+export function priorityOrder(voices, bias = 0, rankScale = 1, deepestGeneration) {
   if (bias <= 0) return voices;
-  const byId = new Map(voices.map(n => [n.id, n])), seen = new Set(), deepest = Math.max(0, ...voices.map(n => n.generation));
+  const byId = new Map(voices.map(n => [n.id, n])), seen = new Set(), deepest = deepestGeneration ?? Math.max(0, ...voices.map(n => n.generation));
   const depthOrder = [];
   for (const target of voices.filter(n => n.generation === deepest).sort((a, b) => hashUnit(`audible:${a.id}`) - hashUnit(`audible:${b.id}`))) {
     const path = []; let cursor = target;
@@ -217,7 +230,8 @@ export function priorityOrder(voices, bias = 0) {
   const breadthRank = new Map(voices.map((n, i) => [n.id, i])), depthRank = new Map(depthOrder.map((n, i) => [n.id, i]));
   const children = new Map(), heap = [], result = [];
   for (const n of voices) { const list = children.get(n.parentId) ?? []; list.push(n); children.set(n.parentId, list); }
-  const compare = (a, b) => (breadthRank.get(a.id) * (1 - bias) + depthRank.get(a.id) * bias) - (breadthRank.get(b.id) * (1 - bias) + depthRank.get(b.id) * bias) || breadthRank.get(a.id) - breadthRank.get(b.id);
+  const priority = n => (breadthRank.get(n.id) * rankScale) * (1 - bias) + (depthRank.get(n.id) * rankScale) * bias;
+  const compare = (a, b) => priority(a) - priority(b) || breadthRank.get(a.id) - breadthRank.get(b.id);
   const push = n => { heap.push(n); let i = heap.length - 1; while (i > 0) { const parent = Math.floor((i - 1) / 2); if (compare(heap[parent], heap[i]) <= 0) break; [heap[parent], heap[i]] = [heap[i], heap[parent]]; i = parent; } };
   const pop = () => { const first = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; while (true) { let smallest = i; const a = i * 2 + 1, b = a + 1; if (a < heap.length && compare(heap[a], heap[smallest]) < 0) smallest = a; if (b < heap.length && compare(heap[b], heap[smallest]) < 0) smallest = b; if (smallest === i) break; [heap[i], heap[smallest]] = [heap[smallest], heap[i]]; i = smallest; } } return first; };
   for (const n of children.get('trunk') ?? []) push(n);
@@ -244,7 +258,15 @@ export function buildPreview(parameters, canonicalTopology) {
     if (n.generation > 0 && delay <= 39 + 1e-9 && n.gain > 0) { voices.push(n); counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1); }
   }
   if (p.lSystemType !== 'pythagorean') voices.sort((a, b) => a.generation - b.generation);
-  priorityOrder(voices, p.pruningBias).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
+  // Preserve the existing eleven previews exactly. New grammars use the
+  // Rust compiler's normalized ranks so floating-point ties admit the same
+  // branch identities in the prepared drawing and the actual audio pool.
+  // Rust derives depth from the full layout even when the history cutoff
+  // excludes its deepest layer; then the eligible paths fall back to breadth.
+  const rustBranching = RUST_BRANCHING_TYPES.includes(p.lSystemType);
+  const rankScale = rustBranching ? 1 / Math.max(1, voices.length - 1) : 1;
+  const deepestGeneration = rustBranching ? nodes.reduce((deepest, node) => Math.max(deepest, node.generation), 0) : undefined;
+  priorityOrder(voices, p.pruningBias, rankScale, deepestGeneration).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
   return nodes;
 }
 /** Continuous preview targets settle in 80 ms even with delayed native replies. */
@@ -288,4 +310,37 @@ export function interpolatePreviewNodes(nodes, previous, fraction) {
     for (const key of ['x', 'y', 'startX', 'startY']) next[key] = from[key] + (n[key] - from[key]) * eased;
     return next;
   });
+}
+
+const PREVIEW_COORDINATES = ['x', 'y', 'startX', 'startY'];
+/** Prepare one committed topology transition; animation reuses its nodes. */
+export function preparePreviewTransition(targets, previous = new Map()) {
+  const nodes = targets.map(node => ({ ...node })), coordinates = new Float64Array(nodes.length * 8);
+  const fromEndpoints = new Map();
+  let moving = false;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index], old = previous.get(node.id), parent = fromEndpoints.get(node.parentId);
+    const origin = old ?? { x: parent?.x ?? node.startX, y: parent?.y ?? node.startY,
+      startX: parent?.x ?? node.startX, startY: parent?.y ?? node.startY };
+    for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+      const key = PREVIEW_COORDINATES[field], from = Number.isFinite(origin[key]) ? origin[key] : node[key];
+      coordinates[index * 8 + field] = from;
+      coordinates[index * 8 + field + 4] = node[key];
+      if (Math.abs(node[key] - from) > 1e-12) moving = true;
+      node[key] = from;
+    }
+    fromEndpoints.set(node.id, { x: node.x, y: node.y });
+  }
+  return { nodes, coordinates, moving };
+}
+/** Only endpoints move: pool indices, ranks and current audio metadata persist. */
+export function advancePreviewTransition(transition, fraction) {
+  const t = clamp(fraction), eased = t * t * (3 - 2 * t), { nodes, coordinates } = transition;
+  for (let index = 0; index < nodes.length; index++) for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+    const offset = index * 8 + field;
+    nodes[index][PREVIEW_COORDINATES[field]] = t === 1 ? coordinates[offset + 4]
+      : coordinates[offset] + (coordinates[offset + 4] - coordinates[offset]) * eased;
+  }
+  transition.moving = t < 1 && transition.moving;
+  return nodes;
 }
