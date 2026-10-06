@@ -226,6 +226,14 @@ curve detail before lowering its frame rate. Cached geometry and reusable wave
 buffers reduce per-frame work. The animation clock uses paired worklet sample
 time and AudioContext time, so delayed status delivery does not restart or
 rewind the wave motion. Graphics do not impose another audio voice ceiling.
+During playback, both renderers draw only the input root, admitted delay
+branches, and metered release tails. The complete accepted tree remains metadata
+for presets, parent connections and camera bounds; its unavailable grey branches
+are omitted. Audio off restores the complete preset preview. WebGL2 compacts its
+actual instance and meter buffers when membership changes, avoiding per-frame
+processing of the inactive tree. Capacity changes do not recenter or zoom it.
+History uploads reuse a Float32 scratch buffer and grow texture storage
+geometrically, rather than reallocating it for every newly recorded sample.
 Software-rendered browser checks validate shader parity and lifecycle; they do
 not establish hardware GPU frame rates or increased audio polyphony.
 
@@ -345,7 +353,9 @@ of evidence and another 60 ms of steady work before the next increase, replacing
 the slow generation-by-generation climb. Previously proved device capacity
 survives a smaller scene and is tested again when demand grows. These colors
 show admission, rather than the arrival of delayed sound; waviness shows signal.
-Unsuccessful probes roll back. The native comparison uses
+Unsuccessful new probes roll back. If a restored capacity becomes genuinely
+too expensive, measured proportional backoff replaces a collapse to the preceding
+tiny preset's voice count. The native comparison uses
 a separate warmed calibration before those live probes.
 Failed probes are retried, so capacity can increase when device conditions
 improve. The controller accounts for transient load and lets outgoing voices
@@ -354,13 +364,22 @@ overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
 In the browser, a structural pool is uploaded, validated and prepared in batches
-of 4,096 records across audio blocks. The committed pool keeps rendering during
+sized from measured spare audio-block time, with 4,096 records as the maximum
+batch size. Upload and obsolete-storage cleanup share that time allowance;
+cleanup receives a share even while another pool is being prepared. A small
+bootstrap batch learns per-record cost on the current device. This is a work
+batch limit, not an audio voice ceiling. The committed pool keeps rendering during
 preparation. An atomic handoff updates audible/releasing voices, while inactive
 slots adopt targets when admitted. Recording, branch phase and delay-edit
 crossfades survive the handoff. Allocation, memory growth and freeing replaced
 storage can still consume time; staging does not guarantee every device deadline.
-Old numeric voice storage retires in batches of at most 4,096 slots after
-rendering, avoiding a whole-vector destructor at growth commit. A retained,
+Finite topology preparation and cleanup retain a previously proved capacity
+estimate for prompt restoration and revalidation. Total callback CPU and missed
+deadlines still include that work; recurring DSP, admission, status polling and
+live controls remain part of voice-capacity measurement. Genuine render overload
+still reduces the budget. Old numeric voice storage retires in measured spare
+time after rendering, avoiding a whole-vector destructor at growth commit. A
+retained,
 suspended graph temporarily processes controls with output muted, completes its
 retirement queue and suspends again. This neither arms Audio nor opens an input;
 a newer explicit Audio or microphone action retains the running graph.
@@ -392,8 +411,10 @@ substituting an unrelated smaller tree. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. The full tree geometry stays
-constant as device capacity changes. Color indicates admission; wave amplitude
+audio does not cascade through parent processors. The full tree geometry and
+camera bounds stay constant as device capacity changes; only admitted branches
+and metered release tails are drawn during playback. Color indicates admission;
+wave amplitude
 indicates signal, with actual tap RMS taking precedence on short edges and at
 audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
