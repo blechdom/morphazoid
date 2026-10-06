@@ -4102,5 +4102,1301 @@
         }
       }
     }
+  },
+  {
+    "id": "branch-bush-cutting",
+    "label": "Meadow Bush · Seedling",
+    "description": "Cuttings: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-glass",
+    "label": "Meadow Bush · Glass",
+    "description": "Glass: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-clockwork",
+    "label": "Meadow Bush · Clockwork",
+    "description": "Clockwork: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-canopy",
+    "label": "Meadow Bush · Canopy",
+    "description": "Canopy: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-cathedral",
+    "label": "Meadow Bush · Cathedral",
+    "description": "Cathedral: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-bush-unison",
+    "label": "Meadow Bush · Unison",
+    "description": "Unison: Alternating lateral forks grow along a continuing stem.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "bush",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-cutting",
+    "label": "Frond Fan · Seedling",
+    "description": "Cuttings: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-glass",
+    "label": "Frond Fan · Glass",
+    "description": "Glass: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-clockwork",
+    "label": "Frond Fan · Clockwork",
+    "description": "Clockwork: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-canopy",
+    "label": "Frond Fan · Canopy",
+    "description": "Canopy: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-cathedral",
+    "label": "Frond Fan · Cathedral",
+    "description": "Cathedral: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fan-unison",
+    "label": "Frond Fan · Unison",
+    "description": "Unison: Bracketed fronds form an open fan with staggered side shoots.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fan",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-cutting",
+    "label": "Ladder Fern · Seedling",
+    "description": "Cuttings: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-glass",
+    "label": "Ladder Fern · Glass",
+    "description": "Glass: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-clockwork",
+    "label": "Ladder Fern · Clockwork",
+    "description": "Clockwork: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-canopy",
+    "label": "Ladder Fern · Canopy",
+    "description": "Canopy: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-cathedral",
+    "label": "Ladder Fern · Cathedral",
+    "description": "Cathedral: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-fern-unison",
+    "label": "Ladder Fern · Unison",
+    "description": "Unison: A curved continuing apex grows paired side fronds at successive stem positions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "fern",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 20
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-cutting",
+    "label": "Whorled Shrub · Seedling",
+    "description": "Cuttings: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-glass",
+    "label": "Whorled Shrub · Glass",
+    "description": "Glass: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-clockwork",
+    "label": "Whorled Shrub · Clockwork",
+    "description": "Clockwork: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-canopy",
+    "label": "Whorled Shrub · Canopy",
+    "description": "Canopy: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-cathedral",
+    "label": "Whorled Shrub · Cathedral",
+    "description": "Cathedral: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-whorled-unison",
+    "label": "Whorled Shrub · Unison",
+    "description": "Unison: Two side shoots and a continuing stem meet at three-way junctions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "whorled",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 25.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-cutting",
+    "label": "Trident Tree · Seedling",
+    "description": "Cuttings: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-glass",
+    "label": "Trident Tree · Glass",
+    "description": "Glass: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-clockwork",
+    "label": "Trident Tree · Clockwork",
+    "description": "Clockwork: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-canopy",
+    "label": "Trident Tree · Canopy",
+    "description": "Canopy: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-cathedral",
+    "label": "Trident Tree · Cathedral",
+    "description": "Cathedral: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-ternary-unison",
+    "label": "Trident Tree · Unison",
+    "description": "Unison: Three distinct children fan left, straight and right from each fork.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "ternary",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 30
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-cutting",
+    "label": "Four-way Canopy · Seedling",
+    "description": "Cuttings: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 4,
+        "intervalMs": 340,
+        "timeRatio": 0.86,
+        "pitchScale": 0.65,
+        "pruningBias": 0,
+        "depth": 0.56,
+        "spread": 0.65,
+        "asymmetry": 0,
+        "mutation": 0,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.6,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-glass",
+    "label": "Four-way Canopy · Glass",
+    "description": "Glass: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 13,
+        "intervalMs": 8,
+        "timeRatio": 0.5,
+        "pitchScale": 0.45,
+        "pruningBias": 0.1,
+        "depth": 0.8,
+        "spread": 1,
+        "asymmetry": -0.1,
+        "mutation": 0.08,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.82,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 100,
+          "lowpassHz": 14000,
+          "compressorEnabled": true,
+          "thresholdDb": -15,
+          "kneeDb": 14,
+          "ratio": 3,
+          "attackMs": 8,
+          "releaseMs": 240,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-clockwork",
+    "label": "Four-way Canopy · Clockwork",
+    "description": "Clockwork: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 10,
+        "intervalMs": 180,
+        "timeRatio": 1,
+        "pitchScale": 1.25,
+        "pruningBias": 0.25,
+        "depth": 0.72,
+        "spread": 0.85,
+        "asymmetry": 0.15,
+        "mutation": 0.02,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.72,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 55,
+          "lowpassHz": 9000,
+          "compressorEnabled": true,
+          "thresholdDb": -17,
+          "kneeDb": 8,
+          "ratio": 2.5,
+          "attackMs": 15,
+          "releaseMs": 140,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-canopy",
+    "label": "Four-way Canopy · Canopy",
+    "description": "Canopy: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 18,
+        "intervalMs": 22,
+        "timeRatio": 0.64,
+        "pitchScale": 1.8,
+        "pruningBias": 0.1,
+        "depth": 0.92,
+        "spread": 1,
+        "asymmetry": -0.2,
+        "mutation": 0.35,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.04,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 45,
+          "lowpassHz": 11500,
+          "compressorEnabled": true,
+          "thresholdDb": -19,
+          "kneeDb": 16,
+          "ratio": 4,
+          "attackMs": 12,
+          "releaseMs": 350,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-cathedral",
+    "label": "Four-way Canopy · Cathedral",
+    "description": "Cathedral: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 11,
+        "intervalMs": 1250,
+        "timeRatio": 0.92,
+        "pitchScale": 0.25,
+        "pruningBias": 0.4,
+        "depth": 0.85,
+        "spread": 0.95,
+        "asymmetry": 0.05,
+        "mutation": 0.12,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.12,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 80,
+          "lowpassHz": 6000,
+          "compressorEnabled": true,
+          "thresholdDb": -16,
+          "kneeDb": 18,
+          "ratio": 2,
+          "attackMs": 30,
+          "releaseMs": 600,
+          "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "branch-quaternary-unison",
+    "label": "Four-way Canopy · Unison",
+    "description": "Unison: Four distinct child branches fan across two inner and two outer directions.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quaternary",
+        "generations": 13,
+        "intervalMs": 130,
+        "timeRatio": 1.03,
+        "pitchScale": 0,
+        "pruningBias": 0.6,
+        "depth": 0.84,
+        "spread": 0.75,
+        "asymmetry": 0,
+        "mutation": 0.03,
+        "angle": 22.5
+      },
+      "performance": {
+        "wet": 0.8,
+        "dry": 0.2,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": false
+        }
+      }
+    }
   }
 ]

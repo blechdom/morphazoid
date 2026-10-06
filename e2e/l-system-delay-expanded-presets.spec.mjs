@@ -1,5 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
+import { L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const BANK = '/src/instruments/micmic/native/presets.json';
@@ -85,7 +86,7 @@ async function diagnostics(page) {
 }
 
 async function ready(page) {
-  expect(bank).toHaveLength(114);
+  expect(bank).toHaveLength(150);
   expect(bank.slice(0, ORIGINAL_IDS.length).map(preset => preset.id)).toEqual(ORIGINAL_IDS);
   await page.goto('/l-mic-rust.html?renderer=canvas');
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
@@ -145,7 +146,7 @@ async function choosePreset(page, preset) {
   return diagnostics(page);
 }
 
-test('all 114 UI recalls preserve Mic/File/Samples sessions and live gains without arming Audio', async ({ page }) => {
+test(`all ${bank.length} UI recalls preserve Mic/File/Samples sessions and live gains without arming Audio`, async ({ page }) => {
   test.setTimeout(300000);
   const evidence = await fixture(page); await ready(page); await setGains(page); await prepareFile(page);
   await inputMode(page, 'samples'); await chooseInput(page, 'inputSample', 'music-keys');
@@ -197,8 +198,8 @@ test('stratified new presets and a linear-to-Pine switchback retain real Rust au
   test.setTimeout(240000);
   const evidence = await fixture(page); await ready(page); await prepareFile(page); await setGains(page);
   const selected = representatives();
-  expect(selected.length).toBeGreaterThanOrEqual(11); expect(selected.length).toBeLessThanOrEqual(14);
-  expect(new Set(selected.map(preset => preset.snapshot.parameters.lSystemType)).size).toBe(11);
+  expect(selected.length).toBeGreaterThanOrEqual(L_SYSTEM_TYPES.length); expect(selected.length).toBeLessThanOrEqual(L_SYSTEM_TYPES.length + 3);
+  expect(new Set(selected.map(preset => preset.snapshot.parameters.lSystemType))).toEqual(new Set(L_SYSTEM_TYPES));
   await inputMode(page, 'mic'); await choosePreset(page, selected[0]);
   await page.locator('#audioButton').click();
   const initial = await finiteLive(page, -1), rows = [];
@@ -240,7 +241,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       const evidence = await fixture(page); await ready(page);
       const picker = page.locator('.instrument-preset-controls'), search = picker.locator('input[type="search"]');
       const family = bank.slice(ORIGINAL_IDS.length).filter(preset => preset.description.startsWith('Cathedral:'));
-      expect(family).toHaveLength(11);
+      expect(new Set(family.map(preset => preset.snapshot.parameters.lSystemType))).toEqual(new Set(L_SYSTEM_TYPES));
       const matching = bank.filter(preset => `${preset.label} ${preset.description}`.toLowerCase().includes('cathedral'));
       await picker.locator('summary').scrollIntoViewIfNeeded(); await picker.locator('summary').click();
       await search.fill('Cathedral');

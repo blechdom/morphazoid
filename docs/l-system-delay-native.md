@@ -5,8 +5,9 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page offers 114 full scenes, including all sixteen original presets,
-the ten earlier Rust scenes and 88 additional scenes across eleven grammars.
+The Rust page offers 150 full scenes, including all sixteen original presets,
+the ten earlier Rust scenes, 88 earlier additional scenes and 36 new branching
+scenes across seventeen grammars.
 It retains the original parameter curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
@@ -102,7 +103,9 @@ with 0 retaining no user cap. This presentation adds no audio voice ceiling.
 Preset recall updates knob positions without restarting the selected input.
 The first 26 scenes retain their settings and order, including Cedar, Quaking
 Aspen, Juniper, Baobab, Foxglove, Lotus, Acacia, Lichen, Moonflower and Horsetail.
-The expanded bank adds eight families, each with a scene for every grammar:
+The earlier expansion adds eight families, each with a scene for every original
+grammar. The six new branching grammars add Seedling, Glass, Clockwork, Canopy,
+Cathedral and Unison scenes, preserving the first 114 scenes and their order:
 
 | Search keyword | Range explored |
 | --- | --- |
@@ -114,6 +117,38 @@ The expanded bank adds eight families, each with a scene for every grammar:
 | Wild | Strong mutation, asymmetry and pitch movement |
 | Canopy | Deep trees with high descendant levels |
 | Cuttings | Shallow, sparse trees with fewer descendants |
+
+The type menu now contains nine branching systems and eight classic fractals.
+The new rules extend both the Rust audio compiler and its matching JavaScript
+preview, with the same parent connections and voice-admission order. They use the
+same device-measured admission, inherited delays, pitch/pan and live smoothing.
+No additional audio-voice ceiling is introduced. The original JavaScript page
+and the shared eleven-grammar catalogue retain their original options.
+
+| New branching type | Axiom and productions | Basis |
+| --- | --- | --- |
+| Meadow bush | `F`; `F → F[+F]F[-F]F` | Published alternating side shoots |
+| Frond fan | `F`; `F → F[+F]F[-F][F]` | Published bracketed fan |
+| Ladder fern | `X`; `X → F[+X]F[-X]+X`, `F → FF` | Published continuing-apex fern |
+| Whorled shrub | `X`; `X → F[+X][-X]FX`, `F → FF` | Published paired sides plus continuing stem |
+| Trident tree | `FX`; `X → [+FX][FX][-FX]` | Original planar three-child bud rule |
+| Four-way canopy | `FX`; `X → [++FX][+FX][-FX][--FX]` | Original planar four-child bud rule |
+
+The first four productions follow Figure 1.24(a, b, d, e) of
+[The Algorithmic Beauty of Plants, Chapter 1](https://www.algorithmicbotany.org/papers/abop/abop-ch1.pdf).
+The last two use the book's bracketed-turtle method to create explicit planar
+fans. Their `F` stems remain unchanged while only `X` buds split, so every
+branching junction has exactly three or four children even after repeated
+expansion. The supplied preset angles separate their directions; deliberately
+choosing zero or coincident angles can overlap their geometry while retaining
+the separate voices. They are artistic two-dimensional trees, rather than
+species models or copies of the book's three-dimensional botanical examples.
+Preset angles of 25.5 degrees adapt the book's 25.7-degree examples to the
+existing half-degree knob step. All original parameters and ranges remain.
+
+On mobile, closed input/sample selector triggers scroll below the sticky tree
+preset row. Open chooser panels retain their existing viewport anchoring,
+scrolling, selection and outside-tap dismissal.
 
 The menu search matches names and descriptions, including these family keywords.
 Each selection restores the complete grammar, growth, pruning, stereo spread, wet/dry

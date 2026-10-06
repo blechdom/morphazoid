@@ -1,6 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
+import { L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const APP = '/src/instruments/micmic/native/app.js';
@@ -168,7 +169,7 @@ test('all 24 original native ranges, complete parameter controls and runtime bou
     'resetGenerationRules', 'inputFile', 'outputBoostHint', 'pruningBiasGuide', 'generationCapacityInline']) {
     await expect(page.locator(`#${id}`), id).toHaveCount(1);
   }
-  expect(await page.locator('#lSystemType option').count()).toBe(11);
+  expect(await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value).sort())).toEqual([...L_SYSTEM_TYPES].sort());
   expect(await page.locator('#inputSample option').count()).toBe(33);
   expect(await page.locator('#masteringPreset option').count()).toBe(8);
   await expect(page.locator('#voiceCeilingExact')).toHaveAttribute('max', String(d.memoryVoiceCapacity));

@@ -2,21 +2,21 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 302885,
-  "wasmSha256": "f2342507250a04be9f88a47246684b6bcc27229b613726f8840048a53f5196c4",
+  "bytes": 303654,
+  "wasmSha256": "4a05f95dd3e98a0369cf9cdd3533f7a2988ee5801e250b48a85ef912ef2a3846",
   "sourceHashes": {
     "scripts/build-l-system-delay-wasm.mjs": "0bd7875c99469472157153983e7e2613a87e7e0250c15ba650d5ca8b6482b49d",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
     "src/instruments/micmic/rust/Cargo.toml": "fe3b57868ecf2b508d5a348f7b7c433faff0276ab477a56a282b0e4fd3afd987",
     "src/instruments/micmic/rust/app/src/adaptive.rs": "408527c2932f188d530a5c68f55c90262c5c8c5e8e60fd1056dbe6d17f49a66c",
     "src/instruments/micmic/rust/app/src/conditioning.rs": "99fb9b9f584c8ad3b4bb1e770216bb1e0a4b958fc532a1c409e673c8029e54cf",
-    "src/instruments/micmic/rust/app/src/model.rs": "a591e066ba6ca0824faa51c1f91dabaca8cbd13267a97226814fac17eb346a8f",
+    "src/instruments/micmic/rust/app/src/model.rs": "074772f685180cf20b23077a5e7432506adb330b950f10afbb0221307d052db4",
     "src/instruments/micmic/rust/app/src/performance.rs": "f9408104fc7635439dc3aec904b5d835bfa6d1842ca167b8e90e2d08f94386cd",
     "src/instruments/micmic/rust/app/src/resources.rs": "4aa2cf6c5bfb6b5de2a0bd6b0d22234ed4d06f55cd01c6ae667e187a48eab2eb",
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
     "src/instruments/micmic/rust/core/src/lib.rs": "9f089b04e5ed460a2835e86aec1d97a551d4edb1dc525e7057b1226f0c97c87c",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "ed6cdaae8a82e2a6e5698cdec69d01e2911e0374b1ddb0dd2d151cad8d4e8781"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "203e75a444d8cc2e1d88636e24598f79850d95291e49311999a2293f6359b88d"
   },
   "exports": [
     "lsd_abi_version",
