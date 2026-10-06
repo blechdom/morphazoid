@@ -1517,6 +1517,37 @@ mod browser_tests {
         }
     }
     #[test]
+    fn staged_legacy_pool_controls_keep_the_original_signal_and_gain_contract() {
+        let mut first = scene(6);
+        first.pool[4..8].copy_from_slice(&1u32.to_le_bytes());
+        let mut staged = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        let settings = Performance {
+            automatic: false,
+            ..Performance::default()
+        };
+        staged.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        staged.begin_install(&first.pool).unwrap();
+        while !staged.step_install(19).unwrap() {}
+        reference.install(&first.pool).unwrap();
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        assert!(
+            staged.set_depth(0.8).is_err(),
+            "legacy pools retain their authored raw gains"
+        );
+        for block in 0..40 {
+            let input = signal(block * BLOCK);
+            staged.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left, reference_l);
+            assert_eq!(right, reference_r);
+        }
+    }
+    #[test]
     fn envelope_follows_native_attack_release_and_chronological_wrap() {
         let mut envelope = Envelope::new(48000);
         for _ in 0..480 {
