@@ -6,10 +6,14 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+#[path = "lab.rs"]
+mod lab;
+pub use lab::LabParameters;
+
 #[cfg(test)]
 pub const POOL_VOICES: usize = (1 << 14) - 2;
 pub const MAX_REPRESENTABLE_GENERATIONS: u8 = 52;
-pub const L_SYSTEM_TYPES: [&str; 17] = [
+pub const L_SYSTEM_TYPES: [&str; 23] = [
     "pythagorean",
     "plant",
     "coral",
@@ -27,42 +31,65 @@ pub const L_SYSTEM_TYPES: [&str; 17] = [
     "whorled",
     "ternary",
     "quaternary",
+    "peano",
+    "arrowhead",
+    "quadratic-koch",
+    "kolam",
+    "dekking",
+    "stochastic",
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct Parameters {
+    /// Optional independent lab compiler. Absence preserves every legacy rule.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lab: Option<LabParameters>,
     pub l_system_type: String,
     pub generations: u8,
     pub interval_ms: f64,
     pub time_ratio: f64,
     pub angle: f64,
+    pub curls: f64,
     pub asymmetry: f64,
     pub mutation: f64,
     pub pitch_scale: f64,
     pub pruning_bias: f64,
+    /// Generation decay factor; 1 retains equal energy at every audible layer.
     pub depth: f64,
     pub spread: f64,
+    /// Repeatable grammar choices; unrelated live edits never reroll them.
+    pub grammar_seed: u32,
+    /// Weight of the two-sided stochastic production; remaining probability
+    /// is divided equally between the one-sided productions.
+    pub branch_probability: f64,
 }
 impl Default for Parameters {
     fn default() -> Self {
         Self {
+            lab: None,
             l_system_type: "pythagorean".into(),
             generations: 13,
             interval_ms: 240.,
             time_ratio: 0.72,
             angle: 45.,
+            curls: 0.,
             asymmetry: 0.,
             mutation: 0.,
             pitch_scale: 1.,
             pruning_bias: 0.,
             depth: 0.72,
             spread: 0.9,
+            grammar_seed: 1,
+            branch_probability: 0.65,
         }
     }
 }
 impl Parameters {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(lab) = &self.lab {
+            lab.validate()?;
+        }
         if !L_SYSTEM_TYPES.contains(&self.l_system_type.as_str()) {
             return Err("lSystemType must name a supported L-system grammar".into());
         }
@@ -73,12 +100,14 @@ impl Parameters {
             ("intervalMs", self.interval_ms, 1., 3000.),
             ("timeRatio", self.time_ratio, 0.2, 2.),
             ("angle", self.angle, 0., 180.),
+            ("curls", self.curls, -8., 8.),
             ("asymmetry", self.asymmetry, -0.8, 0.8),
             ("mutation", self.mutation, 0., 1.),
             ("pitchScale", self.pitch_scale, 0., 4.),
             ("pruningBias", self.pruning_bias, -1., 1.),
-            ("depth", self.depth, 0., 0.96),
+            ("depth", self.depth, 0., 1.),
             ("spread", self.spread, 0., 1.),
+            ("branchProbability", self.branch_probability, 0., 1.),
         ] {
             if !value.is_finite() || !(low..=high).contains(&value) {
                 return Err(format!(
@@ -123,7 +152,7 @@ pub struct Topology {
     /// Numeric targets indexed by stable slot, with raw per-generation gains.
     pub targets: Vec<PoolTarget>,
     pub ranks: Vec<usize>,
-    /// 1..13 denotes selected-generation gain normalization; zero is unused.
+    /// Positive u8 groups normalize each selected generation; zero is unused.
     pub groups: Vec<u8>,
     /// Bounded, authoritative connected preview; never governs audio admission.
     pub preview: Vec<Node>,
@@ -131,12 +160,15 @@ pub struct Topology {
     pub eligible_voices: usize,
 }
 
-fn hash_unit(key: &str) -> f64 {
+fn hash_code(key: &str) -> u32 {
     let mut hash = 2_166_136_261_u32;
     for byte in key.bytes() {
         hash = (hash ^ u32::from(byte)).wrapping_mul(16_777_619);
     }
-    f64::from(hash) / f64::from(u32::MAX)
+    hash
+}
+fn hash_unit(key: &str) -> f64 {
+    f64::from(hash_code(key)) / f64::from(u32::MAX)
 }
 
 pub fn pool_keys(count: usize) -> Result<Vec<String>, String> {
@@ -155,6 +187,7 @@ pub fn pool_keys(count: usize) -> Result<Vec<String>, String> {
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 struct LayoutNode {
     id: String,
     parent: usize,
@@ -168,6 +201,8 @@ struct LayoutNode {
     turn: f64,
     length: f64,
     time_scale: f64,
+    /// Lab modules carry absolute pitch state; classic rules inherit turns.
+    module_pitch: Option<f64>,
 }
 
 fn visual_ratio(ratio: f64) -> f64 {
@@ -198,6 +233,7 @@ fn binary_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
         turn: 0.,
         length: 1.,
         time_scale: 1.,
+        module_pitch: None,
     });
     let visual_taper = visual_ratio(parameters.time_ratio);
     for id in 1..=count {
@@ -232,6 +268,7 @@ fn binary_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
             turn,
             length,
             time_scale: parameters.time_ratio.powf(f64::from(generation)) * (1. - variation),
+            module_pitch: None,
         });
     }
     Ok(layout)
@@ -283,6 +320,35 @@ fn grammar(id: &str) -> Grammar {
         // three or four children across repeated passes.
         "ternary" => ("FX", &[(b'X', "[+FX][FX][-FX]")], 5, b"F", b""),
         "quaternary" => ("FX", &[(b'X', "[++FX][+FX][-FX][--FX]")], 4, b"F", b""),
+        // Author transcriptions: ABOP figs 1.17(a), 1.10(b), 1.6, 1.11(b).
+        // X/Y rename the original left/right turtle modules without changing
+        // their productions or geometry. Dekking's entry is the square E-curve.
+        "peano" => (
+            "X",
+            &[
+                (b'X', "XFYFX-F-YFXFY+F+XFYFX"),
+                (b'Y', "YFXFY+F+XFYFX-F-YFXFY"),
+            ],
+            4,
+            b"F",
+            b"",
+        ),
+        "arrowhead" => ("Y", &[(b'X', "Y+X+Y"), (b'Y', "X-Y-X")], 7, b"XY", b""),
+        "quadratic-koch" => ("F-F-F-F", &[(b'F', "F-F+F+FF-F-F+F")], 3, b"F", b""),
+        // Official L-studio graphics manual, section 3.1 / figure 7.
+        "kolam" => ("FX+F+FX+F", &[(b'X', "X-F-F+FX+F+FX-F-F+FX")], 5, b"F", b""),
+        "dekking" => (
+            "-Y",
+            &[
+                (b'X', "XX-Y-Y+X+X-Y-YX+Y+XXY-X+Y+XX+Y-XY-Y-X+X+YY-"),
+                (b'Y', "+XX-Y-Y+X+XY+X-YY-X-Y+XYY-X-YX+X+Y-Y-X+X+YY"),
+            ],
+            3,
+            b"XY",
+            b"",
+        ),
+        // Capacity prediction uses the longest possible weighted production.
+        "stochastic" => ("F", &[(b'F', "F[+F]F[-F]F")], 5, b"F", b""),
         _ => unreachable!("validated grammar"),
     };
     Grammar {
@@ -296,6 +362,9 @@ fn grammar(id: &str) -> Grammar {
 
 /// Counts rewrite instructions without allocating their exponentially growing strings.
 pub fn generation_limit(id: &str, memory_capacity: usize) -> u8 {
+    if id == "stochastic" {
+        return stochastic_generation_limit(&Parameters::default(), memory_capacity);
+    }
     let mut limit = 1;
     for generations in 1..=MAX_REPRESENTABLE_GENERATIONS {
         let fits = if id == "pythagorean" {
@@ -376,6 +445,7 @@ struct Turtle {
     parent: Option<usize>,
 }
 struct Segment {
+    lineage: Option<String>,
     start_x: f64,
     start_y: f64,
     x: f64,
@@ -387,6 +457,194 @@ struct Segment {
     end_distance: f64,
     parent: usize,
     rule: char,
+}
+
+const STOCHASTIC_PRODUCTIONS: [&str; 3] = ["F[+F]F[-F]F", "F[+F]F", "F[-F]F"];
+
+/// Simultaneous weighted productions. Full rewrite lineage keeps segment
+/// identities collision-free; only the random decision is hashed. Neither
+/// admission capacity nor any continuous parameter enters that decision.
+fn stochastic_instructions_with_capacity(
+    parameters: &Parameters,
+    iterations: u8,
+    capacity: usize,
+) -> Result<(Vec<u8>, Vec<String>), String> {
+    let mut symbols = vec![(b'F', "0".to_string())];
+    for _ in 0..iterations {
+        let mut next_size = 0usize;
+        let mut paints = 0usize;
+        for (symbol, lineage) in &symbols {
+            let replacement = if *symbol == b'F' {
+                let unit = hash_unit(&format!("grammar:{}:{lineage}", parameters.grammar_seed));
+                let probability = parameters.branch_probability;
+                let choice = if unit < probability {
+                    0
+                } else if unit < probability + (1. - probability) / 2. {
+                    1
+                } else {
+                    2
+                };
+                paints = paints.saturating_add(
+                    STOCHASTIC_PRODUCTIONS[choice]
+                        .bytes()
+                        .filter(|symbol| *symbol == b'F')
+                        .count(),
+                );
+                STOCHASTIC_PRODUCTIONS[choice].len()
+            } else {
+                1
+            };
+            next_size = next_size
+                .checked_add(replacement)
+                .ok_or("Grammar size exceeds addressable storage")?;
+        }
+        let longest = symbols
+            .iter()
+            .map(|(_, lineage)| lineage.len())
+            .max()
+            .unwrap_or(0)
+            .saturating_add(5);
+        let rewrite_bytes = next_size.saturating_mul(std::mem::size_of::<(u8, String)>() + longest);
+        if paints > capacity || rewrite_bytes > capacity.saturating_mul(2048) {
+            return Err("Requested stochastic grammar exceeds currently available memory; the previous tree is retained".into());
+        }
+        crate::resources::check_bytes(rewrite_bytes)?;
+        let mut next = crate::resources::reserve(next_size)?;
+        for (symbol, lineage) in symbols {
+            if symbol != b'F' {
+                next.push((symbol, lineage));
+                continue;
+            }
+            let unit = hash_unit(&format!("grammar:{}:{lineage}", parameters.grammar_seed));
+            let probability = parameters.branch_probability;
+            let choice = if unit < probability {
+                0
+            } else if unit < probability + (1. - probability) / 2. {
+                1
+            } else {
+                2
+            };
+            for (index, child) in STOCHASTIC_PRODUCTIONS[choice].bytes().enumerate() {
+                next.push((child, format!("{lineage}/{choice}.{index}")));
+            }
+        }
+        symbols = next;
+    }
+    let mut instructions = crate::resources::reserve(symbols.len())?;
+    let mut lineages = crate::resources::reserve(symbols.len())?;
+    for (symbol, lineage) in symbols {
+        instructions.push(symbol);
+        lineages.push(lineage);
+    }
+    Ok((instructions, lineages))
+}
+
+fn stochastic_instructions(
+    parameters: &Parameters,
+    iterations: u8,
+) -> Result<(Vec<u8>, Vec<String>), String> {
+    stochastic_instructions_with_capacity(
+        parameters,
+        iterations,
+        crate::resources::voice_capacity(),
+    )
+}
+
+/// The chosen seed and production weights determine stochastic demand. Do not
+/// cap a sparse realization at the worst-case all-five-child expansion.
+pub fn stochastic_generation_limit(parameters: &Parameters, memory_capacity: usize) -> u8 {
+    // A bounded cache avoids walking the possible crown on every continuous
+    // control edit. Computing capacity itself never allocates that crown.
+    type LimitCache = std::collections::VecDeque<((u32, u64, usize), u8)>;
+    thread_local! {
+        static LIMIT_CACHE: std::cell::RefCell<LimitCache> =
+            const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
+    }
+    let key = (
+        parameters.grammar_seed,
+        parameters.branch_probability.to_bits(),
+        memory_capacity,
+    );
+    if let Some(limit) = LIMIT_CACHE.with(|cache| {
+        cache
+            .borrow()
+            .iter()
+            .find_map(|(old, limit)| (*old == key).then_some(*limit))
+    }) {
+        return limit;
+    }
+    fn count(hash: u32, depth: u8, probability: f64, capacity: usize) -> Option<usize> {
+        if capacity == 0 {
+            return None;
+        }
+        if depth == 0 {
+            return Some(1);
+        }
+        if probability == 0. || probability == 1. {
+            let degree: usize = if probability == 0. { 3 } else { 5 };
+            return degree
+                .checked_pow(u32::from(depth))
+                .filter(|n| *n <= capacity);
+        }
+        let unit = f64::from(hash) / f64::from(u32::MAX);
+        let choice = if unit < probability {
+            0
+        } else if unit < probability + (1. - probability) / 2. {
+            1
+        } else {
+            2
+        };
+        let mut paints = 0usize;
+        for (index, symbol) in STOCHASTIC_PRODUCTIONS[choice].bytes().enumerate() {
+            if symbol != b'F' {
+                continue;
+            }
+            let mut child_hash = hash;
+            for byte in [b'/', b'0' + choice as u8, b'.'] {
+                child_hash = (child_hash ^ u32::from(byte)).wrapping_mul(16_777_619);
+            }
+            if index >= 10 {
+                child_hash = (child_hash ^ u32::from(b'1')).wrapping_mul(16_777_619);
+            }
+            child_hash =
+                (child_hash ^ u32::from(b'0' + (index % 10) as u8)).wrapping_mul(16_777_619);
+            paints = paints.checked_add(count(
+                child_hash,
+                depth - 1,
+                probability,
+                capacity - paints,
+            )?)?;
+        }
+        Some(paints)
+    }
+    let mut limit = 1;
+    let mut checked = 0;
+    let root_hash = hash_code(&format!("grammar:{}:0", parameters.grammar_seed));
+    for generations in 1..=MAX_REPRESENTABLE_GENERATIONS {
+        let iterations = ((5. * f64::from(generations) / 13.).round() as u8).max(1);
+        if iterations != checked {
+            if count(
+                root_hash,
+                iterations,
+                parameters.branch_probability,
+                memory_capacity,
+            )
+            .is_none()
+            {
+                break;
+            }
+            checked = iterations;
+        }
+        limit = generations;
+    }
+    LIMIT_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if cache.len() >= 4 {
+            cache.pop_front();
+        }
+        cache.push_back((key, limit));
+    });
+    limit
 }
 
 fn acoustic_path_time(progress: f64, count: u8, ratio: f64) -> f64 {
@@ -409,8 +667,14 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     let iterations = ((f64::from(grammar.iterations) * f64::from(parameters.generations) / 13.)
         .round() as u8)
         .max(1);
-    let mut instructions = grammar.axiom.as_bytes().to_vec();
-    for _ in 0..iterations {
+    let stochastic = parameters.l_system_type == "stochastic";
+    let (mut instructions, mut lineages) = if stochastic {
+        let (instructions, lineages) = stochastic_instructions(parameters, iterations)?;
+        (instructions, Some(lineages.into_iter()))
+    } else {
+        (grammar.axiom.as_bytes().to_vec(), None)
+    };
+    for _ in 0..if stochastic { 0 } else { iterations } {
         let next_size = instructions
             .iter()
             .try_fold(0usize, |count, symbol| {
@@ -452,6 +716,7 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     let turn = parameters.angle * std::f64::consts::PI / 180.;
     let taper = visual_ratio(parameters.time_ratio).max(0.05);
     for command in instructions {
+        let lineage = lineages.as_mut().and_then(Iterator::next);
         let paintable = grammar.draw.contains(&command) || command == b'B';
         if paintable || grammar.pen_up.contains(&command) {
             let signed_distance = if command == b'B' { -distance } else { distance };
@@ -470,6 +735,7 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
                 .map_or(0., |index| state.turn_total - segments[index].turn_total);
             let index = segments.len();
             segments.push(Segment {
+                lineage,
                 start_x,
                 start_y,
                 x: state.x,
@@ -516,7 +782,10 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
         let id = if index == 0 {
             "trunk".to_string()
         } else {
-            format!("{}:{index}", parameters.l_system_type)
+            segment.lineage.map_or_else(
+                || format!("{}:{index}", parameters.l_system_type),
+                |lineage| format!("{}:{lineage}", parameters.l_system_type),
+            )
         };
         let variation = hash_unit(&format!("{id}:length")) * parameters.mutation * 0.3;
         LayoutNode {
@@ -541,9 +810,65 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
                 - acoustic_path_time(start, parameters.generations, parameters.time_ratio))
             .max(1e-9)
                 * (1. - variation),
+            module_pitch: None,
         }
     }));
     Ok(layout)
+}
+
+/// Distribute signed winding over the original descendant path distance.
+/// Segment identities, gaps, lengths and delay intervals remain unchanged;
+/// the same added relative turn drives each segment's inherited pitch.
+fn apply_curls(layout: &mut [LayoutNode], curls: f64) -> Result<(), String> {
+    // Preserve every original coordinate and acoustic turn exactly at zero.
+    if curls == 0. || layout.len() <= 1 {
+        return Ok(());
+    }
+    // Snapshot numeric parent tips before moving them, without copying any
+    // strings or the full layout. The root contributes no winding distance.
+    let mut paths: Vec<(f64, f64, f64)> = crate::resources::reserve(layout.len())?;
+    let mut longest = 0_f64;
+    for (index, node) in layout.iter().enumerate() {
+        let path = if index == 0 {
+            0.
+        } else {
+            let (parent_x, parent_y, parent_path) = paths[node.parent];
+            parent_path + node.length + (node.start_x - parent_x).hypot(node.start_y - parent_y)
+        };
+        if !path.is_finite() {
+            return Err("Curls require finite branch path distances".into());
+        }
+        longest = longest.max(path);
+        paths.push((node.x, node.y, path));
+    }
+    if longest == 0. {
+        return Ok(());
+    }
+    for index in 1..layout.len() {
+        let parent = layout[index].parent;
+        let (original_parent_x, original_parent_y, parent_path) = paths[parent];
+        let parent_phase = 360. * curls * (parent_path / longest);
+        let phase = 360. * curls * (paths[index].2 / longest);
+        let (parent_sin, parent_cos) = parent_phase.to_radians().sin_cos();
+        let (sin, cos) = phase.to_radians().sin_cos();
+        let parent_x = layout[parent].x;
+        let parent_y = layout[parent].y;
+        let node = &mut layout[index];
+        let gap_x = node.start_x - original_parent_x;
+        let gap_y = node.start_y - original_parent_y;
+        let segment_x = node.x - node.start_x;
+        let segment_y = node.y - node.start_y;
+        node.start_x = parent_x + gap_x * parent_cos - gap_y * parent_sin;
+        node.start_y = parent_y + gap_x * parent_sin + gap_y * parent_cos;
+        node.x = node.start_x + segment_x * cos - segment_y * sin;
+        node.y = node.start_y + segment_x * sin + segment_y * cos;
+        node.heading += phase;
+        node.turn += phase - parent_phase;
+        if let Some(pitch) = &mut node.module_pitch {
+            *pitch += phase / 180. * 12.;
+        }
+    }
+    Ok(())
 }
 
 #[derive(Clone, Copy)]
@@ -683,11 +1008,14 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         (8_000..=192_000).contains(&sample_rate),
         "unsupported sample rate"
     );
-    let layout = if parameters.l_system_type == "pythagorean" {
+    let mut layout = if let Some(lab) = &parameters.lab {
+        lab::layout(parameters, lab)?
+    } else if parameters.l_system_type == "pythagorean" {
         binary_layout(parameters)?
     } else {
         classic_layout(parameters)?
     };
+    apply_curls(&mut layout, parameters.curls)?;
     let requested_voices = layout.len().saturating_sub(1);
     let mut nodes: Vec<Node> = crate::resources::reserve(requested_voices)?;
     nodes.extend(layout.iter().enumerate().skip(1).map(|(id, node)| Node {
@@ -730,7 +1058,10 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         let node = &mut nodes[index];
         let (parent_delay, parent_semitones) = lineage[node.parent];
         node.delay = parent_delay + base * node.time_scale;
-        let semitones = parent_semitones + node.turn_degrees / 180. * 12. * parameters.pitch_scale;
+        let semitones = layout[node.id].module_pitch.map_or(
+            parent_semitones + node.turn_degrees / 180. * 12. * parameters.pitch_scale,
+            |pitch| pitch * parameters.pitch_scale,
+        );
         lineage[node.id] = (node.delay, semitones);
         node.rate = 2_f64.powf(semitones / 12.).clamp(0.125, 8.);
         node.pan = (node.y / maximum_y * parameters.spread).clamp(-1., 1.);
@@ -758,7 +1089,12 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
     assert_eq!(order.len(), eligible_voices, "connected audible priority");
     let mut ranks = crate::resources::filled(nodes.len(), usize::MAX)?;
     let trunk = &layout[0];
-    let mut preview = crate::resources::reserve(2049)?;
+    let preview_limit = if parameters.lab.is_some() {
+        requested_voices
+    } else {
+        2048
+    };
+    let mut preview = crate::resources::reserve(preview_limit.saturating_add(1))?;
     preview.push(Node {
         id: 0,
         parent: 0,
@@ -784,7 +1120,7 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
     for (rank, index) in order.into_iter().enumerate() {
         ranks[index] = rank;
         nodes[index].priority = Some(rank);
-        if rank < 2048 {
+        if rank < preview_limit {
             preview.push(nodes[index].clone());
         }
     }
@@ -817,6 +1153,564 @@ mod tests {
     const BRANCHING_TYPES: [&str; 6] = ["bush", "fan", "fern", "whorled", "ternary", "quaternary"];
 
     #[test]
+    fn exploration_grammars_have_sourced_counts_and_real_independent_audio_targets() {
+        for (id, count, angle) in [
+            ("peano", 6560, 90.),
+            ("arrowhead", 2187, 60.),
+            ("quadratic-koch", 2048, 90.),
+            ("kolam", 5460, 90.),
+            ("dekking", 15625, 90.),
+            ("stochastic", 1543, 25.),
+        ] {
+            let topology = compile(
+                &Parameters {
+                    l_system_type: id.into(),
+                    angle,
+                    interval_ms: 1.,
+                    ..Parameters::default()
+                },
+                48_000,
+            );
+            assert_eq!(topology.requested_voices, count - 1, "{id}");
+            assert_eq!(topology.eligible_voices, count - 1, "{id}");
+            assert_eq!(topology.targets.len(), count - 1, "{id}");
+            let mut keys: Vec<_> = topology.nodes.iter().map(|node| &node.key).collect();
+            keys.sort();
+            keys.dedup();
+            assert_eq!(keys.len(), count - 1, "{id}: unique audio identities");
+            assert!(
+                topology
+                    .nodes
+                    .iter()
+                    .any(|node| node.turn_degrees.abs() > 0.),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn stochastic_productions_are_repeatable_weighted_and_immune_to_unrelated_live_controls() {
+        let base = Parameters {
+            l_system_type: "stochastic".into(),
+            ..Parameters::default()
+        };
+        let original = classic_layout(&base).unwrap();
+        assert_eq!(classic_layout(&base).unwrap(), original);
+        let changed = classic_layout(&Parameters {
+            angle: 77.,
+            time_ratio: 1.13,
+            interval_ms: 923.,
+            mutation: 0.8,
+            pitch_scale: 3.5,
+            ..base.clone()
+        })
+        .unwrap();
+        assert_eq!(
+            original
+                .iter()
+                .map(|node| (&node.id, node.parent, node.rule))
+                .collect::<Vec<_>>(),
+            changed
+                .iter()
+                .map(|node| (&node.id, node.parent, node.rule))
+                .collect::<Vec<_>>()
+        );
+        assert_ne!(original[1].x, changed[1].x);
+        assert_ne!(
+            classic_layout(&Parameters {
+                grammar_seed: 2,
+                ..base.clone()
+            })
+            .unwrap(),
+            original
+        );
+        assert_eq!(
+            classic_layout(&Parameters {
+                branch_probability: 0.,
+                ..base.clone()
+            })
+            .unwrap()
+            .len(),
+            3usize.pow(5)
+        );
+        assert_eq!(
+            classic_layout(&Parameters {
+                branch_probability: 1.,
+                ..base.clone()
+            })
+            .unwrap()
+            .len(),
+            5usize.pow(5)
+        );
+        assert!(stochastic_generation_limit(&base, 1543) >= 13);
+        assert!(stochastic_generation_limit(&base, 1542) < 13);
+        assert!(
+            stochastic_generation_limit(
+                &Parameters {
+                    branch_probability: 0.,
+                    ..base.clone()
+                },
+                20_000
+            ) > stochastic_generation_limit(
+                &Parameters {
+                    branch_probability: 1.,
+                    ..base
+                },
+                20_000
+            )
+        );
+    }
+
+    #[test]
+    fn stochastic_parameter_boundary_defaults_for_legacy_scenes_and_validates_probability() {
+        let legacy: Parameters = serde_json::from_str(r#"{"lSystemType":"stochastic"}"#).unwrap();
+        assert_eq!(legacy.grammar_seed, 1);
+        assert_eq!(legacy.branch_probability, 0.65);
+        for probability in [-0.01, 1.01, f64::NAN, f64::INFINITY] {
+            assert!(Parameters {
+                branch_probability: probability,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+        assert!(serde_json::from_str::<Parameters>(r#"{"grammarSeed":4294967296}"#).is_err());
+        assert!(serde_json::from_str::<Parameters>(r#"{"grammarSeed":1.5}"#).is_err());
+        let maximum: Parameters =
+            serde_json::from_str(r#"{"grammarSeed":4294967295,"branchProbability":1}"#).unwrap();
+        assert!(maximum.validate().is_ok());
+    }
+
+    fn test_segment(parent: usize, start: (f64, f64), end: (f64, f64)) -> LayoutNode {
+        let dx = end.0 - start.0;
+        let dy = end.1 - start.1;
+        LayoutNode {
+            id: format!("segment:{parent}"),
+            parent,
+            generation: 1,
+            rule: 'F',
+            start_x: start.0,
+            start_y: start.1,
+            x: end.0,
+            y: end.1,
+            heading: dy.atan2(dx).to_degrees(),
+            turn: 0.,
+            length: dx.hypot(dy),
+            time_scale: 1.,
+            module_pitch: None,
+        }
+    }
+
+    fn assert_near(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1e-11 * (1. + expected.abs()),
+            "actual={actual}, expected={expected}"
+        );
+    }
+
+    #[test]
+    fn depth_one_keeps_equal_generation_energy_and_preserves_branch_identity() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                generations: 6,
+                interval_ms: 2.,
+                depth: 0.96,
+                ..Parameters::default()
+            };
+            let decaying = compile(&parameters, 8000);
+            let full = compile(
+                &Parameters {
+                    depth: 1.,
+                    ..parameters
+                },
+                8000,
+            );
+            assert_eq!(full.requested_voices, decaying.requested_voices, "{id}");
+            assert_eq!(full.eligible_voices, decaying.eligible_voices, "{id}");
+            assert_eq!(full.ranks, decaying.ranks, "{id}");
+            assert_eq!(full.groups, decaying.groups, "{id}");
+            let mut energy = [0.; 256];
+            for ((node, old), target) in full.nodes.iter().zip(&decaying.nodes).zip(&full.targets) {
+                assert_eq!(
+                    (
+                        node.id,
+                        node.parent,
+                        node.voice_index,
+                        &node.key,
+                        &node.parent_key,
+                        node.generation,
+                        node.rule,
+                        node.delay,
+                        node.rate,
+                        node.pan,
+                        node.priority
+                    ),
+                    (
+                        old.id,
+                        old.parent,
+                        old.voice_index,
+                        &old.key,
+                        &old.parent_key,
+                        old.generation,
+                        old.rule,
+                        old.delay,
+                        old.rate,
+                        old.pan,
+                        old.priority
+                    ),
+                    "{id}"
+                );
+                assert_eq!(
+                    target.gain,
+                    if node.delay <= 39. + 1e-9 { 0.5 } else { 0. },
+                    "{id}: generation {} retains the history boundary",
+                    node.generation
+                );
+                energy[usize::from(node.generation)] += node.gain * node.gain;
+            }
+            let audible: Vec<_> = energy.into_iter().filter(|energy| *energy > 0.).collect();
+            assert!(audible.len() >= 2, "{id} has multiple audible layers");
+            for energy in audible {
+                assert_near(energy, 0.25);
+            }
+        }
+        let limited_history = compile(
+            &Parameters {
+                generations: 6,
+                interval_ms: 3000.,
+                time_ratio: 2.,
+                depth: 1.,
+                ..Parameters::default()
+            },
+            8000,
+        );
+        assert!(limited_history.nodes.iter().any(|node| node.delay > 39.));
+        for (node, target) in limited_history.nodes.iter().zip(&limited_history.targets) {
+            if node.delay > 39. + 1e-9 {
+                assert_eq!(target.gain, 0.);
+                assert_eq!(node.priority, None);
+            }
+        }
+    }
+
+    #[test]
+    fn depth_validates_the_inclusive_no_decay_endpoint() {
+        for depth in [0., 0.96, 1.] {
+            assert!(Parameters {
+                depth,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_ok());
+        }
+        for depth in [-0.001, 1.0001, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(Parameters {
+                depth,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+    }
+
+    #[test]
+    fn curls_zero_preserves_every_layout_field_exactly_in_all_grammars() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                angle: 37.,
+                asymmetry: -0.23,
+                mutation: 0.37,
+                time_ratio: 1.1,
+                ..Parameters::default()
+            };
+            let mut layout = if id == "pythagorean" {
+                binary_layout(&parameters).unwrap()
+            } else {
+                classic_layout(&parameters).unwrap()
+            };
+            let original = layout.clone();
+            for zero in [0., -0.] {
+                apply_curls(&mut layout, zero).unwrap();
+                assert_eq!(layout, original, "{id}");
+            }
+        }
+    }
+
+    #[test]
+    fn curls_wind_a_straight_path_in_both_directions_without_moving_the_root() {
+        for sign in [-1., 1.] {
+            let mut layout = vec![
+                test_segment(0, (0., 0.), (1., 0.)),
+                test_segment(0, (1., 0.), (2., 0.)),
+                test_segment(1, (2., 0.), (3., 0.)),
+                test_segment(2, (3., 0.), (4., 0.)),
+            ];
+            let root = layout[0].clone();
+            apply_curls(&mut layout, sign * 0.25).unwrap();
+            assert_eq!(layout[0], root);
+            let h = 3_f64.sqrt() / 2.;
+            for (index, expected) in [
+                (1, (1. + h, 0.5)),
+                (2, (1.5 + h, 0.5 + h)),
+                (3, (1.5 + h, 1.5 + h)),
+            ] {
+                let node = &layout[index];
+                assert_near(node.x, expected.0);
+                assert_near(node.y, sign * expected.1);
+                assert_near(node.heading, sign * index as f64 * 30.);
+                assert_near(node.turn, sign * 30.);
+                assert_eq!(
+                    (node.start_x, node.start_y),
+                    (layout[index - 1].x, layout[index - 1].y)
+                );
+                assert_near((node.x - node.start_x).hypot(node.y - node.start_y), 1.);
+            }
+        }
+    }
+
+    #[test]
+    fn curls_keep_pen_up_gaps_backward_segments_and_forks_attached_to_their_parent() {
+        let mut layout = vec![
+            test_segment(0, (0., 0.), (1., 0.)),
+            test_segment(0, (2., 0.), (3., 0.)),
+            test_segment(1, (3., 0.), (2., 0.)),
+            test_segment(1, (3., 0.), (3., 1.)),
+        ];
+        apply_curls(&mut layout, 0.25).unwrap();
+        // The gap counts toward winding, but rotates with its parent's phase.
+        assert_eq!((layout[1].start_x, layout[1].start_y), (2., 0.));
+        assert_near(layout[1].heading, 60.);
+        let parent_tip = (2.5, 3_f64.sqrt() / 2.);
+        assert_near(layout[1].x, parent_tip.0);
+        assert_near(layout[1].y, parent_tip.1);
+        for node in &layout[2..] {
+            assert_eq!((node.start_x, node.start_y), (layout[1].x, layout[1].y));
+            assert_near(node.turn, 30.);
+        }
+        assert_near(layout[2].x, parent_tip.0);
+        assert_near(layout[2].y, parent_tip.1 - 1.);
+        assert_near(layout[3].x, parent_tip.0 - 1.);
+        assert_near(layout[3].y, parent_tip.1);
+
+        // A later pen-up gap follows the deformed parent, including its bearing.
+        let mut gap = vec![
+            test_segment(0, (0., 0.), (1., 0.)),
+            test_segment(0, (1., 0.), (2., 0.)),
+            test_segment(1, (3., 0.), (4., 0.)),
+        ];
+        apply_curls(&mut gap, 0.25).unwrap();
+        assert_near(gap[1].heading, 30.);
+        assert_near(gap[2].start_x - gap[1].x, 3_f64.sqrt() / 2.);
+        assert_near(gap[2].start_y - gap[1].y, 0.5);
+        assert_near(gap[2].x - gap[2].start_x, 0.);
+        assert_near(gap[2].y - gap[2].start_y, 1.);
+    }
+
+    #[test]
+    fn curls_change_audio_pitch_and_pan_without_changing_voices_delays_or_admission() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                angle: 0.,
+                pitch_scale: 0.25,
+                pruning_bias: 0.65,
+                ..Parameters::default()
+            };
+            let original = compile(&parameters, 48_000);
+            let curled = compile(
+                &Parameters {
+                    curls: 0.125,
+                    ..parameters
+                },
+                48_000,
+            );
+            assert_eq!(curled.preview[0], original.preview[0], "{id} root");
+            assert_eq!(curled.requested_voices, original.requested_voices, "{id}");
+            assert_eq!(curled.eligible_voices, original.eligible_voices, "{id}");
+            assert_eq!(curled.ranks, original.ranks, "{id}");
+            assert_eq!(curled.groups, original.groups, "{id}");
+            assert!(
+                curled
+                    .targets
+                    .iter()
+                    .zip(&original.targets)
+                    .any(|(a, b)| (a.rate - b.rate).abs() > 1e-6),
+                "{id} pitch"
+            );
+            assert!(
+                curled
+                    .targets
+                    .iter()
+                    .zip(&original.targets)
+                    .any(|(a, b)| (a.pan - b.pan).abs() > 1e-6),
+                "{id} pan"
+            );
+            let mut pitch = vec![0_f64; curled.nodes.len() + 1];
+            for (node, old) in curled.nodes.iter().zip(&original.nodes) {
+                assert_eq!(
+                    (
+                        node.id,
+                        node.parent,
+                        node.voice_index,
+                        &node.key,
+                        &node.parent_key,
+                        node.generation,
+                        node.rule
+                    ),
+                    (
+                        old.id,
+                        old.parent,
+                        old.voice_index,
+                        &old.key,
+                        &old.parent_key,
+                        old.generation,
+                        old.rule
+                    ),
+                    "{id} identity"
+                );
+                assert_eq!(
+                    (
+                        node.length,
+                        node.time_scale,
+                        node.delay,
+                        node.gain,
+                        node.priority
+                    ),
+                    (
+                        old.length,
+                        old.time_scale,
+                        old.delay,
+                        old.gain,
+                        old.priority
+                    ),
+                    "{id} timing and admission"
+                );
+                let target = curled.targets[node.voice_index];
+                assert_eq!(
+                    target.delay, original.targets[node.voice_index].delay,
+                    "{id}"
+                );
+                assert_eq!(target.gain, original.targets[node.voice_index].gain, "{id}");
+                pitch[node.id] = pitch[node.parent] + node.turn_degrees / 180. * 12. * 0.25;
+                assert_near(
+                    target.rate,
+                    2_f64.powf(pitch[node.id] / 12.).clamp(0.125, 8.),
+                );
+            }
+        }
+        let large = compile(
+            &Parameters {
+                generations: 14,
+                curls: 1.25,
+                ..Parameters::default()
+            },
+            48_000,
+        );
+        assert_eq!(large.requested_voices, 32_766);
+        assert_eq!(large.eligible_voices, 32_766);
+        assert_eq!(
+            large.targets.len(),
+            32_766,
+            "Curls preserve the full audio pool beyond preview capacity"
+        );
+    }
+
+    #[test]
+    fn curls_are_finite_and_bounded_in_all_grammars_at_control_extremes() {
+        for id in L_SYSTEM_TYPES {
+            for (interval_ms, time_ratio, depth, angle, asymmetry, pitch_scale) in [
+                (1., 0.2, 0., 0., -0.8, 0.),
+                (240., 0.72, 0.72, 45., 0., 1.),
+                (3000., 2., 0.96, 180., 0.8, 4.),
+            ] {
+                for curls in [-8., -0.15, 0.15, 8.] {
+                    let topology = compile(
+                        &Parameters {
+                            l_system_type: id.into(),
+                            interval_ms,
+                            time_ratio,
+                            depth,
+                            angle,
+                            asymmetry,
+                            pitch_scale,
+                            mutation: 1.,
+                            pruning_bias: 0.65,
+                            curls,
+                            ..Parameters::default()
+                        },
+                        8_000,
+                    );
+                    for (node, target) in topology.nodes.iter().zip(&topology.targets) {
+                        assert!(
+                            [
+                                node.start_x,
+                                node.start_y,
+                                node.x,
+                                node.y,
+                                node.heading_degrees,
+                                node.turn_degrees,
+                                node.length,
+                                node.time_scale,
+                                node.delay
+                            ]
+                            .into_iter()
+                            .all(f64::is_finite),
+                            "{id}/{curls}"
+                        );
+                        assert!(
+                            target.delay.is_finite() && target.delay > 0.,
+                            "{id}/{curls}"
+                        );
+                        assert!((0.125..=8.).contains(&target.rate), "{id}/{curls}");
+                        assert!((0. ..=0.5).contains(&target.gain), "{id}/{curls}");
+                        assert!((-1. ..=1.).contains(&target.pan), "{id}/{curls}");
+                        assert_eq!(node.priority.is_some(), target.gain > 0., "{id}/{curls}");
+                        if target.delay > 39. + 1e-9 || depth == 0. {
+                            assert_eq!(target.gain, 0., "{id}/{curls}");
+                            assert_eq!(
+                                topology.ranks[node.voice_index],
+                                usize::MAX,
+                                "{id}/{curls}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn curls_validate_signed_bounds_and_default_for_legacy_parameter_json() {
+        for curls in [-8., 0., 8.] {
+            assert!(Parameters {
+                curls,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_ok());
+        }
+        for curls in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -8.01, 8.01] {
+            assert!(Parameters {
+                curls,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+        assert_eq!(
+            serde_json::from_str::<Parameters>(r#"{"angle":35,"pitchScale":0.75}"#)
+                .unwrap()
+                .curls,
+            0.
+        );
+        let parsed: Parameters = serde_json::from_str(r#"{"curls":-1.25}"#).unwrap();
+        assert_eq!(parsed.curls, -1.25);
+        assert_eq!(serde_json::to_value(parsed).unwrap()["curls"], -1.25);
+    }
+
+    #[test]
     fn branching_grammars_append_stable_ids_and_have_exact_default_rewrite_counts() {
         assert_eq!(
             &L_SYSTEM_TYPES[..11],
@@ -834,7 +1728,7 @@ mod tests {
                 "terdragon",
             ]
         );
-        assert_eq!(&L_SYSTEM_TYPES[11..], &BRANCHING_TYPES);
+        assert_eq!(&L_SYSTEM_TYPES[11..17], &BRANCHING_TYPES);
         // Bush/fan draw 5^5 segments. Fern/whorled draw 2 * (3^7 - 2^7).
         // Persistent buds add sum(3^1..3^5) or sum(4^1..4^4) descendants.
         // The first segment owns the input rather than a delay voice.

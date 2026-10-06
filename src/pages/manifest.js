@@ -90,6 +90,8 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "l-mic-rust.html",
   "l-mic.html",
   "l-system-drum-machine.html",
+  "l-system-experiments.html",
+  "l-system-parametric-lab.html",
   "l-system.html",
   "l-systems.html",
   "lattice-drum-machine.html",

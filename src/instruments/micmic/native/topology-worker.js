@@ -25,7 +25,9 @@ self.onmessage = ({ data }) => {
         // Preserve the full classic drawing without rebuilding its priority
         // heap on the live UI thread. Structural ranks survive depth zero so a
         // coefficient edit can resume the same branches without recompiling.
-        if (result.parameters.generations <= 13) {
+        // Laboratory modules carry their own geometry, symbols and acoustic
+        // parameters. Their Rust preview is the same topology sent to DSP.
+        if (!result.parameters.lab && result.parameters.generations <= 13) {
           result.visualNodes = buildPreview({ ...result.parameters, depth: result.parameters.depth || .5 }, generationTopology)
             .map(({ id, parentId, generation, index, voiceIndex, startX, startY, x, y, delay, rate, gain, priority }) =>
               ({ id, parentId, generation, index, voiceIndex, startX, startY, x, y, delay, rate, gain, priority }));

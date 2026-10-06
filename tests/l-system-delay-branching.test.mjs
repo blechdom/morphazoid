@@ -3,7 +3,7 @@ import test from 'node:test';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import { L_SYSTEM_PRESETS, traceLSystem } from '../src/instruments/l-system/l-system.js';
-import { RUST_BRANCHING_GRAMMARS, generationTopology, generationVoiceSpecs } from '../src/instruments/micmic/micmic.js';
+import { RUST_BRANCHING_GRAMMARS, RUST_EXPLORATION_GRAMMARS, generationTopology, generationVoiceSpecs } from '../src/instruments/micmic/micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, L_SYSTEM_TYPES, buildPreview, isVoiceActive,
   randomState, sanitizeParameters } from '../src/instruments/micmic/native/model.js';
 import { decodeUtf8, withJson, wasmError } from '../src/instruments/micmic/native/wasm-abi.js';
@@ -61,7 +61,7 @@ function childrenByParent(nodes) {
 
 test('branching types append without changing any original type or exact topology/pruning order', () => {
   assert.deepEqual(L_SYSTEM_PRESETS.map(grammar => grammar.id), ORIGINAL_IDS);
-  assert.deepEqual(L_SYSTEM_TYPES, [...ORIGINAL_IDS, ...NEW_IDS]);
+  assert.deepEqual(L_SYSTEM_TYPES, [...ORIGINAL_IDS, ...NEW_IDS, ...RUST_EXPLORATION_GRAMMARS.map(grammar => grammar.id)]);
   assert.deepEqual(RUST_BRANCHING_GRAMMARS.map(grammar => grammar.id), NEW_IDS);
   assert.ok(Object.isFrozen(RUST_BRANCHING_GRAMMARS));
   for (const grammar of RUST_BRANCHING_GRAMMARS) assert.ok(Object.isFrozen(grammar) && Object.isFrozen(grammar.rules));

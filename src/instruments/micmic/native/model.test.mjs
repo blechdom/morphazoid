@@ -26,8 +26,8 @@ test('native bank preserves the sound settings in all sixteen original scenes', 
     assert.deepEqual(sanitizeParameters(scene.parameters), scene.parameters);
     assert.deepEqual(scene.parameters, { lSystemType: original.lSystemType, generations: original.generations,
       intervalMs: original.interval, timeRatio: original.timeRatio, angle: original.generationAngle,
-      asymmetry: original.generationAsymmetry, mutation: original.mutation, pitchScale: original.generationPitchScale,
-      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread }, preset.id);
+      asymmetry: original.generationAsymmetry, curls: 0, mutation: original.mutation, pitchScale: original.generationPitchScale,
+      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread, grammarSeed: 1, branchProbability: .65 }, preset.id);
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry,
     }, `${preset.id} mix`);
@@ -178,7 +178,7 @@ test('a topology captured at depth zero adopts the latest applied recursion with
   const captured = structural.map(node => ({ ...node, gain: node.generation === 0 ? 1 : 0 }));
   const transition = preparePreviewTransition(captured);
   const references = [...transition.nodes], ranks = transition.nodes.map(node => node.priority);
-  for (const depth of [.8, .2, 0, .91]) {
+  for (const depth of [.8, .2, 0, .91, 1]) {
     assert.equal(applyPreviewDepth(transition.nodes, depth), transition.nodes);
     assert.deepEqual(transition.nodes.map(node => node.priority), ranks);
     for (let index = 0; index < transition.nodes.length; index++) {
@@ -193,9 +193,25 @@ test('a topology captured at depth zero adopts the latest applied recursion with
 test('parameter sanitization retains finite controls and native limits', () => {
   assert.equal(sanitizeParameters({ angle: NaN }).angle, 45);
   assert.equal(sanitizeParameters({ generations: 20, pruningBias: -1 }).generations, 20);
+  assert.equal(sanitizeParameters({ depth: 1 }).depth, 1);
+  assert.equal(sanitizeParameters({ depth: 1.2 }).depth, 1);
   assert.equal(sanitizePerformance({ dry: 1, inputGain: 4 }).dry, .5);
   assert.equal(sanitizePerformance({ dry: 1, inputGain: 4 }).inputGain, 4);
   assert.equal(sanitizePerformance({ inputGain: 5 }).inputGain, 4);
+});
+test('no-decay scenes retain equal generation power through capture and recall on every grammar', () => {
+  for (const lSystemType of L_SYSTEM_TYPES) {
+    const parameters = { ...DEFAULT_PARAMETERS, lSystemType, generations: 7, depth: 1 };
+    const saved = JSON.parse(JSON.stringify(captureScene(parameters, DEFAULT_PERFORMANCE)));
+    const recalled = presetState(saved, DEFAULT_PERFORMANCE);
+    assert.equal(recalled.parameters.depth, 1, lSystemType);
+    const powers = new Map();
+    for (const node of buildPreview(recalled.parameters, generationTopology)) if (node.generation > 0 && node.priority !== null) {
+      powers.set(node.generation, (powers.get(node.generation) ?? 0) + node.gain ** 2);
+    }
+    assert.ok(powers.size > 1, `${lSystemType} has multiple audible generations`);
+    for (const [generation, power] of powers) assert.ok(Math.abs(power - .25) < 1e-10, `${lSystemType}/G${generation} shares unchanged generation power`);
+  }
 });
 
 test('mastering sanitization bounds every musical field and rejects non-finite cutoffs', () => {

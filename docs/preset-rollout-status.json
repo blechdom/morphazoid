@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 36,
-    "fullPresets": 1598,
+    "implemented": 38,
+    "fullPresets": 1782,
     "favesImplemented": 17,
     "activeRemaining": 62,
     "regularRemaining": 130
@@ -642,9 +642,9 @@
       "href": "l-mic-rust.html",
       "category": "audio-effect",
       "scope": "fave",
-      "presets": 26,
+      "presets": 186,
       "status": "implemented-verification-pending",
-      "evidence": "October 4 original preset parity, ten additional scenes and audio-clock branch travel; human listening and physical microphone acceptance remain pending."
+      "evidence": "October 6: 186 complete scenes across 23 grammar families, including the original preset parity bank, curves and stable stochastic branching. Actual WASM audio, scene recall and responsive controls covered by the L-system delay suites; human listening and physical microphone acceptance remain pending."
     },
     {
       "id": "graph-delay",
@@ -1425,6 +1425,26 @@
       "status": "deferred"
     },
     {
+      "id": "l-system-parametric-lab",
+      "label": "L-system Parametric Lab",
+      "href": "l-system-parametric-lab.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "October 6 copied Rust/WASM delay UI and 12 complete lab scenes; schema, actual WASM audio, live-session preset recall and responsive browser checks covered by the L-system lab suites. Human listening and physical microphone/touch checks remain unperformed."
+    },
+    {
+      "id": "l-system-experiments",
+      "label": "L-system Experiments",
+      "href": "l-system-experiments.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "October 6 copied Rust/WASM delay UI and 12 complete lab scenes; schema, actual WASM audio, live-session preset recall and responsive browser checks covered by the L-system lab suites. Human listening and physical microphone/touch checks remain unperformed."
+    },
+    {
       "id": "acoustic-manifold",
       "label": "Acoustic Manifold",
       "href": "acoustic-manifold.html",
@@ -1781,6 +1801,8 @@
       "cantor-lock",
       "escape-dust",
       "linebreaker",
+      "l-system-parametric-lab",
+      "l-system-experiments",
       "acoustic-manifold",
       "adaptive-airway",
       "birdsong-lab",

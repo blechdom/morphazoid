@@ -14,10 +14,12 @@ pub struct Adaptive {
     measured_limit: usize,
     trial_frames: usize,
     trial: bool,
+    restored_trial: bool,
     retry_step: usize,
     retirement_frames: usize,
     recovery_load: f64,
     jitter_margin: f64,
+    maintenance_recovery: bool,
 }
 impl Adaptive {
     pub fn new(sample_rate: u32, max_limit: usize) -> Self {
@@ -37,10 +39,12 @@ impl Adaptive {
             measured_limit: 0,
             trial_frames: 0,
             trial: false,
+            restored_trial: false,
             retry_step: 0,
             retirement_frames: 0,
             recovery_load: 0.,
             jitter_margin: 0.,
+            maintenance_recovery: false,
         }
     }
     pub fn limit(&self) -> usize {
@@ -57,6 +61,7 @@ impl Adaptive {
         self.last_good = self.limit;
         self.measured_limit = self.limit;
         self.trial = false;
+        self.restored_trial = false;
         self.stable_frames = 0;
     }
     pub fn set_demand(&mut self, demand: usize) {
@@ -67,6 +72,7 @@ impl Adaptive {
         if self.demand == 0 {
             self.stable_frames = 0;
             self.trial = false;
+            self.restored_trial = false;
         } else if self.limit == 0 {
             self.limit = 48.min(self.demand);
             self.last_good = self.limit;
@@ -79,6 +85,7 @@ impl Adaptive {
             self.last_good = self.limit;
             self.limit = restored;
             self.trial = true;
+            self.restored_trial = true;
             self.trial_frames = 0;
             self.stable_frames = 0;
         }
@@ -95,6 +102,20 @@ impl Adaptive {
         active: usize,
         target: usize,
     ) -> Option<usize> {
+        self.observe_active_with_maintenance(process_seconds, 0., frames, underrun, active, target)
+    }
+    /// Topology preparation consumes real deadline time, but does not prove
+    /// that each rendered voice became more expensive. Protect the current
+    /// block while retaining previously measured capacity for revalidation.
+    pub fn observe_active_with_maintenance(
+        &mut self,
+        process_seconds: f64,
+        maintenance_seconds: f64,
+        frames: usize,
+        underrun: bool,
+        active: usize,
+        target: usize,
+    ) -> Option<usize> {
         if frames == 0 || self.demand == 0 {
             return None;
         }
@@ -104,19 +125,25 @@ impl Adaptive {
         } else {
             2.
         };
-        if self.initialized {
-            self.mean += (load - self.mean) * (1. - (-duration / 0.12).exp());
-            self.peak = load.max(self.peak * (-duration / 0.25).exp());
+        let maintenance = if maintenance_seconds.is_finite() && maintenance_seconds > 0. {
+            (maintenance_seconds / duration).min(load)
         } else {
-            self.mean = load;
-            self.peak = load;
+            0.
+        };
+        let recurring_load = load - maintenance;
+        if self.initialized {
+            self.mean += (recurring_load - self.mean) * (1. - (-duration / 0.12).exp());
+            self.peak = recurring_load.max(self.peak * (-duration / 0.25).exp());
+        } else {
+            self.mean = recurring_load;
+            self.peak = recurring_load;
             self.initialized = true;
         }
         self.cooldown_frames = self.cooldown_frames.saturating_sub(frames);
         self.retirement_frames = self.retirement_frames.saturating_sub(frames);
         // Learn transient scheduling cost; it decays so extra capacity remains
         // discoverable when other activity on the device subsides.
-        self.jitter_margin = (load - self.mean)
+        self.jitter_margin = (recurring_load - self.mean)
             .max(0.)
             .max(self.jitter_margin * (-duration / 3.).exp());
         let releasing = self.retirement_frames > 0
@@ -132,7 +159,12 @@ impl Adaptive {
             && (underrun || load >= 1. || (self.mean >= 0.95 && self.cooldown_frames == 0))
         {
             let failed_step = self.limit.saturating_sub(self.last_good).max(1);
-            self.limit = if self.trial && self.last_good < self.limit && load < 1.5 && !underrun {
+            self.limit = if self.trial
+                && !self.restored_trial
+                && self.last_good < self.limit
+                && load < 1.5
+                && !underrun
+            {
                 self.last_good.max(1)
             } else {
                 ((self.limit as f64 * (0.85 / load.max(self.mean).max(1.)).min(0.9)).floor()
@@ -141,14 +173,24 @@ impl Adaptive {
             }
             .min(self.demand);
             self.last_good = self.limit;
-            self.measured_limit = self.measured_limit.min(self.limit);
+            let transient =
+                maintenance > 0. && recurring_load < 1. && self.mean < 0.95 && !underrun;
+            if transient {
+                self.maintenance_recovery = true;
+            } else {
+                self.measured_limit = self.measured_limit.min(self.limit);
+                self.maintenance_recovery = false;
+            }
             self.trial = false;
+            self.restored_trial = false;
             self.retry_step = (failed_step / 2).max(1);
             self.stable_frames = 0;
-            self.cooldown_frames = (self.sample_rate * 1.5).round() as usize;
+            self.cooldown_frames =
+                (self.sample_rate * if transient { 0.06 } else { 1.5 }).round() as usize;
             self.retirement_frames = (self.sample_rate * 0.6).round() as usize;
             self.recovery_load = load.max(self.mean).max(1.);
-        } else if self.cooldown_frames == 0
+        } else if maintenance == 0.
+            && self.cooldown_frames == 0
             && self.mean + self.jitter_margin < 0.95
             && self.peak < 0.995
         {
@@ -158,6 +200,7 @@ impl Adaptive {
                     self.last_good = self.limit;
                     self.measured_limit = self.measured_limit.max(self.limit);
                     self.trial = false;
+                    self.restored_trial = false;
                     self.retry_step = 0;
                     self.stable_frames = 0;
                 }
@@ -174,11 +217,15 @@ impl Adaptive {
                         // and mastering work. Spend only 80% of measured headroom,
                         // then validate the actual candidate instead of walking
                         // through every generation in fixed 25% increments.
-                        let sizing_load = self.mean.max(load).max(0.01);
+                        let sizing_load = self.mean.max(recurring_load).max(0.01);
                         let headroom = (0.95 - sizing_load - self.jitter_margin).max(0.);
                         let headroom_step =
                             (self.limit as f64 * headroom / sizing_load * 0.8) as usize;
-                        let step = if self.retry_step > 0 {
+                        let restored = self.measured_limit.min(self.demand);
+                        let restoring = self.maintenance_recovery && restored > self.limit;
+                        let step = if restoring {
+                            restored - self.limit
+                        } else if self.retry_step > 0 {
                             self.retry_step.min(headroom_step.max(1))
                         } else {
                             headroom_step.max(1)
@@ -190,8 +237,10 @@ impl Adaptive {
                             .min(self.demand)
                             .min(self.maximum);
                         self.trial = true;
+                        self.restored_trial = restoring;
                         self.trial_frames = 0;
                         self.stable_frames = 0;
+                        self.maintenance_recovery = false;
                     }
                 }
             }
@@ -209,6 +258,108 @@ mod tests {
         for _ in 0..blocks {
             controller.observe(load * 128. / 48_000., 128, false);
         }
+    }
+    #[test]
+    fn one_off_topology_cost_preserves_proved_capacity_and_restores_it_promptly() {
+        let mut controller = Adaptive::new(48000, 20000);
+        controller.start_at_measured_limit(6000);
+        controller.set_demand(2);
+        observe_load(&mut controller, 0.03, 200);
+        controller.set_demand(16382);
+        assert_eq!(controller.limit(), 6000);
+        let quantum = 128. / 48000.;
+        controller.observe_active_with_maintenance(
+            1.1 * quantum,
+            1.07 * quantum,
+            128,
+            false,
+            2,
+            6000,
+        );
+        assert!(
+            controller.limit() > 4000 && controller.limit() < 6000,
+            "unsafe restored work uses proportional backoff, not the tiny old scene"
+        );
+        assert_eq!(
+            controller.measured_limit(),
+            6000,
+            "one-off preparation is not evidence of a slower device"
+        );
+        let mut restored_at = None;
+        for block in 0..150 {
+            controller.observe_active(0.03 * quantum, 128, false, 2, controller.limit());
+            if controller.limit() >= 6000 {
+                restored_at = Some((block + 1) as f64 * quantum);
+                break;
+            }
+        }
+        assert!(
+            restored_at.unwrap() < 0.2,
+            "proved capacity returns without walking each generation"
+        );
+        assert!(
+            controller.trial,
+            "restoration must validate the current audio workload"
+        );
+        controller.observe_active(1.1 * quantum, 128, false, 6000, 6000);
+        assert!(controller.limit() < 6000);
+        assert_eq!(
+            controller.measured_limit(),
+            controller.limit(),
+            "true DSP overload invalidates old proof"
+        );
+    }
+
+    #[test]
+    fn maintenance_does_not_manufacture_capacity_proof_or_hide_recurring_overload() {
+        let mut controller = Adaptive::new(48000, 20000);
+        let quantum = 128. / 48000.;
+        for _ in 0..400 {
+            controller.observe_active_with_maintenance(
+                0.7 * quantum,
+                0.2 * quantum,
+                128,
+                false,
+                48,
+                48,
+            );
+        }
+        assert_eq!(controller.limit(), 48);
+        assert_eq!(
+            controller.measured_limit(),
+            0,
+            "preparation blocks cannot approve an unvalidated candidate"
+        );
+        controller.start_at_measured_limit(6000);
+        controller.observe_active_with_maintenance(
+            1.3 * quantum,
+            0.2 * quantum,
+            128,
+            false,
+            6000,
+            6000,
+        );
+        assert!(controller.limit() < 6000);
+        assert_eq!(
+            controller.measured_limit(),
+            controller.limit(),
+            "recurring audio cost itself missed the deadline"
+        );
+        controller.start_at_measured_limit(6000);
+        controller.observe_active_with_maintenance(
+            0.7 * quantum,
+            0.2 * quantum,
+            128,
+            true,
+            6000,
+            6000,
+        );
+        assert!(controller.limit() < 6000);
+        assert_eq!(
+            controller.measured_limit(),
+            controller.limit(),
+            "actual underruns always invalidate unsafe proof"
+        );
     }
     #[test]
     fn outgoing_fades_do_not_trigger_repeated_reductions() {
@@ -413,12 +564,9 @@ mod tests {
             "Restoration must measure the current device load again"
         );
         controller.observe(1.1 * 128. / 48000., 128, false);
-        assert_eq!(
-            controller.limit(),
-            63,
-            "A now-unsafe restored budget falls back to the running scene"
-        );
-        assert_eq!(controller.measured_limit(), 63);
+        assert!(controller.limit() > 4000 && controller.limit() < 6000,
+            "A restored budget uses measured proportional backoff rather than the tiny running scene");
+        assert_eq!(controller.measured_limit(), controller.limit());
         observe_load(&mut controller, 0.01, 48_000 / 128 * 4);
         assert!(
             controller.limit() > 63,

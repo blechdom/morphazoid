@@ -378,9 +378,54 @@ export const RUST_BRANCHING_GRAMMARS = Object.freeze([
   Object.freeze({ id: "quaternary", name: "Four-way canopy", axiom: "FX", rules: Object.freeze({ X: "[++FX][+FX][-FX][--FX]" }),
     iterations: 4, maxIterations: 4, angle: 22.5, lengthScale: 1 }),
 ]);
+// Authored transcriptions, not additions to the original synth/drum bank.
+// ABOP chapter 1: figs 1.17(a), 1.10(b), 1.6, 1.11(b), and section 1.7.
+// Snake Kolam: official L-studio graphics manual, section 3.1, figure 7.
+export const RUST_EXPLORATION_GRAMMARS = Object.freeze([
+  Object.freeze({ id: "peano", name: "Peano weave", axiom: "X", rules: Object.freeze({
+    X: "XFYFX-F-YFXFY+F+XFYFX", Y: "YFXFY+F+XFYFX-F-YFXFY" }),
+    iterations: 4, maxIterations: 4, angle: 90, lengthScale: 1 }),
+  Object.freeze({ id: "arrowhead", name: "Sierpiński arrowhead", axiom: "Y", rules: Object.freeze({
+    X: "Y+X+Y", Y: "X-Y-X" }), drawSymbols: "XY",
+    iterations: 7, maxIterations: 7, angle: 60, lengthScale: 1 }),
+  Object.freeze({ id: "quadratic-koch", name: "Quadratic Koch island", axiom: "F-F-F-F", rules: Object.freeze({
+    F: "F-F+F+FF-F-F+F" }), iterations: 3, maxIterations: 3, angle: 90, lengthScale: 1 }),
+  Object.freeze({ id: "kolam", name: "Snake Kolam", axiom: "FX+F+FX+F", rules: Object.freeze({
+    X: "X-F-F+FX+F+FX-F-F+FX" }), iterations: 5, maxIterations: 5, angle: 90, lengthScale: 1 }),
+  Object.freeze({ id: "dekking", name: "Dekking square curve", axiom: "-Y", rules: Object.freeze({
+    X: "XX-Y-Y+X+X-Y-YX+Y+XXY-X+Y+XX+Y-XY-Y-X+X+YY-",
+    Y: "+XX-Y-Y+X+XY+X-YY-X-Y+XYY-X-YX+X+Y-Y-X+X+YY" }), drawSymbols: "XY",
+    iterations: 3, maxIterations: 3, angle: 90, lengthScale: 1 }),
+  Object.freeze({ id: "stochastic", name: "Stochastic shrub", axiom: "F", rules: Object.freeze({ F: "F[+F]F[-F]F" }),
+    weightedRules: Object.freeze({ F: Object.freeze(["F[+F]F[-F]F", "F[+F]F", "F[-F]F"]) }),
+    iterations: 5, maxIterations: 5, angle: 25, lengthScale: 1 }),
+]);
 const L_SYSTEM_PRESET_BY_ID = new Map(
-  [...L_SYSTEM_PRESETS, ...RUST_BRANCHING_GRAMMARS].map((preset) => [preset.id, preset]),
+  [...L_SYSTEM_PRESETS, ...RUST_BRANCHING_GRAMMARS, ...RUST_EXPLORATION_GRAMMARS].map((preset) => [preset.id, preset]),
 );
+
+// Rust uses the same wrapping FNV steps. A replacement choice
+// depends only on its seed and original symbol lineage, never a frame clock,
+// array position, angle, pitch, time ratio, or other continuous control.
+export function expandStochasticGrammar(iterations, grammarSeed = 1, branchProbability = .65) {
+  const productions = RUST_EXPLORATION_GRAMMARS.find(grammar => grammar.id === "stochastic").weightedRules.F;
+  const seed = Math.round(clamp(Number(grammarSeed) || 0, 0, 0xffffffff)), probability = clamp(branchProbability);
+  let symbols = [{ symbol: "F", lineage: "0" }];
+  for (let pass = 0; pass < iterations; pass++) {
+    const next = [];
+    for (const { symbol, lineage } of symbols) {
+      if (symbol !== "F") { next.push({ symbol, lineage }); continue; }
+      const unit = hashUnit(`grammar:${seed}:${lineage}`);
+      const choice = unit < probability ? 0 : unit < probability + (1 - probability) / 2 ? 1 : 2;
+      const replacement = productions[choice];
+      for (let index = 0; index < replacement.length; index++) {
+        next.push({ symbol: replacement[index], lineage: `${lineage}/${choice}.${index}` });
+      }
+    }
+    symbols = next;
+  }
+  return { instructions: symbols.map(({ symbol }) => symbol).join(""), lineages: symbols.map(({ lineage }) => lineage) };
+}
 
 function canonicalTraceIterations(preset, generations) {
   const requestedGenerations = Math.max(
@@ -424,6 +469,8 @@ function canonicalGenerationTopology({
   timeRatio,
   angle,
   asymmetry,
+  grammarSeed = 1,
+  branchProbability = .65,
 } = {}) {
   const preset = L_SYSTEM_PRESET_BY_ID.get(lSystemType);
   if (!preset) return null;
@@ -437,9 +484,11 @@ function canonicalGenerationTopology({
     MIN_CHILD_TIME_RATIO,
     MAX_CHILD_TIME_RATIO,
   );
+  const stochastic = preset.weightedRules ? expandStochasticGrammar(canonicalTraceIterations(preset, count), grammarSeed, branchProbability) : null;
   const trace = traceLSystem({
     ...preset,
-    iterations: canonicalTraceIterations(preset, count),
+    ...(stochastic ? { axiom: stochastic.instructions, rules: {}, iterations: 0, maxSymbols: stochastic.instructions.length }
+      : { iterations: canonicalTraceIterations(preset, count) }),
     angle: clamp(angle, 0, 180),
     turnAsymmetry: clamp(asymmetry, -0.8, 0.8),
     lengthScale: visualChildTimeRatio(exactTimeRatio),
@@ -455,12 +504,13 @@ function canonicalGenerationTopology({
         count,
         Math.ceil(endProgress * count),
       ));
-    const id = index === 0 ? "trunk" : `${preset.id}:${index}`;
+    const segmentId = segmentIndex => stochastic ? `${preset.id}:${stochastic.lineages[trace.segments[segmentIndex].instructionIndex]}` : `${preset.id}:${segmentIndex}`;
+    const id = index === 0 ? "trunk" : segmentId(index);
     const parentId = index === 0
       ? null
       : segment.parentIndex === null || segment.parentIndex === 0
         ? "trunk"
-        : `${preset.id}:${segment.parentIndex}`;
+        : segmentId(segment.parentIndex);
     const turnDegrees = segment.turn * 180 / Math.PI;
     const lengthVariation = hashUnit(`${id}:length`) * mutationAmount * 0.3;
 
@@ -693,6 +743,8 @@ export function generationTopology({
   timeRatio = 0.5,
   angle = 30,
   asymmetry = 0,
+  grammarSeed = 1,
+  branchProbability = .65,
   maximumPerGeneration = MAX_BRANCHES_PER_GENERATION,
 } = {}) {
   if (lSystemType !== "pythagorean") {
@@ -703,6 +755,8 @@ export function generationTopology({
       timeRatio,
       angle,
       asymmetry,
+      grammarSeed,
+      branchProbability,
     });
     if (canonical?.length) return canonical;
   }
@@ -809,6 +863,8 @@ export function generationVoiceSpecs({
   asymmetry = 0,
   pitchScale = 1,
   pruningBias = 0,
+  grammarSeed = 1,
+  branchProbability = .65,
   maximumVoices = MAX_GENERATION_VOICES,
 } = {}) {
   const octaveScale = clamp(pitchScale, 0, 4);
@@ -825,6 +881,8 @@ export function generationVoiceSpecs({
     timeRatio: exactTimeRatio,
     angle,
     asymmetry,
+    grammarSeed,
+    branchProbability,
   });
   const perGeneration = new Map();
   for (const node of layout.slice(1)) {

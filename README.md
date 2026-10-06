@@ -1,5 +1,16 @@
 # Morphazoid
 
+**[L-system Delay Rust](l-mic-rust.html)** now includes Peano, Sierpiński arrowhead,
+quadratic Koch, Snake Kolam, Dekking square curves, and repeatable stochastic
+branching alongside its original grammars. Two copies of the same playable
+interface are in Work in Progress: **[L-system Parametric Lab](l-system-parametric-lab.html)**
+carries numeric length, delay, pitch, and turn values through conditional rules
+with two through six children; **[L-system Experiments](l-system-experiments.html)**
+compares neighbor-sensitive rewriting, Thue–Morse and Fibonacci sequences, and
+Penrose and sphinx tiling edges. All three share microphone, file, sample input,
+mastering, and the device-adaptive Rust/WASM delay engine. Audio starts off.
+[Grammar sources](docs/l-system-delay-grammars.md); [lab mappings and limits](docs/l-system-labs-models.md).
+
 **[Bifurcator](bifurcator.html)** plays five nonlinear systems: Hopf onset,
 logistic period-doubling, fold hysteresis, Lorenz and Rössler chaos. Its live
 orbit and sound share the same audio-clock simulation. Regime changes the

@@ -360,6 +360,18 @@ const CATALOG_DETAILS = Object.freeze({
     "Allow microphone access, start input, then change the grammar or branch timing.",
     ["Mic input"],
   ),
+  "l-system-parametric-lab": define(
+    "Parametric L-system delay laboratory",
+    "Numeric rule modules carry branch length, turn, delay and pitch into a shared visible and audible structure, with conditional stopping and two to six children.",
+    "Choose an input and enable Audio. Explore module ratios, branch count and stopping length.",
+    ["Microphone", "Audio file", "Recorded samples", "Parametric rules", "Rust / WASM", "WebGL"],
+  ),
+  "l-system-experiments": define(
+    "L-system delay rule experiments",
+    "Compare neighbor-dependent sequences, Thue–Morse and algae sequences, and recursive Penrose and sphinx tiling edges using live delay voices.",
+    "Choose an input and enable Audio. Select a rule family, then change iterations and symbol ratio.",
+    ["Microphone", "Audio file", "Recorded samples", "Context rules", "Sequences", "Tilings", "Rust / WASM"],
+  ),
   "micmic-rust": define(
     "Rust/WASM audio processor",
     "Runs microphone, local-file or recorded-sample audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.",

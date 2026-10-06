@@ -147,6 +147,7 @@
                     <option value="whorled">Whorled shrub · 3-way</option>
                     <option value="ternary">Trident tree · 3-way</option>
                     <option value="quaternary">Four-way canopy · 4-way</option>
+                    <option value="stochastic">Stochastic shrub</option>
                   </optgroup>
                   <optgroup label="Classic fractals">
                     <option value="dragon">Dragon curve</option>
@@ -157,6 +158,11 @@
                     <option value="cantor">Cantor set</option>
                     <option value="levy">Lévy C curve</option>
                     <option value="terdragon">Terdragon</option>
+                    <option value="peano">Peano weave</option>
+                    <option value="arrowhead">Sierpiński arrowhead</option>
+                    <option value="quadratic-koch">Quadratic Koch island</option>
+                    <option value="kolam">Snake Kolam</option>
+                    <option value="dekking">Dekking square curve</option>
                   </optgroup>
                 </select>
               </span>
@@ -178,7 +184,8 @@
                 </label>
                 <label class="control native-knob-control" for="depth">
                   <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
-                  <input id="depth" type="range" min="0" max="0.96" step="0.01" value="0.72" />
+                  <input id="depth" type="range" min="0" max="1" step="0.01" value="0.72" aria-describedby="depthGuide" title="Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply." />
+                  <small class="sr-only" id="depthGuide">Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply.</small>
                 </label>
               </div>
               <small class="native-capacity-note" id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small>
@@ -215,15 +222,28 @@
             <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
               <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
               <div class="native-knob-grid">
+                <label class="control native-knob-control signed-form-range" for="curls"><span><b>Curls</b><output id="curlsOut" for="curls">original</output></span><input id="curls" type="range" min="-8" max="8" step="0.01" value="0" aria-describedby="curlsGuide" title="Added turns distributed along the longest root-to-tip path. Positive curls counterclockwise; negative curls clockwise. Pitch follows Angle → octave span." /><span class="form-range-poles" aria-hidden="true"><span>CW</span><span>Original</span><span>CCW</span></span><small class="sr-only" id="curlsGuide">Curls bends successive branches while keeping the input root fixed. Zero preserves the original shape. Positive values turn counterclockwise; negative values turn clockwise. The changed turns also affect pitch through Angle → octave span, and stereo position through Spread.</small></label>
                 <label class="control native-knob-control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="generationAsymmetryGuide" /><span class="form-range-poles" id="generationAsymmetryGuide" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
                 <label class="control native-knob-control" for="mutation">
-                  <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
-                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+                  <span><b id="mutationLabel">Branch variation</b><output id="mutationOut" for="mutation">0% branch variation</output></span>
+                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" aria-describedby="mutationGuide" />
+                  <small class="sr-only" id="mutationGuide">Varies branch turns, lengths and delay timing in Pythagorean Pine.</small>
                 </label>
               </div>
             </section>
 
-            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+            <div class="native-form-actions">
+              <button class="mini-action reset-form" id="centerAngles" type="button" title="Branch angle 90° · Turn asymmetry even · Curls 0">Center angles</button>
+              <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+            </div>
+            <section class="recursion-parameter-cluster" id="stochasticControls" aria-labelledby="stochasticParametersTitle" hidden>
+              <h3 class="parameter-cluster-title" id="stochasticParametersTitle">Stochastic branching</h3>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control" for="branchProbability"><span><b>Two-sided branches</b><output id="branchProbabilityOut" for="branchProbability">65%</output></span><input id="branchProbability" type="range" min="0" max="1" step="0.01" value="0.65" title="Probability of the two-sided production. Remaining probability is split between left-only and right-only branches." /></label>
+                <label class="control" for="grammarSeed"><span><b>Branch pattern</b><output id="grammarSeedOut" for="grammarSeed">1</output></span><input id="grammarSeed" type="number" min="0" max="4294967295" step="1" value="1" title="Repeatable branch pattern number; microphone and file input stay unchanged." /></label>
+              </div>
+              <div class="native-form-actions"><button class="mini-action" id="regrowGrammar" type="button">New branch pattern</button></div>
+            </section>
           </div>
         </details>
 
@@ -329,7 +349,7 @@
         <section class="instrument-page-info" data-tool-id="micmic-rust" aria-label="About L-system Delay" id="instrumentIdentity"></section>
       </aside>
 
-      <p class="sr-only" id="treeDescription">Pythagorean Pine. Colored branches show admitted delay taps. Each branch's brightness follows its own measured delayed sound; the root follows the input.</p>
+      <p class="sr-only" id="treeDescription">Pythagorean Pine. With Audio on, the tree shows available delay branches and sounding release tails. Waves follow signal amplitude; the root follows the input. Audio off shows the complete preset preview.</p>
       <p class="sr-only" id="canvasInstructions">Drag horizontally to change Time fold and vertically to change Branch angle. Arrow keys adjust the same controls; Shift makes finer changes. Audio remains independently armed.</p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

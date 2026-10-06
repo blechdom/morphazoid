@@ -13,7 +13,7 @@ const sourceFiles = [
   `${rust}/Cargo.toml`, `${rust}/Cargo.lock`,
   `${rust}/core/Cargo.toml`, `${rust}/core/src/lib.rs`,
   `${rust}/wasm/Cargo.toml`, `${rust}/wasm/src/lib.rs`,
-  ...['adaptive', 'conditioning', 'model', 'performance', 'resources'].map(name => `${rust}/app/src/${name}.rs`),
+  ...['adaptive', 'conditioning', 'lab', 'model', 'performance', 'resources'].map(name => `${rust}/app/src/${name}.rs`),
 ].sort();
 const requiredExports = [
   'memory', 'lsd_abi_version', 'lsd_alloc', 'lsd_free', 'lsd_error_ptr', 'lsd_error_len',
@@ -21,7 +21,7 @@ const requiredExports = [
   'lsd_compile_pool_len', 'lsd_compile_free', 'lsd_new', 'lsd_drop', 'lsd_install',
   'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized', 'lsd_collect_retired',
   'lsd_performance', 'lsd_depth', 'lsd_strike', 'lsd_process', 'lsd_observe', 'lsd_metrics_ptr', 'lsd_metrics_len',
-  'lsd_taps_ptr', 'lsd_taps_count', 'lsd_tap_indices_ptr', 'lsd_generations_ptr',
+  'lsd_observe_maintenance', 'lsd_taps_ptr', 'lsd_taps_count', 'lsd_tap_indices_ptr', 'lsd_generations_ptr',
   'lsd_generation_counts_ptr', 'lsd_envelope_ptr', 'lsd_envelope_count', 'lsd_envelope_offset',
   'lsd_envelope_end_time', 'lsd_envelope_interval',
 ].sort();

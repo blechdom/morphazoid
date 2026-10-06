@@ -1,0 +1,60 @@
+{
+  "additions": [
+    {
+      "id": "l-system-parametric-lab",
+      "label": "L-system Parametric Lab",
+      "href": "l-system-parametric-lab.html",
+      "imageHref": "assets/instruments/l-system-parametric-lab.webp",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "delay",
+          "label": "Delay"
+        }
+      ]
+    },
+    {
+      "id": "l-system-experiments",
+      "label": "L-system Experiments",
+      "href": "l-system-experiments.html",
+      "imageHref": "assets/instruments/l-system-experiments.webp",
+      "categoryId": "wip",
+      "categoryLabel": "Work in Progress",
+      "tags": [
+        {
+          "id": "audio-effect",
+          "label": "Audio Effect"
+        },
+        {
+          "id": "fractal",
+          "label": "Fractal"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "delay",
+          "label": "Delay"
+        },
+        {
+          "id": "tesselation",
+          "label": "Tesselation"
+        }
+      ]
+    }
+  ]
+}

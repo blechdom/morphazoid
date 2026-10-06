@@ -1666,6 +1666,73 @@ mod tests {
     }
 
     #[test]
+    fn conditional_lab_can_release_all_voices_and_resume_without_restarting_native_audio() {
+        use crate::model::{try_compile, LabParameters, Parameters};
+        let mut renderer = renderer(8);
+        let mut parameters = Parameters {
+            interval_ms: 20.,
+            lab: Some(LabParameters {
+                iterations: 2,
+                min_length: 1.,
+                ..LabParameters::default()
+            }),
+            ..Parameters::default()
+        };
+        for minimum in [1., 0.03] {
+            parameters.lab.as_mut().unwrap().min_length = minimum;
+            let topology = try_compile(&parameters, 8000).unwrap();
+            let pool = PoolUpdate {
+                revision: 2,
+                phase_seeds: Vec::new(),
+                targets: topology.targets,
+                ranks: topology.ranks,
+                groups: topology.groups,
+                wet_normalization: 1.,
+                growth: None,
+            };
+            validate_pool(&pool, 8).unwrap();
+            // Session::start keeps at least48 allocated slots even when this
+            // valid conditional grammar has zero requested descendants.
+            let prepared =
+                PreparedPool::new(&pool_keys(pool.targets.len().max(48)).unwrap()).unwrap();
+            assert!(prepared.capacity() >= 48);
+            let before = renderer.frames;
+            renderer
+                .commands
+                .push(Command::update(
+                    pool,
+                    Performance {
+                        automatic: false,
+                        voice_ceiling: 8,
+                        dry: 0.,
+                        wet: 0.8,
+                        ..renderer.performance
+                    },
+                    renderer.rate,
+                ))
+                .ok()
+                .unwrap();
+            let mut peak = 0_f32;
+            for frame in 0..8000 {
+                let sample = renderer.next();
+                assert!(sample.iter().all(|value| value.is_finite()));
+                if frame >= 4000 {
+                    peak = peak.max(sample[0].abs()).max(sample[1].abs());
+                }
+            }
+            assert_eq!(renderer.frames, before + 8000);
+            if minimum == 1. {
+                assert_eq!(renderer.engine.target_voice_count(), 0);
+                assert_eq!(renderer.engine.active_voice_count(), 0);
+                assert!(peak < 1e-5);
+            } else {
+                assert_eq!(renderer.engine.target_voice_count(), 6);
+                assert!(peak > 1e-4);
+            }
+        }
+    }
+
+    #[test]
     fn performance_edits_keep_voice_history_and_can_restore_a_lowered_ceiling() {
         let mut renderer = renderer(80);
         for _ in 0..8000 {

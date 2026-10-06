@@ -1736,6 +1736,107 @@ mod arithmetic_tests {
         );
         assert!(engine.voices[0].releasing);
     }
+
+    #[test]
+    fn no_decay_generation_gains_keep_normalization_smoothing_and_raw_history() {
+        let groups: Vec<_> = (1u8..=3)
+            .flat_map(|generation| std::iter::repeat_n(generation, 1 << generation))
+            .collect();
+        let keys: Vec<_> = (0..groups.len())
+            .map(|index| format!("no-decay:{index}"))
+            .collect();
+        let targets: Vec<_> = groups
+            .iter()
+            .map(|&generation| PoolTarget {
+                delay: f64::from(generation) * 0.016,
+                rate: 1. + f64::from(generation) * 0.1,
+                gain: 0.5 * 0.96f64.powf(f64::from(generation) * 0.72),
+                pan: 0.,
+            })
+            .collect();
+        let ranks: Vec<_> = (0..keys.len()).collect();
+        let mut engine = Engine::new(8000, 4., keys.len(), 1).unwrap();
+        engine.install_pool(&keys).unwrap();
+        engine.update_pool_ranked(&targets, &ranks, &groups, keys.len());
+        let input = [[0.07; 2]; 128];
+        let mut output = [[0.; 2]; 128];
+        for _ in 0..16 {
+            engine.process_block(&input, &mut output);
+        }
+        let history = engine.history.clone();
+        let write = engine.write;
+        let recorded = engine.recorded;
+        let allocated = engine.allocated_bytes();
+        let history_pointer = engine.history.as_ptr();
+        let voice_pointer = engine.voices.as_ptr();
+        let identities: Vec<_> = engine
+            .voices
+            .iter()
+            .map(|voice| {
+                (
+                    voice.target.key.clone(),
+                    voice.phase,
+                    voice.phase_seed,
+                    voice.pool_rank,
+                    voice.gain,
+                )
+            })
+            .collect();
+        let mut gains = [0.; 256];
+        gains[1..=3].fill(0.5);
+        engine.update_pool_group_gains(&gains, keys.len());
+        assert_eq!(
+            engine.history, history,
+            "Generation gains never write wet output into history"
+        );
+        assert_eq!((engine.write, engine.recorded), (write, recorded));
+        assert_eq!(engine.allocated_bytes(), allocated);
+        assert_eq!(engine.history.as_ptr(), history_pointer);
+        assert_eq!(engine.voices.as_ptr(), voice_pointer);
+        let mut energy = [0.; 4];
+        for (voice, (key, phase, seed, rank, gain)) in engine.voices.iter().zip(identities) {
+            assert_eq!(voice.target.key, key);
+            assert_eq!(voice.phase, phase);
+            assert_eq!(voice.phase_seed, seed);
+            assert_eq!(voice.pool_rank, rank);
+            assert_eq!(
+                voice.gain, gain,
+                "Live amplitude changes wait for sample smoothing"
+            );
+            let group = usize::from(voice.pool_group);
+            energy[group] += voice.target.gain * voice.target.gain;
+        }
+        for energy in &energy[1..] {
+            assert!(
+                (energy - 0.25).abs() < 1e-14,
+                "Each generation retains normalized energy"
+            );
+        }
+        let gain = engine.voices[0].gain;
+        let target = engine.voices[0].target.gain;
+        engine.process_frame([0.; 2]);
+        assert!(engine.voices[0].gain > gain && engine.voices[0].gain < target);
+
+        let silence = [[0.; 2]; 128];
+        let mut tail_energy = 0.;
+        for _ in 0..260 {
+            engine.process_block(&silence, &mut output);
+            for sample in output.iter().flatten() {
+                assert!(sample.is_finite() && sample.abs() <= 1.);
+                tail_energy += f64::from(*sample).powi(2);
+            }
+        }
+        assert!(
+            tail_energy > 0.,
+            "The existing input history remains audible"
+        );
+        assert!(engine.history.iter().all(|sample| *sample == 0.));
+        assert!(
+            output.iter().flatten().all(|sample| *sample == 0.),
+            "No-decay layers end when captured history has passed"
+        );
+    }
+
     #[test]
     fn staged_numeric_growth_preserves_phases_of_tails_that_retire_during_preparation() {
         let keys: Vec<_> = (0..4096).map(|index| format!("growth:{index}")).collect();

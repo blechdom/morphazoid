@@ -155,13 +155,20 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
     let capacity = resources::voice_capacity();
     let generation_limits: std::collections::BTreeMap<_, _> = model::L_SYSTEM_TYPES
         .iter()
-        .map(|id| ((*id).to_string(), model::generation_limit(id, capacity)))
+        .map(|id| {
+            let limit = if *id == "stochastic" && parameters.l_system_type == "stochastic" {
+                model::stochastic_generation_limit(&parameters, capacity)
+            } else {
+                model::generation_limit(id, capacity)
+            };
+            ((*id).to_string(), limit)
+        })
         .collect();
-    // The connected preview is bounded independently of all requested audio
-    // voices. Deep trees keep every audio record, not merely visible branches.
+    // Legacy deep trees keep a sampled control preview independent of audio.
+    // Labs retain their complete authoritative segment graph for the renderer.
     let json = serde_json::to_vec(&serde_json::json!({
         "parameters": parameters, "nodes": topology.preview,
-        "previewSampled": topology.nodes.len() > 2048,
+        "previewSampled": parameters.lab.is_none() && topology.nodes.len() > 2048,
         "requestedVoices": topology.requested_voices,
         "eligibleVoices": topology.eligible_voices,
         "structuralEligibleVoices": structural_eligible,
@@ -412,7 +419,7 @@ impl Renderer {
     }
 
     fn set_depth(&mut self, depth: f64) -> Result<(), String> {
-        if !depth.is_finite() || !(0.0..=0.96).contains(&depth) {
+        if !depth.is_finite() || !(0.0..=1.0).contains(&depth) {
             return Err("Recursion is outside its supported range".into());
         }
         if !self.depth_controls {
@@ -790,6 +797,15 @@ impl Renderer {
         self.update_metrics();
     }
     fn observe(&mut self, seconds: f64, frames: usize, underrun: bool) -> usize {
+        self.observe_with_maintenance(seconds, 0., frames, underrun)
+    }
+    fn observe_with_maintenance(
+        &mut self,
+        seconds: f64,
+        maintenance_seconds: f64,
+        frames: usize,
+        underrun: bool,
+    ) -> usize {
         if frames == 0 {
             return self.engine.target_voice_count();
         }
@@ -808,8 +824,9 @@ impl Renderer {
         self.peak_load =
             load.max(self.peak_load * (-(frames as f64) / f64::from(self.rate) / 0.53).exp());
         if self.performance.automatic {
-            if let Some(limit) = self.adaptive.observe_active(
+            if let Some(limit) = self.adaptive.observe_active_with_maintenance(
                 seconds,
+                maintenance_seconds,
                 frames,
                 underrun,
                 self.engine.active_voice_count(),
@@ -1024,6 +1041,21 @@ pub unsafe extern "C" fn lsd_observe(
         return 0;
     }
     (*handle).observe(seconds, frames, underrun != 0)
+}
+/// Total work still owns CPU/miss telemetry. Only explicitly measured, finite
+/// topology preparation/reclamation is excluded from the recurring voice cost.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_observe_maintenance(
+    handle: *mut Renderer,
+    seconds: f64,
+    maintenance_seconds: f64,
+    frames: usize,
+    underrun: u32,
+) -> usize {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).observe_with_maintenance(seconds, maintenance_seconds, frames, underrun != 0)
 }
 #[no_mangle]
 pub extern "C" fn lsd_metrics_len() -> usize {
@@ -1260,7 +1292,10 @@ mod browser_tests {
                 HEADER + expected as usize * RECORD,
                 "{id}"
             );
-            assert_eq!(result["generationLimits"].as_object().unwrap().len(), 17);
+            assert_eq!(
+                result["generationLimits"].as_object().unwrap().len(),
+                model::L_SYSTEM_TYPES.len()
+            );
             assert!(result["generationLimits"][id].as_u64().unwrap() >= 13);
             staged.begin_install(&compiled.pool).unwrap();
             let depth = 0.5 + edit as f64 * 0.035;
@@ -1353,10 +1388,58 @@ mod browser_tests {
         assert_eq!(renderer.metrics[3], 254.);
         renderer.observe(0.02, BLOCK, false);
         assert_eq!(
-            renderer.metrics[3], 2.,
-            "Restored device evidence must still survive current callback validation"
+            renderer.metrics[3], 172.,
+            "Unsafe restored capacity uses proportional deadline backoff, not the tiny prior scene"
         );
-        assert_eq!(renderer.metrics[19], 2.);
+        assert_eq!(renderer.metrics[19], 172.);
+    }
+    #[test]
+    fn maintenance_observation_counts_total_misses_and_revalidates_retained_capacity() {
+        let large = scene(7);
+        let small = scene(1);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&large.pool).unwrap();
+        for _ in 0..200 {
+            renderer.observe(0.001, BLOCK, false);
+        }
+        renderer.install(&small.pool).unwrap();
+        renderer.install(&large.pool).unwrap();
+        let misses = renderer.metrics[13];
+        unsafe {
+            lsd_observe_maintenance(&mut renderer, 0.02, 0.019, BLOCK, 0);
+        }
+        assert_eq!(
+            renderer.metrics[13],
+            misses + 1.,
+            "full callback work still missed its real deadline"
+        );
+        assert_eq!(
+            renderer.metrics[3], 172.,
+            "the immediate target protects against the overrun"
+        );
+        assert_eq!(
+            renderer.metrics[19], 254.,
+            "finite preparation does not erase device evidence"
+        );
+        assert!(
+            renderer.metrics[6] > 0.0625,
+            "CPU telemetry includes the full preparation burst"
+        );
+        for _ in 0..15 {
+            renderer.observe(0.001, BLOCK, false);
+            if renderer.metrics[3] >= 254. {
+                break;
+            }
+        }
+        assert_eq!(
+            renderer.metrics[3], 254.,
+            "previous device capacity returns as a measured trial"
+        );
+        renderer.observe(0.02, BLOCK, false);
+        assert_eq!(
+            renderer.metrics[19], 172.,
+            "a genuine recurring DSP overrun invalidates unsafe capacity"
+        );
     }
     #[test]
     fn manual_scene_is_not_fabricated_capacity_evidence_on_automatic_restart() {
@@ -1493,9 +1576,16 @@ mod browser_tests {
             reference.process(&input, None, &mut reference_l, &mut reference_r);
             block += 1;
         }
-        for depth in [0.91, 0.34, 0.65, 0., 0.48, 0.96] {
+        let capacity = live.capacity;
+        let allocated_bytes = live.engine.allocated_bytes();
+        let revision = live.revision;
+        let group_counts = live.structural_group_counts;
+        for depth in [0.91, 0.34, 0.65, 0., 0.48, 0.96, 1., 0., 1.] {
             parameters.depth = depth;
             let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+            let frames = live.frames;
+            let normalization = live.wet_normalization;
+            let envelope_end = live.envelope.end_time();
             ALLOCATIONS.with(|n| n.set(0));
             FREES.with(|n| n.set(0));
             TRACK.with(|enabled| enabled.set(true));
@@ -1503,6 +1593,18 @@ mod browser_tests {
             TRACK.with(|enabled| enabled.set(false));
             assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
             assert_eq!(FREES.with(|n| n.get()), 0);
+            assert_eq!(live.live_depth, Some(depth));
+            assert_eq!(live.frames, frames, "Depth edits preserve the audio clock");
+            assert_eq!(live.envelope.end_time(), envelope_end);
+            assert_eq!(live.capacity, capacity);
+            assert_eq!(live.engine.allocated_bytes(), allocated_bytes);
+            assert_eq!(live.revision, revision);
+            assert_eq!(live.structural_group_counts, group_counts);
+            assert_eq!(
+                live.wet_normalization, normalization,
+                "Bus gain ramps at sample rate"
+            );
+            assert_eq!(live.target_normalization, depth_normalization(depth));
             reference.install(&compiled.pool).unwrap();
             assert_eq!(live.available, reference.available);
             assert_eq!(
@@ -1516,8 +1618,23 @@ mod browser_tests {
                 assert_eq!(left, reference_l, "Recursion {depth}");
                 assert_eq!(right, reference_r, "Recursion {depth}");
                 assert_eq!(live.frames, reference.frames);
+                assert!(left
+                    .iter()
+                    .chain(&right)
+                    .all(|sample| sample.is_finite() && sample.abs() <= 1.));
                 block += 1;
             }
+            assert!((live.wet_normalization - live.target_normalization).abs() < 1e-10);
+            assert_eq!(live.metrics[2], if depth == 0. { 0. } else { 64. });
+            assert_eq!(live.metrics[4], capacity as f64);
+            assert_eq!(live.metrics[16], revision as f64);
+            assert_eq!(live.metrics[14], live.frames as f64 / 8000.);
+        }
+        let metrics = live.metrics;
+        for invalid in [-0.001, 1.0001, f64::NAN, f64::INFINITY] {
+            assert!(live.set_depth(invalid).is_err());
+            assert_eq!(live.live_depth, Some(1.));
+            assert_eq!(live.metrics, metrics);
         }
     }
     #[test]
@@ -1552,7 +1669,9 @@ mod browser_tests {
         renderer.set_depth(0.).unwrap();
         assert_eq!(renderer.engine.target_voice_count(), 0);
         assert!(renderer.set_depth(f64::NAN).is_err());
-        assert!(renderer.set_depth(1.).is_err());
+        renderer.set_depth(1.).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 48);
+        assert!(renderer.set_depth(1.0001).is_err());
     }
     #[test]
     fn staged_scene_edits_preserve_sample_exact_live_flow_and_current_depth_and_mix() {

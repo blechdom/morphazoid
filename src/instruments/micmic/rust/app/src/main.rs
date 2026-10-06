@@ -488,6 +488,31 @@ mod tests {
     }
 
     #[test]
+    fn no_decay_depth_round_trips_in_native_status_and_rejects_values_above_one() {
+        let mut app = Application::new(true);
+        let parameters = Parameters {
+            generations: 4,
+            depth: 1.,
+            ..Parameters::default()
+        };
+        app.action("/api/parameters", &serde_json::to_vec(&parameters).unwrap())
+            .unwrap();
+        assert_eq!(app.status()["parameters"]["depth"], 1.);
+        assert_eq!(app.topology.eligible_voices, 30);
+        assert!(app.topology.targets.iter().all(|target| target.gain == 0.5));
+        assert!(app.session.is_none());
+        let before = app.state();
+        let invalid = Parameters {
+            depth: 1.0001,
+            ..parameters
+        };
+        assert!(app
+            .action("/api/parameters", &serde_json::to_vec(&invalid).unwrap())
+            .is_err());
+        assert_eq!(app.state(), before);
+    }
+
+    #[test]
     fn mastering_controls_round_trip_without_arming_audio_or_replacing_topology() {
         let mut app = Application::new(true);
         let revision = app.topology_revision;

@@ -1,14 +1,18 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
+import { sanitizeLab } from '../../l-system-parametric-lab/model.js';
 const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
+export const RUST_EXPLORATION_TYPES = Object.freeze(['peano', 'arrowhead', 'quadratic-koch', 'kolam', 'dekking', 'stochastic']);
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
-  ...RUST_BRANCHING_TYPES]);
+  ...RUST_BRANCHING_TYPES, ...RUST_EXPLORATION_TYPES]);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
-  timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
+  timeRatio: .72, angle: 45, asymmetry: 0, curls: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9,
+  grammarSeed: 1, branchProbability: .65 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
   frozen: false, inputGain: .85, frequency: 173, pulseRate: 2, voiceCeiling: 0, automatic: true, mastering: DEFAULT_MASTERING });
 export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [1, 3000], timeRatio: [.2, 2],
-  angle: [0, 180], asymmetry: [-.8, .8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, .96], spread: [0, 1] });
+  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, 1], spread: [0, 1],
+  grammarSeed: [0, 0xffffffff], branchProbability: [0, 1] });
 export const PERFORMANCE_LIMITS = Object.freeze({ level: [0, 1], wet: [0, 1], dry: [0, .5], inputGain: [0, 4], frequency: [40, 1200], pulseRate: [.1, 12], voiceCeiling: [0, Number.MAX_SAFE_INTEGER] });
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 const round = value => Number(value.toFixed(6));
@@ -19,6 +23,8 @@ export function sanitizeParameters(candidate = {}) {
     next[key] = clamp(Number.isFinite(value) ? value : DEFAULT_PARAMETERS[key], low, high);
   }
   next.generations = Math.round(next.generations);
+  if (candidate.lab && typeof candidate.lab === 'object') next.lab = sanitizeLab(candidate.lab);
+  next.grammarSeed = Math.round(next.grammarSeed);
   return next;
 }
 export function sanitizePerformance(candidate = {}) {
@@ -54,7 +60,8 @@ export function randomState(parameters, performance, random = Math.random) {
   const between = (a, b) => a + (b - a) * unit();
   return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
-    asymmetry: between(-.8, .8), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
+    asymmetry: between(-.8, .8), curls: between(-1.5, 1.5), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit(),
+    grammarSeed: Math.floor(between(0, 0x100000000)), branchProbability: between(.15, .95) }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
     mastering: { ...randomMastering(random), makeupDb: performance.mastering?.makeupDb ?? DEFAULT_MASTERING.makeupDb } }) };
 }
@@ -67,13 +74,49 @@ export function isVoiceActive(node, limit) { return Number.isInteger(node.priori
 /** Preview gain follows the applied coefficient, including a newer live edit
  * than the topology compiler captured. Structural ranks stay untouched. */
 export function applyPreviewDepth(nodes, depth) {
-  const applied = clamp(depth, 0, .96);
+  const applied = clamp(depth, 0, 1);
   for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
   return nodes;
 }
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
-export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }
+/** Keep the complete preset as metadata, but visit only audible branches per
+ * frame. Selection identity stays stable while meter values change. */
+export function createPreviewDrawSelection(nodes) {
+  const byVoice = new Map(nodes.filter(node => node.generation > 0).map(node => [node.voiceIndex, node]));
+  let key, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
+  return {
+    invalidate() { key = undefined; },
+    select({ audio = false, limit = 0, levels = new Map(), depth = 1 } = {}) {
+      const nextKey = `${audio}:${limit}:${depth > 0}`;
+      if (nextKey !== key) {
+        key = nextKey;
+        admitted = audio ? admittedPreviewNodes(nodes, depth > 0 ? limit : 0) : nodes;
+        admittedIds = new Set(admitted.map(node => node.id));
+        selected = admitted; releaseKey = '';
+      }
+      if (!audio) return selected;
+      const released = [];
+      for (const [slot, energy] of levels) {
+        const node = byVoice.get(slot);
+        if (energy > 0 && node && !admittedIds.has(node.id)) released.push(node);
+      }
+      released.sort((a, b) => a.voiceIndex - b.voiceIndex);
+      const nextReleaseKey = released.map(node => node.voiceIndex).join(',');
+      if (nextReleaseKey !== releaseKey) {
+        releaseKey = nextReleaseKey; selected = released.length ? admitted.concat(released) : admitted;
+      }
+      return selected;
+    },
+  };
+}
+export function topologyIdentity(parameters) {
+  const lab = parameters.lab;
+  // Continuous module pitch/timing edits keep the live activity envelopes.
+  const shape = lab ? `:${lab.kind}:${lab.iterations}:${lab.branchCount}:${lab.minLength}` : '';
+  const random = parameters.lSystemType === 'stochastic' ? `:${parameters.grammarSeed}:${parameters.branchProbability}` : '';
+  return `${parameters.lSystemType}:${parameters.generations}${shape}${random}`;
+}
 /** Coherent meters are keyed by pool slots, never mutable pruning ranks. */
 export function tapActivityFrame(reply, parameters) {
   const status = reply?.status, revision = reply?.topologyRevision;
@@ -238,6 +281,41 @@ export function priorityOrder(voices, bias = 0, rankScale = 1, deepestGeneration
   while (heap.length) { const n = pop(); result.push(n); for (const child of children.get(n.id) ?? []) push(child); }
   return result;
 }
+/** Add distributed winding along the complete original path. The root, gaps,
+ * backward strokes, identities and lengths retain their original meaning.
+ * This mirrors Rust's post-layout transform before audio turns and pan are read.
+ */
+export function applyPreviewCurls(nodes, curls) {
+  if (!curls || nodes.length < 2) return nodes;
+  const original = new Float64Array(nodes.length * 3), parents = new Int32Array(nodes.length), byId = new Map();
+  let maximum = 0;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index], offset = index * 3;
+    original[offset] = node.x; original[offset + 1] = node.y;
+    if (index) {
+      const parent = byId.get(node.parentId) ?? 0, parentOffset = parent * 3;
+      parents[index] = parent;
+      const gap = Math.hypot(node.startX - original[parentOffset], node.startY - original[parentOffset + 1]);
+      original[offset + 2] = original[parentOffset + 2] + node.length + gap;
+      maximum = Math.max(maximum, original[offset + 2]);
+    }
+    byId.set(node.id, index);
+  }
+  if (!(maximum > 0)) return nodes;
+  for (let index = 1; index < nodes.length; index++) {
+    const node = nodes[index], offset = index * 3, parentIndex = parents[index], parentOffset = parentIndex * 3, parent = nodes[parentIndex];
+    const phase = 360 * curls * (original[offset + 2] / maximum), priorPhase = 360 * curls * (original[parentOffset + 2] / maximum);
+    const radians = phase * Math.PI / 180, priorRadians = priorPhase * Math.PI / 180;
+    const gapX = node.startX - original[parentOffset], gapY = node.startY - original[parentOffset + 1];
+    const dx = original[offset] - node.startX, dy = original[offset + 1] - node.startY;
+    node.startX = parent.x + Math.cos(priorRadians) * gapX - Math.sin(priorRadians) * gapY;
+    node.startY = parent.y + Math.sin(priorRadians) * gapX + Math.cos(priorRadians) * gapY;
+    node.x = node.startX + Math.cos(radians) * dx - Math.sin(radians) * dy;
+    node.y = node.startY + Math.sin(radians) * dx + Math.cos(radians) * dy;
+    node.headingDegrees += phase; node.turnDegrees += phase - priorPhase;
+  }
+  return nodes;
+}
 /** Shared classic builder is supplied by the boundary; no browser import here. */
 export function buildPreview(parameters, canonicalTopology) {
   const p = sanitizeParameters(parameters);
@@ -245,7 +323,9 @@ export function buildPreview(parameters, canonicalTopology) {
   // full native topology while this preview follows a bounded ancestor tree.
   const preview = { ...p, generations: Math.min(13, p.generations) };
   const nodes = p.lSystemType === 'pythagorean' ? binaryNodes(preview) : canonicalTopology({ lSystemType: p.lSystemType, generations: preview.generations,
-    branching: 1, mutation: p.mutation, timeRatio: p.timeRatio, angle: p.angle, asymmetry: p.asymmetry });
+    branching: 1, mutation: p.mutation, timeRatio: p.timeRatio, angle: p.angle, asymmetry: p.asymmetry,
+    grammarSeed: p.grammarSeed, branchProbability: p.branchProbability });
+  applyPreviewCurls(nodes, p.curls);
   const byId = new Map(), voices = [], counts = new Map();
   let maxY = .001;
   for (const n of nodes) maxY = Math.max(maxY, Math.abs(n.y));
@@ -263,7 +343,7 @@ export function buildPreview(parameters, canonicalTopology) {
   // branch identities in the prepared drawing and the actual audio pool.
   // Rust derives depth from the full layout even when the history cutoff
   // excludes its deepest layer; then the eligible paths fall back to breadth.
-  const rustBranching = RUST_BRANCHING_TYPES.includes(p.lSystemType);
+  const rustBranching = RUST_BRANCHING_TYPES.includes(p.lSystemType) || RUST_EXPLORATION_TYPES.includes(p.lSystemType);
   const rankScale = rustBranching ? 1 / Math.max(1, voices.length - 1) : 1;
   const deepestGeneration = rustBranching ? nodes.reduce((deepest, node) => Math.max(deepest, node.generation), 0) : undefined;
   priorityOrder(voices, p.pruningBias, rankScale, deepestGeneration).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
@@ -272,7 +352,7 @@ export function buildPreview(parameters, canonicalTopology) {
 /** Continuous preview targets settle in 80 ms even with delayed native replies. */
 export function interpolateParameters(from, to, fraction) {
   const t = clamp(fraction), eased = t * t * (3 - 2 * t), next = { ...to };
-  for (const key of Object.keys(PARAMETER_LIMITS)) if (key !== 'generations') next[key] = from[key] + (to[key] - from[key]) * eased;
+  for (const key of Object.keys(PARAMETER_LIMITS)) if (key !== 'generations' && key !== 'grammarSeed' && key !== 'branchProbability') next[key] = from[key] + (to[key] - from[key]) * eased;
   return next;
 }
 export function topologyBounds(nodes) {

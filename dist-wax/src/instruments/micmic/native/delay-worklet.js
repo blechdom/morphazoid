@@ -1,7 +1,7 @@
 import { wasmError, withJson } from './wasm-abi.js';
 
 const BLOCK = 128, ENVELOPE_CAPACITY = 4000;
-const INSTALL_RECORDS_PER_BLOCK = 4096;
+const MAX_MAINTENANCE_BATCH = 4096, BOOTSTRAP_RECORDS = 64;
 const fineClock = typeof globalThis.performance?.now === 'function';
 const now = fineClock ? () => globalThis.performance.now() : () => Date.now();
 const METRICS = ['sampleRate', 'activeVoices', 'targetVoices', 'voiceLimit', 'installedCapacity', 'requestedTargets',
@@ -17,6 +17,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.engine = this.api.lsd_new(sampleRate, 1);
     if (!this.engine) throw new Error(wasmError(this.api, 'The Rust delay engine could not start.'));
     this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0; this.adjustmentSeconds = 0;
+    this.maintenanceSeconds = 0; this.measuredMaintenanceSeconds = 0;
+    this.renderMeanSeconds = 0;
+    this.installTiming = { seconds: 0, records: 0, recordSeconds: 0, blockedSeconds: 0 };
+    this.retireTiming = { seconds: 0, records: 0, recordSeconds: 0, blockedSeconds: 0 };
     this.audioTimeSeconds = null;
     this.pendingInstall = null; this.installQueue = []; this.drainRequests = [];
     this.inputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
@@ -32,7 +36,11 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ id: data.id, error: String(error.message || error) });
         if (error instanceof WebAssembly.RuntimeError) this.fail(error);
       }
-      finally { this.adjustmentSeconds += Math.max(0, now() - started) / 1000; }
+      finally {
+        const seconds = Math.max(0, now() - started) / 1000;
+        if (data.type === 'install') this.maintenanceSeconds += seconds;
+        else this.adjustmentSeconds += seconds;
+      }
     };
     this.port.postMessage({ type: 'ready', timing: fineClock ? 'high-resolution' : 'coarse-averaged' });
   }
@@ -139,18 +147,18 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.pendingInstall = null;
   }
 
-  advanceInstall() {
+  advanceInstall(records) {
     if (!this.pendingInstall) this.startInstall();
-    if (!this.pendingInstall) return;
+    if (!this.pendingInstall) return false;
     const pending = this.pendingInstall;
     if (pending.copied < pending.length) {
-      const end = Math.min(pending.length, pending.copied + INSTALL_RECORDS_PER_BLOCK * 48);
+      const end = Math.min(pending.length, pending.copied + records * 48);
       new Uint8Array(this.api.memory.buffer, pending.pointer + pending.copied, end - pending.copied)
         .set(pending.bytes.subarray(pending.copied, end));
       pending.copied = end;
     }
-    const result = this.api.lsd_install_step(this.engine, INSTALL_RECORDS_PER_BLOCK);
-    if (result === 1) return;
+    const result = this.api.lsd_install_step(this.engine, records);
+    if (result === 1) return false;
     if (result !== 2) {
       const error = wasmError(this.api, 'The audio topology could not be installed.');
       this.releaseInstall(true);
@@ -159,6 +167,39 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       this.releaseInstall();
       this.port.postMessage({ id: pending.id, status: this.snapshot() });
     }
+    return true;
+  }
+
+  maintenanceRecords(seconds, timing, duration) {
+    if (!(seconds > 0)) return 0;
+    const cost = timing.recordSeconds;
+    // A small first batch measures this device, not a voice-count ceiling.
+    // Coarse clocks learn from accumulated work rather than a single zero tick.
+    if (!(cost > 0)) return Math.min(BOOTSTRAP_RECORDS, Math.floor(seconds / (duration / MAX_MAINTENANCE_BATCH)));
+    const records = Math.min(MAX_MAINTENANCE_BATCH, Math.floor(seconds / (cost * (fineClock ? 1.5 : 2))));
+    if (records > 0) { timing.blockedSeconds = 0; return records; }
+    // A stale/JIT-inflated estimate must not permanently strand an upload or
+    // obsolete storage. Relearn with a small batch after50ms of real spare
+    // time; actual cost/missed deadlines remain observed during that probe.
+    timing.blockedSeconds += duration;
+    if (timing.blockedSeconds < .05) return 0;
+    timing.blockedSeconds = 0; timing.recordSeconds = 0; timing.seconds = 0; timing.records = 0;
+    return Math.min(BOOTSTRAP_RECORDS, Math.floor(seconds / (duration / MAX_MAINTENANCE_BATCH)));
+  }
+
+  recordMaintenance(timing, seconds, records) {
+    if (!records) return;
+    timing.seconds += seconds; timing.records += records;
+    if ((fineClock || timing.records >= MAX_MAINTENANCE_BATCH) && timing.seconds > 0) {
+      const cost = timing.seconds / timing.records, previous = timing.recordSeconds;
+      timing.recordSeconds = previous > 0 ? Math.max(cost, previous * .8) : cost;
+      timing.seconds = 0; timing.records = 0;
+    }
+  }
+
+  maintenanceSpare(duration, renderSeconds, workStarted) {
+    return Math.max(0, duration * .98 - Math.max(renderSeconds, this.renderMeanSeconds)
+      - this.adjustmentSeconds - this.maintenanceSeconds - Math.max(0, now() - workStarted) / 1000);
   }
 
   process(inputs, outputs) {
@@ -195,33 +236,72 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Pair the Rust sample clock with the end of this rendered quantum before
     // an installation ACK snapshots it. UI delivery must not move wave phase.
     if (Number.isFinite(globalThis.currentTime)) this.audioTimeSeconds = globalThis.currentTime + frames / sampleRate;
-    // Keep rendering the committed pool while the next one is validated and
-    // prepared in bounded batches. Only its completed state becomes audible.
-    this.advanceInstall();
-    // Replaced numeric storage is reclaimed in bounded batches too. A muted
-    // control graph drains it before suspension without delaying the commit ACK.
-    const remaining = this.api.lsd_collect_retired(this.engine, INSTALL_RECORDS_PER_BLOCK);
+    const duration = frames / sampleRate;
+    const renderSeconds = Math.max(0, now() - started) / 1000;
+    this.renderMeanSeconds += (renderSeconds - this.renderMeanSeconds) * .1;
+    const workStarted = now();
+    let maintenanceWorkSeconds = 0;
+    // Spend measured spare deadline time, keeping the committed pool live.
+    // Installation and retirement share this allowance instead of each adding
+    // a fixed4096-record burst on top of an already expensive audio block.
+    // Cleanup gets first use of half the spare time when an upload is pending,
+    // preventing continuous edits from retaining ever more obsolete storage.
+    let remaining = this.api.lsd_collect_retired(this.engine, 0);
+    if (remaining) {
+      const allowance = this.maintenanceSpare(duration, renderSeconds, workStarted)
+        * (this.pendingInstall || this.installQueue.length ? .5 : 1);
+      const records = this.maintenanceRecords(allowance, this.retireTiming, duration);
+      if (records) {
+        const retireStarted = now(), consumed = Math.min(remaining, records);
+        remaining = this.api.lsd_collect_retired(this.engine, records);
+        const seconds = Math.max(0, now() - retireStarted) / 1000;
+        maintenanceWorkSeconds += seconds;
+        if (consumed === records) this.recordMaintenance(this.retireTiming, seconds, consumed);
+      }
+    }
+    if (this.pendingInstall || this.installQueue.length) {
+      const records = this.maintenanceRecords(this.maintenanceSpare(duration, renderSeconds, workStarted), this.installTiming, duration);
+      if (records) {
+        const before = this.pendingInstall?.copied ?? 32, length = this.pendingInstall?.length;
+        const installStarted = now(), completed = this.advanceInstall(records);
+        const seconds = Math.max(0, now() - installStarted) / 1000;
+        const consumed = Math.min(records, length ? Math.ceil((length - before) / 48) : records);
+        maintenanceWorkSeconds += seconds;
+        // Atomic commit/ACK have fixed costs unrelated to record count. Keep
+        // them in total deadline accounting without corrupting the upload slope
+        // when a tiny preset finishes in its very first batch.
+        if (!completed) this.recordMaintenance(this.installTiming, seconds, consumed);
+      }
+    }
+    remaining = this.api.lsd_collect_retired(this.engine, 0);
+    const maintenanceSeconds = this.maintenanceSeconds + maintenanceWorkSeconds;
     if (!remaining && !this.pendingInstall && !this.installQueue.length && this.drainRequests.length) {
       for (const id of this.drainRequests) this.port.postMessage({ id });
       this.drainRequests.length = 0;
     }
     // Admission probes also consume the audio thread. Carry that measured
     // adjustment into the next observation, including coarse-clock batches.
-    const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds;
+    const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds + this.maintenanceSeconds;
     this.adjustmentSeconds = 0;
+    this.maintenanceSeconds = 0;
     if (fineClock) {
       const adjustmentStarted = now();
-      this.api.lsd_observe(this.engine, seconds, frames, 0);
+      if (maintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine, seconds, maintenanceSeconds, frames, 0);
+      else this.api.lsd_observe(this.engine, seconds, frames, 0);
       this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
     }
     else {
       // Averaging makes a 1 ms clock tick useful without treating it as a spike.
       this.measuredSeconds += seconds; this.measuredFrames += frames;
+      this.measuredMaintenanceSeconds += maintenanceSeconds;
       if (this.measuredFrames >= BLOCK * 32) {
         const adjustmentStarted = now();
-        this.api.lsd_observe(this.engine, this.measuredSeconds, this.measuredFrames, 0);
+        if (this.measuredMaintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine,
+          this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames, 0);
+        else this.api.lsd_observe(this.engine, this.measuredSeconds, this.measuredFrames, 0);
         this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
         this.measuredSeconds = 0; this.measuredFrames = 0;
+        this.measuredMaintenanceSeconds = 0;
       }
     }
     return true;

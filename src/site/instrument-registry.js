@@ -221,6 +221,8 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "cantor-lock", label: "Cantor Lock", href: "cantor-lock.html" },
     { id: "escape-dust", label: "Escape Dust", href: "escape-dust.html" },
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
+    { id: "l-system-parametric-lab", label: "L-system Parametric Lab", href: "l-system-parametric-lab.html" },
+    { id: "l-system-experiments", label: "L-system Experiments", href: "l-system-experiments.html" },
     { id: "acoustic-manifold", label: "Acoustic Manifold", href: "acoustic-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "adaptive-airway", label: "Adaptive Airway Lab", href: "adaptive-airway.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "birdsong-lab", label: "Strophe Lab", href: "birdsong-lab.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },

@@ -202,8 +202,10 @@
 .micmic-page .panel .current-settings-readout > div { padding: 7px 8px; gap: 5px 8px; }
 .micmic-page .panel .reset-all-row { padding: 8px 14px; }
 .micmic-page .panel .reset-form { margin-top: 5px; }
+.native-form-actions { display: flex; flex-wrap: wrap; gap: 5px 8px; }
 
 @media (pointer: coarse) {
+  .native-form-actions .mini-action { min-height: 48px; }
   .micmic-page .native-knob-control.mz-range-knob { --native-knob-target: 48px; --native-knob-dial: 32px; }
   .micmic-page .native-knob-grid .mz-tap-tempo { margin-top: 28px; }
   .native-voice-cap input[type="number"] { min-height: 48px; }

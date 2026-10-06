@@ -35,6 +35,8 @@ export const WAX_ROLE_DEFINITIONS = Object.freeze({
   }),
 });
 
+const BROWSER_RUST_DELAY_IDS = new Set(["micmic-rust", "l-system-parametric-lab", "l-system-experiments"]);
+
 const AUDIO_FX_IDS = new Set(
   INSTRUMENT_MIDI_CAPABILITIES
     .filter(({ audioInput }) => audioInput)
@@ -63,7 +65,7 @@ if (missingIds.length || unknownIds.length) {
 }
 
 function summaryFor(instrument, noteMode, midiOutput, audioInput) {
-  if (instrument.id === "micmic-rust") {
+  if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {
     return "Process microphone audio through the Rust WebAssembly delay engine in the browser.";
   }
   if (noteMode === "processor") {
@@ -88,7 +90,7 @@ function summaryFor(instrument, noteMode, midiOutput, audioInput) {
 }
 
 function caveatFor(instrument, noteMode, midiOutput) {
-  if (instrument.id === "micmic-rust") {
+  if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {
     return "Browser WebAssembly audio is available without a local service; this implementation does not connect to WAX audio buses.";
   }
   if (AUDIO_FX_IDS.has(instrument.id)) {
@@ -118,7 +120,7 @@ function caveatFor(instrument, noteMode, midiOutput) {
 export const WAX_INSTRUMENT_SUPPORT = Object.freeze(INSTRUMENTS.map((instrument) => {
   const midiCapability = instrumentMidiCapabilityForId(instrument.id);
   // Browser playback is available; this route has no verified WAX bus adapter.
-  if (instrument.id === "micmic-rust") {
+  if (BROWSER_RUST_DELAY_IDS.has(instrument.id)) {
     return Object.freeze({
       id: instrument.id, available: false, recommended: null, roles: Object.freeze([]),
       audioInput: false, midiInput: false, midiInputMode: midiCapability.midiInputMode,

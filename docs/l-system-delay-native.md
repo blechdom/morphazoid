@@ -5,9 +5,11 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page offers 150 full scenes, including all sixteen original presets,
+The Rust page source offers 186 full scenes, including all sixteen original presets,
 the ten earlier Rust scenes, 88 earlier additional scenes and 36 new branching
-scenes across seventeen grammars.
+scenes, plus 36 exploration scenes, across twenty-three grammars.
+The new curves and repeatable stochastic branching are documented in
+[Grammar exploration](l-system-delay-grammars.md).
 It retains the original parameter curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
@@ -97,6 +99,24 @@ Its parameter banks use compact knobs matching the header volume control. Drag
 up or down to adjust; hold Shift for finer motion, or use the native arrow,
 Home and End keys. Every parameter, range, step and readout remains available,
 including Tap, filter cutoffs, compression and signed pruning/asymmetry guidance.
+**Curls** adds continuous angular winding in either direction, from −8 to +8 turns
+along the longest root-to-tip path; this is added rotation, not a guaranteed count
+of visible loops. Zero leaves the original layout and sound intact;
+all earlier factory presets recall zero; the exploration bank also demonstrates
+curled paths. The input root stays fixed while
+successive segments turn, preserving their connections, lengths, gaps and delays.
+Those changed local turns feed the existing **Angle → octave span** pitch mapping,
+and their new positions feed **Spread**. The existing pitch-rate limits still
+apply. Curls does not reduce the number of voices or change device admission.
+Saved scenes retain Curls; older scenes without it restore zero. Held edits use
+the same staged Rust updates and continuous graphic transitions as Branch angle.
+**Center angles** restores Branch angle to its 90° midpoint, Turn asymmetry to
+even, and Curls to zero through one live edit. Timing, pitch span, variation,
+levels, source playback and the Audio state remain unchanged. The former Rule
+mutation control now describes its existing grammar-specific behavior:
+**Branch variation** changes Pythagorean turns, lengths and delays;
+**Delay variation** changes delay timing on all other patterns while retaining
+their shape and pitch turns. It does not rewrite the selected grammar.
 The optional voice-cap knob uses a logarithmic gesture across the full current
 memory-supported range; its adjacent numeric field accepts an exact count,
 with 0 retaining no user cap. This presentation adds no audio voice ceiling.
@@ -187,6 +207,13 @@ direct generation-gain update rather than compiling a new tree. Mix and masterin
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
 Zero Recursion retains structural ranks and recorded history for immediate resume.
+**Depth / decay** spans 0–100%. At **100% · no decay**, every generation has the
+same underlying gain before voice balancing, with no progressive generation
+attenuation. Individual branches still share their generation's gain, and the
+existing wet-bus normalization and mastering remain active. This endpoint uses
+the same smooth live gain update; it does not recompile the tree or reset input
+playback, history, pitch heads or measured voice capacity. Saved scenes retain
+100% exactly; factory presets and the bounded dice range keep their earlier levels.
 
 The drawing retains the committed audio tree while a structural edit is prepared.
 The topology worker prepares the classic preview once per structural reply;
@@ -216,6 +243,14 @@ curve detail before lowering its frame rate. Cached geometry and reusable wave
 buffers reduce per-frame work. The animation clock uses paired worklet sample
 time and AudioContext time, so delayed status delivery does not restart or
 rewind the wave motion. Graphics do not impose another audio voice ceiling.
+During playback, both renderers draw only the input root, admitted delay
+branches, and metered release tails. The complete accepted tree remains metadata
+for presets, parent connections and camera bounds; its unavailable grey branches
+are omitted. Audio off restores the complete preset preview. WebGL2 compacts its
+actual instance and meter buffers when membership changes, avoiding per-frame
+processing of the inactive tree. Capacity changes do not recenter or zoom it.
+History uploads reuse a Float32 scratch buffer and grow texture storage
+geometrically, rather than reallocating it for every newly recorded sample.
 Software-rendered browser checks validate shader parity and lifecycle; they do
 not establish hardware GPU frame rates or increased audio polyphony.
 
@@ -335,7 +370,9 @@ of evidence and another 60 ms of steady work before the next increase, replacing
 the slow generation-by-generation climb. Previously proved device capacity
 survives a smaller scene and is tested again when demand grows. These colors
 show admission, rather than the arrival of delayed sound; waviness shows signal.
-Unsuccessful probes roll back. The native comparison uses
+Unsuccessful new probes roll back. If a restored capacity becomes genuinely
+too expensive, measured proportional backoff replaces a collapse to the preceding
+tiny preset's voice count. The native comparison uses
 a separate warmed calibration before those live probes.
 Failed probes are retried, so capacity can increase when device conditions
 improve. The controller accounts for transient load and lets outgoing voices
@@ -344,13 +381,22 @@ overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
 In the browser, a structural pool is uploaded, validated and prepared in batches
-of 4,096 records across audio blocks. The committed pool keeps rendering during
+sized from measured spare audio-block time, with 4,096 records as the maximum
+batch size. Upload and obsolete-storage cleanup share that time allowance;
+cleanup receives a share even while another pool is being prepared. A small
+bootstrap batch learns per-record cost on the current device. This is a work
+batch limit, not an audio voice ceiling. The committed pool keeps rendering during
 preparation. An atomic handoff updates audible/releasing voices, while inactive
 slots adopt targets when admitted. Recording, branch phase and delay-edit
 crossfades survive the handoff. Allocation, memory growth and freeing replaced
 storage can still consume time; staging does not guarantee every device deadline.
-Old numeric voice storage retires in batches of at most 4,096 slots after
-rendering, avoiding a whole-vector destructor at growth commit. A retained,
+Finite topology preparation and cleanup retain a previously proved capacity
+estimate for prompt restoration and revalidation. Total callback CPU and missed
+deadlines still include that work; recurring DSP, admission, status polling and
+live controls remain part of voice-capacity measurement. Genuine render overload
+still reduces the budget. Old numeric voice storage retires in measured spare
+time after rendering, avoiding a whole-vector destructor at growth commit. A
+retained,
 suspended graph temporarily processes controls with output muted, completes its
 retirement queue and suspends again. This neither arms Audio nor opens an input;
 a newer explicit Audio or microphone action retains the running graph.
@@ -382,8 +428,10 @@ substituting an unrelated smaller tree. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. The full tree geometry stays
-constant as device capacity changes. Color indicates admission; wave amplitude
+audio does not cascade through parent processors. The full tree geometry and
+camera bounds stay constant as device capacity changes; only admitted branches
+and metered release tails are drawn during playback. Color indicates admission;
+wave amplitude
 indicates signal, with actual tap RMS taking precedence on short edges and at
 audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
