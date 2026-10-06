@@ -17,8 +17,8 @@ const emptyStatus = () => ({ sampleRate: 0, device: 'Audio off', inputDevice: nu
   inputEnvelope: { interval: .01, endTime: 0, values: [] }, failure: null });
 
 /** Browser lifecycle and messages only. Topology and audio share the Rust core. */
-export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => {} } = {}) {
-  let parameters = sanitizeParameters(DEFAULT_PARAMETERS), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
+export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETERS, onStatus = () => {}, onError = () => {} } = {}) {
+  let parameters = sanitizeParameters(initialParameters), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
   let parameterRequestRevision = 0, depthRevision = 0, requestedDepth = parameters.depth;
   let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;

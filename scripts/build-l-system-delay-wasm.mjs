@@ -13,7 +13,7 @@ const sourceFiles = [
   `${rust}/Cargo.toml`, `${rust}/Cargo.lock`,
   `${rust}/core/Cargo.toml`, `${rust}/core/src/lib.rs`,
   `${rust}/wasm/Cargo.toml`, `${rust}/wasm/src/lib.rs`,
-  ...['adaptive', 'conditioning', 'model', 'performance', 'resources'].map(name => `${rust}/app/src/${name}.rs`),
+  ...['adaptive', 'conditioning', 'lab', 'model', 'performance', 'resources'].map(name => `${rust}/app/src/${name}.rs`),
 ].sort();
 const requiredExports = [
   'memory', 'lsd_abi_version', 'lsd_alloc', 'lsd_free', 'lsd_error_ptr', 'lsd_error_len',

@@ -155,13 +155,20 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
     let capacity = resources::voice_capacity();
     let generation_limits: std::collections::BTreeMap<_, _> = model::L_SYSTEM_TYPES
         .iter()
-        .map(|id| ((*id).to_string(), model::generation_limit(id, capacity)))
+        .map(|id| {
+            let limit = if *id == "stochastic" && parameters.l_system_type == "stochastic" {
+                model::stochastic_generation_limit(&parameters, capacity)
+            } else {
+                model::generation_limit(id, capacity)
+            };
+            ((*id).to_string(), limit)
+        })
         .collect();
-    // The connected preview is bounded independently of all requested audio
-    // voices. Deep trees keep every audio record, not merely visible branches.
+    // Legacy deep trees keep a sampled control preview independent of audio.
+    // Labs retain their complete authoritative segment graph for the renderer.
     let json = serde_json::to_vec(&serde_json::json!({
         "parameters": parameters, "nodes": topology.preview,
-        "previewSampled": topology.nodes.len() > 2048,
+        "previewSampled": parameters.lab.is_none() && topology.nodes.len() > 2048,
         "requestedVoices": topology.requested_voices,
         "eligibleVoices": topology.eligible_voices,
         "structuralEligibleVoices": structural_eligible,

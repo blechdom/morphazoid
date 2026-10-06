@@ -176,7 +176,8 @@ const unsubscribeMidiMessages = midiManager.subscribeMessages(() => {
   midiStatus.setReceiving(true); clearTimeout(midiActivityTimer);
   midiActivityTimer = setTimeout(() => midiStatus.setState(midiManager.status().enabled ? 'on' : 'off'), 120);
 });
-const browserEngine = createBrowserDelayEngine({ onStatus: reply => acceptStatus(reply), onError: error => showError(error?.message ?? String(error)) });
+const browserEngine = createBrowserDelayEngine({ initialParameters: state.parameters,
+  onStatus: reply => acceptStatus(reply), onError: error => showError(error?.message ?? String(error)) });
 
 function showError(message) {
   if (disposed) return;
@@ -535,6 +536,7 @@ function paintInput() {
   credit.hidden = !input.credit;
 }
 function paintControls() {
+  if ($('stochasticControls')) $('stochasticControls').hidden = state.parameters.lSystemType !== 'stochastic';
   const branchVariation = state.parameters.lSystemType === 'pythagorean';
   $('mutationLabel').textContent = LAB_CONFIG ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
   const mutationGuide = LAB_CONFIG ? 'Adds stable per-module length and timing variation while retaining the same rule identities.'
@@ -972,11 +974,11 @@ async function bootstrap() {
   const initialRevision = parameterRevision;
   try {
     let [reply, bank] = await Promise.all([request('/api/state'), LAB_CONFIG ? Promise.resolve(LAB_CONFIG.presets) : request(new URL('./presets.json', import.meta.url).href)]);
-    if (LAB_CONFIG && initialRevision === 0) {
+    if (LAB_CONFIG && initialRevision === 0 && parameterRevision === initialRevision) {
       const initial = presetState(LAB_CONFIG.presets[0], state.performance);
       state.parameters = initial.parameters; state.performance = initial.performance;
-      await request('/api/performance', state.performance);
-      reply = await request('/api/parameters', state.parameters);
+      reply = await request('/api/performance', state.performance);
+      if (JSON.stringify(reply.parameters) !== JSON.stringify(state.parameters)) reply = await request('/api/parameters', state.parameters);
     } if (disposed) return;
     if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);

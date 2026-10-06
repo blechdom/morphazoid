@@ -1,5 +1,6 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
+import { sanitizeLab } from '../../l-system-parametric-lab/model.js';
 const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
   ...RUST_BRANCHING_TYPES]);
@@ -19,6 +20,7 @@ export function sanitizeParameters(candidate = {}) {
     next[key] = clamp(Number.isFinite(value) ? value : DEFAULT_PARAMETERS[key], low, high);
   }
   next.generations = Math.round(next.generations);
+  if (candidate.lab && typeof candidate.lab === 'object') next.lab = sanitizeLab(candidate.lab);
   return next;
 }
 export function sanitizePerformance(candidate = {}) {
@@ -103,7 +105,9 @@ export function createPreviewDrawSelection(nodes) {
     },
   };
 }
-export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }
+export function topologyIdentity(parameters) {
+  return `${parameters.lSystemType}:${parameters.generations}${parameters.lab ? `:${JSON.stringify(parameters.lab)}` : ''}`;
+}
 /** Coherent meters are keyed by pool slots, never mutable pruning ranks. */
 export function tapActivityFrame(reply, parameters) {
   const status = reply?.status, revision = reply?.topologyRevision;
