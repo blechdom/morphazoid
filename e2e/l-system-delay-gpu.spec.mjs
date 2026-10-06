@@ -154,6 +154,54 @@ async function goldenFrame(page, options = {}) {
   }, options);
 }
 
+test('playing packs only admitted instances and real releases, while Audio off retains the complete preset', async ({ page }) => {
+  await fixture(page);
+  const evidence = await page.evaluate(() => {
+    const { renderer, model, generationTopology } = __delayGpuFixture;
+    const nodes = model.buildPreview({ ...model.DEFAULT_PARAMETERS, generations: 13 }, generationTopology);
+    const selection = model.createPreviewDrawSelection(nodes), levels = new Map(), targets = new Map();
+    const frame = { width: 400, height: 320, dpr: 1, fit: { scale: 42, x: 22, y: 170 }, seconds: 10,
+      detailSteps: 5, limit: 48, depth: .72, rootLevel: 0, wet: .7, wetBusGain: .7,
+      levels, targets, selectedCounts: new Map() };
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+    renderer.setGeometry(nodes, { drawNodes: frame.drawNodes });
+    __delayGpuProbe.draws = []; renderer.render(frame);
+    const first = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
+    renderer.render(frame);
+    const stable = renderer.stats;
+    frame.limit = 6;
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+    __delayGpuProbe.draws = []; renderer.render(frame);
+    const reduced = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
+    const tail = nodes.find(node => node.priority === 12); levels.set(tail.voiceIndex, .2);
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+    __delayGpuProbe.draws = []; renderer.render(frame);
+    const released = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
+    frame.depth = 0; frame.limit = 0; levels.clear(); model.applyPreviewDepth(nodes, 0);
+    frame.drawNodes = selection.select({ audio: true, limit: 0, depth: 0, levels });
+    __delayGpuProbe.draws = []; renderer.render(frame);
+    const silent = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
+    // No readback of the full preview: production never reads GPU output.
+    __delayGpuProbe.enabled = false;
+    frame.drawNodes = selection.select({ audio: false }); renderer.render(frame);
+    const off = renderer.stats;
+    renderer.dispose();
+    return { first, stable, reduced, released, silent, off, fullCount: nodes.length };
+  });
+  expect(evidence.fullCount).toBe(16383);
+  expect(evidence.first.stats.nodeCount).toBe(49);
+  expect(evidence.first.stats.previewNodeCount).toBe(16383);
+  expect(evidence.first.instances).toEqual([49]);
+  expect(evidence.first.stats.drawCalls).toBe(2);
+  expect(evidence.stable.selectionUploads).toBe(evidence.first.stats.selectionUploads);
+  expect(evidence.stable.topologyUploads).toBe(evidence.first.stats.topologyUploads);
+  expect(evidence.reduced.instances).toEqual([7]); expect(evidence.reduced.stats.nodeCount).toBe(7);
+  expect(evidence.released.instances).toEqual([8]); expect(evidence.released.stats.nodeCount).toBe(8);
+  expect(evidence.silent.instances).toEqual([1]); expect(evidence.silent.stats.nodeCount).toBe(1);
+  expect(evidence.off.nodeCount).toBe(16383);
+  expect(evidence.off.topologyUploads).toBe(evidence.first.stats.topologyUploads);
+});
+
 test('GPU branches match Canvas signal deformation and availability for every grammar', async ({ page }) => {
   await fixture(page);
   const types = await page.evaluate(() => __delayGpuFixture.model.L_SYSTEM_TYPES);

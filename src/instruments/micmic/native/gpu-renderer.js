@@ -233,11 +233,12 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   }
 
   let disposed = false, ready = false, resources = null, maximumTextureSize = 0;
-  let cachedNodes = [], cachedGeometryOptions = {}, nodes = [], staticData = new Float32Array(), meterData = new Float32Array();
+  let cachedNodes = [], cachedGeometryOptions = {}, cachedDrawNodes = [], sourceNodes = [], sourceIndices = new Map(), sourceStaticData = new Float32Array();
+  let nodes = [], drawIndices = [], staticData = new Float32Array(), meterData = new Float32Array();
   let maximumGeneration = 0, generationLevels = new Float32Array(1);
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
   const palette = paletteValues(colors);
-  const counters = { backend, nodeCount: 0, topologyUploads: 0, positionUploads: 0, meterUploads: 0, historyUploads: 0, drawCalls: 0 };
+  const counters = { backend, nodeCount: 0, previewNodeCount: 0, topologyUploads: 0, selectionUploads: 0, positionUploads: 0, meterUploads: 0, historyUploads: 0, drawCalls: 0 };
 
   function releaseResources() {
     if (!resources) return;
@@ -299,20 +300,36 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     }
   }
 
-  function uploadGeometry() {
+  function uploadGeometry(selection = false) {
     gl.bindVertexArray(resources.vao);
     gl.bindBuffer(gl.ARRAY_BUFFER, resources.topology); gl.bufferData(gl.ARRAY_BUFFER, staticData, gl.STATIC_DRAW);
     gl.bindBuffer(gl.ARRAY_BUFFER, resources.meters); gl.bufferData(gl.ARRAY_BUFFER, meterData.byteLength, gl.DYNAMIC_DRAW);
-    counters.topologyUploads++;
+    counters[selection ? 'selectionUploads' : 'topologyUploads']++;
   }
-  function setGeometry(nextNodes, { intervalMs } = {}) {
+  function selectGeometry(nextDrawNodes, topology = false) {
+    cachedDrawNodes = nextDrawNodes;
+    drawIndices = nextDrawNodes.map(node => sourceIndices.get(node.id)).filter(index => index !== undefined);
+    nodes = drawIndices.map(index => sourceNodes[index]);
+    staticData = new Float32Array(nodes.length * 9); meterData = new Float32Array(nodes.length * 4);
+    for (let index = 0; index < drawIndices.length; index++) {
+      const sourceIndex = drawIndices[index], node = cachedNodes[sourceIndex], offset = index * 9;
+      staticData.set(sourceStaticData.subarray(sourceIndex * 9, sourceIndex * 9 + 9), offset);
+      // A hidden branch may have completed a morph since the last selection.
+      staticData[offset] = finite(node.startX); staticData[offset + 1] = finite(node.startY);
+      staticData[offset + 2] = finite(node.x); staticData[offset + 3] = finite(node.y);
+    }
+    counters.nodeCount = nodes.length;
+    if (ready) uploadGeometry(!topology);
+  }
+  function setGeometry(nextNodes, { intervalMs, drawNodes } = {}) {
     if (disposed) return;
     cachedNodes = nextNodes ?? [];
-    cachedGeometryOptions = Number.isFinite(intervalMs) ? { intervalMs } : {};
+    cachedGeometryOptions = { ...(Number.isFinite(intervalMs) ? { intervalMs } : {}), drawNodes: drawNodes ?? cachedNodes };
     const byId = new Map(cachedNodes.map(node => [node.id, node]));
-    staticData = new Float32Array(cachedNodes.length * 9); meterData = new Float32Array(cachedNodes.length * 4);
+    sourceStaticData = new Float32Array(cachedNodes.length * 9);
+    sourceIndices = new Map(cachedNodes.map((node, index) => [node.id, index]));
     maximumGeneration = 0;
-    nodes = cachedNodes.map((node, index) => {
+    sourceNodes = cachedNodes.map((node, index) => {
       const parent = byId.get(node.parentId), root = node.generation === 0;
       const generation = Math.max(0, Math.floor(finite(node.generation)));
       maximumGeneration = Math.max(maximumGeneration, generation);
@@ -324,21 +341,21 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       // Pool indices may exceed exact Float32 integers on deep native trees.
       // Reduce the phase in JS once, before uploading immutable topology.
       const phase = (finite(node.index, finite(node.voiceIndex)) * .71) % (Math.PI * 2);
-      staticData.set([finite(node.startX), finite(node.startY), finite(node.x), finite(node.y), startDelay, endDelay, finite(node.rate, 1), generation, phase], index * 9);
+      sourceStaticData.set([finite(node.startX), finite(node.startY), finite(node.x), finite(node.y), startDelay, endDelay, finite(node.rate, 1), generation, phase], index * 9);
       return { root, generation, voiceIndex: node.voiceIndex, parentVoiceIndex: parent?.voiceIndex, parentRoot: parent?.generation === 0,
         priority: Number.isInteger(node.priority) && node.priority >= 0 ? node.priority : Infinity };
     });
     generationLevels = new Float32Array(maximumGeneration + 1);
-    counters.nodeCount = nodes.length;
-    if (ready) uploadGeometry();
+    counters.previewNodeCount = cachedNodes.length;
+    selectGeometry(drawNodes ?? cachedNodes, true);
   }
 
   function updateGeometryPositions(nextNodes) {
     if (disposed || nextNodes !== cachedNodes) return;
     // A committed morph changes only endpoints. Retain voice ranks, delays,
     // meters and their buffers rather than allocating another topology frame.
-    for (let index = 0; index < cachedNodes.length; index++) {
-      const node = cachedNodes[index], offset = index * 9;
+    for (let index = 0; index < drawIndices.length; index++) {
+      const node = cachedNodes[drawIndices[index]], offset = index * 9;
       staticData[offset] = finite(node.startX); staticData[offset + 1] = finite(node.startY);
       staticData[offset + 2] = finite(node.x); staticData[offset + 3] = finite(node.y);
     }
@@ -367,6 +384,8 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   function render(frame) {
     if (!ready || disposed) return false;
     try {
+      const drawNodes = frame.drawNodes ?? cachedNodes;
+      if (drawNodes !== cachedDrawNodes) selectGeometry(drawNodes);
       const width = Math.max(1, finite(frame.width, 1)), height = Math.max(1, finite(frame.height, 1)), dpr = clamp(frame.dpr, .25, 4);
       const pixelWidth = Math.max(1, Math.round(width * dpr)), pixelHeight = Math.max(1, Math.round(height * dpr));
       if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
@@ -380,13 +399,15 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         const gain = .5 * clamp(frame.depth) ** (generation * .72) / Math.sqrt(count || 1);
         generationLevels[generation] = clamp(Math.sqrt(Math.max(0, gain) / .5) * wetLevel);
       }
+      let availableCount = 0;
       for (let index = 0; index < nodes.length; index++) {
         const node = nodes[index], energy = node.root ? rootLevel : clamp(levels.get(node.voiceIndex));
         // The original geometry objects carry live coefficient gain. It is an
         // admission gate, not an immutable topology attribute or amplitude.
         // Generation amplitude above already follows the applied frame depth.
-        const admitted = node.root || (!frame.pending && node.priority < limit && finite(cachedNodes[index].gain) > 0);
+        const admitted = node.root || (!frame.pending && node.priority < limit && finite(cachedNodes[drawIndices[index]].gain) > 0);
         const available = admitted || energy > 0;
+        if (available) availableCount++;
         const measured = node.root || targets.has(node.voiceIndex);
         const parentMeasured = node.parentRoot || targets.has(node.parentVoiceIndex);
         const parentEnergy = wet > 0 ? node.parentRoot ? rootLevel * wetLevel : clamp(levels.get(node.parentVoiceIndex)) : 0;
@@ -408,10 +429,11 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       }
       if (nodes.length) {
         for (const available of [false, true]) {
+          if (available ? availableCount === 0 : availableCount === nodes.length) continue;
           gl.useProgram(resources.program); gl.uniform1i(resources.uniforms.uAvailablePass, available); gl.drawArraysInstanced(gl.TRIANGLE_STRIP, 0, (detailSteps + 1) * 2, nodes.length);
           gl.useProgram(resources.caps); gl.uniform1i(resources.capUniforms.uAvailablePass, available); gl.drawArraysInstanced(gl.TRIANGLES, 0, 12, nodes.length);
         }
-        counters.drawCalls += 4;
+        counters.drawCalls += (availableCount ? 2 : 0) + (availableCount < nodes.length ? 2 : 0);
       }
       canvas.hidden = false;
       return true;
@@ -430,7 +452,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   }
   function contextRestored() {
     if (disposed) return;
-    try { initialize(); setGeometry(cachedNodes, cachedGeometryOptions); }
+    try { initialize(); setGeometry(cachedNodes, { ...cachedGeometryOptions, drawNodes: cachedDrawNodes }); }
     catch { ready = false; canvas.hidden = true; releaseResources(); }
     onInvalidate();
   }
@@ -438,7 +460,9 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     if (disposed) return;
     disposed = true; ready = false;
     canvas.removeEventListener('webglcontextlost', contextLost); canvas.removeEventListener('webglcontextrestored', contextRestored);
-    releaseResources(); canvas.remove(); cachedNodes = []; cachedGeometryOptions = {}; nodes = []; historyValues = null;
+    releaseResources(); canvas.remove(); cachedNodes = []; cachedGeometryOptions = {}; cachedDrawNodes = [];
+    sourceNodes = []; sourceIndices.clear(); sourceStaticData = new Float32Array();
+    nodes = []; drawIndices = []; staticData = new Float32Array(); meterData = new Float32Array(); historyValues = null;
     // Retire the context as well as its objects when the owning page tears down.
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }

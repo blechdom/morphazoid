@@ -73,6 +73,36 @@ export function applyPreviewDepth(nodes, depth) {
 }
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
+/** Keep the complete preset as metadata, but visit only audible branches per
+ * frame. Selection identity stays stable while meter values change. */
+export function createPreviewDrawSelection(nodes) {
+  const byVoice = new Map(nodes.filter(node => node.generation > 0).map(node => [node.voiceIndex, node]));
+  let key, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
+  return {
+    invalidate() { key = undefined; },
+    select({ audio = false, limit = 0, levels = new Map(), depth = 1 } = {}) {
+      const nextKey = `${audio}:${limit}:${depth > 0}`;
+      if (nextKey !== key) {
+        key = nextKey;
+        admitted = audio ? admittedPreviewNodes(nodes, depth > 0 ? limit : 0) : nodes;
+        admittedIds = new Set(admitted.map(node => node.id));
+        selected = admitted; releaseKey = '';
+      }
+      if (!audio) return selected;
+      const released = [];
+      for (const [slot, energy] of levels) {
+        const node = byVoice.get(slot);
+        if (energy > 0 && node && !admittedIds.has(node.id)) released.push(node);
+      }
+      released.sort((a, b) => a.voiceIndex - b.voiceIndex);
+      const nextReleaseKey = released.map(node => node.voiceIndex).join(',');
+      if (nextReleaseKey !== releaseKey) {
+        releaseKey = nextReleaseKey; selected = released.length ? admitted.concat(released) : admitted;
+      }
+      return selected;
+    },
+  };
+}
 export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }
 /** Coherent meters are keyed by pool slots, never mutable pruning ranks. */
 export function tapActivityFrame(reply, parameters) {

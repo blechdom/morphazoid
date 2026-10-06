@@ -9,7 +9,7 @@ import { registerHeaderPresets, presetStateKey } from '../../../site/header-pres
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
-  buildPreview, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition,
+  buildPreview, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
@@ -258,7 +258,9 @@ async function refreshNativePreview() {
       }
       geometry.activeLimit = -1; geometry.unavailableKey = null;
       nativePreview.parameters = parameters;
-      gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs });
+      geometry.drawSelection.invalidate();
+      gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
+        limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth }) });
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
       applyPreviewDepth(previewTransition.nodes, parameters.depth);
@@ -593,12 +595,12 @@ function buildGeometry() {
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
-    activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null,
-    byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
-  gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs });
+    activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null, drawSelection: createPreviewDrawSelection(nodes) };
+  gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
+    limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth }) });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The green circle marks the start of the first white branch. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
+  $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off shows the complete preset preview. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for L-system Delay. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.input.label || 'Input'} ${state.input.playing || state.status.microphoneEnabled ? 'live' : 'stopped'}` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -658,6 +660,7 @@ function draw(now) {
   }
   rootLevel = smoothActivity(rootLevel, state.audio && now - inputReceivedAt < 300 ? activityEnergy(Number(state.status.inputPeak || 0)) : 0, elapsed);
   const rootNode = geometry.root;
+  const branches = geometry.drawSelection.select({ audio: state.audio, limit, levels: tapLevels, depth: previewParameters.depth });
   canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
   if (gpuRenderer?.available) {
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
@@ -665,35 +668,32 @@ function draw(now) {
       limit, pending: false, historyFresh, history: inputTelemetry.envelope,
       levels: tapLevels, targets: tapTargets, rootLevel, wet: state.performance.wet,
       wetBusGain: Number(state.status.wetBusGain || 0), depth: previewParameters.depth,
-      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts });
+      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts, drawNodes: branches });
   } else {
-    const activeIds = geometry.activeIds, released = [];
-    for (const slot of tapLevels.keys()) {
-      const node = geometry.byVoiceIndex.get(slot);
-      if (node && !activeIds.has(node.id)) released.push(node);
-    }
-    const branches = released.length ? geometry.active.concat(released) : geometry.active;
-    // Color answers only availability, including voices still sounding through
-    // their release. Grey never doubles as a volume indicator.
-    const unavailableKey = `${limit}:${released.map(n => n.id).join(',')}`;
-    if (geometry.unavailableKey !== unavailableKey) {
+    const activeIds = geometry.activeIds;
+    // Playing draws the audio branches only. The complete quiet preset remains
+    // a readable outline while Audio is off.
+    const unavailableKey = `${limit}`;
+    if (!state.audio && geometry.unavailableKey !== unavailableKey) {
       geometry.unavailableKey = unavailableKey; geometry.unavailable = new Path2D();
-      const availableIds = released.length ? new Set(branches.map(n => n.id)) : activeIds;
-      for (const n of nodes) if (!availableIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
+      for (const n of nodes) if (!activeIds.has(n.id)) { geometry.unavailable.moveTo(n.startX, n.startY); geometry.unavailable.lineTo(n.x, n.y); }
     }
-    context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
-    context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
-    context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
-    const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, branches.length))));
+    if (!state.audio) {
+      context.save(); context.setTransform(dpr * fit.scale, 0, 0, -dpr * fit.scale, dpr * fit.x, dpr * fit.y);
+      context.lineCap = 'round'; context.lineJoin = 'round'; context.strokeStyle = 'rgba(119,131,126,.58)';
+      context.globalAlpha = .4; context.lineWidth = .72 / fit.scale; context.stroke(geometry.unavailable); context.restore();
+    }
+    const coloredBranches = state.audio ? branches : geometry.active;
+    const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, coloredBranches.length))));
     const coloredPaths = COLORS.map(() => new Path2D());
     const wet = Number(state.status.wetBusGain || 0) > 0 ? state.performance.wet : 0;
     const voiceLevels = [1];
-    for (const n of branches) if (voiceLevels[n.generation] === undefined) {
+    for (const n of coloredBranches) if (voiceLevels[n.generation] === undefined) {
       const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
       const gain = .5 * previewParameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
       voiceLevels[n.generation] = clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
     }
-    for (const n of branches) {
+    for (const n of coloredBranches) {
       let wave = geometry.waves.get(n.id);
       if (!wave) {
         const parent = geometry.byId.get(n.parentId);
