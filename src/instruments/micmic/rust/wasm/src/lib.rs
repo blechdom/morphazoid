@@ -21,7 +21,7 @@ use conditioning::{InputHighpass, OutputConditioner, PreparedMastering};
 use l_system_delay_core::{phase_seed, Engine, PoolTarget, PreparedPool, PreparedPoolControls};
 use performance::{Performance, Source};
 use std::{
-    alloc::{alloc_zeroed, dealloc, Layout},
+    alloc::{alloc, alloc_zeroed, dealloc, Layout},
     cell::RefCell,
     slice,
 };
@@ -63,6 +63,17 @@ pub extern "C" fn lsd_alloc(bytes: usize) -> *mut u8 {
         return std::ptr::null_mut();
     };
     unsafe { alloc_zeroed(layout) }
+}
+/// Caller-owned upload storage, freed by lsd_free with the original length.
+/// The caller must write all 32 header bytes before install_begin, then write
+/// each complete record batch before install_step is allowed to consume it.
+/// PCM buffers continue using the zero-initialized lsd_alloc entry point.
+#[no_mangle]
+pub extern "C" fn lsd_alloc_uninitialized(bytes: usize) -> *mut u8 {
+    let Ok(layout) = Layout::from_size_align(bytes.max(1), 8) else {
+        return std::ptr::null_mut();
+    };
+    unsafe { alloc(layout) }
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_free(pointer: *mut u8, bytes: usize) {
@@ -437,34 +448,39 @@ impl Renderer {
     /// The caller retains this byte allocation until commit, rejection or abort.
     /// Reserve numeric storage once; validation and voice construction then run
     /// in bounded batches while the old recording and scene continue rendering.
+    #[cfg(test)]
     fn begin_install(&mut self, bytes: &[u8]) -> Result<(), String> {
-        if bytes.len() < HEADER
-            || read_u32(bytes, 0) != MAGIC
-            || !matches!(read_u32(bytes, 4), 1 | 2)
+        self.begin_install_header(&bytes[..bytes.len().min(HEADER)], bytes.len())
+    }
+
+    fn begin_install_header(&mut self, header: &[u8], total_bytes: usize) -> Result<(), String> {
+        if header.len() < HEADER
+            || read_u32(header, 0) != MAGIC
+            || !matches!(read_u32(header, 4), 1 | 2)
         {
             return Err("Invalid delay pool format".into());
         }
-        let count = read_u32(bytes, 8) as usize;
+        let count = read_u32(header, 8) as usize;
         let expected = count
             .checked_mul(RECORD)
             .and_then(|n| n.checked_add(HEADER))
             .ok_or("Pool size overflow")?;
-        if bytes.len() != expected {
+        if total_bytes != expected {
             return Err("Truncated delay pool".into());
         }
-        let normalization = read_f64(bytes, 24);
+        let normalization = read_f64(header, 24);
         if !normalization.is_finite() || !(0.0..=1.0).contains(&normalization) {
             return Err("Invalid wet normalization".into());
         }
         let pending = StagedInstall {
-            pointer: bytes.as_ptr(),
-            bytes: bytes.len(),
+            pointer: header.as_ptr(),
+            bytes: total_bytes,
             count,
             next: 0,
             available: 0,
-            revision: u64::from(read_u32(bytes, 16)) | u64::from(read_u32(bytes, 20)) << 32,
+            revision: u64::from(read_u32(header, 16)) | u64::from(read_u32(header, 20)) << 32,
             normalization,
-            depth_controls: read_u32(bytes, 4) == 2,
+            depth_controls: read_u32(header, 4) == 2,
             depth_override: None,
             controls: PreparedPoolControls::new(count)?,
             growth: if count > self.capacity {
@@ -486,11 +502,15 @@ impl Renderer {
             .pending_install
             .take()
             .ok_or("No delay pool is being prepared")?;
-        let bytes = unsafe { slice::from_raw_parts(pending.pointer, pending.bytes) };
         let end = pending
             .next
-            .saturating_add(maximum_records.max(1))
+            .saturating_add(maximum_records)
             .min(pending.count);
+        // Future upload batches may still be uninitialized. Form a slice only
+        // over the initialized header and complete records consumed so far.
+        let initialized_bytes = HEADER + end * RECORD;
+        debug_assert!(initialized_bytes <= pending.bytes);
+        let bytes = unsafe { slice::from_raw_parts(pending.pointer, initialized_bytes) };
         for index in pending.next..end {
             let base = HEADER + index * RECORD;
             let target = PoolTarget {
@@ -880,7 +900,7 @@ pub unsafe extern "C" fn lsd_install_begin(
     if handle.is_null() || pointer.is_null() {
         return 0;
     }
-    match (*handle).begin_install(slice::from_raw_parts(pointer, bytes)) {
+    match (*handle).begin_install_header(slice::from_raw_parts(pointer, bytes.min(HEADER)), bytes) {
         Ok(()) => 1,
         Err(error) => {
             report(error);
@@ -1546,6 +1566,73 @@ mod browser_tests {
             assert_eq!(left, reference_l);
             assert_eq!(right, reference_r);
         }
+    }
+    #[test]
+    fn incremental_raw_upload_reads_only_initialized_batches_and_keeps_caller_cleanup() {
+        let compiled = scene(7);
+        let mut uploaded = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        reference.install(&compiled.pool).unwrap();
+        let pointer = lsd_alloc_uninitialized(compiled.pool.len());
+        assert!(!pointer.is_null());
+        unsafe {
+            std::ptr::copy_nonoverlapping(compiled.pool.as_ptr(), pointer, HEADER);
+            assert_eq!(
+                lsd_install_begin(&mut uploaded, pointer, compiled.pool.len()),
+                1
+            );
+            assert_eq!(lsd_install_step(&mut uploaded, 0), 1);
+            assert_eq!(uploaded.pending_install.as_ref().unwrap().next, 0);
+            let count = read_u32(&compiled.pool, 8) as usize;
+            let mut copied = 0;
+            while copied < count {
+                let batch = (count - copied).min(19);
+                let offset = HEADER + copied * RECORD;
+                std::ptr::copy_nonoverlapping(
+                    compiled.pool.as_ptr().add(offset),
+                    pointer.add(offset),
+                    batch * RECORD,
+                );
+                copied += batch;
+                assert_eq!(
+                    lsd_install_step(&mut uploaded, batch),
+                    if copied == count { 2 } else { 1 }
+                );
+            }
+            lsd_free(pointer, compiled.pool.len());
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..32 {
+            let input = signal(block * BLOCK);
+            uploaded.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left, reference_l);
+            assert_eq!(right, reference_r);
+        }
+        unsafe {
+            let pointer = lsd_alloc_uninitialized(compiled.pool.len());
+            std::ptr::copy_nonoverlapping(compiled.pool.as_ptr(), pointer, HEADER);
+            assert_eq!(
+                lsd_install_begin(&mut uploaded, pointer, compiled.pool.len()),
+                1
+            );
+            lsd_install_abort(&mut uploaded);
+            lsd_free(pointer, compiled.pool.len());
+            assert!(uploaded.pending_install.is_none());
+            let short = lsd_alloc_uninitialized(7);
+            std::ptr::write_bytes(short, 0, 7);
+            assert_eq!(lsd_install_begin(&mut uploaded, short, 7), 0);
+            lsd_free(short, 7);
+            let truncated = lsd_alloc_uninitialized(HEADER);
+            std::ptr::copy_nonoverlapping(compiled.pool.as_ptr(), truncated, HEADER);
+            assert_eq!(lsd_install_begin(&mut uploaded, truncated, HEADER), 0);
+            lsd_free(truncated, HEADER);
+        }
+        assert_eq!(uploaded.frames, reference.frames);
+        assert_eq!(uploaded.requested, reference.requested);
     }
     #[test]
     fn envelope_follows_native_attack_release_and_chronological_wrap() {
