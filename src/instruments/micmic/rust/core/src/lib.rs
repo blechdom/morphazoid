@@ -199,6 +199,15 @@ impl Voice {
     }
 }
 
+fn pool_gain(voice: &Voice, groups: Option<&[f64; 256]>) -> f64 {
+    if voice.pool_rank != usize::MAX && voice.pool_group != 0 {
+        if let Some(groups) = groups {
+            return groups[usize::from(voice.pool_group)];
+        }
+    }
+    voice.desired_gain
+}
+
 pub struct Engine {
     sample_rate: f64,
     history: Vec<f32>,
@@ -212,6 +221,7 @@ pub struct Engine {
     #[cfg(test)]
     last_admission_visits: usize,
     pool_group_counts: [usize; 256],
+    pool_group_gains: Option<[f64; 256]>,
     activity_energy: [f64; 256],
     activity: [f32; 256],
     activity_samples: usize,
@@ -324,6 +334,7 @@ impl Engine {
             #[cfg(test)]
             last_admission_visits: 0,
             pool_group_counts: [0; 256],
+            pool_group_gains: None,
             activity_energy: [0.; 256],
             activity: [0.; 256],
             activity_samples: 0,
@@ -443,6 +454,7 @@ impl Engine {
         self.runtime_limit = 0;
         self.target_count = 0;
         self.pool_group_counts.fill(0);
+        self.pool_group_gains = None;
         Ok(())
     }
 
@@ -515,6 +527,7 @@ impl Engine {
         }
         let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
         self.rank_to_slot.fill(usize::MAX);
+        self.pool_group_gains = None;
         self.pool_admission_dirty = true;
         self.tap_remap.fill(0.);
         self.tap_voice_indices.fill(usize::MAX);
@@ -598,6 +611,18 @@ impl Engine {
         self.set_pool_limit(limit);
     }
 
+    /// Sample-thread safe generation gain update. Stable structural ranks are
+    /// retained even while every generation is muted. Touch only admitted and
+    /// releasing voices; reserved slots read these gains when later admitted.
+    pub fn update_pool_group_gains(&mut self, gains: &[f64; 256], limit: usize) {
+        if !self.pool_mode {
+            return;
+        }
+        self.pool_group_gains = Some(*gains);
+        self.pool_admission_dirty = true;
+        self.set_pool_limit(limit);
+    }
+
     /// Sample-thread safe. Visit changed ranks and audible/releasing slots;
     /// unadmitted storage never adds work to an audio-thread budget probe.
     pub fn set_pool_limit(&mut self, limit: usize) {
@@ -616,13 +641,14 @@ impl Engine {
         };
         self.runtime_limit = limit.min(self.max_voices).min(self.voices.len());
         self.pool_admission_dirty = false;
+        let group_gains = self.pool_group_gains.as_ref();
         for rank in previous_limit.min(self.runtime_limit)..previous_limit.max(self.runtime_limit) {
             #[cfg(test)]
             {
                 self.last_admission_visits += 1;
             }
             if let Some(voice) = self.voices.get(self.rank_to_slot[rank]) {
-                if voice.desired_gain > 0. {
+                if pool_gain(voice, group_gains) > 0. {
                     let count = &mut self.pool_group_counts[usize::from(voice.pool_group)];
                     if previous_limit < self.runtime_limit {
                         *count += 1;
@@ -646,7 +672,7 @@ impl Engine {
             }
             let voice = &mut self.voices[index];
             voice.target.gain = if voice.pool_rank < self.runtime_limit {
-                voice.desired_gain / normalizers[usize::from(voice.pool_group)]
+                pool_gain(voice, group_gains) / normalizers[usize::from(voice.pool_group)]
             } else {
                 0.
             };
@@ -660,9 +686,9 @@ impl Engine {
             }
             let index = self.rank_to_slot[rank];
             if let Some(voice) = self.voices.get_mut(index) {
-                if voice.inactive && voice.desired_gain > 0. {
-                    voice.target.gain =
-                        voice.desired_gain / normalizers[usize::from(voice.pool_group)];
+                let gain = pool_gain(voice, group_gains);
+                if voice.inactive && gain > 0. {
+                    voice.target.gain = gain / normalizers[usize::from(voice.pool_group)];
                     voice.inactive = false;
                     voice.releasing = false;
                     self.admission_scratch.push(index);
@@ -1334,6 +1360,54 @@ mod arithmetic_tests {
             assert_eq!(engine.active_indices.len(), 49, "release tail is retained");
             assert!(engine.last_admission_visits <= 51);
         }
+    }
+    #[test]
+    fn generation_gain_controls_touch_only_audible_ranks_and_resume_reserved_silent_branches() {
+        let count = 131_072;
+        let keys: Vec<_> = (0..count).map(|index| format!("depth:{index}")).collect();
+        let mut engine = Engine::new(8000, 4., count, 1).unwrap();
+        engine.install_pool(&keys).unwrap();
+        let targets = vec![
+            PoolTarget {
+                gain: 0.,
+                ..PoolTarget::default()
+            };
+            count
+        ];
+        let ranks: Vec<_> = (0..count).collect();
+        engine.update_pool_ranked(&targets, &ranks, &vec![3; count], 0);
+        let mut gains = [0.; 256];
+        gains[3] = 0.37;
+        engine.update_pool_group_gains(&gains, 48);
+        assert_eq!(engine.target_count, 48);
+        assert_eq!(engine.last_admission_visits, 96);
+        let silent_phase = engine.voices[100].phase;
+        for _ in 0..256 {
+            engine.process_frame([0.07; 2]);
+        }
+        engine.finish_block();
+        let live_phase = engine.voices[0].phase;
+        let live_gain = engine.voices[0].gain;
+        gains[3] = 0.18;
+        engine.update_pool_group_gains(&gains, 48);
+        assert_eq!(engine.last_admission_visits, 144);
+        assert_eq!(engine.voices[0].phase, live_phase);
+        assert_eq!(engine.voices[0].gain, live_gain);
+        assert_eq!(engine.voices[100].phase, silent_phase);
+        assert!(engine.voices[100].inactive);
+        engine.set_pool_limit(101);
+        assert_eq!(engine.target_count, 101);
+        assert_eq!(engine.voices[100].phase, silent_phase);
+        assert_eq!(engine.voices[100].target.gain, 0.18 / 101f64.sqrt());
+        gains[3] = 0.;
+        engine.update_pool_group_gains(&gains, 0);
+        assert_eq!(engine.target_count, 0);
+        assert_eq!(
+            engine.active_indices.len(),
+            101,
+            "the existing release remains audible"
+        );
+        assert!(engine.voices[0].releasing);
     }
     #[test]
     fn optimized_wrapping_interpolation_matches_floor_at_boundaries() {

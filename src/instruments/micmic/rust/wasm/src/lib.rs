@@ -34,6 +34,10 @@ const ENVELOPE_CAPACITY: usize = 4000;
 const METRICS: usize = 26;
 type Frame = [f32; 2];
 
+fn depth_normalization(depth: f64) -> f64 {
+    0.36 + 0.64 * (1.0 - depth * depth).max(0.08).sqrt()
+}
+
 thread_local! { static ERROR: RefCell<Vec<u8>> = const { RefCell::new(Vec::new()) }; }
 fn report(error: impl AsRef<str>) {
     ERROR.with(|slot| *slot.borrow_mut() = error.as_ref().as_bytes().to_vec());
@@ -78,7 +82,27 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
         return Err("Unsupported audio sample rate".into());
     }
     let parameters: model::Parameters = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
-    let topology = model::try_compile(&parameters, rate)?;
+    parameters.validate()?;
+    // Silent recursion still retains the structural priorities needed to
+    // resume the same live branches. Its gains and audible count remain zero.
+    let mut structural_parameters = parameters.clone();
+    if structural_parameters.depth == 0. {
+        structural_parameters.depth = 0.72;
+    }
+    let mut topology = model::try_compile(&structural_parameters, rate)?;
+    let structural_eligible = topology.eligible_voices;
+    if parameters.depth == 0. {
+        topology.eligible_voices = 0;
+        for target in &mut topology.targets {
+            target.gain = 0.;
+        }
+        for node in &mut topology.nodes {
+            node.gain = 0.;
+        }
+        for node in topology.preview.iter_mut().skip(1) {
+            node.gain = 0.;
+        }
+    }
     let count = topology.targets.len();
     let bytes = count
         .checked_mul(RECORD)
@@ -86,10 +110,10 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
         .ok_or("Pool size overflow")?;
     let mut pool = resources::filled(bytes, 0u8)?;
     pool[0..4].copy_from_slice(&MAGIC.to_le_bytes());
-    pool[4..8].copy_from_slice(&1u32.to_le_bytes());
+    pool[4..8].copy_from_slice(&2u32.to_le_bytes());
     pool[8..12].copy_from_slice(&(count as u32).to_le_bytes());
-    pool[12..16].copy_from_slice(&(topology.eligible_voices as u32).to_le_bytes());
-    let normalization = 0.36 + 0.64 * (1.0 - parameters.depth * parameters.depth).max(0.08).sqrt();
+    pool[12..16].copy_from_slice(&(structural_eligible as u32).to_le_bytes());
+    let normalization = depth_normalization(parameters.depth);
     pool[24..32].copy_from_slice(&normalization.to_le_bytes());
     for index in 0..count {
         let base = HEADER + index * RECORD;
@@ -128,6 +152,7 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
         "previewSampled": topology.nodes.len() > 2048,
         "requestedVoices": topology.requested_voices,
         "eligibleVoices": topology.eligible_voices,
+        "structuralEligibleVoices": structural_eligible,
         "counts": {"requestedVoices":topology.requested_voices,"eligibleVoices":topology.eligible_voices},
         "memoryVoiceCapacity": capacity, "generationLimits": generation_limits
     })).map_err(|e| e.to_string())?;
@@ -245,6 +270,9 @@ pub struct Renderer {
     rate: u32,
     capacity: usize,
     available: usize,
+    structural_group_counts: [usize; 256],
+    depth_controls: bool,
+    live_depth: Option<f64>,
     demand: usize,
     requested: usize,
     revision: u64,
@@ -295,6 +323,9 @@ impl Renderer {
             rate,
             capacity,
             available: 0,
+            structural_group_counts: [0; 256],
+            depth_controls: false,
+            live_depth: None,
             demand: 0,
             requested: 0,
             revision: 0,
@@ -322,18 +353,61 @@ impl Renderer {
     }
     fn set_performance(&mut self, settings: Performance) -> Result<(), String> {
         settings.validate()?;
-        let mastering = PreparedMastering::new(self.rate, settings.mastering);
-        self.input_highpass.set_mastering(mastering);
-        self.output_conditioner.set_mastering(mastering);
+        if settings.mastering != self.performance.mastering {
+            let mastering = PreparedMastering::new(self.rate, settings.mastering);
+            self.input_highpass.set_mastering(mastering);
+            self.output_conditioner.set_mastering(mastering);
+        }
+        let demand = settings.capped(self.available);
+        let admission_changed =
+            demand != self.demand || settings.automatic != self.performance.automatic;
         self.performance = settings;
-        self.demand = settings.capped(self.available);
-        self.adaptive.set_demand(self.demand);
-        let limit = if settings.automatic {
+        if admission_changed {
+            self.demand = demand;
+            self.adaptive.set_demand(self.demand);
+            self.engine.set_pool_limit(self.current_limit());
+        }
+        self.update_metrics();
+        Ok(())
+    }
+
+    fn current_limit(&self) -> usize {
+        if self.performance.automatic {
             self.adaptive.limit().min(self.demand)
         } else {
             self.demand
-        };
-        self.engine.set_pool_limit(limit);
+        }
+    }
+
+    fn set_depth(&mut self, depth: f64) -> Result<(), String> {
+        if !depth.is_finite() || !(0.0..=0.96).contains(&depth) {
+            return Err("Recursion is outside its supported range".into());
+        }
+        if !self.depth_controls {
+            return Err("This pool requires a complete topology update".into());
+        }
+        if self.live_depth == Some(depth) {
+            return Ok(());
+        }
+        let mut gains = [0.; 256];
+        for (generation, gain) in gains.iter_mut().enumerate().skip(1) {
+            *gain = 0.5 * depth.powf(generation as f64 * 0.72);
+        }
+        self.available = self
+            .structural_group_counts
+            .iter()
+            .zip(gains)
+            .filter_map(|(&count, gain)| (gain > 0.).then_some(count))
+            .sum();
+        let demand = self.performance.capped(self.available);
+        if demand != self.demand {
+            self.demand = demand;
+            self.adaptive.set_demand(demand);
+        }
+        self.target_normalization = depth_normalization(depth);
+        self.live_depth = Some(depth);
+        self.engine
+            .update_pool_group_gains(&gains, self.current_limit());
         self.update_metrics();
         Ok(())
     }
@@ -341,7 +415,10 @@ impl Renderer {
     /// any live pool is replaced. Growth swaps storage while preserving existing
     /// phases, gains, fades, recording cursor and all forty seconds of history.
     fn install(&mut self, bytes: &[u8]) -> Result<(), String> {
-        if bytes.len() < HEADER || read_u32(bytes, 0) != MAGIC || read_u32(bytes, 4) != 1 {
+        if bytes.len() < HEADER
+            || read_u32(bytes, 0) != MAGIC
+            || !matches!(read_u32(bytes, 4), 1 | 2)
+        {
             return Err("Invalid delay pool format".into());
         }
         let count = read_u32(bytes, 8) as usize;
@@ -361,6 +438,7 @@ impl Renderer {
         let mut groups = resources::reserve(count)?;
         let mut seeds = resources::reserve(count)?;
         let mut available = 0;
+        let mut structural_group_counts = [0; 256];
         for index in 0..count {
             let base = HEADER + index * RECORD;
             let target = PoolTarget {
@@ -384,6 +462,9 @@ impl Renderer {
                 return Err("Invalid delay target".into());
             }
             available += usize::from(target.gain > 0.);
+            if rank != u32::MAX {
+                structural_group_counts[group as usize] += 1;
+            }
             targets.push(target);
             ranks.push(if rank == u32::MAX {
                 usize::MAX
@@ -403,6 +484,9 @@ impl Renderer {
         self.revision = u64::from(read_u32(bytes, 16)) | u64::from(read_u32(bytes, 20)) << 32;
         self.requested = count;
         self.available = available;
+        self.structural_group_counts = structural_group_counts;
+        self.depth_controls = read_u32(bytes, 4) == 2;
+        self.live_depth = None;
         self.demand = self.performance.capped(available);
         self.adaptive.set_demand(self.demand);
         self.target_normalization = normalization;
@@ -616,6 +700,19 @@ pub unsafe extern "C" fn lsd_performance(
         Ok(()) => 1,
         Err(e) => {
             report(e);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_depth(handle: *mut Renderer, depth: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).set_depth(depth) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
             0
         }
     }
@@ -1001,6 +1098,99 @@ mod browser_tests {
         b.process(&input, None, &mut reference_l, &mut reference_r);
         assert_eq!(left, reference_l);
         assert_eq!(right, reference_r);
+    }
+    #[test]
+    fn live_recursion_matches_complete_scene_updates_without_allocating_or_resetting_audio() {
+        let mut parameters = model::Parameters {
+            generations: 13,
+            interval_ms: 2.,
+            mutation: 0.28,
+            pruning_bias: 0.43,
+            ..model::Parameters::default()
+        };
+        let first = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        let settings = Performance {
+            automatic: false,
+            voice_ceiling: 64,
+            ..Performance::default()
+        };
+        for renderer in [&mut live, &mut reference] {
+            renderer.set_performance(settings).unwrap();
+            renderer.install(&first.pool).unwrap();
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        let mut block = 0;
+        for _ in 0..64 {
+            let input = signal(block * BLOCK);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            block += 1;
+        }
+        for depth in [0.91, 0.34, 0.65, 0., 0.48, 0.96] {
+            parameters.depth = depth;
+            let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|enabled| enabled.set(true));
+            live.set_depth(depth).unwrap();
+            TRACK.with(|enabled| enabled.set(false));
+            assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+            assert_eq!(FREES.with(|n| n.get()), 0);
+            reference.install(&compiled.pool).unwrap();
+            assert_eq!(live.available, reference.available);
+            assert_eq!(
+                live.engine.target_voice_count(),
+                reference.engine.target_voice_count()
+            );
+            for _ in 0..32 {
+                let input = signal(block * BLOCK);
+                live.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(left, reference_l, "Recursion {depth}");
+                assert_eq!(right, reference_r, "Recursion {depth}");
+                assert_eq!(live.frames, reference.frames);
+                block += 1;
+            }
+        }
+    }
+    #[test]
+    fn a_silent_compiled_scene_resumes_recursion_without_a_new_pool_or_capacity_probe() {
+        let parameters = model::Parameters {
+            generations: 12,
+            interval_ms: 2.,
+            depth: 0.,
+            ..model::Parameters::default()
+        };
+        let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&compiled.json).unwrap();
+        assert_eq!(json["parameters"]["depth"], 0.);
+        assert_eq!(json["eligibleVoices"], 0);
+        assert_eq!(json["structuralEligibleVoices"], 8190);
+        assert!(json["nodes"]
+            .as_array()
+            .unwrap()
+            .iter()
+            .skip(1)
+            .all(|node| node["gain"] == 0. && node["priority"].is_number()));
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&compiled.pool).unwrap();
+        for _ in 0..100 {
+            renderer.observe(0.00001, BLOCK, false);
+        }
+        assert_eq!(renderer.engine.target_voice_count(), 0);
+        assert_eq!(renderer.adaptive.measured_limit(), 0);
+        renderer.set_depth(0.72).unwrap();
+        assert_eq!(renderer.available, 8190);
+        assert_eq!(renderer.engine.target_voice_count(), 48);
+        renderer.set_depth(0.).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 0);
+        assert!(renderer.set_depth(f64::NAN).is_err());
+        assert!(renderer.set_depth(1.).is_err());
     }
     #[test]
     fn envelope_follows_native_attack_release_and_chronological_wrap() {
