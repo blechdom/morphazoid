@@ -104,7 +104,7 @@ test('published Rust delay binary has no native or JavaScript DSP imports', () =
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const exports = new Set(WebAssembly.Module.exports(module).map(record => record.name));
   for (const name of ['memory', 'lsd_compile', 'lsd_install', 'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized',
-    'lsd_depth', 'lsd_process', 'lsd_observe', 'lsd_drop', 'lsd_collect_retired',
+    'lsd_depth', 'lsd_process', 'lsd_observe', 'lsd_observe_maintenance', 'lsd_drop', 'lsd_collect_retired',
     'lsd_envelope_ptr', 'lsd_taps_ptr', 'lsd_metrics_ptr']) assert.ok(exports.has(name), name);
 });
 
@@ -363,17 +363,23 @@ let recoveryFixtureSequence = 0;
 /** Exercise the published WASM through its actual worklet boundary. Only the
  * named export fault is substituted; sample generation and controls stay real.
  */
-async function withRecoveryWorklet(run) {
-  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime'];
+async function withRecoveryWorklet(run, options = {}) {
+  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime', 'performance'];
   const saved = Object.fromEntries(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
   const messages = [];
   let Processor, processor;
+  const dateNow = Date.now;
   try {
     globalThis.AudioWorkletProcessor = class {
       constructor() { this.port = { postMessage: message => messages.push(message) }; }
     };
     globalThis.registerProcessor = (_name, implementation) => { Processor = implementation; };
     globalThis.sampleRate = RATE;
+    if (options.clock) {
+      Object.defineProperty(globalThis, 'performance', { configurable: true,
+        value: options.coarse ? undefined : { now: () => options.clock.value } });
+      Date.now = () => Math.floor(options.clock.value);
+    }
     await import(`../src/instruments/micmic/native/delay-worklet.js?recovery=${++recoveryFixtureSequence}`);
     processor = new Processor({ processorOptions: { module } });
     const compiler = renderer();
@@ -403,6 +409,7 @@ async function withRecoveryWorklet(run) {
     assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'steady rendering sends no failure messages');
     await run({ processor, messages, input, left, right, render });
   } finally {
+    Date.now = dateNow;
     processor?.port.onmessage({ data: { id: 999, type: 'dispose' } });
     for (const [key, descriptor] of Object.entries(saved)) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
@@ -467,7 +474,8 @@ test('staged worklet installs keep the old pool live, reject late faults atomica
       const rejectedPointer = processor.pendingInstall.pointer;
       assert.equal(processor.pendingInstall.copied, 32, 'message delivery uploads only the validated header');
       assert.equal(render(), true);
-      assert.equal(processor.pendingInstall.copied, 32 + 4096 * 48, 'each callback uploads only the records it is about to validate');
+      assert.ok(processor.pendingInstall.copied > 32 && processor.pendingInstall.copied <= 32 + 4096 * 48,
+        'each callback uploads a spare-time batch rather than the complete topology');
       assert.equal(processor.snapshot().topologyRevision, before.topologyRevision, 'one preparation block retains the audible pool');
       assert.equal(messages.some(message => message.id === 40), false, 'validation is bounded rather than consuming all records at once');
       for (let block = 0; block < 32 && processor.pendingInstall; block++) {
@@ -542,17 +550,124 @@ test('worklet drains retired storage across callbacks before acknowledging muted
         assert.ok(messages.find(message => message.id === id)?.status, 'each pool commits while audio continues');
       }
       const remaining = processor.api.lsd_collect_retired(processor.engine, 0);
-      assert.equal(remaining, 8190 - 4096, 'the commit callback retires a bounded batch rather than the whole old tree');
+      assert.ok(remaining > 0 && remaining <= 8190, 'the commit leaves old storage for spare-time reclamation');
       processor.port.onmessage({ data: { id: 63, type: 'drain' } });
       assert.equal(messages.some(message => message.id === 63), false, 'suspension waits for the remaining cleanup');
       const before = processor.snapshot().elapsedSeconds;
-      assert.equal(render(), true);
+      for (let block = 0; block < 128 && !messages.some(message => message.id === 63); block++) assert.equal(render(), true);
       assert.equal(processor.api.lsd_collect_retired(processor.engine, 0), 0);
       assert.deepEqual(messages.find(message => message.id === 63), { id: 63 });
       assert.ok(processor.snapshot().elapsedSeconds > before);
       assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
       assert.ok(rms(left) > 1e-4, 'collection does not interrupt the live signal');
     });
+  } finally { compiler.dispose(); }
+});
+
+test('busy fine and coarse worklets budget dense preset preparation and cleanup from remaining deadline time', async () => {
+  const compiler = renderer();
+  try {
+    const pools = [12, 13, 14, 12, 14].map(generations => compiler.compile({
+      generations, intervalMs: 10, timeRatio: 1, pitchScale: 0,
+    }).pool);
+    for (const coarse of [false, true]) {
+      const clock = { value: 0 };
+      await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+        const api = processor.api, batches = [], callbackTimes = [];
+        processor.installTiming.recordSeconds = .1;
+        processor.retireTiming.recordSeconds = .1;
+        processor.api = { ...api,
+          lsd_process(...args) { const result = api.lsd_process(...args); clock.value += 2.35; return result; },
+          lsd_install_step(handle, count) {
+            const result = api.lsd_install_step(handle, count);
+            batches.push(count); clock.value += count * .00015; return result;
+          },
+          lsd_collect_retired(handle, count) {
+            const result = api.lsd_collect_retired(handle, count);
+            clock.value += Math.min(count, 4096) * .00003; return result;
+          },
+        };
+        // Keep admission small while every complete dense topology is uploaded.
+        processor.port.onmessage({ data: { id: 80, type: 'performance', performance: {
+          ...DEFAULT_PERFORMANCE, automatic: false, voiceCeiling: 8, source: 'mic',
+          inputGain: 1, level: .5, wet: .7, dry: .3, mastering: TRANSPARENT,
+        } } });
+        let previousClock = processor.snapshot().elapsedSeconds;
+        for (let index = 0; index < pools.length; index++) {
+          const pool = pools[index].slice(), id = 81 + index;
+          new DataView(pool.buffer).setUint32(16, id, true);
+          processor.port.onmessage({ data: { id, type: 'install', pool: pool.buffer } });
+          for (let block = 0; block < 2048 && !messages.some(message => message.id === id); block++) {
+            const started = clock.value;
+            assert.equal(render(), true);
+            callbackTimes.push(clock.value - started);
+            assert.ok(rms(left) > 1e-4, 'existing real WASM audio continues throughout preparation');
+            assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+            assert.ok(processor.snapshot().elapsedSeconds > previousClock);
+            previousClock = processor.snapshot().elapsedSeconds;
+          }
+          assert.equal(messages.find(message => message.id === id)?.status.topologyRevision, id,
+            'each dense scene reaches its atomic commit without a voice-count ceiling');
+        }
+        for (let block = 0; block < 2048 && api.lsd_collect_retired(processor.engine, 0); block++) {
+          assert.equal(render(), true);
+        }
+        assert.equal(api.lsd_collect_retired(processor.engine, 0), 0, 'obsolete dense pools cannot accumulate across edits');
+        assert.ok(batches.length > pools.length, 'dense uploads remain staged');
+        assert.ok(batches.every(count => count > 0 && count < 4096), 'near-full audio receives smaller spare-time batches');
+        assert.ok(Math.max(...callbackTimes) < BLOCK / RATE * 1000,
+          `${coarse ? 'coarse' : 'fine'} batches fit the actual synthetic deadline: ${Math.max(...callbackTimes)}ms`);
+        assert.equal(messages.filter(message => message.type === 'failure').length, 0);
+      }, { clock, coarse });
+    }
+  } finally { compiler.dispose(); }
+});
+
+test('new worklet preserves older ABI1 modules when the maintenance observation export is absent', async () => {
+  const compiler = renderer();
+  try {
+    const pool = compiler.compile({ generations: 12 }).pool;
+    await withRecoveryWorklet(({ processor, messages, left, render }) => {
+      processor.api = { ...processor.api, lsd_observe_maintenance: undefined };
+      processor.port.onmessage({ data: { id: 90, type: 'install', pool: pool.buffer } });
+      for (let block = 0; block < 256 && !messages.some(message => message.id === 90); block++) {
+        assert.equal(render(), true);
+        assert.ok(rms(left) > 1e-4);
+      }
+      assert.ok(messages.find(message => message.id === 90)?.status);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 0);
+    });
+  } finally { compiler.dispose(); }
+});
+
+test('fixed final commit overhead stays in deadline telemetry without poisoning later upload estimates', async () => {
+  const compiler = renderer(), clock = { value: 0 };
+  try {
+    const tiny = compiler.compile({ generations: 1 }).pool;
+    const dense = compiler.compile({ generations: 12 }).pool;
+    await withRecoveryWorklet(({ processor, messages, render }) => {
+      const api = processor.api;
+      processor.api = { ...api,
+        lsd_process(...args) { const result = api.lsd_process(...args); clock.value += .2; return result; },
+        lsd_install_step(handle, count) {
+          const result = api.lsd_install_step(handle, count);
+          clock.value += count * .0001 + (result === 2 ? 8 : 0); return result;
+        },
+      };
+      const misses = processor.snapshot().deadlineMisses;
+      processor.port.onmessage({ data: { id: 91, type: 'install', pool: tiny.buffer } });
+      assert.equal(render(), true);
+      assert.ok(messages.find(message => message.id === 91)?.status);
+      assert.equal(processor.installTiming.recordSeconds, 0,
+        'the complete two-record commit does not become an eight-ms-per-two-record upload slope');
+      assert.equal(processor.snapshot().deadlineMisses, misses + 1,
+        'the actual total callback overrun remains reported');
+      processor.port.onmessage({ data: { id: 92, type: 'install', pool: dense.buffer } });
+      for (let block = 0; block < 128 && !messages.some(message => message.id === 92); block++) assert.equal(render(), true);
+      assert.ok(messages.find(message => message.id === 92)?.status, 'subsequent dense upload cannot stall behind fixed commit cost');
+      assert.ok(processor.installTiming.recordSeconds < .000001, 'non-final record cost is learned independently');
+      assert.equal(processor.snapshot().deadlineMisses, misses + 2, 'both expensive commits stay visible in diagnostics');
+    }, { clock });
   } finally { compiler.dispose(); }
 });
 

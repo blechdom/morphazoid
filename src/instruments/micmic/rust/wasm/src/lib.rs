@@ -790,6 +790,15 @@ impl Renderer {
         self.update_metrics();
     }
     fn observe(&mut self, seconds: f64, frames: usize, underrun: bool) -> usize {
+        self.observe_with_maintenance(seconds, 0., frames, underrun)
+    }
+    fn observe_with_maintenance(
+        &mut self,
+        seconds: f64,
+        maintenance_seconds: f64,
+        frames: usize,
+        underrun: bool,
+    ) -> usize {
         if frames == 0 {
             return self.engine.target_voice_count();
         }
@@ -808,8 +817,9 @@ impl Renderer {
         self.peak_load =
             load.max(self.peak_load * (-(frames as f64) / f64::from(self.rate) / 0.53).exp());
         if self.performance.automatic {
-            if let Some(limit) = self.adaptive.observe_active(
+            if let Some(limit) = self.adaptive.observe_active_with_maintenance(
                 seconds,
+                maintenance_seconds,
                 frames,
                 underrun,
                 self.engine.active_voice_count(),
@@ -1024,6 +1034,21 @@ pub unsafe extern "C" fn lsd_observe(
         return 0;
     }
     (*handle).observe(seconds, frames, underrun != 0)
+}
+/// Total work still owns CPU/miss telemetry. Only explicitly measured, finite
+/// topology preparation/reclamation is excluded from the recurring voice cost.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_observe_maintenance(
+    handle: *mut Renderer,
+    seconds: f64,
+    maintenance_seconds: f64,
+    frames: usize,
+    underrun: u32,
+) -> usize {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).observe_with_maintenance(seconds, maintenance_seconds, frames, underrun != 0)
 }
 #[no_mangle]
 pub extern "C" fn lsd_metrics_len() -> usize {
@@ -1353,10 +1378,58 @@ mod browser_tests {
         assert_eq!(renderer.metrics[3], 254.);
         renderer.observe(0.02, BLOCK, false);
         assert_eq!(
-            renderer.metrics[3], 2.,
-            "Restored device evidence must still survive current callback validation"
+            renderer.metrics[3], 172.,
+            "Unsafe restored capacity uses proportional deadline backoff, not the tiny prior scene"
         );
-        assert_eq!(renderer.metrics[19], 2.);
+        assert_eq!(renderer.metrics[19], 172.);
+    }
+    #[test]
+    fn maintenance_observation_counts_total_misses_and_revalidates_retained_capacity() {
+        let large = scene(7);
+        let small = scene(1);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&large.pool).unwrap();
+        for _ in 0..200 {
+            renderer.observe(0.001, BLOCK, false);
+        }
+        renderer.install(&small.pool).unwrap();
+        renderer.install(&large.pool).unwrap();
+        let misses = renderer.metrics[13];
+        unsafe {
+            lsd_observe_maintenance(&mut renderer, 0.02, 0.019, BLOCK, 0);
+        }
+        assert_eq!(
+            renderer.metrics[13],
+            misses + 1.,
+            "full callback work still missed its real deadline"
+        );
+        assert_eq!(
+            renderer.metrics[3], 172.,
+            "the immediate target protects against the overrun"
+        );
+        assert_eq!(
+            renderer.metrics[19], 254.,
+            "finite preparation does not erase device evidence"
+        );
+        assert!(
+            renderer.metrics[6] > 0.0625,
+            "CPU telemetry includes the full preparation burst"
+        );
+        for _ in 0..15 {
+            renderer.observe(0.001, BLOCK, false);
+            if renderer.metrics[3] >= 254. {
+                break;
+            }
+        }
+        assert_eq!(
+            renderer.metrics[3], 254.,
+            "previous device capacity returns as a measured trial"
+        );
+        renderer.observe(0.02, BLOCK, false);
+        assert_eq!(
+            renderer.metrics[19], 172.,
+            "a genuine recurring DSP overrun invalidates unsafe capacity"
+        );
     }
     #[test]
     fn manual_scene_is_not_fabricated_capacity_evidence_on_automatic_restart() {
