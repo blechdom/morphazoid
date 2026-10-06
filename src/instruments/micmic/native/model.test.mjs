@@ -42,7 +42,7 @@ test('full preset recall preserves live gains, input, clocks and device policy',
   for (const preset of presets) {
     const scene = presetState(preset, live);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot), preset.id);
-    assert.deepEqual(scene.performance.mastering, { ...DEFAULT_MASTERING, makeupDb: mastering.makeupDb }, `${preset.id} recalls Original filters and compression`);
+    assert.deepEqual(scene.performance.mastering, { ...preset.snapshot.performance.mastering, makeupDb: mastering.makeupDb }, `${preset.id} recalls its filters and compression`);
     for (const key of ['source', 'frozen', 'frequency', 'pulseRate', 'inputGain', 'level', 'voiceCeiling', 'automatic']) assert.equal(scene.performance[key], live[key]);
   }
   assert.deepEqual(live, before);
@@ -50,7 +50,7 @@ test('full preset recall preserves live gains, input, clocks and device policy',
 test('additional factory scenes retain every grammar in the single full-preset menu', () => {
   const originalIds = new Set(MICMIC_FULL_PRESETS.map(p => p.id));
   const additions = presets.filter(p => !originalIds.has(p.id));
-  assert.equal(additions.length, 10);
+  assert.ok(additions.length >= 90);
   assert.equal(new Set(presets.map(p => p.id)).size, presets.length);
   assert.equal(new Set(presets.map(p => JSON.stringify(p.snapshot))).size, presets.length);
   assert.deepEqual(new Set(presets.map(p => p.snapshot.parameters.lSystemType)), new Set(L_SYSTEM_TYPES));
@@ -58,9 +58,13 @@ test('additional factory scenes retain every grammar in the single full-preset m
   assert.doesNotMatch(html, /data-generation-preset|id="generationPresets"/);
   for (const preset of additions) {
     assert.ok(preset.label.includes(' · '), preset.id);
-    assert.ok(preset.snapshot.parameters.generations > 13, `${preset.id} explores the native generation range`);
     assert.deepEqual(Object.keys(preset.snapshot.parameters).sort(), ['lSystemType', ...Object.keys(PARAMETER_LIMITS)].sort());
     assert.deepEqual(Object.keys(preset.snapshot.performance).sort(), ['dry', 'mastering', 'wet']);
+    assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(preset.snapshot.performance.mastering));
+  }
+  for (const id of ['cedar', 'aspen', 'juniper', 'baobab', 'foxglove', 'lotus', 'acacia', 'lichen', 'moonflower', 'horsetail']) {
+    const preset = presets.find(p => p.id === id);
+    assert.ok(preset.snapshot.parameters.generations > 13, `${id} retains its native generation range`);
     assert.deepEqual(preset.snapshot.performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
 });

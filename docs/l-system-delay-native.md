@@ -5,8 +5,9 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page retains all sixteen original presets plus ten additional scenes,
-eleven grammars, the original slider curves, mastering controls and audio-clock
+The Rust page offers 114 full scenes, including all sixteen original presets,
+the ten earlier Rust scenes and 88 additional scenes across eleven grammars.
+It retains the original slider curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
@@ -91,10 +92,23 @@ ordinary browser playback does not imply DAW track-input integration.
 
 The native page uses the original `l-mic.html` sections, shared site styles,
 `micmic.css`, generation colors, all sixteen original full presets and slider mappings.
-The twenty-six-scene bank adds Cedar, Quaking Aspen, Juniper, Baobab, Foxglove,
-Lotus, Acacia, Lichen, Moonflower and Horsetail.
-The main preset menu contains all 26 scenes in the former button order. Each
-selection restores the complete grammar, growth, pruning, stereo spread, wet/dry
+The first 26 scenes retain their settings and order, including Cedar, Quaking
+Aspen, Juniper, Baobab, Foxglove, Lotus, Acacia, Lichen, Moonflower and Horsetail.
+The expanded bank adds eight families, each with a scene for every grammar:
+
+| Search keyword | Range explored |
+| --- | --- |
+| Glass | Very short time folds and granular pitch textures |
+| Clockwork | Short, distinct rhythmic delays |
+| Water | Medium delays and open stereo movement |
+| Cathedral | Long, slowly unfolding delay patterns |
+| Unison | Unshifted delays, emphasizing rhythm and shape |
+| Wild | Strong mutation, asymmetry and pitch movement |
+| Canopy | Deep trees with high descendant levels |
+| Cuttings | Shallow, sparse trees with fewer descendants |
+
+The menu search matches names and descriptions, including these family keywords.
+Each selection restores the complete grammar, growth, pruning, stereo spread, wet/dry
 mix, filters and compression. Input gain, output level and output boost remain
 at the performer's current values, including when output is muted. The separate growth-button grid is
 removed. **Reload selected preset** uses the same complete recall. Missing mix
@@ -106,9 +120,16 @@ history and device policy remain live. Pending edits cannot replace a completed 
 are temporarily unavailable while the scene is being installed.
 Negative original pruning values remain exact preset data; both engines treat
 them as breadth first.
-Four new Pine scenes request fourteen to sixteen generations, while six
-new scenes cover the additional curve grammars. Actual audio admission remains
-device measured rather than guaranteed by a preset.
+The earlier Rust additions retain their fourteen-to-sixteen-generation Pine
+scenes and six additional curve grammars. The expansion explores both shallow
+and deep trees, time folds from 1 to 3,000 ms, unshifted and strongly shifted
+delays, narrow and wide stereo fields, and contrasting filter and compressor
+settings. Actual audio admission remains device measured rather than guaranteed
+by a preset. Presets do not set a voice cap. Cantor's straight grammar has no
+turn-derived pitch or stereo movement; its scenes vary timing, density and
+mastering instead. A short time fold does not change the shifted renderer's
+110 ms grain duration. Long cumulative delays beyond 39 seconds retain their
+geometry but cannot produce a tap from the 40-second history.
 Choose consumes Morphazoid's current shared catalogue, with the Rust entry beside
 the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,000 ms
 mapping. Native input, diagnostics and the optional voice cap use the same control
@@ -235,8 +256,10 @@ Next, arrows, randomization and scene reloads.
 
 Focused mastering presets preserve the current tree, mix, recording, input
 source, voice policy, input gain, output level, output boost and Audio state.
-Full factory scenes recall Original filters and compression; saved full scenes
-include the edited filters and compression. Reset all returns those settings to
+The first 26 factory scenes recall Original filters and compression. New factory
+scenes include their own filters and compression, using the mastering profiles
+above and custom settings. Saved full scenes include the edited filters and
+compression. Reset all returns those settings to
 Original while retaining the live gain controls. Older external snapshots that
 omit mastering recall Original filters and compression. The full-state randomizer
 includes bounded mastering variation while preserving the live gain controls.
@@ -378,6 +401,26 @@ motion. These checks use synthetic
 media, not a physical microphone or a listening evaluation. The input and delay
 branches use the same fixed stroke width; compression settings do not create
 a separate visual animation.
+
+## Expanded preset verification
+
+The October 5 expansion preserves the first 26 scenes exactly and adds 88 scenes.
+Repository verification passed with 5,954 tests passing and six skipped, including
+clean WAX parity. The five focused Chromium cases verified all 114 complete UI
+recalls with Mic/file/sample choices and live gains retained, 13 representative
+new scenes with actual Rust audio, a linear-to-original-Pine return, and searchable
+menus at 1440×900, 390×844 and 844×390. Preset selection with Audio off opened no
+microphone and started no playback.
+
+All 114 target pools compiled with finite data and no exact DSP duplicates. A
+separate 48 kHz Rust/WASM render covered 16 new scenes across all eleven grammars
+and eight families, each with its authored mix and a wet-only copy. The fixed
+64-voice admission belongs only to that offline fixture; it does not change the
+product's voice policy or measure device capacity. All 32 captures had finite
+processed output, exact cold silence and settled tails. Redwood Nave's wet output
+remained audible through 12.93 seconds after the source burst. Measured spectral
+and temporal differences distinguish the scenes without serving as a musical
+quality threshold. Human listening and physical-device checks remain unperformed.
 
 ## Historical native implementation verification
 
