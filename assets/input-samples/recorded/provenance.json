@@ -1,0 +1,463 @@
+{
+  "schemaVersion": 1,
+  "description": "Eight freely redistributable actual recordings for instrument input demonstrations. Every included recording is explicitly artist/uploader-released under CC0-1.0 on its primary Freesound page.",
+  "preparedAt": "2026-10-06T04:19:54+00:00",
+  "license": "CC0-1.0",
+  "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+  "verification": {
+    "allEightDecode": true,
+    "finiteNonSilentPcm": true,
+    "maximumDecodedPeak": 0.6086274,
+    "humanListeningPerformed": false
+  },
+  "samples": [
+    {
+      "id": "fx-sad-trombone",
+      "label": "Sad trombone",
+      "path": "assets/input-samples/recorded/fx-sad-trombone.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "wah wah sad trombone.wav",
+          "creator": "kirbydx",
+          "sourceUrl": "https://freesound.org/people/kirbydx/sounds/175409/",
+          "downloadUrl": "https://cdn.freesound.org/previews/175/175409_1326576-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/kirbydx/sounds/175409/",
+          "recordingContext": "Uploader records their own trombone performance with a Zoom H2next.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "de4a029a0537dbecaf49b4936b0969919f5b7b54083d3859d584b5c4cc7dee3d",
+          "downloadBytes": 120891,
+          "licensePageSha256": "f8df4305d57ea79fe5cd85b41207c33e812e7718767f74f952378a2eeb26d3f8"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 5.205215,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 84471,
+      "sha256": "9378e45f4cc143a1ce7b09b42a49506be4c97bc07b6851a84e7781aa9b00dabc",
+      "decodedPeak": 0.5987287,
+      "decodedRms": 0.099431,
+      "normalizationGain": 0.65875272
+    },
+    {
+      "id": "fx-record-scratch",
+      "label": "Record scratch",
+      "path": "assets/input-samples/recorded/fx-record-scratch.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "Record Scratch #4",
+          "creator": "musicvision31",
+          "sourceUrl": "https://freesound.org/people/musicvision31/sounds/431777/",
+          "downloadUrl": "https://cdn.freesound.org/previews/431/431777_817038-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/musicvision31/sounds/431777/",
+          "recordingContext": "Needle scratching or sliding on a vinyl record; source describes a vinyl-noise recording, rather than a music excerpt.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "40bf9575367f4f7c4c7672bc0d5e20693b0548f734f1e1280f6feb672ef6c725",
+          "downloadBytes": 48192,
+          "licensePageSha256": "6df81c2272b40b5a367c8ee11b6b55cf627be04a56e5d5a4b77d52c36bbed054"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 1.876893,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 30973,
+      "sha256": "f14a7836832bdc32c1275721102d3e06db28ed660e38013de8b9850652507d8a",
+      "decodedPeak": 0.6086274,
+      "decodedRms": 0.0925549,
+      "normalizationGain": 0.43439522
+    },
+    {
+      "id": "fx-air-horn",
+      "label": "Air horn",
+      "path": "assets/input-samples/recorded/fx-air-horn.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "Industrial Air Horn",
+          "creator": "mcpable",
+          "sourceUrl": "https://freesound.org/people/mcpable/sounds/131930/",
+          "downloadUrl": "https://cdn.freesound.org/previews/131/131930_1542102-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/mcpable/sounds/131930/",
+          "recordingContext": "Field recording of an air horn on an oil rig in Alberta.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "a73670ddeee9bed590c19a928715a4ed866893992c849261d7acbc37e8966a9a",
+          "downloadBytes": 58551,
+          "licensePageSha256": "9ad9dda25a962ec215026e57ba864fcf24ef1eb6d4795104d3b3658902004ebc"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 2.571429,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 42257,
+      "sha256": "a5e42582d98814897492fe55f7831feb58480f45c9ef6fd72b22c376ea92d74e",
+      "decodedPeak": 0.6004982,
+      "decodedRms": 0.130203,
+      "normalizationGain": 0.84658719
+    },
+    {
+      "id": "music-toy-gamelan",
+      "label": "Toy gamelan chimes",
+      "path": "assets/input-samples/recorded/music-toy-gamelan.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "toygamelan_A4-04.aif",
+          "creator": "wuola",
+          "sourceUrl": "https://freesound.org/s/210466/",
+          "downloadUrl": "https://cdn.freesound.org/previews/210/210466_2463026-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/s/210466/",
+          "recordingContext": "Artist sampled their daughter’s Indonesian toy gamelan metallophone at home with a Zoom H1 in the bathroom. Pack explicitly offers the notes for creating a multisampled instrument.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "5803ac783aee39e07977b32ebcbc469284bed64beb186b459d57d03e8baf4329",
+          "downloadBytes": 58757,
+          "licensePageSha256": "3b678188d30f89e740ffa424d2ac518da1ed31fecf9eb2ea2e1659e85c6fd57f"
+        },
+        {
+          "title": "toygamelan_D5-01.aif",
+          "creator": "wuola",
+          "sourceUrl": "https://freesound.org/people/wuola/sounds/210489/",
+          "downloadUrl": "https://cdn.freesound.org/previews/210/210489_2463026-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/wuola/sounds/210489/",
+          "recordingContext": "Artist sampled their daughter’s Indonesian toy gamelan metallophone at home with a Zoom H1 in the bathroom. Pack explicitly offers the notes for creating a multisampled instrument.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "740059c9bdf050458cc572f53d897301ae03c2ffada13f9e9a2bb83632cf0e5c",
+          "downloadBytes": 69818,
+          "licensePageSha256": "762ec6f75e6ea90dfb48d567e9aa43c50da8557ca013426e17cef4beae9913f0"
+        },
+        {
+          "title": "toygamelan_G5-01.aif",
+          "creator": "wuola",
+          "sourceUrl": "https://freesound.org/people/wuola/sounds/210482/",
+          "downloadUrl": "https://cdn.freesound.org/previews/210/210482_2463026-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/wuola/sounds/210482/",
+          "recordingContext": "Artist sampled their daughter’s Indonesian toy gamelan metallophone at home with a Zoom H1 in the bathroom. Pack explicitly offers the notes for creating a multisampled instrument.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "b3dcb2097191aa4d436c93d08feec4c1821fb4aa27ff9ad52778c06eed5c3565",
+          "downloadBytes": 59277,
+          "licensePageSha256": "b984e809a39bf0ebeb527c26dd6d8c36952dd583188ac10f4eac5b745a5d033d"
+        },
+        {
+          "title": "toygamelan_C#5-03.aif",
+          "creator": "wuola",
+          "sourceUrl": "https://freesound.org/people/wuola/sounds/210487/",
+          "downloadUrl": "https://cdn.freesound.org/previews/210/210487_2463026-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/wuola/sounds/210487/",
+          "recordingContext": "Artist sampled their daughter’s Indonesian toy gamelan metallophone at home with a Zoom H1 in the bathroom. Pack explicitly offers the notes for creating a multisampled instrument.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "f5b5d5ebc00b8e8a9aa93ec2b308e951464d85d608ce69c56c42e1ed041bbe4b",
+          "downloadBytes": 52284,
+          "licensePageSha256": "c4054a3418efa32108f2829305783c43a3287a3d06ae1c6c71a8dc195a25a5db"
+        },
+        {
+          "title": "toygamelan_C#6-01.aif",
+          "creator": "wuola",
+          "sourceUrl": "https://freesound.org/people/wuola/sounds/210485/",
+          "downloadUrl": "https://cdn.freesound.org/previews/210/210485_2463026-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/wuola/sounds/210485/",
+          "recordingContext": "Artist sampled their daughter’s Indonesian toy gamelan metallophone at home with a Zoom H1 in the bathroom. Pack explicitly offers the notes for creating a multisampled instrument.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "10e916af4fb7549f6eab821cf846f0ef9062139d9a96a08553f6088b886cc5e2",
+          "downloadBytes": 70286,
+          "licensePageSha256": "a38f5e73f7697428b4dbb837703a54b5b07e4abf8f4f2c4164bcbf37101c555c"
+        }
+      ],
+      "modifications": [
+        "Combined 5 actual home-recorded toy metallophone notes into an original 8-second 12-hit phrase; preserved each note’s recorded pitch.",
+        "Set individual note peak to 0.5 multiplied by event velocity, then summed their natural tails.",
+        "Toy instrument demo, not a traditional gamelan ensemble or ritual performance.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 8.0,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 129193,
+      "sha256": "e6c60fa5218059a30ef86c4d93b4fe1f5404fa53d824de23e2f144b1e9c14cdc",
+      "decodedPeak": 0.5982086,
+      "decodedRms": 0.0507167,
+      "normalizationGain": 1.37536944,
+      "arrangement": {
+        "durationSeconds": 8,
+        "events": [
+          {
+            "timeSeconds": 0,
+            "sourceName": "gamelan",
+            "velocity": 1
+          },
+          {
+            "timeSeconds": 0.55,
+            "sourceName": "gamelan-d5",
+            "velocity": 0.85
+          },
+          {
+            "timeSeconds": 1.1,
+            "sourceName": "gamelan-g5",
+            "velocity": 0.9
+          },
+          {
+            "timeSeconds": 1.65,
+            "sourceName": "gamelan-cs6",
+            "velocity": 0.7
+          },
+          {
+            "timeSeconds": 2.2,
+            "sourceName": "gamelan-g5",
+            "velocity": 0.85
+          },
+          {
+            "timeSeconds": 2.475,
+            "sourceName": "gamelan-cs5",
+            "velocity": 0.7
+          },
+          {
+            "timeSeconds": 2.75,
+            "sourceName": "gamelan-d5",
+            "velocity": 0.9
+          },
+          {
+            "timeSeconds": 3.3,
+            "sourceName": "gamelan",
+            "velocity": 0.9
+          },
+          {
+            "timeSeconds": 3.85,
+            "sourceName": "gamelan-g5",
+            "velocity": 0.8
+          },
+          {
+            "timeSeconds": 4.4,
+            "sourceName": "gamelan-d5",
+            "velocity": 0.8
+          },
+          {
+            "timeSeconds": 4.95,
+            "sourceName": "gamelan-cs6",
+            "velocity": 0.75
+          },
+          {
+            "timeSeconds": 5.5,
+            "sourceName": "gamelan-g5",
+            "velocity": 0.8
+          }
+        ],
+        "sourcePackUrl": "https://freesound.org/people/wuola/packs/13389/"
+      }
+    },
+    {
+      "id": "music-tabla",
+      "label": "Tabla rhythm",
+      "path": "assets/input-samples/recorded/music-tabla.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "Tabla Rhythm Bayan Tala Kherwa.wav",
+          "creator": "afleetingspeck",
+          "sourceUrl": "https://freesound.org/people/afleetingspeck/sounds/151176/",
+          "downloadUrl": "https://cdn.freesound.org/previews/151/151176_2522406-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/afleetingspeck/sounds/151176/",
+          "recordingContext": "Artist-recorded tabla rhythm using a Behringer C-1U and Adobe Audition, with source hum EQ. Source describes a kherwa rhythm but contradicts itself about which drum is used; this demo makes no drum-specific claim.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "b97870a62564bd4f6e47e7093d7534a6b307e0aa7d11ac06c03b271500d12776",
+          "downloadBytes": 274608,
+          "licensePageSha256": "ebba12cae20c189efc2ce1fac01b277ee6e511ab9377560278e0b301c9992904"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 12.028299,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 193559,
+      "sha256": "9d9bc19f0b7a30a59ea0cacf7f2210369c83b58f03b3d73c05050da1e90069ef",
+      "decodedPeak": 0.6025527,
+      "decodedRms": 0.0216052,
+      "normalizationGain": 0.45170042
+    },
+    {
+      "id": "fx-rimshot",
+      "label": "Acoustic rimshot",
+      "path": "assets/input-samples/recorded/fx-rimshot.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "Rimshot (sweet)",
+          "creator": "Sajmund",
+          "sourceUrl": "https://freesound.org/people/Sajmund/sounds/132418/",
+          "downloadUrl": "https://cdn.freesound.org/previews/132/132418_2412414-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/Sajmund/sounds/132418/",
+          "recordingContext": "Uploader-recorded rimshot played on a 14-inch wood snare with a 7a stick in Holme, Århus, Denmark.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "3b37a94e974244fe7c1a8b98d510cbfc1bc41463cd163e9251462954eaf7907c",
+          "downloadBytes": 26784,
+          "licensePageSha256": "5d5c6d9879a492bb6ee42049c8728d532294e665366321d959a5ee4a00cb47a9"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 1.072925,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 18434,
+      "sha256": "634f080f6d4cb5fe7de7711fa83d46cc5140c894af30116fd0e067eef25a131b",
+      "decodedPeak": 0.5908055,
+      "decodedRms": 0.0224785,
+      "normalizationGain": 0.57312026
+    },
+    {
+      "id": "fx-applause",
+      "label": "Applause and cheers",
+      "path": "assets/input-samples/recorded/fx-applause.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "Audience Clapping.wav",
+          "creator": "Zeraora",
+          "sourceUrl": "https://freesound.org/people/Zeraora/sounds/429422/",
+          "downloadUrl": "https://cdn.freesound.org/previews/429/429422_7347459-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/Zeraora/sounds/429422/",
+          "recordingContext": "Uploader records audience cheering and clapping with an iPhone 6 at the Fredericton Playhouse; uploader is also part of the clapping audience.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "3895d0ba119e6105680b883fae30760fa6b09cca4b01c0be839c05185e34adf7",
+          "downloadBytes": 209105,
+          "licensePageSha256": "30ed85e01ff900d85b9c966cd43d15b4c5fe024713eb2e5031853ed920e7eaf6"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 8.634535,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 139224,
+      "sha256": "484cb5825dc36fb22f0c99261a2063e89d22e61b2fe9386a5934459f920b1a83",
+      "decodedPeak": 0.6056959,
+      "decodedRms": 0.0745541,
+      "normalizationGain": 0.6956961
+    },
+    {
+      "id": "fx-slide-whistle",
+      "label": "Slide whistle",
+      "path": "assets/input-samples/recorded/fx-slide-whistle.mp3",
+      "kind": "licensed-recording",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sources": [
+        {
+          "title": "SLIDE WHISTLE - 1",
+          "creator": "SamuelGremaud",
+          "sourceUrl": "https://freesound.org/people/SamuelGremaud/sounds/517633/",
+          "downloadUrl": "https://cdn.freesound.org/previews/517/517633_8031303-hq.mp3",
+          "downloadKind": "Freesound published high-quality MP3 preview",
+          "license": "CC0-1.0",
+          "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+          "licenseEvidenceUrl": "https://freesound.org/people/SamuelGremaud/sounds/517633/",
+          "recordingContext": "Uploader-recorded ascending and descending slide whistle with a ZOOM H4N Pro.",
+          "retrievedAt": "2026-10-06T04:19:54+00:00",
+          "downloadSha256": "00e871473b114c95ef821381f6b7b9562a3643e10ce1a0f7ed139c8c65c59a3c",
+          "downloadBytes": 143328,
+          "licensePageSha256": "28947a35bdbdc32d508ddffd3f5a5d6f60e34aef77844da76230330480220d57"
+        }
+      ],
+      "modifications": [
+        "Used the complete recorded performance from the published MP3 preview; retained timing and original pitch.",
+        "Downmixed to mono and resampled to 44100 Hz.",
+        "Applied 3 ms fade-in and 25 ms fade-out.",
+        "Linear peak normalization to−4dBFS before encoding; no compression or pitch shift.",
+        "Encoded with FFmpeg libmp3lame 128 kbps MP3; removed container metadata."
+      ],
+      "durationSeconds": 6.204762,
+      "sampleRate": 44100,
+      "channels": 1,
+      "bytes": 100354,
+      "sha256": "49297b0bd7e54bf5d25622a5784ac6c3b1a6f6520be842882bab8da585241f4c",
+      "decodedPeak": 0.5995318,
+      "decodedRms": 0.1303966,
+      "normalizationGain": 0.50942734
+    }
+  ]
+}

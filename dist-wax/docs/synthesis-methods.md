@@ -20,14 +20,17 @@ and running Play remain under the performer's control. Notes and strikes can als
 played directly. Tempo spans 10–1,200 BPM. Direct-note playback repeats attacks for
 strike methods and zero-sustain envelopes, or holds sustained methods. Complete
 presets can recall tempo; live Audio and transport remain performer-owned.
-The mixed preset tour also includes twelve bundled sample-processing scenes:
+The mixed preset tour also includes 36 bundled sample-processing scenes:
 drums through comb filtering or bit reduction, bass through auto-wah or saturation,
 chorused and phased keys, echoing strings and arpeggios, robotic or shifted voice
 syllables, telephone-band speech, and reverberant birdsong. Each recalls its sample,
 processor and wet mix with Loop enabled. Select a scene, enable Audio, and press
 Play; changing scenes while playing keeps Play and the output volume in place.
+The expanded bank adds animal recordings, meme-style effects, tabla and toy
+gamelan, and original synthesized phrases across classical, rock, country, jazz,
+dub, disco, chiptune and other styles. See [sample choices and credits](processing-input-samples.md).
 The main dice also chooses sample loops on one in five draws. It combines any
-of the nine bundled recordings or rendered loops with fresh processor settings,
+of the 33 bundled recordings or rendered loops with fresh processor settings,
 keeps a dry component audible, and enables looping without opening a file picker
 or microphone. Audio arming, Play and master output remain unchanged.
 Drag the added ADSR graph's A/D/R handles for time and S for sustain level.

@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createInputSource, SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID, MAX_INPUT_FILE_BYTES } from '../src/instruments/micmic/native/input-source.js';
+import { PROCESSING_INPUT_OPTIONS } from '../src/instruments/synthesis/demo-sources.js';
 
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const tick = () => new Promise(resolve => setImmediate(resolve));
@@ -26,8 +27,9 @@ function fixture() {
 }
 const file = (name = 'voice.wav', size = 100) => ({ name, size, arrayBuffer: async () => new ArrayBuffer(size) });
 
-test('sample options contain only the nine shared recorded demos', () => {
-  assert.equal(DEFAULT_SAMPLE_ID, 'sample-drums'); assert.equal(SAMPLE_INPUT_OPTIONS.length, 9);
+test('sample options contain every shared demo and preserve the original default', () => {
+  assert.equal(DEFAULT_SAMPLE_ID, 'sample-drums');
+  assert.deepEqual(SAMPLE_INPUT_OPTIONS, PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'demo'));
   assert.ok(SAMPLE_INPUT_OPTIONS.every(option => option.kind === 'demo'));
   assert.ok(!SAMPLE_INPUT_OPTIONS.some(option => ['sine', 'noise', 'drum-pattern'].includes(option.id)));
 });

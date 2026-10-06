@@ -37,7 +37,7 @@ Input mode, the selected sample, the uploaded recording and loop preference are
 session state. Sound presets, reloads and dice retain them along with the live
 gain controls. Uploads stay in the browser; files may be up to 64 MiB and playback
 uses the first two minutes, with longer files labelled as excerpts. Built-in
-samples reuse Synthesaurus's
+samples reuse Synthesaurus's [33-input sample library](processing-input-samples.md), with
 locally bundled recordings and arrangements; the input section links their
 original credits, including CC0 acoustic drums, CMU ARCTIC voice syllables,
 public-domain birdsong and Morphazoid's original rendered musical loops.

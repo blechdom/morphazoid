@@ -315,7 +315,7 @@ test('every offered recorded sample fetches, decodes and produces finite real Ru
   test.setTimeout(120000);
   const evidence = await fixture(page), responses = [], recordings = [];
   page.on('response', response => {
-    if (/\/assets\/.*\.(wav|ogg)(?:\?|$)/.test(response.url())) responses.push({ url: response.url(), status: response.status() });
+    if (/\/assets\/.*\.(wav|ogg|mp3)(?:\?|$)/.test(response.url())) responses.push({ url: response.url(), status: response.status() });
   });
   await ready(page); await dryScene(page); await chooseSelect(page, 'source', 'samples');
   const ids = await page.locator('#inputSample').evaluate(select => [...select.options].map(option => option.value));

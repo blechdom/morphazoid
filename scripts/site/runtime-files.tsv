@@ -1535,3 +1535,37 @@ copy+require	src/instruments/blobs/processor.js
 copy+require	src/instruments/blobs/app.js
 copy+require	src/instruments/blobs/blobs.css
 copy+require	assets/instruments/blobs.webp
+
+# Expanded shared sample inputs
+copy+require	docs/processing-input-samples.md
+copy+require	src/instruments/synthesis/extra-demo-sources.js
+copy+require	assets/input-samples/nature/CREDITS.md
+copy+require	assets/input-samples/nature/coyote-howl.wav
+copy+require	assets/input-samples/nature/cricket-night.wav
+copy+require	assets/input-samples/nature/frog-chorus.wav
+copy+require	assets/input-samples/nature/humpback-song.wav
+copy+require	assets/input-samples/nature/sources.json
+copy+require	assets/input-samples/recorded/SOURCES.md
+copy+require	assets/input-samples/recorded/fx-air-horn.mp3
+copy+require	assets/input-samples/recorded/fx-applause.mp3
+copy+require	assets/input-samples/recorded/fx-record-scratch.mp3
+copy+require	assets/input-samples/recorded/fx-rimshot.mp3
+copy+require	assets/input-samples/recorded/fx-sad-trombone.mp3
+copy+require	assets/input-samples/recorded/fx-slide-whistle.mp3
+copy+require	assets/input-samples/recorded/music-tabla.mp3
+copy+require	assets/input-samples/recorded/music-toy-gamelan.mp3
+copy+require	assets/input-samples/recorded/provenance.json
+copy+require	assets/synthesis/extra-loops/CREDITS.md
+copy+require	assets/synthesis/extra-loops/acid-circuit.wav
+copy+require	assets/synthesis/extra-loops/bossa-sunrise.wav
+copy+require	assets/synthesis/extra-loops/chiptune-quest.wav
+copy+require	assets/synthesis/extra-loops/clockwork-chamber.wav
+copy+require	assets/synthesis/extra-loops/cloud-choir.wav
+copy+require	assets/synthesis/extra-loops/country-front-porch.wav
+copy+require	assets/synthesis/extra-loops/disco-strut.wav
+copy+require	assets/synthesis/extra-loops/dub-skank.wav
+copy+require	assets/synthesis/extra-loops/jazz-night-walk.wav
+copy+require	assets/synthesis/extra-loops/neon-synth-pop.wav
+copy+require	assets/synthesis/extra-loops/renders.json
+copy+require	assets/synthesis/extra-loops/rockabilly-drive.wav
+copy+require	assets/synthesis/extra-loops/unicorn-sparkles.wav

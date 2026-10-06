@@ -16,7 +16,7 @@ test('the main bank combines the original tour with synthesis, voice, sample and
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.id)).size, INSTRUMENT_PRESETS.length);
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.label)).size, INSTRUMENT_PRESETS.length);
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => JSON.stringify(p.snapshot))).size, INSTRUMENT_PRESETS.length);
-  assert.deepEqual(RANDOMIZABLE_INPUTS.map(input => ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === input).length), [60, 20, 20, 0, 12]);
+  assert.deepEqual(RANDOMIZABLE_INPUTS.map(input => ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === input).length), [60, 20, 20, 0, SAMPLE_INSTRUMENT_PRESETS.length]);
   assert.deepEqual(new Set(ADDITIONAL_INSTRUMENT_PRESETS.filter(p => p.snapshot.routing.input === 'synthesis').map(p => p.snapshot.sound.methodId)), new Set(SYNTHESIS_METHODS.map(m => m.id)));
   for (const { id, snapshot } of ADDITIONAL_INSTRUMENT_PRESETS) {
     assert.deepEqual(captureInstrumentPreset(snapshot), snapshot, id);
@@ -34,7 +34,7 @@ test('the main bank combines the original tour with synthesis, voice, sample and
 });
 
 test('sample performances cover bundled loops and recall processing without devices or sequencing', () => {
-  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 12);
+  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 36);
   assert.deepEqual(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.routing.selection)),
     new Set(inputsForCategory('samples').map(input => input.id)));
   assert.ok(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.sound.methodId)).size >= 10);
