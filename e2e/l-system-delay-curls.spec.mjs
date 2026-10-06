@@ -162,7 +162,7 @@ async function beginDrag(page) {
   await page.mouse.move(p.x, p.y); await page.mouse.down();
   return p;
 }
-async function dragHeld(page, dy) {
+async function dragHeld(page, dy, { captureNative = false } = {}) {
   const p = await beginDrag(page);
   for (let step = 1; step <= 4; step++) {
     await page.mouse.move(p.x, p.y - dy * step / 4); await page.waitForTimeout(30);
@@ -173,12 +173,13 @@ async function dragHeld(page, dy) {
     const d = await diagnostics(page);
     return d.view.parameters.curls === target && d.view.revision === d.topologyRevision && !d.view.moving;
   }, { timeout: 30000 }).toBe(true);
+  const native = captureNative ? await nativeGeometry(page, { rustNodes: true }) : null;
   const events = await page.evaluate(() => __curlsQa.events), d = await diagnostics(page);
   expect(events.filter(event => event.type === 'input').length).toBeGreaterThan(1);
   expect(events.some(event => event.type === 'change')).toBe(false);
   await page.mouse.up();
   expect((await page.evaluate(() => __curlsQa.events)).filter(event => event.type === 'change')).toHaveLength(1);
-  return { target, events, d };
+  return { target, events, d, native };
 }
 async function nativeGeometry(page, { rustNodes = false } = {}) {
   return page.evaluate(async rustNodes => {
@@ -256,10 +257,10 @@ test('held positive and negative Curls reach real Rust audio and its connected g
   test.setTimeout(120000);
   const errors = await fixture(page); await ready(page); const before = await live(page);
   await page.evaluate(() => { __curlsQa.recording = true; });
-  const positive = await dragHeld(page, 6); expect(positive.target).toBeGreaterThan(0);
-  assertConnectedNativeView(positive.d.view, await nativeGeometry(page, { rustNodes: true }));
-  const negative = await dragHeld(page, -12); expect(negative.target).toBeLessThan(0);
-  assertConnectedNativeView(negative.d.view, await nativeGeometry(page, { rustNodes: true }));
+  const positive = await dragHeld(page, 6, { captureNative: true }); expect(positive.target).toBeGreaterThan(0);
+  assertConnectedNativeView(positive.d.view, positive.native);
+  const negative = await dragHeld(page, -12, { captureNative: true }); expect(negative.target).toBeLessThan(0);
+  assertConnectedNativeView(negative.d.view, negative.native);
   const root = view => view.nodes.find(node => node.generation === 0);
   for (const changed of [positive.d, negative.d]) {
     for (const field of ['x', 'y', 'startX', 'startY']) expect(root(changed.view)[field]).toBeCloseTo(root(before.view)[field], 8);
