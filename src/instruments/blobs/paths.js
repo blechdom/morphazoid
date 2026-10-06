@@ -1,9 +1,9 @@
 import { buildPath, cleanPoints, distance, clamp } from './model.js';
 import { boundsFromPoints } from '../../geometry.js';
 
-function measure(points) {
+function measure(points, closed) {
   const cumulativeLengths = [0]; let totalLength = 0;
-  for (let i = 0; i < points.length; i++) {
+  for (let i = 0; i < points.length - (closed ? 0 : 1); i++) {
     totalLength += distance(points[i], points[(i + 1) % points.length]);
     if (i < points.length - 1) cumulativeLengths.push(totalLength);
   }
@@ -27,46 +27,65 @@ export function rotatePath(path, degrees) {
 export function buildPerformancePath(blob, params) {
   const raw = buildPath(blob);
   if (!raw) return null;
-  const anchors = cleanPoints(blob.points);
+  const closed = raw.closed;
+  const anchors = cleanPoints(blob.points, closed);
   const points = Array.from({ length: raw.samples.length / 2 }, (_, i) => ({ x: raw.samples[i * 2] * 2 - 1, y: raw.samples[i * 2 + 1] * 2 - 1 }));
-  const anchorIndices = [...new Set(anchors.map(p => {
+  const anchorIndices = [...new Set(anchors.map((p, anchorIndex) => {
+    if (!closed && anchorIndex === 0) return 0;
+    if (!closed && anchorIndex === anchors.length - 1) return points.length - 1;
     let best = 0, nearest = Infinity;
     points.forEach((sample, i) => { const d = Math.hypot(sample.x - (p.x * 2 - 1), sample.y - (p.y * 2 - 1)); if (d < nearest) { best = i; nearest = d; } });
     return best;
   }))].sort((a, b) => a - b);
   const center = points.reduce((sum, p) => ({ x: sum.x + p.x / points.length, y: sum.y + p.y / points.length }), { x: 0, y: 0 });
   // Roundness bends the space between authored points; the anchors stay put.
-  if (params.curvature) for (let a = 0; a < anchorIndices.length; a++) {
+  if (params.curvature) for (let a = 0; a < anchorIndices.length - (closed ? 0 : 1); a++) {
     const start = anchorIndices[a], end = a + 1 < anchorIndices.length ? anchorIndices[a + 1] : anchorIndices[0] + points.length;
+    const first = points[start], last = points[end % points.length];
     for (let i = start + 1; i < end; i++) {
-      const p = points[i % points.length], t = (i - start) / (end - start), scale = 1 + params.curvature * .45 * Math.sin(Math.PI * t) ** 2;
-      p.x = center.x + (p.x - center.x) * scale; p.y = center.y + (p.y - center.y) * scale;
+      const p = points[i % points.length], t = (i - start) / (end - start), bend = params.curvature * .45 * Math.sin(Math.PI * t) ** 2;
+      if (closed) {
+        const scale = 1 + bend;
+        p.x = center.x + (p.x - center.x) * scale; p.y = center.y + (p.y - center.y) * scale;
+      } else {
+        // An open span has no enclosed center: bend normal to its chord so a
+        // two-anchor line becomes an arc instead of merely stretching.
+        p.x -= (last.y - first.y) * bend; p.y += (last.x - first.x) * bend;
+      }
     }
   }
   const sx = 2 ** params.aspect, sy = 2 ** -params.aspect;
   for (const p of points) { p.y *= sy; p.x = p.x * sx + params.skew * p.y; }
   const fit = Math.max(1, ...points.map(p => Math.hypot(p.x, p.y)));
   for (const p of points) { p.x /= fit; p.y /= fit; }
-  const measured = measure(points);
-  const vertexIndices = params.cornerMode === 'even'
-    ? Array.from({ length: params.corners }, (_, i) => {
-      const target = measured.totalLength * i / params.corners;
+  const measured = measure(points, closed);
+  const cornerCount = closed ? params.corners : Math.max(2, params.corners);
+  let vertexIndices = params.cornerMode === 'even'
+    ? Array.from({ length: cornerCount }, (_, i) => {
+      const target = measured.totalLength * i / (closed ? cornerCount : cornerCount - 1);
       return measured.cumulativeLengths.reduce((best, length, index) => Math.abs(length - target) < Math.abs(measured.cumulativeLengths[best] - target) ? index : best, 0);
     })
     : (blob.tool === 'pencil' && anchorIndices.length > 32
       ? anchorIndices.filter((_, i) => i % Math.ceil(anchorIndices.length / 24) === 0)
       : anchorIndices.length > 32 ? Array.from({ length: 32 }, (_, i) => anchorIndices[Math.floor(i * anchorIndices.length / 32)]) : anchorIndices);
+  if (!closed) {
+    // Endpoint reversals are audible corners, including dense freehand paths.
+    const interior = vertexIndices.filter(index => index > 0 && index < points.length - 1);
+    vertexIndices = [0, ...(interior.length > 30 ? Array.from({ length: 30 }, (_, i) => interior[Math.floor(i * interior.length / 30)]) : interior), points.length - 1];
+  }
   const cornerTurns = vertexIndices.map(index => {
-    const p = points[index], a = points[(index - 3 + points.length) % points.length], b = points[(index + 3) % points.length];
+    if (!closed && index === 0) return 1;
+    if (!closed && index === points.length - 1) return -1;
+    const p = points[index], a = points[closed ? (index - 3 + points.length) % points.length : Math.max(0, index - 3)], b = points[closed ? (index + 3) % points.length : Math.min(points.length - 1, index + 3)];
     return Math.atan2((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x), (p.x - a.x) * (b.x - p.x) + (p.y - a.y) * (b.y - p.y)) / Math.PI;
   });
   const offset = fitOffset(boundsFromPoints(points), blob.offset);
   for (const p of points) { p.x += offset.x * 2; p.y += offset.y * 2; }
   return {
-    points, closed: true, ...measured, bounds: boundsFromPoints(points),
+    points, closed, ...measured, bounds: boundsFromPoints(points),
     vertexIndices, vertexDistances: vertexIndices.map(i => measured.cumulativeLengths[i]),
     cornerTurns, cornerStrengths: cornerTurns.map(turn => params.cornerMode === 'even' ? Math.max(.35, Math.abs(turn)) : Math.abs(turn)),
-    sides: Math.max(3, vertexIndices.length), vertexCount: vertexIndices.length, shapeType: 'polygon', starDepth: 0,
+    sides: Math.max(closed ? 3 : 2, vertexIndices.length), vertexCount: vertexIndices.length, shapeType: 'polygon', starDepth: 0,
     curvature: params.curvature, aspect: params.aspect, skew: params.skew, asymmetry: 0, rotationDeg: 0, samplesPerEdge: 16,
     transform: { sx, sy, skew: params.skew, fit, offsetX: offset.x, offsetY: offset.y }, anchorIndices, locations: raw.locations,
   };

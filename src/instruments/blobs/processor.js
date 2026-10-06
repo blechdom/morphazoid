@@ -18,8 +18,8 @@ const EPSILON = 1e-8;
 const bounded = (value, low, high) => Math.max(low, Math.min(high, Number.isFinite(value) ? value : low));
 
 function validPath(path) {
-  return path?.closed === true && Number.isFinite(path.totalLength) && path.totalLength > 0
-    && Array.isArray(path.points) && path.points.length >= 3 && path.points.length <= 256
+  return typeof path?.closed === 'boolean' && Number.isFinite(path.totalLength) && path.totalLength > 0
+    && Array.isArray(path.points) && path.points.length >= (path.closed ? 3 : 2) && path.points.length <= 256
     && path.points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y))
     && Array.isArray(path.vertexIndices) && path.vertexIndices.length <= 32
     && Array.isArray(path.vertexDistances) && path.vertexDistances.length === path.vertexIndices.length
@@ -39,12 +39,13 @@ function rotatedContact(contact, degrees) {
 // retain a small fraction, so reserve its head budget before doing that work.
 function readerComplexity(path) {
   let scan = 2, radial = 1;
+  const segmentCount = path.closed ? path.points.length : path.points.length - 1;
   for (const axis of ['x', 'y']) for (const fraction of [.25, .5, .75]) {
     const minimum = axis === 'x' ? path.bounds.minX : path.bounds.minY;
     const span = axis === 'x' ? path.bounds.width : path.bounds.height;
     const coordinate = minimum + fraction * span;
     let count = 0;
-    for (let i = 0; i < path.points.length; i++) {
+    for (let i = 0; i < segmentCount; i++) {
       const a = path.points[i][axis] - coordinate, b = path.points[(i + 1) % path.points.length][axis] - coordinate;
       if ((a < 0 && b >= 0) || (a >= 0 && b < 0)) count++;
     }
@@ -53,7 +54,7 @@ function readerComplexity(path) {
   for (let ray = 0; ray < 12; ray++) {
     const angle = ray * TAU / 12, dx = Math.cos(angle), dy = Math.sin(angle);
     let count = 0;
-    for (let i = 0; i < path.points.length; i++) {
+    for (let i = 0; i < segmentCount; i++) {
       const a = path.points[i], b = path.points[(i + 1) % path.points.length];
       const ex = b.x - a.x, ey = b.y - a.y, denominator = dx * ey - dy * ex;
       if (Math.abs(denominator) < 1e-9) continue;
@@ -208,11 +209,16 @@ class BlobsProcessor extends MorphazoidContourSynth {
 
   continuousVoices(state) {
     const sound = createShapeSoundModel(state);
+    let openSound;
     const groups = [];
     for (const blobIndex of this.admittedPaths(state)) {
       const base = this.paths[blobIndex];
+      // An open trace reverses at its endpoints; the reader, envelopes and
+      // Shepard mapping all follow that same physical traversal.
+      const pathState = this.stateForPath(state, base);
+      const pathSound = pathState === state ? sound : (openSound ??= createShapeSoundModel(pathState));
       const indices = this.audibleHeads(state, blobIndex);
-      const readerState = { ...state, heads: indices.length };
+      const readerState = { ...pathState, heads: indices.length };
       for (const key of ['headOffsets', 'scanLineAxes', 'traceHeadDirections', 'radialHeadDirections', 'traceHeadDirectionAdjustments', 'radialHeadDirectionAdjustments']) {
         readerState[key] = indices.map(i => state[key][i]);
       }
@@ -235,7 +241,7 @@ class BlobsProcessor extends MorphazoidContourSynth {
       }
       const positioned = state.playMethod === 'trace'
         ? contacts.map(contact => rotatedContact(contact, state.rotation)) : contacts;
-      groups.push(sound.continuousSynthVoices(positioned.slice(0, VOICE_LIMIT), path)
+      groups.push(pathSound.continuousSynthVoices(positioned.slice(0, VOICE_LIMIT), path)
         .map(voice => ({ ...voice, key: `${this.pathKey(blobIndex)}:${voice.key}` })));
     }
     // Equal-strength contacts enter in blob/head order, rather than filling
@@ -253,6 +259,10 @@ class BlobsProcessor extends MorphazoidContourSynth {
     const adjustments = radial ? state.radialHeadDirectionAdjustments : state.traceHeadDirectionAdjustments;
     return (directions[headIndex] < 0 ? -1 : 1) * state.continuousPosition
       + (state.headOffsets[headIndex] ?? headIndex / state.heads) + (adjustments[headIndex] ?? 0);
+  }
+
+  stateForPath(state, path) {
+    return !path.closed && state.playMethod === 'trace' && state.motionMode !== 'pingpong' ? { ...state, motionMode: 'pingpong' } : state;
   }
 
   vertexTarget(path, vertexIndex, state, headIndex) {
@@ -280,6 +290,8 @@ class BlobsProcessor extends MorphazoidContourSynth {
       for (let admitted = 0; admitted < pathIndices.length; admitted++) {
         const blob = pathIndices[admitted];
         const base = this.paths[blob], previousPath = beforePaths[admitted], nextPath = afterPaths[admitted];
+        const pathState = this.stateForPath(state, base);
+        const circular = state.playMethod === 'radial' || (state.playMethod === 'trace' && base.closed);
         for (const head of heads[admitted]) {
           const from = this.headTravel(before, head), to = this.headTravel(after, head);
           for (let vertex = 0; vertex < base.vertexIndices.length; vertex++) {
@@ -288,7 +300,7 @@ class BlobsProcessor extends MorphazoidContourSynth {
             let targetTo = this.vertexTarget(nextPath, vertex, after, head);
             if (targetFrom === null || targetTo === null) continue;
             if (state.playMethod === 'radial') targetTo = targetFrom + ((targetTo - targetFrom + 1.5) % 1 - .5);
-            for (const fraction of crossingFractions(from, to, targetFrom, targetTo, state.motionMode, state.playMethod !== 'scan')) {
+            for (const fraction of crossingFractions(from, to, targetFrom, targetTo, pathState.motionMode, circular)) {
               intents.push({ blob, head, vertex, at: now + duration * ((step - 1 + fraction) / steps) });
             }
           }
@@ -300,8 +312,9 @@ class BlobsProcessor extends MorphazoidContourSynth {
   }
 
   queueCorner(intent, now) {
-    const state = performanceState(this.params, this.clock, intent.at);
-    const path = this.paths[intent.blob], sound = createShapeSoundModel(state);
+    const path = this.paths[intent.blob];
+    const state = this.stateForPath(performanceState(this.params, this.clock, intent.at), path);
+    const sound = createShapeSoundModel(state);
     const contact = {
       ...rotatedContact(pointAtPath(path, path.vertexDistances[intent.vertex] / path.totalLength), state.rotation),
       cornerIndex: intent.vertex,

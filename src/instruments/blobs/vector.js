@@ -1,4 +1,4 @@
-// Closed-path vector editing. Handles are offsets from their anchor; legacy
+// Open and closed path editing. Handles are offsets from their anchor; legacy
 // points have a mirrored incoming handle when inHx/inHy are omitted.
 const MAX_POINTS = 256;
 const finite = value => Number.isFinite(value) ? value : 0;
@@ -6,8 +6,11 @@ const validPoint = point => point && Number.isFinite(point.x) && Number.isFinite
 const lerp = (a, b, t) => ({ x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
 const add = (a, b) => ({ x: a.x + b.x, y: a.y + b.y });
 const subtract = (a, b) => ({ x: a.x - b.x, y: a.y - b.y });
-const validBlob = blob => Array.isArray(blob?.points) && blob.points.length >= 3 && blob.points.length <= MAX_POINTS && blob.points.every(validPoint);
+const minimumPoints = blob => blob?.closed === false ? 2 : 3;
+const segmentCount = blob => blob.points.length - (blob.closed === false ? 1 : 0);
+const validBlob = blob => Array.isArray(blob?.points) && blob.points.length >= minimumPoints(blob) && blob.points.length <= MAX_POINTS && blob.points.every(validPoint);
 const validIndex = (blob, index) => validBlob(blob) && Number.isInteger(index) && index >= 0 && index < blob.points.length;
+const validSegment = (blob, index) => validIndex(blob, index) && index < segmentCount(blob);
 const clone = blob => ({ ...blob, points: blob.points.map(point => ({ ...point })) });
 
 export function handles(point) {
@@ -29,12 +32,12 @@ function sample(blob, segment, t) {
 }
 
 export function curvePoint(blob, segmentIndex, t) {
-  if (!validIndex(blob, segmentIndex) || !Number.isFinite(t)) return null;
+  if (!validSegment(blob, segmentIndex) || !Number.isFinite(t)) return null;
   return sample(blob, segmentIndex, Math.max(0, Math.min(1, t)));
 }
 
 export function insertPoint(blob, segmentIndex, t) {
-  if (!validIndex(blob, segmentIndex) || blob.points.length >= MAX_POINTS || !Number.isFinite(t) || t <= 1e-4 || t >= 1 - 1e-4) return null;
+  if (!validSegment(blob, segmentIndex) || blob.points.length >= MAX_POINTS || !Number.isFinite(t) || t <= 1e-4 || t >= 1 - 1e-4) return null;
   const next = clone(blob), nextIndex = (segmentIndex + 1) % blob.points.length;
   let inserted;
   if (blob.tool === 'pen') {
@@ -57,7 +60,7 @@ export function insertPoint(blob, segmentIndex, t) {
 }
 
 export function removePoint(blob, index) {
-  if (!validIndex(blob, index) || blob.points.length <= 3) return null;
+  if (!validIndex(blob, index) || blob.points.length <= minimumPoints(blob)) return null;
   const next = clone(blob);
   next.points.splice(index, 1);
   return next;
@@ -71,10 +74,12 @@ export function smoothPoint(blob, index, smooth = true) {
     for (const point of next.points) Object.assign(point, { hx: 0, hy: 0, inHx: 0, inHy: 0 });
   }
   next.tool = 'pen';
-  const before = next.points[(index + next.points.length - 1) % next.points.length], after = next.points[(index + 1) % next.points.length];
-  const hx = smooth ? Math.max(-.3, Math.min(.3, (after.x - before.x) / 6)) : 0;
-  const hy = smooth ? Math.max(-.3, Math.min(.3, (after.y - before.y) / 6)) : 0;
-  Object.assign(next.points[index], { hx, hy, inHx: -hx, inHy: -hy });
+  const first = next.closed === false && index === 0, last = next.closed === false && index === next.points.length - 1;
+  const before = next.points[first ? index : (index + next.points.length - 1) % next.points.length], after = next.points[last ? index : (index + 1) % next.points.length];
+  const divisor = first || last ? 3 : 6;
+  const hx = smooth ? Math.max(-.3, Math.min(.3, (after.x - before.x) / divisor)) : 0;
+  const hy = smooth ? Math.max(-.3, Math.min(.3, (after.y - before.y) / divisor)) : 0;
+  Object.assign(next.points[index], { hx: last ? 0 : hx, hy: last ? 0 : hy, inHx: first ? 0 : -hx, inHy: first ? 0 : -hy });
   return next;
 }
 
@@ -92,7 +97,7 @@ export function nearestSegment(blob, point, { transform = p => p, maxDistance = 
     }
     return squared;
   };
-  for (let segment = 0; segment < blob.points.length; segment++) {
+  for (let segment = 0; segment < segmentCount(blob); segment++) {
     let previous = transform(sample(blob, segment, 0));
     evaluate(segment, 0);
     for (let step = 1; step <= steps; step++) {

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 
-const scene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v4')));
+const scene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v5')));
 async function open(page) {
   await page.goto('/blobs.html');
   await expect(page.locator('#selectedBlob option')).toHaveCount(1);
@@ -57,14 +57,14 @@ test('three drawing tools create closed playable loops, edit/undo and persistenc
   const errors = []; page.on('pageerror', e => errors.push(e.message));
   await open(page); await page.locator('#clearAll').click();
   const start = await position(page, .2, .3); await page.mouse.move(start.x, start.y); await page.mouse.down();
-  for (const [x, y] of [[.5, .2], [.75, .4], [.6, .7], [.25, .6]]) { const p = await position(page, x, y); await page.mouse.move(p.x, p.y, { steps: 8 }); }
+  for (const [x, y] of [[.5, .2], [.75, .4], [.6, .7], [.25, .6], [.2, .3]]) { const p = await position(page, x, y); await page.mouse.move(p.x, p.y, { steps: 8 }); }
   await page.mouse.up(); expect((await scene(page)).blobs).toHaveLength(1);
   await page.locator('[data-tool="line"]').click();
   for (const [x, y] of [[.3, .3], [.7, .3], [.5, .7], [.3, .3]]) await clickPoint(page, x, y);
   expect((await scene(page)).blobs).toHaveLength(2);
   await page.locator('[data-tool="pen"]').click();
   const p = await position(page, .3, .4); await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(p.x + 50, p.y - 30); await page.mouse.up();
-  await clickPoint(page, .7, .4); await clickPoint(page, .5, .75); await page.locator('#closePath').click();
+  await clickPoint(page, .7, .4); await clickPoint(page, .5, .75); await clickPoint(page, .3, .4);
   expect((await scene(page)).blobs[2].points[0].hx).toBeGreaterThan(0);
   await page.locator('[data-tool="edit"]').click();
   const before = await scene(page), a = await position(page, .3, .4);
@@ -83,7 +83,7 @@ test('keyboard drawing and pointer cancellation leave valid contours', async ({ 
   for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('Enter');
   for (let i = 0; i < 5; i++) await page.keyboard.press('Shift+ArrowDown');
-  await page.keyboard.press('Enter'); await page.keyboard.press('c');
+  await page.keyboard.press('Enter'); await page.keyboard.press('f');
   expect((await scene(page)).blobs).toHaveLength(1);
   const before = await scene(page); await page.locator('[data-tool="edit"]').click();
   const p = await position(page, .5, .5); await page.mouse.move(p.x, p.y); await page.mouse.down(); await page.mouse.move(p.x + 40, p.y + 30);

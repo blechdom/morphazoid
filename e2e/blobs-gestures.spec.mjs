@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
-const STORAGE_KEY = 'morphazoid:blobs:v4';
+const STORAGE_KEY = 'morphazoid:blobs:v5';
 const rectangle = (x, y, radius = .1) => ({ tool: 'line', points: [
   { x: x - radius, y: y - radius, hx: 0, hy: 0 },
   { x: x + radius, y: y - radius, hx: 0, hy: 0 },
@@ -305,7 +305,7 @@ test('overlapping fills move only the last drawn blob when their interiors are g
   await expect(page.locator('#undo')).toBeDisabled();
 });
 
-test('stored v3 drawings migrate to v4 without changing points or musical parameters or starting playback', async ({ page }) => {
+test('stored v3 drawings migrate to v5 without changing points or musical parameters or starting playback', async ({ page }) => {
   await page.goto('/blobs.html');
   await expect(page.locator('#selectedBlob option')).toHaveCount(1);
   const legacy = await scene(page);
@@ -325,14 +325,14 @@ test('stored v3 drawings migrate to v4 without changing points or musical parame
     localStorage.setItem('morphazoid:blobs:v3', JSON.stringify(legacy));
     localStorage.removeItem(key);
   }, { key: STORAGE_KEY, legacy });
-  // Navigation runs the old document's save handler; remove its v4 entry before
+  // Navigation runs the old document's save handler; remove its v5 entry before
   // the new instrument module reads storage so the legacy fallback is exercised.
   await page.addInitScript(key => localStorage.removeItem(key), STORAGE_KEY);
   await page.reload();
   await expect(page.locator('#selectedBlob option')).toHaveCount(2);
   await expectRendered(page);
   const migrated = await scene(page);
-  expect(migrated.version).toBe(4);
+  expect(migrated.version).toBe(5);
   expect(migrated.blobs).toEqual(legacy.blobs);
   expect(migrated.params).toEqual(legacy.params);
   await expect(page.locator('#symmetryCount')).toHaveText('2 linked copies');

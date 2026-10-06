@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 
-const storedScene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v4')));
+const storedScene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v5')));
 const sentPaths = page => page.evaluate(() => window.__blobsLastAudioScene?.paths);
 
 async function open(page) {
@@ -62,7 +62,7 @@ async function expectSilence(page) {
   expect(summary.maxPeak).toBeLessThan(.0001);
 }
 
-test('cleared Lines audition a closed draft and commit without replacing its sounding contour', async ({ page }) => {
+test('cleared Lines audition an open draft and close only at the first point', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
   await page.locator('#playButton').click(); await page.locator('#audioButton').click();
@@ -71,12 +71,12 @@ test('cleared Lines audition a closed draft and commit without replacing its sou
   await page.locator('#aspect').evaluate(input => { input.value = '.3'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   await page.locator('#clearAll').click(); await expectSilence(page);
   await page.locator('[data-tool="line"]').click();
-  await addPoint(page, .2, .25); await addPoint(page, .8, .3);
-  await expectSilence(page);
+  await addPoint(page, .2, .25); await expectSilence(page);
+  await addPoint(page, .8, .3); await expectSound(page);
   await addPoint(page, .5, .8);
   expect((await storedScene(page)).blobs).toEqual([]);
   await expectSound(page);
-  await expect(page.locator('#stageReadout')).toContainText('LOOP PREVIEW');
+  await expect(page.locator('#stageReadout')).toContainText('OPEN PREVIEW');
   await expect.poll(() => page.locator('#stage').evaluate(canvas => {
     const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
     let white = 0;
@@ -84,7 +84,7 @@ test('cleared Lines audition a closed draft and commit without replacing its sou
     return white;
   })).toBeGreaterThan(8); // The dashed preview must show its audible playheads.
   const preview = await sentPaths(page);
-  expect(preview).toHaveLength(2); expect(preview.every(path => path.closed)).toBe(true);
+  expect(preview).toHaveLength(2); expect(preview.every(path => !path.closed)).toBe(true);
   // The visible first anchor must close even after form controls and reflection.
   const first = preview.at(-1).points[0];
   await addPoint(page, (first.x + 1) / 2, (first.y + 1) / 2);
@@ -95,8 +95,8 @@ test('cleared Lines audition a closed draft and commit without replacing its sou
   const paths = await sentPaths(page);
   expect(paths).toHaveLength(2);
   for (let i = 0; i < paths.length; i++) {
-    expect(paths[i].points).toEqual(preview[i].points);
-    expect(paths[i].totalLength).toBe(preview[i].totalLength);
+    expect(paths[i].closed).toBe(true);
+    expect(paths[i].totalLength).toBeGreaterThan(preview[i].totalLength);
     expect(paths[i].pathKey).toBe(preview[i].pathKey);
   }
   const sound = await expectSound(page);
@@ -120,7 +120,7 @@ test('cancel and tool changes release uncommitted Pen and Line previews', async 
   await page.locator('[data-tool="edit"]').click(); await expectSilence(page);
   expect(await sentPaths(page)).toEqual([]);
   expect((await storedScene(page)).blobs).toEqual([]);
-  await expect(page.locator('#closePath')).toBeDisabled();
+  await expect(page.locator('#finishPath')).toBeDisabled();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
 });
@@ -138,7 +138,7 @@ test('draft drawing neither enables Audio nor resumes a paused primary playhead'
   await addPoint(page, .25, .65);
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
   await expectSilence(page);
-  await page.locator('#closePath').click();
+  await page.locator('#finishPath').click();
   expect((await storedScene(page)).blobs[0].points).toHaveLength(4);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');

@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
-const STORAGE_KEY = 'morphazoid:blobs:v4';
+const STORAGE_KEY = 'morphazoid:blobs:v5';
 const scene = page => page.evaluate(key => JSON.parse(localStorage.getItem(key)), STORAGE_KEY);
 
 async function open(page, blob, params = {}) {

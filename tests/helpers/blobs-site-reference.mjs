@@ -9,7 +9,7 @@ export const blobsSiteChanges = [
   },
   {
     "file": "src/site/instrument-catalog.js",
-    "addition": "  blobs: define(\n    \"Drawn-loop synthesizer\",\n    \"Pencil strokes, curved pen paths and straight lines become closed loops. Playheads trace each blob, mapping height to continuous pitch and width to stereo.\",\n    \"Enable Audio and Play the demo, or draw a closed blob. Use Pen for curves, Lines for corners and Edit to reshape a loop.\",\n    [\"Built-in synth\", \"Pointer\", \"Closed paths\", \"Playheads\"],\n  ),\n",
+    "addition": "  blobs: define(\n    \"Drawn-path synthesizer\",\n    \"Draw open pencil strokes, curved pen paths and straight lines, or return to the first point to close a loop. Playheads follow each path, mapping height to continuous pitch and width to stereo.\",\n    \"Enable Audio and Play the demo, or draw a path. Finish keeps it open; click its first point to close it. Use Pen for curves, Lines for corners and Edit to reshape it.\",\n    [\"Built-in synth\", \"Pointer\", \"Open / closed paths\", \"Playheads\"],\n  ),\n",
     "sha256": "d7ab425e0a8e41a92f45cf0db6b85c283b84fef52e796ea0683338d170b64f9e"
   },
   {

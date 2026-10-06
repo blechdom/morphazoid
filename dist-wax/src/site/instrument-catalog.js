@@ -16,10 +16,10 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 
 const CATALOG_DETAILS = Object.freeze({
   blobs: define(
-    "Drawn-loop synthesizer",
-    "Pencil strokes, curved pen paths and straight lines become closed loops. Playheads trace each blob, mapping height to continuous pitch and width to stereo.",
-    "Enable Audio and Play the demo, or draw a closed blob. Use Pen for curves, Lines for corners and Edit to reshape a loop.",
-    ["Built-in synth", "Pointer", "Closed paths", "Playheads"],
+    "Drawn-path synthesizer",
+    "Draw open pencil strokes, curved pen paths and straight lines, or return to the first point to close a loop. Playheads follow each path, mapping height to continuous pitch and width to stereo.",
+    "Enable Audio and Play the demo, or draw a path. Finish keeps it open; click its first point to close it. Use Pen for curves, Lines for corners and Edit to reshape it.",
+    ["Built-in synth", "Pointer", "Open / closed paths", "Playheads"],
   ),
   "fractal-signals": define(
     "Six geometric sound processes",

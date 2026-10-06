@@ -43,8 +43,8 @@ test('body motion clamps the full sampled contour and starts from the effective 
 });
 
 test('offset scenes save exactly, bound malformed values, and migrate every older scene without altering unmoved blobs', () => {
-  assert.equal(SCENE_VERSION, 4);
-  for (const version of [1, 2, 3, 4]) {
+  assert.equal(SCENE_VERSION, 5);
+  for (const version of [1, 2, 3, 4, 5]) {
     const scene = normalizeScene({ version, blobs: [square], params: {} });
     assert.equal(scene.version, SCENE_VERSION);
     assert.equal('offset' in scene.blobs[0], false);

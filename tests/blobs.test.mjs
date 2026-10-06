@@ -35,7 +35,7 @@ test('saved scenes clamp resource bounds and reject unknown versions', () => {
   const scene = normalizeScene({ version: 1, blobs: Array.from({ length: 30 }, () => ({ tool: 'pencil', points: Array.from({ length: 3000 }, (_, i) => ({ x: .5 + .3 * Math.cos(i / 30), y: .5 + .3 * Math.sin(i / 30) })) })), params: { heads: 99, speed: Infinity, baseFrequency: -20 } });
   assert.equal(scene.blobs.length, 6);
   assert.ok(scene.blobs.every(blob => blob.points.length <= MAX_POINTS));
-  assert.equal(scene.version, 4);
+  assert.equal(scene.version, 5);
   assert.equal(scene.params.heads, 12); assert.equal(scene.params.baseFrequency, 20);
   assert.deepEqual(normalizeScene(scene), scene);
 });
