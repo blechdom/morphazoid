@@ -31,7 +31,7 @@ test('native bank preserves the sound settings in all sixteen original scenes', 
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry,
     }, `${preset.id} mix`);
-    assert.equal(preset.label, reference.label);
+    assert.equal(preset.label, original.label);
     assert.deepEqual(legacyScene(scene), withoutMastering(preset.snapshot));
     assert.deepEqual(captureScene(scene.parameters, scene.performance).performance.mastering, captureMastering(DEFAULT_MASTERING));
   }
