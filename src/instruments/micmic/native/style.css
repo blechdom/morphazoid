@@ -4,7 +4,9 @@
 .native-input-controls { display: grid; gap: 12px; }
 .native-input-controls [hidden] { display: none !important; }
 .native-input-choice { display: block; min-width: 0; }
-.native-input-choice .instrument-picker { width: 100%; }
+/* Scrolling source choices stay below the sticky preset row. Their open
+   panels still use the shared chooser's top layer and viewport anchoring. */
+.micmic-page .native-input-choice .instrument-picker { width: 100%; z-index: 0; }
 .native-input-choice .instrument-picker-trigger { width: 100%; min-height: 36px; }
 .native-input-choice .instrument-picker-current { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
 .native-input-file label { display: grid; gap: 8px; }
