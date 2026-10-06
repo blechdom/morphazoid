@@ -11,7 +11,7 @@ const close = (actual, expected, label) => assert.ok(Math.abs(actual - expected)
   `${label}: ${actual} vs ${expected}`);
 const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
 
-test('Curls survives capture and randomization while all factory and legacy scenes restore zero independently', () => {
+test('Curls survives capture and randomization while factory scenes recall exactly and legacy scenes restore zero', () => {
   assert.equal(sanitizeParameters().curls, 0);
   assert.equal(sanitizeParameters({ curls: NaN }).curls, 0);
   assert.equal(sanitizeParameters({ curls: Infinity }).curls, 0);
@@ -21,7 +21,8 @@ test('Curls survives capture and randomization while all factory and legacy scen
   const snapshot = captureScene({ ...DEFAULT_PARAMETERS, curls: -.37 }, live);
   assert.equal(presetState(JSON.parse(JSON.stringify(snapshot)), live).parameters.curls, -.37);
   for (const preset of bank) {
-    assert.equal(preset.snapshot.parameters.curls, 0, preset.id);
+    assert.equal(presetState(preset, live).parameters.curls, preset.snapshot.parameters.curls, preset.id);
+    if (!preset.id.includes('-exploration-')) assert.equal(preset.snapshot.parameters.curls, 0, `${preset.id} original bank`);
     const legacy = structuredClone(preset.snapshot); delete legacy.parameters.curls;
     assert.equal(presetState(legacy, live).parameters.curls, 0, `${preset.id} legacy`);
   }

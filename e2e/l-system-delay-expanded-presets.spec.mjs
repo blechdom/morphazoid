@@ -86,7 +86,7 @@ async function diagnostics(page) {
 }
 
 async function ready(page) {
-  expect(bank).toHaveLength(150);
+  expect(bank).toHaveLength(186);
   expect(bank.slice(0, ORIGINAL_IDS.length).map(preset => preset.id)).toEqual(ORIGINAL_IDS);
   await page.goto('/l-mic-rust.html?renderer=canvas');
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });

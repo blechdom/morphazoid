@@ -27,7 +27,7 @@ test('native bank preserves the sound settings in all sixteen original scenes', 
     assert.deepEqual(scene.parameters, { lSystemType: original.lSystemType, generations: original.generations,
       intervalMs: original.interval, timeRatio: original.timeRatio, angle: original.generationAngle,
       asymmetry: original.generationAsymmetry, curls: 0, mutation: original.mutation, pitchScale: original.generationPitchScale,
-      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread }, preset.id);
+      pruningBias: original.pruningBias, depth: original.depth, spread: original.spread, grammarSeed: 1, branchProbability: .65 }, preset.id);
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry,
     }, `${preset.id} mix`);

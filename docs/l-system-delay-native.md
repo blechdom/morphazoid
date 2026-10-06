@@ -5,9 +5,11 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page offers 150 full scenes, including all sixteen original presets,
+The Rust page source offers 186 full scenes, including all sixteen original presets,
 the ten earlier Rust scenes, 88 earlier additional scenes and 36 new branching
-scenes across seventeen grammars.
+scenes, plus 36 exploration scenes, across twenty-three grammars.
+The new curves and repeatable stochastic branching are documented in
+[Grammar exploration](l-system-delay-grammars.md).
 It retains the original parameter curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
@@ -100,7 +102,8 @@ including Tap, filter cutoffs, compression and signed pruning/asymmetry guidance
 **Curls** adds continuous angular winding in either direction, from −8 to +8 turns
 along the longest root-to-tip path; this is added rotation, not a guaranteed count
 of visible loops. Zero leaves the original layout and sound intact;
-all existing factory presets recall zero. The input root stays fixed while
+all earlier factory presets recall zero; the exploration bank also demonstrates
+curled paths. The input root stays fixed while
 successive segments turn, preserving their connections, lengths, gaps and delays.
 Those changed local turns feed the existing **Angle → octave span** pitch mapping,
 and their new positions feed **Spread**. The existing pitch-rate limits still

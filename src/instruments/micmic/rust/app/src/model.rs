@@ -13,7 +13,7 @@ pub use lab::LabParameters;
 #[cfg(test)]
 pub const POOL_VOICES: usize = (1 << 14) - 2;
 pub const MAX_REPRESENTABLE_GENERATIONS: u8 = 52;
-pub const L_SYSTEM_TYPES: [&str; 17] = [
+pub const L_SYSTEM_TYPES: [&str; 23] = [
     "pythagorean",
     "plant",
     "coral",
@@ -31,6 +31,12 @@ pub const L_SYSTEM_TYPES: [&str; 17] = [
     "whorled",
     "ternary",
     "quaternary",
+    "peano",
+    "arrowhead",
+    "quadratic-koch",
+    "kolam",
+    "dekking",
+    "stochastic",
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -52,6 +58,11 @@ pub struct Parameters {
     /// Generation decay factor; 1 retains equal energy at every audible layer.
     pub depth: f64,
     pub spread: f64,
+    /// Repeatable grammar choices; unrelated live edits never reroll them.
+    pub grammar_seed: u32,
+    /// Weight of the two-sided stochastic production; remaining probability
+    /// is divided equally between the one-sided productions.
+    pub branch_probability: f64,
 }
 impl Default for Parameters {
     fn default() -> Self {
@@ -69,6 +80,8 @@ impl Default for Parameters {
             pruning_bias: 0.,
             depth: 0.72,
             spread: 0.9,
+            grammar_seed: 1,
+            branch_probability: 0.65,
         }
     }
 }
@@ -94,6 +107,7 @@ impl Parameters {
             ("pruningBias", self.pruning_bias, -1., 1.),
             ("depth", self.depth, 0., 1.),
             ("spread", self.spread, 0., 1.),
+            ("branchProbability", self.branch_probability, 0., 1.),
         ] {
             if !value.is_finite() || !(low..=high).contains(&value) {
                 return Err(format!(
@@ -146,12 +160,15 @@ pub struct Topology {
     pub eligible_voices: usize,
 }
 
-fn hash_unit(key: &str) -> f64 {
+fn hash_code(key: &str) -> u32 {
     let mut hash = 2_166_136_261_u32;
     for byte in key.bytes() {
         hash = (hash ^ u32::from(byte)).wrapping_mul(16_777_619);
     }
-    f64::from(hash) / f64::from(u32::MAX)
+    hash
+}
+fn hash_unit(key: &str) -> f64 {
+    f64::from(hash_code(key)) / f64::from(u32::MAX)
 }
 
 pub fn pool_keys(count: usize) -> Result<Vec<String>, String> {
@@ -303,6 +320,35 @@ fn grammar(id: &str) -> Grammar {
         // three or four children across repeated passes.
         "ternary" => ("FX", &[(b'X', "[+FX][FX][-FX]")], 5, b"F", b""),
         "quaternary" => ("FX", &[(b'X', "[++FX][+FX][-FX][--FX]")], 4, b"F", b""),
+        // Author transcriptions: ABOP figs 1.17(a), 1.10(b), 1.6, 1.11(b).
+        // X/Y rename the original left/right turtle modules without changing
+        // their productions or geometry. Dekking's entry is the square E-curve.
+        "peano" => (
+            "X",
+            &[
+                (b'X', "XFYFX-F-YFXFY+F+XFYFX"),
+                (b'Y', "YFXFY+F+XFYFX-F-YFXFY"),
+            ],
+            4,
+            b"F",
+            b"",
+        ),
+        "arrowhead" => ("Y", &[(b'X', "Y+X+Y"), (b'Y', "X-Y-X")], 7, b"XY", b""),
+        "quadratic-koch" => ("F-F-F-F", &[(b'F', "F-F+F+FF-F-F+F")], 3, b"F", b""),
+        // Official L-studio graphics manual, section 3.1 / figure 7.
+        "kolam" => ("FX+F+FX+F", &[(b'X', "X-F-F+FX+F+FX-F-F+FX")], 5, b"F", b""),
+        "dekking" => (
+            "-Y",
+            &[
+                (b'X', "XX-Y-Y+X+X-Y-YX+Y+XXY-X+Y+XX+Y-XY-Y-X+X+YY-"),
+                (b'Y', "+XX-Y-Y+X+XY+X-YY-X-Y+XYY-X-YX+X+Y-Y-X+X+YY"),
+            ],
+            3,
+            b"XY",
+            b"",
+        ),
+        // Capacity prediction uses the longest possible weighted production.
+        "stochastic" => ("F", &[(b'F', "F[+F]F[-F]F")], 5, b"F", b""),
         _ => unreachable!("validated grammar"),
     };
     Grammar {
@@ -316,6 +362,9 @@ fn grammar(id: &str) -> Grammar {
 
 /// Counts rewrite instructions without allocating their exponentially growing strings.
 pub fn generation_limit(id: &str, memory_capacity: usize) -> u8 {
+    if id == "stochastic" {
+        return stochastic_generation_limit(&Parameters::default(), memory_capacity);
+    }
     let mut limit = 1;
     for generations in 1..=MAX_REPRESENTABLE_GENERATIONS {
         let fits = if id == "pythagorean" {
@@ -396,6 +445,7 @@ struct Turtle {
     parent: Option<usize>,
 }
 struct Segment {
+    lineage: Option<String>,
     start_x: f64,
     start_y: f64,
     x: f64,
@@ -407,6 +457,194 @@ struct Segment {
     end_distance: f64,
     parent: usize,
     rule: char,
+}
+
+const STOCHASTIC_PRODUCTIONS: [&str; 3] = ["F[+F]F[-F]F", "F[+F]F", "F[-F]F"];
+
+/// Simultaneous weighted productions. Full rewrite lineage keeps segment
+/// identities collision-free; only the random decision is hashed. Neither
+/// admission capacity nor any continuous parameter enters that decision.
+fn stochastic_instructions_with_capacity(
+    parameters: &Parameters,
+    iterations: u8,
+    capacity: usize,
+) -> Result<(Vec<u8>, Vec<String>), String> {
+    let mut symbols = vec![(b'F', "0".to_string())];
+    for _ in 0..iterations {
+        let mut next_size = 0usize;
+        let mut paints = 0usize;
+        for (symbol, lineage) in &symbols {
+            let replacement = if *symbol == b'F' {
+                let unit = hash_unit(&format!("grammar:{}:{lineage}", parameters.grammar_seed));
+                let probability = parameters.branch_probability;
+                let choice = if unit < probability {
+                    0
+                } else if unit < probability + (1. - probability) / 2. {
+                    1
+                } else {
+                    2
+                };
+                paints = paints.saturating_add(
+                    STOCHASTIC_PRODUCTIONS[choice]
+                        .bytes()
+                        .filter(|symbol| *symbol == b'F')
+                        .count(),
+                );
+                STOCHASTIC_PRODUCTIONS[choice].len()
+            } else {
+                1
+            };
+            next_size = next_size
+                .checked_add(replacement)
+                .ok_or("Grammar size exceeds addressable storage")?;
+        }
+        let longest = symbols
+            .iter()
+            .map(|(_, lineage)| lineage.len())
+            .max()
+            .unwrap_or(0)
+            .saturating_add(5);
+        let rewrite_bytes = next_size.saturating_mul(std::mem::size_of::<(u8, String)>() + longest);
+        if paints > capacity || rewrite_bytes > capacity.saturating_mul(2048) {
+            return Err("Requested stochastic grammar exceeds currently available memory; the previous tree is retained".into());
+        }
+        crate::resources::check_bytes(rewrite_bytes)?;
+        let mut next = crate::resources::reserve(next_size)?;
+        for (symbol, lineage) in symbols {
+            if symbol != b'F' {
+                next.push((symbol, lineage));
+                continue;
+            }
+            let unit = hash_unit(&format!("grammar:{}:{lineage}", parameters.grammar_seed));
+            let probability = parameters.branch_probability;
+            let choice = if unit < probability {
+                0
+            } else if unit < probability + (1. - probability) / 2. {
+                1
+            } else {
+                2
+            };
+            for (index, child) in STOCHASTIC_PRODUCTIONS[choice].bytes().enumerate() {
+                next.push((child, format!("{lineage}/{choice}.{index}")));
+            }
+        }
+        symbols = next;
+    }
+    let mut instructions = crate::resources::reserve(symbols.len())?;
+    let mut lineages = crate::resources::reserve(symbols.len())?;
+    for (symbol, lineage) in symbols {
+        instructions.push(symbol);
+        lineages.push(lineage);
+    }
+    Ok((instructions, lineages))
+}
+
+fn stochastic_instructions(
+    parameters: &Parameters,
+    iterations: u8,
+) -> Result<(Vec<u8>, Vec<String>), String> {
+    stochastic_instructions_with_capacity(
+        parameters,
+        iterations,
+        crate::resources::voice_capacity(),
+    )
+}
+
+/// The chosen seed and production weights determine stochastic demand. Do not
+/// cap a sparse realization at the worst-case all-five-child expansion.
+pub fn stochastic_generation_limit(parameters: &Parameters, memory_capacity: usize) -> u8 {
+    // A bounded cache avoids walking the possible crown on every continuous
+    // control edit. Computing capacity itself never allocates that crown.
+    type LimitCache = std::collections::VecDeque<((u32, u64, usize), u8)>;
+    thread_local! {
+        static LIMIT_CACHE: std::cell::RefCell<LimitCache> =
+            const { std::cell::RefCell::new(std::collections::VecDeque::new()) };
+    }
+    let key = (
+        parameters.grammar_seed,
+        parameters.branch_probability.to_bits(),
+        memory_capacity,
+    );
+    if let Some(limit) = LIMIT_CACHE.with(|cache| {
+        cache
+            .borrow()
+            .iter()
+            .find_map(|(old, limit)| (*old == key).then_some(*limit))
+    }) {
+        return limit;
+    }
+    fn count(hash: u32, depth: u8, probability: f64, capacity: usize) -> Option<usize> {
+        if capacity == 0 {
+            return None;
+        }
+        if depth == 0 {
+            return Some(1);
+        }
+        if probability == 0. || probability == 1. {
+            let degree: usize = if probability == 0. { 3 } else { 5 };
+            return degree
+                .checked_pow(u32::from(depth))
+                .filter(|n| *n <= capacity);
+        }
+        let unit = f64::from(hash) / f64::from(u32::MAX);
+        let choice = if unit < probability {
+            0
+        } else if unit < probability + (1. - probability) / 2. {
+            1
+        } else {
+            2
+        };
+        let mut paints = 0usize;
+        for (index, symbol) in STOCHASTIC_PRODUCTIONS[choice].bytes().enumerate() {
+            if symbol != b'F' {
+                continue;
+            }
+            let mut child_hash = hash;
+            for byte in [b'/', b'0' + choice as u8, b'.'] {
+                child_hash = (child_hash ^ u32::from(byte)).wrapping_mul(16_777_619);
+            }
+            if index >= 10 {
+                child_hash = (child_hash ^ u32::from(b'1')).wrapping_mul(16_777_619);
+            }
+            child_hash =
+                (child_hash ^ u32::from(b'0' + (index % 10) as u8)).wrapping_mul(16_777_619);
+            paints = paints.checked_add(count(
+                child_hash,
+                depth - 1,
+                probability,
+                capacity - paints,
+            )?)?;
+        }
+        Some(paints)
+    }
+    let mut limit = 1;
+    let mut checked = 0;
+    let root_hash = hash_code(&format!("grammar:{}:0", parameters.grammar_seed));
+    for generations in 1..=MAX_REPRESENTABLE_GENERATIONS {
+        let iterations = ((5. * f64::from(generations) / 13.).round() as u8).max(1);
+        if iterations != checked {
+            if count(
+                root_hash,
+                iterations,
+                parameters.branch_probability,
+                memory_capacity,
+            )
+            .is_none()
+            {
+                break;
+            }
+            checked = iterations;
+        }
+        limit = generations;
+    }
+    LIMIT_CACHE.with(|cache| {
+        let mut cache = cache.borrow_mut();
+        if cache.len() >= 4 {
+            cache.pop_front();
+        }
+        cache.push_back((key, limit));
+    });
+    limit
 }
 
 fn acoustic_path_time(progress: f64, count: u8, ratio: f64) -> f64 {
@@ -429,8 +667,14 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     let iterations = ((f64::from(grammar.iterations) * f64::from(parameters.generations) / 13.)
         .round() as u8)
         .max(1);
-    let mut instructions = grammar.axiom.as_bytes().to_vec();
-    for _ in 0..iterations {
+    let stochastic = parameters.l_system_type == "stochastic";
+    let (mut instructions, mut lineages) = if stochastic {
+        let (instructions, lineages) = stochastic_instructions(parameters, iterations)?;
+        (instructions, Some(lineages.into_iter()))
+    } else {
+        (grammar.axiom.as_bytes().to_vec(), None)
+    };
+    for _ in 0..if stochastic { 0 } else { iterations } {
         let next_size = instructions
             .iter()
             .try_fold(0usize, |count, symbol| {
@@ -472,6 +716,7 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     let turn = parameters.angle * std::f64::consts::PI / 180.;
     let taper = visual_ratio(parameters.time_ratio).max(0.05);
     for command in instructions {
+        let lineage = lineages.as_mut().and_then(Iterator::next);
         let paintable = grammar.draw.contains(&command) || command == b'B';
         if paintable || grammar.pen_up.contains(&command) {
             let signed_distance = if command == b'B' { -distance } else { distance };
@@ -490,6 +735,7 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
                 .map_or(0., |index| state.turn_total - segments[index].turn_total);
             let index = segments.len();
             segments.push(Segment {
+                lineage,
                 start_x,
                 start_y,
                 x: state.x,
@@ -536,7 +782,10 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
         let id = if index == 0 {
             "trunk".to_string()
         } else {
-            format!("{}:{index}", parameters.l_system_type)
+            segment.lineage.map_or_else(
+                || format!("{}:{index}", parameters.l_system_type),
+                |lineage| format!("{}:{lineage}", parameters.l_system_type),
+            )
         };
         let variation = hash_unit(&format!("{id}:length")) * parameters.mutation * 0.3;
         LayoutNode {
@@ -902,6 +1151,135 @@ mod tests {
     use super::*;
 
     const BRANCHING_TYPES: [&str; 6] = ["bush", "fan", "fern", "whorled", "ternary", "quaternary"];
+
+    #[test]
+    fn exploration_grammars_have_sourced_counts_and_real_independent_audio_targets() {
+        for (id, count, angle) in [
+            ("peano", 6560, 90.),
+            ("arrowhead", 2187, 60.),
+            ("quadratic-koch", 2048, 90.),
+            ("kolam", 5460, 90.),
+            ("dekking", 15625, 90.),
+            ("stochastic", 1543, 25.),
+        ] {
+            let topology = compile(
+                &Parameters {
+                    l_system_type: id.into(),
+                    angle,
+                    interval_ms: 1.,
+                    ..Parameters::default()
+                },
+                48_000,
+            );
+            assert_eq!(topology.requested_voices, count - 1, "{id}");
+            assert_eq!(topology.eligible_voices, count - 1, "{id}");
+            assert_eq!(topology.targets.len(), count - 1, "{id}");
+            let mut keys: Vec<_> = topology.nodes.iter().map(|node| &node.key).collect();
+            keys.sort();
+            keys.dedup();
+            assert_eq!(keys.len(), count - 1, "{id}: unique audio identities");
+            assert!(
+                topology
+                    .nodes
+                    .iter()
+                    .any(|node| node.turn_degrees.abs() > 0.),
+                "{id}"
+            );
+        }
+    }
+
+    #[test]
+    fn stochastic_productions_are_repeatable_weighted_and_immune_to_unrelated_live_controls() {
+        let base = Parameters {
+            l_system_type: "stochastic".into(),
+            ..Parameters::default()
+        };
+        let original = classic_layout(&base).unwrap();
+        assert_eq!(classic_layout(&base).unwrap(), original);
+        let changed = classic_layout(&Parameters {
+            angle: 77.,
+            time_ratio: 1.13,
+            interval_ms: 923.,
+            mutation: 0.8,
+            pitch_scale: 3.5,
+            ..base.clone()
+        })
+        .unwrap();
+        assert_eq!(
+            original
+                .iter()
+                .map(|node| (&node.id, node.parent, node.rule))
+                .collect::<Vec<_>>(),
+            changed
+                .iter()
+                .map(|node| (&node.id, node.parent, node.rule))
+                .collect::<Vec<_>>()
+        );
+        assert_ne!(original[1].x, changed[1].x);
+        assert_ne!(
+            classic_layout(&Parameters {
+                grammar_seed: 2,
+                ..base.clone()
+            })
+            .unwrap(),
+            original
+        );
+        assert_eq!(
+            classic_layout(&Parameters {
+                branch_probability: 0.,
+                ..base.clone()
+            })
+            .unwrap()
+            .len(),
+            3usize.pow(5)
+        );
+        assert_eq!(
+            classic_layout(&Parameters {
+                branch_probability: 1.,
+                ..base.clone()
+            })
+            .unwrap()
+            .len(),
+            5usize.pow(5)
+        );
+        assert!(stochastic_generation_limit(&base, 1543) >= 13);
+        assert!(stochastic_generation_limit(&base, 1542) < 13);
+        assert!(
+            stochastic_generation_limit(
+                &Parameters {
+                    branch_probability: 0.,
+                    ..base.clone()
+                },
+                20_000
+            ) > stochastic_generation_limit(
+                &Parameters {
+                    branch_probability: 1.,
+                    ..base
+                },
+                20_000
+            )
+        );
+    }
+
+    #[test]
+    fn stochastic_parameter_boundary_defaults_for_legacy_scenes_and_validates_probability() {
+        let legacy: Parameters = serde_json::from_str(r#"{"lSystemType":"stochastic"}"#).unwrap();
+        assert_eq!(legacy.grammar_seed, 1);
+        assert_eq!(legacy.branch_probability, 0.65);
+        for probability in [-0.01, 1.01, f64::NAN, f64::INFINITY] {
+            assert!(Parameters {
+                branch_probability: probability,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+        assert!(serde_json::from_str::<Parameters>(r#"{"grammarSeed":4294967296}"#).is_err());
+        assert!(serde_json::from_str::<Parameters>(r#"{"grammarSeed":1.5}"#).is_err());
+        let maximum: Parameters =
+            serde_json::from_str(r#"{"grammarSeed":4294967295,"branchProbability":1}"#).unwrap();
+        assert!(maximum.validate().is_ok());
+    }
 
     fn test_segment(parent: usize, start: (f64, f64), end: (f64, f64)) -> LayoutNode {
         let dx = end.0 - start.0;
@@ -1350,7 +1728,7 @@ mod tests {
                 "terdragon",
             ]
         );
-        assert_eq!(&L_SYSTEM_TYPES[11..], &BRANCHING_TYPES);
+        assert_eq!(&L_SYSTEM_TYPES[11..17], &BRANCHING_TYPES);
         // Bush/fan draw 5^5 segments. Fern/whorled draw 2 * (3^7 - 2^7).
         // Persistent buds add sum(3^1..3^5) or sum(4^1..4^4) descendants.
         // The first segment owns the input rather than a delay voice.
