@@ -180,14 +180,14 @@ async function dragHeld(page, dy) {
   expect((await page.evaluate(() => __curlsQa.events)).filter(event => event.type === 'change')).toHaveLength(1);
   return { target, events, d };
 }
-async function nativeGeometry(page) {
-  return page.evaluate(async () => {
+async function nativeGeometry(page, { rustNodes = false } = {}) {
+  return page.evaluate(async rustNodes => {
     const reply = await __curlsQa.engine.request('/api/preview');
     const { nativePreviewNodes } = await import('/src/instruments/micmic/native/model.js');
-    const targets = reply.visualNodes ?? nativePreviewNodes(reply.nodes);
+    const targets = rustNodes ? nativePreviewNodes(reply.nodes) : reply.visualNodes ?? nativePreviewNodes(reply.nodes);
     return { revision: reply.topologyRevision, targets: targets.map(({ id, parentId, x, y, startX, startY, rate, delay }) =>
       ({ id, parentId, x, y, startX, startY, rate, delay })) };
-  });
+  }, rustNodes);
 }
 function assertConnectedNativeView(view, native) {
   expect(view.revision).toBe(native.revision);
@@ -257,9 +257,9 @@ test('held positive and negative Curls reach real Rust audio and its connected g
   const errors = await fixture(page); await ready(page); const before = await live(page);
   await page.evaluate(() => { __curlsQa.recording = true; });
   const positive = await dragHeld(page, 6); expect(positive.target).toBeGreaterThan(0);
-  assertConnectedNativeView(positive.d.view, await nativeGeometry(page));
+  assertConnectedNativeView(positive.d.view, await nativeGeometry(page, { rustNodes: true }));
   const negative = await dragHeld(page, -12); expect(negative.target).toBeLessThan(0);
-  assertConnectedNativeView(negative.d.view, await nativeGeometry(page));
+  assertConnectedNativeView(negative.d.view, await nativeGeometry(page, { rustNodes: true }));
   const root = view => view.nodes.find(node => node.generation === 0);
   for (const changed of [positive.d, negative.d]) {
     for (const field of ['x', 'y', 'startX', 'startY']) expect(root(changed.view)[field]).toBeCloseTo(root(before.view)[field], 8);
