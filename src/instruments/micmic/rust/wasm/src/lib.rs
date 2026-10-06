@@ -1214,6 +1214,108 @@ mod browser_tests {
             );
         }
     }
+
+    #[test]
+    fn branching_grammar_pools_preserve_live_pcm_and_latest_controls_through_staging() {
+        let settings = Performance {
+            automatic: false,
+            voice_ceiling: 64,
+            ..Performance::default()
+        };
+        let first = scene(4);
+        let mut staged = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        for renderer in [&mut staged, &mut reference] {
+            renderer.set_performance(settings).unwrap();
+            renderer.install(&first.pool).unwrap();
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        let mut block = 0;
+        for (edit, (id, expected)) in [
+            ("bush", 3124),
+            ("fan", 3124),
+            ("fern", 4117),
+            ("whorled", 4117),
+            ("ternary", 363),
+            ("quaternary", 340),
+        ]
+        .into_iter()
+        .enumerate()
+        {
+            let parameters = model::Parameters {
+                l_system_type: id.into(),
+                interval_ms: 2.,
+                angle: 31.,
+                ..model::Parameters::default()
+            };
+            let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+            let result: serde_json::Value = serde_json::from_slice(&compiled.json).unwrap();
+            assert_eq!(result["requestedVoices"], expected, "{id}");
+            assert_eq!(read_u32(&compiled.pool, 8), expected, "{id}");
+            assert_eq!(
+                compiled.pool.len(),
+                HEADER + expected as usize * RECORD,
+                "{id}"
+            );
+            assert_eq!(result["generationLimits"].as_object().unwrap().len(), 17);
+            assert!(result["generationLimits"][id].as_u64().unwrap() >= 13);
+            staged.begin_install(&compiled.pool).unwrap();
+            let depth = 0.5 + edit as f64 * 0.035;
+            let performance = Performance {
+                wet: 0.4 + edit as f32 * 0.07,
+                ..settings
+            };
+            for renderer in [&mut staged, &mut reference] {
+                renderer.set_depth(depth).unwrap();
+                renderer.set_performance(performance).unwrap();
+            }
+            loop {
+                let input = signal(block * BLOCK);
+                staged.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(
+                    left, reference_l,
+                    "{id} old audio stays live during staging"
+                );
+                assert_eq!(right, reference_r, "{id}");
+                assert_eq!(staged.frames, reference.frames, "{id} sample clock");
+                block += 1;
+                if staged.step_install(256).unwrap() {
+                    break;
+                }
+            }
+            reference.install(&compiled.pool).unwrap();
+            reference.set_depth(depth).unwrap();
+            assert_eq!(staged.live_depth, Some(depth), "{id}");
+            assert_eq!(staged.performance.wet, performance.wet, "{id}");
+            let mut energy = 0_f64;
+            for _ in 0..32 {
+                let input = signal(block * BLOCK);
+                staged.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(
+                    left, reference_l,
+                    "{id} committed audio matches ordinary install"
+                );
+                assert_eq!(right, reference_r, "{id}");
+                assert_eq!(staged.frames, reference.frames, "{id}");
+                for &sample in left.iter().chain(&right) {
+                    assert!(
+                        sample.is_finite() && sample.abs() < 1.,
+                        "{id} finite bounded PCM"
+                    );
+                    energy += f64::from(sample) * f64::from(sample);
+                }
+                block += 1;
+            }
+            assert!(energy > 1e-5, "{id} must retain audible signal");
+        }
+        assert_eq!(staged.frames, (block * BLOCK) as u64);
+    }
+
     #[test]
     fn processing_and_admission_search_allocate_and_free_nothing() {
         let compiled = scene(7);

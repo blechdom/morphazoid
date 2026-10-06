@@ -9,7 +9,7 @@ use std::collections::BinaryHeap;
 #[cfg(test)]
 pub const POOL_VOICES: usize = (1 << 14) - 2;
 pub const MAX_REPRESENTABLE_GENERATIONS: u8 = 52;
-pub const L_SYSTEM_TYPES: [&str; 11] = [
+pub const L_SYSTEM_TYPES: [&str; 17] = [
     "pythagorean",
     "plant",
     "coral",
@@ -21,6 +21,12 @@ pub const L_SYSTEM_TYPES: [&str; 11] = [
     "cantor",
     "levy",
     "terdragon",
+    "bush",
+    "fan",
+    "fern",
+    "whorled",
+    "ternary",
+    "quaternary",
 ];
 
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
@@ -58,7 +64,7 @@ impl Default for Parameters {
 impl Parameters {
     pub fn validate(&self) -> Result<(), String> {
         if !L_SYSTEM_TYPES.contains(&self.l_system_type.as_str()) {
-            return Err("lSystemType must name an original L-system grammar".into());
+            return Err("lSystemType must name a supported L-system grammar".into());
         }
         if !(1..=MAX_REPRESENTABLE_GENERATIONS).contains(&self.generations) {
             return Err("Generations must fit an exactly representable tree (1 through 52)".into());
@@ -269,6 +275,14 @@ fn grammar(id: &str) -> Grammar {
         "cantor" => ("F", &[(b'F', "FfF"), (b'f', "fff")], 6, b"F", b"f"),
         "levy" => ("F", &[(b'F', "+F--F+")], 12, b"F", b""),
         "terdragon" => ("F", &[(b'F', "F-F+F")], 7, b"F", b""),
+        "bush" => ("F", &[(b'F', "F[+F]F[-F]F")], 5, b"F", b""),
+        "fan" => ("F", &[(b'F', "F[+F]F[-F][F]")], 5, b"F", b""),
+        "fern" => ("X", &[(b'X', "F[+X]F[-X]+X"), (b'F', "FF")], 7, b"F", b""),
+        "whorled" => ("X", &[(b'X', "F[+X][-X]FX"), (b'F', "FF")], 7, b"F", b""),
+        // Persistent stems with rewritten buds keep every junction at exactly
+        // three or four children across repeated passes.
+        "ternary" => ("FX", &[(b'X', "[+FX][FX][-FX]")], 5, b"F", b""),
+        "quaternary" => ("FX", &[(b'X', "[++FX][+FX][-FX][--FX]")], 4, b"F", b""),
         _ => unreachable!("validated grammar"),
     };
     Grammar {
@@ -799,6 +813,210 @@ fn compile(parameters: &Parameters, sample_rate: u32) -> Topology {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    const BRANCHING_TYPES: [&str; 6] = ["bush", "fan", "fern", "whorled", "ternary", "quaternary"];
+
+    #[test]
+    fn branching_grammars_append_stable_ids_and_have_exact_default_rewrite_counts() {
+        assert_eq!(
+            &L_SYSTEM_TYPES[..11],
+            &[
+                "pythagorean",
+                "plant",
+                "coral",
+                "dragon",
+                "koch",
+                "sierpinski",
+                "hilbert",
+                "gosper",
+                "cantor",
+                "levy",
+                "terdragon",
+            ]
+        );
+        assert_eq!(&L_SYSTEM_TYPES[11..], &BRANCHING_TYPES);
+        // Bush/fan draw 5^5 segments. Fern/whorled draw 2 * (3^7 - 2^7).
+        // Persistent buds add sum(3^1..3^5) or sum(4^1..4^4) descendants.
+        // The first segment owns the input rather than a delay voice.
+        for (id, expected) in BRANCHING_TYPES
+            .into_iter()
+            .zip([3124, 3124, 4117, 4117, 363, 340])
+        {
+            let topology = compile(
+                &Parameters {
+                    l_system_type: id.into(),
+                    ..Parameters::default()
+                },
+                48_000,
+            );
+            assert_eq!(topology.requested_voices, expected, "{id}");
+            assert_eq!(topology.nodes.len(), expected, "{id}");
+            assert_eq!(topology.targets.len(), expected, "{id}");
+            assert_eq!(topology.eligible_voices, expected, "{id}");
+        }
+    }
+
+    #[test]
+    fn three_and_four_way_forks_have_distinct_rays_with_shared_parent_ownership() {
+        for (id, degree) in [("whorled", 3), ("ternary", 3), ("quaternary", 4)] {
+            for generations in [5, 9, 13] {
+                let topology = compile(
+                    &Parameters {
+                        l_system_type: id.into(),
+                        generations,
+                        angle: 37.,
+                        asymmetry: 0.15,
+                        ..Parameters::default()
+                    },
+                    48_000,
+                );
+                let mut children = vec![Vec::new(); topology.nodes.len() + 1];
+                for node in &topology.nodes {
+                    children[node.parent].push(node);
+                }
+                assert_eq!(children.iter().map(Vec::len).max(), Some(degree), "{id}");
+                let forks: Vec<_> = children
+                    .iter()
+                    .filter(|children| children.len() == degree)
+                    .collect();
+                assert!(forks.len() > 1, "{id} must fork recursively");
+                for fork in forks {
+                    for (index, child) in fork.iter().enumerate() {
+                        let parent = if child.parent == 0 {
+                            &topology.preview[0]
+                        } else {
+                            &topology.nodes[child.parent - 1]
+                        };
+                        assert_eq!((child.start_x, child.start_y), (parent.x, parent.y), "{id}");
+                        assert_eq!(child.parent_key, parent.key, "{id}");
+                        for sibling in &fork[..index] {
+                            assert!(
+                                (child.heading_degrees - sibling.heading_degrees).abs() > 1.,
+                                "{id} siblings must form distinct rays"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn branching_segment_identity_and_acoustics_follow_the_connected_turtle_parent() {
+        for id in BRANCHING_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                angle: 29.,
+                asymmetry: -0.17,
+                mutation: 0.2,
+                time_ratio: 1.1,
+                ..Parameters::default()
+            };
+            let topology = compile(&parameters, 48_000);
+            let mut pitches = vec![0_f64; topology.nodes.len() + 1];
+            let mut keys = std::collections::BTreeSet::new();
+            keys.insert(topology.preview[0].key.as_str());
+            for node in &topology.nodes {
+                let parent = if node.parent == 0 {
+                    &topology.preview[0]
+                } else {
+                    &topology.nodes[node.parent - 1]
+                };
+                assert!(node.parent < node.id, "{id}/{}", node.id);
+                assert_eq!(node.voice_index, node.id - 1, "{id}");
+                assert!(
+                    keys.insert(node.key.as_str()),
+                    "{id} duplicate segment identity"
+                );
+                assert_eq!(node.parent_key, parent.key, "{id}");
+                assert_eq!((node.start_x, node.start_y), (parent.x, parent.y), "{id}");
+                assert_eq!(node.rule, 'F', "{id}");
+                assert!(parent.generation <= node.generation, "{id}");
+                assert_eq!(
+                    node.delay,
+                    parent.delay + parameters.interval_ms / 1000. * node.time_scale,
+                    "{id} inherited delay"
+                );
+                pitches[node.id] =
+                    pitches[node.parent] + node.turn_degrees / 180. * 12. * parameters.pitch_scale;
+                assert_eq!(
+                    node.rate,
+                    2_f64.powf(pitches[node.id] / 12.).clamp(0.125, 8.),
+                    "{id}"
+                );
+                assert_eq!(topology.groups[node.voice_index], node.generation, "{id}");
+            }
+        }
+    }
+
+    #[test]
+    fn branching_generation_limits_scale_with_resource_capacity_beyond_the_old_pool() {
+        for id in BRANCHING_TYPES {
+            let limits: Vec<_> = [64, 1024, 16_384, 262_144]
+                .map(|capacity| generation_limit(id, capacity))
+                .into();
+            assert!(
+                limits.windows(2).all(|pair| pair[1] > pair[0]),
+                "{id}: {limits:?}"
+            );
+            assert!(limits.iter().all(|limit| (1..=52).contains(limit)), "{id}");
+        }
+        let large = compile(
+            &Parameters {
+                l_system_type: "ternary".into(),
+                generations: 24,
+                ..Parameters::default()
+            },
+            48_000,
+        );
+        assert_eq!(large.requested_voices, 29_523);
+        assert_eq!(large.eligible_voices, 29_523);
+        assert_eq!(
+            large.targets.len(),
+            29_523,
+            "full audio pool survives preview sampling"
+        );
+        assert_eq!(large.preview.len(), 2049);
+    }
+
+    #[test]
+    fn branching_audio_targets_stay_finite_and_respect_history_at_control_extremes() {
+        for id in BRANCHING_TYPES {
+            for (interval_ms, time_ratio, depth) in
+                [(1., 0.2, 0.), (240., 0.72, 0.72), (3000., 2., 0.96)]
+            {
+                let parameters = Parameters {
+                    l_system_type: id.into(),
+                    interval_ms,
+                    time_ratio,
+                    depth,
+                    angle: 180.,
+                    asymmetry: 0.8,
+                    pitch_scale: 4.,
+                    pruning_bias: 0.65,
+                    ..Parameters::default()
+                };
+                let topology = compile(&parameters, 8_000);
+                for (node, target) in topology.nodes.iter().zip(&topology.targets) {
+                    assert!(node.x.is_finite() && node.y.is_finite(), "{id}");
+                    assert!(target.delay.is_finite() && target.delay > 0., "{id}");
+                    assert!((0.125..=8.).contains(&target.rate), "{id}");
+                    assert!((0. ..=0.5).contains(&target.gain), "{id}");
+                    assert!((-1. ..=1.).contains(&target.pan), "{id}");
+                    assert_eq!(node.priority.is_some(), target.gain > 0., "{id}");
+                    if target.delay > 39. + 1e-9 || depth == 0. {
+                        assert_eq!(target.gain, 0., "{id}");
+                        assert_eq!(topology.ranks[node.voice_index], usize::MAX, "{id}");
+                    }
+                }
+                if depth == 0. {
+                    assert_eq!(topology.eligible_voices, 0, "{id}");
+                } else if time_ratio == 2. {
+                    assert!(topology.eligible_voices < topology.requested_voices, "{id}");
+                }
+            }
+        }
+    }
 
     // Captured from unmodified micmic.js generationTopology/generationVoiceSpecs
     // and l-system.js on the fresh-main checkout. All small binary stages fit
