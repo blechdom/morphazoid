@@ -168,6 +168,8 @@ struct Voice {
     pan_right: f64,
     phase: f64,
     phase_seed: u32,
+    seed_epoch: u64,
+    growth_epoch: u64,
     delays: [f64; 2],
     from: usize,
     to: usize,
@@ -188,6 +190,8 @@ impl Voice {
             pan_right: ((1. + target.pan) * 0.5).sqrt(),
             phase: phase_hash(&target.key),
             phase_seed: phase_seed(&target.key),
+            seed_epoch: 0,
+            growth_epoch: 0,
             delays: [target.delay; 2],
             from: 0,
             to: 0,
@@ -195,6 +199,36 @@ impl Voice {
             releasing: false,
             inactive: false,
             target,
+        }
+    }
+
+    fn numeric_copy(&self) -> Self {
+        Self {
+            target: VoiceSpec {
+                key: String::new(),
+                delay: self.target.delay,
+                rate: self.target.rate,
+                gain: self.target.gain,
+                pan: self.target.pan,
+            },
+            desired_gain: self.desired_gain,
+            pool_rank: self.pool_rank,
+            pool_group: self.pool_group,
+            gain: self.gain,
+            rate: self.rate,
+            pan: self.pan,
+            pan_left: self.pan_left,
+            pan_right: self.pan_right,
+            phase: self.phase,
+            phase_seed: self.phase_seed,
+            seed_epoch: self.seed_epoch,
+            growth_epoch: self.growth_epoch,
+            delays: self.delays,
+            from: self.from,
+            to: self.to,
+            fade: self.fade,
+            releasing: self.releasing,
+            inactive: self.inactive,
         }
     }
 }
@@ -206,6 +240,105 @@ fn pool_gain(voice: &Voice, groups: Option<&[f64; 256]>) -> f64 {
         }
     }
     voice.desired_gain
+}
+
+#[derive(Clone, Copy)]
+pub struct PoolControl {
+    target: PoolTarget,
+    rank: usize,
+    seed: u32,
+    seed_epoch: u64,
+    group: u8,
+}
+
+/// Numeric preparation can be filled in bounded batches while the previous
+/// scene renders. No branch String, history buffer, or audible state is owned.
+pub struct PreparedPoolControls {
+    records: Vec<PoolControl>,
+    rank_to_slot: Vec<usize>,
+    groups: [usize; 256],
+}
+
+impl PreparedPoolControls {
+    pub fn new(count: usize) -> Result<Self, String> {
+        Ok(Self {
+            records: reserved(count)?,
+            rank_to_slot: filled(count, usize::MAX)?,
+            groups: [0; 256],
+        })
+    }
+
+    pub fn push(&mut self, target: PoolTarget, rank: usize, seed: u32, seed_epoch: u64, group: u8) {
+        let index = self.records.len();
+        let rank = if rank < self.rank_to_slot.len() && self.rank_to_slot[rank] == usize::MAX {
+            self.rank_to_slot[rank] = index;
+            self.groups[usize::from(group)] += 1;
+            rank
+        } else {
+            usize::MAX
+        };
+        self.records.push(PoolControl {
+            target,
+            rank,
+            seed,
+            seed_epoch,
+            group,
+        });
+    }
+
+    pub fn group_counts(&self) -> &[usize; 256] {
+        &self.groups
+    }
+}
+
+fn control_gain(control: &PoolControl, groups: Option<&[f64; 256]>) -> f64 {
+    if control.rank != usize::MAX && control.group != 0 {
+        if let Some(groups) = groups {
+            return groups[usize::from(control.group)];
+        }
+    }
+    control.target.gain
+}
+
+fn adopt_pool_control(voice: &mut Voice, control: Option<&PoolControl>, rate: f64, maximum: f64) {
+    let Some(control) = control else {
+        voice.desired_gain = 0.;
+        voice.pool_rank = usize::MAX;
+        voice.pool_group = 0;
+        return;
+    };
+    if voice.phase_seed != control.seed || voice.seed_epoch != control.seed_epoch {
+        voice.phase_seed = control.seed;
+        voice.seed_epoch = control.seed_epoch;
+        voice.phase = f64::from(control.seed) / f64::from(u32::MAX);
+    }
+    let delay = clamp(control.target.delay, 0.000005, maximum, 0.2);
+    voice.target.delay = delay;
+    voice.target.rate = clamp(control.target.rate, 0.125, 8., 1.);
+    voice.target.pan = clamp(control.target.pan, -1., 1., 0.);
+    voice.desired_gain = clamp(control.target.gain, 0., 1., 0.);
+    voice.pool_rank = control.rank;
+    voice.pool_group = control.group;
+    if voice.inactive {
+        voice.rate = voice.target.rate;
+        voice.pan = voice.target.pan;
+        voice.pan_left = ((1. - voice.pan) * 0.5).sqrt();
+        voice.pan_right = ((1. + voice.pan) * 0.5).sqrt();
+        voice.delays = [delay; 2];
+        voice.from = 0;
+        voice.to = 0;
+        voice.fade = 1.;
+    } else if voice.fade == 0. {
+        if (delay - voice.delays[voice.from]).abs() <= 1. / rate {
+            voice.to = voice.from;
+            voice.fade = 1.;
+        } else {
+            voice.delays[voice.to] = delay;
+        }
+    } else if voice.fade < 1. && (delay - voice.delays[voice.from]).abs() <= 1. / rate {
+        std::mem::swap(&mut voice.from, &mut voice.to);
+        voice.fade = 1. - voice.fade;
+    }
 }
 
 pub struct Engine {
@@ -222,6 +355,10 @@ pub struct Engine {
     last_admission_visits: usize,
     pool_group_counts: [usize; 256],
     pool_group_gains: Option<[f64; 256]>,
+    pool_controls: Option<PreparedPoolControls>,
+    growth_tracking: bool,
+    growth_epoch: u64,
+    growth_dirty_indices: Vec<usize>,
     activity_energy: [f64; 256],
     activity: [f32; 256],
     activity_samples: usize,
@@ -254,6 +391,17 @@ pub struct PreparedPool {
 }
 
 impl PreparedPool {
+    /// Reserve numeric browser pool storage without constructing branch keys.
+    /// Fill with prepare_numeric_growth_until, then commit_numeric_growth.
+    pub fn numeric(capacity: usize) -> Result<Self, String> {
+        Ok(Self {
+            voices: reserved(capacity)?,
+            active_indices: reserved(capacity)?,
+            rank_to_slot: Vec::new(),
+            admission_scratch: reserved(capacity)?,
+        })
+    }
+
     pub fn new(keys: &[String]) -> Result<Self, String> {
         if keys.is_empty() {
             return Err("A voice pool needs at least one slot".into());
@@ -335,6 +483,10 @@ impl Engine {
             last_admission_visits: 0,
             pool_group_counts: [0; 256],
             pool_group_gains: None,
+            pool_controls: None,
+            growth_tracking: false,
+            growth_epoch: 0,
+            growth_dirty_indices: Vec::new(),
             activity_energy: [0.; 256],
             activity: [0.; 256],
             activity_samples: 0,
@@ -455,6 +607,7 @@ impl Engine {
         self.target_count = 0;
         self.pool_group_counts.fill(0);
         self.pool_group_gains = None;
+        self.pool_controls = None;
         Ok(())
     }
 
@@ -470,6 +623,7 @@ impl Engine {
         for (voice, &seed) in self.voices.iter_mut().zip(seeds) {
             if voice.phase_seed != seed {
                 voice.phase_seed = seed;
+                voice.seed_epoch = voice.seed_epoch.wrapping_add(1);
                 voice.phase = f64::from(seed) / f64::from(u32::MAX);
             }
         }
@@ -493,6 +647,70 @@ impl Engine {
         std::mem::swap(&mut self.rank_to_slot, &mut prepared.rank_to_slot);
         std::mem::swap(&mut self.admission_scratch, &mut prepared.admission_scratch);
         self.max_voices = self.voices.len();
+    }
+
+    pub fn begin_numeric_growth(&mut self) -> Result<(), String> {
+        if self.growth_dirty_indices.capacity() < self.voices.len() {
+            self.growth_dirty_indices
+                .try_reserve_exact(self.voices.len() - self.growth_dirty_indices.len())
+                .map_err(|error| error.to_string())?;
+        }
+        self.growth_dirty_indices.clear();
+        self.growth_epoch = self.growth_epoch.wrapping_add(1).max(1);
+        self.growth_tracking = true;
+        Ok(())
+    }
+
+    pub fn abort_numeric_growth(&mut self) {
+        self.growth_tracking = false;
+        self.growth_dirty_indices.clear();
+    }
+
+    pub fn prepare_numeric_growth_until(&self, prepared: &mut PreparedPool, count: usize) {
+        while prepared.voices.len() < count {
+            let index = prepared.voices.len();
+            let voice = self.voices.get(index).map_or_else(
+                || {
+                    let mut voice = Voice::new(VoiceSpec::default());
+                    voice.inactive = true;
+                    voice
+                },
+                Voice::numeric_copy,
+            );
+            prepared.voices.push(voice);
+        }
+    }
+
+    fn track_numeric_growth(&mut self) {
+        if self.growth_tracking {
+            for &index in &self.active_indices {
+                let voice = &mut self.voices[index];
+                if voice.growth_epoch != self.growth_epoch {
+                    voice.growth_epoch = self.growth_epoch;
+                    self.growth_dirty_indices.push(index);
+                }
+            }
+        }
+    }
+
+    /// Numeric inactive state was copied in preparation batches. Refresh only
+    /// slots that rendered during preparation, including tails that retired.
+    pub fn commit_numeric_growth(&mut self, prepared: &mut PreparedPool) {
+        for &index in self
+            .growth_dirty_indices
+            .iter()
+            .chain(self.active_indices.iter())
+        {
+            prepared.voices[index] = self.voices[index].numeric_copy();
+        }
+        prepared
+            .active_indices
+            .extend_from_slice(&self.active_indices);
+        std::mem::swap(&mut self.voices, &mut prepared.voices);
+        std::mem::swap(&mut self.active_indices, &mut prepared.active_indices);
+        std::mem::swap(&mut self.admission_scratch, &mut prepared.admission_scratch);
+        self.max_voices = self.voices.len();
+        self.abort_numeric_growth();
     }
 
     /// Sample-thread safe. Targets use the installed pool's stable numeric
@@ -526,8 +744,10 @@ impl Engine {
             return;
         }
         let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
+        self.rank_to_slot.resize(self.voices.len(), usize::MAX);
         self.rank_to_slot.fill(usize::MAX);
         self.pool_group_gains = None;
+        self.pool_controls = None;
         self.pool_admission_dirty = true;
         self.tap_remap.fill(0.);
         self.tap_voice_indices.fill(usize::MAX);
@@ -611,6 +831,74 @@ impl Engine {
         self.set_pool_limit(limit);
     }
 
+    /// Preserve identity changes that occurred while a slot was inaudible.
+    /// A grammar round trip must not recover an earlier branch's grain phase.
+    pub fn prepared_seed_epoch(&self, index: usize, seed: u32) -> u64 {
+        if let Some(control) = self
+            .pool_controls
+            .as_ref()
+            .and_then(|controls| controls.records.get(index))
+        {
+            control
+                .seed_epoch
+                .wrapping_add(u64::from(control.seed != seed))
+        } else if let Some(voice) = self.voices.get(index) {
+            voice
+                .seed_epoch
+                .wrapping_add(u64::from(voice.phase_seed != seed))
+        } else {
+            0
+        }
+    }
+
+    /// Atomically adopt prepared controls for audible voices only. Inactive
+    /// storage takes the latest controls and stable seed upon future admission.
+    pub fn install_prepared_pool_controls(
+        &mut self,
+        mut prepared: PreparedPoolControls,
+        limit: usize,
+    ) {
+        let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
+        let old_map = std::mem::replace(
+            &mut self.rank_to_slot,
+            std::mem::take(&mut prepared.rank_to_slot),
+        );
+        drop(old_map);
+        self.pool_group_gains = None;
+        self.pool_admission_dirty = true;
+        self.tap_remap.fill(0.);
+        self.tap_voice_indices.fill(usize::MAX);
+        self.tap_count = 0;
+        for (rank, &index) in self
+            .rank_to_slot
+            .iter()
+            .take(TAP_ACTIVITY_CAPACITY)
+            .enumerate()
+        {
+            if index != usize::MAX {
+                self.tap_voice_indices[rank] = index;
+                self.tap_count = rank + 1;
+            }
+        }
+        for &index in &self.active_indices {
+            let voice = &mut self.voices[index];
+            let old_rank = voice.pool_rank;
+            adopt_pool_control(
+                voice,
+                prepared.records.get(index),
+                self.sample_rate,
+                maximum_delay,
+            );
+            if voice.pool_rank < TAP_ACTIVITY_CAPACITY && old_rank < TAP_ACTIVITY_CAPACITY {
+                self.tap_remap[voice.pool_rank] = self.tap_activity[old_rank];
+            }
+        }
+        std::mem::swap(&mut self.tap_activity, &mut self.tap_remap);
+        self.tap_energy.fill(0.);
+        self.pool_controls = Some(prepared);
+        self.set_pool_limit(limit);
+    }
+
     /// Sample-thread safe generation gain update. Stable structural ranks are
     /// retained even while every generation is muted. Touch only admitted and
     /// releasing voices; reserved slots read these gains when later admitted.
@@ -639,7 +927,10 @@ impl Engine {
         } else {
             self.runtime_limit
         };
-        self.runtime_limit = limit.min(self.max_voices).min(self.voices.len());
+        self.runtime_limit = limit
+            .min(self.max_voices)
+            .min(self.voices.len())
+            .min(self.rank_to_slot.len());
         self.pool_admission_dirty = false;
         let group_gains = self.pool_group_gains.as_ref();
         for rank in previous_limit.min(self.runtime_limit)..previous_limit.max(self.runtime_limit) {
@@ -648,8 +939,17 @@ impl Engine {
                 self.last_admission_visits += 1;
             }
             if let Some(voice) = self.voices.get(self.rank_to_slot[rank]) {
-                if pool_gain(voice, group_gains) > 0. {
-                    let count = &mut self.pool_group_counts[usize::from(voice.pool_group)];
+                let control = self
+                    .pool_controls
+                    .as_ref()
+                    .and_then(|controls| controls.records.get(self.rank_to_slot[rank]));
+                let gain = control.map_or_else(
+                    || pool_gain(voice, group_gains),
+                    |control| control_gain(control, group_gains),
+                );
+                if gain > 0. {
+                    let group = control.map_or(voice.pool_group, |control| control.group);
+                    let count = &mut self.pool_group_counts[usize::from(group)];
                     if previous_limit < self.runtime_limit {
                         *count += 1;
                     } else {
@@ -686,6 +986,17 @@ impl Engine {
             }
             let index = self.rank_to_slot[rank];
             if let Some(voice) = self.voices.get_mut(index) {
+                if voice.inactive {
+                    if let Some(controls) = &self.pool_controls {
+                        let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
+                        adopt_pool_control(
+                            voice,
+                            controls.records.get(index),
+                            self.sample_rate,
+                            maximum_delay,
+                        );
+                    }
+                }
                 let gain = pool_gain(voice, group_gains);
                 if voice.inactive && gain > 0. {
                     voice.target.gain = gain / normalizers[usize::from(voice.pool_group)];
@@ -768,6 +1079,11 @@ impl Engine {
             + self.active_indices.capacity() * std::mem::size_of::<usize>()
             + (self.rank_to_slot.capacity() + self.admission_scratch.capacity())
                 * std::mem::size_of::<usize>()
+            + self.growth_dirty_indices.capacity() * std::mem::size_of::<usize>()
+            + self.pool_controls.as_ref().map_or(0, |controls| {
+                controls.records.capacity() * std::mem::size_of::<PoolControl>()
+                    + controls.rank_to_slot.capacity() * std::mem::size_of::<usize>()
+            })
             + self
                 .voices
                 .iter()
@@ -818,6 +1134,7 @@ impl Engine {
     }
 
     pub fn process_frame(&mut self, input: [f32; 2]) -> [f32; 2] {
+        self.track_numeric_growth();
         let left_in = if input[0].is_finite() {
             f64::from(input[0])
         } else {
@@ -881,6 +1198,7 @@ impl Engine {
     /// write in this block could overwrite at the old end of the history ring.
     /// Output summing order and per-sample state updates remain unchanged.
     pub fn process_block(&mut self, input: &[[f32; 2]], output: &mut [[f32; 2]]) {
+        self.track_numeric_growth();
         assert_eq!(input.len(), output.len());
         assert!(input.len() <= 128);
         self.activity_energy.fill(0.);
@@ -1408,6 +1726,45 @@ mod arithmetic_tests {
             "the existing release remains audible"
         );
         assert!(engine.voices[0].releasing);
+    }
+    #[test]
+    fn staged_numeric_growth_preserves_phases_of_tails_that_retire_during_preparation() {
+        let keys: Vec<_> = (0..4096).map(|index| format!("growth:{index}")).collect();
+        let mut engine = Engine::new(8000, 4., 4096, 1).unwrap();
+        engine.install_pool(&keys).unwrap();
+        let targets = vec![
+            PoolTarget {
+                rate: 1.7,
+                gain: 0.01,
+                ..PoolTarget::default()
+            };
+            4096
+        ];
+        engine.update_pool(&targets, 64);
+        for _ in 0..256 {
+            engine.process_frame([0.1; 2]);
+        }
+        engine.finish_block();
+        engine.begin_numeric_growth().unwrap();
+        let mut growth = PreparedPool::numeric(8192).unwrap();
+        engine.prepare_numeric_growth_until(&mut growth, 4096);
+        let original_phase = growth.voices[0].phase;
+        engine.silence();
+        for _ in 0..80 {
+            for _ in 0..128 {
+                engine.process_frame([0.1; 2]);
+            }
+            engine.finish_block();
+        }
+        assert_eq!(engine.active_voice_count(), 0);
+        let retired_phase = engine.voices[0].phase;
+        assert_ne!(retired_phase, original_phase);
+        engine.prepare_numeric_growth_until(&mut growth, 8192);
+        engine.commit_numeric_growth(&mut growth);
+        assert_eq!(engine.voices[0].phase, retired_phase);
+        assert!(engine.voices[0].inactive);
+        assert_eq!(engine.voices.len(), 8192);
+        assert!(!engine.growth_tracking);
     }
     #[test]
     fn optimized_wrapping_interpolation_matches_floor_at_boundaries() {

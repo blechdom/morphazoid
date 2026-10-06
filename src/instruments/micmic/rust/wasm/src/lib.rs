@@ -18,7 +18,7 @@ mod resources;
 
 use adaptive::Adaptive;
 use conditioning::{InputHighpass, OutputConditioner, PreparedMastering};
-use l_system_delay_core::{phase_seed, Engine, PoolTarget, PreparedPool};
+use l_system_delay_core::{phase_seed, Engine, PoolTarget, PreparedPool, PreparedPoolControls};
 use performance::{Performance, Source};
 use std::{
     alloc::{alloc_zeroed, dealloc, Layout},
@@ -257,6 +257,20 @@ impl Envelope {
     }
 }
 
+struct StagedInstall {
+    pointer: *const u8,
+    bytes: usize,
+    count: usize,
+    next: usize,
+    available: usize,
+    revision: u64,
+    normalization: f64,
+    depth_controls: bool,
+    depth_override: Option<f64>,
+    controls: PreparedPoolControls,
+    growth: Option<PreparedPool>,
+}
+
 pub struct Renderer {
     engine: Engine,
     adaptive: Adaptive,
@@ -273,6 +287,7 @@ pub struct Renderer {
     structural_group_counts: [usize; 256],
     depth_controls: bool,
     live_depth: Option<f64>,
+    pending_install: Option<StagedInstall>,
     demand: usize,
     requested: usize,
     revision: u64,
@@ -326,6 +341,7 @@ impl Renderer {
             structural_group_counts: [0; 256],
             depth_controls: false,
             live_depth: None,
+            pending_install: None,
             demand: 0,
             requested: 0,
             revision: 0,
@@ -387,6 +403,9 @@ impl Renderer {
             return Err("This pool requires a complete topology update".into());
         }
         if self.live_depth == Some(depth) {
+            if let Some(pending) = &mut self.pending_install {
+                pending.depth_override = Some(depth);
+            }
             return Ok(());
         }
         let mut gains = [0.; 256];
@@ -406,10 +425,158 @@ impl Renderer {
         }
         self.target_normalization = depth_normalization(depth);
         self.live_depth = Some(depth);
+        if let Some(pending) = &mut self.pending_install {
+            pending.depth_override = Some(depth);
+        }
         self.engine
             .update_pool_group_gains(&gains, self.current_limit());
         self.update_metrics();
         Ok(())
+    }
+
+    /// The caller retains this byte allocation until commit, rejection or abort.
+    /// Reserve numeric storage once; validation and voice construction then run
+    /// in bounded batches while the old recording and scene continue rendering.
+    fn begin_install(&mut self, bytes: &[u8]) -> Result<(), String> {
+        if bytes.len() < HEADER
+            || read_u32(bytes, 0) != MAGIC
+            || !matches!(read_u32(bytes, 4), 1 | 2)
+        {
+            return Err("Invalid delay pool format".into());
+        }
+        let count = read_u32(bytes, 8) as usize;
+        let expected = count
+            .checked_mul(RECORD)
+            .and_then(|n| n.checked_add(HEADER))
+            .ok_or("Pool size overflow")?;
+        if bytes.len() != expected {
+            return Err("Truncated delay pool".into());
+        }
+        let normalization = read_f64(bytes, 24);
+        if !normalization.is_finite() || !(0.0..=1.0).contains(&normalization) {
+            return Err("Invalid wet normalization".into());
+        }
+        let pending = StagedInstall {
+            pointer: bytes.as_ptr(),
+            bytes: bytes.len(),
+            count,
+            next: 0,
+            available: 0,
+            revision: u64::from(read_u32(bytes, 16)) | u64::from(read_u32(bytes, 20)) << 32,
+            normalization,
+            depth_controls: read_u32(bytes, 4) == 2,
+            depth_override: None,
+            controls: PreparedPoolControls::new(count)?,
+            growth: if count > self.capacity {
+                Some(PreparedPool::numeric(count)?)
+            } else {
+                None
+            },
+        };
+        self.engine.abort_numeric_growth();
+        if pending.growth.is_some() {
+            self.engine.begin_numeric_growth()?;
+        }
+        self.pending_install = Some(pending);
+        Ok(())
+    }
+
+    fn step_install(&mut self, maximum_records: usize) -> Result<bool, String> {
+        let mut pending = self
+            .pending_install
+            .take()
+            .ok_or("No delay pool is being prepared")?;
+        let bytes = unsafe { slice::from_raw_parts(pending.pointer, pending.bytes) };
+        let end = pending
+            .next
+            .saturating_add(maximum_records.max(1))
+            .min(pending.count);
+        for index in pending.next..end {
+            let base = HEADER + index * RECORD;
+            let target = PoolTarget {
+                delay: read_f64(bytes, base),
+                rate: read_f64(bytes, base + 8),
+                gain: read_f64(bytes, base + 16),
+                pan: read_f64(bytes, base + 24),
+            };
+            let rank = read_u32(bytes, base + 32);
+            let group = read_u32(bytes, base + 40);
+            if ![target.delay, target.rate, target.gain, target.pan]
+                .iter()
+                .all(|x| x.is_finite())
+                || target.delay < 0.
+                || !(0.125..=8.).contains(&target.rate)
+                || !(0.0..=1.0).contains(&target.gain)
+                || !(-1.0..=1.0).contains(&target.pan)
+                || group > 255
+                || (rank != u32::MAX && rank as usize >= pending.count)
+            {
+                self.engine.abort_numeric_growth();
+                return Err("Invalid delay target".into());
+            }
+            pending.available += usize::from(target.gain > 0.);
+            let seed = read_u32(bytes, base + 36);
+            pending.controls.push(
+                target,
+                if rank == u32::MAX {
+                    usize::MAX
+                } else {
+                    rank as usize
+                },
+                seed,
+                self.engine.prepared_seed_epoch(index, seed),
+                group as u8,
+            );
+        }
+        if let Some(growth) = &mut pending.growth {
+            self.engine.prepare_numeric_growth_until(growth, end);
+        }
+        pending.next = end;
+        if end < pending.count {
+            self.pending_install = Some(pending);
+            return Ok(false);
+        }
+        if let Some(mut growth) = pending.growth {
+            self.engine.commit_numeric_growth(&mut growth);
+            self.capacity = pending.count;
+            self.adaptive.set_capacity(self.capacity);
+        }
+        self.structural_group_counts = *pending.controls.group_counts();
+        self.available = pending.available;
+        self.depth_controls = pending.depth_controls;
+        self.live_depth = None;
+        let override_gains = pending
+            .depth_override
+            .filter(|_| pending.depth_controls)
+            .map(|depth| {
+                let mut gains = [0.; 256];
+                for (generation, gain) in gains.iter_mut().enumerate().skip(1) {
+                    *gain = 0.5 * depth.powf(generation as f64 * 0.72);
+                }
+                self.available = self
+                    .structural_group_counts
+                    .iter()
+                    .zip(gains)
+                    .filter_map(|(&count, gain)| (gain > 0.).then_some(count))
+                    .sum();
+                self.live_depth = Some(depth);
+                gains
+            });
+        self.demand = self.performance.capped(self.available);
+        self.adaptive.set_demand(self.demand);
+        self.revision = pending.revision;
+        self.requested = pending.count;
+        self.target_normalization = self
+            .live_depth
+            .map_or(pending.normalization, depth_normalization);
+        self.engine
+            .install_prepared_pool_controls(pending.controls, self.current_limit());
+        if let Some(gains) = override_gains {
+            self.engine
+                .update_pool_group_gains(&gains, self.current_limit());
+        }
+        self.update_metrics();
+        Ok(true)
     }
     /// Control-message preparation only. Validation/allocation complete before
     /// any live pool is replaced. Growth swaps storage while preserving existing
@@ -702,6 +869,44 @@ pub unsafe extern "C" fn lsd_performance(
             report(e);
             0
         }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_begin(
+    handle: *mut Renderer,
+    pointer: *const u8,
+    bytes: usize,
+) -> u32 {
+    if handle.is_null() || pointer.is_null() {
+        return 0;
+    }
+    match (*handle).begin_install(slice::from_raw_parts(pointer, bytes)) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_step(handle: *mut Renderer, maximum_records: usize) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).step_install(maximum_records) {
+        Ok(false) => 1,
+        Ok(true) => 2,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
+    if !handle.is_null() {
+        (*handle).pending_install = None;
+        (*handle).engine.abort_numeric_growth();
     }
 }
 #[no_mangle]
@@ -1191,6 +1396,125 @@ mod browser_tests {
         assert_eq!(renderer.engine.target_voice_count(), 0);
         assert!(renderer.set_depth(f64::NAN).is_err());
         assert!(renderer.set_depth(1.).is_err());
+    }
+    #[test]
+    fn staged_scene_edits_preserve_sample_exact_live_flow_and_current_depth_and_mix() {
+        let mut parameters = model::Parameters {
+            generations: 12,
+            interval_ms: 2.,
+            ..model::Parameters::default()
+        };
+        let first = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+        let settings = Performance {
+            automatic: false,
+            voice_ceiling: 64,
+            ..Performance::default()
+        };
+        let mut staged = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        staged.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        staged.begin_install(&first.pool).unwrap();
+        while !staged.step_install(1024).unwrap() {}
+        reference.install(&first.pool).unwrap();
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        let mut block = 0;
+        for edit in 0..6 {
+            parameters.angle = 28. + edit as f64 * 11.;
+            parameters.pitch_scale = 0.3 + edit as f64 * 0.24;
+            parameters.mutation = edit as f64 * 0.12;
+            parameters.time_ratio = 0.68 + edit as f64 * 0.055;
+            parameters.pruning_bias = edit as f64 * 0.18;
+            parameters.generations = [12, 14, 10, 13, 12, 14][edit];
+            parameters.l_system_type = if edit == 4 { "coral" } else { "pythagorean" }.into();
+            let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+            staged.begin_install(&compiled.pool).unwrap();
+            let depth = 0.38 + edit as f64 * 0.06;
+            for renderer in [&mut staged, &mut reference] {
+                renderer.set_depth(depth).unwrap();
+                renderer
+                    .set_performance(Performance {
+                        wet: 0.4 + edit as f32 * 0.08,
+                        ..settings
+                    })
+                    .unwrap();
+            }
+            loop {
+                let input = signal(block * BLOCK);
+                staged.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(
+                    left, reference_l,
+                    "old scene stays live during preparation {edit}"
+                );
+                assert_eq!(right, reference_r);
+                block += 1;
+                ALLOCATIONS.with(|n| n.set(0));
+                TRACK.with(|enabled| enabled.set(true));
+                let committed = staged.step_install(1024).unwrap();
+                TRACK.with(|enabled| enabled.set(false));
+                assert_eq!(
+                    ALLOCATIONS.with(|n| n.get()),
+                    0,
+                    "staging steps allocate nothing"
+                );
+                if committed {
+                    break;
+                }
+            }
+            reference.install(&compiled.pool).unwrap();
+            reference.set_depth(depth).unwrap();
+            assert_eq!(staged.live_depth, Some(depth));
+            assert_eq!(staged.performance.wet, reference.performance.wet);
+            for _ in 0..32 {
+                let input = signal(block * BLOCK);
+                staged.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(
+                    left, reference_l,
+                    "new scene matches complete install {edit}"
+                );
+                assert_eq!(right, reference_r);
+                block += 1;
+            }
+        }
+    }
+    #[test]
+    fn rejected_or_aborted_staging_does_not_change_the_live_scene_or_clock() {
+        let first = scene(7);
+        let second = scene(12);
+        let mut staged = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        staged.install(&first.pool).unwrap();
+        reference.install(&first.pool).unwrap();
+        let mut malformed = second.pool.clone();
+        let base = HEADER + 1000 * RECORD;
+        malformed[base..base + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+        staged.begin_install(&malformed).unwrap();
+        assert!(!staged.step_install(512).unwrap());
+        assert!(staged.step_install(512).is_err());
+        assert!(staged.pending_install.is_none());
+        staged.begin_install(&second.pool).unwrap();
+        assert!(!staged.step_install(512).unwrap());
+        unsafe {
+            lsd_install_abort(&mut staged);
+        }
+        assert_eq!(staged.requested, reference.requested);
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..32 {
+            let input = signal(block * BLOCK);
+            staged.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left, reference_l);
+            assert_eq!(right, reference_r);
+            assert_eq!(staged.frames, reference.frames);
+        }
     }
     #[test]
     fn envelope_follows_native_attack_release_and_chronological_wrap() {
