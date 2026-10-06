@@ -326,7 +326,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       const phase = (finite(node.index, finite(node.voiceIndex)) * .71) % (Math.PI * 2);
       staticData.set([finite(node.startX), finite(node.startY), finite(node.x), finite(node.y), startDelay, endDelay, finite(node.rate, 1), generation, phase], index * 9);
       return { root, generation, voiceIndex: node.voiceIndex, parentVoiceIndex: parent?.voiceIndex, parentRoot: parent?.generation === 0,
-        priority: Number.isInteger(node.priority) && node.priority >= 0 ? node.priority : Infinity, gain: finite(node.gain) };
+        priority: Number.isInteger(node.priority) && node.priority >= 0 ? node.priority : Infinity };
     });
     generationLevels = new Float32Array(maximumGeneration + 1);
     counters.nodeCount = nodes.length;
@@ -382,7 +382,10 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       }
       for (let index = 0; index < nodes.length; index++) {
         const node = nodes[index], energy = node.root ? rootLevel : clamp(levels.get(node.voiceIndex));
-        const admitted = node.root || (!frame.pending && node.priority < limit && node.gain > 0);
+        // The original geometry objects carry live coefficient gain. It is an
+        // admission gate, not an immutable topology attribute or amplitude.
+        // Generation amplitude above already follows the applied frame depth.
+        const admitted = node.root || (!frame.pending && node.priority < limit && finite(cachedNodes[index].gain) > 0);
         const available = admitted || energy > 0;
         const measured = node.root || targets.has(node.voiceIndex);
         const parentMeasured = node.parentRoot || targets.has(node.parentVoiceIndex);

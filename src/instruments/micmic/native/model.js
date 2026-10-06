@@ -62,6 +62,13 @@ export function gestureParameters(start, dx, dy, width, height, fine = false) {
     angle: start.angle - dy / Math.max(1, height) * 180 * scale });
 }
 export function isVoiceActive(node, limit) { return Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0; }
+/** Preview gain follows the applied coefficient, including a newer live edit
+ * than the topology compiler captured. Structural ranks stay untouched. */
+export function applyPreviewDepth(nodes, depth) {
+  const applied = clamp(depth, 0, .96);
+  for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
+  return nodes;
+}
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
 export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }

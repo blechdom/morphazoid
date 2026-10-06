@@ -6,7 +6,7 @@ import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-prese
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
+  admittedPreviewNodes, applyPreviewDepth, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
   preparePreviewTransition, advancePreviewTransition } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering, captureMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
@@ -172,6 +172,23 @@ test('a second live tree edit starts from the current interpolated endpoints', (
   assert.deepEqual(next.nodes.map(node => [node.x, node.y, node.startX, node.startY]), current.map(node => [node.x, node.y, node.startX, node.startY]));
   advancePreviewTransition(next, 1);
   assert.deepEqual(next.nodes, c);
+});
+test('a topology captured at depth zero adopts the latest applied recursion without losing ranks', () => {
+  const structural = buildPreview({ ...DEFAULT_PARAMETERS, generations: 5 }, generationTopology);
+  const captured = structural.map(node => ({ ...node, gain: node.generation === 0 ? 1 : 0 }));
+  const transition = preparePreviewTransition(captured);
+  const references = [...transition.nodes], ranks = transition.nodes.map(node => node.priority);
+  for (const depth of [.8, .2, 0, .91]) {
+    assert.equal(applyPreviewDepth(transition.nodes, depth), transition.nodes);
+    assert.deepEqual(transition.nodes.map(node => node.priority), ranks);
+    for (let index = 0; index < transition.nodes.length; index++) {
+      const node = transition.nodes[index];
+      assert.equal(node, references[index]);
+      assert.equal(node.gain, node.generation === 0 ? 1 : .5 * depth ** (node.generation * .72));
+    }
+    assert.equal(admittedPreviewNodes(transition.nodes, 20).length, depth === 0 ? 1 : 21);
+  }
+  assert.ok(captured.slice(1).every(node => node.gain === 0), 'compiler snapshots remain immutable');
 });
 test('parameter sanitization retains finite controls and native limits', () => {
   assert.equal(sanitizeParameters({ angle: NaN }).angle, 45);

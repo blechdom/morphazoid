@@ -7,7 +7,7 @@ import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
-  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes,
+  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
   buildPreview, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
@@ -194,11 +194,11 @@ function updateVisualDepth(depth) {
   const wasSilent = previewParameters.depth === 0;
   previewParameters.depth = depth;
   if (nativePreview) nativePreview.parameters.depth = depth;
+  const nodes = geometry?.nodes ?? nativePreview?.nodes;
+  if (nodes) applyPreviewDepth(nodes, depth);
   if (!geometry) return;
-  for (const node of geometry.nodes) node.gain = node.generation === 0 ? 1 : .5 * depth ** (node.generation * .72);
   if (wasSilent !== (depth === 0)) {
     geometry.activeLimit = -1; geometry.unavailableKey = null;
-    gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: previewParameters.intervalMs });
   }
 }
 function acceptStatus(reply, { acceptAudio = true } = {}) {
@@ -243,9 +243,10 @@ async function refreshNativePreview() {
       // maps and wave paths instead of restarting the tree's visual motion.
       for (let index = 0; index < targets.length; index++) {
         const node = geometry.nodes[index], target = targets[index];
-        node.priority = target.priority; node.gain = target.gain;
+        node.priority = target.priority;
         node.delay = target.delay; node.rate = target.rate;
       }
+      applyPreviewDepth(geometry.nodes, parameters.depth);
       for (const wave of geometry.waves.values()) {
         const node = geometry.byId.get(wave.signal.id);
         if (!node) continue;
@@ -257,6 +258,7 @@ async function refreshNativePreview() {
       gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs });
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
+      applyPreviewDepth(previewTransition.nodes, parameters.depth);
       nativePreviewStarted = performance.now();
       nativePreviewMoving = Boolean(geometry && previewTransition.moving);
       if (!nativePreviewMoving) advancePreviewTransition(previewTransition, 1);
