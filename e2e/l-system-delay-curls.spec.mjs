@@ -194,14 +194,27 @@ function assertConnectedNativeView(view, native) {
   expect(view.revision).toBe(native.revision);
   const targets = new Map(native.targets.map(node => [node.id, node])), nodes = new Map(view.nodes.map(node => [node.id, node]));
   expect(nodes.size).toBe(targets.size);
+  const missingTargets = [], missingParents = [];
+  let maximumNativeError = 0, maximumConnectionError = 0, nonFinite = 0;
+  // Dense original presets have thousands of segments. Compare every segment
+  // numerically, then assert the aggregate; per-field Playwright assertions
+  // would produce an enormous trace and obscure instrument performance.
   for (const node of nodes.values()) {
-    const target = targets.get(node.id); expect(target, node.id).toBeTruthy();
-    for (const field of ['x', 'y', 'startX', 'startY', 'rate', 'delay']) expect(node[field], `${node.id}.${field}`).toBeCloseTo(target[field], 6);
+    const target = targets.get(node.id);
+    if (!target) { missingTargets.push(node.id); continue; }
+    for (const field of ['x', 'y', 'startX', 'startY', 'rate', 'delay']) {
+      const error = Math.abs(node[field] - target[field]);
+      if (!Number.isFinite(error)) nonFinite++;
+      else maximumNativeError = Math.max(maximumNativeError, error);
+    }
     if (node.parentId) {
-      expect(node.startX).toBeCloseTo(nodes.get(node.parentId).x, 6);
-      expect(node.startY).toBeCloseTo(nodes.get(node.parentId).y, 6);
+      const parent = nodes.get(node.parentId);
+      if (!parent) { missingParents.push(node.id); continue; }
+      maximumConnectionError = Math.max(maximumConnectionError, Math.abs(node.startX - parent.x), Math.abs(node.startY - parent.y));
     }
   }
+  expect(missingTargets).toEqual([]); expect(missingParents).toEqual([]); expect(nonFinite).toBe(0);
+  expect(maximumNativeError).toBeLessThan(5e-7); expect(maximumConnectionError).toBeLessThan(5e-7);
 }
 async function choosePreset(page, scene) {
   const picker = page.locator('.instrument-preset-controls'), menu = picker.locator('details');
