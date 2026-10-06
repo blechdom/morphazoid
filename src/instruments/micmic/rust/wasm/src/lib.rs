@@ -1292,7 +1292,10 @@ mod browser_tests {
                 HEADER + expected as usize * RECORD,
                 "{id}"
             );
-            assert_eq!(result["generationLimits"].as_object().unwrap().len(), 17);
+            assert_eq!(
+                result["generationLimits"].as_object().unwrap().len(),
+                model::L_SYSTEM_TYPES.len()
+            );
             assert!(result["generationLimits"][id].as_u64().unwrap() >= 13);
             staged.begin_install(&compiled.pool).unwrap();
             let depth = 0.5 + edit as f64 * 0.035;

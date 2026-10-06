@@ -13,6 +13,7 @@ const CONTRACT = [
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
   ['curls', '-8', '8', '0.01', '0'],
+  ['branchProbability', '0', '1', '0.01', '0.65'],
   ['wet', '0', '1', '0.01', '0.76'], ['dry', '0', '0.5', '0.01', '0'], ['spread', '0', '1', '0.01', '0.9'],
   ['inputHighpassHz', '0', '1000', '1', '220'], ['highpassHz', '0', '1000', '1', '0'],
   ['lowpassHz', '0', '1000', '1', '1000'], ['thresholdDb', '-60', '0', '0.5', '-12'],
@@ -138,6 +139,14 @@ async function openControl(page, id) {
     if (settings && !settings.contains(input)) settings.open = false;
     for (let parent = input.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
   });
+  // The stochastic-only range belongs to its grammar. Select it through the
+  // actual menu so reachability checks exercise the performer-facing state.
+  if (id === 'branchProbability' && !(await page.locator('#stochasticControls').isVisible())) {
+    await page.locator('#lSystemType').selectOption('stochastic');
+    await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe('stochastic');
+    await expect(page.locator('#stochasticControls')).toBeVisible();
+    await expect(control).toBeEnabled();
+  }
   await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
   return control;
 }
@@ -224,12 +233,17 @@ test('all original native ranges plus Curls, complete parameter controls and run
   }
   for (const id of ['source', 'inputSample', 'lSystemType', 'pitchDetail', 'masteringPreset', 'automatic', 'inputLoop',
     'compressorEnabled', 'autoMakeup', 'micButton', 'audioButton', 'sharedMidiToggle', 'panicButton', 'freezeButton', 'restartInput', 'stopInput',
-    'resetGenerationRules', 'inputFile', 'outputBoostHint', 'pruningBiasGuide', 'generationCapacityInline']) {
+    'resetGenerationRules', 'inputFile', 'outputBoostHint', 'pruningBiasGuide', 'generationCapacityInline',
+    'grammarSeed', 'grammarSeedOut', 'regrowGrammar']) {
     await expect(page.locator(`#${id}`), id).toHaveCount(1);
   }
   expect(await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value).sort())).toEqual([...L_SYSTEM_TYPES].sort());
   expect(await page.locator('#inputSample option').count()).toBe(33);
   expect(await page.locator('#masteringPreset option').count()).toBe(8);
+  await expect(page.locator('#grammarSeed')).toHaveAttribute('type', 'number');
+  await expect(page.locator('#grammarSeed')).toHaveAttribute('min', '0');
+  await expect(page.locator('#grammarSeed')).toHaveAttribute('max', '4294967295');
+  await expect(page.locator('#grammarSeed')).toHaveAttribute('step', '1');
   await expect(page.locator('#voiceCeilingExact')).toHaveAttribute('max', String(d.memoryVoiceCapacity));
   await assertNeedles(page);
   // Attribute domains remain the existing authored contract even when memory

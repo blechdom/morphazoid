@@ -18,6 +18,7 @@ test('lab modules clamp hostile values and retain independent finite defaults', 
   assert.deepEqual(sanitizeLab(null), defaultLab());
 });
 test('complete lab presets reset every numeric module field and include every requested family', () => {
+  assert.ok(parametric.length >= 12 && experiments.length >= 12, 'both banks satisfy the shared full-preset controller contract');
   assert.deepEqual(new Set(experiments.map(item => item.snapshot.parameters.lab.kind)), new Set(['context', 'thue-morse', 'fibonacci', 'penrose', 'sphinx']));
   for (const preset of [...parametric, ...experiments]) {
     const p = preset.snapshot.parameters;

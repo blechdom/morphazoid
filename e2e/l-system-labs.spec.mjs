@@ -16,7 +16,7 @@ function wav() {
   return buffer;
 }
 
-async function fixture(page) {
+async function fixture(page, { holdInitialState = false } = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
@@ -44,7 +44,16 @@ async function fixture(page) {
   });
   await page.route('**/src/instruments/micmic/native/app.js', async route => {
     const response = await route.fetch();
-    await route.fulfill({ response, body: await response.text() + `\nwindow.__labQa = {
+    let source = await response.text();
+    if (holdInitialState) {
+      const initialRequest = "request('/api/state'), LAB_CONFIG";
+      expect(source.split(initialRequest).length - 1).toBe(1);
+      // Delay only the startup read; real control requests and Rust compilation
+      // remain active so the performer can edit while initialization is pending.
+      source = source.replace(initialRequest,
+        "new Promise(resolve => { window.__releaseInitialLabState = resolve; }).then(() => request('/api/state')), LAB_CONFIG");
+    }
+    await route.fulfill({ response, body: source + `\nwindow.__labQa = {
       engine: browserEngine, applyScene, presetBank: () => structuredClone(presets),
       view: () => ({ ui: structuredClone(state.parameters), installed: structuredClone(previewParameters),
         nodes: geometry?.nodes.map(({ id, parentId, x, y, delay, rate, priority, generation }) => ({ id, parentId, x, y, delay, rate, priority, generation })) ?? [] }),
@@ -75,6 +84,30 @@ async function peak(page) {
 }
 
 for (const variant of variants) {
+  test(`${variant.id} preserves early mix and mastering edits while its initial state is delayed`, async ({ page }) => {
+    const errors = await fixture(page, { holdInitialState: true });
+    await page.goto(`/${variant.route}`);
+    await page.waitForFunction(() => window.__labQa && window.__releaseInitialLabState);
+    await expect(page.locator('#audioButton')).toBeDisabled();
+    await set(page, 'wet', .33); await set(page, 'dry', .17); await set(page, 'thresholdDb', -22);
+    await set(page, 'inputTrim', .7); await set(page, 'level', .6);
+    const musicalState = async () => {
+      const { performance } = await diagnostics(page);
+      return { wet: performance.wet, dry: performance.dry, thresholdDb: performance.mastering.thresholdDb,
+        inputGain: performance.inputGain, level: performance.level };
+    };
+    const edited = { wet: .33, dry: .17, thresholdDb: -22, inputGain: .7, level: .6 };
+    await expect.poll(musicalState, { timeout: 30000 }).toEqual(edited);
+    await page.evaluate(() => window.__releaseInitialLabState());
+    await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
+    await settled(page, variant.kinds[0]);
+    expect(await musicalState()).toEqual(edited);
+    for (const [id, value] of [['wet', '.33'], ['dry', '.17'], ['thresholdDb', '-22'], ['inputTrim', '.7'], ['level', '.6']])
+      expect(Number(await page.locator(`#${id}`).inputValue()), id).toBe(Number(value));
+    expect((await diagnostics(page)).audio).toBe(false);
+    await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+    expect((await diagnostics(page)).disposed).toBe(true); expect(errors).toEqual([]);
+  });
   test(`${variant.id} has reachable controls on desktop and both phone layouts`, async ({ page }) => {
     test.setTimeout(90000);
     const errors = await fixture(page);
@@ -86,6 +119,10 @@ for (const variant of variants) {
     for (const viewport of layouts) {
       await page.setViewportSize(viewport);
       await expect.poll(() => page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      if (viewport.width < 760) {
+        const title = await page.locator('.lab-stage-title').boundingBox(), meta = await page.locator('.stage-meta').boundingBox();
+        expect(meta.y).toBeGreaterThanOrEqual(title.y + title.height);
+      }
       for (const id of ['source', 'generations', 'interval', 'generationAngle', 'curls', 'depth', 'wet', 'inputTrim', variant.kinds[0] === 'parametric' ? 'labDelayRatio' : 'labSymbolRatio']) {
         const control = page.locator(`#${id}`);
         await control.evaluate(input => { for (let p = input.parentElement; p; p = p.parentElement) if (p.tagName === 'DETAILS') p.open = true; });
@@ -148,3 +185,47 @@ for (const variant of variants) {
     expect((await diagnostics(page)).disposed).toBe(true); expect(errors).toEqual([]);
   });
 }
+
+test('current Delay plays every added grammar and changes stochastic patterns only on rule edits', async ({ page }) => {
+  test.setTimeout(150000);
+  const errors = await fixture(page);
+  await page.goto('/l-mic-rust.html?renderer=webgl2');
+  await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
+  await set(page, 'source', 'samples');
+  await expect.poll(async () => (await diagnostics(page)).input.mode).toBe('samples');
+  await set(page, 'inputSample', 'music-keys'); await page.locator('#audioButton').click();
+  await expect.poll(async () => (await peak(page)).peak, { timeout: 30000 }).toBeGreaterThan(1e-5);
+  const bank = await page.evaluate(() => __labQa.presetBank());
+  const before = await page.evaluate(() => ({ time: __labQa.engine.getSampleTime(), worklets: __labRuntime.worklets.length,
+    sources: __labRuntime.sources.filter(s => s.starts).length }));
+  for (const type of ['peano', 'arrowhead', 'quadratic-koch', 'kolam', 'dekking', 'stochastic']) {
+    const preset = bank.find(preset => preset.snapshot.parameters.lSystemType === type);
+    expect(preset, type).toBeTruthy();
+    await page.evaluate(preset => __labQa.applyScene(preset.snapshot, preset.id), preset);
+    await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe(type);
+    await expect.poll(() => page.evaluate(() => __labQa.view().installed.lSystemType)).toBe(type);
+    await expect.poll(async () => (await peak(page)).peak, { timeout: 30000 }).toBeGreaterThan(1e-5);
+    expect((await peak(page)).finite).toBe(true);
+  }
+  await page.locator('#recursionSection > summary').click();
+  await expect(page.locator('#stochasticControls')).toBeVisible();
+  const ids = () => page.evaluate(() => __labQa.view().nodes.map(n => [n.id, n.parentId]));
+  const initial = await ids(), initialState = (await diagnostics(page)).parameters;
+  await set(page, 'generationAngle', initialState.angle + 5);
+  await expect.poll(async () => (await diagnostics(page)).parameters.angle).toBe(initialState.angle + 5);
+  await expect.poll(() => page.evaluate(() => __labQa.view().installed.angle)).toBe(initialState.angle + 5);
+  expect(await ids()).toEqual(initial);
+  await page.locator('#regrowGrammar').click();
+  await expect.poll(async () => (await diagnostics(page)).parameters.grammarSeed).toBe(initialState.grammarSeed + 1);
+  await expect.poll(() => page.evaluate(() => __labQa.view().installed.grammarSeed)).toBe(initialState.grammarSeed + 1);
+  expect(await ids()).not.toEqual(initial);
+  const preset = bank.find(preset => preset.snapshot.parameters.lSystemType === 'stochastic');
+  await page.evaluate(preset => __labQa.applyScene(preset.snapshot, preset.id), preset);
+  await expect.poll(() => page.evaluate(() => __labQa.view().installed.grammarSeed)).toBe(initialState.grammarSeed);
+  expect(await ids()).toEqual(initial);
+  const after = await page.evaluate(() => ({ time: __labQa.engine.getSampleTime(), worklets: __labRuntime.worklets.length,
+    sources: __labRuntime.sources.filter(s => s.starts).length }));
+  expect(after.time).toBeGreaterThan(before.time); expect(after.worklets).toBe(before.worklets); expect(after.sources).toBe(before.sources);
+  await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+  expect((await diagnostics(page)).disposed).toBe(true); expect(errors).toEqual([]);
+});

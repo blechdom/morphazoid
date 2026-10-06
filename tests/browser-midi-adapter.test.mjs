@@ -214,6 +214,8 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "lumber",
     "micmic",
     "micmic-rust",
+    "l-system-parametric-lab",
+    "l-system-experiments",
     "karplus-strong",
     "karplus-carpet",
     "object-forge",

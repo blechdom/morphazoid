@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
+import { L_SYSTEM_TYPES, RUST_EXPLORATION_TYPES } from '../src/instruments/micmic/native/model.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const BANK = '/src/instruments/micmic/native/presets.json';
@@ -240,17 +240,21 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     test('all entries are searchable and first/middle/last choices remain reachable', async ({ page }) => {
       const evidence = await fixture(page); await ready(page);
       const picker = page.locator('.instrument-preset-controls'), search = picker.locator('input[type="search"]');
-      const family = bank.slice(ORIGINAL_IDS.length).filter(preset => preset.description.startsWith('Cathedral:'));
-      expect(new Set(family.map(preset => preset.snapshot.parameters.lSystemType))).toEqual(new Set(L_SYSTEM_TYPES));
-      const matching = bank.filter(preset => `${preset.label} ${preset.description}`.toLowerCase().includes('cathedral'));
       await picker.locator('summary').scrollIntoViewIfNeeded(); await picker.locator('summary').click();
-      await search.fill('Cathedral');
-      const results = picker.locator('.instrument-picker-row:not([hidden]) button[data-full-preset]');
-      await expect(results).toHaveCount(matching.length);
-      expect(await results.evaluateAll(buttons => buttons.map(button => button.dataset.presetId)))
-        .toEqual(matching.map(preset => preset.id));
-      for (const preset of family) await expect(picker.locator(`button[data-preset-id="${preset.id}"]`)).toBeVisible();
-      await page.screenshot({ path: test.info().outputPath('preset-family-cathedral.png') });
+      for (const [query, expectedGrammars] of [
+        ['Cathedral', L_SYSTEM_TYPES.filter(type => !RUST_EXPLORATION_TYPES.includes(type))],
+        ['Glass Curl', RUST_EXPLORATION_TYPES],
+      ]) {
+        const matching = bank.filter(preset => `${preset.label} ${preset.description}`.toLowerCase().includes(query.toLowerCase()));
+        expect(new Set(matching.map(preset => preset.snapshot.parameters.lSystemType))).toEqual(new Set(expectedGrammars));
+        await search.fill(query);
+        const results = picker.locator('.instrument-picker-row:not([hidden]) button[data-full-preset]');
+        await expect(results).toHaveCount(matching.length);
+        expect(await results.evaluateAll(buttons => buttons.map(button => button.dataset.presetId)))
+          .toEqual(matching.map(preset => preset.id));
+        for (const preset of matching) await expect(picker.locator(`button[data-preset-id="${preset.id}"]`)).toBeVisible();
+        await page.screenshot({ path: test.info().outputPath(`preset-family-${query.toLowerCase().replaceAll(' ', '-')}.png`) });
+      }
       await search.fill(''); await picker.locator('summary').click();
       for (const preset of [bank[0], bank[Math.floor(bank.length / 2)], bank.at(-1)]) {
         await picker.locator('summary').scrollIntoViewIfNeeded(); await picker.locator('summary').click();

@@ -6,9 +6,9 @@
     <!-- morphazoid-social-preview:start -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
-    <meta property="og:title" content="L-system Delay Rust — Morphazoid" />
-    <meta property="og:description" content="Morphazoid L-system Delay — microphone, local audio and built-in recordings grow recursive audio descendants." />
-    <meta property="og:url" content="https://morphazoid.com/l-mic-rust.html" />
+    <meta property="og:title" content="L-system Parametric Lab — Morphazoid" />
+    <meta property="og:description" content="Morphazoid L-system Parametric Lab — explore rewriting rules through microphone, audio files and sample delays." />
+    <meta property="og:url" content="https://morphazoid.com/l-system-parametric-lab.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:type" content="image/png" />
@@ -16,30 +16,31 @@
     <meta property="og:image:height" content="630" />
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="L-system Delay Rust — Morphazoid" />
-    <meta name="twitter:description" content="Morphazoid L-system Delay — microphone, local audio and built-in recordings grow recursive audio descendants." />
+    <meta name="twitter:title" content="L-system Parametric Lab — Morphazoid" />
+    <meta name="twitter:description" content="Morphazoid L-system Parametric Lab — explore rewriting rules through microphone, audio files and sample delays." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Morphazoid L-system Delay — microphone, local audio and built-in recordings grow recursive audio descendants." />
-    <title>L-system Delay Rust — Morphazoid</title>
-    <link rel="canonical" href="l-mic-rust.html" />
+    <meta name="description" content="Morphazoid L-system Parametric Lab — explore rewriting rules through microphone, audio files and sample delays." />
+    <title>L-system Parametric Lab — Morphazoid</title>
+    <link rel="canonical" href="l-system-parametric-lab.html" />
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/micmic/micmic.css" />
     <link rel="stylesheet" href="src/instruments/micmic/native/style.css" />
+    <link rel="stylesheet" href="src/instruments/l-system-parametric-lab/style.css" />
   </head>
-  <body class="micmic-page" data-audio-backend="rust-wasm">
+  <body class="micmic-page" data-audio-backend="rust-wasm" data-l-system-lab="parametric">
     <header class="masthead has-header-settings has-performance-header">
       <a class="wordmark" href="./" aria-label="Morphazoid home">
         <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
         <span>morphazoid</span>
       </a>
 
-      <nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab" href="l-mic.html">L-system Delay</a><a class="tab active" href="l-mic-rust.html" aria-current="page">L-system Delay Rust</a></nav>
+      <nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab" href="l-system-parametric-lab.html">Parametric Lab</a><a class="tab" href="l-system-experiments.html">Experiments</a><a class="tab" href="l-mic.html">L-system Delay</a><a class="tab active" href="l-system-parametric-lab.html" aria-current="page">L-system Parametric Lab</a></nav>
       <div class="header-io-controls micmic-header-controls" id="headerControls" role="group" aria-label="Audio and settings controls">
         <div id="headerAudio"></div>
         <details class="header-settings-menu" id="nativeSettings">
@@ -71,6 +72,7 @@
     <main class="shell" id="micmic">
       <section class="stage fracta-stage" aria-label="L-system Delay echo tree">
         <div class="stage-wrap" id="stageWrap">
+          <h1 class="lab-stage-title">L-system Parametric Lab</h1>
           <canvas
             id="stage"
             tabindex="0"
@@ -153,7 +155,7 @@
             <span class="section-state" id="recursionSummary">Pythagorean tree · 13 generations</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="lSystemType">
+            <label class="select-control" for="lSystemType" hidden>
               <span class="field-label">L-system type</span>
               <span class="select-shell">
                 <select id="lSystemType">
@@ -167,7 +169,6 @@
                     <option value="whorled">Whorled shrub · 3-way</option>
                     <option value="ternary">Trident tree · 3-way</option>
                     <option value="quaternary">Four-way canopy · 4-way</option>
-                    <option value="stochastic">Stochastic shrub</option>
                   </optgroup>
                   <optgroup label="Classic fractals">
                     <option value="dragon">Dragon curve</option>
@@ -178,24 +179,20 @@
                     <option value="cantor">Cantor set</option>
                     <option value="levy">Lévy C curve</option>
                     <option value="terdragon">Terdragon</option>
-                    <option value="peano">Peano weave</option>
-                    <option value="arrowhead">Sierpiński arrowhead</option>
-                    <option value="quadratic-koch">Quadratic Koch island</option>
-                    <option value="kolam">Snake Kolam</option>
-                    <option value="dekking">Dekking square curve</option>
                   </optgroup>
                 </select>
               </span>
             </label>
+            <section class="recursion-parameter-cluster" id="labRuleControls" aria-labelledby="labRulesTitle"><h3 class="parameter-cluster-title" id="labRulesTitle">Numeric rules</h3><div class="native-knob-grid"><label class="control native-knob-control" for="labLengthRatio"><span><b>Child length</b><output id="labLengthRatioOut" for="labLengthRatio">0.72</output></span><input id="labLengthRatio" type="range" min="0.2" max="1.25" step="0.01" value="0.72" /></label><label class="control native-knob-control" for="labAngleIncrement"><span><b>Turn per generation</b><output id="labAngleIncrementOut" for="labAngleIncrement">0</output></span><input id="labAngleIncrement" type="range" min="-90" max="90" step="0.1" value="0" /></label><label class="control native-knob-control" for="labDelayRatio"><span><b>Module delay ratio</b><output id="labDelayRatioOut" for="labDelayRatio">0.72</output></span><input id="labDelayRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" /></label><label class="control native-knob-control" for="labPitchRatio"><span><b>Module pitch ratio</b><output id="labPitchRatioOut" for="labPitchRatio">1</output></span><input id="labPitchRatio" type="range" min="0.5" max="2" step="0.001" value="1" /></label><label class="control native-knob-control" for="labBranchCount"><span><b>Child branches</b><output id="labBranchCountOut" for="labBranchCount">2</output></span><input id="labBranchCount" type="range" min="2" max="6" step="1" value="2" /></label><label class="control native-knob-control" for="labMinLength"><span><b>Stopping length</b><output id="labMinLengthOut" for="labMinLength">0.03</output></span><input id="labMinLength" type="range" min="0.001" max="1" step="0.001" value="0.03" /></label></div><details class="native-control-help"><summary>Rule module help</summary><p>Child length, turn, delay and pitch are carried by each rule module. Stopping length ends a branch when its length falls below this fraction of the root.</p></details></section>
             <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
               <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
               <div class="native-knob-grid">
                 <label class="control native-knob-control generation-control" for="generations">
                   <span>
-                    <b>Generations</b>
+                    <b>Rule iterations</b>
                     <output id="generationsOut" for="generations">13 / 13</output>
                   </span>
-                  <input id="generations" type="range" min="1" max="52" step="1" value="13" aria-describedby="generationCapacityInline" />
+                  <input id="generations" type="range" min="1" max="24" step="1" value="6" aria-describedby="generationCapacityInline" />
                 </label>
                 <label class="control native-knob-control signed-form-range" for="pruningBias">
                   <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
@@ -256,14 +253,6 @@
               <button class="mini-action reset-form" id="centerAngles" type="button" title="Branch angle 90° · Turn asymmetry even · Curls 0">Center angles</button>
               <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
             </div>
-            <section class="recursion-parameter-cluster" id="stochasticControls" aria-labelledby="stochasticParametersTitle" hidden>
-              <h3 class="parameter-cluster-title" id="stochasticParametersTitle">Stochastic branching</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control" for="branchProbability"><span><b>Two-sided branches</b><output id="branchProbabilityOut" for="branchProbability">65%</output></span><input id="branchProbability" type="range" min="0" max="1" step="0.01" value="0.65" title="Probability of the two-sided production. Remaining probability is split between left-only and right-only branches." /></label>
-                <label class="control" for="grammarSeed"><span><b>Branch pattern</b><output id="grammarSeedOut" for="grammarSeed">1</output></span><input id="grammarSeed" type="number" min="0" max="4294967295" step="1" value="1" title="Repeatable branch pattern number; microphone and file input stay unchanged." /></label>
-              </div>
-              <div class="native-form-actions"><button class="mini-action" id="regrowGrammar" type="button">New branch pattern</button></div>
-            </section>
           </div>
         </details>
 
@@ -366,7 +355,7 @@
             </section>
           </div>
         </details>
-        <section class="instrument-page-info" data-tool-id="micmic-rust" aria-label="About L-system Delay" id="instrumentIdentity"></section>
+        <section class="instrument-page-info" data-tool-id="l-system-parametric-lab" aria-label="About L-system Delay" id="instrumentIdentity"></section>
       </aside>
 
       <p class="sr-only" id="treeDescription">Pythagorean Pine. With Audio on, the tree shows available delay branches and sounding release tails. Waves follow signal amplitude; the root follows the input. Audio off shows the complete preset preview.</p>
@@ -375,7 +364,7 @@
     </main>
 
     <script type="module" src="nav.js"></script>
-    <script type="module" src="src/instruments/micmic/native/app.js"></script>
+    <script type="module" src="src/instruments/l-system-parametric-lab/app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

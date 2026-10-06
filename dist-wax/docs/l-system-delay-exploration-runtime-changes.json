@@ -1,0 +1,50 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "0e09a39444c69d18dc400b5c05e8b200cd0f6807",
+  "purpose": "Reverse only the authorized Rust-delay curve and stable stochastic grammar amendments before the frozen module-relocation proof. Lab controllers are new modules outside that historical proof; their site metadata is peeled separately by the exact lab-site reference helper.",
+  "changes": [
+    {
+      "file": "src/instruments/micmic/micmic.js",
+      "reason": "Append six Rust-delay exploration grammars in the separate local bank and add stable lineage-based stochastic expansion and parameter forwarding. Preserve the original eleven-grammar bank and exact prior six-branching amendment.",
+      "regressionTests": [
+        "tests/l-system-delay-grammar-exploration.test.mjs",
+        "tests/l-system-labs-wasm.test.mjs",
+        "e2e/l-system-labs.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  Object.freeze({ id: \"quaternary\", name: \"Four-way canopy\", axiom: \"FX\", rules: Object.freeze({ X: \"[++FX][+FX][-FX][--FX]\" }),\n    iterations: 4, maxIterations: 4, angle: 22.5, lengthScale: 1 }),\n]);\nconst L_SYSTEM_PRESET_BY_ID = new Map(\n  [...L_SYSTEM_PRESETS, ...RUST_BRANCHING_GRAMMARS].map((preset) => [preset.id, preset]),\n);\n\nfunction canonicalTraceIterations(preset, generations) {\n  const requestedGenerations = Math.max(\n",
+          "after": "  Object.freeze({ id: \"quaternary\", name: \"Four-way canopy\", axiom: \"FX\", rules: Object.freeze({ X: \"[++FX][+FX][-FX][--FX]\" }),\n    iterations: 4, maxIterations: 4, angle: 22.5, lengthScale: 1 }),\n]);\n// Authored transcriptions, not additions to the original synth/drum bank.\n// ABOP chapter 1: figs 1.17(a), 1.10(b), 1.6, 1.11(b), and section 1.7.\n// Snake Kolam: official L-studio graphics manual, section 3.1, figure 7.\nexport const RUST_EXPLORATION_GRAMMARS = Object.freeze([\n  Object.freeze({ id: \"peano\", name: \"Peano weave\", axiom: \"X\", rules: Object.freeze({\n    X: \"XFYFX-F-YFXFY+F+XFYFX\", Y: \"YFXFY+F+XFYFX-F-YFXFY\" }),\n    iterations: 4, maxIterations: 4, angle: 90, lengthScale: 1 }),\n  Object.freeze({ id: \"arrowhead\", name: \"Sierpi\u0144ski arrowhead\", axiom: \"Y\", rules: Object.freeze({\n    X: \"Y+X+Y\", Y: \"X-Y-X\" }), drawSymbols: \"XY\",\n    iterations: 7, maxIterations: 7, angle: 60, lengthScale: 1 }),\n  Object.freeze({ id: \"quadratic-koch\", name: \"Quadratic Koch island\", axiom: \"F-F-F-F\", rules: Object.freeze({\n    F: \"F-F+F+FF-F-F+F\" }), iterations: 3, maxIterations: 3, angle: 90, lengthScale: 1 }),\n  Object.freeze({ id: \"kolam\", name: \"Snake Kolam\", axiom: \"FX+F+FX+F\", rules: Object.freeze({\n    X: \"X-F-F+FX+F+FX-F-F+FX\" }), iterations: 5, maxIterations: 5, angle: 90, lengthScale: 1 }),\n  Object.freeze({ id: \"dekking\", name: \"Dekking square curve\", axiom: \"-Y\", rules: Object.freeze({\n    X: \"XX-Y-Y+X+X-Y-YX+Y+XXY-X+Y+XX+Y-XY-Y-X+X+YY-\",\n    Y: \"+XX-Y-Y+X+XY+X-YY-X-Y+XYY-X-YX+X+Y-Y-X+X+YY\" }), drawSymbols: \"XY\",\n    iterations: 3, maxIterations: 3, angle: 90, lengthScale: 1 }),\n  Object.freeze({ id: \"stochastic\", name: \"Stochastic shrub\", axiom: \"F\", rules: Object.freeze({ F: \"F[+F]F[-F]F\" }),\n    weightedRules: Object.freeze({ F: Object.freeze([\"F[+F]F[-F]F\", \"F[+F]F\", \"F[-F]F\"]) }),\n    iterations: 5, maxIterations: 5, angle: 25, lengthScale: 1 }),\n]);\nconst L_SYSTEM_PRESET_BY_ID = new Map(\n  [...L_SYSTEM_PRESETS, ...RUST_BRANCHING_GRAMMARS, ...RUST_EXPLORATION_GRAMMARS].map((preset) => [preset.id, preset]),\n);\n\n// Rust uses the same wrapping FNV steps. A replacement choice\n// depends only on its seed and original symbol lineage, never a frame clock,\n// array position, angle, pitch, time ratio, or other continuous control.\nexport function expandStochasticGrammar(iterations, grammarSeed = 1, branchProbability = .65) {\n  const productions = RUST_EXPLORATION_GRAMMARS.find(grammar => grammar.id === \"stochastic\").weightedRules.F;\n  const seed = Math.round(clamp(Number(grammarSeed) || 0, 0, 0xffffffff)), probability = clamp(branchProbability);\n  let symbols = [{ symbol: \"F\", lineage: \"0\" }];\n  for (let pass = 0; pass < iterations; pass++) {\n    const next = [];\n    for (const { symbol, lineage } of symbols) {\n      if (symbol !== \"F\") { next.push({ symbol, lineage }); continue; }\n      const unit = hashUnit(`grammar:${seed}:${lineage}`);\n      const choice = unit < probability ? 0 : unit < probability + (1 - probability) / 2 ? 1 : 2;\n      const replacement = productions[choice];\n      for (let index = 0; index < replacement.length; index++) {\n        next.push({ symbol: replacement[index], lineage: `${lineage}/${choice}.${index}` });\n      }\n    }\n    symbols = next;\n  }\n  return { instructions: symbols.map(({ symbol }) => symbol).join(\"\"), lineages: symbols.map(({ lineage }) => lineage) };\n}\n\nfunction canonicalTraceIterations(preset, generations) {\n  const requestedGenerations = Math.max(\n"
+        },
+        {
+          "before": "  timeRatio,\n  angle,\n  asymmetry,\n} = {}) {\n  const preset = L_SYSTEM_PRESET_BY_ID.get(lSystemType);\n  if (!preset) return null;\n",
+          "after": "  timeRatio,\n  angle,\n  asymmetry,\n  grammarSeed = 1,\n  branchProbability = .65,\n} = {}) {\n  const preset = L_SYSTEM_PRESET_BY_ID.get(lSystemType);\n  if (!preset) return null;\n"
+        },
+        {
+          "before": "    MIN_CHILD_TIME_RATIO,\n    MAX_CHILD_TIME_RATIO,\n  );\n  const trace = traceLSystem({\n    ...preset,\n    iterations: canonicalTraceIterations(preset, count),\n    angle: clamp(angle, 0, 180),\n    turnAsymmetry: clamp(asymmetry, -0.8, 0.8),\n    lengthScale: visualChildTimeRatio(exactTimeRatio),\n",
+          "after": "    MIN_CHILD_TIME_RATIO,\n    MAX_CHILD_TIME_RATIO,\n  );\n  const stochastic = preset.weightedRules ? expandStochasticGrammar(canonicalTraceIterations(preset, count), grammarSeed, branchProbability) : null;\n  const trace = traceLSystem({\n    ...preset,\n    ...(stochastic ? { axiom: stochastic.instructions, rules: {}, iterations: 0, maxSymbols: stochastic.instructions.length }\n      : { iterations: canonicalTraceIterations(preset, count) }),\n    angle: clamp(angle, 0, 180),\n    turnAsymmetry: clamp(asymmetry, -0.8, 0.8),\n    lengthScale: visualChildTimeRatio(exactTimeRatio),\n"
+        },
+        {
+          "before": "        count,\n        Math.ceil(endProgress * count),\n      ));\n    const id = index === 0 ? \"trunk\" : `${preset.id}:${index}`;\n    const parentId = index === 0\n      ? null\n      : segment.parentIndex === null || segment.parentIndex === 0\n        ? \"trunk\"\n        : `${preset.id}:${segment.parentIndex}`;\n    const turnDegrees = segment.turn * 180 / Math.PI;\n    const lengthVariation = hashUnit(`${id}:length`) * mutationAmount * 0.3;\n\n",
+          "after": "        count,\n        Math.ceil(endProgress * count),\n      ));\n    const segmentId = segmentIndex => stochastic ? `${preset.id}:${stochastic.lineages[trace.segments[segmentIndex].instructionIndex]}` : `${preset.id}:${segmentIndex}`;\n    const id = index === 0 ? \"trunk\" : segmentId(index);\n    const parentId = index === 0\n      ? null\n      : segment.parentIndex === null || segment.parentIndex === 0\n        ? \"trunk\"\n        : segmentId(segment.parentIndex);\n    const turnDegrees = segment.turn * 180 / Math.PI;\n    const lengthVariation = hashUnit(`${id}:length`) * mutationAmount * 0.3;\n\n"
+        },
+        {
+          "before": "  timeRatio = 0.5,\n  angle = 30,\n  asymmetry = 0,\n  maximumPerGeneration = MAX_BRANCHES_PER_GENERATION,\n} = {}) {\n  if (lSystemType !== \"pythagorean\") {\n",
+          "after": "  timeRatio = 0.5,\n  angle = 30,\n  asymmetry = 0,\n  grammarSeed = 1,\n  branchProbability = .65,\n  maximumPerGeneration = MAX_BRANCHES_PER_GENERATION,\n} = {}) {\n  if (lSystemType !== \"pythagorean\") {\n"
+        },
+        {
+          "before": "      timeRatio,\n      angle,\n      asymmetry,\n    });\n    if (canonical?.length) return canonical;\n  }\n",
+          "after": "      timeRatio,\n      angle,\n      asymmetry,\n      grammarSeed,\n      branchProbability,\n    });\n    if (canonical?.length) return canonical;\n  }\n"
+        },
+        {
+          "before": "  asymmetry = 0,\n  pitchScale = 1,\n  pruningBias = 0,\n  maximumVoices = MAX_GENERATION_VOICES,\n} = {}) {\n  const octaveScale = clamp(pitchScale, 0, 4);\n",
+          "after": "  asymmetry = 0,\n  pitchScale = 1,\n  pruningBias = 0,\n  grammarSeed = 1,\n  branchProbability = .65,\n  maximumVoices = MAX_GENERATION_VOICES,\n} = {}) {\n  const octaveScale = clamp(pitchScale, 0, 4);\n"
+        },
+        {
+          "before": "    timeRatio: exactTimeRatio,\n    angle,\n    asymmetry,\n  });\n  const perGeneration = new Map();\n  for (const node of layout.slice(1)) {\n",
+          "after": "    timeRatio: exactTimeRatio,\n    angle,\n    asymmetry,\n    grammarSeed,\n    branchProbability,\n  });\n  const perGeneration = new Map();\n  for (const node of layout.slice(1)) {\n"
+        }
+      ]
+    }
+  ]
+}

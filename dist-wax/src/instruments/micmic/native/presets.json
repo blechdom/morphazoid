@@ -16,7 +16,9 @@
         "pitchScale": 1,
         "pruningBias": 0,
         "depth": 0.72,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -53,7 +55,9 @@
         "pitchScale": 2.4,
         "pruningBias": 0,
         "depth": 0.74,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -90,7 +94,9 @@
         "pitchScale": 3.6,
         "pruningBias": -0.35,
         "depth": 0.62,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -127,7 +133,9 @@
         "pitchScale": 1.7,
         "pruningBias": 0,
         "depth": 0.81,
-        "spread": 0.4
+        "spread": 0.4,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -164,7 +172,9 @@
         "pitchScale": 0.9,
         "pruningBias": 0.35,
         "depth": 0.68,
-        "spread": 0.4
+        "spread": 0.4,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -201,7 +211,9 @@
         "pitchScale": 1.55,
         "pruningBias": 0,
         "depth": 0.71,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.55,
@@ -238,7 +250,9 @@
         "pitchScale": 0.2,
         "pruningBias": 0.35,
         "depth": 0.86,
-        "spread": 0.4
+        "spread": 0.4,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -275,7 +289,9 @@
         "pitchScale": 1.05,
         "pruningBias": -0.35,
         "depth": 0.76,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -312,7 +328,9 @@
         "pitchScale": 0.7,
         "pruningBias": -0.35,
         "depth": 0.84,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.55,
@@ -349,7 +367,9 @@
         "pitchScale": 0.5,
         "pruningBias": -0.35,
         "depth": 0.65,
-        "spread": 0.4
+        "spread": 0.4,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -386,7 +406,9 @@
         "pitchScale": 1,
         "pruningBias": 0.35,
         "depth": 0.62,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -423,7 +445,9 @@
         "pitchScale": 0,
         "pruningBias": -0.35,
         "depth": 0.55,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.55,
@@ -460,7 +484,9 @@
         "pitchScale": 1.2,
         "pruningBias": 0,
         "depth": 0.6,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -497,7 +523,9 @@
         "pitchScale": 0.45,
         "pruningBias": 0.35,
         "depth": 0.88,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.55,
@@ -534,7 +562,9 @@
         "pitchScale": 0.35,
         "pruningBias": -0.35,
         "depth": 0.86,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -571,7 +601,9 @@
         "pitchScale": 0.18,
         "pruningBias": 0.35,
         "depth": 0.94,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -608,7 +640,9 @@
         "pitchScale": 0.8,
         "pruningBias": 0.35,
         "depth": 0.9,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -645,7 +679,9 @@
         "pitchScale": 1.35,
         "pruningBias": 0.25,
         "depth": 0.84,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -682,7 +718,9 @@
         "pitchScale": 0.32,
         "pruningBias": 0.65,
         "depth": 0.92,
-        "spread": 0.72
+        "spread": 0.72,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.76,
@@ -719,7 +757,9 @@
         "pitchScale": 1.2,
         "pruningBias": 0.5,
         "depth": 0.91,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.68,
@@ -756,7 +796,9 @@
         "pitchScale": 0.55,
         "pruningBias": 0.35,
         "depth": 0.83,
-        "spread": 0.82
+        "spread": 0.82,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -793,7 +835,9 @@
         "pitchScale": 0.45,
         "pruningBias": 0.6,
         "depth": 0.88,
-        "spread": 0.78
+        "spread": 0.78,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.76,
@@ -830,7 +874,9 @@
         "pitchScale": 0.8,
         "pruningBias": 0.45,
         "depth": 0.86,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -867,7 +913,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.93,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -904,7 +952,9 @@
         "pitchScale": 1.1,
         "pruningBias": 0.4,
         "depth": 0.87,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.7,
@@ -941,7 +991,9 @@
         "pitchScale": 0.25,
         "pruningBias": 0.55,
         "depth": 0.85,
-        "spread": 0.88
+        "spread": 0.88,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.74,
@@ -978,7 +1030,9 @@
         "pitchScale": 0.18,
         "pruningBias": 0,
         "depth": 0.94,
-        "spread": 0.72
+        "spread": 0.72,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -1015,7 +1069,9 @@
         "pitchScale": 0.32,
         "pruningBias": 0.2,
         "depth": 0.91,
-        "spread": 0.8
+        "spread": 0.8,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -1052,7 +1108,9 @@
         "pitchScale": 0.35,
         "pruningBias": 0,
         "depth": 0.9,
-        "spread": 0.88
+        "spread": 0.88,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -1089,7 +1147,9 @@
         "pitchScale": 0.12,
         "pruningBias": 0.35,
         "depth": 0.88,
-        "spread": 0.45
+        "spread": 0.45,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -1126,7 +1186,9 @@
         "pitchScale": 0.24,
         "pruningBias": 0.25,
         "depth": 0.9,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -1163,7 +1225,9 @@
         "pitchScale": 0.28,
         "pruningBias": 0.3,
         "depth": 0.92,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -1200,7 +1264,9 @@
         "pitchScale": 0.15,
         "pruningBias": 0.45,
         "depth": 0.9,
-        "spread": 0.7
+        "spread": 0.7,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -1237,7 +1303,9 @@
         "pitchScale": 0.12,
         "pruningBias": 0.4,
         "depth": 0.93,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -1274,7 +1342,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.96,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -1311,7 +1381,9 @@
         "pitchScale": 0.22,
         "pruningBias": 0.25,
         "depth": 0.9,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -1348,7 +1420,9 @@
         "pitchScale": 0.1,
         "pruningBias": 0.4,
         "depth": 0.92,
-        "spread": 0.88
+        "spread": 0.88,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -1385,7 +1459,9 @@
         "pitchScale": 1.4,
         "pruningBias": 0.25,
         "depth": 0.73,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.68,
@@ -1422,7 +1498,9 @@
         "pitchScale": 1.8,
         "pruningBias": 0.35,
         "depth": 0.67,
-        "spread": 0.75
+        "spread": 0.75,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -1459,7 +1537,9 @@
         "pitchScale": 1.5,
         "pruningBias": 0.1,
         "depth": 0.7,
-        "spread": 0.88
+        "spread": 0.88,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.68,
@@ -1496,7 +1576,9 @@
         "pitchScale": 0.9,
         "pruningBias": 0.2,
         "depth": 0.66,
-        "spread": 0.6
+        "spread": 0.6,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.62,
@@ -1533,7 +1615,9 @@
         "pitchScale": 2.2,
         "pruningBias": 0.45,
         "depth": 0.71,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.7,
@@ -1570,7 +1654,9 @@
         "pitchScale": 0.8,
         "pruningBias": 0.35,
         "depth": 0.74,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.64,
@@ -1607,7 +1693,9 @@
         "pitchScale": 0.55,
         "pruningBias": 0.6,
         "depth": 0.76,
-        "spread": 0.72
+        "spread": 0.72,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.7,
@@ -1644,7 +1732,9 @@
         "pitchScale": 1.05,
         "pruningBias": 0.45,
         "depth": 0.72,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.66,
@@ -1681,7 +1771,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.78,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.7,
@@ -1718,7 +1810,9 @@
         "pitchScale": 1.6,
         "pruningBias": 0.55,
         "depth": 0.72,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -1755,7 +1849,9 @@
         "pitchScale": 0.65,
         "pruningBias": 0.3,
         "depth": 0.68,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.66,
@@ -1792,7 +1888,9 @@
         "pitchScale": 0.5,
         "pruningBias": 0.35,
         "depth": 0.92,
-        "spread": 0.94
+        "spread": 0.94,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -1829,7 +1927,9 @@
         "pitchScale": 0.4,
         "pruningBias": 0.2,
         "depth": 0.9,
-        "spread": 0.98
+        "spread": 0.98,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -1866,7 +1966,9 @@
         "pitchScale": 0.75,
         "pruningBias": 0.25,
         "depth": 0.87,
-        "spread": 0.92
+        "spread": 0.92,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -1903,7 +2005,9 @@
         "pitchScale": 0.26,
         "pruningBias": 0.4,
         "depth": 0.88,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -1940,7 +2044,9 @@
         "pitchScale": 0.35,
         "pruningBias": 0.25,
         "depth": 0.91,
-        "spread": 0.84
+        "spread": 0.84,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -1977,7 +2083,9 @@
         "pitchScale": 0.45,
         "pruningBias": 0.45,
         "depth": 0.9,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -2014,7 +2122,9 @@
         "pitchScale": 0.22,
         "pruningBias": 0.6,
         "depth": 0.92,
-        "spread": 0.86
+        "spread": 0.86,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2051,7 +2161,9 @@
         "pitchScale": 0.4,
         "pruningBias": 0.35,
         "depth": 0.9,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2088,7 +2200,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.94,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -2125,7 +2239,9 @@
         "pitchScale": 0.2,
         "pruningBias": 0.5,
         "depth": 0.9,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2162,7 +2278,9 @@
         "pitchScale": 0.25,
         "pruningBias": 0.35,
         "depth": 0.86,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -2199,7 +2317,9 @@
         "pitchScale": 0.18,
         "pruningBias": 0.65,
         "depth": 0.93,
-        "spread": 0.8
+        "spread": 0.8,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2236,7 +2356,9 @@
         "pitchScale": 0.3,
         "pruningBias": 0.45,
         "depth": 0.91,
-        "spread": 0.86
+        "spread": 0.86,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2273,7 +2395,9 @@
         "pitchScale": 0.2,
         "pruningBias": 0.35,
         "depth": 0.94,
-        "spread": 0.92
+        "spread": 0.92,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2310,7 +2434,9 @@
         "pitchScale": 0.18,
         "pruningBias": 0.4,
         "depth": 0.9,
-        "spread": 0.75
+        "spread": 0.75,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -2347,7 +2473,9 @@
         "pitchScale": 0.55,
         "pruningBias": 0.3,
         "depth": 0.88,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -2384,7 +2512,9 @@
         "pitchScale": 0.35,
         "pruningBias": 0.6,
         "depth": 0.92,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2421,7 +2551,9 @@
         "pitchScale": 0.12,
         "pruningBias": 0.7,
         "depth": 0.93,
-        "spread": 0.82
+        "spread": 0.82,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.92,
@@ -2458,7 +2590,9 @@
         "pitchScale": 0.3,
         "pruningBias": 0.5,
         "depth": 0.91,
-        "spread": 0.96
+        "spread": 0.96,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2495,7 +2629,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.96,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2532,7 +2668,9 @@
         "pitchScale": 0.22,
         "pruningBias": 0.55,
         "depth": 0.92,
-        "spread": 0.94
+        "spread": 0.94,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2569,7 +2707,9 @@
         "pitchScale": 0.15,
         "pruningBias": 0.4,
         "depth": 0.9,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -2606,7 +2746,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.86,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -2643,7 +2785,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.72,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.7,
@@ -2680,7 +2824,9 @@
         "pitchScale": 0,
         "pruningBias": 0.35,
         "depth": 0.9,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -2717,7 +2863,9 @@
         "pitchScale": 0,
         "pruningBias": 0.4,
         "depth": 0.78,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.74,
@@ -2754,7 +2902,9 @@
         "pitchScale": 0,
         "pruningBias": 0.25,
         "depth": 0.88,
-        "spread": 0.85
+        "spread": 0.85,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.78,
@@ -2791,7 +2941,9 @@
         "pitchScale": 0,
         "pruningBias": 0.45,
         "depth": 0.9,
-        "spread": 0.92
+        "spread": 0.92,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -2828,7 +2980,9 @@
         "pitchScale": 0,
         "pruningBias": 0.6,
         "depth": 0.9,
-        "spread": 0.8
+        "spread": 0.8,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -2865,7 +3019,9 @@
         "pitchScale": 0,
         "pruningBias": 0.35,
         "depth": 0.88,
-        "spread": 0.96
+        "spread": 0.96,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -2902,7 +3058,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.88,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -2939,7 +3097,9 @@
         "pitchScale": 0,
         "pruningBias": 0.45,
         "depth": 0.9,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.84,
@@ -2976,7 +3136,9 @@
         "pitchScale": 0,
         "pruningBias": 0.4,
         "depth": 0.88,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -3013,7 +3175,9 @@
         "pitchScale": 3.5,
         "pruningBias": 0.85,
         "depth": 0.8,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -3050,7 +3214,9 @@
         "pitchScale": 4,
         "pruningBias": 0.75,
         "depth": 0.82,
-        "spread": 0.92
+        "spread": 0.92,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -3087,7 +3253,9 @@
         "pitchScale": 2.6,
         "pruningBias": 0.8,
         "depth": 0.84,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -3124,7 +3292,9 @@
         "pitchScale": 2.8,
         "pruningBias": 0.55,
         "depth": 0.8,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -3161,7 +3331,9 @@
         "pitchScale": 3.2,
         "pruningBias": 0.7,
         "depth": 0.83,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -3198,7 +3370,9 @@
         "pitchScale": 2.4,
         "pruningBias": 0.8,
         "depth": 0.84,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -3235,7 +3409,9 @@
         "pitchScale": 1.9,
         "pruningBias": 0.9,
         "depth": 0.85,
-        "spread": 0.96
+        "spread": 0.96,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -3272,7 +3448,9 @@
         "pitchScale": 2.2,
         "pruningBias": 0.75,
         "depth": 0.82,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -3309,7 +3487,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.9,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -3346,7 +3526,9 @@
         "pitchScale": 3.8,
         "pruningBias": 1,
         "depth": 0.86,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -3383,7 +3565,9 @@
         "pitchScale": 2.5,
         "pruningBias": 0.85,
         "depth": 0.84,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.88,
@@ -3420,7 +3604,9 @@
         "pitchScale": 0.3,
         "pruningBias": 0.65,
         "depth": 0.96,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.96,
@@ -3457,7 +3643,9 @@
         "pitchScale": 0.35,
         "pruningBias": 0.55,
         "depth": 0.94,
-        "spread": 0.94
+        "spread": 0.94,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.92,
@@ -3494,7 +3682,9 @@
         "pitchScale": 0.4,
         "pruningBias": 0.6,
         "depth": 0.94,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3531,7 +3721,9 @@
         "pitchScale": 0.2,
         "pruningBias": 0.65,
         "depth": 0.93,
-        "spread": 0.95
+        "spread": 0.95,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.92,
@@ -3568,7 +3760,9 @@
         "pitchScale": 0.3,
         "pruningBias": 0.6,
         "depth": 0.94,
-        "spread": 0.92
+        "spread": 0.92,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3605,7 +3799,9 @@
         "pitchScale": 0.25,
         "pruningBias": 0.65,
         "depth": 0.94,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3642,7 +3838,9 @@
         "pitchScale": 0.12,
         "pruningBias": 0.8,
         "depth": 0.95,
-        "spread": 0.9
+        "spread": 0.9,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3679,7 +3877,9 @@
         "pitchScale": 0.2,
         "pruningBias": 0.7,
         "depth": 0.94,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.96,
@@ -3716,7 +3916,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.95,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.92,
@@ -3753,7 +3955,9 @@
         "pitchScale": 0.15,
         "pruningBias": 0.7,
         "depth": 0.94,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3790,7 +3994,9 @@
         "pitchScale": 0.12,
         "pruningBias": 0.75,
         "depth": 0.94,
-        "spread": 1
+        "spread": 1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.94,
@@ -3827,7 +4033,9 @@
         "pitchScale": 0.6,
         "pruningBias": 0,
         "depth": 0.38,
-        "spread": 0.45
+        "spread": 0.45,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.5,
@@ -3864,7 +4072,9 @@
         "pitchScale": 0.25,
         "pruningBias": 0,
         "depth": 0.3,
-        "spread": 0.5
+        "spread": 0.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.45,
@@ -3901,7 +4111,9 @@
         "pitchScale": 0.7,
         "pruningBias": 0.2,
         "depth": 0.34,
-        "spread": 0.65
+        "spread": 0.65,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.48,
@@ -3938,7 +4150,9 @@
         "pitchScale": 0.5,
         "pruningBias": 0,
         "depth": 0.42,
-        "spread": 0.6
+        "spread": 0.6,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.52,
@@ -3975,7 +4189,9 @@
         "pitchScale": 0.85,
         "pruningBias": 0.15,
         "depth": 0.38,
-        "spread": 0.7
+        "spread": 0.7,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.48,
@@ -4012,7 +4228,9 @@
         "pitchScale": 1,
         "pruningBias": 0,
         "depth": 0.4,
-        "spread": 0.75
+        "spread": 0.75,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.52,
@@ -4049,7 +4267,9 @@
         "pitchScale": 0.35,
         "pruningBias": 0.35,
         "depth": 0.32,
-        "spread": 0.55
+        "spread": 0.55,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.46,
@@ -4086,7 +4306,9 @@
         "pitchScale": 0.45,
         "pruningBias": 0.2,
         "depth": 0.3,
-        "spread": 0.65
+        "spread": 0.65,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.44,
@@ -4123,7 +4345,9 @@
         "pitchScale": 0,
         "pruningBias": 0,
         "depth": 0.2,
-        "spread": 0
+        "spread": 0,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.38,
@@ -4160,7 +4384,9 @@
         "pitchScale": 0.75,
         "pruningBias": 0.2,
         "depth": 0.45,
-        "spread": 0.8
+        "spread": 0.8,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.54,
@@ -4197,7 +4423,9 @@
         "pitchScale": 0.3,
         "pruningBias": 0.3,
         "depth": 0.4,
-        "spread": 0.75
+        "spread": 0.75,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.5,
@@ -4234,7 +4462,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -4271,7 +4501,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -4308,7 +4540,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -4345,7 +4579,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -4382,7 +4618,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -4419,7 +4657,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -4456,7 +4696,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -4493,7 +4735,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -4530,7 +4774,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -4567,7 +4813,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -4604,7 +4852,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -4641,7 +4891,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -4678,7 +4930,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -4715,7 +4969,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -4752,7 +5008,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -4789,7 +5047,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -4826,7 +5086,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -4863,7 +5125,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 20
+        "angle": 20,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -4900,7 +5164,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -4937,7 +5203,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -4974,7 +5242,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -5011,7 +5281,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -5048,7 +5320,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -5085,7 +5359,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 25.5
+        "angle": 25.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -5122,7 +5398,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -5159,7 +5437,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -5196,7 +5476,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -5233,7 +5515,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -5270,7 +5554,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -5307,7 +5593,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 30
+        "angle": 30,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -5344,7 +5632,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.6,
@@ -5381,7 +5671,9 @@
         "asymmetry": -0.1,
         "curls": 0,
         "mutation": 0.08,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.82,
@@ -5418,7 +5710,9 @@
         "asymmetry": 0.15,
         "curls": 0,
         "mutation": 0.02,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.72,
@@ -5455,7 +5749,9 @@
         "asymmetry": -0.2,
         "curls": 0,
         "mutation": 0.35,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.9,
@@ -5492,7 +5788,9 @@
         "asymmetry": 0.05,
         "curls": 0,
         "mutation": 0.12,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.86,
@@ -5529,7 +5827,9 @@
         "asymmetry": 0,
         "curls": 0,
         "mutation": 0.03,
-        "angle": 22.5
+        "angle": 22.5,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
       },
       "performance": {
         "wet": 0.8,
@@ -5545,6 +5845,1410 @@
           "attackMs": 3,
           "releaseMs": 180,
           "autoMakeup": false
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-1",
+    "label": "Peano Weave · Clear Threads",
+    "description": "Peano Weave: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-2",
+    "label": "Peano Weave · Glass Curl",
+    "description": "Peano Weave: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-3",
+    "label": "Peano Weave · Long Shadows",
+    "description": "Peano Weave: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 90,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-4",
+    "label": "Peano Weave · Fast Prism",
+    "description": "Peano Weave: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 90,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-5",
+    "label": "Peano Weave · Loose Weave",
+    "description": "Peano Weave: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 90,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "peano-exploration-6",
+    "label": "Peano Weave · Unfading Bloom",
+    "description": "Peano Weave: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "peano",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 90,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-1",
+    "label": "Arrowhead Lace · Clear Threads",
+    "description": "Arrowhead Lace: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 60,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-2",
+    "label": "Arrowhead Lace · Glass Curl",
+    "description": "Arrowhead Lace: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 60,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-3",
+    "label": "Arrowhead Lace · Long Shadows",
+    "description": "Arrowhead Lace: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 60,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-4",
+    "label": "Arrowhead Lace · Fast Prism",
+    "description": "Arrowhead Lace: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 60,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-5",
+    "label": "Arrowhead Lace · Loose Weave",
+    "description": "Arrowhead Lace: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 60,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "arrowhead-exploration-6",
+    "label": "Arrowhead Lace · Unfading Bloom",
+    "description": "Arrowhead Lace: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "arrowhead",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 60,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-1",
+    "label": "Square Koch · Clear Threads",
+    "description": "Square Koch: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-2",
+    "label": "Square Koch · Glass Curl",
+    "description": "Square Koch: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-3",
+    "label": "Square Koch · Long Shadows",
+    "description": "Square Koch: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 90,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-4",
+    "label": "Square Koch · Fast Prism",
+    "description": "Square Koch: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 90,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-5",
+    "label": "Square Koch · Loose Weave",
+    "description": "Square Koch: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 90,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "quadratic-koch-exploration-6",
+    "label": "Square Koch · Unfading Bloom",
+    "description": "Square Koch: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "quadratic-koch",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 90,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-1",
+    "label": "Snake Kolam · Clear Threads",
+    "description": "Snake Kolam: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-2",
+    "label": "Snake Kolam · Glass Curl",
+    "description": "Snake Kolam: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-3",
+    "label": "Snake Kolam · Long Shadows",
+    "description": "Snake Kolam: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 90,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-4",
+    "label": "Snake Kolam · Fast Prism",
+    "description": "Snake Kolam: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 90,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-5",
+    "label": "Snake Kolam · Loose Weave",
+    "description": "Snake Kolam: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 90,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "kolam-exploration-6",
+    "label": "Snake Kolam · Unfading Bloom",
+    "description": "Snake Kolam: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "kolam",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 90,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-1",
+    "label": "Dekking Loom · Clear Threads",
+    "description": "Dekking Loom: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-2",
+    "label": "Dekking Loom · Glass Curl",
+    "description": "Dekking Loom: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 90,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-3",
+    "label": "Dekking Loom · Long Shadows",
+    "description": "Dekking Loom: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 90,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-4",
+    "label": "Dekking Loom · Fast Prism",
+    "description": "Dekking Loom: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 90,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-5",
+    "label": "Dekking Loom · Loose Weave",
+    "description": "Dekking Loom: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 90,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "dekking-exploration-6",
+    "label": "Dekking Loom · Unfading Bloom",
+    "description": "Dekking Loom: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "dekking",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 90,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-1",
+    "label": "Chance Shrub · Clear Threads",
+    "description": "Chance Shrub: clear threads. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 13,
+        "intervalMs": 190,
+        "timeRatio": 0.86,
+        "angle": 25,
+        "asymmetry": 0,
+        "curls": 0,
+        "mutation": 0.0,
+        "pitchScale": 0.4,
+        "pruningBias": 0,
+        "depth": 0.9,
+        "spread": 0.1,
+        "grammarSeed": 1,
+        "branchProbability": 0.65
+      },
+      "performance": {
+        "wet": 0.78,
+        "dry": 0.15,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-2",
+    "label": "Chance Shrub · Glass Curl",
+    "description": "Chance Shrub: glass curl. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 11,
+        "intervalMs": 71,
+        "timeRatio": 0.64,
+        "angle": 25,
+        "asymmetry": 0,
+        "curls": 0.65,
+        "mutation": 0.07,
+        "pitchScale": 1.55,
+        "pruningBias": 0.35,
+        "depth": 0.76,
+        "spread": 0.3,
+        "grammarSeed": 147,
+        "branchProbability": 0.4
+      },
+      "performance": {
+        "wet": 0.83,
+        "dry": 0.05,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 3600,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-3",
+    "label": "Chance Shrub · Long Shadows",
+    "description": "Chance Shrub: long shadows. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 10,
+        "intervalMs": 1300,
+        "timeRatio": 1.07,
+        "angle": 25,
+        "asymmetry": 0.16,
+        "curls": -0.35,
+        "mutation": 0.14,
+        "pitchScale": 0.7,
+        "pruningBias": 0.7,
+        "depth": 0.81,
+        "spread": 0.7,
+        "grammarSeed": 891,
+        "branchProbability": 0.8
+      },
+      "performance": {
+        "wet": 0.9,
+        "dry": 0.08,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-4",
+    "label": "Chance Shrub · Fast Prism",
+    "description": "Chance Shrub: fast prism. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 13,
+        "intervalMs": 5,
+        "timeRatio": 0.95,
+        "angle": 25,
+        "asymmetry": -0.12,
+        "curls": 1.2,
+        "mutation": 0.21,
+        "pitchScale": 2.6,
+        "pruningBias": 1,
+        "depth": 0.93,
+        "spread": 1,
+        "grammarSeed": 32017,
+        "branchProbability": 0.9
+      },
+      "performance": {
+        "wet": 0.95,
+        "dry": 0,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": true,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-5",
+    "label": "Chance Shrub · Loose Weave",
+    "description": "Chance Shrub: loose weave. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 8,
+        "intervalMs": 480,
+        "timeRatio": 0.52,
+        "angle": 25,
+        "asymmetry": 0.33,
+        "curls": -1.3,
+        "mutation": 0.28,
+        "pitchScale": 1.2,
+        "pruningBias": 0.2,
+        "depth": 0.66,
+        "spread": 0.4,
+        "grammarSeed": 9713,
+        "branchProbability": 0.2
+      },
+      "performance": {
+        "wet": 0.74,
+        "dry": 0.18,
+        "mastering": {
+          "inputHighpassHz": 55,
+          "highpassHz": 120,
+          "lowpassHz": 7800,
+          "compressorEnabled": true,
+          "thresholdDb": -18,
+          "kneeDb": 5,
+          "ratio": 4,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
+        }
+      }
+    }
+  },
+  {
+    "id": "stochastic-exploration-6",
+    "label": "Chance Shrub · Unfading Bloom",
+    "description": "Chance Shrub: unfading bloom. Complete grammar, timing, pitch, decay, spatial mix and mastering; live input and output gains are retained.",
+    "snapshot": {
+      "parameters": {
+        "lSystemType": "stochastic",
+        "generations": 13,
+        "intervalMs": 280,
+        "timeRatio": 0.78,
+        "angle": 25,
+        "asymmetry": -0.2,
+        "curls": 0.2,
+        "mutation": 0.35,
+        "pitchScale": 0.35,
+        "pruningBias": 0.55,
+        "depth": 1,
+        "spread": 0.6,
+        "grammarSeed": 26281,
+        "branchProbability": 0.95
+      },
+      "performance": {
+        "wet": 0.86,
+        "dry": 0.1,
+        "mastering": {
+          "inputHighpassHz": 0,
+          "highpassHz": 0,
+          "lowpassHz": 0,
+          "compressorEnabled": false,
+          "thresholdDb": -12,
+          "kneeDb": 5,
+          "ratio": 18,
+          "attackMs": 3,
+          "releaseMs": 180,
+          "autoMakeup": true
         }
       }
     }

@@ -239,6 +239,10 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   lastFailure = failure; paintControls(); scheduleDraw();
 }
 const GEOMETRY_PARAMETERS = ['lSystemType', 'generations', 'timeRatio', 'angle', 'asymmetry', 'curls', 'mutation'];
+const LAB_GEOMETRY_PARAMETERS = ['kind', 'iterations', 'lengthRatio', 'angleIncrement', 'branchCount', 'minLength', 'contextStrength', 'symbolRatio'];
+function sameLabGeometry(left, right) {
+  return left && right ? LAB_GEOMETRY_PARAMETERS.every(key => left[key] === right[key]) : left === right;
+}
 async function refreshNativePreview() {
   if (previewRefreshWorking) { previewRefreshDirty = true; return; }
   previewRefreshWorking = true;
@@ -252,7 +256,7 @@ async function refreshNativePreview() {
     if (!targets.length) return;
     const sameShape = nativePreview && GEOMETRY_PARAMETERS.every(key => parameters[key] === nativePreview.parameters[key])
       && parameters.grammarSeed === nativePreview.parameters.grammarSeed && parameters.branchProbability === nativePreview.parameters.branchProbability
-      && JSON.stringify(parameters.lab) === JSON.stringify(nativePreview.parameters.lab);
+      && sameLabGeometry(parameters.lab, nativePreview.parameters.lab);
     const compatible = sameShape && geometry && targets.length === geometry.nodes.length
       && targets.every((node, index) => node.id === geometry.nodes[index].id);
     visualRevision = reply.topologyRevision; previewParameters = { ...parameters };
@@ -883,7 +887,9 @@ for (const key of MASTERING_IDS) {
 // The input/output strips already own their header knobs. Enhance the existing
 // panel controls only, preserving their IDs, native bounds and live listeners.
 for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry', 'voiceCeiling', ...MASTERING_IDS]) {
-  const knob = enhanceRangeKnob($(id), id === 'voiceCeiling' ? { scale: 'log' } : {});
+  const input = $(id);
+  if (input.type !== 'range') continue;
+  const knob = enhanceRangeKnob(input, id === 'voiceCeiling' ? { scale: 'log' } : {});
   parameterKnobs.set(id, knob);
   $(id).addEventListener('blur', () => knob.cancelGesture());
 }
@@ -976,7 +982,8 @@ async function bootstrap() {
     let [reply, bank] = await Promise.all([request('/api/state'), LAB_CONFIG ? Promise.resolve(LAB_CONFIG.presets) : request(new URL('./presets.json', import.meta.url).href)]);
     if (LAB_CONFIG && initialRevision === 0 && parameterRevision === initialRevision) {
       const initial = presetState(LAB_CONFIG.presets[0], state.performance);
-      state.parameters = initial.parameters; state.performance = initial.performance;
+      state.parameters = initial.parameters;
+      if (performanceRevision === 0) state.performance = initial.performance;
       reply = await request('/api/performance', state.performance);
       if (JSON.stringify(reply.parameters) !== JSON.stringify(state.parameters)) reply = await request('/api/parameters', state.parameters);
     } if (disposed) return;

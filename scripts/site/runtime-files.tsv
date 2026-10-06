@@ -1583,3 +1583,6 @@ copy+require	src/instruments/l-system-experiments/app.js
 copy+require	src/instruments/l-system-experiments/config.js
 copy+require	assets/instruments/l-system-parametric-lab.webp
 copy+require	assets/instruments/l-system-experiments.webp
+copy+require	docs/l-system-delay-grammars.md
+copy+require	docs/l-system-labs-models.md
+copy+require	docs/l-system-delay-exploration-runtime-changes.json

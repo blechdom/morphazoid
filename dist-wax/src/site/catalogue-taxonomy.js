@@ -392,6 +392,8 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "recursive"
   ],
   "micmic-rust": ["fractal", "recursive"],
+  "l-system-parametric-lab": ["audio-effect", "fractal", "recursive", "delay"],
+  "l-system-experiments": ["audio-effect", "fractal", "recursive", "delay", "tesselation"],
   "graph-delay": [
     "graph"
   ],
