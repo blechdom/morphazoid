@@ -33,7 +33,8 @@ async function fixture(page) {
   await page.addInitScript(() => {
     const qa = window.__liveSlidersQa = { nodes: [], sources: [], compiles: [], installs: [],
       performanceMessages: [], depthMessages: [], statuses: [], frames: [], inputs: [], recording: false,
-      phase: '', holdCompile: false, pendingCompileReplies: [], longTasks: [], geometryBuilds: [], draws: [] };
+      phase: '', holdCompile: false, pendingCompileReplies: [], longTasks: [], geometryBuilds: [], draws: [],
+      gpuCaptures: [], captureGpu: false };
     const NativeWorker = Worker;
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
       const worker = new Target(...args);
@@ -135,9 +136,50 @@ draw = function (...args) {
     now: started, duration: performance.now() - started, phase: __liveSlidersQa.phase });
   return result;
 };
+if (gpuRenderer) {
+  const qaGpuRender = gpuRenderer.render;
+  gpuRenderer.render = function (...args) {
+    const result = qaGpuRender.apply(this, args);
+    if (result && __liveSlidersQa.captureGpu) {
+      const gl = gpuRenderer.canvas.getContext('webgl2');
+      const pixels = new Uint8Array(gl.drawingBufferWidth * gl.drawingBufferHeight * 4);
+      gl.readPixels(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight, gl.RGBA, gl.UNSIGNED_BYTE, pixels);
+      let coloredPixels = 0, descendantColoredPixels = 0, paintedPixels = 0;
+      const root = geometry?.root, fit = geometry?.fit;
+      const rootColumn = root && fit ? [Math.min(root.startX, root.x) * fit.scale + fit.x - 20,
+        Math.max(root.startX, root.x) * fit.scale + fit.x + 20] : [-Infinity, Infinity];
+      for (let i = 0; i < pixels.length; i += 4) {
+        if (pixels[i + 3] < 20) continue;
+        paintedPixels++;
+        // Descendant cyan/green/purple exceed this chroma. Grey unavailable
+        // branches and the warm white input branch stay below it.
+        if (Math.max(pixels[i], pixels[i + 1], pixels[i + 2])
+            - Math.min(pixels[i], pixels[i + 1], pixels[i + 2]) > 50) {
+          coloredPixels++;
+          const x = (Math.floor(i / 4) % gl.drawingBufferWidth + .5) * geometry.width / gl.drawingBufferWidth;
+          if (x < rootColumn[0] || x > rootColumn[1]) descendantColoredPixels++;
+        }
+      }
+      __liveSlidersQa.gpuCaptures.push({ now: performance.now(), coloredPixels, descendantColoredPixels, paintedPixels,
+        rootColumn, visual: __liveSlidersQa.visual(),
+        depth: previewParameters.depth, limit: state.status.voiceLimit, pending: args[0]?.pending,
+        nodeGains: geometry.nodes.filter(node => node.generation > 0).map(node => [node.id, node.gain, node.priority]),
+        error: gl.getError(), stats: gpuRenderer.stats });
+      __liveSlidersQa.captureGpu = false;
+    }
+    return result;
+  };
+}
 __liveSlidersQa.visual = () => ({ count: geometry?.nodes.length,
   identities: geometry?.nodes.filter(node => node.generation > 0).slice(0, 16)
     .map(node => [node.id, node.voiceIndex, node.priority]),
+  available: geometry ? admittedPreviewNodes(geometry.nodes, state.status.voiceLimit ?? 0)
+    .filter(node => node.generation > 0).length : 0,
+  positiveGains: geometry?.nodes.filter(node => node.generation > 0 && node.gain > 0).length ?? 0,
+  waveCount: geometry?.waves.size ?? 0,
+  descendantWaves: geometry ? [...geometry.waves.values()].filter(wave => wave.signal.generation > 0).length : 0,
+  waveEnergy: Math.max(0, ...tapLevels.values()),
+  gpuStats: gpuRenderer?.stats,
   inputHistoryEnd: inputTelemetry.endTime });
 `;
     await route.fulfill({ response, body: source + hook });
@@ -166,10 +208,14 @@ async function choosePreset(page, id) {
   expect(d.parameters).toEqual(scene.snapshot.parameters);
 }
 
-async function ready(page, id) {
-  await page.goto('/l-mic-rust.html?renderer=canvas');
+async function ready(page, id, { renderer = 'canvas', generations } = {}) {
+  await page.goto(`/l-mic-rust.html?renderer=${renderer}`);
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
   await choosePreset(page, id);
+  if (generations != null) {
+    await sweep(page, 'generations', [generations], { period: 0, hold: false });
+    await expect.poll(async () => (await diagnostics(page)).parameters.generations, { timeout: 30000 }).toBe(generations);
+  }
   await page.locator('#source').selectOption('samples', { force: true });
   await page.locator('#inputSample').selectOption('music-keys', { force: true });
   await expect.poll(async () => (await diagnostics(page)).input.pending).toBe(false);
@@ -182,25 +228,49 @@ async function ready(page, id) {
   return diagnostics(page);
 }
 
-async function sweep(page, id, values, { period = 16, hold = true } = {}) {
-  return page.locator(`#${id}`).evaluate(async (input, { id, values, period, hold }) => {
+async function sweep(page, id, values, { period = 16, hold = true, waitForParameter } = {}) {
+  return page.locator(`#${id}`).evaluate(async (input, { id, values, period, hold, waitForParameter }) => {
     const qa = __liveSlidersQa;
     qa.phase = id;
     const started = performance.now(), before = qa.engine.getDiagnostics();
     const compileCount = qa.compiles.length, performanceCount = qa.performanceMessages.length;
+    let firstCommitAt = null, additionalHeldInputs = 0;
+    const recordCommit = () => {
+      if (waitForParameter && firstCommitAt === null
+        && qa.engine.getDiagnostics().parameters[waitForParameter] !== before.parameters[waitForParameter]) firstCommitAt = performance.now();
+    };
     if (hold) input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 77 }));
     for (const value of values) {
       input.value = String(value); input.dispatchEvent(new Event('input', { bubbles: true }));
       qa.inputs.push({ id, now: performance.now(), value: input.value });
       await new Promise(resolve => setTimeout(resolve, period));
+      recordCommit();
+    }
+    const eventEndedAt = performance.now(), eventCompiles = qa.compiles.length - compileCount;
+    // Keep changing the control every 16 ms until a dense structural commit
+    // arrives. A motionless held pointer could allow a trailing debounce to
+    // fire, while a fixed compile deadline would depend on the device.
+    if (hold && waitForParameter) {
+      while (firstCommitAt === null && performance.now() - eventEndedAt < 30000) {
+        input.value = String(additionalHeldInputs % 2 ? values.at(-1) : values.at(-2));
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        qa.inputs.push({ id, now: performance.now(), value: input.value });
+        additionalHeldInputs++;
+        await new Promise(resolve => setTimeout(resolve, 16)); recordCommit();
+      }
+      if (additionalHeldInputs) {
+        input.value = String(values.at(-1)); input.dispatchEvent(new Event('input', { bubbles: true }));
+        qa.inputs.push({ id, now: performance.now(), value: input.value });
+        await new Promise(resolve => setTimeout(resolve, 16));
+      }
     }
     const held = qa.engine.getDiagnostics();
-    const during = { started, released: performance.now(), before, held,
+    const during = { started, eventEndedAt, eventCompiles, firstCommitAt, additionalHeldInputs, released: performance.now(), before, held,
       compiles: qa.compiles.length - compileCount, performanceMessages: qa.performanceMessages.length - performanceCount };
     if (hold) input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 77 }));
     input.dispatchEvent(new Event('change', { bubbles: true }));
     return during;
-  }, { id, values, period, hold });
+  }, { id, values, period, hold, waitForParameter });
 }
 
 async function evidence(page, before, sweeps) {
@@ -252,7 +322,7 @@ for (const id of ['pythagorean', 'mycelium-crown', 'dragon-filigree']) {
     await expect.poll(async () => (await diagnostics(page)).performance.dry).toBe(.2);
     sweeps.push(await sweep(page, 'thresholdDb', interpolate(-28, -16)));
     await expect.poll(async () => (await diagnostics(page)).performance.mastering.thresholdDb).toBe(-16);
-    const heldAngle = await sweep(page, 'generationAngle', interpolate(24, 68));
+    const heldAngle = await sweep(page, 'generationAngle', interpolate(24, 68), { waitForParameter: 'angle' });
     sweeps.push(heldAngle);
     await expect.poll(async () => (await diagnostics(page)).parameters.angle, { timeout: 30000 }).toBe(68);
     // Rapid values are one final target; integer generations stay discrete.
@@ -261,6 +331,12 @@ for (const id of ['pythagorean', 'mycelium-crown', 'dragon-filigree']) {
     sweeps.push(await sweep(page, 'generationAngle', [18, 72, 31, 48], { period: 0 }));
     sweeps.push(await sweep(page, 'pruningBias', [-.5, .8, -.1, .6], { period: 0 }));
     const generation = before.parameters.generations;
+    sweeps.push(await sweep(page, 'generations', [generation + 1], { period: 0, hold: false }));
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return d.parameters.generations === generation + 1 && d.requestedVoices > before.requestedVoices
+        && d.status.topologyRevision === d.topologyRevision && d.status.targetVoices > 0 && d.status.outputPeak > 1e-5;
+    }, { timeout: 30000 }).toBe(true);
     sweeps.push(await sweep(page, 'generations', [generation - 1, generation, generation - 2, generation], { period: 0 }));
     await expect.poll(async () => {
       const d = await diagnostics(page);
@@ -294,7 +370,9 @@ for (const id of ['pythagorean', 'mycelium-crown', 'dragon-filigree']) {
     expect(sweeps[0].held.parameters.depth).not.toBe(sweeps[0].before.parameters.depth);
     expect(sweeps[1].held.performance.wet).not.toBe(sweeps[1].before.performance.wet);
     expect(heldAngle.held.parameters.angle).not.toBe(heldAngle.before.parameters.angle);
-    expect(heldAngle.compiles).toBeGreaterThan(0);
+    expect(heldAngle.eventCompiles).toBeGreaterThan(0);
+    expect(heldAngle.firstCommitAt).not.toBeNull();
+    expect(heldAngle.firstCommitAt).toBeLessThan(heldAngle.released);
     expect(errors.errors).toEqual([]); expect(errors.consoleErrors).toEqual([]);
     await stop(page);
   });
@@ -331,23 +409,47 @@ test('preset recall supersedes a queued dense topology edit and retains the sour
   await stop(page);
 });
 
-test('zero Depth restores eligible descendants through the coefficient path without a rebuild', async ({ page }) => {
+test('zero Depth restores sounding and visible descendants across an older in-flight compilation', async ({ page }) => {
   test.setTimeout(60000);
   const errors = await fixture(page), before = await ready(page, 'pythagorean');
+  await sweep(page, 'dry', [0], { period: 0, hold: false });
+  await expect.poll(async () => (await diagnostics(page)).performance.dry).toBe(0);
   const counts = await page.evaluate(() => ({ compiles: __liveSlidersQa.compiles.length,
     installs: __liveSlidersQa.installs.length }));
   await sweep(page, 'depth', [0], { period: 0, hold: false });
   await expect.poll(async () => (await diagnostics(page)).parameters.depth).toBe(0);
   const zero = await diagnostics(page);
   expect(zero.eligibleVoices).toBeLessThan(before.eligibleVoices);
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.status.targetVoices === 0 && d.status.outputPeak < 1e-5;
+  }, { timeout: 15000 }).toBe(true);
+  expect(await page.evaluate(() => __liveSlidersQa.visual().available)).toBe(0);
+  expect(await page.evaluate(() => ({ compiles: __liveSlidersQa.compiles.length,
+    installs: __liveSlidersQa.installs.length }))).toEqual(counts);
+  await page.evaluate(() => { __liveSlidersQa.holdCompile = true; });
+  await sweep(page, 'generationAngle', [81], { period: 0, hold: false });
+  await page.waitForFunction(() => __liveSlidersQa.pendingCompileReplies.length > 0, null, { timeout: 30000 });
+  expect(await page.evaluate(() => __liveSlidersQa.compiles.at(-1).parameters.depth)).toBe(0);
   await sweep(page, 'depth', [.9], { period: 0, hold: false });
   await expect.poll(async () => {
     const d = await diagnostics(page);
-    return d.parameters.depth === .9 && d.eligibleVoices === before.eligibleVoices && d.status.outputPeak > 1e-5;
+    return d.parameters.depth === .9 && d.eligibleVoices === before.eligibleVoices
+      && d.status.outputPeak > 1e-5 && Math.max(0, ...d.status.tapActivity) > 1e-5;
   }, { timeout: 15000 }).toBe(true);
+  await page.evaluate(() => {
+    const qa = __liveSlidersQa; qa.holdCompile = false;
+    for (const reply of qa.pendingCompileReplies.splice(0)) reply();
+  });
+  await expect.poll(async () => {
+    const d = await diagnostics(page), visual = await page.evaluate(() => __liveSlidersQa.visual());
+    return d.parameters.angle === 81 && d.parameters.depth === .9 && d.status.topologyRevision === d.topologyRevision
+      && d.status.targetVoices > 0 && d.status.outputPeak > 1e-5
+      && visual.available > 0 && visual.positiveGains > 0 && visual.descendantWaves > 0 && visual.waveEnergy > 1e-5;
+  }, { timeout: 30000 }).toBe(true);
   const final = await diagnostics(page);
   expect(await page.evaluate(() => ({ compiles: __liveSlidersQa.compiles.length,
-    installs: __liveSlidersQa.installs.length }))).toEqual(counts);
+    installs: __liveSlidersQa.installs.length }))).toEqual({ compiles: counts.compiles + 1, installs: counts.installs + 1 });
   expect(final.contextGeneration).toBe(before.contextGeneration); expect(final.sourceStarts).toBe(before.sourceStarts);
   expect(final.status.processedBlocks).toBeGreaterThan(before.status.processedBlocks);
   expect(final.status.inputEnvelope.endTime).toBeGreaterThanOrEqual(before.status.inputEnvelope.endTime);
@@ -397,6 +499,69 @@ test('Depth and Mix reach the live DSP while a structural compilation is pending
   expect(await page.evaluate(() => __liveSlidersQa.compiles.length)).toBeLessThanOrEqual(compiles + 1);
   expect(final.worklets).toBe(1); expect(final.sourceStarts).toBe(before.sourceStarts);
   expect(final.sourceStops).toBe(before.sourceStops); expect(final.error).toBeFalsy();
+  expect(errors.errors).toEqual([]); expect(errors.consoleErrors).toEqual([]);
+  await stop(page);
+});
+
+test('WebGL2 morphs live positions and restores colored descendants without topology uploads for Depth', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = await fixture(page), before = await ready(page, 'spruce-cutting', { renderer: 'webgl2', generations: 4 });
+  // A small real instrument checks the GPU contract without interpreting a
+  // software renderer's performance as the device's audio voice capacity.
+  await expect(page.locator('#stage')).toHaveAttribute('data-renderer', 'webgl2');
+  const initial = await page.evaluate(() => __liveSlidersQa.visual().gpuStats);
+  await sweep(page, 'generationAngle', [78], { period: 0, hold: false });
+  await expect.poll(async () => (await diagnostics(page)).parameters.angle).toBe(78);
+  await expect.poll(async () => (await page.evaluate(() => __liveSlidersQa.visual().gpuStats)).positionUploads
+    - initial.positionUploads).toBeGreaterThan(1);
+  await page.waitForTimeout(250);
+  const morphed = await page.evaluate(() => __liveSlidersQa.visual().gpuStats);
+  expect(morphed.topologyUploads - initial.topologyUploads).toBe(1);
+  expect(morphed.positionUploads - initial.positionUploads).toBeGreaterThan(1);
+  expect(morphed.drawCalls).toBeGreaterThan(initial.drawCalls);
+  await sweep(page, 'dry', [0], { period: 0, hold: false });
+  await expect.poll(async () => (await diagnostics(page)).performance.dry).toBe(0);
+  const capture = async () => {
+    const count = await page.evaluate(() => __liveSlidersQa.gpuCaptures.length);
+    await page.evaluate(() => { __liveSlidersQa.captureGpu = true; });
+    await page.waitForFunction(count => __liveSlidersQa.gpuCaptures.length > count, count);
+    return page.evaluate(() => __liveSlidersQa.gpuCaptures.at(-1));
+  };
+  await sweep(page, 'depth', [0], { period: 0, hold: false });
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.parameters.depth === 0 && d.status.targetVoices === 0 && d.status.outputPeak < 1e-5;
+  }, { timeout: 15000 }).toBe(true);
+  // Release colors follow the same 110 ms display smoothing as the wave. Wait
+  // for its actual tail to finish rather than treating a smoothed tail as a
+  // stale positive gain; the readback also excludes the white-root column.
+  const releasing = await page.evaluate(() => __liveSlidersQa.visual());
+  expect(releasing.positiveGains).toBe(0); expect(releasing.available).toBe(0);
+  await expect.poll(async () => (await page.evaluate(() => __liveSlidersQa.visual())).waveEnergy,
+    { timeout: 5000 }).toBe(0);
+  const silent = await capture();
+  const zeroProbePath = test.info().outputPath('webgl-zero-depth-probe.json');
+  await writeFile(zeroProbePath, JSON.stringify({ releasing, silent }));
+  await test.info().attach('webgl-zero-depth-probe', { path: zeroProbePath, contentType: 'application/json' });
+  expect(silent.error).toBe(0); expect(silent.descendantColoredPixels).toBe(0);
+  expect(silent.visual.positiveGains).toBe(0); expect(silent.visual.available).toBe(0);
+  expect(silent.paintedPixels).toBeGreaterThan(0);
+  await sweep(page, 'depth', [.9], { period: 0, hold: false });
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.parameters.depth === .9 && d.status.targetVoices > 0
+      && d.status.outputPeak > 1e-5 && Math.max(0, ...d.status.tapActivity) > 1e-5;
+  }, { timeout: 15000 }).toBe(true);
+  const restored = await capture(), final = await diagnostics(page);
+  expect(restored.error).toBe(0); expect(restored.descendantColoredPixels).toBeGreaterThan(0);
+  expect(restored.stats.topologyUploads).toBe(morphed.topologyUploads);
+  expect(final.contextGeneration).toBe(before.contextGeneration); expect(final.sourceStarts).toBe(before.sourceStarts);
+  expect(final.sourceStops).toBe(before.sourceStops); expect(final.status.elapsedSeconds).toBeGreaterThan(before.status.elapsedSeconds);
+  const wasmBuild = await (await page.request.get('/assets/wasm/l-system-delay-build.json')).json();
+  const path = test.info().outputPath('webgl-live-morph-evidence.json');
+  await writeFile(path, JSON.stringify({ initial, morphed, releasing, silent, restored, before, final, wasmBuild,
+    actualWasm: true, gpuReadbackConfinedToTwoQaFrames: true, listeningPerformed: false }));
+  await test.info().attach('webgl-live-morph-evidence', { path, contentType: 'application/json' });
   expect(errors.errors).toEqual([]); expect(errors.consoleErrors).toEqual([]);
   await stop(page);
 });
