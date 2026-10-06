@@ -1,7 +1,8 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
+const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
-  'bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
+  ...RUST_BRANCHING_TYPES]);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
   timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
@@ -215,7 +216,7 @@ function binaryNodes(p) {
   return nodes;
 }
 /** Exact connected breadth/depth blend from the original pruning algorithm. */
-export function priorityOrder(voices, bias = 0) {
+export function priorityOrder(voices, bias = 0, rankScale = 1) {
   if (bias <= 0) return voices;
   const byId = new Map(voices.map(n => [n.id, n])), seen = new Set(), deepest = Math.max(0, ...voices.map(n => n.generation));
   const depthOrder = [];
@@ -229,7 +230,8 @@ export function priorityOrder(voices, bias = 0) {
   const breadthRank = new Map(voices.map((n, i) => [n.id, i])), depthRank = new Map(depthOrder.map((n, i) => [n.id, i]));
   const children = new Map(), heap = [], result = [];
   for (const n of voices) { const list = children.get(n.parentId) ?? []; list.push(n); children.set(n.parentId, list); }
-  const compare = (a, b) => (breadthRank.get(a.id) * (1 - bias) + depthRank.get(a.id) * bias) - (breadthRank.get(b.id) * (1 - bias) + depthRank.get(b.id) * bias) || breadthRank.get(a.id) - breadthRank.get(b.id);
+  const priority = n => (breadthRank.get(n.id) * rankScale) * (1 - bias) + (depthRank.get(n.id) * rankScale) * bias;
+  const compare = (a, b) => priority(a) - priority(b) || breadthRank.get(a.id) - breadthRank.get(b.id);
   const push = n => { heap.push(n); let i = heap.length - 1; while (i > 0) { const parent = Math.floor((i - 1) / 2); if (compare(heap[parent], heap[i]) <= 0) break; [heap[parent], heap[i]] = [heap[i], heap[parent]]; i = parent; } };
   const pop = () => { const first = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; while (true) { let smallest = i; const a = i * 2 + 1, b = a + 1; if (a < heap.length && compare(heap[a], heap[smallest]) < 0) smallest = a; if (b < heap.length && compare(heap[b], heap[smallest]) < 0) smallest = b; if (smallest === i) break; [heap[i], heap[smallest]] = [heap[smallest], heap[i]]; i = smallest; } } return first; };
   for (const n of children.get('trunk') ?? []) push(n);
@@ -256,7 +258,11 @@ export function buildPreview(parameters, canonicalTopology) {
     if (n.generation > 0 && delay <= 39 + 1e-9 && n.gain > 0) { voices.push(n); counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1); }
   }
   if (p.lSystemType !== 'pythagorean') voices.sort((a, b) => a.generation - b.generation);
-  priorityOrder(voices, p.pruningBias).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
+  // Preserve the existing eleven previews exactly. New grammars use the
+  // Rust compiler's normalized ranks so floating-point ties admit the same
+  // branch identities in the prepared drawing and the actual audio pool.
+  const rankScale = RUST_BRANCHING_TYPES.includes(p.lSystemType) ? 1 / Math.max(1, voices.length - 1) : 1;
+  priorityOrder(voices, p.pruningBias, rankScale).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
   return nodes;
 }
 /** Continuous preview targets settle in 80 ms even with delayed native replies. */
