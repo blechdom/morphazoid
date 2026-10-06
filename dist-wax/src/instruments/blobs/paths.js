@@ -1,4 +1,4 @@
-import { buildPath, cleanPoints, distance } from './model.js';
+import { buildPath, cleanPoints, distance, clamp } from './model.js';
 import { boundsFromPoints } from '../../geometry.js';
 
 function measure(points) {
@@ -8,6 +8,13 @@ function measure(points) {
     if (i < points.length - 1) cumulativeLengths.push(totalLength);
   }
   return { cumulativeLengths, totalLength };
+}
+// Offsets are expressed in the editor's 0–1 stage, after form and fitting.
+function fitOffset(bounds, offset) {
+  return {
+    x: clamp(Number.isFinite(offset?.x) ? offset.x : 0, (-1 - bounds.minX) / 2, (1 - bounds.maxX) / 2),
+    y: clamp(Number.isFinite(offset?.y) ? offset.y : 0, (-1 - bounds.minY) / 2, (1 - bounds.maxY) / 2),
+  };
 }
 export function rotatePath(path, degrees) {
   if (!degrees) return path;
@@ -53,24 +60,56 @@ export function buildPerformancePath(blob, params) {
     const p = points[index], a = points[(index - 3 + points.length) % points.length], b = points[(index + 3) % points.length];
     return Math.atan2((p.x - a.x) * (b.y - p.y) - (p.y - a.y) * (b.x - p.x), (p.x - a.x) * (b.x - p.x) + (p.y - a.y) * (b.y - p.y)) / Math.PI;
   });
+  const offset = fitOffset(boundsFromPoints(points), blob.offset);
+  for (const p of points) { p.x += offset.x * 2; p.y += offset.y * 2; }
   return {
     points, closed: true, ...measured, bounds: boundsFromPoints(points),
     vertexIndices, vertexDistances: vertexIndices.map(i => measured.cumulativeLengths[i]),
     cornerTurns, cornerStrengths: cornerTurns.map(turn => params.cornerMode === 'even' ? Math.max(.35, Math.abs(turn)) : Math.abs(turn)),
     sides: Math.max(3, vertexIndices.length), vertexCount: vertexIndices.length, shapeType: 'polygon', starDepth: 0,
     curvature: params.curvature, aspect: params.aspect, skew: params.skew, asymmetry: 0, rotationDeg: 0, samplesPerEdge: 16,
-    transform: { sx, sy, skew: params.skew, fit }, anchorIndices, locations: raw.locations,
+    transform: { sx, sy, skew: params.skew, fit, offsetX: offset.x, offsetY: offset.y }, anchorIndices, locations: raw.locations,
   };
 }
 export function transformAnchor(point, path, degrees) {
-  const { sx, sy, skew, fit } = path.transform;
-  const y = (point.y * 2 - 1) * sy / fit, x = ((point.x * 2 - 1) * sx + skew * y * fit) / fit;
+  const { sx, sy, skew, fit, offsetX = 0, offsetY = 0 } = path.transform;
+  const formedY = (point.y * 2 - 1) * sy / fit;
+  const x = (point.x * 2 - 1) * sx / fit + skew * formedY + offsetX * 2, y = formedY + offsetY * 2;
   const a = degrees * Math.PI / 180;
   return { x: (x * Math.cos(a) - y * Math.sin(a) + 1) / 2, y: (x * Math.sin(a) + y * Math.cos(a) + 1) / 2 };
 }
 export function inverseAnchor(point, path, degrees) {
-  const { sx, sy, skew, fit } = path.transform, a = -degrees * Math.PI / 180;
+  const { sx, sy, skew, fit, offsetX = 0, offsetY = 0 } = path.transform, a = -degrees * Math.PI / 180;
   const u = point.x * 2 - 1, v = point.y * 2 - 1;
-  const x = (u * Math.cos(a) - v * Math.sin(a)) * fit, y = (u * Math.sin(a) + v * Math.cos(a)) * fit;
+  const x = (u * Math.cos(a) - v * Math.sin(a) - offsetX * 2) * fit, y = (u * Math.sin(a) + v * Math.cos(a) - offsetY * 2) * fit;
   return { x: ((x - skew * y) / sx + 1) / 2, y: (y / sy + 1) / 2 };
+}
+
+/** Move from a gesture's starting source path without changing authored geometry. */
+export function translateBlob(blob, path, delta) {
+  const { offsetX = 0, offsetY = 0 } = path.transform;
+  const bounds = {
+    minX: path.bounds.minX - offsetX * 2, maxX: path.bounds.maxX - offsetX * 2,
+    minY: path.bounds.minY - offsetY * 2, maxY: path.bounds.maxY - offsetY * 2,
+  };
+  const offset = fitOffset(bounds, {
+    x: offsetX + (Number.isFinite(delta?.x) ? delta.x : 0),
+    y: offsetY + (Number.isFinite(delta?.y) ? delta.y : 0),
+  });
+  return { ...blob, offset };
+}
+
+/** Nonzero winding on the same sampled closed contour that Canvas fills. */
+export function containsPoint(path, unitPoint) {
+  if (!path?.closed || path.points.length < 3 || !Number.isFinite(unitPoint?.x) || !Number.isFinite(unitPoint?.y)) return false;
+  const x = unitPoint.x * 2 - 1, y = unitPoint.y * 2 - 1;
+  let winding = 0;
+  for (let i = 0; i < path.points.length; i++) {
+    const a = path.points[i], b = path.points[(i + 1) % path.points.length];
+    const cross = (b.x - a.x) * (y - a.y) - (b.y - a.y) * (x - a.x);
+    if (Math.abs(cross) < 1e-10 && x >= Math.min(a.x, b.x) - 1e-10 && x <= Math.max(a.x, b.x) + 1e-10 && y >= Math.min(a.y, b.y) - 1e-10 && y <= Math.max(a.y, b.y) + 1e-10) return true;
+    if (a.y <= y && b.y > y && cross > 0) winding++;
+    else if (a.y > y && b.y <= y && cross < 0) winding--;
+  }
+  return winding !== 0;
 }

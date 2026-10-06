@@ -4,6 +4,7 @@ export { normalizeParams, RANGES };
 export const MAX_BLOBS = 6;
 export const MAX_POINTS = 256;
 export const PATH_SAMPLES = 256;
+export const SCENE_VERSION = 4;
 export const COLORS = ['#64e6c4', '#b59aff', '#ffb76b', '#79baff', '#ff86ad', '#d5e879'];
 export const DEFAULTS = Object.freeze(defaultParameters());
 export const clamp = (n, low, high) => Math.max(low, Math.min(high, Number.isFinite(n) ? n : low));
@@ -92,10 +93,17 @@ export function demoBlobs() {
 }
 
 export function normalizeScene(value) {
-  if (![1, 2, 3].includes(value?.version) || !Array.isArray(value.blobs)) return null;
-  const blobs = value.blobs.slice(0, MAX_BLOBS).map(blob => ({ tool: ['pen', 'pencil', 'line'].includes(blob?.tool) ? blob.tool : 'line', points: cleanPoints(blob?.points) })).filter(blob => buildPath(blob));
+  if (![1, 2, 3, SCENE_VERSION].includes(value?.version) || !Array.isArray(value.blobs)) return null;
+  const blobs = value.blobs.slice(0, MAX_BLOBS).map(blob => {
+    const normalized = { tool: ['pen', 'pencil', 'line'].includes(blob?.tool) ? blob.tool : 'line', points: cleanPoints(blob?.points) };
+    if (blob?.offset && typeof blob.offset === 'object') normalized.offset = {
+      x: Number.isFinite(blob.offset.x) ? clamp(blob.offset.x, -1, 1) : 0,
+      y: Number.isFinite(blob.offset.y) ? clamp(blob.offset.y, -1, 1) : 0,
+    };
+    return normalized;
+  }).filter(blob => buildPath(blob));
   const parameters = value.version === 1
     ? { ...value.params, stereoWidth: value.params?.spread ?? 1, traversalDirection: value.params?.reverse ? -1 : 1, amplitudeEnvelopeEnabled: false }
     : value.params;
-  return { version: 3, blobs, params: normalizeParams(parameters) };
+  return { version: SCENE_VERSION, blobs, params: normalizeParams(parameters) };
 }

@@ -2,7 +2,7 @@ import { test, expect } from '@playwright/test';
 import AxeBuilder from '@axe-core/playwright';
 import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from './helpers/audio-probe.mjs';
 
-const scene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v3')));
+const scene = page => page.evaluate(() => JSON.parse(localStorage.getItem('morphazoid:blobs:v4')));
 async function open(page) {
   await page.goto('/blobs.html');
   await expect(page.locator('#selectedBlob option')).toHaveCount(1);

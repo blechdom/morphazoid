@@ -38,7 +38,7 @@ test('drag coordinates round-trip across all reflected, stretched, skewed and ro
 test('old drawings migrate and inserted asymmetric handles survive exact saved-state recall', () => {
   const original = demoBlobs()[0], split = insertPoint(original, 1, .27);
   const scene = normalizeScene({ version: 2, blobs: [split], params: { reflectionAxes: ['vertical', 'diagonal', 'vertical', 'invalid'] } });
-  assert.equal(scene.version, 3);
+  assert.equal(scene.version, 4);
   assert.deepEqual(scene.params.reflectionAxes, ['vertical', 'diagonal']);
   assert.deepEqual(normalizeScene(scene), scene);
   for (let t = 0; t < 1; t += .025) {

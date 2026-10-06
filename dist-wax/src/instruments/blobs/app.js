@@ -1,6 +1,6 @@
-import { MAX_BLOBS, MAX_POINTS, COLORS, clamp, distance, cleanPoints, buildPath, demoBlobs, normalizeScene } from './model.js';
+import { SCENE_VERSION, MAX_BLOBS, MAX_POINTS, COLORS, clamp, distance, cleanPoints, buildPath, demoBlobs, normalizeScene } from './model.js';
 import { defaultParameters, normalizeParams, performanceState } from './parameters.js';
-import { buildPerformancePath, rotatePath, transformAnchor, inverseAnchor } from './paths.js';
+import { buildPerformancePath, rotatePath, transformAnchor, inverseAnchor, containsPoint, translateBlob } from './paths.js';
 import { BLOB_PRESETS, randomizeBlobs } from './presets.js';
 import { handles, insertPoint, removePoint, smoothPoint, nearestSegment } from './vector.js';
 import { expandPaths, reflectionTransforms, reflectPoint, unreflectPoint, rotateUnitPoint } from './symmetry.js';
@@ -18,11 +18,11 @@ const $ = id => document.getElementById(id);
 const canvas = $('stage'), context = canvas.getContext('2d');
 const events = new AbortController();
 const on = (target, type, callback) => target.addEventListener(type, callback, { signal: events.signal });
-const STORAGE_KEY = 'morphazoid:blobs:v3';
-let scene = { version: 3, blobs: demoBlobs(), params: defaultParameters() };
-try { scene = normalizeScene(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('morphazoid:blobs:v2') ?? localStorage.getItem('morphazoid:blobs:v1'))) ?? scene; } catch { /* Storage is optional. */ }
+const STORAGE_KEY = `morphazoid:blobs:v${SCENE_VERSION}`;
+let scene = { version: SCENE_VERSION, blobs: demoBlobs(), params: defaultParameters() };
+try { scene = normalizeScene(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? localStorage.getItem('morphazoid:blobs:v3') ?? localStorage.getItem('morphazoid:blobs:v2') ?? localStorage.getItem('morphazoid:blobs:v1'))) ?? scene; } catch { /* Storage is optional. */ }
 scene.params.autoRotate = false;
-let selected = 0, selectedPoint = 0, selectedCopy = 'identity', basePaths = [], paths = [], tool = 'edit', draft = [], drag = null, undo = [], redo = [];
+let selected = 0, selectedPoint = 0, selectedCopy = 'identity', basePaths = [], paths = [], draftPaths = [], tool = 'edit', draft = [], drag = null, undo = [], redo = [];
 let hover = null, lastEditAudio = -Infinity;
 let audioContext = null, node = null, master = null, releaseOutput = null;
 let armed = false, wanted = false, starting = false, disposed = false, usingAudioClock = false;
@@ -36,8 +36,26 @@ let controls = null, presetController = null;
 const snapshot = () => JSON.stringify(scene);
 const announce = text => { $('drawStatus').textContent = text; };
 const save = () => { try { localStorage.setItem(STORAGE_KEY, snapshot()); } catch { /* Private browsing remains playable. */ } };
-function remember(previous = snapshot()) { undo.push(previous); if (undo.length > 30) undo.shift(); redo = []; }
-function syncAudio() { node?.port.postMessage({ type: 'scene', params: scene.params, paths, clock }); }
+function remember(previous = snapshot(), rotationDelta = 0) { undo.push({ scene: previous, rotationDelta }); if (undo.length > 30) undo.shift(); redo = []; }
+function syncAudio() { node?.port.postMessage({ type: 'scene', params: scene.params, paths: [...paths, ...draftPaths], clock }); }
+function playbackHint() {
+  const moving = clock.playing || clock.rotating;
+  return armed ? moving ? '' : ' Press Play to hear it.' : moving ? ' Turn Audio on to hear it.' : ' Turn Audio on and press Play to hear it.';
+}
+function draftFeedback() {
+  if (!draft.length) return;
+  announce(draftPaths.length ? `Loop preview. Close loop to keep it.${playbackHint()}`
+    : `${draft.length} ${draft.length === 1 ? 'point' : 'points'}. Add at least three distinct points to hear a loop.`);
+}
+function updateDraftPreview(sendAudio = true) {
+  const path = draft.length >= 3 ? buildPerformancePath({ tool, points: cleanPoints(draft) }, scene.params) : null;
+  const sourceIndex = scene.blobs.length;
+  draftPaths = path ? expandPaths([path], scene.params.reflectionAxes).map(copy => ({
+    ...copy, sourceIndex, pathKey: `blob:${sourceIndex}:${copy.reflectionId}`, preview: true,
+  })) : [];
+  lastDrawAt = -Infinity;
+  if (sendAudio) syncAudio();
+}
 function changeClockSource(audio) {
   const before = liveState(); usingAudioClock = audio;
   clock = { ...clock, phase: before.continuousPosition, rotationPhase: before.continuousRotation, time: now() }; syncAudio();
@@ -47,7 +65,8 @@ function rebuild() {
   paths = expandPaths(basePaths, scene.params.reflectionAxes);
   selected = Math.max(0, Math.min(selected, scene.blobs.length - 1));
   selectedPoint = Math.min(selectedPoint, (scene.blobs[selected]?.points.length ?? 1) - 1);
-  syncAudio(); refresh(); save();
+  updateDraftPreview(false);
+  syncAudio(); refresh(); save(); lastDrawAt = -Infinity;
 }
 function refresh() {
   controls?.refresh(liveState()); presetController?.refresh();
@@ -75,6 +94,19 @@ function rebase() {
   clock = { ...clock, phase: before.continuousPosition, rotationPhase: before.continuousRotation, time: now() };
   return before;
 }
+function rotateBy(degrees) {
+  const before = rebase(), previous = clock.rotationPhase;
+  if (scene.params.rotationMotionMode === 'pingpong') {
+    const angle = wrap01((before.rotation + degrees + 180) / 360) * 360 - 180;
+    clock.rotationPhase = rebasePingPongPosition(previous, (angle + 180) / 360);
+  } else clock.rotationPhase += degrees / 360;
+  // History stores phase displacement, so undo preserves elapsed live motion.
+  return clock.rotationPhase - previous;
+}
+function shiftRotationPhase(delta) {
+  if (!delta) return;
+  rebase(); clock.rotationPhase += delta;
+}
 function changeParameters(patch) {
   if (drag) cancelGesture();
   const before = rebase(), previous = scene.params;
@@ -94,13 +126,14 @@ function changeParameters(patch) {
   rebuild();
 }
 function command(name, value) {
+  if (drag) cancelGesture();
   rebase();
   if (name === 'play') clock.playing = !clock.playing;
   if (name === 'rotationPlay') { clock.rotating = !clock.rotating; scene.params.autoRotate = clock.rotating; }
   if (name === 'position') clock.phase = scene.params.motionMode === 'pingpong' ? rebasePingPongPosition(clock.phase, value) : rebaseContinuousPosition(clock.phase, wrap01(clock.phase), value);
   if (name === 'rotation') clock.rotationPhase = scene.params.rotationMotionMode === 'pingpong' ? rebasePingPongPosition(clock.rotationPhase, (value + 180) / 360) : rebaseContinuousPosition(clock.rotationPhase, wrap01(clock.rotationPhase), wrap01(value / 360));
-  if (name === 'resetDemo') { remember(); applyScene({ version: 3, blobs: demoBlobs(), params: defaultParameters() }); announce('Demo restored.'); return; }
-  syncAudio(); refresh(); save();
+  if (name === 'resetDemo') { remember(); applyScene({ version: SCENE_VERSION, blobs: demoBlobs(), params: defaultParameters() }); announce('Demo restored.'); return; }
+  syncAudio(); refresh(); save(); draftFeedback();
 }
 function applyScene(next) {
   const normalized = normalizeScene(next);
@@ -117,6 +150,7 @@ function refreshAudio() {
   $('audioButton').setAttribute('aria-pressed', String(armed));
   $('audioButton').classList.toggle('active', armed);
   $('audioState').textContent = starting ? 'starting' : armed ? 'on' : 'off';
+  draftFeedback();
 }
 function updateLevel() {
   const level = clamp(Number($('level').value), 0, 1);
@@ -179,18 +213,19 @@ function finishPath() {
   if (!buildPath(blob)) { announce('Add at least three distinct points to make a loop.'); return; }
   if (scene.blobs.length >= MAX_BLOBS) { announce('Six blobs maximum. Delete a blob to draw another.'); return; }
   remember(); scene.blobs.push(blob); selected = scene.blobs.length - 1; selectedPoint = 0; selectedCopy = 'identity';
-  draft = []; drag = null; rebuild(); announce(`${scene.blobs.length} closed ${scene.blobs.length === 1 ? 'blob' : 'blobs'}`);
+  draft = []; drag = null; rebuild(); announce(`${scene.blobs.length} closed ${scene.blobs.length === 1 ? 'blob' : 'blobs'}.${playbackHint()}`);
 }
-function cancelDraft() { draft = []; drag = null; refresh(); announce('Drawing cancelled.'); }
+function cancelDraft() { draft = []; drag = null; updateDraftPreview(); refresh(); announce('Drawing cancelled.'); }
 function chooseTool(next) {
   if (drag) cancelGesture();
   draft = []; tool = next; keyboardCursor = false; hover = null;
+  updateDraftPreview();
   for (const button of document.querySelectorAll('[data-tool]')) button.setAttribute('aria-pressed', String(button.dataset.tool === tool));
   $('drawingHelp').textContent = {
     pencil: 'Draw a stroke; release to connect its ends.',
-    pen: 'Click points; drag for curves. Return to the first point to close.',
-    line: 'Click connected corners. Return to the first point to close.',
-    edit: 'Drag points or handles. Double-click a line to add a point. Delete removes the selected point.',
+    pen: 'Click points; drag for curves. Three points preview a loop. Return to the first point or Close loop to keep it.',
+    line: 'Click connected corners. Three points preview a loop. Return to the first point or Close loop to keep it.',
+    edit: 'Drag inside a blob to move it. Drag outside to rotate all blobs. Double-click a line to add a point; double-click a point to delete it.',
   }[tool];
   canvas.style.cursor = tool === 'edit' ? 'default' : 'crosshair';
   refresh();
@@ -204,6 +239,9 @@ function editorPoint(point, path, rotation = liveState().rotation) {
 }
 function sourcePoint(point, path, rotation = liveState().rotation) {
   return inverseAnchor(unreflectPoint(rotateUnitPoint(point, -rotation), path.reflection), path, 0);
+}
+function unreflectedPoint(point, path, rotation = liveState().rotation) {
+  return unreflectPoint(rotateUnitPoint(point, -rotation), path.reflection);
 }
 function selectedPath() { return paths.find(path => path.sourceIndex === selected && path.reflectionId === selectedCopy) ?? paths.find(path => path.sourceIndex === selected); }
 function selectHit(hit) { selected = hit.blob; selectedPoint = hit.point; selectedCopy = hit.path.reflectionId; refresh(); }
@@ -230,7 +268,9 @@ function nearestPoint(point, radius = 10 / stageSize) {
 function nearestLine(point, radius = 10 / stageSize) {
   let hit = null, best = radius;
   const rotation = liveState().rotation;
+  const local = rotateUnitPoint(point, -rotation), x = local.x * 2 - 1, y = local.y * 2 - 1;
   for (const path of paths) {
+    if (x < path.bounds.minX - radius * 2 || x > path.bounds.maxX + radius * 2 || y < path.bounds.minY - radius * 2 || y > path.bounds.maxY + radius * 2) continue;
     const blob = scene.blobs[path.sourceIndex];
     if (!scene.params.curvature) {
       const found = nearestSegment(blob, point, { transform: p => editorPoint(p, path, rotation), maxDistance: best });
@@ -252,6 +292,23 @@ function nearestLine(point, radius = 10 / stageSize) {
   }
   return hit;
 }
+function bodyAt(point) {
+  const local = rotateUnitPoint(point, -liveState().rotation);
+  const x = local.x * 2 - 1, y = local.y * 2 - 1;
+  // Last painted fill wins where loops overlap. Test the actual curved outline.
+  for (let i = paths.length - 1; i >= 0; i--) {
+    const path = paths[i];
+    if (x < path.bounds.minX || x > path.bounds.maxX || y < path.bounds.minY || y > path.bounds.maxY) continue;
+    if (containsPoint(path, local)) return { blob: path.sourceIndex, path, kind: 'body' };
+  }
+  return null;
+}
+function updateCursor() {
+  if (tool !== 'edit') { canvas.style.cursor = 'crosshair'; return; }
+  if (drag) { canvas.style.cursor = 'grabbing'; return; }
+  hover = nearestPoint(cursor);
+  canvas.style.cursor = hover || bodyAt(cursor) || nearestLine(cursor) ? 'grab' : scene.blobs.length ? 'crosshair' : 'default';
+}
 function commitBlob(next, message, point = selectedPoint) {
   if (!next || !buildPath(next) || cleanPoints(next.points).length !== next.points.length) { announce('Keep at least three distinct points in the loop.'); return false; }
   remember(); scene.blobs[selected] = next; selectedPoint = point; rebuild(); announce(message); return true;
@@ -269,10 +326,13 @@ function deleteSelectedPoint() {
 }
 function stepHistory(forward = false) {
   if (drag) cancelGesture();
-  if (draft.length && !forward) { draft = []; refresh(); announce('Draft removed.'); return; }
+  if (draft.length && !forward) { draft = []; updateDraftPreview(); refresh(); announce('Draft removed.'); return; }
   const source = forward ? redo : undo, target = forward ? undo : redo;
   if (!source.length) return;
-  target.push(snapshot()); applyScene(JSON.parse(source.pop())); announce(forward ? 'Change redone.' : 'Change undone.');
+  const entry = source.pop();
+  target.push({ scene: snapshot(), rotationDelta: -entry.rotationDelta });
+  applyScene(JSON.parse(entry.scene)); shiftRotationPhase(entry.rotationDelta);
+  syncAudio(); refresh(); updateCursor(); announce(forward ? 'Change redone.' : 'Change undone.');
 }
 on(canvas, 'pointerdown', event => {
   if (event.button !== 0 || drag || (tool === 'edit' && event.detail > 1)) return;
@@ -280,37 +340,60 @@ on(canvas, 'pointerdown', event => {
   const p = pointerPoint(event); cursor = p;
   if (tool === 'edit') {
     const hit = nearestPoint(p, (event.pointerType === 'touch' ? 20 : 10) / stageSize);
-    if (!hit) {
-      const line = nearestLine(p); if (line) { selected = line.blob; selectedCopy = line.path.reflectionId; selectedPoint = line.segment; refresh(); }
-      else announce('Drag a point, or double-click a line to add one.');
-      return;
+    if (hit) {
+      selectHit(hit);
+      const local = sourcePoint(p, hit.path), anchor = scene.blobs[selected].points[selectedPoint];
+      drag = { id: event.pointerId, before: snapshot(), moved: false, kind: hit.kind, start: p, offset: { x: anchor.x - local.x, y: anchor.y - local.y }, original: { ...anchor } };
+    } else {
+      const line = nearestLine(p), body = line ?? bodyAt(p);
+      if (body) {
+        selected = body.blob; selectedCopy = body.path.reflectionId; selectedPoint = line?.segment ?? 0; refresh();
+        drag = { id: event.pointerId, before: snapshot(), moved: false, kind: 'body', start: p, path: body.path, basePath: basePaths[selected], original: scene.blobs[selected], origin: unreflectedPoint(p, body.path) };
+      } else if (scene.blobs.length) {
+        drag = { id: event.pointerId, before: snapshot(), moved: false, kind: 'rotate', start: p, angle: distance(p, { x: .5, y: .5 }) * stageSize >= 12 ? Math.atan2(p.y - .5, p.x - .5) : null, rotationDelta: 0 };
+      } else return;
     }
-    selectHit(hit);
-    const local = sourcePoint(p, hit.path), anchor = scene.blobs[selected].points[selectedPoint];
-    drag = { id: event.pointerId, before: snapshot(), moved: false, kind: hit.kind, start: p, offset: { x: anchor.x - local.x, y: anchor.y - local.y }, original: { ...anchor } };
     canvas.style.cursor = 'grabbing';
   } else {
     if (scene.blobs.length >= MAX_BLOBS) { announce('Six blobs maximum. Delete a blob to draw another.'); return; }
+    if (tool !== 'pencil' && draft.length >= 3 && draftPaths.some(path => distance(p, editorPoint(draft[0], path)) < 18 / stageSize)) { finishPath(); return; }
     Object.assign(p, rotateUnitPoint(p, -liveState().rotation));
     p.x = clamp(p.x, .02, .98); p.y = clamp(p.y, .02, .98);
-    if (draft.length >= 3 && distance(p, draft[0]) < 18 / stageSize && tool !== 'pencil') { finishPath(); return; }
     if (tool === 'pencil') draft = [];
     if (draft.length >= MAX_POINTS && tool !== 'pencil') { announce('Point limit reached. Close this loop.'); return; }
     const previous = draft.length;
     draft.push(p); drag = { id: event.pointerId, previous };
-    refresh();
+    updateDraftPreview(); refresh(); draftFeedback();
   }
   canvas.setPointerCapture(event.pointerId);
 });
 on(canvas, 'pointermove', event => {
+  if (drag && drag.id !== event.pointerId) return;
   cursor = pointerPoint(event);
   if (!drag) {
-    if (tool === 'edit') { hover = nearestPoint(cursor); canvas.style.cursor = hover ? 'grab' : 'default'; }
+    updateCursor();
     return;
   }
-  if (drag.id !== event.pointerId) return;
   if (tool === 'edit') {
     if (!drag.moved && distance(cursor, drag.start) * stageSize < 2) return;
+    if (drag.kind === 'rotate') {
+      if (distance(cursor, { x: .5, y: .5 }) * stageSize < 12) { drag.angle = null; return; }
+      const angle = Math.atan2(cursor.y - .5, cursor.x - .5);
+      if (drag.angle !== null) {
+        const delta = Math.atan2(Math.sin(angle - drag.angle), Math.cos(angle - drag.angle)) * 180 / Math.PI;
+        drag.rotationDelta += rotateBy(delta); drag.moved ||= Math.abs(delta) > 1e-8;
+      }
+      drag.angle = angle;
+      if (performance.now() - lastEditAudio > 24) { syncAudio(); lastEditAudio = performance.now(); }
+      return;
+    }
+    if (drag.kind === 'body') {
+      const local = unreflectedPoint(cursor, drag.path);
+      scene.blobs[selected] = translateBlob(drag.original, drag.basePath, { x: local.x - drag.origin.x, y: local.y - drag.origin.y });
+      drag.moved = true; basePaths[selected] = buildPerformancePath(scene.blobs[selected], scene.params); paths = expandPaths(basePaths, scene.params.reflectionAxes);
+      if (performance.now() - lastEditAudio > 24) { syncAudio(); lastEditAudio = performance.now(); }
+      return;
+    }
     const path = selectedPath(), p = scene.blobs[selected].points[selectedPoint], local = sourcePoint(cursor, path);
     const previous = { ...p };
     if (drag.kind === 'anchor') { p.x = clamp(local.x + drag.offset.x, .02, .98); p.y = clamp(local.y + drag.offset.y, .02, .98); }
@@ -338,37 +421,61 @@ on(canvas, 'pointermove', event => {
   } else if (tool === 'pen') {
     const p = draft.at(-1), local = rotateUnitPoint(cursor, -liveState().rotation); p.hx = clamp(local.x - p.x, -.3, .3); p.hy = clamp(local.y - p.y, -.3, .3);
   }
+  if (tool !== 'edit' && performance.now() - lastEditAudio > 24) {
+    updateDraftPreview(); draftFeedback(); lastEditAudio = performance.now();
+  }
 });
 on(canvas, 'pointerup', event => {
   if (!drag || drag.id !== event.pointerId) return;
   const finished = drag; drag = null;
   if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
-  if (tool === 'edit') { if (finished.moved) remember(finished.before); rebuild(); canvas.style.cursor = 'grab'; }
-  else if (tool === 'pencil') { finishPath(); if (draft.length) { draft = []; refresh(); } }
-  else refresh();
+  if (tool === 'edit') {
+    if (finished.moved) remember(finished.before, -(finished.rotationDelta ?? 0));
+    rebuild(); updateCursor();
+    if (finished.moved && finished.kind === 'body') announce(`Blob ${selected + 1} moved.`);
+    if (finished.moved && finished.kind === 'rotate') announce(`All blobs rotated to ${Math.round(liveState().rotation)} degrees.`);
+  }
+  else if (tool === 'pencil') { finishPath(); if (draft.length) { draft = []; updateDraftPreview(); refresh(); } }
+  else { updateDraftPreview(); refresh(); draftFeedback(); }
 });
 on(canvas, 'dblclick', event => {
   if (tool !== 'edit') return;
   event.preventDefault();
   const point = pointerPoint(event);
-  if (nearestPoint(point, 7 / stageSize)?.kind === 'anchor') return;
-  addPoint(nearestLine(point, 14 / stageSize));
+  const hit = nearestPoint(point, 10 / stageSize);
+  if (hit?.kind === 'anchor') { selectHit(hit); deleteSelectedPoint(); }
+  else if (!hit) addPoint(nearestLine(point, 14 / stageSize));
+  updateCursor();
 });
 function cancelGesture() {
   if (!drag) return;
   const cancelled = drag; drag = null;
-  if (tool === 'edit') { scene = normalizeScene(JSON.parse(cancelled.before)); rebuild(); }
-  else { draft = tool === 'pencil' ? [] : draft.slice(0, cancelled.previous); refresh(); }
+  if (tool === 'edit') { scene = normalizeScene(JSON.parse(cancelled.before)); shiftRotationPhase(-(cancelled.rotationDelta ?? 0)); rebuild(); updateCursor(); }
+  else { draft = tool === 'pencil' ? [] : draft.slice(0, cancelled.previous); updateDraftPreview(); refresh(); draftFeedback(); }
   if (canvas.hasPointerCapture(cancelled.id)) canvas.releasePointerCapture(cancelled.id);
 }
 on(canvas, 'pointercancel', cancelGesture);
 on(canvas, 'lostpointercapture', cancelGesture);
-on(canvas, 'pointerleave', () => { hover = null; });
+on(canvas, 'pointerleave', () => { hover = null; if (!drag) canvas.style.cursor = 'default'; });
 on(canvas, 'keydown', event => {
   if (event.defaultPrevented) return;
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); stepHistory(event.shiftKey); return; }
-  if (event.ctrlKey || event.metaKey || event.altKey) return;
+  if (event.ctrlKey || event.metaKey) return;
   const blob = scene.blobs[selected];
+  if (tool === 'edit' && event.altKey && event.key.startsWith('Arrow') && blob) {
+    event.preventDefault();
+    if (drag) cancelGesture();
+    const path = selectedPath(), step = event.shiftKey ? .04 : .01;
+    const start = { x: .5, y: .5 }, end = { x: .5 + (event.key === 'ArrowRight' ? step : event.key === 'ArrowLeft' ? -step : 0), y: .5 + (event.key === 'ArrowDown' ? step : event.key === 'ArrowUp' ? -step : 0) };
+    const a = unreflectedPoint(start, path), b = unreflectedPoint(end, path);
+    remember(); scene.blobs[selected] = translateBlob(scene.blobs[selected], basePaths[selected], { x: b.x - a.x, y: b.y - a.y }); rebuild(); updateCursor(); announce(`Blob ${selected + 1} moved.`); return;
+  }
+  if (event.altKey) return;
+  if (tool === 'edit' && ['BracketLeft', 'BracketRight'].includes(event.code) && scene.blobs.length) {
+    event.preventDefault(); if (drag) cancelGesture();
+    const previous = snapshot(), delta = rotateBy((event.shiftKey ? 45 : 15) * (event.code === 'BracketLeft' ? -1 : 1));
+    remember(previous, -delta); syncAudio(); refresh(); updateCursor(); announce(`All blobs rotated to ${Math.round(liveState().rotation)} degrees.`); return;
+  }
   if (tool === 'edit' && ['Delete', 'Backspace'].includes(event.key)) { event.preventDefault(); deleteSelectedPoint(); return; }
   if (tool === 'edit' && event.key === 'Enter' && blob) { event.preventDefault(); addPoint({ blob: selected, path: selectedPath(), segment: selectedPoint, t: .5 }); return; }
   if (tool === 'edit' && event.key === 'Tab' && blob) {
@@ -390,7 +497,7 @@ on(canvas, 'keydown', event => {
   } else if (event.key === 'Enter' && tool !== 'edit') {
     event.preventDefault();
     if (scene.blobs.length >= MAX_BLOBS || draft.length >= MAX_POINTS) return;
-    draft.push({ ...rotateUnitPoint(cursor, -liveState().rotation), hx: tool === 'pen' ? .065 : 0, hy: 0 }); refresh();
+    draft.push({ ...rotateUnitPoint(cursor, -liveState().rotation), hx: tool === 'pen' ? .065 : 0, hy: 0 }); updateDraftPreview(); refresh(); draftFeedback();
   } else if (event.key.toLowerCase() === 'c' && draft.length) { event.preventDefault(); finishPath(); }
   else if (event.key === 'Escape') { event.preventDefault(); cancelGesture(); if (draft.length) cancelDraft(); }
 });
@@ -411,7 +518,7 @@ on($('redo'), 'click', () => stepHistory(true));
 on($('deletePoint'), 'click', deleteSelectedPoint);
 on($('insertPoint'), 'click', () => { if (scene.blobs.length) addPoint({ blob: selected, path: selectedPath(), segment: selectedPoint, t: .5 }); });
 on($('deleteBlob'), 'click', () => { if (!scene.blobs.length) return; remember(); scene.blobs.splice(selected, 1); rebuild(); announce('Blob deleted.'); });
-on($('clearAll'), 'click', () => { remember(); scene.blobs = []; draft = []; rebuild(); chooseTool('pencil'); announce('Canvas cleared. Draw a new blob.'); });
+on($('clearAll'), 'click', () => { if (drag) cancelGesture(); remember(); scene.blobs = []; draft = []; rebuild(); chooseTool('pencil'); announce('Canvas cleared. Draw a new blob.'); });
 for (const id of ['cornerPoint', 'smoothPoint']) on($(id), 'click', () => {
   const blob = scene.blobs[selected]; if (!blob || tool !== 'edit') return;
   commitBlob(smoothPoint(blob, selectedPoint, id === 'smoothPoint'), id === 'smoothPoint' ? 'Selected point smoothed.' : 'Selected point is a corner.');
@@ -427,9 +534,12 @@ on($('clearSymmetry'), 'click', () => { remember(); changeParameters({ reflectio
 function resize() {
   const sizing = canvasSizing(canvas.getBoundingClientRect(), devicePixelRatio);
   width = sizing.cssWidth; height = sizing.cssHeight; ratio = sizing.pixelRatio;
-  canvas.width = sizing.width; canvas.height = sizing.height;
+  // Assigning either bitmap dimension clears the canvas, even if unchanged.
+  if (canvas.width !== sizing.width) canvas.width = sizing.width;
+  if (canvas.height !== sizing.height) canvas.height = sizing.height;
   stageSize = Math.max(1, Math.min(width - 32, height - 92));
   offsetX = (width - stageSize) / 2; offsetY = 58 + (height - 92 - stageSize) / 2;
+  lastDrawAt = -Infinity;
 }
 function drawDot(p, size, fill, stroke) {
   context.beginPath(); context.arc(offsetX + p.x * stageSize, offsetY + p.y * stageSize, size, 0, Math.PI * 2);
@@ -445,7 +555,7 @@ function draw(timestamp = performance.now()) {
   if (disposed) return;
   frame = requestAnimationFrame(draw);
   // Leave CPU time for sound when many intersections make a drawing expensive.
-  const interval = document.hidden ? 250 : Math.max(drag ? 16 : paths.length * scene.params.heads > 24 ? 50 : 16, drawCost * 4);
+  const interval = document.hidden ? 250 : Math.max(drag ? 16 : (paths.length + draftPaths.length) * scene.params.heads > 24 ? 50 : 16, drawCost * 4);
   if (timestamp - lastDrawAt < interval - 1) return;
   lastDrawAt = timestamp;
   const started = performance.now();
@@ -464,17 +574,19 @@ function draw(timestamp = performance.now()) {
     for (const axis of scene.params.reflectionAxes) { trace(axes[axis].map(p => rotateUnitPoint(p, state.rotation)), false); context.stroke(); }
     context.setLineDash([]); drawDot({ x: .5, y: .5 }, 3, '#b59aff');
   }
-  paths.forEach(basePath => {
+  const visiblePaths = [...paths, ...draftPaths];
+  visiblePaths.forEach(basePath => {
     const index = basePath.sourceIndex;
     const path = rotatePath(basePath, state.rotation), color = COLORS[index], points = path.points.map(toScreen);
     trace(points, true); context.fillStyle = `${color}10`; context.fill();
-    context.strokeStyle = color; context.lineWidth = index === selected ? 2.5 : 1.5; context.stroke();
+    context.setLineDash(basePath.preview ? [5, 4] : []);
+    context.strokeStyle = color; context.lineWidth = index === selected || basePath.preview ? 2.5 : 1.5; context.stroke(); context.setLineDash([]);
     for (const vertex of path.vertexIndices) drawDot(toScreen(path.points[vertex]), 2.5, '#ffb86b');
-    if (tool === 'edit') scene.blobs[index].points.forEach((p, i) => {
+    if (!basePath.preview && tool === 'edit') scene.blobs[index].points.forEach((p, i) => {
       const active = index === selected && i === selectedPoint, handle = hover?.blob === index && hover?.point === i;
       drawDot(editorPoint(p, basePath, state.rotation), active ? 6 : handle ? 5 : 3.5, active ? color : '#10171d', color);
     });
-    if (tool === 'edit' && index === selected && basePath.reflectionId === (selectedPath()?.reflectionId) && scene.blobs[index].tool === 'pen') {
+    if (!basePath.preview && tool === 'edit' && index === selected && basePath.reflectionId === (selectedPath()?.reflectionId) && scene.blobs[index].tool === 'pen') {
       const p = scene.blobs[index].points[selectedPoint], anchor = editorPoint(p, basePath, state.rotation);
       for (const handle of Object.values(handles(p))) {
         if (Math.hypot(handle.x, handle.y) < .0001) continue;
@@ -491,30 +603,33 @@ function draw(timestamp = performance.now()) {
         : state.playMethod === 'radial' ? [{ x: 0, y: 0 }, { x: Math.cos(head.angle), y: Math.sin(head.angle) }] : null;
       if (guide) { trace(guide.map(toScreen), false); context.strokeStyle = `${color}60`; context.lineWidth = 1; context.stroke(); }
     }
-    const stride = Math.max(1, Math.ceil(reading.contacts.length / Math.max(12, 96 / paths.length)));
+    const stride = Math.max(1, Math.ceil(reading.contacts.length / Math.max(12, 96 / visiblePaths.length)));
     for (let i = 0; i < reading.contacts.length; i += stride) { const contact = reading.contacts[i], p = toScreen(contact); drawDot(p, 10, `${color}20`); drawDot(p, 4, contact.headIndex === 0 ? '#f1fff9' : color, '#080c10'); }
   });
   const mapping = firstContact ? sound.mappingForContact(firstContact, firstPath) : null;
   if (timestamp - lastReadoutAt >= 100) {
     lastReadoutAt = timestamp;
-    controls?.frame(state, { phase: state.position, blobs: scene.blobs.length, readout: `${scene.blobs.length} ${scene.blobs.length === 1 ? 'BLOB' : 'BLOBS'} · ${armed ? 'AUDIO ON' : 'AUDIO OFF'}`, contacts: firstContact ? state.heads : 0, x: firstContact?.x, y: firstContact?.y, center: firstContact ? Math.hypot(firstContact.x, firstContact.y) : 0, turn: (firstContact?.cornerTurn ?? 0) * 180, cornerDistance: firstContact?.cornerDistance01 ?? 0, incidence: mapping?.incidence ?? 0, tangent: (firstContact?.tangentAngle ?? 0) * 180 / Math.PI, pitch: mapping?.pitch ?? 0, frequency: mapping ? sound.synthFrequencyForMapping(mapping) : 0, pan: mapping?.pan ?? 0, gain: firstContact ? sound.amplitudeGainForContact(firstContact, firstPath) : 0 });
+    controls?.frame(state, { phase: state.position, blobs: scene.blobs.length, readout: `${scene.blobs.length} ${scene.blobs.length === 1 ? 'BLOB' : 'BLOBS'} · ${draftPaths.length ? 'LOOP PREVIEW · ' : ''}${armed ? 'AUDIO ON' : 'AUDIO OFF'}`, contacts: firstContact ? state.heads : 0, x: firstContact?.x, y: firstContact?.y, center: firstContact ? Math.hypot(firstContact.x, firstContact.y) : 0, turn: (firstContact?.cornerTurn ?? 0) * 180, cornerDistance: firstContact?.cornerDistance01 ?? 0, incidence: mapping?.incidence ?? 0, tangent: (firstContact?.tangentAngle ?? 0) * 180 / Math.PI, pitch: mapping?.pitch ?? 0, frequency: mapping ? sound.synthFrequencyForMapping(mapping) : 0, pan: mapping?.pan ?? 0, gain: firstContact ? sound.amplitudeGainForContact(firstContact, firstPath) : 0 });
   }
   if (draft.length) {
     const color = COLORS[scene.blobs.length % COLORS.length];
     for (const reflection of reflectionTransforms(scene.params.reflectionAxes)) {
-      const project = p => rotateUnitPoint(reflectPoint(p, reflection), state.rotation);
+      const preview = draftPaths.find(path => path.reflectionId === reflection.id);
+      const project = p => preview ? editorPoint(p, preview, state.rotation) : rotateUnitPoint(reflectPoint(p, reflection), state.rotation);
       const first = project(draft[0]);
-      context.strokeStyle = color; context.lineWidth = 2; context.beginPath();
-      context.moveTo(offsetX + first.x * stageSize, offsetY + first.y * stageSize);
-      for (let i = 1; i < draft.length; i++) {
-        const a = draft[i - 1], b = draft[i], end = project(b);
-        if (tool === 'pen') {
-          const out = project({ x: a.x + a.hx, y: a.y + a.hy }), incoming = handles(b).in, into = project({ x: b.x + incoming.x, y: b.y + incoming.y });
-          context.bezierCurveTo(offsetX + out.x * stageSize, offsetY + out.y * stageSize, offsetX + into.x * stageSize, offsetY + into.y * stageSize, offsetX + end.x * stageSize, offsetY + end.y * stageSize);
-        } else context.lineTo(offsetX + end.x * stageSize, offsetY + end.y * stageSize);
+      if (!preview) {
+        context.strokeStyle = color; context.lineWidth = 2; context.beginPath();
+        context.moveTo(offsetX + first.x * stageSize, offsetY + first.y * stageSize);
+        for (let i = 1; i < draft.length; i++) {
+          const a = draft[i - 1], b = draft[i], end = project(b);
+          if (tool === 'pen') {
+            const out = project({ x: a.x + a.hx, y: a.y + a.hy }), incoming = handles(b).in, into = project({ x: b.x + incoming.x, y: b.y + incoming.y });
+            context.bezierCurveTo(offsetX + out.x * stageSize, offsetY + out.y * stageSize, offsetX + into.x * stageSize, offsetY + into.y * stageSize, offsetX + end.x * stageSize, offsetY + end.y * stageSize);
+          } else context.lineTo(offsetX + end.x * stageSize, offsetY + end.y * stageSize);
+        }
+        context.stroke(); context.setLineDash([4, 5]);
+        trace([project(draft.at(-1)), first], false); context.globalAlpha = .5; context.stroke(); context.globalAlpha = 1; context.setLineDash([]);
       }
-      context.stroke(); context.setLineDash([4, 5]);
-      trace([project(draft.at(-1)), first], false); context.globalAlpha = .5; context.stroke(); context.globalAlpha = 1; context.setLineDash([]);
       drawDot(first, 7, '#10171d', color);
       if (tool !== 'pencil') draft.slice(1).forEach(p => drawDot(project(p), 3, color));
       if (tool === 'pen') for (const p of draft) {
