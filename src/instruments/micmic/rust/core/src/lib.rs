@@ -437,6 +437,15 @@ impl PreparedPool {
     pub fn capacity(&self) -> usize {
         self.voices.len()
     }
+
+    /// Reclaim old numeric slots in a bounded control step. The browser calls
+    /// this after rendering; native hosts keep their control-thread disposal.
+    /// No current voice or recording buffer belongs to this retired storage.
+    pub fn retire_numeric_slots(&mut self, maximum: usize) -> usize {
+        let count = maximum.min(self.voices.len());
+        self.voices.truncate(self.voices.len() - count);
+        count
+    }
 }
 
 impl Engine {

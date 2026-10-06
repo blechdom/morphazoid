@@ -23,6 +23,7 @@ use performance::{Performance, Source};
 use std::{
     alloc::{alloc, alloc_zeroed, dealloc, Layout},
     cell::RefCell,
+    collections::VecDeque,
     slice,
 };
 
@@ -299,6 +300,8 @@ pub struct Renderer {
     depth_controls: bool,
     live_depth: Option<f64>,
     pending_install: Option<StagedInstall>,
+    retired_pools: VecDeque<PreparedPool>,
+    retired_slots: usize,
     demand: usize,
     requested: usize,
     revision: u64,
@@ -353,6 +356,8 @@ impl Renderer {
             depth_controls: false,
             live_depth: None,
             pending_install: None,
+            retired_pools: VecDeque::new(),
+            retired_slots: 0,
             demand: 0,
             requested: 0,
             revision: 0,
@@ -489,6 +494,11 @@ impl Renderer {
                 None
             },
         };
+        if pending.growth.is_some() {
+            self.retired_pools
+                .try_reserve(1)
+                .map_err(|error| error.to_string())?;
+        }
         self.engine.abort_numeric_growth();
         if pending.growth.is_some() {
             self.engine.begin_numeric_growth()?;
@@ -560,6 +570,8 @@ impl Renderer {
             self.engine.commit_numeric_growth(&mut growth);
             self.capacity = pending.count;
             self.adaptive.set_capacity(self.capacity);
+            self.retired_slots += growth.capacity();
+            self.retired_pools.push_back(growth);
         }
         self.structural_group_counts = *pending.controls.group_counts();
         self.available = pending.available;
@@ -597,6 +609,22 @@ impl Renderer {
         }
         self.update_metrics();
         Ok(true)
+    }
+
+    fn collect_retired(&mut self, maximum_slots: usize) -> usize {
+        let mut remaining = maximum_slots;
+        while remaining > 0 {
+            let Some(pool) = self.retired_pools.front_mut() else {
+                break;
+            };
+            let count = pool.retire_numeric_slots(remaining);
+            self.retired_slots -= count;
+            remaining -= count;
+            if pool.capacity() == 0 {
+                self.retired_pools.pop_front();
+            }
+        }
+        self.retired_slots
     }
     /// Control-message preparation only. Validation/allocation complete before
     /// any live pool is replaced. Growth swaps storage while preserving existing
@@ -928,6 +956,13 @@ pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
         (*handle).pending_install = None;
         (*handle).engine.abort_numeric_growth();
     }
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slots: usize) -> usize {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).collect_retired(maximum_slots)
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_depth(handle: *mut Renderer, depth: f64) -> u32 {
@@ -1633,6 +1668,107 @@ mod browser_tests {
         }
         assert_eq!(uploaded.frames, reference.frames);
         assert_eq!(uploaded.requested, reference.requested);
+    }
+    #[test]
+    fn retired_numeric_storage_is_collected_in_bounded_allocation_free_steps() {
+        let first = scene(6);
+        let second = scene(8);
+        let third = scene(10);
+        let fourth = scene(11);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        let settings = Performance {
+            automatic: false,
+            voice_ceiling: 64,
+            ..Performance::default()
+        };
+        renderer.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        renderer.install(&first.pool).unwrap();
+        reference.install(&first.pool).unwrap();
+        renderer.begin_install(&second.pool).unwrap();
+        while !renderer.step_install(128).unwrap() {}
+        reference.install(&second.pool).unwrap();
+        assert_eq!(renderer.retired_slots, 126);
+        ALLOCATIONS.with(|n| n.set(0));
+        FREES.with(|n| n.set(0));
+        TRACK.with(|n| n.set(true));
+        assert_eq!(renderer.collect_retired(0), 126);
+        TRACK.with(|n| n.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(FREES.with(|n| n.get()), 0);
+        ALLOCATIONS.with(|n| n.set(0));
+        FREES.with(|n| n.set(0));
+        TRACK.with(|n| n.set(true));
+        assert_eq!(renderer.collect_retired(7), 119);
+        TRACK.with(|n| n.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(
+            FREES.with(|n| n.get()),
+            7,
+            "only seven retired branch keys were freed"
+        );
+        renderer.begin_install(&third.pool).unwrap();
+        while !renderer.step_install(128).unwrap() {}
+        reference.install(&third.pool).unwrap();
+        assert_eq!(renderer.retired_slots, 119 + 510);
+        assert_eq!(
+            renderer.retired_pools.len(),
+            2,
+            "rapid growth retains each old allocation until collected"
+        );
+        renderer.begin_install(&fourth.pool).unwrap();
+        assert!(!renderer.step_install(128).unwrap());
+        unsafe {
+            lsd_install_abort(&mut renderer);
+        }
+        assert_eq!(
+            renderer.retired_slots, 629,
+            "abort never discards current or queued old storage"
+        );
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        let mut blocks = 0;
+        while renderer.retired_slots > 0 {
+            let before = renderer.retired_slots;
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let remaining = renderer.collect_retired(7);
+            TRACK.with(|n| n.set(false));
+            assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+            assert!(
+                FREES.with(|n| n.get()) <= 11,
+                "seven keys plus empty numeric vectors at most"
+            );
+            assert_eq!(before - remaining, before.min(7));
+            let input = signal(blocks * BLOCK);
+            renderer.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left, reference_l);
+            assert_eq!(right, reference_r);
+            blocks += 1;
+        }
+        assert!(
+            renderer.retired_pools.is_empty(),
+            "all retired numeric buffers are released"
+        );
+        assert_eq!(renderer.frames, reference.frames);
+        renderer.begin_install(&fourth.pool).unwrap();
+        while !renderer.step_install(128).unwrap() {}
+        assert!(renderer.retired_slots > 0);
+        ALLOCATIONS.with(|n| n.set(0));
+        FREES.with(|n| n.set(0));
+        TRACK.with(|n| n.set(true));
+        drop(renderer);
+        TRACK.with(|n| n.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert!(
+            FREES.with(|n| n.get()) > 0,
+            "dispose releases current and pending retired allocations"
+        );
     }
     #[test]
     fn envelope_follows_native_attack_release_and_chronological_wrap() {
