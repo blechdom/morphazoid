@@ -289,3 +289,36 @@ export function interpolatePreviewNodes(nodes, previous, fraction) {
     return next;
   });
 }
+
+const PREVIEW_COORDINATES = ['x', 'y', 'startX', 'startY'];
+/** Prepare one committed topology transition; animation reuses its nodes. */
+export function preparePreviewTransition(targets, previous = new Map()) {
+  const nodes = targets.map(node => ({ ...node })), coordinates = new Float64Array(nodes.length * 8);
+  const fromEndpoints = new Map();
+  let moving = false;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index], old = previous.get(node.id), parent = fromEndpoints.get(node.parentId);
+    const origin = old ?? { x: parent?.x ?? node.startX, y: parent?.y ?? node.startY,
+      startX: parent?.x ?? node.startX, startY: parent?.y ?? node.startY };
+    for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+      const key = PREVIEW_COORDINATES[field], from = Number.isFinite(origin[key]) ? origin[key] : node[key];
+      coordinates[index * 8 + field] = from;
+      coordinates[index * 8 + field + 4] = node[key];
+      if (Math.abs(node[key] - from) > 1e-12) moving = true;
+      node[key] = from;
+    }
+    fromEndpoints.set(node.id, { x: node.x, y: node.y });
+  }
+  return { nodes, coordinates, moving };
+}
+/** Only endpoints move: pool indices, ranks and current audio metadata persist. */
+export function advancePreviewTransition(transition, fraction) {
+  const t = clamp(fraction), eased = t * t * (3 - 2 * t), { nodes, coordinates } = transition;
+  for (let index = 0; index < nodes.length; index++) for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+    const offset = index * 8 + field;
+    nodes[index][PREVIEW_COORDINATES[field]] = t === 1 ? coordinates[offset + 4]
+      : coordinates[offset] + (coordinates[offset + 4] - coordinates[offset]) * eased;
+  }
+  transition.moving = t < 1 && transition.moving;
+  return nodes;
+}

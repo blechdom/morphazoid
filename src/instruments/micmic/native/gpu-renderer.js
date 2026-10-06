@@ -237,7 +237,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   let maximumGeneration = 0, generationLevels = new Float32Array(1);
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
   const palette = paletteValues(colors);
-  const counters = { backend, nodeCount: 0, topologyUploads: 0, meterUploads: 0, historyUploads: 0, drawCalls: 0 };
+  const counters = { backend, nodeCount: 0, topologyUploads: 0, positionUploads: 0, meterUploads: 0, historyUploads: 0, drawCalls: 0 };
 
   function releaseResources() {
     if (!resources) return;
@@ -331,6 +331,21 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     generationLevels = new Float32Array(maximumGeneration + 1);
     counters.nodeCount = nodes.length;
     if (ready) uploadGeometry();
+  }
+
+  function updateGeometryPositions(nextNodes) {
+    if (disposed || nextNodes !== cachedNodes) return;
+    // A committed morph changes only endpoints. Retain voice ranks, delays,
+    // meters and their buffers rather than allocating another topology frame.
+    for (let index = 0; index < cachedNodes.length; index++) {
+      const node = cachedNodes[index], offset = index * 9;
+      staticData[offset] = finite(node.startX); staticData[offset + 1] = finite(node.startY);
+      staticData[offset + 2] = finite(node.x); staticData[offset + 3] = finite(node.y);
+    }
+    if (ready) {
+      gl.bindVertexArray(resources.vao); gl.bindBuffer(gl.ARRAY_BUFFER, resources.topology);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, staticData); counters.positionUploads++;
+    }
   }
 
   function uploadHistory(history) {
@@ -428,5 +443,5 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   catch { ready = false; releaseResources(); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
   stageCanvas.parentNode.insertBefore(canvas, stageCanvas);
-  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters }; }, setGeometry, render, dispose };
+  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters }; }, setGeometry, updateGeometryPositions, render, dispose };
 }

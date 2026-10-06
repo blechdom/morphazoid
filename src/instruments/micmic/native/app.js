@@ -8,7 +8,7 @@ import { registerHeaderPresets, presetStateKey } from '../../../site/header-pres
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes,
-  buildPreview, interpolateParameters, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
+  buildPreview, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
@@ -34,6 +34,8 @@ const TYPE_LABELS = Object.fromEntries([...$('lSystemType').options].map(o => [o
 const COLORS = ['#fff3d6', '#55d9ff', '#5fe8c4', '#7db4ff', '#c79bff', '#ff826f', '#e8c46b'];
 let disposed = false, bootstrapped = false, parameterRevision = 0, performanceRevision = 0;
 let parameterDirty = false, performanceDirty = false, parameterWorking = false, performanceWorking = false;
+let depthDirty = false, depthWorking = false, depthRevision = 0, depthTimer;
+let depthRequest = null, performanceRequest = null;
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
 let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
@@ -41,13 +43,14 @@ let inputRevision = 0;
 let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity, activityDrawAt = performance.now();
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
-let sceneActivityPending = false, minimumTapRevision = 0;
+let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let stageWidth = 0, stageHeight = 0;
 const waveScratch = [];
-let nativePreview = null, nativePreviewFrom = new Map(), nativePreviewStarted = 0, nativePreviewMoving = false;
-let previewParameters = { ...state.parameters }, previewFrom = { ...previewParameters }, previewStarted = 0, previewMoving = false;
+let nativePreview = null, nativePreviewStarted = 0, nativePreviewMoving = false, previewTransition = null;
+let previewParameters = { ...state.parameters };
+let visualRevision = 0, previewRefreshWorking = false, previewRefreshDirty = false;
 let presets = [], lastScenePreset = 'pythagorean', presetController, sceneApplying = false;
 const canvas = $('stage'), context = canvas.getContext('2d'), reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The original canvas retains gestures, focus and small annotations. Branch
@@ -176,10 +179,27 @@ async function request(url, body) {
   return result;
 }
 function enqueue(task) { const pending = mutationChain.catch(() => {}).then(() => disposed ? null : task()); mutationChain = pending; return pending; }
-function syncActivityIdentity() {
-  const identity = topologyIdentity(state.parameters);
+function syncActivityIdentity(parameters = previewParameters) {
+  const identity = topologyIdentity(parameters);
   if (identity === tapIdentity) return;
-  tapIdentity = identity; tapTargets = new Map(); tapLevels = new Map(); tapReceivedAt = -Infinity;
+  // Generation growth retains stable pool slots. A grammar replacement changes
+  // their meaning, so only that committed replacement discards old tap levels.
+  if (identity.split(':')[0] !== tapIdentity.split(':')[0]) {
+    tapTargets = new Map(); tapLevels = new Map(); tapReceivedAt = -Infinity;
+  }
+  tapIdentity = identity;
+}
+function updateVisualDepth(depth) {
+  if (depth === previewParameters.depth) return;
+  const wasSilent = previewParameters.depth === 0;
+  previewParameters.depth = depth;
+  if (nativePreview) nativePreview.parameters.depth = depth;
+  if (!geometry) return;
+  for (const node of geometry.nodes) node.gain = node.generation === 0 ? 1 : .5 * depth ** (node.generation * .72);
+  if (wasSilent !== (depth === 0)) {
+    geometry.activeLimit = -1; geometry.unavailableKey = null;
+    gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: previewParameters.intervalMs });
+  }
 }
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
@@ -189,10 +209,13 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (reply.status) {
     state.status = reply.status; inputReceivedAt = performance.now();
     inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
-    syncActivityIdentity();
-    const activity = !sceneActivityPending && reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, state.parameters) : null;
-    tapTargets = activity?.levels ?? new Map();
-    if (activity) tapReceivedAt = performance.now();
+    const applied = sanitizeParameters(reply.parameters ?? previewParameters);
+    const activity = reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, applied) : null;
+    if (activity) {
+      syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = performance.now();
+    }
+    if (reply.topologyRevision >= visualRevision && Number.isFinite(applied.depth)) updateVisualDepth(applied.depth);
+    if (reply.topologyRevision > visualRevision) void refreshNativePreview();
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
   state.requestedVoices = reply.requestedVoices ?? state.requestedVoices; state.eligibleVoices = reply.eligibleVoices ?? state.eligibleVoices;
@@ -200,28 +223,66 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (failure && failure !== lastFailure) showError(failure);
   lastFailure = failure; paintControls(); scheduleDraw();
 }
-async function refreshNativePreview(revision = parameterRevision) {
-  if (state.parameters.generations <= 13) { nativePreview = null; nativePreviewMoving = false; return; }
+const GEOMETRY_PARAMETERS = ['lSystemType', 'generations', 'timeRatio', 'angle', 'asymmetry', 'mutation'];
+async function refreshNativePreview() {
+  if (previewRefreshWorking) { previewRefreshDirty = true; return; }
+  previewRefreshWorking = true;
   try {
     const reply = await request('/api/preview');
-    if (disposed || revision !== parameterRevision || JSON.stringify(sanitizeParameters(reply.parameters)) !== JSON.stringify(state.parameters)) return;
-    nativePreviewFrom = new Map((geometry?.nodes ?? []).map(n => [n.id, n]));
-    nativePreview = { parameters: reply.parameters, nodes: nativePreviewNodes(reply.nodes) };
-    nativePreviewStarted = performance.now(); nativePreviewMoving = true; geometry = null; scheduleDraw();
+    if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
+    const parameters = sanitizeParameters(reply.parameters);
+    if (reply.topologyRevision === visualRevision && nativePreview) { updateVisualDepth(parameters.depth); return; }
+    const targets = reply.visualNodes ?? nativePreviewNodes(reply.nodes ?? []);
+    if (!targets.length) return;
+    const sameShape = nativePreview && GEOMETRY_PARAMETERS.every(key => parameters[key] === nativePreview.parameters[key]);
+    const compatible = sameShape && geometry && targets.length === geometry.nodes.length
+      && targets.every((node, index) => node.id === geometry.nodes[index].id);
+    visualRevision = reply.topologyRevision; previewParameters = { ...parameters };
+    if (compatible) {
+      // Timing, pitch, spread, pruning and gain edits reuse the live coordinates,
+      // maps and wave paths instead of restarting the tree's visual motion.
+      for (let index = 0; index < targets.length; index++) {
+        const node = geometry.nodes[index], target = targets[index];
+        node.priority = target.priority; node.gain = target.gain;
+        node.delay = target.delay; node.rate = target.rate;
+      }
+      for (const wave of geometry.waves.values()) {
+        const node = geometry.byId.get(wave.signal.id);
+        if (!node) continue;
+        wave.signal.delay = node.delay; wave.signal.rate = node.rate;
+        wave.signal.startDelay = wave.parent?.delay ?? Math.max(0, node.delay - parameters.intervalMs / 1000);
+      }
+      geometry.activeLimit = -1; geometry.unavailableKey = null;
+      nativePreview.parameters = parameters;
+      gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs });
+    } else {
+      previewTransition = preparePreviewTransition(targets, geometry?.byId);
+      nativePreviewStarted = performance.now();
+      nativePreviewMoving = Boolean(geometry && previewTransition.moving);
+      if (!nativePreviewMoving) advancePreviewTransition(previewTransition, 1);
+      nativePreview = { parameters, nodes: previewTransition.nodes, bounds: topologyBounds(targets) };
+      geometry = null;
+    }
+    scheduleDraw();
   } catch (error) { if (!disposed) $('liveStatus').textContent = error.message; }
+  finally {
+    previewRefreshWorking = false;
+    if (previewRefreshDirty && !disposed) { previewRefreshDirty = false; void refreshNativePreview(); }
+  }
 }
 function startPreview({ lock = true } = {}) {
   const now = performance.now();
-  syncActivityIdentity();
   if (lock && geometry && !lockedFit) lockedFit = { ...geometry.fit };
-  previewFrom = { ...previewParameters }; previewStarted = now; previewMoving = true;
+  // Keep the currently installed tree moving while its next topology is being
+  // prepared. The accepted audio pool, rather than requested UI state, owns it.
   if (!rangeGesture) gestureUntil = now + 150; scheduleDraw();
 }
 function scheduleParameters(immediate = false) {
   parameterDirty = true; if (parameterWorking) return;
-  clearTimeout(parameterTimer); parameterTimer = setTimeout(flushParameters, immediate ? 0 : 30);
+  if (!parameterTimer || immediate) { clearTimeout(parameterTimer); parameterTimer = setTimeout(flushParameters, immediate ? 0 : 16); }
 }
 async function flushParameters() {
+  parameterTimer = null;
   if (disposed || parameterWorking || !parameterDirty) return;
   parameterDirty = false; parameterWorking = true;
   const revision = parameterRevision, parameters = { ...state.parameters };
@@ -232,29 +293,49 @@ async function flushParameters() {
   catch (error) {
     showError(error.message);
     try { const reply = await request('/api/status'); if (revision === parameterRevision && reply.parameters) { state.parameters = sanitizeParameters(reply.parameters); startPreview(); void refreshNativePreview(revision); } acceptStatus(reply); } catch { /* Keep the error visible until reconnection. */ }
-  } finally { parameterWorking = false; if (parameterDirty && !disposed) parameterTimer = setTimeout(flushParameters, 30); }
+  } finally { parameterWorking = false; if (parameterDirty && !disposed) parameterTimer = setTimeout(flushParameters, 16); }
 }
 function schedulePerformance(immediate = false) {
   performanceDirty = true; if (performanceWorking) return;
-  clearTimeout(performanceTimer); performanceTimer = setTimeout(flushPerformance, immediate ? 0 : 30);
+  if (!performanceTimer || immediate) { clearTimeout(performanceTimer); performanceTimer = setTimeout(flushPerformance, immediate ? 0 : 16); }
 }
 async function flushPerformance() {
+  performanceTimer = null;
   if (disposed || performanceWorking || !performanceDirty) return;
   performanceDirty = false; performanceWorking = true;
   const revision = performanceRevision, snapshot = { ...state.performance };
   try {
-    const reply = await enqueue(() => revision === performanceRevision ? request('/api/performance', snapshot) : null);
+    const pending = request('/api/performance', snapshot); performanceRequest = pending;
+    const reply = await pending;
     if (revision === performanceRevision) acceptStatus(reply);
   }
   catch (error) {
     showError(error.message);
     try { const reply = await request('/api/status'); if (revision === performanceRevision && reply.performance) state.performance = sanitizePerformance(reply.performance); acceptStatus(reply); } catch { /* Preserve the visible error. */ }
-  } finally { performanceWorking = false; if (performanceDirty && !disposed) performanceTimer = setTimeout(flushPerformance, 30); }
+  } finally { performanceRequest = null; performanceWorking = false; if (performanceDirty && !disposed) performanceTimer = setTimeout(flushPerformance, 16); }
+}
+function scheduleDepth(immediate = false) {
+  depthDirty = true; if (depthWorking) return;
+  if (!depthTimer || immediate) { clearTimeout(depthTimer); depthTimer = setTimeout(flushDepth, immediate ? 0 : 16); }
+}
+async function flushDepth() {
+  depthTimer = null;
+  if (disposed || depthWorking || !depthDirty) return;
+  depthDirty = false; depthWorking = true;
+  const revision = depthRevision, depth = state.parameters.depth;
+  try {
+    const pending = request('/api/depth', { depth }); depthRequest = pending;
+    const reply = await pending;
+    if (revision === depthRevision) acceptStatus(reply);
+  } catch (error) { showError(error.message); }
+  finally { depthRequest = null; depthWorking = false; if (depthDirty && !disposed) depthTimer = setTimeout(flushDepth, 16); }
 }
 function updateParameter(key, value, immediate = false) {
   if (sceneApplying) return;
-  state.parameters = sanitizeParameters({ ...state.parameters, [key]: value }); parameterRevision++;
-  startPreview(); paintControls(); scheduleParameters(immediate); presetController?.refresh();
+  state.parameters = sanitizeParameters({ ...state.parameters, [key]: value });
+  if (key === 'depth') { depthRevision++; scheduleDepth(immediate); }
+  else { parameterRevision++; startPreview(); scheduleParameters(immediate); }
+  paintControls(); presetController?.refresh();
 }
 function updatePerformance(key, value, immediate = false, musical = true) {
   if (sceneApplying && ['wet', 'dry', 'inputGain', 'level', 'mastering', 'frequency', 'pulseRate'].includes(key)) return;
@@ -267,8 +348,7 @@ function updateMastering(settings, immediate = false) {
 async function applyScene(scene, id = 'custom') {
   if (disposed || sceneApplying) return;
   const next = presetState(scene, state.performance), previous = { parameters: state.parameters, performance: state.performance };
-  sceneApplying = true; sceneActivityPending = true;
-  tapTargets = new Map(); tapLevels = new Map(); tapReceivedAt = -Infinity;
+  sceneApplying = true;
   const picker = document.querySelector('.instrument-preset-controls');
   const restoreFocus = Boolean(picker?.contains(document.activeElement));
   if (picker) picker.inert = true;
@@ -279,18 +359,22 @@ async function applyScene(scene, id = 'custom') {
   for (const control of controls) control.disabled = true;
   canvas.setAttribute('aria-busy', 'true');
   if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
-  drag = null; rangeGesture = false; lockedFit = null; geometry = null;
-  nativePreview = null; nativePreviewMoving = false; nativePreviewFrom = new Map();
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); parameterDirty = performanceDirty = false;
+  drag = null; rangeGesture = false; lockedFit = geometry ? { ...geometry.fit } : null;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
+  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false; depthRevision++;
   state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
   const revision = parameterRevision; startPreview({ lock: false }); paintControls();
   try {
     await enqueue(async () => {
       if (disposed || revision !== parameterRevision) return;
+      // A preset owns its complete mix/depth after older live controls finish.
+      // Their canceled timers cannot enqueue another stale gesture afterward.
+      await Promise.allSettled([depthRequest, performanceRequest].filter(Boolean));
+      if (disposed || revision !== parameterRevision) return;
       acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
       const reply = await request('/api/parameters', next.parameters);
       minimumTapRevision = Math.max(minimumTapRevision, reply.topologyRevision ?? 0);
-      sceneActivityPending = false; acceptStatus(reply);
+      acceptStatus(reply);
     });
     await refreshNativePreview(revision);
     if (presets.some(p => p.id === id)) lastScenePreset = id;
@@ -301,7 +385,7 @@ async function applyScene(scene, id = 'custom') {
     }
     showError(error.message); throw error;
   } finally {
-    sceneApplying = false; sceneActivityPending = false;
+    sceneApplying = false;
     for (let index = 0; index < controls.length; index++) controls[index].disabled = disabled[index];
     if (picker) picker.inert = false;
     canvas.setAttribute('aria-busy', 'false');
@@ -490,18 +574,13 @@ function paintControls() {
 function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
   if (width !== stageWidth || height !== stageHeight) { stageWidth = width; stageHeight = height; lockedFit = null; }
-  const advanced = state.parameters.generations > 13;
-  const authoritative = advanced && nativePreview && JSON.stringify(sanitizeParameters(nativePreview.parameters)) === JSON.stringify(state.parameters);
-  const nodes = authoritative ? interpolatePreviewNodes(nativePreview.nodes, nativePreviewFrom, (performance.now() - nativePreviewStarted) / 120)
-    : buildPreview(previewParameters, generationTopology);
-  // A provisional ancestor drawing never claims to represent admitted deep taps.
-  if (advanced && !authoritative) for (const n of nodes) n.priority = null;
-  const desiredFit = fitTransform(topologyBounds(nodes), width, height);
+  const nodes = nativePreview?.nodes ?? buildPreview(previewParameters, generationTopology);
+  const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
     activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null,
     byVoiceIndex: new Map(nodes.filter(n => n.generation > 0).map(n => [n.voiceIndex, n])) };
-  gpuRenderer?.setGeometry(nodes, { intervalMs: state.parameters.intervalMs });
+  gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
   $('treeDescription').textContent = `${TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} audio generations; ${nodes.length.toLocaleString()} segments in the bounded visual preview. The green circle marks the start of the first white branch. Colored branches are available voices; grey branches are unavailable. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
@@ -513,15 +592,17 @@ function draw(now) {
   // Rust already smooths average load and releases its peak over .53 seconds.
   // Adding a three-second hold here kept quiet, cheap trees visibly stuttering.
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
-    Boolean(drag || rangeGesture || previewMoving || nativePreviewMoving), state.audio, visualCostMs);
+    Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
   lastDrawAt = now;
-  const drawStarted = performance.now(), interpolating = previewMoving || nativePreviewMoving;
-  if (nativePreviewMoving) { geometry = null; if (now - nativePreviewStarted >= 120) nativePreviewMoving = false; }
-  if (previewMoving) {
-    const fraction = (now - previewStarted) / 120;
-    previewParameters = interpolateParameters(previewFrom, state.parameters, fraction); geometry = null;
-    if (fraction >= 1) { previewParameters = { ...state.parameters }; previewMoving = false; }
+  const drawStarted = performance.now(), interpolating = nativePreviewMoving;
+  if (nativePreviewMoving) {
+    advancePreviewTransition(previewTransition, (now - nativePreviewStarted) / 80);
+    nativePreviewMoving = previewTransition.moving;
+    if (geometry) {
+      geometry.unavailableKey = null;
+      gpuRenderer?.updateGeometryPositions(geometry.nodes);
+    }
   }
   const rebuilding = !geometry;
   if (rebuilding) buildGeometry();
@@ -530,7 +611,7 @@ function draw(now) {
   const pixelWidth = Math.round(width * dpr), pixelHeight = Math.round(height * dpr);
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
   let fitMoving = false;
-  if (lockedFit && !drag && !rangeGesture && now > gestureUntil && !previewMoving) {
+  if (lockedFit && !drag && !rangeGesture && now > gestureUntil && !nativePreviewMoving) {
     for (const key of ['scale', 'x', 'y']) {
       const difference = desiredFit[key] - geometry.fit[key]; geometry.fit[key] += difference * .22;
       if (Math.abs(difference) > (key === 'scale' ? .001 : .1)) fitMoving = true;
@@ -539,7 +620,7 @@ function draw(now) {
   }
   const fit = geometry.fit, project = (x, y) => ({ x: x * fit.scale + fit.x, y: -y * fit.scale + fit.y });
   context.setTransform(dpr, 0, 0, dpr, 0, 0); context.clearRect(0, 0, width, height);
-  const limit = sceneActivityPending ? 0 : Math.max(0, Number(state.status.voiceLimit) || 0);
+  const limit = Math.max(0, Number(state.status.voiceLimit) || 0);
   if (geometry.activeLimit !== limit) {
     geometry.activeLimit = limit; geometry.active = admittedPreviewNodes(nodes, limit);
     geometry.activeIds = new Set(geometry.active.map(n => n.id));
@@ -566,9 +647,9 @@ function draw(now) {
   if (gpuRenderer?.available) {
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
     gpuRenderer.render({ width, height, dpr, fit, seconds, detailSteps, reducedMotion,
-      limit, pending: sceneActivityPending, historyFresh, history: inputTelemetry.envelope,
+      limit, pending: false, historyFresh, history: inputTelemetry.envelope,
       levels: tapLevels, targets: tapTargets, rootLevel, wet: state.performance.wet,
-      wetBusGain: Number(state.status.wetBusGain || 0), depth: state.parameters.depth,
+      wetBusGain: Number(state.status.wetBusGain || 0), depth: previewParameters.depth,
       generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts });
   } else {
     const activeIds = geometry.activeIds, released = [];
@@ -594,21 +675,21 @@ function draw(now) {
     const voiceLevels = [1];
     for (const n of branches) if (voiceLevels[n.generation] === undefined) {
       const selectedCount = state.status.generationVoiceCounts?.[n.generation] ?? geometry.selectedCounts.get(n.generation);
-      const gain = .5 * state.parameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
+      const gain = .5 * previewParameters.depth ** (n.generation * .72) / Math.sqrt(selectedCount || 1);
       voiceLevels[n.generation] = clamp(Math.sqrt(Math.max(0, gain) / .5) * Math.sqrt(wet));
     }
     for (const n of branches) {
       let wave = geometry.waves.get(n.id);
       if (!wave) {
         const parent = geometry.byId.get(n.parentId);
-        wave = { parent, start: {}, end: {}, signal: { generation: n.generation, index: n.index, voiceIndex: n.voiceIndex,
-          delay: n.delay, rate: n.rate, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - state.parameters.intervalMs / 1000) } };
+        wave = { parent, start: {}, end: {}, signal: { id: n.id, generation: n.generation, index: n.index, voiceIndex: n.voiceIndex,
+          delay: n.delay, rate: n.rate, startDelay: parent?.delay ?? Math.max(0, (n.delay ?? 0) - previewParameters.intervalMs / 1000) } };
         geometry.waves.set(n.id, wave);
       }
       const { parent, start, end, signal } = wave;
       start.x = n.startX * fit.scale + fit.x; start.y = -n.startY * fit.scale + fit.y;
       end.x = n.x * fit.scale + fit.x; end.y = -n.y * fit.scale + fit.y;
-      const history = historyFresh && !sceneActivityPending && activeIds.has(n.id);
+      const history = historyFresh && activeIds.has(n.id);
       const energy = n.generation === 0 ? rootLevel : tapLevels.get(n.voiceIndex) ?? 0;
       const measured = n.generation === 0 || tapTargets.has(n.voiceIndex);
       const parentMeasured = parent?.generation === 0 || tapTargets.has(parent?.voiceIndex);
@@ -649,7 +730,7 @@ function draw(now) {
     const cost = Math.max(0, performance.now() - drawStarted);
     visualCostMs += (cost - visualCostMs) * .15;
   }
-  if (state.audio || tapLevels.size || rootLevel > 0 || drag || previewMoving || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
+  if (state.audio || tapLevels.size || rootLevel > 0 || drag || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
 
 canvas.addEventListener('pointerdown', event => {
@@ -682,7 +763,7 @@ canvas.addEventListener('keydown', event => {
 });
 for (const [key, id] of Object.entries(CONTROL_IDS)) {
   $(id).addEventListener('input', () => updateParameter(key, key === 'intervalMs' ? timeFoldFromSlider($(id).value) : Number($(id).value)));
-  $(id).addEventListener('change', () => scheduleParameters(true));
+  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : scheduleParameters(true));
   $(id).addEventListener('pointerdown', () => { lockedFit = geometry ? { ...geometry.fit } : null; rangeGesture = true; gestureUntil = Infinity; });
   const release = () => { rangeGesture = false; gestureUntil = performance.now() + 100; scheduleDraw(); };
   $(id).addEventListener('pointerup', release); $(id).addEventListener('pointercancel', release);
@@ -782,7 +863,8 @@ function muteForDeparture() {
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
   inputRevision++;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); parameterDirty = performanceDirty = false;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
+  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false;
   browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
 }

@@ -6,7 +6,8 @@ import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-prese
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints } from './model.js';
+  admittedPreviewNodes, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
+  preparePreviewTransition, advancePreviewTransition } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering, captureMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
 const presets = JSON.parse(fs.readFileSync(new URL('./presets.json', import.meta.url)));
@@ -130,6 +131,47 @@ test('continuous preview interpolates locally and locked fit stays independent o
   assert.deepEqual(fitTransform(topologyBounds(a), 1000, 700), fitTransform(topologyBounds(b), 1000, 700));
   assert.deepEqual(gestureParameters(from, 0, 0, 1000, 700), from);
   const moved = gestureParameters(from, 100, -100, 1000, 700); assert.ok(moved.angle > from.angle && moved.intervalMs > from.intervalMs);
+});
+test('committed tree transitions reuse geometry and keep growing branches connected', () => {
+  const previous = new Map([
+    ['trunk', { id: 'trunk', x: 1, y: 0, startX: 0, startY: 0 }],
+    ['a', { id: 'a', parentId: 'trunk', x: 2, y: 1, startX: 1, startY: 0 }],
+  ]);
+  const targets = [
+    { ...previous.get('trunk'), generation: 0 },
+    { id: 'a', parentId: 'trunk', generation: 1, x: 3, y: 2, startX: 1, startY: 0, voiceIndex: 17, priority: 4, delay: .31, gain: .2 },
+    { id: 'b', parentId: 'a', generation: 2, x: 4, y: 3, startX: 3, startY: 2, voiceIndex: 29, priority: 5, delay: .45, gain: .1 },
+    { id: 'c', parentId: 'b', generation: 3, x: 5, y: 3, startX: 4, startY: 3, voiceIndex: 31, priority: 6, delay: .58, gain: .08 },
+  ];
+  const before = structuredClone(targets), transition = preparePreviewTransition(targets, previous);
+  const references = [...transition.nodes], coordinateStorage = transition.coordinates;
+  for (const fraction of [0, .2, .5, .8, 1]) {
+    assert.equal(advancePreviewTransition(transition, fraction), transition.nodes);
+    assert.equal(transition.coordinates, coordinateStorage);
+    for (let index = 0; index < transition.nodes.length; index++) assert.equal(transition.nodes[index], references[index]);
+    const byId = new Map(transition.nodes.map(node => [node.id, node]));
+    for (const node of transition.nodes.slice(1)) {
+      const parent = byId.get(node.parentId);
+      assert.equal(node.startX, parent.x, `${node.id} stays attached at ${fraction}`);
+      assert.equal(node.startY, parent.y, `${node.id} stays attached at ${fraction}`);
+      for (const field of ['voiceIndex', 'priority', 'delay', 'gain']) assert.equal(node[field], targets.find(target => target.id === node.id)[field]);
+    }
+  }
+  assert.equal(transition.moving, false);
+  assert.deepEqual(transition.nodes, targets);
+  assert.deepEqual(targets, before, 'the prepared audio topology remains immutable');
+});
+test('a second live tree edit starts from the current interpolated endpoints', () => {
+  const a = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4 }, generationTopology);
+  const b = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4, angle: 80 }, generationTopology);
+  const first = preparePreviewTransition(b, new Map(a.map(node => [node.id, node])));
+  advancePreviewTransition(first, .37);
+  const current = structuredClone(first.nodes);
+  const c = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4, angle: 15 }, generationTopology);
+  const next = preparePreviewTransition(c, new Map(first.nodes.map(node => [node.id, node])));
+  assert.deepEqual(next.nodes.map(node => [node.x, node.y, node.startX, node.startY]), current.map(node => [node.x, node.y, node.startX, node.startY]));
+  advancePreviewTransition(next, 1);
+  assert.deepEqual(next.nodes, c);
 });
 test('parameter sanitization retains finite controls and native limits', () => {
   assert.equal(sanitizeParameters({ angle: NaN }).angle, 45);
