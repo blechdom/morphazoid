@@ -29,10 +29,11 @@ async function fixture(page) {
   const errors = watchPageDiagnostics(page, { baseURL: test.info().project.use.baseURL });
   await page.route('**/assets/synthesis/loops/electric-piano.wav', route => route.fulfill({ contentType: 'audio/wav', body: wav() }));
   await page.addInitScript(() => {
-    const qa = window.__curlsQa = { monitors: [], sources: [], events: [], frames: [], recording: false, microphoneRequests: 0 };
+    const qa = window.__curlsQa = { monitors: [], sources: [], events: [], frames: [], parameterRequests: [], pointers: {}, recording: false, microphoneRequests: 0 };
     for (const type of ['input', 'change']) document.addEventListener(type, event => {
       if (event.target.id === 'curls') qa.events.push({ type, value: Number(event.target.value), now: performance.now() });
     }, true);
+    document.addEventListener('pointerdown', event => { qa.pointers[event.target.id] = event.pointerId; }, true);
     if (navigator.mediaDevices?.getUserMedia) {
       const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
       navigator.mediaDevices.getUserMedia = (...args) => { qa.microphoneRequests++; return capture(...args); };
@@ -84,6 +85,16 @@ async function fixture(page) {
     await route.fulfill({ response, body: source + `
 __curlsQa.engine = browserEngine;
 __curlsQa.applyScene = applyScene;
+const observedRequest = browserEngine.request.bind(browserEngine);
+browserEngine.request = async (path, body) => {
+  if (path === '/api/parameters') {
+    __curlsQa.parameterRequests.push(structuredClone(body));
+    const gate = __curlsQa.parameterGate;
+    __curlsQa.parameterGate = null;
+    if (gate) await gate;
+  }
+  return observedRequest(path, body);
+};
 __curlsQa.view = () => ({ parameters: { ...previewParameters }, revision: visualRevision,
   moving: nativePreviewMoving,
   nodes: geometry?.nodes.map(({ id, parentId, x, y, startX, startY, generation, rate, delay }) =>
@@ -228,6 +239,24 @@ async function choosePreset(page, scene) {
 async function capture(page) {
   return page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
 }
+async function settledParameters(page, parameters) {
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return !d.view.moving && d.view.revision === d.topologyRevision
+      && Object.entries(parameters).every(([key, value]) => d.parameters[key] === value && d.view.parameters[key] === value);
+  }, { timeout: 30000 }).toBe(true);
+}
+async function assertCenteredAngles(page) {
+  for (const [id, value, text] of [['generationAngle', '90', '90°'], ['curls', '0', 'original'], ['generationAsymmetry', '0', 'even']]) {
+    const input = page.locator(`#${id}`);
+    await expect(input).toHaveValue(value);
+    await expect(page.locator(`#${id}Out`)).toHaveText(text);
+    expect(await input.evaluate(input => {
+      const needle = input.parentElement.querySelector('.mz-range-knob__dial > i');
+      return Number(needle.style.transform.match(/rotate\(([-\d.]+)deg\)/)?.[1]);
+    }), `${id} needle is centered`).toBeCloseTo(0, 6);
+  }
+}
 async function save(name, data) {
   const path = test.info().outputPath(`${name}.json`); await writeFile(path, JSON.stringify(data, null, 2));
   await test.info().attach(name, { path, contentType: 'application/json' });
@@ -344,5 +373,148 @@ test('Curls survives complete-state JSON storage and recall, participates in dic
   expect(gains(randomized)).toEqual(LIVE_GAINS); expect(randomized.audio).toBe(false); expect(randomized.worklets).toBe(0); expect(randomized.microphoneRequests).toBe(0);
   await save('curls-state-roundtrip', { saved, recalled: recalled.parameters, randomized: randomized.parameters,
     gains: gains(randomized), serializationApplySeam: true, noPresetFileUploaderClaim: true });
+  await cleanup(page, errors);
+});
+
+test('Center angles is keyboard reachable in all layouts and centers the native tree while Audio stays off', async ({ browser }) => {
+  test.setTimeout(120000);
+  const layouts = [];
+  for (const [name, viewport, mobile] of [['desktop', { width: 1440, height: 900 }, false],
+    ['portrait', { width: 390, height: 844 }, true], ['landscape', { width: 844, height: 390 }, true]]) {
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport, hasTouch: mobile, isMobile: mobile }), page = await context.newPage();
+    const errors = await fixture(page); await ready(page);
+    for (const [id, value] of [['inputTrim', LIVE_GAINS[0]], ['level', LIVE_GAINS[1]], ['makeupDb', LIVE_GAINS[2]]]) await setupRange(page, id, value);
+    const bank = await (await page.request.get('/src/instruments/micmic/native/presets.json')).json();
+    await choosePreset(page, bank.find(scene => scene.id === 'orchid'));
+    const before = await diagnostics(page); await settledParameters(page, before.parameters);
+    const imageBefore = await page.locator('#stage').evaluate(canvas => canvas.toDataURL());
+    const button = await openControl(page, 'centerAngles'), box = await button.boundingBox();
+    await expect(button).toHaveAccessibleName('Center angles'); await expect(button).toHaveAttribute('type', 'button');
+    expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.y).toBeGreaterThanOrEqual(-1);
+    expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1); expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+    expect(await button.evaluate(button => {
+      const box = button.getBoundingClientRect();
+      return document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === button;
+    })).toBe(true);
+    if (mobile) { expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48); }
+    await page.evaluate(() => { __curlsQa.parameterRequests = []; });
+    await button.focus(); await expect(button).toBeFocused(); await page.keyboard.press('Enter');
+    const expected = { ...before.parameters, angle: 90, asymmetry: 0, curls: 0 };
+    await settledParameters(page, expected); await assertCenteredAngles(page);
+    const after = await diagnostics(page);
+    assertConnectedNativeView(after.view, await nativeGeometry(page));
+    expect(await page.locator('#stage').evaluate(canvas => canvas.toDataURL())).not.toBe(imageBefore);
+    expect(after.parameters).toEqual(expected); expect(after.performance).toEqual(before.performance); expect(after.input).toEqual(before.input);
+    expect(await page.evaluate(() => __curlsQa.parameterRequests)).toEqual([expected]);
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
+    expect(after.audio).toBe(false); expect(after.audioDesired).toBe(false); expect(after.contextState).toBe('absent');
+    expect(after.worklets).toBe(0); expect(after.sources).toEqual([]); expect(after.microphoneRequests).toBe(0); expect(gains(after)).toEqual(LIVE_GAINS);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    const screenshot = test.info().outputPath(`center-angles-${name}.png`); await page.screenshot({ path: screenshot });
+    await test.info().attach(`center-angles-${name}`, { path: screenshot, contentType: 'image/png' });
+    layouts.push({ name, viewport, box, before: before.parameters, after: after.parameters, gains: gains(after), contextState: after.contextState });
+    await cleanup(page, errors); await context.close();
+  }
+  await save('center-angles-responsive', { layouts, physicalTouchDeviceTested: false });
+});
+
+test('Center angles cancels a held knob and resets all angles atomically while real Rust audio and its source continue', async ({ page }) => {
+  test.setTimeout(120000);
+  const errors = await fixture(page); await ready(page);
+  const bank = await (await page.request.get('/src/instruments/micmic/native/presets.json')).json();
+  await choosePreset(page, bank.find(scene => scene.id === 'orchid')); await live(page);
+  await page.evaluate(async () => {
+    const d = __curlsQa.engine.getDiagnostics();
+    await __curlsQa.applyScene({ parameters: { ...d.parameters, angle: 37.5, asymmetry: -.31, curls: 2.35,
+      mutation: .41, pitchScale: 1.35, pruningBias: .23, spread: .59 }, performance: d.performance });
+  });
+  const edited = await diagnostics(page); await settledParameters(page, edited.parameters);
+  await page.evaluate(() => { __curlsQa.recording = true; });
+  const point = await beginDrag(page); await page.mouse.move(point.x, point.y - 8);
+  const target = Number(await page.locator('#curls').inputValue());
+  await expect.poll(async () => (await diagnostics(page)).parameters.curls).toBe(target);
+  const before = await diagnostics(page); await settledParameters(page, before.parameters);
+  expect(before.parameters.angle).not.toBe(90); expect(before.parameters.asymmetry).not.toBe(0); expect(before.parameters.curls).not.toBe(0);
+  expect(await page.locator('#curls').evaluate(input => input.hasPointerCapture(__curlsQa.pointers.curls))).toBe(true);
+  await page.evaluate(() => { __curlsQa.events = []; __curlsQa.parameterRequests = []; });
+  // A second touch, MIDI assignment, or other button activation can supersede a
+  // held pointer. Invoke the real handler without blurring its captured knob.
+  await page.locator('#centerAngles').evaluate(button => button.click());
+  const expected = { ...before.parameters, angle: 90, asymmetry: 0, curls: 0 };
+  await settledParameters(page, expected); await assertCenteredAngles(page);
+  expect(await page.locator('#curls').evaluate(input => input.hasPointerCapture(__curlsQa.pointers.curls))).toBe(false);
+  await page.mouse.move(point.x, point.y - 24); await page.mouse.up();
+  await assertCenteredAngles(page);
+  expect(await page.evaluate(() => __curlsQa.events)).toEqual([]);
+  const after = await finiteLive(page, before.sampleClock + .1);
+  expect(after.parameters).toEqual(expected); expect(after.performance).toEqual(before.performance); expect(after.input).toEqual(before.input);
+  expect(after.contextGeneration).toBe(before.contextGeneration); expect(after.contextState).toBe('running');
+  expect(after.worklets).toBe(1); expect(after.connectionCount).toBe(1); expect(after.sources).toEqual([{ started: 1, stopped: 0 }]);
+  expect(after.processedBlocks).toBeGreaterThan(before.processedBlocks); expect(after.microphoneRequests).toBe(0);
+  expect(await page.evaluate(() => __curlsQa.parameterRequests)).toEqual([expected]);
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
+  assertConnectedNativeView(after.view, await nativeGeometry(page));
+  const moved = after.view.nodes.some(node => {
+    const previous = before.view.nodes.find(other => other.id === node.id);
+    return previous && (Math.abs(node.x - previous.x) > 1e-5 || Math.abs(node.y - previous.y) > 1e-5);
+  });
+  expect(moved).toBe(true);
+  const frames = await page.evaluate(() => { __curlsQa.recording = false; return __curlsQa.frames; });
+  expect(frames.length).toBeGreaterThan(5); expect(frames.every(frame => frame.nonFinite === 0 && frame.peak <= 1)).toBe(true);
+  expect(frames.some(frame => frame.peak > 1e-5)).toBe(true);
+  await save('center-angles-live', { before, after, frames, actualWasm: true, input: 'seamless recorded fixture', humanListening: false });
+  await cleanup(page, errors);
+});
+
+test('Center angles is disabled throughout a pending scene recall and cannot overwrite that scene', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = await fixture(page); await ready(page);
+  const bank = await (await page.request.get('/src/instruments/micmic/native/presets.json')).json(), scene = bank.find(scene => scene.id === 'orchid');
+  await page.evaluate(scene => {
+    // Hold one real parameter request before its compiler accepts the scene;
+    // the normal recall, complete-state apply and controls remain in use.
+    __curlsQa.parameterGate = new Promise(resolve => { __curlsQa.releaseParameterGate = resolve; });
+    __curlsQa.parameterRequests = [];
+    __curlsQa.scenePending = __curlsQa.applyScene(scene.snapshot, scene.id);
+  }, scene);
+  const button = page.locator('#centerAngles'); await expect(button).toBeDisabled();
+  await expect(page.locator('#stage')).toHaveAttribute('aria-busy', 'true');
+  await button.evaluate(button => {
+    button.click();
+    button.dispatchEvent(new MouseEvent('click', { bubbles: true }));
+  });
+  expect((await capture(page)).parameters).toEqual(scene.snapshot.parameters);
+  await expect.poll(async () => (await page.evaluate(() => __curlsQa.parameterRequests)).length).toBe(1);
+  await page.evaluate(() => { __curlsQa.releaseParameterGate(); return __curlsQa.scenePending; });
+  await expect(button).toBeEnabled(); await expect(page.locator('#stage')).toHaveAttribute('aria-busy', 'false');
+  await settledParameters(page, scene.snapshot.parameters);
+  expect((await diagnostics(page)).parameters).toEqual(scene.snapshot.parameters);
+  expect(await page.evaluate(() => __curlsQa.parameterRequests)).toEqual([scene.snapshot.parameters]);
+  await cleanup(page, errors);
+});
+
+test('variation label and accessible description follow the grammar while retaining its value and native range', async ({ page }) => {
+  test.setTimeout(90000);
+  const errors = await fixture(page); await ready(page);
+  await page.evaluate(async () => {
+    const d = __curlsQa.engine.getDiagnostics();
+    await __curlsQa.applyScene({ parameters: { ...d.parameters, generations: 4, mutation: .42 }, performance: d.performance });
+  });
+  const control = await openControl(page, 'mutation'), type = await openControl(page, 'lSystemType'), labels = [];
+  for (const [grammar, label, description] of [['plant', 'Delay variation', /preserving this pattern.s branch shape and pitch turns/i],
+    ['coral', 'Delay variation', /preserving this pattern.s branch shape and pitch turns/i],
+    ['pythagorean', 'Branch variation', /branch turns, lengths and delay timing/i]]) {
+    await type.selectOption(grammar);
+    await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe(grammar);
+    await expect(page.locator('#mutationLabel')).toHaveText(label);
+    await expect(control).toHaveAccessibleName(new RegExp(label)); await expect(control).toHaveAccessibleDescription(description);
+    await expect(page.locator('#mutationOut')).toHaveText(`42% ${label.toLowerCase()}`);
+    await expect(control).toHaveValue('0.42'); await expect(control).toHaveAttribute('min', '0');
+    await expect(control).toHaveAttribute('max', '1'); await expect(control).toHaveAttribute('step', '0.01');
+    expect((await diagnostics(page)).parameters.mutation).toBe(.42);
+    labels.push({ grammar, label, description: await page.locator('#mutationGuide').textContent() });
+  }
+  expect((await diagnostics(page)).audio).toBe(false);
+  await save('grammar-variation-labels', { value: .42, labels });
   await cleanup(page, errors);
 });
