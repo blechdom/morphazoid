@@ -102,7 +102,7 @@ test('native preview retains the original binary rewrite without its 128-per-gen
     assert.ok(Math.abs(actual[i][key] - original[i][key]) < 1e-10, `${i}/${key}`);
   }
 });
-test('all eleven native grammar previews use original canonical turtle geometry', () => {
+test('every native grammar preview uses its canonical turtle geometry', () => {
   for (const lSystemType of L_SYSTEM_TYPES.filter(id => id !== 'pythagorean')) {
     const p = { ...DEFAULT_PARAMETERS, lSystemType, generations: 7, mutation: .2, angle: 73, asymmetry: -.17, timeRatio: 1.4 };
     const actual = buildPreview(p, generationTopology), expected = generationTopology({ ...p, branching: 1 });

@@ -1,6 +1,7 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
-export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon']);
+export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
+  'bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
   timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
@@ -50,7 +51,7 @@ export function presetState(preset, performance) {
 export function randomState(parameters, performance, random = Math.random) {
   const unit = () => clamp(Number(random()) || 0);
   const between = (a, b) => a + (b - a) * unit();
-  return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(10, Math.floor(unit() * 11))],
+  return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
     asymmetry: between(-.8, .8), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
