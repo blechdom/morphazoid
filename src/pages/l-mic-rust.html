@@ -218,13 +218,17 @@
                 <label class="control native-knob-control signed-form-range" for="curls"><span><b>Curls</b><output id="curlsOut" for="curls">original</output></span><input id="curls" type="range" min="-8" max="8" step="0.01" value="0" aria-describedby="curlsGuide" title="Added turns distributed along the longest root-to-tip path. Positive curls counterclockwise; negative curls clockwise. Pitch follows Angle → octave span." /><span class="form-range-poles" aria-hidden="true"><span>CW</span><span>Original</span><span>CCW</span></span><small class="sr-only" id="curlsGuide">Curls bends successive branches while keeping the input root fixed. Zero preserves the original shape. Positive values turn counterclockwise; negative values turn clockwise. The changed turns also affect pitch through Angle → octave span, and stereo position through Spread.</small></label>
                 <label class="control native-knob-control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="generationAsymmetryGuide" /><span class="form-range-poles" id="generationAsymmetryGuide" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
                 <label class="control native-knob-control" for="mutation">
-                  <span><b>Rule mutation</b><output id="mutationOut" for="mutation">0% rule variance</output></span>
-                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" />
+                  <span><b id="mutationLabel">Branch variation</b><output id="mutationOut" for="mutation">0% branch variation</output></span>
+                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" aria-describedby="mutationGuide" />
+                  <small class="sr-only" id="mutationGuide">Varies branch turns, lengths and delay timing in Pythagorean Pine.</small>
                 </label>
               </div>
             </section>
 
-            <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+            <div class="native-form-actions">
+              <button class="mini-action reset-form" id="centerAngles" type="button" title="Branch angle 90° · Turn asymmetry even · Curls 0">Center angles</button>
+              <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>
+            </div>
           </div>
         </details>
 

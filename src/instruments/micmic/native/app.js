@@ -360,7 +360,7 @@ async function applyScene(scene, id = 'custom') {
   const restoreFocus = Boolean(picker?.contains(document.activeElement));
   if (picker) picker.inert = true;
   const controls = [...new Set([...Object.values(CONTROL_IDS), 'lSystemType', 'wet', 'dry', 'inputTrim', 'level',
-    ...MASTERING_IDS, 'masteringPreset', 'compressorEnabled', 'autoMakeup', 'frequency', 'pulseRate', 'resetGenerationRules'])]
+    ...MASTERING_IDS, 'masteringPreset', 'compressorEnabled', 'autoMakeup', 'frequency', 'pulseRate', 'centerAngles', 'resetGenerationRules'])]
     .map($).filter(Boolean);
   const disabled = controls.map(control => control.disabled);
   for (const control of controls) control.disabled = true;
@@ -453,6 +453,12 @@ function resetAll() {
     mastering: DEFAULT_MASTERING };
   void applyScene({ parameters: DEFAULT_PARAMETERS, performance: performanceDefaults }, 'pythagorean').catch(() => {});
 }
+function centerAngles() {
+  if (disposed || sceneApplying) return;
+  cancelParameterGestures();
+  state.parameters = sanitizeParameters({ ...state.parameters, angle: 90, asymmetry: 0, curls: 0 });
+  parameterRevision++; startPreview(); paintControls(); scheduleParameters(true); presetController?.refresh();
+}
 function formatParameter(key, value) {
   if (key === 'generations') return `${value} / ${state.generationLimits[state.parameters.lSystemType] ?? 52}`;
   if (key === 'intervalMs') return `${Math.round(value)} ms`;
@@ -462,7 +468,8 @@ function formatParameter(key, value) {
   if (key === 'pitchScale') return `${Math.round(value * 100)}% / 180°`;
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
-  return `${Math.round(value * 100)}%${key === 'mutation' ? ' rule variance' : ''}`;
+  if (key === 'mutation') return `${Math.round(value * 100)}% ${state.parameters.lSystemType === 'pythagorean' ? 'branch' : 'delay'} variation`;
+  return `${Math.round(value * 100)}%`;
 }
 function formatMastering(key, value) {
   if (key in MASTERING_FREQUENCIES) return value > 0 ? `${Math.round(value).toLocaleString()} Hz` : 'Off';
@@ -508,6 +515,11 @@ function paintInput() {
   credit.hidden = !input.credit;
 }
 function paintControls() {
+  const branchVariation = state.parameters.lSystemType === 'pythagorean';
+  $('mutationLabel').textContent = branchVariation ? 'Branch variation' : 'Delay variation';
+  const mutationGuide = branchVariation ? 'Varies branch turns, lengths and delay timing in Pythagorean Pine.'
+    : 'Varies delay timing while preserving this pattern’s branch shape and pitch turns.';
+  $('mutationGuide').textContent = mutationGuide; $('mutation').title = mutationGuide;
   for (const [key, id] of Object.entries(CONTROL_IDS)) {
     const value = state.parameters[key]; $(id).value = key === 'intervalMs' ? sliderFromTimeFold(value) : value;
     const text = formatParameter(key, value); $(`${id}Out`).textContent = text; $(id).setAttribute('aria-valuetext', text);
@@ -855,6 +867,7 @@ $('automatic').addEventListener('change', () => updatePerformance('automatic', $
 $('panicButton').addEventListener('click', () => void toggleAudio(false));
 $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
+$('centerAngles').addEventListener('click', centerAngles);
 $('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
 function releaseRangeGesture(event, owner = rangeGestureOwner) {

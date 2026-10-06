@@ -107,6 +107,13 @@ and their new positions feed **Spread**. The existing pitch-rate limits still
 apply. Curls does not reduce the number of voices or change device admission.
 Saved scenes retain Curls; older scenes without it restore zero. Held edits use
 the same staged Rust updates and continuous graphic transitions as Branch angle.
+**Center angles** restores Branch angle to its 90° midpoint, Turn asymmetry to
+even, and Curls to zero through one live edit. Timing, pitch span, variation,
+levels, source playback and the Audio state remain unchanged. The former Rule
+mutation control now describes its existing grammar-specific behavior:
+**Branch variation** changes Pythagorean turns, lengths and delays;
+**Delay variation** changes delay timing on all other patterns while retaining
+their shape and pitch turns. It does not rewrite the selected grammar.
 The optional voice-cap knob uses a logarithmic gesture across the full current
 memory-supported range; its adjacent numeric field accepts an exact count,
 with 0 retaining no user cap. This presentation adds no audio voice ceiling.
