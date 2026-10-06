@@ -6,6 +6,10 @@ use serde::{Deserialize, Serialize};
 use std::cmp::Ordering;
 use std::collections::BinaryHeap;
 
+#[path = "lab.rs"]
+mod lab;
+pub use lab::LabParameters;
+
 #[cfg(test)]
 pub const POOL_VOICES: usize = (1 << 14) - 2;
 pub const MAX_REPRESENTABLE_GENERATIONS: u8 = 52;
@@ -32,6 +36,9 @@ pub const L_SYSTEM_TYPES: [&str; 17] = [
 #[derive(Clone, Debug, Deserialize, Serialize, PartialEq)]
 #[serde(rename_all = "camelCase", default, deny_unknown_fields)]
 pub struct Parameters {
+    /// Optional independent lab compiler. Absence preserves every legacy rule.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub lab: Option<LabParameters>,
     pub l_system_type: String,
     pub generations: u8,
     pub interval_ms: f64,
@@ -49,6 +56,7 @@ pub struct Parameters {
 impl Default for Parameters {
     fn default() -> Self {
         Self {
+            lab: None,
             l_system_type: "pythagorean".into(),
             generations: 13,
             interval_ms: 240.,
@@ -66,6 +74,9 @@ impl Default for Parameters {
 }
 impl Parameters {
     pub fn validate(&self) -> Result<(), String> {
+        if let Some(lab) = &self.lab {
+            lab.validate()?;
+        }
         if !L_SYSTEM_TYPES.contains(&self.l_system_type.as_str()) {
             return Err("lSystemType must name a supported L-system grammar".into());
         }
@@ -127,7 +138,7 @@ pub struct Topology {
     /// Numeric targets indexed by stable slot, with raw per-generation gains.
     pub targets: Vec<PoolTarget>,
     pub ranks: Vec<usize>,
-    /// 1..13 denotes selected-generation gain normalization; zero is unused.
+    /// Positive u8 groups normalize each selected generation; zero is unused.
     pub groups: Vec<u8>,
     /// Bounded, authoritative connected preview; never governs audio admission.
     pub preview: Vec<Node>,
@@ -173,6 +184,8 @@ struct LayoutNode {
     turn: f64,
     length: f64,
     time_scale: f64,
+    /// Lab modules carry absolute pitch state; classic rules inherit turns.
+    module_pitch: Option<f64>,
 }
 
 fn visual_ratio(ratio: f64) -> f64 {
@@ -203,6 +216,7 @@ fn binary_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
         turn: 0.,
         length: 1.,
         time_scale: 1.,
+        module_pitch: None,
     });
     let visual_taper = visual_ratio(parameters.time_ratio);
     for id in 1..=count {
@@ -237,6 +251,7 @@ fn binary_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
             turn,
             length,
             time_scale: parameters.time_ratio.powf(f64::from(generation)) * (1. - variation),
+            module_pitch: None,
         });
     }
     Ok(layout)
@@ -546,6 +561,7 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
                 - acoustic_path_time(start, parameters.generations, parameters.time_ratio))
             .max(1e-9)
                 * (1. - variation),
+            module_pitch: None,
         }
     }));
     Ok(layout)
@@ -599,6 +615,9 @@ fn apply_curls(layout: &mut [LayoutNode], curls: f64) -> Result<(), String> {
         node.y = node.start_y + segment_x * sin + segment_y * cos;
         node.heading += phase;
         node.turn += phase - parent_phase;
+        if let Some(pitch) = &mut node.module_pitch {
+            *pitch += phase / 180. * 12.;
+        }
     }
     Ok(())
 }
@@ -740,7 +759,9 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         (8_000..=192_000).contains(&sample_rate),
         "unsupported sample rate"
     );
-    let mut layout = if parameters.l_system_type == "pythagorean" {
+    let mut layout = if let Some(lab) = &parameters.lab {
+        lab::layout(parameters, lab)?
+    } else if parameters.l_system_type == "pythagorean" {
         binary_layout(parameters)?
     } else {
         classic_layout(parameters)?
@@ -788,7 +809,10 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         let node = &mut nodes[index];
         let (parent_delay, parent_semitones) = lineage[node.parent];
         node.delay = parent_delay + base * node.time_scale;
-        let semitones = parent_semitones + node.turn_degrees / 180. * 12. * parameters.pitch_scale;
+        let semitones = layout[node.id].module_pitch.map_or(
+            parent_semitones + node.turn_degrees / 180. * 12. * parameters.pitch_scale,
+            |pitch| pitch * parameters.pitch_scale,
+        );
         lineage[node.id] = (node.delay, semitones);
         node.rate = 2_f64.powf(semitones / 12.).clamp(0.125, 8.);
         node.pan = (node.y / maximum_y * parameters.spread).clamp(-1., 1.);
@@ -816,7 +840,12 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
     assert_eq!(order.len(), eligible_voices, "connected audible priority");
     let mut ranks = crate::resources::filled(nodes.len(), usize::MAX)?;
     let trunk = &layout[0];
-    let mut preview = crate::resources::reserve(2049)?;
+    let preview_limit = if parameters.lab.is_some() {
+        requested_voices
+    } else {
+        2048
+    };
+    let mut preview = crate::resources::reserve(preview_limit.saturating_add(1))?;
     preview.push(Node {
         id: 0,
         parent: 0,
@@ -842,7 +871,7 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
     for (rank, index) in order.into_iter().enumerate() {
         ranks[index] = rank;
         nodes[index].priority = Some(rank);
-        if rank < 2048 {
+        if rank < preview_limit {
             preview.push(nodes[index].clone());
         }
     }
@@ -890,6 +919,7 @@ mod tests {
             turn: 0.,
             length: dx.hypot(dy),
             time_scale: 1.,
+            module_pitch: None,
         }
     }
 
