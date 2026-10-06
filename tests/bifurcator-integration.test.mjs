@@ -5,6 +5,7 @@ import test from 'node:test';
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { bifurcatorSiteChanges, restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
 import { restoreSynthesaurusIcon } from './helpers/synthesaurus-icon-reference.mjs';
+import { restoreRoachPerformance } from './helpers/roach-synth-performance-reference.mjs';
 import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 
 test('Bifurcator metadata preserves genuine remote-main source and rejects unrelated amendments', async () => {
@@ -17,7 +18,7 @@ test('Bifurcator metadata preserves genuine remote-main source and rejects unrel
     const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
     assert.notEqual(restoreBifurcatorSite(source, change.file), source);
     const preserved = value => assert.equal(createHash('sha256').update(restoreLSystemRecordedInputSite(
-      restoreBifurcatorSite(restoreSynthesaurusIcon(value, change.file), change.file), change.file,
+      restoreBifurcatorSite(restoreSynthesaurusIcon(restoreRoachPerformance(value, change.file), change.file), change.file), change.file,
     )).digest('hex'), change.sha256, 'pre-Bifurcator source preserved');
     preserved(source);
     for (const replacement of change.replacements) {

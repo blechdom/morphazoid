@@ -7,28 +7,29 @@ Research checked 2026-09-11. The scanned model is a generic winged cockroach spe
 The instrument has eight anatomical sound groups: legs, outer wing covers,
 hindwings, thorax, abdomen, neck, head and antennae. Each owns its oscillator
 phases, filters, excitation envelopes, seeded randomness and sound assignment.
-The nineteen source choices include smooth held-pose sounds (resonance,
+The twenty source choices include smooth held-pose sounds (resonance,
 drone, sub pressure, shimmer and clean sine), wing buzz and movement textures,
 plus short cartoon footsteps, clicks, clacks, FM hits, rattling percussion and
 Karplus plucks. Click and Clack provide separate crisp and resonant foot-contact
 articulations without adding independent rhythmic loops.
-Eighteen sound/voice presets and twenty-four animation sound patches share a
-visible preset selector. Each animation chooses a distinct body mix; only
+Nineteen sound/voice presets and twenty animation companion sound
+patches share a visible sound selector. Complete presets combine motion and sound; only
 Dash and freeze assigns Skuttle in its authored animation patch. Default feet
 use rounded impacts and the neck uses a clean pitch-responsive synth tone.
 The Wing radio patch retains its previous wing generators and settings.
 A compact body mixer controls assignment, level, mute and solo. Voice level
-is independent of body solos. All nine consumed global sound controls are
+is independent of body solos. All ten consumed global sound controls are
 visible beside the sound presets and voice input.
 
-Sound Play opens the smooth held-pose sources without advancing the animation.
-It never creates a footstep, scraping pulse or recorded grain. Moving each
+Play starts animation and opens the smooth held-pose sources together.
+Footsteps, scraping pulses and recorded grains follow the animated or manually
+manipulated joints rather than an independent rhythmic loop. Moving each
 body group's actual joints supplies its own friction and excitation; stopping
 releases those textures back to the held resonance bed. XYZ rotations alter
 pitch, filtering and stereo within that group. Left/right and individual joints
 have different weighting even when their source is shared. Touching a joint
-selects its group. Manual gestures work with Audio armed and either player
-paused. Audio arming alone is silent; spoken KAL16 words have their own trigger.
+selects its group. Manual gestures work with Audio armed and animation
+paused. Audio arming alone is silent; spoken words have their own trigger.
 Discrete pose loads and resets re-prime activity, preventing teleportation from
 manufacturing contact events.
 
@@ -45,7 +46,7 @@ below, triggered by that group's movement or the legs' contact events; it is
 not a continuously looping ambience. No acquired clip is an isolated flight
 sound, house-wall recording, shriek or demonstrated ultrasonic signal.
 
-Twenty-four interleaved animation patches and seeded motion blends share an
+Twenty interleaved animation patches and seeded motion blends share an
 audio-clock pose and stylized six-foot support state. Ground travel, swing,
 touchdown counters, body lift and upright dances come from that state. Internal
 64-sample curves preserve fast gestures; there is no exposed joint sequencer or
@@ -55,12 +56,11 @@ routines preserves transport phase, and camera views remain independent.
 Each routine has an authored eight-beat contact phrase on a sixteenth-note
 grid, including eighth-note tripods, individual taps, syncopation and landings.
 The optional metronome runs on the audio sample clock only during animation;
-the four-dot display follows the same beat. Selecting an animation also loads
-its sound patch while retaining master/voice levels and mute/solo choices.
-Starting the first animation preserves any sound patch already edited or
-chosen by the player. Sound presets can also be selected independently.
-Twenty-four static poses plus seeded random poses hold complete body states;
-Reset restores neutral without changing the sound mix.
+the four-dot display follows the same beat. Animation and sound selectors are independent and each has Next and dice.
+Complete presets combine their authored body mixes and routines. Tempo spans
+2–4,400 BPM; 1/2, 1/4, 2× and 4× actions rebase the clock to retain phase.
+Static poses remain part of the underlying rig and saved scenes; the former
+Sound Play and Body pose strip has been removed from the performance UI.
 
 The viewer calibrates a lowered, spread neutral stance from the curled scan
 once at load, using bounded joint solving. Its angles and kinematic metadata
@@ -80,26 +80,33 @@ full limb-to-limb physics solver. Fine appendages and surface seams can still
 overlap outside that core. Depth testing and self/ground shadows supply visible
 occlusion. Graphics remain capped at 20 fps and pixel ratio 1; the AudioWorklet
 runs the shared motion clock independently. Camera fitting occurs on loading,
-explicit view selection or Fit; zoom has explicit +/− controls rather than
-pinch, wheel or pose-driven refitting.
+explicit view selection or Fit; wheel and pinch gestures zoom over the graphic,
+with +/− controls also available. Direct touch works without a mode toggle.
+A warm full-stage background and transparent shadow receiver remove the horizon.
 
 On phones, an explicit Audio on/off control remains on the sticky viewport,
 with nearby loading/audio status that does not shift the scrolled controls.
-Sound Play and speech remain usable while the GLB is loading; animation waits
+Speech and Audio remain usable while the GLB is loading; animation waits
 for the rig. Built browser and WAX pages version the complete Roach module
 graph and the mobile model together to prevent cached controls, worklets and
 model assets from mixing releases. A temporary worker decodes the compressed
 geometry, and texture uploads yield between short batches. Audio remains in
 its existing independent AudioWorklet; loading does not arm or suspend it.
 
-A fixed 20-frame output lookahead (0.42 ms at 48 kHz) protects dense mixtures.
+Master output now spans 0–100%; fixed makeup gain raises the body mix by
+about 8.7 dB without changing its timbral controls. A fixed 20-frame output lookahead (0.42 ms at 48 kHz) protects dense mixtures.
 The guard conservatively bounds a four-times windowed-sinc reconstruction,
 including peaks between samples, with preallocated buffers and a fast path for
 quiet signals. Ordinary low-level samples pass unchanged after the fixed delay.
 This matches the offline headroom check; it is not a certified broadcast meter.
 
-Speech reuses Morphazoid's locally bundled KAL16 atlas and pronunciation
-dictionary with their existing attribution. The talking bug, growls and
+Speech uses Voicesaurus's Low KAL16 preset with a quieter default level and
+an independent 0.5–2× Speed control. Speed changes playback rate and pitch;
+the sound Pitch control no longer changes the spoken phrase's speed. Its local native worker renders whole sentences
+only after an explicit speech action with Audio armed. The same voice renders
+bounded vowel buffers for joint- and contact-triggered body sounds; native
+render workers terminate on completion, Audio off or teardown. Voicesaurus
+retains the engine and voice provenance in its existing assets and documentation. The talking bug, growls and
 unfurling textures are creative sound design. No ultrasound is output. Automated
 renders, measurements and browser interaction tests assess timing, stability
 and levels; human listening and physical-device testing have not validated

@@ -38,6 +38,25 @@ function gaps(pose, joints, scene) {
 }
 const clear = (pose, joints, scene) => { for (const part of gaps(pose, joints, scene)) assert.ok(part.minimum >= -1e-7, `${part.id}: ${part.minimum}`); };
 
+test('floor search respects head contact without deriving new plate pressure', () => {
+  const joints = fixture();
+  joints[2].headContact = { parentId: 'neck', liftSign: -1, parentLiftSign: -1, liftLimit: .15 };
+  const pose = resting(joints), scene = createRoachSceneState();
+  pose[6] = -20; pose[7] = 6; pose[8] = -8;
+  const supports = pose.slice(15);
+  constrainRoachFloorPose(pose, joints, scene);
+  assert.ok(pose[6] >= -.150001); assert.equal(pose[7], 0); assert.equal(pose[8], 0);
+  assert.equal(pose[3], 0, 'Stopping relative lift never invents carried neck motion');
+  assert.deepEqual(pose.slice(15), supports); clear(pose, joints, scene);
+  for (const pitch of [-80, -45, 45, 80]) {
+    scene.body.pitch = pitch;
+    pose[6] = 95; pose[7] = 90; pose[8] = -90;
+    constrainRoachFloorPose(pose, joints, scene);
+    assert.ok(pose[6] >= -.150001); assert.equal(pose[7], 0); assert.equal(pose[8], 0);
+    assert.deepEqual(pose.slice(15), supports); clear(pose, joints, scene);
+  }
+});
+
 test('safe face poses return unchanged and padded DSP buffers preserve every non-face value and tail', () => {
   const joints = fixture(), pose = resting(joints, 84), scene = createRoachSceneState();
   pose[1] = 7; pose[17] = 13; pose.fill(321, joints.length * 3);

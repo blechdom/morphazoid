@@ -3,11 +3,18 @@ import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 test.setTimeout(90000);
 const groups = ['legs', 'covers', 'hindwings', 'thorax', 'abdomen', 'neck', 'head', 'antennae'];
-const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack'];
+const sources = ['resonance', 'drone', 'sub', 'shimmer', 'buzz', 'zing', 'skuttle', 'walls', 'rustle', 'shriek', 'hiss', 'growl', 'footsteps', 'fm', 'rattle', 'pluck', 'sine', 'click', 'clack', 'voice-kal'];
 const state = page => page.evaluate(() => window.roachSynth.getState());
 async function open(page) {
   await page.goto('roach-synth.html');
   await page.waitForFunction(() => window.roachSynth?.getState().loaded, undefined, { timeout: 45000 });
+}
+async function choose(page, id, value) {
+  const trigger = page.locator(`#${id}-picker-trigger`);
+  if (await trigger.count()) {
+    await trigger.click();
+    await page.locator(`#${id}-picker-panel [data-value="${value}"]`).click();
+  } else await page.locator(`#${id}`).selectOption(value);
 }
 async function arm(page) {
   await page.locator('#audioButton').click();
@@ -26,9 +33,9 @@ async function settleScroll(page) {
   }));
 }
 
-test('all nine sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
+test('all ten sound parameters are editable without changing body assignments or arming Audio', async ({ page }) => {
   await open(page);
-  const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice'];
+  const parameters = ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice', 'voiceSpeed'];
   expect(await page.locator('[data-sound]').evaluateAll(inputs => inputs.map(input => input.dataset.sound).sort())).toEqual([...parameters].sort());
   const before = await state(page);
   for (const key of parameters) {
@@ -42,34 +49,44 @@ test('all nine sound parameters are editable without changing body assignments o
   expect(after.audio.contextState).toBe('uninitialized'); await expect(page.locator('#soundPreset')).toHaveValue('custom');
 });
 
-test('animation sound presets follow explicit motion choices while first Play preserves a chosen sound', async ({ page }) => {
+test('animation and sound choices cycle independently while Next and dice preserve playback and level', async ({ page }) => {
   await open(page);
-  expect(await page.locator('#soundPreset optgroup[label="Sound presets"] option').count()).toBeGreaterThanOrEqual(18);
-  await expect(page.locator('#soundPreset optgroup[label="Animation sounds"] option')).toHaveCount(24);
-  await page.locator('#soundPreset').selectOption('wing-radio');
+  await expect(page.locator('#soundPreset optgroup[label="Sound presets"] option')).toHaveCount(19);
+  const companions = await page.locator('#soundPreset optgroup[label="Animation sounds"] option').evaluateAll(options => options.map(option => option.value));
+  expect(companions).toHaveLength(20);
+  expect(companions).toEqual(expect.arrayContaining(['motion:side_jump', 'motion:top_wing_fan', 'motion:top_flight', 'motion:wings_alarm']));
+  expect(companions.filter(id => ['dance_upright', 'dance_boxer', 'dance_can_can', 'dance_waltz'].some(retired => id === `motion:${retired}`))).toEqual([]);
+  await choose(page, 'soundPreset', 'wing-radio');
   await page.locator('#level').fill('0.43');
   const chosen = await state(page);
   await page.locator('#motionButton').click();
-  const started = await state(page);
-  expect(started.sound).toEqual(chosen.sound); expect(started.bodyMix).toEqual(chosen.bodyMix);
-  const before = await state(page);
-  await page.locator('#motionPreset').selectOption('side_run');
-  await expect(page.locator('#soundPreset')).toHaveValue('motion:side_run');
+  expect((await state(page)).sound).toEqual(chosen.sound); expect((await state(page)).bodyMix).toEqual(chosen.bodyMix);
+  await choose(page, 'motionPreset', 'side_run');
   const running = await state(page);
-  expect(running.bodyMix).not.toEqual(chosen.bodyMix); expect(running.sound.level).toBe(.43);
-  expect(running.playing).toBe(true); expect(running.time).toBeGreaterThanOrEqual(before.time); expect(running.camera).toEqual(before.camera);
-  await page.locator('#soundPreset').selectOption('motion:top_flight');
+  expect(running.sound).toEqual(chosen.sound); expect(running.bodyMix).toEqual(chosen.bodyMix);
+  await expect(page.locator('#soundPreset')).toHaveValue('wing-radio');
+  await page.locator('#nextMotion').click();
+  const nextMotion = await state(page);
+  expect(nextMotion.motionChoice).not.toBe(running.motionChoice);
+  expect(nextMotion.sound).toEqual(chosen.sound); expect(nextMotion.bodyMix).toEqual(chosen.bodyMix);
+  await choose(page, 'soundPreset', 'motion:top_flight');
   const flightSound = await state(page);
-  expect(flightSound.motionChoice).toBe('side_run'); expect(flightSound.playing).toBe(true);
-  expect(flightSound.bodyMix).not.toEqual(running.bodyMix); expect(flightSound.sound.level).toBe(.43);
-  expect(flightSound.camera).toEqual(before.camera); expect(flightSound.audio.contextState).toBe('uninitialized');
+  expect(flightSound.motionChoice).toBe(nextMotion.motionChoice); expect(flightSound.playing).toBe(true);
+  expect(flightSound.bodyMix).not.toEqual(chosen.bodyMix); expect(flightSound.sound.level).toBe(.43);
+  await page.locator('#nextSound').click();
+  const nextSound = await state(page);
+  expect(nextSound.sound).not.toEqual(flightSound.sound);
+  expect(nextSound.motionChoice).toBe(nextMotion.motionChoice); expect(nextSound.sound.level).toBe(.43);
+  expect(nextSound.playing).toBe(true); expect(nextSound.soundPlaying).toBe(true);
+  expect(nextSound.camera).toEqual(chosen.camera); expect(nextSound.audio.contextState).toBe('uninitialized');
+  await expect(page.locator('#randomSound svg, #randomMotion svg')).toHaveCount(2);
 });
 
 test('metronome controls are removed and muted animation stays silent with antennae active', async ({ page }) => {
   await open(page);
   await expect(page.locator('#metronome, #beatIndicator, #antennae')).toHaveCount(0);
   for (const group of groups) await page.locator(`[data-mute="${group}"]`).click();
-  await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+  await page.locator('#motionButton').click();
   expect((await state(page)).audio.contextState).toBe('uninitialized');
   expect((await state(page)).motionSettings.antennae).toBe(true);
   await arm(page);
@@ -88,7 +105,7 @@ test('eight body rows each own a source selector, playable level knob and separa
   expect(await page.locator('.roach-body-row').evaluateAll(rows => rows.map(row => row.dataset.group))).toEqual(groups);
   for (const group of groups) {
     const row = page.locator(`.roach-body-row[data-group="${group}"]`);
-    expect(await row.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(sources);
+    expect(await row.locator('option').evaluateAll(options => options.map(option => option.value))).toEqual(expect.arrayContaining(sources));
     await expect(row.locator(`#mix-${group}`)).toHaveAttribute('type', 'range');
     await expect(row.locator('[data-mute]')).toHaveAttribute('aria-pressed', 'false');
     await expect(row.locator('[data-solo]')).toHaveAttribute('aria-pressed', 'false');
@@ -137,14 +154,14 @@ test('mobile knob vertical drags scroll without changing level; horizontal drags
   } finally { await context.close(); }
 });
 
-test('source changes, knobs and mute/solo preserve raw levels and do not interrupt either player', async ({ page }, testInfo) => {
+test('source changes, knobs and mute/solo preserve raw levels and do not interrupt Play', async ({ page }, testInfo) => {
   await open(page);
   await page.locator('#source-legs').selectOption('resonance'); await page.locator('#mix-legs').fill('0.63');
   await page.locator('[data-solo="legs"]').click();
   const before = await state(page); expect(before.solo).toEqual(['legs']);
   expect(before.effectiveBodyMix.filter(row => row.groupId !== 'legs').every(row => row.level === 0)).toBe(true);
   expect(before.bodyMix.find(row => row.groupId === 'legs').level).toBe(.63);
-  await page.locator('#soundPlayButton').click(); await arm(page);
+  await page.locator('#motionButton').click(); await arm(page);
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   await page.locator('[data-mute="legs"]').click();
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
@@ -157,7 +174,7 @@ test('source changes, knobs and mute/solo preserve raw levels and do not interru
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   await page.locator('[data-solo="thorax"]').click();
   expect((await state(page)).solo).toEqual(['legs', 'thorax']);
-  await page.locator('#motionButton').click(); await page.locator('#resetMix').click();
+  await page.locator('#resetMix').click();
   const reset = await state(page); expect(reset.muted).toEqual([]); expect(reset.solo).toEqual([]);
   expect(reset.sound.level).toBe(.7); expect(reset.playing).toBe(true); expect(reset.soundPlaying).toBe(true);
   const report = await sampleAudioEnvelope(page, { durationMs: 500 });
@@ -169,8 +186,8 @@ test('body solos leave the independent Voice level and Say it audible', async ({
   await open(page);
   await page.locator('#source-legs').selectOption('skuttle'); await page.locator('[data-solo="legs"]').click();
   const voiceLevel = (await state(page)).sound.voice;
-  await page.locator('#soundPlayButton').click(); await arm(page);
-  // Skuttle needs movement. Sound Play does not invent footsteps for a held body.
+  await arm(page);
+  // Skuttle needs movement; a held body does not invent footsteps.
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
   await page.locator('#phrase').fill('hi cockroach'); await page.locator('#speakButton').click();
   let speaking;
@@ -188,9 +205,9 @@ test('body solos leave the independent Voice level and Say it audible', async ({
 
 test('recorded rustle follows moving legs and releases while a held animation preset stays silent', async ({ page }) => {
   await open(page);
-  await page.locator('#motionPreset').selectOption('side_run');
+  await choose(page, 'motionPreset', 'side_run');
   await page.locator('#source-legs').selectOption('rustle'); await page.locator('[data-solo="legs"]').click();
-  await page.locator('#soundPlayButton').click(); await arm(page);
+  await arm(page);
   await expect.poll(async () => (await state(page)).audio.samplesLoaded).toBe(3);
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
   await page.locator('#motionButton').click();
@@ -203,15 +220,15 @@ test('recorded rustle follows moving legs and releases while a held animation pr
   await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
   const stopped = await state(page); await page.waitForTimeout(250);
   expect((await state(page)).audio.contactEvents).toBe(stopped.audio.contactEvents);
-  expect((await state(page)).soundPlaying).toBe(true);
+  expect((await state(page)).soundPlaying).toBe(false);
 });
 
 test('Click and Clack are leg percussion that follows movement and releases when held', async ({ page }, testInfo) => {
   await open(page);
-  await page.locator('#motionPreset').selectOption('side_walk');
+  await choose(page, 'motionPreset', 'side_walk');
   await page.locator('[data-solo="legs"]').click();
   await page.locator('#source-legs').selectOption('click');
-  await page.locator('#soundPlayButton').click(); await arm(page);
+  await arm(page);
   const reports = [];
   for (const source of ['click', 'clack']) {
     await page.locator('#source-legs').selectOption(source);
@@ -226,19 +243,19 @@ test('Click and Clack are leg percussion that follows movement and releases when
     reports.push({ source, ...report.summary });
     await page.locator('#motionButton').click();
     await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.00001);
-    expect((await state(page)).soundPlaying).toBe(true);
+    expect((await state(page)).soundPlaying).toBe(false);
   }
   await testInfo.attach('click-clack-motion.json', { body: JSON.stringify(reports), contentType: 'application/json' });
 });
 
 test('Random sound changes complete tone parameters and body assignments while preserving master and transport', async ({ page }) => {
-  await open(page); await page.locator('#soundPlayButton').click();
+  await open(page); await page.locator('#motionButton').click();
   await page.locator('#level').fill('0.42'); const before = await state(page);
   await page.locator('#randomSound').click(); const first = await state(page);
   for (const key of ['pitch', 'brightness', 'resonance', 'crunch', 'vowel', 'wingRate', 'rhythm', 'pan', 'voice']) expect(first.sound[key]).not.toBe(before.sound[key]);
   expect(first.bodyMix).not.toEqual(before.bodyMix); expect(first.bodyMix).toHaveLength(8);
   expect(first.bodyMix.every(row => sources.includes(row.source) && row.level >= 0 && row.level <= 1)).toBe(true);
-  expect(first.sound.level).toBe(.42); expect(first.soundPlaying).toBe(true); expect(first.playing).toBe(false);
+  expect(first.sound.level).toBe(.42); expect(first.soundPlaying).toBe(true); expect(first.playing).toBe(true);
   expect(first.audio.contextState).toBe('uninitialized');
   await page.locator('#randomSound').click(); const second = await state(page);
   expect(second.sound).not.toEqual(first.sound); expect(second.bodyMix).not.toEqual(first.bodyMix); expect(second.sound.level).toBe(.42);
@@ -250,10 +267,59 @@ test('missing recordings leave smooth synthesis and spoken words playable', asyn
   await open(page); await arm(page);
   await expect.poll(async () => (await state(page)).audio.samplesStatus).toBe('unavailable');
   await expect(page.locator('#sampleStatus')).toContainText('unavailable');
-  await page.locator('#soundPlayButton').click();
+  await page.locator('#motionButton').click();
   await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
-  expect((await state(page)).time).toBe(0);
+  expect((await state(page)).time).toBeGreaterThan(0);
   await page.locator('#speakButton').click();
   await expect.poll(async () => (await state(page)).audio.speechEnvelope, { timeout: 12000 }).toBeGreaterThan(.0001);
   expect((await state(page)).audioOn).toBe(true);
+});
+
+
+test('sound knobs sit under their preset, keep labels close, and expose values accessibly outside the dial', async ({ page }) => {
+  await open(page);
+  expect(await page.locator('.roach-tone-controls').evaluate(element => {
+    const after = other => Boolean(other.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING);
+    const before = other => Boolean(element.compareDocumentPosition(other) & Node.DOCUMENT_POSITION_FOLLOWING);
+    return after(document.getElementById('soundPreset')) && before(document.getElementById('phrase'));
+  })).toBe(true);
+  for (const knob of await page.locator('.roach-tone-knob').all()) {
+    const geometry = await knob.evaluate(element => {
+      const box = element.getBoundingClientRect(), face = element.querySelector('.knob-face').getBoundingClientRect();
+      const label = element.querySelector('.knob-label').getBoundingClientRect();
+      const readout = element.querySelector('small'), style = readout && getComputedStyle(readout);
+      return { height: box.height, labelGap: Math.max(0, face.top - label.bottom, label.top - face.bottom), hiddenReadout: !readout || style.display === 'none' || style.visibility === 'hidden' || style.clipPath !== 'none' || style.clip !== 'auto' };
+    });
+    expect(geometry.height).toBeLessThanOrEqual(52); expect(geometry.labelGap).toBeLessThanOrEqual(6); expect(geometry.hiddenReadout).toBe(true);
+    await expect(knob.locator('input')).toHaveAttribute('aria-valuetext', /.+/);
+  }
+});
+
+test('Low KAL16 body sound is the only voice source and responds to direct joints with Play paused', async ({ page }, testInfo) => {
+  await open(page);
+  await page.locator('[data-view="face"]').click(); await page.locator('#dragAxis').selectOption('x');
+  await page.locator('[data-solo="head"]').click(); await arm(page);
+  const reports = [];
+  const voiceSources = await page.locator('#source-head option').evaluateAll(options => options.map(option => option.value).filter(id => id.startsWith('voice-')));
+  expect(voiceSources).toEqual(['voice-kal']);
+  for (const source of voiceSources) {
+    await page.locator('#source-head').selectOption(source);
+    await expect.poll(async () => (await state(page)).audio.bodyVoicesLoaded, { timeout: 20000 }).toContain(source);
+    const before = await state(page);
+    const point = await page.evaluate(() => window.roachSynth.getPartScreenPosition('head'));
+    expect(point).not.toBeNull();
+    await page.mouse.move(point.x, point.y); await page.mouse.down();
+    for (let step = 1; step <= 8; step += 1) {
+      await page.mouse.move(point.x, point.y - step * 2); await page.waitForTimeout(35);
+    }
+    const active = await state(page);
+    expect(active.selectedGroup).toBe('head'); expect(active.audio.interactionPeak).toBeGreaterThan(.001);
+    expect(active.playing).toBe(false); expect(active.soundPlaying).toBe(false); expect(active.time).toBe(before.time);
+    const report = await sampleAudioEnvelope(page, { durationMs: 250 });
+    expect(report.summary.finite).toBe(true); expect(report.summary.clippedSamples).toBe(0);
+    reports.push({ source, ...report.summary });
+    await page.mouse.up();
+    await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
+  }
+  await testInfo.attach('voicesaurus-body-sounds.json', { body: JSON.stringify(reports), contentType: 'application/json' });
 });

@@ -4,6 +4,7 @@ import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
 import { restoreSpelling } from "./helpers/spelling-reference.mjs";
 import { restoreMorphazoidicalRemoval } from "./helpers/morphazoidical-removal-reference.mjs";
 import { restoreFabricFilter } from "./helpers/fabric-filter-reference.mjs";
+import { restoreRoachPerformance } from "./helpers/roach-synth-performance-reference.mjs";
 import { restoreVoicesaurus } from "./helpers/voicesaurus-reference.mjs";
 import { restoreSynthesaurusFavesOrder, synthesaurusFavesOrderChanges } from "./helpers/synthesaurus-faves-order-reference.mjs";
 import { restoreDominoRunSite, dominoRunSiteAmendments } from "./helpers/domino-run-site-reference.mjs";
@@ -41,10 +42,10 @@ function restoreSynthesis(source, file) {
   }
   return source;
 }
-// Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
+// Reverse current performance amendments before the independent frozen proofs.
 const readBeforeSynthesis = async file => {
   const current = restoreSynthesaurusFavesOrder(restoreBifurcatorSite(await readFile(new URL(file, root), "utf8"), file), file);
-  return restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(current, file), file), file), file), file);
+  return restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreRoachPerformance(restoreMorphazoidicalRemoval(restoreTapTempo(current, file), file), file), file), file), file);
 };
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);
 

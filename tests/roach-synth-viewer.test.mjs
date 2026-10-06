@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { inspectRoachGlb } from '../src/instruments/roach-synth/roach-synth-viewer.js';
+import { inspectRoachGlb, measureRoachHeadContact } from '../src/instruments/roach-synth/roach-synth-viewer.js';
+import { Matrix4, Vector3 } from '../vendor/three/three.module.min.js';
 
 function glb(document, binaryBytes = 4) {
   const encoded = new TextEncoder().encode(JSON.stringify({ asset: { version: '2.0' }, ...document }));
@@ -108,4 +109,33 @@ test('an alternative meshopt extension cannot bypass the decompression preflight
     extensions: { KHR_meshopt_compression: { buffer: 0, byteLength: 4, count: 1_000_000, byteStride: 256, mode: 'ATTRIBUTES' } },
   }] };
   assert.throws(() => inspectRoachGlb(glb(document)), /unsupported compressed buffer/);
+});
+
+function contactGeometry() {
+  return { headPoints: [new Vector3(0, 1, 0)],
+    platePoints: [new Vector3(-2, -2, .25), new Vector3(2, -2, .25), new Vector3(2, 2, .25), new Vector3(-2, 2, .25)],
+    plateIndices: [0, 1, 2, 0, 2, 3], headMatrix: new Matrix4(), liftSign: 1,
+    frame: { left: new Vector3(1, 0, 0), forward: new Vector3(0, 1, 0), dorsal: new Vector3(0, 0, 1), bodyLength: 1 } };
+}
+
+test('head contact measures the actual crown arc against the plate underside', () => {
+  const geometry = contactGeometry();
+  const expected = Math.asin(.25) * 180 / Math.PI;
+  const limit = measureRoachHeadContact(geometry);
+  assert.ok(limit <= expected && expected - limit < .001, `${limit} must stop before ${expected}`);
+  assert.deepEqual(geometry.headPoints[0].toArray(), [0, 1, 0], 'calibration preserves the resting mesh');
+  assert.deepEqual(geometry.headMatrix.toArray(), new Matrix4().toArray(), 'calibration preserves the hinge');
+  geometry.liftSign = -1;
+  assert.equal(measureRoachHeadContact(geometry), 50, 'the opposite arc opens away from the plate');
+});
+
+test('head contact preserves authored seam overlap and requires usable plate geometry', () => {
+  const geometry = contactGeometry();
+  geometry.headPoints.push(new Vector3(0, 1, .3));
+  assert.ok(Math.abs(measureRoachHeadContact(geometry) - Math.asin(.25) * 180 / Math.PI) < .001);
+  geometry.headPoints.shift();
+  assert.equal(measureRoachHeadContact(geometry), null, 'existing scan overlap cannot lock the neutral hinge');
+  geometry.headPoints = [new Vector3(0, 1, 0)];
+  geometry.plateIndices = [];
+  assert.equal(measureRoachHeadContact(geometry), null);
 });
