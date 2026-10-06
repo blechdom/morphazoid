@@ -42,6 +42,7 @@ pub struct Parameters {
     pub mutation: f64,
     pub pitch_scale: f64,
     pub pruning_bias: f64,
+    /// Generation decay factor; 1 retains equal energy at every audible layer.
     pub depth: f64,
     pub spread: f64,
 }
@@ -80,7 +81,7 @@ impl Parameters {
             ("mutation", self.mutation, 0., 1.),
             ("pitchScale", self.pitch_scale, 0., 4.),
             ("pruningBias", self.pruning_bias, -1., 1.),
-            ("depth", self.depth, 0., 0.96),
+            ("depth", self.depth, 0., 1.),
             ("spread", self.spread, 0., 1.),
         ] {
             if !value.is_finite() || !(low..=high).contains(&value) {
@@ -897,6 +898,112 @@ mod tests {
             (actual - expected).abs() < 1e-11 * (1. + expected.abs()),
             "actual={actual}, expected={expected}"
         );
+    }
+
+    #[test]
+    fn depth_one_keeps_equal_generation_energy_and_preserves_branch_identity() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                generations: 6,
+                interval_ms: 2.,
+                depth: 0.96,
+                ..Parameters::default()
+            };
+            let decaying = compile(&parameters, 8000);
+            let full = compile(
+                &Parameters {
+                    depth: 1.,
+                    ..parameters
+                },
+                8000,
+            );
+            assert_eq!(full.requested_voices, decaying.requested_voices, "{id}");
+            assert_eq!(full.eligible_voices, decaying.eligible_voices, "{id}");
+            assert_eq!(full.ranks, decaying.ranks, "{id}");
+            assert_eq!(full.groups, decaying.groups, "{id}");
+            let mut energy = [0.; 256];
+            for ((node, old), target) in full.nodes.iter().zip(&decaying.nodes).zip(&full.targets) {
+                assert_eq!(
+                    (
+                        node.id,
+                        node.parent,
+                        node.voice_index,
+                        &node.key,
+                        &node.parent_key,
+                        node.generation,
+                        node.rule,
+                        node.delay,
+                        node.rate,
+                        node.pan,
+                        node.priority
+                    ),
+                    (
+                        old.id,
+                        old.parent,
+                        old.voice_index,
+                        &old.key,
+                        &old.parent_key,
+                        old.generation,
+                        old.rule,
+                        old.delay,
+                        old.rate,
+                        old.pan,
+                        old.priority
+                    ),
+                    "{id}"
+                );
+                assert_eq!(
+                    target.gain,
+                    if node.delay <= 39. + 1e-9 { 0.5 } else { 0. },
+                    "{id}: generation {} retains the history boundary",
+                    node.generation
+                );
+                energy[usize::from(node.generation)] += node.gain * node.gain;
+            }
+            let audible: Vec<_> = energy.into_iter().filter(|energy| *energy > 0.).collect();
+            assert!(audible.len() >= 2, "{id} has multiple audible layers");
+            for energy in audible {
+                assert_near(energy, 0.25);
+            }
+        }
+        let limited_history = compile(
+            &Parameters {
+                generations: 6,
+                interval_ms: 3000.,
+                time_ratio: 2.,
+                depth: 1.,
+                ..Parameters::default()
+            },
+            8000,
+        );
+        assert!(limited_history.nodes.iter().any(|node| node.delay > 39.));
+        for (node, target) in limited_history.nodes.iter().zip(&limited_history.targets) {
+            if node.delay > 39. + 1e-9 {
+                assert_eq!(target.gain, 0.);
+                assert_eq!(node.priority, None);
+            }
+        }
+    }
+
+    #[test]
+    fn depth_validates_the_inclusive_no_decay_endpoint() {
+        for depth in [0., 0.96, 1.] {
+            assert!(Parameters {
+                depth,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_ok());
+        }
+        for depth in [-0.001, 1.0001, f64::NAN, f64::INFINITY, f64::NEG_INFINITY] {
+            assert!(Parameters {
+                depth,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
     }
 
     #[test]

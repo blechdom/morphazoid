@@ -412,7 +412,7 @@ impl Renderer {
     }
 
     fn set_depth(&mut self, depth: f64) -> Result<(), String> {
-        if !depth.is_finite() || !(0.0..=0.96).contains(&depth) {
+        if !depth.is_finite() || !(0.0..=1.0).contains(&depth) {
             return Err("Recursion is outside its supported range".into());
         }
         if !self.depth_controls {
@@ -1566,9 +1566,16 @@ mod browser_tests {
             reference.process(&input, None, &mut reference_l, &mut reference_r);
             block += 1;
         }
-        for depth in [0.91, 0.34, 0.65, 0., 0.48, 0.96] {
+        let capacity = live.capacity;
+        let allocated_bytes = live.engine.allocated_bytes();
+        let revision = live.revision;
+        let group_counts = live.structural_group_counts;
+        for depth in [0.91, 0.34, 0.65, 0., 0.48, 0.96, 1., 0., 1.] {
             parameters.depth = depth;
             let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+            let frames = live.frames;
+            let normalization = live.wet_normalization;
+            let envelope_end = live.envelope.end_time();
             ALLOCATIONS.with(|n| n.set(0));
             FREES.with(|n| n.set(0));
             TRACK.with(|enabled| enabled.set(true));
@@ -1576,6 +1583,18 @@ mod browser_tests {
             TRACK.with(|enabled| enabled.set(false));
             assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
             assert_eq!(FREES.with(|n| n.get()), 0);
+            assert_eq!(live.live_depth, Some(depth));
+            assert_eq!(live.frames, frames, "Depth edits preserve the audio clock");
+            assert_eq!(live.envelope.end_time(), envelope_end);
+            assert_eq!(live.capacity, capacity);
+            assert_eq!(live.engine.allocated_bytes(), allocated_bytes);
+            assert_eq!(live.revision, revision);
+            assert_eq!(live.structural_group_counts, group_counts);
+            assert_eq!(
+                live.wet_normalization, normalization,
+                "Bus gain ramps at sample rate"
+            );
+            assert_eq!(live.target_normalization, depth_normalization(depth));
             reference.install(&compiled.pool).unwrap();
             assert_eq!(live.available, reference.available);
             assert_eq!(
@@ -1589,8 +1608,23 @@ mod browser_tests {
                 assert_eq!(left, reference_l, "Recursion {depth}");
                 assert_eq!(right, reference_r, "Recursion {depth}");
                 assert_eq!(live.frames, reference.frames);
+                assert!(left
+                    .iter()
+                    .chain(&right)
+                    .all(|sample| sample.is_finite() && sample.abs() <= 1.));
                 block += 1;
             }
+            assert!((live.wet_normalization - live.target_normalization).abs() < 1e-10);
+            assert_eq!(live.metrics[2], if depth == 0. { 0. } else { 64. });
+            assert_eq!(live.metrics[4], capacity as f64);
+            assert_eq!(live.metrics[16], revision as f64);
+            assert_eq!(live.metrics[14], live.frames as f64 / 8000.);
+        }
+        let metrics = live.metrics;
+        for invalid in [-0.001, 1.0001, f64::NAN, f64::INFINITY] {
+            assert!(live.set_depth(invalid).is_err());
+            assert_eq!(live.live_depth, Some(1.));
+            assert_eq!(live.metrics, metrics);
         }
     }
     #[test]
@@ -1625,7 +1659,9 @@ mod browser_tests {
         renderer.set_depth(0.).unwrap();
         assert_eq!(renderer.engine.target_voice_count(), 0);
         assert!(renderer.set_depth(f64::NAN).is_err());
-        assert!(renderer.set_depth(1.).is_err());
+        renderer.set_depth(1.).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 48);
+        assert!(renderer.set_depth(1.0001).is_err());
     }
     #[test]
     fn staged_scene_edits_preserve_sample_exact_live_flow_and_current_depth_and_mix() {
