@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
 
 // Additive Blobs records, peeled before historical catalogue preservation checks.
 export const blobsSiteChanges = [
@@ -25,6 +26,7 @@ export const blobsSiteChanges = [
 ];
 
 export function restoreBlobsSite(source, file) {
+  source = restoreLSystemLabSite(source, file);
   for (const { addition } of blobsSiteChanges.filter(change => change.file === file)) {
     assert.equal(source.split(addition).length - 1, 1, `${file}: exact Blobs addition`);
     source = source.replace(addition, '');

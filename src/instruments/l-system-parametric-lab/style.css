@@ -1,0 +1,4 @@
+.lab-stage-title { position: absolute; top: 16px; left: 18px; z-index: 2; margin: 0; font: 600 18px/1.3 var(--font-family, sans-serif); color: #fff3d6; pointer-events: none; }
+body[data-l-system-lab] .stage-wrap { position: relative; }
+body[data-l-system-lab] [hidden] { display: none !important; }
+@media (max-width: 760px) { .lab-stage-title { top: 10px; left: 12px; font-size: 14px; } }

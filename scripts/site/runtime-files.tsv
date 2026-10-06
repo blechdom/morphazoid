@@ -1571,3 +1571,15 @@ copy+require	assets/synthesis/extra-loops/neon-synth-pop.wav
 copy+require	assets/synthesis/extra-loops/renders.json
 copy+require	assets/synthesis/extra-loops/rockabilly-drive.wav
 copy+require	assets/synthesis/extra-loops/unicorn-sparkles.wav
+
+# L-system laboratories share the current Rust delay performance surface.
+copy+require	l-system-parametric-lab.html
+copy+require	l-system-experiments.html
+copy+require	src/instruments/l-system-parametric-lab/app.js
+copy+require	src/instruments/l-system-parametric-lab/config.js
+copy+require	src/instruments/l-system-parametric-lab/model.js
+copy+require	src/instruments/l-system-parametric-lab/style.css
+copy+require	src/instruments/l-system-experiments/app.js
+copy+require	src/instruments/l-system-experiments/config.js
+copy+require	assets/instruments/l-system-parametric-lab.webp
+copy+require	assets/instruments/l-system-experiments.webp
