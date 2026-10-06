@@ -237,8 +237,10 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   let nodes = [], drawIndices = [], staticData = new Float32Array(), meterData = new Float32Array();
   let maximumGeneration = 0, generationLevels = new Float32Array(1);
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
+  let historyScratch = new Float32Array();
   const palette = paletteValues(colors);
-  const counters = { backend, nodeCount: 0, previewNodeCount: 0, topologyUploads: 0, selectionUploads: 0, positionUploads: 0, meterUploads: 0, historyUploads: 0, drawCalls: 0 };
+  const counters = { backend, nodeCount: 0, previewNodeCount: 0, topologyUploads: 0, selectionUploads: 0, positionUploads: 0, meterUploads: 0,
+    historyUploads: 0, historyTextureAllocations: 0, historyScratchAllocations: 0, historyTextureCapacity: 1, historyScratchCapacity: 0, drawCalls: 0 };
 
   function releaseResources() {
     if (!resources) return;
@@ -286,6 +288,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
       gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE); gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
       gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, 1, 1, 0, gl.RED, gl.FLOAT, new Float32Array(1));
+      counters.historyTextureAllocations++; counters.historyTextureCapacity = 1;
       gl.useProgram(resources.program); gl.uniform1i(resources.uniforms.uHistory, 0); gl.uniform3fv(resources.uniforms['uPalette[0]'], palette);
       gl.useProgram(resources.caps); gl.uniform1i(resources.capUniforms.uHistory, 0); gl.uniform3fv(resources.capUniforms['uPalette[0]'], palette);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
@@ -370,12 +373,20 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     if (!values?.length || !Number.isFinite(interval) || interval <= 0 || !Number.isFinite(end)) { historyCount = 0; return false; }
     if (values.length > maximumTextureSize * maximumTextureSize) { historyCount = 0; return false; }
     if (historyValues === values && historyInterval === interval && historyEnd === end) { historyCount = values.length; return true; }
-    const width = Math.min(maximumTextureSize, values.length), height = Math.ceil(values.length / width);
-    const samples = new Float32Array(width * height);
-    for (let index = 0; index < values.length; index++) samples[index] = Math.max(0, finite(Number(values[index])));
+    let capacity = historyWidth * historyHeight;
+    while (capacity < values.length) capacity = Math.min(maximumTextureSize * maximumTextureSize, capacity * 2);
+    const width = Math.min(maximumTextureSize, capacity), height = Math.ceil(capacity / width);
+    if (historyScratch.length < width * height) {
+      historyScratch = new Float32Array(width * height);
+      counters.historyScratchAllocations++; counters.historyScratchCapacity = historyScratch.length;
+    }
+    for (let index = 0; index < values.length; index++) historyScratch[index] = Math.max(0, finite(Number(values[index])));
     gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, resources.history);
-    if (width !== historyWidth || height !== historyHeight) gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, null);
-    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RED, gl.FLOAT, samples);
+    if (width !== historyWidth || height !== historyHeight) {
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R32F, width, height, 0, gl.RED, gl.FLOAT, null);
+      counters.historyTextureAllocations++; counters.historyTextureCapacity = width * height;
+    }
+    gl.texSubImage2D(gl.TEXTURE_2D, 0, 0, 0, width, height, gl.RED, gl.FLOAT, historyScratch);
     historyValues = values; historyInterval = interval; historyEnd = end; historyCount = values.length; historyWidth = width; historyHeight = height;
     counters.historyUploads++;
     return true;
@@ -462,7 +473,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     canvas.removeEventListener('webglcontextlost', contextLost); canvas.removeEventListener('webglcontextrestored', contextRestored);
     releaseResources(); canvas.remove(); cachedNodes = []; cachedGeometryOptions = {}; cachedDrawNodes = [];
     sourceNodes = []; sourceIndices.clear(); sourceStaticData = new Float32Array();
-    nodes = []; drawIndices = []; staticData = new Float32Array(); meterData = new Float32Array(); historyValues = null;
+    nodes = []; drawIndices = []; staticData = new Float32Array(); meterData = new Float32Array(); historyValues = null; historyScratch = new Float32Array();
     // Retire the context as well as its objects when the owning page tears down.
     gl.getExtension('WEBGL_lose_context')?.loseContext();
   }
