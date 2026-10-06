@@ -20,7 +20,9 @@ const emptyStatus = () => ({ sampleRate: 0, device: 'Audio off', inputDevice: nu
 export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => {} } = {}) {
   let parameters = sanitizeParameters(DEFAULT_PARAMETERS), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
+  let parameterRequestRevision = 0, depthRevision = 0, requestedDepth = parameters.depth;
   let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;
+  let controlOperations = 0, preparationRevision = 0, controlSuspension = null, contextSuspension = null;
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
@@ -93,9 +95,70 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     });
   }
 
+  function installMessage(retainedPool) {
+    // Transfer delivery avoids cloning the full pool on the audio thread.
+    // Keep the compiler/cache allocation attached for graph recovery.
+    const audioPool = retainedPool.slice(0);
+    return audioMessage('install', { pool: audioPool }, [audioPool]);
+  }
+
+  function suspendControlContext(preparedContext) {
+    const suspension = { context: preparedContext, promise: null };
+    suspension.promise = preparedContext.suspend().finally(() => {
+      if (contextSuspension === suspension) contextSuspension = null;
+    });
+    contextSuspension = suspension;
+    return suspension.promise;
+  }
+
+  async function withRunningControlGraph(task) {
+    const preparedContext = context, preparedNode = node;
+    controlOperations++;
+    try {
+      if (contextSuspension?.context === preparedContext) await contextSuspension.promise.catch(() => {});
+      assertOpen();
+      if (context !== preparedContext || node !== preparedNode) throw new Error('The audio session changed while preparing its controls.');
+      if (preparedContext?.state === 'suspended') {
+        controlSuspension = { context: preparedContext, revision: preparationRevision };
+        if (!audioDesired) setOutput(false, true);
+        await preparedContext.resume();
+      }
+      assertOpen();
+      if (context !== preparedContext || node !== preparedNode) throw new Error('The audio session changed while preparing its controls.');
+      return await task();
+    } finally {
+      try {
+        if (controlOperations === 1 && controlSuspension) {
+          const intent = controlSuspension;
+          const shouldSuspend = () => context === intent.context && preparationRevision === intent.revision
+            && !audioDesired && !stream && !microphonePending && context.state === 'running';
+          if (shouldSuspend()) {
+            // Keep this control operation active while its retired storage
+            // drains, so another departure cannot strand the final cleanup.
+            await audioMessage('drain');
+            if (controlOperations === 1 && shouldSuspend()) {
+              if (controlSuspension === intent) controlSuspension = null;
+              await suspendControlContext(intent.context);
+              // A newer explicit Audio/Mic preparation owns the running state.
+              if (!disposed && context === intent.context && preparationRevision !== intent.revision
+                && !document.hidden && context.state === 'suspended') await context.resume();
+            }
+          } else if (controlSuspension === intent) controlSuspension = null;
+        }
+      } finally { controlOperations--; }
+    }
+  }
+
   async function install(compiled) {
-    if (node) await audioMessage('install', { pool: compiled.pool });
-    parameters = sanitizeParameters(compiled.result.parameters); topology = compiled.result;
+    if (node) {
+      await withRunningControlGraph(async () => {
+        await installMessage(compiled.pool);
+        // Recursion is a live coefficient. A gesture can move it while a large
+        // structural pool is compiling; installing that pool must not rewind it.
+        await audioMessage('depth', { depth: requestedDepth });
+      });
+    }
+    parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth }; topology = compiled.result;
     pool = compiled.pool; module = compiled.module; topologyRevision = compiled.revision;
   }
 
@@ -118,6 +181,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   function prepareAudio() {
     try {
       assertOpen();
+      preparationRevision++;
       const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
       if (!AudioContextClass) throw new Error('Web Audio is unavailable in this browser.');
       if (!context || context.state === 'closed') {
@@ -161,14 +225,17 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
         // Publish the initial pool before yielding. A preset can finish
         // compiling before the worklet's ready message reaches this thread;
         // all subsequent installations must follow this one in port order.
-        const initialInstall = audioMessage('install', { pool });
-        initialInstall.catch(() => {});
-        await ready; assertOpen();
-        await initialInstall; assertOpen();
-        // Later performance edits must reach the worklet even while its first
-        // performance message is awaiting acknowledgement.
-        controlsReady = true;
-        await audioMessage('performance', { performance: performanceState });
+        await withRunningControlGraph(async () => {
+          const initialInstall = installMessage(pool);
+          initialInstall.catch(() => {});
+          await ready; assertOpen();
+          await initialInstall; assertOpen();
+          // Later performance edits must reach the worklet even while its first
+          // performance message is awaiting acknowledgement.
+          controlsReady = true;
+          await audioMessage('depth', { depth: requestedDepth });
+          await audioMessage('performance', { performance: performanceState });
+        });
         return node;
       })().catch(error => {
         // Startup failure/timeout also must not cache an unusable node. Ignore
@@ -304,10 +371,15 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     const reply = { audio, browserAvailable: true, nativeAvailable: true, deviceAvailable: Boolean(globalThis.AudioContext || globalThis.webkitAudioContext),
       parameters: { ...parameters }, performance: structuredClone(performanceState), input: { ...selectedInput,
         pending: selectedInput.pending || microphonePending, playing: selectedInput.mode === 'mic' ? Boolean(stream) : selectedInput.playing }, topologyRevision,
-      requestedVoices: topology?.requestedVoices || 0, eligibleVoices: topology?.eligibleVoices || 0,
+      requestedVoices: topology?.requestedVoices || 0,
+      eligibleVoices: parameters.depth > 0 ? (topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0) : 0,
       memoryVoiceCapacity: topology?.memoryVoiceCapacity || Number.MAX_SAFE_INTEGER,
       generationLimits: topology?.generationLimits || {}, status: visibleStatus, error: failure };
-    if (includeNodes) { reply.nodes = topology?.nodes || []; reply.previewSampled = topology?.previewSampled || false; }
+    if (includeNodes) {
+      reply.nodes = topology?.nodes || [];
+      if (topology?.visualNodes) reply.visualNodes = topology.visualNodes;
+      reply.previewSampled = topology?.previewSampled || false;
+    }
     return reply;
   }
 
@@ -334,9 +406,23 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
     await ensureTopology(); assertOpen();
     if (path === '/api/state' || path === '/api/preview') return snapshot(true);
     if (path === '/api/status') return refresh();
+    if (path === '/api/depth') {
+      const depth = sanitizeParameters({ ...parameters, depth: body?.depth }).depth;
+      const revision = ++depthRevision; requestedDepth = depth;
+      if (node && controlsReady) await audioMessage('depth', { depth });
+      if (revision === depthRevision) { parameters = { ...parameters, depth }; failure = null; }
+      return snapshot();
+    }
     if (path === '/api/parameters' || path === '/api/reset') {
       const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
-      const pending = compileChain.catch(() => {}).then(async () => { const compiled = await compile(next, context?.sampleRate || 48000); assertOpen(); await install(compiled); failure = null; return refresh(); });
+      const revision = ++parameterRequestRevision;
+      ++depthRevision; requestedDepth = next.depth;
+      const pending = compileChain.catch(() => {}).then(async () => {
+        if (revision !== parameterRequestRevision) return snapshot();
+        const compiled = await compile(next, context?.sampleRate || 48000); assertOpen();
+        if (revision !== parameterRequestRevision) return snapshot();
+        await install(compiled); failure = null; return refresh();
+      });
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
@@ -347,7 +433,7 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
       performanceState = next; failure = null;
       if (next.source !== 'mic') stopInputs();
       else if (needsCapture) await activateInput();
-      return refresh();
+      return snapshot();
     }
     if (path === '/api/strike') {
       if (audio && node) await audioMessage('strike');
@@ -359,7 +445,12 @@ export function createBrowserDelayEngine({ onStatus = () => {}, onError = () => 
   function muteForDeparture() {
     audioVersion++; audioDesired = audio = false; setOutput(false, true); stopInputs();
     // Suspending releases browser CPU and pauses its actual sample clock.
-    if (context?.state === 'running') void context.suspend().catch(() => {});
+    if (context && context.state !== 'closed') {
+      // Staged pools need callbacks to reach their atomic commit and ACK.
+      // Complete them muted, then honor departure once their work is done.
+      controlSuspension = { context, revision: preparationRevision };
+      if (!controlOperations && context.state === 'running') void suspendControlContext(context).catch(() => {});
+    }
     onStatus(snapshot());
   }
 

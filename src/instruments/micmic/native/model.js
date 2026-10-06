@@ -79,9 +79,13 @@ export function tapActivityFrame(reply, parameters) {
     || JSON.stringify(sanitizeParameters(reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
+  // The engine's active count ends a released tail. Residual smoothed meter
+  // values must not keep an inactive branch colored indefinitely; faint live
+  // taps retain their full response without an amplitude threshold.
+  const inactive = Number.isFinite(status.activeVoices) && status.activeVoices === 0;
   for (let rank = 0; rank < Math.min(status.tapActivity.length, status.tapVoiceIndices.length); rank++) {
     const slot = status.tapVoiceIndices[rank], rms = status.tapActivity[rank];
-    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, Math.max(0, rms) * wetBusGain);
+    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, inactive ? 0 : Math.max(0, rms) * wetBusGain);
   }
   return { revision, identity: topologyIdentity(parameters), levels };
 }

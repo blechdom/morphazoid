@@ -135,12 +135,22 @@ the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,0
 mapping. Native input, diagnostics and the optional voice cap use the same control
 styles. Audio remains explicitly armed.
 
-The drawing follows local control values on animation frames and interpolates
-the preview over 120 ms. Its fit stays fixed during a gesture and settles
-afterward, instead of waiting for returned HTTP geometry or repeatedly snapping
-to new bounds. Control requests carry the latest values and return lightweight
-status. Obsolete replies cannot replace a newer gesture. Classic grammar previews
-use the same generation ordering and connected pruning as the native audio model.
+Held slider gestures send their leading value immediately and coalesce further
+values at 16 ms intervals, including a final trailing value. Recursion uses a
+direct generation-gain update rather than compiling a new tree. Mix and mastering
+updates bypass structural compilation and acknowledge without copying the full
+meter/history payload. Existing DSP smoothing applies to these live coefficients.
+Zero Recursion retains structural ranks and recorded history for immediate resume.
+
+The drawing retains the committed audio tree while a structural edit is prepared.
+The topology worker prepares the classic preview once per structural reply;
+animation frames no longer rebuild the full tree. Compatible geometry morphs in
+place over 80 ms, retaining branch maps, wave history and gesture fit. WebGL2
+updates the position buffer during the morph without rebuilding its other data.
+Obsolete compiled replies are discarded before installation. Classic grammar
+previews use the same generation ordering and connected pruning as the native
+audio model. Recursion arriving during compilation also applies to the returned
+preview, avoiding a stale zero-gain drawing.
 Availability and amplitude have separate visual meanings. Every available
 branch stays colored at silence; unavailable branches remain grey. All branches
 use the same constant stroke width and opacity, including the input root.
@@ -287,9 +297,18 @@ finish fading before repeatedly reducing the same budget. Severe or worsening
 overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
 
-Voice storage is prepared between processing callbacks and swapped into the
-engine without resetting recording, branch phase or delay-edit crossfades. The callback does not
-allocate or free that storage. Outgoing branches release smoothly, so active
+In the browser, a structural pool is uploaded, validated and prepared in batches
+of 4,096 records across audio blocks. The committed pool keeps rendering during
+preparation. An atomic handoff updates audible/releasing voices, while inactive
+slots adopt targets when admitted. Recording, branch phase and delay-edit
+crossfades survive the handoff. Allocation, memory growth and freeing replaced
+storage can still consume time; staging does not guarantee every device deadline.
+Old numeric voice storage retires in batches of at most 4,096 slots after
+rendering, avoiding a whole-vector destructor at growth commit. A retained,
+suspended graph temporarily processes controls with output muted, completes its
+retirement queue and suspends again. This neither arms Audio nor opens an input;
+a newer explicit Audio or microphone action retains the running graph.
+Outgoing branches release smoothly, so active
 counts can briefly exceed a reduced target. Available memory limits structural
 allocation; measured audio deadlines limit simultaneous playback. Per-grammar
 ranges reflect memory and exact numeric representation, rather than a fixed

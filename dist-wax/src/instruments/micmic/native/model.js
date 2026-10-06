@@ -62,6 +62,13 @@ export function gestureParameters(start, dx, dy, width, height, fine = false) {
     angle: start.angle - dy / Math.max(1, height) * 180 * scale });
 }
 export function isVoiceActive(node, limit) { return Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0; }
+/** Preview gain follows the applied coefficient, including a newer live edit
+ * than the topology compiler captured. Structural ranks stay untouched. */
+export function applyPreviewDepth(nodes, depth) {
+  const applied = clamp(depth, 0, .96);
+  for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
+  return nodes;
+}
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
 export function topologyIdentity(parameters) { return `${parameters.lSystemType}:${parameters.generations}`; }
@@ -72,9 +79,13 @@ export function tapActivityFrame(reply, parameters) {
     || JSON.stringify(sanitizeParameters(reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
+  // The engine's active count ends a released tail. Residual smoothed meter
+  // values must not keep an inactive branch colored indefinitely; faint live
+  // taps retain their full response without an amplitude threshold.
+  const inactive = Number.isFinite(status.activeVoices) && status.activeVoices === 0;
   for (let rank = 0; rank < Math.min(status.tapActivity.length, status.tapVoiceIndices.length); rank++) {
     const slot = status.tapVoiceIndices[rank], rms = status.tapActivity[rank];
-    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, Math.max(0, rms) * wetBusGain);
+    if (Number.isSafeInteger(slot) && slot >= 0 && Number.isFinite(rms)) levels.set(slot, inactive ? 0 : Math.max(0, rms) * wetBusGain);
   }
   return { revision, identity: topologyIdentity(parameters), levels };
 }
@@ -288,4 +299,37 @@ export function interpolatePreviewNodes(nodes, previous, fraction) {
     for (const key of ['x', 'y', 'startX', 'startY']) next[key] = from[key] + (n[key] - from[key]) * eased;
     return next;
   });
+}
+
+const PREVIEW_COORDINATES = ['x', 'y', 'startX', 'startY'];
+/** Prepare one committed topology transition; animation reuses its nodes. */
+export function preparePreviewTransition(targets, previous = new Map()) {
+  const nodes = targets.map(node => ({ ...node })), coordinates = new Float64Array(nodes.length * 8);
+  const fromEndpoints = new Map();
+  let moving = false;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index], old = previous.get(node.id), parent = fromEndpoints.get(node.parentId);
+    const origin = old ?? { x: parent?.x ?? node.startX, y: parent?.y ?? node.startY,
+      startX: parent?.x ?? node.startX, startY: parent?.y ?? node.startY };
+    for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+      const key = PREVIEW_COORDINATES[field], from = Number.isFinite(origin[key]) ? origin[key] : node[key];
+      coordinates[index * 8 + field] = from;
+      coordinates[index * 8 + field + 4] = node[key];
+      if (Math.abs(node[key] - from) > 1e-12) moving = true;
+      node[key] = from;
+    }
+    fromEndpoints.set(node.id, { x: node.x, y: node.y });
+  }
+  return { nodes, coordinates, moving };
+}
+/** Only endpoints move: pool indices, ranks and current audio metadata persist. */
+export function advancePreviewTransition(transition, fraction) {
+  const t = clamp(fraction), eased = t * t * (3 - 2 * t), { nodes, coordinates } = transition;
+  for (let index = 0; index < nodes.length; index++) for (let field = 0; field < PREVIEW_COORDINATES.length; field++) {
+    const offset = index * 8 + field;
+    nodes[index][PREVIEW_COORDINATES[field]] = t === 1 ? coordinates[offset + 4]
+      : coordinates[offset] + (coordinates[offset + 4] - coordinates[offset]) * eased;
+  }
+  transition.moving = t < 1 && transition.moving;
+  return nodes;
 }

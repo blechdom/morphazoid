@@ -103,7 +103,8 @@ function strongestFrequency(samples, low, high) {
 test('published Rust delay binary has no native or JavaScript DSP imports', () => {
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const exports = new Set(WebAssembly.Module.exports(module).map(record => record.name));
-  for (const name of ['memory', 'lsd_compile', 'lsd_install', 'lsd_process', 'lsd_observe', 'lsd_drop',
+  for (const name of ['memory', 'lsd_compile', 'lsd_install', 'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized',
+    'lsd_depth', 'lsd_process', 'lsd_observe', 'lsd_drop', 'lsd_collect_retired',
     'lsd_envelope_ptr', 'lsd_taps_ptr', 'lsd_metrics_ptr']) assert.ok(exports.has(name), name);
 });
 
@@ -122,6 +123,29 @@ test('actual WASM preserves all factory topology settings and unlimited voice de
     assert.equal(pool.byteLength, 32 + preview.requestedVoices * 48, 'audio has every target even when the graphic is sampled');
     assert.ok(preview.memoryVoiceCapacity > preview.requestedVoices);
     assert.ok(preview.generationLimits.pythagorean > 15);
+  } finally { engine.dispose(); }
+});
+
+test('actual WASM recursion edits retain recorded history and recover a cold zero-depth tree without reinstalling it', () => {
+  const engine = renderer();
+  try {
+    engine.performance();
+    const { preview } = engine.compile({ generations: 4, intervalMs: 30, timeRatio: 1, pitchScale: 0, depth: 0 });
+    assert.equal(preview.eligibleVoices, 0);
+    assert.equal(preview.structuralEligibleVoices, 30);
+    assert.ok(preview.nodes.slice(1).some(node => Number.isFinite(node.priority)), 'zero depth retains resumable structural ranks');
+    engine.render(RATE / 2, sine(173, .03));
+    assert.equal(wasmDepth(.84), 1);
+    const delayed = engine.render(RATE / 4);
+    assert.ok(rms(delayed) > 1e-4, 'the preserved recording produces wet echoes after silent depth is raised');
+    assert.equal(wasmDepth(0), 1); engine.render(RATE / 2);
+    assert.equal(rms(engine.render(BLOCK)), 0, 'zero depth smoothly settles to silence');
+    assert.equal(wasmDepth(.63), 1);
+    const active = engine.render(RATE / 2, sine(173, .03));
+    assert.ok(rms(active.slice(-RATE / 10)) > 1e-4, 'the same tree resumes without a pool install or graph restart');
+    assert.equal(wasmDepth(NaN), 0); assert.equal(wasmDepth(Infinity), 0);
+    assert.ok(rms(engine.render(BLOCK, sine(173, .03))) > 1e-4, 'rejected coefficients preserve active processing');
+    function wasmDepth(depth) { return engine.wasm.lsd_depth(engine.handle, depth); }
   } finally { engine.dispose(); }
 });
 
@@ -373,6 +397,8 @@ async function withRecoveryWorklet(run) {
       return running;
     };
     for (let block = 0; block < 100; block++) assert.equal(render(), true);
+    assert.ok(messages.find(message => message.id === 1)?.status, 'installation acknowledges the committed pool');
+    assert.equal(processor.pendingInstall, null, 'the initial staged source allocation has been released');
     assert.ok(rms(left) > .001, 'fixture produces actual microphone-driven WASM audio');
     assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'steady rendering sends no failure messages');
     await run({ processor, messages, input, left, right, render });
@@ -424,15 +450,131 @@ test('worklet pairs the Rust sample clock with the end of the rendered audio qua
   });
 });
 
+test('staged worklet installs keep the old pool live, reject late faults atomically and retain concurrent controls', async () => {
+  const compiler = renderer();
+  try {
+    const { pool } = compiler.compile({ generations: 12, intervalMs: 10, timeRatio: 1, pitchScale: 0 });
+    await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+      const freed = [], api = processor.api;
+      processor.api = { ...api, lsd_free(pointer, length) { freed.push([pointer, length]); return api.lsd_free(pointer, length); } };
+      const before = processor.snapshot(), invalid = pool.slice();
+      const invalidView = new DataView(invalid.buffer);
+      invalidView.setUint32(16, 42, true);
+      invalidView.setFloat64(invalid.length - 48, NaN, true);
+      processor.port.onmessage({ data: { id: 40, type: 'install', pool: invalid.buffer } });
+      assert.equal(messages.some(message => message.id === 40), false, 'begin does not acknowledge an unvalidated pool');
+      assert.ok(processor.pendingInstall, 'the source allocation survives until staged validation finishes');
+      const rejectedPointer = processor.pendingInstall.pointer;
+      assert.equal(processor.pendingInstall.copied, 32, 'message delivery uploads only the validated header');
+      assert.equal(render(), true);
+      assert.equal(processor.pendingInstall.copied, 32 + 4096 * 48, 'each callback uploads only the records it is about to validate');
+      assert.equal(processor.snapshot().topologyRevision, before.topologyRevision, 'one preparation block retains the audible pool');
+      assert.equal(messages.some(message => message.id === 40), false, 'validation is bounded rather than consuming all records at once');
+      for (let block = 0; block < 32 && processor.pendingInstall; block++) {
+        assert.equal(render(), true);
+        assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+        assert.ok(rms(left) > .001, 'the original signal continues while the rejected pool is prepared');
+      }
+      assert.ok(messages.find(message => message.id === 40)?.error, 'a corrupt late record rejects through the original request');
+      assert.equal(processor.pendingInstall, null, 'rejection frees the retained source allocation');
+      assert.deepEqual(freed, [[rejectedPointer, pool.length]], 'late validation failure frees the uploaded source exactly once');
+      assert.equal(processor.snapshot().topologyRevision, before.topologyRevision);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 0, 'validation failure keeps a usable engine');
+
+      const valid = pool.slice(); new DataView(valid.buffer).setUint32(16, 43, true);
+      processor.port.onmessage({ data: { id: 41, type: 'install', pool: valid.buffer } });
+      const committedPointer = processor.pendingInstall.pointer;
+      assert.equal(render(), true);
+      processor.port.onmessage({ data: { id: 42, type: 'depth', depth: .83 } });
+      processor.port.onmessage({ data: { id: 43, type: 'performance', performance: {
+        ...DEFAULT_PERFORMANCE, automatic: false, source: 'mic', inputGain: 1, level: .5,
+        wet: .37, dry: .12, mastering: TRANSPARENT,
+      } } });
+      assert.deepEqual(messages.find(message => message.id === 42), { id: 42 }, 'coefficients acknowledge without copying the meter history');
+      assert.deepEqual(messages.find(message => message.id === 43), { id: 43 });
+      let previousClock = processor.snapshot().elapsedSeconds, blocks = 0;
+      while (processor.pendingInstall && blocks++ < 64) {
+        assert.equal(processor.snapshot().topologyRevision, before.topologyRevision, 'the topology changes only at commit');
+        assert.equal(messages.some(message => message.id === 41), false, 'the host receives no premature installation acknowledgement');
+        assert.equal(render(), true);
+        const status = processor.snapshot();
+        assert.ok(status.elapsedSeconds > previousClock, 'preparation keeps advancing the existing audio clock');
+        assert.ok(status.inputEnvelope.endTime >= before.inputEnvelope.endTime, 'recording history is retained');
+        assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+        assert.ok(rms(left) > 1e-4, 'audio remains present through the handoff');
+        previousClock = status.elapsedSeconds;
+      }
+      assert.equal(processor.pendingInstall, null, 'all preparation phases finish');
+      assert.deepEqual(freed.filter(([, length]) => length === pool.length),
+        [[rejectedPointer, pool.length], [committedPointer, pool.length]], 'atomic commit releases its source exactly once');
+      assert.equal(processor.snapshot().topologyRevision, 43);
+      assert.equal(messages.find(message => message.id === 41)?.status.topologyRevision, 43);
+      const acknowledged = messages.find(message => message.id === 41).status;
+      assert.ok(Math.abs(acknowledged.audioTimeSeconds - 7.25 - acknowledged.elapsedSeconds) < 1e-12,
+        'the installation acknowledgement pairs both clocks from the committed quantum');
+      for (let block = 0; block < 100; block++) assert.equal(render(), true);
+      const after = processor.snapshot();
+      assert.equal(after.requestedTargets, 8190, 'the complete new demand is installed');
+      assert.ok(after.tapActivity.every(Number.isFinite));
+      assert.ok(rms(left) > 1e-4);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 0);
+    });
+  } finally { compiler.dispose(); }
+});
+
+test('worklet drains retired storage across callbacks before acknowledging muted cleanup', async () => {
+  const compiler = renderer();
+  try {
+    const first = compiler.compile({ generations: 12 }).pool;
+    const grown = compiler.compile({ generations: 13 }).pool;
+    await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+      // Admission is small in this ownership fixture; both complete pools are
+      // still installed to exercise multi-block retirement of 8,190 old slots.
+      processor.port.onmessage({ data: { id: 60, type: 'performance', performance: {
+        ...DEFAULT_PERFORMANCE, automatic: false, voiceCeiling: 8, source: 'mic',
+        inputGain: 1, level: .5, wet: .7, dry: .3, mastering: TRANSPARENT,
+      } } });
+      for (const [id, pool] of [[61, first], [62, grown]]) {
+        processor.port.onmessage({ data: { id, type: 'install', pool: pool.buffer } });
+        for (let block = 0; block < 16 && !messages.some(message => message.id === id); block++) {
+          assert.equal(render(), true);
+        }
+        assert.ok(messages.find(message => message.id === id)?.status, 'each pool commits while audio continues');
+      }
+      const remaining = processor.api.lsd_collect_retired(processor.engine, 0);
+      assert.equal(remaining, 8190 - 4096, 'the commit callback retires a bounded batch rather than the whole old tree');
+      processor.port.onmessage({ data: { id: 63, type: 'drain' } });
+      assert.equal(messages.some(message => message.id === 63), false, 'suspension waits for the remaining cleanup');
+      const before = processor.snapshot().elapsedSeconds;
+      assert.equal(render(), true);
+      assert.equal(processor.api.lsd_collect_retired(processor.engine, 0), 0);
+      assert.deepEqual(messages.find(message => message.id === 63), { id: 63 });
+      assert.ok(processor.snapshot().elapsedSeconds > before);
+      assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+      assert.ok(rms(left) > 1e-4, 'collection does not interrupt the live signal');
+    });
+  } finally { compiler.dispose(); }
+});
+
 test('a fatal process return or Rust trap silences stereo and notifies the host exactly once', async () => {
-  for (const fault of ['return-zero', 'process-trap', 'observe-trap']) {
+  for (const fault of ['return-zero', 'process-trap', 'observe-trap', 'install-step-trap', 'collector-trap']) {
     await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
       const api = processor.api;
       processor.api = { ...api,
         ...(fault === 'return-zero' ? { lsd_process: () => 0 } : {}),
         ...(fault === 'process-trap' ? { lsd_process: () => { throw new WebAssembly.RuntimeError('unreachable: injected process trap'); } } : {}),
         ...(fault === 'observe-trap' ? { lsd_observe: () => { throw new WebAssembly.RuntimeError('unreachable: injected admission trap'); } } : {}),
+        ...(fault === 'install-step-trap' ? { lsd_install_step: () => { throw new WebAssembly.RuntimeError('unreachable: injected staged install trap'); } } : {}),
+        ...(fault === 'collector-trap' ? { lsd_collect_retired: () => { throw new WebAssembly.RuntimeError('unreachable: injected collector trap'); } } : {}),
       };
+      if (fault === 'install-step-trap') {
+        const compiler = renderer();
+        try {
+          const { pool } = compiler.compile({ generations: 1 });
+          processor.port.onmessage({ data: { id: 3, type: 'install', pool: pool.buffer } });
+          assert.ok(processor.pendingInstall, 'the staged trap occurs in the next audio callback');
+        } finally { compiler.dispose(); }
+      }
       left.fill(.5); right.fill(-.5);
       assert.equal(render(), false, `${fault}: the processor terminates instead of emitting broken audio`);
       assert.ok(left.every(value => value === 0) && right.every(value => value === 0), `${fault}: both output channels are silenced`);
@@ -447,12 +589,12 @@ test('a fatal process return or Rust trap silences stereo and notifies the host 
   }
 });
 
-test('a Rust trap in an install or performance control notifies the host instead of retaining an unusable processor', async () => {
-  for (const type of ['install', 'performance']) {
+test('a Rust trap in an install or live control notifies the host instead of retaining an unusable processor', async () => {
+  for (const type of ['install', 'performance', 'depth']) {
     await withRecoveryWorklet(({ processor, messages, render }) => {
-      const exportName = type === 'install' ? 'lsd_install' : 'lsd_performance';
+      const exportName = type === 'install' ? 'lsd_install_begin' : type === 'depth' ? 'lsd_depth' : 'lsd_performance';
       processor.api = { ...processor.api, [exportName]: () => { throw new WebAssembly.RuntimeError(`unreachable: injected ${type} trap`); } };
-      const update = type === 'install' ? { pool: new ArrayBuffer(32) } : { performance: DEFAULT_PERFORMANCE };
+      const update = type === 'install' ? { pool: new ArrayBuffer(32) } : type === 'depth' ? { depth: .8 } : { performance: DEFAULT_PERFORMANCE };
       processor.port.onmessage({ data: { id: 3, type, ...update } });
       assert.match(messages.find(message => message.id === 3)?.error ?? '', /unreachable/);
       const failures = messages.filter(message => message.type === 'failure');

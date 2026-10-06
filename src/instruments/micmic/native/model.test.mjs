@@ -402,6 +402,23 @@ test('tap coloring rejects stale renderer revisions and different visible topolo
   assert.equal(tapActivityFrame({ ...reply, topologyRevision: undefined }, parameters), null);
 });
 
+test('completed audio tails clear residual tap meters while preserving faint live and legacy signals', () => {
+  const parameters = { ...DEFAULT_PARAMETERS }, residual = 1e-22;
+  const reply = { parameters, topologyRevision: 8, status: { topologyRevision: 8, wetBusGain: .5,
+    activeVoices: 0, tapVoiceIndices: [17], tapActivity: [residual] } };
+  const ended = tapActivityFrame(reply, parameters);
+  assert.equal(ended.levels.has(17), true, 'the stable pool slot remains measured');
+  assert.equal(ended.levels.get(17), 0, 'the engine confirms that no released voice remains');
+  assert.equal(smoothActivity(activityEnergy(residual), activityEnergy(ended.levels.get(17)), 16), 0,
+    'the last display tail reaches exact zero rather than sustaining availability');
+  const live = tapActivityFrame({ ...reply, status: { ...reply.status, activeVoices: 1 } }, parameters);
+  assert.equal(live.levels.get(17), residual * .5);
+  assert.ok(activityEnergy(live.levels.get(17)) > 0, 'a faint active voice is never amplitude-gated');
+  const { activeVoices, ...legacyStatus } = reply.status;
+  assert.equal(tapActivityFrame({ ...reply, status: legacyStatus }, parameters).levels.get(17), residual * .5,
+    'legacy telemetry without an active count retains its original meter behavior');
+});
+
 test('audio pressure changes frame detail while retaining every admitted branch eligible for signal response', () => {
   const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 10 }, generationTopology), limit = 1000;
   const expected = new Set(nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)).map(n => n.id));
