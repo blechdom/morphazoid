@@ -101,6 +101,9 @@ The optional voice-cap knob uses a logarithmic gesture across the full current
 memory-supported range; its adjacent numeric field accepts an exact count,
 with 0 retaining no user cap. This presentation adds no audio voice ceiling.
 Preset recall updates knob positions without restarting the selected input.
+The first sixteen entries use the exact original names, from Pythagorean Pine
+through Giant Sequoia, and retain their complete original sound settings.
+Search `l-mic` or `starting point` to show only these original starting points.
 The first 26 scenes retain their settings and order, including Cedar, Quaking
 Aspen, Juniper, Baobab, Foxglove, Lotus, Acacia, Lichen, Moonflower and Horsetail.
 The earlier expansion adds eight families, each with a scene for every original
