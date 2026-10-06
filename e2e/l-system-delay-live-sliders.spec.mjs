@@ -229,7 +229,20 @@ async function ready(page, id, { renderer = 'canvas', generations } = {}) {
 }
 
 async function sweep(page, id, values, { period = 16, hold = true, waitForParameter } = {}) {
-  return page.locator(`#${id}`).evaluate(async (input, { id, values, period, hold, waitForParameter }) => {
+  const control = page.locator(`#${id}`);
+  if (hold) {
+    await control.evaluate(input => {
+      for (let parent = input.parentElement; parent; parent = parent.parentElement) {
+        if (parent.tagName === 'DETAILS') parent.open = true;
+      }
+    });
+    await control.scrollIntoViewIfNeeded();
+    const box = await control.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+  }
+  try {
+    return await control.evaluate(async (input, { id, values, period, hold, waitForParameter }) => {
     const qa = __liveSlidersQa;
     qa.phase = id;
     const started = performance.now(), before = qa.engine.getDiagnostics();
@@ -239,7 +252,6 @@ async function sweep(page, id, values, { period = 16, hold = true, waitForParame
       if (waitForParameter && firstCommitAt === null
         && qa.engine.getDiagnostics().parameters[waitForParameter] !== before.parameters[waitForParameter]) firstCommitAt = performance.now();
     };
-    if (hold) input.dispatchEvent(new PointerEvent('pointerdown', { bubbles: true, pointerId: 77 }));
     for (const value of values) {
       input.value = String(value); input.dispatchEvent(new Event('input', { bubbles: true }));
       qa.inputs.push({ id, now: performance.now(), value: input.value });
@@ -267,10 +279,12 @@ async function sweep(page, id, values, { period = 16, hold = true, waitForParame
     const held = qa.engine.getDiagnostics();
     const during = { started, eventEndedAt, eventCompiles, firstCommitAt, additionalHeldInputs, released: performance.now(), before, held,
       compiles: qa.compiles.length - compileCount, performanceMessages: qa.performanceMessages.length - performanceCount };
-    if (hold) input.dispatchEvent(new PointerEvent('pointerup', { bubbles: true, pointerId: 77 }));
-    input.dispatchEvent(new Event('change', { bubbles: true }));
+    if (!hold) input.dispatchEvent(new Event('change', { bubbles: true }));
     return during;
-  }, { id, values, period, hold, waitForParameter });
+    }, { id, values, period, hold, waitForParameter });
+  } finally {
+    if (hold) await page.mouse.up();
+  }
 }
 
 async function evidence(page, before, sweeps) {

@@ -28,7 +28,8 @@
 .micmic-page #stage:focus-visible { outline: 1px solid var(--accent); outline-offset: -3px; }
 .micmic-page #generationCapacityInline, .micmic-page #pitchDetailStatus, .micmic-page .form-range-poles { color: var(--muted); }
 #nativeSettings .header-settings-panel { overflow-y: auto; max-height: calc(100dvh - 74px); }
-#nativeSettings .header-settings-section { display: grid; gap: 12px; }
+.micmic-page .masthead:has(#nativeSettings[open]) { z-index: 90; }
+#nativeSettings .header-settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 #nativeSettings .header-settings-panel > p { margin: 12px; }
 @media (pointer: coarse) {
   .native-input-choice .instrument-picker-trigger, .native-input-actions .mini-action, .native-input-file input::file-selector-button, #panicButton { min-height: 48px; }
@@ -52,3 +53,167 @@
 /* Decorative GPU geometry stays below the original interactive canvas. */
 .micmic-page .native-gpu-stage { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
 .micmic-page #stage { position: relative; }
+
+/* Side-panel knobs keep the native ranges, names, readouts and live events. */
+.micmic-page .panel > .control-section > .group-summary {
+  min-height: 38px;
+  padding-inline: 14px;
+  gap: 8px;
+}
+.micmic-page .panel > .control-section > .group-body { padding: 10px 14px; }
+.micmic-page .panel .recursion-parameter-cluster {
+  margin-top: 8px;
+  padding-top: 0;
+  border-top: 0;
+}
+.micmic-page .panel .parameter-cluster-title { margin-bottom: 4px; }
+.micmic-page .panel .select-control { margin-bottom: 8px; }
+.micmic-page .panel .generation-safety-note { margin: -3px 0 6px; font-size: 8px; }
+.micmic-page .native-knob-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 4px 6px;
+}
+.micmic-page .native-knob-control.mz-range-knob {
+  --native-knob-target: 44px;
+  --native-knob-dial: 28px;
+  --native-knob-top: 28px;
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: calc(var(--native-knob-top) + var(--native-knob-target) + 24px);
+  margin: 0;
+}
+.micmic-page .native-knob-control.mz-range-knob > span:first-child {
+  position: static;
+  display: block;
+  margin: 0;
+  text-align: center;
+}
+.micmic-page .native-knob-control.mz-range-knob > span:first-child > b {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  width: auto;
+  height: 26px;
+  overflow: visible;
+  clip-path: none;
+  align-items: end;
+  justify-content: center;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-wrap: balance;
+  white-space: normal;
+}
+.micmic-page .native-knob-control.mz-range-knob output {
+  position: absolute;
+  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 2px) 0 auto;
+  display: block;
+  overflow: visible;
+  color: var(--accent);
+  font: 9px/1.2 ui-monospace, monospace;
+  text-align: center;
+  white-space: normal;
+}
+.micmic-page .native-knob-control.mz-range-knob > input[type="range"] {
+  inset: var(--native-knob-top) auto auto 50%;
+  width: var(--native-knob-target);
+  height: var(--native-knob-target);
+  min-height: 0;
+  margin: 0;
+  transform: translateX(-50%);
+}
+.micmic-page .native-knob-control.mz-range-knob > .mz-range-knob__dial {
+  top: calc(var(--native-knob-top) + (var(--native-knob-target) - var(--native-knob-dial)) / 2);
+  width: var(--native-knob-dial);
+  height: var(--native-knob-dial);
+}
+.micmic-page .native-knob-control.signed-form-range.mz-range-knob {
+  height: calc(var(--native-knob-top) + var(--native-knob-target) + 44px);
+}
+.micmic-page .native-knob-control.mz-range-knob > .form-range-poles {
+  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 21px) 0 auto;
+  display: grid;
+  margin: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 3px;
+  font-size: 7px;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-align: center;
+  text-transform: none;
+}
+.micmic-page .native-knob-control .form-range-poles > span { text-align: center; }
+.native-capacity-note {
+  display: block;
+  margin: 2px 0 0;
+  font: 8px/1.4 ui-monospace, monospace;
+  overflow-wrap: anywhere;
+}
+.micmic-page .native-knob-grid > .mz-tap-tempo-field {
+  grid-column: span 2;
+  width: 100%;
+  justify-content: center;
+  gap: 6px;
+}
+.micmic-page .native-knob-grid > .mz-tap-tempo-field > .native-knob-control {
+  flex: 0 1 92px;
+}
+.micmic-page .native-knob-grid .mz-tap-tempo {
+  align-self: start;
+  margin-top: 32px;
+}
+.native-mastering-switches { display: flex; flex-wrap: wrap; gap: 2px 12px; margin-bottom: 8px; }
+#masteringSection .native-mastering-switches .native-check { margin: 0; font-size: 9px; }
+.micmic-page .native-reduction-meter { margin-bottom: 7px; gap: 4px; }
+.native-control-help { margin-top: 4px; color: var(--muted); }
+.native-control-help > summary { width: fit-content; font-size: 9px; line-height: 1.5; cursor: pointer; }
+.native-control-help > .native-mastering-note { margin: 5px 0 0; font-size: 9px; }
+.native-control-help > summary:focus-visible { outline: 1px solid var(--accent); outline-offset: 3px; }
+.native-voice-cap {
+  display: grid;
+  min-width: 0;
+  grid-template-columns: 100px minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+}
+.native-voice-cap > label:not(.native-knob-control) { display: grid; min-width: 0; gap: 5px; color: var(--muted); font-size: 10px; }
+.native-voice-cap input[type="number"] {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  padding: 6px 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: 11px/1.3 ui-monospace, monospace;
+}
+.native-voice-cap input[type="number"]:focus-visible { outline: 1px solid var(--accent); outline-offset: 2px; }
+.micmic-page .native-input-controls { gap: 7px; }
+.micmic-page .native-input-playback { gap: 6px; }
+.micmic-page .panel .current-settings-readout > div { padding: 7px 8px; gap: 5px 8px; }
+.micmic-page .panel .reset-all-row { padding: 8px 14px; }
+.micmic-page .panel .reset-form { margin-top: 5px; }
+
+@media (pointer: coarse) {
+  .micmic-page .native-knob-control.mz-range-knob { --native-knob-target: 48px; --native-knob-dial: 32px; }
+  .micmic-page .native-knob-grid .mz-tap-tempo { margin-top: 28px; }
+  .native-voice-cap input[type="number"] { min-height: 48px; }
+  .micmic-page .panel > .control-section > .group-summary { min-height: 44px; }
+}
+@media (max-width: 960px) and (min-width: 651px) {
+  .micmic-page .native-knob-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 650px) {
+  .micmic-page .panel > .control-section > .group-summary { padding-inline: 12px; }
+  .micmic-page .panel > .control-section > .group-body { padding: 8px 12px; }
+  .micmic-page .native-knob-grid { gap: 3px 8px; }
+  .micmic-page .native-knob-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .micmic-page .native-knob-control.mz-range-knob > span:first-child > b { font-size: 10px; }
+}

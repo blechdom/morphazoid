@@ -4,6 +4,7 @@ import { createStereoMeter } from '../../../ui/patterns/level-meter.js';
 import { createChoosePickerShell } from '../../../ui/patterns/choose-picker-shell.js';
 import { enhanceChooseSelect } from '../../../ui/patterns/choose-select.js';
 import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js';
+import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
@@ -46,6 +47,8 @@ let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), ta
 let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
+let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
+const parameterKnobs = new Map();
 let stageWidth = 0, stageHeight = 0;
 const waveScratch = [];
 let nativePreview = null, nativePreviewStarted = 0, nativePreviewMoving = false, previewTransition = null;
@@ -361,7 +364,7 @@ async function applyScene(scene, id = 'custom') {
   for (const control of controls) control.disabled = true;
   canvas.setAttribute('aria-busy', 'true');
   if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
-  drag = null; rangeGesture = false; lockedFit = geometry ? { ...geometry.fit } : null;
+  drag = null; cancelParameterGestures(); lockedFit = geometry ? { ...geometry.fit } : null;
   clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
   parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false; depthRevision++;
   state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
@@ -571,6 +574,15 @@ function paintControls() {
   $('cpuLoad').textContent = Number.isFinite(s.cpuLoad) ? `${(s.cpuLoad * 100).toFixed(1)}%` : '—'; $('peakLoad').textContent = Number.isFinite(s.peakLoad) ? `${(s.peakLoad * 100).toFixed(1)}%` : '—';
   $('streamMisses').textContent = `${s.underruns || 0} / ${s.deadlineMisses || 0}`; $('engineStatus').textContent = lastFailure || (state.audio ? 'Audio is running.' : 'Audio is off.');
   audioStrip.update();
+  // Property-only preset/status paints must update the dials after dynamic
+  // generation and memory limits, without dispatching musical input events.
+  for (const knob of parameterKnobs.values()) knob.update();
+  if (voiceCeilingExact) {
+    const input = $('voiceCeiling');
+    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
+    voiceCeilingExact.disabled = input.disabled;
+    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
+  }
 }
 
 function buildGeometry() {
@@ -766,9 +778,17 @@ canvas.addEventListener('keydown', event => {
 for (const [key, id] of Object.entries(CONTROL_IDS)) {
   $(id).addEventListener('input', () => updateParameter(key, key === 'intervalMs' ? timeFoldFromSlider($(id).value) : Number($(id).value)));
   $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : scheduleParameters(true));
-  $(id).addEventListener('pointerdown', () => { lockedFit = geometry ? { ...geometry.fit } : null; rangeGesture = true; gestureUntil = Infinity; });
-  const release = () => { rangeGesture = false; gestureUntil = performance.now() + 100; scheduleDraw(); };
-  $(id).addEventListener('pointerup', release); $(id).addEventListener('pointercancel', release);
+  const input = $(id);
+  input.addEventListener('pointerdown', event => {
+    if (input.disabled || event.button !== 0 || event.isPrimary === false || rangeGestureOwner) return;
+    // Focus may blur the previous knob. Do it before claiming this gesture.
+    input.focus({ preventScroll: true });
+    lockedFit = geometry ? { ...geometry.fit } : null;
+    rangeGestureOwner = input; rangeGesturePointer = event.pointerId;
+    rangeGesture = true; gestureUntil = Infinity;
+  });
+  const release = event => releaseRangeGesture(event, input);
+  for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) input.addEventListener(type, release);
 }
 $('lSystemType').addEventListener('change', () => updateParameter('lSystemType', $('lSystemType').value, true));
 for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
@@ -780,6 +800,37 @@ for (const key of MASTERING_IDS) {
   $(key).addEventListener('input', () => updateMastering({ [key]: key in MASTERING_FREQUENCIES
     ? cutoffFromSlider($(key).value, MASTERING_FREQUENCIES[key], key === 'lowpassHz') : Number($(key).value) }));
   $(key).addEventListener('change', () => schedulePerformance(true));
+}
+// The input/output strips already own their header knobs. Enhance the existing
+// panel controls only, preserving their IDs, native bounds and live listeners.
+for (const id of [...Object.values(CONTROL_IDS), 'wet', 'dry', 'voiceCeiling', ...MASTERING_IDS]) {
+  const knob = enhanceRangeKnob($(id), id === 'voiceCeiling' ? { scale: 'log' } : {});
+  parameterKnobs.set(id, knob);
+  $(id).addEventListener('blur', () => knob.cancelGesture());
+}
+{
+  const label = document.createElement('label');
+  label.htmlFor = 'voiceCeilingExact'; label.textContent = 'Exact voice cap (0 = no cap)';
+  voiceCeilingExact = document.createElement('input');
+  voiceCeilingExact.id = 'voiceCeilingExact'; voiceCeilingExact.type = 'number'; voiceCeilingExact.inputMode = 'numeric';
+  label.append(voiceCeilingExact); $('voiceCeiling').closest('.native-voice-cap').append(label);
+  const commit = () => {
+    const input = $('voiceCeiling'), value = voiceCeilingExact.valueAsNumber;
+    if (Number.isFinite(value)) {
+      input.value = String(Math.round(clamp(value, Number(input.min), Number(input.max))));
+      if (Number(input.value) !== state.performance.voiceCeiling) {
+        input.dispatchEvent(new Event('input', { bubbles: true }));
+        input.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    voiceCeilingExact.value = String(state.performance.voiceCeiling);
+  };
+  voiceCeilingExact.addEventListener('change', commit);
+  voiceCeilingExact.addEventListener('blur', commit);
+  voiceCeilingExact.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); commit(); }
+    if (event.key === 'Escape') { event.preventDefault(); voiceCeilingExact.value = String(state.performance.voiceCeiling); voiceCeilingExact.blur(); }
+  });
 }
 for (const key of ['compressorEnabled', 'autoMakeup']) {
   $(key).addEventListener('change', () => updateMastering({ [key]: $(key).checked }, true));
@@ -805,8 +856,17 @@ $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
 $('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
-function releaseRangeGesture() { if (!rangeGesture) return; rangeGesture = false; gestureUntil = performance.now() + 100; scheduleDraw(); }
+function releaseRangeGesture(event, owner = rangeGestureOwner) {
+  if (!rangeGesture || owner !== rangeGestureOwner || (event?.pointerId !== undefined && event.pointerId !== rangeGesturePointer)) return;
+  rangeGesture = false; rangeGestureOwner = null; rangeGesturePointer = null;
+  gestureUntil = performance.now() + 100; scheduleDraw();
+}
 document.addEventListener('pointerup', releaseRangeGesture); document.addEventListener('pointercancel', releaseRangeGesture);
+function cancelParameterGestures() {
+  for (const knob of parameterKnobs.values()) knob.cancelGesture();
+  releaseRangeGesture();
+}
+addEventListener('blur', cancelParameterGestures);
 document.addEventListener('pointerdown', event => {
   if (!choose.details.contains(event.target) && !choose.panel.contains(event.target)) choose.details.open = false;
   if (!$('nativeSettings').contains(event.target)) $('nativeSettings').open = false;
@@ -862,6 +922,7 @@ async function poll() {
   if (!disposed) pollTimer = setTimeout(poll, state.audio ? 50 : 200);
 }
 function muteForDeparture() {
+  cancelParameterGestures();
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
   inputRevision++;
@@ -878,5 +939,6 @@ addEventListener('pagehide', event => {
   gpuRenderer?.dispose(); browserEngine.dispose();
   midiManager.disable(); midiAdapter?.dispose(); unsubscribeMidiStatus(); unsubscribeMidiMessages(); clearTimeout(midiActivityTimer); midiStatus.destroy();
   foldTap.destroy(); for (const picker of inputChoices.values()) picker.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
+  for (const knob of parameterKnobs.values()) knob.destroy(); parameterKnobs.clear();
 });
 paintControls(); scheduleDraw(); void bootstrap(); void poll();

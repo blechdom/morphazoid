@@ -7,7 +7,7 @@ remains at `/l-mic.html`. Both keep their own route and settings.
 
 The Rust page offers 114 full scenes, including all sixteen original presets,
 the ten earlier Rust scenes and 88 additional scenes across eleven grammars.
-It retains the original slider curves, mastering controls and audio-clock
+It retains the original parameter curves, mastering controls and audio-clock
 branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
@@ -92,6 +92,14 @@ ordinary browser playback does not imply DAW track-input integration.
 
 The native page uses the original `l-mic.html` sections, shared site styles,
 `micmic.css`, generation colors, all sixteen original full presets and slider mappings.
+Its parameter banks use compact knobs matching the header volume control. Drag
+up or down to adjust; hold Shift for finer motion, or use the native arrow,
+Home and End keys. Every parameter, range, step and readout remains available,
+including Tap, filter cutoffs, compression and signed pruning/asymmetry guidance.
+The optional voice-cap knob uses a logarithmic gesture across the full current
+memory-supported range; its adjacent numeric field accepts an exact count,
+with 0 retaining no user cap. This presentation adds no audio voice ceiling.
+Preset recall updates knob positions without restarting the selected input.
 The first 26 scenes retain their settings and order, including Cedar, Quaking
 Aspen, Juniper, Baobab, Foxglove, Lotus, Acacia, Lichen, Moonflower and Horsetail.
 The expanded bank adds eight families, each with a scene for every grammar:
@@ -135,7 +143,7 @@ the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,0
 mapping. Native input, diagnostics and the optional voice cap use the same control
 styles. Audio remains explicitly armed.
 
-Held slider gestures send their leading value immediately and coalesce further
+Held knob gestures send their leading value immediately and coalesce further
 values at 16 ms intervals, including a final trailing value. Recursion uses a
 direct generation-gain update rather than compiling a new tree. Mix and mastering
 updates bypass structural compilation and acknowledge without copying the full
