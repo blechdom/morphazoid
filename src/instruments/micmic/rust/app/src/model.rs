@@ -37,6 +37,7 @@ pub struct Parameters {
     pub interval_ms: f64,
     pub time_ratio: f64,
     pub angle: f64,
+    pub curls: f64,
     pub asymmetry: f64,
     pub mutation: f64,
     pub pitch_scale: f64,
@@ -52,6 +53,7 @@ impl Default for Parameters {
             interval_ms: 240.,
             time_ratio: 0.72,
             angle: 45.,
+            curls: 0.,
             asymmetry: 0.,
             mutation: 0.,
             pitch_scale: 1.,
@@ -73,6 +75,7 @@ impl Parameters {
             ("intervalMs", self.interval_ms, 1., 3000.),
             ("timeRatio", self.time_ratio, 0.2, 2.),
             ("angle", self.angle, 0., 180.),
+            ("curls", self.curls, -8., 8.),
             ("asymmetry", self.asymmetry, -0.8, 0.8),
             ("mutation", self.mutation, 0., 1.),
             ("pitchScale", self.pitch_scale, 0., 4.),
@@ -155,6 +158,7 @@ pub fn pool_keys(count: usize) -> Result<Vec<String>, String> {
 }
 
 #[derive(Clone)]
+#[cfg_attr(test, derive(Debug, PartialEq))]
 struct LayoutNode {
     id: String,
     parent: usize,
@@ -546,6 +550,58 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     Ok(layout)
 }
 
+/// Distribute signed winding over the original descendant path distance.
+/// Segment identities, gaps, lengths and delay intervals remain unchanged;
+/// the same added relative turn drives each segment's inherited pitch.
+fn apply_curls(layout: &mut [LayoutNode], curls: f64) -> Result<(), String> {
+    // Preserve every original coordinate and acoustic turn exactly at zero.
+    if curls == 0. || layout.len() <= 1 {
+        return Ok(());
+    }
+    // Snapshot numeric parent tips before moving them, without copying any
+    // strings or the full layout. The root contributes no winding distance.
+    let mut paths: Vec<(f64, f64, f64)> = crate::resources::reserve(layout.len())?;
+    let mut longest = 0_f64;
+    for (index, node) in layout.iter().enumerate() {
+        let path = if index == 0 {
+            0.
+        } else {
+            let (parent_x, parent_y, parent_path) = paths[node.parent];
+            parent_path + node.length + (node.start_x - parent_x).hypot(node.start_y - parent_y)
+        };
+        if !path.is_finite() {
+            return Err("Curls require finite branch path distances".into());
+        }
+        longest = longest.max(path);
+        paths.push((node.x, node.y, path));
+    }
+    if longest == 0. {
+        return Ok(());
+    }
+    for index in 1..layout.len() {
+        let parent = layout[index].parent;
+        let (original_parent_x, original_parent_y, parent_path) = paths[parent];
+        let parent_phase = 360. * curls * (parent_path / longest);
+        let phase = 360. * curls * (paths[index].2 / longest);
+        let (parent_sin, parent_cos) = parent_phase.to_radians().sin_cos();
+        let (sin, cos) = phase.to_radians().sin_cos();
+        let parent_x = layout[parent].x;
+        let parent_y = layout[parent].y;
+        let node = &mut layout[index];
+        let gap_x = node.start_x - original_parent_x;
+        let gap_y = node.start_y - original_parent_y;
+        let segment_x = node.x - node.start_x;
+        let segment_y = node.y - node.start_y;
+        node.start_x = parent_x + gap_x * parent_cos - gap_y * parent_sin;
+        node.start_y = parent_y + gap_x * parent_sin + gap_y * parent_cos;
+        node.x = node.start_x + segment_x * cos - segment_y * sin;
+        node.y = node.start_y + segment_x * sin + segment_y * cos;
+        node.heading += phase;
+        node.turn += phase - parent_phase;
+    }
+    Ok(())
+}
+
 #[derive(Clone, Copy)]
 struct Candidate {
     priority: f64,
@@ -683,11 +739,12 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         (8_000..=192_000).contains(&sample_rate),
         "unsupported sample rate"
     );
-    let layout = if parameters.l_system_type == "pythagorean" {
+    let mut layout = if parameters.l_system_type == "pythagorean" {
         binary_layout(parameters)?
     } else {
         classic_layout(parameters)?
     };
+    apply_curls(&mut layout, parameters.curls)?;
     let requested_voices = layout.len().saturating_sub(1);
     let mut nodes: Vec<Node> = crate::resources::reserve(requested_voices)?;
     nodes.extend(layout.iter().enumerate().skip(1).map(|(id, node)| Node {
@@ -815,6 +872,328 @@ mod tests {
     use super::*;
 
     const BRANCHING_TYPES: [&str; 6] = ["bush", "fan", "fern", "whorled", "ternary", "quaternary"];
+
+    fn test_segment(parent: usize, start: (f64, f64), end: (f64, f64)) -> LayoutNode {
+        let dx = end.0 - start.0;
+        let dy = end.1 - start.1;
+        LayoutNode {
+            id: format!("segment:{parent}"),
+            parent,
+            generation: 1,
+            rule: 'F',
+            start_x: start.0,
+            start_y: start.1,
+            x: end.0,
+            y: end.1,
+            heading: dy.atan2(dx).to_degrees(),
+            turn: 0.,
+            length: dx.hypot(dy),
+            time_scale: 1.,
+        }
+    }
+
+    fn assert_near(actual: f64, expected: f64) {
+        assert!(
+            (actual - expected).abs() < 1e-11 * (1. + expected.abs()),
+            "actual={actual}, expected={expected}"
+        );
+    }
+
+    #[test]
+    fn curls_zero_preserves_every_layout_field_exactly_in_all_grammars() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                angle: 37.,
+                asymmetry: -0.23,
+                mutation: 0.37,
+                time_ratio: 1.1,
+                ..Parameters::default()
+            };
+            let mut layout = if id == "pythagorean" {
+                binary_layout(&parameters).unwrap()
+            } else {
+                classic_layout(&parameters).unwrap()
+            };
+            let original = layout.clone();
+            for zero in [0., -0.] {
+                apply_curls(&mut layout, zero).unwrap();
+                assert_eq!(layout, original, "{id}");
+            }
+        }
+    }
+
+    #[test]
+    fn curls_wind_a_straight_path_in_both_directions_without_moving_the_root() {
+        for sign in [-1., 1.] {
+            let mut layout = vec![
+                test_segment(0, (0., 0.), (1., 0.)),
+                test_segment(0, (1., 0.), (2., 0.)),
+                test_segment(1, (2., 0.), (3., 0.)),
+                test_segment(2, (3., 0.), (4., 0.)),
+            ];
+            let root = layout[0].clone();
+            apply_curls(&mut layout, sign * 0.25).unwrap();
+            assert_eq!(layout[0], root);
+            let h = 3_f64.sqrt() / 2.;
+            for (index, expected) in [
+                (1, (1. + h, 0.5)),
+                (2, (1.5 + h, 0.5 + h)),
+                (3, (1.5 + h, 1.5 + h)),
+            ] {
+                let node = &layout[index];
+                assert_near(node.x, expected.0);
+                assert_near(node.y, sign * expected.1);
+                assert_near(node.heading, sign * index as f64 * 30.);
+                assert_near(node.turn, sign * 30.);
+                assert_eq!(
+                    (node.start_x, node.start_y),
+                    (layout[index - 1].x, layout[index - 1].y)
+                );
+                assert_near((node.x - node.start_x).hypot(node.y - node.start_y), 1.);
+            }
+        }
+    }
+
+    #[test]
+    fn curls_keep_pen_up_gaps_backward_segments_and_forks_attached_to_their_parent() {
+        let mut layout = vec![
+            test_segment(0, (0., 0.), (1., 0.)),
+            test_segment(0, (2., 0.), (3., 0.)),
+            test_segment(1, (3., 0.), (2., 0.)),
+            test_segment(1, (3., 0.), (3., 1.)),
+        ];
+        apply_curls(&mut layout, 0.25).unwrap();
+        // The gap counts toward winding, but rotates with its parent's phase.
+        assert_eq!((layout[1].start_x, layout[1].start_y), (2., 0.));
+        assert_near(layout[1].heading, 60.);
+        let parent_tip = (2.5, 3_f64.sqrt() / 2.);
+        assert_near(layout[1].x, parent_tip.0);
+        assert_near(layout[1].y, parent_tip.1);
+        for node in &layout[2..] {
+            assert_eq!((node.start_x, node.start_y), (layout[1].x, layout[1].y));
+            assert_near(node.turn, 30.);
+        }
+        assert_near(layout[2].x, parent_tip.0);
+        assert_near(layout[2].y, parent_tip.1 - 1.);
+        assert_near(layout[3].x, parent_tip.0 - 1.);
+        assert_near(layout[3].y, parent_tip.1);
+
+        // A later pen-up gap follows the deformed parent, including its bearing.
+        let mut gap = vec![
+            test_segment(0, (0., 0.), (1., 0.)),
+            test_segment(0, (1., 0.), (2., 0.)),
+            test_segment(1, (3., 0.), (4., 0.)),
+        ];
+        apply_curls(&mut gap, 0.25).unwrap();
+        assert_near(gap[1].heading, 30.);
+        assert_near(gap[2].start_x - gap[1].x, 3_f64.sqrt() / 2.);
+        assert_near(gap[2].start_y - gap[1].y, 0.5);
+        assert_near(gap[2].x - gap[2].start_x, 0.);
+        assert_near(gap[2].y - gap[2].start_y, 1.);
+    }
+
+    #[test]
+    fn curls_change_audio_pitch_and_pan_without_changing_voices_delays_or_admission() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                angle: 0.,
+                pitch_scale: 0.25,
+                pruning_bias: 0.65,
+                ..Parameters::default()
+            };
+            let original = compile(&parameters, 48_000);
+            let curled = compile(
+                &Parameters {
+                    curls: 0.125,
+                    ..parameters
+                },
+                48_000,
+            );
+            assert_eq!(curled.preview[0], original.preview[0], "{id} root");
+            assert_eq!(curled.requested_voices, original.requested_voices, "{id}");
+            assert_eq!(curled.eligible_voices, original.eligible_voices, "{id}");
+            assert_eq!(curled.ranks, original.ranks, "{id}");
+            assert_eq!(curled.groups, original.groups, "{id}");
+            assert!(
+                curled
+                    .targets
+                    .iter()
+                    .zip(&original.targets)
+                    .any(|(a, b)| (a.rate - b.rate).abs() > 1e-6),
+                "{id} pitch"
+            );
+            assert!(
+                curled
+                    .targets
+                    .iter()
+                    .zip(&original.targets)
+                    .any(|(a, b)| (a.pan - b.pan).abs() > 1e-6),
+                "{id} pan"
+            );
+            let mut pitch = vec![0_f64; curled.nodes.len() + 1];
+            for (node, old) in curled.nodes.iter().zip(&original.nodes) {
+                assert_eq!(
+                    (
+                        node.id,
+                        node.parent,
+                        node.voice_index,
+                        &node.key,
+                        &node.parent_key,
+                        node.generation,
+                        node.rule
+                    ),
+                    (
+                        old.id,
+                        old.parent,
+                        old.voice_index,
+                        &old.key,
+                        &old.parent_key,
+                        old.generation,
+                        old.rule
+                    ),
+                    "{id} identity"
+                );
+                assert_eq!(
+                    (
+                        node.length,
+                        node.time_scale,
+                        node.delay,
+                        node.gain,
+                        node.priority
+                    ),
+                    (
+                        old.length,
+                        old.time_scale,
+                        old.delay,
+                        old.gain,
+                        old.priority
+                    ),
+                    "{id} timing and admission"
+                );
+                let target = curled.targets[node.voice_index];
+                assert_eq!(
+                    target.delay, original.targets[node.voice_index].delay,
+                    "{id}"
+                );
+                assert_eq!(target.gain, original.targets[node.voice_index].gain, "{id}");
+                pitch[node.id] = pitch[node.parent] + node.turn_degrees / 180. * 12. * 0.25;
+                assert_near(
+                    target.rate,
+                    2_f64.powf(pitch[node.id] / 12.).clamp(0.125, 8.),
+                );
+            }
+        }
+        let large = compile(
+            &Parameters {
+                generations: 14,
+                curls: 1.25,
+                ..Parameters::default()
+            },
+            48_000,
+        );
+        assert_eq!(large.requested_voices, 32_766);
+        assert_eq!(large.eligible_voices, 32_766);
+        assert_eq!(
+            large.targets.len(),
+            32_766,
+            "Curls preserve the full audio pool beyond preview capacity"
+        );
+    }
+
+    #[test]
+    fn curls_are_finite_and_bounded_in_all_grammars_at_control_extremes() {
+        for id in L_SYSTEM_TYPES {
+            for (interval_ms, time_ratio, depth, angle, asymmetry, pitch_scale) in [
+                (1., 0.2, 0., 0., -0.8, 0.),
+                (240., 0.72, 0.72, 45., 0., 1.),
+                (3000., 2., 0.96, 180., 0.8, 4.),
+            ] {
+                for curls in [-8., -0.15, 0.15, 8.] {
+                    let topology = compile(
+                        &Parameters {
+                            l_system_type: id.into(),
+                            interval_ms,
+                            time_ratio,
+                            depth,
+                            angle,
+                            asymmetry,
+                            pitch_scale,
+                            mutation: 1.,
+                            pruning_bias: 0.65,
+                            curls,
+                            ..Parameters::default()
+                        },
+                        8_000,
+                    );
+                    for (node, target) in topology.nodes.iter().zip(&topology.targets) {
+                        assert!(
+                            [
+                                node.start_x,
+                                node.start_y,
+                                node.x,
+                                node.y,
+                                node.heading_degrees,
+                                node.turn_degrees,
+                                node.length,
+                                node.time_scale,
+                                node.delay
+                            ]
+                            .into_iter()
+                            .all(f64::is_finite),
+                            "{id}/{curls}"
+                        );
+                        assert!(
+                            target.delay.is_finite() && target.delay > 0.,
+                            "{id}/{curls}"
+                        );
+                        assert!((0.125..=8.).contains(&target.rate), "{id}/{curls}");
+                        assert!((0. ..=0.5).contains(&target.gain), "{id}/{curls}");
+                        assert!((-1. ..=1.).contains(&target.pan), "{id}/{curls}");
+                        assert_eq!(node.priority.is_some(), target.gain > 0., "{id}/{curls}");
+                        if target.delay > 39. + 1e-9 || depth == 0. {
+                            assert_eq!(target.gain, 0., "{id}/{curls}");
+                            assert_eq!(
+                                topology.ranks[node.voice_index],
+                                usize::MAX,
+                                "{id}/{curls}"
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn curls_validate_signed_bounds_and_default_for_legacy_parameter_json() {
+        for curls in [-8., 0., 8.] {
+            assert!(Parameters {
+                curls,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_ok());
+        }
+        for curls in [f64::NAN, f64::INFINITY, f64::NEG_INFINITY, -8.01, 8.01] {
+            assert!(Parameters {
+                curls,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+        assert_eq!(
+            serde_json::from_str::<Parameters>(r#"{"angle":35,"pitchScale":0.75}"#)
+                .unwrap()
+                .curls,
+            0.
+        );
+        let parsed: Parameters = serde_json::from_str(r#"{"curls":-1.25}"#).unwrap();
+        assert_eq!(parsed.curls, -1.25);
+        assert_eq!(serde_json::to_value(parsed).unwrap()["curls"], -1.25);
+    }
 
     #[test]
     fn branching_grammars_append_stable_ids_and_have_exact_default_rewrite_counts() {
