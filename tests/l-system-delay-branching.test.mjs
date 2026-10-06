@@ -206,3 +206,61 @@ test('actual committed Rust WASM agrees with all six JS branching previews and r
     } finally { api.lsd_compile_free(handle); }
   }
 });
+
+test('actual Rust cutoff admission agrees with all six previews across full-layout depth and pruning extremes', async () => {
+  const { instance } = await WebAssembly.instantiate(await readFile(new URL('../assets/wasm/l-system-delay.wasm', import.meta.url)), {});
+  const api = instance.exports;
+  const timings = [
+    { intervalMs: 3000, timeRatio: 2, mutation: 0 },
+    { intervalMs: 3000, timeRatio: 1.7, mutation: 1 },
+    { intervalMs: 100, timeRatio: 2, mutation: 0 },
+    { intervalMs: 3000, timeRatio: 1, mutation: 0 },
+    { intervalMs: 1, timeRatio: .2, mutation: 1 },
+  ];
+  for (const lSystemType of NEW_IDS) for (const timing of timings) for (const pruningBias of [0, .65, 1]) {
+    const p = { ...DEFAULT_PARAMETERS, lSystemType, generations: 13, ...timing, pruningBias };
+    const js = buildPreview(p, generationTopology), name = `${lSystemType}/${p.intervalMs}/${p.timeRatio}/${pruningBias}`;
+    const handle = withJson(api, p, (pointer, length) => api.lsd_compile(pointer, length, 48000));
+    assert.ok(handle, `${name}: ${wasmError(api, 'compiler failed')}`);
+    try {
+      const reply = JSON.parse(decodeUtf8(new Uint8Array(api.memory.buffer, api.lsd_compile_json_ptr(handle), api.lsd_compile_json_len(handle))));
+      const pool = new DataView(api.memory.buffer, api.lsd_compile_pool_ptr(handle), api.lsd_compile_pool_len(handle));
+      const eligible = [], counts = new Map(), byId = new Map(js.map(node => [node.id, node]));
+      assert.equal(reply.requestedVoices, js.length - 1, name);
+      assert.equal(pool.getUint32(8, true), js.length - 1, `${name}: history cutoff keeps every pool record`);
+      for (const node of js.slice(1)) {
+        const offset = 32 + node.voiceIndex * 48, rank = pool.getUint32(offset + 32, true);
+        const priority = rank === 0xffffffff ? null : rank;
+        assert.equal(node.priority, priority, `${name}/${node.id}: same admitted identity and rank`);
+        close(pool.getFloat64(offset, true), node.delay, `${name}/${node.id}: delay`);
+        const gain = pool.getFloat64(offset + 16, true);
+        if (priority === null) {
+          assert.equal(gain, 0, `${name}/${node.id}: unavailable audio tap is silent`);
+          assert.ok(node.delay > 39 + 1e-9, `${name}/${node.id}: unavailable only beyond history`);
+        } else {
+          assert.ok(Number.isFinite(gain) && gain > 0 && node.delay <= 39 + 1e-9);
+          eligible.push(node); counts.set(node.generation, (counts.get(node.generation) ?? 0) + 1);
+        }
+      }
+      assert.equal(reply.eligibleVoices, eligible.length, name);
+      assert.deepEqual(eligible.map(node => node.priority).sort((a, b) => a - b), Array.from({ length: eligible.length }, (_, i) => i));
+      if (p.timeRatio > 1) {
+        assert.ok(eligible.length < js.length - 1, `${name}: actual history cutoff exercised`);
+        if (p.intervalMs === 100) assert.ok(eligible.length > 0, `${name}: partially admitted paths exercised for every grammar`);
+        assert.ok(Math.max(0, ...eligible.map(node => node.generation)) < Math.max(...js.map(node => node.generation)), `${name}: deepest full-layout layer is unavailable`);
+      } else assert.equal(eligible.length, js.length - 1, `${name}: all timing-eligible taps retained`);
+      for (const rust of reply.nodes.slice(1)) {
+        const node = byId.get(rust.key.replace(/^generation:/, ''));
+        assert.equal(rust.priority, node.priority, `${name}/${node.id}: prepared visual rank`);
+        close(rust.gain, node.gain, `${name}/${node.id}: generation normalization`);
+        close(node.gain, .5 * p.depth ** (node.generation * .72) / Math.sqrt(counts.get(node.generation)), `${name}/${node.id}: eligible-layer power`);
+      }
+      for (const limit of [0, 1, 3, Math.min(37, eligible.length), eligible.length]) {
+        const active = js.filter(node => node.generation > 0 && isVoiceActive(node, limit));
+        assert.deepEqual(active.map(node => node.id).sort(), eligible.filter(node => node.priority < limit).map(node => node.id).sort(), `${name}/${limit}: exact native budget prefix`);
+        const admitted = new Set(['trunk', ...active.map(node => node.id)]);
+        assert.ok(active.every(node => admitted.has(node.parentId)), `${name}/${limit}: connected admitted paths`);
+      }
+    } finally { api.lsd_compile_free(handle); }
+  }
+});
