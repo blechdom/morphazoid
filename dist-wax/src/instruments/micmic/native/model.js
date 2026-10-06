@@ -216,9 +216,9 @@ function binaryNodes(p) {
   return nodes;
 }
 /** Exact connected breadth/depth blend from the original pruning algorithm. */
-export function priorityOrder(voices, bias = 0, rankScale = 1) {
+export function priorityOrder(voices, bias = 0, rankScale = 1, deepestGeneration) {
   if (bias <= 0) return voices;
-  const byId = new Map(voices.map(n => [n.id, n])), seen = new Set(), deepest = Math.max(0, ...voices.map(n => n.generation));
+  const byId = new Map(voices.map(n => [n.id, n])), seen = new Set(), deepest = deepestGeneration ?? Math.max(0, ...voices.map(n => n.generation));
   const depthOrder = [];
   for (const target of voices.filter(n => n.generation === deepest).sort((a, b) => hashUnit(`audible:${a.id}`) - hashUnit(`audible:${b.id}`))) {
     const path = []; let cursor = target;
@@ -261,8 +261,12 @@ export function buildPreview(parameters, canonicalTopology) {
   // Preserve the existing eleven previews exactly. New grammars use the
   // Rust compiler's normalized ranks so floating-point ties admit the same
   // branch identities in the prepared drawing and the actual audio pool.
-  const rankScale = RUST_BRANCHING_TYPES.includes(p.lSystemType) ? 1 / Math.max(1, voices.length - 1) : 1;
-  priorityOrder(voices, p.pruningBias, rankScale).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
+  // Rust derives depth from the full layout even when the history cutoff
+  // excludes its deepest layer; then the eligible paths fall back to breadth.
+  const rustBranching = RUST_BRANCHING_TYPES.includes(p.lSystemType);
+  const rankScale = rustBranching ? 1 / Math.max(1, voices.length - 1) : 1;
+  const deepestGeneration = rustBranching ? nodes.reduce((deepest, node) => Math.max(deepest, node.generation), 0) : undefined;
+  priorityOrder(voices, p.pruningBias, rankScale, deepestGeneration).forEach((n, i) => { n.priority = i; n.gain /= Math.sqrt(counts.get(n.generation)); });
   return nodes;
 }
 /** Continuous preview targets settle in 80 ms even with delayed native replies. */
