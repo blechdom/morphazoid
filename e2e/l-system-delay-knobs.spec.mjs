@@ -12,6 +12,7 @@ const CONTRACT = [
   ['interval', '0', '1000', '1', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
+  ['curls', '-8', '8', '0.01', '0'],
   ['wet', '0', '1', '0.01', '0.76'], ['dry', '0', '0.5', '0.01', '0'], ['spread', '0', '1', '0.01', '0.9'],
   ['inputHighpassHz', '0', '1000', '1', '220'], ['highpassHz', '0', '1000', '1', '0'],
   ['lowpassHz', '0', '1000', '1', '1000'], ['thresholdDb', '-60', '0', '0.5', '-12'],
@@ -146,7 +147,7 @@ async function assertNeedles(page) {
   await expect.poll(async () => (await needleChecks(page)).every(row => Math.abs(row.actual - row.expected) < .001)).toBe(true);
 }
 
-test('all 24 original native ranges, complete parameter controls and runtime bounds remain accessible as knobs', async ({ page }) => {
+test('all original native ranges plus Curls, complete parameter controls and runtime bounds remain accessible as knobs', async ({ page }) => {
   test.setTimeout(90000);
   const evidence = await fixture(page); await ready(page);
   const d = await diagnostics(page), rows = await page.locator('input[type="range"]').evaluateAll(inputs => inputs.map(input => ({

@@ -4,11 +4,11 @@ const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 't
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
   ...RUST_BRANCHING_TYPES]);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
-  timeRatio: .72, angle: 45, asymmetry: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
+  timeRatio: .72, angle: 45, asymmetry: 0, curls: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
   frozen: false, inputGain: .85, frequency: 173, pulseRate: 2, voiceCeiling: 0, automatic: true, mastering: DEFAULT_MASTERING });
 export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [1, 3000], timeRatio: [.2, 2],
-  angle: [0, 180], asymmetry: [-.8, .8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, .96], spread: [0, 1] });
+  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, .96], spread: [0, 1] });
 export const PERFORMANCE_LIMITS = Object.freeze({ level: [0, 1], wet: [0, 1], dry: [0, .5], inputGain: [0, 4], frequency: [40, 1200], pulseRate: [.1, 12], voiceCeiling: [0, Number.MAX_SAFE_INTEGER] });
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 const round = value => Number(value.toFixed(6));
@@ -54,7 +54,7 @@ export function randomState(parameters, performance, random = Math.random) {
   const between = (a, b) => a + (b - a) * unit();
   return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
-    asymmetry: between(-.8, .8), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
+    asymmetry: between(-.8, .8), curls: between(-1.5, 1.5), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit() }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
     mastering: { ...randomMastering(random), makeupDb: performance.mastering?.makeupDb ?? DEFAULT_MASTERING.makeupDb } }) };
 }
@@ -238,6 +238,41 @@ export function priorityOrder(voices, bias = 0, rankScale = 1, deepestGeneration
   while (heap.length) { const n = pop(); result.push(n); for (const child of children.get(n.id) ?? []) push(child); }
   return result;
 }
+/** Add distributed winding along the complete original path. The root, gaps,
+ * backward strokes, identities and lengths retain their original meaning.
+ * This mirrors Rust's post-layout transform before audio turns and pan are read.
+ */
+export function applyPreviewCurls(nodes, curls) {
+  if (!curls || nodes.length < 2) return nodes;
+  const original = new Float64Array(nodes.length * 3), parents = new Int32Array(nodes.length), byId = new Map();
+  let maximum = 0;
+  for (let index = 0; index < nodes.length; index++) {
+    const node = nodes[index], offset = index * 3;
+    original[offset] = node.x; original[offset + 1] = node.y;
+    if (index) {
+      const parent = byId.get(node.parentId) ?? 0, parentOffset = parent * 3;
+      parents[index] = parent;
+      const gap = Math.hypot(node.startX - original[parentOffset], node.startY - original[parentOffset + 1]);
+      original[offset + 2] = original[parentOffset + 2] + node.length + gap;
+      maximum = Math.max(maximum, original[offset + 2]);
+    }
+    byId.set(node.id, index);
+  }
+  if (!(maximum > 0)) return nodes;
+  for (let index = 1; index < nodes.length; index++) {
+    const node = nodes[index], offset = index * 3, parentIndex = parents[index], parentOffset = parentIndex * 3, parent = nodes[parentIndex];
+    const phase = 360 * curls * (original[offset + 2] / maximum), priorPhase = 360 * curls * (original[parentOffset + 2] / maximum);
+    const radians = phase * Math.PI / 180, priorRadians = priorPhase * Math.PI / 180;
+    const gapX = node.startX - original[parentOffset], gapY = node.startY - original[parentOffset + 1];
+    const dx = original[offset] - node.startX, dy = original[offset + 1] - node.startY;
+    node.startX = parent.x + Math.cos(priorRadians) * gapX - Math.sin(priorRadians) * gapY;
+    node.startY = parent.y + Math.sin(priorRadians) * gapX + Math.cos(priorRadians) * gapY;
+    node.x = node.startX + Math.cos(radians) * dx - Math.sin(radians) * dy;
+    node.y = node.startY + Math.sin(radians) * dx + Math.cos(radians) * dy;
+    node.headingDegrees += phase; node.turnDegrees += phase - priorPhase;
+  }
+  return nodes;
+}
 /** Shared classic builder is supplied by the boundary; no browser import here. */
 export function buildPreview(parameters, canonicalTopology) {
   const p = sanitizeParameters(parameters);
@@ -246,6 +281,7 @@ export function buildPreview(parameters, canonicalTopology) {
   const preview = { ...p, generations: Math.min(13, p.generations) };
   const nodes = p.lSystemType === 'pythagorean' ? binaryNodes(preview) : canonicalTopology({ lSystemType: p.lSystemType, generations: preview.generations,
     branching: 1, mutation: p.mutation, timeRatio: p.timeRatio, angle: p.angle, asymmetry: p.asymmetry });
+  applyPreviewCurls(nodes, p.curls);
   const byId = new Map(), voices = [], counts = new Map();
   let maxY = .001;
   for (const n of nodes) maxY = Math.max(maxY, Math.abs(n.y));

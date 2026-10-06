@@ -27,7 +27,7 @@ const state = { parameters: { ...DEFAULT_PARAMETERS }, performance: { ...DEFAULT
   input: { mode: 'mic', sampleId: DEFAULT_SAMPLE_ID, label: 'Mic / line', pending: false, playing: false, hasFile: false, fileName: '', loop: true, ended: false, credit: '', creditUrl: '' },
   requestedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
-  asymmetry: 'generationAsymmetry', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread' };
+  asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread' };
 const PERFORMANCE_IDS = { wet: 'wet', dry: 'dry', inputGain: 'inputTrim', level: 'level', voiceCeiling: 'voiceCeiling' };
 const MASTERING_FREQUENCIES = { inputHighpassHz: 2000, highpassHz: 2000, lowpassHz: 20000 };
 const MASTERING_IDS = [...Object.keys(MASTERING_FREQUENCIES), 'thresholdDb', 'ratio', 'kneeDb', 'attackMs', 'releaseMs', 'makeupDb'];
@@ -226,7 +226,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (failure && failure !== lastFailure) showError(failure);
   lastFailure = failure; paintControls(); scheduleDraw();
 }
-const GEOMETRY_PARAMETERS = ['lSystemType', 'generations', 'timeRatio', 'angle', 'asymmetry', 'mutation'];
+const GEOMETRY_PARAMETERS = ['lSystemType', 'generations', 'timeRatio', 'angle', 'asymmetry', 'curls', 'mutation'];
 async function refreshNativePreview() {
   if (previewRefreshWorking) { previewRefreshDirty = true; return; }
   previewRefreshWorking = true;
@@ -456,6 +456,7 @@ function formatParameter(key, value) {
   if (key === 'intervalMs') return `${Math.round(value)} ms`;
   if (key === 'timeRatio') return `${Number(value.toFixed(2))}× per generation`;
   if (key === 'angle') return `${Number(value.toFixed(1))}°`;
+  if (key === 'curls') return Math.abs(value) < .005 ? 'original' : `${Number(Math.abs(value).toFixed(2))} turns ${value < 0 ? 'CW' : 'CCW'}`;
   if (key === 'pitchScale') return `${Math.round(value * 100)}% / 180°`;
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
@@ -558,7 +559,7 @@ function paintControls() {
   const limit = Math.max(0, Number(s.voiceLimit) || 0);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
-  $('recursionSummary').textContent = `${type} · ${p.generations} generations`;
+  $('recursionSummary').textContent = `${type} · ${p.generations} generations${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
   $('currentSettingsSummary').textContent = `${p.generations} gen · ${Math.round(p.intervalMs)} ms root fold`;
   $('pitchDetailStatus').textContent = `Independent granular · ${Number(s.activeVoices ?? 0).toLocaleString()} active voices · ${p.pitchScale === 0 ? 'exact unison' : 'independent pitch shifts'}`;

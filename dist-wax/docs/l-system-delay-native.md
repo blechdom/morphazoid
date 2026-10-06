@@ -97,6 +97,16 @@ Its parameter banks use compact knobs matching the header volume control. Drag
 up or down to adjust; hold Shift for finer motion, or use the native arrow,
 Home and End keys. Every parameter, range, step and readout remains available,
 including Tap, filter cutoffs, compression and signed pruning/asymmetry guidance.
+**Curls** adds continuous angular winding in either direction, from −8 to +8 turns
+along the longest root-to-tip path; this is added rotation, not a guaranteed count
+of visible loops. Zero leaves the original layout and sound intact;
+all existing factory presets recall zero. The input root stays fixed while
+successive segments turn, preserving their connections, lengths, gaps and delays.
+Those changed local turns feed the existing **Angle → octave span** pitch mapping,
+and their new positions feed **Spread**. The existing pitch-rate limits still
+apply. Curls does not reduce the number of voices or change device admission.
+Saved scenes retain Curls; older scenes without it restore zero. Held edits use
+the same staged Rust updates and continuous graphic transitions as Branch angle.
 The optional voice-cap knob uses a logarithmic gesture across the full current
 memory-supported range; its adjacent numeric field accepts an exact count,
 with 0 retaining no user cap. This presentation adds no audio voice ceiling.
