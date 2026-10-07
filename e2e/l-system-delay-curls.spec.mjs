@@ -368,7 +368,8 @@ test('Curls survives complete-state JSON storage and recall, participates in dic
   await expect(page.locator('#curls')).toBeEnabled({ timeout: 30000 });
   const randomized = await diagnostics(page), capturedRandom = await capture(page);
   expect(Number.isFinite(randomized.parameters.curls)).toBe(true); expect(Math.abs(randomized.parameters.curls)).toBeLessThanOrEqual(8);
-  expect(capturedRandom.parameters.curls).toBe(randomized.parameters.curls);
+  // Rust's JSON roundtrip can change the final bit of a JS floating value.
+  expect(capturedRandom.parameters.curls).toBeCloseTo(randomized.parameters.curls, 12);
   expect(Number(await page.locator('#curls').inputValue())).toBeCloseTo(randomized.parameters.curls, 2);
   expect(gains(randomized)).toEqual(LIVE_GAINS); expect(randomized.audio).toBe(false); expect(randomized.worklets).toBe(0); expect(randomized.microphoneRequests).toBe(0);
   await save('curls-state-roundtrip', { saved, recalled: recalled.parameters, randomized: randomized.parameters,
