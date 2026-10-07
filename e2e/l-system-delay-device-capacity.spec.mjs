@@ -1,13 +1,14 @@
 import { test, expect } from '@playwright/test';
 
-async function fixture(page, { voiceBudget = null } = {}) {
+async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixedDrawingWorkMs = 0 } = {}) {
   const errors = [], failures = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('response', response => { if (response.status() >= 400 && new URL(response.url()).origin === new URL(page.url()).origin) failures.push(response.url()); });
-  await page.addInitScript(({ voiceBudget }) => {
+  await page.addInitScript(({ voiceBudget, fakeMicrophone, fixedDrawingWorkMs }) => {
     const qa = window.__deviceRuntime = { contexts: [], worklets: [], sources: [], compilations: [], microphoneRequests: 0 };
     const NativeWorker = Worker, NativeContext = AudioContext, NativeNode = AudioWorkletNode;
+    qa.fixedDrawingWorkMs = fixedDrawingWorkMs;
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
       const worker = new Target(...args);
       if (String(args[0]).includes('/native/topology-worker.js')) {
@@ -45,17 +46,42 @@ async function fixture(page, { voiceBudget = null } = {}) {
       source.stop = (...args) => { record.stops++; return stop(...args); };
       qa.sources.push(record); return source;
     };
-    const capture = navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+    const capture = fakeMicrophone ? async () => {
+      const inputContext = new NativeContext(), destination = inputContext.createMediaStreamDestination();
+      const oscillator = inputContext.createOscillator(), gain = inputContext.createGain();
+      oscillator.frequency.value = 173; gain.gain.value = .03;
+      oscillator.connect(gain).connect(destination); oscillator.start(); await inputContext.resume();
+      for (const track of destination.stream.getTracks()) {
+        const stop = track.stop.bind(track);
+        track.stop = () => {
+          if (track.readyState === 'ended') return stop();
+          stop(); oscillator.stop(); void inputContext.close();
+        };
+      }
+      return destination.stream;
+    } : navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = (...args) => { qa.microphoneRequests++; return capture(...args); };
-  }, { voiceBudget });
+  }, { voiceBudget, fakeMicrophone, fixedDrawingWorkMs });
   await page.route('**/src/instruments/micmic/native/app.js', async route => {
     const response = await route.fetch();
-    const source = await response.text(), costUpdate = 'visualCostMs += (cost - visualCostMs) * .15;';
+    let source = await response.text();
+    const costUpdate = 'visualCostMs += (cost - visualCostMs) * .15;';
+    if (fixedDrawingWorkMs > 0) {
+      const costMeasurement = 'const cost = Math.max(0, performance.now() - drawStarted);';
+      expect(source.split(costMeasurement).length - 1).toBe(1);
+      // Spend actual, count-independent drawing time after Audio starts.
+      // This models viewport/history setup; measured costs remain real.
+      source = source.replace(costMeasurement, `if (state.audio) {
+        const fixedWorkStarted = performance.now();
+        while (performance.now() - fixedWorkStarted < __deviceRuntime.fixedDrawingWorkMs) {}
+      }
+      ` + costMeasurement);
+    }
     expect(source.split(costUpdate).length - 1).toBe(1);
     // Control only the requested display cadence. Actual renderer work, Rust
     // processing, RAF timestamps and audio clocks remain real.
     await route.fulfill({ response, body: source.replace(costUpdate,
-      'visualCostMs = __deviceRuntime.fixedVisualCost ?? (visualCostMs + (cost - visualCostMs) * .15);') + `
+      'visualCostMs = __deviceRuntime.fixedVisualCost ?? (visualCostMs + (cost - visualCostMs) * .15); __deviceRuntime.lastDraw = { audio: state.audio, depth: previewParameters.depth, nodes: branches };') + `
 const qaObjectIds = new WeakMap(); let qaObjectSequence = 0;
 const qaObjectId = value => {
   if (!value) return null;
@@ -63,7 +89,7 @@ const qaObjectId = value => {
   return qaObjectIds.get(value);
 };
 window.__deviceQa = {
-  engine: browserEngine, applyScene,
+  engine: browserEngine, applyScene, presetBank: () => structuredClone(presets),
   scene: () => captureScene(state.parameters, state.performance),
   view: () => {
     const nodes = geometry?.nodes ?? [], ids = new Set(nodes.map(node => node.id));
@@ -80,13 +106,33 @@ window.__deviceQa = {
   positions: () => (geometry?.nodes ?? []).map(node => ({ id: node.id, object: qaObjectId(node),
     wave: qaObjectId(geometry.waves.get(node.id)), x: node.x, y: node.y, startX: node.startX, startY: node.startY,
     generation: node.generation, gain: node.gain })),
+  startup: () => {
+    const d = browserEngine.getDiagnostics(), nodes = geometry?.nodes ?? [], draw = __deviceRuntime.lastDraw;
+    const limit = d.status.voiceLimit, eligible = node => node.generation > 0 && node.priority >= 0 && node.priority < limit && node.gain > 0;
+    return { clock: browserEngine.getSampleTime(), audio: d.audio, uiAudio: state.audio,
+      rule: d.parameters.lab?.kind ?? d.parameters.lSystemType, bias: d.parameters.pruningBias, depth: d.parameters.depth,
+      compiled: d.preparedVoices, raw: preparedGraphicsNodes.length, selected: nodes.length,
+      selectedAdmitted: nodes.filter(eligible).length,
+      rawAdmitted: preparedGraphicsNodes.filter(eligible).length,
+      selectedPositive: nodes.filter(node => node.generation > 0 && node.gain > 0).length,
+      drawn: draw?.nodes.length, drawnIds: draw?.nodes.slice(0, 12).map(node => [node.id, node.priority, node.gain]),
+      selectedIds: nodes.slice(0, 12).map(node => [node.id, node.priority, node.gain]),
+      geometryIdentity: qaObjectId(geometry), voiceLimit: limit, uiVoiceLimit: state.status.voiceLimit,
+      targets: d.status.targetVoices, active: d.status.activeVoices, cpu: d.status.cpuLoad, peak: d.status.peakLoad,
+      inputPeak: d.status.inputPeak, outputPeak: d.status.outputPeak, microphoneEnabled: d.status.microphoneEnabled,
+      graphics: graphicsCapacity.diagnostics(), gpu: gpuRenderer?.stats };
+  },
   holdVisualCost: value => { __deviceRuntime.fixedVisualCost = value; visualCostMs = value; scheduleDraw(); },
   traceGraphics: () => {
     const observe = graphicsCapacity.observe;
     __deviceRuntime.graphicsSamples = [];
     graphicsCapacity.observe = input => {
       const before = graphicsCapacity.diagnostics(), changed = observe(input);
-      __deviceRuntime.graphicsSamples.push({ input, before, after: graphicsCapacity.diagnostics(), changed });
+      __deviceRuntime.graphicsSamples.push({ input, before, after: graphicsCapacity.diagnostics(), changed,
+        audio: state.audio, depth: previewParameters.depth, geometryNodes: geometry?.nodes.length,
+        preparedNodes: preparedGraphicsNodes.length, moving: nativePreviewMoving,
+        fps: visualBudget(state.status.cpuLoad, state.status.peakLoad, false, state.audio, visualCostMs).fps,
+        dpr: canvas.width / Math.max(1, geometry?.width ?? canvas.width) });
       if (__deviceRuntime.graphicsSamples.length > 1000) __deviceRuntime.graphicsSamples.shift();
       return changed;
     };
@@ -105,7 +151,8 @@ window.__deviceQa = {
     // connected-prefix update still runs through the application's real path.
     for (let step = 1; step <= 1024 && graphicsCapacity.limit < target; step++) {
       changed = graphicsCapacity.observe({ nowMs: at + step * 500, workMs: .01, setupMs: 0,
-        drawnNodes: Math.min(graphicsCapacity.limit, preparedGraphicsNodes.length), continuous: false }) || changed;
+        drawnNodes: Math.min(graphicsCapacity.limit, preparedGraphicsNodes.length), continuous: true,
+        frameIntervalMs: 500, expectedFrameMs: 500 }) || changed;
     }
     if (changed) { graphicsSelectionDirty = true; void refreshNativePreview(); scheduleDraw(); }
     return { before, after: graphicsCapacity.limit, changed };
@@ -117,7 +164,7 @@ window.__deviceQa = {
 }
 
 async function ready(page, renderer = 'webgl2') {
-  await page.goto(`/l-mic-rust.html?renderer=${renderer}`);
+  await page.goto(`/l-mic-rust.html${renderer ? `?renderer=${renderer}` : ''}`);
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 60000 });
   await page.waitForFunction(() => window.__deviceQa?.engine.getDiagnostics().initialized && __deviceQa.view().nodes > 0);
 }
@@ -277,6 +324,10 @@ for (const audio of [false, true]) test(`graphics overload reduces connected GPU
 function sameCamera(actual, expected) {
   for (const property of ['scale', 'x', 'y']) expect(actual[property], `camera ${property}`).toBeCloseTo(expected[property], 10);
 }
+function richAudioTree(state) {
+  return state.audio && state.selected > 0 && state.rawAdmitted > 0
+    && state.selectedAdmitted >= state.rawAdmitted * .8 && state.drawn > 1;
+}
 function sameSurvivingBranches(actual, previous) {
   const byId = new Map(previous.map(node => [node.id, node]));
   const shared = actual.filter(node => byId.has(node.id));
@@ -391,4 +442,207 @@ test('a minute of a steady dense real loop retains prepared capacity without rep
       forcedAudioBudget: false, humanListening: false, graphicsSamples }, null, 2), contentType: 'application/json' });
   }
   await cleanup(page, evidence);
+});
+
+for (const microphoneFirst of [false, true]) test(`microphone startup after factory preset navigation retains audio branches with input capture ${microphoneFirst ? 'before' : 'with'} Audio`, async ({ page }) => {
+  test.setTimeout(240000);
+  const evidence = await fixture(page, { fakeMicrophone: true }), rows = [];
+  try {
+    for (const bias of [0, -1, 1]) {
+      await ready(page, microphoneFirst ? 'webgl2' : null); await page.evaluate(() => __deviceQa.traceGraphics());
+      if (microphoneFirst) {
+        await page.locator('#micButton').click();
+        await expect.poll(async () => (await diagnostics(page)).microphoneEnabled).toBe(true);
+        expect((await diagnostics(page)).audio).toBe(false);
+      }
+      const bank = await page.evaluate(() => __deviceQa.presetBank());
+      const lab = bank.find(preset => preset.snapshot.parameters.lab?.kind === 'parametric');
+      const ids = ['spruce-cutting', 'coral', ...(lab ? [lab.id] : []), 'pythagorean'];
+      for (const id of ids) {
+        const picker = page.locator('.instrument-preset-controls');
+        await picker.locator('summary').click();
+        await picker.locator('button[data-full-preset][data-preset-id="' + id + '"]').click();
+        await expect(picker).toHaveAttribute('data-preset-id', id);
+        await expect(page.locator('#generations')).toBeEnabled({ timeout: 30000 });
+      }
+      await native(page, 'pruningBias', bias);
+      await expect.poll(async () => (await diagnostics(page)).parameters.pruningBias).toBe(bias);
+      await expect.poll(async () => (await view(page)).moving).toBe(false);
+      const baseline = await page.evaluate(() => __deviceQa.startup());
+      rows.push({ bias, microphoneFirst, phase: 'audio-off', state: baseline });
+      await page.locator('#audioButton').click();
+      const started = Date.now();
+      while (Date.now() - started < 4500) {
+        rows.push({ bias, microphoneFirst, phase: 'starting', time: (Date.now() - started) / 1000,
+          state: await page.evaluate(() => __deviceQa.startup()), pcm: await pcm(page) });
+        await page.waitForTimeout(50);
+      }
+      await expect.poll(async () => {
+        const state = await page.evaluate(() => __deviceQa.startup());
+        rows.push({ bias, microphoneFirst, phase: 'recovery', time: (Date.now() - started) / 1000, state });
+        return richAudioTree(state) && !(await view(page)).moving;
+      }, { timeout: 45000, intervals: [250, 500, 1000] }).toBe(true);
+      const final = await page.evaluate(() => __deviceQa.startup());
+      rows.push({ bias, microphoneFirst, phase: 'final', state: final,
+        graphicsSamples: await page.evaluate(() => __deviceRuntime.graphicsSamples) });
+      expect(final.audio).toBe(true); expect(final.microphoneEnabled).toBe(true);
+      expect(final.targets).toBeGreaterThan(1); expect(final.rawAdmitted).toBeGreaterThan(1);
+      expect(final.selectedAdmitted).toBeGreaterThan(1); expect(final.drawn).toBeGreaterThan(1);
+      await page.locator('#audioButton').click();
+      await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+    }
+    expect(evidence.errors).toEqual([]); expect(evidence.failures).toEqual([]);
+  } finally {
+    await test.info().attach('mic-audio-startup-preset-membership', { body: JSON.stringify({ rows,
+      renderer: microphoneFirst ? 'webgl2' : 'auto',
+      actualWasm: true, actualMediaStreamInput: true, forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false }, null, 2), contentType: 'application/json' });
+  }
+});
+
+test('microphone startup retains admitted segments after switching among branching and lab factory presets', async ({ page }) => {
+  test.setTimeout(480000);
+  const evidence = await fixture(page, { fakeMicrophone: true }), rows = [];
+  try {
+    await ready(page);
+    const bank = await page.evaluate(() => __deviceQa.presetBank());
+    const ids = [null, 'coral', 'bramble', 'spruce-cutting',
+      ...['parametric', 'penrose', 'sphinx'].map(kind => bank.find(preset => preset.snapshot.parameters.lab?.kind === kind)?.id).filter(Boolean)];
+    for (const id of ids) {
+      await ready(page); await page.evaluate(() => __deviceQa.traceGraphics());
+      await page.locator('#micButton').click();
+      await expect.poll(async () => (await diagnostics(page)).microphoneEnabled).toBe(true);
+      if (id) {
+        for (const target of ['pythagorean', 'spruce-cutting', id]) {
+          const picker = page.locator('.instrument-preset-controls');
+          await picker.locator('summary').click();
+          await picker.locator('button[data-full-preset][data-preset-id="' + target + '"]').click();
+          await expect(picker).toHaveAttribute('data-preset-id', target);
+          await expect(page.locator('#generations')).toBeEnabled({ timeout: 30000 });
+        }
+      }
+      await native(page, 'pruningBias', 1);
+      await expect.poll(async () => (await diagnostics(page)).parameters.pruningBias).toBe(1);
+      await expect.poll(async () => (await view(page)).moving).toBe(false);
+      rows.push({ id, phase: 'audio-off', state: await page.evaluate(() => __deviceQa.startup()) });
+      await page.locator('#audioButton').click();
+      const started = Date.now();
+      while (Date.now() - started < 3000) {
+        rows.push({ id, phase: 'starting', time: (Date.now() - started) / 1000,
+          state: await page.evaluate(() => __deviceQa.startup()), pcm: await pcm(page) });
+        await page.waitForTimeout(50);
+      }
+      await expect.poll(async () => {
+        const state = await page.evaluate(() => __deviceQa.startup());
+        rows.push({ id, phase: 'recovery', time: (Date.now() - started) / 1000, state });
+        return richAudioTree(state) && !(await view(page)).moving;
+      }, { timeout: 45000, intervals: [250, 500, 1000] }).toBe(true);
+      const final = await page.evaluate(() => __deviceQa.startup());
+      rows.push({ id, phase: 'final', state: final, graphicsSamples: await page.evaluate(() => __deviceRuntime.graphicsSamples) });
+      expect(final.audio).toBe(true); expect(final.microphoneEnabled).toBe(true);
+      if (final.targets > 1) { expect(final.selectedAdmitted).toBeGreaterThan(1); expect(final.drawn).toBeGreaterThan(1); }
+      await page.locator('#audioButton').click();
+      await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: false })));
+    }
+    expect(evidence.errors).toEqual([]); expect(evidence.failures).toEqual([]);
+  } finally {
+    await test.info().attach('mic-audio-startup-rule-families', { body: JSON.stringify({ rows, actualWasm: true,
+      actualMediaStreamInput: true, forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false }, null, 2), contentType: 'application/json' });
+  }
+});
+
+test('startup graphics setup overload recovers a useful dense tree during real microphone audio and unrelated callback lateness', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true }), rows = [], cuts = [];
+  try {
+    await ready(page); await page.evaluate(() => __deviceQa.traceGraphics());
+    await page.locator('#audioButton').click();
+    await expect.poll(async () => {
+      const s = await page.evaluate(() => __deviceQa.startup()), samples = await pcm(page);
+      return s.audio && s.microphoneEnabled && s.targets > 32 && samples.finite && samples.peak > 1e-5;
+    }, { timeout: 30000 }).toBe(true);
+    await expect.poll(async () => (await view(page)).moving).toBe(false);
+    const initial = await session(page);
+    // Inject only initial emergency setup pressure. Work trials correctly
+    // prevent repeated unproven frame-cost cuts; startup rebuilds remain an
+    // independently actionable overload. Later drawing and DSP remain real.
+    while ((await view(page)).nodes > 1) {
+      const cut = await page.evaluate(() => __deviceQa.forceGraphicsPressure());
+      cuts.push(cut); expect(cut.changed).toBe(true);
+      await expect.poll(async () => (await view(page)).nodes).toBeLessThanOrEqual(cut.after);
+      await expect.poll(async () => (await view(page)).moving).toBe(false);
+    }
+    expect((await page.evaluate(() => __deviceQa.startup())).targets).toBeGreaterThan(32);
+    await page.evaluate(() => {
+      __deviceRuntime.externalMainWork = true;
+      const busy = () => {
+        if (!__deviceRuntime.externalMainWork) return;
+        const started = performance.now();
+        while (performance.now() - started < 22) {}
+        __deviceRuntime.externalMainFrame = requestAnimationFrame(busy);
+      };
+      __deviceRuntime.externalMainFrame = requestAnimationFrame(busy);
+    });
+    const started = Date.now();
+    let recovered = false;
+    while (Date.now() - started < 45000) {
+      const state = await page.evaluate(() => __deviceQa.startup()), samples = await pcm(page), current = await session(page);
+      rows.push({ time: (Date.now() - started) / 1000, state, pcm: samples });
+      expect(state.audio).toBe(true); expect(state.targets).toBeGreaterThan(32);
+      expect(samples.finite).toBe(true); expect(samples.peak).toBeGreaterThan(1e-5); expect(samples.peak).toBeLessThanOrEqual(1);
+      expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+      expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+      recovered = state.selectedAdmitted >= state.rawAdmitted * .8 && state.drawn > 32;
+      if (recovered) break;
+      await page.waitForTimeout(250);
+    }
+    expect(recovered, 'cheap real drawing restores at least 80% of the admitted audio tree').toBe(true);
+    expect((await session(page)).time).toBeGreaterThan(initial.time);
+    await cleanup(page, evidence);
+  } finally {
+    await page.evaluate(() => {
+      __deviceRuntime.externalMainWork = false; cancelAnimationFrame(__deviceRuntime.externalMainFrame);
+    });
+    const graphicsSamples = await page.evaluate(() => __deviceRuntime.graphicsSamples ?? []);
+    await test.info().attach('graphics-root-recovery-real-microphone', { body: JSON.stringify({ rows, cuts, graphicsSamples,
+      actualWasm: true, actualMediaStreamInput: true, forcedAudioBudget: false, fakeAudioMetrics: false,
+      initialGraphicsSetupOnly: true, unrelatedMainWorkMs: 22, humanListening: false }, null, 2), contentType: 'application/json' });
+  }
+});
+
+for (const renderer of ['canvas', 'webgl2']) test(`fixed viewport work backs off frame rate while recovering a rich microphone tree with ${renderer}`, async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true, fixedDrawingWorkMs: 6 }), rows = [];
+  try {
+    await ready(page, renderer); await page.evaluate(() => __deviceQa.traceGraphics());
+    await page.locator('#audioButton').click();
+    await expect.poll(async () => {
+      const state = await page.evaluate(() => __deviceQa.startup()), samples = await pcm(page);
+      return state.audio && state.microphoneEnabled && state.targets > 32 && samples.finite && samples.peak > 1e-5;
+    }, { timeout: 30000 }).toBe(true);
+    const initial = await session(page), started = Date.now();
+    let recoveredAt = null;
+    while (Date.now() - started < 45000) {
+      const state = await page.evaluate(() => __deviceQa.startup()), samples = await pcm(page), current = await session(page);
+      rows.push({ time: (Date.now() - started) / 1000, state, pcm: samples });
+      expect(state.audio).toBe(true); expect(state.targets).toBeGreaterThan(32);
+      expect(samples.finite).toBe(true); expect(samples.peak).toBeGreaterThan(1e-5); expect(samples.peak).toBeLessThanOrEqual(1);
+      expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+      expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+      const rich = state.selectedAdmitted >= state.rawAdmitted * .8 && state.drawn > 32;
+      recoveredAt = rich ? recoveredAt ?? Date.now() : null;
+      if (recoveredAt && Date.now() - recoveredAt > 6000) break;
+      await page.waitForTimeout(250);
+    }
+    expect(recoveredAt && Date.now() - recoveredAt > 6000, 'steady drawing retains at least 80% of the admitted audio tree').toBeTruthy();
+    const history = await page.evaluate(() => __deviceRuntime.graphicsSamples);
+    expect(history.some(frame => frame.audio && frame.input.workMs >= 6 && frame.fps < 30)).toBe(true);
+    expect((await session(page)).time).toBeGreaterThan(initial.time);
+    await cleanup(page, evidence);
+  } finally {
+    const graphicsSamples = await page.evaluate(() => __deviceRuntime.graphicsSamples ?? []);
+    await test.info().attach('fixed-work-microphone-tree', { body: JSON.stringify({ rows, graphicsSamples,
+      renderer,
+      actualWasm: true, actualMediaStreamInput: true, fixedRealDrawingWorkMs: 6,
+      forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false }, null, 2), contentType: 'application/json' });
+  }
 });
