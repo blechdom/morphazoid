@@ -1,10 +1,12 @@
 import { test, expect } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { L_SYSTEM_TYPES, RUST_EXPLORATION_TYPES } from '../src/instruments/micmic/native/model.js';
+import { combinedPresets } from '../src/instruments/micmic/native/rule-modes.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const BANK = '/src/instruments/micmic/native/presets.json';
 const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
+const unifiedBank = combinedPresets(bank);
 const ORIGINAL_IDS = ['pythagorean', 'bramble', 'venus', 'ivy', 'binary', 'coral', 'moss', 'plant', 'kelp', 'dragon',
   'koch', 'clean', 'orchid', 'willow', 'mangrove', 'sequoia', 'cedar', 'aspen', 'juniper', 'baobab',
   'foxglove', 'lotus', 'acacia', 'lichen', 'moonflower', 'horsetail'];
@@ -90,7 +92,8 @@ async function ready(page) {
   expect(bank.slice(0, ORIGINAL_IDS.length).map(preset => preset.id)).toEqual(ORIGINAL_IDS);
   await page.goto('/l-mic-rust.html?renderer=canvas');
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
-  await expect(page.locator('button[data-full-preset]')).toHaveCount(bank.length);
+  expect(unifiedBank).toHaveLength(210);
+  await expect(page.locator('button[data-full-preset]')).toHaveCount(unifiedBank.length);
   const response = await page.request.get(BANK);
   expect(response.ok()).toBe(true); expect(await response.json()).toEqual(bank);
 }
@@ -146,12 +149,12 @@ async function choosePreset(page, preset) {
   return diagnostics(page);
 }
 
-test(`all ${bank.length} UI recalls preserve Mic/File/Samples sessions and live gains without arming Audio`, async ({ page }) => {
+test(`all ${unifiedBank.length} UI recalls preserve Mic/File/Samples sessions and live gains without arming Audio`, async ({ page }) => {
   test.setTimeout(300000);
   const evidence = await fixture(page); await ready(page); await setGains(page); await prepareFile(page);
   await inputMode(page, 'samples'); await chooseInput(page, 'inputSample', 'music-keys');
   const rows = [];
-  for (const [index, preset] of bank.entries()) {
+  for (const [index, preset] of unifiedBank.entries()) {
     const mode = ['mic', 'file', 'samples'][index % 3]; await inputMode(page, mode);
     const before = await diagnostics(page), recalled = await choosePreset(page, preset);
     expect(recalled.audio).toBe(false); expect(recalled.audioDesired).toBe(false);
@@ -256,7 +259,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         await page.screenshot({ path: test.info().outputPath(`preset-family-${query.toLowerCase().replaceAll(' ', '-')}.png`) });
       }
       await search.fill(''); await picker.locator('summary').click();
-      for (const preset of [bank[0], bank[Math.floor(bank.length / 2)], bank.at(-1)]) {
+      for (const preset of [unifiedBank[0], unifiedBank[Math.floor(unifiedBank.length / 2)], unifiedBank.at(-1)]) {
         await picker.locator('summary').scrollIntoViewIfNeeded(); await picker.locator('summary').click();
         if (viewport.width !== 1440) expect((await picker.locator('summary').boundingBox()).height).toBeGreaterThanOrEqual(48);
         await search.fill('no-such-l-system-preset');

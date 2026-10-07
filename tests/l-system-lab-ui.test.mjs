@@ -39,7 +39,7 @@ test('bounded module randomization varies every numeric field without changing c
 });
 test('both copied pages preserve all original delay controls and register as playable WIP instruments', async () => {
   const original = await readFile(new URL('../src/pages/l-mic-rust.html', import.meta.url), 'utf8');
-  const originalControls = [...original.matchAll(/<(?:input|select|button)\b[^>]*\bid="([^"]+)"/g)].map(match => match[1]).filter(id => !['grammarSeed', 'branchProbability', 'regrowGrammar'].includes(id));
+  const originalControls = [...original.matchAll(/<(?:input|select|button)\b[^>]*\bid="([^"]+)"/g)].map(match => match[1]).filter(id => !id.startsWith('lab') && !['grammarSeed', 'branchProbability', 'regrowGrammar'].includes(id));
   for (const [id, mode] of [['l-system-parametric-lab', 'parametric'], ['l-system-experiments', 'experiments']]) {
     assert.ok(CANONICAL_PAGE_ROUTES.includes(id + '.html'));
     const record = INSTRUMENTS.find(item => item.id === id); assert.equal(record.status, 'Work in Progress');
@@ -52,5 +52,21 @@ test('both copied pages preserve all original delay controls and register as pla
     for (const control of originalControls) assert.ok(page.includes(`id="${control}"`), `${id}: ${control}`);
     const icon = await readFile(new URL(`../assets/instruments/${id}.webp`, import.meta.url));
     assert.equal(icon.toString('ascii', 8, 12), 'WEBP'); assert.ok(icon.length > 2000);
+  }
+});
+
+test('current Delay exposes every integrated rule family and keeps mastering inside Mix', async () => {
+  const ids = ['labLengthRatio', 'labAngleIncrement', 'labDelayRatio', 'labPitchRatio', 'labBranchCount', 'labMinLength', 'labContextStrength', 'labSymbolRatio'];
+  for (const route of ['l-mic-rust', 'l-system-parametric-lab', 'l-system-experiments']) {
+    const page = await readFile(new URL(`../src/pages/${route}.html`, import.meta.url), 'utf8');
+    assert.equal(page.includes('id="pitchDetail"'), false, route);
+    assert.equal(page.includes('id="pitchDetailStatus"'), false, route);
+    assert.match(page, /<details\b[^>]*id="mixSection"[\s\S]*?<section\b[^>]*id="masteringSection"[\s\S]*?<\/section>\s*<\/div>\s*<\/details>/, route);
+    assert.doesNotMatch(page, /<details\b[^>]*id="masteringSection"/, route);
+    if (route === 'l-mic-rust') {
+      for (const kind of ['parametric', 'context', 'thue-morse', 'fibonacci', 'penrose', 'sphinx'])
+        assert.ok(page.includes(`value="lab:${kind}"`), kind);
+      for (const id of ids) assert.ok(page.includes(`id="${id}"`), id);
+    }
   }
 });

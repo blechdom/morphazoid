@@ -1,7 +1,7 @@
 import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
-import { L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
+import { RULE_MODES } from '../src/instruments/micmic/native/rule-modes.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const APP = '/src/instruments/micmic/native/app.js';
@@ -14,6 +14,10 @@ const CONTRACT = [
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
   ['curls', '-8', '8', '0.01', '0'],
   ['branchProbability', '0', '1', '0.01', '0.65'],
+  ['labLengthRatio', '0.2', '1.25', '0.01', '0.72'], ['labAngleIncrement', '-90', '90', '0.1', '0'],
+  ['labDelayRatio', '0.2', '2', '0.01', '0.72'], ['labPitchRatio', '0.5', '2', '0.001', '1'],
+  ['labBranchCount', '2', '6', '1', '2'], ['labMinLength', '0.001', '1', '0.001', '0.03'],
+  ['labContextStrength', '0', '1', '0.01', '0.5'], ['labSymbolRatio', '0.25', '4', '0.01', '1.5'],
   ['wet', '0', '1', '0.01', '0.76'], ['dry', '0', '0.5', '0.01', '0'], ['spread', '0', '1', '0.01', '0.9'],
   ['inputHighpassHz', '0', '1000', '1', '220'], ['highpassHz', '0', '1000', '1', '0'],
   ['lowpassHz', '0', '1000', '1', '1000'], ['thresholdDb', '-60', '0', '0.5', '-12'],
@@ -147,6 +151,13 @@ async function openControl(page, id) {
     await expect(page.locator('#stochasticControls')).toBeVisible();
     await expect(control).toBeEnabled();
   }
+  if (id.startsWith('lab') && !(await control.isVisible())) {
+    const kind = ['labContextStrength', 'labSymbolRatio'].includes(id) ? 'context' : 'parametric';
+    await page.locator('#lSystemType').selectOption(`lab:${kind}`);
+    await expect.poll(async () => (await diagnostics(page)).parameters.lab?.kind).toBe(kind);
+    await expect(page.locator('#labRuleControls')).toBeVisible();
+    await expect(control).toBeEnabled();
+  }
   await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
   return control;
 }
@@ -231,13 +242,16 @@ test('all original native ranges plus Curls, complete parameter controls and run
     const input = await openControl(page, id), before = await input.inputValue();
     await input.click(); expect(await input.inputValue(), `${id}: taking hold must not jump`).toBe(before);
   }
-  for (const id of ['source', 'inputSample', 'lSystemType', 'pitchDetail', 'masteringPreset', 'automatic', 'inputLoop',
+  for (const id of ['source', 'inputSample', 'lSystemType', 'masteringPreset', 'automatic', 'inputLoop',
     'compressorEnabled', 'autoMakeup', 'micButton', 'audioButton', 'sharedMidiToggle', 'panicButton', 'freezeButton', 'restartInput', 'stopInput',
     'resetGenerationRules', 'inputFile', 'outputBoostHint', 'pruningBiasGuide', 'generationCapacityInline',
     'grammarSeed', 'grammarSeedOut', 'regrowGrammar']) {
     await expect(page.locator(`#${id}`), id).toHaveCount(1);
   }
-  expect(await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value).sort())).toEqual([...L_SYSTEM_TYPES].sort());
+  expect(await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value).sort())).toEqual([...RULE_MODES].sort());
+  await expect(page.locator('#pitchDetail, #pitchDetailStatus')).toHaveCount(0);
+  await expect(page.locator('#mixSection #masteringSection')).toHaveCount(1);
+  await expect(page.locator('#masteringSection > summary')).toHaveCount(0);
   expect(await page.locator('#inputSample option').count()).toBe(33);
   expect(await page.locator('#masteringPreset option').count()).toBe(8);
   await expect(page.locator('#grammarSeed')).toHaveAttribute('type', 'number');
@@ -528,7 +542,7 @@ test('compact knobs and every original control remain reachable in desktop, port
     const evidence = await fixture(page); await ready(page);
     const depth = await openControl(page, 'depth'); await depth.focus(); await page.keyboard.press('End');
     await assertDepth(page, 1); expect((await diagnostics(page)).audio).toBe(false);
-    await page.evaluate(() => { for (const id of ['recursionSection', 'mixSection', 'masteringSection']) document.getElementById(id).open = true; });
+    await page.evaluate(() => { for (const id of ['recursionSection', 'mixSection']) document.getElementById(id).open = true; });
     const controls = [];
     for (const [id] of CONTRACT) {
       const input = await openControl(page, id);

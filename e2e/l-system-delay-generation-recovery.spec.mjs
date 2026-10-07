@@ -363,7 +363,7 @@ test('live levels survive sound navigation, dice, mastering and saved or legacy 
   await page.addInitScript(() => { Math.random = () => .5; });
   const evidence = await audioFixture(page, { sceneRecall: true });
   await ready(page, 'canvas');
-  await page.locator('#masteringSection > summary').click();
+  await page.locator('#mixSection > summary').click();
   const capture = () => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState());
   const levels = d => ({ inputGain: d.performance.inputGain, level: d.performance.level, makeupDb: d.performance.mastering.makeupDb });
   const setLevels = async expected => {

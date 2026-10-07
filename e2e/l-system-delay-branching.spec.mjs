@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { writeFile } from 'node:fs/promises';
-import { L_SYSTEM_TYPES } from '../src/instruments/micmic/native/model.js';
+import { RULE_MODES } from '../src/instruments/micmic/native/rule-modes.js';
 
 const TYPES = ['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary'];
 const ORIGINAL = ['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon'];
@@ -103,10 +103,10 @@ test('all six new branching presets restore from Cantor with audible wet descend
   const errors = await fixture(page), bank = await ready(page);
   expect(bank).toHaveLength(186);
   const choices = await page.locator('#lSystemType option').evaluateAll(options => options.map(option => ({ id: option.value, group: option.closest('optgroup')?.label })));
-  expect(choices.map(option => option.id).sort()).toEqual([...L_SYSTEM_TYPES].sort());
+  expect(choices.map(option => option.id).sort()).toEqual([...RULE_MODES].sort());
   expect(choices.filter(option => ORIGINAL.includes(option.id)).map(option => option.id)).toEqual(ORIGINAL);
   const groups = new Map(); for (const option of choices) groups.set(option.group, (groups.get(option.group) || 0) + 1);
-  expect([...groups.values()].sort((a, b) => a - b)).toEqual([10, 13]);
+  expect([...groups.values()].sort((a, b) => a - b)).toEqual([1, 5, 10, 13]);
   for (const type of TYPES) expect(bank.filter(scene => scene.snapshot.parameters.lSystemType === type)).toHaveLength(6);
   await preset(page, bank.find(scene => scene.id === 'pearl-lichen'));
   for (const [id, value] of [['inputTrim', GAINS[0]], ['level', GAINS[1]], ['makeupDb', GAINS[2]]]) await nativeInput(page, id, value);
