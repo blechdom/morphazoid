@@ -201,15 +201,6 @@
 
             <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
               <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
-              <label class="select-control" for="pitchDetail">
-                <span class="field-label">Pitch detail</span>
-                <span class="select-shell">
-                  <select id="pitchDetail" aria-describedby="pitchDetailStatus">
-                    <option value="native" selected>Independent granular · adaptive voices</option>
-                  </select>
-                </span>
-              </label>
-              <small class="generation-safety-note" id="pitchDetailStatus" aria-live="polite">Independent pitch / time shift for every active voice</small>
               <div class="native-knob-grid">
                 <label class="control native-knob-control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
                 <label class="control native-knob-control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
@@ -256,6 +247,52 @@
                 <input id="spread" type="range" min="0" max="1" step="0.01" value="0.9" />
               </label>
             </div>
+            <section class="recursion-parameter-cluster" id="masteringSection" aria-labelledby="masteringParametersTitle">
+              <h3 class="parameter-cluster-title" id="masteringParametersTitle">Mastering</h3>
+              <small class="native-mastering-note" id="masteringSummary">Original · 18:1 compression</small>
+              <label class="select-control" for="masteringPreset">
+                <span class="field-label">Mastering preset</span>
+                <span class="select-shell"><select id="masteringPreset">
+                  <option value="original">Original</option>
+                  <option value="transparent">Transparent</option>
+                  <option value="gentle">Gentle</option>
+                  <option value="dense">Dense</option>
+                  <option value="warm">Warm</option>
+                  <option value="airy">Airy</option>
+                  <option value="telephone">Telephone</option>
+                  <option value="custom" disabled>Custom</option>
+                </select></span>
+              </label>
+              <section class="recursion-parameter-cluster" aria-labelledby="masteringFiltersTitle">
+                <h4 class="parameter-cluster-title" id="masteringFiltersTitle">Filters</h4>
+                <div class="native-knob-grid">
+                  <label class="control native-knob-control" for="inputHighpassHz"><span><b>Input HPF</b><output id="inputHighpassHzOut" for="inputHighpassHz">55 Hz</output></span><input id="inputHighpassHz" type="range" min="0" max="1000" step="1" value="220" aria-valuetext="55 Hz" /></label>
+                  <label class="control native-knob-control" for="highpassHz"><span><b>Output HPF</b><output id="highpassHzOut" for="highpassHz">Off</output></span><input id="highpassHz" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="Off" /></label>
+                  <label class="control native-knob-control" for="lowpassHz"><span><b>Output LPF</b><output id="lowpassHzOut" for="lowpassHz">Off</output></span><input id="lowpassHz" type="range" min="0" max="1000" step="1" value="1000" aria-valuetext="Off" /></label>
+                </div>
+                <details class="native-control-help"><summary>Filter help</summary><p class="native-mastering-note">Input HPF shapes the recorded source. Output filters shape the complete mix.</p></details>
+              </section>
+              <section class="recursion-parameter-cluster" aria-labelledby="masteringCompressorTitle">
+                <h4 class="parameter-cluster-title" id="masteringCompressorTitle">Compression</h4>
+                <div class="native-mastering-switches">
+                  <label class="native-check"><input id="compressorEnabled" type="checkbox" checked /> Enable compressor</label>
+                  <label class="native-check"><input id="autoMakeup" type="checkbox" checked /> Automatic makeup gain</label>
+                </div>
+                <div class="fracta-meter native-reduction-meter" aria-label="Live compressor gain reduction">
+                  <span><b>Gain reduction</b><output id="gainReductionOut">0.0 dB</output></span>
+                  <div><i id="gainReductionBar"></i></div>
+                </div>
+                <div class="native-knob-grid native-knob-grid--four">
+                  <label class="control native-knob-control" for="thresholdDb"><span><b>Threshold</b><output id="thresholdDbOut" for="thresholdDb">−12 dB</output></span><input id="thresholdDb" type="range" min="-60" max="0" step="0.5" value="-12" /></label>
+                  <label class="control native-knob-control" for="ratio"><span><b>Ratio</b><output id="ratioOut" for="ratio">18:1</output></span><input id="ratio" type="range" min="1" max="20" step="0.1" value="18" /></label>
+                  <label class="control native-knob-control" for="kneeDb"><span><b>Knee</b><output id="kneeDbOut" for="kneeDb">5 dB</output></span><input id="kneeDb" type="range" min="0" max="40" step="0.5" value="5" /></label>
+                  <label class="control native-knob-control" for="attackMs"><span><b>Attack</b><output id="attackMsOut" for="attackMs">3 ms</output></span><input id="attackMs" type="range" min="0.1" max="100" step="0.1" value="3" /></label>
+                  <label class="control native-knob-control" for="releaseMs"><span><b>Release</b><output id="releaseMsOut" for="releaseMs">180 ms</output></span><input id="releaseMs" type="range" min="10" max="1500" step="1" value="180" /></label>
+                  <label class="control native-knob-control" for="makeupDb"><span><b>Output boost</b><output id="makeupDbOut" for="makeupDb">0 dB</output></span><input id="makeupDb" type="range" min="-12" max="24" step="0.1" value="0" aria-describedby="outputBoostHint" /></label>
+                </div>
+                <details class="native-control-help"><summary>Output boost help</summary><p class="native-mastering-note" id="outputBoostHint">Raises the complete mix, even with compression off. Input gain, output level and output boost stay independent of presets.</p></details>
+              </section>
+            </section>
           </div>
         </details>
 
@@ -285,56 +322,7 @@
             </dl>
           </div>
         </details>
-        <details class="group control-section" id="masteringSection" data-section="mastering">
-          <summary class="group-summary">
-            <h2 class="group-title">Mastering</h2>
-            <span class="section-state" id="masteringSummary">Original · 18:1 compression</span>
-          </summary>
-          <div class="group-body">
-            <label class="select-control" for="masteringPreset">
-              <span class="field-label">Mastering preset</span>
-              <span class="select-shell"><select id="masteringPreset">
-                <option value="original">Original</option>
-                <option value="transparent">Transparent</option>
-                <option value="gentle">Gentle</option>
-                <option value="dense">Dense</option>
-                <option value="warm">Warm</option>
-                <option value="airy">Airy</option>
-                <option value="telephone">Telephone</option>
-                <option value="custom" disabled>Custom</option>
-              </select></span>
-            </label>
-            <section class="recursion-parameter-cluster" aria-labelledby="masteringFiltersTitle">
-              <h3 class="parameter-cluster-title" id="masteringFiltersTitle">Filters</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control" for="inputHighpassHz"><span><b>Input HPF</b><output id="inputHighpassHzOut" for="inputHighpassHz">55 Hz</output></span><input id="inputHighpassHz" type="range" min="0" max="1000" step="1" value="220" aria-valuetext="55 Hz" /></label>
-                <label class="control native-knob-control" for="highpassHz"><span><b>Output HPF</b><output id="highpassHzOut" for="highpassHz">Off</output></span><input id="highpassHz" type="range" min="0" max="1000" step="1" value="0" aria-valuetext="Off" /></label>
-                <label class="control native-knob-control" for="lowpassHz"><span><b>Output LPF</b><output id="lowpassHzOut" for="lowpassHz">Off</output></span><input id="lowpassHz" type="range" min="0" max="1000" step="1" value="1000" aria-valuetext="Off" /></label>
-              </div>
-              <details class="native-control-help"><summary>Filter help</summary><p class="native-mastering-note">Input HPF shapes the recorded source. Output filters shape the complete mix.</p></details>
-            </section>
-            <section class="recursion-parameter-cluster" aria-labelledby="masteringCompressorTitle">
-              <h3 class="parameter-cluster-title" id="masteringCompressorTitle">Compression</h3>
-              <div class="native-mastering-switches">
-                <label class="native-check"><input id="compressorEnabled" type="checkbox" checked /> Enable compressor</label>
-                <label class="native-check"><input id="autoMakeup" type="checkbox" checked /> Automatic makeup gain</label>
-              </div>
-              <div class="fracta-meter native-reduction-meter" aria-label="Live compressor gain reduction">
-                <span><b>Gain reduction</b><output id="gainReductionOut">0.0 dB</output></span>
-                <div><i id="gainReductionBar"></i></div>
-              </div>
-              <div class="native-knob-grid native-knob-grid--four">
-                <label class="control native-knob-control" for="thresholdDb"><span><b>Threshold</b><output id="thresholdDbOut" for="thresholdDb">−12 dB</output></span><input id="thresholdDb" type="range" min="-60" max="0" step="0.5" value="-12" /></label>
-                <label class="control native-knob-control" for="ratio"><span><b>Ratio</b><output id="ratioOut" for="ratio">18:1</output></span><input id="ratio" type="range" min="1" max="20" step="0.1" value="18" /></label>
-                <label class="control native-knob-control" for="kneeDb"><span><b>Knee</b><output id="kneeDbOut" for="kneeDb">5 dB</output></span><input id="kneeDb" type="range" min="0" max="40" step="0.5" value="5" /></label>
-                <label class="control native-knob-control" for="attackMs"><span><b>Attack</b><output id="attackMsOut" for="attackMs">3 ms</output></span><input id="attackMs" type="range" min="0.1" max="100" step="0.1" value="3" /></label>
-                <label class="control native-knob-control" for="releaseMs"><span><b>Release</b><output id="releaseMsOut" for="releaseMs">180 ms</output></span><input id="releaseMs" type="range" min="10" max="1500" step="1" value="180" /></label>
-                <label class="control native-knob-control" for="makeupDb"><span><b>Output boost</b><output id="makeupDbOut" for="makeupDb">0 dB</output></span><input id="makeupDb" type="range" min="-12" max="24" step="0.1" value="0" aria-describedby="outputBoostHint" /></label>
-              </div>
-              <details class="native-control-help"><summary>Output boost help</summary><p class="native-mastering-note" id="outputBoostHint">Raises the complete mix, even with compression off. Input gain, output level and output boost stay independent of presets.</p></details>
-            </section>
-          </div>
-        </details>
+
         <section class="instrument-page-info" data-tool-id="l-system-parametric-lab" aria-label="About L-system Delay" id="instrumentIdentity"></section>
       </aside>
 

@@ -1,7 +1,15 @@
 # L-system lab models
 
-The Parametric Lab and L-system Experiments use copies of the Rust Delay's
-performance interface and the same Rust/WASM delay engine. Their independent
+The current **[L-system Delay Rust](../l-mic-rust.html)** includes every Parametric
+Lab and L-system Experiments mode in its rule menu. Their 24 complete scenes join
+the earlier 186 Delay scenes, making 210 presets across 29 rule modes. Conditional
+knobs expose the numeric rules for the active mode, and **Mix** includes the shared
+filter and compressor controls. The single-option Pitch detail selector is
+removed; the granular renderer and angle-to-pitch controls remain unchanged.
+
+The standalone Parametric Lab and L-system Experiments retain their focused
+copies of the performance interface and original twelve-scene banks. All three
+routes use the same Rust/WASM delay engine. The lab modes' independent
 grammar compiler lives in `src/instruments/micmic/rust/app/src/lab.rs`, included
 by the native and WASM model. Omitting `parameters.lab` preserves the original
 Delay compiler and its saved presets.
@@ -109,8 +117,11 @@ return an error while the previous instrument continues.
 Lab derivation count is validated from 1 through 24; it is independent of an
 admitted voice count and may terminate early through the explicit length
 condition. Full authoritative Rust previews replace the legacy sampled
-preview for these pages. Eligibility still follows finite history duration,
-decay, and the current device's audio capacity.
+preview whenever a lab mode is active, including on the current Delay page.
+Switching back to a classic grammar clears the numeric lab mode. Presets restore
+the complete selected rule while preserving live source playback, history,
+Audio state and independent input/output gain controls. Eligibility still follows
+finite history duration, decay, and the current device's audio capacity.
 
 Tests cover exact sequence outputs, simultaneous neighbor replacement,
 propagation of module values, conditional termination, true tiling geometry,

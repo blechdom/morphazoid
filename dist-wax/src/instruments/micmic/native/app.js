@@ -17,7 +17,8 @@ import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
 import { createGpuBranchRenderer } from './gpu-renderer.js';
 import { config as parametricConfig } from '../../l-system-parametric-lab/config.js';
 import { config as experimentsConfig, KIND_LABELS } from '../../l-system-experiments/config.js';
-import { sanitizeLab, defaultLab, randomLab } from '../../l-system-parametric-lab/model.js';
+import { sanitizeLab, randomLab } from '../../l-system-parametric-lab/model.js';
+import { ruleMode, parametersForRuleMode, combinedPresets, randomRuleState } from './rule-modes.js';
 
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../../../site/instrument-registry.js';
 import { createMidiStatus } from '../../../ui/patterns/midi-status.js';
@@ -54,7 +55,7 @@ let microphoneRevision = 0, microphoneDesired = false, microphonePending = false
 let inputRevision = 0;
 let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity, activityDrawAt = performance.now();
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
-let tapIdentity = topologyIdentity(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
+let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
@@ -195,14 +196,14 @@ async function request(url, body) {
 }
 function enqueue(task) { const pending = mutationChain.catch(() => {}).then(() => disposed ? null : task()); mutationChain = pending; return pending; }
 function syncActivityIdentity(parameters = previewParameters) {
-  const identity = topologyIdentity(parameters);
+  const identity = topologyIdentity(parameters), mode = ruleMode(parameters);
   if (identity === tapIdentity) return;
   // Generation growth retains stable pool slots. A grammar replacement changes
   // their meaning, so only that committed replacement discards old tap levels.
-  if (identity.split(':')[0] !== tapIdentity.split(':')[0]) {
+  if (mode !== tapRuleMode) {
     tapTargets = new Map(); tapLevels = new Map(); tapReceivedAt = -Infinity;
   }
-  tapIdentity = identity;
+  tapIdentity = identity; tapRuleMode = mode;
 }
 function updateVisualDepth(depth) {
   if (depth === previewParameters.depth) return;
@@ -359,7 +360,7 @@ async function flushDepth() {
 function updateParameter(key, value, immediate = false) {
   if (sceneApplying) return;
   state.parameters = sanitizeParameters({ ...state.parameters, [key]: value,
-    ...(LAB_CONFIG && key === 'generations' ? { lab: { ...state.parameters.lab, iterations: value } } : {}) });
+    ...(state.parameters.lab && key === 'generations' ? { lab: { ...state.parameters.lab, iterations: value } } : {}) });
   if (key === 'depth') { depthRevision++; scheduleDepth(immediate); }
   else { parameterRevision++; startPreview(); scheduleParameters(immediate); }
   paintControls(); presetController?.refresh();
@@ -408,7 +409,14 @@ async function applyScene(scene, id = 'custom') {
   } catch (error) {
     if (revision === parameterRevision) {
       const restored = presetState(previous, state.performance);
-      state.parameters = restored.parameters; state.performance = restored.performance; startPreview(); paintControls();
+      state.parameters = restored.parameters; state.performance = restored.performance;
+      // Performance arrives before topology. If Rust rejects a new tree, put
+      // its mix/mastering back as well so the live sound matches the rollback.
+      if (!disposed) {
+        try { acceptStatus(await enqueue(() => request('/api/performance', restored.performance))); }
+        catch { /* Keep the original topology failure visible for recovery. */ }
+      }
+      startPreview(); paintControls();
     }
     showError(error.message); throw error;
   } finally {
@@ -482,7 +490,7 @@ function centerAngles() {
 function formatParameter(key, value) {
   if (key === 'grammarSeed') return String(value);
   if (key === 'branchProbability') return `${Math.round(value * 100)}%`;
-  if (key === 'generations' && LAB_CONFIG) return `${value} iterations`;
+  if (key === 'generations' && state.parameters.lab) return `${value} iterations`;
   if (key === 'generations') return `${value} / ${state.generationLimits[state.parameters.lSystemType] ?? 52}`;
   if (key === 'intervalMs') return `${Math.round(value)} ms`;
   if (key === 'timeRatio') return `${Number(value.toFixed(2))}× per generation`;
@@ -492,7 +500,7 @@ function formatParameter(key, value) {
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
   if (key === 'depth' && value === 1) return '100% · no decay';
-  if (key === 'mutation' && LAB_CONFIG) return `${Math.round(value * 100)}% module variation`;
+  if (key === 'mutation' && state.parameters.lab) return `${Math.round(value * 100)}% module variation`;
   if (key === 'mutation') return `${Math.round(value * 100)}% ${state.parameters.lSystemType === 'pythagorean' ? 'branch' : 'delay'} variation`;
   return `${Math.round(value * 100)}%`;
 }
@@ -540,18 +548,22 @@ function paintInput() {
   credit.hidden = !input.credit;
 }
 function paintControls() {
-  if ($('stochasticControls')) $('stochasticControls').hidden = state.parameters.lSystemType !== 'stochastic';
+  if ($('stochasticControls')) $('stochasticControls').hidden = Boolean(state.parameters.lab) || state.parameters.lSystemType !== 'stochastic';
   const branchVariation = state.parameters.lSystemType === 'pythagorean';
-  $('mutationLabel').textContent = LAB_CONFIG ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
-  const mutationGuide = LAB_CONFIG ? 'Adds stable per-module length and timing variation while retaining the same rule identities.'
+  $('mutationLabel').textContent = state.parameters.lab ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
+  const mutationGuide = state.parameters.lab ? 'Adds stable per-module length and timing variation while retaining the same rule identities.'
     : branchVariation ? 'Varies branch turns, lengths and delay timing in Pythagorean Pine.'
     : 'Varies delay timing while preserving this pattern’s branch shape and pitch turns.';
   $('mutationGuide').textContent = mutationGuide; $('mutation').title = mutationGuide;
+  // Set the active family’s bound before assigning a recalled value. A range
+  // otherwise clamps high lab iterations to the previous classic rule’s limit.
+  $('generations').max = String(state.parameters.lab ? 24 : state.generationLimits[state.parameters.lSystemType] ?? 52);
   for (const [key, id] of Object.entries(CONTROL_IDS)) {
     const value = state.parameters[key]; $(id).value = key === 'intervalMs' ? sliderFromTimeFold(value) : value;
     const text = formatParameter(key, value); $(`${id}Out`).textContent = text; $(id).setAttribute('aria-valuetext', text);
   }
-  $('lSystemType').value = state.parameters.lSystemType;
+  $('lSystemType').value = LAB_CONFIG ? state.parameters.lSystemType : ruleMode(state.parameters);
+  $('voiceCeiling').max = String(state.memoryVoiceCapacity);
   for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
     const value = state.performance[key]; $(id).value = value;
     $(`${id}Out`).textContent = key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`;
@@ -577,9 +589,8 @@ function paintControls() {
   const reduction = state.audio ? Math.max(0, Number(state.status.gainReductionDb) || 0) : 0;
   $('gainReductionOut').textContent = `${reduction.toFixed(1)} dB`;
   $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
-  $('generations').max = String(LAB_CONFIG ? 24 : state.generationLimits[state.parameters.lSystemType] ?? 52);
+  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
   paintLabControls();
-  $('voiceCeiling').max = String(state.memoryVoiceCapacity);
   const mic = state.input.mode === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
   const inputActive = (state.performance.source === 'seed' ? state.audio : mic ? microphoneActive : state.input.playing) && !state.performance.frozen;
   $('automatic').checked = state.performance.automatic;
@@ -601,13 +612,12 @@ function paintControls() {
   const limit = Math.max(0, Number(s.voiceLimit) || 0);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
-  $('recursionSummary').textContent = `${type} · ${p.generations} ${LAB_CONFIG ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
+  $('recursionSummary').textContent = `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
-  $('currentSettingsSummary').textContent = `${p.generations} ${LAB_CONFIG ? 'iterations' : 'gen'} · ${Math.round(p.intervalMs)} ms root fold`;
-  $('pitchDetailStatus').textContent = `Independent granular · ${Number(s.activeVoices ?? 0).toLocaleString()} active voices · ${p.pitchScale === 0 ? 'exact unison' : 'independent pitch shifts'}`;
+  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${Math.round(p.intervalMs)} ms root fold`;
   $('generationKeyEnd').textContent = `G${p.generations} DESCENDANT`;
   const sourceState = state.performance.frozen ? 'INPUT PAUSED' : inputActive ? mic ? 'MIC / LINE LIVE' : state.input.mode === 'file' ? 'FILE LIVE' : 'SAMPLE LIVE' : 'INPUT STOPPED';
-  $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${LAB_CONFIG ? 'ITERATIONS' : 'GENERATIONS'}`;
+  $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${p.lab ? 'ITERATIONS' : 'GENERATIONS'}`;
   $('generationTimingReadout').textContent = `${Math.round(p.intervalMs)} ms → ${Number((p.intervalMs * p.timeRatio).toFixed(2))} ms → ${Number((p.intervalMs * p.timeRatio ** 2).toFixed(2))} ms … ${Number((p.intervalMs * p.timeRatio ** p.generations).toFixed(2))} ms at G${p.generations}`;
   if (p.lab) $('generationTimingReadout').textContent = p.lab.kind === 'parametric'
     ? `${Math.round(p.intervalMs)} ms base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
@@ -634,7 +644,7 @@ function paintControls() {
 function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
   if (width !== stageWidth || height !== stageHeight) { stageWidth = width; stageHeight = height; lockedFit = null; }
-  const nodes = nativePreview?.nodes ?? (LAB_CONFIG ? [] : buildPreview(previewParameters, generationTopology));
+  const nodes = nativePreview?.nodes ?? (previewParameters.lab ? [] : buildPreview(previewParameters, generationTopology));
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
@@ -643,7 +653,7 @@ function buildGeometry() {
     limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth }) });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} ${LAB_CONFIG ? 'rule iterations' : 'audio generations'}. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off shows the complete preset preview. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
+  $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} ${state.parameters.lab ? 'rule iterations' : 'audio generations'}. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off shows the complete preset preview. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for ${INSTRUMENT_LABEL}. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.input.label || 'Input'} ${state.input.playing || state.status.microphoneEnabled ? 'live' : 'stopped'}` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -834,24 +844,33 @@ for (const [key, id] of Object.entries(CONTROL_IDS)) {
   const release = event => releaseRangeGesture(event, input);
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) input.addEventListener(type, release);
 }
-$('lSystemType').addEventListener('change', () => updateParameter('lSystemType', $('lSystemType').value, true));
+$('lSystemType').addEventListener('change', () => {
+  if (sceneApplying) return;
+  cancelParameterGestures();
+  state.parameters = parametersForRuleMode(state.parameters, $('lSystemType').value);
+  parameterRevision++; startPreview(); paintControls(); scheduleParameters(true); presetController?.refresh();
+});
 function updateLab(key, value, immediate = false) {
-  if (!LAB_CONFIG || sceneApplying) return;
+  if (!state.parameters.lab || sceneApplying) return;
   const lab = sanitizeLab({ ...state.parameters.lab, [key]: value });
   state.parameters = sanitizeParameters({ ...state.parameters, generations: lab.iterations, lab });
   parameterRevision++; startPreview(); scheduleParameters(immediate); paintControls(); presetController?.refresh();
 }
 function paintLabControls() {
-  if (!LAB_CONFIG) return;
-  const lab = state.parameters.lab ?? defaultLab(LAB_CONFIG.kinds[0]);
+  if ($('labRuleControls')) $('labRuleControls').hidden = !state.parameters.lab;
+  if (!state.parameters.lab) return;
+  const lab = state.parameters.lab;
   if ($('labKind')) $('labKind').value = lab.kind;
   for (const [key, id] of Object.entries(LAB_CONTROL_IDS)) {
     const input = $(id); if (!input) continue;
     const value = lab[key], text = key === 'angleIncrement' ? `${Number(value.toFixed(1))}°` : key === 'branchCount' ? String(value)
       : key === 'contextStrength' || key === 'minLength' ? `${Number((value * 100).toFixed(1))}%` : `${Number(value.toFixed(3))}×`;
     input.value = value; $(`${id}Out`).textContent = text; input.setAttribute('aria-valuetext', text);
-    if (key === 'contextStrength') input.closest('label').hidden = lab.kind !== 'context';
+    input.closest('label').hidden = key === 'contextStrength' ? lab.kind !== 'context'
+      : key === 'symbolRatio' ? lab.kind === 'parametric' : lab.kind !== 'parametric';
   }
+  if ($('labSymbolRatio')) $('labSymbolRatio').closest('label').querySelector('b').textContent = ['penrose', 'sphinx'].includes(lab.kind) ? 'Tile pitch contrast' : 'Symbol ratio';
+  if ($('labRulesTitle')) $('labRulesTitle').textContent = lab.kind === 'parametric' ? 'Numeric rules' : 'Rule experiment';
   const help = $('labRuleHelp');
   if (help) help.textContent = lab.kind === 'parametric' ? 'Numeric modules carry child length, turn, delay and pitch. A branch ends when its length falls below Stopping length.'
     : lab.kind === 'context' ? 'Parallel replacements use neighboring symbols. Neighbor influence changes the length and duration carried by each resulting module.'
@@ -871,7 +890,12 @@ for (const [key, id] of Object.entries(LAB_CONTROL_IDS)) {
   const release = event => releaseRangeGesture(event, input);
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) input.addEventListener(type, release);
 }
-$('labKind')?.addEventListener('change', () => updateLab('kind', $('labKind').value, true));
+$('labKind')?.addEventListener('change', () => {
+  if (sceneApplying) return;
+  cancelParameterGestures();
+  state.parameters = parametersForRuleMode(state.parameters, `lab:${$('labKind').value}`);
+  parameterRevision++; startPreview(); paintControls(); scheduleParameters(true); presetController?.refresh();
+});
 $('regrowGrammar')?.addEventListener('click', () => updateParameter('grammarSeed', (state.parameters.grammarSeed ?? 1) % 4294967295 + 1, true));
 
 for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
@@ -989,13 +1013,14 @@ async function bootstrap() {
     } if (disposed) return;
     if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
-    presets = bank;
+    presets = LAB_CONFIG ? bank : combinedPresets(bank);
     const initialScene = presets.find(p => presetStateKey(p.snapshot) === presetStateKey(captureScene(state.parameters, state.performance)));
     if (initialScene) lastScenePreset = initialScene.id;
     presetController = registerHeaderPresets({ id: INSTRUMENT_ID, presets,
       capture: () => captureScene(state.parameters, state.performance),
       apply: snapshot => applyScene(snapshot, presets.find(p => presetStateKey(p.snapshot) === presetStateKey(snapshot))?.id ?? 'custom'),
-      randomize: (current, random) => { const next = randomState(current.parameters, state.performance, random);
+      randomize: (current, random) => { const next = LAB_CONFIG ? randomState(current.parameters, state.performance, random)
+          : randomRuleState(current.parameters, state.performance, random);
         if (LAB_CONFIG) { const kind = LAB_CONFIG.kinds[Math.min(LAB_CONFIG.kinds.length - 1, Math.floor(Math.max(0, Math.min(1, Number(random()) || 0)) * LAB_CONFIG.kinds.length))];
           const lab = randomLab(kind, random); next.parameters = sanitizeParameters({ ...next.parameters, lSystemType: 'pythagorean', generations: lab.iterations, lab }); }
         return captureScene(next.parameters, next.performance); },

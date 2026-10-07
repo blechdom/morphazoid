@@ -644,7 +644,7 @@
       "scope": "fave",
       "presets": 210,
       "status": "implemented-verification-pending",
-      "evidence": "October 7: the current Delay combines 186 existing scenes with the 12 Parametric Lab and 12 Experiments scenes, across 23 classic/stochastic grammars and six numeric, context, sequence and tiling modes. Conditional rule controls, complete cross-mode recall, removal of the single-option Pitch detail selector and mastering within Mix require fresh verification. Earlier October 6 suites covered the separate instruments; they do not establish acceptance of this consolidation. Human listening and physical microphone/touch checks remain unperformed."
+      "evidence": "October 7: the current Delay combines all 210 scenes across 29 classic/stochastic and laboratory rule modes, with conditional knobs and mastering inside Mix. Consolidation verification: npm run verify passed 6,062 tests with six skips; 51 focused browser cases passed, including all 210 UI recalls, wet-only Rust output across all six added families, preserved input/worklet/clock/live gains, rejected-scene mix/mastering rollback, and desktop plus portrait/landscape controls. The final CSS scroll-spacing fix passed the unchanged strict knob-layout test and fresh WAX parity/release builds. Human listening and physical microphone/touch checks remain unperformed."
     },
     {
       "id": "graph-delay",

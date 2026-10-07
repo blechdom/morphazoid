@@ -2,7 +2,9 @@
 #headerAudio { display: contents; }
 #inputSection { --accent: #b79bff; --accent-soft: color-mix(in oklab, #b79bff 55%, transparent); --accent-glow: color-mix(in oklab, #b79bff 20%, transparent); }
 .native-input-controls { display: grid; gap: 12px; }
-.native-input-controls [hidden] { display: none !important; }
+.micmic-page [hidden] { display: none !important; }
+/* Keep native focus and scrolling below the sticky preset/input row. */
+.micmic-page .panel { scroll-padding-top: 76px; }
 .native-input-choice { display: block; min-width: 0; }
 /* Scrolling source choices stay below the sticky preset row. Their open
    panels still use the shared chooser's top layer and viewport anchoring. */
@@ -28,7 +30,7 @@
 .native-audio-error[hidden] { display: none; }
 .micmic-page #stage { touch-action: none; }
 .micmic-page #stage:focus-visible { outline: 1px solid var(--accent); outline-offset: -3px; }
-.micmic-page #generationCapacityInline, .micmic-page #pitchDetailStatus, .micmic-page .form-range-poles { color: var(--muted); }
+.micmic-page #generationCapacityInline, .micmic-page .form-range-poles { color: var(--muted); }
 #nativeSettings .header-settings-panel { overflow-y: auto; max-height: calc(100dvh - 74px); }
 .micmic-page .masthead:has(#nativeSettings[open]) { z-index: 90; }
 #nativeSettings .header-settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
