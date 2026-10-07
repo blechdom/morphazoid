@@ -70,6 +70,9 @@ export class SpiderRecordingBank {
   release(group = -1, scope = null, midiOnly = false) {
     for (const voice of this.voices) if (voice.active && (group < 0 || voice.group === group) && (!midiOnly || matches(voice, scope))) voice.release = true;
   }
+  releaseUnowned(group = -1) {
+    for (const voice of this.voices) if (!voice.owner && (group < 0 || voice.group === group)) voice.release = true;
+  }
   sample() {
     this.output.fill(0); let active = 0;
     for (const voice of this.voices) {

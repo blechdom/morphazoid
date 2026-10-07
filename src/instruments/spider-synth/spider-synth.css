@@ -164,3 +164,5 @@ body.spider-synth-page { --accent: #d8ca94; --accent-soft: #aa9976; --accent-glo
 .spider-web-controls .spider-mixer-heading { margin-top: 2px; }
 .spider-synth-page .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; }
 .spider-synth-page .spider-invitation { line-height: 1.6; }
+
+.spider-speech-controls { display: flex; flex-wrap: wrap; gap: 6px; margin: 10px 0 8px; }

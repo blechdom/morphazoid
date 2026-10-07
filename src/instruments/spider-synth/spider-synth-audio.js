@@ -1,8 +1,7 @@
 import { createSpiderWeb, normalizeSpiderWeb, spiderWebGeometryKey, serializeSpiderWeb } from './spider-synth-web.js';
 import { SpiderSynthWorld } from './spider-synth-world.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { SPELLING_DIPHONE_ATLAS_URL, SPELLING_DIPHONE_CLIPS } from '../spelling-synthesizer/spelling-diphone-atlas.js';
-import { loadSpellingPronunciations, spellingPhoneDefinition, spellingPronunciationTokens } from '../spelling-synthesizer/spelling-pronunciation.js';
+import { createSpiderSpeechRender, SPIDER_SPEECH_DEFAULTS } from './spider-synth-speech.js';
 import { normalizeSpiderSound, SPIDER_SOUND_DEFAULTS, normalizeSpiderBodyMix, createDefaultSpiderBodyMix } from './spider-synth-dsp.js';
 import { SpiderMidiPerformance, normalizeSpiderMidiMessage } from './spider-synth-midi.js';
 import { SPIDER_RECORDINGS } from './spider-synth-recordings.js';
@@ -18,33 +17,6 @@ const midiScope = (scope) => scope && typeof scope === 'object' ? {
   ...(scope.sourceId != null ? { sourceId: String(scope.sourceId).slice(0, 128) } : {}),
   ...(scope.channel != null ? { channel: Math.round(Math.max(0, Math.min(15, finite(scope.channel)))) } : {}),
 } : undefined;
-// Small phone units and CMU pronunciations come from the same locally bundled
-// KAL16 atlas as Spelling Synthesizer/Vocalzoid; all playback and joins occur in
-// the worklet, so animation or layout stalls cannot interrupt a spoken phrase.
-export function createSpiderSpeechPlan(text, pronunciations) {
-  const phones = [];
-  for (const token of spellingPronunciationTokens(String(text ?? '').slice(0, 180), pronunciations)) {
-    if (token.type === 'boundary') {
-      phones.push({ offset: 0, duration: /[.!?;:]/.test(token.source) ? .19 : .075, gain: 0, silence: true });
-      continue;
-    }
-    for (const phone of token.phones) {
-      const definition = spellingPhoneDefinition(phone.id);
-      const clip = SPELLING_DIPHONE_CLIPS[definition?.sampleKey];
-      if (!clip) continue;
-      const duration = clip.kind === 'vowel' ? Math.min(clip.duration, phone.stress ? .21 : .15)
-        : clip.kind === 'glide' ? Math.min(.32, clip.duration) : clip.duration;
-      // Preserve glides and consonant attacks. Sustained monophthongs use the
-      // stable central body, avoiding a long sampled lead-in for every vowel.
-      const offset = clip.offset + (clip.kind === 'vowel' ? Math.max(0, Math.min(clip.sustainStart - .025, clip.duration - duration)) : 0);
-      phones.push({ offset, duration, gain: clip.gain * (phone.stress ? 1.06 : 1), silence: false });
-      if (phones.length >= 96) break;
-    }
-    if (phones.length >= 96) break;
-  }
-  return phones.slice(0, 96);
-}
-
 /** Explicitly armed, one-context/one-worklet instrument with an audio clock. */
 export class SpiderSynthAudio {
   constructor({ onStatus, onTelemetry, onSamples, getWorldSnapshot, runtime = globalThis } = {}) {
@@ -52,7 +24,7 @@ export class SpiderSynthAudio {
     this.context = null; this.node = null; this.master = null; this.releaseOutput = null;
     this.enabled = false; this.ready = false; this.disposed = false;
     this.generation = 0; this.speechGeneration = 0; this.buildPromise = null;
-    this.atlasPromise = null; this.atlasReady = false; this.speechAbort = null;
+    this.speechRender = null;
     this.samplesPromise = null; this.samplesStatus = 'unloaded'; this.samplesLoaded = 0; this.samplesAbort = null;
 
     this.preparedWebKey=null;
@@ -151,6 +123,7 @@ export class SpiderSynthAudio {
     Object.assign(this.state, next);
     // Reset is an edge, never a sticky part of future full-state publications.
     delete this.state.resetActivity;
+    delete this.state.preserveMidi;
     this.postState(next);
   }
   setLevel(value) { this.update({ sound: { level: value } }); }
@@ -215,7 +188,6 @@ export class SpiderSynthAudio {
         this.releaseOutput?.(); this.releaseOutput = null;
         node.disconnect(); node.port.onmessage = null;
         this.master?.disconnect(); this.master = null; this.node = null;
-        this.atlasReady = false; this.atlasPromise = null;
         this.samplesAbort?.abort(); this.samplesAbort = null; this.samplesPromise = null; this.samplesStatus = 'unloaded'; this.samplesLoaded = 0;
 
       };
@@ -265,6 +237,7 @@ export class SpiderSynthAudio {
   disable() {
     if (this.disposed) return;
     this.generation += 1; this.speechGeneration += 1; this.enabled = false;
+    this.speechRender?.cancel(); this.speechRender = null;
     // Audio is a mute, not MIDI panic: held notes and CC still animate.
     this.postState({ enabled: false }); this.post({ type: 'stop-speech' });
     if (this.master && this.context?.state !== 'closed') {
@@ -314,55 +287,37 @@ export class SpiderSynthAudio {
       if (this.samplesAbort === controller) this.samplesAbort = null;
     }
   }
-  async loadAtlas() {
-    if (this.atlasReady) return;
-    if (this.atlasPromise) return this.atlasPromise;
-    const context = this.context;
-    this.speechAbort = new AbortController();
-    const signal = this.speechAbort.signal;
-    this.atlasPromise = (async () => {
-      const response = await this.runtime.fetch(SPELLING_DIPHONE_ATLAS_URL, { signal });
-      if (!response.ok) throw new Error('The bundled KAL16 speech atlas could not load.');
-      const bytes = await response.arrayBuffer();
-      if (bytes.byteLength > 8 * 1024 * 1024) throw new Error('Speech atlas exceeds its fixed budget.');
-      const buffer = await context.decodeAudioData(bytes);
-      if (this.disposed || !this.node || this.context !== context) throw cancelled();
-      const requiredDuration = Math.max(...Object.values(SPELLING_DIPHONE_CLIPS).map((clip) => clip.offset + clip.duration));
-      if (buffer.duration > 16 || buffer.duration + .002 < requiredDuration) throw new Error('The speech atlas has an unexpected duration.');
-      const samples = new Float32Array(buffer.getChannelData(0));
-      this.post({ type: 'atlas', samples, sampleRate: buffer.sampleRate }, [samples.buffer]);
-      this.atlasReady = true;
-    })();
-    try { await this.atlasPromise; }
-    finally { this.atlasPromise = null; this.speechAbort = null; }
-  }
-  async speak(value) {
+  async speak(value, settings = SPIDER_SPEECH_DEFAULTS) {
     if (!this.enabled || !this.ready || this.disposed) {
       safeCall(this.onStatus, 'Turn Audio on before asking the spider to speak.'); return false;
     }
-    const text = String(value ?? '').trim().slice(0, 180);
+    const text = String(value ?? '').trim().slice(0, 96);
     if (!text) return false;
     const generation = ++this.speechGeneration;
-    safeCall(this.onStatus, 'Preparing spider speech…');
+    const context = this.context, node = this.node;
+    this.speechRender?.cancel(); this.speechRender = null;
+    // Fade an old phrase immediately, even while its replacement is rendering.
+    this.post({ type: 'stop-speech' });
+    safeCall(this.onStatus, 'Preparing British spider speech…');
+    let task;
     try {
-      const [pronunciations] = await Promise.all([
-        loadSpellingPronunciations(text, { fetcher: this.runtime.fetch?.bind(this.runtime) }), this.loadAtlas(),
-      ]);
-      if (!this.enabled || this.disposed || generation !== this.speechGeneration) return false;
-      this.post({ type: 'speak', phones: createSpiderSpeechPlan(text, pronunciations) });
+      task = createSpiderSpeechRender(text, settings, this.runtime); this.speechRender = task;
+      const result = await task.promise;
+      if (!this.enabled || this.disposed || generation !== this.speechGeneration || this.context !== context || this.node !== node) return false;
+      this.post({ type: 'speak', ...result }, [result.samples.buffer]);
       safeCall(this.onStatus, 'The spider is speaking.'); return true;
     } catch (error) {
       if (!this.disposed && generation === this.speechGeneration && error.name !== 'AbortError') {
         safeCall(this.onStatus, `Speech unavailable: ${error.message}. The other sound layers remain playable.`);
       }
       return false;
-    }
+    } finally { if (this.speechRender === task) this.speechRender = null; }
   }
   dispose() {
     if (this.disposed) return;
     this.disable(); this.resetMidi(); this.post({ type: 'dispose' });
     this.disposed = true; this.generation += 1; this.speechGeneration += 1;
-    this.speechAbort?.abort(); this.speechAbort = null; this.samplesAbort?.abort(); this.samplesAbort = null;
+    this.samplesAbort?.abort(); this.samplesAbort = null;
     if (this.node) { this.node.port.onmessage = null; this.node.onprocessorerror = null; this.node.disconnect(); this.node.port.close?.(); }
     this.releaseOutput?.(); this.releaseOutput = null;
     this.master?.disconnect(); this.master = null; this.node = null; this.ready = false;

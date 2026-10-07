@@ -28,7 +28,7 @@
     <title>Spider Synth — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
-    <link rel="stylesheet" href="src/instruments/spider-synth/spider-synth.css?v=230f9505a484" />
+    <link rel="stylesheet" href="src/instruments/spider-synth/spider-synth.css?v=76d726f095e2" />
   </head>
   <body class="spider-synth-page" data-instrument-info="off">
     <header class="masthead">
@@ -64,7 +64,27 @@
         </div>
         <p class="spider-status" id="modelStatus" role="status">Loading the spider…</p><button class="mini-action" id="retryModel" type="button" hidden>Retry model</button>
       </section>
-      <aside class="spider-panel" aria-label="Spider Synth controls">
+      <aside data-instrument-preset-host class="spider-panel" aria-label="Spider Synth controls">
+        <section class="spider-control-block spider-performance" aria-label="Animation">
+          <div class="spider-control-row spider-animation-row">
+            <button class="play-button" id="motionButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play animation"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+            <div class="spider-animation-picker"><label class="spider-inline-select" for="motionPreset"><span>Animation</span><span class="select-shell"><select id="motionPreset"><option value="orb-walk">Orb walk</option></select></span></label><div class="spider-inline-arrows"><button type="button" id="previousMotion" aria-label="Previous animation">‹</button><button type="button" id="nextMotion" aria-label="Next animation">›</button></div></div>
+            <button class="mini-action" id="randomMotion" type="button" aria-label="Random animation">Random</button>
+          </div>
+          <div class="spider-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="300" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">65%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
+          <div class="spider-beat-controls"><label class="spider-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="spider-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
+          <div class="spider-roam-controls">
+            <button id="webJoystick" class="spider-joystick" type="button" aria-label="Steer spider: drag or hold arrow keys" aria-describedby="travelHelp" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span class="spider-stick-grid" aria-hidden="true"></span><span class="spider-stick-nub" aria-hidden="true"></span><span class="spider-stick-label" aria-hidden="true">Steer</span></button>
+            <div class="spider-roam-settings"><label class="spider-inline-select" for="travelPath"><span>Travel path</span><span class="select-shell"><select id="travelPath"><option value="orbit">Orbit</option></select></span></label><div class="spider-travel-knobs" id="travelControls" role="group" aria-label="Travel speed and range"></div></div>
+          </div>
+          <div class="spider-beat-controls"><label class="spider-check"><input id="explore" type="checkbox" checked /> Roam during animation</label><button class="mini-action" id="homeSpider" type="button">Home</button></div>
+          <p class="spider-note" id="travelHelp">Drag Steer or focus it and hold arrow keys. Release to stop steering. Animation drives the steps; web strings can be strummed at any time.</p>
+        </section>
+        <section class="spider-control-block spider-fly-controls" aria-label="Fly">
+          <div class="spider-prey-actions"><button class="mini-action" id="catchBug" type="button">Send a fly</button><button class="mini-action" id="huntBug" type="button">Hunt fly</button><div id="preyMixControl" class="spider-inline-knobs"></div></div>
+          <label class="spider-check"><input id="flyOnSelect" type="checkbox" /> Fly on preset</label>
+          <p class="spider-note">Send a fly with each preset or Dice. Click a trapped fly or choose Hunt fly to go eat it.</p>
+        </section>
         <section class="spider-control-block spider-view-controls" aria-label="View and joint controls">
           <label class="spider-inline-select spider-specimen-picker" for="specimenPreset"><span>Spider skin</span><span class="select-shell"><select id="specimenPreset" aria-describedby="specimenInfo"><option value="argiope">Wasp spider</option></select></span></label>
           <span id="specimenInfo" class="sr-only">The original Argiope specimen.</span>
@@ -74,7 +94,7 @@
             </div>
             <div class="spider-gesture-info">
               <button class="mini-action" id="gestureInfo" type="button" aria-label="View and gesture help" aria-controls="gestureHelp" aria-expanded="false" aria-describedby="gestureHelp">i</button>
-              <p id="gestureHelp" role="tooltip" hidden>Swipe vertically to scroll; drag sideways to play. 3D touch allows free dragging. Zoom uses + / − only. Tap a strand to pluck it; Move on web lets you drag the spider along its silk. Arrow keys rotate the view; Shift + arrows move the selected joint. Choose an axis for X, Y or Z movement.</p>
+              <p id="gestureHelp" role="tooltip" hidden>Swipe vertically to scroll; drag sideways to play. 3D touch allows free dragging. Zoom uses + / − only. Tap a strand to pluck it; hold and drag across strings to strum; Move on web lets you drag the spider along its silk. Arrow keys rotate the view; Shift + arrows move the selected joint. Choose an axis for X, Y or Z movement.</p>
             </div>
           </div>
           <div class="spider-camera-tools">
@@ -89,35 +109,15 @@
             <button class="mini-action" id="showJoints" type="button" aria-pressed="false" disabled>Joints</button>
           </div>
         </section>
-        <section class="spider-control-block spider-pose-controls" aria-label="Sound and body pose">
-          <div class="spider-control-row">
-            <div class="spider-player"><span>Sound</span><button class="play-button" id="soundPlayButton" type="button" aria-pressed="false" aria-label="Play sound"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button></div>
-            <label class="spider-inline-select" for="posePreset"><span>Body pose</span><span class="select-shell"><select id="posePreset"><option value="neutral">Neutral</option></select></span></label>
-            <button class="mini-action" id="randomPose" type="button" aria-label="Random body pose">Random</button><button class="mini-action" id="resetPose" type="button" data-reset-all data-reset-in-place aria-label="Reset body position">Reset</button>
-          </div>
-          <p class="spider-invitation">Drag the spider to shape sound · pluck a web strand</p>
-        </section>
         <section class="spider-control-block spider-voice" aria-label="Sound and voice">
-          <div class="spider-control-row"><label class="spider-inline-select" for="soundPreset"><span>Sound + voice presets</span><span class="select-shell"><select id="soundPreset"><option value="">Loading sound presets…</option></select></span></label><button class="mini-action" id="randomSound" type="button" aria-label="Random sound">Random</button></div>
-          <label class="spider-voice-label" for="phrase">Voice <span>Type words to speak</span></label><textarea id="phrase" rows="2" maxlength="96" placeholder="Type words here…" autocomplete="off" spellcheck="false">hi, I'm a spider and this is my web</textarea>
+          <div class="spider-control-row"><label class="spider-inline-select" for="soundPreset"><span>Sound presets</span><span class="select-shell"><select id="soundPreset"><option value="">Loading sound presets…</option></select></span></label><button class="mini-action" id="randomSound" type="button" aria-label="Random sound">Random</button></div>
+          <label class="spider-inline-select" for="phrasePreset"><span>Spider text</span><span class="select-shell"><select id="phrasePreset"><option value="my-name-is-spider">My name is spider</option></select></span></label>
+          <label class="spider-voice-label" for="phrase">Voice <span>British English</span></label><textarea id="phrase" rows="2" maxlength="96" placeholder="Type words here…" autocomplete="off" spellcheck="false">i am a spider. My name is spider. I like to crawl on your face when you are sleeping.</textarea>
+          <div class="spider-control-row"><label class="spider-inline-select" for="speechPreset"><span>Voice character</span><span class="select-shell"><select id="speechPreset"><option value="silk-buzz">Silk buzz</option></select></span></label></div>
+          <div class="spider-speech-controls" id="speechControls" role="group" aria-label="Speech settings for the next phrase"></div>
           <div class="spider-voice-actions"><button class="mini-action spider-speak" id="speakButton" type="button">Say it</button><label class="spider-knob spider-voice-level" for="voice"><span class="knob-label">Voice</span><span class="knob-face" aria-hidden="true"><i></i><small id="voiceOut">78%</small></span><input id="voice" data-sound="voice" type="range" min="0" max="1" step="0.01" value="0.78" aria-label="Voice level" /></label><span class="sr-only">Control or Command + Enter speaks.</span></div>
           <p class="spider-status" id="voiceStatus" role="status" hidden></p>
           <p class="spider-status" id="recordingStatus" role="status" hidden></p>
-        </section>
-        <section class="spider-control-block spider-performance" aria-label="Animation">
-          <div class="spider-control-row spider-animation-row">
-            <button class="play-button" id="motionButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play animation"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
-            <div class="spider-animation-picker"><label class="spider-inline-select" for="motionPreset"><span>Animation</span><span class="select-shell"><select id="motionPreset"><option value="orb-walk">Orb walk</option></select></span></label><div class="spider-inline-arrows"><button type="button" id="previousMotion" aria-label="Previous animation">‹</button><button type="button" id="nextMotion" aria-label="Next animation">›</button></div></div>
-            <button class="mini-action" id="randomMotion" type="button" aria-label="Random animation">Random</button>
-          </div>
-          <div class="spider-motion-controls"><label class="control" for="tempo"><span><b>Tempo</b><output id="tempoOut" for="tempo">108 BPM</output></span><input id="tempo" type="range" min="35" max="300" step="1" value="108" /></label><label class="control" for="intensity"><span><b>Movement</b><output id="intensityOut" for="intensity">65%</output></span><input id="intensity" type="range" min="0" max="1" step="0.01" value="0.65" /></label></div>
-          <div class="spider-beat-controls"><label class="spider-check"><input id="metronome" type="checkbox" /> Metronome</label><div class="spider-beat" id="beatIndicator" role="img" aria-label="Beat stopped"><i></i><i></i><i></i><i></i></div></div>
-          <div class="spider-roam-controls">
-            <button id="webJoystick" class="spider-joystick" type="button" aria-label="Steer spider: drag or hold arrow keys" aria-describedby="travelHelp" aria-keyshortcuts="ArrowUp ArrowDown ArrowLeft ArrowRight"><span class="spider-stick-grid" aria-hidden="true"></span><span class="spider-stick-nub" aria-hidden="true"></span><span class="spider-stick-label" aria-hidden="true">Steer</span></button>
-            <div class="spider-roam-settings"><label class="spider-inline-select" for="travelPath"><span>Travel path</span><span class="select-shell"><select id="travelPath"><option value="orbit">Orbit</option></select></span></label><div class="spider-travel-knobs" id="travelControls" role="group" aria-label="Travel speed and range"></div></div>
-          </div>
-          <div class="spider-beat-controls"><label class="spider-check"><input id="explore" type="checkbox" checked /> Roam during animation</label><button class="mini-action" id="homeSpider" type="button">Home</button></div>
-          <p class="spider-note" id="travelHelp">Drag Steer or focus it and hold arrow keys. Release to stop steering. Animation and sound keep their own Play buttons.</p>
         </section>
         <section class="spider-control-block spider-web-controls" aria-labelledby="webTitle">
           <div class="spider-mixer-heading"><h2 id="webTitle">Web</h2><button class="mini-action" id="randomWeb" type="button">Random web</button></div>
@@ -128,9 +128,8 @@
           <div id="webControls" class="spider-tone-controls" role="group" aria-label="Web string parameters"></div>
           <div id="pluckControls" class="spider-tone-controls" role="group" aria-labelledby="pluckTitle"></div>
           <div class="spider-silk-actions"><button class="mini-action" id="laySilk" type="button" aria-pressed="false">Lay silk</button><button class="mini-action" id="clearSilk" type="button">Clear new silk</button><div id="silkMixControl" class="spider-inline-knobs"></div></div>
-          <div class="spider-prey-actions"><button class="mini-action" id="catchBug" type="button">Send a fly</button><button class="mini-action" id="huntBug" type="button">Hunt bug</button><div id="preyMixControl" class="spider-inline-knobs"></div></div>
           <output class="spider-note spider-world-status" id="webWorldStatus" aria-live="polite"></output>
-          <p class="spider-note">Lay silk while steering or roaming. Click a trapped fly or choose Hunt bug to go eat it.</p>
+          <p class="spider-note">Lay silk while steering or roaming.</p>
         </section>
         <section class="spider-control-block spider-body-mixer" aria-labelledby="mixerTitle">
           <div class="spider-mixer-heading"><h2 id="mixerTitle">Body + web sounds</h2><button class="mini-action" id="resetMix" type="button">Reset mix</button></div>
@@ -150,7 +149,7 @@
             <button class="mini-action" id="midiResetRoutes" type="button">Reset routes</button>
             <p class="spider-note">Combine keys into poses. Octaves vary the pose and pitch; velocity changes strength, pitch bend moves ±2 semitones, and sustain holds notes.</p>
             <dl id="midiKeyMap" class="spider-midi-keymap"></dl>
-            <p class="spider-note">Every key plays its body part’s assigned sound. Program Change selects a sound preset. Notes never start or stop either player.</p>
+            <p class="spider-note">Every key plays its body part’s assigned sound. Program Change selects a sound preset. Notes never start or stop Animation.</p>
             <p class="spider-note">Poses + travel maps the twelve pitch classes around the web: C moves forward, D♯ right, F♯ back and A left. Octaves and velocity change speed; release keys to stop steering. Sustain holds the pose, not travel.</p>
             <p class="spider-note">CC1 movement · CC7 level · CC10 pan · CC11 expression · CC64 sustain · CC71 body · CC74 brightness. Assigned controller macros take precedence. MIDI Start/Stop controls animation; incoming clock sets tempo. C4 = note 60.</p>
             <p class="spider-note">Computer keys: Z S X D C V G B H N J M = C3–B3; Q 2 W 3 E R 5 T 6 Y 7 U = C4–B4. [ / ] shift octaves.</p>
@@ -160,7 +159,7 @@
       </aside>
     </main>
     <script type="module" src="nav.js"></script>
-    <script type="module" src="src/instruments/spider-synth/spider-synth-app.js?v=230f9505a484"></script>
+    <script type="module" src="src/instruments/spider-synth/spider-synth-app.js?v=76d726f095e2"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

@@ -203,3 +203,14 @@ retains aggregate values only for compatibility. This makes hard panning,
 channel imbalance, and channel-specific clipping visible. It does not decide
 whether Audio is armed and must not infer activation from signal level, an
 `AudioContext` state, Play, MIDI, or pointer events.
+
+
+## Spider Synth preset audition
+
+Per the October 7 owner request, successful main preset, Next and Dice actions
+start Animation. Registration remains inert: the page opens paused with Audio
+off. Recall preserves the current phase and never arms Audio. The Animation
+transport sits directly below the preset row. Failed recall/rollback does not
+start it. Focused sound, skin and animation edits retain their existing transport
+behavior. A scene's Fly on preset option sends one fly after successful recall;
+live fly IDs, positions and clocks are not preset data.

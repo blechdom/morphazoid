@@ -5,6 +5,7 @@ const toggle=(label,value=true)=>choice(label,[false,true],value);
 export const ESPEAK_FORMANT_VARIANTS=["default", "Alex", "Alicia", "Andrea", "Andy", "Annie", "AnxiousAndy", "Demonic", "Denis", "Diogo", "Gene", "Gene2", "Henrique", "Hugo", "Jacky", "Lee", "Marco", "Mario", "Michael", "Mike", "Mr serious", "Nguyen", "RicishayMax", "RicishayMax2", "RicishayMax3", "Storm", "Tweaky", "anika", "anikaRobot", "antonio", "aunty", "belinda", "boris", "croak", "ed", "f1", "f2", "f3", "f4", "f5", "fast", "grandma", "grandpa", "gustave", "ian", "iven", "iven2", "iven3", "iven4", "john", "kaukovalta", "linda", "m1", "m2", "m3", "m4", "m5", "m6", "m7", "m8", "marcelo", "max", "michel", "miguel", "norbert", "pablo", "paul", "pedro", "quincy", "rob", "robert", "robosoft4", "robosoft5", "robosoft6", "robosoft7", "robosoft8", "sandro", "shelby", "steph", "steph2", "steph3", "travis", "victor", "whisper", "whisperf", "zac"];
 export const ESPEAK_KLATT_VARIANTS=["Reed", "UniRobot", "adam", "announcer", "benjamin", "caleb", "david", "edward", "edward2", "klatt", "klatt2", "klatt3", "klatt4", "klatt5", "klatt6", "mike2", "robosoft", "robosoft2", "robosoft3"];
 const espeakControls={
+ language:choice('English pronunciation',['en-us','en-gb'],'en-us'),
  rate:knob('Speaking rate',80,175,450,'words/min',1),
  pitch:knob('Pitch',0,50,99,'',1),range:knob('Pitch range',0,50,99,'',1),
  volume:knob('Engine amplitude',0,100,400,'%',1,'Experimental'),

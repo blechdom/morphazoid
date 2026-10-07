@@ -1,8 +1,8 @@
-import { getSpiderSpecimen } from './spider-synth-specimens.js?v=230f9505a484';
-import { constrainSpiderCollisionPose, constrainSpiderCollisionRoot, constrainSpiderSupportBody } from './spider-synth-collision.js?v=230f9505a484';
-import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=230f9505a484';
-import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootCell, writeSpiderFootOutward, spiderFootNeutralX } from './spider-synth-contact.js?v=230f9505a484';
-export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=230f9505a484';
+import { getSpiderSpecimen } from './spider-synth-specimens.js?v=76d726f095e2';
+import { constrainSpiderCollisionPose, constrainSpiderCollisionRoot, constrainSpiderSupportBody } from './spider-synth-collision.js?v=76d726f095e2';
+import { createSpiderWeb, projectSpiderWebInto as projectInto, spiderWebHeight } from './spider-synth-web.js?v=76d726f095e2';
+import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootCell, writeSpiderFootOutward, spiderFootNeutralX } from './spider-synth-contact.js?v=76d726f095e2';
+export { createSpiderWeb, projectSpiderWebPoint, normalizeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from './spider-synth-web.js?v=76d726f095e2';
 /**
  * Shared audio-clock web contacts and authored spider gestures.
  * Coordinates are web-radius units, Y up, Z forward; rotations are radians.

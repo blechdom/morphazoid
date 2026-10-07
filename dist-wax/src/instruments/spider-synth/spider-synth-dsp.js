@@ -1,13 +1,14 @@
-import { SPIDER_BODY_GROUPS, getSpiderJointBodyGroup, getSpiderBodyGroupId } from './spider-synth-body.js?v=230f9505a484';
-import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, normalizeSpiderMotion, createSpiderWeb, createSpiderFrame, writeSpiderPose, writeSpiderFrame, spiderStringFrequency } from './spider-synth-model.js?v=230f9505a484';
-import { normalizeSpiderWeb, SPIDER_WEB_PRESETS, spiderWebGeometryKey, hydrateSpiderWeb } from './spider-synth-web.js?v=230f9505a484';
-import { SpiderSynthWorld, normalizeSpiderWorld } from './spider-synth-world.js?v=230f9505a484';
-import { SpiderMidiPerformance } from './spider-synth-midi.js?v=230f9505a484';
-import { SpiderStrings, SpiderOutputGuard } from './spider-synth-string.js?v=230f9505a484';
-import { SpiderSurfaceVoice, SpiderSpace, SpiderWorldSound } from './spider-synth-textures.js?v=230f9505a484';
-import { SpiderRecordingBank, SPIDER_RECORDINGS } from './spider-synth-recordings.js?v=230f9505a484';
-export { SPIDER_BODY_GROUPS, getSpiderBodyGroupId } from './spider-synth-body.js?v=230f9505a484';
-const TAU = Math.PI * 2, MAX_PHONES = 96, EMPTY_PHONES = Object.freeze([]);
+import { SpiderSpeechPlayer } from './spider-synth-speech-player.js?v=76d726f095e2';
+import { SPIDER_BODY_GROUPS, getSpiderJointBodyGroup, getSpiderBodyGroupId } from './spider-synth-body.js?v=76d726f095e2';
+import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, normalizeSpiderMotion, createSpiderWeb, createSpiderFrame, writeSpiderPose, writeSpiderFrame, spiderStringFrequency } from './spider-synth-model.js?v=76d726f095e2';
+import { normalizeSpiderWeb, SPIDER_WEB_PRESETS, spiderWebGeometryKey, hydrateSpiderWeb } from './spider-synth-web.js?v=76d726f095e2';
+import { SpiderSynthWorld, normalizeSpiderWorld } from './spider-synth-world.js?v=76d726f095e2';
+import { SpiderMidiPerformance } from './spider-synth-midi.js?v=76d726f095e2';
+import { SpiderStrings, SpiderOutputGuard } from './spider-synth-string.js?v=76d726f095e2';
+import { SpiderSurfaceVoice, SpiderSpace, SpiderWorldSound } from './spider-synth-textures.js?v=76d726f095e2';
+import { SpiderRecordingBank, SPIDER_RECORDINGS } from './spider-synth-recordings.js?v=76d726f095e2';
+export { SPIDER_BODY_GROUPS, getSpiderBodyGroupId } from './spider-synth-body.js?v=76d726f095e2';
+const TAU = Math.PI * 2;
 const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, finite(value, low)));
 export const SPIDER_SOUND_DEFAULTS = Object.freeze({ level: .5, tension: 1, damping: .35, coupling: .12, brightness: .65, decay: 1.8, tune: 1, body: .6, voice: .65, pan: 0, texture:.45, slide:.25, flutter:.3, space:.25, silkLevel:.55, preyLevel:.5, pluckRegister:12, pluckSpread:1, pluckAttack:.018, pluckHold:.04, pluckRelease:1.1 });
@@ -148,7 +149,7 @@ export class SpiderSynthDsp {
   this.interactionJoint=-1;this.interactionActive=false;this.midiGates=new Float64Array(8);this.contactEvents=0;this.pluckEvents=0;this.lastContactTime=-1;this.eventCursor=0;this.recentEvents=Array.from({length:16},()=>({id:0,segmentId:0,u:.5,velocity:0,audioTime:-1,source:'contact',silkId:null,graphVersion:0,footSerial:null,legIndex:-1,kind:null,manual:false,sourceTime:-1,frequency:0}));
   this.prey=Array.from({length:8},()=>({active:false,time:0,segmentId:0,u:.5,velocity:0,angle:0}));
   this.metronome=false;this.lastBeat=-1;this.click=0;this.clickPhase=0;this.metronomeEvents=0;this.lastMetronomeTime=-1;
-  this.atlas=null;this.atlasRate=16000;this.phoneQueue=EMPTY_PHONES;this.phoneIndex=0;this.phonePosition=0;this.phone=null;this.speechGain=0;this.speechTarget=0;this.pendingSpeech=null;this.speechEnvelope=0;this.speechRate=1;this.speechFilter=0;this.speechSmoothing=1-Math.exp(-1/(this.sampleRate*.0015));
+  this.speechPlayer=new SpiderSpeechPlayer(this.sampleRate);this.speechEnvelope=0;
   this.dcL=0;this.dcR=0;this.previousL=0;this.previousR=0;this.smoothing=1-Math.exp(-1/(this.sampleRate*.025));
   this.telemetry={rms:0,peak:0,audioTime:0,time:0,motionTime:0,speechEnvelope:0,contactEvents:0,pluckEvents:0,activeStrings:0,lastContactTime:-1,recentEvents:this.recentEvents,renderedFrames:0};
  }
@@ -171,12 +172,21 @@ export class SpiderSynthDsp {
     else{if(this.requirePreparedWeb)throw new TypeError('Live topology changes require a prepared web.');web=createSpiderWeb(settings);}
     // Validate before replacing any active graph. Its old loops keep their own
     // material/delay memory and release smoothly instead of changing segment IDs.
-    this.web=web;this.webKey=key;this.setNeighbors();this.strings.release();this.primed=false;for(const event of this.recentEvents)event.id=0;
+    this.web=web;this.webKey=key;this.setNeighbors();
+    if(value.preserveMidi)this.strings.releaseUnowned();else this.strings.release();
+    this.primed=false;for(const event of this.recentEvents)event.id=0;
    }
    this.webSettings=settings;this.web.tension=this.sound.tension;
   }
-  if(value.bodyMix){this.bodyMix=normalizeSpiderBodyMix(value.bodyMix);for(let i=0;i<8;i++){if(SOURCE_INDEX.get(this.bodyMix[i].source)!==this.voices[i].source)this.recordings.release(i);this.voices[i].assign(this.bodyMix[i],!this.hasEnabled);}}
-  if(value.resetActivity){this.clearFootQueue();this.acceptFootAfter=this.audioTime;this.primed=false;this.overlayPrimed=false;this.distances.fill(0);this.strings.release();this.recordings.release();for(const v of this.voices)v.env=0;for(const p of this.prey)p.active=false;}
+  if(value.bodyMix){this.bodyMix=normalizeSpiderBodyMix(value.bodyMix);for(let i=0;i<8;i++){if(SOURCE_INDEX.get(this.bodyMix[i].source)!==this.voices[i].source){if(value.preserveMidi)this.recordings.releaseUnowned(i);else this.recordings.release(i);}this.voices[i].assign(this.bodyMix[i],!this.hasEnabled);}}
+  if(value.resetActivity){
+   this.clearFootQueue();this.acceptFootAfter=this.audioTime;this.primed=false;this.overlayPrimed=false;this.distances.fill(0);
+   // Scene changes discard physical forecasts, but existing MIDI strings own
+   // their old delay/material state and must finish without a repeated attack.
+   if(value.preserveMidi){this.strings.releaseUnowned();this.recordings.releaseUnowned();}
+   else{this.strings.release();this.recordings.release();for(const v of this.voices)v.env=0;}
+   for(const p of this.prey)p.active=false;
+  }
   if(!this.hasEnabled)Object.assign(this.smooth,this.sound);if(this.enabled)this.hasEnabled=true;this.countdown=0;
  }
  setNeighbors(){
@@ -198,6 +208,9 @@ export class SpiderSynthDsp {
  }
  worldCommand(command={},audioTime=this.audioTime){
   if(!['send-prey','hunt','clear-silk','reset','home','move','pluck-silk'].includes(command.type))return false;
+  // A preset can replace the web and send a fly before the next render.
+  // Accept that topology first so sampling cannot discard the new arrival.
+  this.world.setWeb(this.web,this.audioTime);
   this.world.command(command,clamp(audioTime,0,this.audioTime+.05));this.countdown=0;return true;
  }
  restoreWorld(snapshot,timeOffset=0){
@@ -255,7 +268,7 @@ export class SpiderSynthDsp {
     if(!strand||this.smooth.silkLevel<=0)continue;
     const frequency=spiderStringFrequency(strand.length,this.smooth.tension,event.u)*this.smooth.tune;
     const strength=event.strength*this.smooth.silkLevel;
-    if(this.strings.pluck(frequency,Math.sqrt(strength)*(.35+.65*Math.abs(Math.sin(event.angle-strand.angle))),clamp((strand.ax+strand.bx)*.4+this.smooth.pan,-1,1),this.smooth,6,-1,0,event.u,null,1,true,1)){this.lastPluckFrequency=this.strings.voices[this.strings.lastVoiceIndex].frequency;this.emit(-1,event.u,strength,'silk',event.id);}
+    if(this.strings.pluck(frequency,Math.sqrt(strength)*(.35+.65*Math.abs(Math.sin(event.angle-strand.angle))),clamp((strand.ax+strand.bx)*.4+this.smooth.pan,-1,1),this.smooth,6,-1,0,event.u,null,1,true,1,-1,true)){this.lastPluckFrequency=this.strings.voices[this.strings.lastVoiceIndex].frequency;this.emit(-1,event.u,strength,'silk',event.id);}
    }else if((event.type==='prey-trapped'||event.type==='prey-struggle')&&this.smooth.preyLevel>0){
     this.pluckString(event.segmentId,event.u,event.strength*this.smooth.preyLevel,event.angle+Math.PI/2,-1,'prey',1,false);
    }
@@ -277,7 +290,7 @@ export class SpiderSynthDsp {
   const expression=midiOwner?this.midiPerformance.scopes[midiOwner.scope]?.expression??1:1;
   const amount=Math.sqrt(midiOwner&&expression>0?strength/expression:strength)*(.35+.65*Math.abs(Math.sin(angle-segment.angle)));
   let accepted=false;
-  if(voice.source<5)accepted=this.strings.pluck(frequency,amount,clamp(x*.8+this.smooth.pan+(owner>=0?voice.z*.3:0),-1,1),this.smooth,group,id,voice.source,u,midiOwner,expression,source==='gesture'||source==='midi'||source==='prey',worldKind,this.activeFootEvent?.legIndex??-1);
+  if(voice.source<5)accepted=this.strings.pluck(frequency,amount,clamp(x*.8+this.smooth.pan+(owner>=0?voice.z*.3:0),-1,1),this.smooth,group,id,voice.source,u,midiOwner,expression,source==='gesture'||source==='midi'||source==='prey',worldKind,this.activeFootEvent?.legIndex??-1,source==='gesture');
   else if(voice.source>=RECORDING_SOURCE_START){accepted=this.recordings.trigger(voice.source-RECORDING_SOURCE_START,group,amount,this.audioTime,midiOwner,expression);}
   else{voice.eventFrequency=frequency/this.smooth.tune;voice.targetFrequency=frequency;voice.excite(amount);accepted=true;}
   if(accepted){
@@ -346,8 +359,12 @@ export class SpiderSynthDsp {
    // back to rest must not queue a second unowned recording after note-off.
    // Direct body edits, real locomotion and changed CC axes remain playable.
    const recordingMove=voice.source<RECORDING_SOURCE_START||this.frame.motionActive||this.recordingBaseDistance[i]>1e-7||this.recordingControlMoved[i];
-   if(recordingMove)this.distances[i]+=this.groupDistance[i];else this.distances[i]=0;
-   if(this.enabled&&this.distances[i]>.12&&!(this.frame.motionActive&&i===0)){this.distances[i]%=.12;this.exciteGroup(i,Math.min(.85,.25+this.groupDistance[i]*2),'gesture');}
+   if(recordingMove&&!(this.frame.motionActive&&i===0))this.distances[i]+=this.groupDistance[i];else this.distances[i]=0;
+   // Small legal head/palp gestures must reach a discrete attack. Keep the
+   // wider spacing for recordings and resonances, which also follow speed.
+   const directMove=this.frame.motionActive||this.recordingBaseDistance[i]>1e-7||this.recordingControlMoved[i];
+   const gestureDistance=i<6&&voice.source<9&&directMove?.018:.12;
+   if(this.enabled&&this.groupDistance[i]>1e-7&&this.distances[i]>gestureDistance&&!(this.frame.motionActive&&i===0)){this.distances[i]%=gestureDistance;this.exciteGroup(i,Math.min(.85,.25+this.groupDistance[i]*2),'gesture');}
    const foot=this.frame.feet[i];if(!Array.isArray(worldState.footEvents)&&this.primed&&this.frame.motionActive&&this.enabled&&foot.stance&&foot.step>this.steps[i]){this.contactEvents++;this.lastContactTime=this.time;this.exciteGroup(0,foot.impact,'contact',i);this.pluckString(foot.segmentId,foot.u,foot.impact,foot.angle,-1,'contact');}
    const k=i*3,dx=foot.x-this.previousFeet[k],dy=foot.y-this.previousFeet[k+1],dz=foot.z-this.previousFeet[k+2];
    if(!Array.isArray(worldState.footEvents)&&this.primed&&this.overlayPrimed&&!this.frame.motionActive&&this.enabled){this.footDistances[i]+=Math.hypot(dx,dy,dz);if(this.footDistances[i]>.012){this.footDistances[i]%=.012;this.pluckString(foot.segmentId,foot.u,Math.min(.7,.25+Math.hypot(dx,dz)*15),Math.atan2(dz,dx),-1,'gesture');}}
@@ -360,53 +377,11 @@ export class SpiderSynthDsp {
    if(this.enabled&&v.active&&(v.held||v.sustained)&&age>=0&&age<.1){const strength=v.velocity*this.midiPerformance.scopes[v.scope].expression;const target=v.note%12;const foot=this.frame.feet[target<8?target:0];this.exciteGroup(v.group,strength,'midi',target<8?target:-1,2**((v.note-60)/12),v);if(target<8)this.pluckString(foot.segmentId,foot.u,strength,Math.PI/2,-1,'midi',2**((v.note-60)/12),true,v);this.midiEvents++;}
    if(age>=0||!v.active)this.orders[i]=v.order;
   }
-  this.previousPose.set(this.pose);this.primed=true;this.overlayPrimed=true;this.strings.retune(this.smooth,this.midiPerformance);this.speechRate=clamp(this.smooth.tune**.25,.72,1.4);
+  this.previousPose.set(this.pose);this.primed=true;this.overlayPrimed=true;this.strings.retune(this.smooth,this.midiPerformance);
  }
   setSampleBank(samples) { return this.recordings.setBank(samples); }
-  setAtlas(samples, sampleRate) {
-    if (!(samples instanceof Float32Array) || samples.length > 192000 * 16) throw new Error('Speech atlas exceeds its fixed budget.');
-    this.atlas = samples; this.atlasRate = clamp(sampleRate, 8000, 192000);
-  }
-  speak(phones) {
-    if (!this.atlas || !this.enabled) return false;
-    const queue = (Array.isArray(phones) ? phones : []).slice(0, MAX_PHONES).map((phone) => ({
-      offset: clamp(phone?.offset, 0, this.atlas.length / this.atlasRate),
-      duration: clamp(phone?.duration, .015, .65), gain: clamp(phone?.gain ?? 1, 0, 1.5), silence: phone?.silence === true,
-    }));
-    if (this.phone || this.phoneIndex < this.phoneQueue.length) {
-      this.pendingSpeech = queue; this.speechTarget = 0;
-    } else {
-      this.phoneQueue = queue; this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
-      this.speechTarget = 1; this.pendingSpeech = null;
-    }
-    return queue.length > 0;
-  }
-  stopSpeech() { this.pendingSpeech = null; this.speechTarget = 0; }
-  speechSample() {
-    this.speechGain += (this.speechTarget - this.speechGain) * this.speechSmoothing;
-    if (this.speechTarget === 0 && this.speechGain < .0001) {
-      this.phoneQueue = this.enabled && this.pendingSpeech ? this.pendingSpeech : EMPTY_PHONES;
-      this.phoneIndex = 0; this.phone = null; this.phonePosition = 0;
-      this.pendingSpeech = null;
-      if (this.phoneQueue.length) this.speechTarget = 1;
-      else return 0;
-    }
-    if (!this.phone) {
-      this.phone = this.phoneQueue[this.phoneIndex++] ?? null; this.phonePosition = 0;
-      if (!this.phone) { this.phoneQueue = EMPTY_PHONES; this.phoneIndex = 0; this.speechTarget = 0; return 0; }
-    }
-    const phone = this.phone;
-    const rate = this.speechRate;
-    const age = this.phonePosition / this.atlasRate;
-    const envelope = Math.min(1, age / .007, (phone.duration - age) / .009);
-    const position = phone.offset * this.atlasRate + this.phonePosition;
-    const index = Math.floor(position); const mix = position - index;
-    let sample = phone.silence ? 0 : ((this.atlas[index] || 0) * (1 - mix) + (this.atlas[index + 1] || 0) * mix) * Math.max(0, envelope) * phone.gain;
-    this.phonePosition += this.atlasRate / this.sampleRate * rate;
-    if (this.phonePosition >= phone.duration * this.atlasRate) this.phone = null;
-    if (!Number.isFinite(sample)) sample = 0;
-    return sample * this.speechGain;
-  }
+  speak(samples, sampleRate, gain) { return this.enabled && this.speechPlayer.speak(samples, sampleRate, gain); }
+  stopSpeech() { this.speechPlayer.stop(); }
  render(left,right,audioTime){
   if(Number.isFinite(audioTime)){if(Math.abs(audioTime-this.audioTime)>.02)this.overlayPrimed=false;this.audioTime=audioTime;}
   const count=Math.min(left.length,right.length);let energy=0,peak=0;
@@ -427,10 +402,10 @@ export class SpiderSynthDsp {
    this.master+=((this.enabled?1:0)-this.master)*this.smoothing;this.still+=((this.soundPlaying?1:0)-this.still)*this.smoothing;
    const recorded=this.recordings.sample();let bodyL=0,bodyR=0;for(let group=0;group<8;group++){const v=this.voices[group],value=v.sample(this.still,this.smooth)+recorded[group]*v.level*(.55+this.smooth.body*.75);bodyL+=value*v.panL;bodyR+=value*v.panR;this.levels[group]=v.level;}
    this.strings.sample(this.levels,this.smooth.brightness,this.smooth);
-   const speech=this.atlas?this.speechSample():0;this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
-   this.speechFilter+=(speech-this.speechFilter)*(1-Math.exp(-TAU*Math.min(this.sampleRate*.4,1800+this.smooth.brightness*9500)/this.sampleRate));
-   const colored=this.speechFilter*(.9+this.smooth.body*.15)+Math.tanh(this.speechFilter*(1+this.smooth.body))/(1+this.smooth.body)*.1;
-   const voice=colored*this.smooth.voice*1.8,pan=clamp(this.smooth.pan,-1,1);
+   const speech=this.speechPlayer.sample();this.speechEnvelope+=(Math.abs(speech)-this.speechEnvelope)*.008;
+   // The native voice owns articulation and timbre. Body presets cannot retune
+   // speech or feed it through the body's room/reverb path.
+   const voice=speech*this.smooth.voice*1.8,pan=clamp(this.smooth.pan,-1,1);
    this.worldSound.sample(this.smooth);this.space.sample(this.strings.left*6+bodyL*2.1+this.worldSound.left,this.strings.right*6+bodyR*2.1+this.worldSound.right,this.smooth.space);
    const rawL=this.space.left+voice*Math.cos((pan+1)*Math.PI/4)+click;
    const rawR=this.space.right+voice*Math.sin((pan+1)*Math.PI/4)+click;

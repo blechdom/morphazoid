@@ -8,19 +8,19 @@ pose/contact model; rendering never owns automatic audio onsets.
 | Action/state | Sound | Motion |
 | --- | --- | --- |
 | Fresh navigation | No AudioContext or permission request | Neutral held pose |
-| Audio arm | Prepare one worklet and shared stereo output | Preserve both Play states |
-| Sound Play | Held resonances at assigned levels | Preserve animation state |
-| Sound preset / Program Change / Random sound | Replace body, silk and voice timbres | Preserve web, contacts, prey, deposited silk, pose, tempo and both player states |
-| Body pose / Random pose / Reset pose | Change joint modulation without releasing active sound | Replace pose offsets; preserve routine, phase, travel and both player states. First Animation Play retains the chosen pose. |
-| Spider skin | Preserve sound, recording voices and both player states; no model download on the audio thread | Load one selected scan and its measured rig transactionally. Preserve pose offsets, routine, phase, location and web. Failed or superseded loads retain the previous playable specimen. |
+| Audio arm | Prepare one worklet and shared stereo output; silence at rest | Preserve Animation state |
+| Sound preset / Program Change / Random sound | Replace body and silk timbres; preserve native speech settings and Voice gain | Preserve web, contacts, prey, deposited silk, pose, tempo and Animation state |
+| Full preset / Next / Dice | Recall a complete musical scene, including speech character; preserve master and Voice gains | Select skin, animation, web and sound together; start Animation after successful recall, preserving Audio, clock, text and live joystick. Dice creates new settings. Fly on preset sends one fly after success; failed recall stays in its prior transport state. |
+| Spider skin | Preserve sound, recording voices and Animation state; no model download on the audio thread | Load one selected scan and its measured rig transactionally. Preserve pose offsets, routine, phase, location and web. Failed or superseded loads retain the previous playable specimen. |
 | Recorded spider source | Finite movement/contact/MIDI-triggered excerpts; no unattended loop | Use the same accepted joint and contact movement as procedural sources |
 | Animation Play / Space | Contact plucks if armed | Advance the selected routine |
 | Pause animation | Stop new automatic contacts; let tails decay | Freeze procedural time |
-| Drag joint / pluck strand | Finite gesture if armed | Change selected pose/contact, independently of Play |
+| Drag joint / pluck strand | Finite gesture if armed; holding the pointer on a strand strums every crossed string, including return strokes | Change selected pose/contact, independently of Play; strumming never orbits the camera |
 | Hold/release MIDI note | Owned note and release envelope | Temporary static pose overlay; never change Play |
 | Joystick / optional MIDI travel | Movement contacts while traveling | Steer independently; release stops manual travel |
 | Lay silk | Movement-gated silk friction and attachment plucks | Deposit bounded playable threads along the route |
-| Send fly / Hunt bug | Approach buzz, trapped-strand pulses, finite eating gesture | Fly arrives; spider travels to the selected prey |
+| Send fly / Hunt fly | Approach buzz, trapped-strand pulses, finite eating gesture | Fly arrives; spider travels to the selected prey |
+| Spider text preset | Fill an editable saying or fact; preserve voice settings and Audio; Say it remains explicit | Preserve Animation state |
 | Voice | Finite phrase; no browser speech API | Temporary cephalothorax/palp/fang gesture |
 | Audio off | Fade/suspend output | Preserve visible performance settings |
 | Hide/teardown/panic | Release owned resources and notes appropriately | No stale held notes or stuck pointer ownership |
@@ -35,15 +35,15 @@ Construction presets include an Argiope-inspired zigzag orb, other spider web
 families and explicitly artistic networks. Geometry is bounded to 1,200 nodes
 and 2,400 segments, with at most 256 deposited threads and eight prey records.
 Graph replacement clears topology-dependent prey/silk while preserving the
-camera and both player states. Existing notes retain their own string length
+camera and Animation state. Existing notes retain their own string length
 and release independently of the replaced graph. The string renderer is a bounded
 voice pool, not one permanent oscillator per segment. Length and square-root
 tension control pitch; speed/angle shape excitation. Coupling and caught-bug
 flutter have fixed event limits. All source mixes must remain finite and
-bounded, with idle motion sources silent and held resonance paths separate.
+bounded, with idle motion sources silent. The app never enables the legacy held-resonance DSP path.
 
 Four camera presets, explicit zoom, body axes, 3D touch and joint markers sit
-above the sound player. Mobile scroll remains available; the sticky specimen
+above the gesture surface. The standard full-preset menu, Next and Dice sit at the top of the control rail, immediately followed by Animation and Fly controls. Mobile scroll remains available; the sticky specimen
 and main Audio must not trap or hide controls. Model loading cannot block audio.
 Face framing accounts for each scan's front-body dimensions and canvas aspect;
 explicit zoom and direct orbit remain independent of body-part gestures.
@@ -96,7 +96,7 @@ has completed. Suspending an already armed AudioContext freezes its clock;
 resuming it never advances through missed wall time. Audio off transfers visible
 world state back to the performance clock. MIDI sustain may hold a body pose but
 cannot latch steering after a physical note release. Panic and lost input
-ownership release steering without pressing either player.
+ownership release steering without pressing Animation.
 
 Construction happens on the main thread. The worklet accepts validated prepared
 graphs; it never runs the construction triangulator in an audio callback.
@@ -105,3 +105,12 @@ preset pitch choices. Attack, hold and release shape excitation independently
 from physical string damping. Long tails have a bounded voice budget, and new
 physical contacts may replace older physical tails without taking MIDI-owned
 voices.
+
+
+The 24 full scenes include 20 traveling routines (eight laying new playable silk),
+four stationary body performances and six fly arrivals. These deposited strands
+extend the current web; autonomous biological orb construction is not claimed.
+Factory body rows use 1.5 times the underlying sound patch level, capped at one.
+Small accepted head, palp and other body edits can excite discrete sounds;
+stationary poses and out-of-range drags cannot manufacture new attacks. The
+closer gesture spacing does not apply to MIDI envelope motion by itself.

@@ -22,7 +22,9 @@ async function renderEspeak(engine,text,p){
  const module=await create({locateFile:name=>new URL('../../../vendor/espeak-ng/'+name,import.meta.url).href,print:()=>{},printErr:()=>{}});
  const voice=new module.eSpeakNGWorker();
  try{
-  const voiceName='en-us'+(p.variant==='default'?'':'+'+p.variant);
+  // This bundled build selects Great Britain by its voice-file name `en`;
+  // `en-gb` is the language metadata, not an accepted set_voice file ID.
+  const voiceName=(p.language==='en-gb'?'en':p.language)+(p.variant==='default'?'':'+'+p.variant);
   if(voice.set_voice(voiceName)!==0)throw new Error('The selected eSpeak voice is unavailable.');
   voice.set_rate(Math.round(p.rate));voice.set_pitch(Math.round(p.pitch));voice.set_range(Math.round(p.range));voice.set_volume(Math.round(p.volume));
   if(typeof module._espeak_SetParameter!=='function')throw new Error('The eSpeak native-parameter build is required.');

@@ -1,4 +1,4 @@
-import { SpiderSynthDsp } from './spider-synth-dsp.js?v=230f9505a484';
+import { SpiderSynthDsp } from './spider-synth-dsp.js?v=76d726f095e2';
 
 class SpiderSynthProcessor extends AudioWorkletProcessor {
   constructor(options={}) {
@@ -23,8 +23,7 @@ class SpiderSynthProcessor extends AudioWorkletProcessor {
         else if (data?.type === 'world-state') this.dsp.restoreWorld(data.snapshot,data.timeOffset);
         else if (data?.type === 'pluck' && (!Number.isFinite(data.audioTime) || currentTime - data.audioTime < .1)) this.dsp.pluck(data.pluck);
         else if (data?.type === 'sample-bank') this.dsp.setSampleBank(data.samples);
-        else if (data?.type === 'atlas') this.dsp.setAtlas(data.samples, data.sampleRate);
-        else if (data?.type === 'speak') this.dsp.speak(data.phones);
+        else if (data?.type === 'speak') this.dsp.speak(data.samples, data.sampleRate, data.gain);
         else if (data?.type === 'stop-speech') this.dsp.stopSpeech();
         else if (data?.type === 'dispose') { this.disposed = true; this.dsp.stopSpeech(); this.dsp.resetMidi(); }
       } catch (error) { this.port.postMessage({ type: 'error', message: String(error.message || error) }); }

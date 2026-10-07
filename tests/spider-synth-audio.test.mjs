@@ -1,12 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
 import { spiderRecordingFixture } from './helpers/spider-recording-fixture.mjs';
 import { SpiderSynthDsp, SPIDER_SOUND_PRESETS, SPIDER_MOTION_SOUND_PRESETS, SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, normalizeSpiderBodyMix, normalizeSpiderSound, getSpiderMotionSound } from '../src/instruments/spider-synth/spider-synth-dsp.js';
 import { SpiderStrings, spiderPluckFrequency } from '../src/instruments/spider-synth/spider-synth-string.js';
-import { SpiderSynthAudio, createSpiderSpeechPlan } from '../src/instruments/spider-synth/spider-synth-audio.js';
-import { SPELLING_DIPHONE_ATLAS_URL } from '../src/instruments/spelling-synthesizer/spelling-diphone-atlas.js';
-import { loadSpellingPronunciations } from '../src/instruments/spelling-synthesizer/spelling-pronunciation.js';
+import { SpiderSynthAudio } from '../src/instruments/spider-synth/spider-synth-audio.js';
 import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, createSpiderFrame, writeSpiderFrame, spiderStringFrequency } from '../src/instruments/spider-synth/spider-synth-model.js';
 const mix=(group,source='silk')=>createDefaultSpiderBodyMix().map(row=>({...row,source,level:group==='*'||row.groupId===group?.[0]||row.groupId===group?.[1]||row.groupId===group?.[2]? .7:0}));
 const note=(n=68,v=100,extra={})=>({type:'noteOn',note:n,velocity:v,sourceId:'keys',channel:0,...extra});
@@ -101,6 +98,21 @@ test('MIDI panic releases only its owned strings and preserves unrelated manual 
  assert.ok(d.strings.voices.filter(v=>v.midiSourceId==='keys').every(v=>v.release));
 });
 
+test('repeated strums replace old gesture tails within the pool without stealing MIDI strings',()=>{
+ const d=synth({sound:{coupling:.4,pluckHold:1,pluckRelease:4}});
+ for(const n of [60,66,68])d.midi(note(n));render(d,.03);
+ const held=d.strings.voices.filter(v=>v.remaining>0&&v.midiSourceId==='keys');
+ const identities=held.map(v=>v.attackOrder);assert.ok(held.length>=3);
+ const before=d.pluckEvents;
+ for(let i=0;i<100;i++)assert.equal(d.pluck({segmentId:100+i%80,u:.5,velocity:.7}),true,`gesture ${i}`);
+ assert.equal(d.pluckEvents,before+100);assert.equal(d.strings.voices.length,24);
+ assert.deepEqual(held.map(v=>v.attackOrder),identities);assert.ok(held.every(v=>!v.release));
+ const result=render(d,.1);assert.ok(result.peak>.001&&result.peak<=.95);
+ const unowned=d.strings.voices.filter(v=>v.midiSourceId===null&&v.remaining>0);
+ assert.equal(new Set(unowned.map(v=>v.attackOrder)).size,unowned.length);
+ assert.ok(Math.min(...unowned.map(v=>v.attackOrder))>80);
+});
+
 test('the caught bug creates a finite audio-clock burst and Audio off cancels remaining attacks',()=>{
  const d=synth();d.pluck({segmentId:30,velocity:.7,source:'prey'});render(d,2);const events=d.pluckEvents;assert.ok(events>5);render(d,4);assert.equal(d.pluckEvents,events);assert.ok(render(d,.2).peak<1e-5);
  d.pluck({segmentId:30,source:'prey'});d.update({enabled:false});const before=d.pluckEvents;render(d,2);assert.equal(d.pluckEvents,before);assert.ok(render(d,.1).peak<1e-6);
@@ -138,14 +150,17 @@ test('every body source audibly responds to a measured manual edit with both pla
  for(const source of SPIDER_BODY_SOURCES){const d=synth({bodyMix:mix(['cephalothorax'],source.id)});render(d,.05);d.update({motion:{offsets:{cephalothorax:{x:.35,y:.2,z:.15}}}});const result=render(d,.15);assert.ok(result.peak>.002,`${source.id}: ${result.peak}`);assert.equal(d.playing,false);assert.equal(d.soundPlaying,false);}
 });
 
-test('real KAL words keep consonants and preset color, independent of body solos and either player',async()=>{
- const bytes=readFileSync(SPELLING_DIPHONE_ATLAS_URL);let atlas;
- for(let cursor=12;cursor+8<bytes.length;){const size=bytes.readUInt32LE(cursor+4);if(bytes.toString('ascii',cursor,cursor+4)==='data'){atlas=Float32Array.from({length:size/2},(_,i)=>bytes.readInt16LE(cursor+8+i*2)/32768);break;}cursor+=8+size+(size%2);}
- assert.ok(atlas.length>100000);const text='hello, I am a spider';
- const pronunciation=await loadSpellingPronunciations(text,{fetcher:async url=>({ok:true,text:()=>readFileSync(url,'utf8')})});
- const phones=createSpiderSpeechPlan(text,pronunciation);assert.ok(phones.length>8&&phones.length<=96);assert.ok(phones.some(p=>p.duration<.1&&!p.silence));
- const signals=[];for(const id of ['orb-silk','thread-bass']){const patch=SPIDER_SOUND_PRESETS.find(p=>p.id===id),d=synth({sound:patch.sound,bodyMix:mix([])});d.setAtlas(atlas,16000);assert.equal(d.speak(phones),true);const result=render(d,3);assert.ok(result.rms>.02);assert.ok(result.peak<.95);assert.equal(d.contactEvents,0);assert.equal(d.time,0);assert.equal(d.soundTime,0);signals.push(result.l);d.update({sound:{voice:0}});d.speak(phones);render(d,.5);assert.ok(render(d,.2).peak<1e-5);d.stopSpeech();render(d,.1);d.update({sound:{voice:.65}});assert.ok(render(d,.2).peak<1e-5);}
- assert.notDeepEqual(signals[0],signals[1]);assert.ok(createSpiderSpeechPlan('spider '.repeat(200)).length<=96);
+test('utterance PCM is independent of body tone/solos and either player; Voice still mutes',()=>{
+ const samples=Float32Array.from({length:72000},(_,i)=>Math.sin(i*2*Math.PI*230/24000)*.2);
+ const signals=[];
+ for(const id of ['orb-silk','thread-bass']){
+  const patch=SPIDER_SOUND_PRESETS.find(p=>p.id===id),d=synth({sound:{...patch.sound,voice:.78,level:.65,pan:0},bodyMix:mix([])});
+  assert.equal(d.speak(samples,24000),true);const result=render(d,.5);
+  assert.ok(result.rms>.02);assert.ok(result.peak<.95);assert.equal(d.contactEvents,0);assert.equal(d.time,0);assert.equal(d.soundTime,0);signals.push(result.l);
+  d.update({sound:{voice:0}});render(d,.5);assert.ok(render(d,.2).peak<1e-5);
+  d.stopSpeech();render(d,.1);d.update({sound:{voice:.65}});assert.ok(render(d,.2).peak<1e-5);
+ }
+ assert.deepEqual(signals[0],signals[1]);
 });
 
 test('MIDI velocity, sustain, expression and row zero retain ownership and deterministic releases',()=>{
@@ -376,4 +391,71 @@ test('tempo changes preserve future force kinds and pause cancels them without c
  assert.equal(d.lateFootEvents,0);assert.equal(d.droppedFootEvents,0);assert.ok(d.maxFootLateness<=.51/d.sampleRate);
  const stopped=[d.contactEvents,d.pullEvents,d.footReleaseEvents];d.update({playing:false});render(d,.23);assert.deepEqual([d.contactEvents,d.pullEvents,d.footReleaseEvents],stopped);
  d.update({playing:true});render(d,.3);assert.ok(d.contactEvents-stopped[0]<=16);assert.equal(d.lateFootEvents,0);assert.equal(d.droppedFootEvents,0);
+});
+
+
+for (const source of ['clack', 'fm-bell']) test(`${source}: a small accepted head gesture sounds once and a fixed pose releases`, () => {
+ const d = new SpiderSynthDsp(24000);
+ d.update({ enabled: true, playing: false, soundPlaying: false, motion: { preset: 'none', explore: false },
+  bodyMix: createDefaultSpiderBodyMix().map((row, i) => ({ ...row, source, level: i === 1 ? .7 : 0 })),
+  sound: { silkLevel: 0, preyLevel: 0 } });
+ assert.equal(render(d, .1).peak, 0);
+ d.update({ motion: { offsets: { cephalothorax: { x: .02, y: 0, z: 0 } } } });
+ assert.ok(render(d, .2).peak > .001); assert.equal(d.soundPlaying, false);
+ render(d, 4); assert.ok(render(d, .2).peak < 1e-7);
+ const age = d.voices[1].age;
+ d.update({ motion: { offsets: { cephalothorax: { x: .02, y: 0, z: 0 } } } });
+ assert.ok(render(d, .2).peak < 1e-7); assert.ok(d.voices[1].age > age);
+ d.update({ motion: { offsets: { cephalothorax: { x: .16, y: 0, z: 0 } } } });
+ assert.ok(render(d, .2).peak > .001);
+ const pose = d.pose[0]; render(d, 4);
+ d.interact({ jointId: 'cephalothorax', active: true, velocity: 1 });
+ d.update({ motion: { offsets: { cephalothorax: { x: .3, y: 0, z: 0 } } } });
+ assert.ok(render(d, .2).peak < 1e-7); assert.equal(d.pose[0], pose);
+});
+
+test('a fly sent immediately after web replacement survives the next audio render', () => {
+ const d = synth(); render(d, .1);
+ const oldKey = d.world.webKey;
+ d.update({ webSettings: { preset: 'triangle', seed: 29 }, resetActivity: true });
+ d.worldCommand({ type: 'send-prey' });
+ assert.notEqual(d.world.webKey, oldKey);
+ assert.equal(d.world.prey.length, 1);
+ const id = d.world.prey[0].id;
+ assert.ok(render(d, .1).peak > .001);
+ assert.equal(d.world.prey.length, 1); assert.equal(d.world.prey[0].id, id);
+ render(d, 1.2); assert.equal(d.world.prey[0].state, 'trapped');
+});
+
+
+test('changing a body source after a small settled gesture cannot create a stale attack', () => {
+ const bodyMix = createDefaultSpiderBodyMix().map((row, i) => ({ ...row, source: 'hollow', level: i === 1 ? .7 : 0 }));
+ const d = synth({ bodyMix, motion: { preset: 'none', explore: false }, sound: { silkLevel: 0, preyLevel: 0 } });
+ render(d, .1);
+ d.update({ motion: { offsets: { cephalothorax: { x: .04, y: 0, z: 0 } } } });
+ render(d, 3);
+ d.update({ bodyMix: bodyMix.map(row => ({ ...row, source: 'clack' })) });
+ assert.ok(render(d, .25).peak < 1e-7);
+});
+
+
+for (const source of ['clack', 'fm-bell', 'silk']) test(`${source}: MIDI envelope motion retains its original attack spacing`, () => {
+ const d = synth({ motion: { preset: 'listen', explore: false },
+  sound: { space: 0, silkLevel: 0, preyLevel: 0, coupling: 0 },
+  bodyMix: createDefaultSpiderBodyMix().map((row, i) => ({ ...row, source, level: i === 1 ? .7 : 0 })) });
+ const events = [], excite = d.exciteGroup.bind(d);
+ d.exciteGroup = (group, strength, kind, ...args) => {
+  if (group === 1) events.push(kind);
+  return excite(group, strength, kind, ...args);
+ };
+ render(d, .1);
+ d.midi({ type: 'noteOn', note: 68, velocity: 100, sourceId: 'gesture-spacing', channel: 0 });
+ render(d, .5);
+ // Baseline behavior: one owned note plus one accepted pose impact.
+ assert.equal(events.filter(kind => kind === 'midi').length, 1);
+ assert.equal(events.filter(kind => kind === 'gesture').length, 1);
+ events.length = 0;
+ d.midi({ type: 'noteOff', note: 68, sourceId: 'gesture-spacing', channel: 0 });
+ render(d, .5); assert.deepEqual(events, ['gesture']);
+ events.length = 0; render(d, 1); assert.deepEqual(events, []);
 });

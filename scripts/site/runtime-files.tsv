@@ -1587,3 +1587,8 @@ copy+require	assets/instruments/l-system-experiments.webp
 copy+require	docs/l-system-delay-grammars.md
 copy+require	docs/l-system-labs-models.md
 copy+require	docs/l-system-delay-exploration-runtime-changes.json
+
+copy+require	src/instruments/spider-synth/spider-synth-speech.js
+copy+require	src/instruments/spider-synth/spider-synth-speech-player.js
+copy+require	src/instruments/spider-synth/spider-synth-presets.js
+copy+require	src/instruments/spider-synth/spider-synth-strum.js

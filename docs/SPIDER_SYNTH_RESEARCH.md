@@ -114,7 +114,7 @@ hollow resonances, low drones and other synthetic timbres. Motion sounds occur
 as finite gestures and contacts; a stationary limb does not loop friction.
 
 **Send a fly** adds a fictional flying insect that settles on a real strand,
-then excites it through struggle events. **Hunt bug** sends the spider to that
+then excites it through struggle events. **Hunt fly** sends the spider to that
 insect and ends the struggle with an eating gesture. Capture and consumption
 are compressed into seconds for performance. The spider itself has no flight
 animation. **Lay silk** deposits a bounded trail of new playable thread while
@@ -132,10 +132,25 @@ not transplanted as biological spider classifications.
 
 ## Voice and recordings
 
-The speaking voice reuses Morphazoid’s locally bundled KAL16 diphone atlas and
-CMU pronunciation resources, with the existing licenses preserved. Sound
-presets color that voice together with the body and silk. Spoken words, FM
-bells, drones and cartoon percussion are creative sounds. Three additional
+The fictional speaking voice uses the same local eSpeak NG WebAssembly engine
+as Voicesaurus. British English is selected explicitly (`en` in this bundled
+native voice API); Voicesaurus's existing default remains American English.
+Silk buzz, the default, uses the upstream `croak` variant's voiced excitation
+and flutter at a moderate rate and pitch. Silk whisper uses `whisperf` (breath
+noise, reduced voicing and roughness), Fang chatter uses a faster, lower-pitched
+`croak`, and Cellar rasp uses the Klatt
+`robosoft3` variant. These are artistic spider characters, not animal calls.
+The existing GPL-3.0-or-later engine attribution and source information are in
+[vendor/espeak-ng/README.md](../vendor/espeak-ng/README.md).
+
+A disposable worker renders whole sentences with native pronunciation and
+prosody. Up to 96 characters / 30 seconds of PCM transfer to the existing
+Spider audio worklet, with faded onset, ending and interruption. Audio disable,
+replacement requests and teardown cancel pending workers. Voice character,
+Pitch, Rate and Inflection are independent of body presets; Voice, pan and
+master level still mix the speech. Speech bypasses the body's room effect.
+Spoken words, FM bells, drones and cartoon percussion are creative sounds.
+Three additional
 sources use actual *Maratus volans* courtship substrate vibrations measured
 with laser vibrometry: **Peacock rumble**, **Peacock crunch** and **Peacock
 grind**. These are three excerpts from one research video's recorded
@@ -146,7 +161,7 @@ Girard, Kasumovic and Elias (2011) published the source in
 [peacock-spider courtship study](https://doi.org/10.1371/journal.pone.0025390).
 The exact [Figshare dataset](https://doi.org/10.6084/m9.figshare.132960) specifies
 CC BY 4.0. The bundled mono WAVs total 261,646 bytes and load asynchronously
-after Audio is armed. They cannot delay the worklet or existing speech atlas.
+after Audio is armed. They cannot delay the worklet or native speech rendering.
 The [recording credits](../assets/audio/spider-synth/README.md) and
 [manifest](../assets/audio/spider-synth/manifest.json) retain author attribution,
 license, species, exact source intervals, extraction changes and file hashes.
@@ -163,11 +178,11 @@ animation, and unavailable samples leave procedural synthesis playable.
 ## Timing and controls
 
 Audio begins only after explicit Audio, MIDI enable or a valid WAX host arm.
-Sound Play holds the selected resonances. Animation Play advances the spider’s
-contact rhythm. Either can run independently; MIDI notes temporarily pose and
-sound the selected parts without changing either Play state. Selecting a body
-pose preserves playback, animation time and current offsets; the live fix is
-commit `b9606cd`. Changing specimen likewise does not reset the performance.
+Animation Play advances the spider’s contact rhythm. MIDI notes temporarily
+pose and sound selected parts without changing Animation. Manual joint edits
+preserve animation time. Changing specimen likewise does not reset the performance.
+The owner removed the continuous Sound player and static pose controls on
+October 6; the app never enables held resonances.
 Pause freezes the procedural pose and stops future automatic routine contacts; joystick travel,
 prey actions and their contacts remain independent. Existing string tails
 are allowed to decay. Manual plucks, gestures and speech remain available
@@ -187,7 +202,7 @@ This is a playable sonification, not a measured vocal reconstruction. Argiope
 aurantia is the requested biological starting point; the default scan is
 identified separately as Argiope bruennichi. The real Maratus recordings are
 laboratory substrate vibrations, distinct from the procedural silk models and
-the deliberately fictional KAL16 robot voice.
+the deliberately fictional British speaking voice.
 
 | Primary evidence | Supported observation | Instrument mapping and limitation |
 | --- | --- | --- |
@@ -198,7 +213,7 @@ the deliberately fictional KAL16 robot voice.
 | Girard, Kasumovic & Elias (2011), [Multi-Modal Courtship in the Peacock Spider, Maratus volans](https://doi.org/10.1371/journal.pone.0025390), [licensed supplementary recording](https://doi.org/10.6084/m9.figshare.132960) | Laser vibrometry records rumble-rump, crunch-roll and grind-rev courtship articulations transmitted through an experimental substrate. | Three attributed CC BY 4.0 excerpts add finite recorded accents to body movement and contacts. These are measured Maratus signals, not Argiope or tarantula calls; processing and runtime pitch changes are documented. |
 | Jaffe & Smith (1983), [Extensions of the Karplus–Strong Plucked-String Algorithm](https://musicweb.ucsd.edu/~trsmyth/papers/KSExtensions.pdf) | Filtered delay loops support useful string synthesis extensions. | The existing Karplus core adds bounded dispersion and smoothly changing delay length. The bowed/slipping branch is an authored velocity-weakening friction model. Neither is a recording. |
 
-The perpetual Sound Play bed is an intentionally musical extension: slowly changing modal amplitudes, mild pitch drift and a bounded bowed delay loop. Event-only sources still receive no excitation at a held pose. Silk extrusion is driven by measured world travel while Lay Silk is enabled; prey approach, struggle and eating are owned by bounded shared-world prey records.
+The legacy DSP contains slowly changing held modal amplitudes, mild pitch drift and a bounded bowed delay loop; the October 6 UI update disables this continuous bed in the app. Event-only sources still receive no excitation at a held pose. Silk extrusion is driven by measured world travel while Lay Silk is enabled; prey approach, struggle and eating are owned by bounded shared-world prey records.
 
 Four short damped feedback paths provide Space; they are part of the same worklet, not extra Web Audio nodes. Existing output reconstruction guard and20-frame output delay are retained. Audio control/world sampling has a 200 Hz baseline with extra refreshes at planned stride/event deadlines and does not depend on the renderer.
 
@@ -303,3 +318,59 @@ black-widow body scan was added. The
 [request audit](spider-synth-request-audit.md) distinguishes these completed
 implementations from full mesh collision, biological reconstruction and final
 integrated performance validation.
+
+## Complete scenes and continuous strumming — October 6, 2026
+
+The shared Morphazoid Choose-style preset menu, Next and parameter Dice now
+lead the control rail. Twenty-four authored scenes combine four performances
+per scanned skin with different routines, sound materials, envelopes, tempos
+and web geometry. Focused sound and animation selectors remain editable.
+Recall preserves explicit Audio, phase, master and Voice
+gains, current text and joystick. As of October 7, successful main recall starts
+Animation; registration and failed-load rollback do not. Failed skin loading rolls back the scene.
+The randomizer creates complete new settings and marks them Custom.
+
+A held pointer beginning on a strand sweeps all crossed web and deposited-silk
+segments in travel order. Contact hysteresis suppresses stationary repeats
+and permits return strokes; releasing after a drag adds no extra pluck.
+Background dragging retains orbit behavior, and the touch scroll arbitration
+remains in place. String excitation still uses gesture speed and angle.
+
+
+## Roaming, fly encounters and body response — October 7, 2026
+
+Twenty scenes now author a travel route independently of their limb routine;
+eight also lay silk. Four remain in place to demonstrate body percussion and
+dance. The added silk is a playable trail over the base graph, not a complete
+biological web-construction simulation. Six scenes send a fly on selection.
+Animation and Fly controls follow the main preset row. Fly on preset is captured
+and randomized; each successful recall emits one arrival, while ordinary edits
+and rollback do not. The DSP accepts replaced topology before processing the
+arrival, so a fly sent between audio blocks survives the next render.
+
+Body rows were attenuated to 0.6 of the sound patch in the first factory bank.
+They now use 1.5, capped at one, without changing master or web-row gains.
+Discrete body sounds previously required 0.12 accumulated movement, larger than
+some permitted joint edits. Direct small gestures now use 0.018; friction and
+recordings retain their existing spacing, and pure MIDI envelope motion retains
+its old threshold. Every attack requires fresh accepted movement; clamped and
+stationary poses remain quiet. These are musical mappings, not anatomical units.
+
+
+## Spider text presets — October 7, 2026
+
+The Spider text menu supplies the original introduction, nine new fictional
+sayings and six short facts. Text stays editable and independent of the voice
+character and full-scene presets. Selecting text fills the field; Say it or
+Control/Command + Enter speaks it through the current British native voice.
+All lines fit the existing 96-character speech limit. Fiction and facts have
+separate menu groups.
+
+Fact sources: [Burke Museum on spider and insect anatomy](https://www.burkemuseum.org/collections-and-research/biology/arachnology-and-entomology/spider-myths/myth-spiders-are-insects)
+for leg counts; [Natural History Museum on silk and webs](https://www.nhm.ac.uk/discover/what-are-spider-webs-made-of.html)
+for prey capture without webs, spinnerets and aerial silk travel;
+[Australian Museum spider facts](https://australian.museum/learn/animals/spiders/spider-facts/)
+for silk glands; [Ludwig et al. (2018)](https://pmc.ncbi.nlm.nih.gov/articles/PMC6053566/)
+for orb-weaver silk ingestion/recycling; and
+[Australian Museum garden orb-weavers](https://australian.museum/learn/animals/spiders/garden-orb-weaving-spiders/)
+plus the Mortimer et al. (2016) paper cited above for web vibration sensing.

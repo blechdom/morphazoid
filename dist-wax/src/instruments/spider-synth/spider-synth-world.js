@@ -1,8 +1,8 @@
-import { getSpiderSpecimen } from './spider-synth-specimens.js?v=230f9505a484';
-import { constrainSpiderSupportBody } from './spider-synth-collision.js?v=230f9505a484';
-import { writeSpiderFrame, writeSpiderFrameBody, writeSpiderBody, writeSpiderSupportBody, writeSpiderPose, writeSpiderLegOffset, createSpiderFrame, constrainSpiderBodyPose, SPIDER_JOINTS, SPIDER_MOTION_PRESETS } from './spider-synth-model.js?v=230f9505a484';
-import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=230f9505a484';
-import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootOutward, spiderFootFacesOutward, spiderFootNeutralX, spiderFootClearsBodies, spiderFeetClear } from './spider-synth-contact.js?v=230f9505a484';
+import { getSpiderSpecimen } from './spider-synth-specimens.js?v=76d726f095e2';
+import { constrainSpiderSupportBody } from './spider-synth-collision.js?v=76d726f095e2';
+import { writeSpiderFrame, writeSpiderFrameBody, writeSpiderBody, writeSpiderSupportBody, writeSpiderPose, writeSpiderLegOffset, createSpiderFrame, constrainSpiderBodyPose, SPIDER_JOINTS, SPIDER_MOTION_PRESETS } from './spider-synth-model.js?v=76d726f095e2';
+import { projectSpiderWebInto, spiderWebHeight, spiderWebGeometryKey } from './spider-synth-web.js?v=76d726f095e2';
+import { createSpiderFootClearance, writeSpiderFootClearance, writeSpiderFootOutward, spiderFootFacesOutward, spiderFootNeutralX, spiderFootClearsBodies, spiderFeetClear } from './spider-synth-contact.js?v=76d726f095e2';
 
 const TAU = Math.PI * 2;
 const WAVE_ORDER = Object.freeze([0, 4, 1, 5, 2, 6, 3, 7]);
@@ -508,7 +508,7 @@ export class SpiderSynthWorld {
     this._setRate(t, this._travelWanted(t) ? this._tempo / 60 : 0); this.state.version += 1; return this;
   }
 
-  _acceptWeb(web, time) {
+  setWeb(web, time = this.clock) {
     if (this.web === web) return;
     const key = webKey(web); if (key !== this.webKey) {
       this._bodyCacheStamp++;
@@ -567,7 +567,7 @@ export class SpiderSynthWorld {
   sample(clock, motion, web, frame, pose, midiOffsets, options = {}) {
     const time = clockOf(clock); const motionTime = clockOf(options.motionTime === undefined ? time : options.motionTime); const playing = options.playing === undefined ? this.settings.playing : options.playing === true;
     if (playing !== this.settings.playing) this.update({ playing }, time);
-    this._acceptWeb(web, time);
+    this.setWeb(web, time);
     const specimen = getSpiderSpecimen(motion.specimen);
     const specimenChanged = specimen !== this.specimen;
     if (specimenChanged) {
