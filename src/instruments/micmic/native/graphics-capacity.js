@@ -17,16 +17,20 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
   const setupTarget = Math.max(.1, nonnegative(setupBudgetMs) || 8);
   const growthDelay = Math.max(frameTarget, nonnegative(growthDelayMs) || 750);
   let previousTime = null, healthySince = null, healthySamples = 0, averagePressure = null;
-  let lastPressure = 0, changes = 0, lastChange = 'initial', lateFrames = 0;
+  let lastPressure = 0, lastWorkMs = 0, changes = 0, lastChange = 'initial', lateFrames = 0;
   let pendingLimit = null, cadenceTrial = null, cadenceSuppression = null, sceneRevision;
   let lateMinimum = Infinity, witness = null, rootWitness = null;
+  let workTrial = null, workFloor = 0, workWitness = null;
   const resetGrowth = () => { healthySince = null; healthySamples = 0; };
   const resetLate = () => { lateFrames = 0; lateMinimum = Infinity; };
-  const resetCadence = () => { resetLate(); cadenceTrial = cadenceSuppression = witness = rootWitness = null; pendingLimit = null; };
+  const resetCadence = () => {
+    resetLate(); cadenceTrial = cadenceSuppression = witness = rootWitness = null; pendingLimit = null;
+    workTrial = workWitness = null; workFloor = 0;
+  };
   // Callback delays include the compositor, other tabs and audio scheduling.
   // A smaller tree is a trial, not proof that its nodes caused that delay.
   const observation = () => ({ since: null, last: null, samples: 0, maximum: 0,
-    sum: 0, workSum: 0, workMinimum: Infinity, ratioMinimum: Infinity });
+    sum: 0, workSum: 0, workMinimum: Infinity, workMaximum: 0, ratioMinimum: Infinity });
   function observeWindow(window, now, ratio, work, expected) {
     if (window.last !== null && (now <= window.last || now - window.last > Math.max(250, expected * 4))) {
       Object.assign(window, observation());
@@ -34,6 +38,7 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
     window.since ??= now; window.last = now; window.samples++;
     window.maximum = Math.max(window.maximum, ratio); window.sum += ratio;
     window.workSum += work; window.workMinimum = Math.min(window.workMinimum, work);
+    window.workMaximum = Math.max(window.workMaximum, work);
     window.ratioMinimum = Math.min(window.ratioMinimum, ratio);
     return window.samples >= 6 && now - window.since >= 100;
   }
@@ -63,7 +68,9 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       const measured = Number.isFinite(workMs) || Number.isFinite(setupMs)
         || (continuous && Number.isFinite(frameIntervalMs) && frameIntervalMs > 0);
       if (!measured) { resetGrowth(); return false; }
-      const workPressure = nonnegative(workMs) / workTarget;
+      const work = nonnegative(workMs);
+      if (Number.isFinite(workMs)) lastWorkMs = work;
+      let workPressure = Math.max(0, work - workFloor) / workTarget;
       const setupPressure = nonnegative(setupMs) / setupTarget;
       const cpuMultiplier = audioLoad >= .85 || peakLoad >= .95 ? 2
         : audioLoad >= .65 || peakLoad >= .85 ? 1.3 : 1;
@@ -77,6 +84,35 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       else resetLate();
       const awaitingMembership = pendingLimit !== null && drawn > pendingLimit;
       if (!awaitingMembership) pendingLimit = null;
+      let restored = false;
+      if (rendered && !awaitingMembership && workTrial) {
+        if (observeWindow(workTrial.window, now, interval, work, expected)) {
+          const { window, before, beforeLimit, beforeInterval } = workTrial;
+          if (window.workMaximum > before * .9) {
+            // A sustained cost that did not improve with fewer drawn branches
+            // is an irreducible frame floor. Leave a quarter work budget as a
+            // margin; total cost still determines the app's FPS/DPR backoff.
+            workFloor = Math.max(workFloor, window.workMinimum - workTarget * .25);
+            if (beforeInterval > 1.2 && window.maximum > beforeInterval * .9) {
+              cadenceSuppression = { work: window.workSum / window.samples, ratio: window.sum / window.samples };
+            }
+            if ((before - workFloor) / workTarget * cpuMultiplier <= .65) {
+              // Restore the retained budget even for a small current preset;
+              // selection remains bounded by its available prepared nodes.
+              const next = beforeLimit;
+              if (next > limit) { limit = next; changes++; lastChange = 'restore'; restored = true; }
+            }
+          }
+          workTrial = workWitness = null; resetGrowth(); resetLate();
+        }
+      } else if (rendered && workFloor > 0 && work < workFloor) {
+        workWitness ??= observation();
+        if (observeWindow(workWitness, now, interval, work, expected)) {
+          // A cheaper rendering mode invalidates the old floor. Re-measure
+          // node-dependent work instead of masking it with stale overhead.
+          workFloor = 0; workWitness = null;
+        }
+      } else workWitness = null;
       if (rendered && !awaitingMembership && cadenceTrial) {
         if (observeWindow(cadenceTrial.window, now, interval, nonnegative(workMs), expected)) {
           const window = cadenceTrial.window;
@@ -99,13 +135,13 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
           witness = null;
         }
       } else if (rendered && !awaitingMembership && !cadenceTrial && !cadenceSuppression
-        && !reducible && limit === 1 && availableNodes > 1 && Number.isFinite(workMs)
-        && workPressure * cpuMultiplier <= .65) {
+        && !reducible && availableNodes > 1 && Number.isFinite(workMs)) {
         // A transient startup/work spike can reach the root without opening a
         // cadence trial. Its sustained cheap, irreducible work proves that
         // further callback delay cannot be resolved by cutting cached branches.
         rootWitness ??= observation();
         if (observeWindow(rootWitness, now, interval, nonnegative(workMs), expected)) {
+          workFloor = Math.max(workFloor, rootWitness.workMinimum - workTarget * .25);
           cadenceSuppression = { work: rootWitness.workSum / rootWitness.samples,
             ratio: rootWitness.sum / rootWitness.samples };
           rootWitness = null; resetLate();
@@ -114,7 +150,8 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       // Detect asynchronous GPU pressure, then verify that fewer drawn nodes
       // actually improve it before cutting again. Own work/setup overloads
       // remain actionable immediately, including during that verification.
-      const cadencePressure = !cadenceTrial && !cadenceSuppression && lateFrames >= 3 ? interval : 0;
+      workPressure = Math.max(0, work - workFloor) / workTarget;
+      const cadencePressure = !workTrial && !cadenceTrial && !cadenceSuppression && lateFrames >= 3 ? interval : 0;
       // Under audio pressure reduce costly drawing first. Cheap frames must
       // not repeatedly halve the tree merely because audio uses its budget.
       const pressure = Math.max(workPressure * cpuMultiplier, setupPressure, cadencePressure);
@@ -124,12 +161,15 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
         resetGrowth();
         // Several frames can finish before an async membership update commits.
         // Do not apply the old frame's cost repeatedly to a not-yet-drawn limit.
-        if (awaitingMembership || !reducible) return false;
+        if (awaitingMembership || !reducible || (workTrial && setupPressure <= 1.2)) return restored;
         // One slow setup or deadline warning reduces actual topology work on
         // the next frame. Cheap frames then recover through the growth path.
         const measuredCount = Math.min(limit, positiveCount(drawnNodes, limit));
         const next = Math.max(1, Math.floor(measuredCount * clamp(.85 / pressure, .2, .8)));
         if (next === limit) return false;
+        if (workPressure * cpuMultiplier > 1.2 && setupPressure <= 1.2) {
+          workTrial = { before: work, beforeLimit: limit, beforeInterval: interval, window: observation() };
+        } else workTrial = null;
         if (cadencePressure > 1.2 && workPressure * cpuMultiplier <= 1.2 && setupPressure <= 1.2) {
           cadenceTrial = { before: lateMinimum, window: observation() };
         } else { cadenceTrial = cadenceSuppression = witness = null; }
@@ -137,19 +177,20 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
         limit = next; changes++; lastChange = 'shrink'; return true;
       }
       const saturated = drawnNodes >= limit * .8 && availableNodes > limit;
-      const headroom = !awaitingMembership && !cadenceTrial
+      const headroom = !awaitingMembership && !cadenceTrial && !workTrial
         && pressure <= .65 && averagePressure <= .75 && (interval <= 1.15 || cadenceSuppression);
-      if (!saturated || !headroom) { resetGrowth(); return false; }
+      if (!saturated || !headroom) { resetGrowth(); return restored; }
       healthySince ??= now; healthySamples++;
-      if (healthySamples < 12 || now - healthySince < growthDelay) return false;
+      if (healthySamples < 12 || now - healthySince < growthDelay) return restored;
       const next = Math.min(availableNodes, Math.max(limit + 1, Math.ceil(limit * 1.15)));
       resetGrowth();
-      if (next === limit) return false;
+      if (next === limit) return restored;
       limit = next; changes++; lastChange = 'grow'; return true;
     },
     diagnostics() { return { limit, availableNodes, pressure: lastPressure,
       averagePressure: averagePressure ?? 0, healthySamples, changes, lastChange,
-      pendingLimit, cadenceTrial: Boolean(cadenceTrial), cadenceSuppressed: Boolean(cadenceSuppression) }; },
+      pendingLimit, cadenceTrial: Boolean(cadenceTrial), cadenceSuppressed: Boolean(cadenceSuppression),
+      workTrial: Boolean(workTrial), workFloor, workMs: lastWorkMs }; },
   };
 }
 
