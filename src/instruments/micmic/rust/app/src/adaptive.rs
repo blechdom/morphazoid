@@ -64,6 +64,15 @@ impl Adaptive {
         self.restored_trial = false;
         self.stable_frames = 0;
     }
+    /// A separate cold DSP benchmark can prove more work than the first scene
+    /// contains. Retain that proof while clamping current admission to demand.
+    pub fn seed_measured_capacity(&mut self, limit: usize) {
+        if limit == 0 {
+            return;
+        }
+        self.start_at_measured_limit(limit);
+        self.measured_limit = limit;
+    }
     pub fn set_demand(&mut self, demand: usize) {
         let previous_demand = self.demand;
         self.demand = demand.min(self.maximum);
@@ -254,6 +263,20 @@ impl Adaptive {
 #[cfg(test)]
 mod tests {
     use super::*;
+    #[test]
+    fn cold_capacity_proof_survives_a_small_pool_and_revalidates_larger_demand() {
+        let mut controller = Adaptive::new(48000, 14);
+        controller.set_demand(14);
+        controller.seed_measured_capacity(1024);
+        assert_eq!(controller.limit(), 14);
+        assert_eq!(controller.measured_limit(), 1024);
+        controller.set_capacity(2048);
+        controller.set_demand(1500);
+        assert_eq!(controller.limit(), 1024);
+        controller.observe(2. * 128. / 48000., 128, false);
+        assert!(controller.limit() < 1024);
+        assert_eq!(controller.measured_limit(), controller.limit());
+    }
     fn observe_load(controller: &mut Adaptive, load: f64, blocks: usize) {
         for _ in 0..blocks {
             controller.observe(load * 128. / 48_000., 128, false);

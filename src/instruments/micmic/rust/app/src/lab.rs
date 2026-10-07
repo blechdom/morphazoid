@@ -152,12 +152,27 @@ pub(super) fn bounded_layout(
             let requested = sequence_counts(&lab.kind, lab.iterations)
                 .0
                 .saturating_sub(1);
-            let nodes = if requested <= voice_budget as u64 {
-                sequence(parameters, lab)?
+            let mut effective = lab.clone();
+            if lab.kind != "context" && requested > voice_budget as u64 {
+                effective.iterations = 1;
+                while effective.iterations < lab.iterations
+                    && sequence_counts(&lab.kind, effective.iterations)
+                        .0
+                        .saturating_sub(1)
+                        <= voice_budget as u64
+                {
+                    effective.iterations += 1;
+                }
+            }
+            let effective_demand = sequence_counts(&lab.kind, effective.iterations)
+                .0
+                .saturating_sub(1);
+            let nodes = if effective_demand <= voice_budget as u64 {
+                sequence(parameters, &effective)?
             } else {
-                bounded_sequence(parameters, lab, voice_budget)?
+                bounded_sequence(parameters, &effective, voice_budget)?
             };
-            Ok((nodes, requested, lab.clone()))
+            Ok((nodes, requested, effective))
         }
         "penrose" | "sphinx" => {
             let requested = tiling_edge_count(&lab.kind, lab.iterations);
@@ -556,7 +571,7 @@ fn bounded_sequence(
     lab: &LabParameters,
     voice_budget: usize,
 ) -> Result<Vec<LayoutNode>, String> {
-    let (length, second_count) = sequence_counts(&lab.kind, lab.iterations);
+    let length = sequence_counts(&lab.kind, lab.iterations).0;
     let lengths = fibonacci_lengths(lab.iterations);
     let symbol = |index| sequence_symbol(&lab.kind, lab.iterations, index, &lengths);
     let is_second = |c| c == b'1' || c == b'B';
@@ -573,13 +588,10 @@ fn bounded_sequence(
             1.
         }) * (1. + neighbours * lab.context_strength * 0.5)
     };
-    let total = if lab.kind == "context" {
-        // Context words are intrinsically just 2*n+3 symbols, including their
-        // boundaries, so exact normalization needs at most 51 scalar samples.
-        (0..length as usize).map(weight).sum::<f64>()
-    } else {
-        (length - second_count) as f64 + second_count as f64 * lab.symbol_ratio
-    };
+    // Admission chose at most the next derivation (under twice the budget),
+    // while context words contain at most 51 symbols. Summing in the original
+    // order preserves floating-point generation boundaries without word storage.
+    let total = (0..length as usize).map(weight).sum::<f64>();
     let count = voice_budget.saturating_add(1).min(length as usize);
     crate::resources::check_voices(count)?;
     let mut nodes = crate::resources::reserve(count)?;
@@ -1138,7 +1150,7 @@ mod tests {
         assert!(broad.iter().all(|n| n.generation <= 4));
     }
     #[test]
-    fn bounded_sequences_preserve_full_word_geometry_and_timing_normalization() {
+    fn bounded_sequences_preserve_effective_word_geometry_and_timing_normalization() {
         let p = Parameters {
             mutation: 0.6,
             asymmetry: -0.4,
@@ -1156,8 +1168,12 @@ mod tests {
             let (prepared, requested, effective) = bounded_layout(&p, &lab, 12).unwrap();
             assert_eq!(prepared.len(), 13);
             assert_eq!(requested, original.len().saturating_sub(1) as u64);
-            assert_eq!(effective, lab);
-            for (a, b) in prepared.iter().zip(&original) {
+            assert!(effective.iterations <= lab.iterations);
+            if kind == "context" {
+                assert_eq!(effective, lab);
+            }
+            let prepared_word = sequence(&p, &effective).unwrap();
+            for (a, b) in prepared.iter().zip(&prepared_word) {
                 assert_eq!(a.id, b.id);
                 assert_eq!(a.parent, b.parent);
                 assert_eq!(a.rule, b.rule);
@@ -1167,6 +1183,29 @@ mod tests {
                 assert_eq!(a.module_pitch, b.module_pitch);
                 assert!((a.time_scale - b.time_scale).abs() < 1e-12, "{kind}");
             }
+        }
+    }
+    #[test]
+    fn deep_sequences_fill_capacity_without_collapsing_the_available_delay_path() {
+        for kind in ["thue-morse", "fibonacci"] {
+            let lab = LabParameters {
+                kind: kind.into(),
+                iterations: 24,
+                ..LabParameters::default()
+            };
+            let (prepared, requested, effective) =
+                bounded_layout(&Parameters::default(), &lab, 1024).unwrap();
+            assert_eq!(prepared.len(), 1025);
+            assert!(requested > 1024);
+            assert!(effective.iterations < lab.iterations);
+            assert!(
+                prepared
+                    .iter()
+                    .skip(1)
+                    .map(|node| node.time_scale)
+                    .sum::<f64>()
+                    > 0.1
+            );
         }
     }
     #[test]

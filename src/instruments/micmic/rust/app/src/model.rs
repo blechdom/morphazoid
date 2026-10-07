@@ -219,6 +219,10 @@ fn binary_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
         .and_then(|n| n.checked_sub(2))
         .ok_or("Tree size exceeds addressable storage")?;
     crate::resources::check_voices(count)?;
+    binary_layout_count(parameters, count)
+}
+
+fn binary_layout_count(parameters: &Parameters, count: usize) -> Result<Vec<LayoutNode>, String> {
     let mut layout = crate::resources::reserve(count + 1)?;
     layout.push(LayoutNode {
         id: "trunk".into(),
@@ -660,6 +664,331 @@ fn acoustic_path_time(progress: f64, count: u8, ratio: f64) -> f64 {
     time
 }
 
+#[derive(Clone, Copy)]
+struct RewriteSummary {
+    paints: u64,
+    distance: f64,
+    maximum: f64,
+    scale: f64,
+}
+
+/// Summarize balanced productions without constructing their rewritten words.
+/// Branch pushes restore distance/path; their furthest excursion is retained.
+fn rewrite_summary(
+    word: &[u8],
+    depth: u8,
+    grammar: &Grammar,
+    taper: f64,
+    cache: &mut std::collections::BTreeMap<(u8, u8), RewriteSummary>,
+) -> RewriteSummary {
+    let mut result = RewriteSummary {
+        paints: 0,
+        distance: 0.,
+        maximum: 0.,
+        scale: 1.,
+    };
+    let mut stack = Vec::new();
+    for &symbol in word {
+        if symbol == b'[' {
+            stack.push((result.distance, result.scale));
+            continue;
+        }
+        if symbol == b']' {
+            if let Some((distance, scale)) = stack.pop() {
+                result.distance = distance;
+                result.scale = scale;
+            }
+            continue;
+        }
+        let summary = if let Some(&summary) = cache.get(&(symbol, depth)) {
+            summary
+        } else {
+            let summary = if let Some((_, replacement)) = grammar
+                .rules
+                .iter()
+                .find(|(key, _)| *key == symbol)
+                .filter(|_| depth > 0)
+            {
+                rewrite_summary(replacement.as_bytes(), depth - 1, grammar, taper, cache)
+            } else {
+                let paint = grammar.draw.contains(&symbol) || symbol == b'B';
+                let moves = paint || grammar.pen_up.contains(&symbol);
+                RewriteSummary {
+                    paints: u64::from(paint),
+                    distance: f64::from(moves),
+                    maximum: f64::from(moves),
+                    scale: if symbol == b'>' {
+                        taper
+                    } else if symbol == b'<' {
+                        1. / taper
+                    } else {
+                        1.
+                    },
+                }
+            };
+            cache.insert((symbol, depth), summary);
+            summary
+        };
+        result.paints = result.paints.saturating_add(summary.paints);
+        result.maximum = result
+            .maximum
+            .max(result.distance + result.scale * summary.maximum);
+        result.distance += result.scale * summary.distance;
+        result.scale *= summary.scale;
+    }
+    result
+}
+
+fn stochastic_choice(parameters: &Parameters, lineage: &str) -> usize {
+    let unit = hash_unit(&format!("grammar:{}:{lineage}", parameters.grammar_seed));
+    if unit < parameters.branch_probability {
+        0
+    } else if unit < parameters.branch_probability + (1. - parameters.branch_probability) / 2. {
+        1
+    } else {
+        2
+    }
+}
+
+fn classic_demand(parameters: &Parameters) -> (u64, bool) {
+    let grammar = grammar(&parameters.l_system_type);
+    let iterations = ((f64::from(grammar.iterations) * f64::from(parameters.generations) / 13.)
+        .round() as u8)
+        .max(1);
+    if parameters.l_system_type == "stochastic" {
+        let degree = if parameters.branch_probability == 0. {
+            3_u64
+        } else {
+            5_u64
+        };
+        let count = degree.checked_pow(u32::from(iterations));
+        return (
+            count.unwrap_or(u64::MAX).saturating_sub(1),
+            count.is_some()
+                && (parameters.branch_probability == 0. || parameters.branch_probability == 1.),
+        );
+    }
+    let summary = rewrite_summary(
+        grammar.axiom.as_bytes(),
+        iterations,
+        &grammar,
+        visual_ratio(parameters.time_ratio).max(0.05),
+        &mut Default::default(),
+    );
+    (summary.paints.saturating_sub(1), summary.paints != u64::MAX)
+}
+
+/// Prepare at most the next derivation beyond the largest complete derivation
+/// the device can fit. Its connected prefix fills remaining capacity without
+/// normalizing a tiny early twig against an astronomically deep requested tree.
+fn bounded_classic_layout(
+    parameters: &Parameters,
+    budget: usize,
+) -> Result<(Vec<LayoutNode>, u64, bool, u8), String> {
+    let (requested, exact) = classic_demand(parameters);
+    let mut effective = parameters.clone();
+    if parameters.l_system_type == "stochastic" && !exact {
+        let fitted = stochastic_generation_limit(parameters, budget.saturating_add(1));
+        effective.generations = parameters.generations.min(fitted.saturating_add(1));
+    } else if requested > budget as u64 {
+        for generations in 1..=parameters.generations {
+            effective.generations = generations;
+            if classic_demand(&effective).0 > budget as u64 {
+                break;
+            }
+        }
+    }
+    let (layout, prepared_demand, prepared_exact) = classic_prefix_layout(&effective, budget)?;
+    let full_requested = effective.generations == parameters.generations;
+    Ok((
+        layout,
+        if full_requested && prepared_exact {
+            prepared_demand
+        } else {
+            requested
+        },
+        exact || (full_requested && prepared_exact),
+        effective.generations,
+    ))
+}
+
+/// A bounded depth-first rewrite cursor retains the exact classic prefix.
+/// Cantor's invisible f->fff subtrees are moved over in constant time.
+fn classic_prefix_layout(
+    parameters: &Parameters,
+    budget: usize,
+) -> Result<(Vec<LayoutNode>, u64, bool), String> {
+    let grammar = grammar(&parameters.l_system_type);
+    let iterations = ((f64::from(grammar.iterations) * f64::from(parameters.generations) / 13.)
+        .round() as u8)
+        .max(1);
+    let stochastic = parameters.l_system_type == "stochastic";
+    let taper = visual_ratio(parameters.time_ratio).max(0.05);
+    let summary = rewrite_summary(
+        grammar.axiom.as_bytes(),
+        iterations,
+        &grammar,
+        taper,
+        &mut Default::default(),
+    );
+    let mut requested = summary.paints.saturating_sub(1);
+    let mut exact = summary.paints != u64::MAX
+        && (!stochastic
+            || parameters.branch_probability == 0.
+            || parameters.branch_probability == 1.);
+    let duration = if stochastic {
+        let degree = if parameters.branch_probability == 0. {
+            3_u64
+        } else {
+            5_u64
+        };
+        requested = degree
+            .saturating_pow(u32::from(iterations))
+            .saturating_sub(1);
+        let stem: f64 = if parameters.branch_probability == 0. {
+            2.
+        } else {
+            3.
+        };
+        stem.powi(i32::from(iterations))
+    } else {
+        summary.maximum
+    };
+    if exact && requested <= budget as u64 {
+        return Ok((classic_layout(parameters)?, requested, true));
+    }
+    let count = budget.saturating_add(1);
+    let mut pending: Vec<(u8, u8, String)> = grammar
+        .axiom
+        .bytes()
+        .rev()
+        .map(|symbol| {
+            (
+                symbol,
+                iterations,
+                if stochastic {
+                    "0".into()
+                } else {
+                    String::new()
+                },
+            )
+        })
+        .collect();
+    let mut state = Turtle::default();
+    let mut stack = Vec::new();
+    let mut segments: Vec<Segment> = crate::resources::reserve(count)?;
+    let mut distance = 1.;
+    let mut complete = true;
+    while let Some((command, depth, lineage)) = pending.pop() {
+        if depth > 0 && command == b'f' && parameters.l_system_type == "cantor" {
+            let step = distance * 3_f64.powi(i32::from(depth));
+            state.x += state.heading.cos() * step;
+            state.y += state.heading.sin() * step;
+            state.path_distance += step.abs();
+            continue;
+        }
+        let replacement = if depth == 0 {
+            None
+        } else if stochastic && command == b'F' {
+            Some(STOCHASTIC_PRODUCTIONS[stochastic_choice(parameters, &lineage)])
+        } else {
+            grammar
+                .rules
+                .iter()
+                .find(|(key, _)| *key == command)
+                .map(|(_, rule)| *rule)
+        };
+        if let Some(replacement) = replacement {
+            let choice = if stochastic {
+                stochastic_choice(parameters, &lineage)
+            } else {
+                0
+            };
+            for (index, symbol) in replacement.bytes().enumerate().rev() {
+                pending.push((
+                    symbol,
+                    depth - 1,
+                    if stochastic {
+                        format!("{lineage}/{choice}.{index}")
+                    } else {
+                        String::new()
+                    },
+                ));
+            }
+            continue;
+        }
+        let paintable = grammar.draw.contains(&command) || command == b'B';
+        if paintable && segments.len() == count {
+            complete = false;
+            break;
+        }
+        if paintable || grammar.pen_up.contains(&command) {
+            let signed_distance = if command == b'B' { -distance } else { distance };
+            let start_x = state.x;
+            let start_y = state.y;
+            let start_distance = state.path_distance;
+            state.x += state.heading.cos() * signed_distance;
+            state.y += state.heading.sin() * signed_distance;
+            state.path_distance += signed_distance.abs();
+            if !paintable {
+                continue;
+            }
+            let local_turn = state
+                .parent
+                .map_or(0., |index| state.turn_total - segments[index].turn_total);
+            let index = segments.len();
+            segments.push(Segment {
+                lineage: stochastic.then_some(lineage),
+                start_x,
+                start_y,
+                x: state.x,
+                y: state.y,
+                heading: state.heading,
+                turn_total: state.turn_total,
+                turn: local_turn,
+                start_distance,
+                end_distance: state.path_distance,
+                parent: state.parent.unwrap_or(0),
+                rule: char::from(command),
+            });
+            state.parent = Some(index);
+        } else {
+            match command {
+                b'+' => {
+                    let amount = parameters.angle.to_radians() * (1. + parameters.asymmetry);
+                    state.heading += amount;
+                    state.turn_total += amount;
+                }
+                b'-' => {
+                    let amount = parameters.angle.to_radians() * (1. - parameters.asymmetry);
+                    state.heading -= amount;
+                    state.turn_total -= amount;
+                }
+                b'[' => stack.push((state, distance)),
+                b']' => {
+                    if let Some((prior, step)) = stack.pop() {
+                        state = prior;
+                        distance = step;
+                    }
+                }
+                b'>' => distance *= taper,
+                b'<' => distance /= taper,
+                _ => (),
+            }
+        }
+    }
+    if complete {
+        requested = segments.len().saturating_sub(1) as u64;
+        exact = true;
+        return Ok((classic_layout(parameters)?, requested, exact));
+    }
+    Ok((
+        segments_layout(parameters, segments, duration)?,
+        requested,
+        exact,
+    ))
+}
+
 fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
     let grammar = grammar(&parameters.l_system_type);
     // The original's requested 1..13 acoustic generations rescale the preset's
@@ -774,6 +1103,14 @@ fn classic_layout(parameters: &Parameters) -> Result<Vec<LayoutNode>, String> {
             }
         }
     }
+    segments_layout(parameters, segments, duration)
+}
+
+fn segments_layout(
+    parameters: &Parameters,
+    segments: Vec<Segment>,
+    duration: f64,
+) -> Result<Vec<LayoutNode>, String> {
     let duration = duration.max(1e-9);
     let mut layout = crate::resources::reserve(segments.len())?;
     layout.extend(segments.into_iter().enumerate().map(|(index, segment)| {
@@ -1008,13 +1345,138 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
         (8_000..=192_000).contains(&sample_rate),
         "unsupported sample rate"
     );
-    let mut layout = if let Some(lab) = &parameters.lab {
+    let layout = if let Some(lab) = &parameters.lab {
         lab::layout(parameters, lab)?
     } else if parameters.l_system_type == "pythagorean" {
         binary_layout(parameters)?
     } else {
         classic_layout(parameters)?
     };
+    compile_layout(parameters, layout, None)
+}
+
+pub struct BoundedTopology {
+    pub topology: Topology,
+    pub effective_parameters: Parameters,
+    pub requested_voices: u64,
+    pub requested_voices_exact: bool,
+}
+
+fn bounded_binary_layout(
+    parameters: &Parameters,
+    budget: usize,
+) -> Result<Vec<LayoutNode>, String> {
+    if parameters.pruning_bias < 0.5 {
+        return binary_layout_count(parameters, budget);
+    }
+    let mut nodes = binary_layout_count(parameters, 0)?;
+    nodes.try_reserve(budget).map_err(|e| e.to_string())?;
+    let mut frontier = vec![0usize];
+    while let Some(parent) = frontier.pop() {
+        let generation = nodes[parent].generation + 1;
+        if generation > parameters.generations {
+            continue;
+        }
+        let mut children = Vec::new();
+        for rule in ['A', 'B'] {
+            if nodes.len() > budget {
+                break;
+            }
+            let prior = &nodes[parent];
+            let path = format!("{}/{rule}", prior.id);
+            let initial_turn = if rule == 'A' {
+                -parameters.angle * (1. - parameters.asymmetry)
+            } else {
+                parameters.angle * (1. + parameters.asymmetry)
+            };
+            let turn = initial_turn
+                + (hash_unit(&format!("{path}:turn")) * 2. - 1.)
+                    * parameters.angle
+                    * parameters.mutation
+                    * 0.5;
+            let variation = hash_unit(&format!("{path}:length")) * parameters.mutation * 0.3;
+            let heading = prior.heading + turn;
+            let length = (visual_ratio(parameters.time_ratio).powf(f64::from(generation))
+                * (1. - variation))
+                .max(0.02);
+            let node = LayoutNode {
+                id: path,
+                parent,
+                generation,
+                rule,
+                start_x: prior.x,
+                start_y: prior.y,
+                x: prior.x + heading.to_radians().cos() * length,
+                y: prior.y + heading.to_radians().sin() * length,
+                heading,
+                turn,
+                length,
+                time_scale: parameters.time_ratio.powf(f64::from(generation)) * (1. - variation),
+                module_pitch: None,
+            };
+            children.push(nodes.len());
+            nodes.push(node);
+        }
+        frontier.extend(children.into_iter().rev());
+        if nodes.len() > budget {
+            break;
+        }
+    }
+    Ok(nodes)
+}
+
+/// Runtime admission precedes expansion and never becomes a stored scene field.
+/// Only the prepared connected graph is allocated. A larger measured budget may
+/// always request more, up to the same memory checks as the unlimited compiler.
+pub fn try_compile_bounded(
+    parameters: &Parameters,
+    sample_rate: u32,
+    budget: usize,
+) -> Result<BoundedTopology, String> {
+    parameters.validate()?;
+    if !(8_000..=192_000).contains(&sample_rate) {
+        return Err("Unsupported audio sample rate".into());
+    }
+    crate::resources::check_voices(budget)?;
+    let mut effective = parameters.clone();
+    let (layout, requested, exact) = if let Some(lab) = &parameters.lab {
+        let (layout, requested, prepared_lab) = lab::bounded_layout(parameters, lab, budget)?;
+        effective.generations = prepared_lab.iterations;
+        effective.lab = Some(prepared_lab);
+        // Mutated length conditions depend on each requested branch; bounded
+        // traversal reports their arithmetic upper demand without expanding it.
+        let exact = lab.kind != "parametric"
+            || parameters.mutation == 0.
+            || layout.len().saturating_sub(1) < budget;
+        (layout, requested, exact)
+    } else if parameters.l_system_type == "pythagorean" {
+        let requested = (1_u64 << (u32::from(parameters.generations) + 1)) - 2;
+        let count = (budget as u64).min(requested) as usize;
+        let layout = if requested <= budget as u64 {
+            binary_layout(parameters)?
+        } else {
+            bounded_binary_layout(parameters, count)?
+        };
+        (layout, requested, true)
+    } else {
+        let (layout, requested, exact, generations) = bounded_classic_layout(parameters, budget)?;
+        effective.generations = generations;
+        (layout, requested, exact)
+    };
+    let topology = compile_layout(&effective, layout, Some(budget))?;
+    Ok(BoundedTopology {
+        topology,
+        effective_parameters: effective,
+        requested_voices: requested,
+        requested_voices_exact: exact,
+    })
+}
+
+fn compile_layout(
+    parameters: &Parameters,
+    mut layout: Vec<LayoutNode>,
+    complete_preview: Option<usize>,
+) -> Result<Topology, String> {
     apply_curls(&mut layout, parameters.curls)?;
     let requested_voices = layout.len().saturating_sub(1);
     let mut nodes: Vec<Node> = crate::resources::reserve(requested_voices)?;
@@ -1089,7 +1551,9 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
     assert_eq!(order.len(), eligible_voices, "connected audible priority");
     let mut ranks = crate::resources::filled(nodes.len(), usize::MAX)?;
     let trunk = &layout[0];
-    let preview_limit = if parameters.lab.is_some() {
+    let preview_limit = if let Some(limit) = complete_preview {
+        limit.min(requested_voices)
+    } else if parameters.lab.is_some() {
         requested_voices
     } else {
         2048
@@ -1124,6 +1588,13 @@ pub fn try_compile(parameters: &Parameters, sample_rate: u32) -> Result<Topology
             preview.push(nodes[index].clone());
         }
     }
+    if complete_preview.is_some() {
+        // Bounded browser preparation already limits storage. Keep every
+        // prepared slot, including beyond-history/zero-gain descendants.
+        for node in nodes.iter().filter(|node| node.priority.is_none()) {
+            preview.push(node.clone());
+        }
+    }
     for node in &mut nodes {
         node.gain /= (counts[usize::from(node.generation)].max(1) as f64).sqrt();
     }
@@ -1149,6 +1620,182 @@ fn compile(parameters: &Parameters, sample_rate: u32) -> Topology {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_compilation_precedes_every_classic_exponential_expansion() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                generations: 52,
+                interval_ms: 2.,
+                mutation: 0.2,
+                ..Parameters::default()
+            };
+            let result = try_compile_bounded(&parameters, 8000, 37).unwrap();
+            assert_eq!(result.effective_parameters.l_system_type, id);
+            if id != "pythagorean" {
+                assert!(result.effective_parameters.generations < parameters.generations);
+            }
+            let topology = result.topology;
+            assert!(topology.targets.len() <= 37, "{id}");
+            assert_eq!(
+                topology.preview.len(),
+                topology.targets.len() + 1,
+                "{id}: every prepared slot is visible"
+            );
+            assert!(result.requested_voices >= topology.targets.len() as u64);
+            for node in &topology.nodes {
+                assert!(node.parent < node.id, "{id}: connected parent");
+                assert!(node.delay.is_finite() && node.rate.is_finite() && node.pan.is_finite());
+            }
+        }
+        let result = try_compile_bounded(
+            &Parameters {
+                generations: 52,
+                ..Parameters::default()
+            },
+            8000,
+            71,
+        )
+        .unwrap();
+        assert_eq!(result.requested_voices, (1_u64 << 53) - 2);
+        assert!(result.requested_voices_exact);
+        assert_eq!(result.topology.targets.len(), 71);
+    }
+
+    #[test]
+    fn bounded_classic_prefix_retains_effective_derivation_acoustic_times_and_pitch() {
+        for id in L_SYSTEM_TYPES
+            .into_iter()
+            .filter(|id| *id != "pythagorean" && *id != "stochastic")
+        {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                generations: 8,
+                interval_ms: 7.,
+                mutation: 0.27,
+                ..Parameters::default()
+            };
+            let bounded = try_compile_bounded(&parameters, 8000, 19).unwrap();
+            let requested = try_compile(&parameters, 8000).unwrap();
+            let full = try_compile(&bounded.effective_parameters, 8000).unwrap();
+            assert_eq!(
+                bounded.requested_voices, requested.requested_voices as u64,
+                "{id}"
+            );
+            for node in &bounded.topology.nodes {
+                let expected = full.nodes.iter().find(|old| old.key == node.key).unwrap();
+                for (actual, wanted) in [
+                    (node.delay, expected.delay),
+                    (node.rate, expected.rate),
+                    (node.x, expected.x),
+                    (node.y, expected.y),
+                ] {
+                    assert!(
+                        (actual - wanted).abs() <= 1e-9 * wanted.abs().max(1.),
+                        "{id}: {actual} != {wanted}"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn dense_classic_rules_fill_the_budget_with_a_nearby_recognizable_derivation() {
+        for id in [
+            "plant",
+            "coral",
+            "bush",
+            "fan",
+            "fern",
+            "whorled",
+            "ternary",
+            "quaternary",
+            "stochastic",
+        ] {
+            for budget in [37, 1024] {
+                let parameters = Parameters {
+                    l_system_type: id.into(),
+                    generations: 52,
+                    interval_ms: 5.,
+                    ..Parameters::default()
+                };
+                let bounded = try_compile_bounded(&parameters, 8000, budget).unwrap();
+                assert_eq!(bounded.topology.targets.len(), budget, "{id}");
+                assert!(bounded.effective_parameters.generations < 52, "{id}");
+                let max_delay = bounded
+                    .topology
+                    .nodes
+                    .iter()
+                    .map(|node| node.delay)
+                    .fold(0_f64, f64::max);
+                assert!(max_delay > 0.001, "{id}: meaningful audible path timing");
+                assert!(
+                    bounded
+                        .topology
+                        .nodes
+                        .iter()
+                        .any(|node| node.y.abs() > 0.01),
+                    "{id}: the prepared graph contains visible branches"
+                );
+            }
+        }
+    }
+
+    #[test]
+    fn full_budget_matches_original_targets_and_binary_growth_keeps_identity() {
+        for id in L_SYSTEM_TYPES {
+            let parameters = Parameters {
+                l_system_type: id.into(),
+                generations: 5,
+                pruning_bias: 0.72,
+                curls: -0.3,
+                ..Parameters::default()
+            };
+            let full = try_compile(&parameters, 8000).unwrap();
+            let bounded = try_compile_bounded(&parameters, 8000, full.requested_voices)
+                .unwrap()
+                .topology;
+            let values = |targets: &[PoolTarget]| {
+                targets
+                    .iter()
+                    .map(|target| [target.delay, target.rate, target.gain, target.pan])
+                    .collect::<Vec<_>>()
+            };
+            assert_eq!(values(&full.targets), values(&bounded.targets), "{id}");
+            assert_eq!(full.ranks, bounded.ranks, "{id}");
+            assert_eq!(full.groups, bounded.groups, "{id}");
+        }
+        let parameters = Parameters {
+            generations: 24,
+            ..Parameters::default()
+        };
+        let a = try_compile_bounded(&parameters, 8000, 37).unwrap();
+        let b = try_compile_bounded(&parameters, 8000, 73).unwrap();
+        for (old, next) in a.topology.nodes.iter().zip(&b.topology.nodes) {
+            assert_eq!(old.key, next.key);
+            assert_eq!(old.delay, next.delay);
+            assert_eq!(old.rate, next.rate);
+        }
+        let depth = try_compile_bounded(
+            &Parameters {
+                pruning_bias: 1.,
+                ..parameters
+            },
+            8000,
+            49,
+        )
+        .unwrap();
+        assert_eq!(
+            depth
+                .topology
+                .nodes
+                .iter()
+                .map(|node| node.generation)
+                .max(),
+            Some(24)
+        );
+    }
 
     const BRANCHING_TYPES: [&str; 6] = ["bush", "fan", "fern", "whorled", "ternary", "quaternary"];
 

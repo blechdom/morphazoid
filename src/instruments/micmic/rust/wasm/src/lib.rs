@@ -90,6 +90,14 @@ pub struct Compilation {
     pool: Vec<u8>,
 }
 fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
+    compile_with_budget(bytes, rate, None)
+}
+
+fn compile_with_budget(
+    bytes: &[u8],
+    rate: u32,
+    budget: Option<usize>,
+) -> Result<Compilation, String> {
     if !(8_000..=192_000).contains(&rate) {
         return Err("Unsupported audio sample rate".into());
     }
@@ -101,7 +109,22 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
     if structural_parameters.depth == 0. {
         structural_parameters.depth = 0.72;
     }
-    let mut topology = model::try_compile(&structural_parameters, rate)?;
+    let (mut topology, effective_parameters, requested_voices, requested_exact) =
+        if let Some(budget) = budget {
+            let result = model::try_compile_bounded(&structural_parameters, rate, budget)?;
+            let mut effective = result.effective_parameters;
+            effective.depth = parameters.depth;
+            (
+                result.topology,
+                effective,
+                result.requested_voices,
+                result.requested_voices_exact,
+            )
+        } else {
+            let topology = model::try_compile(&structural_parameters, rate)?;
+            let requested = topology.requested_voices as u64;
+            (topology, parameters.clone(), requested, true)
+        };
     let structural_eligible = topology.eligible_voices;
     if parameters.depth == 0. {
         topology.eligible_voices = 0;
@@ -156,7 +179,9 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
     let generation_limits: std::collections::BTreeMap<_, _> = model::L_SYSTEM_TYPES
         .iter()
         .map(|id| {
-            let limit = if *id == "stochastic" && parameters.l_system_type == "stochastic" {
+            let limit = if budget.is_some() {
+                model::MAX_REPRESENTABLE_GENERATIONS
+            } else if *id == "stochastic" && parameters.l_system_type == "stochastic" {
                 model::stochastic_generation_limit(&parameters, capacity)
             } else {
                 model::generation_limit(id, capacity)
@@ -168,11 +193,15 @@ fn compile(bytes: &[u8], rate: u32) -> Result<Compilation, String> {
     // Labs retain their complete authoritative segment graph for the renderer.
     let json = serde_json::to_vec(&serde_json::json!({
         "parameters": parameters, "nodes": topology.preview,
-        "previewSampled": parameters.lab.is_none() && topology.nodes.len() > 2048,
-        "requestedVoices": topology.requested_voices,
+        "effectiveParameters": effective_parameters,
+        "previewSampled": budget.is_none() && parameters.lab.is_none() && topology.nodes.len() > 2048,
+        "requestedVoices": requested_voices,
+        "requestedVoicesExact": requested_exact && requested_voices < (1_u64 << 53),
+        "requestedVoicesDecimal": requested_voices.to_string(),
+        "preparedVoices": count,
         "eligibleVoices": topology.eligible_voices,
         "structuralEligibleVoices": structural_eligible,
-        "counts": {"requestedVoices":topology.requested_voices,"eligibleVoices":topology.eligible_voices},
+        "counts": {"requestedVoices":requested_voices,"preparedVoices":count,"eligibleVoices":topology.eligible_voices},
         "memoryVoiceCapacity": capacity, "generationLimits": generation_limits
     })).map_err(|e| e.to_string())?;
     Ok(Compilation { json, pool })
@@ -189,6 +218,32 @@ pub unsafe extern "C" fn lsd_compile(
         return std::ptr::null_mut();
     }
     match compile(slice::from_raw_parts(pointer, bytes), rate) {
+        Ok(result) => Box::into_raw(Box::new(result)),
+        Err(error) => {
+            report(error);
+            std::ptr::null_mut()
+        }
+    }
+}
+
+/// Additive ABI-1 entry point: device admission is runtime-only and the caller
+/// owns the same compilation handle/JSON/pool lifecycle as lsd_compile.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_compile_bounded(
+    pointer: *const u8,
+    bytes: usize,
+    rate: u32,
+    voice_budget: usize,
+) -> *mut Compilation {
+    if pointer.is_null() {
+        report("Missing parameters");
+        return std::ptr::null_mut();
+    }
+    match compile_with_budget(
+        slice::from_raw_parts(pointer, bytes),
+        rate,
+        Some(voice_budget),
+    ) {
         Ok(result) => Box::into_raw(Box::new(result)),
         Err(error) => {
             report(error);
@@ -416,6 +471,14 @@ impl Renderer {
         } else {
             self.demand
         }
+    }
+
+    fn seed_capacity(&mut self, limit: usize) {
+        if limit > 0 {
+            self.adaptive.seed_measured_capacity(limit);
+            self.engine.set_pool_limit(self.current_limit());
+        }
+        self.update_metrics();
     }
 
     fn set_depth(&mut self, depth: f64) -> Result<(), String> {
@@ -982,6 +1045,14 @@ pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slot
     (*handle).collect_retired(maximum_slots)
 }
 #[no_mangle]
+pub unsafe extern "C" fn lsd_capacity_hint(handle: *mut Renderer, limit: usize) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    (*handle).seed_capacity(limit);
+    1
+}
+#[no_mangle]
 pub unsafe extern "C" fn lsd_depth(handle: *mut Renderer, depth: f64) -> u32 {
     if handle.is_null() {
         return 0;
@@ -1210,6 +1281,90 @@ mod browser_tests {
             ..model::Parameters::default()
         };
         compile(&serde_json::to_vec(&params).unwrap(), 8000).unwrap()
+    }
+
+    #[test]
+    fn bounded_api_retains_requested_scene_and_limits_every_prepared_record() {
+        let parameters = model::Parameters {
+            generations: 52,
+            depth: 0.,
+            ..model::Parameters::default()
+        };
+        let result =
+            compile_with_budget(&serde_json::to_vec(&parameters).unwrap(), 8000, Some(37)).unwrap();
+        let json: serde_json::Value = serde_json::from_slice(&result.json).unwrap();
+        assert_eq!(
+            json["parameters"],
+            serde_json::to_value(&parameters).unwrap()
+        );
+        assert_eq!(json["requestedVoices"], (1_u64 << 53) - 2);
+        assert_eq!(json["preparedVoices"], 37);
+        assert_eq!(json["nodes"].as_array().unwrap().len(), 38);
+        assert_eq!(json["previewSampled"], false);
+        assert_eq!(json["eligibleVoices"], 0);
+        assert_eq!(json["structuralEligibleVoices"], 37);
+        assert_eq!(read_u32(&result.pool, 8), 37);
+        assert_eq!(result.pool.len(), HEADER + 37 * RECORD);
+    }
+
+    #[test]
+    fn measured_capacity_hint_obeys_automatic_demand_and_retains_live_clock() {
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&scene(6).pool).unwrap();
+        renderer.seed_capacity(91);
+        assert_eq!(renderer.current_limit(), 91);
+        assert_eq!(renderer.adaptive.measured_limit(), 91);
+        renderer.seed_capacity(usize::MAX);
+        assert_eq!(renderer.current_limit(), renderer.demand);
+        let mut manual = renderer.performance;
+        manual.automatic = false;
+        manual.voice_ceiling = 17;
+        renderer.set_performance(manual).unwrap();
+        renderer.seed_capacity(3);
+        assert_eq!(renderer.current_limit(), 17);
+        assert_eq!(renderer.frames, 0);
+        assert_eq!(renderer.revision, 0);
+    }
+
+    #[test]
+    fn measured_capacity_hint_survives_a_small_first_scene_and_later_growth() {
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&scene(3).pool).unwrap();
+        renderer.set_depth(0.).unwrap();
+        renderer.seed_capacity(1024);
+        assert_eq!(renderer.current_limit(), 0);
+        assert_eq!(renderer.adaptive.measured_limit(), 1024);
+        renderer.set_depth(1.).unwrap();
+        assert_eq!(renderer.current_limit(), 14);
+        assert_eq!(renderer.adaptive.measured_limit(), 1024);
+        renderer.install(&scene(10).pool).unwrap();
+        assert_eq!(renderer.current_limit(), 1024);
+        assert_eq!(renderer.adaptive.measured_limit(), 1024);
+    }
+
+    #[test]
+    fn measured_capacity_hint_retains_proof_through_initial_manual_admission() {
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        let manual = Performance {
+            automatic: false,
+            voice_ceiling: 7,
+            ..Performance::default()
+        };
+        renderer.set_performance(manual).unwrap();
+        renderer.install(&scene(3).pool).unwrap();
+        renderer.seed_capacity(1024);
+        assert_eq!(renderer.current_limit(), 7);
+        assert_eq!(renderer.adaptive.measured_limit(), 1024);
+        renderer.install(&scene(10).pool).unwrap();
+        assert_eq!(renderer.current_limit(), 7);
+        renderer
+            .set_performance(Performance {
+                automatic: true,
+                voice_ceiling: 0,
+                ..manual
+            })
+            .unwrap();
+        assert_eq!(renderer.current_limit(), 1024);
     }
     fn signal(offset: usize) -> [f32; BLOCK] {
         std::array::from_fn(|i| {
