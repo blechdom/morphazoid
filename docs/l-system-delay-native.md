@@ -5,13 +5,16 @@ runs its Rust audio engine as WebAssembly inside a browser AudioWorklet. It need
 no local Rust executable or Morphazoid proxy. The original JavaScript instrument
 remains at `/l-mic.html`. Both keep their own route and settings.
 
-The Rust page source offers 186 full scenes, including all sixteen original presets,
+The Rust page source offers 210 full scenes, including all sixteen original presets,
 the ten earlier Rust scenes, 88 earlier additional scenes and 36 new branching
-scenes, plus 36 exploration scenes, across twenty-three grammars.
+scenes, plus 36 exploration scenes and the twelve presets from each of the
+Parametric Lab and Experiments. The rule menu combines twenty-three classic and
+stochastic grammars with six parametric, context, sequence and tiling modes.
 The new curves and repeatable stochastic branching are documented in
 [Grammar exploration](l-system-delay-grammars.md).
-It retains the original parameter curves, mastering controls and audio-clock
-branch animation. Microphone input is selected by default. The header contains
+The incorporated lab mappings are documented in [Lab models](l-system-labs-models.md).
+It retains the original parameter curves, mastering controls within **Mix**, and
+audio-clock branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
 with a second sample dropdown. There is no synthesizer or test-tone input in
@@ -91,6 +94,31 @@ changes. It does not add independent duration stretching or the optional Silky
 spectral renderer. WAX host audio buses remain unverified for this route;
 ordinary browser playback does not imply DAW track-input integration.
 
+## Integrated rule modes
+
+The **L-system type** menu selects every rule family on the current Delay page.
+Parametric branching adds Child length, Turn per generation, Module delay ratio,
+Module pitch ratio, Child branches and Stopping length knobs. Context-sensitive
+sequences expose Neighbor influence and Symbol ratio; Thue–Morse and Fibonacci
+expose Symbol ratio. Penrose and Sphinx use the same numeric control as Tile pitch
+contrast. Controls for other rule families remain hidden until needed.
+The shared Generations control becomes a 1–24 derivation count in these six
+modes, while classic grammars retain their existing generation ranges.
+
+All 186 earlier Delay scenes keep their names, settings and order. The 24 lab
+scenes are additional complete scenes, with their numeric rule settings included.
+Recalling a classic scene removes the prior lab mode and recalling a lab scene
+restores all of its numeric module fields, independently of the previous scene.
+Mode edits and preset recall use the existing live engine and preserve source
+playback, input history, Audio state and the independent gain controls.
+The standalone `/l-system-parametric-lab.html` and `/l-system-experiments.html`
+routes retain their focused controls and twelve-scene banks.
+
+The former single-option **Pitch detail** selector is removed. Independent
+granular pitch processing remains the same; Branch angle and Angle → octave span
+remain editable. Incorporating the lab modes does not change the device-adaptive
+admission policy or add a fixed voice-count ceiling.
+
 ## Original interface and continuous edits
 
 The native page uses the original `l-mic.html` sections, shared site styles,
@@ -141,7 +169,8 @@ Cathedral and Unison scenes, preserving the first 114 scenes and their order:
 | Canopy | Deep trees with high descendant levels |
 | Cuttings | Shallow, sparse trees with fewer descendants |
 
-The type menu now contains nine branching systems and eight classic fractals.
+The classic portion of the type menu retains all twenty-three grammars, including
+the branching systems, fractal curves and repeatable stochastic shrub.
 The new rules extend both the Rust audio compiler and its matching JavaScript
 preview, with the same parent connections and voice-admission order. They use the
 same device-measured admission, inherited delays, pitch/pan and live smoothing.
@@ -305,11 +334,13 @@ browser WaveShaper's optional 2x reconstruction is not reproduced. The
 defines the processing contract. This improves routing parity without claiming
 bit-exact overall browser sound.
 
-## Mastering controls
+## Mastering controls in Mix
 
-The bottom of the control panel exposes input cleanup, stereo output filters and
-compression. **Original** retains the prior sound: input HPF at 55 Hz, output
-HPF/LPF bypassed, compressor threshold −12 dB, knee 5 dB, ratio 18:1, attack
+The **Mix** section groups input cleanup, stereo output filters and compression
+with wet/dry levels, stereo spread and output boost. Moving these controls does
+not change their ranges or processing. **Original** retains the prior sound:
+input HPF at 55 Hz, output HPF/LPF bypassed, compressor threshold −12 dB,
+knee 5 dB, ratio 18:1, attack
 3 ms, release 180 ms and automatic makeup on. Manual output boost starts at 0 dB
 and remains independent of preset recall.
 
@@ -339,9 +370,9 @@ ceiling, including with the compressor off. The editable ranges are threshold
 and output boost (manual makeup) −12–+24 dB. Input/output HPF support up to 2 kHz and output LPF up to
 20 kHz, subject to the device-rate limit.
 
-Mic input gain supports 0–4×. Output remains a 0–100% level control; the bottom
-Output boost control adds gain to the complete mix after compression, including
-when compression is off, and before the fixed 0.94 ceiling. This provides more
+Mic input gain supports 0–4×. Output remains a 0–100% level control; the
+Output boost control in Mix adds gain to the complete mix after compression,
+including when compression is off, and before the fixed 0.94 ceiling. This provides more
 gain for quiet microphones. The three gain controls remain live across presets,
 Next, arrows, randomization and scene reloads.
 

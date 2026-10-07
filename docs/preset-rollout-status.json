@@ -5,7 +5,7 @@
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
     "implemented": 38,
-    "fullPresets": 1782,
+    "fullPresets": 1806,
     "favesImplemented": 17,
     "activeRemaining": 62,
     "regularRemaining": 130
@@ -642,9 +642,9 @@
       "href": "l-mic-rust.html",
       "category": "audio-effect",
       "scope": "fave",
-      "presets": 186,
+      "presets": 210,
       "status": "implemented-verification-pending",
-      "evidence": "October 6: 186 complete scenes across 23 grammar families, including the original preset parity bank, curves and stable stochastic branching. Actual WASM audio, scene recall and responsive controls covered by the L-system delay suites; human listening and physical microphone acceptance remain pending."
+      "evidence": "October 7: the current Delay combines 186 existing scenes with the 12 Parametric Lab and 12 Experiments scenes, across 23 classic/stochastic grammars and six numeric, context, sequence and tiling modes. Conditional rule controls, complete cross-mode recall, removal of the single-option Pitch detail selector and mastering within Mix require fresh verification. Earlier October 6 suites covered the separate instruments; they do not establish acceptance of this consolidation. Human listening and physical microphone/touch checks remain unperformed."
     },
     {
       "id": "graph-delay",
