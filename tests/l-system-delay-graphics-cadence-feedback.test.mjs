@@ -130,3 +130,14 @@ test('zero-depth root-only drawing retains prepared membership and cannot supply
     assert.equal(controller.diagnostics().cadenceTrial, true);
   }
 });
+
+test('a trial reaching the root can resolve and recover a second available branch', () => {
+  const f = simulation({ voices: 1, demand: 2 });
+  f.run(3, () => ({ ratio: 2 }));
+  assert.equal(f.controller.limit, 1);
+  assert.equal(f.controller.diagnostics().cadenceTrial, true);
+  f.run(200, () => ({ ratio: 2 }));
+  assert.equal(f.controller.limit, 2, 'root-only trial must not strand the retained available branch');
+  assert.equal(f.controller.diagnostics().cadenceTrial, false);
+  assert.equal(f.controller.diagnostics().cadenceSuppressed, true);
+});

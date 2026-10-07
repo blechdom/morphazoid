@@ -75,7 +75,7 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       else resetLate();
       const awaitingMembership = pendingLimit !== null && drawn > pendingLimit;
       if (!awaitingMembership) pendingLimit = null;
-      if (rendered && reducible && !awaitingMembership && cadenceTrial) {
+      if (rendered && !awaitingMembership && cadenceTrial) {
         if (observeWindow(cadenceTrial.window, now, interval, nonnegative(workMs), expected)) {
           const window = cadenceTrial.window;
           // Require a coherent improvement, rather than letting an unrelated
