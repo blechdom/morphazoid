@@ -23,11 +23,12 @@ export class SpiderStrings {
     }));
   }
   random() { let x = this.randomState; x ^= x << 13; x ^= x >>> 17; x ^= x << 5; this.randomState = x | 0; return (x >>> 0) / 2147483648 - 1; }
-  pluck(frequency, strength, pan, sound, group, segmentId, material = 0, pick = .5, midiOwner = null, expression = 1, priority = true, worldKind = 0, eventOwner = -1) {
+  pluck(frequency, strength, pan, sound, group, segmentId, material = 0, pick = .5, midiOwner = null, expression = 1, priority = true, worldKind = 0, eventOwner = -1, replaceUnowned = false) {
     let voice = null; this.lastVoiceIndex = -1;
     // Four existing slots are reserved for intentional plucks/MIDI; routine
     // feet cannot consume the entire interaction budget. Physical replacements
-    // below use a short outgoing tail; intentional MIDI/gesture voices survive.
+    // below use a short outgoing tail. Fresh gestures may replace old unowned
+    // tails, while MIDI-owned strings remain protected.
     for (let i=0;i<(priority?SPIDER_STRING_VOICES:SPIDER_STRING_VOICES-4);i++) { const candidate=this.voices[i];if (candidate.remaining <= 0) { voice = candidate; this.lastVoiceIndex = i; break; } }
     if(!voice&&eventOwner>=0){
       let best=-1,age=-1;
@@ -35,7 +36,20 @@ export class SpiderStrings {
         const score=v.age+(v.eventOwner===eventOwner?this.rate*20:0);if(score>age){age=score;best=i;}}
       if(best>=0){voice=this.voices[best];this.lastVoiceIndex=best;this.voiceReplacements++;}
     }
-    if (!voice || !(strength > 0)) return false; // Surplus unowned/intentional attacks are dropped; physical ownership has the bounded replacement path above.
+    if (!voice && replaceUnowned && !midiOwner) {
+      let oldest = Infinity;
+      for (let i = 0; i < this.voices.length; i++) {
+        const candidate = this.voices[i];
+        if (candidate.midiSourceId === null && candidate.attackOrder < oldest) {
+          oldest = candidate.attackOrder; voice = candidate; this.lastVoiceIndex = i;
+        }
+      }
+      if (voice) this.voiceReplacements++;
+    }
+    if (!voice || !(strength > 0)) return false;
+    // Age is identical for several strings crossed within one audio block.
+    // An order counter keeps replacement fair even during a very fast sweep.
+    voice.attackOrder = this.attackOrder = (this.attackOrder ?? 0) + 1;
     const replacing=voice.remaining>0;
     voice.tailL=replacing?voice.lastL:0;voice.tailR=replacing?voice.lastR:0;voice.replacementAge=replacing?0:1000000;
     voice.eventOwner=eventOwner;voice.priority=priority;
@@ -91,6 +105,7 @@ export class SpiderStrings {
   }
   releaseMidi(scope) { for (const voice of this.voices) if (voice.midiSourceId !== null && (!scope || (scope.sourceId == null || voice.midiSourceId === scope.sourceId) && (scope.channel == null || voice.midiChannel === scope.channel))) voice.release = true; }
   release(group = -1) { for (const voice of this.voices) if (group < 0 || voice.group === group) voice.release = true; }
+  releaseUnowned() { for (const voice of this.voices) if (voice.midiSourceId === null) voice.release = true; }
   sample(levels, brightness, sound) {
     this.left = 0; this.right = 0; this.active = 0;
     for (let vi=0; vi<SPIDER_STRING_VOICES; vi++) {

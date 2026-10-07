@@ -48,6 +48,9 @@ export const defaultsFor=(engine,input={})=>NATIVE_MUSICAL_ENGINES[engine]?nativ
 export function defaultScene(engine) {const spec=NATIVE_METHODS[engine];if(!spec)throw Error('Unknown voice method.');return {engine,values:defaultsFor(engine),input:structuredClone(spec.defaultInput??{})};}
 export function validateScene(scene) {
   const spec=NATIVE_METHODS[scene?.engine];if(!spec||!scene.values||!scene.input)throw Error('Invalid voice scene.');
+  // Older saved eSpeak scenes predate the pronunciation selector and used US
+  // English. Upgrade only this additive field, without mutating the snapshot.
+  if(['espeak','espeak-klatt'].includes(scene.engine)&&!Object.hasOwn(scene.values,'language'))scene={...scene,values:{...scene.values,language:'en-us'}};
   if(Object.keys(scene.values).length!==Object.keys(spec.controls).length)throw Error('Incomplete native voice parameters.');
   for(const [key,rule] of Object.entries(spec.controls)) {
     const value=scene.values[key];

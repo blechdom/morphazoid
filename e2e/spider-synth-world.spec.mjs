@@ -14,6 +14,10 @@ async function arm(page) {
 async function setRange(page, id, value) {
   await page.locator(`#${id}`).evaluate((input, value) => { input.value = String(value); input.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 }
+async function editPose(page, group, key = 'Shift+ArrowRight') {
+  await page.locator(`.spider-body-name[data-group="${group}"]`).click();
+  await page.locator('#spiderCanvas').press(key);
+}
 async function webHub(page) {
   return page.evaluate(async () => {
     const { createSpiderWeb } = await import('./src/instruments/spider-synth/spider-synth-web.js');
@@ -25,31 +29,36 @@ for (const [label, viewport, mobile] of [
   ['desktop', { width: 1440, height: 900 }, false],
   ['phone portrait', { width: 390, height: 844 }, true],
   ['phone landscape', { width: 844, height: 390 }, true],
-]) test(`body pose edits preserve animation and phase on ${label}`, async ({ browser, baseURL }) => {
+]) test(`manual joint edits preserve animation and phase on ${label}`, async ({ browser, baseURL }) => {
   const context = await browser.newContext({ baseURL, viewport, isMobile: mobile, hasTouch: mobile });
   const page = await context.newPage();
   try {
     await open(page);
-    await page.locator('#posePreset').selectOption('peek');
+    await editPose(page, 'cephalothorax');
     const held = await state(page);
-    expect(held.playing).toBe(false); expect(held.audioOn).toBe(false);
+    expect(held.motionSettings.offsets.cephalothorax.y).toBeGreaterThan(0);
+    expect(held.playing).toBe(false); expect(held.audioOn).toBe(false); expect(held.soundPlaying).toBe(false);
     await page.locator('#motionButton').click();
     await expect.poll(async () => (await state(page)).time).toBeGreaterThan(.6);
     const started = await state(page);
     expect(started.motionSettings.offsets).toEqual(held.motionSettings.offsets);
-    expect(started.posePreset).toBe('peek'); expect(started.audioOn).toBe(false);
-    await arm(page); await page.locator('#soundPlayButton').click();
+    expect(started.audioOn).toBe(false); expect(started.soundPlaying).toBe(false);
+    await arm(page);
     await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(2);
     const baseline = await state(page);
     const unchangedMotion = ({ offsets, ...motion }) => motion;
-    const ids = await page.locator('#posePreset option').evaluateAll(items => items.map(item => item.value).filter(id => id !== 'custom'));
-    const actions = ids.map(id => () => page.locator('#posePreset').selectOption(id));
-    actions.push(() => page.locator('#randomPose').click(), () => page.locator('#resetPose').click());
+    const edits = [
+      ['cephalothorax', 'Shift+ArrowUp'], ['abdomen', 'Shift+ArrowRight'],
+      ['pedipalps', 'Shift+ArrowUp'], ['chelicerae', 'Shift+ArrowRight'],
+      ['legs', 'Shift+ArrowUp'],
+    ];
     let previousTime = baseline.time;
-    for (const action of actions) {
-      await action();
+    for (const [group, key] of edits) {
+      const beforeOffsets = (await state(page)).motionSettings.offsets;
+      await editPose(page, group, key);
       const after = await state(page);
-      expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(true); expect(after.audioOn).toBe(true);
+      expect(after.motionSettings.offsets).not.toEqual(beforeOffsets);
+      expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(false); expect(after.audioOn).toBe(true);
       expect(after.time).toBeGreaterThanOrEqual(previousTime); previousTime = after.time;
       expect(unchangedMotion(after.motionSettings)).toEqual(unchangedMotion(baseline.motionSettings));
       expect(after.motionChoice).toBe(baseline.motionChoice);
@@ -57,28 +66,32 @@ for (const [label, viewport, mobile] of [
       expect(after.webSettings).toEqual(baseline.webSettings);
       expect(after.soundPreset).toBe(baseline.soundPreset);
       expect(after.sound).toEqual(baseline.sound); expect(after.bodyMix).toEqual(baseline.bodyMix);
+      expect(after.camera).toEqual(baseline.camera);
       await expect(page.locator('#motionButton')).toHaveAttribute('aria-pressed', 'true');
     }
-    expect((await state(page)).motionSettings.offsets).toEqual({});
     await expect.poll(async () => (await state(page)).time).toBeGreaterThan(previousTime + .3);
     await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(baseline.audio.contactEvents);
     await page.locator('#motionButton').click();
     const paused = await state(page);
-    for (const action of [() => page.locator('#posePreset').selectOption('wide'), () => page.locator('#randomPose').click(), () => page.locator('#resetPose').click()]) {
-      await action(); const after = await state(page);
+    for (const [group, key] of edits.slice(0, 3)) {
+      const beforeOffsets = (await state(page)).motionSettings.offsets;
+      await editPose(page, group, key); const after = await state(page);
+      expect(after.motionSettings.offsets).not.toEqual(beforeOffsets);
       expect(after.playing).toBe(false); expect(after.time).toBeCloseTo(paused.time, 5);
-      expect(after.soundPlaying).toBe(true); expect(after.motionChoice).toBe(paused.motionChoice);
+      expect(after.soundPlaying).toBe(false); expect(after.audioOn).toBe(true);
+      expect(after.motionChoice).toBe(paused.motionChoice); expect(after.camera).toEqual(paused.camera);
     }
   } finally { await context.close(); }
 });
 
-test('every sound preset preserves the web, held pose, travel and both players', async ({ page }) => {
+test('every sound preset preserves the web, held pose, travel and animation state', async ({ page }) => {
   await open(page);
   await page.locator('#webPreset').selectOption('missing-sector');
   await page.locator('#motionPreset').selectOption('backpedal');
+  await editPose(page, 'cephalothorax');
   await page.locator('#catchBug').click();
   await expect.poll(async () => (await state(page)).world.prey.at(-1)?.state).toBe('trapped');
-  await arm(page); await page.locator('#soundPlayButton').click();
+  await arm(page);
   const before = await state(page);
   const ids = await page.locator('#soundPreset option').evaluateAll(options => options.map(option => option.value));
   for (const id of ids) {
@@ -93,7 +106,7 @@ test('every sound preset preserves the web, held pose, travel and both players',
     expect(after.frame.feet, id).toEqual(before.frame.feet);
     expect(after.time, id).toBe(before.time);
     expect(after.camera, id).toEqual(before.camera);
-    expect(after.playing, id).toBe(false); expect(after.soundPlaying, id).toBe(true);
+    expect(after.playing, id).toBe(false); expect(after.soundPlaying, id).toBe(false);
   }
   await page.locator('#motionButton').click();
   await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(3);
@@ -105,10 +118,10 @@ test('every sound preset preserves the web, held pose, travel and both players',
   expect(after.motionSettings).toEqual(moving.motionSettings);
   expect(after.webSettings).toEqual(moving.webSettings);
   expect(after.world.graphVersion).toBe(moving.world.graphVersion);
-  expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(true);
+  expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(false);
 });
 
-test('Argiope web and construction controls change geometry without changing players or camera', async ({ page }) => {
+test('Argiope web and construction controls change geometry without starting animation or changing camera', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page); const initial = await state(page);
   expect(initial.webSettings.preset).toBe('argiope');
@@ -127,7 +140,7 @@ test('Argiope web and construction controls change geometry without changing pla
   expect(errors).toEqual([]);
 });
 
-test('joystick lays playable silk while both players stay stopped, then Audio preserves the route', async ({ page }) => {
+test('joystick lays playable silk with animation stopped, then Audio preserves the route', async ({ page }) => {
   await open(page); await page.locator('#laySilk').click();
   await setRange(page, 'travelSpeed', 2);
   const initial = await state(page);
@@ -271,7 +284,7 @@ test('a trapped fly can be hunted with Animation paused and topology changes cle
   await expect.poll(async () => (await state(page)).audio.world?.prey.length).toBe(0);
 });
 
-test('phone steering owns only the pad and releases cleanly without zooming or starting players', async ({ browser, baseURL }) => {
+test('phone steering owns only the pad and releases cleanly without zooming or starting animation', async ({ browser, baseURL }) => {
   const context = await browser.newContext({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   try {
     const page = await context.newPage(); await page.goto(new URL('spider-synth.html', baseURL.endsWith('/') ? baseURL : `${baseURL}/`).href);

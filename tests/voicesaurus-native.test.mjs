@@ -43,6 +43,16 @@ test('native scene validation rejects missing, extra and nonfinite parameters',(
  assert.throws(()=>validateScene({...scene,values:{...scene.values,unknown:1}}));
 });
 
+test('saved eSpeak scenes retain American pronunciation when upgraded to the language selector',()=>{
+ for(const engine of ['espeak','espeak-klatt']){
+  const current=defaultScene(engine),legacy=structuredClone(current);delete legacy.values.language;
+  assert.deepEqual(validateScene(legacy),current);assert.equal(Object.hasOwn(legacy.values,'language'),false);
+  const british={...current,values:{...current.values,language:'en-gb'}};
+  assert.deepEqual(validateScene(british),british);
+  delete legacy.values.pitch;assert.throws(()=>validateScene(legacy),/Incomplete/);
+ }
+});
+
 test('dial display spans do not cap finite values sent to native engines',()=>{
  for(const engine of ['singer','stk-voicform','csound-fof','csound-vosim','espeak','hts']){
   const scene=defaultScene(engine);

@@ -1,8 +1,9 @@
+import { spiderStrandKey, sweepSpiderStrings, clipSpiderScreenStrand } from './spider-synth-strum.js?v=76d726f095e2';
 import * as THREE from '../../../vendor/three/three.module.min.js';
 import { GLTFLoader } from '../../../vendor/three/loaders/GLTFLoader.js';
 import { MeshoptDecoder } from '../../../vendor/meshoptimizer/meshopt_decoder.module.js';
-import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=230f9505a484';
-import { getSpiderDisplayProfile } from './spider-synth-display.js?v=230f9505a484';
+import { createSpiderCollisionProfile, constrainSpiderCollisionPose, createSpiderCollisionSolver } from './spider-synth-collision.js?v=76d726f095e2';
+import { getSpiderDisplayProfile } from './spider-synth-display.js?v=76d726f095e2';
 
 const clamp = (value, low, high) => Math.min(high, Math.max(low, Number(value) || 0));
 const AXES = ['x', 'y', 'z'];
@@ -504,15 +505,19 @@ export class SpiderSynthViewer {
   }
   pickSilk(x, y) {
     let nearest = null, best = 9;
+    const rect = this.canvas.getBoundingClientRect();
     for (const segment of this.world?.silkSegments || NO_EVENTS) {
       const pieces = this.strandEvents?.has(`silk:${segment.id}`) ? 12 : 1;
       let a = this.getSilkScreenPosition(segment.id, 0);
       for (let piece = 0; piece < pieces; piece++) {
         const b = this.getSilkScreenPosition(segment.id, (piece + 1) / pieces);
-        if (a?.visible || b?.visible) {
-          const dx = b.x - a.x, dy = b.y - a.y, local = clamp(((x - a.x) * dx + (y - a.y) * dy) / Math.max(.01, dx * dx + dy * dy), 0, 1);
-          const distance = Math.hypot(x - a.x - dx * local, y - a.y - dy * local);
-          if (distance < best) { best = distance; nearest = { source: 'silk', silkId: segment.id, u: (piece + local) / pieces, distance }; }
+        const clip = clipSpiderScreenStrand(a, b, rect);
+        if (clip) {
+          const dx = clip.b.x - clip.a.x, dy = clip.b.y - clip.a.y;
+          const local = clamp(((x - clip.a.x) * dx + (y - clip.a.y) * dy) / Math.max(.01, dx * dx + dy * dy), 0, 1);
+          const distance = Math.hypot(x - clip.a.x - dx * local, y - clip.a.y - dy * local);
+          const u = (piece + clip.t0 + local * (clip.t1 - clip.t0)) / pieces;
+          if (distance < best) { best = distance; nearest = { source: 'silk', silkId: segment.id, u, distance }; }
         }
         a = b;
       }
@@ -746,8 +751,10 @@ export class SpiderSynthViewer {
     }
   }
   project(point) {
-    const rect = this.canvas.getBoundingClientRect(), p = this.temp[8].copy(point).project(this.camera);
-    return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2, visible: p.z >= -1 && p.z <= 1 && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1 };
+    const rect = this.projectionRect ?? this.canvas.getBoundingClientRect(), p = this.temp[8].copy(point).project(this.camera);
+    const depthVisible = p.z >= -1 && p.z <= 1;
+    return { x: rect.left + (p.x + 1) * rect.width / 2, y: rect.top + (1 - p.y) * rect.height / 2,
+      depthVisible, visible: depthVisible && Math.abs(p.x) <= 1 && Math.abs(p.y) <= 1 };
   }
   getPartScreenPosition(id) {
     const entry = this.bones.find(b => b.id === id); if (!entry || !this.mesh) return null;
@@ -783,21 +790,60 @@ export class SpiderSynthViewer {
   }
   pickWeb(x, y) {
     if (!this.web) return null; let nearest = null, best = 9;
+    const rect = this.canvas.getBoundingClientRect();
     for (const segment of this.web.segments) {
       const pieces = this.strandEvents?.has(segment.id) ? 12 : 1;
       let a = this.getSegmentScreenPosition(segment.id, 0);
       for (let piece = 0; piece < pieces; piece++) {
         const b = this.getSegmentScreenPosition(segment.id, (piece + 1) / pieces);
-        if (a && b && (a.visible || b.visible)) {
-          const dx = b.x - a.x, dy = b.y - a.y;
-          const local = clamp(((x - a.x) * dx + (y - a.y) * dy) / Math.max(.01, dx * dx + dy * dy), 0, 1);
-          const distance = Math.hypot(x - a.x - dx * local, y - a.y - dy * local);
-          if (distance < best) { best = distance; nearest = { segmentId: segment.id, u: (piece + local) / pieces, distance }; }
+        const clip = clipSpiderScreenStrand(a, b, rect);
+        if (clip) {
+          const dx = clip.b.x - clip.a.x, dy = clip.b.y - clip.a.y;
+          const local = clamp(((x - clip.a.x) * dx + (y - clip.a.y) * dy) / Math.max(.01, dx * dx + dy * dy), 0, 1);
+          const distance = Math.hypot(x - clip.a.x - dx * local, y - clip.a.y - dy * local);
+          const u = (piece + clip.t0 + local * (clip.t1 - clip.t0)) / pieces;
+          if (distance < best) { best = distance; nearest = { segmentId: segment.id, u, distance }; }
         }
         a = b;
       }
     }
     return nearest;
+  }
+  sweepStrands(from, to, contacts) {
+    const parts = [];
+    this.projectionRect = this.canvas.getBoundingClientRect();
+    try {
+      for (const source of ['web', 'silk']) {
+        const segments = source === 'web' ? this.web?.segments : this.world?.silkSegments;
+        for (const segment of segments || NO_EVENTS) {
+          const key = source === 'web' ? segment.id : `silk:${segment.id}`;
+          const pieces = this.strandEvents?.has(key) ? 12 : 1;
+          const at = u => source === 'web' ? this.getSegmentScreenPosition(segment.id, u) : this.getSilkScreenPosition(segment.id, u);
+          let a = at(0);
+          for (let i = 0; i < pieces; i++) {
+            const b = at((i + 1) / pieces);
+            const clip = clipSpiderScreenStrand(a, b, this.projectionRect);
+            if (clip) parts.push({ source, segmentId: segment.id, silkId: segment.id,
+              a: clip.a, b: clip.b, u0: (i + clip.t0) / pieces, u1: (i + clip.t1) / pieces });
+            a = b;
+          }
+        }
+      }
+    } finally { this.projectionRect = null; }
+    return sweepSpiderStrings(parts, from, to, contacts);
+  }
+  strumGesture(g, event) {
+    g.contacts ??= new Set();
+    const coalesced = event.getCoalescedEvents?.() ?? [];
+    for (const point of [...coalesced, event]) {
+      const dx = point.clientX - g.x, dy = point.clientY - g.y;
+      if (Math.hypot(dx, dy) < .01) continue;
+      const velocity = clamp(Math.hypot(dx, dy) / Math.max(8, point.timeStamp - g.time) / 2, .25, 1);
+      const angle = Math.atan2(dy, dx);
+      if (!g.plucked) { g.plucked = true; this.emitPluck(g.strand, velocity, angle); g.contacts.add(spiderStrandKey(g.strand)); }
+      for (const strand of this.sweepStrands({ x: g.x, y: g.y }, { x: point.clientX, y: point.clientY }, g.contacts)) this.emitPluck(strand, velocity, angle);
+      g.x = point.clientX; g.y = point.clientY; g.time = point.timeStamp;
+    }
   }
   bindEvents() {
     this.listeners = [];
@@ -822,6 +868,7 @@ export class SpiderSynthViewer {
     });
     listen(this.canvas, 'pointermove', event => {
       const g = this.gesture; if (!g || event.pointerId !== g.id) return;
+      if (!g.touch && !(event.buttons & 1)) { this.cancelGesture(); return; }
       const totalX = event.clientX - g.startX, totalY = event.clientY - g.startY;
       if (g.pending) {
         if (Math.abs(totalY) > 9 && Math.abs(totalY) > Math.abs(totalX) * 1.1) { this.cancelGesture(); return; }
@@ -831,7 +878,8 @@ export class SpiderSynthViewer {
       event.preventDefault();
       const dx = event.clientX - g.x, dy = event.clientY - g.y, dt = Math.max(8, event.timeStamp - g.time);
       const velocity = clamp(Math.hypot(dx, dy) / dt / 2, 0, 1);
-      if (Math.hypot(totalX, totalY) > 3) g.moved = true;
+      if (Math.hypot(totalX, totalY) > 3 || (!g.moved && g.mode === 'strand'
+        && event.getCoalescedEvents?.().some(p => Math.hypot(p.clientX - g.startX, p.clientY - g.startY) > 3))) g.moved = true;
       if (g.mode === 'joint') {
         const offset = { ...(this.offsets[g.body.jointId] || { x: 0, y: 0, z: 0 }) };
         if (this.axis === 'xy') { offset.x -= dy * .007; offset.y += dx * .007; }
@@ -846,7 +894,7 @@ export class SpiderSynthViewer {
           this.onMove({ ...g.lastMove, active: true, velocity });
         }
       } else if (g.mode === 'strand') {
-        if (g.moved && !g.plucked) { g.plucked = true; this.emitPluck(g.strand, Math.max(.25, velocity), Math.atan2(dy, dx)); }
+        if (g.moved) this.strumGesture(g, event);
       } else if (g.mode === 'orbit') {
         this.turn.setFromAxisAngle(UP, -dx * .005); this.orbit.premultiply(this.turn);
         this.turn.setFromAxisAngle(new THREE.Vector3(1, 0, 0), -dy * .005); this.orbit.multiply(this.turn).normalize(); this.updateCamera(); this.invalidate();
@@ -856,6 +904,7 @@ export class SpiderSynthViewer {
     const end = event => {
       this.pointers.delete(event.pointerId); const g = this.gesture; if (!g || g.id !== event.pointerId) return;
       if (event.type === 'pointerup' && g.pending && !g.moved) { g.pending = false; this.beginGesture(); }
+      if (event.type === 'pointerup' && g.mode === 'strand' && !g.pending) this.strumGesture(g, event);
       if (event.type === 'pointerup' && g.mode === 'strand' && !g.plucked && !g.pending) this.emitPluck(g.strand, .6, Math.PI / 2);
       if (event.type === 'pointerup' && g.mode === 'prey' && !g.moved && !g.pending) this.onPreySelect({ id: g.prey.id });
       this.cancelGesture();

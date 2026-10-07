@@ -15,9 +15,13 @@ for (const mobile of [false, true]) test(`real spider samples load after Audio w
     await page.locator('#audioButton').click();
     await expect.poll(async () => (await state(page)).audio.enabled).toBe(true);
     expect((await state(page)).audio.samplesStatus).toBe('loading');
+    await page.locator('#motionButton').click();
+    await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(2);
+    expect((await state(page)).audio.samplesStatus).toBe('loading');
+    expect((await state(page)).soundPlaying).toBe(false);
     release(); await expect.poll(async () => (await state(page)).audio.samplesStatus).toBe('ready');
     expect(new Set(requests).size).toBe(3);
-    await page.locator('#motionButton').click(); await page.locator('#soundPreset').selectOption('peacock-percussion');
+    await page.locator('#soundPreset').selectOption('peacock-percussion');
     await expect.poll(async () => (await state(page)).audio.recordingEvents).toBeGreaterThanOrEqual(3);
     const before = (await state(page)).audio;
     await page.evaluate(() => { const end = performance.now() + 650; while (performance.now() < end) Math.sin(performance.now()); });
@@ -34,10 +38,14 @@ for (const mobile of [false, true]) test(`real spider samples load after Audio w
 test('unavailable animal recordings leave the procedural instrument playable', async ({ page }) => {
   await page.route('**/audio/spider-synth/*.wav*', route => route.abort());
   await page.goto('spider-synth.html'); await page.waitForFunction(() => Boolean(window.spiderSynth));
-  await page.locator('#soundPlayButton').click(); await page.locator('#audioButton').click();
+  await page.locator('#audioButton').click();
   await expect.poll(async () => (await state(page)).audio.samplesStatus).toBe('unavailable');
-  await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
   expect((await state(page)).audio.enabled).toBe(true);
+  expect((await state(page)).playing).toBe(false); expect((await state(page)).soundPlaying).toBe(false);
+  await expect.poll(async () => (await state(page)).audio.peak).toBeLessThan(.0001);
   await page.locator('#motionButton').click();
   await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(0);
+  await expect.poll(async () => (await state(page)).audio.peak).toBeGreaterThan(.001);
+  expect((await state(page)).audio.enabled).toBe(true);
+  expect((await state(page)).soundPlaying).toBe(false);
 });

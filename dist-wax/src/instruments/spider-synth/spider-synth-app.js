@@ -1,16 +1,19 @@
-import { SpiderSynthViewer } from "./spider-synth-viewer.js?v=230f9505a484";
-import { getSpiderDisplayProfile } from "./spider-synth-display.js?v=230f9505a484";
-import { SPIDER_SPECIMENS, getSpiderSpecimen } from "./spider-synth-specimens.js?v=230f9505a484";
-import { createSpiderMidiControls } from "./spider-synth-midi-controls.js?v=230f9505a484";
-import { createSpiderNavigationControls } from "./spider-synth-navigation-controls.js?v=230f9505a484";
-import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "./spider-synth-world.js?v=230f9505a484";
-import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "./spider-synth-web.js?v=230f9505a484";
-import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS, SPIDER_STATIC_POSES,
-  normalizeSpiderMotion, createRandomSpiderMotion, createSpiderStaticPose,
-  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "./spider-synth-model.js?v=230f9505a484";
+import { registerHeaderPresets } from '../../site/header-presets.js';
+import { SPIDER_FULL_PRESETS, captureSpiderPreset, validateSpiderPreset, randomizeSpiderPreset } from './spider-synth-presets.js?v=76d726f095e2';
+import { SPIDER_TEXT_PRESETS, SPIDER_SPEECH_PRESETS, SPIDER_SPEECH_DEFAULTS, SPIDER_SPEECH_CONTROLS } from './spider-synth-speech.js?v=76d726f095e2';
+import { SpiderSynthViewer } from "./spider-synth-viewer.js?v=76d726f095e2";
+import { getSpiderDisplayProfile } from "./spider-synth-display.js?v=76d726f095e2";
+import { SPIDER_SPECIMENS, getSpiderSpecimen } from "./spider-synth-specimens.js?v=76d726f095e2";
+import { createSpiderMidiControls } from "./spider-synth-midi-controls.js?v=76d726f095e2";
+import { createSpiderNavigationControls } from "./spider-synth-navigation-controls.js?v=76d726f095e2";
+import { SpiderSynthWorld, normalizeSpiderWorld, SPIDER_TRAVEL_PATHS } from "./spider-synth-world.js?v=76d726f095e2";
+import { normalizeSpiderWeb, serializeSpiderWeb, SPIDER_WEB_PRESETS, SPIDER_WEB_PARAMETERS } from "./spider-synth-web.js?v=76d726f095e2";
+import { SPIDER_JOINTS, SPIDER_MOTION_PRESETS, SPIDER_MOTION_DEFAULTS,
+  normalizeSpiderMotion, createRandomSpiderMotion,
+  createSpiderWeb, createSpiderFrame, writeSpiderPose, applySpiderSpeechPose } from "./spider-synth-model.js?v=76d726f095e2";
 import { SpiderSynthAudio, SPIDER_SOUND_PRESETS, SPIDER_SOUND_DEFAULTS, SPIDER_BODY_GROUPS,
   SPIDER_BODY_SOURCES, createDefaultSpiderBodyMix, createRandomSpiderSound,
-  getSpiderMotionSound, getSpiderBodyGroupId } from "./spider-synth-audio.js?v=230f9505a484";
+  getSpiderMotionSound, getSpiderBodyGroupId } from "./spider-synth-audio.js?v=76d726f095e2";
 
 const el = id => document.getElementById(id);
 const listeners = new AbortController(), options = { signal: listeners.signal };
@@ -18,10 +21,10 @@ const motionQuery = matchMedia('(prefers-reduced-motion: reduce)');
 // Choose once: rotating a phone must not trigger another scan download.
 const displayProfile = getSpiderDisplayProfile(window);
 const state = {
-  playing: false, soundPlaying: false, audioOn: false, audioStarting: false, disposed: false,
-  modelLoading: true, notice: '', metronome: false, phraseRequest: 0,
-  specimenChoice: 'argiope',
-  posePreset: 'neutral', poseSeed: 0, motionSeed: 0, soundSeed: 0,
+  playing: false, audioOn: false, audioStarting: false, disposed: false,
+  modelLoading: true, notice: '', metronome: false, flyOnSelect: false, phraseRequest: 0,
+  specimenChoice: 'argiope', speech: { ...SPIDER_SPEECH_DEFAULTS },
+  motionSeed: 0, soundSeed: 0,
   motionChoice: SPIDER_MOTION_PRESETS[0].id,
   motion: normalizeSpiderMotion({ ...SPIDER_MOTION_DEFAULTS, preset: 'none' }),
   webSettings: normalizeSpiderWeb({ preset: 'argiope', seed: 1 }),
@@ -30,7 +33,7 @@ const state = {
   bodyMix: structuredClone(SPIDER_SOUND_PRESETS[0].bodyMix), muted: new Set(), solo: new Set(),
   selectedGroup: '', view: 'top', side: 'left', time: 0, anchor: performance.now(),
 };
-let viewer, midiControls, navigationControls, animationFrame = 0, loadVersion = 0, lastFrame = -Infinity, pulsesUntil = 0, wavesActive = false;
+let viewer, midiControls, navigationControls, fullPresets, animationFrame = 0, loadVersion = 0, lastFrame = -Infinity, pulsesUntil = 0, wavesActive = false;
 let web = createSpiderWeb(state.webSettings);
 let preparedWeb = serializeSpiderWeb(web);
 const visualWorld = new SpiderSynthWorld(state.worldSettings);
@@ -107,7 +110,7 @@ function effectiveBodyMix() {
   return state.bodyMix.map(row => ({ ...row, level: state.muted.has(row.groupId) || (state.solo.size && !state.solo.has(row.groupId)) ? 0 : row.level }));
 }
 function audioSettings(extra = {}) {
-  return { playing: state.playing, soundPlaying: state.soundPlaying, motion: state.motion,
+  return { playing: state.playing, soundPlaying: false, motion: state.motion,
     webSettings: state.webSettings, preparedWeb, worldSettings: effectiveWorldSettings(), sound: state.sound, bodyMix: effectiveBodyMix(), metronome: state.metronome, ...extra };
 }
 function publish(extra = {}) { updateWorldSettings(effectiveWorldSettings()); audio.update(audioSettings(extra)); }
@@ -117,10 +120,10 @@ function syncAudioButton() {
   el('audioState').textContent = state.audioStarting ? 'starting' : state.audioOn ? 'on' : 'off';
 }
 function syncTransport() {
-  for (const [id, active, noun] of [['soundPlayButton', state.soundPlaying, 'sound'], ['motionButton', state.playing, 'animation']]) {
+  for (const [id, active, noun] of [['motionButton', state.playing, 'animation']]) {
     el(id).setAttribute('aria-pressed', String(active)); el(id).setAttribute('aria-label', `${active ? 'Pause' : 'Play'} ${noun}`);
   }
-  announce(!state.audioOn && (state.playing || state.soundPlaying) ? 'Audio is off — turn it on to hear playback' : '');
+  announce(!state.audioOn && state.playing ? 'Audio is off — turn it on to hear playback' : '');
 }
 function selectGroup(groupId, side = 0, target = '') {
   const joint = SPIDER_JOINTS.find(item => (!target || item.id.startsWith(target)) && getSpiderBodyGroupId(item) === groupId
@@ -191,7 +194,7 @@ function setMotionPreset(id, { applySound = true, applyTravel = true } = {}) {
     state.worldSettings = normalizeSpiderWorld({ ...state.worldSettings, ...travel });
     syncTravelControls();
   }
-  state.posePreset = 'custom'; el('posePreset').value = 'custom'; viewer?.setOffsets?.(state.motion.offsets);
+  viewer?.setOffsets?.(state.motion.offsets);
   if (applySound) {
     const patch = id === 'random' ? createRandomSpiderSound(state.motionSeed * 2654435761 >>> 0) : getSpiderMotionSound(id);
     state.sound = { ...patch.sound, level: state.sound.level, voice: state.sound.voice }; state.bodyMix = structuredClone(patch.bodyMix);
@@ -201,23 +204,78 @@ function setMotionPreset(id, { applySound = true, applyTravel = true } = {}) {
   el('intensity').value = state.motion.intensity; el('intensityOut').value = `${Math.round(state.motion.intensity * 100)}%`;
   populateMotionPresets(); anchorTime(time); publish({ time, resetActivity: true }); updateVisual();
 }
-function applyStaticPose(id) {
-  state.posePreset = id; el('posePreset').value = id;
-  state.motion = normalizeSpiderMotion({ ...state.motion,
-    offsets: createSpiderStaticPose(id, ++state.poseSeed * 2654435761 >>> 0) });
-  // Pose is a joint-offset layer. It never owns transport, phase or voice release.
-  viewer?.setOffsets?.(state.motion.offsets); audio.update({ motion: state.motion }); updateVisual(); scheduleFrame();
+function captureFullPreset() {
+  return captureSpiderPreset({ ...state, specimenChoice: state.motion.specimen,
+    motion: { ...state.motion, explore: el('explore').checked } });
 }
+async function applyFullPreset(value) {
+  const next = validateSpiderPreset(value);
+  const nextWeb = createSpiderWeb(next.webSettings), nextPrepared = serializeSpiderWeb(nextWeb);
+  if (state.modelLoading || state.motion.specimen !== next.specimen || !viewer?.getState().loaded) await loadModel(next.specimen, { strict: true });
+  if (state.disposed) throw new Error('Spider Synth was closed.');
+  const time = currentTime();
+  viewer?.cancelGesture();
+  state.specimenChoice = next.specimen; state.motionChoice = next.motionChoice; state.motion = next.motion;
+  state.sound = { ...next.sound, level: state.sound.level, voice: state.sound.voice };
+  state.bodyMix = next.bodyMix; state.muted = new Set(next.muted); state.solo = new Set(next.solo);
+  state.webSettings = next.webSettings; web = nextWeb; preparedWeb = nextPrepared;
+  state.worldSettings = normalizeSpiderWorld({ ...next.worldSettings, joystick: state.worldSettings.joystick, playing: state.playing });
+  state.speech = next.speech; state.metronome = next.metronome; state.flyOnSelect = next.flyOnSelect;
+  el('specimenPreset').value = next.specimen; el('explore').checked = next.motion.explore;
+  el('metronome').checked = next.metronome; el('flyOnSelect').checked = next.flyOnSelect;
+  el('laySilk').setAttribute('aria-pressed', String(next.worldSettings.laySilk));
+  el('tempo').value = next.motion.tempo; el('tempoOut').value = `${next.motion.tempo} BPM`;
+  el('intensity').value = next.motion.intensity; el('intensityOut').value = `${Math.round(next.motion.intensity * 100)}%`;
+  el('speechPreset').value = next.speech.preset;
+  for (const { key } of SPIDER_SPEECH_CONTROLS) { const input = el(`speech-${key}`); input.value = next.speech[key]; paintKnob(input); }
+  populateMotionPresets(); markSoundCustom(); syncSound(); syncWebControls(); syncTravelControls();
+  viewer?.setWeb(web); viewer?.setOffsets?.(state.motion.offsets);
+  anchorTime(time); publish({ time, soundPlaying: false, resetActivity: true, preserveMidi: true }); syncTransport(); updateVisual(); scheduleFrame();
+}
+
 function paintKnob(input) {
   const value = Number(input.value), fraction = (value - Number(input.min)) / (Number(input.max) - Number(input.min));
   input.closest('.spider-knob')?.style.setProperty('--knob-angle', `${-135 + 270 * fraction}deg`);
   const parameter = SPIDER_WEB_PARAMETERS.find(item => item.key === input.id);
-  const text = parameter?.step === 1 ? String(value) : input.id === 'pluckRegister' ? `${value > 0 ? '+' : ''}${value} st`
+  const text = input.dataset.speech ? `${value}${input.dataset.speech === 'rate' ? ' wpm' : ''}` : parameter?.step === 1 ? String(value) : input.id === 'pluckRegister' ? `${value > 0 ? '+' : ''}${value} st`
     : ['pluckAttack', 'pluckHold'].includes(input.id) ? `${Math.round(value * 1000)} ms`
     : input.id === 'pluckRelease' ? `${value.toFixed(2)}s`
     : ['tune', 'tension', 'travelSpeed', 'pluckSpread'].includes(input.id) ? `${value.toFixed(2)}×` : input.id === 'decay' ? `${value.toFixed(1)}s`
     : input.id === 'pan' ? value === 0 ? 'C' : `${Math.round(Math.abs(value) * 100)}${value < 0 ? 'L' : 'R'}` : `${Math.round(value * 100)}%`;
   el(`${input.id}Out`).textContent = text; input.setAttribute('aria-valuetext', text);
+}
+function buildSpeechControls() {
+  const textPicker = el('phrasePreset');
+  textPicker.replaceChildren(new Option('Custom text', ''));
+  for (const label of ['Sayings', 'Spider facts']) {
+    const group = document.createElement('optgroup'); group.label = label;
+    group.append(...SPIDER_TEXT_PRESETS.filter(item => item.group === label).map(item => new Option(item.label, item.id)));
+    textPicker.append(group);
+  }
+  const syncTextPreset = () => { textPicker.value = SPIDER_TEXT_PRESETS.find(item => item.text === el('phrase').value)?.id ?? ''; };
+  textPicker.addEventListener('change', () => {
+    const preset = SPIDER_TEXT_PRESETS.find(item => item.id === textPicker.value);
+    if (!preset) return;
+    el('phrase').value = preset.text;
+    el('phrase').dispatchEvent(new Event('input', { bubbles: true }));
+  }, options);
+  el('phrase').addEventListener('input', syncTextPreset, options); syncTextPreset();
+  el('speechPreset').replaceChildren(...SPIDER_SPEECH_PRESETS.map(item => new Option(item.label, item.id)));
+  el('speechPreset').value = state.speech.preset;
+  for (const { key, ...spec } of SPIDER_SPEECH_CONTROLS) {
+    const input = addKnob({ id: `speech-${key}`, ...spec, parent: 'speechControls' });
+    input.dataset.speech = key; input.value = state.speech[key]; paintKnob(input);
+    input.title = `${spec.name} for the next spoken phrase`;
+    input.addEventListener('input', () => { state.speech[key] = Number(input.value); paintKnob(input); }, options);
+  }
+  el('speechPreset').addEventListener('change', () => {
+    const preset = SPIDER_SPEECH_PRESETS.find(item => item.id === el('speechPreset').value);
+    if (!preset) return;
+    state.speech.preset = preset.id;
+    for (const { key } of SPIDER_SPEECH_CONTROLS) {
+      state.speech[key] = preset[key]; const input = el(`speech-${key}`); input.value = preset[key]; paintKnob(input);
+    }
+  }, options);
 }
 function buildToneControls() {
   const params = [ ['tension', 'Tension', .25, 4, .01, 'webControls'], ['damping', 'Damping', 0, 1, .01, 'webControls'],
@@ -369,10 +427,13 @@ function initializeKnobs() {
     for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) area.addEventListener(type, release, options);
   }
 }
-async function loadModel(id = state.specimenChoice) {
-  if (!viewer) return;
+async function loadModel(id = state.specimenChoice, { strict = false } = {}) {
+  if (!viewer) { if (strict) throw new Error('The 3D view is unavailable.'); return; }
   const specimen = getSpiderSpecimen(id); state.specimenChoice = specimen.id;
   el('specimenPreset').value = specimen.id;
+  // A full-scene transaction owns skin selection until it commits or rolls
+  // back. Do not let a manual selection race with that pending transaction.
+  if (strict) el('specimenPreset').disabled = true;
   el('specimenPreset').setAttribute('aria-busy', 'true');
   state.modelLoading = true; syncStageStatus(); const version = ++loadVersion; el('retryModel').hidden = true;
   try {
@@ -381,7 +442,7 @@ async function loadModel(id = state.specimenChoice) {
     const assetBase = new URL("./", import.meta.url);
     const modelPath = displayProfile.mobileAssets ? specimen.phoneModelPath : specimen.modelPath;
     const loaded = await viewer.load(new URL(modelPath, assetBase).href, new URL(specimen.rigPath, assetBase).href);
-    if (version !== loadVersion || state.disposed) return;
+    if (version !== loadVersion || state.disposed) { if (strict) throw new Error('Skin selection was superseded.'); return; }
     if (loaded === false || !viewer.getState().loaded) throw new Error('The spider scan could not load');
     state.motion = normalizeSpiderMotion({ ...state.motion, specimen: specimen.id });
     audio.update({ motion: state.motion });
@@ -390,18 +451,20 @@ async function loadModel(id = state.specimenChoice) {
     el('specimenImage').hidden = true; el('spiderCanvas').style.visibility = 'visible';
     for (const id of ['resetCamera', 'showJoints']) el(id).disabled = false;
     viewer.setOffsets?.(state.motion.offsets); selectView(state.view); selectGroup(state.selectedGroup || 'cephalothorax');
-    status('modelStatus'); updateVisual(); midiControls?.syncRig();
+    status('modelStatus'); updateVisual(); midiControls?.syncRig(); fullPresets?.refresh();
   } catch (error) {
-    if (version !== loadVersion || state.disposed) return;
+    if (version !== loadVersion || state.disposed) { if (strict) throw new Error('Skin selection was superseded.'); return; }
     status('modelStatus', `Model: ${error.message || 'could not load'}. Web sound remains playable.`); el('retryModel').hidden = false;
-  } finally { if (version === loadVersion && !state.disposed) { state.modelLoading = false; el('specimenPreset').setAttribute('aria-busy', 'false'); syncStageStatus(); } }
+    if (strict) throw error;
+  } finally {
+    if (strict && !state.disposed) el('specimenPreset').disabled = false;
+    if (version === loadVersion && !state.disposed) { state.modelLoading = false; el('specimenPreset').setAttribute('aria-busy', 'false'); syncStageStatus(); }
+  }
 }
 
-buildToneControls(); buildWorldControls(); buildMixer(); initializeKnobs();
+buildToneControls(); buildSpeechControls(); buildWorldControls(); buildMixer(); initializeKnobs();
 el('specimenPreset').replaceChildren(...SPIDER_SPECIMENS.map(item => new Option(item.label, item.id)));
 el('specimenPreset').addEventListener('change', () => void loadModel(el('specimenPreset').value), options);
-el('posePreset').replaceChildren(new Option('Custom pose', 'custom'), ...SPIDER_STATIC_POSES.map(item => new Option(item.label, item.id)));
-el('posePreset').value = state.posePreset;
 const soundBank = document.createElement('optgroup'); soundBank.label = 'Sound presets';
 const recordedPresetIds = new Set(['peacock-courtship', 'peacock-percussion', 'peacock-underworld']);
 soundBank.append(...SPIDER_SOUND_PRESETS.filter(item => !recordedPresetIds.has(item.id)).map(item => new Option(item.label, item.id)));
@@ -424,7 +487,7 @@ try {
       if (offset) {
         state.motion = normalizeSpiderMotion({ ...state.motion, offsets: { ...state.motion.offsets, [jointId]: { x: offset.x, y: offset.y, z: offset.z } } });
         viewer?.setOffsets?.(state.motion.offsets);
-        state.posePreset = 'custom'; el('posePreset').value = 'custom'; audio.update({ motion: state.motion }); updateVisual();
+        audio.update({ motion: state.motion }); updateVisual();
       }
       audio.interact({ jointId, active, velocity });
       if (!state.audioOn && active) announce('Audio is off — turn it on to hear playback');
@@ -442,19 +505,19 @@ try {
   });
   viewer.setWeb(web); updateVisual();
   // Show the small real-specimen render until the interactive scan is ready.
-  // Audio and both players stay usable throughout the download.
+  // Audio, Animation and manual notes stay usable throughout the download.
   void loadModel();
 } catch (error) {
   state.modelLoading = false; syncStageStatus(); status('modelStatus', `3D could not start: ${error.message || 'WebGL unavailable'}. Sound and MIDI remain available.`); el('spiderCanvas').hidden = true;
 }
 Object.defineProperty(window, 'spiderSynth', { configurable: true, value: Object.freeze({
-  getState: () => ({ ...viewer?.getState(), playing: state.playing, soundPlaying: state.soundPlaying, audioOn: state.audioOn,
+  getState: () => ({ ...viewer?.getState(), playing: state.playing, soundPlaying: false, audioOn: state.audioOn,
     specimen: state.motion.specimen, specimenChoice: state.specimenChoice, modelLoading: state.modelLoading,
-    time: currentTime(), view: state.view, side: state.side, posePreset: state.posePreset, motionChoice: state.motionChoice,
+    time: currentTime(), view: state.view, side: state.side, motionChoice: state.motionChoice,
     motionSettings: structuredClone(state.motion), webSettings: { ...state.webSettings },
     worldSettings: structuredClone(effectiveWorldSettings()), world: visualWorld.snapshot(), navigation: navigationControls?.getState(),
     web: { nodes: web.nodes.length, segments: web.segments.length }, frame: { ...structuredClone(scene), pose: Array.from(scene.pose) },
-    soundPreset: el('soundPreset').value, sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix),
+    speech: { ...state.speech, language: 'en-gb' }, soundPreset: el('soundPreset').value, sound: { ...state.sound }, bodyMix: structuredClone(state.bodyMix),
     effectiveBodyMix: effectiveBodyMix(), muted: [...state.muted], solo: [...state.solo], selectedGroup: state.selectedGroup,
     audio: audio.getState(), midi: midiControls?.getState(), speechMotion: speechMotion.amount, metronome: state.metronome,
     renderQuality: 'audio-first' }),
@@ -484,11 +547,7 @@ el('audioButton').addEventListener('click', async () => {
   } catch (error) { state.audioOn = false; announce(`Audio could not start: ${error.message || error}`); }
   finally { state.audioStarting = false; if (!state.disposed) { el('audioButton').disabled = false; syncAudioButton(); } }
 }, options);
-el('soundPlayButton').addEventListener('click', () => { state.soundPlaying = !state.soundPlaying; audio.update({ soundPlaying: state.soundPlaying }); syncTransport(); }, options);
 el('motionButton').addEventListener('click', () => setPlaying(!state.playing), options);
-el('posePreset').addEventListener('change', () => { if (el('posePreset').value !== 'custom') applyStaticPose(el('posePreset').value); }, options);
-el('randomPose').addEventListener('click', () => applyStaticPose('random'), options);
-el('resetPose').addEventListener('click', () => { midiControls?.panic(); applyStaticPose('neutral'); }, options);
 el('motionPreset').addEventListener('change', () => setMotionPreset(el('motionPreset').value), options);
 el('randomMotion').addEventListener('click', () => setMotionPreset('random'), options);
 function changeMotionBy(amount) {
@@ -497,12 +556,6 @@ function changeMotionBy(amount) {
 }
 el('previousMotion').addEventListener('click', () => changeMotionBy(-1), options);
 el('nextMotion').addEventListener('click', () => changeMotionBy(1), options);
-document.addEventListener('keydown', event => {
-  if (!['ArrowLeft', 'ArrowRight'].includes(event.key) || event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-  if (event.target.closest?.('input, textarea, select, canvas, [contenteditable="true"]')) return;
-  if (event.target !== document.body && !event.target.closest?.('.spider-panel')) return;
-  event.preventDefault(); changeMotionBy(event.key === 'ArrowRight' ? 1 : -1);
-}, options);
 el('tempo').addEventListener('input', () => {
   const time = currentTime() * state.motion.tempo / Number(el('tempo').value);
   state.motion.tempo = Number(el('tempo').value); el('tempoOut').value = `${state.motion.tempo} BPM`;
@@ -530,6 +583,7 @@ el('laySilk').addEventListener('click', () => {
   el('laySilk').setAttribute('aria-pressed', String(state.worldSettings.laySilk)); publishWorld();
 }, options);
 el('clearSilk').addEventListener('click', () => commandWorld({ type: 'clear-silk' }), options);
+el('flyOnSelect').addEventListener('change', () => { state.flyOnSelect = el('flyOnSelect').checked; fullPresets?.refresh(); }, options);
 el('huntBug').addEventListener('click', () => commandWorld({ type: 'hunt' }), options);
 el('catchBug').addEventListener('click', () => {
   commandWorld({ type: 'send-prey' });
@@ -537,12 +591,12 @@ el('catchBug').addEventListener('click', () => {
 }, options);
 el('soundPreset').addEventListener('change', () => {
   const preset = selectedSoundPreset(); if (!preset) return;
-  state.sound = { ...preset.sound, level: state.sound.level }; state.bodyMix = structuredClone(preset.bodyMix);
+  state.sound = { ...preset.sound, level: state.sound.level, voice: state.sound.voice }; state.bodyMix = structuredClone(preset.bodyMix);
   syncSound(); publishSound();
 }, options);
 el('randomSound').addEventListener('click', () => {
   const next = createRandomSpiderSound(++state.soundSeed * 2654435761 >>> 0);
-  state.sound = { ...next.sound, level: state.sound.level }; state.bodyMix = next.bodyMix; markSoundCustom(); syncSound(); publishSound();
+  state.sound = { ...next.sound, level: state.sound.level, voice: state.sound.voice }; state.bodyMix = next.bodyMix; markSoundCustom(); syncSound(); publishSound();
 }, options);
 for (const input of document.querySelectorAll('[data-sound]')) input.addEventListener('input', () => {
   state.sound[input.dataset.sound] = Number(input.value); paintKnob(input); markSoundCustom(); publishSound();
@@ -555,7 +609,7 @@ el('speakButton').addEventListener('click', async () => {
   if (!state.audioOn) { announce('Audio is off — turn it on to hear playback'); return; }
   const text = el('phrase').value.trim(); if (!text) { status('voiceStatus', 'Give the spider a few words first.'); return; }
   const version = ++state.phraseRequest; status('voiceStatus');
-  try { await audio.speak(text); }
+  try { await audio.speak(text, state.speech); }
   catch (error) { if (version === state.phraseRequest && !state.disposed) status('voiceStatus', `Voice: ${error.message || error}`); }
 }, options);
 el('phrase').addEventListener('keydown', event => { if (event.key === 'Enter' && (event.ctrlKey || event.metaKey)) { event.preventDefault(); el('speakButton').click(); } }, options);
@@ -590,6 +644,13 @@ infoArea.addEventListener('focusout', event => { if (!infoArea.contains(event.re
 gestureInfo.addEventListener('click', () => { infoPinned = !infoPinned; showGestureHelp(infoPinned); }, options);
 document.addEventListener('pointerdown', event => { if (!infoArea.contains(event.target)) closeGestureHelp(); }, options);
 document.addEventListener('keydown', event => { if (event.key === 'Escape') closeGestureHelp(); }, options);
+fullPresets = registerHeaderPresets({
+  id: 'spider-synth', presets: SPIDER_FULL_PRESETS, capture: captureFullPreset, apply: applyFullPreset, randomize: randomizeSpiderPreset,
+  onApplied() {
+    setPlaying(true);
+    if (state.flyOnSelect) commandWorld({ type: 'send-prey' });
+  },
+});
 navigationControls = createSpiderNavigationControls({ element: el('webJoystick'), onSteer: steerSpider });
 midiControls = createSpiderMidiControls({ audio, setPlaying, selectGroup, onSteer: steerSpider,
   onVisual: () => { updateVisual(); scheduleFrame(); },
@@ -600,5 +661,5 @@ window.addEventListener('pagehide', event => {
   if (event.persisted) return;
   state.disposed = true; loadVersion += 1; state.phraseRequest += 1;
   if (animationFrame) cancelAnimationFrame(animationFrame); animationFrame = 0;
-  navigationControls?.dispose(); midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.spiderSynth;
+  fullPresets?.destroy(); navigationControls?.dispose(); midiControls?.dispose(); headerObserver?.disconnect(); listeners.abort(); viewer?.dispose(); audio.dispose(); delete window.spiderSynth;
 }, options);

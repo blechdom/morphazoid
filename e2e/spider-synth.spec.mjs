@@ -30,14 +30,14 @@ test('scan loading cannot block mobile audio, animation or voice controls', asyn
     await page.goto(new URL('spider-synth.html', baseURL).href, { waitUntil: 'domcontentloaded' });
     await page.waitForFunction(() => Boolean(window.spiderSynth));
     expect((await snapshot(page)).loaded).toBe(false); expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
-    await page.locator('#soundPlayButton').tap(); await arm(page);
-    await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
+    await arm(page);
+    await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
     await page.locator('#motionButton').tap();
     await expect.poll(async () => (await snapshot(page)).audio.contactEvents).toBeGreaterThan(0);
     expect((await snapshot(page)).loaded).toBe(false);
     await expect(page.locator('#speakButton')).toBeEnabled();
     release(); await loaded(page); expect((await snapshot(page)).playing).toBe(true);
-    expect((await snapshot(page)).soundPlaying).toBe(true);
+    expect((await snapshot(page)).soundPlaying).toBe(false);
   } finally { release(); await context.close(); }
 });
 
@@ -50,7 +50,8 @@ test('detailed scan, complete source bank and view controls expose the new instr
   expect(await page.locator('#source-legs option').count()).toBeGreaterThan(8);
   expect(await page.locator('#soundPreset option').count()).toBeGreaterThanOrEqual(40);
   expect(await page.locator('#motionPreset option').count()).toBeGreaterThanOrEqual(40);
-  await expect(page.locator('#phrase')).toHaveValue("hi, I'm a spider and this is my web");
+  await expect(page.locator('#phrase')).toHaveValue('i am a spider. My name is spider. I like to crawl on your face when you are sleeping.');
+  await expect(page.locator('#speechPreset')).toHaveValue('silk-buzz');
   await expect(page.locator('.instrument-picker-link[data-tool-id="spider-synth"]')).toHaveAttribute('aria-current', 'page');
   const lighting = initial.lighting;
   for (const view of ['side','top','bottom','face']) {
@@ -96,7 +97,7 @@ test('worklet contacts and bounded audio continue through a main-thread renderin
   expect((await snapshot(page)).audio.contactEvents).toBe(stopped);
 });
 
-test('computer keys and MIDI hold individual poses while both players stay independent', async ({ page }) => {
+test('computer keys and MIDI hold individual poses independently of Animation', async ({ page }) => {
   await installFakeMidi(page); await open(page); await enableFakeMidi(page);
   // WAX delegates arming to its DAW host. This suite opens its generated page
   // in an ordinary browser, so explicitly arm that standalone preview.
@@ -135,12 +136,43 @@ test('spoken words move face controls and release back to the stored pose withou
   expect((await snapshot(page)).frame.pose).toEqual(neutral);
 });
 
+test('British voice knobs and voice mute survive body presets and MIDI programs', async ({ page }) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await installFakeMidi(page); await open(page);
+  await page.locator('#speakButton').click();
+  expect((await snapshot(page)).audio.contextState).toBe('uninitialized');
+  await page.locator('#speechPreset').selectOption('fang-chatter');
+  for (const [id, value] of [['speech-rate', 300], ['speech-pitch', 15], ['speech-range', 65], ['voice', 0]]) await range(page, id, value);
+  const settings = (await snapshot(page)).speech;
+  expect(settings).toEqual({ preset: 'fang-chatter', rate: 300, pitch: 15, range: 65, language: 'en-gb' });
+  await page.locator('#soundPreset').selectOption('thread-bass');
+  await page.locator('#randomSound').click();
+  await page.locator('#motionPreset').selectOption('orb-walk');
+  await enableFakeMidi(page); await sendMidi(page, [0xc0, 4]);
+  const after = await snapshot(page);
+  expect(after.speech).toEqual(settings); expect(after.sound.voice).toBe(0);
+  expect(after.playing).toBe(false); expect(after.soundPlaying).toBe(false);
+  // Explicit MIDI enable is an authorized Audio-arm path; do not toggle it off.
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true'); await range(page, 'voice', .78);
+  for (const id of ['silk-buzz', 'silk-whisper', 'fang-chatter', 'cellar-rasp']) {
+    await page.locator('#speechPreset').selectOption(id);
+    await page.locator('#phrase').fill('I parked the car in the garage.'); await page.locator('#speakButton').click();
+    await expect.poll(async () => (await snapshot(page)).speechMotion, { timeout: 20000 }).toBeGreaterThan(.03);
+    await expect.poll(async () => (await snapshot(page)).speechMotion, { timeout: 20000 }).toBe(0);
+  }
+  expect(errors).toEqual([]);
+});
+
 for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`mobile ${size.width}×${size.height} has sticky specimen, reachable Audio and scrolling controls`, async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ viewport: size, isMobile: true, hasTouch: true }); const page = await context.newPage();
     try {
       await page.goto(new URL('spider-synth.html', baseURL).href); await loaded(page);
-      await expect(page.locator('#soundPlayButton')).toBeEnabled();
+      await expect(page.locator('.header-preset-picker')).toBeVisible();
+      await expect(page.locator('#soundPlayButton, #posePreset, #randomPose, #resetPose')).toHaveCount(0);
+      await page.locator('#speechPreset').selectOption('silk-whisper');
+      await page.locator('#speech-rate').focus(); await page.keyboard.press('ArrowRight');
+      expect((await snapshot(page)).speech.rate).toBe(216);
       const stage = await page.locator('#specimenViewport').boundingBox(); expect(stage.height).toBeGreaterThan(size.width < size.height ? 300 : 165);
       await page.locator('#source-spirals').scrollIntoViewIfNeeded();
       const scroll = await page.evaluate(() => scrollY); expect(scroll).toBeGreaterThan(100);
@@ -150,7 +182,7 @@ for (const size of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
       expect((await snapshot(page)).camera).toEqual(camera); expect(await page.evaluate(() => scrollY)).toBe(scroll);
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(size.width + 1);
       await page.screenshot({ path: testInfo.outputPath(`spider-mobile-${size.width}.png`) });
-      await page.locator('#soundPlayButton').tap(); await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
+      await expect.poll(async () => (await snapshot(page)).audio.peak).toBeLessThan(.0001);
       await page.locator('#motionButton').tap(); await expect.poll(async () => (await snapshot(page)).audio.contactEvents).toBeGreaterThan(0);
       await verifyContact(page);
     } finally { await context.close(); }
@@ -182,10 +214,10 @@ test('failed scan download retains a real preview and retry restores all38 contr
   await page.goto('spider-synth.html'); await expect(page.locator('#retryModel')).toBeVisible();
   await expect(page.locator('#specimenImage')).toBeVisible();
   expect(await page.locator('#specimenImage').evaluate(image => image.complete && image.naturalWidth > 500)).toBe(true);
-  await arm(page); await page.locator('#soundPlayButton').click();
+  await arm(page); await page.locator('#motionButton').click();
   await expect.poll(async () => (await snapshot(page)).audio.peak).toBeGreaterThan(.001);
   reject = false; await page.locator('#retryModel').click(); await loaded(page);
-  await expect(page.locator('#specimenImage')).toBeHidden(); expect((await snapshot(page)).soundPlaying).toBe(true);
+  await expect(page.locator('#specimenImage')).toBeHidden(); expect((await snapshot(page)).soundPlaying).toBe(false);
 });
 
 test('suspended Audio resumes its frozen beat without jumping through wall time', async ({ page }) => {

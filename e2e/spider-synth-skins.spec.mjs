@@ -16,8 +16,10 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
     await page.goto('spider-synth.html'); await ready(page, 'argiope');
     expect(requests).toHaveLength(1);
     expect(await page.locator('#specimenPreset option').evaluateAll(items => items.map(item => item.value))).toEqual(skins);
-    await page.locator('#posePreset').selectOption('peek');
-    await page.locator('#audioButton').click(); await page.locator('#soundPlayButton').click(); await page.locator('#motionButton').click();
+    await page.locator('.spider-body-name[data-group="cephalothorax"]').click();
+    await page.locator('#spiderCanvas').press('Shift+ArrowRight');
+    expect((await state(page)).motionSettings.offsets.cephalothorax.y).toBeGreaterThan(0);
+    await page.locator('#audioButton').click(); await page.locator('#motionButton').click();
     await expect.poll(async () => (await state(page)).audio.contactEvents).toBeGreaterThan(2);
     const before = await state(page);
     await page.route('**/skins/golden/spider-*.glb*', async route => { await gate; await route.continue().catch(() => {}); });
@@ -33,10 +35,11 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
       await ready(page, id);
       const after = await state(page);
       expect(after.bones).toHaveLength(38);
-      expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(true); expect(after.audioOn).toBe(true);
+      expect(after.playing).toBe(true); expect(after.soundPlaying).toBe(false); expect(after.audioOn).toBe(true);
       expect(after.time).toBeGreaterThanOrEqual(lastTime); lastTime = after.time;
-      expect(after.motionChoice).toBe(before.motionChoice); expect(after.posePreset).toBe('peek');
+      expect(after.motionChoice).toBe(before.motionChoice);
       expect(after.motionSettings.offsets).toEqual(before.motionSettings.offsets);
+      expect(after.speech).toEqual(before.speech);
       expect(after.webSettings).toEqual(before.webSettings); expect(after.worldSettings).toEqual(before.worldSettings);
       expect(after.soundPreset).toBe(before.soundPreset); expect(after.sound).toEqual(before.sound); expect(after.bodyMix).toEqual(before.bodyMix);
       expect(after.frame.pose.every(Number.isFinite)).toBe(true);
@@ -52,7 +55,7 @@ for (const mobile of [false, true]) test(`scanned skins load individually and pr
       await page.locator('#specimenPreset').selectOption('tarantula'); await ready(page, 'tarantula');
       expect(requests.at(-1)).toContain('/spider-phone.glb');
     }
-    await page.locator('#motionButton').click(); await page.locator('#soundPlayButton').click();
+    await page.locator('#motionButton').click();
     const paused = await state(page);
     await page.locator('#specimenPreset').selectOption('argiope'); await ready(page, 'argiope');
     const after = await state(page);

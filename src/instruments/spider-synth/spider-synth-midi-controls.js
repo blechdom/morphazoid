@@ -20,9 +20,9 @@ const PARAMS = [
   ['pluckHold', 'String hold'], ['pluckRelease', 'String release'],
 ];
 const ACTIONS = [
-  ['speakButton', 'Say phrase'], ['soundPlayButton', 'Sound play / pause'], ['motionButton', 'Animation play / pause'],
+  ['speakButton', 'Say phrase'], ['motionButton', 'Animation play / pause'],
   ['nextMotion', 'Next animation'], ['previousMotion', 'Previous animation'],
-  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'], ['randomPose', 'Random body pose'],
+  ['randomSound', 'Random sound'], ['randomMotion', 'Random animation'],
   ['laySilk', 'Lay silk on / off'], ['catchBug', 'Send a fly'], ['huntBug', 'Hunt the bug'],
 ];
 const NOTE_NAMES = ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'];

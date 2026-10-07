@@ -368,8 +368,8 @@ source colors and 24 sound presets, plus motion companion mixes. Six new macros
 control texture, slide, courtship substructure, resonant space, silk and prey.
 
 All animal/world sounds are procedural. Real research recordings were located
-but not bundled without an explicit redistribution license. The existing KAL16
-speech atlas and pronunciation resources remain the only sampled voice assets.
+but not bundled without an explicit redistribution license. At that revision, KAL16 phone samples supplied the fictional speaking voice;
+the 2026-10-06 revision below replaces that path with native sentence synthesis.
 The research ledger distinguishes A. aurantia web responses, related Argiope
 courtship and wolf-spider mechanism analogies from the fictional talking voice.
 
@@ -431,3 +431,126 @@ npm run check:storybook-dist
 Repeat browser cases with `MORPHAZOID_QA_BASE_URL` pointing to the generated WAX
 page directory. Source and WAX runtime modules must share the release graph.
 Publication is checked against the exact pushed commit and deployed bytes.
+
+## British native speech — 2026-10-06
+
+Spider speech now reuses Voicesaurus's eSpeak NG WASM worker, with British
+English and independent character, pitch, speaking rate and inflection.
+Playback remains in the existing worklet. Body tuning/brightness/space do not
+alter it; Voice, pan and master gain do. New requests, disable and teardown
+terminate pending workers and discard stale audio. Utterance edges and
+replacement use short fades; PCM is limited to 30 seconds and released at end.
+
+The native phoneme test compares “parked the car in the garage” in both
+languages across whisperf, croak and robosoft3. Player tests exercise separate
+current/pending buffers, sample-rate conversion, release and cancellation.
+Audio adapter tests cover stale workers, graph replacement and native failure.
+No human listening or physical-phone acceptance has been performed.
+
+A six-phrase render through the actual 48 kHz Spider DSP used the page's initial
+sound preset (master 0.5, Voice 0.65, centered pan), with Audio warmed up and both
+players stopped. Fixed gains of 2.5 / 3 / 8 for whisperf / croak / robosoft3
+produced geometric-mean active-window RMS of 0.0940 / 0.0874 / 0.0914 (0.63 dB
+spread); maximum sample peaks were 0.520 / 0.478 / 0.451. Active windows were
+20 ms with RMS above 0.01. All native and output PCM was finite, without clipped
+samples. These are mechanical signal measurements, not loudness or intelligibility
+approval. Full sentences retain their native dynamics; no per-phrase normalization
+is applied. Saved Voicesaurus eSpeak scenes without a language field migrate to
+their original American pronunciation.
+
+### Less breath, more buzz
+
+After the owner heard the whisper and requested a buzzier voice, the default
+changed to Silk buzz: native British `croak`, rate 215, pitch 50, range 20,
+engine volume 80, fixed gain 3. The original Silk whisper remains available.
+On “i am a spider. My name is spider. I like to crawl on your face when you are
+sleeping.” through the same 48 kHz Spider graph, active RMS was 0.10358 versus
+0.10346 for the whisper; peak was 0.469 versus 0.512. Both were finite with no
+clipped samples. Median periodic autocorrelation across 16 native vowel
+windows increased from 0.249 to 0.460, consistent with more voiced excitation.
+This establishes a source and signal change at comparable level; human
+acceptance of the new timbre remains pending.
+
+
+## October 6 — Complete presets and held-pointer strumming
+
+The owner removed the continuous Sound player and Body pose/Random pose/Reset
+pose UI. The app always sends `soundPlaying: false`; legacy DSP tests still
+cover that internal path. Manual joint edits, Animation, MIDI and speech remain.
+The standard shared menu/Next/Dice controller now owns 24 complete scenes,
+four per skin, with 21 distinct sound/web combinations and different routines,
+tempos and skins. Registration does not auto-apply a scene or arm Audio.
+
+Source Chromium verification at `http://localhost:3582/spider-synth.html` in
+`morphazoid-voicesaurus-publish-20261001` (base `ca1772eb`): all 39 existing
+Spider browser cases passed after updating the removed-control assertions.
+The four new preset/strum cases passed: exact recall of all 24 scenes, Next
+wrap, independent parameter Dice/Custom, preservation of Audio/Animation/time,
+master/Voice/text, failed-load rollback, pending-skin ownership, held mouse
+multi-string and reverse strums, no release double attack, no camera change,
+Audio-off gestures and coalesced out-and-back input. Portrait 390×844 and
+landscape 844×390 checks retain scrolling and reachable 48px Audio controls.
+Desktop and mobile screenshots were inspected.
+
+Focused DSP/model tests cover all scenes silent at rest and audible after
+manual plucking, complete-state validation and randomizer field variation,
+held MIDI string tails through graph replacement without extra note attacks,
+contact hysteresis, web/silk identity and viewport clipping when both endpoints
+are offscreen. Existing native voice, recording and audio regression suites
+passed. Source-layout amendments reverse to the frozen baseline; new runtime
+modules have explicit release inclusion. `npm run verify` and the regenerated
+WAX parity gate remain required for the final handoff.
+
+These checks are mechanical. No human listening, physical touch-device or
+hardware MIDI acceptance is claimed for this preset bank.
+
+
+A generated-page fast-strum probe exposed the old 24-string pool dropping
+return strokes while previous notes rang: 69 forwarded plucks accepted only
+14 on the first sweep and none on the return. Gesture-only oldest-unowned
+replacement now accepts successive sweeps while the pool stays at 24, using
+the existing 4 ms outgoing tail fade. MIDI-owned strings retain their identities.
+Manual deposited-silk plucks use the same policy; prey and automatic contacts
+do not gain permission to replace deliberate held notes. The 52-test audio
+suite, including a 100-pluck saturation regression, passed. The browser test
+also waits for the first worklet telemetry before reading its initial count.
+
+
+## October 7, 2026 — body, routes and fly follow-up
+
+The current source preset suite passes 10 Chromium cases: exact 24-scene tour,
+Next/Dice, automatic Animation after success, explicit Audio, rollback,
+pending-skin ownership, held strumming, desktop/390×844/844×390 control reach,
+actual roaming and deposited silk, pause behavior and single fly arrivals.
+Audio-on topology replacement retains the new fly. Desktop and mobile
+screenshots were inspected; the Animation and Fly sections follow presets and
+remain reachable under the sticky mobile viewport.
+
+The final targeted source run passes 83 audio/preset/module-hierarchy cases.
+New regressions cover small .02 accepted head gestures, idle/clamped silence,
+source switches without stale attacks, MIDI attack/release spacing and a fly
+sent before the next render of a replacement graph. Pure world simulations
+exercise all 24 factory routes for 12 seconds: 20 travel, eight create more
+than 30 valid silk segments, four remain stationary, and six configure fly
+arrivals. The source amendments reverse exactly to the frozen baseline.
+
+An additional 24-scene render matrix uses real bundled recording PCM, 24 kHz,
+four seconds per scene, Animation on and the removed Sound player off, honoring
+fly arrivals. Body-only, web-only and full mixes remain finite. Maximum full
+peak is 0.665; full RMS spans 0.0179–0.207; no samples exceed 0.95. Morning
+weaver's body/web RMS ratio is −4.43 dB (the earlier attenuated bank measured
+−12.4 dB in a different, two-second motion window). No current isolated body
+excerpt falls more than 6 dB below its web excerpt. These measurements support
+stronger body presence but are not human listening approval.
+
+Final repository verification uses `npm run verify`, including clean WAX build
+parity, and the preset suite also exercises generated pages. Physical-device,
+hardware MIDI and human listening acceptance remain unperformed.
+
+
+The October 7 text-menu follow-up was exercised at 1440×900, 390×844 and
+844×390. All 16 texts populate the editable field; typing selects Custom text.
+Text recall leaves Audio, Animation and voice settings unchanged. A selected
+fact played through the native voice with the expected speech-motion telemetry.
+All texts fit the existing speech limit; browser runs reported no page errors
+or horizontal overflow. No DSP or voice-character parameters changed.

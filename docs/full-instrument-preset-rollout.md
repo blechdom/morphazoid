@@ -1,5 +1,17 @@
 # Full-instrument preset rollout
 
+## October 6 — Spider Synth full scenes
+
+Spider Synth now has 24 complete scenes spanning all six scanned skins,
+animation, web geometry and sound settings, with the shared preset/Next/Dice
+controls at the top of its rail. Audio, phase, master and Voice
+gains, text and live joystick survive recall. The October 7 owner-requested
+exception starts Animation after successful full recall; startup stays paused.
+Twenty scenes roam, eight lay silk and six send a fly. Animation and Fly controls
+follow the preset row. The continuous Sound player and
+static pose controls are removed; held-pointer strumming plays crossed strings.
+See [Spider QA and acceptance limits](spider-synth-qa.md).
+
 ## September 30 — Spelling Synthesizer in Voice
 
 Spelling now has 22 complete scenes across its three retained engines and two

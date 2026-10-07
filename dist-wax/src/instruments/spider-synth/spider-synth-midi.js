@@ -1,5 +1,5 @@
-import { SPIDER_BODY_GROUPS, getSpiderJointBodyGroup } from './spider-synth-body.js?v=230f9505a484';
-import { constrainSpiderPose } from './spider-synth-model.js?v=230f9505a484';
+import { SPIDER_BODY_GROUPS, getSpiderJointBodyGroup } from './spider-synth-body.js?v=76d726f095e2';
+import { constrainSpiderPose } from './spider-synth-model.js?v=76d726f095e2';
 
 const AXES = ['x', 'y', 'z'];
 const CONTROL_AMOUNTS = Object.freeze([.42, .24, .3, .5, .35, .12, 0, 0]);

@@ -1,5 +1,5 @@
-import { SPIDER_SPECIMEN_DATA } from './spider-synth-specimen-data.js?v=230f9505a484';
-import { createSpiderCollisionProfile } from './spider-synth-collision.js?v=230f9505a484';
+import { SPIDER_SPECIMEN_DATA } from './spider-synth-specimen-data.js?v=76d726f095e2';
+import { createSpiderCollisionProfile } from './spider-synth-collision.js?v=76d726f095e2';
 
 function freeze(value) {
   if (value && typeof value === 'object') { Object.values(value).forEach(freeze); Object.freeze(value); }

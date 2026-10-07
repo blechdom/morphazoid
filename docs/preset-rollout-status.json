@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 38,
-    "fullPresets": 1806,
+    "implemented": 39,
+    "fullPresets": 1830,
     "favesImplemented": 17,
-    "activeRemaining": 62,
-    "regularRemaining": 130
+    "activeRemaining": 61,
+    "regularRemaining": 129
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -559,8 +559,9 @@
       "href": "spider-synth.html",
       "category": "bioacoustic",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 24,
+      "status": "implemented-verification-pending",
+      "evidence": "Owner-requested 24 full scenes, shared preset/Next/Dice UI, successful-recall Animation start, 20 routes/eight silk layers/six fly arrivals, responsive body gestures, silent rest and held-mouse strumming. Focused unit and Chromium coverage in tests/spider-synth-presets.test.mjs, tests/spider-synth-strum.test.mjs and e2e/spider-synth-presets.spec.mjs. Human listening and physical-device acceptance remain separate; see docs/spider-synth-qa.md."
     },
     {
       "id": "blowhole",
@@ -1716,7 +1717,6 @@
       "tongued-beasts",
       "quadruped",
       "roach-synth",
-      "spider-synth",
       "blowhole",
       "digestazoid",
       "vocalzoid",

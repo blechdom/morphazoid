@@ -1,18 +1,22 @@
 # Playing Spider Synth
 
-Turn **Audio** on, then pluck a strand or start **Animation**. **Sound** holds
-body resonances independently. Shorter contacted silk segments ring higher;
-raise Tension for a tighter, brighter web, or Damping for shorter, softer notes.
-Choose a motion preset to hear its own body and web mix. Random sound and
-Random animation are separate controls. Sound presets change only the sound
-and voice: they preserve the web, pose, travel, tempo and both players.
-Selecting a body pose also keeps Animation running at its current time, with
-existing offsets preserved.
+Turn **Audio** on, then pluck a strand or start **Animation**. Hold the left
+mouse button on a strand and drag across the web to strum multiple strings;
+return strokes play them again. Shorter silk segments ring higher; raise
+Tension for a tighter, brighter web, or Damping for shorter, softer notes.
+There is no continuous Sound player or static-pose menu.
+
+The top preset menu contains 24 complete performances, combining skin,
+animation, web and sound settings. Next tours the bank; Dice creates new
+settings. Audio, Animation state/phase, master and Voice levels, text and live
+joystick remain yours. Focused Sound presets and Random sound change body
+and silk timbres without changing the voice, web, pose, travel, tempo or
+Animation state. Manual joint editing also keeps Animation running.
 
 **Spider skin** chooses one of six real scans: Wasp spider (the original
 Argiope), golden orb-weaver, devil spider, King Baboon tarantula, huntsman or
 fishing spider. Each has its own rig and measured leg reach. Changing skin
-preserves the players, held pose, sound, web and phase; a failed download leaves
+preserves Audio and Animation, held pose, sound, web and phase; a failed download leaves
 the current specimen playing. Only the selected approximately 5–6.6 MB model
 loads, and Audio remains available while it loads.
 
@@ -78,11 +82,11 @@ envelopes, from dry little ticks to high chimes and softly rising silk.
 Texture, Glide, Courtship and Space expand body resonances into rubbing,
 sliding, tremulous and layered timbres. Courtship is a musical pulse macro,
 not a calibrated recording. Individual motion sources settle when movement
-stops; Sound Play owns the held resonance layer.
+stops; idle Audio stays silent.
 
 ## MIDI and computer keys
 
-Enable **MIDI In** in the shared top bar. This enables the computer keyboard and,
+Enable **MIDI In** inside the shared Settings menu. This enables the computer keyboard and,
 where supported, requests hardware MIDI permission. Computer keys work even if
 there is no connected keyboard. Notes never press either Play button.
 
@@ -149,3 +153,11 @@ configured hardware macro takes precedence over an overlapping CC.
 
 Audio and MIDI routing in the WAX build remain owned by the host adapter.
 Normal browser MIDI input is never echoed automatically to MIDI output.
+
+
+The main full-scene menu, Next and Dice start Animation after successful recall
+(October 7 owner request), preserving Audio and the live phase. Program Change
+still selects sound only and never starts Animation. Small direct body gestures
+have a more responsive attack threshold; MIDI envelope movement alone retains
+its earlier spacing. The main preset callback may also send a fly when its
+Fly on preset switch is enabled; it does not replay MIDI notes.
