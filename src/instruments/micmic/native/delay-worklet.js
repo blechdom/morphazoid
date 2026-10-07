@@ -1,4 +1,5 @@
 import { wasmError, withJson } from './wasm-abi.js';
+import { audioStatusTransfers } from './telemetry.js';
 
 const BLOCK = 128, ENVELOPE_CAPACITY = 4000;
 const MAX_MAINTENANCE_BATCH = 4096, BOOTSTRAP_RECORDS = 64;
@@ -67,17 +68,26 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     for (let i = 0; i < METRICS.length; i++) status[METRICS[i]] = this.metrics[i];
     status.audioTimeSeconds = this.audioTimeSeconds;
     const count = this.api.lsd_taps_count(this.engine);
-    status.tapActivity = Array.from(new Float32Array(this.memory, this.api.lsd_taps_ptr(this.engine), count));
-    status.tapVoiceIndices = Array.from(new Uint32Array(this.memory, this.api.lsd_tap_indices_ptr(this.engine), count), value => value === 0xffffffff ? -1 : value);
-    status.generationActivity = Array.from(this.generationActivity);
-    status.generationVoiceCounts = Array.from(this.generationCounts);
-    const envelopeCount = this.api.lsd_envelope_count(this.engine), offset = this.api.lsd_envelope_offset(this.engine), values = new Array(envelopeCount);
-    for (let i = 0; i < envelopeCount; i++) values[i] = this.envelope[(offset + i) % ENVELOPE_CAPACITY];
+    // Snapshot copies have compact numeric storage and can leave this thread
+    // without cloning thousands of boxed values or detaching live WASM memory.
+    status.tapActivity = new Float32Array(this.memory, this.api.lsd_taps_ptr(this.engine), count).slice();
+    status.tapVoiceIndices = new Uint32Array(this.memory, this.api.lsd_tap_indices_ptr(this.engine), count).slice();
+    status.generationActivity = this.generationActivity.slice();
+    status.generationVoiceCounts = this.generationCounts.slice();
+    const envelopeCount = this.api.lsd_envelope_count(this.engine), offset = this.api.lsd_envelope_offset(this.engine), values = new Float32Array(envelopeCount);
+    const first = Math.min(envelopeCount, ENVELOPE_CAPACITY - offset);
+    values.set(this.envelope.subarray(offset, offset + first));
+    if (first < envelopeCount) values.set(this.envelope.subarray(0, envelopeCount - first), first);
     status.inputEnvelope = { interval: this.api.lsd_envelope_interval(this.engine), endTime: this.api.lsd_envelope_end_time(this.engine), values };
     status.automatic = Boolean(status.automatic); status.source = status.source ? 'mic' : 'seed';
     status.device = 'Browser audio'; status.failure = this.failed ? 'The audio engine stopped.' : null;
     status.timing = fineClock ? 'high-resolution' : 'coarse-averaged';
     return status;
+  }
+
+  postStatus(id) {
+    const status = this.snapshot();
+    this.port.postMessage({ id, status }, audioStatusTransfers(status));
   }
 
   message(data) {
@@ -109,8 +119,8 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Live coefficient gestures arrive much more often than display polling.
     // Acknowledge them without allocating another complete meter/history copy
     // on the audio thread. Status polling publishes the coherent audio frame.
-    this.port.postMessage(data.type === 'status'
-      ? { id: data.id, status: this.snapshot() } : { id: data.id });
+    if (data.type === 'status') this.postStatus(data.id);
+    else this.port.postMessage({ id: data.id });
   }
 
   startInstall() {
@@ -170,7 +180,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         this.capacitySeeded = true;
       }
       this.releaseInstall();
-      this.port.postMessage({ id: pending.id, status: this.snapshot() });
+      this.postStatus(pending.id);
     }
     return true;
   }
