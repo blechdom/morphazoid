@@ -1,4 +1,4 @@
-import { MIN_TEMPO, MAX_TEMPO } from './puggler.js';
+import { MIN_EFFECTIVE_TEMPO, MAX_EFFECTIVE_TEMPO } from './puggler.js';
 
 // Notes follow the simulation's beat, not a playback-speed-scaled audio loop.
 // At extreme juggling tempos, power-of-two divisions retain the relationship
@@ -26,7 +26,7 @@ export function propRhythm(profile){
   return {division:profile.family==='beep'?2:4,ratios:Array.from({length:7},(_,i)=>1+.38*Math.sin((i+profile.index)*profile.ratio)+.17*Math.cos(i*1.7)),gate:.82};
 }
 export function propNoteAt(profile,beat,tempo,slot=0){
-  const rhythm=propRhythm(profile),bpm=clamp(tempo,MIN_TEMPO,MAX_TEMPO);
+  const rhythm=propRhythm(profile),bpm=clamp(tempo,MIN_EFFECTIVE_TEMPO,MAX_EFFECTIVE_TEMPO);
   const divisor=2**Math.max(0,Math.ceil(Math.log2(bpm*rhythm.division/(60*MAX_PROP_NOTE_RATE))));
   const phase=(slot%4)*.25,position=(Math.max(0,beat)/divisor+phase)*rhythm.division;
   const step=Math.floor(position+1e-7),index=((step%rhythm.ratios.length)+rhythm.ratios.length)%rhythm.ratios.length;
@@ -46,7 +46,17 @@ export function ensembleGain(count,tempo){
 
 // Fixed timbral trims complement window RMS: breathy/reversed voices and low
 // bass read softer than driven strings at equal PCM energy. No live detector.
-export function propTimbreGain(profile){
+export function propTimbreGain(profile,rate=1){
+  if(profile.skin==='punk'){
+    // Rhythm section in front; high-register ornaments are deliberately behind
+    // it. Apply AFTER note-window normalization, for catches as well as flights.
+    const trims={bass:1.15,'bass-slide':1.1,guitar:1,kick:1.1,snare:1.1,tom:1.05,kit:1.05,stomp:1,
+      shred:.68,whammy:.64,scrape:.6,ebow:.58,feedback:.34,shout:.8,scream:.6,speech:.75,'count-in':.8,
+      glass:.5,cymbal:.7,tambourine:.65,clatter:.7};
+    const tonal=['guitar','shred','whammy','scrape','ebow','feedback','bass','bass-slide'].includes(profile.family);
+    const register=tonal?Math.max(.35,Math.min(1,(240/Math.max(20,profile.frequency*clamp(rate,.3,6.8)))**.65)):1;
+    return (trims[profile.family]??.8)*register;
+  }
   if(['chant','cak','opera','laughter','grunt','shout','scream'].includes(profile.family))return 1.8;
   if(profile.skin==='future'&&['ether','alien'].includes(profile.family))return 1.65;
   if(profile.skin==='future'&&profile.family==='sub')return 1.45;

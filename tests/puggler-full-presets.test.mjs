@@ -5,11 +5,11 @@ import { PAGE_DEFAULTS } from '../src/instruments/puggler/puggler-presets.js';
 import { SOUND_DEFAULTS, MODEL_KEYS, SOUND_KEYS, PUGGLER_FULL_PRESETS, capturePugglerPreset, validatePugglerPreset, applyPugglerPreset, randomizePugglerPreset } from '../src/instruments/puggler/puggler-full-presets.js';
 import { validateFullPresetBank, presetStateKey } from '../src/site/header-presets.js';
 
-test('48 full scenes cover three eras, eleven lights, sparse/dense, slow/fast and articulation at comparable nominal levels',()=>{
+test('48 full scenes cover three eras, twelve lights, sparse/dense, slow/fast and articulation at comparable nominal levels',()=>{
   validateFullPresetBank(PUGGLER_FULL_PRESETS);
   const snapshots=PUGGLER_FULL_PRESETS.map(p=>validatePugglerPreset(p.snapshot));
   for(const skin of ['punk','history','future'])assert.equal(snapshots.filter(s=>s.sound.skin===skin).length,16);
-  assert.equal(new Set(snapshots.map(s=>s.sound.lighting)).size,11);
+  assert.equal(new Set(snapshots.map(s=>s.sound.lighting)).size,12);
   for(const [key,min,max] of [['tempo',100,1200],['count',1,10]]){
     assert.equal(Math.min(...snapshots.map(s=>s.model[key])),min);assert.equal(Math.max(...snapshots.map(s=>s.model[key])),max);
   }
@@ -36,6 +36,7 @@ test('dice is deterministic, pure, complete and varies every scene-owned field',
   for(const group of ['model','sound'])for(const key of group==='model'?MODEL_KEYS:SOUND_KEYS)assert.ok(new Set(scenes.map(s=>presetStateKey(s[group][key]))).size>1,`${group}.${key} must vary`);
   for(const scene of scenes){
     assert.ok(PATTERNS.some(p=>p.id===scene.model.pattern&&p.count===scene.model.count));
+    assert.ok(scene.model.tempo*scene.model.tempoMultiplier>=140&&scene.model.tempo*scene.model.tempoMultiplier<=1000);
     assert.ok(scene.sound.boo>=.12&&scene.sound.boo<=.3,'Audience dice levels retain the original balanced range');
     assert.ok(!PUGGLER_FULL_PRESETS.some(p=>presetStateKey(p.snapshot)===presetStateKey(scene)));
     const serialized=JSON.stringify(scene);for(const key of ['level','running','allowFlashes','reducedMotion','seed'])assert.ok(!serialized.includes(`"${key}":`));
@@ -60,11 +61,23 @@ test('the main bank alternates skins and demonstrates independent motion, height
   assert.ok(scenes.some(s=>s.sound.stereo===0));assert.ok(scenes.some(s=>s.sound.decay===.2));
 });
 test('v1 snapshots migrate the new drop level without mutating the saved scene',()=>{
-  const old=structuredClone(PUGGLER_FULL_PRESETS[0].snapshot);old.version=1;delete old.sound.drops;
+  const old=structuredClone(PUGGLER_FULL_PRESETS[0].snapshot);old.version=1;delete old.model.tempoMultiplier;delete old.sound.drops;
+  Object.assign(old.sound,{lightIntensity:.35,lightSpeed:2});
   const saved=JSON.stringify(old),model=new PugglerModel(PAGE_DEFAULTS),params={...SOUND_DEFAULTS};
   applyPugglerPreset(model,params,old);
   assert.equal(params.drops,SOUND_DEFAULTS.drops);assert.equal(JSON.stringify(old),saved);
-  assert.equal(capturePugglerPreset(model,params).version,2);
+  assert.equal(capturePugglerPreset(model,params).version,4);
+});
+
+test('v2 lighting snapshots migrate to complete presets, preserving music and rejecting malformed legacy controls',()=>{
+  const old=structuredClone(PUGGLER_FULL_PRESETS[0].snapshot);old.version=2;delete old.model.tempoMultiplier;
+  Object.assign(old.sound,{lightIntensity:.35,lightSpeed:2});const saved=JSON.stringify(old);
+  assert.deepEqual(validatePugglerPreset(old),PUGGLER_FULL_PRESETS[0].snapshot);
+  assert.equal(JSON.stringify(old),saved);
+  for(const mutate of [s=>delete s.sound.lightSpeed,s=>s.sound.lightIntensity=NaN,s=>s.sound.lightSpeed=10,s=>s.sound.surprise=true]){
+    const bad=structuredClone(old);mutate(bad);assert.throws(()=>validatePugglerPreset(bad));
+  }
+  assert.ok(!SOUND_KEYS.includes('lightIntensity')&&!SOUND_KEYS.includes('lightSpeed'));
 });
 
 

@@ -1,8 +1,8 @@
 import { voiceWindowLevels, voiceWindowGain } from './puggler-voice-dsp.js';
 import { propNoteAt, objectPitchRate, ensembleGain, propTimbreGain, MAX_PROP_NOTE_RATE } from './puggler-rhythm.js';
-import { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';
+import { prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundProfile, renderCrowdCatch, OBJECT_SOUND_RATE } from './puggler-object-sounds.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { clamp, soundMapping, WORLD, MIN_TEMPO, MAX_TEMPO } from './puggler.js';
+import { clamp, soundMapping, WORLD, MIN_EFFECTIVE_TEMPO, MAX_EFFECTIVE_TEMPO } from './puggler.js';
 import { PUNK_DRUMS, PUNK_RIFFS, PHRASE_TEMPO, renderPunkPhrase, renderVocalChant } from './puggler-samples.js';
 import { sonicSkin, eraPhraseKey } from './puggler-sonic-skins.js';
 import { renderEraPhrase, renderEraDrum } from './puggler-era-samples.js';
@@ -39,7 +39,7 @@ export function punkMotion(object, parameters = {}) {
   const mapping = soundMapping(prop, body, parameters);
   const height = clamp((body.y - WORLD.handY) / 480, -.65, 1.8);
   const speed = Math.hypot(body.vx, body.vy);
-  const tempoRatio = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO) / PHRASE_TEMPO;
+  const tempoRatio = clamp(finite(parameters.tempo, 240), MIN_EFFECTIVE_TEMPO, MAX_EFFECTIVE_TEMPO) / PHRASE_TEMPO;
   // Keep upper tempos audible as faster riffs without pitching every sample
   // up by the full tempo multiplier. Drum events still follow every catch.
   const tempo = tempoRatio <= 2 ? tempoRatio : 2 * Math.sqrt(tempoRatio / 2);
@@ -56,7 +56,7 @@ export function punkMotion(object, parameters = {}) {
 export function punkVocalMotion(object, parameters = {}) {
   const mapping = punkMotion(object, parameters);
   const height = clamp((finite(object.y, WORLD.handY) - WORLD.handY) / 800, -.5, 1.5);
-  const tempo = clamp(finite(parameters.tempo, 240), MIN_TEMPO, MAX_TEMPO);
+  const tempo = clamp(finite(parameters.tempo, 240), MIN_EFFECTIVE_TEMPO, MAX_EFFECTIVE_TEMPO);
   const semitones = height * clamp(finite(parameters.height, .8), 0, 2) * 1.5
     + clamp(finite(object.vx) / 900, -.7, .7) + Math.log2(tempo / 240) * .15;
   return { ...mapping,
@@ -145,6 +145,8 @@ export class PugglerAudio {
     }));
     if (this.disposed) return;
     const recordings=Object.fromEntries(entries.map(([id,buffer])=>[id,{data:buffer.getChannelData(0),rate:buffer.sampleRate}]));
+    const catchData=renderCrowdCatch(recordings),catchBuffer=c.createBuffer(1,catchData.length,OBJECT_SOUND_RATE);
+    catchBuffer.copyToChannel(catchData,0);entries.push(['crowd-catch',catchBuffer]);
     const oiIndex = entries.findIndex(([id]) => id === 'oi'), oi = entries[oiIndex][1];
     const chant = renderVocalChant(oi.getChannelData(0), oi.sampleRate);
     const chantBuffer = c.createBuffer(1, chant.length, oi.sampleRate); chantBuffer.copyToChannel(chant, 0);
@@ -226,12 +228,13 @@ export class PugglerAudio {
       v.filter.frequency.setTargetAtTime(m.tone, t, .025);
       v.filter.Q.setTargetAtTime(m.resonance, t, .025);
       v.pan.pan.setTargetAtTime(m.pan, t, .02);
-      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * (role==='object' ? .65*this.ensemble : skin.gains[role]) * m.level * (role==='object'?1:flightMix), Math.max(t, v.startedAt), .012);
+      const trim=profile?propTimbreGain(profile,m.rate):skin.id==='punk'&&isVocal(role)?.65:1;
+      v.gain.gain.setTargetAtTime(clamp(finite(parameters.flight, .7), 0, 1) * (role==='object' ? .65*this.ensemble : skin.gains[role]) * m.level * (role==='object'?1:flightMix) * trim, Math.max(t, v.startedAt), .012);
       v.drive?.gain.setTargetAtTime(1 + clamp(finite(parameters.grit, .65), 0, 1) * (skin.id === 'future' ? .9 : role === 'guitar' ? 2.6 : 1.2), t, .025);
     }
   }
   updateObjectNote(object,parameters,profile,t) {
-    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),MIN_TEMPO,MAX_TEMPO),beat=finite(parameters.beat,t*tempo/60);
+    const slot=object.id,tempo=clamp(finite(parameters.tempo,360),MIN_EFFECTIVE_TEMPO,MAX_EFFECTIVE_TEMPO),beat=finite(parameters.beat,t*tempo/60);
     const note=propNoteAt(profile,beat,tempo,slot),key=objectSoundKey(profile.skin,profile.propId),token=`${key}:${note.token}`;
     const m=sonicMotion(object,parameters,'object');m.rate=clamp(note.ratio*objectPitchRate(object,parameters),.45,3);
     if(this.objectTicks[slot]!==token){
@@ -247,7 +250,7 @@ export class PugglerAudio {
         v.rate=m.rate;v.source.playbackRate.setValueAtTime(m.rate,v.startedAt);
         const duration=Math.max(.045,Math.min(note.gateSeconds,v.source.buffer.duration/m.rate));
         const calibration=voiceWindowGain(this.objectLevels[key],duration*m.rate);
-        const gain=clamp(finite(parameters.flight,.8),0,1)*.5*this.ensemble*note.accent*calibration*propTimbreGain(profile);
+        const gain=clamp(finite(parameters.flight,.8),0,1)*.5*this.ensemble*note.accent*calibration*propTimbreGain(profile,m.rate);
         v.gain.gain.setValueAtTime(0,v.startedAt);v.gain.gain.linearRampToValueAtTime(gain,v.startedAt+.004);
         v.gain.gain.setTargetAtTime(0,v.startedAt+Math.max(.008,duration-.025),.006);
         v.source.stop(v.startedAt+duration);v.noteBeat=joining?beat:note.atBeat;this.voices[slot]=v;this.noteCount++;
@@ -327,15 +330,16 @@ export class PugglerAudio {
       this.releaseAir(event.id, t, true);
     }
     const missed = event.kind === 'drop';
-    const drop = event.kind === 'drop' || event.kind === 'crowd-boo', cheer = event.kind === 'crowd-woo', crowd = drop || cheer;
-    const id = cheer ? 'woo' : drop ? 'boo' : event.kind === 'kick' ? 'kick'
+    const caughtByCrowd=event.kind==='crowd-catch';
+    const drop = event.kind === 'drop' || event.kind === 'crowd-boo', cheer = event.kind === 'crowd-woo', crowd = drop || cheer || caughtByCrowd;
+    const id = caughtByCrowd ? 'crowd-catch' : cheer ? 'woo' : drop ? 'boo' : event.kind === 'kick' ? 'kick'
       : PUNK_DRUMS.includes(event.drum) ? event.drum : PUNK_DRUMS[clamp(Math.floor(finite(event.id)), 0, MAX_PUGGLER_VOICES - 1) % PUNK_DRUMS.length];
     const amount = crowd ? crowdAmount(event.kind,parameters) : clamp(finite(parameters.impacts,1.25),0,2);
     if (amount === 0) return;
     if (['catch', 'crowd-catch'].includes(event.kind)||missed) this.duckRiffs(t, amount);
     if (this.attacks.size >= MAX_PUGGLER_ATTACKS) this.disconnectVoice(this.attacks.values().next().value);
     if (crowd) {
-      const boos = [...this.attacks].filter(v => ['boo', 'woo'].includes(v.role) && !v.releasing);
+      const boos = [...this.attacks].filter(v => ['boo', 'woo','crowd-catch'].includes(v.role) && !v.releasing);
       if (boos.length >= 3) { boos[0].releasing = true; this.fadeVoice(boos[0]); }
     }
     const m = punkMotion(event, parameters);
@@ -354,7 +358,8 @@ export class PugglerAudio {
     }
     pan.pan.value = crowd ? m.pan * .3 : m.pan;
     const duration = Math.max(.05, Math.min(source.buffer.duration / rate, crowd ? 2 : source.buffer.duration * clamp(finite(parameters.decay, 1), .2, 2)));
-    const peak = (crowd ? 1 : amount) * (crowd ? (missed ? 1.15 : cheer ? .42 : .46) : propVoice ? .24*this.ensemble*(.8+.2*m.energy) : .33*this.ensemble*DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
+    const trim=propVoice&&skin.id==='punk'?propTimbreGain(objectSoundProfile(skin.id,propVoice),rate):1;
+    const peak = (crowd ? 1 : amount) * (crowd ? (missed ? 1.15 : caughtByCrowd ? .9 : cheer ? .42 : .46) : propVoice ? .24*this.ensemble*(.8+.2*m.energy)*trim : .33*this.ensemble*DRUM_GAIN[id] * skin.impact * (.72 + .28 * m.energy));
     gain.gain.setValueAtTime(0, t); gain.gain.linearRampToValueAtTime(peak * (crowd ? 1 : 1.35), t + .002);
     if (missed && duration>.65) {
       gain.gain.setValueAtTime(peak,t+.12);

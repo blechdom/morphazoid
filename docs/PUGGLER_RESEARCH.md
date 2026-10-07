@@ -474,7 +474,10 @@ borderless graphic sticky while the page scrolls. Motion and sound share one
 wrapping knob bank, distinguished by lime/cyan dial outlines, with labels below
 the dials and smaller values below the labels. The transport is circular (48px
 on touch), and the bordered To crowd action is beside Objects. There is no
-visible drag-instruction strip or sound disclosure.
+visible drag-instruction strip or sound disclosure. Riding style, Choreography,
+Passing cadence and Stage skin sit together at the top of the right panel,
+below the main presets and above The things; on portrait layouts they remain
+at the start of the stacked panel. The knobs stay under the graphic.
 
 The live-level regression renders the original boo, woo and crash recordings
 at 48 kHz, changes the gain at 250 ms without retriggering, and compares the
@@ -489,3 +492,51 @@ factory mixes and 12–30% dice range are unchanged. Custom scenes can retain th
 boosted value; Drops stays separate at 0–100%. Both new attacks and live edits
 use the expanded, bounded range. The ceiling, Scene level and header Output
 remain unchanged; their protection may limit the gain increase in dense mixes.
+
+## October 6 stage and punk-mix revision
+
+- **Speed** is one five-detent knob: **¼, ½, 1, 2×, 4×**, with **1 at
+  twelve o’clock**. It replaces the momentary speed buttons. Ratios apply to
+  the unchanged 25–1,200 base BPM, never compound, and returning to 1 restores
+  that base. Effective juggling/music tempo spans 6.25–4,800 BPM; above 1,200
+  the simulation uses bounded substeps to resolve short throws. Airborne scores
+  retain their 12-note/second ceiling. In-flight paths finish unchanged on a
+  speed edit; new throws use the new speed. Riding, Audio, Play, Output and live
+  clocks are preserved. Shared Tap controls remain on riding and base tempo;
+  the ratio selector is unitless. Saved v1–v3 scenes migrate to v4 with ratio 1,
+  factories/reset restore 1, and dice varies all five positions while keeping
+  effective tempo within its existing 140–1,000 BPM range to avoid volume jumps.
+- **The things** now precedes **Stage & lights**. Catch/Air selectors show sound
+  names without the “Own” prefix; the first choice still follows the object.
+- Lighting is now twelve complete, authored looks, not intensity/motion sliders.
+  Presets control the actual scenery exposure as well as beam geometry. Laser
+  rave, midnight curtains and Lights out have deliberately dark backgrounds;
+  the jugglers, objects and audience remain legible. Flashing still requires
+  explicit consent and is suppressed by reduced motion. It is never recalled
+  by a scene. v1/v2 saved scenes migrate to v4, dropping only the two validated
+  obsolete light overrides and retaining their selected lighting ID and music.
+- **Random posters** replaces “Random flyers.” History/future poster rectangles
+  are about 28% smaller in each dimension, with darker inks and reduced opacity.
+  Punk poster text and geometry are unchanged.
+- Punk has fixed post-calibration family/register trims: bass, kick/snare/toms
+  and rhythm guitar take precedence over feedback, high shred/whammy/ebow,
+  shouts and bright clatter. The trims affect both object catches and airborne
+  notes, with additional attenuation as tonal notes climb above 240 Hz. This is
+  not automatic gain control or a new master-volume boost; manual layer levels
+  still control the mix. History/future mixes are unchanged.
+- Six existing punk props now have newly rendered string-model sample colors:
+  fuzz stabs, octave-fuzz chords, buzzsaw shredding, gated-fuzz chops, fuzz dive
+  bombs and ripped-speaker picking. They reuse original delay-line strings with
+  five distinct bounded distortion/cabinet treatments; they are **synthesized
+  PCM samples, not new field recordings**. The cache remains 198 object buffers.
+- Audience catches now trigger a separate short hand-slap/applause/cheer sample,
+  combining original deterministic synthesis and the existing licensed `woo`
+  recording. It follows **Audience**, including live fades/mute, rather than
+  Catch impacts. A juggler's catch still uses the selected object sound. Both
+  contacts gate the outbound riff; drops retain their separate wuh-wuh cue.
+
+Focused checks cover speed/transport continuity, migration purity, bounded
+sample generation, mix-trim direction, dark-room rendering, responsive order,
+flash consent and the actual audience-catch audio path. Automated evidence is
+not a listening approval; punk balance and distortion character need owner
+listening, and no physical-phone pass is claimed.

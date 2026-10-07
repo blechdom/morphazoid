@@ -4,14 +4,14 @@ import { TAU, mode, noiseBurst, pluckedString, acousticVoice, copyClip, cabinet,
 // labels describe stylized colors, not authentic traditional performances.
 const palettes={
   punk:[
-    ['Palm-muted guitar','guitar',82],['Trash-can snare','snare',180],['Electric guitar stabs','guitar',110],['Picked bass guitar','bass',55],
+    ['Palm-muted guitar','guitar',82],['Trash-can snare','snare',180],['Splintered fuzz-guitar stabs','guitar',110],['Picked bass guitar','bass',55],
     ['Broken-glass clatter','glass',700],['Boot stomps','stomp',70],['Oi! Shout back','shout',160],['Pick-scrape guitar','scrape',147],
-    ['Rotten power chords','guitar',98],['Tambourine shake','tambourine',600],['Basement kick drum','kick',65],['Amp feedback squeal','feedback',440],
+    ['Octave-fuzz power chords','guitar',98],['Tambourine shake','tambourine',600],['Basement kick drum','kick',65],['Amp feedback squeal','feedback',440],
     ['Shredding guitar','shred',165],['Ebow guitar swell','ebow',110],['Thrash drum kit','kit',120],['Ride and crash cymbals','cymbal',500],
     ['Check check · is this thing on?','speech',160],['One two three four!','count-in',160],['Whammy-bar guitar','whammy',147],['Gang shouts','shout',190],
-    ['Bass-guitar slides','bass-slide',73],['More guitar shredding','shred',220],['Crowd screams','scream',210],['Knocked-over drum kit','kit',150],
-    ['Choked guitar chops','guitar',123],['Sustained ebow harmonics','ebow',196],['Floor-tom breakdown','tom',95],['Dive-bomb whammy','whammy',196],
-    ['Cable-and-amp feedback','feedback',330],['Knocking things over','clatter',280],['Dirty picked bass','bass',65],['Speed-picked guitar','shred',247],['Basement drum break','kit',170],
+    ['Bass-guitar slides','bass-slide',73],['Buzzsaw guitar shredding','shred',220],['Crowd screams','scream',210],['Knocked-over drum kit','kit',150],
+    ['Gated-fuzz guitar chops','guitar',123],['Sustained ebow harmonics','ebow',196],['Floor-tom breakdown','tom',95],['Fuzz whammy dive-bomb','whammy',196],
+    ['Cable-and-amp feedback','feedback',330],['Knocking things over','clatter',280],['Dirty picked bass','bass',65],['Ripped-speaker speed guitar','shred',247],['Basement drum break','kit',170],
   ],
   history:[
     ['Detuned bronze pair · stylized gamelan','gamelan',188],['Tabla bols · modal color','tabla',174],['Woodblock interlock','wood',320],['Orchestral timpani','timpani',65],
@@ -35,6 +35,7 @@ const palettes={
   ],
 };
 export const OBJECT_SOUND_RATE=22050;
+export const PUNK_DISTORTION_COLORS=Object.freeze({club:'fuzz',apple:'octave',axe:'buzzsaw',pickle:'gated',banana:'fuzz',icecream:'ripped'});
 export const OBJECT_SOUND_PROFILES=Object.freeze(Object.fromEntries(Object.entries(palettes).map(([skin,entries])=>{
   if(entries.length!==PROPS.length)throw new Error('Every prop needs a voice');
   return [skin,Object.freeze(Object.fromEntries(PROPS.map((prop,index)=>[prop.id,Object.freeze({skin,propId:prop.id,name:entries[index][0],family:entries[index][1],frequency:entries[index][2],index,color:.25+(index*11%23)/32,ratio:1.17+(index*7%19)*.137, speech:['speech','count-in'].includes(entries[index][1])})])))];
@@ -42,7 +43,20 @@ export const OBJECT_SOUND_PROFILES=Object.freeze(Object.fromEntries(Object.entri
 export function objectSoundProfile(skin,id){const bank=OBJECT_SOUND_PROFILES[skin]??OBJECT_SOUND_PROFILES.punk;return bank[id]??bank.ball;}
 export function objectSoundId(choice,propId){const id=choice==='object'?propId:typeof choice==='string'&&choice.startsWith('object:')?choice.slice(7):null;return id&&Object.hasOwn(OBJECT_SOUND_PROFILES.punk,id)?id:null;}
 export const objectSoundKey=(skin,propId,kind='air')=>`object:${skin}:${propId}:${kind}`;
-export function objectSoundLabel(skin,choice,propId,kind='air'){const id=objectSoundId(choice,propId);return id?`${choice==='object'?'Own · ':''}${objectSoundProfile(skin,id).name}${kind==='catch'?' hit':''}`:null;}
+export function objectSoundLabel(skin,choice,propId,kind='air'){const id=objectSoundId(choice,propId);return id?`${objectSoundProfile(skin,id).name}${kind==='catch'?' hit':''}`:null;}
+// Six reusable PCM colors rendered at bank preparation, never in the live
+// scheduler. These are original string-model samples, not claimed recordings.
+export function distortPunkString(out,rate,color){
+  for(let i=0;i<out.length;i++){
+    const x=out[i],t=i/rate;
+    if(color==='octave')out[i]=Math.tanh(Math.abs(x)*9)*.65+x*.35;
+    else if(color==='gated')out[i]=Math.tanh(x*15)*(Math.abs(x)>.035?1:Math.abs(x)/.035)*Math.exp(-t*5);
+    else if(color==='buzzsaw')out[i]=Math.max(-.7,Math.min(.7,x*13));
+    else if(color==='ripped')out[i]=Math.tanh((x>0?x*13:x*4)+x*x*3);
+    else if(color==='fuzz')out[i]=Math.tanh(x*11+.12)-Math.tanh(.12);
+  }
+  cabinet(out,rate,1,color==='octave'?2900:color==='ripped'?2400:3400);
+}
 function vocal(out,rate,p,clips){
   const family=p.family,source=clips[family==='scream'||family==='laughter'||family==='opera'?'woo':'oi'];
   const speed=family==='grunt'?.73:family==='laughter'?1.2:family==='opera'?1.05:.93+(p.index%7)*.035;
@@ -62,6 +76,7 @@ function punk(out,rate,p,clips){
   const f=p.family;
   if(['guitar','shred','scrape','ebow','whammy','bass','bass-slide'].includes(f)){
     pluckedString(out,rate,p,{bass:f.startsWith('bass'),muted:f==='guitar',sustain:f==='ebow',whammy:f==='whammy'||f==='bass-slide'});
+    const color=PUNK_DISTORTION_COLORS[p.propId];if(color)distortPunkString(out,rate,color);
     if(f==='scrape')noiseBurst(out,rate,p.index*41,.12,.11,.65);
   }else if(f==='feedback'){
     for(const [k,a] of [[1,.4],[2,.22],[3,.12]])mode(out,rate,p.frequency*k,a,2.5,k,.35);
@@ -81,6 +96,18 @@ function punk(out,rate,p,clips){
       noiseBurst(out,rate,p.index+13,.3,.025,.7);
     }
   }
+}
+export function renderCrowdCatch(clips={},rate=OBJECT_SOUND_RATE){
+  const out=new Float32Array(Math.ceil(rate*.58));
+  // A low hand-slap, clustered applause and a short recorded cheer identify a
+  // catch in the audience, independently of the object's selected drum voice.
+  for(let j=0;j<3;j++){
+    const clap=new Float32Array(Math.ceil(rate*.12));
+    noiseBurst(clap,rate,731+j,.65,.016,.35);mode(clap,rate,185+j*37,.2,.018);
+    copyClip(out,rate,{data:clap,rate},{at:j*.021,gain:1-j*.16});
+  }
+  copyClip(out,rate,clips.woo,{at:.07,speed:1.06,gain:.55});
+  return finishVoice(out,rate,.17);
 }
 function future(out,rate,p,clips){
   let phase=0,mod=0,low=0,band=0;const noise=noiseFor(p.index+901),family=p.family;

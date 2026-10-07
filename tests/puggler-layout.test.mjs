@@ -52,3 +52,13 @@ test('one preset host moves between mobile and panel slots, preserving focus and
   media.matches=false;listener();assert.equal(host.parentElement,panelSlot);assert.equal(focused,2);
   listeners.forEach(fn=>fn());assert.equal(removed,true);
 });
+
+test('the four act menus follow presets at the top of the right panel, not below the graphic',async()=>{
+  const html=await readFile(new URL('../src/pages/puggler.html',import.meta.url),'utf8');
+  const [performance,panel]=html.split('<aside class="puggler-panel');
+  assert.doesNotMatch(performance,/puggler-act-fields/);
+  assert.match(panel,/<div id="panelPresets">[^\n]+<\/div>\s+<div class="puggler-act-fields">/);
+  const actFields=panel.split('class="puggler-act-fields">')[1].split('</div>')[0];
+  assert.deepEqual([...actFields.matchAll(/<select[^>]+id="([^"]+)"/g)].map(match=>match[1]),['ridePattern','preset','passMode','skin']);
+  assert.ok(panel.indexOf('puggler-act-fields')<panel.indexOf('The things'));
+});

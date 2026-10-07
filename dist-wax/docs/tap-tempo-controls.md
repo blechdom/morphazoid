@@ -106,7 +106,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Pink Trombonazoid · Morphazoid](../pink-trombonazoid.html) | `#speechRate` |
 | [Playhead Paint](../playhead-paint.html) | `#playbackRate`, `#steadySpeed` |
 | [Prime Sieve](../prime-sieve.html) | `#primeRate` |
-| [Puggler the Punk Rock Jugger · Morphazoid](../puggler.html) | `#lightSpeed`, `#rideSpeed`, `#tempo` |
+| [Puggler the Punk Rock Jugger · Morphazoid](../puggler.html) | `#rideSpeed`, `#tempo` |
 | [Quadruped · Morphazoid](../quadruped.html) | `#tempo` |
 | [Rattlesnake Skin](../rattlesnake-skin.html) | `#glissRate`, `#tempo` |
 | [Reaction-Diffusion](../reaction-diffusion.html) | `#reactionSpeed` |

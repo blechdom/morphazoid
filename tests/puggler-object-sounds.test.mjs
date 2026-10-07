@@ -4,9 +4,31 @@ import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { decodePcmWav } from '../src/pcm-wav-decoder.js';
 import { PROPS } from '../src/instruments/puggler/puggler.js';
-import { OBJECT_SOUND_PROFILES, OBJECT_SOUND_RATE, renderObjectSound, prepareObjectSoundData, objectSoundId, objectSoundKey } from '../src/instruments/puggler/puggler-object-sounds.js';
+import { OBJECT_SOUND_PROFILES, OBJECT_SOUND_RATE, renderObjectSound, prepareObjectSoundData, objectSoundId, objectSoundKey, objectSoundLabel, PUNK_DISTORTION_COLORS, distortPunkString, renderCrowdCatch } from '../src/instruments/puggler/puggler-object-sounds.js';
 const clips=Object.fromEntries(['kick','snare','crash','tom','hat','oi','woo','boo','mic-check','count-in'].map(id=>{const wave=decodePcmWav(readFileSync(new URL(`../assets/puggler/${id}.wav`,import.meta.url)));return [id,{data:wave.samples,rate:wave.sampleRate}];}));
 const hash=data=>createHash('sha256').update(new Uint8Array(data.buffer)).digest('hex');
+
+test('new punk string samples have distinct distortion colors rather than merely louder copies',()=>{
+  assert.equal(Object.keys(PUNK_DISTORTION_COLORS).length,6);
+  const dry=Float32Array.from({length:22050},(_,i)=>.18*Math.sin(i*2*Math.PI*110/22050)*Math.exp(-i/12000));
+  const rendered=new Set();
+  for(const color of new Set(Object.values(PUNK_DISTORTION_COLORS))){
+    const out=dry.slice();distortPunkString(out,22050,color);
+    assert.ok(out.every(Number.isFinite));assert.notEqual(hash(out),hash(dry));rendered.add(hash(out));
+    const silent=new Float32Array(2048);distortPunkString(silent,22050,color);assert.ok(silent.every(v=>v===0));
+  }
+  assert.equal(rendered.size,5);
+  for(const skin of ['punk','history','future'])assert.ok(!objectSoundLabel(skin,'object','ball','catch').includes('Own'));
+});
+
+test('audience catches are a finite short applause/cheer, not any selected object catch sample',()=>{
+  const data=renderCrowdCatch(clips),silentClips=renderCrowdCatch();
+  assert.deepEqual(data,renderCrowdCatch(clips));assert.notEqual(hash(data),hash(silentClips),'recorded cheer contributes');
+  assert.ok(data.every(Number.isFinite));assert.ok(data.every(v=>Math.abs(v)<=.681));
+  assert.equal(Math.abs(data[0]),0);assert.equal(Math.abs(data.at(-1)),0);
+  assert.ok(data.length/OBJECT_SOUND_RATE<.6);
+  for(const p of PROPS)assert.notEqual(hash(data),hash(renderObjectSound('punk',p.id,'catch',OBJECT_SOUND_RATE,clips)));
+});
 
 test('all 99 prop/era voices have unique deterministic, finite, bounded air and catch samples',async()=>{
   const bank=await prepareObjectSoundData(clips);assert.equal(bank,await prepareObjectSoundData(clips));assert.equal(Object.keys(bank).length,198);

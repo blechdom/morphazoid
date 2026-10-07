@@ -45,7 +45,8 @@ test('future lighting retains fluorescent palettes with bounded smooth non-flash
     const next=lightingState(1030,612,{...model,time:10.016},view,scene.id,'future');
     for(const [i,beam] of state.beams.entries()){
       const channels=beam.color.slice(1).match(/../g).map(value=>parseInt(value,16));
-      assert.ok(Math.max(...channels)-Math.min(...channels)>130);
+      if(scene.id==='blackout')assert.ok(state.ambient<.01&&beam.alpha<.03,'new lights-out look has only a faint neutral rim');
+      else assert.ok(Math.max(...channels)-Math.min(...channels)>130);
       assert.ok(beam.alpha<=.75&&Math.abs(beam.alpha-next.beams[i].alpha)<.01);
     }
   }

@@ -37,9 +37,18 @@ test('ensemble compensation depends on configuration, not momentary silence or a
 test('soft-family trims remain finite, bounded and independent of instantaneous level',()=>{
   for(const bank of Object.values(OBJECT_SOUND_PROFILES))for(const profile of Object.values(bank)){
     const gain=propTimbreGain(profile);
-    assert.ok(Number.isFinite(gain)&&gain>=1&&gain<=1.8);
+    assert.ok(Number.isFinite(gain)&&gain>=.1&&gain<=1.8);
     assert.equal(propTimbreGain({...profile,rms:0}),gain);
     assert.equal(propTimbreGain({...profile,rms:1}),gain);
   }
   assert.ok(propTimbreGain(OBJECT_SOUND_PROFILES.future.fish)>propTimbreGain(OBJECT_SOUND_PROFILES.future.guitar));
+});
+
+test('punk bass, rhythm guitar and drums lead the mix; high lead notes recede without changing other eras',()=>{
+  const bank=OBJECT_SOUND_PROFILES.punk;
+  for(const core of ['ball','bowling','can','brick'])for(const lead of ['balloon','violin','guitar','axe']){
+    assert.ok(propTimbreGain(bank[core])>propTimbreGain(bank[lead],2),`${core} ahead of ${lead}`);
+  }
+  assert.ok(propTimbreGain(bank.guitar,3)<propTimbreGain(bank.guitar,1));
+  for(const skin of ['history','future'])for(const p of Object.values(OBJECT_SOUND_PROFILES[skin]))assert.equal(propTimbreGain(p,3),propTimbreGain(p,1));
 });

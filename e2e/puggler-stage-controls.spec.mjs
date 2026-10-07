@@ -12,7 +12,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
       return {play:rect(button),radius:getComputedStyle(button).borderRadius,objects:rect(objects),crowd:rect(crowd),crowdBorder:parseFloat(getComputedStyle(crowd).borderTopWidth),adjacent:objects.nextElementSibling===crowd,
         knobs:[...document.querySelectorAll('.puggler-knob-bank .mz-range-knob')].map(field=>{
           const dial=field.querySelector('.mz-range-knob__dial'),label=field.querySelector('.mz-field__label'),output=field.querySelector('output');
-          return {dial:rect(dial),label:rect(label),output:rect(output),color:getComputedStyle(dial).borderTopColor,labelSize:parseFloat(getComputedStyle(label).fontSize),valueSize:parseFloat(getComputedStyle(output).fontSize)};
+          return {id:field.querySelector('input').id,dial:rect(dial),label:rect(label),output:rect(output),color:getComputedStyle(dial).borderTopColor,labelSize:parseFloat(getComputedStyle(label).fontSize),valueSize:parseFloat(getComputedStyle(output).fontSize)};
         })};
     });
     expect(presentation.play.width).toBe(presentation.play.height);
@@ -25,7 +25,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
       expect(knob.labelSize).toBeLessThanOrEqual(9);
       expect(knob.output.y).toBeGreaterThan(knob.label.bottom);expect(knob.valueSize).toBeLessThan(knob.labelSize);
     }
-    expect(presentation.knobs[0].color).not.toBe(presentation.knobs[9].color);
+    expect(presentation.knobs.find(k=>k.id==='rideSpeed').color).not.toBe(presentation.knobs.find(k=>k.id==='sceneGain').color);
     if(viewport.width===1440)expect(presentation.knobs.filter(k=>k.dial.y===presentation.knobs[0].dial.y).length).toBeGreaterThan(8);
     await expect(page.locator('.puggler-knob-bank details')).toHaveCount(0);
     expect(await page.locator('.puggler-performance-controls').innerText()).not.toMatch(/drag up|drag down|drag.*up.*down/i);
@@ -35,16 +35,17 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed','false');
     const before=await state(page);
     await expect(page.locator('.puggler-panel #loft, .puggler-panel #soundControls, .key-grid')).toHaveCount(0);
-    await expect(page.locator('#performanceKnobs input[type=range]')).toHaveCount(9);
+    await expect(page.locator('#performanceKnobs input[type=range]')).toHaveCount(10);
     await expect(page.locator('#soundControls input[type=range]')).toHaveCount(10);
     await expect(page.locator('#boo')).toHaveAttribute('max','3');
-    for(const id of ['rideSpeed','tempo','count','loft','assist','chaos','gravity','wind','rideRange','sceneGain','flight','impacts','drops','boo','height','stereo','grit','motion','decay']){
+    for(const id of ['rideSpeed','tempo','tempoMultiplier','count','loft','assist','chaos','gravity','wind','rideRange','sceneGain','flight','impacts','drops','boo','height','stereo','grit','motion','decay']){
       const input=page.locator(`#${id}`);await input.scrollIntoViewIfNeeded();
       const limits=await input.evaluate(i=>[Number(i.min),Number(i.max),Number(i.step)]);
       for(const value of [limits[0],limits[0]+Math.round((limits[1]-limits[0])/2/limits[2])*limits[2],limits[1]]){
         await setRange(page,id,value);
         const actual=await page.evaluate(async id=>{const {captureHeaderPresetState}=await import('/src/site/header-presets.js');const s=captureHeaderPresetState().snapshot;return id in s.model?s.model[id]:s.sound[id];},id);
-        expect(actual).toBeCloseTo(Number(await input.inputValue()),6);
+        const valueInControl=Number(await input.inputValue());
+        expect(actual).toBeCloseTo(id==='tempoMultiplier'?2**valueInControl:valueInControl,6);
         if(id==='boo'&&value===3)await expect(page.locator('output[for=boo]')).toHaveText('300%');
       }
       await input.focus();const max=Number(await input.inputValue());await input.press('ArrowLeft');expect(Number(await input.inputValue())).toBeLessThan(max);

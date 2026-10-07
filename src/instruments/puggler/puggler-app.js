@@ -3,7 +3,7 @@ import { PugglerModel, PROPS, PATTERNS, OBJECT_SOUND_CHOICES, DRUMS, RIFFS, MAX_
 import { PAGE_DEFAULTS, PRESETS } from "./puggler-presets.js";
 import { PugglerAudio } from "./puggler-audio.js";
 import { PugglerRenderer } from "./puggler-renderer.js";
-import { GAME_KEYS, drivingControls, reducedTempo } from "./puggler-controls.js";
+import { GAME_KEYS, drivingControls } from "./puggler-controls.js";
 import { SKINS, skinFor, presentProp } from "./puggler-skins.js";
 import { LIGHTING_SCENES } from "./puggler-lighting.js";
 import { objectSoundLabel } from './puggler-object-sounds.js';
@@ -26,7 +26,7 @@ const keys=new Set(),cleanups=[],ranges=new Map(),objectRows=[],knobs=[];
 const riderToggles=[],toggleKeys=['Digit1','Digit2','Digit3'];
 const listen=(element,type,handler,options)=>{element.addEventListener(type,handler,options);cleanups.push(()=>element.removeEventListener(type,handler,options));};
 const percent=v=>`${Math.round(v*100)}%`;
-function updateAudio(){audio.update(model.objects,{...params,tempo:model.config.tempo,beat:model.beat,active:!document.hidden},running&&!document.hidden);}
+function updateAudio(){audio.update(model.objects,{...params,tempo:model.tempo,beat:model.beat,active:!document.hidden},running&&!document.hidden);}
 function status(){
   $('playButton').querySelector('.mz-button__label').textContent=running?'Pause':'Play';
   $('playButton').setAttribute('aria-pressed',String(running));
@@ -35,9 +35,9 @@ function togglePlay(){running=!running;accumulator=0;lastClock=clock();updateAud
 function clock(){return audio.on&&audio.context?.state==='running'?audio.context.currentTime:performance.now()/1000;}
 function addRange(container,id,label,min,max,step,value,formatter,destination){
   const field=createRangeField({id,label,min,max,step,value,formatValue:formatter,onInput:v=>{
-    if(destination==='model')model.apply({[id]:v});else params[id]=v;
+    if(destination==='model')model.apply({[id]:id==='tempoMultiplier'?2**v:v});else params[id]=v;
     if(id==='count')syncSelectors();
-    if(id==='tempo'){syncTempoActions();updateAudio();}
+    if(id==='tempo'||id==='tempoMultiplier'){syncTempoReadouts();updateAudio();}
     headerPresets?.refresh();
   }});$(container).append(field);ranges.set(id,field);
   if($(container).classList.contains('puggler-knobs'))knobs.push(enhanceRangeKnob(field.input));
@@ -46,13 +46,19 @@ addRange('performanceKnobs','rideSpeed','Ride speed',0,2.5,.05,PAGE_DEFAULTS.rid
 addRange('performanceKnobs','rideRange','Riding distance',0,100,1,PAGE_DEFAULTS.rideRange,v=>`${Math.round(v)}%`,'model');
 addRange('performanceKnobs','count','Objects',1,10,1,PAGE_DEFAULTS.count,v=>`${v}`,'model');
 addRange('performanceKnobs','tempo','Juggle / music',MIN_TEMPO,MAX_TEMPO,.01,PAGE_DEFAULTS.tempo,v=>`${Number(v.toFixed(2))} BPM`,'model');
+addRange('performanceKnobs','tempoMultiplier','Speed',-2,2,1,0,v=>['¼','½','1','2×','4×'][v+2],'model');
+$('tempoMultiplier').setAttribute('aria-label','Juggling / music speed');
+$('tempoMultiplier').setAttribute('aria-description','Five positions: quarter, half, normal, double, quadruple. Normal is at the top. Riding speed is independent.');
+function syncTempoReadouts(){
+  $('tempoMultiplier').setAttribute('aria-valuetext',`${model.config.tempoMultiplier} times; ${Number(model.tempo.toFixed(3))} BPM`);
+  ranges.get('tempo').title=`Base tempo. Playing at ${Number(model.tempo.toFixed(3))} BPM.`;
+}
+
 addRange('performanceKnobs','loft','Throw height',.6,3,.05,1.8,v=>`${v.toFixed(2)}×`,'model');
 addRange('performanceKnobs','assist','Catch reach',20,120,1,PAGE_DEFAULTS.assist,v=>`${v}`,'model');
 addRange('performanceKnobs','chaos','Wildness',0,100,1,PAGE_DEFAULTS.chaos,v=>`${v}%`,'model');
 addRange('performanceKnobs','gravity','Gravity',.45,1.65,.01,1,v=>`${v.toFixed(2)}×`,'model');
 addRange('performanceKnobs','wind','Crosswind',-12,12,.1,0,v=>`${v>0?'+':''}${v.toFixed(1)}`,'model');
-addRange('lightingControls','lightIntensity','Light intensity',0,1,.01,params.lightIntensity,percent);
-addRange('lightingControls','lightSpeed','Light motion',.2,2.5,.05,params.lightSpeed,v=>`${v.toFixed(2)}×`);
 addRange('soundControls','sceneGain','Scene level',0,1,.01,params.sceneGain,percent);
 addRange('soundControls','flight','Airborne riffs',0,1,.01,params.flight,percent);
 addRange('soundControls','impacts','Catch impacts',0,2,.01,params.impacts,percent);
@@ -76,19 +82,11 @@ $('ridePattern').replaceChildren(...RIDE_PATTERNS.map(id=>new Option(id.replaceA
 $('skin').replaceChildren(...SKINS.map(skin=>new Option(skin.name,skin.id)));
 $('lighting').replaceChildren(...LIGHTING_SCENES.map(scene=>new Option(scene.name,scene.id)));
 const patternPicker=createPatternPicker();
-const tempoActions=[['halfSpeedButton',2],['quarterSpeedButton',4]];
-function syncTempoActions(){
-  for(const [id,divisor] of tempoActions)$(id).disabled=reducedTempo(model.config.tempo,divisor)===null;
-}
-for(const [id,divisor] of tempoActions)listen($(id),'click',()=>{
-  const tempo=reducedTempo(model.config.tempo,divisor);
-  if(tempo!==null)ranges.get('tempo').setValue(tempo,{emit:true});
-});
 function syncSkinLabels(){
   ranges.get('grit').querySelector('.mz-field__label').textContent=sonicSkin(params.skin).grit;
   const skin=skinFor(params.skin),names=skin.riders;
   $('skin').value=skin.id;$('lighting').value=params.lighting;
-  $('postersButton').textContent='↻ Random flyers';
+  $('postersButton').textContent='↻ Random posters';
   riderToggles.forEach((button,owner)=>button.querySelector('span').textContent=names[owner]);
   $('stage').setAttribute('aria-label',`${skin.name} juggling stage. Drag or use Left and Right to steer all jugglers together.`);
 }
@@ -108,8 +106,8 @@ function syncSelectors(){
   $('pattern').replaceChildren(...patterns);
   $('pattern').value=model.config.phrase==='loop'?model.pattern.id:`phrase:${model.config.phrase}`;
   patternPicker.refresh();
-  for(const [id,field] of ranges)field.setValue(id in model.config?model.config[id]:params[id]);
-  syncTempoActions();
+  for(const [id,field] of ranges)field.setValue(id==='tempoMultiplier'?Math.log2(model.config[id]):id in model.config?model.config[id]:params[id]);
+  syncTempoReadouts();
   riderToggles.forEach((button,owner)=>{
     const active=model.activeIds.includes(owner),last=active&&model.riderCount===1;
     button.setAttribute('aria-pressed',String(active));button.disabled=last;
@@ -280,7 +278,7 @@ function tick(){
   accumulator+=dt;const events=[];
   const held=keys;
   while(accumulator>=1/120){events.push(...model.step(1/120,drivingControls(held,targets,model.activeIds),null,0,null,running));accumulator-=1/120;}
-  params.tempo=model.config.tempo;handleEvents(events,(audio.context?.currentTime??0)+.035);updateAudio();
+  params.tempo=model.tempo;handleEvents(events,(audio.context?.currentTime??0)+.035);updateAudio();
 }
 function handleEvents(events,audioTime){
   renderer.react(events,model.time,running);
@@ -307,4 +305,4 @@ headerPresets=registerHeaderPresets({
   },
   randomize:randomizePugglerPreset,
 });
-window.__puggler=Object.freeze({snapshot:()=>({level:params.level,dropLevel:params.drops,sceneGain:params.sceneGain,allowFlashes:params.allowFlashes,reducedMotion:params.reducedMotion,rhythmicNotes:audio.noteCount,objectBufferCount:Object.keys(audio.objectBuffers??{}).length,airTails:audio.airTails.size,skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,tempo:model.config.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,sonics:audio.voices.filter(Boolean).map(v=>({slot:v.slot,key:v.key,skin:v.skin,speaker:v.speaker,role:v.role,noteBeat:v.noteBeat??null,startedAt:v.startedAt,rate:v.rate})),hitSounds:[...audio.attacks].map(v=>v.key),vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});
+window.__puggler=Object.freeze({snapshot:()=>({level:params.level,dropLevel:params.drops,sceneGain:params.sceneGain,allowFlashes:params.allowFlashes,reducedMotion:params.reducedMotion,rhythmicNotes:audio.noteCount,objectBufferCount:Object.keys(audio.objectBuffers??{}).length,airTails:audio.airTails.size,skin:params.skin,lighting:params.lighting,riderNames:[...skinFor(params.skin).riders],time:model.time,running,audioOn:audio.on,x:model.x,beat:model.beat,pattern:model.pattern.id,count:model.objects.length,catches:model.catches,drops:model.drops,passes:model.passes,crowdCatches:model.crowdCatches,riders:model.riderCount,activeIds:[...model.activeIds],chaos:model.config.chaos,posterSeed:model.posterSeed,phrase:model.config.phrase,cast:model.config.cast,autoRide:model.config.autoRide,ridePattern:model.config.ridePattern,rideSpeed:model.config.rideSpeed,rideRange:model.config.rideRange,steeringTargets:[...targets],trails:params.trails,baseTempo:model.config.tempo,tempoMultiplier:model.config.tempoMultiplier,tempo:model.tempo,loft:model.config.loft,players:model.players.map(p=>({...p})),attacks:audio.attacks.size,sonics:audio.voices.filter(Boolean).map(v=>({slot:v.slot,key:v.key,skin:v.skin,speaker:v.speaker,role:v.role,noteBeat:v.noteBeat??null,startedAt:v.startedAt,rate:v.rate})),hitSounds:[...audio.attacks].map(v=>v.key),vocals:audio.voices.filter(v=>v?.character).map(v=>({slot:v.slot,character:v.character,speaker:v.speaker,role:v.role,startedAt:v.startedAt})),collage:renderer.collageStatus(),crowd:renderer.crowdSnapshot(model.time),pyro:renderer.pyroSnapshot(model.time),objects:model.objects.map(o=>({id:o.id,start:o.start,x:o.x,y:o.y,vx:o.vx,vy:o.vy,phase:o.phase,prop:o.prop.id,name:presentProp(o.prop,params.skin).name,owner:o.owner,fromOwner:o.fromOwner,voiceOwner:o.voiceOwner,drum:o.drum,riff:o.riff})),disposed})});

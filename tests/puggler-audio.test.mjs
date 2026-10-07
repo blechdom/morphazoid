@@ -246,12 +246,36 @@ test('catch events gate their own riff when the held state falls between polls, 
   assert.equal(audio.voices[8].source.starts[0].offset, audio.phrasePositions[8].offset);
 }));
 
-test('crowd catches close the outbound riff and accent the assigned/default drum', async () => withAudio(async audio => {
+test('crowd catches close the outbound riff and play a separate applause/cheer on the Audience bus', async () => withAudio(async audio => {
   await audio.arm(); audio.update([object(9, 'audience')], {}, true);
   const previous = audio.voices[9]; assert.equal(previous.role, 'bass');
   audio.strike({ ...object(9), kind: 'crowd-catch', drum: undefined }, {}, audio.context.currentTime);
   assert.equal(audio.voices[9], null); assert.ok(previous.source.stops.length);
-  assert.equal([...audio.attacks].at(-1).role, 'hat');
+  const catchVoice=[...audio.attacks].at(-1);
+  assert.equal(catchVoice.role, 'crowd-catch');
+  assert.equal(catchVoice.source.buffer,audio.buffers['crowd-catch']);
+  assert.notEqual(catchVoice.source.buffer,audio.buffers.hat);
+  assert.equal(catchVoice.pan.connections[0],audio.bus);
+  audio.update([], {boo:0}, false);
+  assert.equal(catchVoice.mix.gain.events.at(-1)[1],0,'Audience fades a catch already sounding');
+  const count=audio.attacks.size;
+  audio.strike({...object(9),kind:'crowd-catch',drum:'object'}, {boo:0}, audio.context.currentTime);
+  assert.equal(audio.attacks.size,count,'Audience mute suppresses the catch without a drum fallback');
+}));
+
+test('real object catch routing applies punk-only trims after sample calibration',async()=>withAudio(async audio=>{
+  await audio.arm();audio.update([],{skin:'punk',level:.48},true);
+  const peak=(skin,id)=>{
+    // Keep the physical impact identical; change only its assigned sound.
+    audio.strike({...object(0),drum:`object:${id}`,kind:'catch'}, {skin,impacts:1},audio.context.currentTime);
+    const v=[...audio.attacks].at(-1);
+    assert.equal(v.source.buffer,audio.objectBuffers[`object:${skin}:${id}:catch`]);
+    return Math.max(...v.gain.gain.events.filter(e=>e[0]==='ramp').map(e=>e[1]));
+  };
+  assert.ok(peak('punk','bowling')>peak('punk','balloon')*2);
+  assert.ok(peak('punk','can')>peak('punk','guitar'));
+  // No newly introduced catch-family compensation in the non-punk banks.
+  assert.equal(peak('history','deadcat'),peak('history','balloon'));
 }));
 
 test('audible catches briefly duck other riffs and route stronger transients around the riff compressor', async () => withAudio(async audio => {

@@ -119,7 +119,6 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "playhead-paint.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "playhead-paint.html", "selector": "#steadySpeed", "mapping": {"unit": "hz", "cycleUnit": "path-unit"}},
   {"route": "prime-sieve.html", "selector": "#primeRate", "mapping": {"unit": "hz", "signed": false}},
-  {"route": "puggler.html", "selector": "#lightSpeed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "puggler.html", "selector": "#rideSpeed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "puggler.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "quadruped.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},

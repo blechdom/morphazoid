@@ -38,6 +38,7 @@ const automataTransportChanges = JSON.parse(await readFile(new URL("../docs/auto
 const automataClockChanges = JSON.parse(await readFile(new URL("../docs/automatapoeia-audio-clock-runtime-changes.json", import.meta.url))).changes;
 const pugglerChanges = JSON.parse(await readFile(new URL("../docs/puggler-expansion-runtime-changes.json", import.meta.url))).changes;
 const pugglerTempoChanges = JSON.parse(await readFile(new URL("../docs/puggler-tempo-runtime-changes.json", import.meta.url))).changes;
+const pugglerStageMixChanges = JSON.parse(await readFile(new URL("../docs/puggler-stage-mix-runtime-changes.json", import.meta.url))).changes;
 const chiptuneChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-runtime-changes.json", import.meta.url))).changes;
 const chiptuneDanceChanges = JSON.parse(await readFile(new URL("../docs/simd-chiptune-dance-runtime-changes.json", import.meta.url))).changes;
 const synthesisChanges = JSON.parse(await readFile(new URL("../docs/synthesis-runtime-changes.json", import.meta.url))).changes;
@@ -97,7 +98,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
     }
     current = restorePointerExtraction(restoreShapesSoundBanks(current, record.after), record.after);
-    for (const change of [...pugglerTempoChanges, ...pugglerChanges].filter(change => change.file === record.after)) {
+    for (const change of [...pugglerStageMixChanges, ...pugglerTempoChanges, ...pugglerChanges].filter(change => change.file === record.after)) {
       for (const testFile of change.regressionTests) assert.ok(existsSync(path.join(root, testFile)), testFile);
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(current.split(replacement.after).length - 1, 1, `exactly one Puggler expansion edit: ${change.file}`);
@@ -246,6 +247,17 @@ test("Puggler tempo amendments retain the frozen baseline and focused continuity
     assert.ok(proof.files.some(record => record.after === change.file));
     assert.ok(change.replacements.length > 0);
     assert.deepEqual(change.regressionTests, ["tests/puggler-tempo.test.mjs", "e2e/puggler-tempo.spec.mjs"]);
+  }
+});
+
+test("Puggler stage/mix and speed amendments are scoped to five existing modules with focused evidence",()=>{
+  assert.deepEqual(pugglerStageMixChanges.map(change=>change.file),[
+    'puggler-app.js','puggler-audio.js','puggler-controls.js','puggler-lighting.js','puggler.js',
+  ].map(file=>`src/instruments/puggler/${file}`));
+  for(const change of pugglerStageMixChanges){
+    assert.ok(proof.files.some(record=>record.after===change.file));
+    assert.ok(change.replacements.length>0);
+    assert.ok(change.regressionTests.includes('e2e/puggler-stage-mix.spec.mjs'));
   }
 });
 

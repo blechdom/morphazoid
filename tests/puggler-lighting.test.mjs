@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { LIGHTING_SCENES, lightingState, renderStageLighting, MAX_LIGHT_BEAMS, MAX_DISCO_SPOTS, FLASH_RATE_HZ } from '../src/instruments/puggler/puggler-lighting.js';
 const model={time:10,activePlayers:[{lastCatch:9.5},{lastCatch:9.8},{lastCatch:9.9}]};
-test('eleven lighting scenes have distinct, stronger but bounded geometry',()=>{
+test('complete lighting presets have distinct, stronger but bounded geometry and room brightness',()=>{
   const signatures=[];
   for(const [w,h] of [[1100,619],[390,219],[320,210]])for(const skin of ['punk','history','future'])for(const scene of LIGHTING_SCENES){
     const state=lightingState(w,h,model,{oy:h-40},scene.id,skin);
@@ -16,20 +16,22 @@ test('eleven lighting scenes have distinct, stronger but bounded geometry',()=>{
     assert.equal(state.flash,0);assert.equal(state.flashing,false);
     if(w===1100&&skin==='punk')signatures.push(JSON.stringify({...state,id:''}));
   }
-  assert.equal(new Set(signatures).size,11);
+  assert.equal(new Set(signatures).size,LIGHTING_SCENES.length);
   const house=lightingState(1000,600,model,{oy:550},'house'),party=lightingState(1000,600,model,{oy:550},'party');
   assert.ok(party.beams[0].alpha>house.beams[0].alpha*3);assert.equal(party.spots.length,24);
   assert.equal(lightingState(1000,600,model,{oy:550},'missing').id,'house');
 });
-test('contacts, motion speed and intensity have observable effects; reduced motion fixes the geometry',()=>{
+test('presets own motion/intensity/room darkness; contacts respond and reduced motion fixes geometry',()=>{
   const get=(time,options={})=>lightingState(1000,600,{...model,time},{oy:550},'disco','future',options);
-  const a=get(10),b=get(10.5),fast=get(10.5,{lightSpeed:2});
-  assert.notDeepEqual(a.beams,b.beams);assert.notDeepEqual(fast.beams,b.beams);
+  const a=get(10),b=get(10.5),legacy=get(10.5,{lightSpeed:2,lightIntensity:0});
+  assert.notDeepEqual(a.beams,b.beams);assert.deepEqual(legacy,b,'obsolete saved sliders cannot flatten the authored look');
   const calm=get(10,{reducedMotion:true}),later=get(11,{reducedMotion:true});
   assert.equal(calm.motion,0);assert.deepEqual(calm.beams.map(b=>b.tx),later.beams.map(b=>b.tx));
   assert.ok(a.energy>get(11).energy);
-  assert.ok(get(10,{lightIntensity:0}).beams.every(b=>b.alpha===0));
-  assert.ok(get(10,{lightIntensity:1}).beams[0].alpha>a.beams[0].alpha);
+  const look=id=>lightingState(1000,600,model,{oy:550},id);
+  assert.ok(look('blackout').ambient<.01);
+  assert.ok(look('house').ambient>look('lasers').ambient*30);
+  assert.ok(new Set(LIGHTING_SCENES.map(s=>s.ambient)).size>=8);
 });
 test('flashes require explicit consent, never exceed two shared pulses per second and obey reduced motion',()=>{
   assert.equal(FLASH_RATE_HZ,2);

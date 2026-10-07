@@ -39,6 +39,18 @@ for (const viewport of viewports) test(`compact controls and Choose menus at ${v
     expect(initial.objects.y).toBe(initial.throw.y);
     expect(initial.objectIcon.width).toBeGreaterThanOrEqual(22);
     await expect(page.locator('#crowdButton')).toHaveText('Throw');
+    const actFields=page.locator('.puggler-panel > #panelPresets + .puggler-act-fields');
+    await expect(actFields).toHaveCount(1);
+    await expect(page.locator('.puggler-performance-controls .puggler-act-fields')).toHaveCount(0);
+    expect(await actFields.locator('select').evaluateAll(nodes=>nodes.map(n=>n.id))).toEqual(['ridePattern','preset','passMode','skin']);
+    expect(await actFields.evaluate(node=>node.nextElementSibling.querySelector('h2').textContent)).toBe('The things');
+    for(const id of ['ridePattern','preset','passMode','skin']){
+      const input=actFields.locator(`#${id}`);await input.scrollIntoViewIfNeeded();await expect(input).toBeVisible();
+      expect(await input.evaluate(node=>{
+        const r=node.getBoundingClientRect();return r.width>100&&r.right<=innerWidth&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)===node;
+      })).toBe(true);
+    }
+    await actFields.screenshot({path:testInfo.outputPath('top-panel-act-controls.png')});
     for (const skin of ['history','future','punk']) {
       await page.locator('#skin').evaluate((input, value) => {input.value=value;input.dispatchEvent(new Event('change',{bubbles:true}));}, skin);
       const after = await layout();
@@ -87,7 +99,8 @@ for (const viewport of viewports) test(`compact controls and Choose menus at ${v
 test('moved act controls still affect the show, with Audio and transport independent', async ({page}) => {
   await page.goto('puggler.html'); await page.waitForFunction(()=>window.__puggler);
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
-  for(const id of ['ridePattern','preset','passMode','skin','rideRange']) await expect(page.locator(`.puggler-performance-controls #${id}`)).toHaveCount(1);
+  for(const id of ['ridePattern','preset','passMode','skin']) await expect(page.locator(`.puggler-panel .puggler-act-fields #${id}`)).toHaveCount(1);
+  await expect(page.locator('.puggler-performance-controls #rideRange')).toHaveCount(1);
   await page.locator('#preset').selectOption('ballet');
   await page.locator('#ridePattern').selectOption('rock'); await page.locator('#passMode').selectOption('three');
   await page.locator('#skin').selectOption('history'); await range(page,'rideRange',88);

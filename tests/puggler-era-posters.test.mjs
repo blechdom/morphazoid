@@ -7,7 +7,7 @@ test('original historical/future bills are distinct, reproducible, bounded and d
     for(const [w,h] of [[1100,619],[390,219],[320,210]]){
       const bills=eraPosterLayout(1234,w,h,skin);assert.ok(bills.length>=3&&bills.length<=4);
       assert.deepEqual(bills,eraPosterLayout(1234,w,h,skin));assert.notDeepEqual(bills,eraPosterLayout(1235,w,h,skin));
-      for(const bill of bills){assert.equal(bill.text.length,2);assert.ok(bill.x-bill.width/2>0&&bill.x+bill.width/2<w);assert.ok(bill.y-bill.height/2>0&&bill.y+bill.height/2<h);}
+      for(const bill of bills){assert.equal(bill.text.length,2);assert.ok(bill.width<=94&&bill.height<=48);assert.ok(bill.x-bill.width/2>0&&bill.x+bill.width/2<w);assert.ok(bill.y-bill.height/2>0&&bill.y+bill.height/2<h);}
     }
   }
   assert.deepEqual(eraPosterLayout(1,390,219,'punk'),[]);

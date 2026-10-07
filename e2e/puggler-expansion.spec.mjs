@@ -40,8 +40,8 @@ test('auto voices follow object and skin; explicit voices survive prop changes',
   expect((await state(page)).objects[0].phase).toBe('held');
   await expect(page.locator('#riffs0')).toHaveValue('object');await expect(page.locator('#drums0')).toHaveValue('object');
   await page.locator('#object0').selectOption('fish');await page.locator('#skin').selectOption('future');
-  await expect(page.locator('#riffs0 option:checked')).toHaveText('Own · Backwards underwater alien');
-  await expect(page.locator('#drums0 option:checked')).toHaveText('Own · Backwards underwater alien hit');
+  await expect(page.locator('#riffs0 option:checked')).toHaveText('Backwards underwater alien');
+  await expect(page.locator('#drums0 option:checked')).toHaveText('Backwards underwater alien hit');
   await page.locator('#riffs0').selectOption('object:bell');await page.locator('#object0').selectOption('boot');
   await expect(page.locator('#riffs0 option:checked')).toHaveText('Event-horizon bell');
   await page.locator('#skin').selectOption('history');await expect(page.locator('#riffs0 option:checked')).toHaveText('Beating Balinese-gong color');

@@ -3,6 +3,10 @@ export const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, Number.isFinite(Nu
 export const MAX_OBJECTS = 10;
 export const MIN_TEMPO = 25;
 export const MAX_TEMPO = 1200;
+// A stable base BPM and five latched ratios; selecting 1 always restores base.
+export const TEMPO_MULTIPLIERS = Object.freeze([.25, .5, 1, 2, 4]);
+export const MIN_EFFECTIVE_TEMPO = MIN_TEMPO / 4;
+export const MAX_EFFECTIVE_TEMPO = MAX_TEMPO * 4;
 export const RIDER_NAMES = Object.freeze(['Puggler','Roxy','Moss']);
 export const CASTS = Object.freeze([
   {id:'puggler',name:'Puggler solo',riders:[0]}, {id:'roxy',name:'Roxy solo',riders:[1]}, {id:'moss',name:'Moss solo',riders:[2]},
@@ -74,7 +78,7 @@ export const PATTERNS = Object.freeze([
     ...(n%2?[]:[pattern(`sync-${n}`,`${n}-object together fountain`,n,`(${notation(n)},${notation(n)})`,[n],{sync:true})]),
   ]),
 ]);
-export const DEFAULTS = Object.freeze({ count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981, ridePattern:'rock', rideSpeed:1, rideRange:44 });
+export const DEFAULTS = Object.freeze({ tempoMultiplier: 1, count: 3, pattern: 'cascade', tempo: 180, gravity: 1, wind: 0, assist: 65, propIds: ['ball','can','club','duck','guitar','cassette','skateboard','vinyl','mic','glowstick'], drums:['kick','snare','crash','tom','hat','kick','snare','crash','tom','hat'], riffs:['guitar','bass','oi','woo','guitar','bass','oi','woo','guitar','bass'], seed: 1981, loft: 1.4, partner: 'solo', phrase: 'loop', passMode: 'every', chaos:0, posterSeed:1981, ridePattern:'rock', rideSpeed:1, rideRange:44 });
 export function eventsAt(p, beat) {
   if (p.sync) return beat % 2 ? [] : [0, 1].map(hand => ({ hand, value: p.values[0], destination: hand }));
   const value = p.values[((beat % p.values.length) + p.values.length) % p.values.length];
@@ -98,7 +102,7 @@ export function flightPosition(f, t) {
     vx: f.vx * decay + f.ax * a, vy: f.vy * decay - f.g * a };
 }
 export function launchFlight({ x, y, targetX, targetY = y, duration, mass, drag, g, wind = 0 }) {
-  const k = clamp(drag / mass, 0, 5), t = Math.max(.012, duration);
+  const k = clamp(drag / mass, 0, 5), t = Math.max(.003, duration);
   const a = k < 1e-6 ? t : -Math.expm1(-k * t) / k;
   const b = k < 1e-6 ? t * t / 2 : (t - a) / k;
   // The throw anticipates still air; crosswind remains an expressive disturbance.
@@ -141,6 +145,7 @@ export class PugglerModel {
     this.config = { ...DEFAULTS, ...options, cast:options.cast??legacyCast(options.partner??DEFAULTS.partner), autoRide:options.autoRide??String(options.partner).endsWith('auto'), propIds: [...(options.propIds ?? DEFAULTS.propIds)], drums:[...(options.drums??['kick','snare','crash','tom'])], riffs:[...(options.riffs??RIFFS)] };
     this.reset();
   }
+  get tempo() { return this.config.tempo * this.config.tempoMultiplier; }
   get activeIds() { return (CASTS.find(c=>c.id===this.config.cast)??CASTS[0]).riders; }
   get riderCount() { return this.activeIds.length; }
   get activePlayers() { return this.activeIds.map(id=>this.players[id]); }
@@ -168,6 +173,7 @@ export class PugglerModel {
     for(const key of ['propIds','drums','riffs'])if(key in options||!Array.isArray(this.config[key]))this.config[key]=[...(Array.isArray(options[key])?options[key]:DEFAULTS[key])];
     this.config.count=Math.round(clamp(this.config.count,1,MAX_OBJECTS));
     this.config.tempo=clamp(this.config.tempo,MIN_TEMPO,MAX_TEMPO);
+    if(!TEMPO_MULTIPLIERS.includes(this.config.tempoMultiplier))this.config.tempoMultiplier=1;
     this.config.loft=clamp(this.config.loft??1.4,.6,3);
     this.config.gravity=clamp(this.config.gravity,.45,1.65);
     this.config.wind=clamp(this.config.wind,-12,12);
@@ -251,7 +257,7 @@ export class PugglerModel {
   emit(kind,o,extra={}) {
     this.events.push({kind,time:this.time,x:o.x,y:o.y,vx:o.vx,vy:o.vy,prop:o.prop??propFor('balloon'),id:o.id,owner:o.owner??0,drum:o.drum,riff:o.riff,...extra});
   }
-  effectiveGravity(owner=0) {return WORLD.gravity*this.config.gravity*(1.8*(this.config.loft/1.8)**1.7)*this.players[owner].loft*(this.config.tempo/180)**2;}
+  effectiveGravity(owner=0) {return WORLD.gravity*this.config.gravity*(1.8*(this.config.loft/1.8)**1.7)*this.players[owner].loft*(this.tempo/180)**2;}
   throwBeat(beat,events=this.patternEvents(beat)) {
     for(const e of events){
       const o=this.objects.find(o=>o.due===beat&&o.hand===e.hand);
@@ -261,7 +267,7 @@ export class PugglerModel {
       if(e.hold){o.due=beat+2;continue;}
       const shouldPass=this.riderCount>1&&(this.config.passMode==='every'||(this.config.passMode==='three'?beat%3===0:beat%8>=4));
       const destination=shouldPass?this.activeIds[(this.activeIds.indexOf(from)+1)%this.riderCount]:from;
-      const duration=(e.value-.38)*60/this.config.tempo;
+      const duration=(e.value-.38)*60/this.tempo;
       o.x=source.x+this.offset(e.hand);o.y=WORLD.handY;
       const bounds=this.playerBounds(destination);
       const targetX=clamp(this.riderLandingX(destination,duration),...bounds)+this.offset(e.destination,true);
@@ -393,6 +399,15 @@ export class PugglerModel {
     }
   }
   step(dt,steer=0,target=null,friendSteer=0,friendTarget=null,juggling=true) {
+    // Keep short high-speed throws resolvable without speeding up the riders.
+    // At most eight substeps for the public 1/60s step and 4,800 BPM ceiling.
+    dt=clamp(dt,0,1/60);
+    const slices=this.tempo>MAX_TEMPO?Math.max(1,Math.ceil(dt*120*this.tempo/MAX_TEMPO)):1;
+    const events=[];
+    for(let i=0;i<slices;i++)events.push(...this.stepSlice(dt/slices,steer,target,friendSteer,friendTarget,juggling));
+    this.events=events;return events;
+  }
+  stepSlice(dt,steer,target,friendSteer,friendTarget,juggling) {
     const controls=Array.isArray(steer)?steer:[{steer,target},{steer:friendSteer,target:friendTarget},{}];
     dt=clamp(dt,0,1/60);this.events=[];this.time+=dt;this.movePlayers(dt,controls);
     for(const o of this.objects){
@@ -430,7 +445,7 @@ export class PugglerModel {
       if(waiting){this.beat=this.nextBeat;break;}
       this.throwBeat(this.nextBeat++,events);
     }
-    if(juggling)this.beat+=dt*this.config.tempo/60;
+    if(juggling)this.beat+=dt*this.tempo/60;
     if(this.time>=this.nextCrowdReaction){
       const kind=this.time-this.lastDrop<2?'crowd-boo':'crowd-woo',x=80+this.random()*840;
       this.lastCrowdReaction={time:this.time,kind,x};
