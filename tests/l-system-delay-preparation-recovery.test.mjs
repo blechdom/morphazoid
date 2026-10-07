@@ -23,7 +23,8 @@ function fixture({ depth = .72 } = {}) {
     elapsedMs: 40, measurements: [{ voices: 64, load: .3 }] };
   const f = { contexts, worklets, sources, compileRequests, errors, calibration,
     rejectAbove: Infinity, now: 1, load: .2, peak: .3, installed: 0, structuralEligible: 0,
-    liveDepth: depth, revision: 0, active: 0, calibrationProof: 0 };
+    liveDepth: depth, revision: 0, active: 0, calibrationProof: 0,
+    holdCompile: false, compileReplies: [] };
   function replace(key, value) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -78,14 +79,15 @@ function fixture({ depth = .72 } = {}) {
         parentKey: index ? 'generation:trunk' : '', generation: index ? 1 : 0,
         voiceIndex: Math.max(0, index - 1), priority: index ? index - 1 : null,
         startX: 0, startY: 0, x: index, y: 0, delay: .1, rate: 1, gain: data.parameters.depth ? .5 : 0 }));
-      queueMicrotask(() => this.onmessage?.({ data: { id: data.id, revision: data.revision,
+      const reply = () => this.onmessage?.({ data: { id: data.id, revision: data.revision,
         calibration, voiceBudget, module: {}, pool, result: {
           parameters: structuredClone(data.parameters),
           effectiveParameters: { ...data.parameters, generations: effectiveGenerations },
           requestedVoices, requestedVoicesExact: true, preparedVoices, nodes,
           structuralEligibleVoices: preparedVoices, eligibleVoices: data.parameters.depth ? preparedVoices : 0,
           memoryVoiceCapacity: 1024, previewSampled: false,
-        } } }));
+        } } });
+      if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
     }
     terminate() { this.terminated = true; }
   }
@@ -187,5 +189,38 @@ test('a fully admitted pool above the cold benchmark target seeks more prepared 
     assert.equal(grown.capacityFailure, null); assert.deepEqual(f.errors, []);
     assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
     assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined);
+  } finally { f.cleanup(); }
+});
+
+test('headroom reported during a pending scene compile cannot queue an old-scene capacity probe behind the new scene', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0], buffer = source.buffer;
+    assert.equal(before.parameters.generations, 8); assert.equal(before.preparedVoices, 64);
+    f.holdCompile = true;
+    const nextParameters = { ...before.parameters, generations: 1 };
+    const changing = engine.request('/api/parameters', nextParameters);
+    await until(() => f.compileReplies.length === 1);
+    assert.equal(f.compileRequests.at(-1).parameters.generations, 1);
+    assert.equal(engine.getDiagnostics().parameters.generations, 8, 'old scene remains committed while the new scene compiles');
+    f.now = 4;
+    await engine.request('/api/status');
+    // The old installed pool is full and has headroom, but it must not acquire
+    // the pending request's token and supersede that request after it commits.
+    f.holdCompile = false; f.compileReplies.shift()();
+    const recalled = await changing;
+    await until(() => !engine.getDiagnostics().capacityWorking);
+    await tick(); await tick();
+    const settled = engine.getDiagnostics();
+    assert.deepEqual(settled.parameters, nextParameters, 'no optional installation restores the preceding dense scene');
+    assert.deepEqual(recalled.parameters, nextParameters);
+    assert.equal(f.compileRequests.length, 2, 'only initial preparation and the requested scene were compiled');
+    assert.equal(settled.preparedVoices, 2); assert.equal(settled.requestedVoices, 2);
+    assert.equal(settled.buildRevision, recalled.topologyRevision);
+    assert.equal(settled.status.topologyRevision, settled.buildRevision, 'worklet and published scene finish at the same revision');
+    assert.equal(settled.audio, true); assert.equal(settled.input.playing, true); assert.equal(settled.sampleClock, 4);
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+    assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined); assert.deepEqual(f.errors, []);
   } finally { f.cleanup(); }
 });
