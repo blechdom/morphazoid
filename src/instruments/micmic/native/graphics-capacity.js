@@ -19,10 +19,10 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
   let previousTime = null, healthySince = null, healthySamples = 0, averagePressure = null;
   let lastPressure = 0, changes = 0, lastChange = 'initial', lateFrames = 0;
   let pendingLimit = null, cadenceTrial = null, cadenceSuppression = null, sceneRevision;
-  let lateMinimum = Infinity, witness = null;
+  let lateMinimum = Infinity, witness = null, rootWitness = null;
   const resetGrowth = () => { healthySince = null; healthySamples = 0; };
   const resetLate = () => { lateFrames = 0; lateMinimum = Infinity; };
-  const resetCadence = () => { resetLate(); cadenceTrial = cadenceSuppression = witness = null; pendingLimit = null; };
+  const resetCadence = () => { resetLate(); cadenceTrial = cadenceSuppression = witness = rootWitness = null; pendingLimit = null; };
   // Callback delays include the compositor, other tabs and audio scheduling.
   // A smaller tree is a trial, not proof that its nodes caused that delay.
   const observation = () => ({ since: null, last: null, samples: 0, maximum: 0,
@@ -65,6 +65,8 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       if (!measured) { resetGrowth(); return false; }
       const workPressure = nonnegative(workMs) / workTarget;
       const setupPressure = nonnegative(setupMs) / setupTarget;
+      const cpuMultiplier = audioLoad >= .85 || peakLoad >= .95 ? 2
+        : audioLoad >= .65 || peakLoad >= .85 ? 1.3 : 1;
       const interval = continuous ? nonnegative(frameIntervalMs) / expected : 0;
       const rendered = continuous && Number.isFinite(frameIntervalMs) && frameIntervalMs > 0;
       const drawn = positiveCount(drawnNodes, limit);
@@ -96,13 +98,23 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
           if (changedWork || changedCadence) { cadenceSuppression = null; resetLate(); }
           witness = null;
         }
-      }
+      } else if (rendered && !awaitingMembership && !cadenceTrial && !cadenceSuppression
+        && !reducible && limit === 1 && availableNodes > 1 && Number.isFinite(workMs)
+        && workPressure * cpuMultiplier <= .65) {
+        // A transient startup/work spike can reach the root without opening a
+        // cadence trial. Its sustained cheap, irreducible work proves that
+        // further callback delay cannot be resolved by cutting cached branches.
+        rootWitness ??= observation();
+        if (observeWindow(rootWitness, now, interval, nonnegative(workMs), expected)) {
+          cadenceSuppression = { work: rootWitness.workSum / rootWitness.samples,
+            ratio: rootWitness.sum / rootWitness.samples };
+          rootWitness = null; resetLate();
+        }
+      } else rootWitness = null;
       // Detect asynchronous GPU pressure, then verify that fewer drawn nodes
       // actually improve it before cutting again. Own work/setup overloads
       // remain actionable immediately, including during that verification.
       const cadencePressure = !cadenceTrial && !cadenceSuppression && lateFrames >= 3 ? interval : 0;
-      const cpuMultiplier = audioLoad >= .85 || peakLoad >= .95 ? 2
-        : audioLoad >= .65 || peakLoad >= .85 ? 1.3 : 1;
       // Under audio pressure reduce costly drawing first. Cheap frames must
       // not repeatedly halve the tree merely because audio uses its budget.
       const pressure = Math.max(workPressure * cpuMultiplier, setupPressure, cadencePressure);
@@ -126,8 +138,7 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       }
       const saturated = drawnNodes >= limit * .8 && availableNodes > limit;
       const headroom = !awaitingMembership && !cadenceTrial
-        && pressure <= .65 && averagePressure <= .75 && (interval <= 1.15 || cadenceSuppression)
-        && nonnegative(audioLoad) < .95 && nonnegative(peakLoad) < 1;
+        && pressure <= .65 && averagePressure <= .75 && (interval <= 1.15 || cadenceSuppression);
       if (!saturated || !headroom) { resetGrowth(); return false; }
       healthySince ??= now; healthySamples++;
       if (healthySamples < 12 || now - healthySince < growthDelay) return false;

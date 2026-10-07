@@ -131,6 +131,49 @@ test('zero-depth root-only drawing retains prepared membership and cannot supply
   }
 });
 
+test('work-origin root collapse recovers after sustained cheap work despite unrelated callback delays', () => {
+  const f = simulation();
+  f.run(10, () => ({ workMs: 16, ratio: 2 }));
+  assert.equal(f.controller.limit, 1);
+  assert.equal(f.controller.diagnostics().cadenceTrial, false);
+  f.run(1000, () => ({ workMs: .2, ratio: 2 }));
+  assert.equal(f.controller.limit, 512, 'a working graph cannot remain stuck on its input root');
+  assert.equal(f.controller.diagnostics().cadenceSuppressed, true);
+});
+
+test('DPR or history startup cost does not strand cheap graphics when full audio stays near its deadline', () => {
+  const f = simulation();
+  f.run(10, () => ({ workMs: 32, ratio: 3, audioLoad: 1.05, peakLoad: 1.4 }));
+  assert.equal(f.controller.limit, 1);
+  f.run(1000, () => ({ workMs: .2, ratio: 2, audioLoad: 1.05, peakLoad: 1.4 }));
+  assert.equal(f.controller.limit, 512, 'own measured drawing cost, with audio weighting, proves cheap recovery');
+  assert.equal(f.controller.diagnostics().cadenceSuppressed, true);
+});
+
+test('a small current scene recovers after startup overhead without inflating beyond its prepared demand', () => {
+  const f = simulation({ voices: 511, demand: 31 });
+  f.run(10, () => ({ workMs: 16, ratio: 2 }));
+  assert.equal(f.controller.limit, 1);
+  f.run(400, () => ({ workMs: .2, ratio: 2 }));
+  assert.equal(f.controller.limit, 31);
+});
+
+test('idle drawing and expensive root work cannot fabricate a cheap recovery proof', () => {
+  const controller = createGraphicsCapacity({ preparedVoices: 0, nodeCount: 512 });
+  for (let frame = 1; frame <= 120; frame++) {
+    controller.observe({ nowMs: frame * FRAME, workMs: .2, frameIntervalMs: FRAME * 2,
+      expectedFrameMs: FRAME, continuous: false, drawnNodes: 1 });
+  }
+  assert.equal(controller.diagnostics().cadenceSuppressed, false);
+  const idleLimit = controller.limit;
+  for (let frame = 121; frame <= 240; frame++) {
+    controller.observe({ nowMs: frame * FRAME, workMs: 16, frameIntervalMs: FRAME * 2,
+      expectedFrameMs: FRAME, drawnNodes: 1 });
+  }
+  assert.equal(controller.limit, idleLimit);
+  assert.equal(controller.diagnostics().cadenceSuppressed, false);
+});
+
 test('a trial reaching the root can resolve and recover a second available branch', () => {
   const f = simulation({ voices: 1, demand: 2 });
   f.run(3, () => ({ ratio: 2 }));
