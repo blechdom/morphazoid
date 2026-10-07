@@ -72,11 +72,23 @@ Graphics consume the actual audio sample clock and recorded input-envelope
 history. Rendering stalls do not schedule or trigger sound.
 
 The default thirteen-generation Pine requests 16,382 descendants, each with its
-own pitch and delay. That number is a topology, not a voice ceiling. Automatic
-adaptation measures audio processing work and probes toward the full requested
-eligible count, backing off when deadlines are threatened and retrying when
-conditions improve. An optional user cap is the only musical count ceiling;
-memory availability and real processing capacity still constrain playback.
+own pitch and delay. Before expanding a requested tree, a disposable worker
+instance measures the actual Rust granular DSP on this device. The compiler
+prepares a connected tree within that measured capacity, using lazy rewriting
+and bounded frontiers rather than allocating every requested child. Presets
+retain their complete requested settings; the prepared tree and effective
+iterations are runtime state. Large tilings use a complete, shallower derivation
+when their next substitution would exceed capacity.
+
+Playback then measures real audio-thread deadlines. Sustained headroom can grow
+the prepared pool toward the requested tree, and overload reduces admission and
+the next preparation budget. Capacity carries between presets and is revalidated
+under current load. There is no fixed final voice-count ceiling; calibration's
+time allowance limits the initial probe, and subsequent measured growth remains
+possible. An optional user cap, memory and processing capacity still constrain
+playback. Graphics separately reduce their connected preview when setup, drawing
+or frame timing is expensive, including while Audio is off. Graphics reductions
+do not reduce audio admission or restart recording.
 Browser performance must be measured on the actual device. The historical CPAL
 benchmarks below do not establish a sustainable browser voice count.
 
@@ -102,8 +114,9 @@ Module pitch ratio, Child branches and Stopping length knobs. Context-sensitive
 sequences expose Neighbor influence and Symbol ratio; Thue–Morse and Fibonacci
 expose Symbol ratio. Penrose and Sphinx use the same numeric control as Tile pitch
 contrast. Controls for other rule families remain hidden until needed.
-The shared Generations control becomes a 1–24 derivation count in these six
-modes, while classic grammars retain their existing generation ranges.
+The shared Generations control requests 1–24 derivations in these six modes and
+1–52 generations for classic grammars. Device capacity determines how much of
+that request is prepared; it does not rewrite the saved scene.
 
 All 186 earlier Delay scenes keep their names, settings and order. The 24 lab
 scenes are additional complete scenes, with their numeric rule settings included.

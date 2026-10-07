@@ -77,9 +77,14 @@ test('setup, rendered frame cost, cadence and audio warnings reduce node count i
 
 test('cheap graphics survive a busy audio thread and a single unrelated late callback', () => {
   const device = createGraphicsCapacity({ preparedVoices: 999, nodeCount: 2000 });
-  for (let i = 0; i < 120; i++) assert.equal(device.observe({ nowMs: i * 17, workMs: .2, audioLoad: .9, peakLoad: .98 }), false);
+  for (let i = 0; i < 120; i++) device.observe({ nowMs: i * 17, workMs: .2, audioLoad: .9, peakLoad: .98 });
+  const before = device.limit; assert.ok(before >= 1000);
   assert.equal(device.observe({ nowMs: 2500, workMs: .2, frameIntervalMs: 80 }), false);
-  assert.equal(device.limit, 1000);
+  assert.equal(device.limit, before);
+  device.ensureCapacity({ availableNodes: 10000 });
+  for (let i = 0; i < 120; i++) device.observe({ nowMs: 2600 + i * 17, workMs: .2, frameIntervalMs: 17,
+    drawnNodes: device.limit, audioLoad: .8, peakLoad: .9 });
+  assert.ok(device.limit > before, 'measured cheap graphics can grow while audio uses its own proven capacity');
 });
 
 test('sustained headroom cautiously grows beyond historic graphical caps without changing audio', () => {

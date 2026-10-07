@@ -1503,6 +1503,8 @@ copy+require	src/instruments/micmic/native/mastering.js
 copy+require	src/instruments/micmic/native/style.css
 copy+require	src/instruments/micmic/native/presets.json
 copy+require	src/instruments/micmic/native/browser-engine.js
+copy+require	src/instruments/micmic/native/device-capacity.js
+copy+require	src/instruments/micmic/native/graphics-capacity.js
 copy+require	src/instruments/micmic/native/input-source.js
 copy+require	src/instruments/micmic/native/delay-worklet.js
 copy+require	src/instruments/micmic/native/topology-worker.js

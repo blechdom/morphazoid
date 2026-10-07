@@ -17,7 +17,7 @@ const sourceFiles = [
 ].sort();
 const requiredExports = [
   'memory', 'lsd_abi_version', 'lsd_alloc', 'lsd_free', 'lsd_error_ptr', 'lsd_error_len',
-  'lsd_compile', 'lsd_compile_json_ptr', 'lsd_compile_json_len', 'lsd_compile_pool_ptr',
+  'lsd_compile', 'lsd_compile_bounded', 'lsd_capacity_hint', 'lsd_compile_json_ptr', 'lsd_compile_json_len', 'lsd_compile_pool_ptr',
   'lsd_compile_pool_len', 'lsd_compile_free', 'lsd_new', 'lsd_drop', 'lsd_install',
   'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized', 'lsd_collect_retired',
   'lsd_performance', 'lsd_depth', 'lsd_strike', 'lsd_process', 'lsd_observe', 'lsd_metrics_ptr', 'lsd_metrics_len',

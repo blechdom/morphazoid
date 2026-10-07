@@ -6,15 +6,16 @@ import { enhanceChooseSelect } from '../../../ui/patterns/choose-select.js';
 import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js';
 import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
-import { generationTopology, timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
+import { timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
-  buildPreview, topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
+  topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
 import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
 import { createGpuBranchRenderer } from './gpu-renderer.js';
+import { createGraphicsCapacity, createConnectedGraphicsSelection } from './graphics-capacity.js';
 import { config as parametricConfig } from '../../l-system-parametric-lab/config.js';
 import { config as experimentsConfig, KIND_LABELS } from '../../l-system-experiments/config.js';
 import { sanitizeLab, randomLab } from '../../l-system-parametric-lab/model.js';
@@ -36,7 +37,7 @@ const labControlIds = Object.values(LAB_CONTROL_IDS).filter(id => $(id));
 const initialParameters = LAB_CONFIG?.presets[0].snapshot.parameters ?? DEFAULT_PARAMETERS;
 const state = { parameters: sanitizeParameters(initialParameters), performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {},
   input: { mode: 'mic', sampleId: DEFAULT_SAMPLE_ID, label: 'Mic / line', pending: false, playing: false, hasFile: false, fileName: '', loop: true, ended: false, credit: '', creditUrl: '' },
-  requestedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
+  requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
   asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread',
   ...($('grammarSeed') ? { grammarSeed: 'grammarSeed', branchProbability: 'branchProbability' } : {}) };
@@ -58,6 +59,7 @@ let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockRecei
 let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
+let graphicsCapacity = null, graphicsSelection = null, preparedGraphicsNodes = null, graphicsSelectionDirty = false, previousContinuous = false;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
 const parameterKnobs = new Map();
@@ -225,7 +227,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (reply.status) {
     state.status = reply.status; inputReceivedAt = performance.now();
     inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
-    const applied = sanitizeParameters(reply.parameters ?? previewParameters);
+    const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters ?? previewParameters);
     const activity = reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, applied) : null;
     if (activity) {
       syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = performance.now();
@@ -235,6 +237,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
   state.requestedVoices = reply.requestedVoices ?? state.requestedVoices; state.eligibleVoices = reply.eligibleVoices ?? state.eligibleVoices;
+  state.preparedVoices = reply.preparedVoices ?? state.preparedVoices;
   const failure = reply.error || reply.status?.failure || '';
   if (failure && failure !== lastFailure) showError(failure);
   lastFailure = failure; paintControls(); scheduleDraw();
@@ -250,11 +253,17 @@ async function refreshNativePreview() {
   try {
     const reply = await request('/api/preview');
     if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
-    const parameters = sanitizeParameters(reply.parameters);
+    const parameters = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
     if (LAB_CONFIG && (!parameters.lab || !LAB_CONFIG.kinds.includes(parameters.lab.kind))) return;
-    if (reply.topologyRevision === visualRevision && nativePreview) { updateVisualDepth(parameters.depth); return; }
-    const targets = reply.visualNodes ?? nativePreviewNodes(reply.nodes ?? []);
+    if (reply.topologyRevision === visualRevision && nativePreview && !graphicsSelectionDirty) { updateVisualDepth(parameters.depth); return; }
+    const setupStarted = performance.now(), prepared = reply.visualNodes ?? reply.nodes ?? [];
+    if (!graphicsCapacity) graphicsCapacity = createGraphicsCapacity({ preparedVoices: reply.deviceCapacity?.voices ?? reply.preparedVoices ?? prepared.length - 1, nodeCount: prepared.length });
+    graphicsCapacity.ensureCapacity({ preparedVoices: reply.deviceCapacity?.preparedCapacity ?? reply.preparedVoices, availableNodes: prepared.length });
+    if (prepared !== preparedGraphicsNodes) { preparedGraphicsNodes = prepared; graphicsSelection = createConnectedGraphicsSelection(prepared); }
+    const selected = graphicsSelection.select(graphicsCapacity.limit);
+    const targets = reply.visualNodes ? selected : nativePreviewNodes(selected);
     if (!targets.length) return;
+    graphicsSelectionDirty = false;
     const sameShape = nativePreview && GEOMETRY_PARAMETERS.every(key => parameters[key] === nativePreview.parameters[key])
       && parameters.grammarSeed === nativePreview.parameters.grammarSeed && parameters.branchProbability === nativePreview.parameters.branchProbability
       && sameLabGeometry(parameters.lab, nativePreview.parameters.lab);
@@ -290,6 +299,8 @@ async function refreshNativePreview() {
       nativePreview = { parameters, nodes: previewTransition.nodes, bounds: topologyBounds(targets) };
       geometry = null;
     }
+    if (graphicsCapacity.observe({ nowMs: performance.now(), setupMs: performance.now() - setupStarted,
+      drawnNodes: targets.length, continuous: false })) { graphicsSelectionDirty = true; void refreshNativePreview(); }
     scheduleDraw();
   } catch (error) { if (!disposed) $('liveStatus').textContent = error.message; }
   finally {
@@ -609,7 +620,7 @@ function paintControls() {
   $('panicButton').disabled = !state.audio && !audioPending;
   const p = state.parameters, s = state.status, type = p.lab ? KIND_LABELS[p.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[p.lSystemType], pruning = formatParameter('pruningBias', p.pruningBias);
   const requested = Number(state.requestedVoices) || (!p.lab && p.lSystemType === 'pythagorean' ? 2 ** (p.generations + 1) - 2 : 0);
-  const limit = Math.max(0, Number(s.voiceLimit) || 0);
+  const limit = Math.max(0, Number(state.audio ? s.voiceLimit : state.preparedVoices) || 0);
   $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
   $('recursionSummary').textContent = `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
@@ -644,7 +655,12 @@ function paintControls() {
 function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
   if (width !== stageWidth || height !== stageHeight) { stageWidth = width; stageHeight = height; lockedFit = null; }
-  const nodes = nativePreview?.nodes ?? (previewParameters.lab ? [] : buildPreview(previewParameters, generationTopology));
+  // The worker has already fitted topology preparation to measured capacity.
+  // Never construct the requested exponential tree as a temporary UI fallback.
+  const nodes = nativePreview?.nodes ?? [];
+  canvas.dataset.previewNodes = String(nodes.length);
+  canvas.dataset.graphicsCapacity = String(graphicsCapacity?.limit ?? 0);
+  canvas.dataset.preparedVoices = String(state.preparedVoices);
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
@@ -653,7 +669,7 @@ function buildGeometry() {
     limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth }) });
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
-  $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} ${state.parameters.lab ? 'rule iterations' : 'audio generations'}. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off shows the complete preset preview. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness. Long branches also show input traveling toward their measured endpoint.`;
+  $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} requested ${state.parameters.lab ? 'rule iterations' : 'audio generations'}. The device prepares a connected tree within measured audio capacity. Graphics adapt separately. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off previews the prepared tree. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness.`;
   canvas.setAttribute('aria-label', `Live fitted L-system tree for ${INSTRUMENT_LABEL}. ${state.audio ? state.performance.frozen ? 'Input paused; recursive tail live' : `${state.input.label || 'Input'} ${state.input.playing || state.status.microphoneEnabled ? 'live' : 'stopped'}` : 'Audio off'}.`);
 }
 function scheduleDraw() { if (!frameId && !disposed) frameId = requestAnimationFrame(draw); }
@@ -664,8 +680,10 @@ function draw(now) {
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
     Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
-  lastDrawAt = now;
-  const drawStarted = performance.now(), interpolating = nativePreviewMoving;
+  const continuous = Boolean(state.audio || drag || nativePreviewMoving || rangeGesture);
+  const frameIntervalMs = continuous && previousContinuous ? now - lastDrawAt : 0;
+  previousContinuous = continuous; lastDrawAt = now;
+  const drawStarted = performance.now();
   if (nativePreviewMoving) {
     advancePreviewTransition(previewTransition, (now - nativePreviewStarted) / 80);
     nativePreviewMoving = previewTransition.moving;
@@ -794,9 +812,12 @@ function draw(now) {
   context.fillStyle = '#6de48b'; context.fill();
   context.strokeStyle = '#07090b'; context.lineWidth = 1.5; context.stroke(); context.restore();
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
-  if (!rebuilding && !interpolating) {
-    const cost = Math.max(0, performance.now() - drawStarted);
-    visualCostMs += (cost - visualCostMs) * .15;
+  const cost = Math.max(0, performance.now() - drawStarted);
+  visualCostMs += (cost - visualCostMs) * .15;
+  if (graphicsCapacity?.observe({ nowMs: now, workMs: cost, frameIntervalMs,
+    expectedFrameMs: 1000 / budget.fps, continuous, drawnNodes: branches.length,
+    audioLoad: state.status.cpuLoad, peakLoad: state.status.peakLoad })) {
+    graphicsSelectionDirty = true; void refreshNativePreview();
   }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }

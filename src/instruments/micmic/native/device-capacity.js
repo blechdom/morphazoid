@@ -1,0 +1,84 @@
+import { DEFAULT_PERFORMANCE } from './model.js';
+import { withBytes, withJson, wasmError } from './wasm-abi.js';
+
+const BLOCK = 128, TARGET_LOAD = .55;
+const clock = () => performance.now();
+
+/** Measure the real Rust DSP in a disposable worker instance, never in the
+ * playing graph. The time allowance bounds calibration, not device capacity:
+ * the live controller can subsequently prove and request a larger pool. */
+export function measureAudioCapacity(module, sampleRate = 48000, { now = clock, timeAllowanceMs = 450 } = {}) {
+  const api = new WebAssembly.Instance(module, {}).exports;
+  const renderer = api.lsd_new(sampleRate, 1);
+  if (!renderer) throw new Error(wasmError(api, 'Device capacity could not be measured.'));
+  const pointers = Array.from({ length: 4 }, () => api.lsd_alloc(BLOCK * 4));
+  const started = now(), measurements = [];
+  let voices = 32, proved = 1, lastLoad = 0;
+  const process = count => {
+    for (let block = 0; block < count; block++) {
+      if (!api.lsd_process(renderer, ...pointers, BLOCK)) throw new Error(wasmError(api, 'The capacity probe could not render.'));
+    }
+  };
+  try {
+    if (pointers.some(pointer => !pointer)) throw new Error('Capacity probe buffers could not be allocated.');
+    while (true) {
+      const bytes = new Uint8Array(32 + voices * 48), view = new DataView(bytes.buffer);
+      view.setUint32(0, 0x4c534431, true); view.setUint32(4, 1, true);
+      view.setUint32(8, voices, true); view.setUint32(12, voices, true); view.setFloat64(24, 1, true);
+      for (let index = 0; index < voices; index++) {
+        const at = 32 + index * 48;
+        view.setFloat64(at, .025 + index % 7 * .002, true);
+        // Pitched granular reads cost more than unison taps. Measure them so a
+        // preset change cannot inherit an optimistic unison-only allocation.
+        view.setFloat64(at + 8, [1.31, .77, 1.91, .4][index % 4], true);
+        view.setFloat64(at + 16, .5 / Math.sqrt(voices), true);
+        view.setFloat64(at + 24, index % 2 ? .5 : -.5, true);
+        view.setUint32(at + 32, index, true); view.setUint32(at + 36, index + 1, true);
+        view.setUint32(at + 40, 1, true);
+      }
+      if (!withBytes(api, bytes, (pointer, length) => api.lsd_install(renderer, pointer, length))) throw new Error(wasmError(api, 'Capacity probe topology could not install.'));
+      if (!withJson(api, { ...DEFAULT_PERFORMANCE, automatic: false, voiceCeiling: voices, source: 'mic', wet: 1, dry: 0 },
+        (pointer, length) => api.lsd_performance(renderer, pointer, length))) throw new Error('Capacity probe settings could not install.');
+      for (const pointer of pointers.slice(0, 2)) {
+        const input = new Float32Array(api.memory.buffer, pointer, BLOCK);
+        for (let index = 0; index < BLOCK; index++) input[index] = .08 * Math.sin(index * .13);
+      }
+      process(64); // Populate history and settle voice attack before measuring.
+      const times = [];
+      for (let trial = 0; trial < 3; trial++) {
+        let blocks = 0, elapsed = 0;
+        const at = now();
+        do { process(16); blocks += 16; elapsed = now() - at; } while (elapsed < 8 && blocks < 4096);
+        times.push(elapsed / 1000 / (blocks * BLOCK / sampleRate));
+      }
+      times.sort((a, b) => a - b);
+      lastLoad = Math.max(.000001, times[1]);
+      measurements.push({ voices, load: lastLoad });
+      if (lastLoad <= TARGET_LOAD) proved = voices;
+      if (lastLoad >= TARGET_LOAD || now() - started >= timeAllowanceMs) break;
+      // Every larger allocation is verified; no extrapolated final voice cap.
+      voices *= 2;
+    }
+    if (proved === 1 && lastLoad > TARGET_LOAD) proved = Math.max(1, Math.floor(voices * TARGET_LOAD / lastLoad));
+    return { voices: proved, targetLoad: TARGET_LOAD, measuredLoad: lastLoad,
+      sampleRate, elapsedMs: Math.max(0, now() - started), measurements };
+  } finally {
+    api.lsd_drop(renderer);
+    for (const pointer of pointers) if (pointer) api.lsd_free(pointer, BLOCK * 4);
+  }
+}
+
+/** Learned capacity survives small presets. A full pool at low recurring CPU
+ * load can request a larger prepared tree; overload can reduce the next one. */
+export function nextPreparedCapacity(current, status, requested) {
+  const limit = Math.max(0, Number(status.voiceLimit) || 0);
+  const proved = Math.max(0, Number(status.calibratedVoices) || 0);
+  const load = Math.max(Number(status.cpuLoad) || 0, Number(status.peakLoad) || 0);
+  if (proved > 0 && proved < current * .7 && load > .85) return Math.max(1, proved);
+  if (limit > 0 && load >= 1)
+    return Math.max(1, Math.min(current, Math.floor(limit * .7 / Math.max(1, load))));
+  const prepared = Math.min(current, Math.max(1, Number(status.requestedTargets) || current));
+  if (requested > current && limit >= prepared * .95 && load > 0 && load < .95)
+    return Math.max(current + 1, Math.floor(current * 1.35));
+  return current;
+}

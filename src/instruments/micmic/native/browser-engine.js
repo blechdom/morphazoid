@@ -2,6 +2,7 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePe
 import { audioInputConstraints, audioInputDescription, configureAudioInputNode } from '../../../audio-input-settings.js';
 import { connectAudioOutput } from '../../../audio-output-manager.js';
 import { createInputSource } from './input-source.js';
+import { nextPreparedCapacity } from './device-capacity.js';
 
 const WORKER_URL = new URL('./topology-worker.js', import.meta.url);
 const WORKLET_URL = new URL('./delay-worklet.js', import.meta.url);
@@ -26,6 +27,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
+  let deviceCapacity = null, preparedCapacity = 0, capacityCheckedAt = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
+  let parameterRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
   const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
@@ -75,13 +78,15 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     };
   }
 
-  function compile(nextParameters, rate) {
+  function compile(nextParameters, rate, replaceable = false, capacityOverride = null) {
     assertOpen(); ensureWorker();
     const id = ++sequence, revision = ++compilerRevision;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { workerRequests.delete(id); reject(new Error('The requested topology took too long to compile.')); }, 60000);
       workerRequests.set(id, { resolve, reject, timer });
-      worker.postMessage({ id, parameters: nextParameters, sampleRate: rate, revision });
+      const capacity = capacityOverride ?? (deviceCapacity?.sampleRate === rate ? preparedCapacity : 0);
+      worker.postMessage({ id, parameters: nextParameters, sampleRate: rate, revision, replaceable,
+        voiceBudget: capacity ? Math.min(capacity, topology?.memoryVoiceCapacity ?? capacity) : undefined });
     });
   }
 
@@ -99,7 +104,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // Transfer delivery avoids cloning the full pool on the audio thread.
     // Keep the compiler/cache allocation attached for graph recovery.
     const audioPool = retainedPool.slice(0);
-    return audioMessage('install', { pool: audioPool }, [audioPool]);
+    return audioMessage('install', { pool: audioPool, seedCapacity: deviceCapacity?.voices || 0 }, [audioPool]);
   }
 
   function suspendControlContext(preparedContext) {
@@ -150,6 +155,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   }
 
   async function install(compiled) {
+    if (compiled.skipped) return;
     if (node) {
       await withRunningControlGraph(async () => {
         await installMessage(compiled.pool);
@@ -158,6 +164,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
         await audioMessage('depth', { depth: requestedDepth });
       });
     }
+    deviceCapacity = compiled.calibration;
+    preparedCapacity = compiled.voiceBudget;
     parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth }; topology = compiled.result;
     pool = compiled.pool; module = compiled.module; topologyRevision = compiled.revision;
   }
@@ -372,6 +380,11 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       parameters: { ...parameters }, performance: structuredClone(performanceState), input: { ...selectedInput,
         pending: selectedInput.pending || microphonePending, playing: selectedInput.mode === 'mic' ? Boolean(stream) : selectedInput.playing }, topologyRevision,
       requestedVoices: topology?.requestedVoices || 0,
+      requestedVoicesExact: topology?.requestedVoicesExact ?? true,
+      requestedVoicesDecimal: topology?.requestedVoicesDecimal ?? String(topology?.requestedVoices || 0),
+      preparedVoices: topology?.preparedVoices ?? topology?.requestedVoices ?? 0,
+      effectiveParameters: { ...sanitizeParameters(topology?.effectiveParameters ?? parameters), depth: requestedDepth },
+      deviceCapacity: deviceCapacity ? { ...deviceCapacity, preparedCapacity } : null,
       eligibleVoices: parameters.depth > 0 ? (topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0) : 0,
       memoryVoiceCapacity: topology?.memoryVoiceCapacity || Number.MAX_SAFE_INTEGER,
       generationLimits: topology?.generationLimits || {}, status: visibleStatus, error: failure };
@@ -385,6 +398,37 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
 
   async function refresh() {
     if (node && context?.state === 'running' && !starting) status = await audioMessage('status');
+    // Try more only after the installed pool proves sustained headroom. This
+    // uses the same install path and recording; it never restarts the source.
+    const time = status.elapsedSeconds || 0;
+    // The request token advances before its new scene commits. During that
+    // interval parameters still describes the old tree; pairing it with the
+    // new token would let a queued capacity probe restore the previous preset.
+    if (audio && !parameterRequestsPending
+      && !capacityWorking && time >= capacityRetryAt && time - capacityCheckedAt >= 3) {
+      capacityCheckedAt = time;
+      const next = Math.min(nextPreparedCapacity(preparedCapacity, status, topology?.requestedVoices || 0),
+        topology?.memoryVoiceCapacity ?? Number.MAX_SAFE_INTEGER);
+      if (next !== preparedCapacity) {
+        const prepared = topology?.preparedVoices || 0;
+        if ((next < prepared) || (next > prepared && topology?.requestedVoices > prepared)) {
+          const revision = parameterRequestRevision, candidate = { ...parameters };
+          capacityWorking = true;
+          const pending = compileChain.catch(() => {}).then(async () => {
+            if (disposed || revision !== parameterRequestRevision) return;
+            const compiled = await compile(candidate, context?.sampleRate || 48000, true, next);
+            if (!disposed && revision === parameterRequestRevision && !compiled.skipped) {
+              await install(compiled); capacityFailure = null; onStatus(snapshot());
+            }
+          }).catch(error => {
+            // A failed optional probe must not poison subsequent tiny scenes
+            // or replace the working recording. Retain the last installed budget.
+            capacityFailure = String(error.message || error); capacityRetryAt = time + 10;
+          }).finally(() => { capacityWorking = false; });
+          compileChain = pending;
+        }
+      }
+    }
     const reply = snapshot(); onStatus(reply); return reply;
   }
 
@@ -416,13 +460,14 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     if (path === '/api/parameters' || path === '/api/reset') {
       const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
       const revision = ++parameterRequestRevision;
+      parameterRequestsPending++;
       ++depthRevision; requestedDepth = next.depth;
       const pending = compileChain.catch(() => {}).then(async () => {
         if (revision !== parameterRequestRevision) return snapshot();
-        const compiled = await compile(next, context?.sampleRate || 48000); assertOpen();
+        const compiled = await compile(next, context?.sampleRate || 48000, true); assertOpen();
         if (revision !== parameterRequestRevision) return snapshot();
         await install(compiled); failure = null; return refresh();
-      });
+      }).finally(() => { parameterRequestsPending--; });
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
@@ -469,7 +514,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     const reply = snapshot();
     return { ...reply, initialized: Boolean(topology), disposed, audioDesired, microphoneEnabled: Boolean(stream), microphonePending,
       contextState: context?.state || 'absent', contextGeneration, connectionCount: node && master ? 1 : 0,
-      sampleClock: status.elapsedSeconds, processedBlocks: status.processedBlocks || 0, buildRevision: topologyRevision };
+      sampleClock: status.elapsedSeconds, processedBlocks: status.processedBlocks || 0, buildRevision: topologyRevision,
+      capacityWorking, capacityFailure, preparedNodes: topology?.nodes?.length || 0 };
   }
 
   function getSampleTime() {

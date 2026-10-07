@@ -757,7 +757,7 @@ test('the actual topology worker recreates a trapped Rust compiler and retains t
         const instance = new NativeInstance(compiledModule, imports);
         instances.push(instance);
         if (instances.length === 1) return { exports: { ...instance.exports,
-          lsd_compile() { trappedCompilations++; throw new WebAssembly.RuntimeError('unreachable: injected compiler trap'); },
+          lsd_compile_bounded() { trappedCompilations++; throw new WebAssembly.RuntimeError('unreachable: injected compiler trap'); },
         } };
         return instance;
       }
@@ -774,7 +774,7 @@ test('the actual topology worker recreates a trapped Rust compiler and retains t
     assert.equal(trappedCompilations, 1);
     const recovered = await exchange(2, parameters, 0x10000002a);
     assert.equal(recovered.error, undefined);
-    assert.equal(instances.length, 2, 'a Rust trap retires the first compiler instance');
+    assert.equal(instances.length, 3, 'capacity measurement uses a disposable renderer and a Rust trap retires the first compiler');
     assert.deepEqual(recovered.result.parameters, parameters);
     assert.equal(recovered.result.requestedVoices, 14);
     assert.equal(recovered.pool.byteLength, 32 + 14 * 48, 'the recovered compiler returns the complete real WASM pool');
@@ -790,7 +790,7 @@ test('the actual topology worker recreates a trapped Rust compiler and retains t
     const following = await exchange(4, { ...parameters, generations: 4 });
     assert.equal(following.error, undefined);
     assert.equal(following.result.requestedVoices, 30);
-    assert.equal(instances.length, 2, 'ordinary validation errors retain the healthy recovered compiler');
+    assert.equal(instances.length, 3, 'ordinary validation errors retain the healthy compiler and cached capacity');
   } finally {
     for (const request of pending.values()) clearTimeout(request.timer);
     Object.defineProperty(WebAssembly, 'Instance', instanceDescriptor);

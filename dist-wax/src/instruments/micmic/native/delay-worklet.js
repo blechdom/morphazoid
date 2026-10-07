@@ -23,6 +23,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.retireTiming = { seconds: 0, records: 0, recordSeconds: 0, blockedSeconds: 0 };
     this.audioTimeSeconds = null;
     this.pendingInstall = null; this.installQueue = []; this.drainRequests = [];
+    this.capacitySeeded = false;
     this.inputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
     this.inputRightPointer = this.api.lsd_alloc(BLOCK * 4);
     this.outputLeftPointer = this.api.lsd_alloc(BLOCK * 4);
@@ -120,7 +121,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       const bytes = new Uint8Array(data.pool);
       pointer = this.api.lsd_alloc_uninitialized(bytes.length);
       if (!pointer) throw new Error(wasmError(this.api, 'The audio topology could not be allocated.'));
-      this.pendingInstall = { id: data.id, pointer, length: bytes.length, bytes, copied: Math.min(32, bytes.length) };
+      this.pendingInstall = { id: data.id, pointer, length: bytes.length, bytes, seedCapacity: data.seedCapacity, copied: Math.min(32, bytes.length) };
       // Begin validates only the header. Upload records just before their
       // bounded validation step, avoiding a multi-megabyte copy in one callback.
       new Uint8Array(this.api.memory.buffer, pointer, this.pendingInstall.copied)
@@ -164,6 +165,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       this.releaseInstall(true);
       this.port.postMessage({ id: pending.id, error });
     } else {
+      if (!this.capacitySeeded && pending.seedCapacity > 0) {
+        this.api.lsd_capacity_hint(this.engine, pending.seedCapacity);
+        this.capacitySeeded = true;
+      }
       this.releaseInstall();
       this.port.postMessage({ id: pending.id, status: this.snapshot() });
     }

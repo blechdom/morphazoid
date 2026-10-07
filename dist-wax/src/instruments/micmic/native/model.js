@@ -121,7 +121,7 @@ export function topologyIdentity(parameters) {
 export function tapActivityFrame(reply, parameters) {
   const status = reply?.status, revision = reply?.topologyRevision;
   if (!status || !Number.isSafeInteger(revision) || revision < 1 || status.topologyRevision !== revision
-    || JSON.stringify(sanitizeParameters(reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
+    || JSON.stringify(sanitizeParameters(reply.effectiveParameters ?? reply.parameters ?? {})) !== JSON.stringify(sanitizeParameters(parameters))
     || !Array.isArray(status.tapActivity) || !Array.isArray(status.tapVoiceIndices)) return null;
   const wetBusGain = Number.isFinite(status.wetBusGain) ? Math.max(0, status.wetBusGain) : 0, levels = new Map();
   // The engine's active count ends a released tail. Residual smoothed meter
