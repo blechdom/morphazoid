@@ -26,7 +26,9 @@ test('graphics selection stays rooted and connected even when child ranks preced
 });
 
 test('raw Rust keys select before normalization and retain voice slots, gain and release metadata', () => {
-  const raw = graph.map(({ id, parentId, ...node }) => ({ ...node, key: `generation:${id}`, parentKey: parentId === null ? null : `generation:${parentId}` }));
+  const raw = graph.map(({ id, parentId, ...node }, index) => ({ ...node, id: index,
+    parent: parentId === null ? 0 : graph.findIndex(node => node.id === parentId),
+    key: `generation:${id}`, parentKey: parentId === null ? '' : `generation:${parentId}` }));
   const original = structuredClone(raw), selected = selectConnectedGraphics(raw, 4);
   assert.deepEqual(selected.map(node => node.key), ['generation:root', 'generation:b', 'generation:b1', 'generation:a']);
   assert.ok(selected.every(node => raw.includes(node))); assert.deepEqual(raw, original);

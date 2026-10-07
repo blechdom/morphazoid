@@ -81,8 +81,9 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
 
 // Raw Rust replies use key/parentKey. Normalized drawing replies use id/parentId.
 // Canonicalizing lookup keys does not alter any node or its voice/meter metadata.
-const nodeKey = value => value === null || value === undefined ? null : String(value).replace(/^generation:/, '');
-const idFor = node => nodeKey(node.id ?? node.key);
+const nodeKey = value => value === null || value === undefined || value === '' ? null : String(value).replace(/^generation:/, '');
+// Rust also serializes numeric id/parent fields; its semantic lineage is key.
+const idFor = node => nodeKey(node.key ?? node.id);
 const parentFor = node => nodeKey(Object.hasOwn(node, 'parentId') ? node.parentId : node.parentKey);
 const rankFor = node => Number.isFinite(node.priority) && node.priority >= 0 ? node.priority : Infinity;
 
