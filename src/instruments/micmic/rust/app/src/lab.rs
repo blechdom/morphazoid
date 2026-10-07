@@ -136,11 +136,108 @@ pub(super) fn layout(
     }
 }
 
-/// A(l,t,p,a) : l >= min -> F(l,t,p) [A(l*r,t*d,p*q,a+delta)]...
-/// A(l,t,p,a) : l < min -> epsilon. Module values survive each parallel pass.
-fn parametric(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<LayoutNode>, String> {
-    let mut nodes = crate::resources::reserve(1)?;
-    nodes.push(segment(
+/// Prepare only the caller's measured voice budget. Requested demand is kept
+/// separately so a small prepared graph never changes the performer's rule.
+/// Parametric demand is an upper bound when mutation prunes unknown descendants;
+/// deterministic sequences and canonical tilings have arithmetic exact counts.
+pub(super) fn bounded_layout(
+    parameters: &Parameters,
+    lab: &LabParameters,
+    voice_budget: usize,
+) -> Result<(Vec<LayoutNode>, u64, LabParameters), String> {
+    lab.validate()?;
+    match lab.kind.as_str() {
+        "parametric" => bounded_parametric(parameters, lab, voice_budget),
+        "context" | "thue-morse" | "fibonacci" => {
+            let requested = sequence_counts(&lab.kind, lab.iterations)
+                .0
+                .saturating_sub(1);
+            let nodes = if requested <= voice_budget as u64 {
+                sequence(parameters, lab)?
+            } else {
+                bounded_sequence(parameters, lab, voice_budget)?
+            };
+            Ok((nodes, requested, lab.clone()))
+        }
+        "penrose" | "sphinx" => {
+            let requested = tiling_edge_count(&lab.kind, lab.iterations);
+            let mut effective = lab.clone();
+            // Keep a complete canonical covering whenever one fits. Choosing
+            // its order precedes allocation; no fine tiling is built then cut.
+            while effective.iterations > 1
+                && tiling_edge_count(&lab.kind, effective.iterations) > voice_budget as u64
+            {
+                effective.iterations -= 1;
+            }
+            let mut nodes = layout(parameters, &effective)?;
+            // Budgets smaller than the first legal covering still receive a
+            // connected prefix of that small covering, including its input root.
+            nodes.truncate(voice_budget.saturating_add(1));
+            Ok((nodes, requested, effective))
+        }
+        _ => unreachable!("validated lab kind"),
+    }
+}
+
+fn parametric_demand(lab: &LabParameters) -> u64 {
+    let mut count = 0_u64;
+    let mut frontier = 1_u64;
+    let mut length = 1.;
+    for _ in 0..lab.iterations {
+        length *= lab.length_ratio;
+        // Mutation only shortens modules. This maximum-length path bounds all
+        // branches without visiting any of the unavailable descendants.
+        // Segment lengths are measured from their Cartesian endpoints, so
+        // retain a small relative roundoff margin at a cutoff equality.
+        if length < lab.min_length * (1. - 1e-12) {
+            break;
+        }
+        frontier = frontier.saturating_mul(u64::from(lab.branch_count));
+        count = count.saturating_add(frontier);
+    }
+    count
+}
+
+fn parametric_child(
+    parameters: &Parameters,
+    lab: &LabParameters,
+    prior: &LayoutNode,
+    parent: usize,
+    generation: u8,
+    child: u8,
+) -> Option<LayoutNode> {
+    let id = format!("{}/{child}", prior.id);
+    let variation = 1. - parameters.mutation * hash_unit(&id) * 0.25;
+    let length = prior.length * lab.length_ratio * variation;
+    if length < lab.min_length {
+        return None;
+    }
+    let offset = f64::from(child) / f64::from(lab.branch_count - 1) * 2. - 1.;
+    let turn = offset * parameters.angle * (1. + parameters.asymmetry * offset)
+        + lab.angle_increment * f64::from(generation);
+    let heading = prior.heading + turn;
+    let start = Point(prior.x, prior.y);
+    let end = Point(
+        start.0 + heading.to_radians().cos() * length,
+        start.1 + heading.to_radians().sin() * length,
+    );
+    let duration = prior.time_scale * lab.delay_ratio * parameters.time_ratio * variation;
+    let pitch = prior.module_pitch.unwrap_or(0.) + 12. * lab.pitch_ratio.log2() + turn / 180. * 12.;
+    Some(segment(
+        id,
+        parent,
+        generation,
+        char::from(b'A' + child),
+        start,
+        end,
+        turn,
+        duration,
+        pitch,
+    ))
+}
+
+fn parametric_root() -> LayoutNode {
+    segment(
         "trunk".into(),
         0,
         0,
@@ -150,7 +247,84 @@ fn parametric(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<Layout
         0.,
         1.,
         0.,
-    ));
+    )
+}
+
+fn bounded_parametric(
+    parameters: &Parameters,
+    lab: &LabParameters,
+    voice_budget: usize,
+) -> Result<(Vec<LayoutNode>, u64, LabParameters), String> {
+    let requested = parametric_demand(lab);
+    let storage = voice_budget
+        .min(requested.min(usize::MAX as u64) as usize)
+        .saturating_add(1);
+    crate::resources::check_voices(storage)?;
+    let mut nodes = crate::resources::reserve(storage)?;
+    nodes.push(parametric_root());
+    if parameters.pruning_bias >= 0.5 && requested > voice_budget as u64 {
+        // A stack holds just one unfinished ancestor per generation. Depth
+        // preference retains full-length paths instead of only broad layers.
+        let mut stack = vec![(0usize, 0_u8)];
+        while let Some((parent, child)) = stack.pop() {
+            let generation = nodes[parent].generation + 1;
+            if generation > lab.iterations || child >= lab.branch_count {
+                continue;
+            }
+            stack.push((parent, child + 1));
+            if let Some(node) =
+                parametric_child(parameters, lab, &nodes[parent], parent, generation, child)
+            {
+                if nodes.len().saturating_sub(1) == voice_budget {
+                    return Ok((nodes, requested, lab.clone()));
+                }
+                let index = nodes.len();
+                nodes.push(node);
+                stack.push((index, 0));
+            }
+        }
+        // Mutation can make the upper bound conservative. When the complete
+        // graph actually fits, reconstruct its original BFS order using the
+        // same bounded builder, without reserving a whole unpruned frontier.
+        return bounded_parametric(
+            &Parameters {
+                pruning_bias: 0.,
+                ..parameters.clone()
+            },
+            lab,
+            voice_budget,
+        );
+    }
+    let mut first = 0;
+    let mut last = 1;
+    for generation in 1..=lab.iterations {
+        for parent in first..last {
+            for child in 0..lab.branch_count {
+                if let Some(node) =
+                    parametric_child(parameters, lab, &nodes[parent], parent, generation, child)
+                {
+                    if nodes.len().saturating_sub(1) == voice_budget {
+                        return Ok((nodes, requested, lab.clone()));
+                    }
+                    nodes.push(node);
+                }
+            }
+        }
+        if nodes.len() == last {
+            break;
+        }
+        first = last;
+        last = nodes.len();
+    }
+    let requested = nodes.len().saturating_sub(1) as u64;
+    Ok((nodes, requested, lab.clone()))
+}
+
+/// A(l,t,p,a) : l >= min -> F(l,t,p) [A(l*r,t*d,p*q,a+delta)]...
+/// A(l,t,p,a) : l < min -> epsilon. Module values survive each parallel pass.
+fn parametric(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<LayoutNode>, String> {
+    let mut nodes = crate::resources::reserve(1)?;
+    nodes.push(parametric_root());
     let mut frontier = crate::resources::reserve(1)?;
     frontier.push(0usize);
     for generation in 1..=lab.iterations {
@@ -167,39 +341,13 @@ fn parametric(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<Layout
         for parent in frontier {
             let prior = nodes[parent].clone();
             for child in 0..lab.branch_count {
-                let id = format!("{}/{child}", prior.id);
-                let variation = 1. - parameters.mutation * hash_unit(&id) * 0.25;
-                let length = prior.length * lab.length_ratio * variation;
-                if length < lab.min_length {
-                    continue;
+                if let Some(node) =
+                    parametric_child(parameters, lab, &prior, parent, generation, child)
+                {
+                    let index = nodes.len();
+                    nodes.push(node);
+                    next.push(index);
                 }
-                let offset = f64::from(child) / f64::from(lab.branch_count - 1) * 2. - 1.;
-                let turn = offset * parameters.angle * (1. + parameters.asymmetry * offset)
-                    + lab.angle_increment * f64::from(generation);
-                let heading = prior.heading + turn;
-                let start = Point(prior.x, prior.y);
-                let end = Point(
-                    start.0 + heading.to_radians().cos() * length,
-                    start.1 + heading.to_radians().sin() * length,
-                );
-                let duration =
-                    prior.time_scale * lab.delay_ratio * parameters.time_ratio * variation;
-                let pitch = prior.module_pitch.unwrap_or(0.)
-                    + 12. * lab.pitch_ratio.log2()
-                    + turn / 180. * 12.;
-                let index = nodes.len();
-                nodes.push(segment(
-                    id,
-                    parent,
-                    generation,
-                    char::from(b'A' + child),
-                    start,
-                    end,
-                    turn,
-                    duration,
-                    pitch,
-                ));
-                next.push(index);
             }
         }
         if next.is_empty() {
@@ -258,6 +406,190 @@ fn rewritten_word(kind: &str, iterations: u8) -> Result<Vec<u8>, String> {
     Ok(word)
 }
 
+/// (word length, count of the second symbol), without expanding the word.
+fn sequence_counts(kind: &str, iterations: u8) -> (u64, u64) {
+    match kind {
+        "context" => (
+            u64::from(iterations) * 2 + 3,
+            1_u64 << iterations.count_ones(),
+        ),
+        "thue-morse" => {
+            let length = 1_u64 << iterations;
+            (length, if iterations == 0 { 0 } else { length / 2 })
+        }
+        "fibonacci" => {
+            let (mut a, mut b) = (1_u64, 0_u64);
+            for _ in 0..iterations {
+                (a, b) = (a.saturating_add(b), a);
+            }
+            (a.saturating_add(b), b)
+        }
+        _ => unreachable!("sequence kind"),
+    }
+}
+
+fn fibonacci_lengths(iterations: u8) -> [u64; 25] {
+    // Supported numeric rule depth, not a voice ceiling. Each slot counts A's
+    // descendants at that rewrite depth; B's length is the preceding A length.
+    let mut lengths = [1_u64; 25];
+    for index in 1..=usize::from(iterations) {
+        lengths[index] =
+            lengths[index - 1].saturating_add(if index == 1 { 1 } else { lengths[index - 2] });
+    }
+    lengths
+}
+
+fn sequence_symbol(kind: &str, iterations: u8, index: usize, lengths: &[u64; 25]) -> u8 {
+    match kind {
+        "context" => {
+            // Rule 90's nth row is the binomial row modulo two. Its active
+            // cone stays inside the existing fixed-zero boundary at every pass.
+            let displacement = index as i64 - (i64::from(iterations) + 1);
+            let diagonal = i64::from(iterations) + displacement;
+            if diagonal < 0 || diagonal % 2 != 0 {
+                return b'0';
+            }
+            let k = diagonal / 2;
+            if k > i64::from(iterations) || (k as u64 & !u64::from(iterations)) != 0 {
+                b'0'
+            } else {
+                b'1'
+            }
+        }
+        "thue-morse" => {
+            if index.count_ones() & 1 == 0 {
+                b'0'
+            } else {
+                b'1'
+            }
+        }
+        "fibonacci" => {
+            let mut index = index as u64;
+            let mut symbol = b'A';
+            for depth in (1..=usize::from(iterations)).rev() {
+                if symbol == b'B' {
+                    symbol = b'A';
+                } else if index >= lengths[depth - 1] {
+                    index -= lengths[depth - 1];
+                    symbol = b'B';
+                }
+            }
+            symbol
+        }
+        _ => unreachable!("sequence kind"),
+    }
+}
+
+struct SequenceCursor {
+    position: Point,
+    heading: f64,
+    progress: f64,
+}
+impl SequenceCursor {
+    fn new() -> Self {
+        Self {
+            position: Point(0., 0.),
+            heading: 0.,
+            progress: 0.,
+        }
+    }
+    fn next(
+        &mut self,
+        parameters: &Parameters,
+        lab: &LabParameters,
+        index: usize,
+        c: u8,
+        weight: f64,
+        total: f64,
+    ) -> LayoutNode {
+        let polarity = if c == b'1' || c == b'B' { 1. } else { -1. };
+        let turn = if index == 0 {
+            0.
+        } else {
+            polarity * parameters.angle * (1. + polarity * parameters.asymmetry)
+        };
+        self.heading += turn;
+        let id = if index == 0 {
+            "trunk".into()
+        } else {
+            format!("{}:{index}", lab.kind)
+        };
+        let variation = 1. - parameters.mutation * hash_unit(&id) * 0.25;
+        let length = weight * variation;
+        let end = Point(
+            self.position.0 + f64::cos(f64::to_radians(self.heading)) * length,
+            self.position.1 + f64::sin(f64::to_radians(self.heading)) * length,
+        );
+        let start = self.progress / total;
+        self.progress += weight;
+        let end_time = self.progress / total;
+        let generation = if index == 0 {
+            0
+        } else {
+            (end_time * f64::from(lab.iterations))
+                .ceil()
+                .clamp(1., f64::from(lab.iterations)) as u8
+        };
+        let duration = (super::acoustic_path_time(end_time, lab.iterations, parameters.time_ratio)
+            - super::acoustic_path_time(start, lab.iterations, parameters.time_ratio))
+        .max(1e-9)
+            * variation;
+        let pitch = polarity * 12. * lab.symbol_ratio.log2() + self.heading / 180. * 12.;
+        let node = segment(
+            id,
+            index.saturating_sub(1),
+            generation,
+            char::from(c),
+            self.position,
+            end,
+            turn,
+            duration,
+            pitch,
+        );
+        self.position = end;
+        node
+    }
+}
+
+fn bounded_sequence(
+    parameters: &Parameters,
+    lab: &LabParameters,
+    voice_budget: usize,
+) -> Result<Vec<LayoutNode>, String> {
+    let (length, second_count) = sequence_counts(&lab.kind, lab.iterations);
+    let lengths = fibonacci_lengths(lab.iterations);
+    let symbol = |index| sequence_symbol(&lab.kind, lab.iterations, index, &lengths);
+    let is_second = |c| c == b'1' || c == b'B';
+    let weight = |index: usize| {
+        let neighbours = if lab.kind == "context" {
+            f64::from(index.checked_sub(1).is_some_and(|n| is_second(symbol(n))) as u8)
+                + f64::from(((index as u64 + 1) < length && is_second(symbol(index + 1))) as u8)
+        } else {
+            0.
+        };
+        (if is_second(symbol(index)) {
+            lab.symbol_ratio
+        } else {
+            1.
+        }) * (1. + neighbours * lab.context_strength * 0.5)
+    };
+    let total = if lab.kind == "context" {
+        // Context words are intrinsically just 2*n+3 symbols, including their
+        // boundaries, so exact normalization needs at most 51 scalar samples.
+        (0..length as usize).map(weight).sum::<f64>()
+    } else {
+        (length - second_count) as f64 + second_count as f64 * lab.symbol_ratio
+    };
+    let count = voice_budget.saturating_add(1).min(length as usize);
+    crate::resources::check_voices(count)?;
+    let mut nodes = crate::resources::reserve(count)?;
+    let mut cursor = SequenceCursor::new();
+    for index in 0..count {
+        nodes.push(cursor.next(parameters, lab, index, symbol(index), weight(index), total));
+    }
+    Ok(nodes)
+}
+
 fn sequence(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<LayoutNode>, String> {
     let word = rewritten_word(&lab.kind, lab.iterations)?;
     let is_second = |c| c == b'1' || c == b'B';
@@ -277,55 +609,9 @@ fn sequence(parameters: &Parameters, lab: &LabParameters) -> Result<Vec<LayoutNo
         .collect();
     let total = weights.iter().sum::<f64>();
     let mut nodes: Vec<LayoutNode> = crate::resources::reserve(word.len())?;
-    let mut position = Point(0., 0.);
-    let mut heading = 0.;
-    let mut progress = 0.;
+    let mut cursor = SequenceCursor::new();
     for (index, (&c, &weight)) in word.iter().zip(&weights).enumerate() {
-        let polarity = if is_second(c) { 1. } else { -1. };
-        let turn = if index == 0 {
-            0.
-        } else {
-            polarity * parameters.angle * (1. + polarity * parameters.asymmetry)
-        };
-        heading += turn;
-        let id = if index == 0 {
-            "trunk".into()
-        } else {
-            format!("{}:{index}", lab.kind)
-        };
-        let variation = 1. - parameters.mutation * hash_unit(&id) * 0.25;
-        let length = weight * variation;
-        let end = Point(
-            position.0 + f64::cos(f64::to_radians(heading)) * length,
-            position.1 + f64::sin(f64::to_radians(heading)) * length,
-        );
-        let start = progress / total;
-        progress += weight;
-        let end_time = progress / total;
-        let generation = if index == 0 {
-            0
-        } else {
-            (end_time * f64::from(lab.iterations))
-                .ceil()
-                .clamp(1., f64::from(lab.iterations)) as u8
-        };
-        let duration = (super::acoustic_path_time(end_time, lab.iterations, parameters.time_ratio)
-            - super::acoustic_path_time(start, lab.iterations, parameters.time_ratio))
-        .max(1e-9)
-            * variation;
-        let pitch = polarity * 12. * lab.symbol_ratio.log2() + heading / 180. * 12.;
-        nodes.push(segment(
-            id,
-            index.saturating_sub(1),
-            generation,
-            char::from(c),
-            position,
-            end,
-            turn,
-            duration,
-            pitch,
-        ));
-        position = end;
+        nodes.push(cursor.next(parameters, lab, index, c, weight, total));
     }
     Ok(nodes)
 }
@@ -341,6 +627,41 @@ struct Triangle {
     b: Point,
     c: Point,
     thin: bool,
+}
+
+fn tiling_edge_count(kind: &str, iterations: u8) -> u64 {
+    if kind == "sphinx" {
+        // Every rep-4 tile contributes eight unit boundary sections, and the
+        // external perimeter has 8*2^n sections. Interior sections appear twice.
+        return 4_u64
+            .saturating_mul(4_u64.saturating_pow(u32::from(iterations)))
+            .saturating_add(4_u64.saturating_mul(2_u64.saturating_pow(u32::from(iterations))));
+    }
+    let (mut thin, mut thick) = (10_u64, 0_u64);
+    // Boundary sections classified by triangle type and local AB/BC/CA side.
+    // This ten-triangle disk begins with only each thin triangle's BC outside.
+    let [mut tab, mut tbc, mut tca, mut lab, mut lbc, mut lca] = [0, 10_u64, 0, 0, 0, 0];
+    for _ in 0..iterations {
+        (thin, thick) = (
+            thin.saturating_add(thick),
+            thin.saturating_add(thick.saturating_mul(2)),
+        );
+        [tab, tbc, tca, lab, lbc, lca] = [
+            0,
+            tab.saturating_add(lab),
+            tbc,
+            lbc,
+            tca.saturating_add(lbc).saturating_add(lca),
+            tab.saturating_add(lab),
+        ];
+    }
+    let boundary = [tab, tbc, tca, lab, lbc, lca]
+        .into_iter()
+        .fold(0_u64, u64::saturating_add);
+    thin.saturating_add(thick)
+        .saturating_mul(3)
+        .saturating_add(boundary)
+        / 2
 }
 
 fn penrose(iterations: u8) -> Result<Vec<Tile>, String> {
@@ -664,6 +985,236 @@ mod tests {
         assert_eq!(rewritten_word("fibonacci", 4).unwrap(), b"ABAABABA");
         assert_eq!(rewritten_word("context", 1).unwrap(), b"01010");
         assert_eq!(rewritten_word("context", 2).unwrap(), b"0100010");
+    }
+    #[test]
+    fn lazy_sequence_symbols_and_counts_match_parallel_rewrites() {
+        for kind in ["context", "thue-morse", "fibonacci"] {
+            for iterations in 0..=10 {
+                let word = rewritten_word(kind, iterations).unwrap();
+                let lengths = fibonacci_lengths(iterations);
+                let (count, second_count) = sequence_counts(kind, iterations);
+                assert_eq!(count, word.len() as u64, "{kind} {iterations}");
+                assert_eq!(
+                    second_count,
+                    word.iter().filter(|&&c| c == b'1' || c == b'B').count() as u64,
+                    "{kind} {iterations}"
+                );
+                for (index, &c) in word.iter().enumerate() {
+                    assert_eq!(
+                        sequence_symbol(kind, iterations, index, &lengths),
+                        c,
+                        "{kind} {iterations} {index}"
+                    );
+                }
+            }
+        }
+    }
+    #[test]
+    fn arithmetic_tiling_counts_match_deduplicated_canonical_edges() {
+        for kind in ["penrose", "sphinx"] {
+            for iterations in 1..=5 {
+                let lab = LabParameters {
+                    kind: kind.into(),
+                    iterations,
+                    ..LabParameters::default()
+                };
+                let nodes = layout(&Parameters::default(), &lab).unwrap();
+                assert_eq!(
+                    tiling_edge_count(kind, iterations),
+                    nodes.len().saturating_sub(1) as u64,
+                    "{kind} {iterations}"
+                );
+            }
+        }
+    }
+    #[test]
+    fn budgets_at_full_demand_preserve_every_unlimited_lab_value_and_order() {
+        let p = Parameters {
+            mutation: 0.4,
+            asymmetry: 0.3,
+            pruning_bias: 0.8,
+            ..Parameters::default()
+        };
+        for kind in KINDS {
+            let lab = LabParameters {
+                kind: kind.into(),
+                iterations: 3,
+                symbol_ratio: 1.37,
+                ..LabParameters::default()
+            };
+            let original = layout(&p, &lab).unwrap();
+            let (prepared, requested, effective) =
+                bounded_layout(&p, &lab, original.len().saturating_sub(1)).unwrap();
+            assert_eq!(prepared, original, "{kind}");
+            assert_eq!(requested, original.len().saturating_sub(1) as u64);
+            assert_eq!(effective, lab);
+        }
+    }
+    #[test]
+    fn mutation_cutoff_that_fits_budget_retains_exact_full_demand_and_bfs_order() {
+        let lab = LabParameters {
+            iterations: 8,
+            length_ratio: 0.5,
+            min_length: 0.2,
+            branch_count: 6,
+            ..LabParameters::default()
+        };
+        for pruning_bias in [-1., 1.] {
+            let p = Parameters {
+                mutation: 1.,
+                pruning_bias,
+                ..Parameters::default()
+            };
+            let original = parametric(&p, &lab).unwrap();
+            assert!((original.len().saturating_sub(1) as u64) < parametric_demand(&lab));
+            let (prepared, requested, _) =
+                bounded_layout(&p, &lab, original.len().saturating_sub(1)).unwrap();
+            assert_eq!(prepared, original);
+            assert_eq!(requested, original.len().saturating_sub(1) as u64);
+        }
+    }
+    #[test]
+    fn six_way_budget_keeps_partial_final_frontier_and_original_values() {
+        let lab = LabParameters {
+            iterations: 24,
+            length_ratio: 1.,
+            branch_count: 6,
+            min_length: 0.001,
+            ..LabParameters::default()
+        };
+        let p = Parameters::default();
+        let (prepared, requested, effective) = bounded_layout(&p, &lab, 80).unwrap();
+        assert_eq!(prepared.len(), 81);
+        assert_eq!(requested, 5_686_057_605_985_940_274);
+        assert_eq!(effective, lab);
+        let original = parametric(
+            &p,
+            &LabParameters {
+                iterations: 3,
+                ..lab
+            },
+        )
+        .unwrap();
+        assert_eq!(prepared, original[..81]);
+        assert_eq!(prepared.last().unwrap().generation, 3);
+        assert_eq!(prepared.last().unwrap().id, "trunk/1/0/1");
+    }
+    #[test]
+    fn bounded_parametric_depth_preference_retains_long_paths_and_module_values() {
+        let lab = LabParameters {
+            iterations: 6,
+            length_ratio: 0.9,
+            branch_count: 3,
+            min_length: 0.001,
+            ..LabParameters::default()
+        };
+        let p = Parameters {
+            pruning_bias: 1.,
+            mutation: 0.3,
+            ..Parameters::default()
+        };
+        let original = parametric(&p, &lab).unwrap();
+        let (prepared, requested, _) = bounded_layout(&p, &lab, 40).unwrap();
+        assert_eq!(prepared.len(), 41);
+        assert_eq!(requested, original.len().saturating_sub(1) as u64);
+        assert_eq!(prepared.iter().map(|n| n.generation).max(), Some(6));
+        for node in prepared.iter().skip(1) {
+            let original_node = original.iter().find(|n| n.id == node.id).unwrap();
+            assert_eq!(node.x, original_node.x);
+            assert_eq!(node.y, original_node.y);
+            assert_eq!(node.time_scale, original_node.time_scale);
+            assert_eq!(node.module_pitch, original_node.module_pitch);
+            assert!(node.parent < prepared.iter().position(|n| n.id == node.id).unwrap());
+        }
+        let (broad, _, _) = bounded_layout(
+            &Parameters {
+                pruning_bias: -1.,
+                ..p
+            },
+            &lab,
+            40,
+        )
+        .unwrap();
+        assert!(broad.iter().all(|n| n.generation <= 4));
+    }
+    #[test]
+    fn bounded_sequences_preserve_full_word_geometry_and_timing_normalization() {
+        let p = Parameters {
+            mutation: 0.6,
+            asymmetry: -0.4,
+            ..Parameters::default()
+        };
+        for kind in ["context", "thue-morse", "fibonacci"] {
+            let lab = LabParameters {
+                kind: kind.into(),
+                iterations: 9,
+                symbol_ratio: 1.37,
+                context_strength: 0.73,
+                ..LabParameters::default()
+            };
+            let original = sequence(&p, &lab).unwrap();
+            let (prepared, requested, effective) = bounded_layout(&p, &lab, 12).unwrap();
+            assert_eq!(prepared.len(), 13);
+            assert_eq!(requested, original.len().saturating_sub(1) as u64);
+            assert_eq!(effective, lab);
+            for (a, b) in prepared.iter().zip(&original) {
+                assert_eq!(a.id, b.id);
+                assert_eq!(a.parent, b.parent);
+                assert_eq!(a.rule, b.rule);
+                assert_eq!(a.generation, b.generation);
+                assert_eq!(a.x, b.x);
+                assert_eq!(a.y, b.y);
+                assert_eq!(a.module_pitch, b.module_pitch);
+                assert!((a.time_scale - b.time_scale).abs() < 1e-12, "{kind}");
+            }
+        }
+    }
+    #[test]
+    fn maximum_rule_depth_stays_connected_and_bounded_for_every_lab() {
+        for kind in KINDS {
+            let lab = LabParameters {
+                kind: kind.into(),
+                iterations: 24,
+                branch_count: 6,
+                length_ratio: 1.25,
+                min_length: 0.001,
+                ..LabParameters::default()
+            };
+            for budget in [0, 1, 19, 80] {
+                let (nodes, requested, effective) =
+                    bounded_layout(&Parameters::default(), &lab, budget).unwrap();
+                assert!(!nodes.is_empty(), "{kind}");
+                assert!(nodes.len() <= budget + 1, "{kind}");
+                assert!(requested >= nodes.len().saturating_sub(1) as u64, "{kind}");
+                effective.validate().unwrap();
+                assert_eq!(nodes[0].id, "trunk");
+                for (index, node) in nodes.iter().enumerate().skip(1) {
+                    assert!(node.parent < index, "{kind}");
+                    let parent = &nodes[node.parent];
+                    assert!((node.start_x - parent.x).abs() < 1e-9, "{kind}");
+                    assert!((node.start_y - parent.y).abs() < 1e-9, "{kind}");
+                    assert!(node.x.is_finite() && node.y.is_finite(), "{kind}");
+                    assert!(node.time_scale.is_finite(), "{kind}");
+                }
+            }
+        }
+    }
+    #[test]
+    fn bounded_tilings_choose_largest_complete_covering_that_fits() {
+        for kind in ["penrose", "sphinx"] {
+            let lab = LabParameters {
+                kind: kind.into(),
+                iterations: 24,
+                ..LabParameters::default()
+            };
+            let budget = tiling_edge_count(kind, 3) as usize;
+            let (nodes, requested, effective) =
+                bounded_layout(&Parameters::default(), &lab, budget).unwrap();
+            assert_eq!(effective.iterations, 3);
+            assert_eq!(requested, tiling_edge_count(kind, 24));
+            assert_eq!(nodes.len(), budget + 1);
+            assert_eq!(nodes, layout(&Parameters::default(), &effective).unwrap());
+        }
     }
     #[test]
     fn parameter_modules_update_values_and_growth_is_conditional() {
