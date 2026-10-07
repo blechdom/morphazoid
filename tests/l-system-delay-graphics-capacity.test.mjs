@@ -64,13 +64,20 @@ test('initial measured capacity and subsequent graphics reductions survive small
 });
 
 test('setup, rendered frame cost, cadence and audio warnings reduce node count immediately', () => {
-  for (const sample of [{ setupMs: 32 }, { workMs: 16 }, { workMs: 1, frameIntervalMs: 80 }, { workMs: 1, audioLoad: .9 }, { workMs: 1, peakLoad: .98 }]) {
+  for (const sample of [{ setupMs: 32 }, { workMs: 16 }, { workMs: 1, frameIntervalMs: 80 }, { workMs: 3, audioLoad: .9 }, { workMs: 3, peakLoad: .98 }]) {
     const device = createGraphicsCapacity({ preparedVoices: 999, nodeCount: 10000 });
     assert.equal(device.observe({ nowMs: 100, ...sample }), true, JSON.stringify(sample));
     assert.ok(device.limit <= 800); assert.ok(device.limit >= 1);
   }
   const floor = createGraphicsCapacity({ preparedVoices: 0, nodeCount: 10 });
   assert.equal(floor.observe({ nowMs: 0, setupMs: 10000 }), false); assert.equal(floor.limit, 1);
+});
+
+test('cheap graphics survive a busy audio thread and a single unrelated late callback', () => {
+  const device = createGraphicsCapacity({ preparedVoices: 999, nodeCount: 2000 });
+  for (let i = 0; i < 120; i++) assert.equal(device.observe({ nowMs: i * 17, workMs: .2, audioLoad: .9, peakLoad: .98 }), false);
+  assert.equal(device.observe({ nowMs: 2500, workMs: .2, frameIntervalMs: 80 }), false);
+  assert.equal(device.limit, 1000);
 });
 
 test('sustained headroom cautiously grows beyond historic graphical caps without changing audio', () => {

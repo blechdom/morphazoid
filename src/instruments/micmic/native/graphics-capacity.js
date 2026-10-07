@@ -17,7 +17,7 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
   const setupTarget = Math.max(.1, nonnegative(setupBudgetMs) || 8);
   const growthDelay = Math.max(frameTarget, nonnegative(growthDelayMs) || 750);
   let previousTime = null, healthySince = null, healthySamples = 0, averagePressure = null;
-  let lastPressure = 0, changes = 0, lastChange = 'initial';
+  let lastPressure = 0, changes = 0, lastChange = 'initial', lateFrames = 0;
   const resetGrowth = () => { healthySince = null; healthySamples = 0; };
   return {
     get limit() { return limit; },
@@ -43,17 +43,23 @@ export function createGraphicsCapacity({ preparedVoices = 0, nodeCount = 0,
       const workPressure = nonnegative(workMs) / workTarget;
       const setupPressure = nonnegative(setupMs) / setupTarget;
       const interval = continuous ? nonnegative(frameIntervalMs) / expected : 0;
-      const cadencePressure = interval > 1.2 ? interval : 0;
-      const cpuPressure = audioLoad >= .85 || peakLoad >= .95 ? 2
-        : audioLoad >= .65 || peakLoad >= .85 ? 1.3 : 0;
-      const pressure = Math.max(workPressure, setupPressure, cadencePressure, cpuPressure);
+      lateFrames = interval > 1.2 ? lateFrames + 1 : 0;
+      // A single delayed UI callback is not proof that drawing became costly.
+      // Repeated missed frames still capture asynchronous GPU/compositor load.
+      const cadencePressure = interval > 1.2 && (workPressure >= .25 || lateFrames >= 3) ? interval : 0;
+      const cpuMultiplier = audioLoad >= .85 || peakLoad >= .95 ? 2
+        : audioLoad >= .65 || peakLoad >= .85 ? 1.3 : 1;
+      // Under audio pressure reduce costly drawing first. Cheap frames must
+      // not repeatedly halve the tree merely because audio uses its budget.
+      const pressure = Math.max(workPressure * cpuMultiplier, setupPressure, cadencePressure);
       lastPressure = pressure;
       averagePressure = averagePressure === null ? pressure : averagePressure + (pressure - averagePressure) * .2;
       if (pressure > 1.2) {
         resetGrowth();
         // One slow setup or deadline warning reduces actual topology work on
         // the next frame. Cheap frames then recover through the growth path.
-        const next = Math.max(1, Math.floor(limit * clamp(.85 / pressure, .2, .8)));
+        const measuredCount = Math.min(limit, positiveCount(drawnNodes, limit));
+        const next = Math.max(1, Math.floor(measuredCount * clamp(.85 / pressure, .2, .8)));
         if (next === limit) return false;
         limit = next; changes++; lastChange = 'shrink'; return true;
       }
