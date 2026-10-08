@@ -10,7 +10,7 @@ import AxeBuilder from '@axe-core/playwright';
 import { MASTERING_PROFILES } from '../src/instruments/micmic/native/mastering.js';
 import { captureScene } from '../src/instruments/micmic/native/model.js';
 import { presetStateKey } from '../src/site/header-presets.js';
-import { sliderFromTimeFold } from '../src/instruments/micmic/micmic.js';
+import { sliderFromTimeFold } from '../src/instruments/micmic/native/time-fold.js';
 
 // Path2D inspection exercises the complete Canvas fallback. GPU shader and
 // normal WebGL/WASM lifecycle acceptance live in l-system-delay-gpu.spec.mjs.

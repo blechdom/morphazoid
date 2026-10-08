@@ -2,8 +2,8 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 389995,
-  "wasmSha256": "e00cf6bbcd7705abb6443df565f3080d4f3ef5db2240c4fcd1a4b620505f5b55",
+  "bytes": 391618,
+  "wasmSha256": "c8eb0107907b8f8a45cd028bf755200e7becb037e8fd0ea0cfa6ef6f4735dde7",
   "sourceHashes": {
     "scripts/build-l-system-delay-wasm.mjs": "b91b2178cf50e3d339f8a8c8ae839c1b54e7816812a77ce054a86ddebe59946b",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
@@ -11,13 +11,13 @@
     "src/instruments/micmic/rust/app/src/adaptive.rs": "c465bd4304b597a76e6240b349726251ac2ab66211ac4d17e0307d056e9bf243",
     "src/instruments/micmic/rust/app/src/conditioning.rs": "99fb9b9f584c8ad3b4bb1e770216bb1e0a4b958fc532a1c409e673c8029e54cf",
     "src/instruments/micmic/rust/app/src/lab.rs": "54c0ab3946b3a9c49c81371f8849192fbe2d559fe2e21a12cf8ca013ebafe908",
-    "src/instruments/micmic/rust/app/src/model.rs": "aeb9b71fe69714a2fe2bd5c6891cf631778e9b9e51fbd46837f802ca2c3caedc",
+    "src/instruments/micmic/rust/app/src/model.rs": "2c518c24336bb86eead0c2ba79092c54fd750e7cdaa35d573721702d1b48fa5a",
     "src/instruments/micmic/rust/app/src/performance.rs": "f9408104fc7635439dc3aec904b5d835bfa6d1842ca167b8e90e2d08f94386cd",
     "src/instruments/micmic/rust/app/src/resources.rs": "4aa2cf6c5bfb6b5de2a0bd6b0d22234ed4d06f55cd01c6ae667e187a48eab2eb",
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
-    "src/instruments/micmic/rust/core/src/lib.rs": "1fb49656cc840e8b36d4c314c76b7a573a833fc0f14899870fa48fc294db4d9d",
+    "src/instruments/micmic/rust/core/src/lib.rs": "f8bb45c5cb85c74c867cc495b0341f1ed6b9e92dc7cef78354841d7eba5c9d77",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "c4e04ae0d53a8ad211a1903bbfd961d2cc818f5b1614f8520279a0b9caa2eacb"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "0c10deb322b91f6ab20318ce8deedd93331b88cee1b7e895f87b3664291a4d81"
   },
   "exports": [
     "lsd_abi_version",

@@ -13,7 +13,7 @@ stochastic grammars with six parametric, context, sequence and tiling modes.
 The new curves and repeatable stochastic branching are documented in
 [Grammar exploration](l-system-delay-grammars.md).
 The incorporated lab mappings are documented in [Lab models](l-system-labs-models.md).
-It retains the original parameter curves, mastering controls within **Mix**, and
+Its controls include fractional Time fold, mastering within **Mix**, and
 audio-clock branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
@@ -257,8 +257,15 @@ mastering instead. A short time fold does not change the shifted renderer's
 110 ms grain duration. Long cumulative delays beyond 39 seconds retain their
 geometry but cannot produce a tap from the 40-second history.
 Choose consumes Morphazoid's current shared catalogue, with the Rust entry beside
-the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,000 ms
-mapping. Native input, diagnostics and the optional voice cap use the same control
+the original. Rust Time fold spans **0.05–3,000 ms**, with logarithmic dial travel
+below 50 ms and decimal readouts. Existing presets retain their exact delays;
+50, 240, 1,000 and 3,000 ms retain their earlier dial positions. Unshifted voices
+use fractional sample reads with a one-sample minimum (about 0.021 ms at 48 kHz).
+Shifted voices retain 110 ms grains and a minimum 137.5 ms base read delay, so
+the fold value does not describe their pitch-shifting latency. Shorter folds
+can make more taps eligible within recorded history; measured DSP capacity
+still determines how many run. The original JavaScript control keeps its
+1–3,000 ms mapping. Native input, diagnostics and the optional voice cap use the same control
 styles. Audio remains explicitly armed.
 
 Held knob gestures send their leading value immediately and coalesce further
@@ -266,6 +273,9 @@ values at 16 ms intervals, including a final trailing value. Recursion uses a
 direct generation-gain update rather than compiling a new tree. Mix and mastering
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
+Repeating a fully acknowledged parameter, Recursion or performance value skips
+another compile/install or worklet update. A return to the previous value while
+an edit is pending still supersedes that edit.
 Zero Recursion retains structural ranks and recorded history for immediate resume.
 **Depth / decay** spans 0–100%. At **100% · no decay**, every generation has the
 same underlying gain before voice balancing, with no progressive generation
@@ -453,6 +463,12 @@ preparation. An atomic handoff updates audible/releasing voices, while inactive
 slots adopt targets when admitted. Recording, branch phase and delay-edit
 crossfades survive the handoff. Allocation, memory growth and freeing replaced
 storage can still consume time; staging does not guarantee every device deadline.
+Repeated installs recycle the numeric control records and rank maps. Once both
+buffers are warm, edits within their retained capacity allocate and free no
+control storage, including a smaller scene followed by restoring the larger one.
+Larger high-water scenes and raw worklet uploads can still allocate. Rank-map
+reset still visits the prepared count, and atomic adoption visits active voices;
+recycling does not make those operations constant time or reduce the voice budget.
 Finite topology preparation and cleanup retain a previously proved capacity
 estimate for prompt restoration and revalidation. Total callback CPU and missed
 deadlines still include that work; recurring DSP, admission, status polling and
