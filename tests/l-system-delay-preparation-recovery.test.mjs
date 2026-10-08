@@ -28,7 +28,7 @@ function fixture({ depth = .72 } = {}) {
   const f = { contexts, worklets, sources, compileRequests, errors, calibration,
     rejectAbove: Infinity, now: 1, load: .2, peak: .3, installed: 0, structuralEligible: 0,
     liveDepth: depth, revision: 0, active: 0, calibrationProof: 0,
-    holdCompile: false, compileReplies: [] };
+    holdCompile: false, compileReplies: [], heldControlType: null, controlReplies: [] };
   function replace(key, value) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -108,7 +108,10 @@ function fixture({ depth = .72 } = {}) {
           f.active = f.liveDepth > 0 ? f.structuralEligible : 0;
         }
         if (data.type === 'depth') { f.liveDepth = data.depth; f.active = data.depth > 0 ? f.structuralEligible : 0; }
-        if (data.id) queueMicrotask(() => this.port.onmessage?.({ data: { id: data.id, status: status() } }));
+        if (data.id) {
+          const reply = () => this.port.onmessage?.({ data: { id: data.id, status: status() } });
+          if (data.type === f.heldControlType) f.controlReplies.push(reply); else queueMicrotask(reply);
+        }
       } };
       queueMicrotask(() => this.port.onmessage?.({ data: { type: 'ready' } }));
     }
@@ -127,6 +130,79 @@ function fixture({ depth = .72 } = {}) {
     }
   };
   return f;
+}
+
+test('releasing acknowledged controls skips redundant compilation and worklet updates without restarting playback', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, source = f.sources[0], buffer = source.buffer;
+    const scene = await engine.request('/api/parameters', { ...engine.getDiagnostics().parameters, intervalMs: 73 });
+    const performance = await engine.request('/api/performance', { wet: .63 });
+    const final = await engine.request('/api/depth', { depth: .9 });
+    const count = type => f.worklets[0].messages.filter(message => message.type === type).length;
+    const before = { compiles: f.compileRequests.length, installs: count('install'), performance: count('performance'), depth: count('depth') };
+    await engine.request('/api/parameters', structuredClone(final.parameters));
+    await engine.request('/api/performance', structuredClone(performance.performance));
+    await engine.request('/api/depth', { depth: final.parameters.depth });
+    assert.deepEqual({ compiles: f.compileRequests.length, installs: count('install'), performance: count('performance'), depth: count('depth') }, before);
+    assert.equal(engine.getDiagnostics().buildRevision, scene.topologyRevision);
+    assert.deepEqual(engine.getDiagnostics().parameters, final.parameters);
+    assert.deepEqual(engine.getDiagnostics().performance, performance.performance);
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+    assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined);
+    assert.equal(engine.getDiagnostics().audio, true); assert.equal(engine.getDiagnostics().input.playing, true);
+  } finally { f.cleanup(); }
+});
+
+test('returning to the installed scene while a different scene compiles supersedes the pending edit', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0];
+    f.holdCompile = true;
+    const changing = engine.request('/api/parameters', { ...before.parameters, intervalMs: 73 });
+    await until(() => f.compileReplies.length === 1);
+    const returning = engine.request('/api/parameters', structuredClone(before.parameters));
+    await tick();
+    f.holdCompile = false; f.compileReplies.shift()();
+    await Promise.all([changing, returning]);
+    assert.deepEqual(engine.getDiagnostics().parameters, before.parameters);
+    assert.deepEqual(f.compileRequests.at(-1).parameters, before.parameters);
+    assert.equal(f.compileRequests.length, 3);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 2,
+      'the superseded scene never installs');
+    assert.equal(engine.getDiagnostics().status.topologyRevision, engine.getDiagnostics().buildRevision);
+    assert.equal(f.sources.length, 1); assert.equal(source.stopped, undefined); assert.deepEqual(f.errors, []);
+  } finally { f.cleanup(); }
+});
+
+for (const type of ['performance', 'depth']) {
+  test(`returning to the acknowledged ${type} value during a pending edit still sends the reversal`, async () => {
+    const f = fixture();
+    try {
+      await f.start();
+      const engine = f.engine, before = engine.getDiagnostics();
+      const previous = type === 'depth' ? { depth: before.parameters.depth } : before.performance;
+      const next = type === 'depth' ? { depth: .9 } : { ...previous, wet: .63 };
+      const count = () => f.worklets[0].messages.filter(message => message.type === type).length;
+      const initial = count();
+      f.heldControlType = type;
+      const changing = engine.request(`/api/${type}`, next);
+      await until(() => f.controlReplies.length === 1);
+      const returning = engine.request(`/api/${type}`, structuredClone(previous));
+      await until(() => f.controlReplies.length === 2);
+      assert.equal(count(), initial + 2, 'pending state prevents an incorrect no-op shortcut');
+      f.heldControlType = null;
+      f.controlReplies.shift()(); f.controlReplies.shift()();
+      await Promise.all([changing, returning]);
+      const final = engine.getDiagnostics();
+      assert.deepEqual(type === 'depth' ? { depth: final.parameters.depth } : final.performance, previous);
+      await engine.request(`/api/${type}`, structuredClone(previous));
+      assert.equal(count(), initial + 2, 'an acknowledged release becomes a no-op');
+      assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined); assert.equal(final.audio, true);
+    } finally { f.cleanup(); }
+  });
 }
 
 test('a rejected optional growth probe retains the installed budget and a tiny scene can recover in the same session', async () => {

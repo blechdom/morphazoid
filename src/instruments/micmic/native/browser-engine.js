@@ -31,7 +31,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let status = emptyStatus(), sequence = 0, readyTopology;
   let deviceCapacity = null, preparedCapacity = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
   const capacityController = createPreparedCapacityController();
-  let parameterRequestsPending = 0;
+  let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
   const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
@@ -461,16 +461,24 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     if (path === '/api/state' || path === '/api/preview') return snapshot(true);
     if (path === '/api/status') return refresh();
     if (path === '/api/depth') {
-      capacityController.reset();
       const depth = sanitizeParameters({ ...parameters, depth: body?.depth }).depth;
+      // A knob's release can repeat its final acknowledged input. Pending
+      // edits still need the latest request, including a return to the old value.
+      if (!failure && !depthRequestsPending && depth === parameters.depth && depth === requestedDepth) return snapshot();
+      capacityController.reset();
       const revision = ++depthRevision; requestedDepth = depth;
-      if (node && controlsReady) await audioMessage('depth', { depth });
-      if (revision === depthRevision) { parameters = { ...parameters, depth }; failure = null; }
-      return snapshot();
+      depthRequestsPending++;
+      try {
+        if (node && controlsReady) await audioMessage('depth', { depth });
+        if (revision === depthRevision) { parameters = { ...parameters, depth }; failure = null; }
+        return snapshot();
+      } finally { depthRequestsPending--; }
     }
     if (path === '/api/parameters' || path === '/api/reset') {
-      capacityController.reset();
       const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
+      if (!failure && !parameterRequestsPending && !depthRequestsPending && next.depth === requestedDepth
+        && JSON.stringify(next) === JSON.stringify(parameters)) return snapshot();
+      capacityController.reset();
       const revision = ++parameterRequestRevision;
       parameterRequestsPending++;
       ++depthRevision; requestedDepth = next.depth;
@@ -483,15 +491,19 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
-      capacityController.reset();
       const next = sanitizePerformance({ ...performanceState, ...body,
         ...(input.snapshot().mode !== 'mic' ? { source: 'mic' } : {}) });
-      const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
-      if (node && controlsReady) await audioMessage('performance', { performance: next });
-      performanceState = next; failure = null;
-      if (next.source !== 'mic') stopInputs();
-      else if (needsCapture) await activateInput();
-      return snapshot();
+      if (!failure && !performanceRequestsPending && JSON.stringify(next) === JSON.stringify(performanceState)) return snapshot();
+      capacityController.reset();
+      performanceRequestsPending++;
+      try {
+        const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
+        if (node && controlsReady) await audioMessage('performance', { performance: next });
+        performanceState = next; failure = null;
+        if (next.source !== 'mic') stopInputs();
+        else if (needsCapture) await activateInput();
+        return snapshot();
+      } finally { performanceRequestsPending--; }
     }
     if (path === '/api/strike') {
       if (audio && node) await audioMessage('strike');
