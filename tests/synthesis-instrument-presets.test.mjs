@@ -34,7 +34,7 @@ test('the main bank combines the original tour with synthesis, voice, sample and
 });
 
 test('sample performances cover bundled loops and recall processing without devices or sequencing', () => {
-  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 36);
+  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 37);
   assert.deepEqual(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.routing.selection)),
     new Set(inputsForCategory('samples').map(input => input.id)));
   assert.ok(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.sound.methodId)).size >= 10);

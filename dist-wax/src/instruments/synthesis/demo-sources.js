@@ -13,6 +13,7 @@ export const PROCESSING_INPUT_OPTIONS = Object.freeze([
   { id: "voice-slt", label: "Higher voice syllables", group: "Sample loops", source: 0, kind: "demo" },
   { id: "speech", label: "Synthetic speech", group: "Sample loops", source: 0, kind: "demo" },
   { id: "birdsong", label: "Birdsong", group: "Sample loops", source: 0, kind: "demo" },
+  { id: "speech-curling", label: "Curling a bit more (synthetic voice)", group: "Sample loops", source: 0, kind: "demo" },
   ...EXTRA_DEMO_SOURCES.map(({ id, label, group }) => ({ id, label, group, source: 0, kind: "demo" })),
   { id: "noise", label: "White noise", group: "Test signals", source: 3, kind: "signal" },
   { id: "pink-noise", label: "Pink noise", group: "Test signals", source: 8, kind: "signal" },
@@ -77,6 +78,11 @@ const DEMOS = Object.freeze({
     paths: ["puggler/mic-check.wav"],
     credit: "Morphazoid · original eSpeak synthetic speech · MIT",
     creditPath: "puggler/CREDITS.md",
+  },
+  "speech-curling": {
+    paths: ["input-samples/synthetic/curling-voice.wav"],
+    credit: "Morphazoid · original eSpeak NG synthetic phrase · MIT",
+    creditPath: "input-samples/synthetic/CREDITS.md",
   },
   birdsong: {
     paths: ["bioacoustics/chaffinch.ogg"],

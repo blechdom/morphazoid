@@ -1561,6 +1561,9 @@ copy+require	assets/input-samples/recorded/fx-slide-whistle.mp3
 copy+require	assets/input-samples/recorded/music-tabla.mp3
 copy+require	assets/input-samples/recorded/music-toy-gamelan.mp3
 copy+require	assets/input-samples/recorded/provenance.json
+copy+require	assets/input-samples/synthetic/CREDITS.md
+copy+require	assets/input-samples/synthetic/curling-voice.wav
+copy+require	assets/input-samples/synthetic/provenance.json
 copy+require	assets/synthesis/extra-loops/CREDITS.md
 copy+require	assets/synthesis/extra-loops/acid-circuit.wav
 copy+require	assets/synthesis/extra-loops/bossa-sunrise.wav

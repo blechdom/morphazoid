@@ -1,0 +1,36 @@
+{
+  "text": "it's curling a bit more than i'm comfortable for",
+  "file": "curling-voice.wav",
+  "id": "speech-curling",
+  "generator": {
+    "engine": "eSpeak NG",
+    "version": "1.51",
+    "library": "libespeak-ng.so.1",
+    "voice": "en-us",
+    "rateWpm": 155,
+    "pitch": 42,
+    "range": 50,
+    "renderMode": "synchronous offline PCM"
+  },
+  "processing": {
+    "trimThresholdPcm16": 100,
+    "leadingFramesKept": 100,
+    "trailingFramesKept": 200,
+    "targetPeak": 0.65,
+    "attackFadeMs": 4,
+    "releaseFadeMs": 20
+  },
+  "audio": {
+    "sampleRate": 22050,
+    "channels": 1,
+    "format": "PCM16 WAV",
+    "frames": 56309,
+    "durationSeconds": 2.5536961451247167,
+    "peak": 0.649993896484375,
+    "rms": 0.06557216855766862,
+    "bytes": 112662,
+    "sha256": "d0786ff35f5772b07b7e8103a05840a432a555405c3dce8f0e629ae33983abc6"
+  },
+  "license": "MIT (generated phrase); eSpeak NG is a separate GPL-3.0-or-later development tool",
+  "humanListening": "not performed"
+}
