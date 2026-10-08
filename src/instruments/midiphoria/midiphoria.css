@@ -2,7 +2,7 @@ html.midiphoria-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-accent); height: auto; min-height: 100dvh; overflow: visible; }
 .midiphoria-shell { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 26px; padding: 26px 30px; max-width: 1800px; margin: 0 auto; }
 .midiphoria-stage { min-width: 0; align-self: start; position: sticky; top: 22px; }
-.midiphoria-stage-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 0 20px; gap: 12px; }
+.midiphoria-stage-heading { display: flex; flex-wrap: wrap; align-items: baseline; padding: 0 0 20px; gap: 12px; }
 .midiphoria-stage h1 { margin: 0; color: var(--midiphoria-accent); font-size: clamp(26px, 3vw, 42px); font-weight: 500; letter-spacing: -.045em; }
 .midiphoria-viewport { position: relative; background: #030706; height: clamp(300px, 56vh, 650px); overflow: hidden; border-radius: 4px; }
 #visualCanvas { display: block; width: 100%; height: 100%; }
@@ -90,4 +90,42 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 @media (pointer: coarse) {
   .midiphoria-transport .play-button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
   .midiphoria-stop, .midiphoria-reset, .midiphoria-loop { min-width: 48px; min-height: 48px; }
+}
+
+.midiphoria-original { color: #a1b4ae; font-size: 11px; line-height: 1.5; text-underline-offset: 3px; }
+.midiphoria-original:hover { color: var(--midiphoria-accent); }
+.midiphoria-song-picker { display: flex; gap: 5px; align-items: flex-end; margin-bottom: 12px; }
+.midiphoria-song-picker > .control { flex: 1; min-width: 0; margin-bottom: 0; }
+.midiphoria-song-action { display: grid; place-items: center; width: 34px; min-height: 34px; flex: none; padding: 6px; border: 0; background: transparent; color: #a1b4ae; cursor: pointer; }
+.midiphoria-song-action:hover { color: var(--midiphoria-accent); }
+.midiphoria-song-action svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
+.midiphoria-song-action circle { fill: currentColor; stroke: none; }
+@media (pointer: coarse) {
+  .midiphoria-song-action { width: 48px; min-height: 48px; }
+  .midiphoria-song-picker select { min-height: 48px; }
+}
+
+/* Shape's direct envelope controls, with separated stages for short phone rails. */
+.midiphoria-envelope .curve-editor { height: 116px; margin-top: 20px; margin-bottom: 20px; }
+.midiphoria-envelope .amplitude-node { width: 28px; height: 28px; min-width: 28px; min-height: 28px; }
+.midiphoria-envelope .amplitude-node span { font-size: 9px; }
+.midiphoria-envelope .amplitude-timing-row { gap: 5px; }
+.midiphoria-envelope .amplitude-timing-row output { color: var(--midiphoria-accent); font-size: 10px; }
+.midiphoria-envelope .amplitude-timing-row small { font-size: 9px; }
+.midiphoria-envelope-values { margin-top: 10px; color: #a1b4ae; font-size: 10px; }
+.midiphoria-envelope-values summary { cursor: pointer; padding: 5px 0; }
+.midiphoria-envelope-values[open] summary { margin-bottom: 9px; }
+.midiphoria-text-form { display: flex; gap: 8px; }
+.midiphoria-text-form input { flex: 1; min-width: 0; width: 100%; background: #111916; color: #dbe6df; border: 1px solid #324037; border-radius: 3px; padding: 8px; font: inherit; font-size: 12px; }
+.midiphoria-text-form button { flex: none; white-space: nowrap; }
+.midiphoria-text-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; color: #a1b4ae; font-size: 11px; }
+.midiphoria-text-actions label { display: flex; align-items: center; gap: 5px; min-height: 36px; }
+.midiphoria-text-actions input { accent-color: var(--midiphoria-accent); }
+.midiphoria-text-actions a { color: var(--midiphoria-accent); }
+.midiphoria-text-actions [hidden], #textMidiStatus:empty { display: none; }
+@media (pointer: coarse) {
+  .midiphoria-envelope .amplitude-node { width: 32px; height: 32px; min-width: 32px; min-height: 32px; }
+  .midiphoria-envelope-values summary { min-height: 36px; display: flex; align-items: center; }
+  .midiphoria-text-form :is(input, button), .midiphoria-text-actions label, .midiphoria-text-actions a { min-height: 48px; }
+  .midiphoria-text-actions a { display: inline-flex; align-items: center; }
 }

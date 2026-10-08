@@ -22,7 +22,7 @@
     </header>
     <main class="midiphoria-shell" id="midiphoria">
       <section class="midiphoria-stage" aria-label="MIDI visualization">
-        <div class="midiphoria-stage-heading"><div><h1>Midiphoria</h1></div></div>
+        <div class="midiphoria-stage-heading"><h1>Midiphoria</h1><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a></div>
         <div class="midiphoria-viewport" id="visualViewport">
           <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
@@ -44,11 +44,28 @@
           <label class="control" for="collectionSelect"><span><b>Collection</b></span><select id="collectionSelect"><option value="">All collections</option></select></label>
           <label class="control" for="songSearch"><span><b>Find a song or artist</b><output id="songCount">Loading…</output></span><input id="songSearch" type="search" placeholder="Search the MIDI collection" autocomplete="off" /></label>
           <p class="midiphoria-help" id="songSearchStatus" role="status"></p>
-          <label class="control" for="songSelect"><span><b>MIDI collection</b></span><select id="songSelect"><option value="">Loading collection…</option></select></label>
+          <div class="midiphoria-song-picker">
+            <label class="control" for="songSelect"><span><b>MIDI collection</b></span><select id="songSelect"><option value="">Loading collection…</option></select></label>
+            <button class="midiphoria-song-action" id="nextSongButton" type="button" aria-label="Next MIDI" title="Next MIDI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 7 7-7 7" /></svg></button>
+            <button class="midiphoria-song-action" id="randomSongButton" type="button" aria-label="Random MIDI" title="Random MIDI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="8" cy="8" r="1" /><circle cx="16" cy="8" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="8" cy="16" r="1" /><circle cx="16" cy="16" r="1" /></svg></button>
+          </div>
           <p id="songDescription" class="midiphoria-help"></p>
           <label class="midiphoria-file" for="midiFile"><span>Open your MIDIs</span><input id="midiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple /></label>
           <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>
           <p id="playerStatus" class="midiphoria-help" role="status"></p>
+        </section>
+        <section class="midiphoria-section" aria-labelledby="textMidiHeading">
+          <h2 id="textMidiHeading">Text MIDI</h2>
+          <form id="textMidiForm" class="midiphoria-text-form">
+            <label class="sr-only" for="textMidiInput">Letters for MIDI</label>
+            <input id="textMidiInput" type="text" maxlength="32" placeholder="Type a word…" autocomplete="off" spellcheck="false" />
+            <button id="generateTextMidi" class="mini-action" type="submit">Make MIDI</button>
+          </form>
+          <div class="midiphoria-text-actions">
+            <label id="textScoreView" hidden><input id="showTextScore" type="checkbox" /> Letter score</label>
+            <a id="downloadTextMidi" hidden download>Download MIDI</a>
+          </div>
+          <p id="textMidiStatus" class="midiphoria-help" role="status"></p>
         </section>
         <section class="midiphoria-section" aria-labelledby="lookHeading">
           <h2 id="lookHeading">Light</h2>
@@ -70,12 +87,25 @@
           <label class="control" for="hueMode"><span><b>Hue</b></span><select id="hueMode"><option value="static">No hue movement</option><option value="rotate">Rotate over time</option><option value="activity">Shift on each note</option></select></label>
           <label class="control" for="hueSpeed"><span><b>Hue movement</b><output for="hueSpeed" id="hueSpeedOut">0.12 turns/s</output></span><input id="hueSpeed" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
         </section>
-        <section class="midiphoria-section" aria-labelledby="envelopeHeading">
+        <section class="midiphoria-section midiphoria-envelope" id="lightEnvelope" aria-labelledby="envelopeHeading">
           <h2 id="envelopeHeading">Light envelope</h2>
-          <label class="control" for="attack"><span><b>Attack</b><output for="attack" id="attackOut">0.02 s</output></span><input id="attack" type="range" min="0" max="3" step="0.01" value="0.02" /></label>
-          <label class="control" for="decay"><span><b>Decay</b><output for="decay" id="decayOut">0.15 s</output></span><input id="decay" type="range" min="0" max="3" step="0.01" value="0.15" /></label>
-          <label class="control" for="sustain"><span><b>Sustain</b><output for="sustain" id="sustainOut">80%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
-          <label class="control" for="release"><span><b>Release</b><output for="release" id="releaseOut">0.45 s</output></span><input id="release" type="range" min="0" max="5" step="0.01" value="0.45" /></label>
+          <div class="curve-editor amplitude-curve-editor" id="lightEnvelopeEditor" role="group" aria-label="Editable light ADSR" aria-describedby="lightEnvelopeHelp">
+            <svg viewBox="0 0 240 96" preserveAspectRatio="none" aria-hidden="true">
+              <path class="curve-grid" d="M0 48H240M60 0V96M120 0V96M180 0V96" />
+              <path class="curve-path" d="M0 96 L36 0 L108 19.2 L160.8 19.2 L216 96" />
+            </svg>
+            <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="attack" aria-label="Light attack" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0.02"><span>A</span></button>
+            <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="decay" aria-label="Light decay" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="3" aria-valuenow="0.15"><span>D</span></button>
+            <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="sustain" aria-label="Light sustain" aria-orientation="vertical" aria-valuemin="0" aria-valuemax="100" aria-valuenow="80"><span>S</span></button>
+            <button class="curve-node amplitude-node" type="button" role="slider" data-envelope="release" aria-label="Light release" aria-orientation="horizontal" aria-valuemin="0" aria-valuemax="5" aria-valuenow="0.45"><span>R</span></button>
+          </div>
+          <div class="amplitude-timing-row"><output id="lightEnvelopeReadout" aria-label="Light ADSR values">A 0.02 s · D 0.15 s · S 80% · R 0.45 s</output><small id="lightEnvelopeHelp">Drag A/D/R for log time · S for level · arrow keys adjust</small></div>
+          <details class="midiphoria-envelope-values"><summary>Envelope values</summary>
+            <label class="control" for="attack"><span><b>Attack</b><output for="attack" id="attackOut">0.02 s</output></span><input id="attack" type="range" min="0" max="3" step="0.01" value="0.02" /></label>
+            <label class="control" for="decay"><span><b>Decay</b><output for="decay" id="decayOut">0.15 s</output></span><input id="decay" type="range" min="0" max="3" step="0.01" value="0.15" /></label>
+            <label class="control" for="sustain"><span><b>Sustain</b><output for="sustain" id="sustainOut">80%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+            <label class="control" for="release"><span><b>Release</b><output for="release" id="releaseOut">0.45 s</output></span><input id="release" type="range" min="0" max="5" step="0.01" value="0.45" /></label>
+          </details>
         </section>
         <section class="midiphoria-section" aria-labelledby="inputHeading">
           <h2 id="inputHeading">Input</h2>

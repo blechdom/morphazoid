@@ -18,6 +18,8 @@ async function open(page) {
   await expect(page.locator('#notePads button')).toHaveCount(24);
 }
 async function arm(page) {
+  // The library starts unselected; tests that need transport choose a score.
+  if (!await page.locator('#songSelect').inputValue()) await page.locator('#songSelect').selectOption('rock-theme-four');
   await page.locator('#audioButton').click();
   await expect(page.locator('#playButton')).toBeEnabled({ timeout: 15000 });
 }

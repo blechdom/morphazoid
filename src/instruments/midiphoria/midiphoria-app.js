@@ -2,6 +2,9 @@ import { getSharedMidiManager } from '../../midi-manager.js';
 import { MidiphoriaModel, DEFAULT_VISUALS } from './midiphoria-model.js';
 import { MidiphoriaRenderer } from './midiphoria-renderer.js';
 import { MidiphoriaPlayer } from './midiphoria-player.js';
+import { generateTextMidi } from './midiphoria-text-midi.js';
+import { drawTextMidiScore } from './midiphoria-text-score.js';
+import { mountMidiphoriaEnvelope } from './midiphoria-envelope.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { MIDIPHORIA_PRESETS, DEFAULT_RENDER_OPTIONS, captureMidiphoriaPreset,
   applyMidiphoriaPreset, randomizeMidiphoriaPreset } from './midiphoria-presets.js';
@@ -17,6 +20,10 @@ const RENDER_CONTROLS = Object.freeze({ viewMode: 'view', trailSeconds: 'trailSe
   fadeCurve: 'fadeCurve', spin: 'spin', symmetry: 'symmetry', reflection: 'reflection', flow: 'flow' });
 
 function mountMidiphoria() {
+  $('downloadTextMidi').hidden = true;
+  $('downloadTextMidi').removeAttribute('href');
+  $('downloadTextMidi').removeAttribute('download');
+  $('textMidiStatus').textContent = '';
   const events = new AbortController();
   const on = (node, type, listener, options = {}) => node.addEventListener(type, listener, { ...options, signal: events.signal });
   const model = new MidiphoriaModel();
@@ -24,6 +31,7 @@ function mountMidiphoria() {
   renderer.view = $('viewMode').value;
   const manager = getSharedMidiManager(globalThis);
   let settings = { ...DEFAULT_VISUALS };
+  const envelopeEditor = mountMidiphoriaEnvelope($('lightEnvelope'), { readValue: input => settings[input.id] });
   let presetController;
   let learning = false;
   let disposed = false, frame = null, lastReadout = -Infinity;
@@ -33,7 +41,9 @@ function mountMidiphoria() {
   const pads = [];
   let player, audioStarting = false, loadingFile = false, selectionReady = false, fileError = '';
   let currentSongId = '';
-  let collection = [], localSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
+  let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
+  let resumeAfterSelection = false, pendingPresetSong = false;
+  let textScore = null, textDownloadUrl = null;
   const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
   function reflectPlayer() {
@@ -46,7 +56,7 @@ function mountMidiphoria() {
     $('playButton').setAttribute('aria-pressed', String(state.playing));
     const playLabel = state.playing ? 'Pause MIDI' : 'Play MIDI';
     $('playButton').setAttribute('aria-label', playLabel); $('playButton').title = playLabel;
-    $('stopButton').disabled = !state.ready;
+    $('stopButton').disabled = !state.ready && !loadingFile;
     $('songPosition').disabled = !state.ready || !selectionReady;
     $('songPosition').max = String(state.duration || 1);
     if (document.activeElement !== $('songPosition')) $('songPosition').value = String(state.time || 0);
@@ -55,11 +65,16 @@ function mountMidiphoria() {
       : loadingFile || state.loading ? 'Loading MIDI…'
       : '');
     if ($('playerStatus').textContent !== status) $('playerStatus').textContent = status;
+    $('textScoreView').hidden = !textScore;
+    const scoreVisible = Boolean(textScore && $('showTextScore').checked);
+    $('visualCanvas').dataset.display = scoreVisible ? 'letters' : 'lights';
+    $('visualCanvas').setAttribute('aria-label', scoreVisible
+      ? `MIDI letter score: ${textScore.text}. Notes highlight during playback.` : 'Live MIDI color field and note trails');
   }
 
   function showSongCredit(song) {
     $('songCredit').replaceChildren();
-    $('songDescription').textContent = !song ? 'Your MIDI · stored only for this session.'
+    $('songDescription').textContent = song?.description && song.buffer ? song.description : !song ? 'Your MIDI · stored only for this session.'
       : song.kind === 'pattern' ? 'Short geometric pattern · enable Loop to repeat.'
       : song.collection === 'Black MIDI' ? 'Complete creator AUDIO edition. Full decorative scores are in About & setup.'
       : song.collection?.startsWith('Orchestral') ? 'Full orchestral arrangement.' : '';
@@ -86,12 +101,12 @@ function mountMidiphoria() {
     const selected = preferredId ?? currentSongId;
     const query = $('songSearch').value.trim().toLocaleLowerCase();
     const all = [...localSongs, ...collection];
-    const groupFor = song => song.localFile ? 'Your MIDIs' : song.collection || 'Popular arrangements';
+    const groupFor = song => song.collection || (song.localFile || song.buffer ? 'Your MIDIs' : 'Popular arrangements');
     const selectedCollection = $('collectionSelect').value;
     const groups = [...new Set(all.map(groupFor))];
     $('collectionSelect').replaceChildren(new Option('All collections', ''), ...groups.map(group => new Option(group, group)));
     $('collectionSelect').value = groups.includes(selectedCollection) ? selectedCollection : '';
-    const songs = all.filter(song => (!$('collectionSelect').value || groupFor(song) === $('collectionSelect').value)
+    const songs = visibleSongs = all.filter(song => (!$('collectionSelect').value || groupFor(song) === $('collectionSelect').value)
       && `${song.title} ${song.composer || ''} ${groupFor(song)}`.toLocaleLowerCase().includes(query));
     const menuGroups = new Map();
     for (const song of songs) {
@@ -99,20 +114,31 @@ function mountMidiphoria() {
       if (!menuGroups.has(label)) {
         const group = document.createElement('optgroup'); group.label = label; menuGroups.set(label, group);
       }
-      menuGroups.get(label).append(new Option(`${song.composer ? `${song.composer} · ` : ''}${song.title}${song.kind === 'pattern' ? ' · pattern' : ''}`, song.id));
+      const composer = song.demo ? '' : song.composer;
+      menuGroups.get(label).append(new Option(`${composer ? `${composer} · ` : ''}${song.title}${song.kind === 'pattern' ? ' · pattern' : ''}`, song.id));
     }
     $('songSelect').replaceChildren(...menuGroups.values());
-    // Filtering never changes the current file or starts playback.
-    if (songs.some(song => song.id === selected)) $('songSelect').value = selected;
-    else if (selectionVersion) $('songSelect').selectedIndex = -1;
+    // Browsing and filtering never choose a file or change the playing song.
+    if (!selected && songs.length) {
+      const placeholder = new Option('Choose a MIDI…', '');
+      placeholder.disabled = true; placeholder.hidden = true;
+      $('songSelect').prepend(placeholder);
+    }
+    $('songSelect').value = selected;
     $('songCount').value = query || $('collectionSelect').value ? `${songs.length} / ${all.length}` : `${all.length} MIDIs`;
     $('songSelect').disabled = !songs.length;
+    $('nextSongButton').disabled = !songs.length;
+    $('randomSongButton').disabled = !songs.length;
     $('songSearchStatus').textContent = songs.length ? '' : 'No matching songs. Try another title or artist.';
-    return songs.find(song => song.id === $('songSelect').value);
+    return songs;
   }
 
   async function selectSong(song) {
-    currentSongId = song.id;
+    resumeAfterSelection = player.state.playing || (loadingFile && resumeAfterSelection);
+    pendingPresetSong = false; currentSongId = song.id;
+    textScore = song.textScore ?? null;
+    $('showTextScore').checked = Boolean(textScore);
+    renderSongMenu();
     const file = song.localFile;
     const version = ++selectionVersion;
     songRequest?.abort(); songRequest = new AbortController();
@@ -121,7 +147,8 @@ function mountMidiphoria() {
     try {
       if (file && file.size > 10 * 1024 * 1024) throw new Error('Choose a MIDI file smaller than 10 MB.');
       let binary;
-      if (file) binary = await file.arrayBuffer();
+      if (song.buffer) binary = song.buffer;
+      else if (file) binary = await file.arrayBuffer();
       else {
         const response = await fetch(new URL(`../../../assets/midiphoria/${song.file}`, import.meta.url), { signal: songRequest.signal });
         if (!response.ok) throw new Error('Could not load this song. Choose another or open a local MIDI file.');
@@ -131,12 +158,45 @@ function mountMidiphoria() {
       const loaded = await player.load(binary, file?.name || song.title);
       if (disposed || version !== selectionVersion) return;
       selectionReady = Boolean(loaded);
+      if (selectionReady && resumeAfterSelection) player.play();
     } catch (error) {
       if (disposed || version !== selectionVersion || error.name === 'AbortError') return;
       fileError = error.message || 'Could not read this MIDI file.';
     } finally {
-      if (!disposed && version === selectionVersion) { loadingFile = false; reflectPlayer(); }
+      if (!disposed && version === selectionVersion) { loadingFile = false; resumeAfterSelection = false; reflectPlayer(); }
     }
+  }
+
+  function randomSong(songs) {
+    const choices = songs.filter(song => song.id !== currentSongId);
+    const candidates = choices.length ? choices : songs;
+    return candidates[Math.floor(Math.random() * candidates.length)];
+  }
+
+  function choosePresetSong() {
+    if (currentSongId) return;
+    const song = randomSong(collection);
+    if (!song) { pendingPresetSong = true; return; }
+    $('songSearch').value = ''; $('collectionSelect').value = '';
+    void selectSong(song);
+  }
+
+  // Generated scores use the same session library and transport as imported MIDIs.
+  // A stable id replaces the previous generated score without accumulating files.
+  function addSessionSong({ id, title, buffer, collection: group = 'Your MIDIs',
+    description = '', attribution = 'Generated in this browser.', ...metadata }) {
+    if (!(buffer instanceof ArrayBuffer)) throw new Error('The generated MIDI is unavailable.');
+    const songId = id || `local-${++localSerial}`;
+    const retained = localSongs.filter(song => song.id !== songId);
+    const bytes = retained.reduce((sum, song) => sum + (song.localFile?.size ?? song.buffer?.byteLength ?? 0), buffer.byteLength);
+    if (buffer.byteLength > 10 * 1024 * 1024 || bytes > 50 * 1024 * 1024 || retained.length >= 20) {
+      throw new Error('Keep up to 20 MIDIs per session, 10 MB each and 50 MB in total.');
+    }
+    const song = { ...metadata, id: songId, title: String(title || 'Your MIDI').slice(0, 256),
+      buffer, collection: group, description, attribution };
+    localSongs = [...retained, song];
+    $('songSearch').value = ''; $('collectionSelect').value = '';
+    return selectSong(song).then(() => song);
   }
 
   player = new MidiphoriaPlayer({
@@ -162,13 +222,23 @@ function mountMidiphoria() {
     const song = [...localSongs, ...collection].find(item => item.id === $('songSelect').value);
     if (song) void selectSong(song);
   });
+  on($('nextSongButton'), 'click', () => {
+    const index = visibleSongs.findIndex(song => song.id === currentSongId);
+    const song = visibleSongs[(index + 1) % visibleSongs.length];
+    if (song) void selectSong(song);
+  });
+  on($('randomSongButton'), 'click', () => {
+    const song = randomSong(visibleSongs);
+    if (song) void selectSong(song);
+  });
   on($('songSearch'), 'input', () => renderSongMenu());
   on($('collectionSelect'), 'change', () => renderSongMenu());
   on($('midiFile'), 'change', () => {
     const files = [...$('midiFile').files];
     $('midiFile').value = '';
     if (!files.length) return;
-    const bytes = [...localSongs.map(song => song.localFile), ...files].reduce((sum, file) => sum + file.size, 0);
+    const bytes = localSongs.reduce((sum, song) => sum + (song.localFile?.size ?? song.buffer?.byteLength ?? 0), 0)
+      + files.reduce((sum, file) => sum + file.size, 0);
     if (files.some(file => file.size > 10 * 1024 * 1024) || bytes > 50 * 1024 * 1024 || localSongs.length + files.length > 20) {
       fileError = 'Open up to 20 MIDIs per session, 10 MB each and 50 MB in total.'; reflectPlayer(); return;
     }
@@ -182,7 +252,7 @@ function mountMidiphoria() {
     else player.play();
     reflectPlayer();
   });
-  on($('stopButton'), 'click', () => { player.stop(); reflectPlayer(); });
+  on($('stopButton'), 'click', () => { resumeAfterSelection = false; player.stop(); reflectPlayer(); });
   on($('songPosition'), 'input', () => { $('songTime').value = `${timeLabel(Number($('songPosition').value))} / ${timeLabel(player.state.duration)}`; });
   on($('songPosition'), 'change', () => { player.seek(Number($('songPosition').value)); reflectPlayer(); });
   on($('playbackRate'), 'input', () => {
@@ -190,6 +260,24 @@ function mountMidiphoria() {
     $('playbackRateOut').value = `${Number($('playbackRate').value).toFixed(2)}×`;
   });
   on($('loopSong'), 'change', () => { player.setLoop($('loopSong').checked); });
+  on($('showTextScore'), 'change', reflectPlayer);
+  on($('textMidiForm'), 'submit', async event => {
+    event.preventDefault();
+    try {
+      const score = generateTextMidi($('textMidiInput').value);
+      const pending = addSessionSong({ id: 'text-midi', title: score.text, buffer: score.buffer,
+        collection: 'Text MIDI', textScore: score, attribution: 'Generated from your text in this browser.' });
+      $('textMidiStatus').textContent = '';
+      if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
+      textDownloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));
+      $('downloadTextMidi').href = textDownloadUrl;
+      $('downloadTextMidi').download = `text-${score.text.replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'score'}.mid`;
+      $('downloadTextMidi').hidden = false;
+      await pending;
+    } catch (error) {
+      $('textMidiStatus').textContent = error.message || 'Could not create this MIDI.';
+    }
+  });
 
   const reflectControls = () => {
     for (const [key, value] of Object.entries(settings)) {
@@ -219,6 +307,7 @@ function mountMidiphoria() {
     }
     for (const id of ['spin', 'symmetry']) $(id).disabled = !['radial', 'orbit'].includes(renderer.options.view);
     for (const id of ['reflection', 'flow']) $(id).disabled = renderer.options.view === 'mask';
+    envelopeEditor.refresh();
     presetController?.refresh();
   };
 
@@ -354,7 +443,8 @@ function mountMidiphoria() {
   }
   on($('padVelocity'), 'input', () => { $('padVelocityOut').value = $('padVelocity').value; });
   on($('resetButton'), 'click', () => {
-    player.stop(); player.setPlaybackRate(1); player.setLoop(false);
+    $('showTextScore').checked = false;
+    resumeAfterSelection = false; pendingPresetSong = false; player.stop(); player.setPlaybackRate(1); player.setLoop(false);
     $('playbackRate').value = '1'; $('playbackRateOut').value = '1.00×'; $('loopSong').checked = false;
     clear(); learning = false; settings = { ...DEFAULT_VISUALS };
     model.configure(settings, clock());
@@ -411,7 +501,10 @@ function mountMidiphoria() {
     frame = null;
     if (disposed || document.hidden) return;
     const now = clock(), sample = model.sample(now);
-    renderer.draw(sample, now, settings);
+    if (textScore && $('showTextScore').checked) {
+      renderer.capture(sample, now);
+      drawTextMidiScore(renderer.context, renderer.width, renderer.height, textScore, player.state, renderer.options, settings);
+    } else renderer.draw(sample, now, settings);
     if (now - lastReadout > .08) {
       lastReadout = now;
       reflectPlayer();
@@ -434,14 +527,16 @@ function mountMidiphoria() {
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     disposed = true; clear(); songRequest?.abort(); void player.dispose();
+    if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
     if (frame !== null) cancelAnimationFrame(frame);
-    resize.disconnect(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
+    resize.disconnect(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
   presetController = registerHeaderPresets({ id: 'midiphoria', presets: MIDIPHORIA_PRESETS,
     capture: () => captureMidiphoriaPreset(settings, renderer.options),
     apply: snapshot => {
+      $('showTextScore').checked = false;
       applyMidiphoriaPreset(model, renderer, snapshot, clock());
-      settings = { ...model.options }; reflectControls();
+      settings = { ...model.options }; reflectControls(); choosePresetSong();
     },
     randomize: randomizeMidiphoriaPreset,
   });
@@ -451,9 +546,8 @@ function mountMidiphoria() {
     .then(songs => {
       if (disposed) return;
       collection = songs;
-      const selected = $('songSelect').value;
-      const song = renderSongMenu(selected);
-      if (!selectionVersion && song) return selectSong(song);
+      renderSongMenu();
+      if (pendingPresetSong) choosePresetSong();
     })
     .catch(error => { if (!disposed && error.name !== 'AbortError') { fileError = error.message; reflectPlayer(); } });
 }
