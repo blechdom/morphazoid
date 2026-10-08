@@ -26,6 +26,18 @@
         <details class="header-settings-menu" id="nativeSettings">
           <summary class="header-settings-trigger" id="settingsButton" aria-label="Audio settings" title="Audio settings"><span class="header-settings-icon" aria-hidden="true"></span></summary>
           <div class="header-settings-panel">
+            <section class="header-settings-section native-sound-share" aria-labelledby="shareSoundTitle">
+              <h2 class="header-settings-section-title" id="shareSoundTitle">Share a sound</h2>
+              <label class="native-share-name" for="shareSoundName">Sound name (optional)
+                <input id="shareSoundName" type="text" maxlength="80" placeholder="Custom sound" autocomplete="off" />
+              </label>
+              <button class="mini-action" id="copySoundParameters" type="button" disabled>Copy sound parameters</button>
+              <p class="native-input-note" id="shareSoundStatus" role="status">Paste the copied text into chat to make a preset.</p>
+              <details class="native-share-text" id="sharedSoundDetails" hidden>
+                <summary>Captured parameters</summary>
+                <textarea id="sharedSoundText" aria-label="Captured sound parameters" readonly spellcheck="false" wrap="off" rows="8"></textarea>
+              </details>
+            </section>
             <section class="header-settings-section"><h2 class="header-settings-section-title">Native audio</h2>
               <p class="header-settings-copy" id="engineStatus">Audio is off.</p>
               <dl class="current-settings-readout native-diagnostics">

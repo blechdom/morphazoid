@@ -69,6 +69,7 @@ let nativePreview = null, nativePreviewStarted = 0, nativePreviewMoving = false,
 let previewParameters = { ...state.parameters };
 let visualRevision = 0, previewRefreshWorking = false, previewRefreshDirty = false;
 let presets = [], lastScenePreset = LAB_CONFIG?.presets[0].id ?? 'pythagorean', presetController, sceneApplying = false;
+let soundCopyWorking = false;
 const canvas = $('stage'), context = canvas.getContext('2d'), reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The original canvas retains gestures, focus and small annotations. Branch
 // deformation lives in a separate GPU layer, with the full Canvas fallback.
@@ -621,6 +622,7 @@ function paintStaticControls() {
   }
 }
 function paintControls() {
+  $('copySoundParameters').disabled = !bootstrapped || sceneApplying || soundCopyWorking;
   const key = JSON.stringify([state.parameters, state.performance, state.generationLimits,
     state.memoryVoiceCapacity, state.status.sampleRate, state.audio, sceneApplying, $('voiceCeiling').disabled]);
   if (key !== paintedControlsKey) { paintStaticControls(); paintedControlsKey = key; }
@@ -1000,6 +1002,39 @@ $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
 $('centerAngles').addEventListener('click', centerAngles);
 $('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
+$('copySoundParameters').addEventListener('click', async () => {
+  if (disposed || !bootstrapped || sceneApplying || soundCopyWorking) return;
+  // Capture requested musical controls at the click, including pending edits.
+  // Prepared geometry and device admission are not part of a sound preset.
+  const snapshot = captureScene(state.parameters, state.performance);
+  const key = presetStateKey(snapshot), current = presets.find(preset => presetStateKey(preset.snapshot) === key);
+  const text = JSON.stringify({
+    instrument: INSTRUMENT_ID, version: 1,
+    name: $('shareSoundName').value.trim() || current?.label || 'Custom sound',
+    snapshot,
+    context: {
+      ruleMode: ruleMode(state.parameters),
+      input: { mode: state.input.mode, ...(state.input.mode === 'samples' ? { sampleId: state.input.sampleId } : {}),
+        loop: state.input.loop },
+      liveLevels: { inputGain: state.performance.inputGain, outputLevel: state.performance.level,
+        makeupDb: state.performance.mastering.makeupDb },
+    },
+  }, null, 2);
+  const output = $('sharedSoundText'), details = $('sharedSoundDetails'), status = $('shareSoundStatus');
+  output.value = text; details.hidden = false; details.open = false;
+  status.textContent = 'Copying parameters…';
+  soundCopyWorking = true; paintControls();
+  try {
+    await navigator.clipboard.writeText(text);
+    if (!disposed) status.textContent = 'Copied. Paste this into chat to save it as a preset.';
+  } catch {
+    if (!disposed) {
+      details.open = true;
+      status.textContent = 'Select and copy the text below, then paste it into chat.';
+      output.focus({ preventScroll: true }); output.select(); output.scrollIntoView({ block: 'nearest' });
+    }
+  } finally { soundCopyWorking = false; if (!disposed) paintControls(); }
+});
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
 function releaseRangeGesture(event, owner = rangeGestureOwner) {
   if (!rangeGesture || owner !== rangeGestureOwner || (event?.pointerId !== undefined && event.pointerId !== rangeGesturePointer)) return;

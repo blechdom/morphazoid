@@ -22,6 +22,15 @@ this browser menu.
 
 ## Play the browser instrument
 
+To share a sound for preset creation, open the header **Settings** gear and use
+**Share a sound → Copy sound parameters**. An optional name travels with the
+JSON. Paste it into chat to turn the captured sound into a factory preset.
+The snapshot includes every musical tree/lab parameter, wet/dry mix, filters and
+compression with full numeric precision. Input choice and independent live gains
+are included separately as reference context. Audio, device policy and media
+contents are not captured. Capture does not alter playback or recompile the tree.
+If clipboard access fails, the same text opens selected for manual copying.
+
 Open the published instrument in a browser supporting WebAssembly, AudioWorklet
 and microphone capture. Click the microphone switch and allow access, then enable
 **Audio** to hear the recursive delays. Microphone capture and Audio are separate:
