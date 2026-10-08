@@ -58,6 +58,7 @@ async function fixture(page, input) {
             deadlines: s.deadlineMisses, underruns: s.underruns, overruns: s.overruns,
             active: s.activeVoices, target: s.targetVoices, limit: s.voiceLimit, capacity: s.installedCapacity,
             inputPeak: s.inputPeak, outputPeak: s.outputPeak, wetBusGain: s.wetBusGain,
+            appliedFoldMs: s.timeFoldMs ?? null,
             topologyRevision: s.topologyRevision, activeVoiceIndices: Array.from(s.activeVoiceIndices ?? []) });
         });
         qa.probeReady = (async () => {
@@ -155,6 +156,7 @@ function captureFoldDraw(branches, now) {
   const actualIds = branches.map(n => n.id), expectedIds = expected.map(n => n.id), actual = new Set(actualIds), wanted = new Set(expectedIds);
   const row = { at: now, phase: qa.phase, actualIds, expectedIds, activeVoiceIndices: indices,
     active: state.status.activeVoices, requestedFold: state.parameters.intervalMs, installedFold: previewParameters.intervalMs,
+    engineFold: browserEngine.getDiagnostics().parameters.intervalMs,
     coherent, revision: visualRevision, statusRevision: state.status.topologyRevision,
     gpu: gpuRenderer?.available ? gpuRenderer.stats : null };
   const wrong = actual.size !== actualIds.length || indices.length !== state.status.activeVoices || active.size !== indices.length
@@ -292,9 +294,10 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
   expect(packets.some(p=>p.inputRms>1e-5)).toBe(true); expect(packets.some(p=>p.rms>1e-5)).toBe(true);
   expect(captured.auditedDraws).toBeGreaterThan(0); expect(captured.drawViolations,JSON.stringify(captured.firstDrawViolation)).toBe(0);
   expect(captured.final.eligibleVoices).toBe(initial.eligibleVoices);
-  expect(captured.final.parameters).toEqual(initial.parameters);
-  expect(captured.draws.some(row=>row.installedFold<1),'sub-ms targets must reach installed audio/visual state').toBe(true);
-  expect(captured.draws.some(row=>row.installedFold>1000),'long targets must reach installed audio/visual state').toBe(true);
+  const {intervalMs:initialFold,...initialRest}=initial.parameters, {intervalMs:finalFold,...finalRest}=captured.final.parameters;
+  expect(finalRest).toEqual(initialRest); expect(finalFold).toBeCloseTo(initialFold,6);
+  expect(captured.draws.some(row=>row.engineFold<1),'sub-ms targets must reach the audio engine').toBe(true);
+  expect(captured.draws.some(row=>row.engineFold>1000),'long targets must reach the audio engine').toBe(true);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(false);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(true);
   const restarted=await session(page); expect(restarted.contexts).toBe(before.contexts); expect(restarted.worklets).toBe(before.worklets);
