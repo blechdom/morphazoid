@@ -1047,6 +1047,11 @@ impl Engine {
     pub fn active_voice_count(&self) -> usize {
         self.active_indices.len()
     }
+    /// Exact slots visited by DSP, including release tails until retirement.
+    /// Borrow the existing active list without allocating or scanning capacity.
+    pub fn active_voice_indices(&self) -> &[usize] {
+        &self.active_indices
+    }
     pub fn target_voice_count(&self) -> usize {
         self.target_count
     }

@@ -37,6 +37,71 @@ unsafe impl GlobalAlloc for TrackingAllocator {
 #[global_allocator]
 static ALLOCATOR: TrackingAllocator = TrackingAllocator;
 const RATE: u32 = 8000;
+
+#[test]
+fn active_voice_indices_borrow_exact_rendered_slots_and_retire_tails_without_allocation() {
+    let count = TAP_ACTIVITY_CAPACITY + 9;
+    let keys: Vec<_> = (0..count).map(|index| format!("active:{index}")).collect();
+    let targets = vec![
+        PoolTarget {
+            delay: 0.01,
+            rate: 1.,
+            gain: 0.2,
+            pan: 0.
+        };
+        count
+    ];
+    let ranks: Vec<_> = (0..count).rev().collect();
+    let mut dsp = Engine::new(RATE, 4., count, 1).unwrap();
+    dsp.install_pool(&keys).unwrap();
+    dsp.update_pool_ranked(&targets, &ranks, &vec![1; count], 3);
+    assert_eq!(
+        dsp.active_voice_indices(),
+        &[count - 3, count - 2, count - 1]
+    );
+    assert_eq!(dsp.active_voice_indices().len(), dsp.active_voice_count());
+    let pointer = dsp.active_voice_indices().as_ptr();
+    ALLOCS.with(|n| n.set(0));
+    DEALLOCS.with(|n| n.set(0));
+    TRACK.with(|track| track.set(true));
+    for _ in 0..1000 {
+        std::hint::black_box(dsp.active_voice_indices());
+    }
+    TRACK.with(|track| track.set(false));
+    assert_eq!(ALLOCS.with(Cell::get), 0);
+    assert_eq!(DEALLOCS.with(Cell::get), 0);
+    assert_eq!(
+        dsp.active_voice_indices().as_ptr(),
+        pointer,
+        "getter borrows persistent storage"
+    );
+    let mut output = [[0.; 2]; 128];
+    for _ in 0..8 {
+        dsp.process_block(&[[0.05; 2]; 128], &mut output);
+    }
+    dsp.set_pool_limit(1);
+    assert_eq!(dsp.target_voice_count(), 1);
+    assert_eq!(
+        dsp.active_voice_indices(),
+        &[count - 3, count - 2, count - 1],
+        "actual release tails remain in the DSP list"
+    );
+    for _ in 0..250 {
+        dsp.process_block(&[[0.05; 2]; 128], &mut output);
+    }
+    assert_eq!(
+        dsp.active_voice_indices(),
+        &[count - 1],
+        "retired slots disappear instead of following stale energy"
+    );
+    assert_eq!(dsp.active_voice_indices().len(), dsp.active_voice_count());
+    assert!(
+        dsp.active_voice_indices()[0] >= TAP_ACTIVITY_CAPACITY,
+        "meter capacity does not truncate active telemetry"
+    );
+    assert!(output.iter().flatten().all(|sample| sample.is_finite()));
+}
+
 fn spec(key: &str, rate: f64, delay: f64, pan: f64) -> VoiceSpec {
     VoiceSpec {
         key: key.into(),

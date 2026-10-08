@@ -1136,6 +1136,16 @@ pub extern "C" fn lsd_metrics_len() -> usize {
 pub unsafe extern "C" fn lsd_metrics_ptr(handle: *const Renderer) -> *const f64 {
     (*handle).metrics.as_ptr()
 }
+/// Borrowed active DSP slots. Read count/pointer together without intervening
+/// processing or controls, and copy before the next mutation or memory growth.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_active_indices_ptr(handle: *const Renderer) -> *const usize {
+    (*handle).engine.active_voice_indices().as_ptr()
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_active_indices_count(handle: *const Renderer) -> usize {
+    (*handle).engine.active_voice_indices().len()
+}
 #[no_mangle]
 pub unsafe extern "C" fn lsd_taps_ptr(handle: *const Renderer) -> *const f32 {
     (*handle).engine.tap_activity().as_ptr()

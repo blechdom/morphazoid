@@ -1,4 +1,4 @@
-const fields = ['tapActivity', 'tapVoiceIndices', 'generationActivity', 'generationVoiceCounts'];
+const fields = ['activeVoiceIndices', 'tapActivity', 'tapVoiceIndices', 'generationActivity', 'generationVoiceCounts'];
 const typed = value => ArrayBuffer.isView(value) && typeof value.length === 'number';
 
 /** Only owned snapshot copies may be transferred; live WASM views stay attached. */

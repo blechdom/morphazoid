@@ -7,6 +7,7 @@ import { DEFAULT_PERFORMANCE } from '../src/instruments/micmic/native/model.js';
 const compact = (count = 4097) => ({
   activeVoices: count, voiceLimit: count, topologyRevision: 17, elapsedSeconds: 4.5,
   audioTimeSeconds: 12.75, failure: null,
+  activeVoiceIndices: Uint32Array.from({ length: count }, (_, index) => index * 2),
   tapActivity: Float32Array.from({ length: count }, (_, index) => index / count),
   tapVoiceIndices: Uint32Array.from({ length: count }, (_, index) => index ? index : 0xffffffff),
   generationActivity: new Float32Array([0, .125, .5]),
@@ -16,15 +17,17 @@ const compact = (count = 4097) => ({
 
 test('dense transferred telemetry retains every sample, public array shape, sentinel and clock', () => {
   const packet = compact(), buffers = audioStatusTransfers(packet);
-  assert.equal(new Set(buffers).size, 5);
+  assert.equal(new Set(buffers).size, 6);
   const received = structuredClone(packet, { transfer: buffers });
   assert.ok(buffers.every(buffer => buffer.byteLength === 0), 'copies are transferred rather than cloned');
   const status = normalizeAudioStatus(received);
-  for (const key of ['tapActivity', 'tapVoiceIndices', 'generationActivity', 'generationVoiceCounts']) {
+  for (const key of ['activeVoiceIndices', 'tapActivity', 'tapVoiceIndices', 'generationActivity', 'generationVoiceCounts']) {
     assert.ok(Array.isArray(status[key]), key);
     assert.equal(status[key].length, received[key].length, 'no transport voice cap');
   }
   assert.equal(status.tapVoiceIndices[0], -1);
+  assert.equal(status.activeVoiceIndices.length, status.activeVoices);
+  assert.equal(status.activeVoiceIndices.at(-1), 8192, 'active slots are independent of metering ranks and have no cap');
   assert.equal(status.tapVoiceIndices.at(-1), 4096);
   assert.equal(status.tapActivity.at(-1), received.tapActivity.at(-1));
   assert.equal(received.tapVoiceIndices[0], 0xffffffff, 'normalization does not rewrite its packet');
@@ -43,6 +46,7 @@ test('empty and legacy telemetry retain their public API without introducing mis
   assert.equal(normalizeAudioStatus(null), null);
   const packet = compact(0), status = normalizeAudioStatus(structuredClone(packet, { transfer: audioStatusTransfers(packet) }));
   assert.deepEqual(status.tapActivity, []); assert.deepEqual(status.tapVoiceIndices, []);
+  assert.deepEqual(status.activeVoiceIndices, []);
 });
 
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/l-system-delay.wasm', import.meta.url)));
@@ -123,6 +127,9 @@ test('real worklet installation and repeated status ACKs transfer owned copies w
       assert.ok(status.elapsedSeconds > before.elapsedSeconds);
       assert.ok(Number.isFinite(status.audioTimeSeconds));
       assert.equal(status.topologyRevision, 17); assert.equal(status.failure, null);
+      assert.equal(status.activeVoiceIndices.length, status.activeVoices);
+      assert.deepEqual(status.activeVoiceIndices, Array.from(new Uint32Array(processor.memory,
+        processor.api.lsd_active_indices_ptr(processor.engine), processor.api.lsd_active_indices_count(processor.engine))));
       assert.equal(processor.inputLeft.length, BLOCK); assert.equal(processor.envelope.length, 4000);
       assert.ok(processor.memory.byteLength > 0, 'transfers leave live WASM memory attached');
       assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
@@ -130,7 +137,7 @@ test('real worklet installation and repeated status ACKs transfer owned copies w
     assert.ok(left.some(sample => Math.abs(sample) > .001), 'actual PCM survives snapshots');
     assert.equal(transferred.length, 4, 'install ACK and all status replies use transfers');
     for (const { before, buffers, received } of transferred) {
-      assert.equal(buffers.length, 5); assert.ok(buffers.every(buffer => buffer.byteLength === 0));
+      assert.equal(buffers.length, 6); assert.ok(buffers.every(buffer => buffer.byteLength === 0));
       assert.notEqual(received.status.inputEnvelope.values.buffer, processor.memory);
       assert.deepEqual(audioStatusTransfers(received.status).map(buffer => buffer.byteLength), before);
     }
@@ -269,5 +276,29 @@ test('wrapped envelope copies remain chronological and independent of live memor
     send({ id: 2, type: 'status' });
     assert.equal(normalizeAudioStatus(messages.find(message => message.id === 2).status).failure, 'The audio engine stopped.');
     assert.equal(render(), false);
+  });
+});
+
+test('real worklet active indices retain live tails and remove them at actual DSP retirement', async () => {
+  await workletFixture(({ processor, messages, send, render }) => {
+    const settings = { ...DEFAULT_PERFORMANCE, automatic: false, voiceCeiling: 65,
+      dry: .2, wet: .8, inputGain: 1, level: .5 };
+    send({ id: 1, type: 'performance', performance: settings });
+    send({ id: 2, type: 'install', pool: pool(), seedCapacity: 65 });
+    for (let index = 0; index < 100; index++) assert.equal(render(), true);
+    send({ id: 3, type: 'performance', performance: { ...settings, voiceCeiling: 3 } });
+    send({ id: 4, type: 'status' });
+    const releasing = normalizeAudioStatus(messages.find(message => message.id === 4).status);
+    assert.equal(releasing.targetVoices, 3); assert.equal(releasing.activeVoices, 65);
+    assert.equal(releasing.activeVoiceIndices.length, 65, 'actual processing release tails remain represented');
+    for (let index = 0; index < 1000 && processor.api.lsd_active_indices_count(processor.engine) > 3; index++) {
+      assert.equal(render(), true);
+    }
+    send({ id: 5, type: 'status' });
+    const retired = normalizeAudioStatus(messages.find(message => message.id === 5).status);
+    assert.equal(retired.activeVoices, 3); assert.deepEqual(retired.activeVoiceIndices, [0, 1, 2]);
+    assert.equal(retired.activeVoiceIndices.length, retired.activeVoices);
+    assert.ok(retired.elapsedSeconds > releasing.elapsedSeconds);
+    assert.equal(releasing.activeVoiceIndices.length, 65, 'the previous transferred snapshot remains immutable');
   });
 });

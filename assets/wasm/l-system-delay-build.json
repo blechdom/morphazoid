@@ -2,10 +2,10 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 389919,
-  "wasmSha256": "df773acdf509e7ac7b508dd1a071f48dbf35f07d380325ae18cf9e9039a2459c",
+  "bytes": 389995,
+  "wasmSha256": "e00cf6bbcd7705abb6443df565f3080d4f3ef5db2240c4fcd1a4b620505f5b55",
   "sourceHashes": {
-    "scripts/build-l-system-delay-wasm.mjs": "ec45df5312e000e79320259b450c950ca9923f9ba31401f0039974a762bba26b",
+    "scripts/build-l-system-delay-wasm.mjs": "b91b2178cf50e3d339f8a8c8ae839c1b54e7816812a77ce054a86ddebe59946b",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
     "src/instruments/micmic/rust/Cargo.toml": "fe3b57868ecf2b508d5a348f7b7c433faff0276ab477a56a282b0e4fd3afd987",
     "src/instruments/micmic/rust/app/src/adaptive.rs": "c465bd4304b597a76e6240b349726251ac2ab66211ac4d17e0307d056e9bf243",
@@ -15,12 +15,14 @@
     "src/instruments/micmic/rust/app/src/performance.rs": "f9408104fc7635439dc3aec904b5d835bfa6d1842ca167b8e90e2d08f94386cd",
     "src/instruments/micmic/rust/app/src/resources.rs": "4aa2cf6c5bfb6b5de2a0bd6b0d22234ed4d06f55cd01c6ae667e187a48eab2eb",
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
-    "src/instruments/micmic/rust/core/src/lib.rs": "f319f56912261449bb41459f4500b4e47d8382647d2fa7f5351996e00541b8ff",
+    "src/instruments/micmic/rust/core/src/lib.rs": "1fb49656cc840e8b36d4c314c76b7a573a833fc0f14899870fa48fc294db4d9d",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "83ad4a91a5de9bfc9c7c2847ab3aa13debc4791e347c75b1181b00e1fa67aa21"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "c4e04ae0d53a8ad211a1903bbfd961d2cc818f5b1614f8520279a0b9caa2eacb"
   },
   "exports": [
     "lsd_abi_version",
+    "lsd_active_indices_count",
+    "lsd_active_indices_ptr",
     "lsd_alloc",
     "lsd_alloc_uninitialized",
     "lsd_capacity_hint",

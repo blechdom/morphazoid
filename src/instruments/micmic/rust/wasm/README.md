@@ -74,6 +74,13 @@ processedBlocks, underruns, overruns. `lsd_metrics_len()` returns 26.
 `lsd_taps_ptr/count` exposes bounded `f32` tap energies paired with `u32` indices
 at `lsd_tap_indices_ptr`. `lsd_generations_ptr` exposes 256 `f32` group energies;
 `lsd_generation_counts_ptr` exposes 256 `u32` admitted counts.
+`lsd_active_indices_ptr/count` borrows the exact `u32` slots visited by DSP,
+including real release tails until retirement. Its count equals `activeVoices`
+when read in the same synchronous snapshot; it is independent of tap-meter
+capacity. Read pointer/count without intervening controls or rendering and copy
+before the next mutation or memory growth. The AudioWorklet transfers an owned
+copy, so neither inactive prepared slots nor stale meter energy determine the
+visible live membership.
 `lsd_envelope_ptr` exposes a 4,000-element `f32` ring; chronological sample `i`
 is at `(lsd_envelope_offset(engine)+i)%4000`, for
 `i<lsd_envelope_count(engine)`. Its interval and latest audio time are exposed

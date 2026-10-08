@@ -71,6 +71,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.api.lsd_metrics_ptr(this.engine);
     for (let i = 0; i < METRICS.length; i++) status[METRICS[i]] = this.metrics[i];
     status.audioTimeSeconds = this.audioTimeSeconds;
+    // This synchronous read/copy shares the scalar metrics' DSP state. Rust
+    // exposes only its actual processing list, never inactive prepared slots.
+    const activeCount = this.api.lsd_active_indices_count(this.engine);
+    status.activeVoiceIndices = new Uint32Array(this.memory, this.api.lsd_active_indices_ptr(this.engine), activeCount).slice();
     const count = this.api.lsd_taps_count(this.engine);
     // Snapshot copies have compact numeric storage and can leave this thread
     // without cloning thousands of boxed values or detaching live WASM memory.
