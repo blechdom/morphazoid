@@ -45,6 +45,7 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
             const s = data.status;
             qa.pcmStatuses.push({ receivedAt: performance.now(), sampleClock: s.elapsedSeconds,
               processedBlocks: s.processedBlocks, voiceLimit: s.voiceLimit, activeVoices: s.activeVoices,
+              activeVoiceIndices: Array.from(s.activeVoiceIndices ?? []), topologyRevision: s.topologyRevision,
               cpu: s.cpuLoad, peakLoad: s.peakLoad, deadlineWarnings: s.deadlineMisses,
               underruns: s.underruns, overruns: s.overruns });
           });
@@ -55,6 +56,9 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
                 this.raw = new Float32Array(this.capacity * 2); this.reset();
                 this.port.onmessage = ({ data }) => {
                   if (data === 'reset') { this.reset(); this.port.postMessage({ reset: true }); }
+                  if (data === 'flush') this.port.postMessage({ flushed: true,
+                    totalFrames: this.totalFrames, partialFrames: this.windowFrames,
+                    endFrame: currentFrame, rate: sampleRate });
                 };
               }
               reset() {
@@ -103,6 +107,7 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
             qa.pcmWindows = []; qa.pcmStatuses = []; qa.pcmRecording = false;
             probe.port.onmessage = ({ data }) => {
               if (data.reset) { qa.probeResetAck?.(); return; }
+              if (data.flushed) { qa.probeFlushAck?.(data); return; }
               if (qa.pcmRecording) qa.pcmWindows.push({ ...data, receivedAt: performance.now(),
                 samples: data.samples ? Array.from(data.samples) : undefined });
             };
@@ -158,9 +163,10 @@ const qaId = value => {
 };
 function captureQaDraw(branches, cost, renderedAt) {
   const nodes = geometry.nodes, limit = Math.max(0, Number(state.status.voiceLimit) || 0);
+  const activeVoiceIndices = Array.from(state.status.activeVoiceIndices ?? []), active = new Set(activeVoiceIndices);
+  const activeRevisionMatches = state.status.topologyRevision === visualRevision;
   const expected = nodes.filter(node => !state.audio || node.generation === 0
-    || previewParameters.depth > 0 && Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0
-    || (tapLevels.get(node.voiceIndex) ?? 0) > 0);
+    || previewParameters.depth > 0 && activeRevisionMatches && active.has(node.voiceIndex));
   const actualIds = branches.map(node => node.id), expectedIds = expected.map(node => node.id);
   const actual = new Set(actualIds), wanted = new Set(expectedIds), d = browserEngine.getDiagnostics();
   const previous = __deviceRuntime.lastDraw;
@@ -169,13 +175,36 @@ function captureQaDraw(branches, cost, renderedAt) {
     geometryIdentity: qaId(geometry), geometryNodes: nodes.length, preparedNodes: d.preparedNodes,
     installedRevision: visualRevision, topologyRevision: d.topologyRevision, moving: nativePreviewMoving,
     drawCount: actualIds.length, admittedCount: nodes.filter(node => node.generation > 0 && Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0).length,
+    activeVoices: state.status.activeVoices, activeVoiceCount: activeVoiceIndices.length,
+    activeVoiceTelemetry: Array.isArray(state.status.activeVoiceIndices),
+    activeVoiceDuplicateCount: activeVoiceIndices.length - active.size,
+    invalidActiveVoiceCount: activeVoiceIndices.filter(index => !Number.isSafeInteger(index) || index < 0).length,
+    activeIntersectionCount: expected.filter(node => node.generation > 0).length,
+    rootCount: expected.filter(node => node.generation === 0).length, depth: previewParameters.depth,
+    statusRevision: state.status.topologyRevision, activeRevisionMatches,
+    inactiveMeterCount: nodes.filter(node => node.generation > 0 && !active.has(node.voiceIndex)
+      && (tapLevels.get(node.voiceIndex) ?? 0) > 0).length,
     missing: expectedIds.filter(id => !actual.has(id)), extra: actualIds.filter(id => !wanted.has(id)),
     duplicateCount: actualIds.length - actual.size, fit: { ...geometry.fit }, desiredFit: { ...geometry.desiredFit },
     fps: visualBudget(state.status.cpuLoad, state.status.peakLoad, false, state.audio, visualCostMs).fps,
     workMs: cost, gpuNodes: gpuRenderer?.available ? gpuRenderer.stats.nodeCount : null,
     historyFresh: state.audio && Boolean(inputTelemetry.reader) && performance.now() - inputTelemetry.receivedAt < 2000,
     voiceLimit: limit, cpu: state.status.cpuLoad, peakLoad: state.status.peakLoad };
-  __deviceRuntime.lastDraw = { ...frame, actualIds, expectedIds };
+  // Keep the history bounded without losing evidence of an early transient
+  // error in a long session. Every actual draw contributes to this audit.
+  const violation = frame.missing.length || frame.extra.length || frame.duplicateCount
+    || frame.installedRevision === frame.topologyRevision && frame.geometryNodes !== frame.preparedNodes
+    || frame.gpuNodes !== null && frame.gpuNodes !== frame.drawCount
+    || frame.audio && (!frame.activeVoiceTelemetry || frame.activeVoiceCount !== frame.activeVoices
+      || frame.activeVoiceDuplicateCount || frame.invalidActiveVoiceCount
+      || frame.drawCount !== frame.activeIntersectionCount + frame.rootCount
+      || frame.drawCount > frame.activeVoices + frame.rootCount
+      || (frame.depth === 0 || !frame.activeRevisionMatches) && frame.drawCount !== frame.rootCount);
+  frame.totalAuditedDraws = __deviceRuntime.totalAuditedDraws = (__deviceRuntime.totalAuditedDraws ?? 0) + 1;
+  frame.totalDrawViolations = __deviceRuntime.totalDrawViolations = (__deviceRuntime.totalDrawViolations ?? 0) + Number(Boolean(violation));
+  if (violation && !__deviceRuntime.firstDrawViolation) __deviceRuntime.firstDrawViolation = frame;
+  __deviceRuntime.lastDraw = { ...frame, actualIds, expectedIds, activeVoiceIndices,
+    firstDrawViolation: __deviceRuntime.firstDrawViolation ?? null };
   if (__deviceRuntime.recording) {
     __deviceRuntime.frames.push(frame);
     if (__deviceRuntime.frames.length > 512) __deviceRuntime.frames.shift();
@@ -219,7 +248,9 @@ async function ready(page, renderer = 'webgl2') {
 }
 const diagnostics = page => page.evaluate(() => __deviceQa.engine.getDiagnostics());
 const view = page => page.evaluate(() => __deviceQa.view());
-const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSampleTime(), contexts: __deviceRuntime.contexts.length,
+const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSampleTime(),
+  contextClock: __deviceRuntime.contexts.at(-1)?.currentTime, contextState: __deviceRuntime.contexts.at(-1)?.state,
+  contexts: __deviceRuntime.contexts.length,
   worklets: __deviceRuntime.worklets.length, sources: structuredClone(__deviceRuntime.sources), microphoneRequests: __deviceRuntime.microphoneRequests }));
 async function native(page, id, value) {
   await page.locator(`#${id}`).evaluate((input, value) => {
@@ -233,6 +264,20 @@ async function pcm(page) {
     if (!monitor) return { peak: 0, finite: true };
     monitor.analyser.getFloatTimeDomainData(monitor.samples);
     return { peak: Math.max(...monitor.samples.map(Math.abs)), finite: monitor.samples.every(Number.isFinite) };
+  });
+}
+async function flushPcm(page) {
+  return page.evaluate(async () => {
+    const qa = __deviceRuntime;
+    // MessagePort preserves order: this acknowledgement follows every full
+    // PCM packet produced before the flush, without a guessed drain delay.
+    const flushed = await new Promise(resolve => {
+      qa.probeFlushAck = resolve; qa.pcmProbe.port.postMessage('flush');
+    });
+    qa.pcmRecording = false; qa.probeFlushAck = null;
+    return qa.pcmFlush = { ...flushed, receivedAt: performance.now(),
+      contextClock: qa.contexts.at(-1)?.currentTime, contextState: qa.contexts.at(-1)?.state,
+      sampleClock: __deviceQa.engine.getSampleTime() };
   });
 }
 async function live(page) {
@@ -281,9 +326,18 @@ async function fullTree(page) {
 }
 function correctDraw(frame) {
   expect(frame.reducedMotion).toBe(false);
+  expect(frame.totalDrawViolations, JSON.stringify(frame.firstDrawViolation ?? null)).toBe(0);
   expect(frame.missing).toEqual([]); expect(frame.extra).toEqual([]); expect(frame.duplicateCount).toBe(0);
   if (frame.installedRevision === frame.topologyRevision) expect(frame.geometryNodes).toBe(frame.preparedNodes);
   if (frame.gpuNodes !== null) expect(frame.gpuNodes).toBe(frame.drawCount);
+  if (frame.audio) {
+    expect(frame.activeVoiceTelemetry).toBe(true);
+    expect(frame.activeVoiceCount).toBe(frame.activeVoices);
+    expect(frame.activeVoiceDuplicateCount).toBe(0); expect(frame.invalidActiveVoiceCount).toBe(0);
+    expect(frame.drawCount).toBe(frame.activeIntersectionCount + frame.rootCount);
+    expect(frame.drawCount).toBeLessThanOrEqual(frame.activeVoices + frame.rootCount);
+    if (frame.depth === 0 || !frame.activeRevisionMatches) expect(frame.drawCount).toBe(frame.rootCount);
+  }
 }
 async function completeDraw(page) {
   await expect.poll(() => fullTree(page), { timeout: 30000 }).toBe(true);
@@ -355,7 +409,7 @@ test('explicit slow and fast preparation budgets bound actual Rust compilation b
   await test.info().attach('explicit-preparation-budgets', { body: JSON.stringify(counts), contentType: 'application/json' });
 });
 
-test('dense rule-family switches preserve all admitted animated branches, real wet audio and one source', async ({ page }) => {
+test('dense rule-family switches preserve exactly active animated branches, real wet audio and one source', async ({ page }) => {
   test.setTimeout(180000);
   const evidence = await fixture(page); await ready(page); await builtInInput(page);
   const initial = await session(page), rows = [];
@@ -374,7 +428,7 @@ test('dense rule-family switches preserve all admitted animated branches, real w
   await cleanup(page, evidence);
 });
 
-for (const renderer of [null, 'canvas', 'webgl2']) test(`hard refresh and factory browsing draw every admitted microphone branch with ${renderer ?? 'automatic renderer'}`, async ({ page }) => {
+for (const renderer of [null, 'canvas', 'webgl2']) test(`hard refresh and factory browsing draw exactly the active Rust microphone branches with ${renderer ?? 'automatic renderer'}`, async ({ page }) => {
   test.setTimeout(240000);
   const evidence = await fixture(page, { fakeMicrophone: true }), rows = [];
   for (const bias of [0, -1, 1]) {
@@ -459,7 +513,25 @@ for (const renderer of ['canvas', 'webgl2']) test(`normal branch waves retain fu
       rows.push({ time: (Date.now() - started) / 1000, frame, pcm: await pcm(page) });
       await page.waitForTimeout(250);
     }
+    await page.evaluate(() => { __deviceRuntime.externalMainWork = false; cancelAnimationFrame(__deviceRuntime.externalMainFrame); });
+    await expect.poll(async () => (await page.evaluate(() => __deviceQa.lastDraw())).activeVoices, { timeout: 30000 }).toBeGreaterThan(1);
+    const beforeRetirement = await page.evaluate(() => __deviceQa.lastDraw());
+    const userVoiceCap = Math.max(1, Math.min(8, Math.floor(beforeRetirement.activeVoices / 2)));
+    await native(page, 'voiceCeiling', userVoiceCap);
+    await expect.poll(async () => {
+      const d = await diagnostics(page), frame = await page.evaluate(() => __deviceQa.lastDraw());
+      return d.performance.voiceCeiling === userVoiceCap && frame?.audio
+        && frame.voiceLimit <= userVoiceCap && frame.activeVoices <= userVoiceCap;
+    }, { timeout: 30000 }).toBe(true);
+    const retired = await page.evaluate(() => __deviceQa.lastDraw()); correctDraw(retired);
+    const remaining = new Set(retired.activeVoiceIndices);
+    const retiredIndices = beforeRetirement.activeVoiceIndices.filter(index => !remaining.has(index));
+    expect(retiredIndices.length).toBeGreaterThan(0);
+    await page.waitForTimeout(600);
     const frames = await page.evaluate(() => __deviceQa.frames()); frames.forEach(correctDraw);
+    const postRetirementFrames = frames.filter(frame => frame.audio && frame.now >= retired.now);
+    expect(postRetirementFrames.length).toBeGreaterThan(2);
+    for (const frame of postRetirementFrames) expect(frame.activeVoices).toBeLessThanOrEqual(userVoiceCap);
     for (const frame of frames) { expect(frame.geometryIdentity).toBe(baseline.geometryIdentity); sameCamera(frame.fit, baseline.fit); }
     expect(frames.some(frame => frame.audio && frame.workMs >= 6 && frame.fps < 30)).toBe(true);
     expect(frames.some(frame => frame.historyFresh && !frame.reducedMotion)).toBe(true);
@@ -467,6 +539,7 @@ for (const renderer of ['canvas', 'webgl2']) test(`normal branch waves retain fu
     expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
     expect(current.sources).toEqual(initial.sources); expect(current.time).toBeGreaterThan(initial.time);
     await test.info().attach('actual-wave-work-and-callback-pressure', { body: JSON.stringify({ renderer, rows, frames,
+      beforeRetirement, retired, retiredIndices, userVoiceCap,
       fixedRealDrawingWorkMs: 6, unrelatedMainWorkMs: 22, actualWasm: true, forcedAudioBudget: false,
       fakeAudioMetrics: false, humanListening: false }), contentType: 'application/json' });
   } finally {
@@ -550,7 +623,10 @@ for (const renderer of ['canvas', 'webgl2']) test(`continuous PCM windows detect
   await page.evaluate(async () => {
     const qa = __deviceRuntime; qa.pcmRecording = false;
     const reset = new Promise(resolve => { qa.probeResetAck = resolve; }); qa.pcmProbe.port.postMessage('reset');
-    await reset; qa.pcmWindows = []; qa.pcmStatuses = []; qa.pcmRecording = true; __deviceQa.record();
+    await reset; qa.pcmWindows = []; qa.pcmStatuses = []; qa.pcmRecording = true;
+    qa.pcmStart = { wallClock: performance.now(), contextClock: qa.contexts.at(-1)?.currentTime,
+      contextState: qa.contexts.at(-1)?.state, sampleClock: __deviceQa.engine.getSampleTime() };
+    __deviceQa.record();
   });
   const initial = await session(page), rows = [], started = Date.now();
   let phase = 0;
@@ -568,15 +644,19 @@ for (const renderer of ['canvas', 'webgl2']) test(`continuous PCM windows detect
       expect(d.audio).toBe(true); expect(d.microphoneEnabled).toBe(true); expect(d.performance.dry).toBe(0);
       expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
       expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
-      rows.push({ time: (Date.now() - started) / 1000, phase, clock: current.time, prepared: d.preparedVoices,
+      rows.push({ time: (Date.now() - started) / 1000, phase, clock: current.time,
+        contextClock: current.contextClock, contextState: current.contextState, prepared: d.preparedVoices,
         activeVoices: d.status.activeVoices, voiceLimit: d.status.voiceLimit, cpu: d.status.cpuLoad,
         peakLoad: d.status.peakLoad, deadlineWarnings: d.status.deadlineMisses,
         underruns: d.status.underruns, overruns: d.status.overruns, frame: await page.evaluate(() => __deviceQa.lastDraw()) });
       await page.waitForTimeout(500);
     }
-    await page.waitForTimeout(100);
+    const flushed = await flushPcm(page);
     const packets = await page.evaluate(() => __deviceRuntime.pcmWindows);
     expect(packets.length).toBeGreaterThan(1000);
+    expect(flushed.contextState).toBe('running');
+    expect(flushed.totalFrames / flushed.rate).toBeGreaterThan(50);
+    expect(flushed.totalFrames - packets.at(-1).totalFrames).toBe(flushed.partialFrames);
     for (const packet of packets) {
       expect(packet.nonFinite).toBe(0); expect(packet.peak).toBeLessThanOrEqual(1);
       // This steady, nonzero input has no intended pauses. Inspect every actual
@@ -589,10 +669,10 @@ for (const renderer of ['canvas', 'webgl2']) test(`continuous PCM windows detect
     expect(phase).toBe(3);
     (await page.evaluate(() => __deviceQa.frames())).forEach(correctDraw);
   } finally {
+    if (await page.evaluate(() => __deviceRuntime.pcmRecording)) await flushPcm(page);
     const evidenceData = await page.evaluate(() => {
-      __deviceRuntime.pcmRecording = false;
       return { packets: __deviceRuntime.pcmWindows, statuses: __deviceRuntime.pcmStatuses,
-        frames: __deviceQa.frames() };
+        frames: __deviceQa.frames(), pcmStart: __deviceRuntime.pcmStart, pcmFlush: __deviceRuntime.pcmFlush };
     });
     await test.info().attach('continuous-wet-pcm-live-minute', { body: JSON.stringify({ renderer, rows, ...evidenceData,
       actualWasm: true, actualMediaStreamInput: true, input: 'steady173Hz oscillator captured as a real MediaStream',
