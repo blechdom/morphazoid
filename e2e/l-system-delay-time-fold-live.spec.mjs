@@ -14,7 +14,7 @@ async function fixture(page, input) {
     const controls = new Map();
     const record = (kind, data) => {
       const row = { kind, type: data.type ?? 'compile', id: data.id, at: performance.now(), phase: qa.phase,
-        foldMs: data.parameters?.intervalMs, budget: data.voiceBudget };
+        foldMs: data.parameters?.intervalMs ?? data.intervalMs, budget: data.voiceBudget };
       qa.controls.push(row); controls.set(`${kind}:${data.id}`, row);
     };
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
