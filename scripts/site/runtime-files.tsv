@@ -5,6 +5,9 @@
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
 copy+require	src/instruments/midiphoria/midiphoria-app.js
+copy+require	src/instruments/midiphoria/midiphoria-envelope.js
+copy+require	src/instruments/midiphoria/midiphoria-text-midi.js
+copy+require	src/instruments/midiphoria/midiphoria-text-score.js
 copy+require	src/instruments/midiphoria/midiphoria-model.js
 copy+require	src/instruments/midiphoria/midiphoria-renderer.js
 copy+require	src/instruments/midiphoria/midiphoria.css

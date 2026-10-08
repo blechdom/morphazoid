@@ -153,7 +153,7 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
     await page.mouse.move(width - 25, height - 60);
     await page.mouse.wheel(0, 550);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    for (const id of ['reflection', 'flow', 'release', 'padVelocity']) {
+    for (const id of ['reflection', 'flow', 'lightEnvelopeEditor', 'padVelocity']) {
       await page.locator(`#${id}`).scrollIntoViewIfNeeded();
       await expect(page.locator(`#${id}`)).toBeInViewport();
     }

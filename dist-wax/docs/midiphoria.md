@@ -12,7 +12,10 @@ with smoothed changes and a final peak ceiling of 0.98.
 **Open your MIDIs** accepts multiple files, available alongside the built-in songs
 at the top of the song list for this page session. Nothing is uploaded. Limits are 20 files, 10 MB per file
 and 50 MB total. Reloading or leaving the page clears the local library.
-Changing songs stops playback; press Play to start the selected arrangement.
+Changing songs retains Play/Pause: a playing arrangement is replaced from the
+new song's beginning, while a paused player stays paused. Rapid changes select
+only the newest request; Stop cancels a pending restart. Next and Random beside
+the song menu browse the current collection/search results without changing Audio.
 Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and looping.
 Seeking restores MIDI programs/controllers and resumes subsequent note events;
 it does not reconstruct notes whose attacks precede the seek point.
@@ -31,6 +34,28 @@ Enable hardware/computer MIDI separately in shared Settings.
 Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
 capture a hardware mapping.
+
+## Text MIDI
+
+Type up to 32 characters in **Text MIDI**, then choose **Make MIDI**. Original
+5×7 block glyphs map horizontal position to time and vertical position to MIDI
+pitch. Horizontal strokes sustain notes; gaps create rests. Letters, numbers
+and punctuation are supported, lowercase becomes uppercase, and unsupported
+characters become spaces. The generated MIDI appears in the session song menu;
+enable Audio and press Play to hear it through the existing SoundFont player.
+Regenerating text while playing keeps playback active.
+
+**Letter score** shows the actual MIDI pitches and durations with a playhead
+following the file's audio clock. Long words scroll through a readable window;
+seek, speed and Loop use the same player. Turn Letter score off to watch the
+normal light graphics, or choose a visual preset. **Download MIDI** exports the
+complete Standard MIDI File for a DAW or another player. Text and generated
+files stay in this browser session.
+
+The generator is bounded to 12 seconds at 1×, seven simultaneous pitches and
+672 note runs. It uses a General MIDI sawtooth lead at 120 BPM and chromatic
+pitches 60–66, with no scale quantization. The score renderer never schedules
+audio; notes are played by the existing AudioWorklet.
 
 ## Collection and arrangement quality
 
@@ -109,10 +134,17 @@ About & setup; the separate Demo/Clear/Reset row has been removed.
 Static, rotating and note-triggered hue and the light ADSR are part of every
 preset. Manual edits and dice show Custom; Next continues the preset tour.
 
-Presets change only the visual state. They retain the selected file, playhead,
+Presets change the visual state. When no file is chosen, the first preset or
+parameter-dice action selects a random library MIDI without arming Audio.
+Once a file is chosen, presets retain that file, playhead,
 Audio, volume, playback speed, looping, MIDI routing and learn state. A longer
 trail setting affects retained history and new notes; expired notes cannot be
 reconstructed. Audio remains scheduled by the synth worklet.
+
+The Light envelope uses Shape-style draggable A/D/S/R nodes. Its native values
+remain available under **Envelope values** for precise and keyboard editing.
+Preset recall, dice and Reset synchronize both representations. This envelope
+controls light; it does not replace the SoundFont instruments' sound envelopes.
 
 ## Feature parity
 
