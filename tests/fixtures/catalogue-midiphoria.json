@@ -1,0 +1,15 @@
+{
+  "additions": [
+    {
+      "id": "midiphoria",
+      "label": "Midiphoria",
+      "href": "midiphoria.html",
+      "imageHref": "assets/instruments/midiphoria.webp",
+      "categoryId": "graphic-ui",
+      "categoryLabel": "Graphic-UI",
+      "tags": [{ "id": "2d", "label": "2D" }],
+      "kind": "lab",
+      "midiInput": true
+    }
+  ]
+}

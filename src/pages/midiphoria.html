@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en" class="midiphoria-root">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Midiphoria on Morphazoid: visualize live MIDI notes and controllers as luminous note trails or a full-field color mask." />
+    <title>Midiphoria — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/midiphoria/midiphoria.css" />
+  </head>
+  <body class="midiphoria-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">gesticules</a><a class="tab active" href="midiphoria.html" aria-current="page">midiphoria</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">gesticules</option><option value="midiphoria.html" selected>midiphoria</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">≈</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+        <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">50%</output></span><input id="outputLevel" aria-label="Midiphoria output level" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+      </div>
+    </header>
+    <main class="midiphoria-shell" id="midiphoria">
+      <section class="midiphoria-stage" aria-label="MIDI visualization">
+        <div class="midiphoria-stage-heading"><div><p class="midiphoria-eyebrow">MIDI → SOUND + LIGHT</p><h1>Midiphoria</h1></div><span class="midiphoria-silent">Live visuals</span></div>
+        <div class="midiphoria-viewport" id="visualViewport">
+          <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
+          <div id="emptyHint" class="midiphoria-empty"><span>Give your notes a little light.</span><small>Enable Audio to hear the piano pads, or choose a song and press Play.</small></div>
+          <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
+        </div>
+        <div class="midiphoria-readout"><output id="noteReadout" aria-live="off">Waiting for a note</output><output id="levelReadout" aria-live="off">0% light</output></div>
+        <div class="midiphoria-keyboard" id="notePads" role="group" aria-label="Piano pads, C3 through B4"></div>
+        <p class="midiphoria-key-hint">Enable Audio to hear the piano pads. Computer keys control light via MIDI in Settings. <kbd>[ ]</kbd> octave · <kbd>− +</kbd> velocity</p>
+      </section>
+      <aside class="panel midiphoria-panel" aria-label="Midiphoria controls" data-instrument-preset-host>
+        <section class="midiphoria-section midiphoria-player" aria-labelledby="playerHeading">
+          <h2 id="playerHeading">Listen & watch</h2>
+          <label class="control" for="collectionSelect"><span><b>Collection</b></span><select id="collectionSelect"><option value="">All collections</option></select></label>
+          <label class="control" for="songSearch"><span><b>Find a song or artist</b><output id="songCount">Loading…</output></span><input id="songSearch" type="search" placeholder="Search the MIDI collection" autocomplete="off" /></label>
+          <p class="midiphoria-help" id="songSearchStatus" role="status"></p>
+          <label class="control" for="songSelect"><span><b>MIDI collection</b></span><select id="songSelect"><option value="">Loading collection…</option></select></label>
+          <p id="songDescription" class="midiphoria-help"></p>
+          <label class="midiphoria-file" for="midiFile"><span>Open your MIDIs</span><input id="midiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple /></label>
+          <div class="midiphoria-actions midiphoria-transport"><button type="button" id="playButton" class="mini-action" data-primary-transport aria-pressed="false" disabled>▶ Play</button><button type="button" id="stopButton" class="mini-action" disabled>■ Stop</button><label><input type="checkbox" id="loopSong" /> Loop</label></div>
+          <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>
+          <label class="control" for="playbackRate"><span><b>Speed</b><output id="playbackRateOut" for="playbackRate">1.00×</output></span><input id="playbackRate" type="range" min="0.5" max="4" step="0.05" value="1" /></label>
+          <p id="playerStatus" class="midiphoria-help" role="status">Enable Audio to hear the piano pads and MIDI player.</p>
+          <p class="midiphoria-help"><a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p>
+          <details class="midiphoria-notes midiphoria-credits"><summary>Song credits & free MIDIs</summary><p id="songCredit"></p><p><a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">Collection & SoundFont credits ↗</a></p><p>Download full MIDI files, then use Open your MIDIs: <a href="https://midkar.com/Pop_Rock/Pop_Rock_A_to_Z.html" target="_blank" rel="noopener noreferrer">MIDKAR pop/rock ↗</a> · <a href="https://bushgrafts.com/midi/" target="_blank" rel="noopener noreferrer">Doug McKenzie jazz ↗</a> · <a href="https://www.midiworld.com/files/826/" target="_blank" rel="noopener noreferrer">MIDIWorld synth-pop ↗</a> · <a href="https://bitmidi.com/" target="_blank" rel="noopener noreferrer">BitMidi popular songs ↗</a> · <a href="https://midicollection.com/" target="_blank" rel="noopener noreferrer">MIDI Collection ↗</a> · <a href="https://github.com/rin-w/black-midi-patterns" target="_blank" rel="noopener noreferrer">Black-MIDI patterns ↗</a>. Extract ZIP or 7z collections before opening their .mid files.</p></details>
+        </section>
+        <div class="midiphoria-actions"><button type="button" id="demoButton" class="mini-action" aria-pressed="false">▶ Demo</button><button type="button" id="clearButton" class="mini-action">Clear</button><button type="button" id="resetButton" class="mini-action" data-reset-all data-reset-in-place>Reset</button></div>
+        <section class="midiphoria-section" aria-labelledby="lookHeading">
+          <h2 id="lookHeading">Light</h2>
+          <label class="control" for="viewMode"><span><b>View</b></span><select id="viewMode"><option value="trails">Note trails</option><option value="mirror">Mirror trails</option><option value="radial">Radial burst</option><option value="ribbons">Ribbons</option><option value="orbit">Orbit</option><option value="mask">Solid mask</option></select></label>
+          <label class="control" for="palette"><span><b>Palette</b></span><select id="palette"><option value="pitch">Pitch rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
+          <label class="control" for="colorSource"><span><b>Color by</b></span><select id="colorSource"><option value="pitch">Pitch</option><option value="channel">MIDI channel</option><option value="velocity">Note velocity</option></select></label>
+          <label class="control" for="trailSeconds"><span><b>Trail length</b><output id="trailSecondsOut" for="trailSeconds">7.0 s</output></span><input id="trailSeconds" type="range" min="0.3" max="12" step="0.1" value="7" /></label>
+          <label class="control" for="trailWidth"><span><b>Trail width</b><output id="trailWidthOut" for="trailWidth">1.00×</output></span><input id="trailWidth" type="range" min="0.3" max="3" step="0.05" value="1" /></label>
+          <label class="control" for="fadeCurve"><span><b>Trail fade</b><output id="fadeCurveOut" for="fadeCurve">1.00×</output></span><input id="fadeCurve" type="range" min="0.25" max="4" step="0.05" value="1" /></label>
+          <label class="control" for="motion"><span><b>Motion</b><output id="motionOut" for="motion">1.00×</output></span><input id="motion" type="range" min="0" max="2" step="0.01" value="1" /></label>
+          <label class="control" for="spin"><span><b>Extra spin · radial/orbit</b><output id="spinOut" for="spin">0.00 rpm</output></span><input id="spin" type="range" min="-2" max="2" step="0.05" value="0" disabled /></label>
+          <label class="control" for="symmetry"><span><b>Radial copies</b><output id="symmetryOut" for="symmetry">1×</output></span><input id="symmetry" type="range" min="1" max="8" step="1" value="1" disabled /></label>
+          <label class="control" for="glow"><span><b>Glow</b><output id="glowOut" for="glow">20%</output></span><input id="glow" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+          <label class="control" for="paletteHue"><span><b>Palette shift</b><output id="paletteHueOut" for="paletteHue">0°</output></span><input id="paletteHue" type="range" min="0" max="360" step="1" value="0" /></label>
+          <label class="control" for="saturation"><span><b>Saturation</b><output id="saturationOut" for="saturation">100%</output></span><input id="saturation" type="range" min="0" max="1" step="0.01" value="1" /></label>
+          <div class="midiphoria-checks"><label><input type="checkbox" id="color" checked /> Note color</label><label><input type="checkbox" id="velocity" checked /> Velocity</label><label><input type="checkbox" id="invert" /> Invert</label></div>
+          <label class="control" for="hueMode"><span><b>Hue</b></span><select id="hueMode"><option value="static">No hue movement</option><option value="rotate">Rotate over time</option><option value="activity">Shift on each note</option></select></label>
+          <label class="control" for="hueSpeed"><span><b>Hue movement</b><output for="hueSpeed" id="hueSpeedOut">0.12 turns/s</output></span><input id="hueSpeed" type="range" min="0" max="1" step="0.01" value="0.12" /></label>
+        </section>
+        <section class="midiphoria-section" aria-labelledby="envelopeHeading">
+          <h2 id="envelopeHeading">Light envelope</h2>
+          <label class="control" for="attack"><span><b>Attack</b><output for="attack" id="attackOut">0.02 s</output></span><input id="attack" type="range" min="0" max="3" step="0.01" value="0.02" /></label>
+          <label class="control" for="decay"><span><b>Decay</b><output for="decay" id="decayOut">0.15 s</output></span><input id="decay" type="range" min="0" max="3" step="0.01" value="0.15" /></label>
+          <label class="control" for="sustain"><span><b>Sustain</b><output for="sustain" id="sustainOut">80%</output></span><input id="sustain" type="range" min="0" max="1" step="0.01" value="0.8" /></label>
+          <label class="control" for="release"><span><b>Release</b><output for="release" id="releaseOut">0.45 s</output></span><input id="release" type="range" min="0" max="5" step="0.01" value="0.45" /></label>
+        </section>
+        <section class="midiphoria-section" aria-labelledby="inputHeading">
+          <h2 id="inputHeading">Input</h2>
+          <div class="midiphoria-connect"><span id="inputStatus" role="status">MIDI is off · pads ready</span><button type="button" id="midiSettingsButton" class="mini-action">MIDI Settings ↗</button></div>
+          <label class="control" for="channel"><span><b>Channel</b></span><select id="channel"><option value="-1">All channels</option></select></label>
+          <label class="control" for="trigger"><span><b>Trigger</b></span><select id="trigger"><option value="all">All notes</option><option value="mapped">Mapped note / CC</option></select></label>
+          <div class="midiphoria-mapping" id="mappingControls" hidden>
+            <label class="control" for="mappedType"><span><b>Message</b></span><select id="mappedType"><option value="note">Note</option><option value="cc">CC</option></select></label>
+            <label class="control" for="mappedNumber"><span><b>Number</b></span><input id="mappedNumber" type="number" min="0" max="127" step="1" value="60" /></label>
+            <label class="control" for="mappedChannel"><span><b>On channel</b></span><select id="mappedChannel"></select></label>
+          </div>
+          <button type="button" class="mini-action midiphoria-learn" id="learnButton" aria-pressed="false">Learn next note / CC</button>
+          <p id="learnStatus" class="midiphoria-help" role="status">All connected MIDI inputs are received.</p>
+        </section>
+        <section class="midiphoria-section" aria-label="Piano pad controls">
+          <label class="control" for="padVelocity"><span><b>Pad velocity</b><output for="padVelocity" id="padVelocityOut">100</output></span><input id="padVelocity" type="range" min="1" max="127" step="1" value="100" /></label>
+        </section>
+        <details class="midiphoria-notes"><summary>About & setup</summary><p>Choose a song or open local MIDI files (up to 20 files per session, 10 MB each, 50 MB total). Enable Audio to load the SoundFont, then Play. Local files stay in your browser until you leave or reload the page. Muting Audio keeps the playhead and graphics moving. Choose a visual preset at the top, use Next or the dice, then tweak its palette, trails, motion and light envelope while listening. Visual presets keep the current song playing.</p><p>Connect a MIDI keyboard or a virtual MIDI port from your DAW, then enable MIDI In in Settings. Hardware MIDI needs a supported browser on HTTPS or localhost. The on-screen pads play SoundFont piano when Audio is on, including while the song is paused. Hold a pad with touch, mouse or Enter/Space; release to let the note decay. Pad velocity and the shared output level affect its sound. Clear releases the pads and visual notes. Demo and incoming hardware/computer MIDI control light only.</p><p>Inspired by <a href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Nicholas C. Stanley’s Midiphoria ↗</a>. Independent browser visuals, with <a href="https://spessasus.github.io/spessasynth_lib/" target="_blank" rel="noopener noreferrer">SpessaSynth ↗</a> SoundFont playback. No Python installation is needed. <a href="docs/midiphoria.md" target="_blank" rel="noopener">Feature parity & limits ↗</a></p></details>
+      </aside>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/midiphoria/midiphoria-app.js"></script>
+  </body>
+</html>

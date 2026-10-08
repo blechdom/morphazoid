@@ -1,0 +1,180 @@
+# Midiphoria on Morphazoid
+
+Open `/midiphoria.html`. Choose a song, enable **Audio**, then **Play**.
+SpessaSynth plays Standard MIDI Files through the bundled TimGM6mb SoundFont in
+an AudioWorklet. The same note and controller events drive Canvas graphics.
+Mute leaves the transport and graphics running. Color, velocity weighting,
+ADSR, invert, hue and view changes stay live during playback.
+Playback applies an 18 dB boost before compression so quiet arrangements have
+useful output at 100%. The volume control still spans mute to full output,
+with smoothed changes and a final peak ceiling of 0.98.
+
+**Open your MIDIs** accepts multiple files, available alongside the built-in songs
+at the top of the song list for this page session. Nothing is uploaded. Limits are 20 files, 10 MB per file
+and 50 MB total. Reloading or leaving the page clears the local library.
+Changing songs stops playback; press Play to start the selected arrangement.
+Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and looping.
+Seeking restores MIDI programs/controllers and resumes subsequent note events;
+it does not reconstruct notes whose attacks precede the seek point.
+
+The on-screen pads play the TimGM6mb piano after **Audio** is enabled. They work
+with playback stopped or alongside a song. Pointer, touch and focused-button
+Enter/Space hold a note; release/cancel lets it decay. Assistive activation plays
+a short note. Pad velocity and the shared output volume affect the sound.
+Pads use a separate synthesizer in the same audio context, so file instruments,
+controllers, stop and seek cannot change or cancel a held pad. Releasing a pad
+cannot cancel a matching note in the song. Clear, Reset, window blur, hiding the
+page, Audio off and page exit release pad sound. Muted presses are never queued.
+
+The visual Demo and incoming hardware/computer MIDI control light only.
+Enable hardware/computer MIDI separately in shared Settings.
+Live hardware and file notes retain source/channel ownership, including MIDI
+ports within files. MIDI Learn ignores file playback so a running song cannot
+capture a hardware mapping.
+
+## Collection and arrangement quality
+
+The song picker contains 100 selections, searchable by title, artist or
+collection. Collections group popular arrangements, jazz/fusion, Black MIDI,
+geometric patterns/studies, full orchestra, creator tracks and original demos.
+Filtering the menu does not interrupt the current song. Local imports appear
+in Your MIDIs and importing clears the current filter.
+
+The Black MIDI collection contains all 16 complete creator AUDIO editions from
+BLEEDING EDGE MONOTONE's archive. The unchanged 14.9 MB archive download contains
+all 35 MIDI files / 19 works, including the much larger decorative originals.
+No arrangement was shortened or regenerated. Three works without creator AUDIO
+editions remain in the archive only. All nine rin-w geometric patterns are
+included separately and labelled as short patterns; enable Loop to repeat them.
+
+The orchestral collection contains all movements of Beethoven's Eroica and
+Dvořák's Seventh, plus Mussorgsky's Night on Bald Mountain, with explicit
+orchestral instruments. These total about 79 minutes. The former generic
+solo-piano classical tracks remain removed. Actual Wendy Carlos performance
+MIDIs and additional Mahler scores were downloaded separately for private
+local import; their terms do not permit adding them to the public bundle.
+Carlos's MIDI notes/expression do not include her recorded synthesizer timbres.
+
+Web arrangements include multiple sounding MIDI channels and drums, complete
+song timelines and preserved source/arranger metadata. This checks arrangement
+structure and playback, not community ranking or human musical approval.
+The original Experimental studies explore tempo canons, pitch geometry and
+black-MIDI density; they are not compositions by Conlon Nancarrow.
+
+Free collections with complete MIDI downloads:
+
+- [MIDKAR pop/rock](https://midkar.com/Pop_Rock/Pop_Rock_A_to_Z.html): established song arrangements, individual files and a bulk 7z archive advertised as 1,297 MIDIs.
+- [MIDKAR jazz](https://midkar.com/Jazz/Jazz.html): a large standards collection with individual MIDI downloads.
+- [Doug McKenzie](https://bushgrafts.com/midi/): live-played jazz piano and trio performances, with many annotated files.
+- [MIDIWorld](https://www.midiworld.com/files/): artist collections including [Depeche Mode](https://www.midiworld.com/files/826/), New Order, Kraftwerk and Queen. Complete MIDI downloads were verified and parsed for Enjoy the Silence, Blue Monday, Computer Love and Bohemian Rhapsody.
+- [BitMidi](https://bitmidi.com/): a large popular-song archive with play counts and full MIDI download links.
+- [MIDI Collection](https://midicollection.com/): searchable pop, rock, electronic and other songs, with full downloads and no account required.
+- [Black-MIDI patterns](https://github.com/rin-w/black-midi-patterns): nine downloadable MIDI patterns for geometric note art; these are building blocks rather than full-song arrangements.
+
+Checked on October 7–8, 2026. Actual MIDI downloads were verified for McKenzie's
+Autumn Leaves and Dolphin Dance, MIDI Collection's Sweet Dreams, and all nine
+MIDI files in the black-pattern pack. MIDKAR's archive links advertise 7z files;
+its archive contents could not be inspected through the download tools used.
+Free download does not itself establish permission to republish a collection.
+The selected web arrangements are included in this collection; their source
+and license status are recorded individually.
+Extract ZIP/7z downloads first, then use Open your MIDIs to add selected .mid files.
+
+Exact bundled credits, source links, licenses and file hashes are in
+`assets/midiphoria/collection.json` and its adjacent source/license records.
+The SpessaSynth versions, hashes and lifecycle patch are documented in
+`src/instruments/midiphoria/vendor/README.md`.
+
+## Visual presets
+
+The first row of the right panel contains the visual preset menu, Next and
+parameter dice. Sixteen complete looks span note trails, mirrored trails,
+radial bursts, ribbons, orbits and solid masks. Five palettes, palette shift,
+saturation, trail length/width, glow and motion are available for live edits.
+Color by pitch, MIDI channel or velocity; adjust the trail fade curve, add
+clockwise/counterclockwise spin, and repeat radial/orbit forms up to eight times.
+Spin and radial-copy controls are enabled in the two circular views.
+Static, rotating and note-triggered hue and the light ADSR are part of every
+preset. Manual edits and dice show Custom; Next continues the preset tour.
+
+Presets change only the visual state. They retain the selected file, playhead,
+Audio, volume, playback speed, looping, MIDI routing and learn state. A longer
+trail setting affects retained history and new notes; expired notes cannot be
+reconstructed. Audio remains scheduled by the synth worklet.
+
+## Feature parity
+
+Reviewed against Nicholas C. Stanley's repository at
+[`93b5c4f`](https://github.com/NicholasCStanley/midiphoria/tree/93b5c4f031933c3372c20b428e3c4160b9485c73).
+This is an independent browser implementation; no original Python source is
+bundled. Matching capabilities does not imply identical defaults or pixels.
+
+| Capability | Morphazoid |
+| --- | --- |
+| Live MIDI notes and controllers | Implemented through shared Web MIDI |
+| All-note trigger or mapped note/CC/channel | Implemented, including MIDI Learn |
+| Velocity, mixed note color, monochrome, invert | Implemented |
+| ADSR light envelope; static, rotating and activity hue | Implemented |
+| Solid mask and fullscreen | Implemented |
+| MIDI-file playback | Implemented with audible browser SoundFont synthesis |
+| Note-set trigger, drum sets and add-to-set learning | Missing |
+| Select a specific MIDI input port | Missing; receives all connected inputs |
+| Detailed MIDI event log/debug overlay | Missing; compact note/light readout only |
+| JSONL session recording and replay | Missing |
+| Offline PNG/PPM frames and MP4 export | Missing |
+| FluidSynth audio rendering / existing-audio mux for export | Missing |
+| Export FPS, resolution, crop, duration, tails and channel subsets | Missing |
+| Shutter samples, averaging/max blending, start/center/end sampling | Missing |
+| Original keyboard shortcuts | Partial; browser controls and shared note keyboard differ |
+| Torch/CUDA and OpenGL renderer | Replaced by browser Canvas/Web Audio |
+
+The browser adds note trails, audible on-screen piano pads, two-row computer keys, sustain,
+source/channel isolation, disconnect recovery, a curated menu, local MIDI
+imports and realtime SoundFont listening. Upstream's live visualizer does not
+synthesize audio; its separate export module can render audio with FluidSynth
+and an SF2 or mux existing audio into an MP4.
+
+The upstream repository includes recording/export modules, but its installed
+[CLI entrypoint](https://github.com/NicholasCStanley/midiphoria/blob/93b5c4f031933c3372c20b428e3c4160b9485c73/pyproject.toml#L23)
+targets an [argument parser](https://github.com/NicholasCStanley/midiphoria/blob/93b5c4f031933c3372c20b428e3c4160b9485c73/src/midiphoria/app.py#L427)
+that does not wire in the advertised recording/export flags at this revision.
+Those rows compare repository code, not a verified working upstream CLI run.
+
+Default differences include trails/color/velocity enabled here, an initial
+0.02/0.15/0.8/0.45-second ADSR and all-note input. Browser phase durations are
+exact; release retains the note color. Upstream uses different defaults and
+envelope/color behavior, so this is not a pixel-exact port.
+
+## Dense files and verification limits
+
+The file synthesizer caps synthesis at 128 voices; the independent piano pads
+cap synthesis at 32 voices and track at most 32 held input sources. Both share
+compression, volume and a final bounded output guard. The visual model caps active notes at 256 and
+retains at most 384 trails. Dense scores can therefore steal audible voices
+and omit older visual trails. File-event trail snapshots are limited to 120 per
+second plus display frames; very short notes can fall between snapshots. Every
+event still reaches the bounded visual model and the audio worklet. The three
+densest bundled creator AUDIO editions peak around 3,000–3,400 note attacks/s;
+browser tests exercise those peak passages at maximum radial copies. This is
+not a claim to render arbitrary million-note decorative files in full fidelity.
+
+Audio scheduling lives in the worklet, independently of animation frames.
+The page stops and closes its audio context and shared output connection on
+pagehide. Browser tests check sound output, mute/transport independence,
+imports, looping, seeking, cleanup, live controls and responsive layouts.
+Automated measurements do not substitute for a human listening pass or a
+physical MIDI-controller/touch-device test.
+
+October 8 expansion checks: all 100 bundled selections produced finite audio
+within the 0.98 ceiling; three peak-density black-MIDI passages remained
+controllable at eight radial copies. All 24 relevant browser tests and 54
+focused model/player/preset/integration tests passed. Desktop, portrait and
+landscape checks covered the grouped menu and the 16 complete visual presets.
+The full archive and bundled MIDI hashes match downloaded originals.
+
+Piano-pad checks: five browser tests cover explicit Audio gating, no replay of
+muted presses, pointer/keyboard/assistive activation, release/cancel/blur/Clear,
+velocity and volume response, independent same-pitch file notes, stop/seek,
+invalid-file recovery, and pagehide/BFCache cleanup. The pad synth uses the
+piano sample's own release without reverb/chorus, preventing old effect tails
+from returning on quick Audio off/on. File effects remain unchanged.

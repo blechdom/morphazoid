@@ -1,0 +1,25 @@
+[
+  {
+    "file": "src/site/instrument-registry.js",
+    "sha256": "7a58407bd839d7aa4d74c911c14f1768600150a90c075337a969f4b2a508d8a9",
+    "additions": [
+      "    { id: \"midiphoria\", label: \"Midiphoria\", href: \"midiphoria.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/midiphoria.webp\" },\n"
+    ]
+  },
+  {
+    "file": "src/site/catalogue-taxonomy.js",
+    "sha256": "8848d94235982a6dbb5eee0b545a30974eb00d8ebcc056aa69e10b79923ab525",
+    "additions": [
+      "  \"midiphoria\": [\"2d\"],\n",
+      "  \"midiphoria\": {\n    \"kind\": \"Live MIDI visualizer\",\n    \"description\": \"Turn live MIDI notes, velocity and controller messages into color, masks and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.\",\n    \"start\": \"Choose a song, enable Audio, then Play. Tweak the light while listening, or enable MIDI in Settings for a live controller.\",\n    \"features\": [\"MIDI\", \"Computer keys\", \"SoundFont playback\", \"Visual envelopes\", \"Note trails\"],\n    \"pluginHref\": null\n  },\n"
+    ]
+  },
+  {
+    "file": "src/site/instrument-midi-capabilities.js",
+    "sha256": "635cb346532007b36ae831d4b7392bdab72ff31db8fe5b2fcfb069909a5df608",
+    "additions": [
+      "    \"midiphoria\",\n",
+      "  \"midiphoria\",\n"
+    ]
+  }
+]

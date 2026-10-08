@@ -91,6 +91,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "lissajous-orbits.html", "selector": "#lissajousRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "loopini.html", "selector": "#speed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "lumber.html", "selector": "#delayRotationSpeed", "mapping": {"unit": "hz", "signed": true}},
+  {"route": "midiphoria.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "minimax.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "moebius-synth.html", "selector": "#rotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "moebius-synth.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},

@@ -105,6 +105,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "micromorph.html",
   "midi-guide.html",
   "midi.html",
+  "midiphoria.html",
   "minimax.html",
   "moebius-synth.html",
   "moire-drone.html",

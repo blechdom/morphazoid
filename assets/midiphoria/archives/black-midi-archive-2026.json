@@ -1,0 +1,14 @@
+{
+  "file": "black-midi-archive-2026.7z",
+  "bytes": 14890135,
+  "sha256": "70510a103c91b937cbaba06c1c828f6a40e6b01f9da5b23cbbf93c2d2f7c0978",
+  "midiCount": 35,
+  "fullScoreCount": 19,
+  "audioVariantCount": 16,
+  "uniqueWorks": 19,
+  "uncompressedMidiBytes": 583369228,
+  "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+  "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+  "licenseId": "CC0-1.0",
+  "retrieved": "2026-10-08"
+}

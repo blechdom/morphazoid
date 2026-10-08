@@ -1,5 +1,15 @@
 # Morphazoid
 
+**[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails or
+a solid color mask. Enable MIDI in Settings, play the on-screen pads, or try
+Demo. Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR
+shape the picture. A searchable MIDI song collection and local file imports play through a
+SoundFont in the browser: enable Audio, then Play. With Audio on, the on-screen
+pads also play piano, independently of the song. Speed, loop, seek and live visual
+tweaks are available, with sixteen visual presets, Next and parameter dice. Independently implemented
+for the browser, inspired by [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria).
+See [setup, collection credits and feature gaps](docs/midiphoria.md).
+
 **[L-system Delay Rust](l-mic-rust.html)** combines all 29 rule modes and 210
 complete presets in one instrument. Its classic and stochastic grammars now sit
 alongside numeric parametric branching with two through six children,

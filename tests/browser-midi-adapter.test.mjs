@@ -150,6 +150,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     new Set(playableIds),
   );
   assert.deepEqual(NATIVE_INSTRUMENT_MIDI_IDS, [
+    "midiphoria",
     "shape-synth",
     "recursive-fm",
     "recursive-pm",

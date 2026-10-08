@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 40,
-    "fullPresets": 1845,
+    "implemented": 41,
+    "fullPresets": 1861,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 128
@@ -840,6 +840,16 @@
       "presets": 24,
       "status": "implemented-verification-pending",
       "evidence": "Instrument-owned complete-state adapter and bounded randomizer cover sound, motion, Tempo, Speed, tremor, camera, skin and lighting; tests/gesticulating-hand-model.test.mjs, tests/gesticulating-hand-motion-expansion.test.mjs and e2e/gesticulating-hand.spec.mjs. Human listening and physical-device acceptance remain separate."
+    },
+    {
+      "id": "midiphoria",
+      "label": "Midiphoria",
+      "href": "midiphoria.html",
+      "category": "graphic-ui",
+      "scope": "deferred-lab",
+      "presets": 16,
+      "status": "implemented-verification-pending",
+      "evidence": "Complete visual-state presets and bounded parameter randomization cover six views, five palettes, pitch/channel/velocity coloring, trails, fade, spin, radial copies, glow and light envelopes; audio, song, transport and MIDI routing stay live. Browser and unit checks recorded in docs/midiphoria.md."
     },
     {
       "id": "surround-field",
@@ -1740,6 +1750,7 @@
     ],
     "deferred": [
       "crickets",
+      "midiphoria",
       "room-lobby",
       "vocal-effects-room",
       "instrument-share-room",

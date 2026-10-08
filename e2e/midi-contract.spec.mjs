@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test";
 
-import { INSTRUMENTS } from "../src/site/instrument-catalog.js";
+import { INSTRUMENTS, LABS } from "../src/site/instrument-catalog.js";
 import {
   INSTRUMENT_MIDI_CAPABILITIES,
   NATIVE_INSTRUMENT_MIDI_IDS,
@@ -14,17 +14,18 @@ import {
   sendMidiSequence,
 } from "./helpers/fake-midi.mjs";
 
-test("the MIDI requirement declaration accounts for every catalogue instrument", async ({}, testInfo) => {
+test("the MIDI requirement declaration accounts for every catalogue instrument and declared MIDI lab", async ({}, testInfo) => {
   testInfo.annotations.push({
     type: "scope",
     description: "This registry declares required route-level MIDI availability and mapping ownership. It does not prove that each route currently satisfies the requirement.",
   });
 
-  const instrumentsById = new Map(INSTRUMENTS.map((instrument) => [instrument.id, instrument]));
+  const midiRoutes = [...INSTRUMENTS, ...LABS.filter((lab) => lab.features.includes("MIDI"))];
+  const instrumentsById = new Map(midiRoutes.map((instrument) => [instrument.id, instrument]));
   const capabilitiesById = new Map(
     INSTRUMENT_MIDI_CAPABILITIES.map((capability) => [capability.id, capability]),
   );
-  const matrix = INSTRUMENTS.map((instrument) => ({
+  const matrix = midiRoutes.map((instrument) => ({
     id: instrument.id,
     label: instrument.label,
     href: instrument.href,
@@ -37,7 +38,7 @@ test("the MIDI requirement declaration accounts for every catalogue instrument",
   });
 
   expect(INSTRUMENTS.length).toBeGreaterThan(0);
-  expect(INSTRUMENT_MIDI_CAPABILITIES).toHaveLength(INSTRUMENTS.length);
+  expect(INSTRUMENT_MIDI_CAPABILITIES).toHaveLength(midiRoutes.length);
   expect(capabilitiesById.size).toBe(instrumentsById.size);
   expect([...capabilitiesById.keys()].sort()).toEqual([...instrumentsById.keys()].sort());
   expect(

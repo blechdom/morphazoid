@@ -1,5 +1,35 @@
 # Third-party notices
 
+## Midiphoria visual lab
+
+The Midiphoria page is inspired by the MIDI-controlled color and brightness
+concept in [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria),
+reviewed at commit `93b5c4f031933c3372c20b428e3c4160b9485c73` on October 7, 2026.
+That repository contains no license file or declared package license at this
+revision. No upstream source, artwork, dependencies, or recordings are bundled.
+Morphazoid's JavaScript model, Canvas renderer, and interface are independent
+implementations. Note trails, source/channel isolation, sustain handling and
+disconnect recovery are browser additions. The catalogue icon is a procedural
+capture of Morphazoid's own note-trail renderer. This page does not claim Python,
+GPU-compute, recording or video-export compatibility.
+
+Browser MIDI-file playback uses SpessaSynth Lib 4.3.14 with Core 4.3.22 and
+stb-vorbis 0.0.6 (Apache-2.0). Pinned bundle provenance and the single lifecycle
+patch are in `src/instruments/midiphoria/vendor/README.md`; the license is beside
+the bundle. AudioWorklet synthesis is independent of the Canvas renderer.
+
+TimGM6mb is GPL-2.0-only; the unmodified editable SF2 and complete copyright
+and license records are bundled under `assets/midiphoria/soundfont/`.
+Selected complete web MIDI arrangements are free source-hosted downloads.
+No public-domain or
+Creative Commons status is claimed where the source specifies no license.
+Exact download URLs, hashes, embedded credits and source records are in
+`assets/midiphoria/collection.json` and `SOURCE.md`.
+Creator tracks by Umplix, Alex McCulloch and Komiku retain their CC0 credits in
+`assets/midiphoria/GENRE-SOURCES.md`. Original demos and experimental studies
+retain reproducible generators and credits in `genre-demos/` and
+`experimental/`; they are not transcriptions of existing artists’ songs.
+
 ## I/O setup synthesized voice
 
 The original `assets/audio/midi-received.wav` announcement was generated with
@@ -638,3 +668,17 @@ It is synthesized locally from the editable score; it is not a bundled song.
 Notices and exact source/model hashes are in `vendor/sinsy/`; rebuild code and
 native API forwarding changes are in `scripts/vendor/sinsy/`.
 Official source: <https://sinsy.sourceforge.net/>.
+
+## Midiphoria black MIDI and full orchestra collections
+
+BLEEDING EDGE MONOTONE's complete Black-MIDI-Archive (35 MIDI files, 19 works)
+and its 16 creator AUDIO editions are CC0 1.0. The nine rin-w geometric MIDI
+patterns use the repository's public-use/modification contribution terms.
+Original bytes, credit requests, exact license/README and hashes are retained;
+see [black MIDI sources](../assets/midiphoria/BLACK-MIDI-SOURCES.md).
+
+The complete Eroica score MIDIs prepared by Jay Anderson are CC BY-SA 3.0.
+J.F. Lucarelli's Dvořák 7 edition is expressly Public Domain at Mutopia.
+TheOuterLinux's Night on Bald Mountain conversion is CC0 1.0. Source links and
+license texts accompany [orchestral sources](../assets/midiphoria/ORCHESTRAL-SOURCES.md).
+Copyrighted private-use Carlos and Mahler downloads are excluded from runtime assets.

@@ -1681,6 +1681,16 @@
       },
       "note": "One tap interval sets the 4–40 second duration of a full regime sweep; pitch and base rhythm tempo retain their values.",
       "source": "src/instruments/bifurcator/model.js"
+    },
+    {
+      "route": "midiphoria",
+      "selector": "#playbackRate",
+      "mapping": {
+        "unit": "multiplier",
+        "referenceBpm": 120
+      },
+      "note": "MIDI playback speed: 120 BPM is normal 1×.",
+      "source": "src/pages/midiphoria.html"
     }
   ],
   "ambiguous": [

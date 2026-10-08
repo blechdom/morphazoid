@@ -1,0 +1,17 @@
+{
+  "id": "timgm6mb",
+  "title": "TimGM6mb",
+  "file": "soundfont/TimGM6mb.sf2",
+  "version": "MuseScore 1.3 / Debian source timgm6mb-soundfont 1.3-5",
+  "bytes": 5969788,
+  "sha256": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854",
+  "license": "GPL-2.0-only",
+  "licenseFile": "soundfont/GPL-2.0.txt",
+  "copyrightFile": "soundfont/COPYRIGHT.txt",
+  "attribution": "TimGM6mb SoundFont. Copyright 2004 Tim Brechbill and 2010 David Bolton. GNU GPL version 2. Unmodified.",
+  "sourceUrl": "https://packages.debian.org/trixie/timgm6mb-soundfont",
+  "downloadUrl": "https://deb.debian.org/debian/pool/main/t/timgm6mb-soundfont/timgm6mb-soundfont_1.3.orig.tar.gz",
+  "archiveMember": "timgm6mb-soundfont_1.3/TimGM6mb.sf2",
+  "upstreamSourceUrl": "https://github.com/musescore/musescore-old/commit/90c33ef9d87b3f5ff92efd3b07d89eb455fb1fef",
+  "copyrightUrl": "https://metadata.ftp-master.debian.org/changelogs/main/t/timgm6mb-soundfont/timgm6mb-soundfont_1.3-5_copyright"
+}

@@ -23,7 +23,7 @@ are visible.
   visible control or transport changes already made, but receive no new MIDI.
 - Enabled state is never restored automatically after navigation. Controller
   profile choice is persisted.
-- The toolbar stays hidden until the page registers a MIDI client. The seven
+- The toolbar stays hidden until the page registers a MIDI client. The
   native clients and the catalog-wide universal client are mutually exclusive
   in the normal browser build.
 
@@ -211,6 +211,11 @@ reuses the same control conversion helpers while adding host routing and PPQ.
 
 ## Current instrument clients
 
+- Midiphoria: notes, velocity and CC drive color, masks and note trails. Its
+  visual envelopes use the shared MIDI input and computer keys without starting
+  Web Audio or advertising a WAX instrument or MIDI output. Its independent MIDI
+  file player and on-screen piano pads start SoundFont audio only after the
+  explicit Audio button. Incoming MIDI continues to drive visuals only.
 - Chaotic FM: macros Carrier, Offset, Amount, Nonlinearity, Attack, Release,
   Glide, Output.
 - Recursive FM: macros Carrier, Offset, Modulation, Divisor, Attack, Release,
@@ -227,6 +232,6 @@ reuses the same control conversion helpers while adding host routing and PPQ.
   Roundness, Stretch, Skew, Playhead speed, Rotation, active Sound character,
   Stereo width. Pad slots select sound/playhead modes and performance commands.
 
-Those seven pages are native clients. The remaining catalog pages use the
+These pages are native clients. The remaining catalog pages use the
 universal mapping until an exact adapter replaces it without adding another
 permission button.

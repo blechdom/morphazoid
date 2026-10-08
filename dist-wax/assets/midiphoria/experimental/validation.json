@@ -1,0 +1,38 @@
+{
+  "parser": "SpessaSynth Core 4.3.22",
+  "files": [
+    {
+      "file": "midi/ratio-canon-345.mid",
+      "format": 1,
+      "tracks": 5,
+      "ppqn": 960,
+      "durationSeconds": 55,
+      "parsedEvents": 1312,
+      "noteOns": 626,
+      "maximumScorePolyphony": 9,
+      "danglingNotes": 0
+    },
+    {
+      "file": "midi/mirror-spiral.mid",
+      "format": 1,
+      "tracks": 5,
+      "ppqn": 960,
+      "durationSeconds": 56,
+      "parsedEvents": 2248,
+      "noteOns": 1094,
+      "maximumScorePolyphony": 6,
+      "danglingNotes": 0
+    },
+    {
+      "file": "midi/black-lattice.mid",
+      "format": 1,
+      "tracks": 9,
+      "ppqn": 960,
+      "durationSeconds": 55,
+      "parsedEvents": 19798,
+      "noteOns": 9845,
+      "maximumScorePolyphony": 32,
+      "danglingNotes": 0
+    }
+  ]
+}

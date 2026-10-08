@@ -86,6 +86,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Lissajous Orbits](../lissajous-orbits.html) | `#lissajousRate` |
 | [Loopini · Morphazoid](../loopini.html) | `#speed` |
 | [Lumber Loops](../lumber.html) | `#delayRotationSpeed` |
+| [Midiphoria](../midiphoria.html) | `#playbackRate` |
 | [Alpha-Beta Minimax](../minimax.html) | `#tempo` |
 | [Möbius](../moebius-synth.html) | `#rotationSpeed`, `#speed` |
 | [Fabric Filter](../moire-drone.html) | `#propagationSpeed` |
