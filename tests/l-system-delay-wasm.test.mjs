@@ -104,6 +104,7 @@ test('published Rust delay binary has no native or JavaScript DSP imports', () =
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const exports = new Set(WebAssembly.Module.exports(module).map(record => record.name));
   for (const name of ['memory', 'lsd_compile', 'lsd_install', 'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized',
+    'lsd_install_time_fold', 'lsd_time_fold', 'lsd_time_fold_value', 'lsd_time_fold_target',
     'lsd_depth', 'lsd_process', 'lsd_observe', 'lsd_observe_maintenance', 'lsd_drop', 'lsd_collect_retired',
     'lsd_envelope_ptr', 'lsd_taps_ptr', 'lsd_metrics_ptr']) assert.ok(exports.has(name), name);
 });
@@ -402,7 +403,8 @@ async function withRecoveryWorklet(run, options = {}) {
     const compiler = renderer();
     try {
       const { pool } = compiler.compile({ generations: 1, intervalMs: 10, timeRatio: 1, pitchScale: 0 });
-      processor.port.onmessage({ data: { id: 1, type: 'install', pool: pool.buffer } });
+      processor.port.onmessage({ data: { id: 1, type: 'install', pool: pool.buffer,
+        baseIntervalMs: 10, intervalMs: 10, liveFold: false } });
       assert.equal(messages.find(message => message.id === 1)?.error, undefined);
     } finally { compiler.dispose(); }
     processor.port.onmessage({ data: { id: 2, type: 'performance', performance: {
@@ -472,6 +474,59 @@ test('worklet pairs the Rust sample clock with the end of the rendered audio qua
     globalThis.currentTime += .2;
     assert.equal(processor.snapshot().audioTimeSeconds, at, 'a delayed read retains the timestamp of the rendered samples');
   });
+});
+
+test('actual worklet live Time fold uses scalar ACKs and retains latest timing across staged base adoption', async () => {
+  const compiler = renderer();
+  try {
+    const { pool } = compiler.compile({ generations: 10, intervalMs: 20, timeRatio: 1, pitchScale: 0 });
+    await withRecoveryWorklet(({ processor, messages, left, right, render }) => {
+      processor.port.onmessage({ data: { id: 10, type: 'performance', performance: {
+        ...DEFAULT_PERFORMANCE, automatic: false, source: 'mic', inputGain: 1, level: .5,
+        wet: 1, dry: 0, mastering: TRANSPARENT,
+      } } });
+      for (let block = 0; block < 100; block++) assert.equal(render(), true);
+      const before = processor.snapshot(), memory = processor.api.memory.buffer.byteLength;
+      for (const [index, intervalMs] of [.05, .075, 73, 2, 10].entries()) {
+        const id = 20 + index;
+        processor.port.onmessage({ data: { id, type: 'time-fold', intervalMs } });
+        const ack = messages.find(message => message.id === id);
+        assert.deepEqual(Object.keys(ack).sort(),
+          ['id', 'processedBlocks', 'timeFoldMs', 'timeFoldTargetMs', 'topologyRevision'].sort(),
+          'live gestures copy no waveform, active lists or envelopes');
+        assert.equal(ack.timeFoldTargetMs, intervalMs);
+        assert.ok(Number.isFinite(ack.timeFoldMs));
+        assert.equal(ack.topologyRevision, before.topologyRevision);
+        for (let block = 0; block < 40; block++) {
+          assert.equal(render(), true);
+          assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+        }
+        assert.equal(processor.pendingInstall, null);
+        assert.equal(processor.api.memory.buffer.byteLength, memory, 'scalar timing allocates no additional WASM memory');
+        assert.deepEqual([...processor.snapshot().activeVoiceIndices], [...before.activeVoiceIndices]);
+      }
+      assert.equal(processor.snapshot().topologyRevision, before.topologyRevision);
+      assert.ok(rms(left) > 1e-4, 'wet-only output remains audible after the live sweep');
+
+      const staged = pool.slice(); new DataView(staged.buffer).setUint32(16, 77, true);
+      processor.port.onmessage({ data: { id: 30, type: 'install', pool: staged.buffer,
+        baseIntervalMs: 20, intervalMs: 10, liveFold: true } });
+      assert.ok(processor.pendingInstall, 'the structural update is staged while the previous pool remains live');
+      assert.equal(render(), true);
+      processor.port.onmessage({ data: { id: 31, type: 'time-fold', intervalMs: .075 } });
+      assert.equal(messages.find(message => message.id === 31)?.timeFoldTargetMs, .075);
+      let blocks = 0;
+      while (processor.pendingInstall && blocks++ < 100) assert.equal(render(), true);
+      assert.equal(processor.pendingInstall, null);
+      const acknowledged = messages.find(message => message.id === 30).status;
+      assert.equal(acknowledged.topologyRevision, 77);
+      assert.equal(acknowledged.timeFoldTargetMs, .075, 'the staged pool preserves a gesture newer than its initial payload');
+      for (let block = 0; block < 200; block++) assert.equal(render(), true);
+      assert.ok(Math.abs(processor.snapshot().timeFoldMs - .075) < 1e-4);
+      assert.ok(rms(left) > 1e-4);
+      assert.equal(messages.filter(message => message.type === 'failure').length, 0);
+    });
+  } finally { compiler.dispose(); }
 });
 
 test('staged worklet installs keep the old pool live, reject late faults atomically and retain concurrent controls', async () => {

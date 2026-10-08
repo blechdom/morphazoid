@@ -71,6 +71,8 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.api.lsd_metrics_ptr(this.engine);
     for (let i = 0; i < METRICS.length; i++) status[METRICS[i]] = this.metrics[i];
     status.audioTimeSeconds = this.audioTimeSeconds;
+    status.timeFoldMs = this.api.lsd_time_fold_value(this.engine);
+    status.timeFoldTargetMs = this.api.lsd_time_fold_target(this.engine);
     // This synchronous read/copy shares the scalar metrics' DSP state. Rust
     // exposes only its actual processing list, never inactive prepared slots.
     const activeCount = this.api.lsd_active_indices_count(this.engine);
@@ -111,6 +113,9 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     } else if (data.type === 'depth') {
       const accepted = this.api.lsd_depth(this.engine, data.depth);
       if (!accepted) throw new Error(wasmError(this.api, 'Recursion could not be updated.'));
+    } else if (data.type === 'time-fold') {
+      const accepted = this.api.lsd_time_fold(this.engine, data.intervalMs);
+      if (!accepted) throw new Error(wasmError(this.api, 'Time fold could not be updated.'));
     } else if (data.type === 'performance') {
       let accepted;
       try {
@@ -128,6 +133,9 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Acknowledge them without allocating another complete meter/history copy
     // on the audio thread. Status polling publishes the coherent audio frame.
     if (data.type === 'status') this.postStatus(data.id);
+    else if (data.type === 'time-fold') this.port.postMessage({ id: data.id,
+      timeFoldMs: this.api.lsd_time_fold_value(this.engine), timeFoldTargetMs: this.api.lsd_time_fold_target(this.engine),
+      topologyRevision: this.metrics[16], processedBlocks: this.metrics[23] });
     else this.port.postMessage({ id: data.id });
   }
 
@@ -146,6 +154,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         .set(bytes.subarray(0, this.pendingInstall.copied));
       if (!this.api.lsd_install_begin(this.engine, pointer, bytes.length)) {
         throw new Error(wasmError(this.api, 'The audio topology could not be prepared.'));
+      }
+      if (Number.isFinite(data.baseIntervalMs) && Number.isFinite(data.intervalMs)
+        && !this.api.lsd_install_time_fold(this.engine, data.baseIntervalMs, data.intervalMs, Number(Boolean(data.liveFold)))) {
+        throw new Error(wasmError(this.api, 'The delay timing could not be prepared.'));
       }
     } catch (error) {
       if (error instanceof WebAssembly.RuntimeError) { trapped = true; throw error; }

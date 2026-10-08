@@ -341,6 +341,11 @@ struct StagedInstall {
     normalization: f64,
     depth_controls: bool,
     depth_override: Option<f64>,
+    fold_base_ms: Option<f64>,
+    fold_interval_ms: Option<f64>,
+    fold_override: bool,
+    eligible_delay_maximum: f64,
+    excluded_delay_minimum: f64,
     controls: PreparedPoolControls,
     growth: Option<PreparedPool>,
 }
@@ -361,6 +366,10 @@ pub struct Renderer {
     structural_group_counts: [usize; 256],
     depth_controls: bool,
     live_depth: Option<f64>,
+    fold_base_ms: Option<f64>,
+    fold_interval_ms: f64,
+    eligible_delay_maximum: f64,
+    excluded_delay_minimum: f64,
     pending_install: Option<StagedInstall>,
     spare_controls: Option<PreparedPoolControls>,
     retired_pools: VecDeque<PreparedPool>,
@@ -418,6 +427,10 @@ impl Renderer {
             structural_group_counts: [0; 256],
             depth_controls: false,
             live_depth: None,
+            fold_base_ms: None,
+            fold_interval_ms: 0.,
+            eligible_delay_maximum: 0.,
+            excluded_delay_minimum: f64::INFINITY,
             pending_install: None,
             spare_controls: None,
             retired_pools: VecDeque::new(),
@@ -522,6 +535,59 @@ impl Renderer {
         Ok(())
     }
 
+    fn validate_fold(interval_ms: f64) -> Result<(), String> {
+        if !interval_ms.is_finite() || !(0.05..=3000.).contains(&interval_ms) {
+            return Err("Time fold is outside its supported range".into());
+        }
+        Ok(())
+    }
+
+    fn unchanged_fold_eligibility(maximum: f64, minimum: f64, scale: f64) -> bool {
+        maximum * scale <= 39. + 1e-9 && minimum * scale > 39. + 1e-9
+    }
+
+    fn set_time_fold(&mut self, interval_ms: f64) -> Result<(), String> {
+        Self::validate_fold(interval_ms)?;
+        let base = self
+            .fold_base_ms
+            .ok_or("This pool requires a complete timing update")?;
+        let scale = interval_ms / base;
+        if !Self::unchanged_fold_eligibility(
+            self.eligible_delay_maximum,
+            self.excluded_delay_minimum,
+            scale,
+        ) {
+            return Err("Time fold requires updated history eligibility".into());
+        }
+        self.engine.set_time_fold_scale(scale)?;
+        self.fold_interval_ms = interval_ms;
+        if let Some(pending) = &mut self.pending_install {
+            if pending.fold_base_ms.is_some() {
+                pending.fold_interval_ms = Some(interval_ms);
+                pending.fold_override = true;
+            }
+        }
+        Ok(())
+    }
+
+    fn configure_install_time_fold(
+        &mut self,
+        base_ms: f64,
+        interval_ms: f64,
+        live: bool,
+    ) -> Result<(), String> {
+        Self::validate_fold(base_ms)?;
+        Self::validate_fold(interval_ms)?;
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        pending.fold_base_ms = Some(base_ms);
+        pending.fold_interval_ms = Some(interval_ms);
+        pending.fold_override = live || interval_ms != base_ms;
+        Ok(())
+    }
+
     /// The caller retains this byte allocation until commit, rejection or abort.
     /// Reserve numeric storage once; validation and voice construction then run
     /// in bounded batches while the old recording and scene continue rendering.
@@ -586,6 +652,11 @@ impl Renderer {
             normalization,
             depth_controls: read_u32(header, 4) == 2,
             depth_override: None,
+            fold_base_ms: None,
+            fold_interval_ms: None,
+            fold_override: false,
+            eligible_delay_maximum: 0.,
+            excluded_delay_minimum: f64::INFINITY,
             controls,
             growth,
         };
@@ -639,6 +710,11 @@ impl Renderer {
                 return Err("Invalid delay target".into());
             }
             pending.available += usize::from(target.gain > 0.);
+            if target.delay <= 39. + 1e-9 {
+                pending.eligible_delay_maximum = pending.eligible_delay_maximum.max(target.delay);
+            } else {
+                pending.excluded_delay_minimum = pending.excluded_delay_minimum.min(target.delay);
+            }
             let seed = read_u32(bytes, base + 36);
             pending.controls.push(
                 target,
@@ -659,6 +735,17 @@ impl Renderer {
         if end < pending.count {
             self.pending_install = Some(pending);
             return Ok(false);
+        }
+        if let (Some(base), Some(interval)) = (pending.fold_base_ms, pending.fold_interval_ms) {
+            if !Self::unchanged_fold_eligibility(
+                pending.eligible_delay_maximum,
+                pending.excluded_delay_minimum,
+                interval / base,
+            ) {
+                self.engine.abort_numeric_growth();
+                self.spare_controls = Some(pending.controls);
+                return Err("Time fold requires updated history eligibility".into());
+            }
         }
         if let Some(mut growth) = pending.growth {
             self.engine.commit_numeric_growth(&mut growth);
@@ -695,10 +782,22 @@ impl Renderer {
         self.target_normalization = self
             .live_depth
             .map_or(pending.normalization, depth_normalization);
-        self.spare_controls = Some(
+        if let (Some(old_base), Some(new_base)) = (self.fold_base_ms, pending.fold_base_ms) {
+            self.engine.rebase_time_fold_scale(old_base / new_base)?;
+        }
+        self.spare_controls = Some(self.engine.install_prepared_pool_controls_live(
+            pending.controls,
+            self.current_limit(),
+            pending.fold_override,
+        ));
+        self.fold_base_ms = pending.fold_base_ms;
+        self.fold_interval_ms = pending.fold_interval_ms.unwrap_or(0.);
+        self.eligible_delay_maximum = pending.eligible_delay_maximum;
+        self.excluded_delay_minimum = pending.excluded_delay_minimum;
+        if pending.fold_override {
             self.engine
-                .install_prepared_pool_controls(pending.controls, self.current_limit()),
-        );
+                .set_time_fold_scale(self.fold_interval_ms / self.fold_base_ms.unwrap())?;
+        }
         if let Some(gains) = override_gains {
             self.engine
                 .update_pool_group_gains(&gains, self.current_limit());
@@ -1061,6 +1160,57 @@ pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
     if !handle.is_null() {
         (*handle).abort_install();
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_time_fold(
+    handle: *mut Renderer,
+    base_ms: f64,
+    interval_ms: f64,
+    live: u32,
+) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).configure_install_time_fold(base_ms, interval_ms, live != 0) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold(handle: *mut Renderer, interval_ms: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).set_time_fold(interval_ms) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold_value(handle: *const Renderer) -> f64 {
+    if handle.is_null() {
+        return 0.;
+    }
+    (*handle)
+        .fold_base_ms
+        .map_or(0., |base| base * (*handle).engine.time_fold_scale())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold_target(handle: *const Renderer) -> f64 {
+    if handle.is_null() {
+        return 0.;
+    }
+    (*handle).fold_interval_ms
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slots: usize) -> usize {
@@ -1710,6 +1860,131 @@ mod browser_tests {
             assert!(live.pending_install.is_none());
             assert!(live.spare_controls.is_some());
         }
+    }
+
+    #[test]
+    fn scalar_time_fold_keeps_pool_history_admission_and_allocations_through_live_reversals() {
+        let compiled = scene(7);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.set_performance(Performance {
+            automatic: false,
+            voice_ceiling: 0,
+            ..Performance::default()
+        })
+        .unwrap();
+        live.begin_install(&compiled.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        let revision = live.revision;
+        let admitted = live.engine.target_voice_count();
+        let retained = live.engine.allocated_bytes();
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        for block in 0..40 {
+            live.process(&signal(block * BLOCK), None, &mut left, &mut right);
+        }
+        let before = live.frames;
+        for interval in [0.05, 0.075, 2., 73., 2.] {
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let updated = live.set_time_fold(interval);
+            for block in 0..40 {
+                live.process(
+                    &signal((before as usize) + block * BLOCK),
+                    None,
+                    &mut left,
+                    &mut right,
+                );
+            }
+            TRACK.with(|n| n.set(false));
+            updated.unwrap();
+            assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+            assert_eq!(FREES.with(Cell::get), 0);
+            assert_eq!(live.fold_interval_ms, interval);
+            assert_eq!(live.revision, revision);
+            assert_eq!(live.engine.target_voice_count(), admitted);
+            assert_eq!(live.engine.allocated_bytes(), retained);
+            assert!(left.iter().chain(&right).all(|sample| sample.is_finite()));
+            assert!(left.iter().chain(&right).any(|sample| sample.abs() > 1e-5));
+        }
+        assert_eq!(live.frames, before + 5 * 40 * BLOCK as u64);
+        assert!((unsafe { lsd_time_fold_value(&live) } - 2.).abs() < 0.001);
+    }
+
+    #[test]
+    fn latest_live_fold_survives_staging_rebase_and_abort_but_complete_presets_own_their_fold() {
+        let first = scene(6);
+        let second = scene(8);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        live.set_time_fold(73.).unwrap();
+        live.begin_install(&second.pool).unwrap();
+        live.configure_install_time_fold(2., 73., true).unwrap();
+        assert!(!live.step_install(73).unwrap());
+        live.set_time_fold(0.075).unwrap();
+        live.set_depth(0.9).unwrap();
+        while !live.step_install(73).unwrap() {}
+        assert_eq!(live.fold_interval_ms, 0.075);
+        assert_eq!(live.fold_base_ms, Some(2.));
+        assert_eq!(live.live_depth, Some(0.9));
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 0.05, true).unwrap();
+        assert!(!live.step_install(73).unwrap());
+        live.abort_install();
+        assert_eq!(live.fold_interval_ms, 0.075);
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        assert_eq!(live.fold_interval_ms, 2.);
+        assert_eq!(live.engine.time_fold_scale(), 1.);
+    }
+
+    #[test]
+    fn live_fold_eligibility_guard_uses_raw_prepared_delays_even_at_zero_depth() {
+        let mut pool = vec![0u8; HEADER + 2 * RECORD];
+        pool[0..4].copy_from_slice(&MAGIC.to_le_bytes());
+        pool[4..8].copy_from_slice(&2u32.to_le_bytes());
+        pool[8..12].copy_from_slice(&2u32.to_le_bytes());
+        pool[12..16].copy_from_slice(&1u32.to_le_bytes());
+        pool[24..32].copy_from_slice(&1f64.to_le_bytes());
+        for (index, delay) in [38f64, 80.].into_iter().enumerate() {
+            let base = HEADER + index * RECORD;
+            pool[base..base + 8].copy_from_slice(&delay.to_le_bytes());
+            pool[base + 8..base + 16].copy_from_slice(&1f64.to_le_bytes());
+            pool[base + 16..base + 24]
+                .copy_from_slice(&(if index == 0 { 0.5f64 } else { 0. }).to_le_bytes());
+            pool[base + 32..base + 36]
+                .copy_from_slice(&(if index == 0 { 0u32 } else { u32::MAX }).to_le_bytes());
+            pool[base + 40..base + 44].copy_from_slice(&1u32.to_le_bytes());
+        }
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.begin_install(&pool).unwrap();
+        live.configure_install_time_fold(240., 240., false).unwrap();
+        while !live.step_install(1).unwrap() {}
+        live.set_depth(0.).unwrap();
+        live.set_time_fold(200.).unwrap();
+        assert_eq!(live.engine.target_voice_count(), 0);
+        assert!(
+            live.set_time_fold(300.).is_err(),
+            "a prepared eligible slot would exceed history"
+        );
+        assert!(
+            live.set_time_fold(50.).is_err(),
+            "an excluded prepared slot would become eligible"
+        );
+        assert_eq!(live.fold_interval_ms, 200.);
+        live.begin_install(&pool).unwrap();
+        live.configure_install_time_fold(240., 50., true).unwrap();
+        assert!(!live.step_install(1).unwrap());
+        assert!(
+            live.step_install(1).is_err(),
+            "late invalid timing rejects before atomic adoption"
+        );
+        assert_eq!(live.fold_interval_ms, 200.);
+        assert!(live.pending_install.is_none());
     }
 
     #[test]

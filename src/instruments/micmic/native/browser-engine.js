@@ -24,6 +24,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let parameters = sanitizeParameters(initialParameters), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
   let parameterRequestRevision = 0, depthRevision = 0, requestedDepth = parameters.depth;
+  let foldRevision = 0, requestedFold = parameters.intervalMs, requestedFoldLive = false, requestedParameters = { ...parameters };
+  let poolBaseIntervalMs = parameters.intervalMs, poolTiming, installingTiming;
   let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;
   let controlOperations = 0, preparationRevision = 0, controlSuspension = null, contextSuspension = null;
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
@@ -31,7 +33,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let status = emptyStatus(), sequence = 0, readyTopology;
   let deviceCapacity = null, preparedCapacity = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
   const capacityController = createPreparedCapacityController();
-  let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0;
+  let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0, foldRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
   const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
@@ -98,16 +100,42 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     const id = ++sequence;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { audioRequests.delete(id); reject(new Error('The audio engine did not respond.')); }, 15000);
-      audioRequests.set(id, { resolve, reject, timer });
+      audioRequests.set(id, { resolve, reject, timer, foldRevision: type === 'time-fold' ? foldRevision : null });
       node.port.postMessage({ id, type, ...values }, transfers);
     });
   }
 
-  function installMessage(retainedPool) {
+  function poolTimingBounds(retainedPool, baseIntervalMs) {
+    if (!retainedPool || retainedPool.byteLength < 32 || !(baseIntervalMs > 0) || !Number.isFinite(baseIntervalMs)) {
+      throw new Error('The requested topology has invalid timing metadata.');
+    }
+    const values = new DataView(retainedPool), count = values.getUint32(8, true);
+    if (values.getUint32(4, true) !== 2 || retainedPool.byteLength !== 32 + count * 48) {
+      throw new Error('The requested topology has invalid timing metadata.');
+    }
+    let eligibleMaximum = 0, excludedMinimum = Infinity;
+    for (let index = 0; index < count; index++) {
+      const delay = values.getFloat64(32 + index * 48, true);
+      if (!Number.isFinite(delay) || delay < 0) throw new Error('The requested topology has invalid timing metadata.');
+      if (delay <= 39 + 1e-9) eligibleMaximum = Math.max(eligibleMaximum, delay);
+      else excludedMinimum = Math.min(excludedMinimum, delay);
+    }
+    return { baseIntervalMs, eligibleMaximum, excludedMinimum };
+  }
+
+  function canFold(timing, intervalMs) {
+    const scale = intervalMs / timing?.baseIntervalMs;
+    return Boolean(timing && scale > 0 && Number.isFinite(scale)
+      && timing.eligibleMaximum * scale <= 39 + 1e-9
+      && timing.excludedMinimum * scale > 39 + 1e-9);
+  }
+
+  function installMessage(retainedPool, baseIntervalMs = poolBaseIntervalMs, intervalMs = requestedFold, liveFold = requestedFoldLive) {
     // Transfer delivery avoids cloning the full pool on the audio thread.
     // Keep the compiler/cache allocation attached for graph recovery.
     const audioPool = retainedPool.slice(0);
-    return audioMessage('install', { pool: audioPool, seedCapacity: deviceCapacity?.voices || 0 }, [audioPool]);
+    return audioMessage('install', { pool: audioPool, seedCapacity: deviceCapacity?.voices || 0,
+      baseIntervalMs, intervalMs, liveFold }, [audioPool]);
   }
 
   function suspendControlContext(preparedContext) {
@@ -159,19 +187,58 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
 
   async function install(compiled) {
     if (compiled.skipped) return;
+    const owner = parameterRequestRevision;
+    let timing = poolTimingBounds(compiled.pool, compiled.result.parameters.intervalMs);
+    // A newer timing gesture can change which branches fit recorded history.
+    // Compile that complete desired scene before adopting an obsolete pool.
+    while (!canFold(timing, requestedFold)) {
+      compiled = await compile({ ...compiled.result.parameters, intervalMs: requestedFold },
+        context?.sampleRate || 48000, true, compiled.voiceBudget);
+      if (disposed || owner !== parameterRequestRevision || compiled.skipped) return;
+      timing = poolTimingBounds(compiled.pool, compiled.result.parameters.intervalMs);
+    }
     capacityController.reset();
+    let appliedInterval = requestedFold;
     if (node) {
-      await withRunningControlGraph(async () => {
-        await installMessage(compiled.pool);
+      installingTiming = timing;
+      try { await withRunningControlGraph(async () => {
+        const atInstall = requestedFold;
+        const acknowledged = await installMessage(compiled.pool, timing.baseIntervalMs, atInstall);
+        appliedInterval = acknowledged?.timeFoldTargetMs || atInstall;
         // Recursion is a live coefficient. A gesture can move it while a large
         // structural pool is compiling; installing that pool must not rewind it.
         await audioMessage('depth', { depth: requestedDepth });
-      });
+        if (canFold(timing, requestedFold)) appliedInterval = requestedFold;
+      }); } finally { if (installingTiming === timing) installingTiming = null; }
     }
     deviceCapacity = compiled.calibration;
     preparedCapacity = compiled.voiceBudget;
-    parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth }; topology = compiled.result;
+    parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth, intervalMs: appliedInterval }; topology = compiled.result;
     pool = compiled.pool; module = compiled.module; topologyRevision = compiled.revision;
+    poolBaseIntervalMs = timing.baseIntervalMs; poolTiming = timing;
+  }
+
+  async function setTimeFold(intervalMs) {
+    const interval = sanitizeParameters({ ...parameters, intervalMs }).intervalMs;
+    if (!failure && !foldRequestsPending && interval === parameters.intervalMs && interval === requestedFold) return snapshot();
+    const revision = ++foldRevision; requestedFold = interval; requestedFoldLive = true;
+    requestedParameters = { ...requestedParameters, intervalMs: interval };
+    capacityController.reset();
+    foldRequestsPending++;
+    try {
+      if (!canFold(poolTiming, interval) || installingTiming && !canFold(installingTiming, interval)) {
+        return await request('/api/parameters', { ...requestedParameters, depth: requestedDepth, intervalMs: interval, liveTimeFold: true });
+      }
+      if (node && controlsReady) await audioMessage('time-fold', { intervalMs: interval });
+      if (revision === foldRevision) { parameters = { ...parameters, intervalMs: interval }; failure = null; }
+      return snapshot();
+    } catch (error) {
+      if (revision === foldRevision) {
+        requestedFold = parameters.intervalMs;
+        requestedParameters = { ...requestedParameters, intervalMs: requestedFold };
+      }
+      throw error;
+    } finally { foldRequestsPending--; }
   }
 
   function ensureTopology() {
@@ -233,6 +300,13 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
           else {
             const received = normalizeAudioStatus(data.status);
             if (received) status = received;
+            else if (pending.foldRevision === foldRevision && data.topologyRevision === status.topologyRevision
+              && data.processedBlocks >= (status.processedBlocks || 0) && Number.isFinite(data.timeFoldMs)
+              && Number.isFinite(data.timeFoldTargetMs)) {
+              // Scalar ACKs publish current timing without copying the waveform
+              // or meters. An older gesture or audio frame cannot rewind them.
+              status = { ...status, timeFoldMs: data.timeFoldMs, timeFoldTargetMs: data.timeFoldTargetMs };
+            }
             pending.resolve(received);
           }
         };
@@ -242,13 +316,17 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
         // compiling before the worklet's ready message reaches this thread;
         // all subsequent installations must follow this one in port order.
         await withRunningControlGraph(async () => {
-          const initialInstall = installMessage(pool);
+          const initialInterval = requestedFold;
+          const initialInstall = installMessage(pool, poolBaseIntervalMs, initialInterval);
           initialInstall.catch(() => {});
           await ready; assertOpen();
           await initialInstall; assertOpen();
           // Later performance edits must reach the worklet even while its first
           // performance message is awaiting acknowledgement.
           controlsReady = true;
+          if (canFold(poolTiming, requestedFold) && requestedFold !== initialInterval) {
+            await audioMessage('time-fold', { intervalMs: requestedFold });
+          }
           await audioMessage('depth', { depth: requestedDepth });
           await audioMessage('performance', { performance: performanceState });
         });
@@ -391,7 +469,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       requestedVoicesExact: topology?.requestedVoicesExact ?? true,
       requestedVoicesDecimal: topology?.requestedVoicesDecimal ?? String(topology?.requestedVoices || 0),
       preparedVoices: topology?.preparedVoices ?? topology?.requestedVoices ?? 0,
-      effectiveParameters: { ...sanitizeParameters(topology?.effectiveParameters ?? parameters), depth: requestedDepth },
+      effectiveParameters: { ...sanitizeParameters(topology?.effectiveParameters ?? parameters), depth: requestedDepth, intervalMs: parameters.intervalMs },
+      timeFoldBaseIntervalMs: poolBaseIntervalMs, timeFoldScale: parameters.intervalMs / poolBaseIntervalMs,
       deviceCapacity: deviceCapacity ? { ...deviceCapacity, preparedCapacity } : null,
       eligibleVoices: parameters.depth > 0 ? (topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0) : 0,
       memoryVoiceCapacity: topology?.memoryVoiceCapacity || Number.MAX_SAFE_INTEGER,
@@ -413,7 +492,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // The request token advances before its new scene commits. During that
     // interval parameters still describes the old tree; pairing it with the
     // new token would let a queued capacity probe restore the previous preset.
-    const settled = audio && !starting && !parameterRequestsPending && !capacityWorking && time >= capacityRetryAt;
+    const settled = audio && !starting && !parameterRequestsPending && !foldRequestsPending && !capacityWorking && time >= capacityRetryAt;
     const next = Math.min(capacityController.observe({ nowSeconds: time, current: preparedCapacity,
       requested: topology?.requestedVoices || 0, status, topologyRevision,
       eligibleVoices: parameters.depth > 0 ? topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0 : 0,
@@ -460,6 +539,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     await ensureTopology(); assertOpen();
     if (path === '/api/state' || path === '/api/preview') return snapshot(true);
     if (path === '/api/status') return refresh();
+    if (path === '/api/time-fold') return setTimeFold(body?.intervalMs);
     if (path === '/api/depth') {
       const depth = sanitizeParameters({ ...parameters, depth: body?.depth }).depth;
       // A knob's release can repeat its final acknowledged input. Pending
@@ -467,6 +547,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       if (!failure && !depthRequestsPending && depth === parameters.depth && depth === requestedDepth) return snapshot();
       capacityController.reset();
       const revision = ++depthRevision; requestedDepth = depth;
+      requestedParameters = { ...requestedParameters, depth };
       depthRequestsPending++;
       try {
         if (node && controlsReady) await audioMessage('depth', { depth });
@@ -476,9 +557,14 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     }
     if (path === '/api/parameters' || path === '/api/reset') {
       const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
-      if (!failure && !parameterRequestsPending && !depthRequestsPending && next.depth === requestedDepth
+      if (!failure && !parameterRequestsPending && !depthRequestsPending && !foldRequestsPending
+        && next.depth === requestedDepth && next.intervalMs === requestedFold
         && JSON.stringify(next) === JSON.stringify(parameters)) return snapshot();
       capacityController.reset();
+      // An eligibility fallback belongs to the live gesture that initiated it.
+      // Preserve its revision so a rejected compile can restore the last ACK.
+      if (!body?.liveTimeFold) ++foldRevision;
+      requestedFold = next.intervalMs; requestedFoldLive = Boolean(body?.liveTimeFold); requestedParameters = next;
       const revision = ++parameterRequestRevision;
       parameterRequestsPending++;
       ++depthRevision; requestedDepth = next.depth;
