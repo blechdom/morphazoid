@@ -288,7 +288,7 @@ test("global tempo is independent of animal and gait and one cycle equals one be
       assert.equal(createQuadrupedState(animal.id, behavior.id).tempoBpm, QUADRUPED_DEFAULT_TEMPO_BPM);
     }
   }
-  for (const cadence of [42, 72, 138, 196]) {
+  for (const cadence of [25, 42, 72, 138, 196, 500]) {
     const state = sanitizeQuadrupedState({ ...createQuadrupedState("cat", "run-leap"), tempoBpm: cadence });
     assert.equal(quadrupedStepDurationSeconds(state), 60 / cadence / QUADRUPED_STEP_COUNT);
     assert.equal(quadrupedStepDurationSeconds(state) * QUADRUPED_STEP_COUNT, 60 / cadence);

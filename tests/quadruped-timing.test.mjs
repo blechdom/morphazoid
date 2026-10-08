@@ -1,13 +1,13 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
-  QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS, QUADRUPED_PACE_RATIOS,
+  QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS, QUADRUPED_PACE_RATIOS, QUADRUPED_LIMITS,
   createQuadrupedState, applyQuadrupedAnimal, applyQuadrupedBehavior,
   quadrupedScoreTiming, quadrupedClockAtPosition, quadrupedPositionAtClock,
   quadrupedStepDurationSeconds, quadrupedSupportSnapshot, quadrupedFootCycleState,
   quadrupedFlightTrajectory, deriveQuadrupedPose, sanitizeQuadrupedState,
 } from "../src/instruments/quadruped/quadruped.js";
-import { createQuadrupedMotorState, advanceQuadrupedMotor, synchronizeQuadrupedMotorTempo } from "../src/instruments/quadruped/quadruped-motor.js";
+import { createQuadrupedMotorState, advanceQuadrupedMotor, synchronizeQuadrupedMotorTempo, quadrupedMotorSnapshot, predictQuadrupedMotor } from "../src/instruments/quadruped/quadruped-motor.js";
 
 const near = (a, b, tolerance = 1e-7) => assert.ok(Math.abs(a - b) < tolerance, `${a} != ${b}`);
 
@@ -35,6 +35,63 @@ test("½×, 1×, 2×, and 3× are exact ratios independent of the animal", () =>
       near(result.motor.velocity, 32 * paceRatio);
       assert.equal(result.events.length, Math.floor(16 * paceRatio));
     }
+  }
+});
+
+test("25–500 BPM keeps the requested cadence and snapshot velocity at every pace", () => {
+  for (const tempoBpm of [25, 500]) {
+    for (const paceRatio of QUADRUPED_PACE_RATIOS) {
+      const state = sanitizeQuadrupedState({ ...createQuadrupedState("horse", "walk"), tempoBpm, paceRatio });
+      assert.equal(state.tempoBpm, tempoBpm);
+      const result = advanceQuadrupedMotor(state, createQuadrupedMotorState(state), 0.125);
+      const snapshot = quadrupedMotorSnapshot(state, result.motor);
+      const velocity = tempoBpm * 16 / 60 * paceRatio;
+      near(result.motor.position, velocity * 0.125);
+      near(result.motor.velocity, velocity);
+      near(snapshot.velocity, velocity);
+      near(quadrupedStepDurationSeconds(state), 1 / velocity);
+      assert.equal(result.droppedEvents, 0);
+      assert.equal(result.droppedTransitions, 0);
+    }
+  }
+  const base = createQuadrupedState();
+  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 1 }).tempoBpm, 25);
+  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 999 }).tempoBpm, 500);
+});
+
+test("retiming between 25 and 500 BPM at triple pace preserves phase and every crossing", () => {
+  let state = { ...createQuadrupedState("horse", "walk"), tempoBpm: 25, paceRatio: 3 };
+  let motor = synchronizeQuadrupedMotorTempo(state, createQuadrupedMotorState(state, { position: 5.25 }));
+  for (const tempoBpm of [500, 25, 500]) {
+    state = { ...state, tempoBpm };
+    const position = motor.position;
+    motor = synchronizeQuadrupedMotorTempo(state, motor);
+    near(motor.position, position);
+    near(quadrupedMotorSnapshot(state, motor).velocity, tempoBpm * 16 / 60 * 3);
+    const prediction = predictQuadrupedMotor(state, motor, QUADRUPED_LIMITS.schedulerLookaheadSeconds);
+    assert.equal(prediction.droppedEvents, 0);
+    assert.equal(prediction.droppedTransitions, 0);
+    const result = advanceQuadrupedMotor(state, motor, 0.125);
+    near(result.motor.position - position, tempoBpm * 16 / 60 * 3 * 0.125);
+    assert.deepEqual(result.events.map(({ ordinal }) => ordinal), Array.from(
+      { length: Math.floor(result.motor.position + 1e-8) - Math.floor(position) },
+      (_, index) => Math.floor(position) + index + 1,
+    ));
+    motor = result.motor;
+  }
+});
+
+test("flight duration and progress follow both extended tempo endpoints", () => {
+  for (const tempoBpm of [25, 500]) {
+    const state = { ...createQuadrupedState("cat", "leap"), tempoBpm, paceRatio: 3, suspensionBeats: 2 };
+    const position = 6;
+    const trajectory = quadrupedFlightTrajectory(state, position);
+    assert.ok(trajectory);
+    const start = quadrupedClockAtPosition(state, trajectory.start);
+    const end = quadrupedClockAtPosition(state, trajectory.end);
+    near(trajectory.duration, (end - start) / 16 * 60 / tempoBpm);
+    near(trajectory.progress, (quadrupedClockAtPosition(state, position) - start) / (end - start));
+    assert.ok(Number.isFinite(trajectory.height) && trajectory.height >= 0);
   }
 });
 

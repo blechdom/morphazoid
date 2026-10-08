@@ -1,5 +1,8 @@
 import {
   QUADRUPED_FOOT_LANES,
+  QUADRUPED_DEFAULT_TEMPO_BPM,
+  QUADRUPED_LIMITS,
+  QUADRUPED_PACE_RATIOS,
   QUADRUPED_STEP_COUNT,
   quadrupedAnimal,
   quadrupedSequenceEvent,
@@ -61,7 +64,8 @@ export const QUADRUPED_MOTOR_LIMITS = Object.freeze({
   maxAdvanceSeconds: 2,
   maxCrossingEvents: 384,
   maxTransitionEvents: 192,
-  maxVelocity: 192,
+  // Snapshots and coasting must retain the fastest allowed tempo and pace.
+  maxVelocity: QUADRUPED_LIMITS.tempoBpm[1] * QUADRUPED_STEP_COUNT / 60 / (1 / Math.max(...QUADRUPED_PACE_RATIOS)),
   maxHeight: 2,
   maxPosition: 1_000_000_000,
 });
@@ -87,7 +91,7 @@ function scoreView(score) {
   const animal = quadrupedAnimal(score?.animalId);
   const terrain = quadrupedTerrain(score?.surfaceId);
   const animalId = animal.id;
-  const tempoBpm = clamp(score?.tempoBpm, 24, 240, 72);
+  const tempoBpm = clamp(score?.tempoBpm, ...QUADRUPED_LIMITS.tempoBpm, QUADRUPED_DEFAULT_TEMPO_BPM);
   return {
     animalId,
     behaviorId: typeof score?.behaviorId === "string" ? score.behaviorId : "walk",

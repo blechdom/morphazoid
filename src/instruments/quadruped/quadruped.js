@@ -24,7 +24,7 @@ const ALL_QUADRUPED_IDS = Object.freeze([
 ]);
 
 export const QUADRUPED_LIMITS = Object.freeze({
-  tempoBpm: Object.freeze([42, 196]),
+  tempoBpm: Object.freeze([25, 500]),
   stride: Object.freeze([0.55, 1.35]),
   momentum: Object.freeze([0.5, 1.4]),
   gravity: Object.freeze([0.55, 1.55]),
@@ -940,8 +940,9 @@ export function quadrupedFlightTrajectory(state, position, support = quadrupedSu
   const start = Math.max(...feet.map((foot) => foot.previousTouchdownPosition + foot.stanceDuration));
   const end = Math.min(...feet.map((foot) => foot.nextTouchdownPosition));
   if (end <= start || position < start || position > end) return null;
-  const duration = (quadrupedClockAtPosition(state, end) - quadrupedClockAtPosition(state, start)) * 60 / (16 * clamp(state.tempoBpm, 42, 196));
-  const progress = clamp((quadrupedClockAtPosition(state, position) - quadrupedClockAtPosition(state, start)) * 60 / (16 * clamp(state.tempoBpm, 42, 196)) / Math.max(0.001, duration));
+  const secondsPerClockFrame = 60 / (QUADRUPED_STEP_COUNT * clamp(state.tempoBpm, ...QUADRUPED_LIMITS.tempoBpm));
+  const duration = (quadrupedClockAtPosition(state, end) - quadrupedClockAtPosition(state, start)) * secondsPerClockFrame;
+  const progress = clamp((quadrupedClockAtPosition(state, position) - quadrupedClockAtPosition(state, start)) * secondsPerClockFrame / Math.max(0.001, duration));
   // A bounded ballistic-shaped arc: long musical rests are intentional slow
   // motion, not a claim of real-world multi-second jumps under Earth gravity.
   const apex = Math.min(1.55, 9.8 * duration * duration / 8) / Math.sqrt(clamp(state.gravity, 0.55, 1.55));
