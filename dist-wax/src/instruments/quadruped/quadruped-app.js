@@ -41,7 +41,7 @@ import {
   synchronizeQuadrupedMotorTempo,
 } from "./quadruped-motor.js";
 import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
-import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin } from "./quadruped-visual-skins.js";
+import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedFootprint } from "./quadruped-visual-skins.js";
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
@@ -2170,14 +2170,10 @@ function headPerformanceSignals(pose, score = state) {
 
 function drawContactRipple(context, x, groundY, color, strength, scale) {
   if (strength < 0.02) return;
-  context.save();
-  context.globalAlpha = clamp(strength);
-  context.strokeStyle = color;
-  context.lineWidth = Math.max(1, scale * 0.045);
-  context.beginPath();
-  context.ellipse(x, groundY + scale * 0.02, scale * (0.12 + (1 - strength) * 0.32), scale * 0.045, 0, 0, Math.PI * 2);
-  context.stroke();
-  context.restore();
+  drawQuadrupedFootprint(context, {
+    skinId: visualSkinId, x, y: groundY + scale * 0.02, color, alpha: strength,
+    radiusX: scale * (0.12 + (1 - strength) * 0.32), radiusY: scale * 0.045, pulse: true,
+  });
 }
 
 function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, color, far, score = state) {
@@ -3064,16 +3060,13 @@ function drawScene(now) {
         const lane = laneById.get(contact.id);
         const footprintY = groundY - ((cycle.anchorWorldY ?? 0) - pose.bodyGroundHeight) * worldScale
           + stageAnimalScale * (contact.id.endsWith("left") ? 0.035 : 0.075);
-        drawing.save();
-        drawing.translate(x, footprintY);
-        drawing.globalAlpha = opacity * (0.45 + contact.intensity * 0.55);
-        drawing.fillStyle = lane.color;
-        drawing.strokeStyle = "rgba(4, 13, 11, 0.92)";
-        drawing.lineWidth = Math.max(1, stageAnimalScale * 0.012);
-        drawing.beginPath();
-        drawing.ellipse(0, 0, stageAnimalScale * (contact.id.startsWith("front") ? 0.095 : 0.11), stageAnimalScale * 0.036, -0.08, 0, Math.PI * 2);
-        drawing.fill();
-        drawing.stroke();
+        drawQuadrupedFootprint(drawing, {
+          skinId: visualSkinId, x, y: footprintY, color: lane.color, laneId: contact.id,
+          alpha: opacity * (0.45 + contact.intensity * 0.55),
+          radiusX: stageAnimalScale * (contact.id.startsWith("front") ? 0.095 : 0.11),
+          radiusY: stageAnimalScale * 0.036,
+        });
+        drawing.save(); drawing.translate(x, footprintY);
         if (age < 0.22) {
           drawing.globalAlpha = 1;
           drawing.fillStyle = "#f4fff9";
@@ -3147,17 +3140,24 @@ function drawScene(now) {
         for (const contact of quadrupedSequenceEvent(actor.score, ordinal).contacts) {
           const foot = quadrupedFootCycleState(actor.score, contact.id, ordinal);
           const x = laneWidth / 2 + (foot.anchorWorldX - localWorldX) * localWorldScale;
-          drawing.save(); drawing.globalAlpha = Math.max(0.06, 0.55 - (actor.motor.position - ordinal) / 48);
-          drawing.fillStyle = contact.color; drawing.beginPath();
-          drawing.ellipse(x, localGround - (foot.anchorWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2, localScale * 0.09, 2, 0, 0, Math.PI * 2); drawing.fill(); drawing.restore();
+          drawQuadrupedFootprint(drawing, {
+            skinId: visualSkinId, x,
+            y: localGround - (foot.anchorWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2,
+            color: contact.color, laneId: contact.id,
+            alpha: Math.max(0.06, 0.55 - (actor.motor.position - ordinal) / 48),
+            radiusX: localScale * 0.09, radiusY: 2,
+          });
         }
       }
       for (const lane of QUADRUPED_LANES) {
         const leg = actorPose.legs[lane.id];
         if (!leg.grounded) continue;
         const x = laneWidth / 2 + leg.footX * localWorldScale;
-        drawing.fillStyle = lane.color; drawing.beginPath();
-        drawing.ellipse(x, localGround - (leg.footWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2, localScale * 0.1, 2, 0, 0, Math.PI * 2); drawing.fill();
+        drawQuadrupedFootprint(drawing, {
+          skinId: visualSkinId, x,
+          y: localGround - (leg.footWorldY - actorPose.bodyGroundHeight) * localWorldScale + 2,
+          color: lane.color, laneId: lane.id, radiusX: localScale * 0.1, radiusY: 2,
+        });
       }
       drawing.save(); drawing.translate(-laneWidth * 0.3, 0);
       drawAnimal(drawing, actorPose, laneWidth * 1.6, height, localGround, actor.score);

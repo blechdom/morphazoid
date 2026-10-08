@@ -101,6 +101,13 @@ so retracing the same distance reproduces the same objects. Only the visible
 neighborhood is drawn; no growing object list, independent clock, collisions or
 new sound triggers are introduced. Terrain still follows the selected course.
 
+Footprints and landing flashes follow the visual skin in every group mode:
+Original keeps soft colored stamps; Skeleton leaves ivory toe bones;
+Constellation leaves hollow rectangles; Collage uses photographic paper scraps
+with pale cut edges; Motion cards uses sepia outlines and hatching. Contact
+positions, timing, fading and the existing footprint hit targets stay tied to
+the same feet.
+
 Automated coverage: `tests/quadruped-{sound-skins,visual-skins,environment,presets,output}.test.mjs`
 and `e2e/quadruped-{skins,environment,presets,ensemble,output}.spec.mjs`. Visual browser review
 covers desktop, phone portrait and phone landscape, all five skins, reachable

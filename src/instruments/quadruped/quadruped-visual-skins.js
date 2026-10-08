@@ -97,7 +97,7 @@ export function deriveQuadrupedVisualRig(pose, width, height, groundY, score, { 
     return point(tailRoot.x - scale * m.tailLength * t, tailRoot.y + scale * (Math.sin(pose.tailAngle + t * 2.1) * 0.2 * t + t * 0.06));
   });
   const humps = m.family === "camel" ? [-0.23, 0.22].map(x => [[x - 0.21, -0.3], [x - 0.09, -0.95], [x + 0.08, -0.96], [x + 0.23, -0.3]].map(([px, py]) => bodyPoint(px * bodyWidth, py * bodyHeight))) : [];
-  return { animal, morphology: m, scale, center, rotation, bodyWidth, bodyHeight, body, bodyPoint, head, headPoint, skull: skull.map(([x, y]) => headPoint(x, y)), headRotation, neck, legs, tail, features, humps, pose };
+  return { skinId: score.visualSkinId ?? "animal", animal, morphology: m, scale, center, rotation, bodyWidth, bodyHeight, body, bodyPoint, head, headPoint, skull: skull.map(([x, y]) => headPoint(x, y)), headRotation, neck, legs, tail, features, humps, pose };
 }
 
 function path(context, points, close = false) {
@@ -120,11 +120,62 @@ function bone(context, a, b, radius, color) {
   context.quadraticCurveTo(length + radius, 0, length, radius); context.bezierCurveTo(length * 0.68, radius * 0.24, length * 0.32, radius * 0.24, 0, radius);
   context.quadraticCurveTo(-radius, 0, 0, -radius); context.fill(); context.restore();
 }
+/** Ground stamps and landing flashes share each skin's drawing language. */
+export function drawQuadrupedFootprint(context, {
+  skinId = "animal", x = 0, y = 0, radiusX = 8, radiusY = 3,
+  color = "#d8ebbe", laneId = "front-left", alpha = 1, pulse = false,
+} = {}) {
+  const w = Math.max(3, radiusX), h = Math.max(1.4, radiusY);
+  context.save(); context.translate(x, y); context.globalAlpha *= limit(alpha);
+  context.lineWidth = Math.max(0.8, Math.min(1.5, w * 0.1));
+  context.lineJoin = "round"; context.lineCap = "round";
+  if (skinId === "constellation") {
+    // Hollow rectangular traces keep the checkerboard visible through them.
+    context.strokeStyle = color;
+    context.strokeRect(-w, -h, w * 2, h * 2);
+  } else if (skinId === "skeleton") {
+    const ivory = "#f4e7c6";
+    for (const toe of [-1, 0, 1]) {
+      const heel = point(-w * 0.75, 0), joint = point(-w * 0.1, toe * h * 0.42);
+      const tip = point(w * (toe === 0 ? 0.9 : 0.65), toe * h);
+      stroke(context, [heel, joint, tip], ivory, Math.max(0.85, h * 0.3));
+      dot(context, joint, Math.max(0.5, h * 0.19), ivory);
+      dot(context, tip, Math.max(0.5, h * 0.19), ivory);
+    }
+  } else if (skinId === "collage") {
+    const points = [[-1, -0.5], [-0.6, -1], [-0.12, -0.7], [0.45, -1],
+      [1, -0.35], [0.78, 0.7], [0.2, 1], [-0.4, 0.62], [-0.88, 0.9]]
+      .map(([px, py]) => point(px * w, py * h));
+    if (pulse) stroke(context, points, "#fff8e9", Math.max(1, h * 0.28), true);
+    else {
+      const field = Math.max(0, QUADRUPED_LANES.findIndex(lane => lane.id === laneId));
+      drawPaperPiece(context, points, field, Math.max(20, w * 7), collageImage("vintage-magazine-face-fields"));
+    }
+  } else if (skinId === "motion-card") {
+    const ink = "#493724";
+    const points = [[-1, -0.15], [-0.65, -0.8], [0.38, -1], [1, -0.28],
+      [0.78, 0.65], [-0.28, 1], [-0.86, 0.52]].map(([px, py]) => point(px * w, py * h));
+    stroke(context, points, ink, Math.max(0.8, h * 0.22), true);
+    if (!pulse) for (const offset of [-0.45, 0, 0.45]) {
+      stroke(context, [point(w * (offset - 0.16), h * 0.54), point(w * (offset + 0.12), -h * 0.54)], ink, 0.65);
+    }
+  } else {
+    context.beginPath(); context.ellipse(0, 0, w, h, pulse ? 0 : -0.08, 0, TAU);
+    context.fillStyle = color; context.strokeStyle = pulse ? color : "#040d0beb";
+    if (!pulse) context.fill();
+    context.stroke();
+  }
+  context.restore();
+}
+
 function contact(context, leg, rig, color = leg.color) {
   if (leg.impact < 0.025 || rig.pose.bodySlide > 0.85) return;
-  const p = leg.points[3];
-  context.save(); context.globalAlpha *= limit(leg.impact) * 0.85; context.strokeStyle = color; context.lineWidth = 1.3;
-  context.beginPath(); context.ellipse(p.x, leg.contactY + 1, rig.scale * (0.1 + (1 - limit(leg.impact)) * 0.26), rig.scale * 0.034, 0, 0, TAU); context.stroke(); context.restore();
+  const strength = limit(leg.impact), p = leg.points[3];
+  drawQuadrupedFootprint(context, {
+    skinId: rig.skinId, x: p.x, y: leg.contactY + 1, color, laneId: leg.id,
+    radiusX: rig.scale * (0.1 + (1 - strength) * 0.26), radiusY: rig.scale * 0.034,
+    alpha: strength * 0.85, pulse: true,
+  });
 }
 
 function drawSkeleton(context, rig) {
@@ -193,12 +244,6 @@ function drawConstellation(context, rig) {
     context.save(); context.globalAlpha *= (leg.far ? 0.42 : 1) * (1 - rig.pose.bodySlide);
     stroke(context, leg.points, leg.far ? lilac : gold, Math.max(1, s * 0.012));
     for (const p of leg.points) dot(context, p, Math.max(1.4, s * 0.021), white);
-    const foot = leg.points[3];
-    if (leg.impact > 0.04) {
-      const r = s * (0.05 + leg.impact * 0.04);
-      stroke(context, [point(foot.x - r, foot.y), point(foot.x + r, foot.y)], leg.color, 1.2);
-      stroke(context, [point(foot.x, foot.y - r), point(foot.x, foot.y + r)], leg.color, 1.2);
-    }
     context.restore(); contact(context, leg, rig);
   }
   mesh(rig.body, gold, rig.center);
