@@ -78,26 +78,9 @@
     </header>
 
     <main class="quadruped-shell" id="quadruped">
-      <section class="quadruped-intro" aria-labelledby="pageTitle">
-        <h1 id="pageTitle">QUADRUPED</h1>
-      </section>
-
       <section class="quadruped-workspace" aria-label="Quadruped animal gait instrument">
-        <section class="quadruped-stage-card" aria-labelledby="stageTitle">
-          <div class="quadruped-ensemble">
-            <div role="group" aria-label="Animal group">
-              <button type="button" data-group-mode="solo" aria-pressed="true">Solo</button>
-              <button type="button" data-group-mode="herd" aria-pressed="false">Herd</button>
-              <button type="button" data-group-mode="trio" aria-pressed="false">Trio</button>
-              <button type="button" id="scatterButton" disabled>Scatter</button>
-            </div>
-            <div role="group" aria-label="Animal score to edit">
-              <button type="button" data-actor-index="0" aria-pressed="true">A · Elephant</button>
-              <button type="button" data-actor-index="1" aria-pressed="false" hidden>B</button>
-              <button type="button" data-actor-index="2" aria-pressed="false" hidden>C</button>
-            </div>
-          </div>
-          <header class="quadruped-card-header">
+        <section class="quadruped-stage-card" aria-labelledby="pageTitle">
+          <header class="sr-only">
             <div>
               <p id="stageCode">ELEPHANT / WALK / PACKED EARTH</p>
               <h2 id="stageTitle">Live animal</h2>
@@ -109,6 +92,7 @@
           </header>
 
           <div class="quadruped-stage-wrap" id="stageWrap">
+            <h1 id="pageTitle">QUADRUPED</h1>
             <canvas
               id="stage"
               width="1120"
@@ -120,13 +104,13 @@
             >
               A side-view quadruped stays centered while planted feet and their marks travel backward across one continuous material surface.
             </canvas>
-            <div class="quadruped-stage-hud" aria-live="off">
+            <div class="sr-only" aria-live="off">
               <span><small>animal</small><output id="animalReadout">Elephant</output></span>
               <span><small>gait</small><output id="behaviorReadout">Walk</output></span>
               <span><small>ground</small><output id="terrainReadout">Packed earth</output></span>
               <span><small>path</small><output id="groundProfileReadout">Level</output></span>
             </div>
-            <p id="stageInstructions" class="quadruped-stage-instructions">
+            <p id="stageInstructions" class="sr-only">
               ← → FRAME · 1–4 FEET
             </p>
           </div>
@@ -135,7 +119,7 @@
         <section class="quadruped-sequencer-card" aria-labelledby="sequenceTitle">
           <header class="quadruped-card-header quadruped-sequence-header">
             <div>
-              <p>16 CABINET FRAMES</p>
+
               <h2 id="sequenceTitle">Footfall score</h2>
             </div>
             <div class="quadruped-sequence-actions">
@@ -163,19 +147,33 @@
           </div>
         </section>
 
-        <aside class="quadruped-console" aria-label="Quadruped performance controls">
+        <aside class="quadruped-console" data-instrument-preset-host aria-label="Quadruped performance controls">
+          <div class="quadruped-ensemble">
+            <div role="group" aria-label="Animal group">
+              <button type="button" data-group-mode="solo" aria-pressed="true">Solo</button>
+              <button type="button" data-group-mode="herd" aria-pressed="false">Herd</button>
+              <button type="button" data-group-mode="trio" aria-pressed="false">Trio</button>
+            </div>
+            <div role="group" aria-label="Animal score to edit">
+              <button type="button" data-actor-index="0" aria-pressed="true" aria-label="Edit animal 1: Elephant">1</button>
+              <button type="button" data-actor-index="1" aria-pressed="false" hidden aria-label="Edit animal 2">2</button>
+              <button type="button" data-actor-index="2" aria-pressed="false" hidden aria-label="Edit animal 3">3</button>
+            </div>
+            <button type="button" id="scatterButton" disabled title="Vary the spacing of the three animals">Scatter</button>
+          </div>
           <section class="quadruped-transport-card" aria-label="Transport and body audition">
             <button id="playButton" class="quadruped-play" type="button" aria-pressed="false" data-primary-transport>
               <span class="quadruped-play-glyph" aria-hidden="true"></span>
-              <span><b id="playLabel">Start</b><small id="playState">space · sequence stopped</small></span>
+              <span class="sr-only"><b id="playLabel">Start</b></span>
             </button>
+            <span id="playState" class="quadruped-play-state">sequence stopped</span>
             <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
             <p id="transportHint" class="quadruped-transport-hint" role="status" hidden>
               Audio is off — turn it on to hear playback
             </p>
             <label class="quadruped-tempo" for="tempo">
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
-              <input id="tempo" name="tempo" type="range" min="42" max="196" step="1" value="96" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests" />
+              <input id="tempo" name="tempo" type="range" min="25" max="500" step="1" value="96" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests" />
             </label>
             <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
               <button type="button" data-pace-ratio="0.5" aria-pressed="false">½×</button>
@@ -188,51 +186,43 @@
               <span><b>Air / slide rest</b><output id="suspensionOut" for="suspensionBeats">2 extra beats</output></span>
               <input id="suspensionBeats" type="range" min="0" max="8" step="0.5" value="2" disabled title="Extra beats before landing or standing; active on leaps, rolls and skids" />
             </label>
-            <div id="padGrid" class="quadruped-pad-grid" role="group" aria-label="Program feet on the selected frame">
-              <button type="button" data-pad-index="0" data-lane-id="front-left"><kbd>1</kbd><span>LF</span></button>
-              <button type="button" data-pad-index="1" data-lane-id="front-right"><kbd>2</kbd><span>RF</span></button>
-              <button type="button" data-pad-index="2" data-lane-id="rear-left"><kbd>3</kbd><span>LH</span></button>
-              <button type="button" data-pad-index="3" data-lane-id="rear-right"><kbd>4</kbd><span>RH</span></button>
-            </div>
           </section>
 
-          <section class="quadruped-choice-card" aria-labelledby="animalTitle">
-            <div class="quadruped-section-heading">
-              <p>01 / ANIMAL</p>
-              <h2 id="animalTitle">Animal</h2>
-            </div>
-            <div id="animalButtons" class="quadruped-animal-buttons" role="group" aria-label="Animal presets">
-              <button type="button" data-animal-id="elephant" aria-pressed="true"><b>Elephant</b><small>heavy earth drums</small></button>
-              <button type="button" data-animal-id="unicorn" aria-pressed="false"><b>Unicorn</b><small>prismatic hooves</small></button>
-              <button type="button" data-animal-id="gazelle" aria-pressed="false"><b>Gazelle</b><small>swift marimba feet</small></button>
-              <button type="button" data-animal-id="cat" aria-pressed="false"><b>Cat</b><small>felt paws</small></button>
-              <button type="button" data-animal-id="cheetah" aria-pressed="false"><b>Cheetah</b><small>sprint claws</small></button>
-              <button type="button" data-animal-id="giraffe" aria-pressed="false"><b>Giraffe</b><small>spotted hollow hooves</small></button>
-              <button type="button" data-animal-id="lizard" aria-pressed="false"><b>Lizard</b><small>scuttling claws</small></button>
-              <button type="button" data-animal-id="horse" aria-pressed="false"><b>Horse</b><small>measured hoofbeats</small></button>
-              <button type="button" data-animal-id="dog" aria-pressed="false"><b>Dog</b><small>pads + claws</small></button>
-              <button type="button" data-animal-id="goat" aria-pressed="false"><b>Goat</b><small>cloven stair clacks</small></button>
-              <button type="button" data-animal-id="rabbit" aria-pressed="false"><b>Rabbit</b><small>haunch flight</small></button>
-              <button type="button" data-animal-id="camel" aria-pressed="false"><b>Camel</b><small>two-hump pacing pads</small></button>
-              <button type="button" data-animal-id="mouse" aria-pressed="false"><b>Mouse</b><small>tiny paw ticks</small></button>
-              <button type="button" data-animal-id="dinosaur" aria-pressed="false"><b>Triceratops</b><small>three-horn earth drums</small></button>
-              <button type="button" data-animal-id="frog" aria-pressed="false"><b>Frog</b><small>webbed springs + croaks</small></button>
-            </div>
-            <p id="animalDescription" class="quadruped-description"></p>
+          <section class="quadruped-choice-card" aria-label="Animal and gait">
+            <label class="quadruped-control" for="animalSelect"><span><b>Animal</b></span>
+              <span class="select-shell"><select id="animalSelect" aria-describedby="animalDescription">
+                  <option value="elephant">Elephant</option>
+                  <option value="unicorn">Unicorn</option>
+                  <option value="gazelle">Gazelle</option>
+                  <option value="cat">Cat</option>
+                  <option value="cheetah">Cheetah</option>
+                  <option value="giraffe">Giraffe</option>
+                  <option value="lizard">Lizard</option>
+                  <option value="horse">Horse</option>
+                  <option value="dog">Dog</option>
+                  <option value="goat">Goat</option>
+                  <option value="rabbit">Rabbit</option>
+                  <option value="camel">Camel</option>
+                  <option value="mouse">Mouse</option>
+                  <option value="dinosaur">Triceratops</option>
+                  <option value="frog">Frog</option>
+              </select></span>
+            </label>
+            <label class="quadruped-control" for="behaviorSelect"><span><b>Gait</b></span>
+              <span class="select-shell"><select id="behaviorSelect" aria-describedby="behaviorDescription"></select></span>
+            </label>
+            <label class="quadruped-control" for="soundSkinSelect"><span><b>Sound skin</b></span>
+              <span class="select-shell"><select id="soundSkinSelect"></select></span>
+            </label>
+            <label class="quadruped-control" for="visualSkinSelect"><span><b>Animal skin</b></span>
+              <span class="select-shell"><select id="visualSkinSelect"></select></span>
+            </label>
+            <p id="animalDescription" class="sr-only"></p>
+            <p id="behaviorDescription" class="sr-only"></p>
           </section>
-
-          <section class="quadruped-choice-card" aria-labelledby="behaviorTitle">
-            <div class="quadruped-section-heading">
-              <p>02 / GAIT</p>
-              <h2 id="behaviorTitle">Gait dictionary</h2>
-            </div>
-            <div id="behaviorButtons" class="quadruped-behavior-buttons" role="group" aria-label="Gait rhythm dictionary"></div>
-            <p id="behaviorDescription" class="quadruped-description"></p>
-          </section>
-
           <details class="quadruped-control-group" open>
             <summary>
-              <span><small>03 / MOTION</small><b>Gait + ground</b></span>
+              <span><b>Motion + ground</b></span>
               <output id="motionSummary">96 BPM · EARTH</output>
             </summary>
             <div class="quadruped-control-body">
@@ -249,8 +239,8 @@
                 <input id="gravity" type="range" min="0.55" max="1.55" step="0.01" value="1.08" />
               </label>
               <label class="quadruped-control" for="terrain">
-                <span><b>One surface</b><small>whole field</small></span>
-                <select id="terrain">
+                <span><b>Surface</b></span>
+                <span class="select-shell"><select id="terrain">
                   <option value="earth">Packed earth</option>
                   <option value="sand">Loose sand</option>
                   <option value="wood">Hollow wood</option>
@@ -259,22 +249,22 @@
                   <option value="snow">Deep snow</option>
                   <option value="water">Shallow water</option>
                   <option value="crystal">Resonant crystal</option>
-                </select>
+                </select></span>
               </label>
               <label class="quadruped-control" for="groundProfile">
-                <span><b>Path</b><small>one course</small></span>
-                <select id="groundProfile">
+                <span><b>Path</b></span>
+                <span class="select-shell"><select id="groundProfile">
                   <option value="level">Level ground</option>
                   <option value="stairs-up">Steps up</option>
                   <option value="stairs-down">Steps down</option>
-                </select>
+                </select></span>
               </label>
               <label class="quadruped-control" for="groundResonance">
                 <span><b>Ground resonance</b><output id="groundResonanceOut" for="groundResonance">72%</output></span>
                 <input id="groundResonance" type="range" min="0" max="1" step="0.01" value="0.72" />
               </label>
               <label class="quadruped-control" for="grain">
-                <span><b>Slide grain</b><output id="grainOut" for="grain">68%</output></span>
+                <span><b>Contact grain</b><output id="grainOut" for="grain">68%</output></span>
                 <input id="grain" type="range" min="0" max="1" step="0.01" value="0.68" />
               </label>
               <button id="newGrainButton" type="button">New grain</button>
@@ -285,20 +275,14 @@
             </div>
           </details>
 
-          <section class="quadruped-model-card" aria-labelledby="modelTitle">
-            <div class="quadruped-section-heading">
-              <p>04 / MODEL</p>
-              <h2 id="modelTitle">Contact model</h2>
-            </div>
-            <p>
-              Touchdown, load, push, lift. Feet drive the clock.
-            </p>
-            <dl>
-              <div><dt>samples</dt><dd>none</dd></div>
-              <div><dt>voices</dt><dd>48 maximum</dd></div>
-              <div><dt>model</dt><dd>gait approximation</dd></div>
-            </dl>
-          </section>
+          <details class="quadruped-notes">
+            <summary>Playing notes</summary>
+            <p>Turn Audio on, then Start. Space starts or pauses the score. Audio stays independently armed.</p>
+            <p>← → choose a frame; 1–4 edit its feet. Each foot cycles through rest, soft and strong. The bar shows planted support.</p>
+            <p>Animal and gait stay independent. Herd shares one species; Trio combines three. Choose A, B or C to edit its score.</p>
+            <p>Touchdown, load, push, lift. Feet drive the clock. This is a sample-free gait approximation.</p>
+            <a href="docs/QUADRUPED_RESEARCH.md">Model notes</a>
+          </details>
 
           <p id="audioError" class="quadruped-audio-error" role="alert" hidden></p>
           <button id="resetButton" class="quadruped-reset" type="button" data-reset-all data-reset-in-place>Reset animal + gait</button>

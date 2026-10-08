@@ -1,349 +1,104 @@
-:root {
-  --quad-bg: #07100f;
-  --quad-panel: rgba(11, 24, 22, 0.9);
-  --quad-panel-strong: #102925;
-  --quad-line: rgba(175, 255, 222, 0.18);
-  --quad-muted: #9ab5aa;
-  --quad-ink: #f4fff9;
-  --quad-accent: #ffcc66;
-  --quad-accent-2: #68e0c1;
-  --quad-animal: #d2b187;
-  --quad-animal-dark: #8e705b;
-  --quad-live: #ffae57;
-}
-
-* {
-  box-sizing: border-box;
-}
-
+/* Quadruped uses the same flat shell, native controls and typography as Shape and Roach. */
 body.quadruped-page {
-  min-height: 100vh;
-  margin: 0;
-  color: var(--quad-ink);
-  background:
-    radial-gradient(circle at 12% 6%, rgba(104, 224, 193, 0.12), transparent 30rem),
-    radial-gradient(circle at 88% 18%, rgba(214, 156, 255, 0.1), transparent 32rem),
-    linear-gradient(150deg, #050b0a 0%, var(--quad-bg) 48%, #0d1715 100%);
-  font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --accent: #c2df85;
+  --accent-soft: #9aaa71;
+  --quad-bg: var(--bg-deep);
+  --quad-panel: var(--panel);
+  --quad-panel-strong: var(--panel-high);
+  --quad-line: var(--line);
+  --quad-muted: var(--muted);
+  --quad-ink: var(--ink);
+  --quad-accent-2: var(--accent);
+  height: 100svh;
+  min-height: 0;
+  overflow: hidden;
+  background: var(--bg-deep);
+  font-family: var(--mono);
 }
-
-.quadruped-page .masthead {
-  border-bottom-color: rgba(174, 244, 215, 0.16);
-  background: rgba(4, 11, 10, 0.94);
-  backdrop-filter: blur(18px);
-}
-
-.quadruped-page .tab.active {
-  color: #07100f;
-  background: var(--quad-accent-2);
-}
-
-.quadruped-page .audio-button {
-  min-width: 48px;
-  min-height: 48px;
-}
-
-.quadruped-page .audio-button[aria-pressed="true"],
-.quadruped-page .audio-button[data-audio-state="on"] {
-  color: #06100e;
-  background: var(--quad-accent-2);
-  box-shadow: 0 0 22px rgba(104, 224, 193, 0.42);
-}
-
-.quadruped-shell {
-  width: min(100%, 1640px);
-  margin: 0 auto;
-  padding: clamp(14px, 2.2vw, 34px);
-}
-
-.quadruped-intro {
-  margin: 4px 0 clamp(18px, 2vw, 28px);
-}
-
-.quadruped-card-header p,
-.quadruped-section-heading p {
-  margin: 0 0 6px;
-  color: var(--quad-accent-2);
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.17em;
-  text-transform: uppercase;
-}
-
-.quadruped-intro h1 {
-  margin: 0;
-  font: inherit;
-  font-size: clamp(1.55rem, 3vw, 2.35rem);
-  font-weight: 900;
-  letter-spacing: -0.035em;
-  line-height: 1;
-}
-
+.quadruped-page .audio-button { min-width: 48px; min-height: 48px; }
+.quadruped-shell { flex: 1; min-height: 0; width: 100%; }
 .quadruped-workspace {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(290px, 370px);
-  grid-template-areas:
-    "stage console"
-    "sequence console";
-  align-items: start;
-  gap: 16px;
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 30vw, 440px);
+  grid-template-rows: minmax(280px, 1fr) auto;
+  grid-template-areas: "stage console" "sequence console";
+  height: 100%; min-height: 0;
 }
-
-.quadruped-stage-card,
-.quadruped-sequencer-card,
-.quadruped-console > section,
-.quadruped-control-group,
-.quadruped-reset {
-  border: 1px solid var(--quad-line);
-  border-radius: 18px;
-  background: var(--quad-panel);
-  box-shadow: 0 18px 48px rgba(0, 0, 0, 0.2);
+.quadruped-stage-card { grid-area: stage; min-width: 0; min-height: 0; }
+.quadruped-stage-wrap { position: relative; width: 100%; height: 100%; overflow: hidden; background: var(--bg-deep); }
+.quadruped-stage-wrap h1 {
+  position: absolute; top: 20px; left: 22px; z-index: 1; margin: 0;
+  color: var(--ink); font: 500 clamp(23px, 3vw, 36px)/1.1 var(--mono);
+  letter-spacing: -.06em; pointer-events: none;
 }
-
-.quadruped-stage-card {
-  grid-area: stage;
-  min-width: 0;
-  overflow: hidden;
-}
-
-.quadruped-sequencer-card {
-  grid-area: sequence;
-  min-width: 0;
-  overflow: hidden;
-}
-
+#stage { display: block; width: 100%; height: 100%; touch-action: pan-y; cursor: crosshair; }
+#stage:focus-visible { outline: 2px solid var(--accent); outline-offset: -4px; }
+.quadruped-sequencer-card { grid-area: sequence; min-width: 0; border-top: 1px solid var(--line); }
+.quadruped-card-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; padding: 10px 12px 4px; }
+.quadruped-card-header h2 { margin: 0; color: var(--accent); font: 500 11px var(--mono); }
+.quadruped-sequence-actions { display: flex; flex-wrap: wrap; gap: 5px; }
+.quadruped-sequence-legend { display: flex; flex-wrap: wrap; gap: 12px; padding: 3px 12px; color: var(--muted); font-size: 9px; }
+.quadruped-sequence-legend span { display: inline-flex; align-items: center; gap: 4px; }
+.quadruped-sequence-legend i { width: 12px; height: 3px; background: var(--accent); }
+.quadruped-grid-scroll { max-width: 100%; padding: 6px 10px 10px; overflow-x: auto; overscroll-behavior-x: contain; }
+.quadruped-call-row { border-top: 1px solid var(--line); }
 .quadruped-console {
-  position: sticky;
-  top: 76px;
-  grid-area: console;
-  display: grid;
-  gap: 12px;
-  max-height: calc(100vh - 92px);
-  padding-right: 3px;
-  overflow: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: rgba(104, 224, 193, 0.4) transparent;
+  grid-area: console; position: relative; min-width: 0; min-height: 0;
+  overflow-y: auto; padding: 8px 0 20px; background: var(--panel);
+  border-left: 1px solid var(--line); scrollbar-width: thin;
+  scrollbar-color: var(--faint) transparent;
 }
-
-.quadruped-card-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-  min-height: 72px;
-  padding: 13px 16px;
-  border-bottom: 1px solid var(--quad-line);
+.quadruped-console > section, .quadruped-ensemble, .quadruped-notes { padding: 12px 20px; }
+.quadruped-console button:not(.instrument-picker-next), .quadruped-sequence-actions button {
+  min-height: 32px; padding: 6px 9px; border: 1px solid var(--line-strong);
+  border-radius: 0; color: var(--ink); background: var(--bg-deep);
+  font: 10px var(--mono); cursor: pointer;
 }
-
-.quadruped-card-header h2,
-.quadruped-section-heading h2 {
-  margin: 0;
-  color: var(--quad-ink);
-  font-size: clamp(1rem, 1.5vw, 1.25rem);
-  line-height: 1.15;
+.quadruped-console button:hover:not(:disabled), .quadruped-sequence-actions button:hover { border-color: var(--accent); color: var(--accent); }
+.quadruped-console button[aria-pressed="true"] { border-color: var(--accent); color: var(--accent); background: color-mix(in srgb, var(--accent) 12%, var(--bg-deep)); }
+.quadruped-console button:disabled { opacity: .4; cursor: default; }
+.quadruped-console button.quadruped-play {
+  display: grid; place-items: center; width: 48px; height: 48px; min-height: 48px;
+  padding: 0; border-radius: 50%; color: var(--accent);
 }
+.quadruped-play-glyph { display: block; width: 0; height: 0; margin-left: 3px; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 12px solid currentColor; }
+.quadruped-play[aria-pressed="true"] .quadruped-play-glyph { width: 12px; height: 16px; margin: 0; border: 0; border-right: 4px solid currentColor; border-left: 4px solid currentColor; }
+.quadruped-transport-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 40px; gap: 10px; align-items: center; }
+.quadruped-play-state { font-size: 10px; color: var(--muted); }
+.quadruped-restart { min-width: 40px; min-height: 40px; }
+.quadruped-transport-hint { grid-column: 1 / -1; margin: 0; color: var(--accent); font-size: 10px; }
+.quadruped-transport-card > .mz-tap-tempo-field { grid-column: 1 / -1; }
+.quadruped-tempo { grid-column: 1 / -1; display: grid; gap: 4px; min-width: 0; }
+.quadruped-tempo > span, .quadruped-control > span:first-child { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; }
+.quadruped-tempo b, .quadruped-control b { font-weight: 500; color: var(--muted); }
+.quadruped-tempo output, .quadruped-control output { color: var(--accent); font-variant-numeric: tabular-nums; }
+.quadruped-console input[type="range"] { width: 100%; min-width: 0; accent-color: var(--accent); }
+.quadruped-pace { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.quadruped-pace output { margin-left: auto; font-size: 9px; color: var(--muted); }
+.quadruped-suspension:has(input:disabled) { opacity: .45; }
+.quadruped-choice-card, .quadruped-control-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.quadruped-control { display: grid; min-width: 0; gap: 6px; }
+.quadruped-control .select-shell { width: 100%; min-width: 0; }
+.quadruped-control select { width: 100%; min-width: 0; min-height: 36px; padding: 7px 28px 7px 8px; border: 1px solid var(--line-strong); border-radius: 0; color: var(--ink); background: var(--bg-deep); font: 11px var(--mono); }
+.quadruped-ensemble { display: flex; align-items: center; gap: 8px; }
+.quadruped-ensemble > div { display: flex; gap: 2px; }
+.quadruped-ensemble button { padding-inline: 8px; }
+.quadruped-ensemble [data-actor-index] { min-width: 28px; padding-inline: 4px; }
+#scatterButton { margin-left: auto; padding-inline: 5px; }
+.quadruped-control-group { border-top: 1px solid var(--line); margin-top: 6px; }
+.quadruped-control-group summary { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 14px 20px; cursor: pointer; color: var(--accent); font-size: 10px; }
+.quadruped-control-group summary b { font-weight: 500; }
+.quadruped-control-group summary output { color: var(--muted); font-size: 9px; }
+.quadruped-control-body { padding: 0 20px 16px; }
+#newGrainButton { align-self: end; }
+.quadruped-notes { color: var(--muted); font-size: 10px; line-height: 1.6; }
+.quadruped-notes summary { color: var(--accent); cursor: pointer; }
+.quadruped-notes a { color: var(--accent); }
+.quadruped-audio-error { margin: 10px 20px; padding: 10px; border: 1px solid #ff7e8a; color: #ffb5be; font-size: 11px; }
+.quadruped-console .quadruped-reset { display: block; width: calc(100% - 40px); margin: 4px 20px; }
+.quadruped-page :is(button, input, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 
-.quadruped-stage-state {
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  min-width: max-content;
-  padding: 8px 11px;
-  border: 1px solid var(--quad-line);
-  border-radius: 999px;
-  background: rgba(0, 0, 0, 0.18);
-}
-
-.quadruped-stage-state i {
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-  background: var(--quad-muted);
-}
-
-.quadruped-stage-state[data-state="running"] i {
-  background: var(--quad-live);
-  box-shadow: 0 0 14px var(--quad-live);
-}
-
-.quadruped-stage-state[data-state="stalled"] i {
-  background: #ff9d55;
-  box-shadow: 0 0 12px rgba(255, 157, 85, 0.72);
-}
-
-.quadruped-stage-state span {
-  display: grid;
-}
-
-.quadruped-stage-state small {
-  color: var(--quad-muted);
-  font-size: 0.57rem;
-  font-weight: 800;
-  letter-spacing: 0.13em;
-  text-transform: uppercase;
-}
-
-.quadruped-stage-state b {
-  font-variant-numeric: tabular-nums;
-  font-size: 0.78rem;
-}
-
-.quadruped-stage-wrap {
-  position: relative;
-  min-height: 380px;
-  aspect-ratio: 16 / 8.4;
-  overflow: hidden;
-  background: #071210;
-}
-
-#stage {
-  display: block;
-  width: 100%;
-  height: 100%;
-  min-height: 380px;
-  outline: none;
-  touch-action: pan-y;
-  cursor: crosshair;
-}
-
-#stage:focus-visible {
-  outline: 3px solid var(--quad-accent);
-  outline-offset: -5px;
-}
-
-.quadruped-stage-hud {
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-width: calc(100% - 24px);
-  pointer-events: none;
-}
-
-.quadruped-stage-hud span {
-  display: grid;
-  min-width: 78px;
-  padding: 7px 9px;
-  border: 1px solid rgba(255, 255, 255, 0.13);
-  border-radius: 9px;
-  background: rgba(2, 8, 7, 0.72);
-  backdrop-filter: blur(8px);
-}
-
-.quadruped-stage-hud small {
-  color: var(--quad-muted);
-  font-size: 0.53rem;
-  font-weight: 750;
-  letter-spacing: 0.11em;
-  text-transform: uppercase;
-}
-
-.quadruped-stage-hud output {
-  color: var(--quad-ink);
-  font-size: 0.75rem;
-  font-weight: 800;
-}
-
-.quadruped-stage-instructions {
-  position: absolute;
-  right: 12px;
-  bottom: 9px;
-  margin: 0;
-  color: rgba(244, 255, 249, 0.7);
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.12em;
-  pointer-events: none;
-}
-
-.quadruped-sequence-header {
-  align-items: end;
-}
-
-.quadruped-sequence-actions {
-  display: flex;
-  gap: 7px;
-}
-
-.quadruped-sequence-actions button,
-.quadruped-restart {
-  min-height: 38px;
-  padding: 0 12px;
-  border: 1px solid var(--quad-line);
-  border-radius: 9px;
-  color: var(--quad-ink);
-  background: rgba(255, 255, 255, 0.045);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 800;
-  cursor: pointer;
-}
-
-.quadruped-sequence-actions button:hover,
-.quadruped-restart:hover {
-  border-color: var(--quad-accent-2);
-  background: rgba(104, 224, 193, 0.1);
-}
-
-.quadruped-grid-scroll {
-  max-width: 100%;
-  padding: 8px 10px 7px;
-  overflow-x: auto;
-  overscroll-behavior-x: contain;
-  scrollbar-color: rgba(104, 224, 193, 0.4) transparent;
-}
-
-.quadruped-grid-scroll:focus-visible {
-  outline: 2px solid var(--quad-accent);
-  outline-offset: -4px;
-}
-
-.quadruped-sequence-legend {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px 14px;
-  margin: 0;
-  padding: 7px 12px 0;
-  color: var(--quad-muted);
-  font-size: 0.58rem;
-  font-weight: 800;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
-.quadruped-sequence-legend span {
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-}
-
-.quadruped-sequence-legend b {
-  min-width: 0.8rem;
-  color: var(--quad-ink);
-  font-size: 0.82rem;
-  line-height: 1;
-  text-align: center;
-}
-
-.quadruped-sequence-legend i {
-  width: 13px;
-  height: 4px;
-  border-radius: 999px;
-  background: var(--quad-accent-2);
-}
-
-.quadruped-ensemble { display: flex; flex-wrap: wrap; gap: 6px 16px; padding: 10px 12px 0; }
-.quadruped-ensemble > div { display: flex; flex-wrap: wrap; gap: 4px; }
-.quadruped-ensemble button, #newGrainButton { font: inherit; color: var(--quad-ink, #eaf5ed); background: #17221e; border: 1px solid #617368; border-radius: 5px; padding: 7px 9px; min-height: 36px; cursor: pointer; }
-.quadruped-ensemble button[aria-pressed="true"] { background: #364638; border-color: #c6e893; }
-.quadruped-ensemble button:focus-visible, #newGrainButton:focus-visible { outline: 2px solid #d9ed78; outline-offset: 3px; }
-.quadruped-ensemble button[hidden] { display: none; }
-.quadruped-ensemble button:disabled { opacity: 0.45; cursor: default; }
-.quadruped-call-row { border-top: 1px solid #4d584d; }
-@media (pointer: coarse) { .quadruped-ensemble button, #newGrainButton { min-height: 48px; } }
-
+/* The score keeps separate touchdown and planted-support feedback. */
 .quadruped-grid {
   display: grid;
   gap: 2px;
@@ -391,7 +146,7 @@ body.quadruped-page {
   padding: 0;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.09);
-  border-radius: 5px;
+  border-radius: 0;
   color: var(--quad-ink);
   background: rgba(255, 255, 255, 0.035);
   font: inherit;
@@ -404,7 +159,7 @@ body.quadruped-page {
   position: absolute;
   inset: auto 4px 4px;
   height: calc(3px + var(--level, 0) * 16px);
-  border-radius: 4px;
+  border-radius: 0;
   background: var(--lane-color, var(--quad-accent));
   box-shadow: 0 0 calc(var(--level, 0) * 14px) var(--lane-color, var(--quad-accent));
   content: "";
@@ -511,711 +266,43 @@ body.quadruped-page {
   content: "AIR";
 }
 
-.quadruped-terrain-cell {
-  min-height: 34px;
-  padding: 4px 2px;
-  border-color: color-mix(in srgb, var(--terrain-color) 48%, transparent);
-  color: #07100f;
-  background: var(--terrain-color);
-  font-size: 0.49rem;
-  font-weight: 900;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+
+@media (max-width: 1100px) and (min-width: 961px) {
+  .quadruped-workspace { grid-template-columns: minmax(0, 1fr) 350px; }
+  .quadruped-grid { min-width: 750px; }
 }
-
-.quadruped-terrain-key {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 12px;
-  padding: 0 16px 13px;
-  color: var(--quad-muted);
-  font-size: 0.62rem;
-  font-weight: 760;
-  text-transform: uppercase;
-}
-
-.quadruped-terrain-key span {
-  display: inline-flex;
-  align-items: center;
-  gap: 5px;
-}
-
-.quadruped-terrain-key i {
-  width: 9px;
-  height: 9px;
-  border-radius: 2px;
-  background: var(--terrain);
-}
-
-.quadruped-console > section,
-.quadruped-control-group {
-  padding: 14px;
-}
-
-.quadruped-transport-card {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 48px;
-  gap: 8px;
-}
-
-.quadruped-tempo {
-  grid-column: 1 / -1;
-  display: grid;
-  gap: 5px;
-  padding: 7px 9px 8px;
-  border: 1px solid var(--quad-line);
-  border-radius: 10px;
-  background: rgba(255, 255, 255, 0.025);
-}
-
-.quadruped-tempo span {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  color: var(--quad-muted);
-  font-size: 0.62rem;
-  font-weight: 800;
-  text-transform: uppercase;
-}
-
-.quadruped-tempo b {
-  color: var(--quad-ink);
-}
-
-.quadruped-tempo input {
-  width: 100%;
-  accent-color: var(--quad-accent-2);
-}
-
-.quadruped-play {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  min-height: 58px;
-  padding: 8px 13px;
-  border: 1px solid rgba(104, 224, 193, 0.34);
-  border-radius: 12px;
-  color: var(--quad-ink);
-  background: linear-gradient(130deg, rgba(104, 224, 193, 0.14), rgba(255, 204, 102, 0.06));
-  text-align: left;
-  cursor: pointer;
-}
-
-.quadruped-play[aria-pressed="true"] {
-  border-color: var(--quad-live);
-  background: color-mix(in srgb, var(--quad-live) 17%, #0b1816);
-  box-shadow: 0 0 20px color-mix(in srgb, var(--quad-live) 24%, transparent);
-}
-
-.quadruped-play-glyph {
-  width: 0;
-  height: 0;
-  margin-left: 3px;
-  border-top: 9px solid transparent;
-  border-bottom: 9px solid transparent;
-  border-left: 14px solid currentColor;
-}
-
-.quadruped-play[aria-pressed="true"] .quadruped-play-glyph {
-  width: 13px;
-  height: 17px;
-  margin-left: 0;
-  border: 0;
-  border-right: 4px solid currentColor;
-  border-left: 4px solid currentColor;
-}
-
-.quadruped-play > span:last-child {
-  display: grid;
-}
-
-.quadruped-play b {
-  font-size: 0.86rem;
-}
-
-.quadruped-play small {
-  color: var(--quad-muted);
-  font-size: 0.62rem;
-}
-
-.quadruped-restart {
-  min-width: 48px;
-  min-height: 58px;
-  padding: 0;
-  font-size: 1rem;
-}
-
-.quadruped-transport-hint {
-  grid-column: 1 / -1;
-  margin: 0;
-  padding: 8px 10px;
-  border-radius: 8px;
-  color: #2b1d04;
-  background: #ffd77e;
-  font-size: 0.7rem;
-  font-weight: 760;
-}
-
-.quadruped-pad-grid {
-  grid-column: 1 / -1;
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 6px;
-}
-
-.quadruped-pad-grid button {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  min-height: 42px;
-  padding: 5px 8px;
-  border: 1px solid var(--quad-line);
-  border-radius: 9px;
-  color: var(--quad-ink);
-  background: rgba(255, 255, 255, 0.045);
-  cursor: pointer;
-}
-
-.quadruped-pad-grid button[data-flash="true"] {
-  color: #07100f;
-  background: var(--quad-live);
-}
-
-.quadruped-pad-grid kbd {
-  color: var(--quad-muted);
-  font: 700 0.58rem/1 ui-monospace, monospace;
-}
-
-.quadruped-pad-grid span {
-  font-size: 0.68rem;
-  font-weight: 880;
-}
-
-.quadruped-section-heading {
-  margin-bottom: 10px;
-}
-
-.quadruped-animal-buttons,
-.quadruped-behavior-buttons {
-  display: grid;
-  gap: 6px;
-}
-
-.quadruped-animal-buttons {
-  grid-template-columns: repeat(3, 1fr);
-}
-
-.quadruped-animal-buttons button,
-.quadruped-behavior-buttons button {
-  min-height: 48px;
-  padding: 8px;
-  border: 1px solid var(--quad-line);
-  border-radius: 10px;
-  color: var(--quad-ink);
-  background: rgba(255, 255, 255, 0.035);
-  font: inherit;
-  cursor: pointer;
-}
-
-.quadruped-animal-buttons button {
-  display: grid;
-  align-content: center;
-  text-align: left;
-}
-
-.quadruped-animal-buttons b {
-  font-size: 0.7rem;
-}
-
-.quadruped-animal-buttons small {
-  margin-top: 3px;
-  color: var(--quad-muted);
-  font-size: 0.53rem;
-  line-height: 1.2;
-}
-
-.quadruped-animal-buttons button[aria-pressed="true"],
-.quadruped-behavior-buttons button[aria-pressed="true"] {
-  border-color: var(--quad-live);
-  background: color-mix(in srgb, var(--quad-live) 16%, transparent);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--quad-live) 36%, transparent);
-}
-
-.quadruped-behavior-buttons {
-  grid-template-columns: repeat(5, 1fr);
-  max-height: 230px;
-  padding-right: 3px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  scrollbar-color: var(--quad-live) rgba(255, 255, 255, 0.05);
-}
-
-.quadruped-behavior-buttons button {
-  position: relative;
-  min-width: 0;
-  padding: 6px 3px;
-  font-size: 0.61rem;
-  font-weight: 830;
-}
-
-.quadruped-behavior-buttons button[data-fit="playful"]::after {
-  position: absolute;
-  top: 4px;
-  right: 5px;
-  color: var(--quad-muted);
-  content: "✦";
-  font-size: 0.48rem;
-}
-
-.quadruped-description {
-  min-height: 2.8em;
-  margin: 9px 0 0;
-  color: var(--quad-muted);
-  font-size: 0.7rem;
-  line-height: 1.38;
-}
-
-.quadruped-control-group {
-  padding: 0;
-  overflow: hidden;
-}
-
-.quadruped-control-group summary {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 10px;
-  min-height: 52px;
-  padding: 10px 13px;
-  cursor: pointer;
-  list-style: none;
-}
-
-.quadruped-control-group summary::-webkit-details-marker {
-  display: none;
-}
-
-.quadruped-control-group summary span {
-  display: grid;
-}
-
-.quadruped-control-group summary small {
-  color: var(--quad-accent-2);
-  font-size: 0.55rem;
-  font-weight: 800;
-  letter-spacing: 0.1em;
-}
-
-.quadruped-control-group summary b {
-  font-size: 0.78rem;
-}
-
-.quadruped-control-group summary output {
-  color: var(--quad-muted);
-  font-size: 0.6rem;
-}
-
-.quadruped-control-body {
-  display: grid;
-  gap: 12px;
-  padding: 0 13px 14px;
-}
-
-.quadruped-control {
-  display: grid;
-  gap: 7px;
-}
-
-.quadruped-control > span {
-  display: flex;
-  justify-content: space-between;
-  gap: 10px;
-  font-size: 0.69rem;
-}
-
-.quadruped-control output {
-  color: var(--quad-accent);
-  font-variant-numeric: tabular-nums;
-  font-weight: 820;
-}
-
-.quadruped-control input[type="range"] {
-  width: 100%;
-  accent-color: var(--quad-live);
-}
-
-.quadruped-control select {
-  width: 100%;
-  min-height: 38px;
-  padding: 6px 9px;
-  border: 1px solid var(--quad-line);
-  border-radius: 8px;
-  color: var(--quad-ink);
-  background: var(--quad-panel-strong);
-  font: inherit;
-  font-size: 0.7rem;
-}
-
-.quadruped-model-card > p {
-  margin: 0;
-  color: var(--quad-muted);
-  font-size: 0.69rem;
-  line-height: 1.42;
-}
-
-.quadruped-model-card dl {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 5px;
-  margin: 12px 0 0;
-}
-
-.quadruped-model-card dl div {
-  padding: 7px;
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.035);
-}
-
-.quadruped-model-card dt {
-  color: var(--quad-muted);
-  font-size: 0.49rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-
-.quadruped-model-card dd {
-  margin: 3px 0 0;
-  font-size: 0.6rem;
-  font-weight: 780;
-}
-
-.quadruped-audio-error {
-  margin: 0;
-  padding: 10px 12px;
-  border: 1px solid #ff7e8a;
-  border-radius: 10px;
-  color: #ffdbe0;
-  background: rgba(255, 82, 104, 0.1);
-  font-size: 0.7rem;
-}
-
-.quadruped-reset {
-  width: 100%;
-  min-height: 48px;
-  padding: 10px;
-  color: var(--quad-ink);
-  font: inherit;
-  font-size: 0.72rem;
-  font-weight: 820;
-  cursor: pointer;
-}
-
-.quadruped-reset:hover {
-  border-color: #ff7e8a;
-  background: rgba(255, 126, 138, 0.09);
-}
-
-@media (max-width: 1280px) {
-  .quadruped-workspace {
-    grid-template-columns: minmax(0, 1fr);
-    grid-template-areas:
-      "stage"
-      "transport"
-      "sequence";
-  }
-
-  .quadruped-console {
-    display: contents;
-  }
-
-  .quadruped-transport-card {
-    grid-area: transport;
-  }
-
-  .quadruped-reset,
-  .quadruped-audio-error {
-    grid-column: 1 / -1;
-  }
-}
-
 @media (max-width: 960px) {
-  body.quadruped-page {
-    height: 100dvh;
-    min-height: 0;
-    overflow: hidden;
-  }
-
-  .quadruped-shell {
-    min-height: 0;
-    overflow-x: hidden;
-    overflow-y: auto;
-    flex: 1 1 0;
-    overscroll-behavior-y: contain;
-    scroll-padding-top: clamp(300px, 52dvh, 410px);
-    -webkit-overflow-scrolling: touch;
-  }
-
-  .quadruped-workspace {
-    position: relative;
-  }
-
-  .quadruped-stage-card {
-    position: sticky;
-    z-index: 20;
-    top: 0;
-    align-self: start;
-    background: #0b1816;
-    box-shadow: 0 -24px 0 var(--quad-bg), 0 12px 28px rgba(0, 0, 0, 0.42);
-  }
+  .quadruped-shell { overflow-x: hidden; overflow-y: auto; overscroll-behavior-y: contain; scroll-padding-top: 280px; }
+  .quadruped-workspace { height: auto; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto; grid-template-areas: "stage" "console" "sequence"; }
+  .quadruped-stage-card { position: sticky; z-index: 20; top: 0; height: 260px; background: var(--bg-deep); }
+  .quadruped-console { overflow: visible; border: 0; isolation: isolate; }
+  .quadruped-stage-wrap h1 { top: 16px; left: 16px; font-size: 24px; }
+  .quadruped-grid { min-width: 854px; }
+  .quadruped-console > .instrument-preset-controls { position: relative; z-index: auto; }
+  .quadruped-console > :first-child { scroll-margin-top: 0; }
+  .quadruped-console :is(button, input, select, summary), .quadruped-grid-scroll { scroll-margin-top: 0; scroll-margin-bottom: 12px; }
 }
-
 @media (max-width: 760px) {
-  .quadruped-shell {
-    padding: 10px;
-  }
-
-  .quadruped-intro {
-    margin-top: 8px;
-  }
-
-  .quadruped-intro h1 {
-    font-size: clamp(1.45rem, 7vw, 2.1rem);
-  }
-
-  .quadruped-workspace {
-    gap: 10px;
-  }
-
-  .quadruped-console {
-    grid-template-columns: 1fr;
-    gap: 10px;
-  }
-
-  .quadruped-console > section,
-  .quadruped-control-group,
-  .quadruped-reset,
-  .quadruped-audio-error {
-    grid-column: auto;
-  }
-
-  .quadruped-card-header {
-    min-height: 64px;
-    padding: 10px 12px;
-  }
-
-  .quadruped-card-header p {
-    font-size: 0.56rem;
-  }
-
-  .quadruped-stage-wrap,
-  #stage {
-    min-height: 310px;
-  }
-
-  .quadruped-stage-wrap {
-    aspect-ratio: 4 / 3;
-  }
-
-  .quadruped-stage-hud span {
-    min-width: 64px;
-    padding: 5px 7px;
-  }
-
-  .quadruped-stage-instructions {
-    left: 9px;
-    right: auto;
-    max-width: calc(100% - 18px);
-    font-size: 0.49rem;
-  }
-
-  .quadruped-sequence-header {
-    align-items: center;
-  }
-
-  .quadruped-sequence-header h2 {
-    max-width: 13rem;
-    font-size: 0.9rem;
-  }
-
-  .quadruped-sequence-actions button {
-    padding: 0 8px;
-    font-size: 0.62rem;
-  }
-
-  .quadruped-grid {
-    width: 854px;
-  }
-
-  .quadruped-grid-row {
-    grid-template-columns: 84px repeat(16, 46px);
-    gap: 2px;
-  }
-
-  .quadruped-grid-scroll {
-    padding: 7px 7px 6px;
-  }
+  .quadruped-grid-row { grid-template-columns: 84px repeat(16, 46px); }
+  .quadruped-console > section, .quadruped-ensemble, .quadruped-notes { padding-left: 16px; padding-right: 16px; }
+  .quadruped-card-header { padding: 10px; }
 }
-
-@media (max-width: 430px) {
-  .quadruped-stage-wrap {
-    width: 100%;
-    height: clamp(240px, 74vw, 286px);
-    min-height: 0;
-    aspect-ratio: auto;
-  }
-
-  #stage {
-    min-height: 0;
-  }
-
-  .quadruped-stage-hud span:nth-child(4) {
-    display: none;
-  }
-
-  .quadruped-stage-instructions {
-    display: none;
-  }
-
-  .quadruped-animal-buttons button {
-    padding: 7px 5px;
-  }
-
-  .quadruped-animal-buttons small {
-    display: none;
-  }
-
-  .quadruped-behavior-buttons {
-    grid-template-columns: repeat(3, 1fr);
-    max-height: 280px;
-  }
-}
-
 @media (max-height: 480px) and (orientation: landscape) {
-  .quadruped-shell {
-    padding: 8px 12px 16px;
-    scroll-padding-top: 270px;
-  }
-
-  .quadruped-intro {
-    margin: 2px 0 8px;
-  }
-
-  .quadruped-intro h1 {
-    font-size: 1.65rem;
-  }
-
-  .quadruped-stage-wrap,
-  #stage {
-    min-height: 0;
-  }
-
-  .quadruped-stage-wrap {
-    height: 160px;
-    aspect-ratio: auto;
-  }
-
-  .quadruped-stage-instructions {
-    display: none;
-  }
-
-  .quadruped-workspace {
-    grid-template-columns: repeat(2, minmax(0, 1fr));
-    grid-template-areas:
-      "stage stage"
-      "transport transport"
-      "sequence sequence";
-  }
-
-  .quadruped-stage-card,
-  .quadruped-sequencer-card {
-    grid-column: 1 / -1;
-  }
-
-  .quadruped-console > .quadruped-choice-card,
-  .quadruped-control-group,
-  .quadruped-model-card {
-    grid-column: auto;
-  }
-
-  .quadruped-transport-card,
-  .quadruped-reset,
-  .quadruped-audio-error {
-    grid-column: 1 / -1;
-  }
+  .quadruped-stage-card { height: 140px; }
+  .quadruped-shell { scroll-padding-top: 155px; }
+  .quadruped-console :is(button, input, select, summary), .quadruped-grid-scroll { scroll-margin-top: 0; }
+  .quadruped-console > :first-child { scroll-margin-top: 0; }
 }
-
 @media (pointer: coarse) {
-  .quadruped-grid {
-    min-width: 822px;
-  }
-
-  .quadruped-page .audio-button,
-  .quadruped-play,
-  .quadruped-restart,
-  .quadruped-sequence-actions button {
-    min-height: 48px;
-  }
-
-  .quadruped-grid-cell,
-  .quadruped-terrain-cell,
-  .quadruped-cabinet-frame,
-  .quadruped-pad-grid button,
-  .quadruped-animal-buttons button,
-  .quadruped-behavior-buttons button {
-    min-height: 44px;
-  }
-
-  .quadruped-control select {
-    min-height: 48px;
-  }
+  .quadruped-page .audio-button, .quadruped-console button.quadruped-play { min-width: 48px; min-height: 48px; }
+  .quadruped-console button:not(.quadruped-play), .quadruped-console select, .quadruped-console summary { min-height: 44px; }
+  .quadruped-grid-cell { min-height: 44px; }
 }
-
 @media (prefers-reduced-motion: reduce) {
-  .quadruped-page *,
-  .quadruped-page *::before,
-  .quadruped-page *::after {
-    scroll-behavior: auto !important;
-    transition-duration: 0.001ms !important;
-    animation-duration: 0.001ms !important;
-  }
+  .quadruped-page *, .quadruped-page *::before, .quadruped-page *::after { transition-duration: 0.001ms !important; }
 }
-
 @media (forced-colors: active) {
-  .quadruped-stage-card,
-  .quadruped-sequencer-card,
-  .quadruped-console > section,
-  .quadruped-control-group,
-  .quadruped-reset,
-  .quadruped-grid-cell,
-  .quadruped-terrain-cell {
-    border: 1px solid CanvasText;
-  }
+  .quadruped-grid-cell[data-playing="true"] { outline: 3px solid Highlight; }
+}
 
-  .quadruped-grid-cell[data-playing="true"],
-  .quadruped-terrain-cell[data-playing="true"] {
-    outline: 3px solid Highlight;
-  }
-}
-/* Pace and rest stay beside the master tempo, within the scrolling console. */
-.quadruped-pace {
-  grid-column: 1 / -1;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px;
-}
-.quadruped-pace button {
-  min-width: 38px;
-  min-height: 30px;
-  padding: 4px 8px;
-  border: 1px solid var(--quad-accent, #82ddba);
-  border-radius: 5px;
-  font: inherit;
-  color: inherit;
-  background: #10221e;
-}
-.quadruped-pace button[aria-pressed="true"] { background: #285e4f; }
-.quadruped-pace output { margin-left: auto; font-size: 10px; opacity: 0.8; }
-.quadruped-suspension:has(input:disabled) { opacity: 0.45; }
-@media (pointer: coarse) { .quadruped-pace button { min-height: 40px; } }
+.quadruped-stage-wrap[data-visual-skin="motion-card"] h1 { color: #53452d; }

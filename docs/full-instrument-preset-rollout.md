@@ -1,5 +1,16 @@
 # Full-instrument preset rollout
 
+## October 8 — Quadruped control rail and full scenes
+
+Quadruped has fifteen complete animal/gait/ensemble scenes and a bounded full
+parameter randomizer in the shared preset/Next/Dice row. Recall retains Audio
+and master level; the owner-requested exception starts Play after successful
+recall while startup stays paused. Both skins are included in full snapshots;
+independent Animal and Gait menus remain.
+Focused coverage lives in `tests/quadruped-presets.test.mjs` and
+`e2e/quadruped-presets.spec.mjs`; human listening and physical touch remain
+unperformed. See [Quadruped interface and output](QUADRUPED_RESEARCH.md#interface-and-output).
+
 ## October 6 — Spider Synth full scenes
 
 Spider Synth now has 24 complete scenes spanning all six scanned skins,

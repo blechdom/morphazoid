@@ -6,10 +6,10 @@ test("Quadruped frog has editable calls and an audio-clock-driven vocal gesture"
   const errors = []; page.on("pageerror", error => errors.push(error.message));
   await page.goto("/quadruped.html");
   for (const animal of QUADRUPED_ANIMALS) {
-    await page.locator(`[data-animal-id="${animal.id}"]`).click();
+    await page.locator("#animalSelect").selectOption(animal.id);
     for (const call of quadrupedCalls(animal.id)) await expect(page.getByRole("rowheader", { name: call.label, exact: true })).toBeVisible();
   }
-  await page.locator('[data-behavior-id="jump"]').click();
+  await page.locator('#behaviorSelect').selectOption('jump');
   await page.locator("#callPhraseButton").click();
   await expect(page.locator('[data-call-row="0"][data-step="0"]')).toHaveAttribute("aria-pressed", "mixed");
   await page.locator('[data-call-row="1"][data-step="6"]').click();
@@ -47,8 +47,8 @@ test("Quadruped trio shares immediate BPM while each animal owns its own score",
   await page.locator("#callPhraseButton").click();
   await page.locator('[data-actor-index="1"]').click();
   await expect(page.locator(".quadruped-call-row [aria-pressed='false']")).toHaveCount(48);
-  await page.locator('[data-animal-id="frog"]').click();
-  await page.locator('[data-behavior-id="walk-leap"]').click();
+  await page.locator('#animalSelect').selectOption('frog');
+  await page.locator('#behaviorSelect').selectOption('walk-leap');
   await page.locator("#suspensionBeats").fill("4");
   await page.locator("#tempo").fill("180");
   await expect(page.locator("#stage")).toHaveAttribute("data-actor-tempos", "[180,180,180]");
@@ -122,9 +122,9 @@ test("Quadruped dense trio remains bounded and releases its audio graph", async 
   for (let actor = 0; actor < 3; actor += 1) {
     await page.locator(`[data-actor-index="${actor}"]`).click();
     await page.locator("#callPhraseButton").click();
-    await page.locator('[data-behavior-id="drunk"]').click();
+    await page.locator('#behaviorSelect').selectOption('drunk');
   }
-  await page.locator("#tempo").fill("196");
+  await page.locator("#tempo").fill("500");
   await page.locator('[data-pace-ratio="3"]').click();
   await page.locator("#level").fill("0.72");
   await page.locator("#audioButton").click();

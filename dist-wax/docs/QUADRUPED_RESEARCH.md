@@ -37,6 +37,59 @@ through time beneath it, so each planted foot appears fixed in world space until
 lift-off. All animal drawings are procedural; no historical photographs or
 third-party visual assets are included.
 
+## Interface and output
+
+The control rail follows Shape and Roach Synth: flat dark surfaces, compact
+native menus, one graphic title, and full presets → Next → Random at the top.
+Animal and gait remain independent menus. Playing notes hold the instructions;
+the graphic keeps the animal and its contact feedback. Solo/Herd/Trio and the
+numbered animal editor buttons share a row directly below presets. Redundant
+four-foot audition boxes are removed; the score and keyboard 1–4 still edit feet.
+
+Fifteen complete scenes recall animal scores, foot/call patterns, gait, tempo,
+pace, rests, group composition, surface, course, grain, cavern and both skins.
+Random creates a bounded new complete scene. Successful preset, Next and Random
+recall starts Play, as requested by the owner; startup remains stopped. Audio
+arming and master output are preserved. Turn **Audio** on to hear a playing scene.
+Tempo spans 25–500 BPM, including immediate retiming at 3× pace (400 frames/sec).
+
+A fixed 4× (+12.04 dB) calibration follows the existing compressor. The native
+master default/range stays 0.62 / 0–0.72. A soft ceiling and final reconstruction
+guard bound output at 0.89. Offline stereo tests at 48/96 kHz verify the gain,
+peak bound and zero-level silence; browser tests cover audible signal, mute,
+pause and graph teardown. Signal measurements do not imply human listening or
+physical-device acceptance, which remain unperformed.
+
+### Independent sound and animal skins
+
+Five sound skins use touchdown, load, push, lift-off and irregular body-slide
+contacts. Ground combines a low body impact with broken grains; Tendon uses a
+plucked delay loop; Porcelain excites inharmonic modes; Voltage uses decaying FM;
+Breath uses short resonant air pulses. The designs draw on this repository's
+Karplus Strong, FM Drums, Dentaphone/Object Forge and Shapes engines. They are
+artistic synthesis, not recordings. Species mass, limb, surface, velocity and
+resonance color every skin. Contact grain changes push/lift detail; New grain
+changes event variation. Four prepared variants per contact are held in a
+bounded 256-entry cache. No persistent scratch source runs during a skid.
+
+The scheduler mixes its next contact window into one stereo sample buffer,
+preserving each onset, pitch and pan. This prevents dense 500 BPM trios from
+exhausting the 48-node budget with future contacts and silencing an earlier
+actor. Control edits release queued batches before rescheduling. Melodic calls
+keep their separate voices; extended flight rests remain silent unless scored.
+
+Five animal skins share the same poses and fixed-length limb IK: Original,
+Skeleton, Constellation (open Shapes-like connections and joint stars), Cutout
+collage (photographic Hiccup Head atlas pieces), and Motion cards (sepia study
+contours). Collage loads the existing project-owned assets only when selected;
+see `assets/hiccup-head/skins/README.md` for provenance. Skin changes preserve
+scores, clock, Audio and Play. Full presets recall both skins independently.
+
+Automated coverage: `tests/quadruped-{sound-skins,visual-skins,presets,output}.test.mjs`
+and `e2e/quadruped-{skins,presets,ensemble,output}.spec.mjs`. Visual browser review
+covers desktop, phone portrait and phone landscape, all five skins, reachable
+menus and the aligned group/editor row.
+
 ## Reading and programming the score
 
 There are four editable foot rows: left front (LF), right front (RF), left hind (LH),
@@ -242,15 +295,15 @@ and bounded phrase duration. Calls do not propel an empty foot score.
   bounded gain.
 - One-shots are capped at 48 and scheduled from motor-predicted crossings on
   `AudioContext.currentTime`.
-- Each of three available actors has one persistent air source and one seeded
-  friction source. Only active actors sound. Explicit leap/roll rests mute air;
+- Each of three available actors has one persistent air source; friction now
+  uses bounded event buffers. Only active actors sound. Explicit leap/roll rests mute air;
   authored call events remain an intentional way to write a voice into those rests.
 - Audio and transport stay separate: Play and score editing never arm Audio.
 
 ## Ensemble, grain, depth, and frog
 
 Solo plays the selected score; Herd creates three of that species with differing
-gaits; Trio creates the selected species, Cat and Gazelle. A/B/C selects the score
+gaits; Trio creates the selected species, Cat and Gazelle. 1/2/3 selects the score
 to edit without resetting any motor. BPM, pace, stride, surface, path, resonance
 and output are shared; gait, foot score, call score and added air/slide time are
 private. Scatter uses bounded seeded phase offsets, not a free-running random
@@ -258,14 +311,11 @@ tempo. Changing group mode creates a fresh group from the selected score; Solo
 retains only that selected player's audible participation. This is a musical
 ensemble in adjacent travelling camera lanes, not a collision/flocking model.
 
-Skid friction is generated from irregular seeded micro-impacts exciting two damped
-resonant modes plus secondary colored grit. Each material has its own density,
-decay and resonances. Slide grain varies catch/release timing and motion-linked
-filter/playback-rate modulation; New grain changes the reproducible texture seed.
-The friction sources crossfade on surface/seed edits. Inspiration:
-[DAFx 2021 scraping/rolling synthesis](https://dafx.de/paper-archive/2021/proceedings/papers/DAFx20in21_paper_33.pdf)
-and the [authors' sound demonstrations](https://mcdermottlab.mit.edu/scraping_rolling.html).
-No recordings or third-party code are used.
+Body skids trigger irregular, seeded contact bursts at moving clock positions.
+Pressure follows the model's body-slide envelope. Contact grain varies push and
+lift detail; New grain changes the reproducible event sequence. The earlier
+continuous friction loop has been removed. See the sound-skin implementation
+above; no recordings or third-party code are used.
 
 Each landing tread changes the foot's pitch register. A bounded tanh map of
 signed tread count brightens ascending attacks and darkens descending ones.

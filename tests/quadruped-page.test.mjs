@@ -15,13 +15,12 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.match(html, /<title>Quadruped · Morphazoid<\/title>/);
   assert.match(html, /<h1 id="pageTitle">QUADRUPED<\/h1>/);
   assert.doesNotMatch(html, /FIVE CONTACT LANES|quadroped/i);
-  for (const animal of animals) assert.match(html, new RegExp(`data-animal-id="${animal}"`));
-  for (const lane of ["front-left", "front-right", "rear-left", "rear-right"]) {
-    assert.match(html, new RegExp(`data-lane-id="${lane}"`));
-  }
+  for (const animal of animals) assert.match(html, new RegExp(`<option value="${animal}">`));
+  assert.doesNotMatch(html, /id="padGrid"|data-pad-index/);
+  assert.match(html, /id="tempo"[^>]*min="25"[^>]*max="500"/);
   assert.doesNotMatch(html, /data-lane-id="tail"/);
   assert.match(html, /id="sequenceGrid"[^>]*role="grid"/);
-  assert.match(html, /16 CABINET FRAMES/);
+  assert.match(html, /data-instrument-preset-host/);
   assert.match(html, /·<\/b> no new touchdown/);
   assert.match(html, /○<\/b> soft/);
   assert.match(html, /●<\/b> strong/);
@@ -32,7 +31,7 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.match(html, /At 1× pace, sixteen cards take one beat before extra air or slide rests/);
   for (const ratio of ["0.5", "1", "2", "3"]) assert.ok(html.includes(`data-pace-ratio="${ratio}"`));
   assert.match(html, /id="suspensionBeats"[^>]*max="8"/);
-  assert.match(html, /<b>One surface<\/b>/);
+  assert.match(html, /<b>Surface<\/b>/);
   assert.match(html, /<select id="terrain">[\s\S]*Packed earth[\s\S]*Resonant crystal/);
   assert.match(html, /<select id="groundProfile">[\s\S]*Level ground[\s\S]*Steps up[\s\S]*Steps down/);
   assert.match(html, /Touchdown, load, push, lift\. Feet drive the clock\./);
@@ -160,26 +159,15 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
   assert.match(catalog, /tempo stays independent/i);
 });
 
-test("the sequencer and controls remain reachable at desktop, portrait, and short landscape sizes", async () => {
-  const css = await read("src/instruments/quadruped/quadruped.css");
-  assert.match(css, /\.quadruped-grid-scroll\s*\{[\s\S]*?overflow-x:\s*auto/);
-  assert.match(css, /\.quadruped-grid-row-label\s*\{[\s\S]*?position:\s*sticky/);
-  assert.match(css, /@media \(max-width: 1280px\)/);
-  assert.match(css, /@media \(max-width: 760px\)/);
-  assert.match(css, /@media \(max-height: 480px\) and \(orientation: landscape\)/);
-  const landscape = css.match(/@media \(max-height: 480px\) and \(orientation: landscape\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(landscape, /grid-template-columns:\s*repeat\(2, minmax\(0, 1fr\)\)/);
-  assert.match(landscape, /grid-column:\s*1 \/ -1/);
-  assert.match(css, /@media \(pointer: coarse\)[\s\S]*?min-height:\s*48px/);
-  assert.match(css, /\.quadruped-play\s*\{[\s\S]*?min-height:\s*48px/);
-  assert.match(css, /#stage:focus-visible/);
-});
-
-test("the shared gait dictionary stays compact and scrollable", async () => {
-  const css = await read("src/instruments/quadruped/quadruped.css");
-  assert.match(css, /\.quadruped-behavior-buttons\s*\{\s*grid-template-columns:\s*repeat\(5,\s*1fr\);[\s\S]*?max-height:\s*230px;[\s\S]*?overflow-y:\s*auto/);
-  assert.match(css, /@media\s*\(max-width:\s*760px\)[\s\S]*?\.quadruped-behavior-buttons\s*\{[\s\S]*?grid-template-columns:\s*repeat\(3,\s*1fr\)/);
-  assert.match(css, /\.quadruped-behavior-buttons button\s*\{[\s\S]*?font-size:\s*0\.61rem/);
+test("the page uses native animal/gait menus and leaves explanations in playing notes", async () => {
+  const html = await read("src/pages/quadruped.html");
+  const app = await read("src/instruments/quadruped/quadruped-app.js");
+  assert.match(html, /<select id="animalSelect"/);
+  assert.match(html, /<select id="behaviorSelect"/);
+  assert.match(html, /<details class="quadruped-notes">/);
+  assert.doesNotMatch(html, /48 maximum|16 CABINET FRAMES|01 \/ ANIMAL/);
+  assert.match(app, /registerHeaderPresets/);
+  assert.match(app, /onApplied: \(\) => startTransport\(\)/);
 });
 
 test("Quadruped markup does not duplicate ids", async () => {

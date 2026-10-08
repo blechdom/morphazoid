@@ -13,8 +13,8 @@ test.describe("Quadruped", () => {
     await expect(page.getByRole("grid")).toHaveAttribute("aria-colcount", "17");
     await expect(page.getByRole("gridcell")).toHaveCount(112);
     await expect(page.getByRole("columnheader")).toHaveCount(16);
-    await expect(page.locator("[data-animal-id]")).toHaveCount(QUADRUPED_ANIMALS.length);
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(QUADRUPED_BEHAVIORS.length);
+    await expect(page.locator("#animalSelect option")).toHaveCount(QUADRUPED_ANIMALS.length);
+    await expect(page.locator("#behaviorSelect option")).toHaveCount(QUADRUPED_BEHAVIORS.length);
     await expect(page.locator(".quadruped-cabinet-frame")).toHaveCount(16);
     await expect(page.locator(".quadruped-cabinet-frame canvas")).toHaveCount(16);
 
@@ -63,17 +63,17 @@ test.describe("Quadruped", () => {
     await page.locator("#groundProfile").selectOption("stairs-up");
     await expect(page.locator("#groundProfileReadout")).toHaveText("Steps up");
 
-    await page.getByRole("button", { name: /^Unicorn/ }).click();
+    await page.locator("#animalSelect").selectOption("unicorn");
     await expect(page.locator("#animalReadout")).toHaveText("Unicorn");
-    await expect(page.locator("[data-behavior-id]")).toHaveCount(QUADRUPED_BEHAVIORS.length);
-    await page.locator('[data-behavior-id="trot"]').click();
+    await expect(page.locator("#behaviorSelect option")).toHaveCount(QUADRUPED_BEHAVIORS.length);
+    await page.locator('#behaviorSelect').selectOption('trot');
     await expect(page.locator("#behaviorReadout")).toHaveText("Trot");
     await expect(page.locator("#behaviorDescription")).toContainText("diagonal pairs");
     // Longer uphill rear support closes this trot's short float interval.
     await expect(page.locator(".quadruped-cabinet-frame[data-air='true']")).toHaveCount(0);
     await expect(play).toHaveAttribute("aria-pressed", "true");
     await expect(audio).toHaveAttribute("aria-pressed", "false");
-    await page.getByRole("button", { name: /^Elephant/ }).click();
+    await page.locator("#animalSelect").selectOption("elephant");
     await expect(page.locator("#behaviorReadout")).toHaveText("Trot");
     await expect(page.getByRole("button", { name: /^Right hind foot, frame 1: strong touchdown/ })).toHaveAttribute("data-level", "strong");
     expect(pageErrors).toEqual([]);
@@ -106,9 +106,9 @@ test.describe("Quadruped", () => {
 
     await page.locator("#clearButton").click();
     await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
-    await page.locator('[data-animal-id="gazelle"]').click();
+    await page.locator('#animalSelect').selectOption('gazelle');
     await expect(page.locator("#playState")).toContainText("stalled");
-    await page.locator('[data-behavior-id="trot"]').click();
+    await page.locator('#behaviorSelect').selectOption('trot');
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
     await expect(page.locator("#playState")).not.toContainText("stalled");
   });
@@ -123,8 +123,8 @@ test.describe("Quadruped", () => {
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(16, 3);
     await tempo.fill("180");
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(48, 3);
-    await page.locator('[data-animal-id="giraffe"]').click();
-    await page.locator('[data-behavior-id="trot"]').click();
+    await page.locator('#animalSelect').selectOption('giraffe');
+    await page.locator('#behaviorSelect').selectOption('trot');
     await expect(tempo).toHaveValue("180");
     await expect(page.locator("#tempoOut")).toHaveText("180 BPM · global");
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity"))).toBeCloseTo(48, 3);
@@ -133,21 +133,16 @@ test.describe("Quadruped", () => {
   test("every animal can borrow the full gait dictionary", async ({ page }) => {
     await page.goto("/quadruped.html", { waitUntil: "domcontentloaded" });
     for (const { id: animalId } of QUADRUPED_ANIMALS) {
-      await page.locator(`[data-animal-id="${animalId}"]`).click();
-      await expect(page.locator("[data-behavior-id]")).toHaveCount(QUADRUPED_BEHAVIORS.length);
-      expect(await page.locator("[data-behavior-id]").evaluateAll(elements => elements.map(element => element.dataset.behaviorId))).toEqual(QUADRUPED_BEHAVIORS.map(({ id }) => id));
-      const activeGaitIsVisible = await page.evaluate(() => {
-        const list = document.querySelector("#behaviorButtons")?.getBoundingClientRect();
-        const active = document.querySelector('#behaviorButtons [aria-pressed="true"]')?.getBoundingClientRect();
-        return Boolean(list && active && active.top >= list.top - 1 && active.bottom <= list.bottom + 1);
-      });
-      expect(activeGaitIsVisible).toBe(true);
-      await page.locator('[data-behavior-id="run-leap"]').click();
+      await page.locator("#animalSelect").selectOption(animalId);
+      await expect(page.locator("#behaviorSelect option")).toHaveCount(QUADRUPED_BEHAVIORS.length);
+      expect(await page.locator("#behaviorSelect option").evaluateAll(elements => elements.map(element => element.value))).toEqual(QUADRUPED_BEHAVIORS.map(({ id }) => id));
+      await expect(page.locator("#behaviorSelect")).toBeVisible();
+      await page.locator('#behaviorSelect').selectOption('run-leap');
       await expect(page.locator("#behaviorReadout")).toContainText("Run ×3 · leap");
     }
   });
 
-  test("pace edits stay live, long leaps rest, and body skids sustain a material scrape", async ({ page }) => {
+  test("pace edits stay live, long leaps rest, and body skids trigger irregular ground contacts", async ({ page }) => {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await page.goto("/quadruped.html");
@@ -160,8 +155,8 @@ test.describe("Quadruped", () => {
       await expect(page.locator("#tempo")).toHaveValue("60");
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     }
-    await page.locator('[data-animal-id="cat"]').click();
-    await page.locator('[data-behavior-id="walk-leap"]').click();
+    await page.locator('#animalSelect').selectOption('cat');
+    await page.locator('#behaviorSelect').selectOption('walk-leap');
     await page.locator("#suspensionBeats").fill("8");
     await expect(page.locator("#phraseLength")).toHaveText("9 beats / loop");
     await page.locator("#audioButton").click();
@@ -180,10 +175,10 @@ test.describe("Quadruped", () => {
     expect(restSamples.every(sample => sample.support === "0" && sample.airborne === "true" && Number(sample.height) > 0)).toBe(true);
     expect(Math.max(...restSamples.map(sample => sample.rms))).toBeLessThan(0.008);
     expect(Number(restSamples.at(-1).clockPosition)).toBeGreaterThan(Number(restSamples[0].clockPosition));
-    await page.locator('[data-animal-id="dinosaur"]').click();
+    await page.locator('#animalSelect').selectOption('dinosaur');
     await expect(page.locator("#behaviorReadout")).toHaveText("Walk ×4 · leap");
     await expect(page.locator("#suspensionBeats")).toHaveValue("8");
-    await page.locator('[data-behavior-id="skid"]').click();
+    await page.locator('#behaviorSelect').selectOption('skid');
     await page.locator("#restartButton").click();
     await expect.poll(async () => Number(await stage.getAttribute("data-body-slide"))).toBe(1);
     await expect(stage).toHaveAttribute("data-support", "0");
@@ -210,7 +205,7 @@ test.describe("Quadruped", () => {
     await expect(audio).toHaveAttribute("aria-pressed", "true");
     await expect(play).toHaveAttribute("aria-pressed", "true");
     for (const { id: animalId } of QUADRUPED_ANIMALS) {
-      await page.locator(`[data-animal-id="${animalId}"]`).click();
+      await page.locator("#animalSelect").selectOption(animalId);
       await expect.poll(async () => page.evaluate(async () => {
         const { getSharedAudioOutputManager } = await import("./src/audio-output-manager.js");
         const status = getSharedAudioOutputManager().getStatus();
