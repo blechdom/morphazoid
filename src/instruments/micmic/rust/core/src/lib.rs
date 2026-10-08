@@ -1601,10 +1601,12 @@ fn render_voice(
         let step = LIVE_DELAY_SLEW_SAMPLES / view.sample_rate;
         let candidate = voice.live_delay + (target - voice.live_delay).clamp(-step, step);
         let next = geometry.head(position, candidate * view.sample_rate, recorded);
-        if next.ready {
+        let head = if next.ready {
             voice.live_delay = candidate;
-        }
-        let head = geometry.head(position, voice.live_delay * view.sample_rate, recorded);
+            next
+        } else {
+            geometry.head(position, voice.live_delay * view.sample_rate, recorded)
+        };
         let sample = head.sample(view.history);
         let right_sample = view
             .history_right
