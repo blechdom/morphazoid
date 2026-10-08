@@ -3,23 +3,36 @@ import { test, expect } from '@playwright/test';
 // The normal animated workload must run; reduced motion bypasses branch waves.
 test.use({ reducedMotion: 'no-preference' });
 
-async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixedDrawingWorkMs = 0, observePcm = false } = {}) {
+async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixedDrawingWorkMs = 0,
+  observePcm = false, inspectControls = false, broadbandInput = false } = {}) {
   const errors = [], failures = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('response', response => { if (response.status() >= 400 && new URL(response.url()).origin === new URL(page.url()).origin) failures.push(response.url()); });
-  await page.addInitScript(({ voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm }) => {
+  await page.addInitScript(({ voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput }) => {
     const qa = window.__deviceRuntime = { contexts: [], worklets: [], sources: [], compilations: [], microphoneRequests: 0 };
+    qa.controls = []; const controlsById = new Map();
+    const recordControl = (kind, data) => {
+      const record = { kind, id: data.id, type: data.type ?? 'compile', phase: qa.phase,
+        sentAt: performance.now(), parameters: data.parameters ? structuredClone(data.parameters) : undefined,
+        performance: data.performance ? structuredClone(data.performance) : undefined, depth: data.depth };
+      qa.controls.push(record); controlsById.set(`${kind}:${data.id}`, record); return record;
+    };
     const NativeWorker = Worker, NativeContext = AudioContext, NativeNode = AudioWorkletNode;
     qa.fixedDrawingWorkMs = fixedDrawingWorkMs;
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
       const worker = new Target(...args);
       if (String(args[0]).includes('/native/topology-worker.js')) {
         const post = worker.postMessage.bind(worker);
-        worker.postMessage = (data, ...rest) => post(Number.isFinite(voiceBudget) ? { ...data, voiceBudget } : data, ...rest);
+        worker.postMessage = (data, ...rest) => {
+          if (inspectControls) recordControl('worker', data);
+          post(Number.isFinite(voiceBudget) ? { ...data, voiceBudget } : data, ...rest);
+        };
         // This listener is registered before the application's onmessage.
         // Actual worker Rust measurement and bounded compilation still run.
         worker.addEventListener('message', ({ data }) => {
+          const record = controlsById.get(`worker:${data.id}`);
+          if (record) { record.ackAt = performance.now(); record.skipped = data.skipped; record.revision = data.revision; }
           if (!data.result) return;
           if (Number.isFinite(voiceBudget)) data.calibration.voices = voiceBudget;
           qa.compilations.push({ revision: data.revision, voiceBudget: data.voiceBudget,
@@ -39,6 +52,30 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
         analyser.fftSize = 1024; mute.gain.value = 0;
         this.connect(analyser).connect(mute).connect(this.context.destination);
         qa.worklets.push({ analyser, samples: new Float32Array(analyser.fftSize) });
+        if (inspectControls) {
+          const port = this.port, post = port.postMessage.bind(port);
+          port.postMessage = (data, ...rest) => {
+            if (data.type !== 'status') recordControl('audio', data);
+            post(data, ...rest);
+          };
+          port.addEventListener('message', ({ data }) => {
+            const record = controlsById.get(`audio:${data.id}`);
+            if (record) record.ackAt = performance.now();
+          });
+          const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
+          Object.defineProperty(port, 'onmessage', {
+            get() { return descriptor.get.call(this); },
+            set(handler) {
+              descriptor.set.call(this, handler && function (event) {
+                const record = controlsById.get(`audio:${event.data.id}`);
+                const deliver = () => { if (record) record.deliveredAt = performance.now(); handler.call(this, event); };
+                if (record?.type === 'install' && qa.delayInstallAckMs > 0) {
+                  record.injectedAckDelayMs = qa.delayInstallAckMs; setTimeout(deliver, qa.delayInstallAckMs);
+                } else deliver();
+              });
+            },
+          });
+        }
         if (observePcm) {
           this.port.addEventListener('message', ({ data }) => {
             if (!qa.pcmRecording || !data.status) return;
@@ -58,17 +95,21 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
                   if (data === 'reset') { this.reset(); this.port.postMessage({ reset: true }); }
                   if (data === 'flush') this.port.postMessage({ flushed: true,
                     totalFrames: this.totalFrames, partialFrames: this.windowFrames,
-                    endFrame: currentFrame, rate: sampleRate });
+                    endFrame: currentFrame, rate: sampleRate, renderedQuanta: this.renderedQuanta,
+                    renderFrameDiscontinuities: this.renderFrameDiscontinuities });
                 };
               }
               reset() {
                 this.windowFrames = this.windowEnergy = this.windowPeak = this.windowNonFinite = this.windowLongestLowRun = 0;
                 this.zeroRun = this.lowRun = this.longestZeroRun = this.longestLowRun = 0;
                 this.totalFrames = this.totalNonFinite = this.sequence = 0;
+                this.renderedQuanta = this.renderFrameDiscontinuities = 0; this.previousRenderEnd = undefined;
               }
               process(inputs, outputs) {
                 for (const output of outputs) for (const channel of output) channel.fill(0);
                 const input = inputs[0] || [], frames = outputs[0]?.[0]?.length || 128;
+                if (this.previousRenderEnd !== undefined && currentFrame !== this.previousRenderEnd) this.renderFrameDiscontinuities++;
+                this.previousRenderEnd = currentFrame + frames; this.renderedQuanta++;
                 for (let frame = 0; frame < frames; frame++) {
                   const left = input[0]?.[frame] ?? 0, right = input[1]?.[frame] ?? left;
                   const finite = Number.isFinite(left) && Number.isFinite(right);
@@ -86,6 +127,7 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
                   if (this.windowFrames === this.capacity) {
                     const packet = { sequence: this.sequence++, rate: sampleRate, frames: this.windowFrames,
                       endFrame: currentFrame + frame + 1, totalFrames: this.totalFrames,
+                      renderedQuanta: this.renderedQuanta, renderFrameDiscontinuities: this.renderFrameDiscontinuities,
                       peak: this.windowPeak, rms: Math.sqrt(this.windowEnergy / this.windowFrames),
                       nonFinite: this.windowNonFinite, longestZeroRun: this.longestZeroRun,
                       longestLowRun: this.longestLowRun, windowLongestLowRun: this.windowLongestLowRun };
@@ -129,17 +171,27 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
       const oscillator = inputContext.createOscillator(), gain = inputContext.createGain();
       oscillator.frequency.value = 173; gain.gain.value = .03;
       oscillator.connect(gain).connect(destination); oscillator.start(); await inputContext.resume();
+      let noise;
+      if (broadbandInput) {
+        const buffer = inputContext.createBuffer(1, inputContext.sampleRate * 2, inputContext.sampleRate);
+        const samples = buffer.getChannelData(0); let seed = 0x5eed1234;
+        for (let i = 0; i < samples.length; i++) { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; samples[i] = seed / 2147483648 - 1; }
+        noise = inputContext.createBufferSource(); noise.buffer = buffer; noise.loop = true;
+        const noiseGain = inputContext.createGain(); noiseGain.gain.value = .03; gain.gain.value = 0;
+        noise.connect(noiseGain).connect(destination); noise.start();
+        qa.syntheticInput = { context: inputContext, toneGain: gain, noiseGain };
+      }
       for (const track of destination.stream.getTracks()) {
         const stop = track.stop.bind(track);
         track.stop = () => {
           if (track.readyState === 'ended') return stop();
-          stop(); oscillator.stop(); void inputContext.close();
+          stop(); oscillator.stop(); noise?.stop(); void inputContext.close();
         };
       }
       return destination.stream;
     } : navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = (...args) => { qa.microphoneRequests++; return capture(...args); };
-  }, { voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm });
+  }, { voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput });
   await page.route('**/src/instruments/micmic/native/app.js', async route => {
     const response = await route.fetch();
     let source = await response.text();
@@ -212,6 +264,7 @@ function captureQaDraw(branches, cost, renderedAt) {
 }
 window.__deviceQa = {
   engine: browserEngine, applyScene, presetBank: () => structuredClone(presets),
+  timeFoldSlider: sliderFromTimeFold,
   scene: () => captureScene(state.parameters, state.performance),
   record: () => { __deviceRuntime.frames = []; __deviceRuntime.recording = true; },
   frames: () => structuredClone(__deviceRuntime.frames ?? []),
@@ -279,6 +332,61 @@ async function flushPcm(page) {
       contextClock: qa.contexts.at(-1)?.currentTime, contextState: qa.contexts.at(-1)?.state,
       sampleClock: __deviceQa.engine.getSampleTime() };
   });
+}
+async function startPcm(page) {
+  await page.evaluate(() => __deviceRuntime.probeReady);
+  await page.evaluate(async () => {
+    const qa = __deviceRuntime; qa.pcmRecording = false;
+    await new Promise(resolve => { qa.probeResetAck = resolve; qa.pcmProbe.port.postMessage('reset'); });
+    qa.pcmWindows = []; qa.pcmStatuses = []; qa.pcmRecording = true;
+    qa.pcmStart = { wallClock: performance.now(), contextClock: qa.contexts.at(-1)?.currentTime,
+      contextState: qa.contexts.at(-1)?.state, sampleClock: __deviceQa.engine.getSampleTime() };
+    __deviceQa.record();
+  });
+}
+const controlCounts = page => page.evaluate(() => {
+  const messages = __deviceRuntime.controls;
+  return { worker: messages.filter(m => m.kind === 'worker').length,
+    install: messages.filter(m => m.kind === 'audio' && m.type === 'install').length,
+    depth: messages.filter(m => m.kind === 'audio' && m.type === 'depth').length,
+    performance: messages.filter(m => m.kind === 'audio' && m.type === 'performance').length };
+});
+async function settledControls(page) {
+  await expect.poll(() => page.evaluate(() => {
+    const d = __deviceQa.engine.getDiagnostics(), s = __deviceQa.scene();
+    return JSON.stringify(d.parameters) === JSON.stringify(s.parameters)
+      && JSON.stringify(d.performance) === JSON.stringify(s.performance)
+      && __deviceRuntime.controls.every(m => m.kind === 'worker' ? m.ackAt !== undefined : m.deliveredAt !== undefined);
+  }), { timeout: 30000 }).toBe(true);
+}
+async function takeKnob(page, id) {
+  const input = page.locator(`#${id}`); await input.scrollIntoViewIfNeeded();
+  await expect(input).toBeEnabled(); const box = await input.boundingBox();
+  const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  await page.mouse.move(point.x, point.y); await page.mouse.down(); return point;
+}
+async function pcmEvidence(page) {
+  const flush = await flushPcm(page);
+  return page.evaluate(flush => ({ flush, start: __deviceRuntime.pcmStart,
+    packets: __deviceRuntime.pcmWindows, statuses: __deviceRuntime.pcmStatuses,
+    frames: __deviceQa.frames(), controls: structuredClone(__deviceRuntime.controls),
+    sampleClock: __deviceQa.engine.getSampleTime(), contextClock: __deviceRuntime.contexts.at(-1)?.currentTime,
+    contextState: __deviceRuntime.contexts.at(-1)?.state }), flush);
+}
+function continuousGeneratedPcm(evidence, { broadband = true } = {}) {
+  const { flush, start, packets, frames } = evidence;
+  expect(flush.contextState).toBe('running'); expect(flush.renderFrameDiscontinuities).toBe(0);
+  expect(flush.renderedQuanta * 128).toBe(flush.totalFrames);
+  expect(packets.length).toBeGreaterThan(20);
+  expect(flush.totalFrames - packets.at(-1).totalFrames).toBe(flush.partialFrames);
+  expect(flush.totalFrames / flush.rate).toBeGreaterThan((flush.receivedAt - start.wallClock) / 1000 * .8);
+  for (let i = 0; i < packets.length; i++) {
+    const p = packets[i]; expect(p.nonFinite).toBe(0); expect(p.peak).toBeLessThanOrEqual(1);
+    expect(p.renderFrameDiscontinuities).toBe(0);
+    if (i > 0) { expect(p.sequence).toBe(packets[i - 1].sequence + 1); expect(p.endFrame).toBe(packets[i - 1].endFrame + p.frames); }
+    if (broadband) { expect(p.longestZeroRun / p.rate).toBeLessThan(.04); expect(p.longestLowRun / p.rate).toBeLessThan(.04); }
+  }
+  frames.forEach(correctDraw);
 }
 async function live(page) {
   await expect.poll(async () => {
@@ -678,6 +786,96 @@ for (const renderer of ['canvas', 'webgl2']) test(`continuous PCM windows detect
       actualWasm: true, actualMediaStreamInput: true, input: 'steady173Hz oscillator captured as a real MediaStream',
       silentQaProbe: true, forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false,
       physicalDeliveryChecked: false }), contentType: 'application/json' });
+  }
+  await cleanup(page, evidence);
+});
+
+for (const renderer of ['canvas', 'webgl2']) test(`dense physical knob releases and UI selections keep one audio source and exact Rust voices with ${renderer}`, async ({ page }) => {
+  test.setTimeout(180000);
+  const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page, renderer); await fittingScene(page);
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => { const d = await diagnostics(page), p = await pcm(page); return d.audio && d.microphoneEnabled && p.peak > 1e-5; }).toBe(true);
+  await page.waitForTimeout(1500); await settledControls(page);
+  const initial = await session(page), releases = [], selections = [];
+  await startPcm(page);
+  for (let round = 0; round < 2; round++) for (const [id, delta] of [
+    ['interval', round ? -6 : 60], ['timeRatio', round ? 4 : -4],
+    ['depth', round ? -4 : 4], ['wet', round ? 4 : -4], ['generationAngle', round ? 4 : -4],
+  ]) {
+    await page.evaluate(phase => { __deviceRuntime.phase = phase; }, `knob-${round}-${id}`);
+    const beforeValue = await page.locator(`#${id}`).inputValue(), point = await takeKnob(page, id);
+    await page.mouse.move(point.x, point.y + delta, { steps: 8 });
+    await settledControls(page);
+    const value = await page.locator(`#${id}`).inputValue(); expect(value).not.toBe(beforeValue);
+    const held = await controlCounts(page);
+    if (!round && id === 'interval') {
+      const d = await diagnostics(page); expect(d.parameters.intervalMs).toBeGreaterThanOrEqual(.05);
+      expect(d.parameters.intervalMs).toBeLessThan(1);
+      expect(await page.locator('#intervalOut').textContent()).toMatch(/0\.\d+ ms/);
+      expect(await page.locator('#interval').getAttribute('step')).toBe('any');
+    }
+    await page.mouse.up(); await page.waitForTimeout(180); await settledControls(page);
+    const released = await controlCounts(page); expect(released).toEqual(held);
+    releases.push({ round, id, beforeValue, value, held, released, session: await session(page) });
+  }
+  // Delay only receipt of a genuine install ACK; actual Rust processing and
+  // measured metrics continue. Returning to the prior value while pending
+  // must still install that latest value, rather than treating it as a no-op.
+  await page.evaluate(() => { __deviceRuntime.phase = 'pending-reversal'; __deviceRuntime.delayInstallAckMs = 150; });
+  const previous = (await diagnostics(page)).parameters.timeRatio, point = await takeKnob(page, 'timeRatio');
+  await page.mouse.move(point.x, point.y - 3, { steps: 3 });
+  await page.waitForFunction(() => __deviceRuntime.controls.some(m => m.phase === 'pending-reversal' && m.type === 'install' && m.ackAt !== undefined && m.deliveredAt === undefined));
+  await page.mouse.move(point.x, point.y, { steps: 3 }); await page.mouse.up();
+  await settledControls(page); expect((await diagnostics(page)).parameters.timeRatio).toBe(previous);
+  const pending = await page.evaluate(() => structuredClone(__deviceRuntime.controls.filter(m => m.phase === 'pending-reversal')));
+  expect(pending.filter(m => m.type === 'install').length).toBeGreaterThanOrEqual(2);
+  await page.evaluate(() => { __deviceRuntime.delayInstallAckMs = 0; });
+  for (const rule of ['coral', 'lab:parametric', 'pythagorean']) {
+    await page.evaluate(rule => { __deviceRuntime.phase = `rule-${rule}`; }, rule);
+    const index = await page.locator('#lSystemType').evaluate((select, value) => [...select.options].findIndex(o => o.value === value), rule);
+    const picker = page.locator('details[data-select-id="lSystemType"]');
+    await picker.locator('summary').click(); await picker.locator(`button[data-option-index="${index}"]`).click();
+    await expect(page.locator('#lSystemType')).toHaveValue(rule); await settledControls(page); await completeDraw(page);
+    selections.push({ rule, session: await session(page), draw: await page.evaluate(() => __deviceQa.lastDraw()) });
+  }
+  for (const id of ['coral', 'pythagorean']) {
+    await page.evaluate(id => { __deviceRuntime.phase = `preset-${id}`; }, id);
+    const picker = page.locator('.instrument-preset-controls');
+    await picker.locator('summary').click(); await picker.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
+    await expect(picker).toHaveAttribute('data-preset-id', id); await expect(page.locator('#generations')).toBeEnabled();
+    await native(page, 'dry', 0); await native(page, 'wet', .65); await settledControls(page); await completeDraw(page);
+    selections.push({ preset: id, session: await session(page), draw: await page.evaluate(() => __deviceQa.lastDraw()) });
+  }
+  await page.waitForTimeout(1500);
+  const current = await session(page), recording = await pcmEvidence(page); continuousGeneratedPcm(recording);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect((await diagnostics(page)).performance.dry).toBe(0);
+  await test.info().attach('physical-knobs-selection-pcm', { body: JSON.stringify({ renderer, releases, pending, selections, initial, current,
+    ...recording, input: 'deterministic broadband noise captured as a real MediaStream', actualWasm: true,
+    forcedAudioBudget: false, injectedInstallAckDelayMs: 150, fakeAudioMetrics: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  if (renderer === 'webgl2') {
+    const scene = await page.evaluate(() => __deviceQa.scene()), { lab, ...classic } = scene.parameters;
+    await page.evaluate(scene => __deviceQa.applyScene(scene), { ...scene,
+      parameters: { ...classic, lSystemType: 'pythagorean', generations: 1, intervalMs: 20, timeRatio: 1, pitchScale: 0 },
+      performance: { ...scene.performance, wet: .65, dry: 0 } });
+    await page.evaluate(() => { const s = __deviceRuntime.syntheticInput, now = s.context.currentTime;
+      s.noiseGain.gain.setTargetAtTime(0, now, .005); s.toneGain.gain.setTargetAtTime(.03, now, .005); });
+    await page.waitForTimeout(500); await startPcm(page);
+    for (const foldMs of [20, 20 + 1000 / (173 * 2), 20, 26, 20]) {
+      await page.evaluate(value => { __deviceRuntime.phase = `tone-fold-${value}`; }, foldMs);
+      await native(page, 'interval', await page.evaluate(value => __deviceQa.timeFoldSlider(value), foldMs));
+      await settledControls(page); await page.waitForTimeout(400);
+    }
+    const tone = await pcmEvidence(page); continuousGeneratedPcm(tone, { broadband: false });
+    await test.info().attach('tonal-fold-amplitude-characterization', { body: JSON.stringify({ ...tone,
+      input: 'steady173Hz tone in the same captured MediaStream', halfPeriodMs: 1000 / (173 * 2),
+      claim: 'measure amplitude changes separately from scheduled sample continuity; no constant wet-amplitude requirement',
+      humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
   }
   await cleanup(page, evidence);
 });
