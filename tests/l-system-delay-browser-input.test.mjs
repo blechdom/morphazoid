@@ -11,6 +11,26 @@ function pcm(channels = 1, frames = 128, rate = 48000) {
   return { numberOfChannels: channels, length: frames, sampleRate: rate, getChannelData: channel => data[channel] };
 }
 const file = name => ({ name, size: 8, arrayBuffer: async () => new ArrayBuffer(8) });
+const POOL_VOICES = 14, POOL_HEADER_BYTES = 32, POOL_RECORD_BYTES = 48;
+const POOL_BYTES = POOL_HEADER_BYTES + POOL_VOICES * POOL_RECORD_BYTES;
+function compiledPool(parameters, revision, provenance) {
+  const pool = new ArrayBuffer(POOL_BYTES), values = new DataView(pool);
+  values.setUint32(0, 0x4c534431, true); values.setUint32(4, 2, true);
+  values.setUint32(8, POOL_VOICES, true); values.setUint32(12, POOL_VOICES, true);
+  values.setUint32(16, revision >>> 0, true); values.setUint32(20, Math.floor(revision / 2 ** 32), true);
+  values.setFloat64(24, 1, true);
+  for (let index = 0; index < POOL_VOICES; index++) {
+    const offset = POOL_HEADER_BYTES + index * POOL_RECORD_BYTES, generation = index % 3 + 1;
+    values.setFloat64(offset, parameters.intervalMs / 1000 * (index + 1) / POOL_VOICES, true);
+    values.setFloat64(offset + 8, 1 + index / 20, true);
+    values.setFloat64(offset + 16, parameters.depth > 0 ? .5 * parameters.depth ** (generation * .72) : 0, true);
+    values.setFloat64(offset + 24, (index % 5) / 4 - .5, true);
+    values.setUint32(offset + 32, index, true);
+    values.setUint32(offset + 36, provenance * POOL_VOICES + index, true);
+    values.setUint32(offset + 40, generation, true);
+  }
+  return pool;
+}
 function fixture() {
   const originals = new Map(), engines = [], contexts = [], worklets = [], workers = [], sources = [], errors = [], updates = [];
   const f = { contexts, worklets, workers, sources, errors, updates, captureCalls: 0, fetchCalls: 0, statusReplies: [], holdStatus: false,
@@ -40,10 +60,10 @@ function fixture() {
     constructor() { workers.push(this); }
     postMessage(data) {
       f.compileRequests.push(data);
-      const retainedPool = new ArrayBuffer(32); new Uint8Array(retainedPool).fill(f.compilePools.length + 1); f.compilePools.push(retainedPool);
+      const retainedPool = compiledPool(data.parameters, data.revision, f.compilePools.length + 1); f.compilePools.push(retainedPool);
       const reply = () => this.onmessage?.({ data: { id: data.id, revision: data.revision, module: {}, pool: retainedPool,
-        result: { parameters: data.parameters, nodes: [], requestedVoices: 14, eligibleVoices: data.parameters.depth ? 14 : 0,
-          structuralEligibleVoices: 14 } } });
+        result: { parameters: data.parameters, nodes: [], requestedVoices: POOL_VOICES, eligibleVoices: data.parameters.depth ? POOL_VOICES : 0,
+          structuralEligibleVoices: POOL_VOICES } } });
       if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
     }
     terminate() { this.terminated = true; }
@@ -199,11 +219,14 @@ test('pool transfers detach only the delivery copy and retain cached bytes for g
     const engine = f.engine(); await engine.prepareAudio();
     await engine.request('/api/parameters', { ...engine.getDiagnostics().parameters, angle: 94 });
     const retained = f.compilePools.at(-1), before = [...new Uint8Array(retained)];
-    assert.equal(retained.byteLength, 32);
+    assert.equal(retained.byteLength, POOL_BYTES);
+    assert.equal(new DataView(retained).getUint32(4, true), 2);
+    assert.equal(new DataView(retained).getUint32(8, true), POOL_VOICES);
+    assert.notDeepEqual(before, [...new Uint8Array(f.compilePools.at(-2))], 'compiled scenes retain distinct byte provenance');
     assert.ok(f.worklets[0].transferInputs.every(pool => pool.byteLength === 0), 'each actual delivery buffer is transferred');
-    assert.ok(f.worklets[0].messages.filter(message => message.type === 'install').every(message => message.pool.byteLength === 32));
+    assert.ok(f.worklets[0].messages.filter(message => message.type === 'install').every(message => message.pool.byteLength === POOL_BYTES));
     f.worklets[0].onprocessorerror(); await engine.prepareAudio();
-    assert.equal(f.worklets.length, 2); assert.equal(retained.byteLength, 32);
+    assert.equal(f.worklets.length, 2); assert.equal(retained.byteLength, POOL_BYTES);
     assert.deepEqual([...new Uint8Array(retained)], before);
     assert.deepEqual([...new Uint8Array(f.worklets[1].messages.find(message => message.type === 'install').pool)], before);
     assert.equal(f.worklets[1].transferInputs[0].byteLength, 0);
