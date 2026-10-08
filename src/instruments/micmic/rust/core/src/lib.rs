@@ -261,11 +261,35 @@ pub struct PreparedPoolControls {
 
 impl PreparedPoolControls {
     pub fn new(count: usize) -> Result<Self, String> {
-        Ok(Self {
-            records: reserved(count)?,
-            rank_to_slot: filled(count, usize::MAX)?,
+        let mut controls = Self {
+            records: Vec::new(),
+            rank_to_slot: Vec::new(),
             groups: [0; 256],
-        })
+        };
+        controls.prepare(count)?;
+        Ok(controls)
+    }
+
+    /// Reuse the previous control buffers at their retained high-water size.
+    /// Only genuinely larger scenes reserve more memory; ordinary live edits
+    /// clear numeric records without freeing their allocations.
+    pub fn prepare(&mut self, count: usize) -> Result<(), String> {
+        if self.records.capacity() < count {
+            self.records
+                .try_reserve_exact(count - self.records.len())
+                .map_err(|error| format!("Cannot allocate delay controls: {error}"))?;
+        }
+        if self.rank_to_slot.capacity() < count {
+            self.rank_to_slot
+                .try_reserve_exact(count - self.rank_to_slot.len())
+                .map_err(|error| format!("Cannot allocate delay ranks: {error}"))?;
+        }
+        self.records.clear();
+        let retained = self.rank_to_slot.len().min(count);
+        self.rank_to_slot[..retained].fill(usize::MAX);
+        self.rank_to_slot.resize(count, usize::MAX);
+        self.groups.fill(0);
+        Ok(())
     }
 
     pub fn push(&mut self, target: PoolTarget, rank: usize, seed: u32, seed_epoch: u64, group: u8) {
@@ -288,6 +312,11 @@ impl PreparedPoolControls {
 
     pub fn group_counts(&self) -> &[usize; 256] {
         &self.groups
+    }
+
+    pub fn allocated_bytes(&self) -> usize {
+        self.records.capacity() * std::mem::size_of::<PoolControl>()
+            + self.rank_to_slot.capacity() * std::mem::size_of::<usize>()
     }
 }
 
@@ -862,17 +891,15 @@ impl Engine {
 
     /// Atomically adopt prepared controls for audible voices only. Inactive
     /// storage takes the latest controls and stable seed upon future admission.
+    /// Return the old numeric records and rank map for the next preparation;
+    /// callers retain them instead of freeing storage in the audio callback.
     pub fn install_prepared_pool_controls(
         &mut self,
         mut prepared: PreparedPoolControls,
         limit: usize,
-    ) {
+    ) -> PreparedPoolControls {
         let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
-        let old_map = std::mem::replace(
-            &mut self.rank_to_slot,
-            std::mem::take(&mut prepared.rank_to_slot),
-        );
-        drop(old_map);
+        std::mem::swap(&mut self.rank_to_slot, &mut prepared.rank_to_slot);
         self.pool_group_gains = None;
         self.pool_admission_dirty = true;
         self.tap_remap.fill(0.);
@@ -904,8 +931,22 @@ impl Engine {
         }
         std::mem::swap(&mut self.tap_activity, &mut self.tap_remap);
         self.tap_energy.fill(0.);
-        self.pool_controls = Some(prepared);
+        let mut recycled =
+            self.pool_controls
+                .replace(prepared)
+                .unwrap_or_else(|| PreparedPoolControls {
+                    records: Vec::new(),
+                    rank_to_slot: Vec::new(),
+                    groups: [0; 256],
+                });
+        // Installed controls do not need a second rank map. Keep the old map
+        // with the retired records so both allocations can be reused together.
+        std::mem::swap(
+            &mut recycled.rank_to_slot,
+            &mut self.pool_controls.as_mut().unwrap().rank_to_slot,
+        );
         self.set_pool_limit(limit);
+        recycled
     }
 
     /// Sample-thread safe generation gain update. Stable structural ranks are
@@ -1094,10 +1135,10 @@ impl Engine {
             + (self.rank_to_slot.capacity() + self.admission_scratch.capacity())
                 * std::mem::size_of::<usize>()
             + self.growth_dirty_indices.capacity() * std::mem::size_of::<usize>()
-            + self.pool_controls.as_ref().map_or(0, |controls| {
-                controls.records.capacity() * std::mem::size_of::<PoolControl>()
-                    + controls.rank_to_slot.capacity() * std::mem::size_of::<usize>()
-            })
+            + self
+                .pool_controls
+                .as_ref()
+                .map_or(0, PreparedPoolControls::allocated_bytes)
             + self
                 .voices
                 .iter()
