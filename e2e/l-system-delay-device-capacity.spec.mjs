@@ -265,6 +265,7 @@ function captureQaDraw(branches, cost, renderedAt) {
 window.__deviceQa = {
   engine: browserEngine, applyScene, presetBank: () => structuredClone(presets),
   timeFoldSlider: sliderFromTimeFold,
+  liveState: () => ({ parameters: structuredClone(state.parameters), performance: structuredClone(state.performance) }),
   scene: () => captureScene(state.parameters, state.performance),
   record: () => { __deviceRuntime.frames = []; __deviceRuntime.recording = true; },
   frames: () => structuredClone(__deviceRuntime.frames ?? []),
@@ -353,7 +354,7 @@ const controlCounts = page => page.evaluate(() => {
 });
 async function settledControls(page) {
   await expect.poll(() => page.evaluate(() => {
-    const d = __deviceQa.engine.getDiagnostics(), s = __deviceQa.scene();
+    const d = __deviceQa.engine.getDiagnostics(), s = __deviceQa.liveState();
     return JSON.stringify(d.parameters) === JSON.stringify(s.parameters)
       && JSON.stringify(d.performance) === JSON.stringify(s.performance)
       && __deviceRuntime.controls.every(m => m.kind === 'worker' ? m.ackAt !== undefined : m.deliveredAt !== undefined);
