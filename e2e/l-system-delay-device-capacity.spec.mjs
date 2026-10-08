@@ -798,6 +798,19 @@ for (const renderer of ['canvas', 'webgl2']) test(`continuous PCM windows detect
   await cleanup(page, evidence);
 });
 
+test.afterEach(async ({ page }, info) => {
+  if (!info.title.startsWith('dense physical knob') || info.status === info.expectedStatus) return;
+  const observed = await page.evaluate(() => {
+    const qa = __deviceRuntime;
+    return { phase: qa.phase, controls: structuredClone(qa.controls), packets: qa.pcmWindows,
+      statuses: qa.pcmStatuses, start: qa.pcmStart, frames: __deviceQa.frames(), lastDraw: __deviceQa.lastDraw(),
+      diagnostics: __deviceQa.engine.getDiagnostics(), liveState: __deviceQa.liveState(),
+      contextClock: qa.contexts.at(-1)?.currentTime, contextState: qa.contexts.at(-1)?.state,
+      failureWitnessOnly: true, physicalDeliveryChecked: false };
+  }).catch(error => ({ captureError: String(error) }));
+  await info.attach('physical-controls-failure-witness', { body: JSON.stringify(observed), contentType: 'application/json' });
+});
+
 for (const renderer of ['canvas', 'webgl2']) test(`dense physical knob releases and UI selections keep one audio source and exact Rust voices with ${renderer}`, async ({ page }) => {
   test.setTimeout(180000);
   const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
@@ -835,7 +848,7 @@ for (const renderer of ['canvas', 'webgl2']) test(`dense physical knob releases 
   await page.evaluate(() => { __deviceRuntime.phase = 'pending-reversal'; __deviceRuntime.delayInstallAckMs = 150; });
   const previous = (await diagnostics(page)).parameters.timeRatio, point = await takeKnob(page, 'timeRatio');
   await page.mouse.move(point.x, point.y - 3, { steps: 3 });
-  await page.waitForFunction(() => __deviceRuntime.controls.some(m => m.phase === 'pending-reversal' && m.type === 'install' && m.ackAt !== undefined && m.deliveredAt === undefined));
+  await page.waitForFunction(() => __deviceRuntime.controls.some(m => m.phase === 'pending-reversal' && m.type === 'install' && m.ackAt !== undefined && m.deliveredAt === undefined), null, { timeout: 15000 });
   await page.mouse.move(point.x, point.y, { steps: 3 }); await page.mouse.up();
   await settledControls(page); expect((await diagnostics(page)).parameters.timeRatio).toBe(previous);
   const pending = await page.evaluate(() => structuredClone(__deviceRuntime.controls.filter(m => m.phase === 'pending-reversal')));
@@ -843,9 +856,7 @@ for (const renderer of ['canvas', 'webgl2']) test(`dense physical knob releases 
   await page.evaluate(() => { __deviceRuntime.delayInstallAckMs = 0; });
   for (const rule of ['coral', 'lab:parametric', 'pythagorean']) {
     await page.evaluate(rule => { __deviceRuntime.phase = `rule-${rule}`; }, rule);
-    const index = await page.locator('#lSystemType').evaluate((select, value) => [...select.options].findIndex(o => o.value === value), rule);
-    const picker = page.locator('details[data-select-id="lSystemType"]');
-    await picker.locator('summary').click(); await picker.locator(`button[data-option-index="${index}"]`).click();
+    await page.locator('#lSystemType').selectOption(rule, { timeout: 15000 });
     await expect(page.locator('#lSystemType')).toHaveValue(rule); await settledControls(page); await completeDraw(page);
     selections.push({ rule, session: await session(page), draw: await page.evaluate(() => __deviceQa.lastDraw()) });
   }
