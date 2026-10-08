@@ -99,12 +99,12 @@ async function set(page, id, value) {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   }, value);
 }
-async function expectedPayload(page, name) {
-  return page.evaluate(async name => {
+async function expectedPayload(page, name, instrument = 'micmic-rust') {
+  return page.evaluate(async ({ name, instrument }) => {
     const model = await import('/src/instruments/micmic/native/model.js');
     const rules = await import('/src/instruments/micmic/native/rule-modes.js');
     const current = __shareQa.state();
-    return { instrument: 'micmic-rust', version: 1, name,
+    return { instrument, version: 1, name,
       snapshot: model.captureScene(current.parameters, current.performance),
       context: { ruleMode: rules.ruleMode(current.parameters), input: {
         mode: current.input.mode,
@@ -112,7 +112,7 @@ async function expectedPayload(page, name) {
         loop: current.input.loop },
       liveLevels: { inputGain: current.performance.inputGain, outputLevel: current.performance.level,
         makeupDb: current.performance.mastering.makeupDb } } };
-  }, name);
+  }, { name, instrument });
 }
 async function copied(page, expected) {
   await expect(page.locator('#shareSoundStatus')).toContainText('Copied.');
@@ -214,6 +214,20 @@ test('capture locks during startup, scene recall and clipboard await, and captur
   const latest = await expectedPayload(page, 'Pending edit');
   await page.locator('#copySoundParameters').click(); await copied(page, latest);
   expect(latest.snapshot.parameters.angle).toBe(114); expect(errors).toEqual([]);
+});
+
+test('standalone laboratories identify their own instrument and capture their nested rule state', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = await fixture(page);
+  for (const instrument of ['l-system-parametric-lab', 'l-system-experiments']) {
+    await page.goto(`/${instrument}.html`); await ready(page); await openSettings(page);
+    await page.locator('#shareSoundName').fill('Lab sound');
+    const expected = await expectedPayload(page, 'Lab sound', instrument);
+    expect(expected.snapshot.parameters.lab).toBeDefined();
+    expect(expected.context.ruleMode).toBe(`lab:${expected.snapshot.parameters.lab.kind}`);
+    await page.locator('#copySoundParameters').click(); await copied(page, expected);
+  }
+  expect(errors).toEqual([]);
 });
 
 for (const layout of [
