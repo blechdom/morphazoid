@@ -8,7 +8,7 @@ import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { timeFoldFromSlider, sliderFromTimeFold, formatTimeFold, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS } from './time-fold.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
-  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
+  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth, applyPreviewTimeFold,
   topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
@@ -48,7 +48,8 @@ const COLORS = ['#fff3d6', '#55d9ff', '#5fe8c4', '#7db4ff', '#c79bff', '#ff826f'
 let disposed = false, bootstrapped = false, parameterRevision = 0, performanceRevision = 0;
 let parameterDirty = false, performanceDirty = false, parameterWorking = false, performanceWorking = false;
 let depthDirty = false, depthWorking = false, depthRevision = 0, depthTimer;
-let depthRequest = null, performanceRequest = null;
+let foldDirty = false, foldWorking = false, foldRevision = 0, foldTimer;
+let depthRequest = null, foldRequest = null, performanceRequest = null;
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
 let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
@@ -220,6 +221,25 @@ function updateVisualDepth(depth) {
     geometry.activeLimit = -1; geometry.unavailableKey = null;
   }
 }
+function appliedTimeFold(reply, parameters) {
+  return reply.audio && Number.isFinite(reply.status?.timeFoldMs) && reply.status.timeFoldMs > 0
+    ? reply.status.timeFoldMs : parameters.intervalMs;
+}
+function updateVisualTimeFold(intervalMs) {
+  if (intervalMs === previewParameters.intervalMs) return;
+  previewParameters.intervalMs = intervalMs;
+  if (nativePreview) nativePreview.parameters.intervalMs = intervalMs;
+  const nodes = geometry?.nodes ?? nativePreview?.nodes;
+  if (nodes) applyPreviewTimeFold(nodes, intervalMs);
+  if (!geometry) return;
+  for (const wave of geometry.waves.values()) {
+    const node = geometry.byId.get(wave.signal.id);
+    if (!node) continue;
+    wave.signal.delay = node.delay;
+    wave.signal.startDelay = wave.parent?.delay ?? Math.max(0, node.delay - intervalMs / 1000);
+  }
+  gpuRenderer?.setTimeFold(intervalMs);
+}
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
   if (reply.input) state.input = { ...state.input, ...reply.input };
@@ -236,6 +256,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
       syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = performance.now();
     }
     if (reply.topologyRevision >= visualRevision && Number.isFinite(applied.depth)) updateVisualDepth(applied.depth);
+    if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
     if (reply.topologyRevision > visualRevision) void refreshNativePreview();
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
@@ -258,8 +279,13 @@ async function refreshNativePreview() {
     const reply = await request('/api/preview');
     if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
     const parameters = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
+    parameters.intervalMs = appliedTimeFold(reply, parameters);
     if (LAB_CONFIG && (!parameters.lab || !LAB_CONFIG.kinds.includes(parameters.lab.kind))) return;
-    if (reply.topologyRevision === visualRevision && nativePreview) { updateVisualDepth(parameters.depth); return; }
+    if (reply.topologyRevision === visualRevision && nativePreview) {
+      updateVisualDepth(parameters.depth); updateVisualTimeFold(parameters.intervalMs);
+      nativePreview.requestedParameters = sanitizeParameters(reply.parameters);
+      return;
+    }
     const prepared = reply.visualNodes ?? reply.nodes ?? [];
     if (prepared !== preparedGraphicsNodes) {
       preparedGraphicsNodes = prepared;
@@ -286,6 +312,7 @@ async function refreshNativePreview() {
         node.priority = target.priority;
         node.delay = target.delay; node.rate = target.rate;
       }
+      applyPreviewTimeFold(geometry.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       applyPreviewDepth(geometry.nodes, parameters.depth);
       for (const wave of geometry.waves.values()) {
         const node = geometry.byId.get(wave.signal.id);
@@ -301,6 +328,7 @@ async function refreshNativePreview() {
         revision: visualRevision, activeRevision: state.status.topologyRevision }) });
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
+      applyPreviewTimeFold(previewTransition.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       applyPreviewDepth(previewTransition.nodes, parameters.depth);
       nativePreviewStarted = performance.now();
       nativePreviewMoving = Boolean(geometry && previewTransition.moving);
@@ -334,7 +362,8 @@ async function flushParameters() {
   parameterDirty = false; parameterWorking = true;
   const revision = parameterRevision, parameters = { ...state.parameters };
   try {
-    const reply = await enqueue(() => revision === parameterRevision ? request('/api/parameters', parameters) : null);
+    const reply = await enqueue(() => revision === parameterRevision
+      ? request('/api/parameters', { ...parameters, intervalMs: state.parameters.intervalMs }) : null);
     if (revision === parameterRevision) { acceptStatus(reply); void refreshNativePreview(revision); }
   }
   catch (error) {
@@ -377,11 +406,39 @@ async function flushDepth() {
   } catch (error) { showError(error.message); }
   finally { depthRequest = null; depthWorking = false; if (depthDirty && !disposed) depthTimer = setTimeout(flushDepth, 16); }
 }
+function scheduleFold(immediate = false) {
+  foldDirty = true; if (foldWorking) return;
+  if (!foldTimer || immediate) { clearTimeout(foldTimer); foldTimer = setTimeout(flushFold, immediate ? 0 : 16); }
+}
+async function flushFold() {
+  foldTimer = null;
+  if (disposed || foldWorking || !foldDirty) return;
+  foldDirty = false; foldWorking = true;
+  const revision = foldRevision, intervalMs = state.parameters.intervalMs;
+  try {
+    // Timing gestures remain live while unrelated structural preparation runs.
+    const pending = request('/api/time-fold', { intervalMs }); foldRequest = pending;
+    const reply = await pending;
+    if (revision === foldRevision) acceptStatus(reply);
+  } catch (error) {
+    showError(error.message);
+    try {
+      const reply = await request('/api/status');
+      if (revision === foldRevision && reply.parameters) {
+        state.parameters = { ...state.parameters, intervalMs: sanitizeParameters(reply.parameters).intervalMs };
+        presetController?.refresh();
+      }
+      acceptStatus(reply);
+    } catch { /* Preserve the timing error until recovery. */ }
+  }
+  finally { foldRequest = null; foldWorking = false; if (foldDirty && !disposed) foldTimer = setTimeout(flushFold, 16); }
+}
 function updateParameter(key, value, immediate = false) {
   if (sceneApplying) return;
   state.parameters = sanitizeParameters({ ...state.parameters, [key]: value,
     ...(state.parameters.lab && key === 'generations' ? { lab: { ...state.parameters.lab, iterations: value } } : {}) });
   if (key === 'depth') { depthRevision++; scheduleDepth(immediate); }
+  else if (key === 'intervalMs') { foldRevision++; startPreview(); scheduleFold(immediate); }
   else { parameterRevision++; startPreview(); scheduleParameters(immediate); }
   paintControls(); presetController?.refresh();
 }
@@ -408,8 +465,9 @@ async function applyScene(scene, id = 'custom') {
   canvas.setAttribute('aria-busy', 'true');
   if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
   drag = null; cancelParameterGestures(); lockedFit = geometry ? { ...geometry.fit } : null;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
-  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false; depthRevision++;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
+  depthRevision++; foldRevision++;
   state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
   const revision = parameterRevision; startPreview({ lock: false }); paintControls();
   try {
@@ -417,7 +475,7 @@ async function applyScene(scene, id = 'custom') {
       if (disposed || revision !== parameterRevision) return;
       // A preset owns its complete mix/depth after older live controls finish.
       // Their canceled timers cannot enqueue another stale gesture afterward.
-      await Promise.allSettled([depthRequest, performanceRequest].filter(Boolean));
+      await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
       if (disposed || revision !== parameterRevision) return;
       acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
       const reply = await request('/api/parameters', next.parameters);
@@ -841,21 +899,30 @@ function draw(now) {
 canvas.addEventListener('pointerdown', event => {
   if (sceneApplying || event.button !== 0 || event.isPrimary === false) return;
   event.preventDefault(); canvas.focus({ preventScroll: true }); lockedFit = geometry ? { ...geometry.fit } : null;
-  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters }, changed: false }; canvas.setPointerCapture(event.pointerId);
+  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters },
+    changed: false, foldChanged: false, structureChanged: false }; canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', event => {
   if (!drag || drag.id !== event.pointerId) return;
   const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
   if (dx * dx + dy * dy < 16 && !drag.changed) return;
   drag.changed = true; const box = canvas.getBoundingClientRect();
-  state.parameters = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey); parameterRevision++;
-  startPreview(); paintControls(); scheduleParameters(); presetController?.refresh();
+  const next = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey);
+  const foldChanged = next.intervalMs !== state.parameters.intervalMs, angleChanged = next.angle !== state.parameters.angle;
+  state.parameters = { ...state.parameters, intervalMs: next.intervalMs, angle: next.angle };
+  if (foldChanged) { drag.foldChanged = true; foldRevision++; scheduleFold(); }
+  if (angleChanged) { drag.structureChanged = true; parameterRevision++; scheduleParameters(); }
+  startPreview(); paintControls(); presetController?.refresh();
 });
 function endDrag(event, cancelled = false) {
   if (!drag || drag.id !== event.pointerId) return;
   const previous = drag; drag = null; if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   gestureUntil = performance.now() + 100;
-  if (previous.changed) scheduleParameters(true); else if (!cancelled) void strike(); scheduleDraw();
+  if (previous.changed) {
+    if (previous.foldChanged) scheduleFold(true);
+    if (previous.structureChanged) scheduleParameters(true);
+  } else if (!cancelled) void strike();
+  scheduleDraw();
 }
 canvas.addEventListener('pointerup', event => endDrag(event)); canvas.addEventListener('pointercancel', event => endDrag(event, true)); canvas.addEventListener('lostpointercapture', event => endDrag(event, true));
 canvas.addEventListener('keydown', event => {
@@ -868,7 +935,7 @@ canvas.addEventListener('keydown', event => {
 });
 for (const [key, id] of Object.entries(CONTROL_IDS)) {
   $(id).addEventListener('input', () => updateParameter(key, key === 'intervalMs' ? timeFoldFromSlider($(id).value) : Number($(id).value)));
-  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : scheduleParameters(true));
+  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : key === 'intervalMs' ? scheduleFold(true) : scheduleParameters(true));
   const input = $(id);
   input.addEventListener('pointerdown', event => {
     if (input.disabled || event.button !== 0 || event.isPrimary === false || rangeGestureOwner) return;
@@ -1071,17 +1138,19 @@ const resizeObserver = new ResizeObserver(() => { lockedFit = null; geometry = n
 
 async function bootstrap() {
   if (disposed) return;
-  const initialRevision = parameterRevision;
+  const initialRevision = parameterRevision, initialFoldRevision = foldRevision;
   try {
     let [reply, bank] = await Promise.all([request('/api/state'), LAB_CONFIG ? Promise.resolve(LAB_CONFIG.presets) : request(new URL('./presets.json', import.meta.url).href)]);
-    if (LAB_CONFIG && initialRevision === 0 && parameterRevision === initialRevision) {
+    if (LAB_CONFIG && initialRevision === 0 && initialFoldRevision === 0
+      && parameterRevision === initialRevision && foldRevision === initialFoldRevision) {
       const initial = presetState(LAB_CONFIG.presets[0], state.performance);
       state.parameters = initial.parameters;
       if (performanceRevision === 0) state.performance = initial.performance;
       reply = await request('/api/performance', state.performance);
       if (JSON.stringify(reply.parameters) !== JSON.stringify(state.parameters)) reply = await request('/api/parameters', state.parameters);
     } if (disposed) return;
-    if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
+    if (parameterRevision === initialRevision && initialRevision === 0 && initialFoldRevision === 0
+      && foldRevision === initialFoldRevision && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
     presets = LAB_CONFIG ? bank : combinedPresets(bank);
     const initialScene = presets.find(p => presetStateKey(p.snapshot) === presetStateKey(captureScene(state.parameters, state.performance)));
@@ -1117,8 +1186,8 @@ function muteForDeparture() {
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
   inputRevision++;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
-  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
   browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
 }

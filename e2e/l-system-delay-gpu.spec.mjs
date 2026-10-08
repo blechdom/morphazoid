@@ -95,14 +95,24 @@ async function goldenFrame(page, options = {}) {
       levels.set(node.voiceIndex, options.energy ?? .03); targets.set(node.voiceIndex, options.energy ?? .03);
     }
     if (pending || options.energy === 0) levels.clear();
-    const history = options.history === false ? null : { values: Array(2000).fill(options.historyEnergy ?? .1), interval: .01, endTime: 10 };
+    const history = options.history === false ? null : { values: Array.from({ length: 2000 }, (_, index) =>
+      options.historyRamp ? .005 + index * .00004 : options.historyEnergy ?? .1), interval: .01, endTime: 10 };
     const reader = history ? model.inputEnvelopeReader(history) : null;
     const frame = { width: 400, height: 320, dpr: options.dpr ?? 1, fit: { scale: 42, x: 22, y: 170 },
       seconds: 10, detailSteps: 14, reducedMotion: options.reducedMotion ?? false,
       limit, pending, historyFresh: !!history && !pending, history, levels, targets,
       rootLevel: options.rootEnergy ?? options.energy ?? .03, wet: options.wet ?? .7, wetBusGain: options.wet === 0 ? 0 : .7,
       depth: parameters.depth, selectedCounts };
-    renderer.setGeometry(nodes);
+    renderer.setGeometry(nodes, { intervalMs: parameters.intervalMs });
+    const installedStats = renderer.stats;
+    if (options.foldIntervals) {
+      const baseInterval = parameters.intervalMs, baseDelays = nodes.map(node => node.delay);
+      for (const interval of options.foldIntervals) {
+        renderer.setTimeFold(interval);
+        for (let index = 0; index < nodes.length; index++) nodes[index].delay = baseDelays[index] * interval / baseInterval;
+        parameters.intervalMs = interval;
+      }
+    }
     __delayGpuProbe.draws = [];
     renderer.render(frame);
     const draws = __delayGpuProbe.draws, draw = draws.at(-1);
@@ -150,7 +160,7 @@ async function goldenFrame(page, options = {}) {
     }
     return { type: parameters.lSystemType, nodes: nodes.length, available, unavailable, maximumCoordinateError,
       maximumEnergyError, bentDescendants, violations: [...new Set(violations)], painted: draw.painted,
-      maximumAlpha: draw.maximumAlpha, glError: draw.error, stats: renderer.stats };
+      maximumAlpha: draw.maximumAlpha, glError: draw.error, installedStats, stats: renderer.stats };
   }, options);
 }
 
@@ -227,6 +237,22 @@ test('GPU branches match Canvas signal deformation and availability for every gr
     if (!options.energy) expect(result.bentDescendants, type).toBe(0);
   }
   await test.info().attach('gpu-grammar-parity', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
+});
+
+test('live Time fold uses a uniform with Canvas timing parity and retains topology buffers', async ({ page }) => {
+  await fixture(page);
+  const report = [];
+  for (const type of ['pythagorean', 'plant', 'coral']) for (const foldIntervals of [[1200], [1200, .05], [1200, .05, 480, 1200, 250]]) {
+    const result = await goldenFrame(page, { type, intervalMs: 250, foldIntervals, metered: false, historyRamp: true });
+    report.push({ foldIntervals, ...result });
+    expect(result.glError).toBe(0);
+    expect(result.maximumCoordinateError).toBeLessThan(.005);
+    expect(result.maximumEnergyError).toBeLessThan(.0001);
+    expect(result.violations).toEqual([]);
+    expect(result.stats.topologyUploads).toBe(result.installedStats.topologyUploads);
+    expect(result.stats.selectionUploads).toBe(result.installedStats.selectionUploads);
+  }
+  await test.info().attach('gpu-time-fold-uniform-parity', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
 });
 
 test('GPU envelope storage grows geometrically and reuses scratch through a long session and history reset', async ({ page }) => {

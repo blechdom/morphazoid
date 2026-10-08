@@ -2,10 +2,10 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 391618,
-  "wasmSha256": "c8eb0107907b8f8a45cd028bf755200e7becb037e8fd0ea0cfa6ef6f4735dde7",
+  "bytes": 399682,
+  "wasmSha256": "8ec440848745f05368cceb4e80984d047c144441586be5a9ac07927a50e6b1eb",
   "sourceHashes": {
-    "scripts/build-l-system-delay-wasm.mjs": "b91b2178cf50e3d339f8a8c8ae839c1b54e7816812a77ce054a86ddebe59946b",
+    "scripts/build-l-system-delay-wasm.mjs": "868b61b8f4e8e15d01f88d5ff4aa5e1d72183d2dbee93079969a13656120f66c",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
     "src/instruments/micmic/rust/Cargo.toml": "fe3b57868ecf2b508d5a348f7b7c433faff0276ab477a56a282b0e4fd3afd987",
     "src/instruments/micmic/rust/app/src/adaptive.rs": "c465bd4304b597a76e6240b349726251ac2ab66211ac4d17e0307d056e9bf243",
@@ -15,9 +15,9 @@
     "src/instruments/micmic/rust/app/src/performance.rs": "f9408104fc7635439dc3aec904b5d835bfa6d1842ca167b8e90e2d08f94386cd",
     "src/instruments/micmic/rust/app/src/resources.rs": "4aa2cf6c5bfb6b5de2a0bd6b0d22234ed4d06f55cd01c6ae667e187a48eab2eb",
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
-    "src/instruments/micmic/rust/core/src/lib.rs": "f8bb45c5cb85c74c867cc495b0341f1ed6b9e92dc7cef78354841d7eba5c9d77",
+    "src/instruments/micmic/rust/core/src/lib.rs": "e12fbce0076a63a40b4462f9ac1285227ca341fbb69924bc20c12bb9a4691b1b",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "0c10deb322b91f6ab20318ce8deedd93331b88cee1b7e895f87b3664291a4d81"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "7b274509accc80bc1231340cb628d764567fd63fedbe7da4200f7a1757699865"
   },
   "exports": [
     "lsd_abi_version",
@@ -50,6 +50,7 @@
     "lsd_install_abort",
     "lsd_install_begin",
     "lsd_install_step",
+    "lsd_install_time_fold",
     "lsd_metrics_len",
     "lsd_metrics_ptr",
     "lsd_new",
@@ -61,6 +62,9 @@
     "lsd_tap_indices_ptr",
     "lsd_taps_count",
     "lsd_taps_ptr",
+    "lsd_time_fold",
+    "lsd_time_fold_target",
+    "lsd_time_fold_value",
     "memory"
   ],
   "imports": []

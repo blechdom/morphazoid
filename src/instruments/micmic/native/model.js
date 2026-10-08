@@ -79,6 +79,19 @@ export function applyPreviewDepth(nodes, depth) {
   for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
   return nodes;
 }
+/** Retain compiled timing coefficients so live fold reversals never accumulate
+ * scaling drift. Supplying a base rebases newly accepted pool metadata only. */
+export function applyPreviewTimeFold(nodes, intervalMs, baseIntervalMs) {
+  const interval = clamp(intervalMs, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS);
+  const rebase = Number.isFinite(baseIntervalMs) && baseIntervalMs > 0;
+  for (const node of nodes) {
+    if (rebase || !Number.isFinite(node.timeFoldDelayPerMs)) {
+      node.timeFoldDelayPerMs = (Number.isFinite(node.delay) ? node.delay : 0) / (rebase ? baseIntervalMs : interval);
+    }
+    node.delay = node.timeFoldDelayPerMs * interval;
+  }
+  return nodes;
+}
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
 const EMPTY_VOICE_INDICES = Object.freeze([]);

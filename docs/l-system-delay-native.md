@@ -279,7 +279,13 @@ styles. Audio remains explicitly armed.
 
 Held knob gestures send their leading value immediately and coalesce further
 values at 16 ms intervals, including a final trailing value. Recursion uses a
-direct generation-gain update rather than compiling a new tree. Mix and mastering
+direct generation-gain update rather than compiling a new tree. Time fold has its
+own live coefficient lane: when the prepared branches keep the same 39-second
+history eligibility, it changes one Rust scalar without compiling or uploading
+another pool. Crossing that boundary prepares new ranks and generation gains
+through the ordinary compiler. Preset recall cancels pending gesture timers and
+owns the complete scene; preparation and processor recovery retain the latest
+live fold. Mix and mastering
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
 Repeating a fully acknowledged parameter, Recursion or performance value skips
@@ -362,14 +368,23 @@ measured tap RMS already includes that normalization and is not attenuated again
 This display mapping changes neither audio gain nor compression and adds no
 motion at zero input.
 
-Pool timing edits preserve the current two-head crossfade, remember the newest
-delay, then fade to that target when the current 65 ms fade completes. Returning
-to the source reverses the active mix continuously. This avoids replacing an
-audible head every time a slider event arrives while retaining fixed-head pitch
-behavior. The ordinary scene/CLI render path remains unchanged. In a repeatable
-173 Hz, 60 Hz-control sweep, the maximum adjacent output step dropped from
-0.01137977 to 0.00389200, below the continuous carrier/fade bound of 0.00416380.
-This measures transition continuity; human listening remains separate.
+Live Time fold follows a common 35 ms smoothed coefficient with a single moving
+readhead per voice. Large moves additionally limit readhead travel to four
+samples per sample. Grain phase, recorded input, source playback and release
+tails survive the gesture. Movement intentionally produces a tape-like pitch
+glide; it avoids running two delay lanes for every voice at once. A longer delay
+waits at its last readable position when the required input history is not ready.
+Extreme moves can therefore take longer to reach their requested delay than the
+nominal 35 ms smoothing.
+
+Discrete scene changes retain the 65 ms two-head crossfade and its pending-target
+behavior. The fade waits for readable destination history, and identical
+effective grain/read delays bypass it. Short folds below the shifted grain-base
+floor no longer create a redundant crossfade of the same samples. Graphics reuse
+the accepted tree and wave paths; WebGL scales delay coordinates with a uniform
+instead of uploading another topology. Historical envelope travel follows
+nominal applied timing, while tap endpoint amplitude remains measured audio.
+This illustration is not a measurement of each slewing granular read position.
 
 Gains normalize by the selected voices in each generation, matching the original
 pruning behavior. Descendants and Original voice have independent levels. Input
@@ -737,7 +752,7 @@ Signalsmith lanes with 160 ms processing blocks and 30 ms hops. The separate
 the Rust core implements the pitch and delay processing. It ports the current
 economy/fallback algorithm: one shared 40-second float32 raw-input history,
 two overlapping 110 ms sine-squared grains, playback rates from 0.125 to 8,
-equal-power pan, smoothed controls, a 65 ms delay-edit crossfade, and input/output
+equal-power pan, smoothed controls, a 65 ms discrete-scene delay crossfade, and input/output
 `tanh`. Unison uses an ordinary interpolated delay. Stable voice keys preserve
 phase and recorded history through edits.
 
