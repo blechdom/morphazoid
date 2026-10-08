@@ -26,7 +26,7 @@ function mountMidiphoria() {
   let settings = { ...DEFAULT_VISUALS };
   let presetController;
   let learning = false, demoTimer = null, demoNote = null, demoIndex = 0;
-  let disposed = false, frame = null, lastReadout = -Infinity, hasPlayed = false;
+  let disposed = false, frame = null, lastReadout = -Infinity;
   let lastFileCapture = -Infinity;
   const padHeld = new Map();
   const padTimers = new Map();
@@ -52,9 +52,9 @@ function mountMidiphoria() {
     $('songTime').value = `${timeLabel(state.time || 0)} / ${timeLabel(state.duration || 0)}`;
     const status = fileError || state.error || (audioStarting ? 'Loading SoundFont…'
       : loadingFile || state.loading ? 'Loading MIDI…'
-      : !state.ready ? state.audioEnabled ? 'Piano pads ready · open a MIDI to play along.' : 'Enable Audio to hear the piano pads and MIDI player.'
+      : !state.ready ? state.audioEnabled ? 'Piano pads ready · open a MIDI to play along.' : ''
       : state.playing ? state.audioEnabled ? 'Playing · change the light controls as you listen.' : 'Playing · audio muted, graphics continue.'
-      : state.audioEnabled ? 'Ready · play the piano pads or press Play for the song.' : 'Audio muted · enable Audio to hear the pads and player.');
+      : state.audioEnabled ? 'Ready · play the piano pads or press Play for the song.' : 'Audio muted.');
     if ($('playerStatus').textContent !== status) $('playerStatus').textContent = status;
   }
 
@@ -246,7 +246,6 @@ function mountMidiphoria() {
     }
     const sample = model.sample(now);
     renderer.capture(sample, now);
-    if (sample.activeNotes.length || sample.level > 0) hasPlayed = true;
   }
 
   function releasePads() {
@@ -270,7 +269,6 @@ function mountMidiphoria() {
   function clear() {
     stopDemo(); releasePads();
     model.panic(clock()); renderer.clear();
-    hasPlayed = false;
     lastFileCapture = -Infinity;
   }
 
@@ -443,7 +441,6 @@ function mountMidiphoria() {
     frame = null;
     if (disposed || document.hidden) return;
     const now = clock(), sample = model.sample(now);
-    if (sample.activeNotes.length || sample.level > 0) hasPlayed = true;
     renderer.draw(sample, now, settings);
     if (now - lastReadout > .08) {
       lastReadout = now;
@@ -452,7 +449,6 @@ function mountMidiphoria() {
       $('noteReadout').value = notes.length ? `${notes.slice(0, 8).join(' · ')}${notes.length > 8 ? ' …' : ''} · ${sample.activeNotes.length} held`
         : sample.level > .001 ? `${sample.phase === 'release' ? 'Releasing' : 'Controller'} · ${sample.phase}` : 'Waiting for a note';
       $('levelReadout').value = `${Math.round(sample.level * 100)}% light`;
-      $('emptyHint').hidden = hasPlayed || sample.level > 0;
       const active = new Set(sample.activeNotes.map(item => item.note));
       for (const pad of pads) pad.setAttribute('aria-pressed', String(active.has(Number(pad.dataset.note))));
     }

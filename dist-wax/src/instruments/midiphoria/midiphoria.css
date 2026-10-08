@@ -3,17 +3,10 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-shell { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 26px; padding: 26px 30px; max-width: 1800px; margin: 0 auto; }
 .midiphoria-stage { min-width: 0; align-self: start; position: sticky; top: 22px; }
 .midiphoria-stage-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 0 20px; gap: 12px; }
-.midiphoria-eyebrow { margin: 0 0 5px; font-size: 10px; letter-spacing: .2em; color: #a1b4ae; }
 .midiphoria-stage h1 { margin: 0; color: var(--midiphoria-accent); font-size: clamp(26px, 3vw, 42px); font-weight: 500; letter-spacing: -.045em; }
 .midiphoria-silent { color: #a1b4ae; font-size: 11px; }
 .midiphoria-viewport { position: relative; background: #030706; height: clamp(300px, 56vh, 650px); overflow: hidden; border-radius: 4px; }
 #visualCanvas { display: block; width: 100%; height: 100%; }
-.midiphoria-empty { position: absolute; inset: 0; display: grid; place-content: center; gap: 10px; padding: 30px; text-align: center; pointer-events: none; }
-.midiphoria-empty span { color: #b3c6bd; font-size: clamp(17px, 2vw, 25px); letter-spacing: -.025em; }
-.midiphoria-empty small { color: #85988f; font-size: 12px; max-width: 320px; line-height: 1.7; margin: auto; }
-.midiphoria-empty[hidden] { display: none; }
-.midiphoria-viewport[data-invert="true"] .midiphoria-empty span { color: #263c30; }
-.midiphoria-viewport[data-invert="true"] .midiphoria-empty small { color: #3e5848; }
 .midiphoria-fullscreen { position: absolute; bottom: 12px; right: 12px; background: #0a1210e8; color: #d2e4dc; }
 .midiphoria-viewport:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
 .midiphoria-viewport:fullscreen .midiphoria-fullscreen { opacity: .25; }
@@ -27,7 +20,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-pad small { color: #9bb0a4; font-size: 9px; }
 .midiphoria-pad[aria-pressed="true"] { background: hsl(var(--note-hue) 65% 30%); color: #fff; border-color: hsl(var(--note-hue) 80% 70%); }
 .midiphoria-pad[aria-pressed="true"] small { color: #fff; }
-.midiphoria-key-hint { color: #a1b4ae; font-size: 10px; line-height: 1.6; margin: 12px 0 0; }
 .midiphoria-panel { min-width: 0; padding: 0; border: 0; background: transparent; overflow: visible; }
 .midiphoria-actions { display: flex; gap: 8px; margin-bottom: 18px; }
 .midiphoria-actions button { min-height: 38px; flex: 1; }
@@ -71,7 +63,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
   .midiphoria-viewport { height: 40vh; min-height: 240px; }
   .midiphoria-pad { min-height: 48px; }
   .midiphoria-keyboard { gap: 3px; }
-  .midiphoria-key-hint { font-size: 11px; }
   .midiphoria-actions button { min-height: 48px; }
 }
 @media (max-height: 480px) and (min-width: 801px) {
@@ -85,5 +76,5 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 #songSearchStatus:empty { display: none; }
 #songSearch { min-width: 0; box-sizing: border-box; }
 
-#songDescription:empty { display: none; }
+#songDescription:empty, #playerStatus:empty { display: none; }
 .midiphoria-help a { color: var(--midiphoria-accent); }

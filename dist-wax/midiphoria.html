@@ -42,15 +42,13 @@
     </header>
     <main class="midiphoria-shell" id="midiphoria">
       <section class="midiphoria-stage" aria-label="MIDI visualization">
-        <div class="midiphoria-stage-heading"><div><p class="midiphoria-eyebrow">MIDI → SOUND + LIGHT</p><h1>Midiphoria</h1></div><span class="midiphoria-silent">Live visuals</span></div>
+        <div class="midiphoria-stage-heading"><div><h1>Midiphoria</h1></div><span class="midiphoria-silent">Live visuals</span></div>
         <div class="midiphoria-viewport" id="visualViewport">
           <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
-          <div id="emptyHint" class="midiphoria-empty"><span>Give your notes a little light.</span><small>Enable Audio to hear the piano pads, or choose a song and press Play.</small></div>
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
         </div>
         <div class="midiphoria-readout"><output id="noteReadout" aria-live="off">Waiting for a note</output><output id="levelReadout" aria-live="off">0% light</output></div>
         <div class="midiphoria-keyboard" id="notePads" role="group" aria-label="Piano pads, C3 through B4"></div>
-        <p class="midiphoria-key-hint">Enable Audio to hear the piano pads. Computer keys control light via MIDI in Settings. <kbd>[ ]</kbd> octave · <kbd>− +</kbd> velocity</p>
       </section>
       <aside class="panel midiphoria-panel" aria-label="Midiphoria controls" data-instrument-preset-host>
         <section class="midiphoria-section midiphoria-player" aria-labelledby="playerHeading">
@@ -64,7 +62,7 @@
           <div class="midiphoria-actions midiphoria-transport"><button type="button" id="playButton" class="mini-action" data-primary-transport aria-pressed="false" disabled>▶ Play</button><button type="button" id="stopButton" class="mini-action" disabled>■ Stop</button><label><input type="checkbox" id="loopSong" /> Loop</label></div>
           <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>
           <label class="control" for="playbackRate"><span><b>Speed</b><output id="playbackRateOut" for="playbackRate">1.00×</output></span><input id="playbackRate" type="range" min="0.5" max="4" step="0.05" value="1" /></label>
-          <p id="playerStatus" class="midiphoria-help" role="status">Enable Audio to hear the piano pads and MIDI player.</p>
+          <p id="playerStatus" class="midiphoria-help" role="status"></p>
           <p class="midiphoria-help"><a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p>
           <details class="midiphoria-notes midiphoria-credits"><summary>Song credits & free MIDIs</summary><p id="songCredit"></p><p><a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">Collection & SoundFont credits ↗</a></p><p>Download full MIDI files, then use Open your MIDIs: <a href="https://midkar.com/Pop_Rock/Pop_Rock_A_to_Z.html" target="_blank" rel="noopener noreferrer">MIDKAR pop/rock ↗</a> · <a href="https://bushgrafts.com/midi/" target="_blank" rel="noopener noreferrer">Doug McKenzie jazz ↗</a> · <a href="https://www.midiworld.com/files/826/" target="_blank" rel="noopener noreferrer">MIDIWorld synth-pop ↗</a> · <a href="https://bitmidi.com/" target="_blank" rel="noopener noreferrer">BitMidi popular songs ↗</a> · <a href="https://midicollection.com/" target="_blank" rel="noopener noreferrer">MIDI Collection ↗</a> · <a href="https://github.com/rin-w/black-midi-patterns" target="_blank" rel="noopener noreferrer">Black-MIDI patterns ↗</a>. Extract ZIP or 7z collections before opening their .mid files.</p></details>
         </section>
