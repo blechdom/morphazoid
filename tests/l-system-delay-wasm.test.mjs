@@ -352,7 +352,7 @@ test('fine and coarse worklet capacity measurements include admission bookkeepin
       processor.api = { ...api,
         lsd_process(...args) { const result = api.lsd_process(...args); clock += fine ? .2 : 1; return result; },
         lsd_observe(...args) {
-          observed.push(args[1]); const result = api.lsd_observe(...args); clock += fine ? .8 : 5; return result;
+          observed.push(args[1]); const result = api.lsd_observe(...args); clock += fine ? .8 : 2; return result;
         },
       };
       try {
@@ -361,7 +361,7 @@ test('fine and coarse worklet capacity measurements include admission bookkeepin
           assert.equal(processor.process([[input]], [[left, right]]), true);
         }
         assert.equal(observed.length, 2);
-        const expected = fine ? [.0002, .001] : [.032, .037];
+        const expected = fine ? [.0002, .001] : [.032, .034];
         for (let index = 0; index < expected.length; index++) {
           assert.ok(Math.abs(observed[index] - expected[index]) < 1e-12,
             `${fine ? 'fine' : 'coarse'} clock includes previous admission cost: ${observed[index]}`);

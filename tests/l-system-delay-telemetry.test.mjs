@@ -61,9 +61,10 @@ function pool(count = 65) {
   return bytes;
 }
 
-async function workletFixture(run) {
-  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime'];
+async function workletFixture(run, clock = null) {
+  const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime', 'performance'];
   const saved = new Map(keys.map(key => [key, Object.getOwnPropertyDescriptor(globalThis, key)]));
+  const dateNow = Date.now;
   const messages = [], transferred = [];
   let Processor, processor;
   try {
@@ -73,12 +74,17 @@ async function workletFixture(run) {
           const before = buffers.map(buffer => buffer.byteLength);
           const received = structuredClone(message, { transfer: buffers });
           messages.push(received);
+          if (clock && message.status) clock.value += clock.statusMs ?? 0;
           if (buffers.length) transferred.push({ message, before, buffers, received });
         } };
       }
     };
     globalThis.registerProcessor = (_name, implementation) => { Processor = implementation; };
     globalThis.sampleRate = RATE; globalThis.currentTime = 0;
+    if (clock) {
+      Object.defineProperty(globalThis, 'performance', { configurable: true, value: undefined });
+      Date.now = () => Math.floor(clock.value);
+    }
     await import(`../src/instruments/micmic/native/delay-worklet.js?telemetry=${workletFixture.serial++}`);
     processor = new Processor({ processorOptions: { module } });
     const send = data => processor.port.onmessage({ data });
@@ -92,6 +98,7 @@ async function workletFixture(run) {
     await run({ processor, messages, transferred, send, render, left, right });
   } finally {
     if (processor && !processor.dead) processor.port.onmessage({ data: { id: 999, type: 'dispose' } });
+    Date.now = dateNow;
     for (const [key, descriptor] of saved) {
       if (descriptor) Object.defineProperty(globalThis, key, descriptor); else delete globalThis[key];
     }
@@ -140,6 +147,105 @@ test('real worklet installation and repeated status ACKs transfer owned copies w
     send({ id: 8, type: 'status' }); assert.equal(messages.length, finalCount);
     assert.equal(render(), false, 'disposed processor remains retired');
   });
+});
+
+function instrumentClock(processor, clock) {
+  const api = processor.api, observations = [];
+  processor.api = { ...api,
+    lsd_process(...args) {
+      const result = api.lsd_process(...args); clock.value += clock.renderMs; return result;
+    },
+    lsd_alloc_uninitialized(...args) {
+      const result = api.lsd_alloc_uninitialized(...args); clock.value += clock.installMs ?? 0; return result;
+    },
+    lsd_observe(...args) {
+      observations.push({ seconds: args[1], maintenance: 0, frames: args[2], underrun: args[3] });
+      const result = api.lsd_observe(...args); clock.value += clock.observeMs ?? 0; return result;
+    },
+    lsd_observe_maintenance(...args) {
+      observations.push({ seconds: args[1], maintenance: args[2], frames: args[3], underrun: args[4] });
+      const result = api.lsd_observe_maintenance(...args); clock.value += clock.observeMs ?? 0; return result;
+    },
+  };
+  return observations;
+}
+
+test('coarse render and status spikes reach admission immediately without dilution or double accounting', async () => {
+  for (const spike of ['render', 'status']) {
+    const clock = { value: 0, renderMs: .2, statusMs: 0, observeMs: 0 };
+    await workletFixture(({ processor, send, render, left }) => {
+      const observations = instrumentClock(processor, clock);
+      send({ id: 1, type: 'install', pool: pool(), seedCapacity: 65 });
+      for (let index = 0; index < 32; index++) assert.equal(render(), true);
+      assert.equal(processor.measuredFrames, 0);
+      const before = processor.snapshot(); observations.length = 0;
+      const clockStart = Math.floor(clock.value);
+      for (let index = 0; index < 8; index++) assert.equal(render(), true);
+      if (spike === 'render') clock.renderMs = 5;
+      else { clock.statusMs = 5; send({ id: 2, type: 'status' }); }
+      assert.equal(render(), true);
+      assert.deepEqual(observations.map(value => value.frames), [8 * BLOCK, BLOCK]);
+      assert.ok(observations[1].seconds >= .005);
+      assert.ok(observations.every(value => value.underrun === 0), 'observed work is not a fabricated device underrun');
+      const after = processor.snapshot();
+      assert.equal(after.deadlineMisses, before.deadlineMisses + 1);
+      assert.ok(after.voiceLimit < before.voiceLimit, 'real Rust admission reacts to the measured overrun');
+      clock.renderMs = .2; clock.statusMs = 0;
+      for (let index = 0; index < 32; index++) assert.equal(render(), true);
+      assert.deepEqual(observations.map(value => value.frames), [8 * BLOCK, BLOCK, 32 * BLOCK]);
+      const accounted = observations.reduce((total, value) => total + value.seconds, 0);
+      assert.ok(Math.abs(accounted * 1000 - (Math.floor(clock.value) - clockStart)) < 1e-9);
+      assert.ok(left.every(Number.isFinite));
+      assert.equal(processor.snapshot().underruns, 0); assert.equal(processor.snapshot().overruns, 0);
+    }, clock);
+  }
+});
+
+test('coarse rounding and finite installation work retain average admission instead of creating spike cuts', async () => {
+  const rounded = { value: .9, renderMs: 2.6 };
+  await workletFixture(({ processor, render }) => {
+    const observations = instrumentClock(processor, rounded);
+    assert.equal(render(), true);
+    assert.equal(observations.length, 0, '3ms rounded render time is not proof of a2.67ms deadline miss');
+    for (let index = 1; index < 32; index++) assert.equal(render(), true);
+    assert.equal(observations.length, 1); assert.equal(observations[0].frames, 32 * BLOCK);
+    assert.equal(processor.snapshot().deadlineMisses, 0);
+  }, rounded);
+  const maintenance = { value: 0, renderMs: .2, installMs: 0 };
+  await workletFixture(({ processor, send, render }) => {
+    const observations = instrumentClock(processor, maintenance);
+    send({ id: 1, type: 'install', pool: pool(), seedCapacity: 65 });
+    for (let index = 0; index < 32; index++) assert.equal(render(), true);
+    const before = processor.snapshot(); observations.length = 0;
+    maintenance.installMs = 5;
+    send({ id: 2, type: 'install', pool: pool() });
+    assert.equal(render(), true); assert.equal(observations.length, 0, 'installation-only cost does not force a voice cut');
+    for (let index = 1; index < 32; index++) assert.equal(render(), true);
+    assert.equal(observations.length, 1); assert.equal(observations[0].frames, 32 * BLOCK);
+    assert.equal(observations[0].maintenance, .005);
+    assert.equal(processor.snapshot().deadlineMisses, before.deadlineMisses);
+    assert.equal(processor.snapshot().voiceLimit, before.voiceLimit);
+  }, maintenance);
+});
+
+test('coarse spike flush carries both observation costs exactly once into subsequent work', async () => {
+  const clock = { value: 0, renderMs: .2, observeMs: 1 };
+  await workletFixture(({ processor, render }) => {
+    const observations = instrumentClock(processor, clock);
+    for (let index = 0; index < 32; index++) assert.equal(render(), true);
+    observations.length = 0;
+    const clockStart = Math.floor(clock.value), initialAdjustment = processor.adjustmentSeconds;
+    for (let index = 0; index < 8; index++) assert.equal(render(), true);
+    clock.renderMs = 5; assert.equal(render(), true);
+    assert.deepEqual(observations.map(value => value.frames), [8 * BLOCK, BLOCK]);
+    assert.equal(processor.adjustmentSeconds, .002, 'both one-millisecond observation calls carry forward');
+    clock.renderMs = .2;
+    for (let index = 0; index < 32; index++) assert.equal(render(), true);
+    const observed = observations.reduce((total, value) => total + value.seconds, 0);
+    const elapsed = (Math.floor(clock.value) - clockStart) / 1000;
+    assert.ok(Math.abs(observed + processor.adjustmentSeconds - initialAdjustment - elapsed) < 1e-12);
+    assert.equal(processor.measuredFrames, 0);
+  }, clock);
 });
 
 test('wrapped envelope copies remain chronological and independent of live memory; failure status survives transfer', async () => {

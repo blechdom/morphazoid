@@ -18,6 +18,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.engine = this.api.lsd_new(sampleRate, 1);
     if (!this.engine) throw new Error(wasmError(this.api, 'The Rust delay engine could not start.'));
     this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0; this.adjustmentSeconds = 0;
+    this.adjustmentPeakSeconds = 0;
     this.maintenanceSeconds = 0; this.measuredMaintenanceSeconds = 0;
     this.renderMeanSeconds = 0;
     this.installTiming = { seconds: 0, records: 0, recordSeconds: 0, blockedSeconds: 0 };
@@ -41,7 +42,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       finally {
         const seconds = Math.max(0, now() - started) / 1000;
         if (data.type === 'install') this.maintenanceSeconds += seconds;
-        else this.adjustmentSeconds += seconds;
+        else {
+          this.adjustmentSeconds += seconds;
+          this.adjustmentPeakSeconds = Math.max(this.adjustmentPeakSeconds, seconds);
+        }
       }
     };
     this.port.postMessage({ type: 'ready', timing: fineClock ? 'high-resolution' : 'coarse-averaged' });
@@ -217,6 +221,16 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       - this.adjustmentSeconds - this.maintenanceSeconds - Math.max(0, now() - workStarted) / 1000);
   }
 
+  observeTiming(seconds, maintenanceSeconds, frames) {
+    const started = now();
+    if (maintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') {
+      this.api.lsd_observe_maintenance(this.engine, seconds, maintenanceSeconds, frames, 0);
+    } else this.api.lsd_observe(this.engine, seconds, frames, 0);
+    const adjustment = Math.max(0, now() - started) / 1000;
+    this.adjustmentSeconds += adjustment;
+    this.adjustmentPeakSeconds = Math.max(this.adjustmentPeakSeconds, adjustment);
+  }
+
   process(inputs, outputs) {
     if (this.dead || this.failed) return false;
     try { return this.processBlock(inputs, outputs); }
@@ -297,24 +311,31 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Admission probes also consume the audio thread. Carry that measured
     // adjustment into the next observation, including coarse-clock batches.
     const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds + this.maintenanceSeconds;
+    // A coarse clock can round an otherwise safe quantum upward by <1 ms.
+    // Only an individual render/control operation beyond that margin proves
+    // a spike; finite install/retirement cost keeps its existing batch policy.
+    const coarseSpike = !fineClock && Math.max(renderSeconds, this.adjustmentPeakSeconds) > duration + .001;
     this.adjustmentSeconds = 0;
+    this.adjustmentPeakSeconds = 0;
     this.maintenanceSeconds = 0;
     if (fineClock) {
-      const adjustmentStarted = now();
-      if (maintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine, seconds, maintenanceSeconds, frames, 0);
-      else this.api.lsd_observe(this.engine, seconds, frames, 0);
-      this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
+      this.observeTiming(seconds, maintenanceSeconds, frames);
+    } else if (coarseSpike) {
+      // Earlier cheap quanta cannot dilute this measured deadline overrun.
+      // Flush them separately, then observe this quantum once. Both admission
+      // calls' cost carries forward instead of being counted twice or omitted.
+      if (this.measuredFrames > 0) {
+        this.observeTiming(this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames);
+        this.measuredSeconds = 0; this.measuredFrames = 0; this.measuredMaintenanceSeconds = 0;
+      }
+      this.observeTiming(seconds, maintenanceSeconds, frames);
     }
     else {
       // Averaging makes a 1 ms clock tick useful without treating it as a spike.
       this.measuredSeconds += seconds; this.measuredFrames += frames;
       this.measuredMaintenanceSeconds += maintenanceSeconds;
       if (this.measuredFrames >= BLOCK * 32) {
-        const adjustmentStarted = now();
-        if (this.measuredMaintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine,
-          this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames, 0);
-        else this.api.lsd_observe(this.engine, this.measuredSeconds, this.measuredFrames, 0);
-        this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
+        this.observeTiming(this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames);
         this.measuredSeconds = 0; this.measuredFrames = 0;
         this.measuredMaintenanceSeconds = 0;
       }
