@@ -37,8 +37,18 @@ export function captureInstrumentPreset(value = {}) {
 
 const synthesisTour = SYNTHESAURUS_MASTER_PRESETS.map((preset, index) => ({
   ...preset,
-  snapshot: captureInstrumentPreset({ ...preset.snapshot, voiceMode: [1, 4, 5, 7, 11].includes(index) ? 'poly' : 'mono' }),
+  snapshot: captureInstrumentPreset({ ...preset.snapshot,
+    sound: performanceSound(preset.snapshot.sound, preset.snapshot.sequence),
+    voiceMode: [1, 4, 5, 7, 11].includes(index) ? 'poly' : 'mono' }),
 }));
+
+function performanceSound(sound, sequence) {
+  const fitted = fitRandomAttackToSequence(sound, sequence);
+  // A long pad attack belongs to the local factory sound, but cannot open
+  // inside a short sequencer gate. Mark this performance-specific edit honestly.
+  if (JSON.stringify(fitted.envelope) !== JSON.stringify(sound.envelope)) fitted.presetId = 'custom';
+  return fitted;
+}
 
 function voiceTour(input) {
   const sound = createDefaultState('fx-reverb');
@@ -58,11 +68,25 @@ function voiceTour(input) {
 
 const tours = [synthesisTour, voiceTour('speech'), voiceTour('singing')];
 
-// Spread shorter tours throughout longer ones instead of exhausting one family
-// before the next. The first three recalls introduce all three musical sources.
+// Spread shorter tours throughout longer ones before the complete bank shuffle.
 const mixTours = banks => banks.flatMap((bank, family) => bank.map((preset, index) => ({
   preset, family, position: index / bank.length,
 }))).sort((a, b) => a.position - b.position || a.family - b.family).map(entry => entry.preset);
+
+// A fixed Fisher–Yates shuffle makes the whole main tour repeatable across
+// reloads without changing factory banks, preset IDs or musical snapshots.
+function shuffledTour(presets) {
+  const shuffled = [...presets];
+  let seed = 0x53594e54;
+  for (let index = shuffled.length - 1; index > 0; index--) {
+    seed ^= seed << 13;
+    seed ^= seed >>> 17;
+    seed ^= seed << 5;
+    const target = Math.floor((seed >>> 0) / 4294967296 * (index + 1));
+    [shuffled[index], shuffled[target]] = [shuffled[target], shuffled[index]];
+  }
+  return shuffled;
+}
 
 // Unlike interactive selection, authored recipes must never silently fall back
 // to another sound when a catalogue reference is misspelled or removed.
@@ -87,10 +111,7 @@ function createSynthesisRecipe([id, label, methodId, presetId, sequenceId, setti
   if (!settings || !TUNINGS.some(item => item.id === tuningId)) throw new RangeError(`Unknown sequence or tuning in instrument recipe: ${id}`);
   const sequence = { ...settings.snapshot, tempoBpm };
   const factory = recipeSound(methodId, presetId, 'synthesis');
-  const sound = fitRandomAttackToSequence(factory, sequence);
-  // Attack fitting is a real envelope edit; don't mislabel the local sound as
-  // an unchanged factory patch. Preserve its measured level calibration.
-  if (JSON.stringify(sound.envelope) !== JSON.stringify(factory.envelope)) sound.presetId = 'custom';
+  const sound = performanceSound(factory, sequence);
   return { id: `performance:${id}`, label, snapshot: captureInstrumentPreset({ sound, voiceMode, tuningId, sequence,
     routing: { input: 'synthesis', loop: true, effectEnabled: !!insert, effect: recipeEffect(insert) },
   }) };
@@ -132,8 +153,6 @@ export const ADDITIONAL_INSTRUMENT_PRESETS = Object.freeze(mixTours([
   addedVoices.filter(preset => preset.snapshot.routing.input === 'singing'),
   SAMPLE_INSTRUMENT_PRESETS,
 ]));
-// Keep the original tour's IDs, snapshots and ordering intact for saved links
-// and familiar Next positions; the new mixed performances follow it.
 export const PERCUSSION_INSTRUMENT_PRESETS = Object.freeze(PERCUSSION_METHODS.flatMap((method, methodIndex) => method.kits.map((kit, index) => {
   const sound = sanitizeState({ ...createDefaultState('fx-reverb'), source: 0, wet: .18, inputDb: 0, outputDb: 0 });
   const percussion = applyPercussionRhythm(applyPercussionKit(createPercussionState(method.id), kit.id), method.rhythms[index % method.rhythms.length].id);
@@ -141,7 +160,7 @@ export const PERCUSSION_INSTRUMENT_PRESETS = Object.freeze(PERCUSSION_METHODS.fl
     snapshot: captureInstrumentPreset({ sound, routing: { input: 'percussion', percussion, effect: sound, effectEnabled: false, loop: true },
       sequence: { id: 'none', tempoBpm: [112, 96, 128, 124, 86, 118][methodIndex] + index * 4 } }) };
 })));
-export const INSTRUMENT_PRESETS = Object.freeze([...mixTours(tours), ...ADDITIONAL_INSTRUMENT_PRESETS, ...PERCUSSION_INSTRUMENT_PRESETS]);
+export const INSTRUMENT_PRESETS = Object.freeze(shuffledTour([...mixTours(tours), ...ADDITIONAL_INSTRUMENT_PRESETS, ...PERCUSSION_INSTRUMENT_PRESETS]));
 
 /** Kept as a compatibility seam: Input no longer restricts the top-level tour. */
 export function instrumentPresetsForInput() { return INSTRUMENT_PRESETS; }
@@ -152,7 +171,11 @@ export function randomizeInstrumentPreset(value, rng = Math.random) {
   const effect = randomizeAllState(createDefaultState('fx-reverb'), r);
   // Always keep an audible dry component and headroom on newly drawn inputs.
   // Manual/local controls retain their full ranges, including fully-wet effects.
-  effect.wet = .15 + .5 * r(); effect.inputDb = -9 + 9 * r(); effect.outputDb = -6 + 6 * r();
+  effect.wet = .15 + .3 * r();
+  effect.inputDb = -6 + 6 * r();
+  // Vary processor drive, not two unrelated volume cuts (formerly up to
+  // 15 dB combined). Coupled makeup preserves dry-path level and headroom.
+  effect.outputDb = -effect.inputDb + (r() - .5);
   const routing = { input, effectEnabled: r() > .5, loop: r() > .5, effect };
   if (input === 'samples') {
     // Bundled loops are ready to play without a file or device. Keep the

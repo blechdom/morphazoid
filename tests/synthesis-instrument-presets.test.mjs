@@ -6,13 +6,16 @@ import { inputsForCategory } from '../src/instruments/synthesis/signal-path.js';
 import { NATIVE_METHODS } from '../src/instruments/voicesaurus/native-model.js';
 import { validateFullPresetBank } from '../src/site/header-presets.js';
 import { compileSequence } from '../src/instruments/synthesis/sequence-compiler.js';
+import { SYNTHESAURUS_MASTER_PRESETS } from '../src/instruments/synthesis/performance-presets.js';
+import { voicePresetsForInput } from '../src/instruments/synthesis/voice-input-state.js';
 
 test('the main bank combines the original tour with synthesis, voice, sample and percussion performances', () => {
   assert.equal(ADDITIONAL_INSTRUMENT_PRESETS.length, 100 + SAMPLE_INSTRUMENT_PRESETS.length);
   assert.equal(PERCUSSION_INSTRUMENT_PRESETS.length, 18);
   assert.equal(INSTRUMENT_PRESETS.length, 34 + ADDITIONAL_INSTRUMENT_PRESETS.length + PERCUSSION_INSTRUMENT_PRESETS.length);
-  assert.deepEqual(INSTRUMENT_PRESETS.slice(34, 34 + ADDITIONAL_INSTRUMENT_PRESETS.length), ADDITIONAL_INSTRUMENT_PRESETS);
-  assert.deepEqual(INSTRUMENT_PRESETS.slice(34 + ADDITIONAL_INSTRUMENT_PRESETS.length), PERCUSSION_INSTRUMENT_PRESETS);
+  for (const preset of [...ADDITIONAL_INSTRUMENT_PRESETS, ...PERCUSSION_INSTRUMENT_PRESETS]) {
+    assert.equal(INSTRUMENT_PRESETS.find(item => item.id === preset.id), preset);
+  }
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.id)).size, INSTRUMENT_PRESETS.length);
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => p.label)).size, INSTRUMENT_PRESETS.length);
   assert.equal(new Set(INSTRUMENT_PRESETS.map(p => JSON.stringify(p.snapshot))).size, INSTRUMENT_PRESETS.length);
@@ -30,6 +33,61 @@ test('the main bank combines the original tour with synthesis, voice, sample and
       assert.equal(snapshot.sequence.id, 'none', id);
       if (!sample) assert.ok(snapshot.routing.voice.text.length <= 220, id);
     }
+  }
+});
+
+test('the shuffled main tour preserves the original IDs, labels and complete snapshots', () => {
+  const originals = SYNTHESAURUS_MASTER_PRESETS.map((preset, index) => ({
+    ...preset,
+    snapshot: captureInstrumentPreset({ ...preset.snapshot,
+      sound: (() => {
+        const fitted = fitRandomAttackToSequence(preset.snapshot.sound, preset.snapshot.sequence);
+        if (JSON.stringify(fitted.envelope) !== JSON.stringify(preset.snapshot.sound.envelope)) fitted.presetId = 'custom';
+        return fitted;
+      })(), voiceMode: [1, 4, 5, 7, 11].includes(index) ? 'poly' : 'mono' }),
+  }));
+  for (const input of ['speech', 'singing']) {
+    const seen = new Set(), sound = createDefaultState('fx-reverb');
+    for (const preset of voicePresetsForInput(input)) {
+      const engine = preset.state.scene.engine;
+      if (seen.has(engine)) continue;
+      seen.add(engine);
+      originals.push({
+        id: `voice:${input}:${preset.id}`, label: preset.label,
+        snapshot: captureInstrumentPreset({ sound,
+          routing: { input, voice: preset.state, effect: sound, effectEnabled: false, loop: true },
+        }),
+      });
+    }
+  }
+  assert.equal(originals.length, 34);
+  const completeBank = [...originals, ...ADDITIONAL_INSTRUMENT_PRESETS, ...PERCUSSION_INSTRUMENT_PRESETS];
+  assert.deepEqual(new Set(INSTRUMENT_PRESETS.map(preset => preset.id)), new Set(completeBank.map(preset => preset.id)));
+  for (const preset of completeBank) {
+    assert.deepEqual(INSTRUMENT_PRESETS.find(item => item.id === preset.id), preset, preset.id);
+  }
+  assert.notDeepEqual(INSTRUMENT_PRESETS.map(preset => preset.id), completeBank.map(preset => preset.id));
+});
+
+test('the main tour keeps one deterministic shuffled order across reloads and input changes', async () => {
+  const ids = INSTRUMENT_PRESETS.map(preset => preset.id);
+  assert.ok(Object.isFrozen(INSTRUMENT_PRESETS));
+  for (const reload of ['first', 'second']) {
+    const module = await import(`../src/instruments/synthesis/instrument-presets.js?tour-reload=${reload}`);
+    assert.notEqual(module.INSTRUMENT_PRESETS, INSTRUMENT_PRESETS);
+    assert.deepEqual(module.INSTRUMENT_PRESETS.map(preset => preset.id), ids);
+    assert.deepEqual(module.INSTRUMENT_PRESETS, INSTRUMENT_PRESETS);
+    for (const input of [...RANDOMIZABLE_INPUTS, 'microphone', 'file', 'signals']) {
+      assert.equal(module.instrumentPresetsForInput(input), module.INSTRUMENT_PRESETS);
+      assert.deepEqual(module.instrumentPresetsForInput(input).map(preset => preset.id), ids);
+    }
+  }
+  for (const input of RANDOMIZABLE_INPUTS) {
+    const positions = INSTRUMENT_PRESETS.flatMap((preset, index) => preset.snapshot.routing.input === input ? [index] : []);
+    assert.ok(positions.some((position, index) => index > 0 && position > positions[index - 1] + 1),
+      `${input} is mixed with other families rather than grouped into one block`);
+    assert.ok(positions[0] < INSTRUMENT_PRESETS.length / 2 && positions.at(-1) >= INSTRUMENT_PRESETS.length / 2,
+      `${input} appears in both halves of the complete tour`);
   }
 });
 
@@ -108,7 +166,6 @@ test('one mixed musical tour includes samples without selecting devices or test 
       assert.deepEqual(captureInstrumentPreset(preset.snapshot), preset.snapshot, preset.id);
     }
   }
-  assert.deepEqual(INSTRUMENT_PRESETS.slice(0, 3).map(p => p.snapshot.routing.input), ['synthesis', 'speech', 'singing']);
   assert.deepEqual(new Set(INSTRUMENT_PRESETS.flatMap(p => p.snapshot.routing.voice ? [p.snapshot.routing.voice.scene.engine] : [])), new Set(Object.keys(NATIVE_METHODS)));
   for (const input of ['microphone', 'file', 'signals']) {
     assert.ok(inputsForCategory(input).length > 0);
@@ -169,8 +226,10 @@ test('main sample dice varies bundled loops and processor parameters without dev
     assert.equal(next.sound.source, 0);
     assert.equal(next.sound.bypass, false);
     assert.equal(next.sound.presetId, 'custom');
-    assert.ok(next.sound.wet >= .15 && next.sound.wet <= .65);
-    assert.ok(next.sound.inputDb <= 0 && next.sound.outputDb <= 0);
+    assert.ok(next.sound.wet >= .15 && next.sound.wet <= .45);
+    assert.ok(next.sound.inputDb >= -6 && next.sound.inputDb <= 0);
+    assert.ok(Math.abs(next.sound.outputDb + next.sound.inputDb) <= .5,
+      'random drive has coupled makeup, not an arbitrary volume cut');
     assert.deepEqual(next.sound, next.routing.effect);
     for (const key of ['outputLevel', 'armed', 'playing']) {
       assert.ok(!Object.hasOwn(next, key)); assert.ok(!Object.hasOwn(next.sound, key));

@@ -7,7 +7,7 @@
   "presets": 424,
   "wasmSha256": "fcbb7622cd5cc6c7e13d471d1d73241428986c1c1815aceaf769a66ca1b98176",
   "sourceHashes": {
-    "src/instruments/synthesis/catalog.js": "d56d7bbe9538d13405b1cf92ab09e67102413b1f8b643c1d51c5097d90edbebc",
+    "src/instruments/synthesis/catalog.js": "44f968575ea6cad323e43f842ef5d065b76869c1ecf6fdf3206c82715c9b5eec",
     "src/instruments/synthesis/level-calibration.js": "a00fa2f3dc2ea412fd9c6a08c0199ad6728399c0b58afc0d9825783c53e68663",
     "src/instruments/synthesis/historical-catalog.js": "19d3def2d321447fb49e64e7ef835b42fd58512a1da10e72e53063259bde5ecc",
     "src/instruments/synthesis/processing-schema.js": "f66c8df12a573b711baf47ae6a56f8f97c5147ab58b4befacb8fa36253454974",

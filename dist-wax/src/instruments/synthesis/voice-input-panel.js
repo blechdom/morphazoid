@@ -147,7 +147,7 @@ export function mountVoiceInputPanel(host, { change = () => {}, error = () => {}
     state = next; sessions.set(inputId, state);
     selectedNote = keepSelection && inputId === 'singing' ? Math.min(selectedNote, singingNoteCount(state.scene) - 1) : 0;
     selections.set(inputId, selectedNote); revision++; timings = []; render();
-    if (notify) change(structuredClone(state));
+    if (notify) change(structuredClone(state), { matchLevel: true });
   }
   function chooseMethod(engine) {
     const factory = banks.get(inputId).find(item => item.state.scene.engine === engine);

@@ -292,3 +292,37 @@ test('percussion runs through the selected processor effect and returns to bypas
     assert.ok(rms(wet.render(4096)[0]) > 1e-5, 'returning to bypass needs no Audio restart');
   } finally { dry.dispose(); wet.dispose(); }
 });
+
+test('percussion preset-level compensation ramps through live stereo tails without resetting the score', () => {
+  const plain = makeHarness(), matched = makeHarness();
+  try {
+    const patch = state(0);
+    patch.percussion.voices = Array.from({ length: 8 }, () => voice(0, {
+      frequency: 97, decay: 1, noise: 0, tone: .3, sweep: 0, level: .05, pan: .2,
+    }));
+    for (const h of [plain, matched]) {
+      h.send({ type: 'state', state: patch });
+      startScore(h, score({ lengthBeats: 4, steps: [
+        { index: 0, at: 0, duration: .1, notes: [{ lane: 0, ratio: 1, velocity: .6, gate: 1 }] },
+        { index: 1, at: 2, duration: .1, notes: [{ lane: 1, ratio: 1, velocity: .6, gate: 1 }] },
+      ] }));
+      h.render(2048);
+    }
+    const clockKeys = ['sequenceAnchorFrame', 'sequenceAnchorBeat', 'sequenceNextBeat', 'sequenceNextStep', 'sequenceRevision'];
+    const clock = clockKeys.map(key => [key, matched.processor[key]]);
+    matched.send({ type: 'state', state: { ...patch, percussion: { ...patch.percussion, gain: 4 } } });
+    for (const [key, value] of clock) assert.equal(matched.processor[key], value, `${key} survives level matching`);
+    assert.equal(matched.hits.length, 1, 'matching itself does not add another hit');
+    const reference = plain.render(4096), result = matched.render(4096);
+    for (let channel = 0; channel < 2; channel++) {
+      const early = rms(result[channel].subarray(0, 16)) / rms(reference[channel].subarray(0, 16));
+      const late = rms(result[channel].subarray(-512)) / rms(reference[channel].subarray(-512));
+      assert.ok(early > 1 && early < 1.25, `channel ${channel}: compensation ramps instead of stepping from 1× to 4×`);
+      assert.ok(late > 3.9 && late <= 4.001, `channel ${channel}: the static target is reached without flattening note decay`);
+    }
+    const referencePan = rms(reference[0]) / rms(reference[1]);
+    const matchedPan = rms(result[0]) / rms(result[1]);
+    assert.ok(Math.abs(referencePan - matchedPan) < 1e-5, 'one shared gain curve preserves stereo image');
+    assert.equal(matched.hits.length, 1, 'a level update does not restart the earlier sequence event');
+  } finally { plain.dispose(); matched.dispose(); }
+});

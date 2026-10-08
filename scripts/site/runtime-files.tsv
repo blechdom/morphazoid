@@ -1241,6 +1241,10 @@ copy+require	assets/instruments/synthesis.webp
 copy+require	src/instruments/synthesis/reference.js
 copy+require	src/instruments/synthesis/reference.css
 copy+require	src/instruments/synthesis/instrument-presets.js
+copy+require	src/instruments/synthesis/performance-level-matcher.js
+copy+require	src/instruments/synthesis/performance-level-factories.js
+copy+require	src/instruments/synthesis/performance-level-worker.js
+copy+require	src/instruments/synthesis/performance-level-measure.js
 copy+require	src/instruments/synthesis/percussion-state.js
 copy+require	src/instruments/synthesis/percussion-panel.js
 copy+require	src/instruments/synthesis/instrument-preset-recipes.js
@@ -1251,6 +1255,7 @@ copy+require	src/instruments/synthesis/voice-loop-presets.js
 copy+require	src/instruments/synthesis/voice-input-panel.js
 copy+require	src/instruments/synthesis/voice-input.css
 copy+require	src/instruments/synthesis/voice-source.js
+copy+require	src/instruments/synthesis/voice-level-worker.js
 copy+require	src/instruments/synthesis/processor-panel.js
 copy+require	src/instruments/synthesis/amplitude-models.js
 copy+require	src/instruments/synthesis/sequence-surfaces.js

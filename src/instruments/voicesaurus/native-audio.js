@@ -115,7 +115,7 @@ export class NativeVoiceAudio {
     try{source.start(0,this.position);}catch(error){this.playing=false;this.stopSource();throw error;}return true;
   }
   cancelRender() {this.generation++;this.cancelWorker?.();this.cancelWorker=null;this.pendingRender=null;}
-  async render(request,{store=true,positionForResult}={}) {
+  async render(request,{store=true,positionForResult,prepareResult}={}) {
     if(!this.enabled||!this.context||this.context.state==='closed')throw Object.assign(Error('Enable Audio before rendering a voice.'),{name:'NotAllowedError'});
     this.cancelRender();this.stopAudition();const generation=this.generation,context=this.context;
     return new Promise((resolve,reject)=>{
@@ -128,7 +128,7 @@ export class NativeVoiceAudio {
       this.pendingRender={store,generation};
       this.cancelWorker=()=>finish(Object.assign(Error('Voice rendering cancelled.'),{name:'AbortError'}));
       if(worker)worker.onerror=event=>finish(Error(event.message||'Voice worker failed.'));
-      const receive=({data})=>{
+      const receive=async({data})=>{
         if(settled)return;
         if(data.type==='error'){finish(Error(data.message));return;}
         if(data.type!=='ready')return;
@@ -146,6 +146,12 @@ export class NativeVoiceAudio {
           if(playbackRate===sampleRate||!samples.length)buffer.copyToChannel(samples,0);
           else {const output=buffer.getChannelData(0);for(let i=0;i<frames;i++){const position=i*sampleRate/playbackRate,index=Math.min(samples.length-1,Math.floor(position)),fraction=position-index;output[i]=samples[index]*(1-fraction)+samples[Math.min(index+1,samples.length-1)]*fraction;}}
           const result={...data,buffer,engine:request.engine};
+          // Optional host preparation runs while the previous phrase still plays.
+          // It may measure PCM asynchronously but cannot commit stale output.
+          if(prepareResult){
+            await prepareResult(result,{signal:controller.signal});
+            if(settled||generation!==this.generation||!this.enabled||context!==this.context||context?.state==='closed')throw Object.assign(Error('Cancelled'),{name:'AbortError'});
+          }
           if(store){
             const previous=this.currentPosition(),fraction=this.buffer?.duration?previous/this.buffer.duration:0;
             // Resolve against the audio clock NOW, not when the worker started.

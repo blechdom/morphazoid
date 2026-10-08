@@ -43,6 +43,10 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
     // Optional until selected, so older cached binaries still play other inputs.
     this.drums = this.api.drum_abi_version?.() === 1 ? this.api.drum_new(sampleRate) : null;
     this.percussionEnabled = false;
+    this.percussionGain = 1;
+    this.percussionGainTarget = 1;
+    this.percussionGainCurve = new Float32Array(128);
+    this.percussionGainBlend = 1 - Math.exp(-1 / (sampleRate * .012));
     this.insertState = null;
     this.insertBlend = 0;
     this.outputArmed = options.processorOptions.outputArmed !== false;
@@ -1110,6 +1114,7 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
       this.events = this.events.filter(event => event.type !== "drum-hit");
     }
     this.percussionEnabled = enabled;
+    this.percussionGainTarget = enabled ? clampNumber(value.gain, 1 / 64, 16, 1) : 1;
     if (!enabled) return;
     const voices = Array.isArray(value.voices) ? value.voices : [];
     for (let lane = 0; lane < 8; lane++) {
@@ -1219,10 +1224,17 @@ class RoadsSynthesisProcessor extends AudioWorkletProcessor {
         p.drum_process(this.drums, count);
       }
       this.updateProcessingGate(frame);
+      if (this.percussionEnabled) for (let index = 0; index < count; index++) {
+        this.percussionGain += this.percussionGainBlend * (this.percussionGainTarget - this.percussionGain);
+        this.percussionGainCurve[index] = this.percussionGain;
+      }
       for (let channel = 0; channel < 2; channel++) {
         const input = new Float32Array(p.memory.buffer, p.proc_input_ptr(e, channel), 128);
         input.fill(0);
-        if (this.percussionEnabled) input.set(new Float32Array(p.memory.buffer, p.drum_output_ptr(this.drums, channel), count));
+        if (this.percussionEnabled) {
+          const drumOutput = new Float32Array(p.memory.buffer, p.drum_output_ptr(this.drums, channel), count);
+          for (let index = 0; index < count; index++) input[index] = drumOutput[index] * this.percussionGainCurve[index];
+        }
         else {
           const source = inputs[0]?.[channel] || inputs[0]?.[0];
           if (source) input.set(source.subarray(offset, offset + count));

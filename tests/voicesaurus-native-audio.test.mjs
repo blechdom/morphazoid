@@ -144,6 +144,34 @@ test('cancelling an offline sample-bank job aborts it and ignores late PCM',asyn
 
 test('default render stores AudioBuffer, keeps original PCM metadata and scales phrase position',async()=>{const a=await audio();phrase(a);const p=a.render({engine:'sinsy'});const samples=new Float32Array(48000).fill(.2);WorkerMock.all.at(-1).ready(samples);const result=await p;assert.equal(result.samples,samples);assert.equal(result.buffer,a.buffer);assert.equal(a.engine,'sinsy');assert.equal(a.position,.25);assert.equal(a.buffer.duration,1);assert.equal(a.pendingRender,null);await a.close();});
 
+test('optional asynchronous PCM preparation keeps the old source playing until commit',async()=>{
+ const a=await audio(),old=phrase(a);a.play();const source=a.source;
+ let finish,observed;const preparation=new Promise(resolve=>finish=resolve);
+ const pending=a.render({engine:'sinsy'},{prepareResult:(result,{signal})=>{observed={result,signal};return preparation;}});
+ WorkerMock.all.at(-1).ready(new Float32Array(48000).fill(.1));
+ assert.equal(a.buffer,old);assert.equal(a.source,source);assert.equal(a.playing,true);assert.equal(source.stops.length,0);
+ assert.equal(observed.signal.aborted,false);a.context.currentTime+=.5;finish();
+ const result=await pending;assert.equal(a.buffer,result.buffer);assert.equal(a.position,.375);
+ assert.equal(observed.signal.aborted,true,'completion releases preparation resources');
+ await a.close();
+});
+
+test('cancel during asynchronous PCM preparation aborts it and cannot replace the retained phrase',async()=>{
+ const a=await audio(),old=phrase(a);a.play();const source=a.source;
+ let finish,signal;const preparation=new Promise(resolve=>finish=resolve);
+ const pending=a.render({engine:'sinsy'},{prepareResult:(_result,options)=>{signal=options.signal;return preparation;}});
+ const rejected=assert.rejects(pending,{name:'AbortError'});const worker=WorkerMock.all.at(-1);worker.ready();
+ a.cancelRender();assert.equal(signal.aborted,true);assert.equal(worker.terminated,true);finish();await rejected;await Promise.resolve();
+ assert.equal(a.buffer,old);assert.equal(a.source,source);assert.equal(a.playing,true);await a.close();
+});
+
+test('preparation failure preserves the last good playing source',async()=>{
+ const a=await audio(),old=phrase(a);a.play();const source=a.source;
+ const pending=a.render({engine:'sinsy'},{prepareResult:async()=>{throw Error('Preparation failed.');}});
+ WorkerMock.all.at(-1).ready();await assert.rejects(pending,/Preparation failed/);
+ assert.equal(a.buffer,old);assert.equal(a.source,source);assert.equal(a.playing,true);await a.close();
+});
+
 test('musical replacement maps the current audio-clock position only after valid PCM arrives',async()=>{
  const a=await audio();const old=phrase(a);a.play();let observed;
  const pending=a.render({engine:'sinsy'},{positionForResult:(result,position)=>{observed={result,position,old:a.buffer};return position/2;}});

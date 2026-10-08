@@ -1173,6 +1173,33 @@ export function randomizeState(value = {}, rng = Math.random) {
     sustain: random(), release: .04 * 100 ** random(),
   };
   const attackDraw = Math.log(envelope.attack / .002) / Math.log(900);
+  if (method.id === 'modal') {
+    // Repeated strikes into a 30-second bank with rising upper-partial gain
+    // can saturate before the master sees it. Keep the dice in playable decay
+    // and spectral ranges; manual controls still expose the full experiment.
+    params[1] = normalizedParameter(method.controls[1], .15 * 30 ** params[1]);
+    params[7] = .08 + .42 * params[7];
+  } else if (method.id === 'lfsr-noise') {
+    // Don't close the reconstruction filter below essentially all of the
+    // chosen register clock's energy. Cutoff still varies over a broad range.
+    const clock = frequencyHz * parameterValue(method.controls[0], params[0]);
+    const floor = Math.min(4000, Math.max(240, clock * .06));
+    params[5] = normalizedParameter(method.controls[5], floor * (20000 / floor) ** params[5]);
+  } else if (method.id === 'chebyshev') {
+    // Near-zero input index with an arbitrary bias produces mostly DC, which
+    // the engine correctly rejects. Leave an audible sinusoidal excursion.
+    params[8] = .25 + .75 * params[8];
+    params[12] = normalizedParameter(method.controls[12], .05 * 80 ** params[12]);
+  } else if (method.id === 'fof') {
+    params[0] = normalizedParameter(method.controls[0], 250 * 18 ** params[0]);
+    const bandwidth = parameterValue(method.controls[1], params[1]);
+    const rise = Math.min(parameterValue(method.controls[4], params[4]), 700 / bandwidth);
+    params[4] = normalizedParameter(method.controls[4], rise);
+  } else if (method.id === 'pulsar') {
+    params[0] = .25 + .65 * params[0];
+    params[5] *= .6;
+    params[6] *= .5;
+  }
   if (method.id === 'physical') {
     // A heavily damped mass–spring strike dies before a long attack opens.
     envelope.attack = .001 + (.003 + .05 * (1 - params[1]) ** 2) * attackDraw;

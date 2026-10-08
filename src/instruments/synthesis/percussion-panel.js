@@ -107,12 +107,12 @@ export function mountPercussionPanel(root, { change = () => {}, hit = () => {} }
   listen(methodSelect, 'change', () => {
     const next = createPercussionState(methodSelect.value);
     state = { ...next, steps: state.steps, rhythmId: 'custom', swing: state.swing, selectedLane: state.selectedLane };
-    commit();
+    commit({ matchLevel: true });
   });
-  listen(kitSelect, 'change', () => { state = applyPercussionKit(state, kitSelect.value); commit(); });
+  listen(kitSelect, 'change', () => { state = applyPercussionKit(state, kitSelect.value); commit({ matchLevel: true }); });
   listen(rhythmSelect, 'change', () => { remember(); state = applyPercussionRhythm(state, rhythmSelect.value); commit({ rhythm: true }); });
   for (const select of [methodSelect, kitSelect, rhythmSelect]) listen($(select.id + 'Next'), 'click', () => next(select));
-  listen($('drumKitRandom'), 'click', () => { state = randomizePercussionKit(state); commit(); });
+  listen($('drumKitRandom'), 'click', () => { state = randomizePercussionKit(state); commit({ matchLevel: true }); });
   listen($('drumRhythmRandom'), 'click', () => { remember(); state = randomizePercussionRhythm(state); commit({ rhythm: true }); });
 
   function render() {

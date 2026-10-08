@@ -25,7 +25,7 @@ test.describe('touch transport alignment', () => {
       const play = page.locator('#playButton'), next = page.locator('#nextPerformancePreset');
       const original = await Promise.all([picker, play, next].map(box));
       // These consecutive factory scenes include mono, poly, speech and singing.
-      for (const preset of INSTRUMENT_PRESETS.slice(0, 6)) {
+      for (const preset of INSTRUMENT_PRESETS.slice(0, 8)) {
         await next.click();
         await expect(picker.locator('.instrument-picker-current')).toHaveText(preset.label);
         for (const [index, node] of [picker, play, next].entries()) stable(await box(node), original[index]);

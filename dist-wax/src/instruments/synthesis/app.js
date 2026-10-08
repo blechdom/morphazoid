@@ -1,7 +1,7 @@
 import { SYNTHESIS_DATES } from "./chronology.js";
 import { SEQUENCE_STUDIES, SEQUENCE_STUDY_COUNT } from "./sequence-catalog.js";
 import { compileSequence } from "./sequence-compiler.js";
-import { sequenceRegisterMultiplier } from "./sequence-register.js";
+import { mapSequenceToTuning } from "./sequence-register.js";
 import { createSequenceSurface } from "./sequence-surfaces.js";
 import { createSequenceMechanismView } from "./sequence-mechanism-view.js";
 import { createSequenceParameterValues, getSequenceParameterBounds, getSequenceParameterDefinitions } from "./sequence-parameters.js";
@@ -25,6 +25,7 @@ import { enhanceChooseSelect } from "./choose.js";
 import { COMPUTER_KEYBOARD_LAYOUTS } from "../../midi-manager.js";
 import { getMethod, getPreset, createDefaultState, stateFromPreset, sanitizeState } from "./catalog.js";
 import { SynthesisAudio } from "./audio.js";
+import { PerformanceLevelMatcher } from "./performance-level-matcher.js";
 import { isVoiceInput } from "./voice-input-state.js";
 import { mountVoiceInputPanel } from "./voice-input-panel.js";
 import { VoiceInputSource } from "./voice-source.js";
@@ -50,6 +51,9 @@ const $ = id => document.getElementById(id);
 const listeners = new AbortController();
 const listen = (target, name, handler, options = {}) => target.addEventListener(name, handler, { ...options, signal: listeners.signal });
 const query = new URLSearchParams(location.search);
+const levelMatcher = new PerformanceLevelMatcher();
+let presetLevelMatch = null;
+let levelPreparation = 0;
 let state = createDefaultState(query.get("method") || "additive");
 if (query.has("preset")) state = stateFromPreset(state.methodId, query.get("preset"), state);
 if (query.has("tuning")) state = sanitizeState({ ...state, tuningId: sanitizeTuningId(query.get("tuning")) });
@@ -171,8 +175,9 @@ const voiceSource = new VoiceInputSource({
   ended: () => { if (isVoiceInput(inputCategory) && playing && !voiceSource.busy) setPlaying(false); },
 });
 const voicePanel = mountVoiceInputPanel($("voiceInputPanel"), {
-  change: () => {
+  change: (_value, { matchLevel = false } = {}) => {
     clearTimeout(voiceRenderTimer); voiceSource.invalidate();
+    if (matchLevel) voiceSource.prepareLevelMatch($("matchPresetLevels").checked);
     fullPresets?.refresh(); paintSignalPath();
     if (playing) voiceRenderTimer = setTimeout(() => { void ensureProcessingInput({ force: true }); }, 160);
   },
@@ -193,10 +198,12 @@ const voicePanel = mountVoiceInputPanel($("voiceInputPanel"), {
 });
 
 const drumPanel = mountPercussionPanel($("drumInputPanel"), {
-  change: (_next, { rhythm = false } = {}) => {
+  change: (_next, { rhythm = false, matchLevel = false } = {}) => {
+    if (matchLevel) presetLevelMatch = null;
     if (rhythm) syncDrumSequence();
     else syncAudio();
     fullPresets?.refresh(); paintSignalPath();
+    if (matchLevel) void refreshCurrentLevelMatch();
   },
   hit: (lane, velocity) => {
     if (!audio.armed) { $("status").textContent = "Enable Audio to hear the drum pads."; return; }
@@ -212,10 +219,13 @@ function showError(error) {
 
 function configuredAudioState() {
   const method = getMethod(state.methodId);
+  const matched = $("matchPresetLevels").checked && presetLevelMatch?.input === inputCategory
+    && (inputCategory === 'percussion' || presetLevelMatch.methodId === state.methodId) ? presetLevelMatch : null;
   return {
     ...state,
+    ...(matched?.sourceTrimDb != null ? { levelTrimDb: matched.sourceTrimDb + state.levelTrimDb - matched.referenceTrimDb } : {}),
     ...((isVoiceInput(inputCategory) || inputCategory === 'percussion') && !effectEnabled ? { bypass: true, inputDb: 0, outputDb: 0 } : {}),
-    percussion: inputCategory === 'percussion' ? { voices: drumPanel.getState().voices } : null,
+    percussion: inputCategory === 'percussion' ? { voices: drumPanel.getState().voices, gain: matched?.outputGain ?? 1 } : null,
     source: method.kind === "processor" ? processingSource() : state.source,
     kind: method.kind || "synthesis",
     engineId: method.engineId,
@@ -265,6 +275,9 @@ listen($("audioButton"), "click", async () => {
   if (audio.armed) { inputIntent++; loadingInput = false; clearTimeout(voiceRenderTimer); voiceSource.deactivate(); audio.mute(); paintAudio(); return; }
   arming = true;
   paintAudio();
+  // Warm the reusable measurement worker alongside explicit Audio startup,
+  // never on the audio thread and never by opening another AudioContext.
+  if ($("matchPresetLevels").checked) void levelMatcher.warm().catch(() => {});
   try {
     syncAudio(); await audio.start();
     audio.resumeNotes(Array.from(held.values()));
@@ -815,36 +828,8 @@ function compileBasicSequence(item) {
   };
 }
 
-function fitBasicRatio(ratio, rootFrequency = state.frequencyHz) {
-  const tuning = getTuning(state.tuningId);
-  let result = ratio;
-  while (rootFrequency * result > 8000 && rootFrequency * result / tuning.periodRatio >= 20) result /= tuning.periodRatio;
-  while (rootFrequency * result < 20 && rootFrequency * result * tuning.periodRatio <= 8000) result *= tuning.periodRatio;
-  return result;
-}
-
 function mapCycleToTuning(cycle, { basic = false, rootFrequency = state.frequencyHz } = {}) {
-  if (!cycle) return null;
-  const ratioForNote = note => Number.isSafeInteger(note.degree)
-    ? tuningRatioForDegree(note.degree, state.tuningId)
-    : tuningRatioForSemitoneCoordinate(note.semitone, state.tuningId, sequenceState.pitchMode);
-  const register = cycle.parameters?.fullTraversal || cycle.studyId === 'keyboard-range-arpeggio'
-    ? sequenceRegisterMultiplier(cycle.steps.flatMap(step => step.notes.map(ratioForNote)),
-      rootFrequency, getTuning(state.tuningId).periodRatio) ?? 1 : 1;
-  const steps = cycle.steps.map(step => ({
-    ...step,
-    notes: step.notes.flatMap(note => {
-      let ratio = ratioForNote(note) * register;
-      // Preserve a playable note by translating whole tuning periods at the
-      // register boundary. Small/non-octave maps can otherwise drop an entire
-      // randomized phrase despite valid source notes.
-      if (Number.isFinite(ratio) && ratio > 0) ratio = fitBasicRatio(ratio, rootFrequency);
-      const frequency = rootFrequency * ratio;
-      return Number.isFinite(ratio) && ratio > 0 && frequency >= 20 && frequency <= 8000
-        ? [{ ...note, ratio }] : [];
-    }),
-  }));
-  return { ...cycle, tuningId: state.tuningId, pitchMode: sequenceState.pitchMode, steps };
+  return mapSequenceToTuning(cycle, { tuningId: state.tuningId, rootFrequency, pitchMode: sequenceState.pitchMode, basic });
 }
 
 function compileSelectedSequence() {
@@ -1125,7 +1110,9 @@ function switchSection(section) {
 }
 listen($("inputCategory"), "change", async () => {
   const category = $("inputCategory").value;
+  levelPreparation++; levelMatcher.cancel(); presetLevelMatch = null;
   clearTimeout(voiceRenderTimer); voiceSource.deactivate();
+  voiceSource.prepareLevelMatch(isVoiceInput(category) && $("matchPresetLevels").checked);
   inputIntent++; loadingInput = false; inputError = ""; audio.stopInput();
   inputCategory = category;
   if (category !== "synthesis") {
@@ -1139,12 +1126,15 @@ listen($("inputCategory"), "change", async () => {
     try { await connectInput(); } catch { paintInput(); }
   }
   else void ensureProcessingInput();
+  if (category === 'percussion' || category === 'synthesis') void refreshCurrentLevelMatch();
   fullPresets?.refresh();
 });
 
 listen($("methodSelect"), "change", () => {
+  if (inputCategory !== 'percussion') presetLevelMatch = null;
   state = stateFromPreset($("methodSelect").value, null, state);
   renderState(true, true);
+  if (inputCategory === 'synthesis') void refreshCurrentLevelMatch();
 });
 listen($("tuningSelect"), "change", () => {
   state.tuningId = sanitizeTuningId($("tuningSelect").value);
@@ -1213,11 +1203,20 @@ function adjacentChoice(select, direction = 1) {
 function applyPreparedPerformance(performance, { message = "Instrument preset loaded." } = {}) {
   const prepared = captureInstrumentPreset(performance);
   const voice = isVoiceInput(prepared.routing.input);
+  levelPreparation++; levelMatcher.cancel();
+  // Recall stays synchronous and sample-clock scheduled. Authored measurements
+  // and the session cache provide instant matching; an unfamiliar dice result
+  // starts normally and is measured in the background, never locking controls.
+  const matched = $("matchPresetLevels").checked
+    ? levelMatcher.cached(prepared, { sampleRate: audio.context?.sampleRate ?? 48000 }) : null;
+  presetLevelMatch = matched ? { ...matched, input: prepared.routing.input,
+    methodId: prepared.sound.methodId, referenceTrimDb: prepared.sound.levelTrimDb } : null;
   const previousMethod = state.methodId;
   const previousSection = activeSection;
   state = sanitizeState({ ...prepared.sound, voiceMode: voice ? state.voiceMode : prepared.voiceMode,
     tuningId: voice ? state.tuningId : prepared.tuningId, outputLevel: state.outputLevel });
   restoreSignalPath(prepared.routing);
+  if (voice) voiceSource.prepareLevelMatch($("matchPresetLevels").checked);
   lastFactoryPreset = { methodId: state.methodId, presetId: state.presetId };
   if (!voice) {
     sequenceState.id = prepared.sequence.id;
@@ -1241,8 +1240,33 @@ function applyPreparedPerformance(performance, { message = "Instrument preset lo
     // back when recalling a processor or direct note, without changing the
     // performer's Play/Audio intent or interrupting an atomic score swap.
     if (!sequenceOwnsTransport()) syncTransportForSection();
+    if (!matched && !voice) void refreshCurrentLevelMatch();
   });
   $("status").textContent = message;
+}
+
+listen($("matchPresetLevels"), "change", () => {
+  levelPreparation++; levelMatcher.cancel();
+  voiceSource.prepareLevelMatch(isVoiceInput(inputCategory) && $("matchPresetLevels").checked);
+  if (!$("matchPresetLevels").checked) {
+    syncAudio();
+  } else {
+    // This is a playback preference, never a preset/master-volume parameter.
+    if (isVoiceInput(inputCategory)) void ensureProcessingInput();
+    else void refreshCurrentLevelMatch();
+  }
+});
+
+async function refreshCurrentLevelMatch() {
+  if (!$("matchPresetLevels").checked || !['synthesis', 'percussion'].includes(inputCategory)) return;
+  const prepared = currentPerformanceInput(), key = JSON.stringify(prepared), preparation = ++levelPreparation;
+  try {
+    const matched = await levelMatcher.match(prepared, { sampleRate: audio.context?.sampleRate ?? 48000 });
+    // A background kit measurement may not overwrite later knob/input edits.
+    if (preparation !== levelPreparation || key !== JSON.stringify(currentPerformanceInput())) return;
+    presetLevelMatch = { ...matched, input: inputCategory, methodId: state.methodId, referenceTrimDb: state.levelTrimDb };
+    syncAudio();
+  } catch (error) { if (error.name !== 'AbortError' && preparation === levelPreparation) showError(error); }
 }
 
 function currentPerformanceInput() {
@@ -1301,8 +1325,10 @@ listen($("randomEnvelope"), "click", () => {
 
 
 listen($("randomMethod"), "click", () => {
+  if (inputCategory !== 'percussion') presetLevelMatch = null;
   state = fitRandomAttackToSequence(randomizeMethodState(state), currentPerformanceInput().sequence);
   renderState(false, true);
+  void refreshCurrentLevelMatch();
 });
 listen($("outputLevel"), "input", event => {
   state.outputLevel = Number(event.target.value);
@@ -1820,14 +1846,20 @@ window.MorphazoidSynthesis = Object.freeze({
     swing: sequenceState.swing, seed: sequenceState.seed, pitchMode: sequenceState.pitchMode,
     parameters: sequenceState.parameters, cycle: sequenceState.cycle }),
   applyState(value) {
+    levelPreparation++; levelMatcher.cancel(); presetLevelMatch = null;
     state = sanitizeState(value);
     if (value?.routing) restoreSignalPath(value.routing);
+    voiceSource.prepareLevelMatch(isVoiceInput(inputCategory) && $("matchPresetLevels").checked);
     renderState();
     if (value?.arpMode) applySequenceState({ arpMode: value.arpMode });
+    void refreshCurrentLevelMatch();
   },
   applySequenceState,
   trigger, release: releaseAll,
   getStatus: () => ({ armed: audio.armed, playing, section: activeSection, sampleRate: audio.context?.sampleRate || null, heldNotes: held.size, voiceMode: state.voiceMode, voiceLimit: inputCategory === 'percussion' ? 24 : state.voiceMode === "poly" ? 8 : 1,
+    levelMatch: { enabled: $("matchPresetLevels").checked, pending: !!levelMatcher.active,
+      sourceTrimDb: presetLevelMatch?.sourceTrimDb ?? null, outputGain: presetLevelMatch?.outputGain ?? 1,
+      input: presetLevelMatch?.input ?? null },
     tuningId: state.tuningId, tuningLabel: getTuning(state.tuningId).label,
     routing: currentSignalPath(),
     input: { ...audio.input.status(), selection: processingInput, source: processingSource(), loading: loadingInput,
@@ -1843,6 +1875,7 @@ listen(window, "pagehide", event => {
   paintAudio();
   if (event.persisted) audio.context?.suspend().catch(() => {});
   if (!event.persisted) {
+    levelPreparation++; levelMatcher.dispose();
     cancelAnimationFrame(frames); analysisResize.disconnect(); document.documentElement.style.removeProperty("--synthesis-analysis-inset"); listeners.abort(); controlFields.forEach(field => field?.destroy()); methodGestureEditor?.destroy();
     envelopeEditor.destroy(); frequencyField.destroy(); tempoField.destroy(); gateField.destroy();
     sequenceParameterFields.forEach(field => field.destroy?.());
@@ -1871,14 +1904,18 @@ function mountInstrumentPresets() {
 
 listen($("presetSelect"), "change", () => {
   if ($("presetSelect").value === "custom") return;
+  if (inputCategory !== 'percussion') presetLevelMatch = null;
   state = stateFromPreset(state.methodId, $("presetSelect").value, state);
   renderState(false, true);
+  void refreshCurrentLevelMatch();
 });
 listen($("nextPreset"), "click", () => {
+  if (inputCategory !== 'percussion') presetLevelMatch = null;
   const method = getMethod(state.methodId);
   const current = method.presets.findIndex(preset => preset.id === (state.presetId === "custom" ? lastFactoryPreset.presetId : state.presetId));
   state = stateFromPreset(method.id, method.presets[(current + 1) % method.presets.length].id, state);
   renderState(false, true);
+  void refreshCurrentLevelMatch();
 });
 
 populateTuningSelect();

@@ -61,7 +61,7 @@
       <div class="synthesis-monitor-heading"><label for="spectrumMode" class="sr-only">Frequency display</label><select id="spectrumMode"><option value="spectrogram">Spectrogram</option><option value="spectrum">Spectrum</option></select><span id="spectrumLegend">Time → · frequency ↑</span></div>
       <canvas id="spectrum" width="800" height="320" aria-label="Live logarithmic frequency spectrogram">The live frequency distribution is shown here.</canvas>
       </div>
-      <div class="synthesis-display-options"><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
+      <div class="synthesis-display-options"><label title="Match whole-instrument presets and dice using a measured static gain; preserve note dynamics and the master volume."><input type="checkbox" id="matchPresetLevels" checked /> Match preset levels</label><label><input type="checkbox" id="spectrumOverlay" checked /> Spectrum overlay</label><label><input type="checkbox" id="freezeDisplay" aria-label="Freeze displays" /> Freeze</label><span id="signalStatus">Audio off</span></div>
     </section>
     </div>
     <div class="synthesis-input-bar" id="inputBar">

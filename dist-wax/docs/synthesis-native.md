@@ -43,6 +43,49 @@ safety, continuity and interaction—not listening approval or hardware fidelity
 
 ## Existing synthesis and processing engines
 
+### Preset level matching
+
+The main bank has one deterministic shuffled order across synthesis, speech,
+singing, samples and percussion. IDs and saved musical settings remain stable;
+Next follows that order without reshuffling on input changes.
+
+**Match preset levels** is a playback preference, independent of master volume
+and Audio/Play. At 48 kHz, all 94 synth/drum main presets use premeasured factory
+gains; other device rates and uncached musical settings use background measurement.
+Recalls use the appropriate premeasured factory gains or cached
+measurements immediately. Unfamiliar settings play immediately at their existing
+level while a reusable background WASM renderer measures the dry, tuned phrase;
+the result only applies if those settings are still current. The renderer measures
+at least four seconds and normally two cycles, bounded to 32 seconds of audio.
+There is no musical-clock pause or control lock while measuring.
+Regenerate the exact-snapshot factory cache after changing sounds or DSP with
+`node scripts/calibrate-synthesis-performance-levels.mjs`; use `--output FILE
+--report FILE` to review new measurements without replacing the shipped cache.
+Synthesis compensation enters before the core's peak protection. Drum
+compensation enters before the optional processor, using a shared stereo 12 ms
+gain ramp. Native voice recalls measure the rendered phrase once and retain a
+static gain, so subsequent amplitude edits and within-phrase dynamics still work.
+Voice measurement also runs in a worker, before replacing the preceding phrase.
+Mic and user-file input are never automatically amplified.
+
+The measurement uses the greater of K-weighted 400 ms RMS and 100 ms RMS minus
+3 dB, aiming at −15 dBFS with a 0.70 sample-peak cap and 1.5 dB reserve. This is
+a transient-aware source-level heuristic, **not integrated LUFS, true-peak
+mastering, a hardware-fidelity test, or a continuously running compressor**.
+High-crest-factor percussion can remain quieter rather than having its attacks
+flattened. Inserts and later manual edits can change the resulting level.
+Short arpeggiator gates fit the performance attack, including the original
+Sléndro cloud; the local factory pad retains its long attack. Main dice couples
+processor input drive with makeup gain and avoids several combinations that
+discard almost all source energy or overload resonators.
+
+The drum studies still do not reproduce their named reference machines.
+For example, the [LM-1 used recorded acoustic drums and 8-bit nonlinear samples](https://www.rogerlinndesign.com/about/about-museum),
+and the [TR-909 used recorded acoustic hats and cymbals](https://www.roland.com/us/promos/roland_tr-909/).
+This bank's synthetic PCM is not a substitute for those recordings. Loudness
+matching does not close that documented identity gap; accurate replacements
+need mechanism-specific work, properly licensed references and listening review.
+
 The page covers 53 synthesis methods and 17 stereo processors with eight presets each. Frequency, amplitude
 envelope, output, and the note gate are shared; method-specific controls retain
 their own DSP meanings. Synthesis defaults to **Mono**, with last-held-note priority. Select **Poly · 8 voices**
