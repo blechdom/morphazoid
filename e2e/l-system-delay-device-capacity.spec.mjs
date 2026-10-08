@@ -361,9 +361,16 @@ async function settledControls(page) {
   }), { timeout: 30000 }).toBe(true);
 }
 async function takeKnob(page, id) {
-  const input = page.locator(`#${id}`); await input.scrollIntoViewIfNeeded();
+  const input = page.locator(`#${id}`);
+  const disclosureId = await input.evaluate(input => input.closest('details')?.id);
+  if (disclosureId) {
+    const disclosure = page.locator(`#${disclosureId}`);
+    if (await disclosure.getAttribute('open') === null) await disclosure.locator(':scope > summary').click();
+  }
+  await input.scrollIntoViewIfNeeded(); await expect(input).toBeVisible();
   await expect(input).toBeEnabled(); const box = await input.boundingBox();
   const point = { x: box.x + box.width / 2, y: box.y + box.height / 2 };
+  expect(await input.evaluate((input, point) => document.elementFromPoint(point.x, point.y) === input, point)).toBe(true);
   await page.mouse.move(point.x, point.y); await page.mouse.down(); return point;
 }
 async function pcmEvidence(page) {
