@@ -1,4 +1,5 @@
 import { emptyQuadrupedCalls, sanitizeQuadrupedCalls, quadrupedCallEvents } from "./quadruped-voices.js";
+import { quadrupedWorldAtPosition, quadrupedTravelSwing } from "./quadruped-travel.js";
 const CONTACT_LEVELS = Object.freeze([0, 0.58, 1]);
 
 export const QUADRUPED_STEP_COUNT = 16;
@@ -1545,7 +1546,8 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   const wholeStep = Math.floor(position);
   const fraction = position - wholeStep;
   const lanePattern = safe.pattern[laneId] ?? [];
-  const bodyWorldX = unwrappedPosition / QUADRUPED_STEP_COUNT * safe.stride;
+  const bodyWorldX = safe.worldTravel ? quadrupedWorldAtPosition(safe, unwrappedPosition)
+    : unwrappedPosition / QUADRUPED_STEP_COUNT * safe.stride;
   const bodyGroundHeight = quadrupedGroundHeightAtWorldX(safe.groundProfileId, bodyWorldX);
   const neutralX = neutralFootX(laneId, safe.animalId);
   let previous = null;
@@ -1608,11 +1610,18 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   const stanceDuration = clamp(cycleSteps * dutyFactor * stairDuty, 0.28, Math.max(0.3, cycleSteps - 0.08));
   const previousTouchdownPosition = unwrappedPosition - previous.age;
   const nextTouchdownPosition = unwrappedPosition + next.distance;
-  const requestedAnchorWorldX = previousTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride + neutralX;
-  const requestedNextAnchorWorldX = nextTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride + neutralX;
-  const anchorWorldX = quadrupedGroundAnchorX(safe.groundProfileId, requestedAnchorWorldX);
+  const cycleOrdinal = Math.round((previousTouchdownPosition - previous.step) / QUADRUPED_STEP_COUNT);
+  const eventId = `${laneId}:${cycleOrdinal}:${previous.step}`;
+  const requestedAnchorWorldX = (safe.worldTravel ? quadrupedWorldAtPosition(safe, previousTouchdownPosition)
+    : previousTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride) + neutralX;
+  const requestedNextAnchorWorldX = (safe.worldTravel ? quadrupedWorldAtPosition(safe, nextTouchdownPosition)
+    : nextTouchdownPosition / QUADRUPED_STEP_COUNT * safe.stride) + neutralX;
+  const capturedAnchor = safe.worldTravel?.anchors?.[laneId];
+  const sameAnchor = capturedAnchor?.eventId === eventId && Number.isFinite(capturedAnchor.worldX)
+    && Number.isFinite(capturedAnchor.worldY) && Math.abs(capturedAnchor.touchdownPosition - previousTouchdownPosition) < 1e-7;
+  const anchorWorldX = sameAnchor ? capturedAnchor.worldX : quadrupedGroundAnchorX(safe.groundProfileId, requestedAnchorWorldX);
   const nextAnchorWorldX = quadrupedGroundAnchorX(safe.groundProfileId, requestedNextAnchorWorldX);
-  const anchorWorldY = quadrupedGroundHeightAtWorldX(safe.groundProfileId, anchorWorldX);
+  const anchorWorldY = sameAnchor ? capturedAnchor.worldY : quadrupedGroundHeightAtWorldX(safe.groundProfileId, anchorWorldX);
   const nextAnchorWorldY = quadrupedGroundHeightAtWorldX(safe.groundProfileId, nextAnchorWorldX);
   const touchdown = previous.age < 0.0001;
   const impact = previous.intensity * Math.exp(-previous.age * 11);
@@ -1640,13 +1649,14 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
     const pathProgress = minimumJerk(swingProgress);
     footWorldX = anchorWorldX + (nextAnchorWorldX - anchorWorldX) * pathProgress;
     footWorldY = anchorWorldY + (nextAnchorWorldY - anchorWorldY) * pathProgress;
+    const retarget = quadrupedTravelSwing(safe.worldTravel, laneId, eventId, unwrappedPosition, nextTouchdownPosition, nextAnchorWorldX, nextAnchorWorldY);
+    if (retarget) { footWorldX = retarget.worldX; footWorldY = retarget.worldY; }
     lift = Math.sin(Math.PI * swingProgress) ** 2 * quadrupedGroundProfile(safe.groundProfileId).clearanceScale;
   }
   const footX = footWorldX - bodyWorldX;
-  const cycleOrdinal = Math.round((previousTouchdownPosition - previous.step) / QUADRUPED_STEP_COUNT);
   return Object.freeze({
     laneId,
-    eventId: `${laneId}:${cycleOrdinal}:${previous.step}`,
+    eventId,
     intensity: previous.intensity,
     contact,
     grounded,
@@ -1676,7 +1686,8 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
 }
 
 export function quadrupedFootCycleState(state, laneId, absolutePosition = 0) {
-  const safe = sanitizeQuadrupedState(state);
+  const sanitized = sanitizeQuadrupedState(state);
+  const safe = state?.worldTravel ? { ...sanitized, worldTravel: state.worldTravel } : sanitized;
   if (!QUADRUPED_LANES.some(({ id }) => id === laneId)) {
     return footCycleStateFromSafe(safe, QUADRUPED_LANES[0].id, absolutePosition);
   }
@@ -1684,7 +1695,8 @@ export function quadrupedFootCycleState(state, laneId, absolutePosition = 0) {
 }
 
 export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
-  const safe = sanitizeQuadrupedState(state);
+  const sanitized = sanitizeQuadrupedState(state);
+  const safe = state?.worldTravel ? { ...sanitized, worldTravel: state.worldTravel } : sanitized;
   const legs = Object.fromEntries(QUADRUPED_LANES.map(({ id }) => [
     id,
     footCycleStateFromSafe(safe, id, absolutePosition),
@@ -1709,7 +1721,8 @@ export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
 }
 
 export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot = null) {
-  const safe = sanitizeQuadrupedState(state);
+  const sanitized = sanitizeQuadrupedState(state);
+  const safe = state?.worldTravel ? { ...sanitized, worldTravel: state.worldTravel } : sanitized;
   const numericPosition = Number(sequencePosition);
   const absolutePosition = Number.isFinite(numericPosition) ? numericPosition : 0;
   const position = mod(absolutePosition, QUADRUPED_STEP_COUNT);

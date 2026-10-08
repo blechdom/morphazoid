@@ -309,3 +309,12 @@ body.quadruped-page {
 }
 
 .quadruped-stage-wrap[data-visual-skin="motion-card"] h1 { color: #53452d; }
+
+/* Only the animal captures touch drags; empty scenery keeps page scrolling. */
+.quadruped-animal-handle {
+  position: absolute; z-index: 2; touch-action: none; cursor: grab;
+  border-radius: 20%; -webkit-tap-highlight-color: transparent;
+}
+.quadruped-animal-handle[hidden] { display: none; }
+.quadruped-animal-handle:active { cursor: grabbing; }
+.quadruped-animal-handle:focus-visible { outline: 2px dashed var(--accent); outline-offset: 4px; }

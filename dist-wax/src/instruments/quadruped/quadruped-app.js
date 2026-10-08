@@ -24,6 +24,7 @@ import {
   quadrupedSequenceEvent,
   quadrupedTerrain,
   quadrupedScoreTiming,
+  quadrupedSupportSnapshot,
   quadrupedClockAtPosition,
   quadrupedPositionAtClock,
   sanitizeQuadrupedState,
@@ -41,8 +42,11 @@ import {
   synchronizeQuadrupedMotorTempo,
 } from "./quadruped-motor.js";
 import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
-import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedFootprint } from "./quadruped-visual-skins.js";
+import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedFootprint, deriveQuadrupedVisualRig } from "./quadruped-visual-skins.js";
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
+import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
+import { createQuadrupedGestureCall, quadrupedGestureCallPerformance } from "./quadruped-gesture-voices.js";
+import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture } from "./quadruped-gestures.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
@@ -109,12 +113,131 @@ let world = sanitizeQuadrupedWorld();
 let courseOriginX = 0;
 const actors = [{ score: state, motor, nextOrdinal: null, transitions: new Map(), offset: 0 }];
 
+const performances = new WeakMap();
+const animalHandles = new Map();
+let activeGesture = null;
+let gestureKey = null;
+let sourceGestureOwner = null;
+
+function performanceFor(index) {
+  const actor = actors[index];
+  if (!performances.has(actor)) performances.set(actor, { motion: null, travel: null, call: null, cache: null });
+  return performances.get(actor);
+}
+
+function scoreForActor(index) {
+  const base = index === selectedActor ? state : actors[index].score;
+  const performance = performanceFor(index);
+  const { motion, travel, cache } = performance;
+  if (cache?.base === base && cache.motion === motion && cache.travel === travel) return cache.score;
+  let score = base;
+  if (motion) {
+    const behavior = motion.kind === "jump" ? "jump" : motion.kind === "dance" ? "dance"
+      : motion.kind === "run" ? "sprint" : base.behaviorId;
+    score = { ...applyQuadrupedBehavior(base, behavior), stride: base.stride,
+      paceRatio: motion.kind === "jump" ? 1 : motion.pace, suspensionBeats: 0 };
+    // Backward travel uses the current authored feet, changing spatial travel only.
+    if (motion.kind === "backward") score = { ...base, paceRatio: motion.pace };
+  }
+  if (travel) score = { ...score, worldTravel: travel };
+  performance.cache = { base, motion, travel, score };
+  return score;
+}
+
+function actorIsRunning(index) { return transportPlaying || Boolean(performanceFor(index).motion); }
+function anyActorRunning() { return activeActorIndices().some(actorIsRunning); }
+
+function endActorMotion(index) {
+  const actor = actors[index], performance = performanceFor(index);
+  if (!performance.motion) return;
+  const previous = scoreForActor(index);
+  const position = actor.motor.position;
+  const feet = quadrupedSupportSnapshot(previous, position).legs;
+  performance.motion = null;
+  const next = scoreForActor(index);
+  performance.travel = previous.behaviorId === next.behaviorId
+    ? changeQuadrupedTravel(performance.travel, { position, direction: 1, stride: next.stride, feet })
+    : rebaseQuadrupedTravel(performance.travel, { previousPosition: position, position, direction: 1, stride: next.stride });
+  actor.motor = createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position });
+  actor.nextOrdinal = null; actor.transitions.clear();
+  if (index === selectedActor) {
+    motor = actor.motor; stoppedPosition = motor.position;
+    selectedStep = mod(Math.floor(motor.position), 16);
+  }
+}
+
+function performMotion(index, kind, strength = 0.65) {
+  materializeMotor(); saveSelectedActor();
+  const actor = actors[index], performance = performanceFor(index);
+  const pace = kind === "dance" ? 1 : strength > 0.68 ? 3 : strength > 0.3 ? 2 : 1;
+  if (performance.motion?.kind === kind && performance.motion.pace === pace) return;
+  const previous = scoreForActor(index), oldPosition = actor.motor.position;
+  const feet = quadrupedSupportSnapshot(previous, oldPosition).legs;
+  performance.travel ??= createQuadrupedTravel({ position: oldPosition, stride: previous.stride });
+  const position = kind === "jump" ? Math.ceil(oldPosition / 16) * 16 + 0.0001 : oldPosition;
+  performance.motion = { kind, pace, strength, untilPosition: kind === "jump" ? position + 16 : null };
+  const next = scoreForActor(index), direction = kind === "backward" ? -1 : 1;
+  performance.travel = previous.behaviorId === next.behaviorId && position === oldPosition
+    ? changeQuadrupedTravel(performance.travel, { position, direction, stride: next.stride, feet })
+    : rebaseQuadrupedTravel(performance.travel, { previousPosition: oldPosition, position, direction, stride: next.stride });
+  actor.motor = kickQuadrupedMotor(scoreForActor(index), createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position }), 1);
+  if (index === selectedActor) { motor = actor.motor; stoppedPosition = motor.position; }
+  resetAudioSchedule({ includeCurrentBoundary: true });
+}
+
+function releaseGestureCall(index) {
+  const performance = performanceFor(index);
+  if (!performance.call) return;
+  for (const record of activeSources) if (record.gestureOwner === performance.call) cancelAudioSource(record);
+  performance.call = null;
+}
+
+function performCall(index, { strength = 0.8, pitch = 0, row = 0 } = {}) {
+  releaseGestureCall(index);
+  const call = createQuadrupedGestureCall(scoreForActor(index), { strength, pitch, row });
+  if (call.intensity <= 0) return;
+  const audible = isAudioOn() && graph?.context.state === "running";
+  const performance = performanceFor(index);
+  const owner = { call, context: audible ? graph.context : null,
+    start: audible ? graph.context.currentTime + 0.006 : globalThis.performance.now() / 1000 };
+  performance.call = owner;
+  if (audible) {
+    sourceGestureOwner = owner;
+    try { scheduleCall(call, owner.start, index); } finally { sourceGestureOwner = null; }
+  }
+  announce(`${quadrupedAnimal(actors[index].score.animalId).label}: ${call.label}.${audible ? "" : " Turn Audio on to hear it."}`);
+}
+
+function performedPose(index, pose) {
+  const owner = performanceFor(index).call;
+  const running = actorIsRunning(index);
+  if (!owner) return { ...pose, performanceActive: running };
+  const now = owner.context?.currentTime ?? performance.now() / 1000;
+  const manual = quadrupedGestureCallPerformance(owner.call, now - owner.start);
+  if (now - owner.start >= owner.call.duration) performanceFor(index).call = null;
+  return { ...pose, performanceActive: running || manual.active,
+    headPerformance: manual.active ? manual : pose.headPerformance };
+}
+
+function cancelPerformances() {
+  materializeMotor();
+  const captured = activeGesture;
+  activeGesture = null; gestureKey = null;
+  if (captured?.element?.hasPointerCapture?.(captured.pointerId)) captured.element.releasePointerCapture(captured.pointerId);
+  actors.forEach((_, index) => { endActorMotion(index); releaseGestureCall(index); });
+  for (const record of activeSources) if (record.gestureOwner) cancelAudioSource(record);
+  cancelFutureSources();
+  if (!transportPlaying) { stopAudioScheduler(); silenceFlightVoice(); }
+  else resetAudioSchedule();
+}
+
 function capturePreset() {
   saveSelectedActor();
   return captureQuadrupedPreset({ actors, groupMode, selectedActor, groupSeed, world, soundSkinId, visualSkinId });
 }
 
 function applyPreset(snapshot) {
+  cancelPerformances();
   const next = normalizeQuadrupedPreset(snapshot);
   const now = performance.now();
   materializeMotor(now);
@@ -162,16 +285,24 @@ function shareGroupControls() {
   saveSelectedActor();
   for (let index = 0; index < actors.length; index += 1) {
     if (index === selectedActor) continue;
-    const actor = actors[index];
+    const actor = actors[index], previous = scoreForActor(index), performance = performanceFor(index);
     actor.score = shareQuadrupedWorld(actor.score, state);
     if (groupMode === "herd" && actor.score.animalId !== state.animalId) actor.score = applyQuadrupedAnimal(actor.score, state.animalId);
-    actor.motor = synchronizeQuadrupedMotorTempo(actor.score, actor.motor);
+    if (performance.travel) {
+      const position = actor.motor.position;
+      if (previous.groundProfileId !== actor.score.groundProfileId || previous.animalId !== actor.score.animalId) {
+        performance.travel = rebaseQuadrupedTravel(performance.travel, { previousPosition: position, position, stride: actor.score.stride });
+      } else if (previous.stride !== actor.score.stride) {
+        performance.travel = changeQuadrupedTravel(performance.travel, { position, direction: 1, stride: actor.score.stride, feet: quadrupedSupportSnapshot(previous, position).legs });
+      }
+    }
+    actor.motor = synchronizeQuadrupedMotorTempo(scoreForActor(index), actor.motor);
   }
 }
 
 function worldSoundAt(score = state, position = motor.position, laneId = null) {
   if (score.groundProfileId === "level") return quadrupedStairSound(score, 0, world.cavern, courseOriginX);
-  const worldX = laneId ? quadrupedFootCycleState(score, laneId, position + 0.00001).footWorldX : position / 16 * score.stride;
+  const worldX = laneId ? quadrupedFootCycleState(score, laneId, position + 0.00001).footWorldX : quadrupedWorldAtPosition(score, position);
   return quadrupedStairSound(score, worldX, world.cavern, courseOriginX);
 }
 
@@ -192,6 +323,7 @@ function selectActor(index) {
 }
 
 function setGroupMode(mode) {
+  cancelPerformances();
   if (!["solo", "herd", "trio"].includes(mode) || mode === groupMode) return;
   materializeMotor();
   saveSelectedActor();
@@ -216,6 +348,7 @@ function setGroupMode(mode) {
 }
 
 function scatterGroup() {
+  cancelPerformances();
   materializeMotor();
   saveSelectedActor();
   groupSeed += 97;
@@ -223,7 +356,10 @@ function scatterGroup() {
   const clock = quadrupedClockAtPosition(actors[0].score, actors[0].motor.position) - actors[0].offset * 16;
   actors.forEach((actor, index) => {
     actor.offset = offsets[index];
-    actor.motor = createQuadrupedMotorState(actor.score, { ...actor.motor, position: quadrupedPositionAtClock(actor.score, clock + offsets[index] * 16) });
+    const position = quadrupedPositionAtClock(actor.score, clock + offsets[index] * 16);
+    const performance = performanceFor(index);
+    if (performance.travel) performance.travel = rebaseQuadrupedTravel(performance.travel, { previousPosition: actor.motor.position, position, stride: actor.score.stride });
+    actor.motor = createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position });
   });
   motor = actors[selectedActor].motor;
   stoppedPosition = motor.position;
@@ -269,34 +405,50 @@ function rememberMode() {
 
 function materializeMotor(now = performance.now()) {
   const safeNow = Number.isFinite(Number(now)) ? Number(now) : performance.now();
-  if (!transportPlaying) {
-    motorPerformance = safeNow;
-    return quadrupedMotorSnapshot(state, motor);
-  }
   const deltaSeconds = clamp((safeNow - motorPerformance) / 1_000, 0, 2);
-  if (deltaSeconds > 0) motor = advanceQuadrupedMotor(state, motor, deltaSeconds).motor;
-  for (const index of activeActorIndices()) {
-    if (index === selectedActor || deltaSeconds <= 0) continue;
-    const actor = actors[index];
-    actor.motor = advanceQuadrupedMotor(actor.score, actor.motor, deltaSeconds).motor;
-  }
   motorPerformance = safeNow;
-  stoppedPosition = motor.position;
   saveSelectedActor();
-  return quadrupedMotorSnapshot(state, motor);
+  let ended = false;
+  for (const index of activeActorIndices()) {
+    if (!actorIsRunning(index) || deltaSeconds <= 0) continue;
+    const actor = actors[index], score = scoreForActor(index), motion = performanceFor(index).motion;
+    const remaining = motion?.untilPosition == null ? Infinity
+      : Math.max(0, (quadrupedClockAtPosition(score, motion.untilPosition) - quadrupedClockAtPosition(score, actor.motor.position)) / (score.tempoBpm * 16 / 60));
+    actor.motor = advanceQuadrupedMotor(score, actor.motor, Math.min(deltaSeconds, remaining)).motor;
+    if (index === selectedActor) motor = actor.motor;
+    if (remaining <= deltaSeconds + 0.000001) {
+      // The fixed-step motor can retain a fractional tick. Finish on the actual
+      // landing boundary before restoring the authored gait.
+      actor.motor = createQuadrupedMotorState(score, { ...actor.motor, position: motion.untilPosition });
+      if (index === selectedActor) motor = actor.motor;
+      endActorMotion(index); ended = true;
+    }
+  }
+  motor = actors[selectedActor].motor;
+  stoppedPosition = motor.position;
+  if (ended) {
+    cancelFutureSources();
+    for (const actor of actors) { actor.nextOrdinal = null; actor.transitions.clear(); }
+    if (!anyActorRunning()) { stopAudioScheduler(); silenceFlightVoice(); }
+  }
+  return quadrupedMotorSnapshot(scoreForActor(selectedActor), motor);
 }
 
 function currentPosition(now = performance.now()) {
-  return transportPlaying ? materializeMotor(now).position : stoppedPosition;
+  return anyActorRunning() ? materializeMotor(now).position : stoppedPosition;
 }
 
-function retimeTransport(position, now = performance.now(), { preserveMotion = false } = {}) {
+function retimeTransport(position, now = performance.now(), { preserveMotion = false, rebaseTravel = false } = {}) {
   const safePosition = Math.max(0, Number(position) || 0);
   stoppedPosition = safePosition;
+  const performance = performanceFor(selectedActor);
+  if (rebaseTravel && performance.travel) performance.travel = rebaseQuadrupedTravel(performance.travel, {
+    previousPosition: motor.position, position: safePosition, stride: state.stride,
+  });
   const options = preserveMotion
     ? { ...motor, position: safePosition }
     : { position: safePosition };
-  motor = createQuadrupedMotorState(state, options);
+  motor = createQuadrupedMotorState(scoreForActor(selectedActor), options);
   motorPerformance = now;
 }
 
@@ -490,12 +642,12 @@ function createCavernBus(context, mixBus) {
 
 function syncCavernBus() {
   if (!graph) return;
-  const leader = actors[activeActorIndices()[0]];
-  const color = worldSoundAt(leader.score, leader.motor.position);
+  const index = activeActorIndices().find(actorIsRunning) ?? selectedActor;
+  const color = worldSoundAt(scoreForActor(index), actors[index].motor.position);
   const now = graph.context.currentTime;
   const bus = graph.cavernBus;
   bus.tone.frequency.setTargetAtTime(color.cutoff, now, 0.045);
-  bus.wet.gain.setTargetAtTime(transportPlaying ? color.wet : 0, now, 0.035);
+  bus.wet.gain.setTargetAtTime(anyActorRunning() ? color.wet : 0, now, 0.035);
   for (const echo of bus.echoes) {
     echo.delay.delayTime.setTargetAtTime(color.delay * echo.ratio, now, 0.13);
     echo.damping.frequency.setTargetAtTime(color.damping, now, 0.06);
@@ -505,7 +657,7 @@ function syncCavernBus() {
 
 function syncFlightVoice(snapshot, score = state, index = selectedActor) {
   const voice = graph?.flightVoices[index];
-  if (!voice || !graph || !transportPlaying) {
+  if (!voice || !graph || !actorIsRunning(index)) {
     silenceContinuousVoice(voice);
     return;
   }
@@ -602,7 +754,7 @@ async function ensureAudio() {
       }
       graph = candidate;
       setAudioPresentation("on");
-      if (transportPlaying) resetAudioSchedule();
+      if (anyActorRunning()) resetAudioSchedule();
       announce(transportPlaying
         ? "Quadruped audio joined the moving sequence without restarting it."
         : "Quadruped audio is ready.");
@@ -683,6 +835,7 @@ function registerAudioSource(source, nodes, gain, startTime, endTime, role = "bo
     endTime,
     role,
     context: source.context ?? graph?.context ?? null,
+    gestureOwner: sourceGestureOwner,
   };
   activeSources.add(record);
   source.onended = () => removeAudioSource(record);
@@ -693,7 +846,7 @@ function cancelFutureSources() {
   if (!graph) return;
   const boundary = graph.context.currentTime + 0.012;
   for (const record of [...activeSources]) {
-    if (record.role === "body-contact-batch" || record.startTime > boundary) cancelAudioSource(record, 0.004);
+    if (!record.gestureOwner && (record.role === "body-contact-batch" || record.startTime > boundary)) cancelAudioSource(record, 0.004);
   }
 }
 
@@ -702,6 +855,7 @@ function releaseAllSources() {
 }
 
 async function closeAudio({ announceChange = true } = {}) {
+  cancelPerformances();
   stopAudioScheduler();
   const closing = graph;
   if (!closing) {
@@ -1141,11 +1295,11 @@ function scheduleBodySlide(actor, actorIndex, snapshot, audioNow) {
 }
 
 function scheduleAudioWindow() {
-  if (!graph || !transportPlaying || graph.context.state !== "running") return;
+  if (!graph || !anyActorRunning() || graph.context.state !== "running") return;
   materializeMotor(performance.now());
   syncCavernBus();
   const audioNow = graph.context.currentTime;
-  const active = activeActorIndices();
+  const active = activeActorIndices().filter(actorIsRunning);
   pendingContactSounds = [];
   for (let index = 0; index < graph.flightVoices.length; index += 1) {
     if (!active.includes(index)) {
@@ -1153,7 +1307,7 @@ function scheduleAudioWindow() {
     }
   }
   for (const index of active) {
-    const actor = actors[index];
+    const actor = { ...actors[index], score: scoreForActor(index) };
     const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
     syncFlightVoice(snapshot, actor.score, index);
     const prediction = predictQuadrupedMotor(actor.score, actor.motor, QUADRUPED_LIMITS.schedulerLookaheadSeconds);
@@ -1162,7 +1316,8 @@ function scheduleAudioWindow() {
       if (scheduledTime < audioNow - 0.1) actor.transitions.delete(eventId);
     }
     for (const transition of prediction.transitions) {
-      if (!transition.eventId || actor.transitions.has(transition.eventId)) continue;
+      if (!transition.eventId || actor.transitions.has(transition.eventId)
+        || transition.position >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
       const when = audioNow + Math.max(0.006, transition.offsetSeconds);
       const terrain = quadrupedTerrain(actor.score.surfaceId);
       if (transition.type === "toe-off") scheduleToeOff(transition, terrain, when, actor.score, index);
@@ -1173,10 +1328,11 @@ function scheduleAudioWindow() {
     if (!Number.isFinite(actor.nextOrdinal) || actor.nextOrdinal < snapshot.position - 0.02) actor.nextOrdinal = Math.floor(snapshot.position + 0.0001) + 1;
     let scheduled = 0;
     for (const crossing of prediction.events) {
-      if (crossing.ordinal < actor.nextOrdinal) continue;
+      if (crossing.ordinal < actor.nextOrdinal || crossing.ordinal >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
       if (scheduled >= 48) break;
       scheduleStep(crossing.ordinal, audioNow + Math.max(0.006, crossing.offsetSeconds), crossing, actor.score, index);
       actor.nextOrdinal = crossing.ordinal + 1;
+      actors[index].nextOrdinal = actor.nextOrdinal;
       scheduled += 1;
     }
   }
@@ -1186,7 +1342,7 @@ function scheduleAudioWindow() {
 }
 
 function startAudioScheduler() {
-  if (!graph || !transportPlaying) return;
+  if (!graph || !anyActorRunning()) return;
   if (!schedulerTimer) schedulerTimer = globalThis.setInterval(scheduleAudioWindow, 20);
   scheduleAudioWindow();
 }
@@ -1203,20 +1359,21 @@ function stopAudioScheduler() {
 }
 
 function resetAudioSchedule({ includeCurrentBoundary = false } = {}) {
+  actors.forEach((_, index) => { performanceFor(index).cache = null; });
   stopAudioScheduler();
   cancelFutureSources();
   saveSelectedActor();
-  if (!graph || !transportPlaying) return;
+  if (!graph || !anyActorRunning()) return;
   materializeMotor();
-  for (const index of activeActorIndices()) {
+  for (const index of activeActorIndices().filter(actorIsRunning)) {
     const actor = actors[index];
     const position = actor.motor.position;
     const nearestBoundary = Math.round(position);
     const startsOnBoundary = includeCurrentBoundary && Math.abs(position - nearestBoundary) < 0.05;
     actor.nextOrdinal = startsOnBoundary ? nearestBoundary : Math.ceil(position + 0.015);
     if (startsOnBoundary) {
-      const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
-      scheduleStep(nearestBoundary, graph.context.currentTime + 0.008, snapshot, actor.score, index);
+      const snapshot = quadrupedMotorSnapshot(scoreForActor(index), actor.motor);
+      scheduleStep(nearestBoundary, graph.context.currentTime + 0.008, snapshot, scoreForActor(index), index);
       actor.nextOrdinal = nearestBoundary + 1;
     }
   }
@@ -1253,6 +1410,7 @@ function startTransport() {
 }
 
 function stopTransport() {
+  cancelPerformances();
   if (!transportPlaying) return;
   materializeMotor();
   transportPlaying = false;
@@ -1281,6 +1439,8 @@ function toggleTransport() {
 }
 
 function restartTransport() {
+  cancelPerformances();
+  actors.forEach(actor => performances.delete(actor));
   courseOriginX = 0;
   retimeTransport(0);
   for (const index of activeActorIndices()) {
@@ -1299,10 +1459,11 @@ function restartTransport() {
 }
 
 function replaceState(nextState, { preservePosition = true, announceMessage = "" } = {}) {
+  cancelPerformances();
   const now = performance.now();
   const position = preservePosition ? currentPosition(now) : 0;
   state = sanitizeQuadrupedState(nextState, state);
-  retimeTransport(position, now, { preserveMotion: preservePosition });
+  retimeTransport(position, now, { preserveMotion: preservePosition, rebaseTravel: true });
   if (transportPlaying && motor.velocity <= 0.012) wakeMotorAtFootfall(now);
   syncAllControls();
   resetAudioSchedule();
@@ -1331,9 +1492,14 @@ function switchBehavior(behaviorId) {
 }
 
 function updateStateValue(key, value) {
+  cancelPerformances();
   const now = performance.now();
   const position = currentPosition(now);
+  const previous = scoreForActor(selectedActor);
+  const feet = key === "stride" ? quadrupedSupportSnapshot(previous, position).legs : null;
   state = sanitizeQuadrupedState({ ...state, [key]: value }, state);
+  const actorPerformance = performanceFor(selectedActor);
+  if (feet && actorPerformance.travel) actorPerformance.travel = changeQuadrupedTravel(actorPerformance.travel, { position, direction: 1, stride: state.stride, feet });
   retimeTransport(position, now, { preserveMotion: true });
   if (["tempoBpm", "paceRatio", "suspensionBeats"].includes(key)) {
     motor = synchronizeQuadrupedMotorTempo(state, motor);
@@ -1357,6 +1523,7 @@ function setSelectedStep(step, { announceStep = false, focus = false } = {}) {
 }
 
 function editContact(laneId, step, direction = 1) {
+  cancelPerformances();
   const now = performance.now();
   const position = currentPosition(now);
   state = cycleQuadrupedContact(state, laneId, step, direction);
@@ -1379,6 +1546,7 @@ function editContact(laneId, step, direction = 1) {
 }
 
 function setSurface(surfaceId) {
+  cancelPerformances();
   const now = performance.now();
   const position = currentPosition(now);
   state = setQuadrupedSurface(state, surfaceId);
@@ -1393,11 +1561,12 @@ function setSurface(surfaceId) {
 }
 
 function setGroundProfile(groundProfileId) {
+  cancelPerformances();
   const now = performance.now();
   const position = currentPosition(now);
-  courseOriginX = position / 16 * state.stride;
+  courseOriginX = quadrupedWorldAtPosition(scoreForActor(selectedActor), position);
   state = setQuadrupedGroundProfile(state, groundProfileId);
-  retimeTransport(position, now, { preserveMotion: true });
+  retimeTransport(position, now, { preserveMotion: true, rebaseTravel: true });
   shareGroupControls();
   rememberMode();
   resetAudioSchedule();
@@ -1962,7 +2131,7 @@ function syncTheme() {
 
 function syncEnsembleControls() {
   document.querySelectorAll("[data-group-mode]").forEach(button => button.setAttribute("aria-pressed", String(button.dataset.groupMode === groupMode)));
-  document.querySelectorAll("[data-actor-index]").forEach(button => {
+  document.querySelectorAll("button[data-actor-index]").forEach(button => {
     const index = Number(button.dataset.actorIndex);
     const actor = actors[index];
     button.hidden = !actor || (groupMode === "solo" && index !== selectedActor);
@@ -2153,7 +2322,7 @@ function drawStepContactNotes(context, step, x, y, width, height, active) {
 }
 
 function headPerformanceSignals(pose, score = state) {
-  const automatic = transportPlaying ? pose.headPerformance ?? {} : {};
+  const automatic = pose.performanceActive ? pose.headPerformance ?? {} : {};
   return {
     ...automatic,
     strength: clamp(automatic.strength),
@@ -2279,7 +2448,7 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
 }
 
 function drawEyeAndMouth(context, headX, headY, size, pose, facing = 1) {
-  const callStrength = transportPlaying ? pose.headPerformance?.strength ?? 0 : 0;
+  const callStrength = pose.performanceActive ? pose.headPerformance?.strength ?? 0 : 0;
   if (callStrength > 0.02) {
     context.save(); context.fillStyle = "#172017";
     context.beginPath(); context.ellipse(headX + facing * size * 0.3, headY + size * 0.2, size * 0.15, size * (0.02 + callStrength * 0.15), 0, 0, Math.PI * 2); context.fill(); context.restore();
@@ -2380,7 +2549,7 @@ function drawHeadAura(context, headX, headY, size, pose, performanceState, score
 }
 
 function drawAnimal(context, pose, width, height, groundY, score = state) {
-  if (drawQuadrupedVisualSkin(context, pose, width, height, groundY, { ...score, visualSkinId }, { playing: transportPlaying })) return;
+  if (drawQuadrupedVisualSkin(context, pose, width, height, groundY, { ...score, visualSkinId }, { playing: pose.performanceActive })) return;
   const animal = quadrupedAnimal(score.animalId);
   const morphology = animal.morphology;
   const performanceState = headPerformanceSignals(pose, score);
@@ -2612,7 +2781,7 @@ function drawAnimal(context, pose, width, height, groundY, score = state) {
   context.strokeStyle = animal.palette[3];
   context.lineWidth = Math.max(2, scale * 0.027);
   if (score.animalId === "frog") {
-    const pouch = transportPlaying ? pose.headPerformance?.throatPulse ?? 0 : 0;
+    const pouch = pose.performanceActive ? pose.headPerformance?.throatPulse ?? 0 : 0;
     context.fillStyle = animal.palette[4];
     context.beginPath();
     context.ellipse(headX + headSize * 0.16, headY + headSize * (0.24 + pouch * 0.12), headSize * (0.5 + pouch * 0.18), headSize * (0.21 + pouch * 0.42), 0, 0, Math.PI * 2);
@@ -3003,15 +3172,16 @@ function drawAnimal(context, pose, width, height, groundY, score = state) {
 function drawScene(now) {
   const { width, height } = canvasMetrics;
   if (width <= 1 || height <= 1) return;
-  const motorSnapshot = transportPlaying
+  const motorSnapshot = anyActorRunning()
     ? materializeMotor(now)
-    : quadrupedMotorSnapshot(state, motor);
-  const previewingStep = !transportPlaying && selectedStep !== motorSnapshot.frame;
+    : quadrupedMotorSnapshot(scoreForActor(selectedActor), motor);
+  const score = scoreForActor(selectedActor);
+  const previewingStep = !actorIsRunning(selectedActor) && selectedStep !== motorSnapshot.frame;
   const position = previewingStep
     ? Math.floor(motorSnapshot.position / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT + selectedStep + 0.0001
     : motorSnapshot.position;
-  const pose = deriveQuadrupedPose(state, position, previewingStep ? null : motorSnapshot);
-  const animal = quadrupedAnimal(state.animalId);
+  const pose = performedPose(selectedActor, deriveQuadrupedPose(score, position, previewingStep ? null : motorSnapshot));
+  const animal = quadrupedAnimal(score.animalId);
   canvas.dataset.frame = String(pose.step);
   canvas.dataset.framePhase = pose.phase.toFixed(4);
   canvas.dataset.motorVelocity = motorSnapshot.velocity.toFixed(4);
@@ -3027,15 +3197,15 @@ function drawScene(now) {
   const paperSkin = visualSkinId === "motion-card";
   // Tall-necked bodies keep their limb scale and gain headroom by lowering the
   // camera-followed support plane, not by shortening their anatomy.
-  const groundY = height * (["giraffe", "camel"].includes(state.animalId) ? 0.81 : 0.74);
+  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74);
   const stageAnimalScale = Math.min(height * 0.27, width * 0.145) * animal.bodyScale;
   const groundCenterX = width * 0.5;
-  const surface = quadrupedTerrain(state.surfaceId);
-  const bodyWorldX = position / QUADRUPED_STEP_COUNT * state.stride;
+  const surface = quadrupedTerrain(score.surfaceId);
+  const bodyWorldX = quadrupedWorldAtPosition(score, position);
   const worldScale = stageAnimalScale * 0.74;
   const screenGroundYAtX = (screenX) => {
     const worldX = bodyWorldX + (screenX - groundCenterX) / worldScale;
-    const worldY = quadrupedGroundHeightAtWorldX(state.groundProfileId, worldX);
+    const worldY = quadrupedGroundHeightAtWorldX(score.groundProfileId, worldX);
     return groundY - (worldY - pose.bodyGroundHeight) * worldScale;
   };
   lastFootprintHits = [];
@@ -3044,15 +3214,15 @@ function drawScene(now) {
     // travelled distance so pausing never wraps the world back to one cycle.
     drawQuadrupedEnvironment(drawing, {
       skinId: visualSkinId, width, height, groundY, groundAt: screenGroundYAtX,
-      worldX: motorSnapshot.position / QUADRUPED_STEP_COUNT * state.stride,
+      worldX: quadrupedWorldAtPosition(score, motorSnapshot.position),
       worldScale, animal, surface, compact: Boolean(compactMedia?.matches),
     });
     const newestOrdinal = Math.floor(position + 0.0001);
     const oldestOrdinal = newestOrdinal - QUADRUPED_STEP_COUNT * 3;
     for (let ordinal = oldestOrdinal; ordinal <= newestOrdinal; ordinal += 1) {
-      const event = quadrupedSequenceEvent(state, ordinal);
+      const event = quadrupedSequenceEvent(score, ordinal);
       for (const contact of event.contacts) {
-        const cycle = quadrupedFootCycleState(state, contact.id, ordinal);
+        const cycle = quadrupedFootCycleState(score, contact.id, ordinal);
         const x = groundCenterX + (cycle.anchorWorldX - bodyWorldX) * worldScale;
         if (x < -24 || x > width + 24) continue;
         const age = Math.max(0, position - ordinal);
@@ -3111,34 +3281,36 @@ function drawScene(now) {
   canvas.dataset.callStrength = String(pose.headPerformance?.strength ?? 0);
   canvas.dataset.actorPositions = JSON.stringify(visibleActors.map(index => Number(actors[index].motor.position.toFixed(3))));
   canvas.dataset.actorTempos = JSON.stringify(visibleActors.map(index => actors[index].score.tempoBpm));
-  canvas.dataset.stairLevel = String(worldSoundAt().level);
+  canvas.dataset.stairLevel = String(worldSoundAt(score, motor.position).level);
   if (groupMode === "solo") {
-    drawAnimal(drawing, pose, width, height, groundY);
+    drawAnimal(drawing, pose, width, height, groundY, score);
+    syncAnimalHandle(selectedActor, pose, score, width, height, groundY, 0, 0, width);
   } else {
     // Three independently travelling lanes in one field. Each local camera
     // follows its own planted anchors; changing the editor never moves a body.
     const laneWidth = width / 3;
     visibleActors.forEach(index => {
       const actor = actors[index];
-      const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
-      const actorPose = deriveQuadrupedPose(actor.score, actor.motor.position, snapshot);
-      const actorAnimal = quadrupedAnimal(actor.score.animalId);
+      const actorScore = scoreForActor(index);
+      const snapshot = quadrupedMotorSnapshot(actorScore, actor.motor);
+      const actorPose = performedPose(index, deriveQuadrupedPose(actorScore, actor.motor.position, snapshot));
+      const actorAnimal = quadrupedAnimal(actorScore.animalId);
       const localScale = Math.min(height * 0.27, laneWidth * 1.6 * 0.145) * actorAnimal.bodyScale;
       const localWorldScale = localScale * 0.74;
-      const localWorldX = actor.motor.position / 16 * actor.score.stride;
-      const localGround = height * (["giraffe", "camel"].includes(actor.score.animalId) ? 0.81 : 0.74);
-      const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actor.score.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
+      const localWorldX = quadrupedWorldAtPosition(actorScore, actor.motor.position);
+      const localGround = height * (["giraffe", "camel"].includes(actorScore.animalId) ? 0.81 : 0.74);
+      const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actorScore.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
       drawing.save(); drawing.translate(index * laneWidth, 0);
       drawing.beginPath(); drawing.rect(0, 0, laneWidth, height); drawing.clip();
       drawQuadrupedEnvironment(drawing, {
         skinId: visualSkinId, width: laneWidth, height, groundY: localGround,
         groundAt: floorAt, worldX: localWorldX, worldScale: localWorldScale,
-        animal: actorAnimal, surface: quadrupedTerrain(actor.score.surfaceId),
+        animal: actorAnimal, surface: quadrupedTerrain(actorScore.surfaceId),
         compact: Boolean(compactMedia?.matches),
       });
       for (let ordinal = Math.floor(actor.motor.position) - 24; ordinal <= actor.motor.position; ordinal += 1) {
-        for (const contact of quadrupedSequenceEvent(actor.score, ordinal).contacts) {
-          const foot = quadrupedFootCycleState(actor.score, contact.id, ordinal);
+        for (const contact of quadrupedSequenceEvent(actorScore, ordinal).contacts) {
+          const foot = quadrupedFootCycleState(actorScore, contact.id, ordinal);
           const x = laneWidth / 2 + (foot.anchorWorldX - localWorldX) * localWorldScale;
           drawQuadrupedFootprint(drawing, {
             skinId: visualSkinId, x,
@@ -3160,7 +3332,8 @@ function drawScene(now) {
         });
       }
       drawing.save(); drawing.translate(-laneWidth * 0.3, 0);
-      drawAnimal(drawing, actorPose, laneWidth * 1.6, height, localGround, actor.score);
+      drawAnimal(drawing, actorPose, laneWidth * 1.6, height, localGround, actorScore);
+      syncAnimalHandle(index, actorPose, actorScore, laneWidth * 1.6, height, localGround, index * laneWidth - laneWidth * 0.3, index * laneWidth, laneWidth);
       drawing.restore();
       drawing.font = "12px ui-monospace, monospace"; drawing.textAlign = "center";
       drawing.fillStyle = paperSkin ? "#463c2b" : index === selectedActor ? "#eeffb8" : "#c9d8cc";
@@ -3169,6 +3342,7 @@ function drawScene(now) {
     });
   }
 
+  for (const [index, handle] of animalHandles) handle.element.hidden = !visibleActors.includes(index);
   const step = pose.step;
   syncGridPlayhead(transportPlaying ? step : -1);
   updateStageReadouts(step);
@@ -3176,7 +3350,7 @@ function drawScene(now) {
 
 function animationLoop(now) {
   if (!pageActive) return;
-  const snapshot = transportPlaying ? materializeMotor(now) : quadrupedMotorSnapshot(state, motor);
+  const snapshot = anyActorRunning() ? materializeMotor(now) : quadrupedMotorSnapshot(scoreForActor(selectedActor), motor);
   canvas.dataset.frame = String(snapshot.frame);
   canvas.dataset.framePhase = snapshot.phase.toFixed(4);
   canvas.dataset.motorVelocity = snapshot.velocity.toFixed(4);
@@ -3214,6 +3388,7 @@ function resizeCanvas() {
   const pixelWidth = Math.max(1, Math.round(width * dpr));
   const pixelHeight = Math.max(1, Math.round(height * dpr));
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
+    cancelPerformances();
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
   }
@@ -3228,6 +3403,92 @@ function canvasPoint(event) {
     x: (event.clientX - bounds.left) / Math.max(1, bounds.width) * canvasMetrics.width,
     y: (event.clientY - bounds.top) / Math.max(1, bounds.height) * canvasMetrics.height,
   };
+}
+
+function syncAnimalHandle(index, pose, score, width, height, groundY, offsetX, laneLeft, laneWidth) {
+  let handle = animalHandles.get(index);
+  if (!handle) {
+    const element = document.createElement("div");
+    element.className = "quadruped-animal-handle";
+    element.dataset.gestureActor = String(index);
+    element.tabIndex = 0;
+    element.setAttribute("role", "group");
+    element.setAttribute("aria-describedby", "gestureHelp");
+    element.addEventListener("pointerdown", handleAnimalPointerDown);
+    element.addEventListener("pointermove", handleAnimalPointerMove);
+    for (const type of ["pointerup", "pointercancel", "lostpointercapture"]) element.addEventListener(type, handleAnimalPointerEnd);
+    element.addEventListener("keydown", handleCanvasKeydown);
+    stageWrap.append(element);
+    handle = { element }; animalHandles.set(index, handle);
+  }
+  const rig = deriveQuadrupedVisualRig(pose, width, height, groundY, score, { playing: pose.performanceActive });
+  const targets = quadrupedGestureTargets(rig, { offsetX, laneLeft, laneWidth });
+  const left = Math.min(targets.head.x, targets.body.x), top = Math.max(0, Math.min(targets.head.y, targets.body.y));
+  const right = Math.max(targets.head.x + targets.head.width, targets.body.x + targets.body.width);
+  const bottom = Math.min(height, Math.max(targets.head.y + targets.head.height, targets.body.y + targets.body.height));
+  Object.assign(handle, { targets, head: { x: rig.head.x + offsetX, y: rig.head.y }, body: { x: rig.center.x + offsetX, y: rig.center.y }, laneWidth });
+  const { element } = handle;
+  Object.assign(element.style, { left: `${left}px`, top: `${top}px`, width: `${right - left}px`, height: `${Math.max(1, bottom - top)}px` });
+  element.hidden = false;
+  element.setAttribute("aria-label", `${quadrupedAnimal(score.animalId).label} ${index + 1}: playable animal`);
+  const transient = performanceFor(index);
+  element.dataset.action = transient.motion?.kind ?? (transient.call ? "call" : "idle");
+  element.dataset.headX = String(handle.head.x); element.dataset.headY = String(handle.head.y);
+  element.dataset.bodyX = String(handle.body.x); element.dataset.bodyY = String(handle.body.y);
+  element.dataset.worldX = String(quadrupedWorldAtPosition(score, actors[index].motor.position));
+  element.dataset.position = String(actors[index].motor.position);
+}
+
+function handleAnimalPointerDown(event) {
+  if (event.button !== 0 || activeGesture || gestureKey) return;
+  event.preventDefault();
+  const index = Number(event.currentTarget.dataset.gestureActor), handle = animalHandles.get(index);
+  const point = canvasPoint(event);
+  const inside = rect => point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
+  const inHead = inside(handle.targets.head), inBody = inside(handle.targets.body);
+  const distance = center => Math.hypot(point.x - center.x, point.y - center.y);
+  const part = inHead && (!inBody || distance(handle.head) < distance(handle.body)) ? "head" : "body";
+  materializeMotor(); endActorMotion(index); releaseGestureCall(index); resetAudioSchedule();
+  activeGesture = { pointerId: event.pointerId, element: event.currentTarget,
+    value: createQuadrupedGesture({ ...point, time: event.timeStamp, width: handle.laneWidth, height: canvasMetrics.height, part, actorIndex: index }),
+    row: event.altKey ? 2 : event.shiftKey ? 1 : 0 };
+  event.currentTarget.focus({ preventScroll: true });
+  event.currentTarget.setPointerCapture(event.pointerId);
+}
+
+function handleAnimalPointerMove(event) {
+  if (!activeGesture || activeGesture.pointerId !== event.pointerId) return;
+  event.preventDefault();
+  activeGesture.value = advanceQuadrupedGesture(activeGesture.value, { ...canvasPoint(event), time: event.timeStamp });
+  const gesture = activeGesture.value;
+  if (["run", "backward", "dance"].includes(gesture.action)) performMotion(gesture.actorIndex, gesture.action, gesture.strength);
+  else if (performanceFor(gesture.actorIndex).motion) { materializeMotor(); endActorMotion(gesture.actorIndex); resetAudioSchedule(); }
+}
+
+function handleAnimalPointerEnd(event) {
+  if (!activeGesture || activeGesture.pointerId !== event.pointerId) return;
+  const captured = activeGesture;
+  activeGesture = null;
+  if (captured.element.hasPointerCapture(event.pointerId)) captured.element.releasePointerCapture(event.pointerId);
+  materializeMotor(); endActorMotion(captured.value.actorIndex);
+  if (event.type === "pointerup") {
+    const gesture = advanceQuadrupedGesture(captured.value, { ...canvasPoint(event), time: event.timeStamp });
+    if (gesture.part === "head") performCall(gesture.actorIndex, { strength: gesture.strength, pitch: gesture.pitch * 12, row: captured.row });
+    else if (gesture.action === "jump" || !gesture.moved) performMotion(gesture.actorIndex, "jump", gesture.strength || 0.65);
+  }
+  resetAudioSchedule();
+  drawScene(performance.now());
+}
+
+function handleGestureKeyup(event) {
+  if (!gestureKey || event.key.toLowerCase() !== gestureKey.key) return;
+  materializeMotor(); endActorMotion(gestureKey.index); gestureKey = null;
+  resetAudioSchedule();
+}
+
+function handleGestureBlur() {
+  materializeMotor(); cancelPerformances(); cancelFutureSources();
+  if (transportPlaying) resetAudioSchedule();
 }
 
 function handleCanvasPointerDown(event) {
@@ -3263,7 +3524,20 @@ function handleCanvasPointerEnd(event) {
 }
 
 function handleCanvasKeydown(event) {
-  if (event.repeat) return;
+  if (event.repeat || event.ctrlKey || event.metaKey) return;
+  const key = event.key.toLowerCase();
+  const index = event.currentTarget.dataset.gestureActor === undefined ? selectedActor : Number(event.currentTarget.dataset.gestureActor);
+  if (key === "escape") { event.preventDefault(); handleGestureBlur(); return; }
+  if (["c", "j", "r", "b", "d"].includes(key)) {
+    event.preventDefault();
+    if (key === "c") performCall(index, { row: event.altKey ? 2 : event.shiftKey ? 1 : 0 });
+    else if (key === "j") performMotion(index, "jump");
+    else if (!gestureKey && !activeGesture) {
+      gestureKey = { key, index };
+      performMotion(index, { r: "run", b: "backward", d: "dance" }[key]);
+    }
+    return;
+  }
   if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
     event.preventDefault();
     setSelectedStep(selectedStep + (event.key === "ArrowLeft" ? -1 : 1), { announceStep: true });
@@ -3288,7 +3562,7 @@ function handleGlobalKeydown(event) {
 
 function bindControls() {
   document.querySelectorAll("[data-group-mode]").forEach(button => button.addEventListener("click", () => setGroupMode(button.dataset.groupMode)));
-  document.querySelectorAll("[data-actor-index]").forEach(button => button.addEventListener("click", () => selectActor(Number(button.dataset.actorIndex))));
+  document.querySelectorAll("button[data-actor-index]").forEach(button => button.addEventListener("click", () => selectActor(Number(button.dataset.actorIndex))));
   $("scatterButton").addEventListener("click", scatterGroup);
   for (const key of ["grain", "cavern"]) $(key).addEventListener("input", () => {
     world = sanitizeQuadrupedWorld({ ...world, [key]: Number($(key).value) });
@@ -3367,10 +3641,13 @@ function bindControls() {
   canvas.addEventListener("lostpointercapture", () => { canvasPointer = null; });
   canvas.addEventListener("keydown", handleCanvasKeydown);
   globalThis.addEventListener("keydown", handleGlobalKeydown);
+  globalThis.addEventListener("keyup", handleGestureKeyup);
+  globalThis.addEventListener("blur", handleGestureBlur);
 }
 
 async function teardown() {
   if (!pageActive) return;
+  cancelPerformances();
   pageActive = false;
   if (animationFrame) cancelAnimationFrame(animationFrame);
   animationFrame = 0;
@@ -3415,6 +3692,7 @@ animationFrame = requestAnimationFrame(animationLoop);
 
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
+    cancelPerformances();
     if (transportPlaying) materializeMotor(performance.now());
     silenceFlightVoice();
     stopAudioScheduler();

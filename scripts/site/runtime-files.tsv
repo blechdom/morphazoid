@@ -287,6 +287,9 @@ copy+require	src/instruments/quadruped/quadruped-output.js
 copy+require	src/instruments/quadruped/quadruped-presets.js
 copy+require	src/instruments/quadruped/quadruped-sound-skins.js
 copy+require	src/instruments/quadruped/quadruped-visual-skins.js
+copy+require	src/instruments/quadruped/quadruped-travel.js
+copy+require	src/instruments/quadruped/quadruped-gestures.js
+copy+require	src/instruments/quadruped/quadruped-gesture-voices.js
 copy+require	src/instruments/quadruped/quadruped-world.js
 copy+require	docs/QUADRUPED_RESEARCH.md
 copy+require	assets/instruments/quadruped.webp

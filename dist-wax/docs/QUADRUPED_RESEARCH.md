@@ -355,3 +355,37 @@ and [AMNH frog exhibition](https://www.amnh.org/exhibitions/frogs-a-chorus-of-co
 Pouch and limb proportions are authored approximations, not species measurements.
 All animal calls are melodic character synths, not authentic recordings; unicorn,
 dinosaur and instrumental animal voices explicitly belong to the fantasy.
+
+## Direct animal performances
+
+The graphic is playable with mouse, pen, touch, or a focused animal's keyboard.
+Clicking the head plays one of the existing character calls. Vertical head drags
+transpose it continuously within one octave; horizontal distance shapes strength.
+The call begins on release, and the head follows that same bounded voice envelope
+on the audio clock. Shift/Alt choose its second/third call. Silent previews use a
+monotonic display clock while Audio is off; gestures never arm Audio.
+
+Dragging a body right temporarily runs; dragging left reverses its world travel.
+Two deliberate horizontal reversals within a second latch a dance. An upward
+pull followed by release, or a body tap, performs one jump cycle. C calls, J jumps,
+and holding R/B/D runs, reverses, or dances. Escape, pointer cancellation, loss of
+capture, window blur, resizing, or hiding the page ends the temporary gesture.
+Each actor owns its performance, so a paused Trio can play one animal at a time.
+These performances leave the selected gait, authored score, presets, and Play
+state intact. Releasing a held gesture returns to the selected gait; a jump
+returns after its landing cycle. Explicit Pause and Audio-off cancel gestures.
+
+Signed travel is a bounded piecewise mapping from positive score positions to
+world coordinates. Reversals capture planted foot anchors and retarget swings;
+they do not reverse the audio scheduler or mirror the animal. Changing stride
+preserves the current stance; changing anatomy, gait, or course relatches support.
+Travel history is transient and excluded from saved presets. Skin-specific
+scenery and footprint geometry read the same world mapping. Hit targets derive
+from the painted rig, with touch capture restricted to each animal so empty
+scenery remains available for page scrolling.
+
+These are expressive performances using the existing stylized gait and voice
+engines, not physical predictions or literal speech synthesis. Automated checks
+cover gesture recognition, signed anchors, audio output/release, independent
+actors, score preservation, keyboard operation, and real browser touch events.
+Human listening and physical touch-device feel remain separate acceptance work.
