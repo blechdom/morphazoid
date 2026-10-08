@@ -80,15 +80,33 @@ retain their complete requested settings; the prepared tree and effective
 iterations are runtime state. Large tilings use a complete, shallower derivation
 when their next substitution would exceed capacity.
 
-Playback then measures real audio-thread deadlines. Sustained headroom can grow
-the prepared pool toward the requested tree, and overload reduces admission and
-the next preparation budget. Capacity carries between presets and is revalidated
-under current load. There is no fixed final voice-count ceiling; calibration's
+Playback then measures real audio-thread deadlines. Three seconds of coherent,
+fully admitted audio can prove headroom for a larger prepared pool, sized from
+the remaining deadline budget. Overload reduces active voices inside the retained
+tree; it does not repeatedly recompile a smaller tree. Inactive voice slots do
+not consume recurring DSP work, and installed storage already keeps its largest
+allocation. Capacity carries between presets and is revalidated under current
+load. There is no fixed final voice-count ceiling; calibration's
 time allowance limits the initial probe, and subsequent measured growth remains
 possible. An optional user cap, memory and processing capacity still constrain
-playback. Graphics separately reduce their connected preview when setup, drawing
-or frame timing is expensive, including while Audio is off. Graphics reductions
-do not reduce audio admission or restart recording.
+playback. Graphics retain the complete device-bounded prepared scene. Audio-off
+previews show that scene; playback selects branches from Rust's exact active
+voice slots, including sounding release tails. Retired slots disappear immediately
+on the next coherent status update, even when smoothed visual meters remain positive.
+The active slot list is independent of the individual meter capacity and has no
+separate display cap. Drawing cost adjusts frame rate, resolution and waveform detail,
+without a separate branch-count feedback loop. Expensive frames and low signal
+amplitude cannot remove branches while audio admission remains unchanged. Zero
+Depth hides descendants during playback, retaining their prepared metadata for
+immediate recovery. Framing uses the complete prepared scene. Graphics do not
+reduce audio admission or restart recording.
+Unchanged musical controls are not repainted on each meter update. Worklet
+telemetry uses transferred compact numeric snapshots, expanded into the existing
+public arrays on the main thread. On coarse clocks, an individual render or
+control operation exceeding a quantum plus the clock's 1 ms precision margin is
+observed separately rather than diluted into the normal 32-block average.
+Installation and retirement retain their separate maintenance accounting. These
+measurements describe processing deadlines, not physical output-device underruns.
 Browser performance must be measured on the actual device. The historical CPAL
 benchmarks below do not establish a sustainable browser voice count.
 
@@ -285,12 +303,13 @@ curve detail before lowering its frame rate. Cached geometry and reusable wave
 buffers reduce per-frame work. The animation clock uses paired worklet sample
 time and AudioContext time, so delayed status delivery does not restart or
 rewind the wave motion. Graphics do not impose another audio voice ceiling.
-During playback, both renderers draw only the input root, admitted delay
-branches, and metered release tails. The complete accepted tree remains metadata
+During playback, both renderers draw only the input root and delay branches in
+Rust's active slot list, including release tails still processed by the DSP.
+Meter smoothing affects wave amplitude, never membership. The complete accepted tree remains metadata
 for presets, parent connections and camera bounds; its unavailable grey branches
 are omitted. Audio off restores the complete preset preview. WebGL2 compacts its
 actual instance and meter buffers when membership changes, avoiding per-frame
-processing of the inactive tree. Capacity changes do not recenter or zoom it.
+processing of the inactive tree. Admission changes do not recenter or zoom it.
 History uploads reuse a Float32 scratch buffer and grow texture storage
 geometrically, rather than reallocating it for every newly recorded sample.
 Software-rendered browser checks validate shader parity and lifecycle; they do
@@ -465,21 +484,23 @@ The lookup and merge scratch are reserved up front and included in memory metric
 admission and rendering do not allocate on the audio callback.
 
 Rendering visits active voices instead of scanning every reserved slot. Graphics
-reduce their frame rate and curve detail as audio load rises; the visual
-preview is bounded independently of the audio tree. Beyond thirteen generations,
-a sampled native preview preserves actual branch priorities rather than
-substituting an unrelated smaller tree. Full preset recalls fetch that preview,
+reduce their frame rate and curve detail as audio load rises; the browser preview
+uses the complete device-bounded prepared scene. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. The full tree geometry and
-camera bounds stay constant as device capacity changes; only admitted branches
-and metered release tails are drawn during playback. Color indicates admission;
+audio does not cascade through parent processors. The prepared tree geometry and
+camera bounds stay constant as audio admission changes within that scene; only branches in the
+exact active slot list are drawn during playback. Color indicates admission;
 wave amplitude
 indicates signal, with actual tap RMS taking precedence on short edges and at
 audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
 existing delayed audio and the retained input history continue.
+
+Proved headroom can grow the prepared scene. That can change its effective
+derivation and camera fit; it is separate from active voice admission inside an
+unchanged prepared scene.
 
 The ripple carrier is an activity illustration rather than the literal PCM
 waveform. Metered response uses rendered granular output; long-edge transit and

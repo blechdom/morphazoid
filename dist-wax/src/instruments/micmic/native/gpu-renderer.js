@@ -417,7 +417,10 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         // admission gate, not an immutable topology attribute or amplitude.
         // Generation amplitude above already follows the applied frame depth.
         const admitted = node.root || (!frame.pending && node.priority < limit && finite(cachedNodes[drawIndices[index]].gain) > 0);
-        const available = admitted || energy > 0;
+        // Exact playback selection already contains only Rust's active slots.
+        // Their availability does not depend on meter coverage or amplitude;
+        // rank still controls the historical input-travel approximation below.
+        const available = frame.activeVoiceSelection || admitted || energy > 0;
         if (available) availableCount++;
         const measured = node.root || targets.has(node.voiceIndex);
         const parentMeasured = node.parentRoot || targets.has(node.parentVoiceIndex);

@@ -80,15 +80,36 @@ export function applyPreviewDepth(nodes, depth) {
 }
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
-/** Keep the complete preset as metadata, but visit only audible branches per
- * frame. Selection identity stays stable while meter values change. */
+const EMPTY_VOICE_INDICES = Object.freeze([]);
+/** Keep the prepared scene as metadata. Browser snapshots identify actual DSP
+ * slots, including genuine release tails; smoothed meters affect waves only.
+ * Legacy replies without that list retain their existing display fallback. */
 export function createPreviewDrawSelection(nodes) {
   const byVoice = new Map(nodes.filter(node => node.generation > 0).map(node => [node.voiceIndex, node]));
-  let key, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
+  let key, activeSlots = null, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
   return {
     invalidate() { key = undefined; },
-    select({ audio = false, limit = 0, levels = new Map(), depth = 1 } = {}) {
-      const nextKey = `${audio}:${limit}:${depth > 0}`;
+    select({ audio = false, limit = 0, levels = new Map(), depth = 1, activeVoiceIndices, revision, activeRevision } = {}) {
+      if (audio && Array.isArray(activeVoiceIndices)) {
+        // A newly installed pool can report before its matching geometry is
+        // accepted. Never assign those slots to branches in the previous scene.
+        if (revision !== undefined && activeRevision !== undefined && revision !== activeRevision) activeVoiceIndices = EMPTY_VOICE_INDICES;
+        const nextKey = `active:${depth > 0}`;
+        const changed = activeSlots !== activeVoiceIndices && (!activeSlots
+          || activeSlots.length !== activeVoiceIndices.length
+          || activeSlots.some((slot, index) => slot !== activeVoiceIndices[index]));
+        if (key !== nextKey || changed) {
+          key = nextKey;
+          const active = new Set(activeVoiceIndices);
+          selected = nodes.filter(node => node.generation === 0 || depth > 0 && active.has(node.voiceIndex));
+        }
+        // Main-thread status arrays are immutable snapshots. Equal membership
+        // reuses the draw array even when the admission limit or meters change.
+        activeSlots = activeVoiceIndices;
+        return selected;
+      }
+      activeSlots = null;
+      const nextKey = `legacy:${audio}:${limit}:${depth > 0}`;
       if (nextKey !== key) {
         key = nextKey;
         admitted = audio ? admittedPreviewNodes(nodes, depth > 0 ? limit : 0) : nodes;

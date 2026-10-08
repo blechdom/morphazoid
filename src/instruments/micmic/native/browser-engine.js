@@ -2,7 +2,8 @@ import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePe
 import { audioInputConstraints, audioInputDescription, configureAudioInputNode } from '../../../audio-input-settings.js';
 import { connectAudioOutput } from '../../../audio-output-manager.js';
 import { createInputSource } from './input-source.js';
-import { nextPreparedCapacity } from './device-capacity.js';
+import { createPreparedCapacityController } from './device-capacity.js';
+import { normalizeAudioStatus } from './telemetry.js';
 
 const WORKER_URL = new URL('./topology-worker.js', import.meta.url);
 const WORKLET_URL = new URL('./delay-worklet.js', import.meta.url);
@@ -11,6 +12,7 @@ let currentEngine;
 export function getBrowserDelayEngine() { return currentEngine; }
 
 const emptyStatus = () => ({ sampleRate: 0, device: 'Audio off', inputDevice: null, activeVoices: 0,
+  activeVoiceIndices: [],
   targetVoices: 0, voiceLimit: 0, installedCapacity: 0, calibratedVoices: 0, cpuLoad: 0, peakLoad: 0,
   inputPeak: 0, outputPeak: 0, outputLeftPeak: 0, outputRightPeak: 0, gainReductionDb: 0,
   deadlineMisses: 0, underruns: 0, overruns: 0, elapsedSeconds: 0, wetBusGain: 0, topologyRevision: 0,
@@ -27,7 +29,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
-  let deviceCapacity = null, preparedCapacity = 0, capacityCheckedAt = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
+  let deviceCapacity = null, preparedCapacity = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
+  const capacityController = createPreparedCapacityController();
   let parameterRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
@@ -156,6 +159,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
 
   async function install(compiled) {
     if (compiled.skipped) return;
+    capacityController.reset();
     if (node) {
       await withRunningControlGraph(async () => {
         await installMessage(compiled.pool);
@@ -226,7 +230,11 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
           if (!pending) return;
           audioRequests.delete(data.id); clearTimeout(pending.timer);
           if (data.error) pending.reject(new Error(data.error));
-          else { if (data.status) status = data.status; pending.resolve(data.status); }
+          else {
+            const received = normalizeAudioStatus(data.status);
+            if (received) status = received;
+            pending.resolve(received);
+          }
         };
         node.onprocessorerror = () => failAudio(new Error('The Rust audio engine stopped. Press Audio to restart.'), preparedNode, preparedContext);
         node.connect(master); releaseOutput = connectAudioOutput(context, master);
@@ -398,17 +406,19 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
 
   async function refresh() {
     if (node && context?.state === 'running' && !starting) status = await audioMessage('status');
-    // Try more only after the installed pool proves sustained headroom. This
-    // uses the same install path and recording; it never restarts the source.
+    // Keep the prepared tree when Rust backs off active voices. Inactive slots
+    // add no recurring DSP work, and installed storage already retains its high
+    // water capacity. Rewriting a smaller topology only creates scene churn.
     const time = status.elapsedSeconds || 0;
     // The request token advances before its new scene commits. During that
     // interval parameters still describes the old tree; pairing it with the
     // new token would let a queued capacity probe restore the previous preset.
-    if (audio && !parameterRequestsPending
-      && !capacityWorking && time >= capacityRetryAt && time - capacityCheckedAt >= 3) {
-      capacityCheckedAt = time;
-      const next = Math.min(nextPreparedCapacity(preparedCapacity, status, topology?.requestedVoices || 0),
-        topology?.memoryVoiceCapacity ?? Number.MAX_SAFE_INTEGER);
+    const settled = audio && !starting && !parameterRequestsPending && !capacityWorking && time >= capacityRetryAt;
+    const next = Math.min(capacityController.observe({ nowSeconds: time, current: preparedCapacity,
+      requested: topology?.requestedVoices || 0, status, topologyRevision,
+      eligibleVoices: parameters.depth > 0 ? topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0 : 0,
+      preparedVoices: topology?.preparedVoices ?? 0, settled }), topology?.memoryVoiceCapacity ?? Number.MAX_SAFE_INTEGER);
+    if (settled) {
       if (next !== preparedCapacity) {
         const prepared = topology?.preparedVoices || 0;
         if ((next < prepared) || (next > prepared && topology?.requestedVoices > prepared)) {
@@ -451,6 +461,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     if (path === '/api/state' || path === '/api/preview') return snapshot(true);
     if (path === '/api/status') return refresh();
     if (path === '/api/depth') {
+      capacityController.reset();
       const depth = sanitizeParameters({ ...parameters, depth: body?.depth }).depth;
       const revision = ++depthRevision; requestedDepth = depth;
       if (node && controlsReady) await audioMessage('depth', { depth });
@@ -458,6 +469,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       return snapshot();
     }
     if (path === '/api/parameters' || path === '/api/reset') {
+      capacityController.reset();
       const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
       const revision = ++parameterRequestRevision;
       parameterRequestsPending++;
@@ -471,6 +483,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
+      capacityController.reset();
       const next = sanitizePerformance({ ...performanceState, ...body,
         ...(input.snapshot().mode !== 'mic' ? { source: 'mic' } : {}) });
       const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
@@ -488,6 +501,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   }
 
   function muteForDeparture() {
+    capacityController.reset();
     audioVersion++; audioDesired = audio = false; setOutput(false, true); stopInputs();
     // Suspending releases browser CPU and pauses its actual sample clock.
     if (context && context.state !== 'closed') {

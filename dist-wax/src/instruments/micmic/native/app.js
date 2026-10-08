@@ -15,7 +15,6 @@ import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSl
 import { createBrowserDelayEngine } from './browser-engine.js';
 import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
 import { createGpuBranchRenderer } from './gpu-renderer.js';
-import { createGraphicsCapacity, createConnectedGraphicsSelection } from './graphics-capacity.js';
 import { config as parametricConfig } from '../../l-system-parametric-lab/config.js';
 import { config as experimentsConfig, KIND_LABELS } from '../../l-system-experiments/config.js';
 import { sanitizeLab, randomLab } from '../../l-system-parametric-lab/model.js';
@@ -59,7 +58,8 @@ let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockRecei
 let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
-let graphicsCapacity = null, graphicsSelection = null, preparedGraphicsNodes = null, graphicsSelectionDirty = false, previousContinuous = false;
+let preparedGraphicsNodes = null, preparedGraphicsBounds = null;
+let paintedControlsKey = null;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
 const parameterKnobs = new Map();
@@ -224,7 +224,9 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (reply.input) state.input = { ...state.input, ...reply.input };
   if (reply.generationLimits) state.generationLimits = reply.generationLimits;
   if (reply.memoryVoiceCapacity) state.memoryVoiceCapacity = reply.memoryVoiceCapacity;
-  if (reply.status) {
+  // Installation acknowledges its new DSP pool before the matching scene
+  // metadata commits. Preserve the complete prior status during that interval.
+  if (reply.status && (reply.status.topologyRevision === undefined || reply.status.topologyRevision === reply.topologyRevision)) {
     state.status = reply.status; inputReceivedAt = performance.now();
     inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
     const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters ?? previewParameters);
@@ -247,6 +249,7 @@ const LAB_GEOMETRY_PARAMETERS = ['kind', 'iterations', 'lengthRatio', 'angleIncr
 function sameLabGeometry(left, right) {
   return left && right ? LAB_GEOMETRY_PARAMETERS.every(key => left[key] === right[key]) : left === right;
 }
+const previewSceneKey = parameters => JSON.stringify({ ...sanitizeParameters(parameters), depth: 1 });
 async function refreshNativePreview() {
   if (previewRefreshWorking) { previewRefreshDirty = true; return; }
   previewRefreshWorking = true;
@@ -255,20 +258,24 @@ async function refreshNativePreview() {
     if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
     const parameters = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
     if (LAB_CONFIG && (!parameters.lab || !LAB_CONFIG.kinds.includes(parameters.lab.kind))) return;
-    if (reply.topologyRevision === visualRevision && nativePreview && !graphicsSelectionDirty) { updateVisualDepth(parameters.depth); return; }
-    const setupStarted = performance.now(), prepared = reply.visualNodes ?? reply.nodes ?? [];
-    if (!graphicsCapacity) graphicsCapacity = createGraphicsCapacity({ preparedVoices: reply.deviceCapacity?.voices ?? reply.preparedVoices ?? prepared.length - 1, nodeCount: prepared.length });
-    graphicsCapacity.ensureCapacity({ preparedVoices: reply.deviceCapacity?.preparedCapacity ?? reply.preparedVoices, availableNodes: prepared.length });
-    if (prepared !== preparedGraphicsNodes) { preparedGraphicsNodes = prepared; graphicsSelection = createConnectedGraphicsSelection(prepared); }
-    const selected = graphicsSelection.select(graphicsCapacity.limit);
-    const targets = reply.visualNodes ? selected : nativePreviewNodes(selected);
+    if (reply.topologyRevision === visualRevision && nativePreview) { updateVisualDepth(parameters.depth); return; }
+    const prepared = reply.visualNodes ?? reply.nodes ?? [];
+    if (prepared !== preparedGraphicsNodes) {
+      preparedGraphicsNodes = prepared;
+      // Frame the prepared scene consistently as audio admission changes.
+      preparedGraphicsBounds = topologyBounds(prepared);
+    }
+    // Rust has already bounded this graph to measured audio capacity. Retain
+    // that scene; frame cost changes draw detail, never its branch membership.
+    const targets = reply.visualNodes ? prepared : nativePreviewNodes(prepared);
     if (!targets.length) return;
-    graphicsSelectionDirty = false;
     const sameShape = nativePreview && GEOMETRY_PARAMETERS.every(key => parameters[key] === nativePreview.parameters[key])
       && parameters.grammarSeed === nativePreview.parameters.grammarSeed && parameters.branchProbability === nativePreview.parameters.branchProbability
       && sameLabGeometry(parameters.lab, nativePreview.parameters.lab);
     const compatible = sameShape && geometry && targets.length === geometry.nodes.length
       && targets.every((node, index) => node.id === geometry.nodes[index].id);
+    const sameRequestedScene = nativePreview?.requestedParameters
+      && previewSceneKey(reply.parameters) === previewSceneKey(nativePreview.requestedParameters);
     visualRevision = reply.topologyRevision; previewParameters = { ...parameters };
     if (compatible) {
       // Timing, pitch, spread, pruning and gain edits reuse the live coordinates,
@@ -289,18 +296,19 @@ async function refreshNativePreview() {
       nativePreview.parameters = parameters;
       geometry.drawSelection.invalidate();
       gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
-        limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth }) });
+        limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
+        revision: visualRevision, activeRevision: state.status.topologyRevision }) });
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
       applyPreviewDepth(previewTransition.nodes, parameters.depth);
       nativePreviewStarted = performance.now();
       nativePreviewMoving = Boolean(geometry && previewTransition.moving);
       if (!nativePreviewMoving) advancePreviewTransition(previewTransition, 1);
-      nativePreview = { parameters, nodes: previewTransition.nodes, bounds: topologyBounds(targets) };
+      if (sameRequestedScene && geometry && !lockedFit) lockedFit = { ...geometry.fit };
+      nativePreview = { parameters, nodes: previewTransition.nodes, bounds: preparedGraphicsBounds };
       geometry = null;
     }
-    if (graphicsCapacity.observe({ nowMs: performance.now(), setupMs: performance.now() - setupStarted,
-      drawnNodes: targets.length, continuous: false })) { graphicsSelectionDirty = true; void refreshNativePreview(); }
+    nativePreview.requestedParameters = sanitizeParameters(reply.parameters);
     scheduleDraw();
   } catch (error) { if (!disposed) $('liveStatus').textContent = error.message; }
   finally {
@@ -558,7 +566,7 @@ function paintInput() {
   }
   credit.hidden = !input.credit;
 }
-function paintControls() {
+function paintStaticControls() {
   if ($('stochasticControls')) $('stochasticControls').hidden = Boolean(state.parameters.lab) || state.parameters.lSystemType !== 'stochastic';
   const branchVariation = state.parameters.lSystemType === 'pythagorean';
   $('mutationLabel').textContent = state.parameters.lab ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
@@ -597,15 +605,31 @@ function paintControls() {
   const profileId = masteringProfileId(mastering);
   $('masteringPreset').value = profileId;
   $('masteringSummary').textContent = `${MASTERING_PROFILES.find(item => item.id === profileId)?.label ?? 'Custom'} · ${mastering.compressorEnabled ? `${Number(mastering.ratio.toFixed(1))}:1 compression` : 'compression off'}`;
+  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
+  paintLabControls();
+  $('automatic').checked = state.performance.automatic;
+  inputStrip.setGain(state.performance.inputGain);
+  // Status polling changes meters, not musical controls. Update each dial
+  // once after real parameter or dynamic-limit changes, avoiding duplicate
+  // MutationObserver updates from unchanged readout and range writes.
+  for (const knob of parameterKnobs.values()) knob.update();
+  if (voiceCeilingExact) {
+    const input = $('voiceCeiling');
+    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
+    voiceCeilingExact.disabled = input.disabled;
+    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
+  }
+}
+function paintControls() {
+  const key = JSON.stringify([state.parameters, state.performance, state.generationLimits,
+    state.memoryVoiceCapacity, state.status.sampleRate, state.audio, sceneApplying, $('voiceCeiling').disabled]);
+  if (key !== paintedControlsKey) { paintStaticControls(); paintedControlsKey = key; }
   const reduction = state.audio ? Math.max(0, Number(state.status.gainReductionDb) || 0) : 0;
   $('gainReductionOut').textContent = `${reduction.toFixed(1)} dB`;
   $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
-  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
-  paintLabControls();
   const mic = state.input.mode === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
   const inputActive = (state.performance.source === 'seed' ? state.audio : mic ? microphoneActive : state.input.playing) && !state.performance.frozen;
-  $('automatic').checked = state.performance.automatic;
-  inputStrip.setGain(state.performance.inputGain); inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
+  inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
   inputStrip.meter.setActive(inputActive);
   const inputLabel = `${mic && microphoneActive ? 'Stop' : 'Start'} microphone input${state.audio ? '' : '. Audio remains off'}`;
   inputStrip.button.setAttribute('aria-label', inputLabel); inputStrip.button.title = inputLabel;
@@ -641,15 +665,6 @@ function paintControls() {
   $('cpuLoad').textContent = Number.isFinite(s.cpuLoad) ? `${(s.cpuLoad * 100).toFixed(1)}%` : '—'; $('peakLoad').textContent = Number.isFinite(s.peakLoad) ? `${(s.peakLoad * 100).toFixed(1)}%` : '—';
   $('streamMisses').textContent = `${s.underruns || 0} / ${s.deadlineMisses || 0}`; $('engineStatus').textContent = lastFailure || (state.audio ? 'Audio is running.' : 'Audio is off.');
   audioStrip.update();
-  // Property-only preset/status paints must update the dials after dynamic
-  // generation and memory limits, without dispatching musical input events.
-  for (const knob of parameterKnobs.values()) knob.update();
-  if (voiceCeilingExact) {
-    const input = $('voiceCeiling');
-    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
-    voiceCeilingExact.disabled = input.disabled;
-    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
-  }
 }
 
 function buildGeometry() {
@@ -658,15 +673,19 @@ function buildGeometry() {
   // The worker has already fitted topology preparation to measured capacity.
   // Never construct the requested exponential tree as a temporary UI fallback.
   const nodes = nativePreview?.nodes ?? [];
-  canvas.dataset.previewNodes = String(nodes.length);
-  canvas.dataset.graphicsCapacity = String(graphicsCapacity?.limit ?? 0);
-  canvas.dataset.preparedVoices = String(state.preparedVoices);
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
     activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null, drawSelection: createPreviewDrawSelection(nodes) };
   gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
-    limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth }) });
+    limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
+    revision: visualRevision, activeRevision: state.status.topologyRevision }) });
+  paintPreviewDescription(nodes);
+}
+function paintPreviewDescription(nodes) {
+  canvas.dataset.previewNodes = String(nodes.length);
+  canvas.dataset.preparedNodes = String(preparedGraphicsNodes?.length ?? nodes.length);
+  canvas.dataset.preparedVoices = String(state.preparedVoices);
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
   $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} requested ${state.parameters.lab ? 'rule iterations' : 'audio generations'}. The device prepares a connected tree within measured audio capacity. Graphics adapt separately. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off previews the prepared tree. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness.`;
@@ -680,9 +699,7 @@ function draw(now) {
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
     Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
-  const continuous = Boolean(state.audio || drag || nativePreviewMoving || rangeGesture);
-  const frameIntervalMs = continuous && previousContinuous ? now - lastDrawAt : 0;
-  previousContinuous = continuous; lastDrawAt = now;
+  lastDrawAt = now;
   const drawStarted = performance.now();
   if (nativePreviewMoving) {
     advancePreviewTransition(previewTransition, (now - nativePreviewStarted) / 80);
@@ -731,7 +748,8 @@ function draw(now) {
   }
   rootLevel = smoothActivity(rootLevel, state.audio && now - inputReceivedAt < 300 ? activityEnergy(Number(state.status.inputPeak || 0)) : 0, elapsed);
   const rootNode = geometry.root;
-  const branches = geometry.drawSelection.select({ audio: state.audio, limit, levels: tapLevels, depth: previewParameters.depth });
+  const branches = geometry.drawSelection.select({ audio: state.audio, limit, levels: tapLevels, depth: previewParameters.depth,
+    activeVoiceIndices: state.status.activeVoiceIndices, revision: visualRevision, activeRevision: state.status.topologyRevision });
   canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
   if (gpuRenderer?.available) {
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
@@ -739,7 +757,8 @@ function draw(now) {
       limit, pending: false, historyFresh, history: inputTelemetry.envelope,
       levels: tapLevels, targets: tapTargets, rootLevel, wet: state.performance.wet,
       wetBusGain: Number(state.status.wetBusGain || 0), depth: previewParameters.depth,
-      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts, drawNodes: branches });
+      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts, drawNodes: branches,
+      activeVoiceSelection: state.audio && Array.isArray(state.status.activeVoiceIndices) });
   } else {
     const activeIds = geometry.activeIds;
     // Playing draws the audio branches only. The complete quiet preset remains
@@ -814,11 +833,6 @@ function draw(now) {
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
   const cost = Math.max(0, performance.now() - drawStarted);
   visualCostMs += (cost - visualCostMs) * .15;
-  if (graphicsCapacity?.observe({ nowMs: now, workMs: cost, frameIntervalMs,
-    expectedFrameMs: 1000 / budget.fps, continuous, drawnNodes: branches.length,
-    audioLoad: state.status.cpuLoad, peakLoad: state.status.peakLoad })) {
-    graphicsSelectionDirty = true; void refreshNativePreview();
-  }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
 

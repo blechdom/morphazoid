@@ -8,6 +8,10 @@ async function until(predicate) {
   for (let attempt = 0; attempt < 50; attempt++) { if (predicate()) return; await tick(); }
   throw new Error('Preparation fixture did not reach its expected boundary');
 }
+async function sustainedHeadroom(f, seconds = 3) {
+  const end = f.now + seconds;
+  while (f.now < end) { f.now = Math.min(end, f.now + .25); await f.engine.request('/api/status'); }
+}
 
 function pcm() {
   const values = Float32Array.from({ length: 128 }, (_, index) => Math.sin(index) * .1);
@@ -131,8 +135,8 @@ test('a rejected optional growth probe retains the installed budget and a tiny s
     await f.start();
     const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0], buffer = source.buffer;
     assert.equal(before.deviceCapacity.preparedCapacity, 64);
-    f.rejectAbove = 64; f.now = 4;
-    await engine.request('/api/status');
+    f.rejectAbove = 64;
+    await sustainedHeadroom(f);
     await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
     const rejected = engine.getDiagnostics();
     assert.match(rejected.capacityFailure, /QA rejected optional prepared pool/);
@@ -176,8 +180,8 @@ test('a fully admitted pool above the cold benchmark target seeks more prepared 
     const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0], buffer = source.buffer;
     assert.equal(before.preparedVoices, 64); assert.equal(before.requestedVoices, 510);
     assert.equal(before.parameters.generations, 8); assert.equal(before.effectiveParameters.generations, 6);
-    f.load = f.peak = .6; f.now = 4;
-    await engine.request('/api/status');
+    f.load = f.peak = .6;
+    await sustainedHeadroom(f);
     await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
     const grown = engine.getDiagnostics(), request = f.compileRequests.at(-1);
     assert.ok(request.voiceBudget > 64, '.60 recurring load leaves sustainable capacity to test');
@@ -222,5 +226,39 @@ test('headroom reported during a pending scene compile cannot queue an old-scene
     assert.equal(settled.audio, true); assert.equal(settled.input.playing, true); assert.equal(settled.sampleClock, 4);
     assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
     assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined); assert.deepEqual(f.errors, []);
+  } finally { f.cleanup(); }
+});
+
+test('audio backoff retains its prepared tree until sustained improved capacity proves a larger pool', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0];
+    f.load = f.peak = .8;
+    await sustainedHeadroom(f);
+    await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
+    const grown = engine.getDiagnostics(), budget = grown.deviceCapacity.preparedCapacity;
+    assert.ok(budget > 64 && budget < 64 * 1.2, 'busy audio gets a proportional probe, not a predictable overload');
+    const installedMessages = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    // Rust can reduce actual processing without rewriting or freeing the
+    // prepared pool. Alternate rejected admission and healthy partial work.
+    for (let index = 0; index < 80; index++) {
+      f.active = 48; f.calibrationProof = 48;
+      f.load = f.peak = index % 8 === 0 ? 1.1 : .6;
+      f.now += .25; await engine.request('/api/status');
+      assert.equal(engine.getDiagnostics().deviceCapacity.preparedCapacity, budget);
+      assert.equal(engine.getDiagnostics().buildRevision, grown.buildRevision);
+    }
+    assert.equal(f.compileRequests.length, 2);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installedMessages);
+    assert.deepEqual(engine.getDiagnostics().parameters, before.parameters);
+    f.active = f.structuralEligible; f.calibrationProof = f.active; f.load = f.peak = .4;
+    await engine.request('/api/status');
+    await sustainedHeadroom(f);
+    await until(() => f.compileRequests.length === 3 && !engine.getDiagnostics().capacityWorking);
+    assert.ok(engine.getDiagnostics().deviceCapacity.preparedCapacity > budget, 'retained capacity is not a permanent ceiling');
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+    assert.equal(source.stopped, undefined); assert.equal(engine.getDiagnostics().input.playing, true);
+    assert.ok(engine.getDiagnostics().sampleClock > grown.sampleClock); assert.deepEqual(f.errors, []);
   } finally { f.cleanup(); }
 });
