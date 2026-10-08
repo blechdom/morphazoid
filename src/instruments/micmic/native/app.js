@@ -6,7 +6,7 @@ import { enhanceChooseSelect } from '../../../ui/patterns/choose-select.js';
 import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js';
 import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
-import { timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
+import { timeFoldFromSlider, sliderFromTimeFold, formatTimeFold, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS } from './time-fold.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
   topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
@@ -99,7 +99,7 @@ $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.in
 audioStrip.setAudioDisabled(true);
 const errorBox = $('audioError'); errorBox.className = 'audio-error native-audio-error'; errorBox.setAttribute('popover', 'manual'); document.body.append(errorBox);
 errorBox.addEventListener('click', () => { errorBox.hidden = true; if (errorBox.matches(':popover-open')) errorBox.hidePopover(); });
-const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, 1, 3000), true) });
+const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS), true) });
 function attachTap(input, button) { const field = input.closest('label'), wrapper = document.createElement('div'); wrapper.className = 'mz-tap-tempo-field'; field.before(wrapper); wrapper.append(field, button); }
 attachTap($('interval'), foldTap);
 
@@ -511,7 +511,7 @@ function formatParameter(key, value) {
   if (key === 'branchProbability') return `${Math.round(value * 100)}%`;
   if (key === 'generations' && state.parameters.lab) return `${value} iterations`;
   if (key === 'generations') return `${value} / ${state.generationLimits[state.parameters.lSystemType] ?? 52}`;
-  if (key === 'intervalMs') return `${Math.round(value)} ms`;
+  if (key === 'intervalMs') return formatTimeFold(value);
   if (key === 'timeRatio') return `${Number(value.toFixed(2))}× per generation`;
   if (key === 'angle') return `${Number(value.toFixed(1))}°`;
   if (key === 'curls') return Math.abs(value) < .005 ? 'original' : `${Number(Math.abs(value).toFixed(2))} turns ${value < 0 ? 'CW' : 'CCW'}`;
@@ -649,14 +649,14 @@ function paintControls() {
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
   $('recursionSummary').textContent = `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
-  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${Math.round(p.intervalMs)} ms root fold`;
+  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${formatTimeFold(p.intervalMs)} root fold`;
   $('generationKeyEnd').textContent = `G${p.generations} DESCENDANT`;
   const sourceState = state.performance.frozen ? 'INPUT PAUSED' : inputActive ? mic ? 'MIC / LINE LIVE' : state.input.mode === 'file' ? 'FILE LIVE' : 'SAMPLE LIVE' : 'INPUT STOPPED';
   $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${p.lab ? 'ITERATIONS' : 'GENERATIONS'}`;
-  $('generationTimingReadout').textContent = `${Math.round(p.intervalMs)} ms → ${Number((p.intervalMs * p.timeRatio).toFixed(2))} ms → ${Number((p.intervalMs * p.timeRatio ** 2).toFixed(2))} ms … ${Number((p.intervalMs * p.timeRatio ** p.generations).toFixed(2))} ms at G${p.generations}`;
+  $('generationTimingReadout').textContent = `${formatTimeFold(p.intervalMs)} → ${formatTimeFold(p.intervalMs * p.timeRatio)} → ${formatTimeFold(p.intervalMs * p.timeRatio ** 2)} … ${formatTimeFold(p.intervalMs * p.timeRatio ** p.generations)} at G${p.generations}`;
   if (p.lab) $('generationTimingReadout').textContent = p.lab.kind === 'parametric'
-    ? `${Math.round(p.intervalMs)} ms base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
-    : `${Math.round(p.intervalMs)} ms base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
+    ? `${formatTimeFold(p.intervalMs)} base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
+    : `${formatTimeFold(p.intervalMs)} base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
   $('generationPitchReadout').textContent = `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`;
   $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample');
   $('sampleRate').textContent = s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—';

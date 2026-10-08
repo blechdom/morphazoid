@@ -97,7 +97,7 @@ impl Parameters {
             return Err("Generations must fit an exactly representable tree (1 through 52)".into());
         }
         for (name, value, low, high) in [
-            ("intervalMs", self.interval_ms, 1., 3000.),
+            ("intervalMs", self.interval_ms, 0.05, 3000.),
             ("timeRatio", self.time_ratio, 0.2, 2.),
             ("angle", self.angle, 0., 180.),
             ("curls", self.curls, -8., 8.),
@@ -1620,6 +1620,102 @@ fn compile(parameters: &Parameters, sample_rate: u32) -> Topology {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn sub_millisecond_fold_validates_without_changing_pitch_or_branch_geometry() {
+        for interval_ms in [0.05, 0.075, 0.125, 0.999, 1., 3000.] {
+            assert!(Parameters {
+                interval_ms,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_ok());
+        }
+        for interval_ms in [0., 0.049, 3000.001, f64::NAN, f64::INFINITY] {
+            assert!(Parameters {
+                interval_ms,
+                ..Parameters::default()
+            }
+            .validate()
+            .is_err());
+        }
+        let parameters = Parameters {
+            generations: 4,
+            interval_ms: 1.,
+            ..Parameters::default()
+        };
+        let previous = try_compile_bounded(&parameters, 48000, 30).unwrap();
+        let shorter = try_compile_bounded(
+            &Parameters {
+                interval_ms: 0.05,
+                ..parameters
+            },
+            48000,
+            30,
+        )
+        .unwrap();
+        assert_eq!(shorter.effective_parameters.interval_ms, 0.05);
+        assert_eq!(shorter.topology.nodes.len(), previous.topology.nodes.len());
+        for (node, reference) in shorter.topology.nodes.iter().zip(&previous.topology.nodes) {
+            assert_eq!(node.key, reference.key);
+            assert_eq!(node.parent, reference.parent);
+            assert_eq!(node.x, reference.x);
+            assert_eq!(node.y, reference.y);
+            assert_eq!(node.rate, reference.rate);
+            assert_eq!(node.gain, reference.gain);
+            assert_eq!(node.pan, reference.pan);
+            assert!((node.delay - reference.delay * 0.05).abs() < 1e-12);
+        }
+    }
+
+    #[test]
+    fn sub_millisecond_compiled_unison_taps_use_fractional_reads_and_sample_rate_floor() {
+        fn render(sample_rate: u32, interval_ms: f64) -> Vec<[f32; 2]> {
+            let parameters = Parameters {
+                generations: 1,
+                interval_ms,
+                time_ratio: 1.,
+                pitch_scale: 0.,
+                spread: 0.,
+                ..Parameters::default()
+            };
+            let topology = try_compile_bounded(&parameters, sample_rate, 1)
+                .unwrap()
+                .topology;
+            assert_eq!(topology.targets.len(), 1);
+            assert_eq!(topology.targets[0].rate, 1.);
+            assert!((topology.targets[0].delay - interval_ms / 1000.).abs() < 1e-12);
+            let keys: Vec<_> = topology.nodes.iter().map(|node| node.key.clone()).collect();
+            let mut engine = l_system_delay_core::Engine::new(sample_rate, 4., 1, 1).unwrap();
+            engine.install_pool(&keys).unwrap();
+            engine.update_pool_ranked(&topology.targets, &topology.ranks, &topology.groups, 1);
+            (0..500)
+                .map(|frame| engine.process_frame([if frame == 400 { 0.5 } else { 0. }; 2]))
+                .collect()
+        }
+
+        for (sample_rate, interval_ms, first, nonzero_samples) in [
+            (48000, 0.05, 402, 2),
+            (48000, 0.075, 403, 2),
+            (48000, 0.125, 406, 1),
+            (48000, 1., 448, 1),
+            (8000, 0.05, 401, 1),
+        ] {
+            let output = render(sample_rate, interval_ms);
+            assert!(output
+                .iter()
+                .flatten()
+                .all(|sample| sample.is_finite() && sample.abs() < 1.));
+            let audible: Vec<_> = output
+                .iter()
+                .enumerate()
+                .filter_map(|(index, frame)| (frame[0] != 0.).then_some(index))
+                .collect();
+            assert_eq!(audible[0], first, "{sample_rate} Hz / {interval_ms} ms");
+            assert_eq!(audible.len(), nonzero_samples, "fractional history read");
+            assert!(output.iter().all(|frame| frame[0] == frame[1]));
+        }
+    }
 
     #[test]
     fn bounded_compilation_precedes_every_classic_exponential_expansion() {
