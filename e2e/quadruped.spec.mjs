@@ -275,6 +275,9 @@ test.describe("Quadruped", () => {
       const offscreenStep = await page.locator("#stageStep").textContent();
       await expect.poll(async () => page.locator("#stageStep").textContent(), { timeout: 5_000 }).not.toBe(offscreenStep);
 
+      await expect(page.locator("#suspensionControl")).toBeHidden();
+      await page.locator("#behaviorSelect").selectOption("walk-leap");
+      await expect(page.locator("#suspensionControl")).toHaveClass(/mz-range-knob/);
       for (const selector of ["#audioButton", "#playButton", "#restartButton", "#tempo", "[data-pace-ratio='3']", "#suspensionBeats", "#terrain", "#groundProfile", "#resetButton"]) {
         const control = page.locator(selector);
         await control.scrollIntoViewIfNeeded();

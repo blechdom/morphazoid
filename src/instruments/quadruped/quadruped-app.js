@@ -48,6 +48,7 @@ import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quad
 import { unlockAudioContext } from "../../audio.js";
 import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, sanitizeQuadrupedWorld } from "./quadruped-world.js";
 
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { QUADRUPED_FULL_PRESETS, captureQuadrupedPreset, normalizeQuadrupedPreset, randomizeQuadrupedPreset } from "./quadruped-presets.js";
 
@@ -68,6 +69,7 @@ const lanePan = Object.freeze({
   "rear-right": 0.3,
 });
 let presetController = null;
+let suspensionKnob = null;
 let state = createQuadrupedState("elephant");
 let selectedStep = 0;
 let transportPlaying = false;
@@ -1994,8 +1996,12 @@ function syncAllControls({ grid = true } = {}) {
   $("tempo").value = String(state.tempoBpm);
   document.querySelectorAll("[data-pace-ratio]").forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset.paceRatio) === state.paceRatio)));
   $("suspensionBeats").value = String(state.suspensionBeats);
-  $("suspensionBeats").disabled = !quadrupedScoreTiming(state).window;
-  setOutput($("suspensionOut"), `${state.suspensionBeats} extra beats`);
+  const supportsRest = Boolean(quadrupedScoreTiming(state).window);
+  $("suspensionBeats").disabled = !supportsRest;
+  $("suspensionControl").hidden = !supportsRest;
+  $("suspensionBeats").setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
+  setOutput($("suspensionOut"), `Rest · ${state.suspensionBeats}b`);
+  suspensionKnob?.update();
   setOutput($("phraseLength"), `${Number(quadrupedScoreTiming(state).beats.toFixed(2))} beats / loop`);
   $("stride").value = String(state.stride);
   $("momentum").value = String(state.momentum);
@@ -3446,6 +3452,7 @@ async function teardown() {
   animationFrame = 0;
   stopAudioScheduler();
   presetController?.destroy();
+  suspensionKnob?.destroy();
   resizeObserver?.disconnect();
   intersectionObserver?.disconnect();
   for (const timer of uiTimers) globalThis.clearTimeout(timer);
@@ -3468,6 +3475,7 @@ for (const [id, skins] of [["soundSkinSelect", QUADRUPED_SOUND_SKINS], ["visualS
 }
 buildBehaviorOptions();
 buildSequenceGrid();
+suspensionKnob = enhanceRangeKnob($("suspensionBeats"));
 bindControls();
 syncAllControls();
 setAudioPresentation("off");

@@ -128,19 +128,6 @@
         </section>
 
         <aside class="quadruped-console" data-instrument-preset-host aria-label="Quadruped performance controls">
-          <div class="quadruped-ensemble">
-            <div role="group" aria-label="Animal group">
-              <button type="button" data-group-mode="solo" aria-pressed="true">Solo</button>
-              <button type="button" data-group-mode="herd" aria-pressed="false">Herd</button>
-              <button type="button" data-group-mode="trio" aria-pressed="false">Trio</button>
-            </div>
-            <div role="group" aria-label="Animal score to edit">
-              <button type="button" data-actor-index="0" aria-pressed="true" aria-label="Edit animal 1: Elephant">1</button>
-              <button type="button" data-actor-index="1" aria-pressed="false" hidden aria-label="Edit animal 2">2</button>
-              <button type="button" data-actor-index="2" aria-pressed="false" hidden aria-label="Edit animal 3">3</button>
-            </div>
-            <button type="button" id="scatterButton" disabled title="Vary the spacing of the three animals">Scatter</button>
-          </div>
           <section class="quadruped-transport-card" aria-label="Transport and body audition">
             <button id="playButton" class="quadruped-play" type="button" aria-pressed="false" data-primary-transport>
               <span class="quadruped-play-glyph" aria-hidden="true"></span>
@@ -155,17 +142,32 @@
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
               <input id="tempo" name="tempo" type="range" min="25" max="500" step="1" value="96" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests" />
             </label>
-            <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
-              <button type="button" data-pace-ratio="0.5" aria-pressed="false">½×</button>
-              <button type="button" data-pace-ratio="1" aria-pressed="true">1×</button>
-              <button type="button" data-pace-ratio="2" aria-pressed="false">2×</button>
-              <button type="button" data-pace-ratio="3" aria-pressed="false">3×</button>
-              <output id="phraseLength">1 beat / loop</output>
+            <div class="quadruped-performance-row">
+              <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
+                <button type="button" data-pace-ratio="0.5" aria-pressed="false">½×</button>
+                <button type="button" data-pace-ratio="1" aria-pressed="true">1×</button>
+                <button type="button" data-pace-ratio="2" aria-pressed="false">2×</button>
+                <button type="button" data-pace-ratio="3" aria-pressed="false">3×</button>
+              </div>
+              <div class="quadruped-group-mode" role="group" aria-label="Animal group">
+                <button type="button" data-group-mode="solo" aria-pressed="true">Solo</button>
+                <button type="button" data-group-mode="herd" aria-pressed="false">Herd</button>
+                <button type="button" data-group-mode="trio" aria-pressed="false">Trio</button>
+              </div>
+              <label id="suspensionControl" class="quadruped-suspension" for="suspensionBeats" hidden title="Air / slide rest — extra beats before landing or standing">
+              <span><b>Air / slide rest</b><output id="suspensionOut" for="suspensionBeats">Rest · 2b</output></span>
+              <input id="suspensionBeats" type="range" aria-label="Air / slide rest" aria-valuetext="2 extra beats" min="0" max="8" step="0.5" value="2" disabled title="Extra beats before landing or standing; active on leaps, rolls and skids" />
+              </label>
+              <div class="quadruped-ensemble">
+                <div role="group" aria-label="Animal score to edit">
+                  <button type="button" data-actor-index="0" aria-pressed="true" aria-label="Edit animal 1: Elephant">1</button>
+                  <button type="button" data-actor-index="1" aria-pressed="false" hidden aria-label="Edit animal 2">2</button>
+                  <button type="button" data-actor-index="2" aria-pressed="false" hidden aria-label="Edit animal 3">3</button>
+                </div>
+                <button type="button" id="scatterButton" disabled title="Vary the spacing of the three animals">Scatter</button>
+              </div>
+              <output id="phraseLength" class="sr-only">1 beat / loop</output>
             </div>
-            <label class="quadruped-tempo quadruped-suspension" for="suspensionBeats">
-              <span><b>Air / slide rest</b><output id="suspensionOut" for="suspensionBeats">2 extra beats</output></span>
-              <input id="suspensionBeats" type="range" min="0" max="8" step="0.5" value="2" disabled title="Extra beats before landing or standing; active on leaps, rolls and skids" />
-            </label>
           </section>
 
           <section class="quadruped-choice-card" aria-label="Animal and gait">

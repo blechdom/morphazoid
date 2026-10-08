@@ -42,8 +42,9 @@ third-party visual assets are included.
 The control rail follows Shape and Roach Synth: flat dark surfaces, compact
 native menus, one graphic title, and full presets → Next → Random at the top.
 Animal and gait remain independent menus. Playing notes hold the instructions;
-the graphic keeps the animal and its contact feedback. Solo/Herd/Trio and the
-numbered animal editor buttons share a row directly below presets. Redundant
+the graphic keeps the animal and its contact feedback. Solo/Herd/Trio share the
+pace row, with the numbered animal editor buttons alongside or wrapped on narrow
+screens. Air / slide rest uses an inline knob only on compatible gaits. Redundant
 four-foot audition boxes are removed; the score and keyboard 1–4 still edit feet.
 
 Fifteen complete scenes recall animal scores, foot/call patterns, gait, tempo,
