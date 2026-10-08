@@ -563,16 +563,29 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       capacityController.reset();
       // An eligibility fallback belongs to the live gesture that initiated it.
       // Preserve its revision so a rejected compile can restore the last ACK.
+      const previousFoldLive = requestedFoldLive;
       if (!body?.liveTimeFold) ++foldRevision;
       requestedFold = next.intervalMs; requestedFoldLive = Boolean(body?.liveTimeFold); requestedParameters = next;
+      const ownedFoldRevision = foldRevision;
       const revision = ++parameterRequestRevision;
       parameterRequestsPending++;
-      ++depthRevision; requestedDepth = next.depth;
+      const ownedDepthRevision = ++depthRevision; requestedDepth = next.depth;
       const pending = compileChain.catch(() => {}).then(async () => {
         if (revision !== parameterRequestRevision) return snapshot();
         const compiled = await compile(next, context?.sampleRate || 48000, true); assertOpen();
         if (revision !== parameterRequestRevision) return snapshot();
         await install(compiled); failure = null; return refresh();
+      }).catch(error => {
+        if (revision === parameterRequestRevision) {
+          // A failed full scene must not seed a later history-boundary fold.
+          // Live coefficients newer than this request retain their own intent.
+          if (foldRevision === ownedFoldRevision) {
+            requestedFold = parameters.intervalMs; requestedFoldLive = previousFoldLive;
+          }
+          if (depthRevision === ownedDepthRevision) requestedDepth = parameters.depth;
+          requestedParameters = { ...parameters, intervalMs: requestedFold, depth: requestedDepth };
+        }
+        throw error;
       }).finally(() => { parameterRequestsPending--; });
       compileChain = pending; return pending;
     }

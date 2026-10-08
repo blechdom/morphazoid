@@ -71,7 +71,8 @@ function fixture({ depth = .72 } = {}) {
       compileRequests.push(structuredClone(data));
       const voiceBudget = data.voiceBudget ?? calibration.voices;
       if (voiceBudget > f.rejectAbove) {
-        queueMicrotask(() => this.onmessage?.({ data: { id: data.id, error: 'QA rejected optional prepared pool' } }));
+        const reply = () => this.onmessage?.({ data: { id: data.id, error: 'QA rejected optional prepared pool' } });
+        if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
         return;
       }
       const requestedVoices = 2 ** (data.parameters.generations + 1) - 2;
@@ -385,6 +386,72 @@ test('rejected live history fallback restores acknowledged timing and permits im
     assert.equal(f.compileRequests.length, 2, 'recovery uses the retained eligible pool without another compile');
     assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined);
     assert.equal(recovered.audio, true);
+  } finally { f.cleanup(); }
+});
+
+test('a rejected complete scene cannot become the structure or controls of a later live fold fallback', async () => {
+  const f = fixture();
+  try {
+    f.delayCoefficient = index => (index === 0 ? 38 : 80) / 240;
+    await f.start(); const before = f.engine.getDiagnostics();
+    f.rejectAbove = 0;
+    await assert.rejects(f.engine.request('/api/parameters', { ...before.parameters,
+      lSystemType: 'fern', angle: 79, generations: 7, intervalMs: 120, depth: .37 }), /QA rejected optional prepared pool/);
+    assert.deepEqual(f.engine.getDiagnostics().parameters, before.parameters);
+    f.rejectAbove = Infinity;
+    const recovered = await f.engine.request('/api/time-fold', { intervalMs: 300 });
+    assert.deepEqual(f.compileRequests.at(-1).parameters, { ...before.parameters, intervalMs: 300 },
+      'history fallback uses the acknowledged structure and controls after rejected preset recall');
+    assert.deepEqual(recovered.parameters, { ...before.parameters, intervalMs: 300 });
+    assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined); assert.equal(recovered.audio, true);
+  } finally { f.cleanup(); }
+});
+
+for (const held of ['time-fold', 'depth']) {
+  test(`rejected structural preparation restores its structure while preserving a newer pending ${held}`, async () => {
+    const f = fixture();
+    try {
+      f.delayCoefficient = index => (index === 0 ? 38 : 80) / 240;
+      await f.start(); const before = f.engine.getDiagnostics();
+      f.rejectAbove = 0; f.holdCompile = true;
+      const preparing = f.engine.request('/api/parameters', { ...before.parameters, angle: 79, intervalMs: 120, depth: .37 });
+      const rejected = assert.rejects(preparing, /QA rejected optional prepared pool/);
+      await until(() => f.compileReplies.length === 1);
+      f.heldControlType = held;
+      const folding = f.engine.request('/api/time-fold', { intervalMs: 200 });
+      if (held === 'time-fold') await until(() => f.controlReplies.length === 1); else await folding;
+      const deepening = f.engine.request('/api/depth', { depth: .9 });
+      if (held === 'depth') await until(() => f.controlReplies.length === 1); else await deepening;
+      f.holdCompile = false; f.compileReplies.shift()(); await rejected;
+      f.heldControlType = null; f.controlReplies.shift()(); await Promise.all([folding, deepening]);
+      f.rejectAbove = Infinity;
+      const recovered = await f.engine.request('/api/time-fold', { intervalMs: 300 });
+      assert.deepEqual(f.compileRequests.at(-1).parameters, { ...before.parameters, intervalMs: 300, depth: .9 });
+      assert.equal(recovered.parameters.angle, before.parameters.angle);
+      assert.equal(recovered.parameters.depth, .9); assert.equal(recovered.parameters.intervalMs, 300);
+      assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined);
+    } finally { f.cleanup(); }
+  });
+}
+
+test('a superseded rejected scene cannot erase the newer complete scene desired by a live fold fallback', async () => {
+  const f = fixture();
+  try {
+    f.delayCoefficient = index => (index === 0 ? 38 : 80) / 240;
+    await f.start(); const before = f.engine.getDiagnostics();
+    f.rejectAbove = 0; f.holdCompile = true;
+    const older = f.engine.request('/api/parameters', { ...before.parameters, angle: 79 });
+    const rejected = assert.rejects(older, /QA rejected optional prepared pool/);
+    await until(() => f.compileReplies.length === 1);
+    const desired = { ...before.parameters, angle: 23, depth: .83 };
+    const newer = f.engine.request('/api/parameters', desired);
+    f.rejectAbove = Infinity; f.compileReplies.shift()(); await rejected;
+    await until(() => f.compileReplies.length === 1);
+    const folding = f.engine.request('/api/time-fold', { intervalMs: 300 });
+    await tick(); f.holdCompile = false; f.compileReplies.shift()();
+    await Promise.all([newer, folding]);
+    assert.deepEqual(f.compileRequests.at(-1).parameters, { ...desired, intervalMs: 300 });
+    assert.deepEqual(f.engine.getDiagnostics().parameters, { ...desired, intervalMs: 300 });
   } finally { f.cleanup(); }
 });
 
