@@ -42,6 +42,7 @@ import {
 } from "./quadruped-motor.js";
 import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
 import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin } from "./quadruped-visual-skins.js";
+import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
@@ -3009,8 +3010,11 @@ function drawScene(now) {
   const motorSnapshot = transportPlaying
     ? materializeMotor(now)
     : quadrupedMotorSnapshot(state, motor);
-  const position = transportPlaying ? motorSnapshot.position : selectedStep + 0.0001;
-  const pose = deriveQuadrupedPose(state, position, transportPlaying ? motorSnapshot : null);
+  const previewingStep = !transportPlaying && selectedStep !== motorSnapshot.frame;
+  const position = previewingStep
+    ? Math.floor(motorSnapshot.position / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT + selectedStep + 0.0001
+    : motorSnapshot.position;
+  const pose = deriveQuadrupedPose(state, position, previewingStep ? null : motorSnapshot);
   const animal = quadrupedAnimal(state.animalId);
   canvas.dataset.frame = String(pose.step);
   canvas.dataset.framePhase = pose.phase.toFixed(4);
@@ -3025,29 +3029,6 @@ function drawScene(now) {
   canvas.dataset.soundSkin = soundSkinId;
   stageWrap.dataset.visualSkin = visualSkinId;
   const paperSkin = visualSkinId === "motion-card";
-  const darkSkin = visualSkinId === "constellation" || visualSkinId === "skeleton";
-  const groundColor = paperSkin ? "#cabea2" : darkSkin ? "#101821" : null;
-  const gradient = drawing.createLinearGradient(0, 0, width, height);
-  gradient.addColorStop(0, paperSkin ? "#eee4cd" : darkSkin ? "#070b12" : "#07110f");
-  gradient.addColorStop(0.6, paperSkin ? "#ddd0b3" : darkSkin ? "#0c1420" : state.animalId === "unicorn" ? "#181128" : ["gazelle", "cheetah", "giraffe"].includes(state.animalId) ? "#20170d" : state.animalId === "lizard" ? "#102117" : "#172019");
-  gradient.addColorStop(1, paperSkin ? "#e9ddc1" : darkSkin ? "#04070d" : "#050a09");
-  drawing.fillStyle = gradient;
-  drawing.fillRect(0, 0, width, height);
-
-  drawing.save();
-  drawing.globalAlpha = state.animalId === "unicorn" ? 0.32 : state.animalId === "cheetah" ? 0.24 : 0.16;
-  drawing.fillStyle = animal.palette[2];
-  const moteCount = paperSkin ? 0 : compactMedia?.matches ? 18 : 34;
-  for (let index = 0; index < moteCount; index += 1) {
-    const x = mod(index * 97.31 + now * (state.animalId === "gazelle" ? 0.018 : 0.006), width);
-    const y = mod(index * 53.17 + Math.sin(index * 2.3) * 40, height * 0.56);
-    const radius = 0.7 + (index % 4) * 0.45;
-    drawing.beginPath();
-    drawing.arc(x, y, radius, 0, Math.PI * 2);
-    drawing.fill();
-  }
-  drawing.restore();
-
   // Tall-necked bodies keep their limb scale and gain headroom by lowering the
   // camera-followed support plane, not by shortening their anatomy.
   const groundY = height * (["giraffe", "camel"].includes(state.animalId) ? 0.81 : 0.74);
@@ -3061,131 +3042,74 @@ function drawScene(now) {
     const worldY = quadrupedGroundHeightAtWorldX(state.groundProfileId, worldX);
     return groundY - (worldY - pose.bodyGroundHeight) * worldScale;
   };
-  const traceGroundTop = () => {
-    drawing.beginPath();
-    for (let screenX = 0; screenX <= width; screenX += 2) {
-      const screenY = screenGroundYAtX(screenX);
-      if (screenX === 0) drawing.moveTo(screenX, screenY);
-      else drawing.lineTo(screenX, screenY);
-    }
-  };
-  const traceGroundFill = () => {
-    drawing.beginPath();
-    drawing.moveTo(0, height);
-    drawing.lineTo(0, screenGroundYAtX(0));
-    for (let screenX = 2; screenX <= width; screenX += 2) drawing.lineTo(screenX, screenGroundYAtX(screenX));
-    drawing.lineTo(width, height);
-    drawing.closePath();
-  };
-  drawing.save();
-  traceGroundFill();
-  drawing.fillStyle = groundColor ?? surface.color;
-  drawing.globalAlpha = 0.78;
-  drawing.fill();
-  traceGroundFill();
-  drawing.clip();
-  drawing.globalAlpha = 0.34 + surface.brightness * 0.24;
-  drawing.strokeStyle = surface.id === "metal" ? "#d5ffff" : surface.id === "crystal" ? "#fff4ff" : "rgba(14, 19, 16, 0.9)";
-  drawing.fillStyle = "rgba(255, 255, 255, 0.36)";
-  const textureSpacing = Math.max(18, stageAnimalScale * 0.24);
-  const textureOffset = -mod(bodyWorldX * worldScale, textureSpacing);
-  for (let index = -1; index <= Math.ceil(width / textureSpacing) + 1; index += 1) {
-    const x = textureOffset + index * textureSpacing;
-    const localGroundY = screenGroundYAtX(x);
-    if (surface.id === "wood") {
-      drawing.beginPath();
-      drawing.moveTo(x, localGroundY);
-      drawing.lineTo(x + textureSpacing * 0.18, height);
-      drawing.stroke();
-    } else if (surface.id === "metal" || surface.id === "stone") {
-      drawing.strokeRect(x + 2, localGroundY + 8, textureSpacing - 4, Math.max(12, height - localGroundY - 24));
-    } else if (surface.id === "crystal") {
-      drawing.beginPath();
-      drawing.moveTo(x, localGroundY + 18);
-      drawing.lineTo(x + textureSpacing * 0.45, localGroundY + 5);
-      drawing.lineTo(x + textureSpacing * 0.78, localGroundY + 24);
-      drawing.stroke();
-    } else if (surface.id === "water") {
-      drawing.beginPath();
-      drawing.arc(x, localGroundY + 13 + (index % 3) * 7, textureSpacing * 0.3, 0, Math.PI);
-      drawing.stroke();
-    } else if (surface.id === "snow") {
-      drawing.beginPath();
-      drawing.arc(x, localGroundY + 10 + (index % 4) * 6, 2 + (index % 3), 0, Math.PI * 2);
-      drawing.fill();
-    } else {
-      drawing.beginPath();
-      drawing.ellipse(x, localGroundY + 14 + (index % 3) * 8, 2 + (index % 4), 1.5, 0, 0, Math.PI * 2);
-      drawing.fill();
-    }
-  }
-  drawing.restore();
-  drawing.save();
-  drawing.globalAlpha = 0.72;
-  drawing.strokeStyle = surface.id === "snow" ? "#ffffff" : surface.id === "water" ? "#a8edff" : "rgba(4, 13, 11, 0.82)";
-  drawing.lineWidth = Math.max(1.5, stageAnimalScale * 0.012);
-  traceGroundTop();
-  drawing.stroke();
-  drawing.restore();
   lastFootprintHits = [];
-  const newestOrdinal = Math.floor(position + 0.0001);
-  const oldestOrdinal = newestOrdinal - QUADRUPED_STEP_COUNT * 3;
-  if (groupMode === "solo") for (let ordinal = oldestOrdinal; ordinal <= newestOrdinal; ordinal += 1) {
-    const event = quadrupedSequenceEvent(state, ordinal);
-    for (const contact of event.contacts) {
-      const cycle = quadrupedFootCycleState(state, contact.id, ordinal);
-      const x = groundCenterX + (cycle.anchorWorldX - bodyWorldX) * worldScale;
-      if (x < -24 || x > width + 24) continue;
-      const age = Math.max(0, position - ordinal);
-      const opacity = clamp(1 - age / (QUADRUPED_STEP_COUNT * 3), 0.05, 0.72);
-      const lane = laneById.get(contact.id);
-      const footprintY = groundY - ((cycle.anchorWorldY ?? 0) - pose.bodyGroundHeight) * worldScale
-        + stageAnimalScale * (contact.id.endsWith("left") ? 0.035 : 0.075);
+  if (groupMode === "solo") {
+    // The stopped score may preview a selected card. Scenery keeps the actual
+    // travelled distance so pausing never wraps the world back to one cycle.
+    drawQuadrupedEnvironment(drawing, {
+      skinId: visualSkinId, width, height, groundY, groundAt: screenGroundYAtX,
+      worldX: motorSnapshot.position / QUADRUPED_STEP_COUNT * state.stride,
+      worldScale, animal, surface, compact: Boolean(compactMedia?.matches),
+    });
+    const newestOrdinal = Math.floor(position + 0.0001);
+    const oldestOrdinal = newestOrdinal - QUADRUPED_STEP_COUNT * 3;
+    for (let ordinal = oldestOrdinal; ordinal <= newestOrdinal; ordinal += 1) {
+      const event = quadrupedSequenceEvent(state, ordinal);
+      for (const contact of event.contacts) {
+        const cycle = quadrupedFootCycleState(state, contact.id, ordinal);
+        const x = groundCenterX + (cycle.anchorWorldX - bodyWorldX) * worldScale;
+        if (x < -24 || x > width + 24) continue;
+        const age = Math.max(0, position - ordinal);
+        const opacity = clamp(1 - age / (QUADRUPED_STEP_COUNT * 3), 0.05, 0.72);
+        const lane = laneById.get(contact.id);
+        const footprintY = groundY - ((cycle.anchorWorldY ?? 0) - pose.bodyGroundHeight) * worldScale
+          + stageAnimalScale * (contact.id.endsWith("left") ? 0.035 : 0.075);
+        drawing.save();
+        drawing.translate(x, footprintY);
+        drawing.globalAlpha = opacity * (0.45 + contact.intensity * 0.55);
+        drawing.fillStyle = lane.color;
+        drawing.strokeStyle = "rgba(4, 13, 11, 0.92)";
+        drawing.lineWidth = Math.max(1, stageAnimalScale * 0.012);
+        drawing.beginPath();
+        drawing.ellipse(0, 0, stageAnimalScale * (contact.id.startsWith("front") ? 0.095 : 0.11), stageAnimalScale * 0.036, -0.08, 0, Math.PI * 2);
+        drawing.fill();
+        drawing.stroke();
+        if (age < 0.22) {
+          drawing.globalAlpha = 1;
+          drawing.fillStyle = "#f4fff9";
+          drawing.font = `700 ${Math.max(9, height * 0.02)}px ui-monospace, monospace`;
+          drawing.textAlign = "center";
+          drawing.fillText(lane.shortLabel, 0, -stageAnimalScale * 0.13);
+        }
+        drawing.restore();
+        lastFootprintHits.push({ x: x - 18, y: footprintY - 18, width: 36, height: 36, step: event.step, laneId: contact.id });
+      }
+    }
+    drawing.save();
+    drawing.strokeStyle = "rgba(255, 255, 255, 0.45)";
+    drawing.lineWidth = 1;
+    drawing.setLineDash([3, 5]);
+    drawing.beginPath();
+    drawing.moveTo(groundCenterX, groundY - height * 0.045);
+    drawing.lineTo(groundCenterX, groundY + height * 0.055);
+    drawing.stroke();
+    drawing.restore();
+    if (pose.skidLean > 0.01) {
       drawing.save();
-      drawing.translate(x, footprintY);
-      drawing.globalAlpha = opacity * (0.45 + contact.intensity * 0.55);
-      drawing.fillStyle = lane.color;
-      drawing.strokeStyle = "rgba(4, 13, 11, 0.92)";
+      drawing.strokeStyle = surface.id === "water" ? "#a8edff" : animal.palette[2];
+      drawing.globalAlpha = 0.18 + pose.skidLean * 2.4;
       drawing.lineWidth = Math.max(1, stageAnimalScale * 0.012);
-      drawing.beginPath();
-      drawing.ellipse(0, 0, stageAnimalScale * (contact.id.startsWith("front") ? 0.095 : 0.11), stageAnimalScale * 0.036, -0.08, 0, Math.PI * 2);
-      drawing.fill();
-      drawing.stroke();
-      if (age < 0.22) {
-        drawing.globalAlpha = 1;
-        drawing.fillStyle = "#f4fff9";
-        drawing.font = `700 ${Math.max(9, height * 0.02)}px ui-monospace, monospace`;
-        drawing.textAlign = "center";
-        drawing.fillText(lane.shortLabel, 0, -stageAnimalScale * 0.13);
+      const skidGroundY = screenGroundYAtX(groundCenterX);
+      for (let streak = 0; streak < 7; streak += 1) {
+        const startX = groundCenterX - stageAnimalScale * (0.5 + streak * 0.13);
+        const streakY = skidGroundY - stageAnimalScale * (0.01 + (streak % 3) * 0.035);
+        drawing.beginPath();
+        drawing.moveTo(startX, streakY);
+        drawing.lineTo(startX - stageAnimalScale * (0.22 + (streak % 2) * 0.12), streakY - stageAnimalScale * 0.025);
+        drawing.stroke();
       }
       drawing.restore();
-      lastFootprintHits.push({ x: x - 18, y: footprintY - 18, width: 36, height: 36, step: event.step, laneId: contact.id });
     }
-  }
-  drawing.save();
-  drawing.strokeStyle = "rgba(255, 255, 255, 0.45)";
-  drawing.lineWidth = 1;
-  drawing.setLineDash([3, 5]);
-  drawing.beginPath();
-  drawing.moveTo(groundCenterX, groundY - height * 0.045);
-  drawing.lineTo(groundCenterX, groundY + height * 0.055);
-  drawing.stroke();
-  drawing.restore();
-  if (pose.skidLean > 0.01) {
-    drawing.save();
-    drawing.strokeStyle = surface.id === "water" ? "#a8edff" : animal.palette[2];
-    drawing.globalAlpha = 0.18 + pose.skidLean * 2.4;
-    drawing.lineWidth = Math.max(1, stageAnimalScale * 0.012);
-    const skidGroundY = screenGroundYAtX(groundCenterX);
-    for (let streak = 0; streak < 7; streak += 1) {
-      const startX = groundCenterX - stageAnimalScale * (0.5 + streak * 0.13);
-      const streakY = skidGroundY - stageAnimalScale * (0.01 + (streak % 3) * 0.035);
-      drawing.beginPath();
-      drawing.moveTo(startX, streakY);
-      drawing.lineTo(startX - stageAnimalScale * (0.22 + (streak % 2) * 0.12), streakY - stageAnimalScale * 0.025);
-      drawing.stroke();
-    }
-    drawing.restore();
   }
   const visibleActors = activeActorIndices();
   canvas.dataset.actorCount = String(visibleActors.length);
@@ -3200,8 +3124,6 @@ function drawScene(now) {
   } else {
     // Three independently travelling lanes in one field. Each local camera
     // follows its own planted anchors; changing the editor never moves a body.
-    drawing.fillStyle = gradient; drawing.fillRect(0, 0, width, height);
-    lastFootprintHits = [];
     const laneWidth = width / 3;
     visibleActors.forEach(index => {
       const actor = actors[index];
@@ -3215,10 +3137,12 @@ function drawScene(now) {
       const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actor.score.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
       drawing.save(); drawing.translate(index * laneWidth, 0);
       drawing.beginPath(); drawing.rect(0, 0, laneWidth, height); drawing.clip();
-      drawing.beginPath(); drawing.moveTo(0, height); drawing.lineTo(0, floorAt(0));
-      for (let x = 2; x <= laneWidth; x += 2) drawing.lineTo(x, floorAt(x));
-      drawing.lineTo(laneWidth, height); drawing.closePath();
-      drawing.fillStyle = groundColor ?? surface.color; drawing.fill();
+      drawQuadrupedEnvironment(drawing, {
+        skinId: visualSkinId, width: laneWidth, height, groundY: localGround,
+        groundAt: floorAt, worldX: localWorldX, worldScale: localWorldScale,
+        animal: actorAnimal, surface: quadrupedTerrain(actor.score.surfaceId),
+        compact: Boolean(compactMedia?.matches),
+      });
       for (let ordinal = Math.floor(actor.motor.position) - 24; ordinal <= actor.motor.position; ordinal += 1) {
         for (const contact of quadrupedSequenceEvent(actor.score, ordinal).contacts) {
           const foot = quadrupedFootCycleState(actor.score, contact.id, ordinal);

@@ -342,3 +342,6 @@ export function drawQuadrupedVisualSkin(context, pose, width, height, groundY, s
   renderer(context, rig); context.restore();
   return true;
 }
+
+// The world and articulated cutouts share one lazily loaded original atlas.
+export { collageImage as quadrupedCollageImage };

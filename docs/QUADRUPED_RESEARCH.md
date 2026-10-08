@@ -34,8 +34,8 @@ momentum coasts according to the selected surface, then reaches an exact stall.
 
 The live animal stays centered. Footprints and the material field move backward
 through time beneath it, so each planted foot appears fixed in world space until
-lift-off. All animal drawings are procedural; no historical photographs or
-third-party visual assets are included.
+lift-off. Animal geometry is procedural; Cutout collage textures reuse the
+project-owned Hiccup Head atlases described below.
 
 ## Interface and output
 
@@ -86,8 +86,23 @@ contours). Collage loads the existing project-owned assets only when selected;
 see `assets/hiccup-head/skins/README.md` for provenance. Skin changes preserve
 scores, clock, Audio and Play. Full presets recall both skins independently.
 
-Automated coverage: `tests/quadruped-{sound-skins,visual-skins,presets,output}.test.mjs`
-and `e2e/quadruped-{skins,presets,ensemble,output}.spec.mjs`. Visual browser review
+Each visual skin also owns its environment. Constellation uses outlined sky
+checks and a perspective ground grid, with laser structures and wireframe objects;
+its background has no stars. Skeleton uses an eerie field with tombstones,
+bones and bare trees. Cutout collage extends the existing photographic atlas
+into the sky, hills, ground and scenery with white paper edges. Original uses
+an earthy field with cacti and tumbleweeds; Motion cards draws its scenery in ink.
+
+Passing objects are decorative scenery behind the animal, with near/far layers
+following actual motor travel. Pausing or stalling freezes the world; selecting
+a stopped score card does not wrap the scenery back to the first gait cycle.
+Every ensemble lane follows its own animal. World cells have stable identities,
+so retracing the same distance reproduces the same objects. Only the visible
+neighborhood is drawn; no growing object list, independent clock, collisions or
+new sound triggers are introduced. Terrain still follows the selected course.
+
+Automated coverage: `tests/quadruped-{sound-skins,visual-skins,environment,presets,output}.test.mjs`
+and `e2e/quadruped-{skins,environment,presets,ensemble,output}.spec.mjs`. Visual browser review
 covers desktop, phone portrait and phone landscape, all five skins, reachable
 menus and the aligned group/editor row.
 
