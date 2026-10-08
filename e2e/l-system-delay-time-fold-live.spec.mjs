@@ -9,7 +9,7 @@ async function fixture(page, input) {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await page.addInitScript(({ input }) => {
     const qa = window.__foldRuntime = { contexts: [], sources: [], controls: [], statuses: [], packets: [],
-      inputs: [], draws: [], phase: 'setup', recording: false, drawViolations: 0, auditedDraws: 0, worklets: 0 };
+      inputs: [], screenInputs: [], draws: [], phase: 'setup', recording: false, drawViolations: 0, auditedDraws: 0, worklets: 0 };
     const NativeContext = AudioContext, NativeNode = AudioWorkletNode, NativeWorker = Worker;
     const controls = new Map();
     const record = (kind, data) => {
@@ -171,6 +171,11 @@ window.__foldQa = { engine: browserEngine, applyScene, slider: sliderFromTimeFol
   requested: () => structuredClone(state.parameters), gpu: () => gpuRenderer?.stats ?? null };
 $('interval').addEventListener('input', () => __foldRuntime.inputs.push({ at: performance.now(),
   phase: __foldRuntime.phase, foldMs: state.parameters.intervalMs, contextClock: __foldRuntime.contexts.at(-1)?.currentTime }));
+$('stage').addEventListener('pointermove', event => {
+  if (__foldRuntime.recording && event.buttons === 1) __foldRuntime.screenInputs.push({ at: performance.now(),
+    phase: __foldRuntime.phase, x: event.clientX, y: event.clientY,
+    foldMs: state.parameters.intervalMs, angle: state.parameters.angle });
+});
 ` });
   });
   return errors;
@@ -213,6 +218,26 @@ async function sweep(page) {
   expect((await diagnostics(page)).parameters.intervalMs).toBeCloseTo(240,6);
 }
 
+async function screenSweep(page) {
+  const canvas = page.locator('#stage');
+  await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
+  const x = box.x + box.width / 2, y = box.y + box.height / 2;
+  expect(await canvas.evaluate((node, point) => document.elementFromPoint(point.x, point.y) === node, { x, y })).toBe(true);
+  const initial = await page.evaluate(() => __foldQa.requested());
+  await page.evaluate(() => { __foldRuntime.phase = 'screen-sweep'; });
+  await page.mouse.move(x, y); await page.mouse.down();
+  try {
+    for (let step = 1; step <= 12; step++) { await page.mouse.move(x + box.width * .12 * step / 12, y); await page.waitForTimeout(16); }
+    const stretched = await page.evaluate(() => __foldQa.requested());
+    expect(stretched.intervalMs).toBeGreaterThan(initial.intervalMs * 1.5); expect(stretched.angle).toBe(initial.angle);
+    for (let step = 11; step >= 0; step--) { await page.mouse.move(x + box.width * .12 * step / 12, y); await page.waitForTimeout(16); }
+  } finally { await page.mouse.up(); }
+  await settled(page);
+  const final = await page.evaluate(() => __foldQa.requested());
+  expect(final.intervalMs).toBeCloseTo(initial.intervalMs, 6); expect(final.angle).toBe(initial.angle);
+  await page.evaluate(() => { __foldRuntime.phase = 'recovery'; });
+}
+
 function wav(raw, channels, rate) {
   const frames = raw.length/3, bytes = Buffer.alloc(44+frames*channels*2);
   bytes.write('RIFF'); bytes.writeUInt32LE(bytes.length-8,4); bytes.write('WAVEfmt ',8);
@@ -245,12 +270,12 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
   expect(initial.requestedVoices).toBeGreaterThan(initial.preparedVoices); expect(initial.status.activeVoices).toBeGreaterThan(1);
   await page.evaluate(async () => {
     const qa=__foldRuntime; await new Promise(resolve => { qa.resetAck=resolve; qa.probe.port.postMessage('reset'); });
-    qa.packets=[]; qa.statuses=[]; qa.draws=[]; qa.drawViolations=qa.auditedDraws=0; qa.firstDrawViolation=null;
+    qa.packets=[]; qa.statuses=[]; qa.draws=[]; qa.screenInputs=[]; qa.drawViolations=qa.auditedDraws=0; qa.firstDrawViolation=null;
     qa.controlStart=qa.controls.length; qa.inputStart=qa.inputs.length; qa.phase='baseline'; qa.recording=true;
     qa.start={wall:performance.now(),contextClock:qa.contexts.at(-1).currentTime};
   });
   let captured;
-  try { await page.waitForTimeout(2000); await sweep(page); await page.waitForTimeout(2000); }
+  try { await page.waitForTimeout(2000); await sweep(page); await screenSweep(page); await page.waitForTimeout(2000); }
   finally {
     captured=await page.evaluate(async () => {
       const qa=__foldRuntime;
@@ -259,7 +284,8 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
       return {start:qa.start,flush:{...flush,raw:undefined},end:{wall:performance.now(),contextClock:qa.contexts.at(-1).currentTime,
         sampleClock:__foldQa.engine.getSampleTime(),state:qa.contexts.at(-1).state},
         packets:qa.packets.map(({raw,...packet})=>packet),statuses:qa.statuses,draws:qa.draws,controls:qa.controls.slice(qa.controlStart),
-        inputs:qa.inputs.slice(qa.inputStart),auditedDraws:qa.auditedDraws,drawViolations:qa.drawViolations,firstDrawViolation:qa.firstDrawViolation,
+        inputs:qa.inputs.slice(qa.inputStart),screenInputs:qa.screenInputs,
+        auditedDraws:qa.auditedDraws,drawViolations:qa.drawViolations,firstDrawViolation:qa.firstDrawViolation,
         final:__foldQa.engine.getDiagnostics()};
     });
     // Counters cover every sample. Keep six seconds of raw, audible material
@@ -298,6 +324,8 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
   expect(finalRest).toEqual(initialRest); expect(finalFold).toBeCloseTo(initialFold,6);
   expect(captured.draws.some(row=>row.engineFold<1),'sub-ms targets must reach the audio engine').toBe(true);
   expect(captured.draws.some(row=>row.engineFold>1000),'long targets must reach the audio engine').toBe(true);
+  expect(captured.screenInputs.length).toBe(24);
+  expect(new Set(captured.screenInputs.map(row=>row.y)).size,'screen sweep remains purely horizontal').toBe(1);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(false);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(true);
   const restarted=await session(page); expect(restarted.contexts).toBe(before.contexts); expect(restarted.worklets).toBe(before.worklets);
