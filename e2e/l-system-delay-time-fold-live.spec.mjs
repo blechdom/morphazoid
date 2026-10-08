@@ -164,6 +164,8 @@ function captureFoldDraw(branches, now) {
 }
 window.__foldQa = { engine: browserEngine, applyScene, slider: sliderFromTimeFold,
   scene: () => captureScene(state.parameters, state.performance),
+  pendingFold: () => (typeof foldWorking !== 'undefined' && foldWorking) || (typeof foldDirty !== 'undefined' && foldDirty)
+    || (typeof foldTimer !== 'undefined' && foldTimer) || (typeof foldRequest !== 'undefined' && foldRequest),
   requested: () => structuredClone(state.parameters), gpu: () => gpuRenderer?.stats ?? null };
 $('interval').addEventListener('input', () => __foldRuntime.inputs.push({ at: performance.now(),
   phase: __foldRuntime.phase, foldMs: state.parameters.intervalMs, contextClock: __foldRuntime.contexts.at(-1)?.currentTime }));
@@ -180,7 +182,7 @@ async function settled(page) {
   await expect.poll(() => page.evaluate(() => {
     const d = __foldQa.engine.getDiagnostics();
     return JSON.stringify(d.parameters) === JSON.stringify(__foldQa.requested())
-      && !d.compilePending && !d.installPending && !d.capacityWorking;
+      && !__foldQa.pendingFold() && !d.compilePending && !d.installPending && !d.capacityWorking;
   }), { timeout: 15000 }).toBe(true);
 }
 async function native(page, id, value) {
@@ -258,13 +260,19 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
         inputs:qa.inputs.slice(qa.inputStart),auditedDraws:qa.auditedDraws,drawViolations:qa.drawViolations,firstDrawViolation:qa.firstDrawViolation,
         final:__foldQa.engine.getDiagnostics()};
     });
-    const raw=await page.evaluate(() => { const values=[]; for(const p of __foldRuntime.packets) for(const v of p.raw) values.push(v);
-      for(const v of __foldRuntime.flush.raw) values.push(v); return values; });
+    // Counters cover every sample. Keep six seconds of raw, audible material
+    // separately so evidence serialization does not dominate this short check.
+    const raw=await page.evaluate(() => {
+      const values=[], limit=__foldRuntime.flush.rate*6*3;
+      for(const p of __foldRuntime.packets) for(const v of p.raw) { if(values.length===limit) return values; values.push(v); }
+      for(const v of __foldRuntime.flush.raw) { if(values.length===limit) return values; values.push(v); } return values;
+    });
     for(const channels of [2,1]) {
       const path=info.outputPath(channels===2?'wet-output.wav':'source-input.wav'); await writeFile(path,wav(raw,channels,captured.flush.rate));
       await info.attach(channels===2?'wet-output':'source-input',{path,contentType:'audio/wav'});
     }
     const path=info.outputPath('time-fold-evidence.json'); await writeFile(path,JSON.stringify({input,before,initial,...captured,
+      rawWitness:{startSeconds:0,frames:raw.length/3,rate:captured.flush.rate},
       humanListening:false,physicalDeliveryChecked:false,forcedCapacity:false}));
     await info.attach('time-fold-evidence',{path,contentType:'application/json'});
   }
@@ -284,12 +292,21 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
   expect(packets.some(p=>p.inputRms>1e-5)).toBe(true); expect(packets.some(p=>p.rms>1e-5)).toBe(true);
   expect(captured.auditedDraws).toBeGreaterThan(0); expect(captured.drawViolations,JSON.stringify(captured.firstDrawViolation)).toBe(0);
   expect(captured.final.eligibleVoices).toBe(initial.eligibleVoices);
+  expect(captured.final.parameters).toEqual(initial.parameters);
+  expect(captured.draws.some(row=>row.installedFold<1),'sub-ms targets must reach installed audio/visual state').toBe(true);
+  expect(captured.draws.some(row=>row.installedFold>1000),'long targets must reach installed audio/visual state').toBe(true);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(false);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(true);
   const restarted=await session(page); expect(restarted.contexts).toBe(before.contexts); expect(restarted.worklets).toBe(before.worklets);
   await page.locator('#audioButton').click(); expect(errors).toEqual([]);
   // Desired fast path: timing-only gestures preserve the prepared tree.
-  expect(captured.controls.filter(c=>c.kind==='worker'),'Time fold must not compile topology when eligibility is unchanged').toHaveLength(0);
-  expect(captured.controls.filter(c=>c.type==='install'),'Time fold must not reinstall a same-eligibility tree').toHaveLength(0);
+  expect(captured.controls.filter(c=>c.kind==='worker').length,'Time fold must not compile topology when eligibility is unchanged').toBe(0);
+  expect(captured.controls.filter(c=>c.type==='install').length,'Time fold must not reinstall a same-eligibility tree').toBe(0);
   expect(captured.draws.at(-1).gpu?.topologyUploads).toBe(captured.draws[0].gpu?.topologyUploads);
+  for(let i=1;i<captured.draws.length;i++) {
+    const previous=captured.draws[i-1], next=captured.draws[i];
+    if(previous.coherent && next.coherent && JSON.stringify(previous.actualIds)===JSON.stringify(next.actualIds)) {
+      expect(next.gpu?.selectionUploads).toBe(previous.gpu?.selectionUploads);
+    }
+  }
 });
