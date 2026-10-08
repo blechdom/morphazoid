@@ -130,10 +130,16 @@ test('Share a sound preserves complete classic, nested lab, stochastic, fraction
   await page.goto('/l-mic-rust.html'); await ready(page); await openSettings(page);
   await expect(page.locator('#nativeSettings .header-settings-section').first()).toContainText('Share a sound');
   await expect(page.locator('#sharedSoundDetails')).toHaveAttribute('hidden', '');
-  const factory = await page.evaluate(() => __shareQa.factoryLabel());
-  expect(factory).toBeTruthy();
+  const initialName = await page.evaluate(() => __shareQa.factoryLabel() ?? 'Custom sound');
   await page.locator('#copySoundParameters').click();
-  await copied(page, await expectedPayload(page, factory));
+  await copied(page, await expectedPayload(page, initialName));
+  const factory = await page.evaluate(async () => {
+    const preset = __shareQa.presets().find(p => !p.snapshot.parameters.lab);
+    await __shareQa.applyScene(preset.snapshot, preset.id); return preset.label;
+  });
+  await ready(page);
+  expect(await page.evaluate(() => __shareQa.factoryLabel())).toBe(factory);
+  await page.locator('#copySoundParameters').click(); await copied(page, await expectedPayload(page, factory));
   await set(page, 'inputTrim', 1.17); await set(page, 'level', .83); await set(page, 'makeupDb', 7.5);
   await ready(page);
   const captures = [];
