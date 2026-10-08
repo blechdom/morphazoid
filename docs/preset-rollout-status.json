@@ -849,7 +849,7 @@
       "scope": "deferred-lab",
       "presets": 16,
       "status": "implemented-verification-pending",
-      "evidence": "Complete visual-state presets and bounded parameter randomization cover six views, five palettes, pitch/channel/velocity coloring, trails, fade, spin, radial copies, glow and light envelopes; audio, song, transport and MIDI routing stay live. Browser and unit checks recorded in docs/midiphoria.md."
+      "evidence": "Complete visual-state presets and bounded parameter randomization cover six views, five palettes, pitch/channel/velocity coloring, axis reflections, inward/outward travel, trails, fade, spin, radial copies, glow and light envelopes; audio, song, transport and MIDI routing stay live. Browser and unit checks recorded in docs/midiphoria.md."
     },
     {
       "id": "surround-field",

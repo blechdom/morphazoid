@@ -93,10 +93,10 @@ test('pads never arm Audio or replay presses made while muted', async ({ page })
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('audible pointer pads release on up, cancel, window blur and Clear', async ({ page }) => {
+test('audible pointer pads release on up, cancel, window blur and Reset', async ({ page }) => {
   test.setTimeout(45000);
   await open(page); await arm(page);
-  for (const release of ['up', 'cancel', 'blur', 'clear']) {
+  for (const release of ['up', 'cancel', 'blur', 'reset']) {
     const pad = await pressPointer(page);
     await audible(page);
     if (release === 'up') await page.mouse.up();
@@ -104,7 +104,7 @@ test('audible pointer pads release on up, cancel, window blur and Clear', async 
       bubbles: true, pointerId: Number(node.dataset.testPointerId), pointerType: 'mouse',
     })));
     if (release === 'blur') await page.evaluate(() => window.dispatchEvent(new Event('blur')));
-    if (release === 'clear') await page.locator('#clearButton').evaluate(node => node.click());
+    if (release === 'reset') await page.locator('#resetButton').evaluate(node => node.click());
     await expect(pad).toHaveAttribute('aria-pressed', 'false');
     await silent(page);
     if (release !== 'up') await page.mouse.up();

@@ -168,6 +168,20 @@ test('preset tour and dice preserve the playing song, Audio, loop, speed and out
   const edited = (await capture(page)).snapshot.render;
   expect(edited.colorSource).toBe('channel'); expect(edited.fadeCurve).toBe(2.5);
   expect(edited.spin).toBe(-1.25); expect(edited.symmetry).toBe(7);
+  for (const reflection of ['none', 'vertical', 'horizontal', 'both', 'diagonal', 'anti-diagonal', 'diagonals', 'all']) {
+    await page.locator('#reflection').selectOption(reflection);
+    expect((await capture(page)).snapshot.render.reflection).toBe(reflection);
+    await assertContinuous();
+  }
+  for (const flow of ['classic', 'outward', 'inward']) {
+    await page.locator('#flow').selectOption(flow);
+    expect((await capture(page)).snapshot.render.flow).toBe(flow);
+    await assertContinuous();
+  }
+  await page.locator('#viewMode').selectOption('mask');
+  await expect(page.locator('#reflection')).toBeDisabled(); await expect(page.locator('#flow')).toBeDisabled();
+  await page.locator('#viewMode').selectOption('radial');
+  await expect(page.locator('#reflection')).toBeEnabled(); await expect(page.locator('#flow')).toBeEnabled();
   await expect(page.locator('#spinOut')).toHaveText('-1.25 rpm');
   await assertContinuous();
   const signal = await sampleAudioEnvelope(page, { durationMs: 500, intervalMs: 40 });

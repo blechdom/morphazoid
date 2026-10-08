@@ -190,7 +190,7 @@ test('collection filtering preserves playback and local imports remain reachable
   await expect(page.locator('#songSelect option')).toHaveCount(16);
 });
 
-test('black MIDI peak passages at 4× stay audible and controllable with maximum radial copies', async ({ page }) => {
+test('black MIDI peak passages at 4× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {
   test.setTimeout(60000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page); await arm(page);
@@ -200,6 +200,8 @@ test('black MIDI peak passages at 4× stay audible and controllable with maximum
   expect(dense).toHaveLength(3);
   await page.locator('#viewMode').selectOption('radial');
   await range(page, 'symmetry', 8); await range(page, 'outputLevel', 1);
+  await page.locator('#reflection').selectOption('all');
+  await page.locator('#flow').selectOption('inward');
   await range(page, 'playbackRate', 4);
   await expect(page.locator('#playbackRateOut')).toHaveText('4.00×');
   for (const song of dense) {

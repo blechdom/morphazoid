@@ -20,7 +20,7 @@ async function pixel(page) {
   return page.locator('#visualCanvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(10, 10, 1, 1).data).slice(0, 3));
 }
 
-test('pads and demo work before MIDI permission, and Reset preserves the connection', async ({ page }) => {
+test('pads work before MIDI permission, and Reset in About preserves the connection', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
   expect((await fakeMidiSnapshot(page)).requests).toHaveLength(0);
@@ -32,13 +32,10 @@ test('pads and demo work before MIDI permission, and Reset preserves the connect
   await page.keyboard.up('Enter');
   await expect(page.locator('#levelReadout')).toHaveText('0% light');
   await expect.poll(() => pixel(page)).toEqual([0, 0, 0]);
-  await page.locator('#demoButton').click();
-  await expect(page.locator('#demoButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => (await page.locator('#levelReadout').textContent()) !== '0% light').toBe(true);
   await connect(page);
+  await page.locator('#aboutSetup > summary').click();
   await page.locator('#resetButton').click();
   await expect(page.locator('#sharedMidiToggle')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#demoButton')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#viewMode')).toHaveValue('trails');
   expect((await fakeMidiSnapshot(page)).requests).toHaveLength(1);
   expect(errors).toEqual([]);
@@ -128,7 +125,6 @@ test('unsupported Web MIDI still supports pads, computer keys and recovery', asy
   await page.keyboard.up('q');
   await page.locator('[data-note="48"]').evaluate(node => node.click());
   await expect.poll(async () => parseInt(await page.locator('#levelReadout').textContent())).toBeGreaterThan(10);
-  await page.locator('#clearButton').click();
   await expect(page.locator('#levelReadout')).toHaveText('0% light');
 });
 
@@ -136,10 +132,28 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
   test(`${name} layout has reachable controls, usable pads, and accessible markup`, async ({ page }, testInfo) => {
     await page.setViewportSize({ width, height }); await open(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await expect(page.locator('#demoButton, #clearButton, .midiphoria-silent')).toHaveCount(0);
+    await expect(page.locator('.midiphoria-player h2')).toHaveCount(0);
+    const geometry = await page.evaluate(() => {
+      const read = selector => {
+        const node = document.querySelector(selector), bounds = node.getBoundingClientRect(), style = getComputedStyle(node);
+        return { top: bounds.top, bottom: bounds.bottom, width: bounds.width, height: bounds.height,
+          border: style.borderTopWidth, radius: style.borderRadius, background: style.backgroundColor };
+      };
+      return { play: read('#playButton'), speed: read('#playbackRate'), songs: read('#collectionSelect'),
+        presets: ['.instrument-preset-controls', '.header-preset-picker > summary', '.header-preset-next', '.header-preset-random'].map(read) };
+    });
+    expect(geometry.play.width).toBe(geometry.play.height);
+    expect(geometry.play.radius).toBe('50%');
+    expect(geometry.play.bottom).toBeLessThan(geometry.songs.top);
+    expect(geometry.speed.top).toBeLessThan(geometry.play.bottom + 4);
+    expect(geometry.speed.bottom).toBeGreaterThan(geometry.play.top);
+    for (const control of geometry.presets) { expect(control.border).toBe('0px'); expect(control.background).toBe('rgba(0, 0, 0, 0)'); }
+
     await page.mouse.move(width - 25, height - 60);
     await page.mouse.wheel(0, 550);
     await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
-    for (const id of ['demoButton', 'resetButton', 'release', 'padVelocity']) {
+    for (const id of ['reflection', 'flow', 'release', 'padVelocity']) {
       await page.locator(`#${id}`).scrollIntoViewIfNeeded();
       await expect(page.locator(`#${id}`)).toBeInViewport();
     }
@@ -151,9 +165,10 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
     await expect(page.locator('#noteReadout')).toContainText('C4');
     await page.mouse.up();
     await expect(page.locator('#levelReadout')).toHaveText('0% light');
-    await page.locator('#demoButton').click();
+    await pad.focus(); await page.keyboard.down('Enter');
     await page.locator('h1').scrollIntoViewIfNeeded();
     await page.screenshot({ path: testInfo.outputPath(`${name}.png`), fullPage: true });
+    await page.keyboard.up('Enter');
     const scan = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21aa']).analyze();
     expect(scan.violations.filter(item => ['critical', 'serious'].includes(item.impact))).toEqual([]);
   });
@@ -190,7 +205,7 @@ test('activity hue changes the actual trail pixels and inversion flips the mask'
   const second = await trailPixel();
   expect(second).not.toEqual(first);
   await page.locator('#viewMode').selectOption('mask');
-  await page.locator('#clearButton').click();
+  await sendMidi(page, [0xb0, 120, 0]);
   await expect.poll(() => pixel(page)).toEqual([0, 0, 0]);
   await page.locator('#invert').check();
   await expect.poll(() => pixel(page)).toEqual([255, 255, 255]);

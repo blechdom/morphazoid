@@ -4,7 +4,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-stage { min-width: 0; align-self: start; position: sticky; top: 22px; }
 .midiphoria-stage-heading { display: flex; justify-content: space-between; align-items: center; padding: 0 0 20px; gap: 12px; }
 .midiphoria-stage h1 { margin: 0; color: var(--midiphoria-accent); font-size: clamp(26px, 3vw, 42px); font-weight: 500; letter-spacing: -.045em; }
-.midiphoria-silent { color: #a1b4ae; font-size: 11px; }
 .midiphoria-viewport { position: relative; background: #030706; height: clamp(300px, 56vh, 650px); overflow: hidden; border-radius: 4px; }
 #visualCanvas { display: block; width: 100%; height: 100%; }
 .midiphoria-fullscreen { position: absolute; bottom: 12px; right: 12px; background: #0a1210e8; color: #d2e4dc; }
@@ -21,9 +20,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-pad[aria-pressed="true"] { background: hsl(var(--note-hue) 65% 30%); color: #fff; border-color: hsl(var(--note-hue) 80% 70%); }
 .midiphoria-pad[aria-pressed="true"] small { color: #fff; }
 .midiphoria-panel { min-width: 0; padding: 0; border: 0; background: transparent; overflow: visible; }
-.midiphoria-actions { display: flex; gap: 8px; margin-bottom: 18px; }
-.midiphoria-actions button { min-height: 38px; flex: 1; }
-#demoButton[aria-pressed="true"] { color: #06150e; background: var(--midiphoria-accent); border-color: var(--midiphoria-accent); }
 .midiphoria-section { border-top: 1px solid #26302c; padding: 18px 0; }
 .midiphoria-section h2 { color: #d9e6df; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: .1em; margin: 0 0 14px; }
 .midiphoria-panel .control { display: block; margin-bottom: 12px; }
@@ -37,9 +33,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-file { display: grid; gap: 7px; color: #a1b4ae; font-size: 11px; margin-bottom: 14px; }
 .midiphoria-file input { width: 100%; min-width: 0; font: inherit; color: #c5d8cd; }
 .midiphoria-file input::file-selector-button { background: #15271f; color: #c5d8cd; border: 1px solid #324037; border-radius: 3px; padding: 8px; margin-right: 8px; }
-.midiphoria-transport { align-items: center; margin-bottom: 14px; }
-.midiphoria-transport label { display: flex; gap: 5px; align-items: center; font-size: 11px; }
-#playButton[aria-pressed="true"] { background: var(--midiphoria-accent); color: #06150e; }
 .midiphoria-credits { margin-top: 12px; padding-bottom: 0; font-size: 10px; overflow-wrap: anywhere; }
 .midiphoria-page button:disabled { opacity: .5; cursor: default; }
 .midiphoria-connect { display: grid; gap: 10px; justify-items: start; margin-bottom: 14px; }
@@ -63,14 +56,12 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
   .midiphoria-viewport { height: 40vh; min-height: 240px; }
   .midiphoria-pad { min-height: 48px; }
   .midiphoria-keyboard { gap: 3px; }
-  .midiphoria-actions button { min-height: 48px; }
 }
 @media (max-height: 480px) and (min-width: 801px) {
   .midiphoria-shell { grid-template-columns: minmax(0, 1fr) 280px; padding: 16px; gap: 20px; }
   .midiphoria-stage { position: sticky; top: 16px; max-height: calc(100dvh - 32px); overflow-y: auto; }
   .midiphoria-viewport { height: 230px; }
 }
-@media (pointer: coarse) { .midiphoria-actions button { min-height: 48px; } }
 
 .midiphoria-panel .header-preset-controls { margin-bottom: 18px; }
 #songSearchStatus:empty { display: none; }
@@ -78,3 +69,25 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 
 #songDescription:empty, #playerStatus:empty { display: none; }
 .midiphoria-help a { color: var(--midiphoria-accent); }
+
+/* Keep the shared Choose-style preset picker open and compact, like Shape. */
+.midiphoria-panel > .instrument-preset-controls { position: relative; padding: 0; border: 0; background: transparent; }
+.midiphoria-panel .header-preset-controls :is(.instrument-picker-trigger, .instrument-picker-next) { border: 0; background: transparent; box-shadow: none; }
+.midiphoria-panel .header-preset-controls :is(.instrument-picker-trigger, .instrument-picker-next):hover { color: var(--midiphoria-accent); background: #96f4cc0d; }
+.midiphoria-panel .header-preset-controls :is(.instrument-picker-trigger, .instrument-picker-next):focus-visible { outline: 2px solid var(--midiphoria-accent); outline-offset: 2px; }
+.midiphoria-transport { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+.midiphoria-transport > :is(.control, .mz-tap-tempo-field) { flex: 1; min-width: 0; margin: 0; }
+.midiphoria-transport .control { margin-bottom: 0; }
+.midiphoria-transport .play-button { flex: none; }
+.midiphoria-stop, .midiphoria-reset { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border: 0; background: transparent; color: #a1b4ae; cursor: pointer; }
+.midiphoria-stop { width: 32px; height: 44px; flex: none; }
+.midiphoria-stop svg, .midiphoria-reset svg { width: 18px; height: 18px; }
+.midiphoria-stop svg { fill: currentColor; }
+.midiphoria-reset svg { fill: none; stroke: currentColor; stroke-width: 1.6; }
+.midiphoria-stop:hover, .midiphoria-reset:hover { color: var(--midiphoria-accent); }
+.midiphoria-loop { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 32px; margin: 0 0 14px; color: #a1b4ae; font-size: 11px; }
+.midiphoria-loop input { accent-color: var(--midiphoria-accent); }
+@media (pointer: coarse) {
+  .midiphoria-transport .play-button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
+  .midiphoria-stop, .midiphoria-reset, .midiphoria-loop { min-width: 48px; min-height: 48px; }
+}

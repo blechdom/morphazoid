@@ -23,10 +23,10 @@ Enter/Space hold a note; release/cancel lets it decay. Assistive activation play
 a short note. Pad velocity and the shared output volume affect the sound.
 Pads use a separate synthesizer in the same audio context, so file instruments,
 controllers, stop and seek cannot change or cancel a held pad. Releasing a pad
-cannot cancel a matching note in the song. Clear, Reset, window blur, hiding the
+cannot cancel a matching note in the song. Reset (in About & setup), window blur, hiding the
 page, Audio off and page exit release pad sound. Muted presses are never queued.
 
-The visual Demo and incoming hardware/computer MIDI control light only.
+Incoming hardware/computer MIDI controls light only.
 Enable hardware/computer MIDI separately in shared Settings.
 Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
@@ -94,6 +94,18 @@ saturation, trail length/width, glow and motion are available for live edits.
 Color by pitch, MIDI channel or velocity; adjust the trail fade curve, add
 clockwise/counterclockwise spin, and repeat radial/orbit forms up to eight times.
 Spin and radial-copy controls are enabled in the two circular views.
+Reflection adds vertical, horizontal, both, either diagonal, both diagonals or
+all center axes. Diagonal reflections use a centered square region and preserve
+45-degree geometry. Travel can retain each view's Classic motion, move from the
+center to the edges, or draw from the edges toward the center. Reflection and
+travel are disabled for the uniform solid mask. Every preset and parameter dice
+includes these fields. Older version-1 snapshots use None/Classic for missing
+fields.
+
+The preset bar uses the shared Shape picker without enclosing boxes. Circular
+Play/Pause sits beside Speed and Tap above the collection. File stop/rewind and
+Loop stay beside that transport. Download links, credits and Reset are inside
+About & setup; the separate Demo/Clear/Reset row has been removed.
 Static, rotating and note-triggered hue and the light ADSR are part of every
 preset. Manual edits and dice show Custom; Next continues the preset tour.
 
@@ -173,7 +185,7 @@ landscape checks covered the grouped menu and the 16 complete visual presets.
 The full archive and bundled MIDI hashes match downloaded originals.
 
 Piano-pad checks: five browser tests cover explicit Audio gating, no replay of
-muted presses, pointer/keyboard/assistive activation, release/cancel/blur/Clear,
+muted presses, pointer/keyboard/assistive activation, release/cancel/blur/Reset,
 velocity and volume response, independent same-pitch file notes, stop/seek,
 invalid-file recovery, and pagehide/BFCache cleanup. The pad synth uses the
 piano sample's own release without reverb/chorus, preventing old effect tails

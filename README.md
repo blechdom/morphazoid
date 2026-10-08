@@ -1,12 +1,12 @@
 # Morphazoid
 
 **[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails or
-a solid color mask. Enable MIDI in Settings, play the on-screen pads, or try
-Demo. Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR
+a solid color mask. Enable MIDI in Settings or play the on-screen pads.
+Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR
 shape the picture. A searchable MIDI song collection and local file imports play through a
 SoundFont in the browser: enable Audio, then Play. With Audio on, the on-screen
 pads also play piano, independently of the song. Speed, loop, seek and live visual
-tweaks are available, with sixteen visual presets, Next and parameter dice. Independently implemented
+tweaks include axis reflections and travel from or toward the center, with sixteen visual presets, Next and parameter dice. Independently implemented
 for the browser, inspired by [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria).
 See [setup, collection credits and feature gaps](docs/midiphoria.md).
 

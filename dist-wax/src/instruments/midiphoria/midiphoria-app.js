@@ -14,7 +14,7 @@ const $ = id => document.getElementById(id);
 const RENDER_CONTROLS = Object.freeze({ viewMode: 'view', trailSeconds: 'trailSeconds',
   palette: 'palette', paletteHue: 'hueOffset', saturation: 'saturation', glow: 'glow',
   trailWidth: 'width', motion: 'motion', colorSource: 'colorSource',
-  fadeCurve: 'fadeCurve', spin: 'spin', symmetry: 'symmetry' });
+  fadeCurve: 'fadeCurve', spin: 'spin', symmetry: 'symmetry', reflection: 'reflection', flow: 'flow' });
 
 function mountMidiphoria() {
   const events = new AbortController();
@@ -25,7 +25,7 @@ function mountMidiphoria() {
   const manager = getSharedMidiManager(globalThis);
   let settings = { ...DEFAULT_VISUALS };
   let presetController;
-  let learning = false, demoTimer = null, demoNote = null, demoIndex = 0;
+  let learning = false;
   let disposed = false, frame = null, lastReadout = -Infinity;
   let lastFileCapture = -Infinity;
   const padHeld = new Map();
@@ -44,7 +44,8 @@ function mountMidiphoria() {
     $('audioState').textContent = audioStarting ? 'loading' : state.audioEnabled ? 'on' : 'off';
     $('playButton').disabled = !state.ready || !selectionReady || loadingFile || state.loading;
     $('playButton').setAttribute('aria-pressed', String(state.playing));
-    $('playButton').textContent = state.playing ? 'Ⅱ Pause' : '▶ Play';
+    const playLabel = state.playing ? 'Pause MIDI' : 'Play MIDI';
+    $('playButton').setAttribute('aria-label', playLabel); $('playButton').title = playLabel;
     $('stopButton').disabled = !state.ready;
     $('songPosition').disabled = !state.ready || !selectionReady;
     $('songPosition').max = String(state.duration || 1);
@@ -52,9 +53,7 @@ function mountMidiphoria() {
     $('songTime').value = `${timeLabel(state.time || 0)} / ${timeLabel(state.duration || 0)}`;
     const status = fileError || state.error || (audioStarting ? 'Loading SoundFont…'
       : loadingFile || state.loading ? 'Loading MIDI…'
-      : !state.ready ? state.audioEnabled ? 'Piano pads ready · open a MIDI to play along.' : ''
-      : state.playing ? state.audioEnabled ? 'Playing · change the light controls as you listen.' : 'Playing · audio muted, graphics continue.'
-      : state.audioEnabled ? 'Ready · play the piano pads or press Play for the song.' : 'Audio muted.');
+      : '');
     if ($('playerStatus').textContent !== status) $('playerStatus').textContent = status;
   }
 
@@ -62,7 +61,7 @@ function mountMidiphoria() {
     $('songCredit').replaceChildren();
     $('songDescription').textContent = !song ? 'Your MIDI · stored only for this session.'
       : song.kind === 'pattern' ? 'Short geometric pattern · enable Loop to repeat.'
-      : song.collection === 'Black MIDI' ? 'Complete creator AUDIO edition. Full decorative scores are in the archive below.'
+      : song.collection === 'Black MIDI' ? 'Complete creator AUDIO edition. Full decorative scores are in About & setup.'
       : song.collection?.startsWith('Orchestral') ? 'Full orchestral arrangement.' : '';
     if (!song) { $('songCredit').textContent = 'Local MIDI file · stays in this browser.'; return; }
     $('songCredit').append(document.createTextNode(`${song.attribution} `));
@@ -180,7 +179,7 @@ function mountMidiphoria() {
   on($('playButton'), 'click', () => {
     if (!selectionReady || loadingFile) return;
     if (player.state.playing) player.pause();
-    else { stopDemo(); player.play(); }
+    else player.play();
     reflectPlayer();
   });
   on($('stopButton'), 'click', () => { player.stop(); reflectPlayer(); });
@@ -219,6 +218,7 @@ function mountMidiphoria() {
         : `${Number(value).toFixed(2)}×`;
     }
     for (const id of ['spin', 'symmetry']) $(id).disabled = !['radial', 'orbit'].includes(renderer.options.view);
+    for (const id of ['reflection', 'flow']) $(id).disabled = renderer.options.view === 'mask';
     presetController?.refresh();
   };
 
@@ -257,17 +257,8 @@ function mountMidiphoria() {
     for (const pad of pads) pad.setAttribute('aria-pressed', 'false');
   }
 
-  function stopDemo() {
-    if (demoTimer !== null) clearInterval(demoTimer);
-    demoTimer = null;
-    demoNote = null;
-    model.releaseSource('midiphoria:demo', clock());
-    $('demoButton').textContent = '▶ Demo';
-    $('demoButton').setAttribute('aria-pressed', 'false');
-  }
-
   function clear() {
-    stopDemo(); releasePads();
+    releasePads();
     model.panic(clock()); renderer.clear();
     lastFileCapture = -Infinity;
   }
@@ -362,7 +353,6 @@ function mountMidiphoria() {
     });
   }
   on($('padVelocity'), 'input', () => { $('padVelocityOut').value = $('padVelocity').value; });
-  on($('clearButton'), 'click', clear);
   on($('resetButton'), 'click', () => {
     player.stop(); player.setPlaybackRate(1); player.setLoop(false);
     $('playbackRate').value = '1'; $('playbackRateOut').value = '1.00×'; $('loopSong').checked = false;
@@ -380,26 +370,6 @@ function mountMidiphoria() {
     $('learnButton').setAttribute('aria-pressed', String(learning));
     $('learnButton').textContent = learning ? 'Cancel learn' : 'Learn next note / CC';
     $('learnStatus').textContent = learning ? 'Play a note or move a controller. MIDI must be enabled for hardware.' : 'All connected MIDI inputs are received.';
-  });
-  on($('demoButton'), 'click', () => {
-    if (demoTimer !== null) { stopDemo(); return; }
-    demoIndex = 0;
-    const tick = () => {
-      const channel = settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel);
-      if (demoNote) accept({ type: 'noteOff', ...demoNote, velocity: 0, sourceId: 'midiphoria:demo' });
-      demoNote = null;
-      if (settings.trigger === 'mapped' && settings.mappedType === 'cc') {
-        accept({ type: 'controlChange', channel, controller: settings.mappedNumber,
-          value: demoIndex % 2 ? 0 : 104, sourceId: 'midiphoria:demo' });
-      } else if (demoIndex % 2 === 0) {
-        const note = settings.trigger === 'mapped' ? settings.mappedNumber : [48, 57, 65, 70, 52, 61, 68, 73][(demoIndex / 2) % 8];
-        demoNote = { note, channel };
-        accept({ type: 'noteOn', ...demoNote, velocity: 65 + (demoIndex * 17) % 62, sourceId: 'midiphoria:demo' });
-      }
-      demoIndex++;
-    };
-    tick(); demoTimer = setInterval(tick, 320);
-    $('demoButton').textContent = '■ Stop demo'; $('demoButton').setAttribute('aria-pressed', 'true');
   });
   on($('midiSettingsButton'), 'click', () => {
     const details = document.querySelector('.header-settings-menu');

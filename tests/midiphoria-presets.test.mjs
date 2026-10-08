@@ -2,17 +2,21 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../src/instruments/midiphoria/midiphoria-model.js';
 import { MIDIPHORIA_PRESETS, MIDIPHORIA_VIEWS, MIDIPHORIA_PALETTES, MIDIPHORIA_COLOR_SOURCES,
+  MIDIPHORIA_REFLECTIONS, MIDIPHORIA_FLOWS,
   DEFAULT_RENDER_OPTIONS, MIDIPHORIA_MODEL_KEYS, MIDIPHORIA_RENDER_KEYS,
   captureMidiphoriaPreset, applyMidiphoriaPreset, randomizeMidiphoriaPreset,
   sanitizeMidiphoriaPreset, isValidMidiphoriaPreset,
 } from '../src/instruments/midiphoria/midiphoria-presets.js';
-import { MidiphoriaRenderer, midiphoriaMaskRgb, midiColorHue } from '../src/instruments/midiphoria/midiphoria-renderer.js';
+import { MidiphoriaRenderer, midiphoriaMaskRgb, midiColorHue,
+  midiphoriaReflectionTransforms, midiphoriaTravelFraction,
+} from '../src/instruments/midiphoria/midiphoria-renderer.js';
 
-function canvas() {
-  const commands = [], strokes = [];
+function canvas(width = 1440, height = 900) {
+  const commands = [], strokes = [], layers = [];
   const context = {};
   for (const name of ['setTransform', 'fillRect', 'beginPath', 'moveTo', 'lineTo', 'stroke',
-    'arc', 'fill', 'fillText', 'bezierCurveTo']) context[name] = (...args) => commands.push([name, ...args]);
+    'arc', 'fill', 'fillText', 'bezierCurveTo', 'clearRect', 'save', 'restore', 'transform',
+    'translate', 'drawImage']) context[name] = (...args) => commands.push([name, ...args]);
   context.stroke = () => {
     commands.push(['stroke']);
     strokes.push({ alpha: context.globalAlpha, color: context.strokeStyle, width: context.lineWidth });
@@ -21,8 +25,9 @@ function canvas() {
     commands.push(['gradient', ...args]);
     return { addColorStop() {} };
   };
-  return { width: 0, height: 0, commands, strokes, context, getContext: () => context,
-    getBoundingClientRect: () => ({ width: 1440, height: 900 }) };
+  return { width: 0, height: 0, commands, strokes, layers, context, getContext: () => context,
+    ownerDocument: { createElement() { const layer = canvas(width, height); layers.push(layer); return layer; } },
+    getBoundingClientRect: () => ({ width, height }) };
 }
 
 function randomSeed(seed = 631) {
@@ -36,6 +41,8 @@ test('factory scenes are complete, distinct, immutable and recall without changi
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.view)), new Set(MIDIPHORIA_VIEWS));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.palette)), new Set(MIDIPHORIA_PALETTES));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.colorSource)), new Set(MIDIPHORIA_COLOR_SOURCES));
+  assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.reflection)), new Set(MIDIPHORIA_REFLECTIONS));
+  assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.flow)), new Set(MIDIPHORIA_FLOWS));
   const model = new MidiphoriaModel({ channel: 7, trigger: 'mapped', mappedNumber: 72, mappedChannel: 7 });
   model.handleMessage({ type: 'noteOn', note: 72, channel: 7, velocity: 100, sourceId: 'keyboard' }, 1);
   const renderer = new MidiphoriaRenderer(canvas());
@@ -61,7 +68,7 @@ test('sanitization bounds all fields and strips external state; validation rejec
   const value = sanitizeMidiphoriaPreset({ model: { attack: -20, decay: 20, release: 8, sustain: Infinity,
     hueSpeed: 5, velocity: 'true', invert: true, channel: 3, volume: 1, audio: true },
   render: { view: 'broken', trailSeconds: 99, hueOffset: -4, saturation: 7, glow: NaN, width: -9, motion: 8,
-    colorSource: 'broken', fadeCurve: 0, spin: -99, symmetry: 2.6 } });
+    colorSource: 'broken', fadeCurve: 0, spin: -99, symmetry: 2.6, reflection: 'broken', flow: 'broken' } });
   assert.equal(value.model.attack, 0); assert.equal(value.model.decay, 3); assert.equal(value.model.release, 5);
   assert.equal(value.model.sustain, DEFAULT_VISUALS.sustain); assert.equal(value.model.hueSpeed, 1);
   assert.equal(value.model.velocity, DEFAULT_VISUALS.velocity); assert.equal(value.model.invert, true);
@@ -71,6 +78,7 @@ test('sanitization bounds all fields and strips external state; validation rejec
   assert.equal(value.render.motion, 2);
   assert.equal(value.render.colorSource, 'pitch'); assert.equal(value.render.fadeCurve, 0.25);
   assert.equal(value.render.spin, -2); assert.equal(value.render.symmetry, 3);
+  assert.equal(value.render.reflection, 'none'); assert.equal(value.render.flow, 'classic');
   assert.equal(isValidMidiphoriaPreset({ ...value, render: { ...value.render, symmetry: 2.6 } }), false);
   assert.equal('channel' in value.model, false); assert.equal('audio' in value.model, false);
   assert.equal(isValidMidiphoriaPreset({ version: 1, model: {}, render: {} }), false);
@@ -102,6 +110,8 @@ test('seeded randomization is pure and covers every visual field, boolean, palet
   assert.equal(values.render.view.size, MIDIPHORIA_VIEWS.length);
   assert.equal(values.render.palette.size, MIDIPHORIA_PALETTES.length);
   assert.equal(values.render.colorSource.size, MIDIPHORIA_COLOR_SOURCES.length);
+  assert.equal(values.render.reflection.size, MIDIPHORIA_REFLECTIONS.length);
+  assert.equal(values.render.flow.size, MIDIPHORIA_FLOWS.length);
   assert.deepEqual([...values.render.symmetry].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.ok([...values.render.spin].some(value => value < 0));
   assert.ok([...values.render.spin].some(value => value > 0));
@@ -252,5 +262,125 @@ test('circular spin reverses without a phase jump and symmetry adds bounded copi
     assert.ok(surface.commands.length < 18000, `${view} must bound drawing even at eight copies`);
     assert.ok(surface.commands.flat().filter(value => typeof value === 'number').every(Number.isFinite));
     assert.equal('shadowBlur' in surface.context, false);
+  }
+});
+
+test('older complete version 1 snapshots recall Classic and None without inheriting the current geometry', () => {
+  const older = structuredClone(MIDIPHORIA_PRESETS[0].snapshot);
+  delete older.render.flow; delete older.render.reflection;
+  const model = new MidiphoriaModel(), renderer = new MidiphoriaRenderer(canvas());
+  renderer.configure({ reflection: 'all', flow: 'inward' });
+  assert.ok(isValidMidiphoriaPreset(older));
+  const applied = applyMidiphoriaPreset(model, renderer, older, 0);
+  assert.equal(applied.render.flow, 'classic'); assert.equal(applied.render.reflection, 'none');
+  assert.equal('flow' in older.render, false); // Migration never mutates stored data.
+  for (const key of ['flow', 'reflection']) {
+    assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: undefined } }), false);
+    assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: 'invalid' } }), false);
+  }
+  delete older.render.trailSeconds;
+  assert.equal(isValidMidiphoriaPreset(older), false);
+});
+
+test('reflection axes preserve physical distances and add only the intended unique images', () => {
+  const point = [117, 43];
+  const expected = {
+    none: [[117, 43]], vertical: [[117, 43], [-117, 43]], horizontal: [[117, 43], [117, -43]],
+    both: [[117, 43], [-117, 43], [117, -43], [-117, -43]],
+    diagonal: [[117, 43], [43, 117]], 'anti-diagonal': [[117, 43], [-43, -117]],
+    diagonals: [[117, 43], [43, 117], [-43, -117], [-117, -43]],
+    all: [[117, 43], [-117, 43], [117, -43], [-117, -43], [43, 117], [-43, -117], [-43, 117], [43, -117]],
+  };
+  for (const reflection of MIDIPHORIA_REFLECTIONS) {
+    const transforms = midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, reflection });
+    const points = transforms.map(([a, b, c, d]) => [a * point[0] + c * point[1], b * point[0] + d * point[1]]);
+    assert.deepEqual(points, expected[reflection]);
+    for (const [x, y] of points) assert.equal(x * x + y * y, point[0] ** 2 + point[1] ** 2);
+    assert.equal(new Set(points.map(value => value.join(','))).size, points.length);
+  }
+  for (const view of ['radial', 'orbit']) {
+    assert.equal(midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, view, reflection: 'all', symmetry: 8 }).length, 2);
+    assert.equal(midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, view, reflection: 'all', symmetry: 7 }).length, 8);
+    assert.equal(midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, view, reflection: 'both', symmetry: 4 }).length, 2);
+  }
+  assert.equal(midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, view: 'mirror', reflection: 'both' }).length, 1);
+  assert.equal(midiphoriaReflectionTransforms({ ...DEFAULT_RENDER_OPTIONS, view: 'mirror', reflection: 'all' }).length, 2);
+});
+
+test('released note heads move from center to edge or edge to center in every geometric view', () => {
+  assert.equal(midiphoriaTravelFraction(-2, 'outward'), 0);
+  assert.equal(midiphoriaTravelFraction(3, 'inward'), 0);
+  assert.equal(midiphoriaTravelFraction(Infinity, 'inward'), 1);
+  for (const view of MIDIPHORIA_VIEWS.filter(value => value !== 'mask')) {
+    for (const flow of ['outward', 'inward']) {
+      const surface = canvas(640, 400), renderer = new MidiphoriaRenderer(surface);
+      renderer.configure({ view, flow, motion: 0, glow: 0, trailSeconds: 4, spin: 0 });
+      const sample = { activeNotes: [{ note: 25, channel: 0, velocity: 127 }], rgb: [1, 0, 0], level: 1 };
+      renderer.capture(sample, 0); renderer.capture({ ...sample, activeNotes: [] }, 1);
+      const distances = [];
+      for (const now of [1.1, 2, 3.5]) {
+        surface.commands.length = 0;
+        renderer.draw({ ...sample, activeNotes: [] }, now, DEFAULT_VISUALS);
+        // Isolate the actual note stroke between the last guide and CC strip.
+        const starts = surface.commands.map((command, index) => command[0] === 'beginPath' ? index : -1).filter(index => index >= 0);
+        const path = surface.commands.slice(starts.at(-2) + 1, starts.at(-1));
+        let point;
+        if (view === 'radial' || view === 'mirror') point = path.find(command => command[0] === 'moveTo').slice(1);
+        else if (view === 'trails') point = path.find(command => command[0] === 'lineTo').slice(1);
+        else point = path.filter(command => command[0] === 'bezierCurveTo').at(-1).slice(-2);
+        distances.push(Math.hypot(point[0] - 320, point[1] - 200));
+      }
+      if (flow === 'outward') assert.ok(distances[0] < distances[1] && distances[1] < distances[2], `${view} must expand`);
+      else assert.ok(distances[0] > distances[1] && distances[1] > distances[2], `${view} must converge`);
+    }
+  }
+});
+
+test('reflection composites the bounded history once and reuses its canvas through live edits and resize', () => {
+  for (const view of ['radial', 'orbit', 'mirror', 'ribbons', 'trails']) {
+    const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
+    renderer.configure({ view, reflection: 'all', flow: 'inward', symmetry: 8, glow: 1, spin: 2, width: 3 });
+    const notes = Array.from({ length: 400 }, (_, index) => ({ note: index % 128,
+      channel: index % 16, velocity: 127, sourceId: `dense-${index}` }));
+    const sample = { activeNotes: notes, rgb: [1, 0, 0], level: 1 };
+    renderer.capture(sample, 0); renderer.capture({ ...sample, activeNotes: [] }, 0.1);
+    renderer.draw({ ...sample, activeNotes: notes.map(note => ({ ...note, sourceId: `${note.sourceId}-next` })) }, 0.2, DEFAULT_VISUALS);
+    assert.equal(renderer.trails.length, 384); assert.equal(renderer.held.size, 256);
+    assert.equal(surface.layers.length, 1);
+    const layer = surface.layers[0];
+    assert.ok(layer.width * layer.height <= 2_005_000);
+    assert.ok(layer.commands.length < 25000, `${view} must draw one bounded note layer`);
+    assert.ok(surface.commands.length < 180, `${view} reflection cannot multiply vector commands`);
+    const images = surface.commands.filter(command => command[0] === 'drawImage');
+    assert.equal(images.length, midiphoriaReflectionTransforms(renderer.options).length);
+    for (const image of images) assert.equal(image[1], layer);
+    assert.ok(layer.commands.flat().filter(value => typeof value === 'number').every(Number.isFinite));
+    assert.ok(surface.commands.flat().filter(value => typeof value === 'number').every(Number.isFinite));
+    assert.equal('shadowBlur' in layer.context, false);
+    assert.deepEqual(layer.commands.find(command => command[0] === 'translate'), ['translate', 270, 0]);
+    renderer.configure({ reflection: 'vertical', flow: 'outward' });
+    renderer.draw(sample, 0.3, DEFAULT_VISUALS);
+    renderer.resize();
+    assert.equal(surface.layers.length, 1); assert.equal(layer.width, surface.width); assert.equal(layer.height, surface.height);
+    renderer.clear(); assert.equal(renderer.trails.length, 0); assert.equal(renderer.held.size, 0);
+  }
+});
+
+test('diagonal reflection keeps extreme-pitch centerlines inside its undistorted square at maximum motion', () => {
+  for (const view of MIDIPHORIA_VIEWS.filter(value => value !== 'mask')) {
+    for (const flow of MIDIPHORIA_FLOWS) {
+      const surface = canvas(1000, 300), renderer = new MidiphoriaRenderer(surface);
+      renderer.configure({ view, flow, reflection: 'all', symmetry: 8, motion: 2, glow: 1 });
+      const sample = { activeNotes: [0, 127].map(note => ({ note, channel: 0, velocity: 127 })), rgb: [1, 0, 0], level: 1 };
+      renderer.capture(sample, 0);
+      renderer.draw(sample, 7, DEFAULT_VISUALS);
+      for (const command of surface.layers[0].commands) {
+        let coords = [];
+        if (['moveTo', 'lineTo', 'bezierCurveTo'].includes(command[0])) coords = command.slice(1);
+        else if (command[0] === 'arc') coords = command.slice(1, 3);
+        for (const coord of coords) assert.ok(coord >= 0 && coord <= 300,
+          `${view}/${flow} ${command[0]} ${coord} must fit the centered square`);
+      }
+    }
   }
 });
