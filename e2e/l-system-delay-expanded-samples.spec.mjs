@@ -129,10 +129,11 @@ async function options(page) {
   expect(declaredExtras.map(option => option.id).sort()).toEqual([...NEW_IDS].sort());
   const options = await page.locator('#inputSample').evaluate(select =>
     [...select.options].map(option => ({ id: option.value, label: option.textContent, group: option.closest('optgroup')?.label })));
-  expect(options).toHaveLength(33);
+  expect(options).toHaveLength(34);
   expect(options.slice(0, ORIGINAL_IDS.length).map(option => option.id)).toEqual(ORIGINAL_IDS);
   expect(new Set(options.map(option => option.id)).size).toBe(options.length);
   expect(options.map(option => option.id)).toEqual(expect.arrayContaining(NEW_IDS));
+  expect(options.map(option => option.id)).toContain('speech-curling');
   for (const declared of declaredExtras) expect(options.find(option => option.id === declared.id)).toEqual(declared);
   return options;
 }
@@ -246,7 +247,7 @@ test('all expanded demo choices stay silent while Audio is off and actual prepar
   await cleanup(page);
 });
 
-test('all 33 bundled samples produce finite real Rust activity without changing live gains or duplicating sources', async ({ page }) => {
+test('all 34 bundled samples produce finite real Rust activity without changing live gains or duplicating sources', async ({ page }) => {
   test.setTimeout(240000);
   const evidence = await fixture(page); await ready(page);
   const menu = await options(page), before = await diagnostics(page), auditions = [];

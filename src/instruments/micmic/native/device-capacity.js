@@ -68,17 +68,70 @@ export function measureAudioCapacity(module, sampleRate = 48000, { now = clock, 
   }
 }
 
-/** Learned capacity survives small presets. A full pool at low recurring CPU
- * load can request a larger prepared tree; overload can reduce the next one. */
-export function nextPreparedCapacity(current, status, requested) {
-  const limit = Math.max(0, Number(status.voiceLimit) || 0);
-  const proved = Math.max(0, Number(status.calibratedVoices) || 0);
-  const load = Math.max(Number(status.cpuLoad) || 0, Number(status.peakLoad) || 0);
-  if (proved > 0 && proved < current * .7 && load > .85) return Math.max(1, proved);
-  if (limit > 0 && load >= 1)
-    return Math.max(1, Math.min(current, Math.floor(limit * .7 / Math.max(1, load))));
-  const prepared = Math.min(current, Math.max(1, Number(status.requestedTargets) || current));
-  if (requested > current && limit >= prepared * .95 && load > 0 && load < .95)
-    return Math.max(current + 1, Math.floor(current * 1.35));
-  return current;
+const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
+const DEADLINE_LOAD = .95;
+
+function fullPoolProof(current, status, requested, { topologyRevision, eligibleVoices,
+  preparedVoices, settled = true } = {}) {
+  if (!settled || !status || status.failure || status.error || !(requested > current)) return null;
+  const prepared = preparedVoices ?? status.requestedTargets ?? current;
+  const eligible = eligibleVoices ?? prepared;
+  // Quiet, small and history-ineligible trees do not measure the work of a
+  // larger pool. Complete tiling derivations may use less than their budget.
+  if (count(current) === null || current < 1 || count(prepared) === null || prepared < 1
+    || prepared > current || count(eligible) === null || eligible !== prepared) return null;
+  if (status.requestedTargets !== undefined && status.requestedTargets !== prepared) return null;
+  if (topologyRevision !== undefined && status.topologyRevision !== topologyRevision) return null;
+  if (count(status.voiceLimit) === null || status.voiceLimit < eligible
+    || count(status.calibratedVoices) === null || status.calibratedVoices < eligible
+    || status.targetVoices !== eligible || status.activeVoices !== status.targetVoices) return null;
+  if (![status.cpuLoad, status.peakLoad].every(value => Number.isFinite(value) && value >= 0)) return null;
+  const load = Math.max(status.cpuLoad, status.peakLoad);
+  if (!Number.isFinite(load) || load <= 0 || load >= DEADLINE_LOAD) return null;
+  return { load, prepared, eligible, revision: topologyRevision ?? status.topologyRevision };
+}
+
+/** Preparation retains its high-water budget: Rust already releases active
+ * voices on overload, and a smaller topology does not reclaim pool storage.
+ * A proved full pool proposes only part of its remaining deadline headroom;
+ * the live controller validates each larger allocation without a final cap. */
+export function nextPreparedCapacity(current, status, requested, context = {}) {
+  const proof = fullPoolProof(current, status, requested, context);
+  if (!proof) return current;
+  const proportion = Math.min(.35, (DEADLINE_LOAD - proof.load) * .65 / proof.load);
+  return Math.min(requested, Number.MAX_SAFE_INTEGER,
+    current + Math.max(1, Math.floor(current * proportion)));
+}
+
+/** Prove recurring headroom across coherent audio-clock samples. Call on each
+ * status refresh, with settled:false during edits, installs or failures; reset
+ * before a user edit. Sparse polling cannot masquerade as sustained evidence. */
+export function createPreparedCapacityController({ sustainSeconds = 3, maxSampleGapSeconds = 1 } = {}) {
+  const duration = Number.isFinite(sustainSeconds) && sustainSeconds > 0 ? sustainSeconds : 3;
+  const maxGap = Number.isFinite(maxSampleGapSeconds) && maxSampleGapSeconds > 0 ? maxSampleGapSeconds : 1;
+  let since = null, previousTime = null, identity = null, worstLoad = 0;
+  let counters = null;
+  const reset = () => { since = previousTime = identity = counters = null; worstLoad = 0; };
+  return {
+    reset,
+    observe({ nowSeconds, current, requested, status, topologyRevision,
+      eligibleVoices, preparedVoices, settled = true } = {}) {
+      const context = { topologyRevision, eligibleVoices, preparedVoices, settled };
+      const proof = fullPoolProof(current, status, requested, context);
+      if (!proof || !Number.isFinite(nowSeconds) || nowSeconds < 0) { reset(); return current; }
+      const nextIdentity = [current, requested, proof.revision, proof.prepared, proof.eligible].join(':');
+      const nextCounters = ['deadlineMisses', 'underruns', 'overruns'].map(key => status[key] ?? 0);
+      if (nextCounters.some(value => count(value) === null)) { reset(); return current; }
+      const clockChanged = previousTime !== null && (nowSeconds < previousTime || nowSeconds - previousTime > maxGap);
+      const missed = counters && nextCounters.some((value, index) => value !== counters[index]);
+      if (identity !== nextIdentity || clockChanged || missed) reset();
+      if (previousTime === nowSeconds) return current;
+      identity = nextIdentity; counters = nextCounters; previousTime = nowSeconds;
+      since ??= nowSeconds; worstLoad = Math.max(worstLoad, proof.load);
+      if (nowSeconds - since < duration) return current;
+      const next = nextPreparedCapacity(current, { ...status, cpuLoad: worstLoad, peakLoad: worstLoad }, requested, context);
+      reset();
+      return next;
+    },
+  };
 }

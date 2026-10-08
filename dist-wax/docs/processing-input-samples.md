@@ -1,14 +1,17 @@
 # Bundled processing inputs
 
-Rust L-system Delay and Synthesaurus share 33 local demo inputs: the original
-nine choices plus 24 additions. Choose **Built-in samples** in L-system Delay,
-or **Sample loops** in Synthesaurus, then select a sound. Enable Audio explicitly;
+Rust L-system Delay and Synthesaurus share 34 local demo inputs: the original
+nine choices, the 24 expanded inputs and a synthetic spoken phrase. Choose
+**Built-in samples** in L-system Delay, or **Sample loops** in Synthesaurus,
+then select a sound. Enable Audio explicitly;
 Synthesaurus also uses Play. Selecting a sample with Audio off does not fetch or
 start it. Only the selected sound is decoded, and playback needs no external
 server or Freesound account.
 
 The additions are:
 
+- **Curling a bit more (synthetic voice)**: “it's curling a bit more than i'm
+  comfortable for”, rendered locally with eSpeak NG.
 - Nature recordings: coyote howls, frog chorus, humpback whale song, house cricket.
 - Recorded effects: sad trombone, record scratch, air horn, rimshot, applause and
   cheers, slide whistle.
@@ -34,6 +37,8 @@ are bundled with the media:
   and [source provenance](../assets/input-samples/recorded/provenance.json).
 - [Original music credits](../assets/synthesis/extra-loops/CREDITS.md) and
   [complete render recipes](../assets/synthesis/extra-loops/renders.json).
+- [Synthetic speech credits](../assets/input-samples/synthetic/CREDITS.md) and
+  [exact phrase and render settings](../assets/input-samples/synthetic/provenance.json).
 
 Short files keep the added bank below 18 MiB. The existing loader applies one
 static gain to each input, preserving dynamics without added compression. Original
@@ -43,9 +48,10 @@ input/output gain, microphone permissions and delay voice allocation remain unde
 their existing owners. No additional realtime synthesizer or delay voice is
 allocated to play a prerecorded sample.
 
-Synthesaurus also includes one complete processing scene for each new sound,
-bringing its sample-processing scenes to 36. These recall their sample and
-processor settings while leaving Audio, Play and master output under the
+Synthesaurus also includes one complete processing scene for each of the 24
+expanded inputs and **Curling voice echoes** for the spoken clip, bringing its
+sample-processing scenes to 37. These recall their sample and processor settings
+while leaving Audio, Play and master output under the
 performer's control. The L-system tree presets remain independent of input.
 
 Automated checks cover asset identity, decoding, finite and bounded signal levels,

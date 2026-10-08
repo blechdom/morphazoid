@@ -341,6 +341,11 @@ struct StagedInstall {
     normalization: f64,
     depth_controls: bool,
     depth_override: Option<f64>,
+    fold_base_ms: Option<f64>,
+    fold_interval_ms: Option<f64>,
+    fold_override: bool,
+    eligible_delay_maximum: f64,
+    excluded_delay_minimum: f64,
     controls: PreparedPoolControls,
     growth: Option<PreparedPool>,
 }
@@ -361,7 +366,12 @@ pub struct Renderer {
     structural_group_counts: [usize; 256],
     depth_controls: bool,
     live_depth: Option<f64>,
+    fold_base_ms: Option<f64>,
+    fold_interval_ms: f64,
+    eligible_delay_maximum: f64,
+    excluded_delay_minimum: f64,
     pending_install: Option<StagedInstall>,
+    spare_controls: Option<PreparedPoolControls>,
     retired_pools: VecDeque<PreparedPool>,
     retired_slots: usize,
     demand: usize,
@@ -417,7 +427,12 @@ impl Renderer {
             structural_group_counts: [0; 256],
             depth_controls: false,
             live_depth: None,
+            fold_base_ms: None,
+            fold_interval_ms: 0.,
+            eligible_delay_maximum: 0.,
+            excluded_delay_minimum: f64::INFINITY,
             pending_install: None,
+            spare_controls: None,
             retired_pools: VecDeque::new(),
             retired_slots: 0,
             demand: 0,
@@ -520,6 +535,59 @@ impl Renderer {
         Ok(())
     }
 
+    fn validate_fold(interval_ms: f64) -> Result<(), String> {
+        if !interval_ms.is_finite() || !(0.05..=3000.).contains(&interval_ms) {
+            return Err("Time fold is outside its supported range".into());
+        }
+        Ok(())
+    }
+
+    fn unchanged_fold_eligibility(maximum: f64, minimum: f64, scale: f64) -> bool {
+        maximum * scale <= 39. + 1e-9 && minimum * scale > 39. + 1e-9
+    }
+
+    fn set_time_fold(&mut self, interval_ms: f64) -> Result<(), String> {
+        Self::validate_fold(interval_ms)?;
+        let base = self
+            .fold_base_ms
+            .ok_or("This pool requires a complete timing update")?;
+        let scale = interval_ms / base;
+        if !Self::unchanged_fold_eligibility(
+            self.eligible_delay_maximum,
+            self.excluded_delay_minimum,
+            scale,
+        ) {
+            return Err("Time fold requires updated history eligibility".into());
+        }
+        self.engine.set_time_fold_scale(scale)?;
+        self.fold_interval_ms = interval_ms;
+        if let Some(pending) = &mut self.pending_install {
+            if pending.fold_base_ms.is_some() {
+                pending.fold_interval_ms = Some(interval_ms);
+                pending.fold_override = true;
+            }
+        }
+        Ok(())
+    }
+
+    fn configure_install_time_fold(
+        &mut self,
+        base_ms: f64,
+        interval_ms: f64,
+        live: bool,
+    ) -> Result<(), String> {
+        Self::validate_fold(base_ms)?;
+        Self::validate_fold(interval_ms)?;
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        pending.fold_base_ms = Some(base_ms);
+        pending.fold_interval_ms = Some(interval_ms);
+        pending.fold_override = live || interval_ms != base_ms;
+        Ok(())
+    }
+
     /// The caller retains this byte allocation until commit, rejection or abort.
     /// Reserve numeric storage once; validation and voice construction then run
     /// in bounded batches while the old recording and scene continue rendering.
@@ -547,6 +615,33 @@ impl Renderer {
         if !normalization.is_finite() || !(0.0..=1.0).contains(&normalization) {
             return Err("Invalid wet normalization".into());
         }
+        self.abort_install();
+        let mut controls = match self.spare_controls.take() {
+            Some(controls) => controls,
+            None => PreparedPoolControls::new(0)?,
+        };
+        if let Err(error) = controls.prepare(count) {
+            self.spare_controls = Some(controls);
+            return Err(error);
+        }
+        let growth = (|| {
+            if count <= self.capacity {
+                return Ok(None);
+            }
+            let growth = PreparedPool::numeric(count)?;
+            self.retired_pools
+                .try_reserve(1)
+                .map_err(|error| error.to_string())?;
+            self.engine.begin_numeric_growth()?;
+            Ok::<_, String>(Some(growth))
+        })();
+        let growth = match growth {
+            Ok(growth) => growth,
+            Err(error) => {
+                self.spare_controls = Some(controls);
+                return Err(error);
+            }
+        };
         let pending = StagedInstall {
             pointer: header.as_ptr(),
             bytes: total_bytes,
@@ -557,24 +652,23 @@ impl Renderer {
             normalization,
             depth_controls: read_u32(header, 4) == 2,
             depth_override: None,
-            controls: PreparedPoolControls::new(count)?,
-            growth: if count > self.capacity {
-                Some(PreparedPool::numeric(count)?)
-            } else {
-                None
-            },
+            fold_base_ms: None,
+            fold_interval_ms: None,
+            fold_override: false,
+            eligible_delay_maximum: 0.,
+            excluded_delay_minimum: f64::INFINITY,
+            controls,
+            growth,
         };
-        if pending.growth.is_some() {
-            self.retired_pools
-                .try_reserve(1)
-                .map_err(|error| error.to_string())?;
-        }
-        self.engine.abort_numeric_growth();
-        if pending.growth.is_some() {
-            self.engine.begin_numeric_growth()?;
-        }
         self.pending_install = Some(pending);
         Ok(())
+    }
+
+    fn abort_install(&mut self) {
+        if let Some(pending) = self.pending_install.take() {
+            self.spare_controls = Some(pending.controls);
+        }
+        self.engine.abort_numeric_growth();
     }
 
     fn step_install(&mut self, maximum_records: usize) -> Result<bool, String> {
@@ -612,9 +706,15 @@ impl Renderer {
                 || (rank != u32::MAX && rank as usize >= pending.count)
             {
                 self.engine.abort_numeric_growth();
+                self.spare_controls = Some(pending.controls);
                 return Err("Invalid delay target".into());
             }
             pending.available += usize::from(target.gain > 0.);
+            if target.delay <= 39. + 1e-9 {
+                pending.eligible_delay_maximum = pending.eligible_delay_maximum.max(target.delay);
+            } else {
+                pending.excluded_delay_minimum = pending.excluded_delay_minimum.min(target.delay);
+            }
             let seed = read_u32(bytes, base + 36);
             pending.controls.push(
                 target,
@@ -635,6 +735,17 @@ impl Renderer {
         if end < pending.count {
             self.pending_install = Some(pending);
             return Ok(false);
+        }
+        if let (Some(base), Some(interval)) = (pending.fold_base_ms, pending.fold_interval_ms) {
+            if !Self::unchanged_fold_eligibility(
+                pending.eligible_delay_maximum,
+                pending.excluded_delay_minimum,
+                interval / base,
+            ) {
+                self.engine.abort_numeric_growth();
+                self.spare_controls = Some(pending.controls);
+                return Err("Time fold requires updated history eligibility".into());
+            }
         }
         if let Some(mut growth) = pending.growth {
             self.engine.commit_numeric_growth(&mut growth);
@@ -671,8 +782,22 @@ impl Renderer {
         self.target_normalization = self
             .live_depth
             .map_or(pending.normalization, depth_normalization);
-        self.engine
-            .install_prepared_pool_controls(pending.controls, self.current_limit());
+        if let (Some(old_base), Some(new_base)) = (self.fold_base_ms, pending.fold_base_ms) {
+            self.engine.rebase_time_fold_scale(old_base / new_base)?;
+        }
+        self.spare_controls = Some(self.engine.install_prepared_pool_controls_live(
+            pending.controls,
+            self.current_limit(),
+            pending.fold_override,
+        ));
+        self.fold_base_ms = pending.fold_base_ms;
+        self.fold_interval_ms = pending.fold_interval_ms.unwrap_or(0.);
+        self.eligible_delay_maximum = pending.eligible_delay_maximum;
+        self.excluded_delay_minimum = pending.excluded_delay_minimum;
+        if pending.fold_override {
+            self.engine
+                .set_time_fold_scale(self.fold_interval_ms / self.fold_base_ms.unwrap())?;
+        }
         if let Some(gains) = override_gains {
             self.engine
                 .update_pool_group_gains(&gains, self.current_limit());
@@ -1033,9 +1158,59 @@ pub unsafe extern "C" fn lsd_install_step(handle: *mut Renderer, maximum_records
 #[no_mangle]
 pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
     if !handle.is_null() {
-        (*handle).pending_install = None;
-        (*handle).engine.abort_numeric_growth();
+        (*handle).abort_install();
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_time_fold(
+    handle: *mut Renderer,
+    base_ms: f64,
+    interval_ms: f64,
+    live: u32,
+) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).configure_install_time_fold(base_ms, interval_ms, live != 0) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold(handle: *mut Renderer, interval_ms: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).set_time_fold(interval_ms) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold_value(handle: *const Renderer) -> f64 {
+    if handle.is_null() {
+        return 0.;
+    }
+    (*handle)
+        .fold_base_ms
+        .map_or(0., |base| base * (*handle).engine.time_fold_scale())
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_time_fold_target(handle: *const Renderer) -> f64 {
+    if handle.is_null() {
+        return 0.;
+    }
+    (*handle).fold_interval_ms
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slots: usize) -> usize {
@@ -1135,6 +1310,16 @@ pub extern "C" fn lsd_metrics_len() -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn lsd_metrics_ptr(handle: *const Renderer) -> *const f64 {
     (*handle).metrics.as_ptr()
+}
+/// Borrowed active DSP slots. Read count/pointer together without intervening
+/// processing or controls, and copy before the next mutation or memory growth.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_active_indices_ptr(handle: *const Renderer) -> *const usize {
+    (*handle).engine.active_voice_indices().as_ptr()
+}
+#[no_mangle]
+pub unsafe extern "C" fn lsd_active_indices_count(handle: *const Renderer) -> usize {
+    (*handle).engine.active_voice_indices().len()
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_taps_ptr(handle: *const Renderer) -> *const f32 {
@@ -1504,6 +1689,365 @@ mod browser_tests {
             assert!(energy > 1e-5, "{id} must retain audible signal");
         }
         assert_eq!(staged.frames, (block * BLOCK) as u64);
+    }
+
+    #[test]
+    fn warmed_staged_control_edits_reuse_storage_without_allocating_or_freeing() {
+        let large = scene(10);
+        let small = scene(6);
+        let settings = Performance {
+            automatic: false,
+            voice_ceiling: 256,
+            ..Performance::default()
+        };
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        live.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        // Warm both retained control buffers and the voice-storage high water.
+        for _ in 0..2 {
+            live.begin_install(&large.pool).unwrap();
+            while !live.step_install(73).unwrap() {}
+        }
+        while live.collect_retired(256) != 0 {}
+        reference.install(&large.pool).unwrap();
+        let retained_bytes =
+            live.engine.allocated_bytes() + live.spare_controls.as_ref().unwrap().allocated_bytes();
+        let edits: Vec<_> = (0..8)
+            .map(|edit| {
+                let mut bytes = if edit % 3 == 1 {
+                    small.pool.clone()
+                } else {
+                    large.pool.clone()
+                };
+                let count = read_u32(&bytes, 8) as usize;
+                bytes[16..20].copy_from_slice(&(edit as u32 + 20).to_le_bytes());
+                for index in 0..count {
+                    let base = HEADER + index * RECORD;
+                    for (offset, value) in [
+                        (0, 0.003 + index as f64 * 0.00004 + edit as f64 * 0.0001),
+                        (8, 0.91 + edit as f64 * 0.03),
+                        (24, (index as f64 * 0.03 + edit as f64).sin() * 0.7),
+                    ] {
+                        bytes[base + offset..base + offset + 8]
+                            .copy_from_slice(&value.to_le_bytes());
+                    }
+                }
+                bytes
+            })
+            .collect();
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        let mut block = 0;
+        for bytes in &edits {
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let begin = live.begin_install(bytes);
+            TRACK.with(|n| n.set(false));
+            begin.unwrap();
+            assert_eq!(
+                ALLOCATIONS.with(Cell::get),
+                0,
+                "warm begin reserves nothing"
+            );
+            assert_eq!(FREES.with(Cell::get), 0, "warm begin releases nothing");
+            loop {
+                let input = signal(block * BLOCK);
+                live.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(left, reference_l, "old scene stays live during preparation");
+                assert_eq!(right, reference_r);
+                block += 1;
+                ALLOCATIONS.with(|n| n.set(0));
+                FREES.with(|n| n.set(0));
+                TRACK.with(|n| n.set(true));
+                let committed = live.step_install(73);
+                TRACK.with(|n| n.set(false));
+                assert_eq!(ALLOCATIONS.with(Cell::get), 0, "warm step reserves nothing");
+                assert_eq!(
+                    FREES.with(Cell::get),
+                    0,
+                    "atomic commit retains old buffers"
+                );
+                if committed.unwrap() {
+                    break;
+                }
+            }
+            reference.install(bytes).unwrap();
+            for _ in 0..10 {
+                let input = signal(block * BLOCK);
+                live.process(&input, None, &mut left, &mut right);
+                reference.process(&input, None, &mut reference_l, &mut reference_r);
+                assert_eq!(
+                    left, reference_l,
+                    "live timing/pitch/pan edits preserve PCM"
+                );
+                assert_eq!(right, reference_r);
+                assert_eq!(live.frames, reference.frames);
+                block += 1;
+            }
+            assert_eq!(live.capacity, read_u32(&large.pool, 8) as usize);
+            assert_eq!(live.requested, read_u32(bytes, 8) as usize);
+            assert_eq!(
+                live.engine.allocated_bytes()
+                    + live.spare_controls.as_ref().unwrap().allocated_bytes(),
+                retained_bytes,
+                "shrinking and restoring a scene retain exactly the warmed heap storage"
+            );
+        }
+    }
+
+    #[test]
+    fn staged_control_storage_survives_abort_replacement_and_late_rejection() {
+        let compiled = scene(9);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        for _ in 0..2 {
+            live.begin_install(&compiled.pool).unwrap();
+            while !live.step_install(73).unwrap() {}
+        }
+        while live.collect_retired(256) != 0 {}
+        let mut invalid = compiled.pool.clone();
+        let end = invalid.len();
+        invalid[end - RECORD..end - RECORD + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+        let revision = live.revision;
+        for action in 0..3 {
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let result = (|| -> Result<(), String> {
+                live.begin_install(if action == 2 {
+                    &invalid
+                } else {
+                    &compiled.pool
+                })?;
+                if action == 2 {
+                    loop {
+                        match live.step_install(73) {
+                            Ok(false) => {}
+                            Ok(true) => panic!("invalid last record must reject"),
+                            Err(_) => break,
+                        }
+                    }
+                } else {
+                    assert!(!live.step_install(73)?);
+                    if action == 0 {
+                        live.abort_install();
+                    } else {
+                        live.begin_install(&compiled.pool)?;
+                        live.abort_install();
+                    }
+                }
+                live.begin_install(&compiled.pool)?;
+                while !live.step_install(73)? {}
+                Ok(())
+            })();
+            TRACK.with(|n| n.set(false));
+            result.unwrap();
+            assert_eq!(
+                ALLOCATIONS.with(Cell::get),
+                if action == 2 { 1 } else { 0 },
+                "only the rejected record's error String allocates"
+            );
+            assert_eq!(
+                FREES.with(Cell::get),
+                if action == 2 { 1 } else { 0 },
+                "only the rejection error is freed; numeric buffers are retained"
+            );
+            assert_eq!(live.revision, revision);
+            assert!(live.pending_install.is_none());
+            assert!(live.spare_controls.is_some());
+        }
+    }
+
+    #[test]
+    fn scalar_time_fold_keeps_pool_history_admission_and_allocations_through_live_reversals() {
+        let compiled = scene(7);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.set_performance(Performance {
+            automatic: false,
+            voice_ceiling: 0,
+            ..Performance::default()
+        })
+        .unwrap();
+        live.begin_install(&compiled.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        let revision = live.revision;
+        let admitted = live.engine.target_voice_count();
+        let retained = live.engine.allocated_bytes();
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        for block in 0..40 {
+            live.process(&signal(block * BLOCK), None, &mut left, &mut right);
+        }
+        let before = live.frames;
+        for interval in [0.05, 0.075, 2., 73., 2.] {
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let updated = live.set_time_fold(interval);
+            for block in 0..40 {
+                live.process(
+                    &signal((before as usize) + block * BLOCK),
+                    None,
+                    &mut left,
+                    &mut right,
+                );
+            }
+            TRACK.with(|n| n.set(false));
+            updated.unwrap();
+            assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+            assert_eq!(FREES.with(Cell::get), 0);
+            assert_eq!(live.fold_interval_ms, interval);
+            assert_eq!(live.revision, revision);
+            assert_eq!(live.engine.target_voice_count(), admitted);
+            assert_eq!(live.engine.allocated_bytes(), retained);
+            assert!(left.iter().chain(&right).all(|sample| sample.is_finite()));
+            assert!(left.iter().chain(&right).any(|sample| sample.abs() > 1e-5));
+        }
+        assert_eq!(live.frames, before + 5 * 40 * BLOCK as u64);
+        assert!((unsafe { lsd_time_fold_value(&live) } - 2.).abs() < 0.001);
+    }
+
+    #[test]
+    fn latest_live_fold_survives_staging_rebase_and_abort_but_complete_presets_own_their_fold() {
+        let first = scene(6);
+        let second = scene(8);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        live.set_time_fold(73.).unwrap();
+        live.begin_install(&second.pool).unwrap();
+        live.configure_install_time_fold(2., 73., true).unwrap();
+        assert!(!live.step_install(73).unwrap());
+        live.set_time_fold(0.075).unwrap();
+        live.set_depth(0.9).unwrap();
+        while !live.step_install(73).unwrap() {}
+        assert_eq!(live.fold_interval_ms, 0.075);
+        assert_eq!(live.fold_base_ms, Some(2.));
+        assert_eq!(live.live_depth, Some(0.9));
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 0.05, true).unwrap();
+        assert!(!live.step_install(73).unwrap());
+        live.abort_install();
+        assert_eq!(live.fold_interval_ms, 0.075);
+        live.begin_install(&first.pool).unwrap();
+        live.configure_install_time_fold(2., 2., false).unwrap();
+        while !live.step_install(73).unwrap() {}
+        assert_eq!(live.fold_interval_ms, 2.);
+        assert_eq!(live.engine.time_fold_scale(), 1.);
+    }
+
+    #[test]
+    fn live_fold_eligibility_guard_uses_raw_prepared_delays_even_at_zero_depth() {
+        let mut pool = vec![0u8; HEADER + 2 * RECORD];
+        pool[0..4].copy_from_slice(&MAGIC.to_le_bytes());
+        pool[4..8].copy_from_slice(&2u32.to_le_bytes());
+        pool[8..12].copy_from_slice(&2u32.to_le_bytes());
+        pool[12..16].copy_from_slice(&1u32.to_le_bytes());
+        pool[24..32].copy_from_slice(&1f64.to_le_bytes());
+        for (index, delay) in [38f64, 80.].into_iter().enumerate() {
+            let base = HEADER + index * RECORD;
+            pool[base..base + 8].copy_from_slice(&delay.to_le_bytes());
+            pool[base + 8..base + 16].copy_from_slice(&1f64.to_le_bytes());
+            pool[base + 16..base + 24]
+                .copy_from_slice(&(if index == 0 { 0.5f64 } else { 0. }).to_le_bytes());
+            pool[base + 32..base + 36]
+                .copy_from_slice(&(if index == 0 { 0u32 } else { u32::MAX }).to_le_bytes());
+            pool[base + 40..base + 44].copy_from_slice(&1u32.to_le_bytes());
+        }
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.begin_install(&pool).unwrap();
+        live.configure_install_time_fold(240., 240., false).unwrap();
+        while !live.step_install(1).unwrap() {}
+        live.set_depth(0.).unwrap();
+        live.set_time_fold(200.).unwrap();
+        assert_eq!(live.engine.target_voice_count(), 0);
+        assert!(
+            live.set_time_fold(300.).is_err(),
+            "a prepared eligible slot would exceed history"
+        );
+        assert!(
+            live.set_time_fold(50.).is_err(),
+            "an excluded prepared slot would become eligible"
+        );
+        assert_eq!(live.fold_interval_ms, 200.);
+        live.begin_install(&pool).unwrap();
+        live.configure_install_time_fold(240., 50., true).unwrap();
+        assert!(!live.step_install(1).unwrap());
+        assert!(
+            live.step_install(1).is_err(),
+            "late invalid timing rejects before atomic adoption"
+        );
+        assert_eq!(live.fold_interval_ms, 200.);
+        assert!(live.pending_install.is_none());
+    }
+
+    #[test]
+    fn repeated_full_capacity_control_commits_retain_every_voice_and_numeric_allocation() {
+        const EDITS: usize = 12;
+        let compiled = scene(11);
+        let count = read_u32(&compiled.pool, 8) as usize;
+        assert!(count > l_system_delay_core::TAP_ACTIVITY_CAPACITY);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        live.set_performance(Performance {
+            automatic: false,
+            voice_ceiling: 0,
+            ..Performance::default()
+        })
+        .unwrap();
+        for _ in 0..2 {
+            live.begin_install(&compiled.pool).unwrap();
+            while !live.step_install(256).unwrap() {}
+        }
+        while live.collect_retired(256) != 0 {}
+        let retained_bytes =
+            live.engine.allocated_bytes() + live.spare_controls.as_ref().unwrap().allocated_bytes();
+        let mut begin_micros = [0.; EDITS];
+        let mut commit_micros = [0.; EDITS];
+        for edit in 0..EDITS {
+            ALLOCATIONS.with(|n| n.set(0));
+            FREES.with(|n| n.set(0));
+            TRACK.with(|n| n.set(true));
+            let started = std::time::Instant::now();
+            let began = live.begin_install(&compiled.pool);
+            begin_micros[edit] = started.elapsed().as_secs_f64() * 1e6;
+            TRACK.with(|n| n.set(false));
+            began.unwrap();
+            loop {
+                let started = std::time::Instant::now();
+                TRACK.with(|n| n.set(true));
+                let result = live.step_install(256);
+                TRACK.with(|n| n.set(false));
+                let micros = started.elapsed().as_secs_f64() * 1e6;
+                if result.unwrap() {
+                    commit_micros[edit] = micros;
+                    break;
+                }
+            }
+            assert_eq!(ALLOCATIONS.with(Cell::get), 0);
+            assert_eq!(FREES.with(Cell::get), 0);
+            assert_eq!(live.engine.active_voice_count(), count);
+            assert_eq!(live.engine.target_voice_count(), count);
+            assert_eq!(live.capacity, count);
+            assert_eq!(
+                live.engine.allocated_bytes()
+                    + live.spare_controls.as_ref().unwrap().allocated_bytes(),
+                retained_bytes
+            );
+        }
+        // Characterization only: host timings do not prove browser deadlines.
+        // The commit includes its final record batch and retains O(active) work.
+        eprintln!("numeric control reuse: {count} active voices, {EDITS} edits; begin mean/max {:.1}/{:.1} us; final step mean/max {:.1}/{:.1} us; retained two-buffer controls ~{} bytes",
+            begin_micros.iter().sum::<f64>() / EDITS as f64,
+            begin_micros.iter().copied().fold(0., f64::max),
+            commit_micros.iter().sum::<f64>() / EDITS as f64,
+            commit_micros.iter().copied().fold(0., f64::max),
+            2 * count * (std::mem::size_of::<l_system_delay_core::PoolControl>() + std::mem::size_of::<usize>()));
     }
 
     #[test]

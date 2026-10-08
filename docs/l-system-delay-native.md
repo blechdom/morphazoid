@@ -13,7 +13,7 @@ stochastic grammars with six parametric, context, sequence and tiling modes.
 The new curves and repeatable stochastic branching are documented in
 [Grammar exploration](l-system-delay-grammars.md).
 The incorporated lab mappings are documented in [Lab models](l-system-labs-models.md).
-It retains the original parameter curves, mastering controls within **Mix**, and
+Its controls include fractional Time fold, mastering within **Mix**, and
 audio-clock branch animation. Microphone input is selected by default. The header contains
 input trim, the microphone switch and meters. The first **Input** control section
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
@@ -21,6 +21,15 @@ with a second sample dropdown. There is no synthesizer or test-tone input in
 this browser menu.
 
 ## Play the browser instrument
+
+To share a sound for preset creation, open the header **Settings** gear and use
+**Share a sound → Copy sound parameters**. An optional name travels with the
+JSON. Paste it into chat to turn the captured sound into a factory preset.
+The snapshot includes every musical tree/lab parameter, wet/dry mix, filters and
+compression with full numeric precision. Input choice and independent live gains
+are included separately as reference context. Audio, device policy and media
+contents are not captured. Capture does not alter playback or recompile the tree.
+If clipboard access fails, the same text opens selected for manual copying.
 
 Open the published instrument in a browser supporting WebAssembly, AudioWorklet
 and microphone capture. Click the microphone switch and allow access, then enable
@@ -80,15 +89,33 @@ retain their complete requested settings; the prepared tree and effective
 iterations are runtime state. Large tilings use a complete, shallower derivation
 when their next substitution would exceed capacity.
 
-Playback then measures real audio-thread deadlines. Sustained headroom can grow
-the prepared pool toward the requested tree, and overload reduces admission and
-the next preparation budget. Capacity carries between presets and is revalidated
-under current load. There is no fixed final voice-count ceiling; calibration's
+Playback then measures real audio-thread deadlines. Three seconds of coherent,
+fully admitted audio can prove headroom for a larger prepared pool, sized from
+the remaining deadline budget. Overload reduces active voices inside the retained
+tree; it does not repeatedly recompile a smaller tree. Inactive voice slots do
+not consume recurring DSP work, and installed storage already keeps its largest
+allocation. Capacity carries between presets and is revalidated under current
+load. There is no fixed final voice-count ceiling; calibration's
 time allowance limits the initial probe, and subsequent measured growth remains
 possible. An optional user cap, memory and processing capacity still constrain
-playback. Graphics separately reduce their connected preview when setup, drawing
-or frame timing is expensive, including while Audio is off. Graphics reductions
-do not reduce audio admission or restart recording.
+playback. Graphics retain the complete device-bounded prepared scene. Audio-off
+previews show that scene; playback selects branches from Rust's exact active
+voice slots, including sounding release tails. Retired slots disappear immediately
+on the next coherent status update, even when smoothed visual meters remain positive.
+The active slot list is independent of the individual meter capacity and has no
+separate display cap. Drawing cost adjusts frame rate, resolution and waveform detail,
+without a separate branch-count feedback loop. Expensive frames and low signal
+amplitude cannot remove branches while audio admission remains unchanged. Zero
+Depth hides descendants during playback, retaining their prepared metadata for
+immediate recovery. Framing uses the complete prepared scene. Graphics do not
+reduce audio admission or restart recording.
+Unchanged musical controls are not repainted on each meter update. Worklet
+telemetry uses transferred compact numeric snapshots, expanded into the existing
+public arrays on the main thread. On coarse clocks, an individual render or
+control operation exceeding a quantum plus the clock's 1 ms precision margin is
+observed separately rather than diluted into the normal 32-block average.
+Installation and retirement retain their separate maintenance accounting. These
+measurements describe processing deadlines, not physical output-device underruns.
 Browser performance must be measured on the actual device. The historical CPAL
 benchmarks below do not establish a sustainable browser voice count.
 
@@ -239,15 +266,31 @@ mastering instead. A short time fold does not change the shifted renderer's
 110 ms grain duration. Long cumulative delays beyond 39 seconds retain their
 geometry but cannot produce a tap from the 40-second history.
 Choose consumes Morphazoid's current shared catalogue, with the Rust entry beside
-the original. Time fold retains its piecewise 1–50, 50–1,000 and 1,000–3,000 ms
-mapping. Native input, diagnostics and the optional voice cap use the same control
+the original. Rust Time fold spans **0.05–3,000 ms**, with logarithmic dial travel
+below 50 ms and decimal readouts. Existing presets retain their exact delays;
+50, 240, 1,000 and 3,000 ms retain their earlier dial positions. Unshifted voices
+use fractional sample reads with a one-sample minimum (about 0.021 ms at 48 kHz).
+Shifted voices retain 110 ms grains and a minimum 137.5 ms base read delay, so
+the fold value does not describe their pitch-shifting latency. Shorter folds
+can make more taps eligible within recorded history; measured DSP capacity
+still determines how many run. The original JavaScript control keeps its
+1–3,000 ms mapping. Native input, diagnostics and the optional voice cap use the same control
 styles. Audio remains explicitly armed.
 
 Held knob gestures send their leading value immediately and coalesce further
 values at 16 ms intervals, including a final trailing value. Recursion uses a
-direct generation-gain update rather than compiling a new tree. Mix and mastering
+direct generation-gain update rather than compiling a new tree. Time fold has its
+own live coefficient lane: when the prepared branches keep the same 39-second
+history eligibility, it changes one Rust scalar without compiling or uploading
+another pool. Crossing that boundary prepares new ranks and generation gains
+through the ordinary compiler. Preset recall cancels pending gesture timers and
+owns the complete scene; preparation and processor recovery retain the latest
+live fold. Mix and mastering
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
+Repeating a fully acknowledged parameter, Recursion or performance value skips
+another compile/install or worklet update. A return to the previous value while
+an edit is pending still supersedes that edit.
 Zero Recursion retains structural ranks and recorded history for immediate resume.
 **Depth / decay** spans 0–100%. At **100% · no decay**, every generation has the
 same underlying gain before voice balancing, with no progressive generation
@@ -285,12 +328,13 @@ curve detail before lowering its frame rate. Cached geometry and reusable wave
 buffers reduce per-frame work. The animation clock uses paired worklet sample
 time and AudioContext time, so delayed status delivery does not restart or
 rewind the wave motion. Graphics do not impose another audio voice ceiling.
-During playback, both renderers draw only the input root, admitted delay
-branches, and metered release tails. The complete accepted tree remains metadata
+During playback, both renderers draw only the input root and delay branches in
+Rust's active slot list, including release tails still processed by the DSP.
+Meter smoothing affects wave amplitude, never membership. The complete accepted tree remains metadata
 for presets, parent connections and camera bounds; its unavailable grey branches
 are omitted. Audio off restores the complete preset preview. WebGL2 compacts its
 actual instance and meter buffers when membership changes, avoiding per-frame
-processing of the inactive tree. Capacity changes do not recenter or zoom it.
+processing of the inactive tree. Admission changes do not recenter or zoom it.
 History uploads reuse a Float32 scratch buffer and grow texture storage
 geometrically, rather than reallocating it for every newly recorded sample.
 Software-rendered browser checks validate shader parity and lifecycle; they do
@@ -324,14 +368,23 @@ measured tap RMS already includes that normalization and is not attenuated again
 This display mapping changes neither audio gain nor compression and adds no
 motion at zero input.
 
-Pool timing edits preserve the current two-head crossfade, remember the newest
-delay, then fade to that target when the current 65 ms fade completes. Returning
-to the source reverses the active mix continuously. This avoids replacing an
-audible head every time a slider event arrives while retaining fixed-head pitch
-behavior. The ordinary scene/CLI render path remains unchanged. In a repeatable
-173 Hz, 60 Hz-control sweep, the maximum adjacent output step dropped from
-0.01137977 to 0.00389200, below the continuous carrier/fade bound of 0.00416380.
-This measures transition continuity; human listening remains separate.
+Live Time fold follows a common 35 ms smoothed coefficient with a single moving
+readhead per voice. Large moves additionally limit readhead travel to four
+samples per sample. Grain phase, recorded input, source playback and release
+tails survive the gesture. Movement intentionally produces a tape-like pitch
+glide; it avoids running two delay lanes for every voice at once. A longer delay
+waits at its last readable position when the required input history is not ready.
+Extreme moves can therefore take longer to reach their requested delay than the
+nominal 35 ms smoothing.
+
+Discrete scene changes retain the 65 ms two-head crossfade and its pending-target
+behavior. The fade waits for readable destination history, and identical
+effective grain/read delays bypass it. Short folds below the shifted grain-base
+floor no longer create a redundant crossfade of the same samples. Graphics reuse
+the accepted tree and wave paths; WebGL scales delay coordinates with a uniform
+instead of uploading another topology. Historical envelope travel follows
+nominal applied timing, while tap endpoint amplitude remains measured audio.
+This illustration is not a measurement of each slewing granular read position.
 
 Gains normalize by the selected voices in each generation, matching the original
 pruning behavior. Descendants and Original voice have independent levels. Input
@@ -434,6 +487,12 @@ preparation. An atomic handoff updates audible/releasing voices, while inactive
 slots adopt targets when admitted. Recording, branch phase and delay-edit
 crossfades survive the handoff. Allocation, memory growth and freeing replaced
 storage can still consume time; staging does not guarantee every device deadline.
+Repeated installs recycle the numeric control records and rank maps. Once both
+buffers are warm, edits within their retained capacity allocate and free no
+control storage, including a smaller scene followed by restoring the larger one.
+Larger high-water scenes and raw worklet uploads can still allocate. Rank-map
+reset still visits the prepared count, and atomic adoption visits active voices;
+recycling does not make those operations constant time or reduce the voice budget.
 Finite topology preparation and cleanup retain a previously proved capacity
 estimate for prompt restoration and revalidation. Total callback CPU and missed
 deadlines still include that work; recurring DSP, admission, status polling and
@@ -465,21 +524,23 @@ The lookup and merge scratch are reserved up front and included in memory metric
 admission and rendering do not allocate on the audio callback.
 
 Rendering visits active voices instead of scanning every reserved slot. Graphics
-reduce their frame rate and curve detail as audio load rises; the visual
-preview is bounded independently of the audio tree. Beyond thirteen generations,
-a sampled native preview preserves actual branch priorities rather than
-substituting an unrelated smaller tree. Full preset recalls fetch that preview,
+reduce their frame rate and curve detail as audio load rises; the browser preview
+uses the complete device-bounded prepared scene. Full preset recalls fetch that preview,
 just as live parameter edits do, before the preset menu finishes applying.
 
 Each tap reads shared recorded input at its inherited pitch and cumulative delay;
-audio does not cascade through parent processors. The full tree geometry and
-camera bounds stay constant as device capacity changes; only admitted branches
-and metered release tails are drawn during playback. Color indicates admission;
+audio does not cascade through parent processors. The prepared tree geometry and
+camera bounds stay constant as audio admission changes within that scene; only branches in the
+exact active slot list are drawn during playback. Color indicates admission;
 wave amplitude
 indicates signal, with actual tap RMS taking precedence on short edges and at
 audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
 existing delayed audio and the retained input history continue.
+
+Proved headroom can grow the prepared scene. That can change its effective
+derivation and camera fit; it is separate from active voice admission inside an
+unchanged prepared scene.
 
 The ripple carrier is an activity illustration rather than the literal PCM
 waveform. Metered response uses rendered granular output; long-edge transit and
@@ -691,7 +752,7 @@ Signalsmith lanes with 160 ms processing blocks and 30 ms hops. The separate
 the Rust core implements the pitch and delay processing. It ports the current
 economy/fallback algorithm: one shared 40-second float32 raw-input history,
 two overlapping 110 ms sine-squared grains, playback rates from 0.125 to 8,
-equal-power pan, smoothed controls, a 65 ms delay-edit crossfade, and input/output
+equal-power pan, smoothed controls, a 65 ms discrete-scene delay crossfade, and input/output
 `tanh`. Unison uses an ordinary interpolated delay. Stable voice keys preserve
 phase and recorded history through edits.
 

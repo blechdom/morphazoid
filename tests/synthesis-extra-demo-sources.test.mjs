@@ -37,9 +37,9 @@ function stats(buffer) {
 test('24 additional demos preserve existing choices and include the requested sound families', () => {
   const demos = PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'demo');
   assert.equal(EXTRA_DEMO_SOURCES.length, 24);
-  assert.equal(demos.length, originalIds.length + 24);
+  assert.equal(demos.length, originalIds.length + 24 + 1);
   assert.deepEqual(demos.slice(0, originalIds.length).map(option => option.id), originalIds);
-  for (const id of ['nature-coyote-howl', 'fx-sad-trombone', 'fx-record-scratch', 'music-unicorn-sparkles',
+  for (const id of ['speech-curling', 'nature-coyote-howl', 'fx-sad-trombone', 'fx-record-scratch', 'music-unicorn-sparkles',
     'music-tabla', 'music-toy-gamelan', 'music-clockwork-chamber', 'music-rockabilly-drive', 'music-country-front-porch', 'music-neon-synth-pop']) {
     assert.ok(demos.some(option => option.id === id), id);
   }

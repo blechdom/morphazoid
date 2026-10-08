@@ -95,14 +95,24 @@ async function goldenFrame(page, options = {}) {
       levels.set(node.voiceIndex, options.energy ?? .03); targets.set(node.voiceIndex, options.energy ?? .03);
     }
     if (pending || options.energy === 0) levels.clear();
-    const history = options.history === false ? null : { values: Array(2000).fill(options.historyEnergy ?? .1), interval: .01, endTime: 10 };
+    const history = options.history === false ? null : { values: Array.from({ length: 2000 }, (_, index) =>
+      options.historyRamp ? .005 + index * .00004 : options.historyEnergy ?? .1), interval: .01, endTime: 10 };
     const reader = history ? model.inputEnvelopeReader(history) : null;
     const frame = { width: 400, height: 320, dpr: options.dpr ?? 1, fit: { scale: 42, x: 22, y: 170 },
       seconds: 10, detailSteps: 14, reducedMotion: options.reducedMotion ?? false,
       limit, pending, historyFresh: !!history && !pending, history, levels, targets,
       rootLevel: options.rootEnergy ?? options.energy ?? .03, wet: options.wet ?? .7, wetBusGain: options.wet === 0 ? 0 : .7,
       depth: parameters.depth, selectedCounts };
-    renderer.setGeometry(nodes);
+    renderer.setGeometry(nodes, { intervalMs: parameters.intervalMs });
+    const installedStats = renderer.stats;
+    if (options.foldIntervals) {
+      const baseInterval = parameters.intervalMs, baseDelays = nodes.map(node => node.delay);
+      for (const interval of options.foldIntervals) {
+        renderer.setTimeFold(interval);
+        for (let index = 0; index < nodes.length; index++) nodes[index].delay = baseDelays[index] * interval / baseInterval;
+        parameters.intervalMs = interval;
+      }
+    }
     __delayGpuProbe.draws = [];
     renderer.render(frame);
     const draws = __delayGpuProbe.draws, draw = draws.at(-1);
@@ -150,43 +160,53 @@ async function goldenFrame(page, options = {}) {
     }
     return { type: parameters.lSystemType, nodes: nodes.length, available, unavailable, maximumCoordinateError,
       maximumEnergyError, bentDescendants, violations: [...new Set(violations)], painted: draw.painted,
-      maximumAlpha: draw.maximumAlpha, glError: draw.error, stats: renderer.stats };
+      maximumAlpha: draw.maximumAlpha, glError: draw.error, installedStats, stats: renderer.stats };
   }, options);
 }
 
-test('playing packs only admitted instances and real releases, while Audio off retains the complete preset', async ({ page }) => {
+test('playing packs exact active slots with colored unmetered releases and removes retired slots despite meter residue', async ({ page }) => {
   await fixture(page);
   const evidence = await page.evaluate(() => {
     const { renderer, model, generationTopology } = __delayGpuFixture;
     const nodes = model.buildPreview({ ...model.DEFAULT_PARAMETERS, generations: 13 }, generationTopology);
     const selection = model.createPreviewDrawSelection(nodes), levels = new Map(), targets = new Map();
+    let activeVoiceIndices = nodes.filter(node => node.generation > 0 && node.priority < 48).map(node => node.voiceIndex);
     const frame = { width: 400, height: 320, dpr: 1, fit: { scale: 42, x: 22, y: 170 }, seconds: 10,
       detailSteps: 5, limit: 48, depth: .72, rootLevel: 0, wet: .7, wetBusGain: .7,
-      levels, targets, selectedCounts: new Map() };
-    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+      levels, targets, selectedCounts: new Map(), activeVoiceSelection: true };
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth, activeVoiceIndices });
     renderer.setGeometry(nodes, { drawNodes: frame.drawNodes });
     __delayGpuProbe.draws = []; renderer.render(frame);
     const first = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
     renderer.render(frame);
     const stable = renderer.stats;
     frame.limit = 6;
-    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+    activeVoiceIndices = nodes.filter(node => node.generation > 0 && node.priority < 6).map(node => node.voiceIndex);
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth, activeVoiceIndices });
     __delayGpuProbe.draws = []; renderer.render(frame);
     const reduced = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
-    const tail = nodes.find(node => node.priority === 12); levels.set(tail.voiceIndex, .2);
-    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth });
+    const tail = nodes.find(node => node.priority === 4096);
+    activeVoiceIndices = [...activeVoiceIndices, tail.voiceIndex];
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth, activeVoiceIndices });
     __delayGpuProbe.draws = []; renderer.render(frame);
     const released = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
+    // Actual retirement wins over meter residue; an unmetered active release
+    // above rank capacity remains in the colored pass until then.
+    levels.set(tail.voiceIndex, .2); activeVoiceIndices = activeVoiceIndices.filter(slot => slot !== tail.voiceIndex);
+    frame.drawNodes = selection.select({ audio: true, limit: frame.limit, levels, depth: frame.depth, activeVoiceIndices });
+    __delayGpuProbe.draws = []; renderer.render(frame);
+    const retired = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
     frame.depth = 0; frame.limit = 0; levels.clear(); model.applyPreviewDepth(nodes, 0);
-    frame.drawNodes = selection.select({ audio: true, limit: 0, depth: 0, levels });
+    frame.drawNodes = selection.select({ audio: true, limit: 0, depth: 0, levels, activeVoiceIndices: [] });
     __delayGpuProbe.draws = []; renderer.render(frame);
     const silent = { stats: renderer.stats, instances: __delayGpuProbe.draws.map(draw => draw.instances) };
     // No readback of the full preview: production never reads GPU output.
     __delayGpuProbe.enabled = false;
+    frame.activeVoiceSelection = false;
     frame.drawNodes = selection.select({ audio: false }); renderer.render(frame);
     const off = renderer.stats;
     renderer.dispose();
-    return { first, stable, reduced, released, silent, off, fullCount: nodes.length };
+    return { first, stable, reduced, released, retired, silent, off, fullCount: nodes.length };
   });
   expect(evidence.fullCount).toBe(16383);
   expect(evidence.first.stats.nodeCount).toBe(49);
@@ -197,6 +217,7 @@ test('playing packs only admitted instances and real releases, while Audio off r
   expect(evidence.stable.topologyUploads).toBe(evidence.first.stats.topologyUploads);
   expect(evidence.reduced.instances).toEqual([7]); expect(evidence.reduced.stats.nodeCount).toBe(7);
   expect(evidence.released.instances).toEqual([8]); expect(evidence.released.stats.nodeCount).toBe(8);
+  expect(evidence.retired.instances).toEqual([7]); expect(evidence.retired.stats.nodeCount).toBe(7);
   expect(evidence.silent.instances).toEqual([1]); expect(evidence.silent.stats.nodeCount).toBe(1);
   expect(evidence.off.nodeCount).toBe(16383);
   expect(evidence.off.topologyUploads).toBe(evidence.first.stats.topologyUploads);
@@ -216,6 +237,22 @@ test('GPU branches match Canvas signal deformation and availability for every gr
     if (!options.energy) expect(result.bentDescendants, type).toBe(0);
   }
   await test.info().attach('gpu-grammar-parity', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
+});
+
+test('live Time fold uses a uniform with Canvas timing parity and retains topology buffers', async ({ page }) => {
+  await fixture(page);
+  const report = [];
+  for (const type of ['pythagorean', 'plant', 'coral']) for (const foldIntervals of [[1200], [1200, .05], [1200, .05, 480, 1200, 250]]) {
+    const result = await goldenFrame(page, { type, intervalMs: 250, foldIntervals, metered: false, historyRamp: true });
+    report.push({ foldIntervals, ...result });
+    expect(result.glError).toBe(0);
+    expect(result.maximumCoordinateError).toBeLessThan(.005);
+    expect(result.maximumEnergyError).toBeLessThan(.0001);
+    expect(result.violations).toEqual([]);
+    expect(result.stats.topologyUploads).toBe(result.installedStats.topologyUploads);
+    expect(result.stats.selectionUploads).toBe(result.installedStats.selectionUploads);
+  }
+  await test.info().attach('gpu-time-fold-uniform-parity', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
 });
 
 test('GPU envelope storage grows geometrically and reuses scratch through a long session and history reset', async ({ page }) => {

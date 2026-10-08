@@ -1,4 +1,5 @@
 import { wasmError, withJson } from './wasm-abi.js';
+import { audioStatusTransfers } from './telemetry.js';
 
 const BLOCK = 128, ENVELOPE_CAPACITY = 4000;
 const MAX_MAINTENANCE_BATCH = 4096, BOOTSTRAP_RECORDS = 64;
@@ -17,6 +18,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.engine = this.api.lsd_new(sampleRate, 1);
     if (!this.engine) throw new Error(wasmError(this.api, 'The Rust delay engine could not start.'));
     this.dead = false; this.failed = false; this.measuredSeconds = 0; this.measuredFrames = 0; this.adjustmentSeconds = 0;
+    this.adjustmentPeakSeconds = 0;
     this.maintenanceSeconds = 0; this.measuredMaintenanceSeconds = 0;
     this.renderMeanSeconds = 0;
     this.installTiming = { seconds: 0, records: 0, recordSeconds: 0, blockedSeconds: 0 };
@@ -40,7 +42,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
       finally {
         const seconds = Math.max(0, now() - started) / 1000;
         if (data.type === 'install') this.maintenanceSeconds += seconds;
-        else this.adjustmentSeconds += seconds;
+        else {
+          this.adjustmentSeconds += seconds;
+          this.adjustmentPeakSeconds = Math.max(this.adjustmentPeakSeconds, seconds);
+        }
       }
     };
     this.port.postMessage({ type: 'ready', timing: fineClock ? 'high-resolution' : 'coarse-averaged' });
@@ -66,18 +71,33 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     this.api.lsd_metrics_ptr(this.engine);
     for (let i = 0; i < METRICS.length; i++) status[METRICS[i]] = this.metrics[i];
     status.audioTimeSeconds = this.audioTimeSeconds;
+    status.timeFoldMs = this.api.lsd_time_fold_value(this.engine);
+    status.timeFoldTargetMs = this.api.lsd_time_fold_target(this.engine);
+    // This synchronous read/copy shares the scalar metrics' DSP state. Rust
+    // exposes only its actual processing list, never inactive prepared slots.
+    const activeCount = this.api.lsd_active_indices_count(this.engine);
+    status.activeVoiceIndices = new Uint32Array(this.memory, this.api.lsd_active_indices_ptr(this.engine), activeCount).slice();
     const count = this.api.lsd_taps_count(this.engine);
-    status.tapActivity = Array.from(new Float32Array(this.memory, this.api.lsd_taps_ptr(this.engine), count));
-    status.tapVoiceIndices = Array.from(new Uint32Array(this.memory, this.api.lsd_tap_indices_ptr(this.engine), count), value => value === 0xffffffff ? -1 : value);
-    status.generationActivity = Array.from(this.generationActivity);
-    status.generationVoiceCounts = Array.from(this.generationCounts);
-    const envelopeCount = this.api.lsd_envelope_count(this.engine), offset = this.api.lsd_envelope_offset(this.engine), values = new Array(envelopeCount);
-    for (let i = 0; i < envelopeCount; i++) values[i] = this.envelope[(offset + i) % ENVELOPE_CAPACITY];
+    // Snapshot copies have compact numeric storage and can leave this thread
+    // without cloning thousands of boxed values or detaching live WASM memory.
+    status.tapActivity = new Float32Array(this.memory, this.api.lsd_taps_ptr(this.engine), count).slice();
+    status.tapVoiceIndices = new Uint32Array(this.memory, this.api.lsd_tap_indices_ptr(this.engine), count).slice();
+    status.generationActivity = this.generationActivity.slice();
+    status.generationVoiceCounts = this.generationCounts.slice();
+    const envelopeCount = this.api.lsd_envelope_count(this.engine), offset = this.api.lsd_envelope_offset(this.engine), values = new Float32Array(envelopeCount);
+    const first = Math.min(envelopeCount, ENVELOPE_CAPACITY - offset);
+    values.set(this.envelope.subarray(offset, offset + first));
+    if (first < envelopeCount) values.set(this.envelope.subarray(0, envelopeCount - first), first);
     status.inputEnvelope = { interval: this.api.lsd_envelope_interval(this.engine), endTime: this.api.lsd_envelope_end_time(this.engine), values };
     status.automatic = Boolean(status.automatic); status.source = status.source ? 'mic' : 'seed';
     status.device = 'Browser audio'; status.failure = this.failed ? 'The audio engine stopped.' : null;
     status.timing = fineClock ? 'high-resolution' : 'coarse-averaged';
     return status;
+  }
+
+  postStatus(id) {
+    const status = this.snapshot();
+    this.port.postMessage({ id, status }, audioStatusTransfers(status));
   }
 
   message(data) {
@@ -93,6 +113,9 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     } else if (data.type === 'depth') {
       const accepted = this.api.lsd_depth(this.engine, data.depth);
       if (!accepted) throw new Error(wasmError(this.api, 'Recursion could not be updated.'));
+    } else if (data.type === 'time-fold') {
+      const accepted = this.api.lsd_time_fold(this.engine, data.intervalMs);
+      if (!accepted) throw new Error(wasmError(this.api, 'Time fold could not be updated.'));
     } else if (data.type === 'performance') {
       let accepted;
       try {
@@ -109,8 +132,11 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Live coefficient gestures arrive much more often than display polling.
     // Acknowledge them without allocating another complete meter/history copy
     // on the audio thread. Status polling publishes the coherent audio frame.
-    this.port.postMessage(data.type === 'status'
-      ? { id: data.id, status: this.snapshot() } : { id: data.id });
+    if (data.type === 'status') this.postStatus(data.id);
+    else if (data.type === 'time-fold') this.port.postMessage({ id: data.id,
+      timeFoldMs: this.api.lsd_time_fold_value(this.engine), timeFoldTargetMs: this.api.lsd_time_fold_target(this.engine),
+      topologyRevision: this.metrics[16], processedBlocks: this.metrics[23] });
+    else this.port.postMessage({ id: data.id });
   }
 
   startInstall() {
@@ -128,6 +154,10 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         .set(bytes.subarray(0, this.pendingInstall.copied));
       if (!this.api.lsd_install_begin(this.engine, pointer, bytes.length)) {
         throw new Error(wasmError(this.api, 'The audio topology could not be prepared.'));
+      }
+      if (Number.isFinite(data.baseIntervalMs) && Number.isFinite(data.intervalMs)
+        && !this.api.lsd_install_time_fold(this.engine, data.baseIntervalMs, data.intervalMs, Number(Boolean(data.liveFold)))) {
+        throw new Error(wasmError(this.api, 'The delay timing could not be prepared.'));
       }
     } catch (error) {
       if (error instanceof WebAssembly.RuntimeError) { trapped = true; throw error; }
@@ -170,7 +200,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         this.capacitySeeded = true;
       }
       this.releaseInstall();
-      this.port.postMessage({ id: pending.id, status: this.snapshot() });
+      this.postStatus(pending.id);
     }
     return true;
   }
@@ -205,6 +235,16 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
   maintenanceSpare(duration, renderSeconds, workStarted) {
     return Math.max(0, duration * .98 - Math.max(renderSeconds, this.renderMeanSeconds)
       - this.adjustmentSeconds - this.maintenanceSeconds - Math.max(0, now() - workStarted) / 1000);
+  }
+
+  observeTiming(seconds, maintenanceSeconds, frames) {
+    const started = now();
+    if (maintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') {
+      this.api.lsd_observe_maintenance(this.engine, seconds, maintenanceSeconds, frames, 0);
+    } else this.api.lsd_observe(this.engine, seconds, frames, 0);
+    const adjustment = Math.max(0, now() - started) / 1000;
+    this.adjustmentSeconds += adjustment;
+    this.adjustmentPeakSeconds = Math.max(this.adjustmentPeakSeconds, adjustment);
   }
 
   process(inputs, outputs) {
@@ -287,24 +327,31 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     // Admission probes also consume the audio thread. Carry that measured
     // adjustment into the next observation, including coarse-clock batches.
     const seconds = Math.max(0, now() - started) / 1000 + this.adjustmentSeconds + this.maintenanceSeconds;
+    // A coarse clock can round an otherwise safe quantum upward by <1 ms.
+    // Only an individual render/control operation beyond that margin proves
+    // a spike; finite install/retirement cost keeps its existing batch policy.
+    const coarseSpike = !fineClock && Math.max(renderSeconds, this.adjustmentPeakSeconds) > duration + .001;
     this.adjustmentSeconds = 0;
+    this.adjustmentPeakSeconds = 0;
     this.maintenanceSeconds = 0;
     if (fineClock) {
-      const adjustmentStarted = now();
-      if (maintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine, seconds, maintenanceSeconds, frames, 0);
-      else this.api.lsd_observe(this.engine, seconds, frames, 0);
-      this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
+      this.observeTiming(seconds, maintenanceSeconds, frames);
+    } else if (coarseSpike) {
+      // Earlier cheap quanta cannot dilute this measured deadline overrun.
+      // Flush them separately, then observe this quantum once. Both admission
+      // calls' cost carries forward instead of being counted twice or omitted.
+      if (this.measuredFrames > 0) {
+        this.observeTiming(this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames);
+        this.measuredSeconds = 0; this.measuredFrames = 0; this.measuredMaintenanceSeconds = 0;
+      }
+      this.observeTiming(seconds, maintenanceSeconds, frames);
     }
     else {
       // Averaging makes a 1 ms clock tick useful without treating it as a spike.
       this.measuredSeconds += seconds; this.measuredFrames += frames;
       this.measuredMaintenanceSeconds += maintenanceSeconds;
       if (this.measuredFrames >= BLOCK * 32) {
-        const adjustmentStarted = now();
-        if (this.measuredMaintenanceSeconds > 0 && typeof this.api.lsd_observe_maintenance === 'function') this.api.lsd_observe_maintenance(this.engine,
-          this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames, 0);
-        else this.api.lsd_observe(this.engine, this.measuredSeconds, this.measuredFrames, 0);
-        this.adjustmentSeconds = Math.max(0, now() - adjustmentStarted) / 1000;
+        this.observeTiming(this.measuredSeconds, this.measuredMaintenanceSeconds, this.measuredFrames);
         this.measuredSeconds = 0; this.measuredFrames = 0;
         this.measuredMaintenanceSeconds = 0;
       }

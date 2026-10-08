@@ -35,7 +35,14 @@
 .micmic-page .masthead:has(#nativeSettings[open]) { z-index: 90; }
 #nativeSettings .header-settings-section { display: grid; grid-template-columns: minmax(0, 1fr); gap: 12px; }
 #nativeSettings .header-settings-panel > p { margin: 12px; }
+.native-share-name { display: grid; gap: 6px; color: var(--muted); font-size: 10px; }
+.native-share-name input, .native-share-text textarea { box-sizing: border-box; width: 100%; min-width: 0; padding: 8px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-high); color: var(--ink); font: inherit; }
+.native-share-text { min-width: 0; }
+.native-sound-share .mini-action { min-height: 36px; }
+.native-share-text summary { padding-block: 8px; color: var(--muted); font-size: 10px; cursor: pointer; }
+.native-share-text textarea { display: block; margin-top: 6px; resize: vertical; font: 10px/1.5 ui-monospace, monospace; }
 @media (pointer: coarse) {
+  .native-sound-share .mini-action, .native-share-name input, .native-share-text summary { min-height: 48px; }
   .native-input-choice .instrument-picker-trigger, .native-input-actions .mini-action, .native-input-file input::file-selector-button, #panicButton { min-height: 48px; }
   .native-input-playback .native-check { min-height: 40px; }
 }

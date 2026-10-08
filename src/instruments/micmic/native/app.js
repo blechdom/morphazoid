@@ -6,16 +6,15 @@ import { enhanceChooseSelect } from '../../../ui/patterns/choose-select.js';
 import { createTapTempoButton } from '../../../ui/primitives/tap-tempo-button.js';
 import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
-import { timeFoldFromSlider, sliderFromTimeFold } from '../micmic.js';
+import { timeFoldFromSlider, sliderFromTimeFold, formatTimeFold, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS } from './time-fold.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
-  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth,
+  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth, applyPreviewTimeFold,
   topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
 import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
 import { createGpuBranchRenderer } from './gpu-renderer.js';
-import { createGraphicsCapacity, createConnectedGraphicsSelection } from './graphics-capacity.js';
 import { config as parametricConfig } from '../../l-system-parametric-lab/config.js';
 import { config as experimentsConfig, KIND_LABELS } from '../../l-system-experiments/config.js';
 import { sanitizeLab, randomLab } from '../../l-system-parametric-lab/model.js';
@@ -49,7 +48,8 @@ const COLORS = ['#fff3d6', '#55d9ff', '#5fe8c4', '#7db4ff', '#c79bff', '#ff826f'
 let disposed = false, bootstrapped = false, parameterRevision = 0, performanceRevision = 0;
 let parameterDirty = false, performanceDirty = false, parameterWorking = false, performanceWorking = false;
 let depthDirty = false, depthWorking = false, depthRevision = 0, depthTimer;
-let depthRequest = null, performanceRequest = null;
+let foldDirty = false, foldWorking = false, foldRevision = 0, foldTimer;
+let depthRequest = null, foldRequest = null, performanceRequest = null;
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
 let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
@@ -59,7 +59,8 @@ let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockRecei
 let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
 let lastDrawAt = -Infinity, visualCostMs = 0;
-let graphicsCapacity = null, graphicsSelection = null, preparedGraphicsNodes = null, graphicsSelectionDirty = false, previousContinuous = false;
+let preparedGraphicsNodes = null, preparedGraphicsBounds = null;
+let paintedControlsKey = null;
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
 const parameterKnobs = new Map();
@@ -69,6 +70,7 @@ let nativePreview = null, nativePreviewStarted = 0, nativePreviewMoving = false,
 let previewParameters = { ...state.parameters };
 let visualRevision = 0, previewRefreshWorking = false, previewRefreshDirty = false;
 let presets = [], lastScenePreset = LAB_CONFIG?.presets[0].id ?? 'pythagorean', presetController, sceneApplying = false;
+let soundCopyWorking = false;
 const canvas = $('stage'), context = canvas.getContext('2d'), reducedMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 // The original canvas retains gestures, focus and small annotations. Branch
 // deformation lives in a separate GPU layer, with the full Canvas fallback.
@@ -99,7 +101,7 @@ $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.in
 audioStrip.setAudioDisabled(true);
 const errorBox = $('audioError'); errorBox.className = 'audio-error native-audio-error'; errorBox.setAttribute('popover', 'manual'); document.body.append(errorBox);
 errorBox.addEventListener('click', () => { errorBox.hidden = true; if (errorBox.matches(':popover-open')) errorBox.hidePopover(); });
-const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, 1, 3000), true) });
+const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS), true) });
 function attachTap(input, button) { const field = input.closest('label'), wrapper = document.createElement('div'); wrapper.className = 'mz-tap-tempo-field'; field.before(wrapper); wrapper.append(field, button); }
 attachTap($('interval'), foldTap);
 
@@ -219,12 +221,33 @@ function updateVisualDepth(depth) {
     geometry.activeLimit = -1; geometry.unavailableKey = null;
   }
 }
+function appliedTimeFold(reply, parameters) {
+  return reply.audio && Number.isFinite(reply.status?.timeFoldMs) && reply.status.timeFoldMs > 0
+    ? reply.status.timeFoldMs : parameters.intervalMs;
+}
+function updateVisualTimeFold(intervalMs) {
+  if (intervalMs === previewParameters.intervalMs) return;
+  previewParameters.intervalMs = intervalMs;
+  if (nativePreview) nativePreview.parameters.intervalMs = intervalMs;
+  const nodes = geometry?.nodes ?? nativePreview?.nodes;
+  if (nodes) applyPreviewTimeFold(nodes, intervalMs);
+  if (!geometry) return;
+  for (const wave of geometry.waves.values()) {
+    const node = geometry.byId.get(wave.signal.id);
+    if (!node) continue;
+    wave.signal.delay = node.delay;
+    wave.signal.startDelay = wave.parent?.delay ?? Math.max(0, node.delay - intervalMs / 1000);
+  }
+  gpuRenderer?.setTimeFold(intervalMs);
+}
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
   if (reply.input) state.input = { ...state.input, ...reply.input };
   if (reply.generationLimits) state.generationLimits = reply.generationLimits;
   if (reply.memoryVoiceCapacity) state.memoryVoiceCapacity = reply.memoryVoiceCapacity;
-  if (reply.status) {
+  // Installation acknowledges its new DSP pool before the matching scene
+  // metadata commits. Preserve the complete prior status during that interval.
+  if (reply.status && (reply.status.topologyRevision === undefined || reply.status.topologyRevision === reply.topologyRevision)) {
     state.status = reply.status; inputReceivedAt = performance.now();
     inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
     const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters ?? previewParameters);
@@ -233,6 +256,7 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
       syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = performance.now();
     }
     if (reply.topologyRevision >= visualRevision && Number.isFinite(applied.depth)) updateVisualDepth(applied.depth);
+    if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
     if (reply.topologyRevision > visualRevision) void refreshNativePreview();
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
@@ -247,6 +271,7 @@ const LAB_GEOMETRY_PARAMETERS = ['kind', 'iterations', 'lengthRatio', 'angleIncr
 function sameLabGeometry(left, right) {
   return left && right ? LAB_GEOMETRY_PARAMETERS.every(key => left[key] === right[key]) : left === right;
 }
+const previewSceneKey = parameters => JSON.stringify({ ...sanitizeParameters(parameters), depth: 1 });
 async function refreshNativePreview() {
   if (previewRefreshWorking) { previewRefreshDirty = true; return; }
   previewRefreshWorking = true;
@@ -254,21 +279,30 @@ async function refreshNativePreview() {
     const reply = await request('/api/preview');
     if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
     const parameters = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
+    parameters.intervalMs = appliedTimeFold(reply, parameters);
     if (LAB_CONFIG && (!parameters.lab || !LAB_CONFIG.kinds.includes(parameters.lab.kind))) return;
-    if (reply.topologyRevision === visualRevision && nativePreview && !graphicsSelectionDirty) { updateVisualDepth(parameters.depth); return; }
-    const setupStarted = performance.now(), prepared = reply.visualNodes ?? reply.nodes ?? [];
-    if (!graphicsCapacity) graphicsCapacity = createGraphicsCapacity({ preparedVoices: reply.deviceCapacity?.voices ?? reply.preparedVoices ?? prepared.length - 1, nodeCount: prepared.length });
-    graphicsCapacity.ensureCapacity({ preparedVoices: reply.deviceCapacity?.preparedCapacity ?? reply.preparedVoices, availableNodes: prepared.length });
-    if (prepared !== preparedGraphicsNodes) { preparedGraphicsNodes = prepared; graphicsSelection = createConnectedGraphicsSelection(prepared); }
-    const selected = graphicsSelection.select(graphicsCapacity.limit);
-    const targets = reply.visualNodes ? selected : nativePreviewNodes(selected);
+    if (reply.topologyRevision === visualRevision && nativePreview) {
+      updateVisualDepth(parameters.depth); updateVisualTimeFold(parameters.intervalMs);
+      nativePreview.requestedParameters = sanitizeParameters(reply.parameters);
+      return;
+    }
+    const prepared = reply.visualNodes ?? reply.nodes ?? [];
+    if (prepared !== preparedGraphicsNodes) {
+      preparedGraphicsNodes = prepared;
+      // Frame the prepared scene consistently as audio admission changes.
+      preparedGraphicsBounds = topologyBounds(prepared);
+    }
+    // Rust has already bounded this graph to measured audio capacity. Retain
+    // that scene; frame cost changes draw detail, never its branch membership.
+    const targets = reply.visualNodes ? prepared : nativePreviewNodes(prepared);
     if (!targets.length) return;
-    graphicsSelectionDirty = false;
     const sameShape = nativePreview && GEOMETRY_PARAMETERS.every(key => parameters[key] === nativePreview.parameters[key])
       && parameters.grammarSeed === nativePreview.parameters.grammarSeed && parameters.branchProbability === nativePreview.parameters.branchProbability
       && sameLabGeometry(parameters.lab, nativePreview.parameters.lab);
     const compatible = sameShape && geometry && targets.length === geometry.nodes.length
       && targets.every((node, index) => node.id === geometry.nodes[index].id);
+    const sameRequestedScene = nativePreview?.requestedParameters
+      && previewSceneKey(reply.parameters) === previewSceneKey(nativePreview.requestedParameters);
     visualRevision = reply.topologyRevision; previewParameters = { ...parameters };
     if (compatible) {
       // Timing, pitch, spread, pruning and gain edits reuse the live coordinates,
@@ -278,6 +312,7 @@ async function refreshNativePreview() {
         node.priority = target.priority;
         node.delay = target.delay; node.rate = target.rate;
       }
+      applyPreviewTimeFold(geometry.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       applyPreviewDepth(geometry.nodes, parameters.depth);
       for (const wave of geometry.waves.values()) {
         const node = geometry.byId.get(wave.signal.id);
@@ -289,18 +324,20 @@ async function refreshNativePreview() {
       nativePreview.parameters = parameters;
       geometry.drawSelection.invalidate();
       gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
-        limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth }) });
+        limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
+        revision: visualRevision, activeRevision: state.status.topologyRevision }) });
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
+      applyPreviewTimeFold(previewTransition.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       applyPreviewDepth(previewTransition.nodes, parameters.depth);
       nativePreviewStarted = performance.now();
       nativePreviewMoving = Boolean(geometry && previewTransition.moving);
       if (!nativePreviewMoving) advancePreviewTransition(previewTransition, 1);
-      nativePreview = { parameters, nodes: previewTransition.nodes, bounds: topologyBounds(targets) };
+      if (sameRequestedScene && geometry && !lockedFit) lockedFit = { ...geometry.fit };
+      nativePreview = { parameters, nodes: previewTransition.nodes, bounds: preparedGraphicsBounds };
       geometry = null;
     }
-    if (graphicsCapacity.observe({ nowMs: performance.now(), setupMs: performance.now() - setupStarted,
-      drawnNodes: targets.length, continuous: false })) { graphicsSelectionDirty = true; void refreshNativePreview(); }
+    nativePreview.requestedParameters = sanitizeParameters(reply.parameters);
     scheduleDraw();
   } catch (error) { if (!disposed) $('liveStatus').textContent = error.message; }
   finally {
@@ -325,7 +362,8 @@ async function flushParameters() {
   parameterDirty = false; parameterWorking = true;
   const revision = parameterRevision, parameters = { ...state.parameters };
   try {
-    const reply = await enqueue(() => revision === parameterRevision ? request('/api/parameters', parameters) : null);
+    const reply = await enqueue(() => revision === parameterRevision
+      ? request('/api/parameters', { ...parameters, intervalMs: state.parameters.intervalMs }) : null);
     if (revision === parameterRevision) { acceptStatus(reply); void refreshNativePreview(revision); }
   }
   catch (error) {
@@ -368,11 +406,39 @@ async function flushDepth() {
   } catch (error) { showError(error.message); }
   finally { depthRequest = null; depthWorking = false; if (depthDirty && !disposed) depthTimer = setTimeout(flushDepth, 16); }
 }
+function scheduleFold(immediate = false) {
+  foldDirty = true; if (foldWorking) return;
+  if (!foldTimer || immediate) { clearTimeout(foldTimer); foldTimer = setTimeout(flushFold, immediate ? 0 : 16); }
+}
+async function flushFold() {
+  foldTimer = null;
+  if (disposed || foldWorking || !foldDirty) return;
+  foldDirty = false; foldWorking = true;
+  const revision = foldRevision, intervalMs = state.parameters.intervalMs;
+  try {
+    // Timing gestures remain live while unrelated structural preparation runs.
+    const pending = request('/api/time-fold', { intervalMs }); foldRequest = pending;
+    const reply = await pending;
+    if (revision === foldRevision) acceptStatus(reply);
+  } catch (error) {
+    showError(error.message);
+    try {
+      const reply = await request('/api/status');
+      if (revision === foldRevision && reply.parameters) {
+        state.parameters = { ...state.parameters, intervalMs: sanitizeParameters(reply.parameters).intervalMs };
+        presetController?.refresh();
+      }
+      acceptStatus(reply);
+    } catch { /* Preserve the timing error until recovery. */ }
+  }
+  finally { foldRequest = null; foldWorking = false; if (foldDirty && !disposed) foldTimer = setTimeout(flushFold, 16); }
+}
 function updateParameter(key, value, immediate = false) {
   if (sceneApplying) return;
   state.parameters = sanitizeParameters({ ...state.parameters, [key]: value,
     ...(state.parameters.lab && key === 'generations' ? { lab: { ...state.parameters.lab, iterations: value } } : {}) });
   if (key === 'depth') { depthRevision++; scheduleDepth(immediate); }
+  else if (key === 'intervalMs') { foldRevision++; startPreview(); scheduleFold(immediate); }
   else { parameterRevision++; startPreview(); scheduleParameters(immediate); }
   paintControls(); presetController?.refresh();
 }
@@ -399,8 +465,9 @@ async function applyScene(scene, id = 'custom') {
   canvas.setAttribute('aria-busy', 'true');
   if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
   drag = null; cancelParameterGestures(); lockedFit = geometry ? { ...geometry.fit } : null;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
-  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false; depthRevision++;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
+  depthRevision++; foldRevision++;
   state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
   const revision = parameterRevision; startPreview({ lock: false }); paintControls();
   try {
@@ -408,7 +475,7 @@ async function applyScene(scene, id = 'custom') {
       if (disposed || revision !== parameterRevision) return;
       // A preset owns its complete mix/depth after older live controls finish.
       // Their canceled timers cannot enqueue another stale gesture afterward.
-      await Promise.allSettled([depthRequest, performanceRequest].filter(Boolean));
+      await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
       if (disposed || revision !== parameterRevision) return;
       acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
       const reply = await request('/api/parameters', next.parameters);
@@ -503,7 +570,7 @@ function formatParameter(key, value) {
   if (key === 'branchProbability') return `${Math.round(value * 100)}%`;
   if (key === 'generations' && state.parameters.lab) return `${value} iterations`;
   if (key === 'generations') return `${value} / ${state.generationLimits[state.parameters.lSystemType] ?? 52}`;
-  if (key === 'intervalMs') return `${Math.round(value)} ms`;
+  if (key === 'intervalMs') return formatTimeFold(value);
   if (key === 'timeRatio') return `${Number(value.toFixed(2))}× per generation`;
   if (key === 'angle') return `${Number(value.toFixed(1))}°`;
   if (key === 'curls') return Math.abs(value) < .005 ? 'original' : `${Number(Math.abs(value).toFixed(2))} turns ${value < 0 ? 'CW' : 'CCW'}`;
@@ -558,7 +625,7 @@ function paintInput() {
   }
   credit.hidden = !input.credit;
 }
-function paintControls() {
+function paintStaticControls() {
   if ($('stochasticControls')) $('stochasticControls').hidden = Boolean(state.parameters.lab) || state.parameters.lSystemType !== 'stochastic';
   const branchVariation = state.parameters.lSystemType === 'pythagorean';
   $('mutationLabel').textContent = state.parameters.lab ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
@@ -597,15 +664,32 @@ function paintControls() {
   const profileId = masteringProfileId(mastering);
   $('masteringPreset').value = profileId;
   $('masteringSummary').textContent = `${MASTERING_PROFILES.find(item => item.id === profileId)?.label ?? 'Custom'} · ${mastering.compressorEnabled ? `${Number(mastering.ratio.toFixed(1))}:1 compression` : 'compression off'}`;
+  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
+  paintLabControls();
+  $('automatic').checked = state.performance.automatic;
+  inputStrip.setGain(state.performance.inputGain);
+  // Status polling changes meters, not musical controls. Update each dial
+  // once after real parameter or dynamic-limit changes, avoiding duplicate
+  // MutationObserver updates from unchanged readout and range writes.
+  for (const knob of parameterKnobs.values()) knob.update();
+  if (voiceCeilingExact) {
+    const input = $('voiceCeiling');
+    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
+    voiceCeilingExact.disabled = input.disabled;
+    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
+  }
+}
+function paintControls() {
+  $('copySoundParameters').disabled = !bootstrapped || sceneApplying || soundCopyWorking;
+  const key = JSON.stringify([state.parameters, state.performance, state.generationLimits,
+    state.memoryVoiceCapacity, state.status.sampleRate, state.audio, sceneApplying, $('voiceCeiling').disabled]);
+  if (key !== paintedControlsKey) { paintStaticControls(); paintedControlsKey = key; }
   const reduction = state.audio ? Math.max(0, Number(state.status.gainReductionDb) || 0) : 0;
   $('gainReductionOut').textContent = `${reduction.toFixed(1)} dB`;
   $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
-  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
-  paintLabControls();
   const mic = state.input.mode === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
   const inputActive = (state.performance.source === 'seed' ? state.audio : mic ? microphoneActive : state.input.playing) && !state.performance.frozen;
-  $('automatic').checked = state.performance.automatic;
-  inputStrip.setGain(state.performance.inputGain); inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
+  inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
   inputStrip.meter.setActive(inputActive);
   const inputLabel = `${mic && microphoneActive ? 'Stop' : 'Start'} microphone input${state.audio ? '' : '. Audio remains off'}`;
   inputStrip.button.setAttribute('aria-label', inputLabel); inputStrip.button.title = inputLabel;
@@ -625,14 +709,14 @@ function paintControls() {
   $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
   $('recursionSummary').textContent = `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
   $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
-  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${Math.round(p.intervalMs)} ms root fold`;
+  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${formatTimeFold(p.intervalMs)} root fold`;
   $('generationKeyEnd').textContent = `G${p.generations} DESCENDANT`;
   const sourceState = state.performance.frozen ? 'INPUT PAUSED' : inputActive ? mic ? 'MIC / LINE LIVE' : state.input.mode === 'file' ? 'FILE LIVE' : 'SAMPLE LIVE' : 'INPUT STOPPED';
   $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${p.lab ? 'ITERATIONS' : 'GENERATIONS'}`;
-  $('generationTimingReadout').textContent = `${Math.round(p.intervalMs)} ms → ${Number((p.intervalMs * p.timeRatio).toFixed(2))} ms → ${Number((p.intervalMs * p.timeRatio ** 2).toFixed(2))} ms … ${Number((p.intervalMs * p.timeRatio ** p.generations).toFixed(2))} ms at G${p.generations}`;
+  $('generationTimingReadout').textContent = `${formatTimeFold(p.intervalMs)} → ${formatTimeFold(p.intervalMs * p.timeRatio)} → ${formatTimeFold(p.intervalMs * p.timeRatio ** 2)} … ${formatTimeFold(p.intervalMs * p.timeRatio ** p.generations)} at G${p.generations}`;
   if (p.lab) $('generationTimingReadout').textContent = p.lab.kind === 'parametric'
-    ? `${Math.round(p.intervalMs)} ms base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
-    : `${Math.round(p.intervalMs)} ms base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
+    ? `${formatTimeFold(p.intervalMs)} base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
+    : `${formatTimeFold(p.intervalMs)} base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
   $('generationPitchReadout').textContent = `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`;
   $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample');
   $('sampleRate').textContent = s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—';
@@ -641,15 +725,6 @@ function paintControls() {
   $('cpuLoad').textContent = Number.isFinite(s.cpuLoad) ? `${(s.cpuLoad * 100).toFixed(1)}%` : '—'; $('peakLoad').textContent = Number.isFinite(s.peakLoad) ? `${(s.peakLoad * 100).toFixed(1)}%` : '—';
   $('streamMisses').textContent = `${s.underruns || 0} / ${s.deadlineMisses || 0}`; $('engineStatus').textContent = lastFailure || (state.audio ? 'Audio is running.' : 'Audio is off.');
   audioStrip.update();
-  // Property-only preset/status paints must update the dials after dynamic
-  // generation and memory limits, without dispatching musical input events.
-  for (const knob of parameterKnobs.values()) knob.update();
-  if (voiceCeilingExact) {
-    const input = $('voiceCeiling');
-    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
-    voiceCeilingExact.disabled = input.disabled;
-    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
-  }
 }
 
 function buildGeometry() {
@@ -658,15 +733,19 @@ function buildGeometry() {
   // The worker has already fitted topology preparation to measured capacity.
   // Never construct the requested exponential tree as a temporary UI fallback.
   const nodes = nativePreview?.nodes ?? [];
-  canvas.dataset.previewNodes = String(nodes.length);
-  canvas.dataset.graphicsCapacity = String(graphicsCapacity?.limit ?? 0);
-  canvas.dataset.preparedVoices = String(state.preparedVoices);
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
     activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null, drawSelection: createPreviewDrawSelection(nodes) };
   gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
-    limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth }) });
+    limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
+    revision: visualRevision, activeRevision: state.status.topologyRevision }) });
+  paintPreviewDescription(nodes);
+}
+function paintPreviewDescription(nodes) {
+  canvas.dataset.previewNodes = String(nodes.length);
+  canvas.dataset.preparedNodes = String(preparedGraphicsNodes?.length ?? nodes.length);
+  canvas.dataset.preparedVoices = String(state.preparedVoices);
   const counts = new Map(); for (const n of nodes) counts.set(n.generation, (counts.get(n.generation) ?? 0) + 1);
   $('generationCountReadout').textContent = [...counts].slice(0, 6).map(([, count]) => count.toLocaleString()).join(' → ') + (counts.size > 6 ? ` → … → ${(counts.get(Math.max(...counts.keys())) ?? 0).toLocaleString()} previewed at G${Math.max(...counts.keys())}` : '');
   $('treeDescription').textContent = `${state.parameters.lab ? KIND_LABELS[state.parameters.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[state.parameters.lSystemType]}. ${state.parameters.generations} requested ${state.parameters.lab ? 'rule iterations' : 'audio generations'}. The device prepares a connected tree within measured audio capacity. Graphics adapt separately. While Audio is on, the tree shows available delay branches and sounding release tails. Audio off previews the prepared tree. The green circle marks the start of the first white branch. Signal amplitude bends the connected lines without changing their color or thickness.`;
@@ -680,9 +759,7 @@ function draw(now) {
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
     Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
-  const continuous = Boolean(state.audio || drag || nativePreviewMoving || rangeGesture);
-  const frameIntervalMs = continuous && previousContinuous ? now - lastDrawAt : 0;
-  previousContinuous = continuous; lastDrawAt = now;
+  lastDrawAt = now;
   const drawStarted = performance.now();
   if (nativePreviewMoving) {
     advancePreviewTransition(previewTransition, (now - nativePreviewStarted) / 80);
@@ -731,7 +808,8 @@ function draw(now) {
   }
   rootLevel = smoothActivity(rootLevel, state.audio && now - inputReceivedAt < 300 ? activityEnergy(Number(state.status.inputPeak || 0)) : 0, elapsed);
   const rootNode = geometry.root;
-  const branches = geometry.drawSelection.select({ audio: state.audio, limit, levels: tapLevels, depth: previewParameters.depth });
+  const branches = geometry.drawSelection.select({ audio: state.audio, limit, levels: tapLevels, depth: previewParameters.depth,
+    activeVoiceIndices: state.status.activeVoiceIndices, revision: visualRevision, activeRevision: state.status.topologyRevision });
   canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
   if (gpuRenderer?.available) {
     const detailSteps = Math.max(5, Math.min(14, Math.floor(budget.branches * 8 / Math.max(1, geometry.active.length))));
@@ -739,7 +817,8 @@ function draw(now) {
       limit, pending: false, historyFresh, history: inputTelemetry.envelope,
       levels: tapLevels, targets: tapTargets, rootLevel, wet: state.performance.wet,
       wetBusGain: Number(state.status.wetBusGain || 0), depth: previewParameters.depth,
-      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts, drawNodes: branches });
+      generationCounts: state.status.generationVoiceCounts, selectedCounts: geometry.selectedCounts, drawNodes: branches,
+      activeVoiceSelection: state.audio && Array.isArray(state.status.activeVoiceIndices) });
   } else {
     const activeIds = geometry.activeIds;
     // Playing draws the audio branches only. The complete quiet preset remains
@@ -814,32 +893,36 @@ function draw(now) {
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
   const cost = Math.max(0, performance.now() - drawStarted);
   visualCostMs += (cost - visualCostMs) * .15;
-  if (graphicsCapacity?.observe({ nowMs: now, workMs: cost, frameIntervalMs,
-    expectedFrameMs: 1000 / budget.fps, continuous, drawnNodes: branches.length,
-    audioLoad: state.status.cpuLoad, peakLoad: state.status.peakLoad })) {
-    graphicsSelectionDirty = true; void refreshNativePreview();
-  }
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
 
 canvas.addEventListener('pointerdown', event => {
   if (sceneApplying || event.button !== 0 || event.isPrimary === false) return;
   event.preventDefault(); canvas.focus({ preventScroll: true }); lockedFit = geometry ? { ...geometry.fit } : null;
-  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters }, changed: false }; canvas.setPointerCapture(event.pointerId);
+  drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters },
+    changed: false, foldChanged: false, structureChanged: false }; canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', event => {
   if (!drag || drag.id !== event.pointerId) return;
   const dx = event.clientX - drag.x, dy = event.clientY - drag.y;
   if (dx * dx + dy * dy < 16 && !drag.changed) return;
   drag.changed = true; const box = canvas.getBoundingClientRect();
-  state.parameters = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey); parameterRevision++;
-  startPreview(); paintControls(); scheduleParameters(); presetController?.refresh();
+  const next = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey);
+  const foldChanged = next.intervalMs !== state.parameters.intervalMs, angleChanged = next.angle !== state.parameters.angle;
+  state.parameters = { ...state.parameters, intervalMs: next.intervalMs, angle: next.angle };
+  if (foldChanged) { drag.foldChanged = true; foldRevision++; scheduleFold(); }
+  if (angleChanged) { drag.structureChanged = true; parameterRevision++; scheduleParameters(); }
+  startPreview(); paintControls(); presetController?.refresh();
 });
 function endDrag(event, cancelled = false) {
   if (!drag || drag.id !== event.pointerId) return;
   const previous = drag; drag = null; if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   gestureUntil = performance.now() + 100;
-  if (previous.changed) scheduleParameters(true); else if (!cancelled) void strike(); scheduleDraw();
+  if (previous.changed) {
+    if (previous.foldChanged) scheduleFold(true);
+    if (previous.structureChanged) scheduleParameters(true);
+  } else if (!cancelled) void strike();
+  scheduleDraw();
 }
 canvas.addEventListener('pointerup', event => endDrag(event)); canvas.addEventListener('pointercancel', event => endDrag(event, true)); canvas.addEventListener('lostpointercapture', event => endDrag(event, true));
 canvas.addEventListener('keydown', event => {
@@ -852,7 +935,7 @@ canvas.addEventListener('keydown', event => {
 });
 for (const [key, id] of Object.entries(CONTROL_IDS)) {
   $(id).addEventListener('input', () => updateParameter(key, key === 'intervalMs' ? timeFoldFromSlider($(id).value) : Number($(id).value)));
-  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : scheduleParameters(true));
+  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : key === 'intervalMs' ? scheduleFold(true) : scheduleParameters(true));
   const input = $(id);
   input.addEventListener('pointerdown', event => {
     if (input.disabled || event.button !== 0 || event.isPrimary === false || rangeGestureOwner) return;
@@ -986,6 +1069,39 @@ $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
 $('centerAngles').addEventListener('click', centerAngles);
 $('resetGenerationRules').addEventListener('click', () => presetController?.view?.select(lastScenePreset));
+$('copySoundParameters').addEventListener('click', async () => {
+  if (disposed || !bootstrapped || sceneApplying || soundCopyWorking) return;
+  // Capture requested musical controls at the click, including pending edits.
+  // Prepared geometry and device admission are not part of a sound preset.
+  const snapshot = captureScene(state.parameters, state.performance);
+  const key = presetStateKey(snapshot), current = presets.find(preset => presetStateKey(preset.snapshot) === key);
+  const text = JSON.stringify({
+    instrument: INSTRUMENT_ID, version: 1,
+    name: $('shareSoundName').value.trim() || current?.label || 'Custom sound',
+    snapshot,
+    context: {
+      ruleMode: ruleMode(state.parameters),
+      input: { mode: state.input.mode, ...(state.input.mode === 'samples' ? { sampleId: state.input.sampleId } : {}),
+        loop: state.input.loop },
+      liveLevels: { inputGain: state.performance.inputGain, outputLevel: state.performance.level,
+        makeupDb: state.performance.mastering.makeupDb },
+    },
+  }, null, 2);
+  const output = $('sharedSoundText'), details = $('sharedSoundDetails'), status = $('shareSoundStatus');
+  output.value = text; details.hidden = false; details.open = false;
+  status.textContent = 'Copying parameters…';
+  soundCopyWorking = true; paintControls();
+  try {
+    await navigator.clipboard.writeText(text);
+    if (!disposed) status.textContent = 'Copied. Paste this into chat to save it as a preset.';
+  } catch {
+    if (!disposed) {
+      details.open = true;
+      status.textContent = 'Select and copy the text below, then paste it into chat.';
+      output.focus({ preventScroll: true }); output.select(); output.scrollIntoView({ block: 'nearest' });
+    }
+  } finally { soundCopyWorking = false; if (!disposed) paintControls(); }
+});
 $('nativeSettings').addEventListener('toggle', () => $('settingsButton').setAttribute('aria-expanded', String($('nativeSettings').open)));
 function releaseRangeGesture(event, owner = rangeGestureOwner) {
   if (!rangeGesture || owner !== rangeGestureOwner || (event?.pointerId !== undefined && event.pointerId !== rangeGesturePointer)) return;
@@ -1022,17 +1138,19 @@ const resizeObserver = new ResizeObserver(() => { lockedFit = null; geometry = n
 
 async function bootstrap() {
   if (disposed) return;
-  const initialRevision = parameterRevision;
+  const initialRevision = parameterRevision, initialFoldRevision = foldRevision;
   try {
     let [reply, bank] = await Promise.all([request('/api/state'), LAB_CONFIG ? Promise.resolve(LAB_CONFIG.presets) : request(new URL('./presets.json', import.meta.url).href)]);
-    if (LAB_CONFIG && initialRevision === 0 && parameterRevision === initialRevision) {
+    if (LAB_CONFIG && initialRevision === 0 && initialFoldRevision === 0
+      && parameterRevision === initialRevision && foldRevision === initialFoldRevision) {
       const initial = presetState(LAB_CONFIG.presets[0], state.performance);
       state.parameters = initial.parameters;
       if (performanceRevision === 0) state.performance = initial.performance;
       reply = await request('/api/performance', state.performance);
       if (JSON.stringify(reply.parameters) !== JSON.stringify(state.parameters)) reply = await request('/api/parameters', state.parameters);
     } if (disposed) return;
-    if (parameterRevision === initialRevision && initialRevision === 0 && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
+    if (parameterRevision === initialRevision && initialRevision === 0 && initialFoldRevision === 0
+      && foldRevision === initialFoldRevision && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
     presets = LAB_CONFIG ? bank : combinedPresets(bank);
     const initialScene = presets.find(p => presetStateKey(p.snapshot) === presetStateKey(captureScene(state.parameters, state.performance)));
@@ -1068,8 +1186,8 @@ function muteForDeparture() {
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
   inputRevision++;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer);
-  parameterTimer = performanceTimer = depthTimer = null; parameterDirty = performanceDirty = depthDirty = false;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
   browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
 }

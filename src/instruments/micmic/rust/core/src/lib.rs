@@ -10,6 +10,7 @@ pub const DEFAULT_VOICE_CAPACITY: usize = 16_384;
 /// Meter the connected preview only; this never limits audio voice admission.
 pub const TAP_ACTIVITY_CAPACITY: usize = 2048;
 const WINDOW_SIZE: usize = 65_536;
+const LIVE_DELAY_SLEW_SAMPLES: f64 = 4.;
 
 fn reserved<T>(count: usize) -> Result<Vec<T>, String> {
     let mut values = Vec::new();
@@ -158,6 +159,9 @@ impl Scene {
 
 struct Voice {
     target: VoiceSpec,
+    raw_base_delay: f64,
+    live_delay: f64,
+    live_following: bool,
     desired_gain: f64,
     pool_rank: usize,
     pool_group: u8,
@@ -180,6 +184,9 @@ struct Voice {
 impl Voice {
     fn new(target: VoiceSpec) -> Self {
         Self {
+            raw_base_delay: target.delay,
+            live_delay: target.delay,
+            live_following: false,
             desired_gain: target.gain,
             pool_rank: usize::MAX,
             pool_group: 0,
@@ -211,6 +218,9 @@ impl Voice {
                 gain: self.target.gain,
                 pan: self.target.pan,
             },
+            raw_base_delay: self.raw_base_delay,
+            live_delay: self.live_delay,
+            live_following: self.live_following,
             desired_gain: self.desired_gain,
             pool_rank: self.pool_rank,
             pool_group: self.pool_group,
@@ -261,11 +271,35 @@ pub struct PreparedPoolControls {
 
 impl PreparedPoolControls {
     pub fn new(count: usize) -> Result<Self, String> {
-        Ok(Self {
-            records: reserved(count)?,
-            rank_to_slot: filled(count, usize::MAX)?,
+        let mut controls = Self {
+            records: Vec::new(),
+            rank_to_slot: Vec::new(),
             groups: [0; 256],
-        })
+        };
+        controls.prepare(count)?;
+        Ok(controls)
+    }
+
+    /// Reuse the previous control buffers at their retained high-water size.
+    /// Only genuinely larger scenes reserve more memory; ordinary live edits
+    /// clear numeric records without freeing their allocations.
+    pub fn prepare(&mut self, count: usize) -> Result<(), String> {
+        if self.records.capacity() < count {
+            self.records
+                .try_reserve_exact(count - self.records.len())
+                .map_err(|error| format!("Cannot allocate delay controls: {error}"))?;
+        }
+        if self.rank_to_slot.capacity() < count {
+            self.rank_to_slot
+                .try_reserve_exact(count - self.rank_to_slot.len())
+                .map_err(|error| format!("Cannot allocate delay ranks: {error}"))?;
+        }
+        self.records.clear();
+        let retained = self.rank_to_slot.len().min(count);
+        self.rank_to_slot[..retained].fill(usize::MAX);
+        self.rank_to_slot.resize(count, usize::MAX);
+        self.groups.fill(0);
+        Ok(())
     }
 
     pub fn push(&mut self, target: PoolTarget, rank: usize, seed: u32, seed_epoch: u64, group: u8) {
@@ -288,6 +322,11 @@ impl PreparedPoolControls {
 
     pub fn group_counts(&self) -> &[usize; 256] {
         &self.groups
+    }
+
+    pub fn allocated_bytes(&self) -> usize {
+        self.records.capacity() * std::mem::size_of::<PoolControl>()
+            + self.rank_to_slot.capacity() * std::mem::size_of::<usize>()
     }
 }
 
@@ -313,6 +352,11 @@ fn adopt_pool_control(voice: &mut Voice, control: Option<&PoolControl>, rate: f6
         voice.phase = f64::from(control.seed) / f64::from(u32::MAX);
     }
     let delay = clamp(control.target.delay, 0.000005, maximum, 0.2);
+    voice.raw_base_delay = if control.target.delay.is_finite() {
+        control.target.delay.max(0.)
+    } else {
+        0.2
+    };
     voice.target.delay = delay;
     voice.target.rate = clamp(control.target.rate, 0.125, 8., 1.);
     voice.target.pan = clamp(control.target.pan, -1., 1., 0.);
@@ -328,6 +372,8 @@ fn adopt_pool_control(voice: &mut Voice, control: Option<&PoolControl>, rate: f6
         voice.from = 0;
         voice.to = 0;
         voice.fade = 1.;
+        voice.live_delay = delay;
+        voice.live_following = false;
     } else if voice.fade == 0. {
         if (delay - voice.delays[voice.from]).abs() <= 1. / rate {
             voice.to = voice.from;
@@ -379,6 +425,9 @@ pub struct Engine {
     delay_fade_step: f64,
     gain_smoothing: f64,
     parameter_smoothing: f64,
+    time_fold_scale: f64,
+    target_time_fold_scale: f64,
+    live_time_fold: bool,
 }
 
 /// Allocate on the control thread; swap into the callback and return the old
@@ -516,7 +565,63 @@ impl Engine {
             delay_fade_step: 1. / (rate * 0.065),
             gain_smoothing: 1. - (-1. / (rate * 0.015)).exp(),
             parameter_smoothing: 1. - (-1. / (rate * 0.035)).exp(),
+            time_fold_scale: 1.,
+            target_time_fold_scale: 1.,
+            live_time_fold: false,
         })
+    }
+
+    /// O(1) live timing control. Immutable pool delays remain in their compiled
+    /// base units; admitted and future voices derive their own scaled target.
+    /// A 35 ms follower and bounded moving read head produce a tape-like pitch
+    /// glide without allocating or adding another delay lane during a gesture.
+    pub fn set_time_fold_scale(&mut self, scale: f64) -> Result<(), String> {
+        if !scale.is_finite() || scale <= 0. {
+            return Err("Time fold scale must be positive and finite".into());
+        }
+        self.target_time_fold_scale = scale;
+        self.live_time_fold = true;
+        Ok(())
+    }
+
+    /// Nominal smoothed scale. Individual readable heads may trail this value
+    /// during extreme sweeps or while waiting for sufficient recorded history.
+    pub fn time_fold_scale(&self) -> f64 {
+        self.time_fold_scale
+    }
+
+    /// Call atomically before adopting a new base pool. Fixed and moving read
+    /// heads stay in physical seconds; only their nominal control units change.
+    /// Pool adoption then restores scale 1 and ordinary preset crossfades.
+    pub fn rebase_time_fold_scale(&mut self, base_ratio: f64) -> Result<(), String> {
+        let current = self.time_fold_scale * base_ratio;
+        let target = self.target_time_fold_scale * base_ratio;
+        if !base_ratio.is_finite()
+            || base_ratio <= 0.
+            || !current.is_finite()
+            || !target.is_finite()
+            || current <= 0.
+            || target <= 0.
+        {
+            return Err("Time fold base ratio must retain positive finite scales".into());
+        }
+        self.time_fold_scale = current;
+        self.target_time_fold_scale = target;
+        Ok(())
+    }
+
+    #[inline(always)]
+    fn advance_time_fold_scale(&mut self) -> f64 {
+        let delta = self.target_time_fold_scale - self.time_fold_scale;
+        if delta != 0. {
+            self.time_fold_scale += delta * self.parameter_smoothing;
+            if (self.target_time_fold_scale - self.time_fold_scale).abs()
+                <= self.target_time_fold_scale.max(1.) * 1e-12
+            {
+                self.time_fold_scale = self.target_time_fold_scale;
+            }
+        }
+        self.time_fold_scale
     }
 
     /// Control-thread only: stable keys preserve phase, rate and raw recording.
@@ -767,6 +872,11 @@ impl Engine {
             let old_rank = voice.pool_rank;
             if let Some(target) = targets.get(index) {
                 let delay = clamp(target.delay, 0.000005, maximum_delay, 0.2);
+                voice.raw_base_delay = if target.delay.is_finite() {
+                    target.delay.max(0.)
+                } else {
+                    0.2
+                };
                 voice.target.delay = delay;
                 voice.target.rate = clamp(target.rate, 0.125, 8., 1.);
                 voice.target.pan = clamp(target.pan, -1., 1., 0.);
@@ -807,6 +917,8 @@ impl Engine {
                     voice.from = 0;
                     voice.to = 0;
                     voice.fade = 1.;
+                    voice.live_delay = delay;
+                    voice.live_following = false;
                 } else if voice.fade == 0. {
                     // No destination sample has been heard yet: coalesce
                     // controls received before the next sample into one fade.
@@ -862,17 +974,30 @@ impl Engine {
 
     /// Atomically adopt prepared controls for audible voices only. Inactive
     /// storage takes the latest controls and stable seed upon future admission.
+    /// Return the old numeric records and rank map for the next preparation;
+    /// callers retain them instead of freeing storage in the audio callback.
     pub fn install_prepared_pool_controls(
+        &mut self,
+        prepared: PreparedPoolControls,
+        limit: usize,
+    ) -> PreparedPoolControls {
+        self.install_prepared_pool_controls_live(prepared, limit, false)
+    }
+
+    /// A timing-only pool rebuild keeps a single moving readhead, including
+    /// when history eligibility changes and the new base already is the live
+    /// fold. Full presets retain their ordinary fixed-head transition.
+    pub fn install_prepared_pool_controls_live(
         &mut self,
         mut prepared: PreparedPoolControls,
         limit: usize,
-    ) {
+        live: bool,
+    ) -> PreparedPoolControls {
         let maximum_delay = (self.history.len() - 3) as f64 / self.sample_rate;
-        let old_map = std::mem::replace(
-            &mut self.rank_to_slot,
-            std::mem::take(&mut prepared.rank_to_slot),
-        );
-        drop(old_map);
+        self.time_fold_scale = 1.;
+        self.target_time_fold_scale = 1.;
+        self.live_time_fold = live;
+        std::mem::swap(&mut self.rank_to_slot, &mut prepared.rank_to_slot);
         self.pool_group_gains = None;
         self.pool_admission_dirty = true;
         self.tap_remap.fill(0.);
@@ -891,6 +1016,22 @@ impl Engine {
         }
         for &index in &self.active_indices {
             let voice = &mut self.voices[index];
+            if voice.live_following {
+                // Freeze the exact physical read heard last before rebasing
+                // controls. Neither adoption mode changes phase or history.
+                voice.delays = [voice.live_delay; 2];
+                voice.from = 0;
+                voice.to = 0;
+                voice.fade = 1.;
+                voice.live_following = false;
+            }
+            if live && voice.fade == 0. {
+                // No sample of this destination has been heard yet, so the
+                // unchanged source can enter live following without a jump.
+                voice.to = voice.from;
+                voice.fade = 1.;
+            }
+            let heads = (voice.delays, voice.from, voice.to, voice.fade);
             let old_rank = voice.pool_rank;
             adopt_pool_control(
                 voice,
@@ -898,14 +1039,41 @@ impl Engine {
                 self.sample_rate,
                 maximum_delay,
             );
+            if live {
+                // An already audible preset fade may finish, but a timing
+                // rebuild must never create or redirect a second delay lane.
+                (voice.delays, voice.from, voice.to, voice.fade) = heads;
+                voice.live_delay = voice.delays[voice.from];
+                voice.live_following = voice.fade >= 1.;
+                if prepared.records.get(index).is_none() {
+                    // Retiring branches have no coefficient in the new base.
+                    // Keep their existing physical tail instead of rescaling
+                    // an obsolete coefficient into the new pool's units.
+                    voice.raw_base_delay = voice.live_delay;
+                }
+            }
             if voice.pool_rank < TAP_ACTIVITY_CAPACITY && old_rank < TAP_ACTIVITY_CAPACITY {
                 self.tap_remap[voice.pool_rank] = self.tap_activity[old_rank];
             }
         }
         std::mem::swap(&mut self.tap_activity, &mut self.tap_remap);
         self.tap_energy.fill(0.);
-        self.pool_controls = Some(prepared);
+        let mut recycled =
+            self.pool_controls
+                .replace(prepared)
+                .unwrap_or_else(|| PreparedPoolControls {
+                    records: Vec::new(),
+                    rank_to_slot: Vec::new(),
+                    groups: [0; 256],
+                });
+        // Installed controls do not need a second rank map. Keep the old map
+        // with the retired records so both allocations can be reused together.
+        std::mem::swap(
+            &mut recycled.rank_to_slot,
+            &mut self.pool_controls.as_mut().unwrap().rank_to_slot,
+        );
         self.set_pool_limit(limit);
+        recycled
     }
 
     /// Sample-thread safe generation gain update. Stable structural ranks are
@@ -1047,6 +1215,11 @@ impl Engine {
     pub fn active_voice_count(&self) -> usize {
         self.active_indices.len()
     }
+    /// Exact slots visited by DSP, including release tails until retirement.
+    /// Borrow the existing active list without allocating or scanning capacity.
+    pub fn active_voice_indices(&self) -> &[usize] {
+        &self.active_indices
+    }
     pub fn target_voice_count(&self) -> usize {
         self.target_count
     }
@@ -1089,10 +1262,10 @@ impl Engine {
             + (self.rank_to_slot.capacity() + self.admission_scratch.capacity())
                 * std::mem::size_of::<usize>()
             + self.growth_dirty_indices.capacity() * std::mem::size_of::<usize>()
-            + self.pool_controls.as_ref().map_or(0, |controls| {
-                controls.records.capacity() * std::mem::size_of::<PoolControl>()
-                    + controls.rank_to_slot.capacity() * std::mem::size_of::<usize>()
-            })
+            + self
+                .pool_controls
+                .as_ref()
+                .map_or(0, PreparedPoolControls::allocated_bytes)
             + self
                 .voices
                 .iter()
@@ -1166,6 +1339,7 @@ impl Engine {
             self.write = 0;
         }
         self.recorded = (self.recorded + 1).min(self.history.len());
+        let time_fold_scale = self.advance_time_fold_scale();
         let view = RenderView {
             pool_mode: self.pool_mode,
             sample_rate: self.sample_rate,
@@ -1174,6 +1348,7 @@ impl Engine {
             delay_fade_step: self.delay_fade_step,
             gain_smoothing: self.gain_smoothing,
             parameter_smoothing: self.parameter_smoothing,
+            live_time_fold: self.live_time_fold,
             history: &self.history,
             history_right: self.history_right.as_deref(),
             window: &self.window,
@@ -1187,7 +1362,7 @@ impl Engine {
         self.activity_phase += 1;
         for &index in &self.active_indices {
             let voice = &mut self.voices[index];
-            let wet = render_voice(voice, &view, position, self.recorded);
+            let wet = render_voice(voice, &view, position, self.recorded, time_fold_scale);
             left += wet[0];
             right += wet[1];
             if sample_activity {
@@ -1219,6 +1394,17 @@ impl Engine {
             let voice = &self.voices[index];
             !voice.inactive
                 && ((self.pool_mode && voice.target.delay * self.sample_rate >= boundary)
+                    || (self.live_time_fold
+                        && voice.live_delay * self.sample_rate
+                            + LIVE_DELAY_SLEW_SAMPLES * input.len() as f64
+                            >= boundary)
+                    || (self.live_time_fold
+                        && voice.gain == 0.
+                        && !voice.live_following
+                        && voice.raw_base_delay
+                            * self.time_fold_scale.max(self.target_time_fold_scale)
+                            * self.sample_rate
+                            >= boundary)
                     || voice
                         .delays
                         .iter()
@@ -1233,6 +1419,7 @@ impl Engine {
         }
         let mut positions = [0.; 128];
         let mut recorded_at = [0usize; 128];
+        let mut time_fold_scales = [1.; 128];
         let mut wet = [[0f64; 2]; 128];
         for (index, frame) in input.iter().enumerate() {
             let left = if frame[0].is_finite() {
@@ -1258,6 +1445,7 @@ impl Engine {
             }
             self.recorded = (self.recorded + 1).min(self.history.len());
             recorded_at[index] = self.recorded;
+            time_fold_scales[index] = self.advance_time_fold_scale();
         }
         let view = RenderView {
             pool_mode: self.pool_mode,
@@ -1267,6 +1455,7 @@ impl Engine {
             delay_fade_step: self.delay_fade_step,
             gain_smoothing: self.gain_smoothing,
             parameter_smoothing: self.parameter_smoothing,
+            live_time_fold: self.live_time_fold,
             history: &self.history,
             history_right: self.history_right.as_deref(),
             window: &self.window,
@@ -1275,7 +1464,13 @@ impl Engine {
             let voice = &mut self.voices[index];
             let mut tap_energy = 0.;
             for frame in 0..input.len() {
-                let sample = render_voice(voice, &view, positions[frame], recorded_at[frame]);
+                let sample = render_voice(
+                    voice,
+                    &view,
+                    positions[frame],
+                    recorded_at[frame],
+                    time_fold_scales[frame],
+                );
                 wet[frame][0] += sample[0];
                 wet[frame][1] += sample[1];
                 if frame.is_multiple_of(32) {
@@ -1331,6 +1526,7 @@ struct RenderView<'a> {
     delay_fade_step: f64,
     gain_smoothing: f64,
     parameter_smoothing: f64,
+    live_time_fold: bool,
     history: &'a [f32],
     history_right: Option<&'a [f32]>,
     window: &'a [f64],
@@ -1342,17 +1538,9 @@ fn render_voice(
     view: &RenderView<'_>,
     position: f64,
     recorded: usize,
+    time_fold_scale: f64,
 ) -> [f64; 2] {
-    if view.pool_mode
-        && voice.fade >= 1.
-        && (voice.target.delay - voice.delays[voice.from]).abs() > 1. / view.sample_rate
-    {
-        // A completed fixed-head fade can start toward the latest coalesced
-        // target. Never replace an audible read head midway through a fade.
-        voice.to = 1 - voice.from;
-        voice.delays[voice.to] = voice.target.delay;
-        voice.fade = 0.;
-    }
+    let silent = voice.gain == 0.;
     voice.gain += (voice.target.gain - voice.gain) * view.gain_smoothing;
     voice.rate += (voice.target.rate - voice.rate) * view.parameter_smoothing;
     let pan_delta = voice.target.pan - voice.pan;
@@ -1386,6 +1574,65 @@ fn render_voice(
         other,
         window_a,
     };
+    if view.pool_mode && view.live_time_fold && voice.fade == 0. {
+        // The source still has unit weight before the first fade sample.
+        voice.to = voice.from;
+        voice.fade = 1.;
+    }
+    if view.pool_mode && view.live_time_fold && voice.fade >= 1. {
+        let maximum = (view.history.len() - 3) as f64 / view.sample_rate;
+        // Scale the raw coefficient before applying the read floor, including
+        // previously unadmitted branches shorter than five microseconds.
+        let target = if voice.pool_rank == usize::MAX {
+            voice.live_delay
+        } else {
+            (voice.raw_base_delay * time_fold_scale)
+                .min(maximum)
+                .max(0.000005)
+        };
+        if !voice.live_following {
+            voice.live_delay = if silent {
+                target
+            } else {
+                voice.delays[voice.from]
+            };
+            voice.live_following = true;
+        }
+        let step = LIVE_DELAY_SLEW_SAMPLES / view.sample_rate;
+        let candidate = voice.live_delay + (target - voice.live_delay).clamp(-step, step);
+        let next = geometry.head(position, candidate * view.sample_rate, recorded);
+        let head = if next.ready {
+            voice.live_delay = candidate;
+            next
+        } else {
+            geometry.head(position, voice.live_delay * view.sample_rate, recorded)
+        };
+        let sample = head.sample(view.history);
+        let right_sample = view
+            .history_right
+            .as_ref()
+            .map_or(sample, |history| head.sample(history));
+        return [
+            sample * voice.gain * voice.pan_left,
+            right_sample * voice.gain * voice.pan_right,
+        ];
+    }
+    if view.pool_mode
+        && voice.fade >= 1.
+        && (voice.target.delay - voice.delays[voice.from]).abs() > 1. / view.sample_rate
+    {
+        let previous = geometry.delay(voice.delays[voice.from] * view.sample_rate);
+        let destination = geometry.head(position, voice.target.delay * view.sample_rate, recorded);
+        if previous == geometry.delay(voice.target.delay * view.sample_rate) {
+            // Different nominal folds can have identical grain anchors. Do
+            // not create a +3 dB equal-power bump for the exact same read.
+            voice.delays[voice.from] = voice.target.delay;
+        } else if destination.ready {
+            voice.to = 1 - voice.from;
+            voice.delays[voice.to] = voice.target.delay;
+            voice.fade = 0.;
+        }
+    }
     // Compute positions once per delay lane and reuse them for stereo.
     let from = geometry.head(
         position,
@@ -1403,17 +1650,22 @@ fn render_voice(
             voice.delays[voice.to] * view.sample_rate,
             recorded,
         );
-        let to = to_head.sample(view.history);
-        let from_gain = (voice.fade * std::f64::consts::FRAC_PI_2).cos();
-        let to_gain = (voice.fade * std::f64::consts::FRAC_PI_2).sin();
-        sample = sample * from_gain + to * to_gain;
-        right_sample = view.history_right.as_ref().map_or(sample, |history| {
-            right_sample * from_gain + to_head.sample(history) * to_gain
-        });
-        voice.fade = (voice.fade + view.delay_fade_step).min(1.);
-        if voice.fade >= 1. {
-            voice.from = voice.to;
+        if to_head.ready {
+            let to = to_head.sample(view.history);
+            let from_gain = (voice.fade * std::f64::consts::FRAC_PI_2).cos();
+            let to_gain = (voice.fade * std::f64::consts::FRAC_PI_2).sin();
+            sample = sample * from_gain + to * to_gain;
+            right_sample = view.history_right.as_ref().map_or(sample, |history| {
+                right_sample * from_gain + to_head.sample(history) * to_gain
+            });
+            voice.fade = (voice.fade + view.delay_fade_step).min(1.);
+            if voice.fade >= 1. {
+                voice.from = voice.to;
+            }
         }
+    }
+    if voice.fade >= 1. {
+        voice.live_delay = voice.delays[voice.from];
     }
     [
         sample * voice.gain * voice.pan_left,
@@ -1439,9 +1691,17 @@ struct ReadHead {
 }
 impl GrainGeometry {
     #[inline(always)]
+    fn delay(&self, requested: f64) -> f64 {
+        if self.shifted {
+            (self.grain * 1.25).max(requested + self.headroom)
+        } else {
+            requested.max(1.)
+        }
+    }
+    #[inline(always)]
     fn head(&self, position: f64, requested: f64, recorded: usize) -> ReadHead {
         if !self.shifted {
-            let delay = requested.max(1.);
+            let delay = self.delay(requested);
             let truncated = delay as usize;
             let ceiling = truncated + usize::from(delay > truncated as f64);
             return ReadHead {
@@ -1452,7 +1712,7 @@ impl GrainGeometry {
                 window_a: 0.,
             };
         }
-        let delay = (self.grain * 1.25).max(requested + self.headroom);
+        let delay = self.delay(requested);
         let anchor = position - delay;
         ReadHead {
             ready: recorded as f64 >= delay + self.grain,
@@ -1975,5 +2235,281 @@ mod arithmetic_tests {
         assert_eq!(&engine.pool_group_counts()[1..4], &[1, 2, 1]);
         engine.silence();
         assert_eq!(engine.pool_group_counts(), &[0; 256]);
+    }
+}
+
+#[cfg(test)]
+mod live_time_fold_tests {
+    use super::*;
+
+    const RATE: f64 = 8000.;
+
+    fn prepared(targets: &[PoolTarget]) -> PreparedPoolControls {
+        let mut controls = PreparedPoolControls::new(targets.len()).unwrap();
+        for (index, target) in targets.iter().enumerate() {
+            controls.push(*target, index, phase_seed(&format!("fold/{index}")), 0, 1);
+        }
+        controls
+    }
+
+    fn pool(targets: &[PoolTarget], limit: usize, ready: bool) -> Engine {
+        let mut engine = Engine::new(RATE as u32, 4., targets.len(), 2).unwrap();
+        let keys: Vec<_> = (0..targets.len())
+            .map(|index| format!("fold/{index}"))
+            .collect();
+        engine.install_pool(&keys).unwrap();
+        engine.install_prepared_pool_controls(prepared(targets), limit);
+        if ready {
+            engine.prepare_calibration_history();
+            let constant = 0.08f64.tanh() as f32;
+            engine.history.fill(constant);
+            engine.history_right.as_mut().unwrap().fill(constant);
+        }
+        engine
+    }
+
+    fn target(delay: f64, rate: f64) -> PoolTarget {
+        PoolTarget {
+            delay,
+            rate,
+            gain: 0.25,
+            pan: 0.,
+        }
+    }
+
+    #[test]
+    fn live_sweeps_keep_one_lane_phase_and_constant_level_without_capacity_loss() {
+        let targets: Vec<_> = (0..32)
+            .map(|index| target(0.15 + index as f64 * 0.002, 0.7 + index as f64 * 0.04))
+            .collect();
+        let mut engine = pool(&targets, targets.len(), true);
+        for _ in 0..4000 {
+            engine.process_frame([0.08; 2]);
+        }
+        let steady = engine.process_frame([0.08; 2]);
+        let history_pointer = engine.history.as_ptr();
+        let mut phases: Vec<_> = engine.voices.iter().map(|voice| voice.phase).collect();
+        for scale in [0.2, 1.7, 4., 0.5, 1., 12., 0.75] {
+            engine.set_time_fold_scale(scale).unwrap();
+            for _ in 0..320 {
+                let delays: Vec<_> = engine.voices.iter().map(|voice| voice.live_delay).collect();
+                let output = engine.process_frame([0.08; 2]);
+                for sample in output.iter().zip(steady) {
+                    assert!(
+                        (sample.0 - sample.1).abs() < 1e-7,
+                        "no equal-power pump or hole on DC"
+                    );
+                }
+                for (index, voice) in engine.voices.iter().enumerate() {
+                    assert_eq!(
+                        voice.fade, 1.,
+                        "live movement never adds a second delay lane"
+                    );
+                    assert!(voice.live_following);
+                    assert!(
+                        (voice.live_delay - delays[index]).abs()
+                            <= LIVE_DELAY_SLEW_SAMPLES / RATE + 1e-14
+                    );
+                    phases[index] += engine.grain_step;
+                    if phases[index] >= 1. {
+                        phases[index] -= 1.;
+                    }
+                    assert_eq!(
+                        voice.phase, phases[index],
+                        "grain phase continues through the gesture"
+                    );
+                }
+                assert_eq!(engine.active_voice_count(), targets.len());
+                assert_eq!(engine.target_voice_count(), targets.len());
+            }
+        }
+        assert_eq!(engine.history.as_ptr(), history_pointer);
+    }
+
+    #[test]
+    fn live_scale_is_shared_once_per_frame_and_settles_while_pool_is_unadmitted() {
+        let mut engine = pool(&[target(0.2, 1.); 8], 0, true);
+        engine.set_time_fold_scale(2.).unwrap();
+        for _ in 0..280 {
+            engine.process_frame([0.08; 2]);
+        }
+        let expected = 2. - (-1f64).exp();
+        assert!(
+            (engine.time_fold_scale() - expected).abs() < 1e-13,
+            "35 ms is independent of voice count"
+        );
+        for _ in 0..8000 {
+            engine.process_frame([0.08; 2]);
+        }
+        assert_eq!(engine.time_fold_scale(), 2.);
+        engine.set_pool_limit(8);
+        engine.process_frame([0.08; 2]);
+        for voice in &engine.voices {
+            assert_eq!(
+                voice.live_delay, 0.4,
+                "newly admitted slots use the current shared scale"
+            );
+            assert_eq!(voice.fade, 1.);
+        }
+        for invalid in [0., -1., f64::NAN, f64::INFINITY] {
+            assert!(engine.set_time_fold_scale(invalid).is_err());
+            assert!(engine.rebase_time_fold_scale(invalid).is_err());
+            assert_eq!(engine.time_fold_scale(), 2.);
+        }
+    }
+
+    #[test]
+    fn live_scale_multiplies_tiny_raw_coefficients_before_the_read_floor() {
+        let mut engine = pool(&[target(0.0000001, 1.)], 0, true);
+        engine.set_time_fold_scale(100_000.).unwrap();
+        for _ in 0..9000 {
+            engine.process_frame([0.08; 2]);
+        }
+        engine.set_pool_limit(1);
+        engine.process_frame([0.08; 2]);
+        assert_eq!(engine.voices[0].raw_base_delay, 0.0000001);
+        assert!(
+            (engine.voices[0].live_delay - 0.01).abs() < 1e-14,
+            "the 5 us floor is applied after scaling"
+        );
+    }
+
+    #[test]
+    fn short_pitched_delays_with_the_same_effective_anchor_never_crossfade() {
+        let mut changed = pool(&[target(0.005, 0.7)], 1, true);
+        let mut stationary = pool(&[target(0.005, 0.7)], 1, true);
+        for _ in 0..1600 {
+            assert_eq!(
+                changed.process_frame([0.08; 2]),
+                stationary.process_frame([0.08; 2])
+            );
+        }
+        changed.install_prepared_pool_controls(prepared(&[target(0.006, 0.7)]), 1);
+        for frame in 0..800 {
+            let input = [((frame as f64 * 0.31).sin() * 0.08) as f32; 2];
+            assert_eq!(
+                changed.process_frame(input),
+                stationary.process_frame(input)
+            );
+            assert_eq!(changed.voices[0].fade, 1.);
+        }
+    }
+
+    #[test]
+    fn discrete_delay_change_waits_for_destination_history_then_completes() {
+        let mut engine = pool(&[target(0.02, 1.)], 1, false);
+        for _ in 0..1200 {
+            engine.process_frame([0.08; 2]);
+        }
+        engine.install_prepared_pool_controls(prepared(&[target(0.8, 1.)]), 1);
+        for _ in 0..4000 {
+            assert!(
+                engine.process_frame([0.08; 2])[0] > 0.01,
+                "the readable source survives an unavailable destination"
+            );
+            assert_eq!(engine.voices[0].fade, 1.);
+            assert_eq!(engine.voices[0].delays[engine.voices[0].from], 0.02);
+        }
+        for _ in 0..2400 {
+            engine.process_frame([0.08; 2]);
+        }
+        assert_eq!(engine.voices[0].fade, 1.);
+        assert_eq!(engine.voices[0].delays[engine.voices[0].from], 0.8);
+    }
+
+    #[test]
+    fn live_increase_waits_on_the_readable_head_and_initial_long_voice_eventually_plays() {
+        let mut moving = pool(&[target(0.02, 1.)], 1, false);
+        for _ in 0..1200 {
+            moving.process_frame([0.08; 2]);
+        }
+        moving.set_time_fold_scale(40.).unwrap();
+        let mut audible = false;
+        for _ in 0..8000 {
+            let output = moving.process_frame([0.08; 2]);
+            assert!(
+                output[0] > 0.01,
+                "a live increase never advances into unread history"
+            );
+            assert_eq!(moving.voices[0].fade, 1.);
+            audible |= moving.voices[0].live_delay > 0.799;
+        }
+        assert!(
+            audible,
+            "history readiness eventually allows the requested fold"
+        );
+
+        let mut initial = pool(&[target(0.8, 1.)], 1, false);
+        initial.set_time_fold_scale(1.).unwrap();
+        for _ in 0..6401 {
+            assert_eq!(initial.process_frame([0.08; 2]), [0.; 2]);
+        }
+        assert!(
+            initial.process_frame([0.08; 2])[0] > 0.01,
+            "a voice waiting for its first history is not stuck"
+        );
+    }
+
+    #[test]
+    fn live_pool_rebase_preserves_physical_head_and_presets_keep_discrete_fades() {
+        let mut engine = pool(&[target(0.2, 1.7)], 1, true);
+        for _ in 0..4000 {
+            engine.process_frame([0.08; 2]);
+        }
+        engine.set_time_fold_scale(3.).unwrap();
+        for _ in 0..80 {
+            engine.process_frame([0.08; 2]);
+        }
+        let physical = engine.voices[0].live_delay;
+        let phase = engine.voices[0].phase;
+        let gain = engine.voices[0].gain;
+        let history_pointer = engine.history.as_ptr();
+        engine.rebase_time_fold_scale(1. / 3.).unwrap();
+        engine.install_prepared_pool_controls_live(prepared(&[target(0.6, 1.7)]), 1, true);
+        engine.set_time_fold_scale(1.).unwrap();
+        assert_eq!(engine.time_fold_scale(), 1.);
+        assert_eq!(engine.voices[0].live_delay, physical);
+        assert_eq!(engine.voices[0].phase, phase);
+        assert_eq!(engine.voices[0].gain, gain);
+        assert_eq!(engine.history.as_ptr(), history_pointer);
+        engine.process_frame([0.08; 2]);
+        assert_eq!(
+            engine.voices[0].fade, 1.,
+            "eligibility fallback stays a single lane at scale 1"
+        );
+        assert!(engine.voices[0].live_delay > physical);
+        let physical = engine.voices[0].live_delay;
+        engine.install_prepared_pool_controls(prepared(&[target(0.9, 1.7)]), 1);
+        assert!(!engine.live_time_fold);
+        assert_eq!(engine.voices[0].delays[engine.voices[0].from], physical);
+        engine.process_frame([0.08; 2]);
+        assert!(engine.voices[0].fade > 0. && engine.voices[0].fade < 1.);
+    }
+
+    #[test]
+    fn entering_live_mode_aborts_an_unheard_fade_but_finishes_an_audible_one() {
+        let mut engine = pool(&[target(0.2, 1.)], 1, true);
+        for _ in 0..1600 {
+            engine.process_frame([0.08; 2]);
+        }
+        engine.voices[0].to = 1;
+        engine.voices[0].delays[1] = 0.7;
+        engine.voices[0].fade = 0.;
+        engine.set_time_fold_scale(1.).unwrap();
+        engine.process_frame([0.08; 2]);
+        assert_eq!(engine.voices[0].fade, 1.);
+        assert_eq!(engine.voices[0].live_delay, 0.2);
+        engine.live_time_fold = false;
+        engine.install_prepared_pool_controls(prepared(&[target(0.7, 1.)]), 1);
+        engine.process_frame([0.08; 2]);
+        let audible_fade = engine.voices[0].fade;
+        engine.install_prepared_pool_controls_live(prepared(&[target(0.3, 1.)]), 1, true);
+        assert_eq!(engine.voices[0].fade, audible_fade);
+        for _ in 0..600 {
+            engine.process_frame([0.08; 2]);
+        }
+        assert_eq!(engine.voices[0].fade, 1.);
+        assert!(engine.voices[0].live_following);
+        assert!(engine.voices[0].live_delay < 0.7);
     }
 }

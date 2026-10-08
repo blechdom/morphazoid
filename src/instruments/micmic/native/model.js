@@ -1,6 +1,7 @@
 /** Native control model. Geometry follows the original browser instrument. */
 import { DEFAULT_MASTERING, sanitizeMastering, captureMastering, randomMastering } from './mastering.js';
 import { sanitizeLab } from '../../l-system-parametric-lab/model.js';
+import { MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS } from './time-fold.js';
 const RUST_BRANCHING_TYPES = Object.freeze(['bush', 'fan', 'fern', 'whorled', 'ternary', 'quaternary']);
 export const RUST_EXPLORATION_TYPES = Object.freeze(['peano', 'arrowhead', 'quadratic-koch', 'kolam', 'dekking', 'stochastic']);
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
@@ -10,7 +11,7 @@ export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', ge
   grammarSeed: 1, branchProbability: .65 });
 export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
   frozen: false, inputGain: .85, frequency: 173, pulseRate: 2, voiceCeiling: 0, automatic: true, mastering: DEFAULT_MASTERING });
-export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [1, 3000], timeRatio: [.2, 2],
+export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS], timeRatio: [.2, 2],
   angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, 1], spread: [0, 1],
   grammarSeed: [0, 0xffffffff], branchProbability: [0, 1] });
 export const PERFORMANCE_LIMITS = Object.freeze({ level: [0, 1], wet: [0, 1], dry: [0, .5], inputGain: [0, 4], frequency: [40, 1200], pulseRate: [.1, 12], voiceCeiling: [0, Number.MAX_SAFE_INTEGER] });
@@ -59,7 +60,7 @@ export function randomState(parameters, performance, random = Math.random) {
   const unit = () => clamp(Number(random()) || 0);
   const between = (a, b) => a + (b - a) * unit();
   return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
-    generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(0, 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
+    generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(Math.log10(MIN_TIME_FOLD_MS), 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
     asymmetry: between(-.8, .8), curls: between(-1.5, 1.5), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit(),
     grammarSeed: Math.floor(between(0, 0x100000000)), branchProbability: between(.15, .95) }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
@@ -78,17 +79,51 @@ export function applyPreviewDepth(nodes, depth) {
   for (const node of nodes) node.gain = node.generation === 0 ? 1 : .5 * applied ** (node.generation * .72);
   return nodes;
 }
+/** Retain compiled timing coefficients so live fold reversals never accumulate
+ * scaling drift. Supplying a base rebases newly accepted pool metadata only. */
+export function applyPreviewTimeFold(nodes, intervalMs, baseIntervalMs) {
+  const interval = clamp(intervalMs, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS);
+  const rebase = Number.isFinite(baseIntervalMs) && baseIntervalMs > 0;
+  for (const node of nodes) {
+    if (rebase || !Number.isFinite(node.timeFoldDelayPerMs)) {
+      node.timeFoldDelayPerMs = (Number.isFinite(node.delay) ? node.delay : 0) / (rebase ? baseIntervalMs : interval);
+    }
+    node.delay = node.timeFoldDelayPerMs * interval;
+  }
+  return nodes;
+}
 /** Draw every admitted branch; visual pressure only changes frame/detail budgets. */
 export function admittedPreviewNodes(nodes, limit) { return nodes.filter(n => n.generation === 0 || isVoiceActive(n, limit)); }
-/** Keep the complete preset as metadata, but visit only audible branches per
- * frame. Selection identity stays stable while meter values change. */
+const EMPTY_VOICE_INDICES = Object.freeze([]);
+/** Keep the prepared scene as metadata. Browser snapshots identify actual DSP
+ * slots, including genuine release tails; smoothed meters affect waves only.
+ * Legacy replies without that list retain their existing display fallback. */
 export function createPreviewDrawSelection(nodes) {
   const byVoice = new Map(nodes.filter(node => node.generation > 0).map(node => [node.voiceIndex, node]));
-  let key, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
+  let key, activeSlots = null, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
   return {
     invalidate() { key = undefined; },
-    select({ audio = false, limit = 0, levels = new Map(), depth = 1 } = {}) {
-      const nextKey = `${audio}:${limit}:${depth > 0}`;
+    select({ audio = false, limit = 0, levels = new Map(), depth = 1, activeVoiceIndices, revision, activeRevision } = {}) {
+      if (audio && Array.isArray(activeVoiceIndices)) {
+        // A newly installed pool can report before its matching geometry is
+        // accepted. Never assign those slots to branches in the previous scene.
+        if (revision !== undefined && activeRevision !== undefined && revision !== activeRevision) activeVoiceIndices = EMPTY_VOICE_INDICES;
+        const nextKey = `active:${depth > 0}`;
+        const changed = activeSlots !== activeVoiceIndices && (!activeSlots
+          || activeSlots.length !== activeVoiceIndices.length
+          || activeSlots.some((slot, index) => slot !== activeVoiceIndices[index]));
+        if (key !== nextKey || changed) {
+          key = nextKey;
+          const active = new Set(activeVoiceIndices);
+          selected = nodes.filter(node => node.generation === 0 || depth > 0 && active.has(node.voiceIndex));
+        }
+        // Main-thread status arrays are immutable snapshots. Equal membership
+        // reuses the draw array even when the admission limit or meters change.
+        activeSlots = activeVoiceIndices;
+        return selected;
+      }
+      activeSlots = null;
+      const nextKey = `legacy:${audio}:${limit}:${depth > 0}`;
       if (nextKey !== key) {
         key = nextKey;
         admitted = audio ? admittedPreviewNodes(nodes, depth > 0 ? limit : 0) : nodes;

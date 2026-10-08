@@ -38,6 +38,7 @@ export const SAMPLE_PROCESSING_RECIPES = Object.freeze([
   ['cloud-choir-chamber', 'Cloud choir chamber', 'music-cloud-choir', 'fx-reverb', 'bright-chamber', .5],
   ['acid-six-stage', 'Acid six stage', 'music-acid-circuit', 'fx-phaser', 'six-stage-sweep', .5],
   ['bossa-wide-sunrise', 'Bossa wide sunrise', 'music-bossa-sunrise', 'fx-modulated-delay', 'slow-wide-chorus', .5],
+  ['curling-voice-echoes', 'Curling voice echoes', 'speech-curling', 'fx-delay', 'dark-tape-like-repeats', .4],
 ]);
 
 // Synth columns: id, label, method, sound, sequence, variation, tuning, BPM, voicing, insert.

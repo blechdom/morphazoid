@@ -9,6 +9,7 @@ layout(location=3) in vec4 aSignal;
 uniform vec2 uSize;
 uniform vec3 uFit;
 uniform float uSeconds;
+uniform float uTimeFoldScale;
 uniform int uDetailSteps;
 uniform bool uReducedMotion;
 uniform bool uAvailablePass;
@@ -39,8 +40,9 @@ float signalAt(float progress) {
   bool history = (flags & 2) != 0;
   bool measured = (flags & 4) != 0;
   bool parentMeasured = (flags & 8) != 0;
-  float transit = aTiming.y - aTiming.x;
-  float strength = history ? unit(1.0 - exp(-max(0.0, envelopeAt(mix(aTiming.x, aTiming.y, progress))) * 5.0)) * unit(aSignal.z) : unit(aSignal.x);
+  vec2 timing = aTiming.xy * uTimeFoldScale;
+  float transit = timing.y - timing.x;
+  float strength = history ? unit(1.0 - exp(-max(0.0, envelopeAt(mix(timing.x, timing.y, progress))) * 5.0)) * unit(aSignal.z) : unit(aSignal.x);
   if (measured) {
     float measuredEnergy = unit(aSignal.x);
     if (!history || transit <= .1) strength = measuredEnergy;
@@ -236,6 +238,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   let cachedNodes = [], cachedGeometryOptions = {}, cachedDrawNodes = [], sourceNodes = [], sourceIndices = new Map(), sourceStaticData = new Float32Array();
   let nodes = [], drawIndices = [], staticData = new Float32Array(), meterData = new Float32Array();
   let maximumGeneration = 0, generationLevels = new Float32Array(1);
+  let timeFoldBaseIntervalMs = null, timeFoldScale = 1;
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
   let historyScratch = new Float32Array();
   const palette = paletteValues(colors);
@@ -272,7 +275,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       capVertex = shader(gl.VERTEX_SHADER, CAP_VERTEX_SOURCE); capFragment = shader(gl.FRAGMENT_SHADER, CAP_FRAGMENT_SOURCE);
       gl.attachShader(resources.caps, capVertex); gl.attachShader(resources.caps, capFragment); gl.linkProgram(resources.caps);
       if (!gl.getProgramParameter(resources.caps, gl.LINK_STATUS)) throw new Error('GPU cap program unavailable');
-      for (const name of ['uSize', 'uFit', 'uSeconds', 'uDetailSteps', 'uReducedMotion', 'uAvailablePass', 'uHistory', 'uHistorySettings', 'uPalette[0]']) {
+      for (const name of ['uSize', 'uFit', 'uSeconds', 'uTimeFoldScale', 'uDetailSteps', 'uReducedMotion', 'uAvailablePass', 'uHistory', 'uHistorySettings', 'uPalette[0]']) {
         resources.uniforms[name] = gl.getUniformLocation(resources.program, name);
         resources.capUniforms[name] = gl.getUniformLocation(resources.caps, name);
       }
@@ -327,6 +330,8 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   function setGeometry(nextNodes, { intervalMs, drawNodes } = {}) {
     if (disposed) return;
     cachedNodes = nextNodes ?? [];
+    timeFoldBaseIntervalMs = Number.isFinite(intervalMs) && intervalMs > 0 ? intervalMs : null;
+    timeFoldScale = 1;
     cachedGeometryOptions = { ...(Number.isFinite(intervalMs) ? { intervalMs } : {}), drawNodes: drawNodes ?? cachedNodes };
     const byId = new Map(cachedNodes.map(node => [node.id, node]));
     sourceStaticData = new Float32Array(cachedNodes.length * 9);
@@ -351,6 +356,13 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     generationLevels = new Float32Array(maximumGeneration + 1);
     counters.previewNodeCount = cachedNodes.length;
     selectGeometry(drawNodes ?? cachedNodes, true);
+  }
+
+  function setTimeFold(intervalMs) {
+    if (disposed || !timeFoldBaseIntervalMs || !Number.isFinite(intervalMs) || intervalMs <= 0) return;
+    // Both delay endpoints scale together. The immutable timing buffer, branch
+    // selection, meter storage and topology maps survive the entire gesture.
+    timeFoldScale = intervalMs / timeFoldBaseIntervalMs;
   }
 
   function updateGeometryPositions(nextNodes) {
@@ -417,7 +429,10 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         // admission gate, not an immutable topology attribute or amplitude.
         // Generation amplitude above already follows the applied frame depth.
         const admitted = node.root || (!frame.pending && node.priority < limit && finite(cachedNodes[drawIndices[index]].gain) > 0);
-        const available = admitted || energy > 0;
+        // Exact playback selection already contains only Rust's active slots.
+        // Their availability does not depend on meter coverage or amplitude;
+        // rank still controls the historical input-travel approximation below.
+        const available = frame.activeVoiceSelection || admitted || energy > 0;
         if (available) availableCount++;
         const measured = node.root || targets.has(node.voiceIndex);
         const parentMeasured = node.parentRoot || targets.has(node.parentVoiceIndex);
@@ -436,6 +451,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         gl.useProgram(program);
         gl.uniform2f(uniforms.uSize, width, height); gl.uniform3f(uniforms.uFit, finite(frame.fit?.scale, 1), finite(frame.fit?.x), finite(frame.fit?.y));
         gl.uniform1f(uniforms.uSeconds, finite(frame.seconds)); gl.uniform1i(uniforms.uDetailSteps, detailSteps); gl.uniform1i(uniforms.uReducedMotion, Boolean(frame.reducedMotion));
+        gl.uniform1f(uniforms.uTimeFoldScale, timeFoldScale);
         gl.uniform4f(uniforms.uHistorySettings, historyCount, historyWidth, historyInterval || 1, finite(frame.seconds) - historyEnd);
       }
       if (nodes.length) {
@@ -463,7 +479,9 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   }
   function contextRestored() {
     if (disposed) return;
-    try { initialize(); setGeometry(cachedNodes, { ...cachedGeometryOptions, drawNodes: cachedDrawNodes }); }
+    // Retain the original timing basis and live uniform across context loss.
+    // Cached positions/selections are already updated while Canvas is active.
+    try { initialize(); uploadGeometry(); }
     catch { ready = false; canvas.hidden = true; releaseResources(); }
     onInvalidate();
   }
@@ -481,5 +499,5 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   catch { ready = false; releaseResources(); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
   stageCanvas.parentNode.insertBefore(canvas, stageCanvas);
-  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters }; }, setGeometry, updateGeometryPositions, render, dispose };
+  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters }; }, setGeometry, setTimeFold, updateGeometryPositions, render, dispose };
 }

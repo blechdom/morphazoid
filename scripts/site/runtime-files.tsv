@@ -1512,13 +1512,14 @@ copy+require	vendor/wasm-runtime-notices/musl-COPYRIGHT
 copy+require	src/instruments/micmic/native/app.js
 copy+require	src/instruments/micmic/native/gpu-renderer.js
 copy+require	src/instruments/micmic/native/model.js
+copy+require	src/instruments/micmic/native/time-fold.js
 copy+require	src/instruments/micmic/native/rule-modes.js
 copy+require	src/instruments/micmic/native/mastering.js
 copy+require	src/instruments/micmic/native/style.css
 copy+require	src/instruments/micmic/native/presets.json
 copy+require	src/instruments/micmic/native/browser-engine.js
 copy+require	src/instruments/micmic/native/device-capacity.js
-copy+require	src/instruments/micmic/native/graphics-capacity.js
+copy+require	src/instruments/micmic/native/telemetry.js
 copy+require	src/instruments/micmic/native/input-source.js
 copy+require	src/instruments/micmic/native/delay-worklet.js
 copy+require	src/instruments/micmic/native/topology-worker.js
@@ -1574,6 +1575,9 @@ copy+require	assets/input-samples/recorded/fx-slide-whistle.mp3
 copy+require	assets/input-samples/recorded/music-tabla.mp3
 copy+require	assets/input-samples/recorded/music-toy-gamelan.mp3
 copy+require	assets/input-samples/recorded/provenance.json
+copy+require	assets/input-samples/synthetic/CREDITS.md
+copy+require	assets/input-samples/synthetic/curling-voice.wav
+copy+require	assets/input-samples/synthetic/provenance.json
 copy+require	assets/synthesis/extra-loops/CREDITS.md
 copy+require	assets/synthesis/extra-loops/acid-circuit.wav
 copy+require	assets/synthesis/extra-loops/bossa-sunrise.wav

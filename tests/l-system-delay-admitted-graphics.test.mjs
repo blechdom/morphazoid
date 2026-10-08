@@ -22,7 +22,42 @@ test('playing draws admitted connected branches, retaining the complete preset a
   }
 });
 
-test('real release tails remain visible until their meter reaches zero, with stable selection between membership changes', () => {
+test('actual DSP slots retain real releases and remove retired voices despite lingering meter energy', () => {
+  const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 5 }, generationTopology), selection = createPreviewDrawSelection(nodes);
+  const admitted = nodes.filter(node => node.generation > 0 && node.priority < 3);
+  const tail = nodes.find(node => node.priority === 12), slots = admitted.map(node => node.voiceIndex);
+  const levels = new Map(nodes.map(node => [node.voiceIndex, .9]));
+  const releasing = selection.select({ audio: true, limit: 3, levels, activeVoiceIndices: [...slots, tail.voiceIndex] });
+  assert.equal(releasing.length, 5); assert.ok(releasing.includes(tail));
+  const retired = selection.select({ audio: true, limit: 3, levels, activeVoiceIndices: slots });
+  assert.equal(retired.length, 4); assert.ok(!retired.includes(tail), 'meter decay cannot keep retired voices visible');
+  assert.equal(selection.select({ audio: true, limit: nodes.length, levels, activeVoiceIndices: [...slots] }), retired,
+    'unchanged real membership reuses its array through admission and meter changes');
+  assert.deepEqual(selection.select({ audio: true, limit: nodes.length, levels, activeVoiceIndices: [] }), [nodes[0]]);
+  assert.deepEqual(selection.select({ audio: true, depth: 0, levels, activeVoiceIndices: slots }), [nodes[0]]);
+  assert.equal(selection.select({ audio: false, activeVoiceIndices: [] }), nodes);
+});
+
+test('actual slot selection has no meter-capacity ceiling and omits unrepresented active slots', () => {
+  const nodes = [{ id: 'root', generation: 0 }, ...Array.from({ length: 4097 }, (_, voiceIndex) =>
+    ({ id: String(voiceIndex), parentId: 'root', generation: 1, voiceIndex }))];
+  const selection = createPreviewDrawSelection(nodes), activeVoiceIndices = nodes.slice(1).map(node => node.voiceIndex);
+  const drawn = selection.select({ audio: true, limit: 1, activeVoiceIndices: [...activeVoiceIndices, 999999] });
+  assert.equal(drawn.length, 4098);
+  assert.deepEqual(drawn.slice(1).map(node => node.voiceIndex), activeVoiceIndices);
+});
+
+test('a new pool cannot apply its active slots to a previous geometry or fall back to lingering meters', () => {
+  const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 4 }, generationTopology), selection = createPreviewDrawSelection(nodes);
+  const activeVoiceIndices = nodes.filter(node => node.generation > 0 && node.priority < 8).map(node => node.voiceIndex);
+  const status = { audio: true, limit: nodes.length, levels: new Map(nodes.map(node => [node.voiceIndex, .9])), activeVoiceIndices };
+  const coherent = selection.select({ ...status, revision: 10, activeRevision: 10 });
+  assert.equal(coherent.length, 9);
+  assert.deepEqual(selection.select({ ...status, revision: 10, activeRevision: 11 }), [nodes[0]]);
+  assert.equal(selection.select({ ...status, revision: 11, activeRevision: 11 }).length, 9, 'the accepted geometry immediately restores exact active membership');
+});
+
+test('legacy meter-only replies preserve release display and stable selection between membership changes', () => {
   const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 5 }, generationTopology), selection = createPreviewDrawSelection(nodes);
   const tail = nodes.find(node => node.priority === 12), levels = new Map([[tail.voiceIndex, .3]]);
   const active = selection.select({ audio: true, limit: 3, levels });
@@ -37,7 +72,7 @@ test('real release tails remain visible until their meter reaches zero, with sta
   assert.equal(selection.select({ audio: true, limit: 3, levels }), quiet, 'unrepresented meters do not invent branches');
 });
 
-test('Depth zero keeps actual fading releases, then just the root, and resumes the same admitted identities', () => {
+test('legacy meter-only Depth replies retain their fading release display and restore admitted identities', () => {
   const nodes = buildPreview({ ...DEFAULT_PARAMETERS, generations: 5 }, generationTopology), selection = createPreviewDrawSelection(nodes);
   const initial = selection.select({ audio: true, limit: 6, depth: .72 }), tail = initial.at(-1);
   applyPreviewDepth(nodes, 0);
