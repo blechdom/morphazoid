@@ -340,6 +340,7 @@ struct StagedInstall {
     revision: u64,
     normalization: f64,
     depth_controls: bool,
+    whole_scene_admission: bool,
     depth_override: Option<f64>,
     fold_base_ms: Option<f64>,
     fold_interval_ms: Option<f64>,
@@ -397,6 +398,7 @@ pub struct Renderer {
     output_peak: f32,
     channel_peaks: Frame,
     metrics: [f64; METRICS],
+    calibration: bool,
 }
 impl Renderer {
     fn new(rate: u32, capacity: usize) -> Result<Self, String> {
@@ -458,6 +460,7 @@ impl Renderer {
             output_peak: 0.,
             channel_peaks: [0.; 2],
             metrics: [0.; METRICS],
+            calibration: false,
         })
     }
     fn set_performance(&mut self, settings: Performance) -> Result<(), String> {
@@ -588,6 +591,15 @@ impl Renderer {
         Ok(())
     }
 
+    fn configure_install_scene_admission(&mut self, whole_scene: bool) -> Result<(), String> {
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        pending.whole_scene_admission = whole_scene;
+        Ok(())
+    }
+
     /// The caller retains this byte allocation until commit, rejection or abort.
     /// Reserve numeric storage once; validation and voice construction then run
     /// in bounded batches while the old recording and scene continue rendering.
@@ -651,6 +663,7 @@ impl Renderer {
             revision: u64::from(read_u32(header, 16)) | u64::from(read_u32(header, 20)) << 32,
             normalization,
             depth_controls: read_u32(header, 4) == 2,
+            whole_scene_admission: false,
             depth_override: None,
             fold_base_ms: None,
             fold_interval_ms: None,
@@ -776,7 +789,12 @@ impl Renderer {
                 gains
             });
         self.demand = self.performance.capped(self.available);
-        self.adaptive.set_demand(self.demand);
+        if pending.whole_scene_admission {
+            self.adaptive
+                .begin_bounded_scene(self.demand, self.structural_group_counts.iter().sum());
+        } else {
+            self.adaptive.begin_adaptive_scene(self.demand);
+        }
         self.revision = pending.revision;
         self.requested = pending.count;
         self.target_normalization = self
@@ -898,7 +916,7 @@ impl Renderer {
         self.depth_controls = read_u32(bytes, 4) == 2;
         self.live_depth = None;
         self.demand = self.performance.capped(available);
-        self.adaptive.set_demand(self.demand);
+        self.adaptive.begin_adaptive_scene(self.demand);
         self.target_normalization = normalization;
         let limit = if self.performance.automatic {
             self.adaptive.limit().min(self.demand)
@@ -1089,6 +1107,33 @@ pub extern "C" fn lsd_new(rate: u32, capacity: usize) -> *mut Renderer {
         }
     }
 }
+
+/// Disposable worker calibration owns an independent recording. Ordinary
+/// audio renderers never permit the calibration history preparation export.
+#[no_mangle]
+pub extern "C" fn lsd_new_calibration(rate: u32, capacity: usize) -> *mut Renderer {
+    let handle = lsd_new(rate, capacity);
+    if !handle.is_null() {
+        unsafe {
+            (*handle).calibration = true;
+        }
+    }
+    handle
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_prepare_calibration_history(handle: *mut Renderer) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    if !(*handle).calibration {
+        report("Recording history can only be prepared on a calibration renderer");
+        return 0;
+    }
+    (*handle).engine.prepare_calibration_history();
+    1
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lsd_drop(handle: *mut Renderer) {
     if !handle.is_null() {
@@ -1167,6 +1212,26 @@ pub unsafe extern "C" fn lsd_install_step(handle: *mut Renderer, maximum_records
 pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
     if !handle.is_null() {
         (*handle).abort_install();
+    }
+}
+
+/// Optional staging policy. The caller must preflight the complete prepared
+/// scene within a device-reliable budget before selecting whole membership.
+/// Omission leaves the historical automatic admission search unchanged.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_scene_admission(
+    handle: *mut Renderer,
+    whole_scene: u32,
+) -> u32 {
+    if handle.is_null() || whole_scene > 1 {
+        return 0;
+    }
+    match (*handle).configure_install_scene_admission(whole_scene != 0) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
     }
 }
 
@@ -1494,6 +1559,243 @@ mod browser_tests {
             ..model::Parameters::default()
         };
         compile(&serde_json::to_vec(&params).unwrap(), 8000).unwrap()
+    }
+
+    fn install_bounded(renderer: &mut Renderer, compiled: &Compilation) {
+        renderer.begin_install(&compiled.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(renderer, 1) }, 1);
+        while !renderer.step_install(32).unwrap() {}
+    }
+
+    #[test]
+    fn bounded_staging_commits_every_prepared_voice_together_after_tiny_scene_and_backoff() {
+        let small = scene(2);
+        let dense = scene(7);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&small.pool).unwrap();
+        renderer.seed_capacity(1000);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let old_limit = renderer.current_limit();
+        assert_eq!(old_limit, 2);
+        let old_clock = renderer.frames;
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        renderer.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut renderer, 1) }, 1);
+        while !renderer.step_install(32).unwrap() {
+            assert_eq!(
+                renderer.current_limit(),
+                old_limit,
+                "staging policy does not change the committed old scene"
+            );
+            let input = signal(renderer.frames as usize);
+            renderer.process(&input, None, &mut left, &mut right);
+        }
+        let count = renderer.requested;
+        assert_eq!(count, 254);
+        assert_eq!(renderer.current_limit(), count);
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        assert_eq!(
+            renderer.engine.active_voice_indices(),
+            &(0..count).collect::<Vec<_>>(),
+            "every available branch is admitted in the atomic commit, before its gain attack"
+        );
+        assert!(
+            renderer.frames > old_clock,
+            "old playback ran throughout preparation"
+        );
+        for _ in 0..3 {
+            let input = signal(renderer.frames as usize);
+            renderer.process(&input, None, &mut left, &mut right);
+        }
+        assert!(
+            renderer.engine.tap_activity()[..count]
+                .iter()
+                .all(|level| *level > 0.),
+            "all prepared taps produce measured sound without waiting for admission generations"
+        );
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.2 * BLOCK as f64 / 8000., BLOCK, false);
+            assert_eq!(renderer.current_limit(), count);
+            assert_eq!(renderer.engine.target_voice_count(), count);
+        }
+    }
+
+    #[test]
+    fn bounded_zero_depth_and_manual_caps_restore_the_whole_structural_scene() {
+        let parameters = model::Parameters {
+            generations: 6,
+            depth: 0.,
+            interval_ms: 2.,
+            pitch_scale: 0.,
+            ..model::Parameters::default()
+        };
+        let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        install_bounded(&mut renderer, &compiled);
+        let count = renderer.structural_group_counts.iter().sum::<usize>();
+        assert_eq!(count, 126);
+        assert_eq!(renderer.current_limit(), 0);
+        assert_eq!(unsafe { lsd_capacity_hint(&mut renderer, 1000) }, 1);
+        assert_eq!(
+            renderer.current_limit(),
+            0,
+            "a first-install worker hint cannot arm a zero-depth scene"
+        );
+        assert_eq!(renderer.adaptive.measured_limit(), 1000);
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(renderer.current_limit(), count);
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        let mut settings = renderer.performance;
+        settings.voice_ceiling = 3;
+        renderer.set_performance(settings).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 3);
+        renderer.set_depth(0.).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 0);
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 3);
+        settings.voice_ceiling = 0;
+        renderer.set_performance(settings).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let safe = renderer.current_limit();
+        assert!(safe < count);
+        assert_eq!(unsafe { lsd_capacity_hint(&mut renderer, 2000) }, 1);
+        assert_eq!(
+            renderer.current_limit(),
+            safe,
+            "a later worker hint cannot regrow an unchanged scene after real overload"
+        );
+        renderer.set_depth(0.).unwrap();
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(
+            renderer.engine.target_voice_count(),
+            safe,
+            "live coefficient restoration cannot undo an actual deadline backoff"
+        );
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.2 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            safe,
+            "quiet playback retains fixed scene membership"
+        );
+    }
+
+    #[test]
+    fn scene_admission_policy_is_atomic_abortable_and_resets_when_omitted() {
+        let first = scene(6);
+        let next = scene(7);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&first.pool).unwrap();
+        let old_limit = renderer.current_limit();
+        assert_eq!(
+            unsafe { lsd_install_scene_admission(&mut renderer, 1) },
+            0,
+            "policy configuration requires a staged pool"
+        );
+        renderer.begin_install(&next.pool).unwrap();
+        assert_eq!(
+            unsafe { lsd_install_scene_admission(&mut renderer, 2) },
+            0,
+            "unsupported flags cannot change the pending scene"
+        );
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut renderer, 1) }, 1);
+        assert!(!renderer.step_install(1).unwrap());
+        assert_eq!(renderer.current_limit(), old_limit);
+        renderer.abort_install();
+        for _ in 0..8000 / BLOCK * 4 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            126,
+            "aborted policy must not freeze the previous adaptive scene"
+        );
+        install_bounded(&mut renderer, &next);
+        assert_eq!(renderer.current_limit(), 254);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let reduced = renderer.current_limit();
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(renderer.current_limit(), reduced);
+        renderer.begin_install(&next.pool).unwrap();
+        while !renderer.step_install(32).unwrap() {}
+        for _ in 0..8000 / BLOCK * 15 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            254,
+            "omitting the optional flag restores legacy search"
+        );
+    }
+
+    #[test]
+    fn calibration_history_is_ready_for_long_heads_and_cannot_mutate_live_recording() {
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        let compiled = scene(3);
+        for renderer in [&mut live, &mut reference] {
+            renderer.install(&compiled.pool).unwrap();
+            renderer.seed_capacity(100);
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..64 {
+            let input = signal(block * BLOCK);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+        }
+        let frames = live.frames;
+        assert_eq!(unsafe { lsd_prepare_calibration_history(&mut live) }, 0);
+        assert_eq!(live.frames, frames);
+        for block in 64..96 {
+            let input = signal(block * BLOCK);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left.map(f32::to_bits), reference_l.map(f32::to_bits));
+            assert_eq!(right.map(f32::to_bits), reference_r.map(f32::to_bits));
+        }
+        unsafe {
+            assert_eq!(lsd_prepare_calibration_history(std::ptr::null_mut()), 0);
+            let calibration = lsd_new_calibration(8000, 1);
+            assert!(!calibration.is_null());
+            let mut long = scene(2);
+            for record in long.pool[HEADER..].chunks_exact_mut(RECORD) {
+                record[..8].copy_from_slice(&30f64.to_le_bytes());
+            }
+            (*calibration).install(&long.pool).unwrap();
+            (*calibration).seed_capacity(100);
+            (*calibration).process(&[0.; BLOCK], None, &mut left, &mut right);
+            assert_eq!(
+                (*calibration).engine.tap_activity()[0],
+                0.,
+                "the long head initially lacks recorded history"
+            );
+            let before = (*calibration).frames;
+            assert_eq!(lsd_prepare_calibration_history(calibration), 1);
+            assert_eq!(
+                (*calibration).frames,
+                before,
+                "history preparation never advances the clock"
+            );
+            (*calibration).process(&[0.; BLOCK], None, &mut left, &mut right);
+            assert!(
+                (*calibration).engine.tap_activity()[0] > 0.,
+                "timed calibration includes real 30-second history reads"
+            );
+            assert_eq!(
+                lsd_prepare_calibration_history(calibration),
+                1,
+                "worker preflight can reuse its independent renderer"
+            );
+            lsd_drop(calibration);
+        }
     }
 
     fn assert_same_seed_state(actual: &Seed, reference: &Seed) {
