@@ -22,9 +22,13 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
   class Context {
     constructor() {
       calls.push('context'); contexts.push(this); this.state = 'suspended'; this.currentTime = 0;
+      this.listeners = new Map();
       this.audioWorklet = { addModule: async url => { calls.push(['worklet', url]); } };
     }
-    resume() { calls.push('resume'); this.state = 'running'; return Promise.resolve(); }
+    addEventListener(type, callback) { this.listeners.set(type, callback); }
+    removeEventListener(type, callback) { if (this.listeners.get(type) === callback) this.listeners.delete(type); }
+    changeState(state) { this.state = state; this.listeners.get('statechange')?.(); }
+    resume() { calls.push('resume'); this.changeState('running'); return Promise.resolve(); }
     createGain() {
       const gain = { value: 0, targets: [], cancelAndHoldAtTime() {},
         linearRampToValueAtTime(value, time) { this.value = value; this.targets.push([value, time]); } };
@@ -43,7 +47,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
       this.ceiling = { curve: null, oversample: 'none', disconnect: () => calls.push('ceiling-disconnect') };
       return this.ceiling;
     }
-    async close() { calls.push('close'); this.state = 'closed'; }
+    async close() { calls.push('close'); this.changeState('closed'); }
   }
   class Synth {
     constructor(context, config) {
@@ -139,6 +143,72 @@ test('muting and volume changes leave file transport and visual MIDI running', a
   assert.equal(h.messages.length, 1);
   h.player.setAudioEnabled(true);
   assert.equal(h.player.state.time, 3); assert.equal(h.contexts[0].master.gain.value, 0.8);
+  await h.player.dispose();
+});
+
+test('browser suspension shows Audio off and a single explicit Audio action recovers the playing score', async () => {
+  const h = harness(); const seq = await ready(h), context = h.contexts[0];
+  h.player.play(); seq.currentTime = 3;
+  h.player.padNoteOn('held-pad', 60, 100);
+  const resumes = h.calls.filter(call => call === 'resume').length;
+  context.state = 'suspended';
+  assert.equal(h.player.state.audioEnabled, false, 'the getter is correct before the queued statechange arrives');
+  context.changeState('suspended');
+  assert.equal(h.player.state.playing, true);
+  assert.equal(h.player.state.time, 3);
+  assert.equal(h.player._padSources.size, 0);
+  assert.equal(h.calls.filter(call => call === 'resume').length, resumes, 'statechange never resumes without a gesture');
+  assert.equal(await h.player.enableAudio(), true);
+  assert.equal(h.contexts.length, 1);
+  assert.equal(h.player.state.playing, true);
+  assert.equal(h.player.state.time, 3);
+  assert.equal(context.master.gain.value, .5);
+  const oldListener = context.listeners.get('statechange');
+  await h.player.dispose();
+  assert.equal(context.listeners.size, 0);
+  const count = h.states.length;
+  oldListener();
+  assert.equal(h.states.length, count, 'late context callbacks cannot revive disposed UI');
+});
+
+test('native interruption recovery restores armed audio but preserves an explicit mute', async () => {
+  const h = harness(); await ready(h); const context = h.contexts[0];
+  context.changeState('interrupted');
+  assert.equal(h.player.state.audioEnabled, false);
+  context.changeState('running');
+  assert.equal(h.player.state.audioEnabled, true);
+  context.changeState('interrupted');
+  h.player.setAudioEnabled(false);
+  context.changeState('running');
+  assert.equal(h.player.state.audioEnabled, false);
+  assert.equal(context.master.gain.value, 0);
+  await h.player.dispose();
+});
+
+test('an externally closed context is discarded and the next Audio action rebuilds the selected song', async () => {
+  const h = harness(); await ready(h); const old = h.contexts[0];
+  const oldListener = old.listeners.get('statechange');
+  old.changeState('closed'); await flush();
+  assert.equal(h.player.state.audioEnabled, false);
+  assert.equal(h.player.state.ready, false);
+  assert.equal(old.listeners.size, 0);
+  assert.equal(await h.player.enableAudio(), true);
+  assert.equal(h.contexts.length, 2);
+  assert.equal(h.player.state.fileName, 'first.mid');
+  assert.equal(h.player.state.ready, true);
+  oldListener();
+  assert.equal(h.player.state.audioEnabled, true);
+  await h.player.dispose();
+});
+
+test('Audio recovers a closed context even before its queued statechange is delivered', async () => {
+  const h = harness(); await ready(h); const old = h.contexts[0];
+  old.state = 'closed';
+  assert.equal(h.player.state.audioEnabled, false);
+  assert.equal(await h.player.enableAudio(), true);
+  assert.equal(h.contexts.length, 2);
+  assert.equal(old.listeners.size, 0);
+  assert.equal(h.player.state.ready, true);
   await h.player.dispose();
 });
 

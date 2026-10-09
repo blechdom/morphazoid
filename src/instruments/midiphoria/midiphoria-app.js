@@ -175,8 +175,9 @@ function mountMidiphoria() {
     return songs;
   }
 
-  async function selectSong(song) {
-    resumeAfterSelection = player.state.playing || (loadingFile && resumeAfterSelection);
+  async function selectSong(song, { audition = false } = {}) {
+    resumeAfterSelection = player.state.playing || (loadingFile && resumeAfterSelection)
+      || (audition && player.state.audioEnabled);
     pendingPresetSong = false; currentSongId = song.id;
     textScore = song.textScore ?? null;
     $('showTextScore').checked = Boolean(textScore);
@@ -226,7 +227,7 @@ function mountMidiphoria() {
   // Generated scores use the same session library and transport as imported MIDIs.
   // A stable id replaces the previous generated score without accumulating files.
   function addSessionSong({ id, title, buffer, collection: group = 'Your MIDIs',
-    description = '', attribution = 'Generated in this browser.', ...metadata }) {
+    description = '', attribution = 'Generated in this browser.', ...metadata }, options) {
     if (!(buffer instanceof ArrayBuffer)) throw new Error('The generated MIDI is unavailable.');
     const songId = id || `local-${++localSerial}`;
     const retained = localSongs.filter(song => song.id !== songId);
@@ -238,7 +239,7 @@ function mountMidiphoria() {
       buffer, collection: group, description, attribution };
     localSongs = [...retained, song];
     $('songSearch').value = ''; $('collectionSelect').value = '';
-    return selectSong(song).then(() => song);
+    return selectSong(song, options).then(() => song);
   }
 
   player = new MidiphoriaPlayer({
@@ -311,7 +312,7 @@ function mountMidiphoria() {
     try {
       const score = generateTextMidi($('textMidiInput').value);
       const pending = addSessionSong({ id: 'text-midi', title: score.text, buffer: score.buffer,
-        collection: 'Text MIDI', textScore: score, attribution: 'Generated from your text in this browser.' });
+        collection: 'Text MIDI', textScore: score, attribution: 'Generated from your text in this browser.' }, { audition: true });
       $('textMidiStatus').textContent = '';
       if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
       textDownloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));

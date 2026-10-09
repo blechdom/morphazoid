@@ -52,13 +52,15 @@ export class MidiphoriaPlayer {
     const ready = this._engineReady && Boolean(this._file) && this._readyToken === this._file.token;
     const current = this._seekTime ?? (this._playing ? this._sequencer?.currentTime : this._time);
     return { ready, hasSong: Boolean(this._file), loading: Boolean(this._enginePromise || this._activeLoad),
-      playing: this._playing, audioEnabled: this._audioEnabled, time: clamp(current, 0, this._duration),
+      playing: this._playing, audioEnabled: this._audioEnabled && this.context?.state === 'running', time: clamp(current, 0, this._duration),
       duration: this._duration, rate: this._rate, loop: this._loop, volume: this._volume,
       fileName: this._file?.fileName ?? '', error: this._error };
   }
 
   async enableAudio() {
     if (this._disposed) return false;
+    // A user gesture can arrive before the browser's queued statechange event.
+    if (this.context?.state === 'closed') this._contextStateChanged(this.context);
     this._desiredAudio = true;
     this._error = null;
     if (this._file && !this._activeLoad && !this._queued && this._readyToken !== this._file.token) {
@@ -73,6 +75,10 @@ export class MidiphoriaPlayer {
         const AudioContext = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
         if (!AudioContext) throw new Error('Web Audio is unavailable in this browser.');
         this.context = new AudioContext({ latencyHint: 'interactive' });
+        const ownedContext = this.context;
+        const onStateChange = () => this._contextStateChanged(ownedContext);
+        ownedContext.addEventListener('statechange', onStateChange);
+        this._listeners.push(() => ownedContext.removeEventListener('statechange', onStateChange));
       }
       context = this.context;
       // Preserve mobile activation: resume is invoked before import, fetch or await.
@@ -408,6 +414,23 @@ export class MidiphoriaPlayer {
     this._audioEnabled = false; this._desiredAudio = false; this._playing = false;
     this._updateGain(); this._cancelLoads(); this._clear('processor-error');
     void this._closeEngine().then(() => this._publish());
+  }
+
+  _contextStateChanged(context) {
+    if (this._disposed || context !== this.context) return;
+    if (context.state === 'closed') {
+      this._error = 'Audio stopped. Turn Audio on to restart it.';
+      this._audioEnabled = false; this._desiredAudio = false;
+      this._cancelLoads(); this._clear('audio-closed');
+      void this._closeEngine().then(() => this._publish());
+      return;
+    }
+    // Browser/device interruptions must not leave an apparently armed, silent
+    // button. Retain the user's intent and transport so one Audio click resumes
+    // the existing score; a native recovery must still respect an explicit mute.
+    this._audioEnabled = this._desiredAudio && this._engineReady && context.state === 'running';
+    if (!this._audioEnabled) this.releasePads();
+    this._updateGain(); this._publish();
   }
 
   async _closeEngine() {

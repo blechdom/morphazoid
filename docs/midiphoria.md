@@ -20,6 +20,11 @@ Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and loopin
 Seeking restores MIDI programs/controllers and resumes subsequent note events;
 it does not reconstruct notes whose attacks precede the seek point.
 
+If the browser suspends or interrupts audio, the speaker control reflects that
+state. One explicit Audio click resumes the existing score without resetting its
+position. A native recovery respects an explicit mute; a closed engine is
+recreated on the next Audio action.
+
 The on-screen pads play the TimGM6mb piano after **Audio** is enabled. They work
 with playback stopped or alongside a song. Pointer, touch and focused-button
 Enter/Space hold a note; release/cancel lets it decay. Assistive activation plays

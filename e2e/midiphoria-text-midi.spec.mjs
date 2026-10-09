@@ -94,6 +94,52 @@ test('generated MIDI sounds, retains playback on regeneration, and stays selecte
   expect(errors).toEqual([]);
 });
 
+test('Make MIDI auditions with Audio on, including after the previous text has ended', async ({ page }) => {
+  await open(page);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioState')).toHaveText('on', { timeout: 20000 });
+  await generate(page, 'HELLO MIDI');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  const first = await sampleAudioEnvelope(page, { durationMs: 400 });
+  expect(first.summary.finite).toBe(true);
+  expect(first.summary.maxRms).toBeGreaterThan(.002);
+  expect(first.summary.clippedSamples).toBe(0);
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false', { timeout: 15000 });
+  await generate(page, 'ANOTHER WORD');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  expect((await sampleAudioEnvelope(page, { durationMs: 400 })).summary.maxRms).toBeGreaterThan(.002);
+
+  await page.locator('#stopButton').click();
+  await page.locator('#audioButton').click();
+  await generate(page, 'SILENT PREVIEW');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
+  expect((await sampleAudioEnvelope(page, { durationMs: 250 })).summary.maxRms).toBeLessThan(.001);
+});
+
+test('one Audio click recovers browser suspension without restarting the MIDI', async ({ page }) => {
+  await open(page);
+  await generate(page, 'RECOVER AUDIO');
+  await page.locator('#loopSong').check();
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioState')).toHaveText('on', { timeout: 20000 });
+  await page.locator('#playButton').click();
+  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(.3);
+  await page.evaluate(() => window.__textMidiContexts[0].suspend());
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  const time = Number(await page.locator('#songPosition').inputValue());
+  expect((await sampleAudioEnvelope(page, { durationMs: 150 })).summary.maxRms).toBeLessThan(.001);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#audioState')).toHaveText('on');
+  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(time);
+  const recovered = await sampleAudioEnvelope(page, { durationMs: 400 });
+  expect(recovered.summary.finite).toBe(true);
+  expect(recovered.summary.maxRms).toBeGreaterThan(.002);
+  expect(recovered.summary.clippedSamples).toBe(0);
+  expect(await page.evaluate(() => window.__textMidiContexts.length)).toBe(1);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`letter score and text controls remain readable at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport); await open(page); await generate(page, 'MIDI');
