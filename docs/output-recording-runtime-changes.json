@@ -93,6 +93,34 @@
         }
       ],
       "baseSha256": "9d274d277f9a0a3ecfc43833d7817debc9f6a3830f553791cacd202ee2d0dc47"
+    },
+    {
+      "file": "src/instruments/surround-field/surround-field-app.js",
+      "baseCommit": "04e0f368faeb26429edeb4b5ebbefa8c7aeaaf49",
+      "provenance": "Use the existing stereo preview for complete surround recording while preserving discrete speaker output and the frozen relocation baseline.",
+      "regressionTests": [
+        "tests/audio-output-manager.test.mjs",
+        "e2e/surround-field-stereo-recording.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    const virtualBus = context.createChannelMerger(layout.speakers.length);\n    virtualBus.channelInterpretation = \"discrete\";\n    this.captureBus = virtualBus;\n    let stereoBus = null;\n    if (mode === \"preview\") {\n      try {\n        context.destination.channelCount = Math.min(2, this.deviceChannels);\n",
+          "after": "    const virtualBus = context.createChannelMerger(layout.speakers.length);\n    virtualBus.channelInterpretation = \"discrete\";\n    this.captureBus = virtualBus;\n    if (mode === \"preview\") {\n      try {\n        context.destination.channelCount = Math.min(2, this.deviceChannels);\n"
+        },
+        {
+          "before": "      } catch {\n        // Some destinations expose fixed channel configuration; stereo nodes still down-mix safely.\n      }\n      stereoBus = context.createGain();\n      stereoBus.channelCount = 2;\n      stereoBus.channelCountMode = \"explicit\";\n      stereoBus.channelInterpretation = \"speakers\";\n      stereoBus.gain.value = 0.92;\n      const limiter = context.createDynamicsCompressor();\n      limiter.threshold.value = -3;\n      limiter.knee.value = 0;\n      limiter.ratio.value = 20;\n      limiter.attack.value = 0.001;\n      limiter.release.value = 0.08;\n      stereoBus.connect(limiter);\n      this.previewBus = stereoBus;\n      this.previewLimiter = limiter;\n    }\n\n    layout.speakers.forEach((speaker) => {\n      const targetIndex = Math.round(clamp(speaker.channel - 1, 0, layout.speakers.length - 1));\n",
+          "after": "      } catch {\n        // Some destinations expose fixed channel configuration; stereo nodes still down-mix safely.\n      }\n    }\n    // The same authored stereo mix feeds meters and recording in either mode.\n    // Native speaker downmixing can omit channels from arbitrary surround arrays.\n    const stereoBus = context.createGain();\n    stereoBus.channelCount = 2;\n    stereoBus.channelCountMode = \"explicit\";\n    stereoBus.channelInterpretation = \"speakers\";\n    stereoBus.gain.value = 0.92;\n    const limiter = context.createDynamicsCompressor();\n    limiter.threshold.value = -3;\n    limiter.knee.value = 0;\n    limiter.ratio.value = 20;\n    limiter.attack.value = 0.001;\n    limiter.release.value = 0.08;\n    stereoBus.connect(limiter);\n    this.previewBus = stereoBus;\n    this.previewLimiter = limiter;\n\n    layout.speakers.forEach((speaker) => {\n      const targetIndex = Math.round(clamp(speaker.channel - 1, 0, layout.speakers.length - 1));\n"
+        },
+        {
+          "before": "\n      channelBus.connect(virtualBus, 0, targetIndex);\n      channelBus.connect(analyser);\n      if (stereoBus) {\n        const panner = context.createStereoPanner();\n        panner.pan.value = speaker.kind === \"lfe\" ? 0 : speakerPan(speaker);\n        channelBus.connect(panner).connect(stereoBus);\n        nodes.push(panner);\n      }\n      this.speakerRoutes.push({\n        spatialGain,\n        channelBus,\n",
+          "after": "\n      channelBus.connect(virtualBus, 0, targetIndex);\n      channelBus.connect(analyser);\n      const panner = context.createStereoPanner();\n      panner.pan.value = speaker.kind === \"lfe\" ? 0 : speakerPan(speaker);\n      channelBus.connect(panner).connect(stereoBus);\n      nodes.push(panner);\n      this.speakerRoutes.push({\n        spatialGain,\n        channelBus,\n"
+        },
+        {
+          "before": "    });\n\n    this.outputNode = mode === \"discrete\" ? virtualBus : this.previewLimiter;\n    this.releaseOutput = connectAudioOutput(context, this.outputNode);\n\n    this.mode = mode;\n    this.routeSignature = signature;\n",
+          "after": "    });\n\n    this.outputNode = mode === \"discrete\" ? virtualBus : this.previewLimiter;\n    this.releaseOutput = connectAudioOutput(context, this.outputNode, { stereoSource: this.previewLimiter });\n\n    this.mode = mode;\n    this.routeSignature = signature;\n"
+        }
+      ],
+      "baseSha256": "31a760bc574afe64f12b03f0137ec86889831a6e5991713a53fbe48a5a7ef506"
     }
   ]
 }
