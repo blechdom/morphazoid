@@ -104,7 +104,7 @@ test("Shapes is one native Morphazoid route with no embedded page dependencies",
   assert.match(app, /rattlesnakeAudio\.trigger\([\s\S]*?startAt/);
   assert.match(app, /state\.trigger\.soundBank === "rattlesnake"/);
   assert.match(app, /new ShapesKitAudio\(globalThis\)/);
-  assert.match(app, /drumAudio\.start\(state\.trigger\.soundBank\)/);
+  assert.match(app, /drumAudio\.start\(state\.trigger\.soundBank, \{ context \}\)/);
   assert.match(app, /phaseRate: sourceState\.play\.running[\s\S]*?: intendedPhaseDirection/);
   assert.match(app, /fixedTwoDimensionalFrame = scene\.dimension === "2d"/);
   assert.match(app, /centerX = fixedTwoDimensionalFrame \? 0/);

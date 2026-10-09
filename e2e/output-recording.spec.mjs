@@ -92,6 +92,7 @@ async function installFilePicker(page) {
   await page.addInitScript(() => {
     const state = {
       calls: [], files: [], cancelNext: false, failNextWrite: false,
+      stallNextWrite: false, stallNextAbort: false,
       writing: 0, maxConcurrentWrites: 0,
     };
     globalThis.__recordingFilePicker = state;
@@ -111,6 +112,10 @@ async function installFilePicker(page) {
             state.maxConcurrentWrites = Math.max(state.maxConcurrentWrites, state.writing);
             try {
               await new Promise(resolve => setTimeout(resolve, 3));
+              if (state.stallNextWrite) {
+                state.stallNextWrite = false;
+                await new Promise((resolve, reject) => { file.rejectPendingWrite = reject; });
+              }
               if (state.failNextWrite) {
                 state.failNextWrite = false;
                 throw new DOMException("Simulated disk write failure", "QuotaExceededError");
@@ -152,7 +157,14 @@ async function installFilePicker(page) {
             if (state.writing) throw new Error("File closed before pending PCM writes completed");
             file.closed = true;
           },
-          async abort() { file.aborted = true; },
+          async abort() {
+            file.aborted = true;
+            file.rejectPendingWrite?.(new DOMException("Write aborted", "AbortError"));
+            if (state.stallNextAbort) {
+              state.stallNextAbort = false;
+              await new Promise(() => {});
+            }
+          },
         };
         return { name: options?.suggestedName || "recording.wav", createWritable: async () => writer };
       },
@@ -186,7 +198,8 @@ async function openInstrument(page) {
 async function addStereoSource(page, { leftGain = 0.25, rightGain = 0.125, leftFrequency = 347, rightFrequency = 911 } = {}) {
   return page.evaluate(async (configuration) => {
     const { connectAudioOutput, getSharedAudioOutputManager } = await import("/src/audio-output-manager.js");
-    const context = new AudioContext({ sampleRate: 48_000 });
+    const existing = getSharedAudioOutputManager().recordingContext();
+    const context = existing ?? new AudioContext({ sampleRate: 48_000 });
     await context.resume();
     const output = context.createChannelMerger(2);
     const oscillators = [];
@@ -201,7 +214,7 @@ async function addStereoSource(page, { leftGain = 0.25, rightGain = 0.125, leftF
       oscillators.push(oscillator);
       gains.push(gain);
     }
-    const fixture = { context, output, oscillators, gains, audibleConnected: false, audibleDisconnects: 0 };
+    const fixture = { context, ownsContext: !existing, output, oscillators, gains, audibleConnected: false, audibleDisconnects: 0 };
     // Track only this fixture's actual destination connection, preserving all
     // native AudioNode behavior. An analyser alone cannot prove that the
     // recorder left the speaker route connected.
@@ -234,7 +247,7 @@ async function releaseStereoSource(page, index) {
     const fixture = globalThis.__recordingTestSources[sourceIndex];
     fixture.release();
     for (const oscillator of fixture.oscillators) oscillator.stop();
-    await fixture.context.close();
+    if (fixture.ownsContext) await fixture.context.close();
   }, index);
 }
 
@@ -322,6 +335,12 @@ test("records independent stereo channels as 24-bit WAV and flushes the final pa
   expect(wave.duration).toBeLessThan(4);
   expectStereoTones(wave);
   for (const channel of wave.channels) {
+    let longestSilence = 0, run = 0;
+    for (const sample of channel) {
+      run = sample === 0 ? run + 1 : 0;
+      longestSilence = Math.max(longestSilence, run);
+    }
+    expect(longestSilence, "continuous output has no inserted silence blocks").toBeLessThan(3);
     expect(signalRms(channel, Math.max(0, wave.frames - 128)), "stop does not pad the last chunk with silence")
       .toBeGreaterThan(0.025);
   }
@@ -329,7 +348,7 @@ test("records independent stereo channels as 24-bit WAV and flushes the final pa
   await releaseStereoSource(page, source.index);
 });
 
-test("a take follows released and newly created output contexts without losing channel identity", async ({ page }) => {
+test("a take follows released and newly connected main-output sources without losing channel identity", async ({ page }) => {
   await useDownloadFallback(page);
   await openInstrument(page);
   const first = await addStereoSource(page);
@@ -340,7 +359,7 @@ test("a take follows released and newly created output contexts without losing c
   const second = await addStereoSource(page, secondTones);
   await page.waitForTimeout(750);
   await stopRecording(page);
-  const wave = readStereoWave(await downloadTake(page, "context-replacement"));
+  const wave = readStereoWave(await downloadTake(page, "source-replacement"));
   expectStereoTones(wave, { from: Math.floor(wave.frames * 0.12), to: Math.floor(wave.frames * 0.32) });
   expectStereoTones(wave, { ...secondTones, from: Math.floor(wave.frames * 0.72), to: Math.floor(wave.frames * 0.92) });
   await expectAudibleRoute(page, second.index);
@@ -498,3 +517,127 @@ for (const viewport of [
     });
   });
 }
+
+async function addClockedTones(page) {
+  await page.evaluate(async () => {
+    const { connectAudioOutput, getSharedAudioOutputManager } = await import("/src/audio-output-manager.js");
+    const context = getSharedAudioOutputManager().recordingContext();
+    const output = context.createChannelMerger(2);
+    const oscillators = [];
+    for (const [channel, frequency, level] of [[0, 347, 0.25], [1, 911, 0.125]]) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.frequency.value = frequency;
+      gain.gain.value = level;
+      oscillator.connect(gain).connect(output, 0, channel);
+      oscillator.start();
+      oscillators.push(oscillator);
+    }
+    globalThis.__recordingClockFixture = {
+      context, output, oscillators, release: connectAudioOutput(context, output),
+    };
+  });
+}
+
+async function releaseClockedTones(page) {
+  await page.evaluate(() => {
+    const fixture = globalThis.__recordingClockFixture;
+    fixture.release();
+    for (const oscillator of fixture.oscillators) oscillator.stop();
+    fixture.output.disconnect();
+  });
+}
+
+test("stereo WAV remains continuous through a 500 ms main-thread stall", async ({ page }, testInfo) => {
+  await useDownloadFallback(page);
+  await openInstrument(page);
+  await addClockedTones(page);
+  await startRecording(page);
+  await page.waitForTimeout(350);
+  const stall = await page.evaluate(() => {
+    const context = globalThis.__recordingClockFixture.context;
+    const startedAt = performance.now();
+    const startedAudio = context.currentTime;
+    // Intentionally block JavaScript, timers and message delivery while the
+    // real AudioWorklet and native oscillator graph continue rendering.
+    while (performance.now() - startedAt < 500) { /* Deliberate UI stall. */ }
+    return { milliseconds: performance.now() - startedAt, audioSeconds: context.currentTime - startedAudio };
+  });
+  expect(stall.milliseconds).toBeGreaterThanOrEqual(500);
+  expect(stall.audioSeconds, "the audio clock advances while JavaScript is blocked").toBeGreaterThan(0.35);
+  await expect(page.locator(RECORD_BUTTON)).toHaveAccessibleName("Stop recording");
+  await page.waitForTimeout(400);
+  await stopRecording(page);
+  const bytes = await downloadTake(page, "main-thread-stall");
+  const wave = readStereoWave(bytes);
+  expect(wave.duration, "the stalled half-second is present in the saved take").toBeGreaterThan(1.0);
+  expectStereoTones(wave);
+  const continuity = wave.channels.map((samples, channel) => {
+    const frequency = channel ? 911 : 347;
+    const level = channel ? 0.125 : 0.25;
+    const from = 128;
+    const to = samples.length - 128;
+    let cc = 0, ss = 0, cs = 0, xc = 0, xs = 0, maxStep = 0;
+    for (let frame = from; frame < to; frame += 1) {
+      const phase = 2 * Math.PI * frequency * frame / wave.sampleRate;
+      const c = Math.cos(phase), s = Math.sin(phase);
+      cc += c * c; ss += s * s; cs += c * s;
+      xc += samples[frame] * c; xs += samples[frame] * s;
+      maxStep = Math.max(maxStep, Math.abs(samples[frame] - samples[frame - 1]));
+    }
+    // Fit one phase across the complete recording. Dropped/repeated render
+    // blocks or a silent hole cannot pass by merely containing the right tone.
+    const determinant = cc * ss - cs * cs;
+    const a = (xc * ss - xs * cs) / determinant;
+    const b = (xs * cc - xc * cs) / determinant;
+    let residual = 0;
+    for (let frame = from; frame < to; frame += 1) {
+      const phase = 2 * Math.PI * frequency * frame / wave.sampleRate;
+      residual += (samples[frame] - a * Math.cos(phase) - b * Math.sin(phase)) ** 2;
+    }
+    const residualRms = Math.sqrt(residual / (to - from));
+    const largestSineStep = 2 * level * Math.sin(Math.PI * frequency / wave.sampleRate);
+    expect(residualRms, `channel ${channel + 1} has one continuous oscillator phase`).toBeLessThan(0.0001);
+    expect(maxStep, `channel ${channel + 1} contains no sample discontinuity`).toBeLessThan(largestSineStep * 1.02 + 0.000001);
+    return { channel: channel + 1, residualRms, maxStep, largestSineStep };
+  });
+  await testInfo.attach("main-thread-stall-continuity.json", {
+    body: JSON.stringify({ stall, duration: wave.duration, sampleRate: wave.sampleRate, continuity }, null, 2),
+    contentType: "application/json",
+  });
+  await releaseClockedTones(page);
+});
+
+test("a stalled Save WAV write restores controls and preserves the take even when abort also stalls", async ({ page }) => {
+  await installFilePicker(page);
+  await page.addInitScript(() => {
+    const schedule = globalThis.setTimeout.bind(globalThis);
+    globalThis.setTimeout = (callback, delay, ...args) => schedule(callback, delay === 15_000 ? 50 : delay, ...args);
+  });
+  await openInstrument(page);
+  await addClockedTones(page);
+  await startRecording(page);
+  await page.waitForTimeout(650);
+  await stopRecording(page);
+  await page.locator(RECORD_NAME).fill("retry-this-take");
+  await page.evaluate(() => {
+    globalThis.__recordingFilePicker.stallNextWrite = true;
+    globalThis.__recordingFilePicker.stallNextAbort = true;
+  });
+  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  await expect(page.locator(".output-recording-message")).toContainText(/timed out/i);
+  await expect(page.locator(RECORD_DIALOG)).toBeVisible();
+  for (const label of ["Save WAV", "Keep for later", "New recording"]) {
+    await expect(page.getByRole("button", { name: label, exact: true })).toBeEnabled();
+  }
+  await expect(page.locator(RECORD_NAME)).toBeEditable();
+  expect(await page.evaluate(() => globalThis.__recordingFilePicker.files[0].aborted)).toBe(true);
+  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__recordingFilePicker.files[1]?.closed)).toBe(true);
+  const file = await readPickedFile(page, 1);
+  expect(file.calls).toHaveLength(2);
+  expect(file.aborted).toBe(false);
+  expect(file.calls[1].suggestedName).toBe("retry-this-take.wav");
+  expectStereoTones(readStereoWave(file.bytes));
+  await releaseClockedTones(page);
+});

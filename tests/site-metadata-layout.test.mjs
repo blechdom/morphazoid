@@ -1,3 +1,4 @@
+import { restoreOutputRecording } from "./helpers/output-recording-reference.mjs";
 import { readAudioInputReference as readFile } from "./helpers/audio-input-reference.mjs";
 import { restoreBifurcatorSite } from "./helpers/bifurcator-site-reference.mjs";
 import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
@@ -43,7 +44,7 @@ function restoreSynthesis(source, file) {
 }
 // Voicesaurus is newer than both Synthesaurus and Domino; peel it off first.
 const readBeforeSynthesis = async file => {
-  const current = restoreSynthesaurusFavesOrder(restoreBifurcatorSite(await readFile(new URL(file, root), "utf8"), file), file);
+  const current = restoreSynthesaurusFavesOrder(restoreBifurcatorSite(restoreOutputRecording(await readFile(new URL(file, root), "utf8"), file), file), file);
   return restoreSynthesis(restoreVoicesaurus(restoreFabricFilter(restoreMorphazoidicalRemoval(restoreTapTempo(current, file), file), file), file), file);
 };
 const readBeforeDomino = async file => restoreDominoRunSite(await readBeforeSynthesis(file), file);

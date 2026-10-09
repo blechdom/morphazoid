@@ -1,0 +1,155 @@
+{
+  "baseCommit": "7f1826a34a2f97749a1b4e773f5ef15eec112e9f",
+  "changes": [
+    {
+      "file": "src/audio.js",
+      "baseSha256": "cb452a1ed9217f4f6ef0f58a44c007378af439e85460878e1d9f90bc12fd030d",
+      "afterSha256": "4f3d5abfb882f2a35963d616e409e56b91500f48eec943ee7113000a3f1b9904",
+      "regressionTests": [
+        "tests/shared-audio-context.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "\n    /** @type {AudioContext|null} */\n    this.context = null;\n    /** @type {GainNode|null} */\n    this.master = null;\n    /** @type {DynamicsCompressorNode|null} */\n",
+          "after": "\n    /** @type {AudioContext|null} */\n    this.context = null;\n    this.ownsContext = true;\n    /** @type {GainNode|null} */\n    this.master = null;\n    /** @type {DynamicsCompressorNode|null} */\n"
+        },
+        {
+          "before": "  }\n\n  /** Create/resume Web Audio after a user gesture and unmute the master bus. */\n  async start() {\n    if (this.startPromise) return this.startPromise;\n    const generation = ++this.startGeneration;\n    const controller = new AbortController();\n    this.startController = controller;\n    const pending = withAudioTimeout(this.startInternal(generation), {\n      timeoutMs: this.startupTimeoutMs, signal: controller.signal,\n    }).catch(error => {\n      if (generation === this.startGeneration) {\n        this.startGeneration += 1;\n        this.enabled = false;\n        const retiringContext = this.context;\n        this.resetGraph();\n        try { Promise.resolve(retiringContext?.close?.()).catch(() => {}); } catch { /* best effort */ }\n      }\n      throw error;\n    }).finally(() => {\n",
+          "after": "  }\n\n  /** Create/resume Web Audio after a user gesture and unmute the master bus. */\n  async start({ context = null } = {}) {\n    if (context?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (context && this.context && this.context.state !== \"closed\" && context !== this.context) {\n      throw new Error(\"Close the voice pool before changing its audio context.\");\n    }\n    if (this.startPromise) return this.startPromise;\n    const generation = ++this.startGeneration;\n    const controller = new AbortController();\n    this.startController = controller;\n    const pending = withAudioTimeout(this.startInternal(generation, context), {\n      timeoutMs: this.startupTimeoutMs, signal: controller.signal,\n    }).catch(error => {\n      if (generation === this.startGeneration) {\n        this.startGeneration += 1;\n        this.enabled = false;\n        const retiringContext = this.context;\n        const ownsContext = this.ownsContext;\n        this.resetGraph();\n        if (ownsContext) {\n          try { Promise.resolve(retiringContext?.close?.()).catch(() => {}); } catch { /* best effort */ }\n        }\n      }\n      throw error;\n    }).finally(() => {\n"
+        },
+        {
+          "before": "  }\n\n  /** Alias for start(), for an explicit audio on/off UI. */\n  async enable() {\n    await this.start();\n  }\n\n  async startInternal(generation = this.startGeneration) {\n    if (!this.context) this.buildGraph();\n    if (!this.context || !this.master) {\n      throw new Error(\"Web Audio could not be initialized.\");\n    }\n",
+          "after": "  }\n\n  /** Alias for start(), for an explicit audio on/off UI. */\n  async enable(options = {}) {\n    await this.start(options);\n  }\n\n  async startInternal(generation = this.startGeneration, sharedContext = null) {\n    if (!this.context) this.buildGraph(sharedContext);\n    if (!this.context || !this.master) {\n      throw new Error(\"Web Audio could not be initialized.\");\n    }\n"
+        },
+        {
+          "before": "    let context = this.context;\n    if (context.state === \"closed\") {\n      this.resetGraph();\n      this.buildGraph();\n      if (!this.context || !this.master) {\n        throw new Error(\"Web Audio could not be reinitialized.\");\n      }\n",
+          "after": "    let context = this.context;\n    if (context.state === \"closed\") {\n      this.resetGraph();\n      this.buildGraph(sharedContext);\n      if (!this.context || !this.master) {\n        throw new Error(\"Web Audio could not be reinitialized.\");\n      }\n"
+        },
+        {
+          "before": "    }\n  }\n\n  buildGraph() {\n    // Deliberately resolved here, never at module load.\n    const audioGlobal = /** @type {any} */ (globalThis);\n    const AudioContextConstructor =\n      audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext;\n    if (!AudioContextConstructor) {\n      throw new Error(\"Web Audio is not available in this environment.\");\n    }\n\n    /** @type {AudioContext} */\n    const context = new AudioContextConstructor();\n    const master = context.createGain();\n    const compressor = context.createDynamicsCompressor();\n    const hostGate = context.createGain();\n\n    master.gain.value = 0;\n    hostGate.gain.value = this.hostGain;\n",
+          "after": "    }\n  }\n\n  buildGraph(sharedContext = null) {\n    if (sharedContext?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (this.context && this.context.state !== \"closed\") {\n      if (sharedContext && sharedContext !== this.context) throw new Error(\"Close the voice pool before changing its audio context.\");\n      return;\n    }\n    // Deliberately resolved here, never at module load.\n    const audioGlobal = /** @type {any} */ (globalThis);\n    const AudioContextConstructor =\n      audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext;\n    if (!sharedContext && !AudioContextConstructor) {\n      throw new Error(\"Web Audio is not available in this environment.\");\n    }\n\n    /** @type {AudioContext} */\n    const context = sharedContext ?? new AudioContextConstructor();\n    this.ownsContext = !sharedContext;\n    this.context = context;\n    const master = context.createGain();\n    this.master = master;\n    const compressor = context.createDynamicsCompressor();\n    this.compressor = compressor;\n    const hostGate = context.createGain();\n    this.hostGate = hostGate;\n\n    master.gain.value = 0;\n    hostGate.gain.value = this.hostGain;\n"
+        },
+        {
+          "before": "    this.startController?.abort();\n    this.startGeneration += 1;\n    const context = this.context;\n    this.enabled = false;\n    this.pendingVoices = [];\n    this.stopRenderCapacityMonitoring();\n\n    for (const voice of this.voices) {\n      try {\n        voice.oscillator.stop();\n",
+          "after": "    this.startController?.abort();\n    this.startGeneration += 1;\n    const context = this.context;\n    const ownsContext = this.ownsContext;\n    this.enabled = false;\n    this.pendingVoices = [];\n    this.stopRenderCapacityMonitoring();\n\n    this.resetGraph();\n\n    if (ownsContext && context && context.state !== \"closed\") await context.close();\n  }\n\n  resetGraph() {\n    this.stopRenderCapacityMonitoring();\n    for (const voice of this.voices) {\n      try {\n        voice.oscillator.stop();\n"
+        },
+        {
+          "before": "    this.compressor?.disconnect();\n    this.hostGate?.disconnect();\n    this.synthNode?.disconnect();\n    this.resetGraph();\n\n    if (context && context.state !== \"closed\") await context.close();\n  }\n\n  resetGraph() {\n    this.stopRenderCapacityMonitoring();\n    this.outputRelease?.();\n    this.outputRelease = null;\n    this.context = null;\n    this.master = null;\n    this.compressor = null;\n    this.hostGate = null;\n",
+          "after": "    this.compressor?.disconnect();\n    this.hostGate?.disconnect();\n    this.synthNode?.disconnect();\n    this.outputRelease?.();\n    this.outputRelease = null;\n    this.context = null;\n    this.ownsContext = true;\n    this.master = null;\n    this.compressor = null;\n    this.hostGate = null;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/families/mic-branch/mic-branch-engine.js",
+      "baseSha256": "e7dfde80e6c792b59c25f21f32d2599788245b67d545ad858a4b3a4061b9c566",
+      "afterSha256": "354fae6d8911c093ca075b39f1933e0c4cf70c338f1c34606dce0e8962fec158",
+      "regressionTests": [
+        "tests/shared-audio-context.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    this.inputGainValue = 1;\n    this.inputGain = null;\n    this.context = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.processor = null;\n",
+          "after": "    this.inputGainValue = 1;\n    this.inputGain = null;\n    this.context = null;\n    this.ownsContext = true;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.processor = null;\n"
+        },
+        {
+          "before": "    });\n  }\n\n  async initialize() {\n    const Audio = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!Audio) throw new Error(\"Web Audio is unavailable.\");\n    if (!this.context || this.context.state === \"closed\") this.buildGraph(Audio);\n    await this.context.resume();\n    await this.buildProcessor();\n    return this.context;\n",
+          "after": "    });\n  }\n\n  async initialize({ context = null } = {}) {\n    if (context?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (context && this.context && this.context.state !== \"closed\" && context !== this.context) {\n      throw new Error(\"Close the microphone engine before changing its audio context.\");\n    }\n    const Audio = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!context && !this.context && !Audio) throw new Error(\"Web Audio is unavailable.\");\n    if (!this.context || this.context.state === \"closed\") this.buildGraph(Audio, context);\n    await this.context.resume();\n    await this.buildProcessor();\n    return this.context;\n"
+        },
+        {
+          "before": "    }\n  }\n\n  buildGraph(AudioContextConstructor) {\n    this.context = new AudioContextConstructor();\n    this.master = this.context.createGain();\n    this.inputGain = configureAudioInputNode(this.context.createGain(), globalThis);\n    this.inputGain.gain.value = this.inputGainValue;\n",
+          "after": "    }\n  }\n\n  buildGraph(AudioContextConstructor, context = null) {\n    this.releaseAudioOutput?.();\n    this.context = context ?? new AudioContextConstructor();\n    this.ownsContext = !context;\n    this.master = this.context.createGain();\n    this.inputGain = configureAudioInputNode(this.context.createGain(), globalThis);\n    this.inputGain.gain.value = this.inputGainValue;\n"
+        },
+        {
+          "before": "    this.inputGain?.disconnect();\n    this.inputGain = null;\n    this.master?.disconnect();\n    await this.context?.close();\n    this.context = null;\n    this.master = null;\n  }\n}\n",
+          "after": "    this.inputGain?.disconnect();\n    this.inputGain = null;\n    this.master?.disconnect();\n    if (this.ownsContext) await this.context?.close();\n    this.context = null;\n    this.ownsContext = true;\n    this.master = null;\n  }\n}\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/fm-drums/fm-drums.js",
+      "baseSha256": "405acc40fd2ba46639f9baeaf29eb0a166219c36c72d220e5ee4c9e42cab16b6",
+      "afterSha256": "b93c7aab67b271ad8c6ab1606307242cd2e4c048bbc895582d6453e01bca0a78",
+      "regressionTests": [
+        "tests/shared-audio-context.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  } = {}) {\n    this.runtime = runtime;\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.hostGate = null;\n",
+          "after": "  } = {}) {\n    this.runtime = runtime;\n    this.context = null;\n    this.ownsContext = true;\n    this.input = null;\n    this.master = null;\n    this.hostGate = null;\n"
+        },
+        {
+          "before": "    return count;\n  }\n\n  async start() {\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (!context || context.state === \"closed\") {\n",
+          "after": "    return count;\n  }\n\n  async start({ context: sharedContext = null } = {}) {\n    if (sharedContext?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (sharedContext && this.context && this.context.state !== \"closed\" && sharedContext !== this.context) {\n      throw new Error(\"Close FM Drum audio before changing its audio context.\");\n    }\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (!context || context.state === \"closed\") {\n"
+        },
+        {
+          "before": "      this.noiseBuffer = null;\n      this.noiseBufferContext = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = new Context();\n      let compressor = null;\n      let master = null;\n      let hostGate = null;\n",
+          "after": "      this.noiseBuffer = null;\n      this.noiseBufferContext = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!sharedContext && !Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = sharedContext ?? new Context();\n      const ownsContext = !sharedContext;\n      let compressor = null;\n      let master = null;\n      let hostGate = null;\n"
+        },
+        {
+          "before": "        safeDisconnect(hostGate);\n        safeDisconnect(analyser);\n        try {\n          await context.close?.();\n        } catch {\n          // The original construction error is the useful failure to report.\n        }\n",
+          "after": "        safeDisconnect(hostGate);\n        safeDisconnect(analyser);\n        try {\n          if (ownsContext) await context.close?.();\n        } catch {\n          // The original construction error is the useful failure to report.\n        }\n"
+        },
+        {
+          "before": "        safeDisconnect(master);\n        safeDisconnect(hostGate);\n        safeDisconnect(analyser);\n        try { await context.close?.(); } catch { /* Lifecycle teardown already won. */ }\n        throw cancelledAudioStart();\n      }\n      this.context = context;\n      this.input = compressor;\n      this.master = master;\n      this.hostGate = hostGate;\n",
+          "after": "        safeDisconnect(master);\n        safeDisconnect(hostGate);\n        safeDisconnect(analyser);\n        try { if (ownsContext) await context.close?.(); } catch { /* Lifecycle teardown already won. */ }\n        throw cancelledAudioStart();\n      }\n      this.context = context;\n      this.ownsContext = ownsContext;\n      this.input = compressor;\n      this.master = master;\n      this.hostGate = hostGate;\n"
+        },
+        {
+          "before": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    this.silence();\n    for (const hit of [...this.activeHits]) this.#cleanupHit(hit);\n    this.releaseAudioOutput?.();\n",
+          "after": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    const ownsContext = this.ownsContext;\n    this.silence();\n    for (const hit of [...this.activeHits]) this.#cleanupHit(hit);\n    this.releaseAudioOutput?.();\n"
+        },
+        {
+          "before": "    safeDisconnect(this.hostGate);\n    safeDisconnect(this.analyser);\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.hostGate = null;\n    this.analyser = null;\n    this.noiseBuffer = null;\n    this.noiseBufferContext = null;\n    if (context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n",
+          "after": "    safeDisconnect(this.hostGate);\n    safeDisconnect(this.analyser);\n    this.context = null;\n    this.ownsContext = true;\n    this.input = null;\n    this.master = null;\n    this.hostGate = null;\n    this.analyser = null;\n    this.noiseBuffer = null;\n    this.noiseBufferContext = null;\n    if (ownsContext && context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/sample-drums/sample-drums.js",
+      "baseSha256": "ca3271a650215183f76e5735faa2db0d21c7be4966205d57c662bfcae92ff6c6",
+      "afterSha256": "514a667c4b3d2f37689b8319b7b33ed1ad6f33b3dfc857176f3b9901d66c8e06",
+      "regressionTests": [
+        "tests/shared-audio-context.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n",
+          "after": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.ownsContext = true;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n"
+        },
+        {
+          "before": "    return this.loadedUrls.size;\n  }\n\n  async start() {\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (!context || context.state === \"closed\") {\n",
+          "after": "    return this.loadedUrls.size;\n  }\n\n  async start({ context: sharedContext = null } = {}) {\n    if (sharedContext?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (sharedContext && this.context && this.context.state !== \"closed\" && sharedContext !== this.context) {\n      throw new Error(\"Close Sample Drum audio before changing its audio context.\");\n    }\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (!context || context.state === \"closed\") {\n"
+        },
+        {
+          "before": "      this.master = null;\n      this.analyser = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = new Context();\n      this.context = context;\n      const compressor = context.createDynamicsCompressor();\n      compressor.threshold.value = -10;\n      compressor.knee.value = 10;\n",
+          "after": "      this.master = null;\n      this.analyser = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!sharedContext && !Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = sharedContext ?? new Context();\n      this.context = context;\n      this.ownsContext = !sharedContext;\n      const compressor = context.createDynamicsCompressor();\n      compressor.threshold.value = -10;\n      compressor.knee.value = 10;\n"
+        },
+        {
+          "before": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n    if (context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n",
+          "after": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    const ownsContext = this.ownsContext;\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    for (const node of [this.input, this.master, this.analyser]) {\n      try { node?.disconnect(); } catch { /* The context may already be closed. */ }\n    }\n    this.context = null;\n    this.ownsContext = true;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n    if (ownsContext && context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/shapes/kit-audio.js",
+      "baseSha256": "b0b7ae99e6743e48cdc6dbfd53e30b0f4db92ac8663134198c28938c4935d459",
+      "afterSha256": "9f544394829e71ea83807052b9a0396a62e50555c28f164f600b310f8b9142d6",
+      "regressionTests": [
+        "tests/shared-audio-context.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.output = 0.6;\n    this.hostGain = 0;\n    this.activeHits = new Set();\n",
+          "after": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.ownsContext = true;\n    this.output = 0.6;\n    this.hostGain = 0;\n    this.activeHits = new Set();\n"
+        },
+        {
+          "before": "    this.tokenTime = 0;\n  }\n\n  async start(bank = \"fm-kit\") {\n    const id = kits.has(bank) ? bank : \"fm-kit\";\n    if (!this.context || this.context.state === \"closed\") {\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!Context) throw new Error(\"Web Audio is unavailable.\");\n      this.context = new Context({ latencyHint: \"interactive\" });\n      const context = this.context;\n      this.input = context.createDynamicsCompressor();\n      Object.assign(this.input.threshold, { value: -14 });\n",
+          "after": "    this.tokenTime = 0;\n  }\n\n  async start(bank = \"fm-kit\", { context: sharedContext = null } = {}) {\n    if (sharedContext?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (sharedContext && this.context && this.context.state !== \"closed\" && sharedContext !== this.context) {\n      throw new Error(\"Close the Shapes kit before changing its audio context.\");\n    }\n    const id = kits.has(bank) ? bank : \"fm-kit\";\n    if (!this.context || this.context.state === \"closed\") {\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!sharedContext && !Context) throw new Error(\"Web Audio is unavailable.\");\n      this.releaseOutput?.();\n      this.context = sharedContext ?? new Context({ latencyHint: \"interactive\" });\n      this.ownsContext = !sharedContext;\n      const context = this.context;\n      this.input = context.createDynamicsCompressor();\n      Object.assign(this.input.threshold, { value: -14 });\n"
+        },
+        {
+          "before": "  async close() {\n    this.cancelPreparation(); this.silence();\n    const context = this.context; this.context = null; this.readyBank = null;\n    this.releaseOutput?.(); this.releaseOutput = null;\n    for (const hit of [...this.activeHits]) this.cleanup(hit);\n    for (const key of [\"input\", \"limiter\", \"master\", \"hostGate\", \"analyser\"]) { disconnect(this[key]); this[key] = null; }\n    this.buffers.clear();\n    if (context && context.state !== \"closed\") await context.close();\n  }\n}\n",
+          "after": "  async close() {\n    this.cancelPreparation(); this.silence();\n    const context = this.context; this.context = null; this.readyBank = null;\n    const ownsContext = this.ownsContext; this.ownsContext = true;\n    this.releaseOutput?.(); this.releaseOutput = null;\n    for (const hit of [...this.activeHits]) this.cleanup(hit);\n    for (const key of [\"input\", \"limiter\", \"master\", \"hostGate\", \"analyser\"]) { disconnect(this[key]); this[key] = null; }\n    this.buffers.clear();\n    if (ownsContext && context && context.state !== \"closed\") await context.close();\n  }\n}\n"
+        }
+      ]
+    }
+  ]
+}

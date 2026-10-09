@@ -768,6 +768,7 @@ export class LinearDrumAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime;
     this.context = null;
+    this.ownsContext = true;
     this.input = null;
     this.master = null;
     this.analyser = null;
@@ -778,15 +779,20 @@ export class LinearDrumAudio {
     this.lifecycleGeneration = 0;
   }
 
-  async start() {
+  async start({ context: suppliedContext = null } = {}) {
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
+    if (suppliedContext?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (suppliedContext && context && context.state !== "closed" && context !== suppliedContext) {
+      throw new Error("Close the drum graph before changing its audio context.");
+    }
     if (!context || context.state === "closed") {
       this.releaseAudioOutput?.();
       this.releaseAudioOutput = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-      if (!Context) throw new Error("Web Audio is not available in this browser.");
-      context = new Context();
+      if (!suppliedContext && !Context) throw new Error("Web Audio is not available in this browser.");
+      context = suppliedContext ?? new Context();
+      this.ownsContext = !suppliedContext;
       this.context = context;
       this.input = context.createGain();
       this.input.gain.value = .78;
@@ -1241,16 +1247,20 @@ export class LinearDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    const ownsContext = this.ownsContext;
     this.silence();
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
+    this.input?.disconnect?.();
+    this.master?.disconnect?.();
+    this.analyser?.disconnect?.();
     this.context = null;
     this.input = null;
     this.master = null;
     this.analyser = null;
     this.noiseBuffer = null;
     this.activeVoices = [];
-    if (context && context.state !== "closed" && typeof context.close === "function") {
+    if (ownsContext && context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();
     }
   }

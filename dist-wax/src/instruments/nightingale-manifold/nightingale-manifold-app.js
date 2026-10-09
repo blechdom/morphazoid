@@ -4,6 +4,7 @@ import {
   renderBirdsongModel,
 } from "../../families/acoustic/birdsong-analysis.js";
 import { createNightingaleManifoldRenderer } from "./nightingale-manifold-3d.js";
+import { createMediaElementOutput } from "../../media-element-output.js";
 import {
   NIGHTINGALE_MANIFOLD_LIMITS,
   analyzeNightingaleSequence,
@@ -20,6 +21,7 @@ const ROUTE_GAP_SECONDS = 0.09;
 const PHYSICAL_MODEL_ID = "effective-bilateral-syrinx-v0";
 
 const routeAudio = new Audio();
+const mediaOutput = createMediaElementOutput([routeAudio]);
 routeAudio.preload = "auto";
 
 let sourceSamples = null;
@@ -72,6 +74,10 @@ function setAudioEnabled(enabled) {
   const cancelledRender = pendingPlayback;
   const stoppedPlayback = !routeAudio.paused;
   audioEnabled = Boolean(enabled);
+  if (audioEnabled) void mediaOutput.resume().catch((error) => {
+    setAudioEnabled(false);
+    setStatus(`Audio could not start: ${error.message}`, "error");
+  });
   $("audioButton").setAttribute("aria-pressed", String(audioEnabled));
   $("audioState").textContent = audioEnabled ? "on" : "off";
   routeAudio.muted = !audioEnabled;
@@ -418,6 +424,8 @@ async function playIndices(indices, purpose = "route") {
   setBusy(true);
   if (!audioEnabled) setAudioEnabled(true);
   try {
+    await mediaOutput.resume();
+    if (version !== taskVersion) return;
     let rendered;
     if (purpose === "route" && routeRenderKey === key && routeRender) {
       rendered = routeRender;
@@ -726,10 +734,12 @@ $("walk-rule").addEventListener("change", () => {
 window.addEventListener("pagehide", (event) => {
   if (event.persisted) {
     stopPlayback(false, true);
+    void mediaOutput.suspend().catch(() => {});
     return;
   }
   ++taskVersion;
   stopPlayback(false);
+  void mediaOutput.close().catch(() => {});
   revokeUrl(routeUrl);
   renderer.dispose();
 });

@@ -12,20 +12,25 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     for (const entry of presetPages) test(`${entry.id}: header order and first-row presets remain reachable`, async ({ page, baseURL }) => {
       const diagnostics = watchPageDiagnostics(page, { baseURL });
       await page.goto(entry.href); await settlePage(page);
+      await expect(page.locator(".header-preset-controls")).toBeVisible();
       const layout = await page.evaluate(() => {
         const header = document.querySelector(".masthead"), host = document.querySelector("[data-instrument-preset-host]");
         const presets = document.querySelector(".header-preset-controls"), io = header.querySelector(".header-io-controls");
+        let presetRow = presets;
+        while (presetRow.parentElement !== host && presetRow.parentElement?.matches(".mz-input-preset-row, .preset-row")) {
+          presetRow = presetRow.parentElement;
+        }
         const nodes = [header.querySelector(".wordmark"), header.querySelector(".instrument-picker-trigger"), header.querySelector(".instrument-picker-next"),
-          io.querySelector(".header-output-meter-shell"), io.querySelector(".audio-strip .mz-range-knob, .header-actions .mz-range-knob"), io.querySelector(".audio-button"), io.querySelector(".header-settings-trigger")];
-        return { first: host.firstElementChild === (presets.closest(".mz-input-preset-row") ?? presets), inHeader: header.contains(presets),
-          ioOrder: [...io.children].filter(node => !node.classList.contains("mz-audio-input-strip")).map(node => node.classList.contains("header-output-meter-shell") ? "meters" : node.classList.contains("audio-strip") ? "audio" : node.classList.contains("header-settings-menu") ? "settings" : node.className),
+          io.querySelector(":scope > .header-output-meter-shell"), io.querySelector(".audio-strip .mz-range-knob, .header-actions .mz-range-knob"), io.querySelector(".audio-button"), io.querySelector(".header-settings-trigger")];
+        return { first: host.firstElementChild === presetRow, inHeader: header.contains(presets),
+          ioOrder: [...io.children].filter(node => !node.classList.contains("mz-audio-input-strip")).map(node => node.classList.contains("header-output-meter-shell") ? "meters" : node.classList.contains("audio-strip") || node.querySelector(":scope > .audio-strip") ? "audio" : node.classList.contains("header-settings-menu") ? "settings" : node.className),
           boxes: nodes.map(node => node.getBoundingClientRect().toJSON()),
           width: document.documentElement.scrollWidth, audio: io.querySelector(".audio-button").getAttribute("aria-pressed"),
           nativeRange: io.querySelector(".audio-strip .mz-range-knob input, .header-actions .mz-range-knob input").type,
         };
       });
       expect(layout.first).toBe(true); expect(layout.inHeader).toBe(false);
-      expect(layout.ioOrder).toEqual(["meters", "audio", "settings"]);
+      expect(layout.ioOrder).toEqual(["meters", "output-recording-control", "audio", "settings"]);
       expect(layout.nativeRange).toBe("range"); expect(layout.audio).toBe("false");
       expect(layout.width).toBeLessThanOrEqual(viewport.width + 1);
       for (const box of layout.boxes) { expect(box.x).toBeGreaterThanOrEqual(0); expect(box.right).toBeLessThanOrEqual(viewport.width + 1); expect(box.width).toBeGreaterThan(0); }

@@ -6,6 +6,7 @@ import {
   renderCricketModel,
 } from "./crickets.js";
 import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
+import { createMediaElementOutput } from "../../media-element-output.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum = 0, maximum = 1) => (
@@ -60,6 +61,7 @@ const drawing = canvas.getContext("2d");
 const inputAudio = new Audio();
 const modelAudio = new Audio();
 const manualAudio = new Audio();
+const mediaOutput = createMediaElementOutput([inputAudio, modelAudio, manualAudio]);
 for (const audio of [inputAudio, modelAudio, manualAudio]) audio.preload = "auto";
 
 let sourceSamples = null;
@@ -132,6 +134,10 @@ function masterLevel() {
 
 function setAudioEnabled(enabled, announce = true) {
   audioEnabled = Boolean(enabled);
+  if (audioEnabled) void mediaOutput.resume().catch((error) => {
+    setAudioEnabled(false, false);
+    setStatus(`Audio could not start: ${error.message}`, "error");
+  });
   $("audioButton")?.setAttribute("aria-pressed", String(audioEnabled));
   if ($("audioState")) $("audioState").textContent = audioEnabled ? "on" : "off";
   for (const audio of [inputAudio, modelAudio, manualAudio]) {
@@ -282,7 +288,7 @@ function play(kind) {
   } catch {
     // Seeking becomes available as soon as the generated WAV metadata loads.
   }
-  next.play().catch((error) => {
+  Promise.all([mediaOutput.resume(), next.play()]).catch((error) => {
     stopPlayback(false);
     setStatus(`Playback could not start: ${error.message}`, "error");
   });
@@ -816,7 +822,10 @@ function soundPointerGesture(event) {
   manualAudio.volume = masterLevel();
   activeAudio = manualAudio;
   activeKind = "manual";
-  manualAudio.play().catch((error) => setStatus(`Manual stroke could not play: ${error.message}`, "error"));
+  Promise.all([mediaOutput.resume(), manualAudio.play()]).catch((error) => {
+    stopPlayback(false);
+    setStatus(`Manual stroke could not play: ${error.message}`, "error");
+  });
   $("stop-audio").disabled = false;
   setStatus("Manual closing stroke: teeth excite it; the wings choose the pitch.", "ready");
   animateStage();
@@ -906,6 +915,11 @@ canvas.addEventListener("keydown", (event) => {
 });
 
 window.addEventListener("resize", drawStage);
+window.addEventListener("pagehide", (event) => {
+  stopPlayback(false);
+  if (event.persisted) void mediaOutput.suspend().catch(() => {});
+  else void mediaOutput.close().catch(() => {});
+});
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) stopPlayback(false);
 });

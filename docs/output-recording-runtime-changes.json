@@ -1,0 +1,96 @@
+{
+  "baseCommit": "0fe8fae9d9177b778ed3861b6dd0be387f2cba47",
+  "changes": [
+    {
+      "file": "nav.js",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs",
+        "tests/output-recorder.test.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { getSharedAudioOutputManager } from \"./src/audio-output-manager.js\";\n",
+          "after": "import { getSharedAudioOutputManager } from \"./src/audio-output-manager.js\";\nimport { initializeOutputRecording } from \"./src/site/output-recording-controls.js\";\n"
+        },
+        {
+          "before": "  initializeSettingsMenus(doc, runtime);\n",
+          "after": "  initializeSettingsMenus(doc, runtime);\n  initializeOutputRecording(doc, runtime, { routeId: navigation.activeTool?.id });\n"
+        }
+      ],
+      "baseSha256": "ae755e399c2c01ceb831272594825b71e02e3a94c3cb08f4314835ef1150596b"
+    },
+    {
+      "file": "src/instruments/micmic/native/app.js",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { getSharedMidiManager } from '../../../midi-manager.js';\n",
+          "after": "import { getSharedMidiManager } from '../../../midi-manager.js';\nimport { initializeOutputRecording } from '../../../site/output-recording-controls.js';\n"
+        },
+        {
+          "before": "audioStrip.setAudioDisabled(true);\n",
+          "after": "audioStrip.setAudioDisabled(true);\nif (document.body.dataset.audioBackend === 'rust-wasm') {\n  initializeOutputRecording(document, globalThis, { routeId: INSTRUMENT_ID });\n}\n"
+        }
+      ],
+      "baseSha256": "72afee19d549f9589bea8a33d97a5a84bfbb87f2fc606826657c9a812132e3c0"
+    },
+    {
+      "file": "src/pages/crickets.html",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    <script type=\"module\" src=\"src/instruments/crickets/crickets-app.js\"></script>",
+          "after": "    <script type=\"module\" src=\"nav.js\"></script>\n    <script type=\"module\" src=\"src/instruments/crickets/crickets-app.js\"></script>"
+        }
+      ],
+      "baseSha256": "17429ecfdce9067e406428577092826cb32942e41c5108e87c16919705296940"
+    },
+    {
+      "file": "src/pages/acoustic-manifold.html",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    <script type=\"module\" src=\"src/instruments/acoustic-manifold/acoustic-manifold-app.js\"></script>",
+          "after": "    <script type=\"module\" src=\"nav.js\"></script>\n    <script type=\"module\" src=\"src/instruments/acoustic-manifold/acoustic-manifold-app.js\"></script>"
+        }
+      ],
+      "baseSha256": "ef24cce9d090402150a9fbb9a7fe1be7d496294c26cab203b94cc90aebce6be8"
+    },
+    {
+      "file": "src/pages/birdsong-lab.html",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    <script type=\"module\" src=\"src/instruments/birdsong-lab/birdsong-lab-app.js\"></script>",
+          "after": "    <script type=\"module\" src=\"nav.js\"></script>\n    <script type=\"module\" src=\"src/instruments/birdsong-lab/birdsong-lab-app.js\"></script>"
+        }
+      ],
+      "baseSha256": "2030e5587ba4669640d0fe47ee2a7c8969772fdafad0dd4964ebee28055e4fee"
+    },
+    {
+      "file": "src/pages/nightingale-manifold.html",
+      "regressionTests": [
+        "e2e/output-recording.spec.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    <script type=\"module\" src=\"src/instruments/nightingale-manifold/nightingale-manifold-app.js\"></script>",
+          "after": "    <script type=\"module\" src=\"nav.js\"></script>\n    <script type=\"module\" src=\"src/instruments/nightingale-manifold/nightingale-manifold-app.js\"></script>"
+        }
+      ],
+      "baseSha256": "9d274d277f9a0a3ecfc43833d7817debc9f6a3830f553791cacd202ee2d0dc47"
+    }
+  ]
+}

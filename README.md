@@ -1,5 +1,10 @@
 # Morphazoid
 
+**Main output recording** captures stereo 24-bit WAV from the red Record button
+beside the output meters. Stop to name and save a take, or choose **Record to
+file** in Settings for longer recordings in supporting browsers.
+[Saving, limits and interruptions](docs/main-output-recording.md).
+
 **[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails or
 a solid color mask. Enable MIDI in Settings, play the on-screen pads, or try
 Demo. Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR

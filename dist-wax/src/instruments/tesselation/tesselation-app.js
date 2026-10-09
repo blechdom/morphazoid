@@ -91,6 +91,15 @@ const SPIRAL_PITCH_SOURCES = Object.freeze([
 const $ = (id) => document.getElementById(id);
 const synthPool = new VoicePool(128, { adaptive: true, maxVoices: 4096 });
 const drumAudio = new FmDrumAudio(globalThis);
+let sharedAudioContext = null;
+function instrumentAudioContext() {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!Context) throw new Error("Web Audio is not available in this browser.");
+    sharedAudioContext = new Context({ latencyHint: "interactive" });
+  }
+  return sharedAudioContext;
+}
 const drumVoices = cloneDefaultFmDrumVoices();
 
 const defaultInfo = tilingInfo(20);
@@ -534,15 +543,16 @@ function silenceAudioRoutes(rampMilliseconds = 45) {
 }
 
 async function prepareActiveAudio() {
+  const context = instrumentAudioContext();
   silenceAudioRoutes();
   if (isDrumMode()) {
-    await drumAudio.start();
+    await drumAudio.start({ context });
     drumAudio.setOutput(state.level);
     drumAudio.setHostGain(1, 45);
     synthPool.setLevel(0);
     return;
   }
-  await synthPool.enable();
+  await synthPool.enable({ context });
   synthPool.setLevel(state.level);
   synthPool.setHostGain(1, 45);
   drumAudio.setHostGain(0, 45);
@@ -1665,5 +1675,16 @@ function initialize() {
   renderControls();
   scheduleFrame();
 }
+
+window.addEventListener("pagehide", () => {
+  state.audio = false;
+  silenceAudioRoutes(0);
+  renderControls();
+  void synthPool.close();
+  void drumAudio.close();
+  const context = sharedAudioContext;
+  sharedAudioContext = null;
+  void context?.close().catch(() => {});
+});
 
 initialize();

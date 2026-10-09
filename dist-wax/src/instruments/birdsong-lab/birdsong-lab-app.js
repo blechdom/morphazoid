@@ -7,6 +7,7 @@ import {
   monoSamples,
   renderBirdsongModel,
 } from "../../families/acoustic/birdsong-analysis.js";
+import { createMediaElementOutput } from "../../media-element-output.js";
 
 const $ = (id) => document.getElementById(id);
 
@@ -65,6 +66,7 @@ const canvas = $("analysisCanvas");
 const drawing = canvas.getContext("2d");
 const originalAudio = new Audio();
 const modelAudio = new Audio();
+const mediaOutput = createMediaElementOutput([originalAudio, modelAudio]);
 originalAudio.preload = "auto";
 modelAudio.preload = "auto";
 
@@ -224,7 +226,7 @@ function startPlayback(kind) {
   audio.loop = $("loopPlayback").checked;
   audio.volume = clamp(Number($("level").value));
   audio.currentTime = 0;
-  const playPromise = audio.play();
+  const playPromise = Promise.all([mediaOutput.resume(), audio.play()]);
   if (playPromise?.catch) {
     playPromise.catch((error) => {
       stopPlayback(false);
@@ -696,6 +698,11 @@ for (const eventName of ["dragleave", "drop"]) {
 fileDrop.addEventListener("drop", (event) => decodeFile(event.dataTransfer?.files?.[0]));
 
 window.addEventListener("resize", drawAnalysis);
+window.addEventListener("pagehide", (event) => {
+  stopPlayback(false);
+  if (event.persisted) void mediaOutput.suspend().catch(() => {});
+  else void mediaOutput.close().catch(() => {});
+});
 window.addEventListener("beforeunload", () => {
   revokeUrl(originalUrl);
   revokeUrl(modelUrl);

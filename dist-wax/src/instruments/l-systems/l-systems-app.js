@@ -109,6 +109,15 @@ const styleById = new Map(L_SYSTEMS_TRIGGER_STYLES.map((style) => [style.id, sty
 const synthPool = new LSystemsSynthAudio(128, { adaptive: true, maxVoices: 4096 });
 const drumAudio = new LSystemsDrumAudio(globalThis);
 const micEngine = new LSystemsMicDelayAudio(128, { adaptive: true, maxVoices: 4096 });
+let sharedAudioContext = null;
+function instrumentAudioContext() {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!Context) throw new Error("Web Audio is not available in this browser.");
+    sharedAudioContext = new Context({ latencyHint: "interactive" });
+  }
+  return sharedAudioContext;
+}
 let inputControl = null;
 let micInputGeneration = 0;
 let micInputError = "";
@@ -420,6 +429,7 @@ function silenceAudioRoutes(rampMilliseconds = 45) {
 
 async function prepareActiveAudio() {
   if (!state.audio) return false;
+  const context = instrumentAudioContext();
   const request = ++audioRequest;
   audioReady = false;
   invalidateDiscreteScheduler();
@@ -428,7 +438,7 @@ async function prepareActiveAudio() {
   // prompt can suspend this handoff.
   silenceAudioRoutes();
   if (activeAudioKind() === "synth") {
-    await synthPool.enable();
+    await synthPool.enable({ context });
     if (request !== audioRequest || !state.audio) return false;
     synthPool.setLevel(clamp(state.level * modeGain(), 0, 1));
     synthPool.setHostGain(1, 45);
@@ -437,7 +447,7 @@ async function prepareActiveAudio() {
     return true;
   }
   if (state.mode === "triggers") {
-    await drumAudio.start();
+    await drumAudio.start({ context });
     if (request !== audioRequest || !state.audio) return false;
     drumAudio.setOutput(clamp(state.level * modeGain("triggers") * 0.9, 0, 0.9));
     drumAudio.setHostGain(1, 45);
@@ -446,7 +456,7 @@ async function prepareActiveAudio() {
   }
   micEngine.setGeometryModel(state.geometryModel);
   generationMicSubmitted = false;
-  await micEngine.initialize();
+  await micEngine.initialize({ context });
   micEngine.setOutputEnabled(state.audio);
   if (request !== audioRequest || !state.audio) return false;
   micEngine.setGeometryModel(state.geometryModel);
@@ -1529,7 +1539,7 @@ function boot() {
       const generation = ++micInputGeneration;
       micEngine.setGeometryModel(state.geometryModel);
       micEngine.setInputGain(state.mic.inputTrim);
-      await micEngine.initialize();
+      await micEngine.initialize({ context: instrumentAudioContext() });
       if (generation !== micInputGeneration || disposed) return;
       micEngine.setOutputEnabled(state.audio);
       await micEngine.startMicrophone();
@@ -1563,6 +1573,9 @@ function boot() {
     synthPool.close?.();
     drumAudio.close?.();
     micEngine.close?.();
+    const context = sharedAudioContext;
+    sharedAudioContext = null;
+    void context?.close().catch(() => {});
   });
 }
 

@@ -758,6 +758,7 @@ export class VoicePool {
 
     /** @type {AudioContext|null} */
     this.context = null;
+    this.ownsContext = true;
     /** @type {GainNode|null} */
     this.master = null;
     /** @type {DynamicsCompressorNode|null} */
@@ -962,20 +963,27 @@ export class VoicePool {
   }
 
   /** Create/resume Web Audio after a user gesture and unmute the master bus. */
-  async start() {
+  async start({ context = null } = {}) {
+    if (context?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (context && this.context && this.context.state !== "closed" && context !== this.context) {
+      throw new Error("Close the voice pool before changing its audio context.");
+    }
     if (this.startPromise) return this.startPromise;
     const generation = ++this.startGeneration;
     const controller = new AbortController();
     this.startController = controller;
-    const pending = withAudioTimeout(this.startInternal(generation), {
+    const pending = withAudioTimeout(this.startInternal(generation, context), {
       timeoutMs: this.startupTimeoutMs, signal: controller.signal,
     }).catch(error => {
       if (generation === this.startGeneration) {
         this.startGeneration += 1;
         this.enabled = false;
         const retiringContext = this.context;
+        const ownsContext = this.ownsContext;
         this.resetGraph();
-        try { Promise.resolve(retiringContext?.close?.()).catch(() => {}); } catch { /* best effort */ }
+        if (ownsContext) {
+          try { Promise.resolve(retiringContext?.close?.()).catch(() => {}); } catch { /* best effort */ }
+        }
       }
       throw error;
     }).finally(() => {
@@ -989,12 +997,12 @@ export class VoicePool {
   }
 
   /** Alias for start(), for an explicit audio on/off UI. */
-  async enable() {
-    await this.start();
+  async enable(options = {}) {
+    await this.start(options);
   }
 
-  async startInternal(generation = this.startGeneration) {
-    if (!this.context) this.buildGraph();
+  async startInternal(generation = this.startGeneration, sharedContext = null) {
+    if (!this.context) this.buildGraph(sharedContext);
     if (!this.context || !this.master) {
       throw new Error("Web Audio could not be initialized.");
     }
@@ -1002,7 +1010,7 @@ export class VoicePool {
     let context = this.context;
     if (context.state === "closed") {
       this.resetGraph();
-      this.buildGraph();
+      this.buildGraph(sharedContext);
       if (!this.context || !this.master) {
         throw new Error("Web Audio could not be reinitialized.");
       }
@@ -1102,20 +1110,30 @@ export class VoicePool {
     }
   }
 
-  buildGraph() {
+  buildGraph(sharedContext = null) {
+    if (sharedContext?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (this.context && this.context.state !== "closed") {
+      if (sharedContext && sharedContext !== this.context) throw new Error("Close the voice pool before changing its audio context.");
+      return;
+    }
     // Deliberately resolved here, never at module load.
     const audioGlobal = /** @type {any} */ (globalThis);
     const AudioContextConstructor =
       audioGlobal.AudioContext ?? audioGlobal.webkitAudioContext;
-    if (!AudioContextConstructor) {
+    if (!sharedContext && !AudioContextConstructor) {
       throw new Error("Web Audio is not available in this environment.");
     }
 
     /** @type {AudioContext} */
-    const context = new AudioContextConstructor();
+    const context = sharedContext ?? new AudioContextConstructor();
+    this.ownsContext = !sharedContext;
+    this.context = context;
     const master = context.createGain();
+    this.master = master;
     const compressor = context.createDynamicsCompressor();
+    this.compressor = compressor;
     const hostGate = context.createGain();
+    this.hostGate = hostGate;
 
     master.gain.value = 0;
     hostGate.gain.value = this.hostGain;
@@ -1818,10 +1836,18 @@ export class VoicePool {
     this.startController?.abort();
     this.startGeneration += 1;
     const context = this.context;
+    const ownsContext = this.ownsContext;
     this.enabled = false;
     this.pendingVoices = [];
     this.stopRenderCapacityMonitoring();
 
+    this.resetGraph();
+
+    if (ownsContext && context && context.state !== "closed") await context.close();
+  }
+
+  resetGraph() {
+    this.stopRenderCapacityMonitoring();
     for (const voice of this.voices) {
       try {
         voice.oscillator.stop();
@@ -1856,16 +1882,10 @@ export class VoicePool {
     this.compressor?.disconnect();
     this.hostGate?.disconnect();
     this.synthNode?.disconnect();
-    this.resetGraph();
-
-    if (context && context.state !== "closed") await context.close();
-  }
-
-  resetGraph() {
-    this.stopRenderCapacityMonitoring();
     this.outputRelease?.();
     this.outputRelease = null;
     this.context = null;
+    this.ownsContext = true;
     this.master = null;
     this.compressor = null;
     this.hostGate = null;

@@ -1,0 +1,86 @@
+.output-recording-control {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 6px;
+}
+.output-recording-button.mz-button {
+  --mz-active-accent: #ff596d;
+  --mz-active-accent-soft: #ff596d;
+  --mz-active-accent-glow: #ff596d20;
+  width: 44px;
+  min-width: 44px;
+  height: 44px;
+  padding: 0;
+  color: #ff596d;
+  border-color: transparent;
+}
+.output-recording-button .mz-button__label {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+}
+.output-recording-button .mz-button__icon {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.output-recording-button[aria-pressed="true"] .mz-button__icon { border-radius: 1px; }
+.output-recording-button.mz-button[aria-pressed="true"] { color: #180b0f; background: #ff596d; }
+.output-recording-button[data-recording-state="ready"] .mz-button__icon {
+  border-radius: 0;
+  clip-path: polygon(35% 0, 65% 0, 65% 50%, 100% 50%, 50% 100%, 0 50%, 35% 50%);
+}
+.output-recording-clock {
+  min-width: 5ch;
+  color: #ff8593;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.output-recording-settings {
+  display: grid;
+  gap: 8px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+.output-recording-settings select,
+.output-recording-name {
+  width: 100%;
+  min-width: 0;
+  min-height: 40px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  padding: 8px;
+  color: var(--ink);
+  background: var(--panel);
+}
+.output-recording-help {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.output-recording-dialog {
+  width: min(480px, calc(100vw - 24px));
+  max-height: calc(100dvh - 24px);
+  overflow: auto;
+  border: 1px solid var(--line-strong);
+  padding: 22px;
+  color: var(--ink);
+  background: var(--panel-high);
+  font: inherit;
+}
+.output-recording-dialog::backdrop { background: #0009; }
+.output-recording-dialog h2 { margin: 0 0 12px; font-size: 18px; }
+.output-recording-summary { color: var(--muted); }
+.output-recording-name-label { display: block; margin: 18px 0 6px; }
+.output-recording-message { overflow-wrap: anywhere; }
+.output-recording-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+@media (pointer: coarse) {
+  .output-recording-button.mz-button { width: 48px; min-width: 48px; height: 48px; }
+  .output-recording-dialog .mz-button,
+  .output-recording-settings select { min-height: 48px; }
+}
