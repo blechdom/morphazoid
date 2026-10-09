@@ -6,7 +6,8 @@ export const DEFAULT_VISUALS = Object.freeze({
   trigger: 'all', channel: -1, mappedType: 'note', mappedNumber: 60, mappedChannel: 0,
 });
 
-const LIMIT = 256;
+const CONTROL_LIMIT = 256;
+export const MIDIPHORIA_NOTE_LIMIT = 4096;
 const MAPPING_KEYS = ['trigger', 'channel', 'mappedType', 'mappedNumber', 'mappedChannel'];
 const numeric = value => (typeof value === 'number' || typeof value === 'string') && value !== ''
   && Number.isFinite(Number(value));
@@ -64,6 +65,16 @@ export class MidiphoriaModel {
   constructor(options = {}) {
     this.options = optionsFor(options);
     this._notes = new Map();
+    // Instance ownership and linked FIFO queues preserve repeated attacks at one pitch.
+    this._noteKeys = new Map();
+    this._scopes = new Map();
+    this._pitchCounts = new Uint32Array(128);
+    this._pitchVelocities = new Uint32Array(128);
+    this._noteVelocities = new Uint32Array(128);
+    this._controllerValues = new Uint32Array(128);
+    this._nextNoteId = 1;
+    this.droppedNotes = 0;
+    this.onNoteEvent = typeof options?.onNoteEvent === 'function' ? options.onNoteEvent : null;
     this._pedals = new Map();
     this._controllers = new Map();
     this._contributors = new Map();
@@ -93,7 +104,7 @@ export class MidiphoriaModel {
         ? clamp(1 - (this._now - segment.start) / segment.duration, 0, 1) : 0;
       this._start(timingKey, segment.to, next[timingKey] * remaining);
     }
-    this._updateGate();
+    this._updateGate(previous.velocity !== next.velocity ? this._scopes.keys() : []);
     if (this._gate && previous.sustain !== next.sustain) {
       this._retarget();
     }
@@ -120,7 +131,7 @@ export class MidiphoriaModel {
     if (this.options.channel !== -1 && this.options.channel !== channel) return false;
     if (type === 'controlChange' && message.controller === 64) {
       if (message.value >= 64) {
-        if (!this._pedals.has(scope) && this._pedals.size >= LIMIT) {
+        if (!this._pedals.has(scope) && this._pedals.size >= CONTROL_LIMIT) {
           const oldest = this._pedals.values().next().value;
           this._releasePedal(oldest.sourceId, oldest.channel);
         }
@@ -134,32 +145,42 @@ export class MidiphoriaModel {
       if (mapped && (this.options.mappedType !== 'note' || this.options.mappedNumber !== message.note
         || this.options.mappedChannel !== channel)) return false;
       if (type === 'noteOn') {
-        const existing = this._notes.get(key);
-        if (!existing && this._notes.size >= LIMIT) this._notes.delete(this._notes.keys().next().value);
-        this._notes.set(key, { sourceId, channel, note: message.note, velocity: message.velocity,
-          held: Math.min(127, (existing?.held ?? 0) + 1) });
+        if (this._notes.size >= MIDIPHORIA_NOTE_LIMIT) {
+          this.droppedNotes += 1;
+          return false;
+        }
+        const instance = this._addNote(message, key, scope);
         if (this.options.hueMode === 'activity') {
           const strength = this.options.velocity ? message.velocity / 127 : 1;
           this._hueOffset = (this._hueOffset + strength * this.options.hueSpeed * 0.1) % 1;
         }
+        this._updateGate([scope]);
+        this._emitNote('noteOn', instance);
       } else {
-        const note = this._notes.get(key);
-        if (!note) return false;
-        note.held = message.synthetic ? 0 : Math.max(0, note.held - 1);
-        if (!note.held && (message.synthetic || !this._pedals.has(scope))) this._notes.delete(key);
+        const group = this._noteKeys.get(key);
+        if (!group) return false;
+        if (message.synthetic) {
+          for (const instance of group.instances) this._removeNote(instance);
+        } else {
+          const instance = group.head;
+          if (!instance) return false;
+          this._unholdNote(instance);
+          if (!this._pedals.has(scope)) this._removeNote(instance);
+        }
+        this._updateGate([scope]);
       }
-      this._updateGate();
       return true;
     }
     if (!mapped || this.options.mappedType !== 'cc' || this.options.mappedNumber !== message.controller
       || this.options.mappedChannel !== channel) return message.controller === 64;
-    if (message.value > 0) {
-      if (!this._controllers.has(scope) && this._controllers.size >= LIMIT) {
-        this._controllers.delete(this._controllers.keys().next().value);
-      }
-      this._controllers.set(scope, { sourceId, channel, value: message.value });
-    } else this._controllers.delete(scope);
-    this._updateGate();
+    const changedScopes = [scope];
+    if (message.value > 0 && !this._controllers.has(scope) && this._controllers.size >= CONTROL_LIMIT) {
+      const oldest = this._controllers.keys().next().value;
+      this._setController(oldest, null);
+      changedScopes.push(oldest);
+    }
+    this._setController(scope, message.value > 0 ? { sourceId, channel, value: message.value } : null);
+    this._updateGate(changedScopes);
     return true;
   }
 
@@ -172,14 +193,18 @@ export class MidiphoriaModel {
       return this.options.invert ? 1 - value : value;
     });
     return { level: this._level, rgb, phase: this._segment.phase, hueOffset: this._hueOffset,
-      activeNotes: Array.from(this._notes.values(), ({ note, velocity, channel, sourceId }) => (
-        { note, velocity, channel, sourceId }
+      activeNotes: Array.from(this._notes.values(), ({ id, note, velocity, channel, sourceId }) => (
+        { id, note, velocity, channel, sourceId }
       )) };
   }
 
   panic(now = this._now) {
     this._advance(now);
-    this._notes.clear();
+    for (const instance of this._notes.values()) this._removeNote(instance);
+    this._noteKeys.clear();
+    this._scopes.clear();
+    this._controllerValues.fill(0);
+    this.droppedNotes = 0;
     this._pedals.clear();
     this._controllers.clear();
     this._contributors.clear();
@@ -194,21 +219,113 @@ export class MidiphoriaModel {
     this._releaseScope(sourceName(sourceId), null, false);
   }
 
-  _releasePedal(sourceId, channel) {
-    this._pedals.delete(scopeKey(sourceId, channel));
-    for (const [key, note] of this._notes) {
-      if (note.sourceId === sourceId && note.channel === channel && !note.held) this._notes.delete(key);
+  _emitNote(type, instance) {
+    // A renderer or observer must not be able to interrupt MIDI state cleanup.
+    try {
+      this.onNoteEvent?.({ type, id: instance.id, sourceId: instance.sourceId, channel: instance.channel,
+        note: instance.note, velocity: instance.velocity, time: this._now });
+    } catch { /* Observers are outside the model's state contract. */ }
+  }
+
+  _scope(sourceId, channel) {
+    const key = scopeKey(sourceId, channel);
+    let scope = this._scopes.get(key);
+    if (!scope) {
+      scope = { sourceId, channel, notes: new Set(), controller: 0 };
+      this._scopes.set(key, scope);
     }
+    return scope;
+  }
+
+  _addNote(message, key, scope) {
+    let group = this._noteKeys.get(key);
+    if (!group) {
+      group = { head: null, tail: null, instances: new Set() };
+      this._noteKeys.set(key, group);
+    }
+    const instance = { id: this._nextNoteId++, sourceId: message.sourceId, channel: message.channel,
+      note: message.note, velocity: message.velocity, held: true, key, scope,
+      previousHeld: group.tail, nextHeld: null };
+    if (group.tail) group.tail.nextHeld = instance;
+    else group.head = instance;
+    group.tail = instance;
+    group.instances.add(instance);
+    this._notes.set(instance.id, instance);
+    this._scope(message.sourceId, message.channel).notes.add(instance);
+    this._pitchCounts[instance.note] += 1;
+    this._pitchVelocities[instance.note] += instance.velocity;
+    this._noteVelocities[instance.velocity] += 1;
+    return instance;
+  }
+
+  _unholdNote(instance) {
+    if (!instance.held) return;
+    const group = this._noteKeys.get(instance.key);
+    if (instance.previousHeld) instance.previousHeld.nextHeld = instance.nextHeld;
+    else group.head = instance.nextHeld;
+    if (instance.nextHeld) instance.nextHeld.previousHeld = instance.previousHeld;
+    else group.tail = instance.previousHeld;
+    instance.previousHeld = null;
+    instance.nextHeld = null;
+    instance.held = false;
+  }
+
+  _removeNote(instance) {
+    this._unholdNote(instance);
+    this._notes.delete(instance.id);
+    const group = this._noteKeys.get(instance.key);
+    group.instances.delete(instance);
+    if (!group.instances.size) this._noteKeys.delete(instance.key);
+    const scope = this._scopes.get(instance.scope);
+    scope.notes.delete(instance);
+    if (!scope.notes.size && !scope.controller) this._scopes.delete(instance.scope);
+    this._pitchCounts[instance.note] -= 1;
+    this._pitchVelocities[instance.note] -= instance.velocity;
+    this._noteVelocities[instance.velocity] -= 1;
+    this._emitNote('noteOff', instance);
+  }
+
+  _setController(key, entry) {
+    const previous = this._controllers.get(key);
+    if (previous) this._controllerValues[previous.value] -= 1;
+    if (entry) {
+      this._controllers.set(key, entry);
+      this._controllerValues[entry.value] += 1;
+      this._scope(entry.sourceId, entry.channel).controller = entry.value;
+    } else {
+      this._controllers.delete(key);
+      const scope = this._scopes.get(key);
+      if (scope) {
+        scope.controller = 0;
+        if (!scope.notes.size) this._scopes.delete(key);
+      }
+    }
+  }
+
+  _releasePedal(sourceId, channel) {
+    const key = scopeKey(sourceId, channel);
+    this._pedals.delete(key);
+    const scope = this._scopes.get(key);
+    if (scope) for (const instance of scope.notes) if (!instance.held) this._removeNote(instance);
+    this._updateGate([key]);
   }
 
   _releaseScope(sourceId, channel, immediate) {
     const matches = entry => entry.sourceId === sourceId && (channel === null || entry.channel === channel);
     let ownedTail = false;
     for (const entry of this._contributors.values()) if (matches(entry)) ownedTail = true;
-    for (const entries of [this._notes, this._pedals, this._controllers]) {
-      for (const [key, entry] of entries) if (matches(entry)) entries.delete(key);
+    const changedScopes = [];
+    // At most sixteen MIDI channels belong to a source; no scan of other inputs.
+    for (let number = 0; number < 16; number += 1) {
+      if (channel !== null && channel !== number) continue;
+      const key = scopeKey(sourceId, number);
+      const scope = this._scopes.get(key);
+      if (scope) for (const instance of scope.notes) this._removeNote(instance);
+      this._setController(key, null);
+      this._pedals.delete(key);
+      changedScopes.push(key);
     }
-    this._updateGate();
+    this._updateGate(changedScopes);
     if (immediate) {
       for (const [key, entry] of this._contributors) if (matches(entry)) this._contributors.delete(key);
       if (!this._gate && ownedTail && !this._contributors.size) this._stop();
@@ -222,24 +339,25 @@ export class MidiphoriaModel {
     this._segment = { phase: 'idle', start: this._now, duration: 0, from: 0, to: 0 };
   }
 
-  _updateGate() {
-    let target = 0;
-    const contributors = new Map();
-    for (const note of this._notes.values()) {
-      target = Math.max(target, this.options.velocity ? note.velocity / 127 : 1);
-      contributors.set(scopeKey(note.sourceId, note.channel), note);
+  _updateGate(changedScopes = []) {
+    let strongest = 0;
+    for (let value = 127; value > 0; value -= 1) {
+      if (this._noteVelocities[value] || this._controllerValues[value]) { strongest = value; break; }
     }
-    for (const entry of this._controllers.values()) {
-      const level = this.options.velocity ? entry.value / 127 : Number(entry.value >= 64);
-      target = Math.max(target, level);
-      if (level) contributors.set(scopeKey(entry.sourceId, entry.channel), entry);
-    }
+    const target = this.options.velocity ? strongest / 127 : Number(this._notes.size > 0 || strongest >= 64);
     const wasGated = this._gate;
     const changed = target !== this._target;
     this._gate = target > 0;
     this._target = target;
     if (this._gate) {
-      this._contributors = contributors;
+      if (!wasGated) this._contributors.clear();
+      // Update only touched scopes; retain the final contributors through a release tail.
+      for (const key of changedScopes) {
+        const scope = this._scopes.get(key);
+        if (scope && (scope.notes.size || (this.options.velocity ? scope.controller > 0 : scope.controller >= 64))) {
+          this._contributors.set(key, { sourceId: scope.sourceId, channel: scope.channel });
+        } else this._contributors.delete(key);
+      }
       if (!wasGated) this._start('attack', target, this.options.attack);
       else if (changed) this._retarget();
     } else if (wasGated) this._start('release', 0, this.options.release);
@@ -286,9 +404,11 @@ export class MidiphoriaModel {
     if (this._notes.size) {
       const sum = [0, 0, 0];
       let total = 0;
-      for (const note of this._notes.values()) {
-        const weight = this.options.velocity ? note.velocity / 127 : 1;
-        const color = hueRgb(note.note / 128 + this._hueOffset);
+      // Fixed pitch bins keep incoming-event work independent of polyphony.
+      for (let note = 0; note < 128; note += 1) {
+        const weight = this.options.velocity ? this._pitchVelocities[note] : this._pitchCounts[note];
+        if (!weight) continue;
+        const color = hueRgb(note / 128 + this._hueOffset);
         for (let axis = 0; axis < 3; axis += 1) sum[axis] += color[axis] * weight;
         total += weight;
       }

@@ -28,6 +28,7 @@ function mountMidiphoria() {
   const on = (node, type, listener, options = {}) => node.addEventListener(type, listener, { ...options, signal: events.signal });
   const model = new MidiphoriaModel();
   const renderer = new MidiphoriaRenderer($('visualCanvas'));
+  model.onNoteEvent = event => renderer.captureEvent(event);
   renderer.view = $('viewMode').value;
   const manager = getSharedMidiManager(globalThis);
   let settings = { ...DEFAULT_VISUALS };
@@ -35,7 +36,6 @@ function mountMidiphoria() {
   let presetController;
   let learning = false;
   let disposed = false, frame = null, lastReadout = -Infinity;
-  let lastFileCapture = -Infinity;
   const padHeld = new Map();
   const padTimers = new Map();
   const pads = [];
@@ -243,7 +243,10 @@ function mountMidiphoria() {
 
   player = new MidiphoriaPlayer({
     onMidi: message => accept(message), onState: reflectPlayer,
-    onClear: sourceId => { model.releaseSource(sourceId, clock()); },
+    onClear: (sourceId, reason) => {
+      model.releaseSource(sourceId, clock());
+      if (reason === 'song-replacement') renderer.clearSource('midiphoria:file', true);
+    },
   });
   player.setVolume(Number($('outputLevel').value));
   player.setPlaybackRate(Number($('playbackRate').value));
@@ -369,16 +372,8 @@ function mountMidiphoria() {
       $('learnStatus').textContent = `Mapped ${settings.mappedType === 'note' ? nameFor(settings.mappedNumber) : `CC ${settings.mappedNumber}`} · channel ${settings.mappedChannel + 1}`;
       reflectControls();
     }
-    model.handleMessage(message, now);
-    // Dense files can emit thousands of notes per second. Keep every note/off in
-    // the bounded model, but avoid rebuilding the complete trail history for
-    // every event. The animation frame also captures the latest model state.
-    if (message.sourceId?.startsWith('midiphoria:file')) {
-      if (now - lastFileCapture < 1 / 120) return;
-      lastFileCapture = now;
-    }
-    const sample = model.sample(now);
-    renderer.capture(sample, now);
+    const accepted = model.handleMessage(message, now);
+    if (accepted && message.type === 'noteOn' && message.velocity > 0) renderer.setVoiceMetadata(message);
   }
 
   function releasePads() {
@@ -393,7 +388,6 @@ function mountMidiphoria() {
   function clear() {
     releasePads();
     model.panic(clock()); renderer.clear();
-    lastFileCapture = -Infinity;
   }
 
   $('channel').replaceChildren(new Option('All channels', '-1'));

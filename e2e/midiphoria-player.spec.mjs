@@ -43,7 +43,7 @@ test('SoundFont audio requires Audio; live visual edits and mute preserve playba
   expect(sound.summary.maxRms).toBeGreaterThan(.001);
   expect(sound.summary.clippedSamples).toBe(0);
   await expect.poll(async () => await page.locator('#noteReadout').textContent()).not.toBe('Waiting for a note');
-  await range(page, 'attack', .1); await page.locator('#hueMode').selectOption('rotate');
+  await range(page, 'attack', .1); await page.locator('#colorSource').selectOption('pitch'); await page.locator('#hueMode').selectOption('rotate');
   await page.locator('#viewMode').selectOption('ribbons');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#audioButton').click();

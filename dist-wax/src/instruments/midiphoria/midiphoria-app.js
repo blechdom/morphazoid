@@ -16,7 +16,7 @@ const clock = () => performance.now() / 1000;
 const $ = id => document.getElementById(id);
 const RENDER_CONTROLS = Object.freeze({ viewMode: 'view', trailSeconds: 'trailSeconds',
   palette: 'palette', paletteHue: 'hueOffset', saturation: 'saturation', glow: 'glow',
-  trailWidth: 'width', motion: 'motion', colorSource: 'colorSource',
+  trailWidth: 'width', motion: 'motion', colorSource: 'colorSource', voiceLayout: 'voiceLayout',
   fadeCurve: 'fadeCurve', spin: 'spin', symmetry: 'symmetry', reflection: 'reflection', flow: 'flow' });
 
 function mountMidiphoria() {
@@ -28,6 +28,7 @@ function mountMidiphoria() {
   const on = (node, type, listener, options = {}) => node.addEventListener(type, listener, { ...options, signal: events.signal });
   const model = new MidiphoriaModel();
   const renderer = new MidiphoriaRenderer($('visualCanvas'));
+  model.onNoteEvent = event => renderer.captureEvent(event);
   renderer.view = $('viewMode').value;
   const manager = getSharedMidiManager(globalThis);
   let settings = { ...DEFAULT_VISUALS };
@@ -35,7 +36,6 @@ function mountMidiphoria() {
   let presetController;
   let learning = false;
   let disposed = false, frame = null, lastReadout = -Infinity;
-  let lastFileCapture = -Infinity;
   const padHeld = new Map();
   const padTimers = new Map();
   const pads = [];
@@ -44,7 +44,49 @@ function mountMidiphoria() {
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false;
   let textScore = null, textDownloadUrl = null;
+  let voiceSignature = '';
+  const voiceButtons = new Map();
   const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
+
+  function reflectVoices() {
+    const voices = renderer.getVoices();
+    const signature = JSON.stringify(voices.map(({ id, label }) => [id, label]));
+    const legend = $('voiceLegend'), menu = $('voiceFocus');
+    if (signature !== voiceSignature) {
+      // Keep existing nodes as activity changes so focus and native menus remain usable.
+      const focusedId = legend.contains(document.activeElement) ? document.activeElement.dataset.voiceId : null;
+      voiceSignature = signature;
+      voiceButtons.clear();
+      const buttons = [], options = [new Option('All voices', '')];
+      for (const voice of voices) {
+        const button = document.createElement('button');
+        button.type = 'button'; button.dataset.voiceId = voice.id;
+        button.setAttribute('aria-pressed', 'false');
+        const label = document.createElement('span'); label.textContent = voice.label;
+        button.append(label); buttons.push(button); voiceButtons.set(voice.id, button);
+        options.push(new Option(voice.label, voice.id));
+      }
+      legend.replaceChildren(...buttons); menu.replaceChildren(...options);
+      if (focusedId && voiceButtons.has(focusedId)) voiceButtons.get(focusedId).focus({ preventScroll: true });
+    }
+    const focus = renderer.voiceFocus ?? '';
+    if (menu.value !== focus) menu.value = focus;
+    for (const voice of voices) {
+      const button = voiceButtons.get(voice.id);
+      const pressed = String(voice.id === focus), active = String(voice.active);
+      if (button.getAttribute('aria-pressed') !== pressed) button.setAttribute('aria-pressed', pressed);
+      if (button.dataset.active !== active) button.dataset.active = active;
+      if (button.style.getPropertyValue('--voice-color') !== voice.color) button.style.setProperty('--voice-color', voice.color);
+    }
+    $('voiceControls').hidden = !voices.length || Boolean(textScore && $('showTextScore').checked);
+  }
+  on($('voiceFocus'), 'change', () => { renderer.focusVoice($('voiceFocus').value || null); reflectVoices(); });
+  on($('voiceLegend'), 'click', event => {
+    const button = event.target.closest('button[data-voice-id]');
+    if (!button || !voiceButtons.has(button.dataset.voiceId)) return;
+    renderer.focusVoice(renderer.voiceFocus === button.dataset.voiceId ? null : button.dataset.voiceId);
+    reflectVoices();
+  });
 
   function reflectPlayer() {
     if (!player || disposed) return;
@@ -201,7 +243,10 @@ function mountMidiphoria() {
 
   player = new MidiphoriaPlayer({
     onMidi: message => accept(message), onState: reflectPlayer,
-    onClear: sourceId => { model.releaseSource(sourceId, clock()); },
+    onClear: (sourceId, reason) => {
+      model.releaseSource(sourceId, clock());
+      if (reason === 'song-replacement') renderer.clearSource('midiphoria:file', true);
+    },
   });
   player.setVolume(Number($('outputLevel').value));
   player.setPlaybackRate(Number($('playbackRate').value));
@@ -292,7 +337,10 @@ function mountMidiphoria() {
           : `${Number(value).toFixed(2)} s`;
     }
     $('mappingControls').hidden = settings.trigger !== 'mapped';
-    $('hueSpeed').disabled = settings.hueMode === 'static';
+    const voiceColors = renderer.options.colorSource === 'voice';
+    for (const id of ['palette', 'paletteHue', 'hueMode']) $(id).disabled = voiceColors;
+    $('hueSpeed').disabled = voiceColors || settings.hueMode === 'static';
+    $('voiceColorHelp').hidden = !voiceColors;
     $('visualViewport').dataset.invert = String(settings.invert);
     for (const [id, key] of Object.entries(RENDER_CONTROLS)) {
       const value = renderer.options[key];
@@ -324,16 +372,8 @@ function mountMidiphoria() {
       $('learnStatus').textContent = `Mapped ${settings.mappedType === 'note' ? nameFor(settings.mappedNumber) : `CC ${settings.mappedNumber}`} · channel ${settings.mappedChannel + 1}`;
       reflectControls();
     }
-    model.handleMessage(message, now);
-    // Dense files can emit thousands of notes per second. Keep every note/off in
-    // the bounded model, but avoid rebuilding the complete trail history for
-    // every event. The animation frame also captures the latest model state.
-    if (message.sourceId?.startsWith('midiphoria:file')) {
-      if (now - lastFileCapture < 1 / 120) return;
-      lastFileCapture = now;
-    }
-    const sample = model.sample(now);
-    renderer.capture(sample, now);
+    const accepted = model.handleMessage(message, now);
+    if (accepted && message.type === 'noteOn' && message.velocity > 0) renderer.setVoiceMetadata(message);
   }
 
   function releasePads() {
@@ -348,7 +388,6 @@ function mountMidiphoria() {
   function clear() {
     releasePads();
     model.panic(clock()); renderer.clear();
-    lastFileCapture = -Infinity;
   }
 
   $('channel').replaceChildren(new Option('All channels', '-1'));
@@ -507,6 +546,7 @@ function mountMidiphoria() {
     if (now - lastReadout > .08) {
       lastReadout = now;
       reflectPlayer();
+      reflectVoices();
       const notes = [...new Set(sample.activeNotes.map(item => nameFor(item.note)))];
       $('noteReadout').value = notes.length ? `${notes.slice(0, 8).join(' · ')}${notes.length > 8 ? ' …' : ''} · ${sample.activeNotes.length} held`
         : sample.level > .001 ? `${sample.phase === 'release' ? 'Releasing' : 'Controller'} · ${sample.phase}` : 'Waiting for a note';

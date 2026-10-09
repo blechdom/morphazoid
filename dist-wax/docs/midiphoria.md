@@ -120,7 +120,12 @@ Twelve of the sixteen factory looks (75%) use None for reflections and no
 repeated radial copies. Candy mirror, Ice blueprint, Disco prism and Silver
 kaleidoscope use symmetry with thin trails (0.4–0.65×) and restrained glow. All symmetry controls remain
 available for manual edits and parameter dice.
-Color by pitch, MIDI channel or velocity; adjust the trail fade curve, add
+Voice colors keep a distinct, stable color for each MIDI channel. Voice rain
+starts with separate channel lanes; panels and the original overlay are also
+available. The legend and Show voice menu isolate the picture without muting
+any audio. Instrument names follow the SoundFont patch on each channel. MIDI
+ports stay distinct; musical parts sharing one channel cannot be inferred as
+separate voices. Color by pitch, MIDI channel or velocity remains available; adjust the trail fade curve, add
 clockwise/counterclockwise spin, and repeat radial/orbit forms up to eight times.
 Spin and radial-copy controls are enabled in the two circular views.
 Reflection adds vertical, horizontal, both, either diagonal, both diagonals or
@@ -197,14 +202,29 @@ envelope/color behavior, so this is not a pixel-exact port.
 
 The file synthesizer caps synthesis at 128 voices; the independent piano pads
 cap synthesis at 32 voices and track at most 32 held input sources. Both share
-compression, volume and a final bounded output guard. The visual model caps active notes at 256 and
-retains at most 384 trails. Dense scores can therefore steal audible voices
-and omit older visual trails. File-event trail snapshots are limited to 120 per
-second plus display frames; very short notes can fall between snapshots. Every
-event still reaches the bounded visual model and the audio worklet. The three
-densest bundled creator AUDIO editions peak around 3,000–3,400 note attacks/s;
-browser tests exercise those peak passages at maximum radial copies. This is
-not a claim to render arbitrary million-note decorative files in full fidelity.
+compression, volume and a final bounded output guard. These are synthesis voices,
+not a promise of one independent audible sound for every simultaneous MIDI note.
+
+The visual model now preserves up to 4,096 independent active attacks and the
+renderer retains up to 8,192 trails. Each accepted attack/release goes directly
+into history; there is no 120 Hz snapshot gate. Overlapping repeats at one pitch
+have independent IDs and FIFO release, including sustain-pedal ownership. Older
+released trails expire or are evicted first when the history is full. Extreme
+inputs beyond the active-note capacity are counted by `model.droppedNotes`;
+history eviction is counted by `renderer.droppedTrails`. These limits keep dense
+files bounded rather than claiming unlimited black-MIDI fidelity.
+
+Above 1,024 visible trails, graphics omit the glow stroke, simplify curved
+orbits and use small held-note markers while retaining one path for every
+retained note. Reflection still composites one rendered layer. Up to 64 source/
+channel labels are shown; rarer additional ports remain drawn in the final
+panel. Audio scheduling and polyphony are unaffected by layout and visual solo.
+
+Regression fixtures using the real browser SoundFont player now capture 200/200
+millisecond notes at both 1× and 4×, 512/512 simultaneous notes at 4×, and all 64
+same-pitch attacks/releases delivered within one JavaScript turn. The prior
+snapshot path captured only 23/200 notes in the 4× fixture. Full-capacity renderer
+tests verify all 8,192 retained trails receive a bounded drawing path.
 
 Audio scheduling lives in the worklet, independently of animation frames.
 The page stops and closes its audio context and shared output connection on

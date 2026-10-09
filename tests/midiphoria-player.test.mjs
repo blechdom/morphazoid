@@ -476,3 +476,17 @@ test('a pad SoundFont failure rejects startup and releases the complete graph', 
   }
   await h.player.dispose();
 });
+
+
+test('file note attacks carry the current SoundFont instrument name for each MIDI port', async () => {
+  const h = harness(); await ready(h); h.player.play();
+  h.synths[0].midiChannels = [];
+  h.synths[0].midiChannels[0] = { patch: { name: 'Electric bass' } };
+  h.synths[0].midiChannels[16] = { patch: { name: 'Saw lead' } };
+  for (const channel of [0, 16]) h.synths[0].eventHandler.emit('noteOn', { channel, midiNote: 60, velocity: 100 });
+  assert.deepEqual(h.messages.map(message => message.voiceName), ['Electric bass', 'Saw lead']);
+  h.synths[0].midiChannels[0].patch.name = 'Strings';
+  h.synths[0].eventHandler.emit('noteOn', { channel: 0, midiNote: 64, velocity: 100 });
+  assert.equal(h.messages.at(-1).voiceName, 'Strings');
+  await h.player.dispose();
+});

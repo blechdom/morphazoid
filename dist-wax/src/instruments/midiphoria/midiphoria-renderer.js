@@ -2,11 +2,14 @@ import { canvasSizing } from '../../graphics/canvas-sizing.js';
 import { DEFAULT_RENDER_OPTIONS, normalizeMidiphoriaRenderOptions } from './midiphoria-presets.js';
 
 const TAU = Math.PI * 2;
-const MAX_TRAILS = 384;
-const MAX_HELD = 256;
+export const MAX_MIDIPHORIA_TRAILS = 8192;
+const MAX_TRAILS = MAX_MIDIPHORIA_TRAILS;
+const MAX_HELD = 4096;
+const MAX_VOICES = 64;
 const clamp = (value, min = 0, max = 1) => Math.max(min, Math.min(max, value));
 const wrap = value => ((value % 1) + 1) % 1;
-const keyFor = note => JSON.stringify([note.sourceId, note.channel, note.note]);
+const keyFor = note => note.id == null ? JSON.stringify([note.sourceId, note.channel, note.note]) : `note:${note.id}`;
+const voiceKey = note => JSON.stringify([note.sourceId, note.channel]);
 const cssRgb = rgb => `rgb(${rgb.map(value => Math.round(clamp(value) * 255)).join(' ')})`;
 
 // Rigid transforms about the canvas center, in Canvas [a, b, c, d] order.
@@ -62,6 +65,7 @@ export function paletteHue(hue, palette = 'pitch') {
 }
 
 export function midiColorHue(note, source = 'pitch') {
+  if (source === 'voice') return wrap(note.channel * 0.61803398875);
   if (source === 'channel') return clamp(note.channel, 0, 15) / 16;
   // Keep soft and hard attacks apart instead of wrapping both onto red.
   if (source === 'velocity') return (1 - clamp(note.velocity / 127)) * 2 / 3;
@@ -97,14 +101,14 @@ export function midiphoriaBlendRgb(sample, settings, options = DEFAULT_RENDER_OP
     let total = 0;
     for (const note of sample.activeNotes.slice(0, MAX_HELD)) {
       const weight = settings.velocity ? note.velocity / 127 : 1;
-      const rgb = hsvRgb(midiColorHue(note, options.colorSource) + (sample.hueOffset ?? 0), 1, 1);
+      const rgb = hsvRgb(midiColorHue(note, options.colorSource) + (options.colorSource === 'voice' ? 0 : sample.hueOffset ?? 0), 1, 1);
       for (let axis = 0; axis < 3; axis += 1) sum[axis] += rgb[axis] * weight;
       total += weight;
     }
     if (total > 0) base = sum.map(value => value / total * sample.level);
   }
   const [hue, saturation, value] = rgbHsv(base);
-  const color = hsvRgb(paletteHue(hue, options.palette) + options.hueOffset / 360,
+  const color = hsvRgb(options.colorSource === 'voice' ? hue : paletteHue(hue, options.palette) + options.hueOffset / 360,
     saturation * options.saturation, value);
   return color.map(component => settings.invert ? 1 - component : component);
 }
@@ -114,7 +118,13 @@ export class MidiphoriaRenderer {
   constructor(canvas) {
     this.canvas = canvas;
     this.context = canvas.getContext('2d', { alpha: false });
-    this.trails = [];
+    this._trails = new Map();
+    this._released = new Map();
+    this._voices = new Map();
+    this.voiceFocus = null;
+    this.capturedNotes = 0;
+    this.droppedTrails = 0;
+    this._eventDriven = false;
     this.held = new Map();
     this.options = { ...DEFAULT_RENDER_OPTIONS };
     this._now = 0;
@@ -123,6 +133,8 @@ export class MidiphoriaRenderer {
     this._reflectionLayer = null;
     this.resize();
   }
+
+  get trails() { return [...this._trails.values()]; }
 
   get view() { return this.options.view; }
   set view(view) { this.configure({ view }); }
@@ -161,32 +173,96 @@ export class MidiphoriaRenderer {
   }
 
   clear() {
-    this.trails = []; this.held.clear();
+    this._trails.clear(); this._released.clear(); this.held.clear(); this._voices.clear();
+    this.voiceFocus = null; this.capturedNotes = 0; this.droppedTrails = 0;
     this._lastColorNotes = []; this._spinTurns = 0;
   }
 
-  capture(sample, now) {
+  clearSource(sourceId, descendants = false) {
+    const matches = source => source === sourceId || (descendants && source?.startsWith(`${sourceId}:`));
+    for (const [key, trail] of this._trails) if (matches(trail.sourceId)) {
+      this._trails.delete(key); this._released.delete(key); this.held.delete(key);
+    }
+    for (const [id, voice] of this._voices) if (matches(voice.sourceId)) {
+      this._voices.delete(id);
+      if (this.voiceFocus === id) this.voiceFocus = null;
+    }
+    this._lastColorNotes = this._lastColorNotes.filter(note => !matches(note.sourceId));
+  }
+
+  _advance(now) {
     const next = Number.isFinite(now) ? Math.max(this._now, now) : this._now;
     this._spinTurns = wrap(this._spinTurns + (next - this._now) * this.options.spin / 60);
     this._now = next;
+  }
+
+  setVoiceMetadata(note) {
+    const id = voiceKey(note);
+    const existing = this._voices.get(id);
+    if (!existing && this._voices.size >= MAX_VOICES) return;
+    const port = /:port:(\d+)$/.exec(note.sourceId ?? '');
+    const prefix = port ? `Port ${Number(port[1]) + 1} · ` : '';
+    const name = typeof note.voiceName === 'string' ? note.voiceName.trim().slice(0, 48) : existing?.name ?? '';
+    this._voices.set(id, { id, channel: note.channel, sourceId: note.sourceId, name,
+      label: `${prefix}Ch ${note.channel + 1}${name ? ` · ${name}` : note.channel === 9 ? ' · Drums' : ''}`,
+      color: cssRgb(hsvRgb(midiColorHue(note, 'voice'), .72, 1)) });
+  }
+
+  getVoices() {
+    const active = new Set([...this.held.values()].map(note => note.voiceId));
+    return [...this._voices.values()].map(voice => ({ ...voice, active: active.has(voice.id) }));
+  }
+
+  focusVoice(id) { this.voiceFocus = this._voices.has(id) ? id : null; }
+
+  _startNote(note, now) {
+    const key = keyFor(note);
+    if (this.held.has(key)) return;
+    if (this.held.size >= MAX_HELD) { this.droppedTrails++; return; }
+    this._released.delete(key);
+    this.setVoiceMetadata(note);
+    const trail = { ...note, voiceId: voiceKey(note), start: now, end: null };
+    this.held.set(key, trail); this._trails.set(key, trail); this.capturedNotes++;
+    this._trim();
+  }
+
+  _endNote(key, now) {
+    const trail = this.held.get(key);
+    if (!trail) return;
+    trail.end = Math.max(trail.start, now);
+    this.held.delete(key); this._released.set(key, trail);
+  }
+
+  _trim() {
+    // Released notes are ordered by their release time; remove old history first.
+    for (const [key, trail] of this._released) {
+      if (this._now - trail.end < this.options.trailSeconds && this._trails.size <= MAX_TRAILS) break;
+      if (this._now - trail.end < this.options.trailSeconds) this.droppedTrails++;
+      this._trails.delete(key); this._released.delete(key);
+    }
+  }
+
+  /** Capture accepted attacks/releases directly, including notes between display frames. */
+  captureEvent(event) {
+    this._eventDriven = true;
+    this._advance(event.time);
+    if (event.type === 'noteOn') this._startNote(event, this._now);
+    else if (event.type === 'noteOff') this._endNote(keyFor(event), this._now);
+    this._trim();
+  }
+
+  capture(sample, now) {
+    this._advance(now);
     if (sample.activeNotes.length) this._lastColorNotes = sample.activeNotes.slice(0, MAX_HELD);
-    const active = new Set();
-    for (const note of sample.activeNotes.slice(0, MAX_HELD)) {
-      const key = keyFor(note);
-      active.add(key);
-      if (!this.held.has(key)) {
-        const trail = { ...note, start: this._now, end: null };
-        this.held.set(key, trail);
-        this.trails.push(trail);
+    // Snapshot support is retained for previews; the live page uses captureEvent.
+    if (!this._eventDriven) {
+      const active = new Set();
+      for (const note of sample.activeNotes.slice(0, MAX_HELD)) {
+        const key = keyFor(note); active.add(key); this._startNote(note, this._now);
       }
+      for (const key of this.held.keys()) if (!active.has(key)) this._endNote(key, this._now);
     }
-    for (const [key, trail] of this.held) {
-      if (!active.has(key)) { trail.end = this._now; this.held.delete(key); }
-    }
-    const held = this.trails.filter(trail => trail.end === null);
-    const released = this.trails.filter(trail => trail.end !== null && this._now - trail.end < this.options.trailSeconds);
-    const room = Math.max(0, MAX_TRAILS - held.length);
-    this.trails = [...(room ? released.slice(-room) : []), ...held];
+    this._trim();
   }
 
   draw(sample, now, settings) {
@@ -194,16 +270,50 @@ export class MidiphoriaRenderer {
     if (!ctx) return;
     this.capture(sample, now);
     now = this._now;
-    const options = this.options, w = this.width, h = this.height;
+    const w = this.width, h = this.height;
+    const visible = this.trails.filter(note => !this.voiceFocus || note.voiceId === this.voiceFocus);
+    this._denseRendering = visible.length > 1024;
+    this._frameBlend = midiphoriaBlendRgb({ ...sample, activeNotes: this._lastColorNotes }, settings, this.options);
+    const layout = this.options.voiceLayout ?? 'overlay';
+    const voices = this.getVoices().filter(voice => !this.voiceFocus || voice.id === this.voiceFocus);
+    if (layout === 'overlay' || voices.length <= 1) {
+      this._drawScene(ctx, sample, now, settings, w, h, visible);
+      return;
+    }
+    ctx.globalAlpha = 1; ctx.fillStyle = settings.invert ? '#e7efe9' : '#030706'; ctx.fillRect(0, 0, w, h);
+    const groups = new Map(voices.map(voice => [voice.id, []]));
+    for (const note of visible) {
+      if (!groups.has(note.voiceId)) { // Rare extra MIDI ports remain visible in the final panel.
+        groups.get(voices.at(-1).id).push(note);
+      } else groups.get(note.voiceId).push(note);
+    }
+    const columns = layout === 'panels' ? Math.max(1, Math.ceil(Math.sqrt(voices.length * w / h))) : 1;
+    const rows = Math.ceil(voices.length / columns), cellW = w / columns, cellH = h / rows;
+    voices.forEach((voice, index) => {
+      const x = index % columns * cellW, y = Math.floor(index / columns) * cellH;
+      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cellW, cellH); ctx.clip(); ctx.translate(x, y);
+      this._drawScene(ctx, sample, now, settings, cellW, cellH, groups.get(voice.id));
+      ctx.globalAlpha = 1; ctx.fillStyle = settings.invert ? '#e7efe9e8' : '#030706d9';
+      ctx.fillRect(0, 0, cellW, Math.min(17, cellH));
+      ctx.fillStyle = settings.invert ? '#294838' : voice.color;
+      ctx.font = '10px system-ui'; ctx.textAlign = 'left';
+      if (cellH >= 24) ctx.fillText(voice.label, 6, 12, Math.max(1, cellW - 12));
+      ctx.fillStyle = settings.invert ? '#bdcec3' : '#234032'; ctx.fillRect(0, cellH - 1, cellW, 1);
+      ctx.restore();
+    });
+  }
+
+  _drawScene(ctx, sample, now, settings, w, h, trails) {
+    const options = this.options;
     const background = settings.invert ? '#e7efe9' : '#030706';
     // Retain the last channel/velocity blend through the model's release envelope.
-    const blend = midiphoriaBlendRgb({ ...sample, activeNotes: this._lastColorNotes }, settings, options);
+    const blend = this._frameBlend;
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
     ctx.fillStyle = background;
     ctx.fillRect(0, 0, w, h);
 
-    const floor = Math.max(8, h - 36), span = Math.max(1, w - 32);
+    const floor = Math.max(8, h - (h > 90 ? 36 : 5)), span = Math.max(1, w - 32);
     const xFor = note => 16 + (note + 0.5) / 128 * span;
     const round = options.view === 'radial' || options.view === 'orbit';
     ctx.lineWidth = 1;
@@ -218,7 +328,7 @@ export class MidiphoriaRenderer {
         ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, floor); ctx.stroke();
         ctx.fillStyle = settings.invert ? '#4e6757' : '#6d8476';
         ctx.font = '9px system-ui'; ctx.textAlign = 'center';
-        if (w > 500 || note % 24 === 0) ctx.fillText(`C${note / 12 - 1}`, x, h - 13);
+        if (h > 90 && (w > 500 || note % 24 === 0)) ctx.fillText(`C${note / 12 - 1}`, x, h - 13);
       }
     }
 
@@ -232,7 +342,7 @@ export class MidiphoriaRenderer {
     }
 
     if (options.reflection === 'none') {
-      this._drawTrails(ctx, sample, now, settings, w, h);
+      this._drawTrails(ctx, sample, now, settings, w, h, trails);
     } else {
       const layer = this._getReflectionLayer();
       layer.context.clearRect(0, 0, w, h);
@@ -243,14 +353,14 @@ export class MidiphoriaRenderer {
       const drawHeight = diagonal ? Math.min(w, h) : h;
       layer.context.save();
       layer.context.translate((w - drawWidth) / 2, (h - drawHeight) / 2);
-      this._drawTrails(layer.context, sample, now, settings, drawWidth, drawHeight);
+      this._drawTrails(layer.context, sample, now, settings, drawWidth, drawHeight, trails);
       layer.context.restore();
       ctx.globalAlpha = 1;
       for (const [a, b, c, d] of midiphoriaReflectionTransforms(options)) {
         ctx.save();
         ctx.transform(a, b, c, d, w / 2 - a * w / 2 - c * h / 2,
           h / 2 - b * w / 2 - d * h / 2);
-        ctx.drawImage(layer.canvas, 0, 0, w, h);
+        ctx.drawImage(layer.canvas, 0, 0, w * this.pixelRatio, h * this.pixelRatio, 0, 0, w, h);
         ctx.restore();
       }
     }
@@ -264,24 +374,24 @@ export class MidiphoriaRenderer {
     ctx.fillRect(16, floor + 7, span * sample.level, 2);
   }
 
-  _drawTrails(ctx, sample, now, settings, w, h) {
+  _drawTrails(ctx, sample, now, settings, w, h, trails = this.trails) {
     const options = this.options;
-    const floor = Math.max(8, h - 36), span = Math.max(1, w - 32);
+    const floor = Math.max(8, h - (h > 90 ? 36 : 5)), span = Math.max(1, w - 32);
     const xFor = note => 16 + (note + 0.5) / 128 * span;
     ctx.lineCap = 'round';
-    for (const trail of this.trails) {
+    for (const trail of trails) {
       const end = trail.end ?? now;
       const fade = clamp(1 - (now - end) / options.trailSeconds) ** options.fadeCurve;
       if (fade <= 0) continue;
       const strength = settings.velocity ? trail.velocity / 127 : 1;
       const hue = paletteHue(midiColorHue(trail, options.colorSource) + (sample.hueOffset ?? 0), options.palette)
         + options.hueOffset / 360;
-      const rgb = settings.color ? hsvRgb(hue, options.saturation * 0.78, settings.invert ? 0.45 : 1)
+      const rgb = settings.color ? hsvRgb(options.colorSource === 'voice' ? midiColorHue(trail, 'voice') : hue, options.saturation * 0.78, settings.invert ? 0.45 : 1)
         : settings.invert ? [0.08, 0.14, 0.11] : [0.9, 0.95, 0.92];
       ctx.strokeStyle = cssRgb(rgb); ctx.fillStyle = ctx.strokeStyle;
       const alpha = Math.max(0.12, strength) * fade;
       const thickness = Math.max(1, span / 128 * 0.85) * options.width;
-      const startAge = clamp((now - trail.start) / options.trailSeconds);
+      const startAge = clamp((now - Math.min(trail.start, end - .012)) / options.trailSeconds);
       const endAge = clamp((now - end) / options.trailSeconds);
       const phase = trail.note / 128 * TAU;
       const drift = Math.sin(now * 0.55 + phase * 3) * options.motion;
@@ -331,10 +441,11 @@ export class MidiphoriaRenderer {
                   Math.sin(theta) * radiusSlope + Math.cos(theta) * r * omega];
               };
               const tailAge = Math.min(1, Math.max(startAge, endAge + 0.008));
-              const step = (endAge - tailAge) / 4;
+              const segments = this._denseRendering ? 1 : 4;
+              const step = (endAge - tailAge) / segments;
               let from = point(tailAge);
               ctx.moveTo(from[0], from[1]);
-              for (let segment = 1; segment <= 4; segment += 1) {
+              for (let segment = 1; segment <= segments; segment += 1) {
                 const to = point(tailAge + segment * step);
                 ctx.bezierCurveTo(from[0] + from[2] * step / 3, from[1] + from[3] * step / 3,
                   to[0] - to[2] * step / 3, to[1] - to[3] * step / 3, to[0], to[1]);
@@ -401,7 +512,7 @@ export class MidiphoriaRenderer {
         }
       };
       shape();
-      if (options.glow > 0) {
+      if (options.glow > 0 && !this._denseRendering) {
         ctx.globalAlpha = alpha * options.glow * 0.14;
         ctx.lineWidth = thickness * (2.5 + options.glow * 3); ctx.stroke();
       }
@@ -409,7 +520,8 @@ export class MidiphoriaRenderer {
       if (trail.end === null) {
         if (!heads.length) heads.push([headX, headY]);
         for (const [x, y] of heads) {
-          ctx.beginPath(); ctx.arc(x, y, Math.min(10, Math.max(1.5, thickness + strength * 2)), 0, TAU); ctx.fill();
+          if (this._denseRendering) ctx.fillRect(x - 1, y - 1, 2, 2);
+          else { ctx.beginPath(); ctx.arc(x, y, Math.min(10, Math.max(1.5, thickness + strength * 2)), 0, TAU); ctx.fill(); }
         }
       }
     }

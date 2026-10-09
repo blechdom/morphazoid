@@ -312,6 +312,8 @@ export class MidiphoriaPlayer {
         message.note = data.midiNote;
         message.velocity = type === 'noteOff' ? 0 : Math.round(clamp(data.velocity, 0, 127));
         if (!message.velocity) message.type = 'noteOff';
+        const patch = this._synth.midiChannels?.[data.channel]?.patch;
+        if (message.type === 'noteOn' && typeof patch?.name === 'string') message.voiceName = patch.name.slice(0, 48);
       } else {
         if (!Number.isInteger(data.controller) || data.controller < 0 || data.controller > 127
           || !Number.isInteger(data.value) || data.value < 0 || data.value > 127) return;

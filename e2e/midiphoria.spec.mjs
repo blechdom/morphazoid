@@ -201,7 +201,7 @@ test('pagehide releases devices and a restored page has one set of controls', as
 
 test('activity hue changes the actual trail pixels and inversion changes the background', async ({ page }) => {
   await open(page); await connect(page);
-  await page.locator('#hueMode').selectOption('activity');
+  await page.locator('#colorSource').selectOption('pitch'); await page.locator('#hueMode').selectOption('activity');
   await range(page, 'hueSpeed', 1);
   await sendMidi(page, [0x90, 60, 127]);
   const first = await trailPixel(page);
