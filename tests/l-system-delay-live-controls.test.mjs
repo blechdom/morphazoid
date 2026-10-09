@@ -42,9 +42,13 @@ function engine({ count = 1, delay = .24, rate = 1, dry = 0, wasmModule = module
   let installed;
   do { installed = api.lsd_install_step(handle, 4096); } while (installed === 1);
   assert.equal(installed, 2, error());
-  const settings = new TextEncoder().encode(JSON.stringify({ ...DEFAULT_PERFORMANCE, automatic: false,
-    source: 'mic', frozen: false, inputGain: 1, level: 1, wet: dry ? 0 : 1, dry, mastering: transparent }));
-  assert.equal(api.lsd_performance(handle, allocate(settings), settings.length), 1, error());
+  const defaults = { ...DEFAULT_PERFORMANCE, automatic: false,
+    source: 'mic', frozen: false, inputGain: 1, level: 1, wet: dry ? 0 : 1, dry, mastering: transparent };
+  const performance = candidate => {
+    const settings = new TextEncoder().encode(JSON.stringify({ ...defaults, ...candidate }));
+    assert.equal(api.lsd_performance(handle, allocate(settings), settings.length), 1, error());
+  };
+  performance({});
   let frame = 0;
   const render = (frames, source = tone) => {
     const output = new Float32Array(frames);
@@ -59,7 +63,9 @@ function engine({ count = 1, delay = .24, rate = 1, dry = 0, wasmModule = module
     return output;
   };
   const metrics = () => [...new Float64Array(api.memory.buffer, api.lsd_metrics_ptr(handle), api.lsd_metrics_len())];
-  return { api, handle, render, metrics,
+  return { api, handle, render, metrics, performance,
+    inputMode(media) { assert.equal(api.lsd_input_mode(handle, Number(media)), 1, error()); },
+    reinstall() { assert.equal(api.lsd_install(handle, poolPointer, pool.length), 1, error()); },
     fold(value) { assert.equal(api.lsd_time_fold(handle, value), 1, error()); },
     pitch(value) { assert.equal(api.lsd_pitch_offset(handle, value), 1, error()); },
     close() { api.lsd_drop(handle); for (const [pointer, length] of owned) api.lsd_free(pointer, length); } };
@@ -159,6 +165,47 @@ test('dense live pitch coefficients retain admission, memory, finite output and 
     for (const invalid of [25, -25, NaN, Infinity]) assert.equal(live.api.lsd_pitch_offset(live.handle, invalid), 0);
     assert.equal(live.api.lsd_pitch_offset_value(live.handle), 0, 'invalid controls preserve the last coefficient');
   } finally { live.close(); }
+});
+
+test('media starts at unity after zero or boosted mic trim and returning to mic restores smoothing', () => {
+  for (const trim of [0, 4]) {
+    const live = engine({ dry: .5 }), unity = engine({ dry: .5 });
+    try {
+      live.performance({ inputGain: trim });
+      live.render(RATE, () => 0); unity.render(RATE, () => 0);
+      const before = live.metrics();
+      live.inputMode(true); live.performance({ inputGain: 1 });
+      const first = live.render(BLOCK * 4), reference = unity.render(BLOCK * 4);
+      assert.deepEqual(first, reference, `the first media input block reaches output at unity after mic trim ${trim}`);
+      assert.ok(rms(first) > .01, 'the comparison includes actual non-silent PCM beyond output lookahead');
+      assert.equal(live.metrics()[16], before[16]); assert.equal(live.metrics()[1], before[1]);
+      assert.ok(Math.abs(live.metrics()[14] - before[14] - BLOCK * 4 / RATE) < 1e-9);
+      live.reinstall(); unity.reinstall();
+      live.performance({ inputGain: trim });
+      assert.deepEqual(live.render(4096), unity.render(4096), 'pool and performance updates retain media unity');
+      live.inputMode(false); live.performance({ inputGain: 4 });
+      const returning = live.render(BLOCK * 4), settled = live.render(RATE / 2);
+      const unitySettled = unity.render(BLOCK * 4 + RATE / 2).slice(-4096);
+      const micRms = rms(settled.slice(-4096));
+      assert.ok(micRms > rms(unitySettled) * 3.99 && micRms < rms(unitySettled) * 4.01, 'mic trim restores its fourfold sensitivity');
+      assert.ok(rms(returning) < micRms * .99, 'returning to mic follows its retained gain state instead of jumping to full boost');
+    } finally { live.close(); unity.close(); }
+  }
+});
+
+test('media routing preserves the existing delayed recording, read phase and clock', () => {
+  const live = engine({ rate: .7 }), reference = engine({ rate: .7 });
+  try {
+    for (const instance of [live, reference]) { instance.performance({ inputGain: 4 }); instance.render(RATE); }
+    const before = live.metrics();
+    live.inputMode(true);
+    for (const instance of [live, reference]) instance.performance({ inputGain: 1 });
+    assert.deepEqual(live.render(BLOCK * 4, () => 0), reference.render(BLOCK * 4, () => 0),
+      'routing retains the audible pitched history while current input is silent');
+    assert.equal(live.metrics()[16], before[16]); assert.equal(live.metrics()[1], before[1]);
+    assert.ok(Math.abs(live.metrics()[14] - before[14] - BLOCK * 4 / RATE) < 1e-9);
+    assert.equal(live.api.lsd_input_mode(live.handle, 2), 0, 'invalid flags are rejected');
+  } finally { live.close(); reference.close(); }
 });
 
 // Optional reproducible characterization against a preserved pre-change binary.

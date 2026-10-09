@@ -124,7 +124,13 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     } else if (data.type === 'performance') {
       let accepted;
       try {
-        accepted = withJson(this.api, data.performance, (pointer, length) => this.api.lsd_performance(this.engine, pointer, length));
+        const { inputMode, ...performance } = data.performance;
+        // Old ABI1 modules retain their original gain path. New modules route
+        // media before its first sample, independently of the mic trim ramp.
+        if (this.api.lsd_input_mode && !this.api.lsd_input_mode(this.engine, Number(inputMode === 'media'))) {
+          throw new Error(wasmError(this.api, 'The input mode could not be applied.'));
+        }
+        accepted = withJson(this.api, performance, (pointer, length) => this.api.lsd_performance(this.engine, pointer, length));
       } finally { this.refreshViews(); }
       if (!accepted) throw new Error(wasmError(this.api, 'The audio settings could not be applied.'));
     } else if (data.type === 'strike') this.api.lsd_strike(this.engine);

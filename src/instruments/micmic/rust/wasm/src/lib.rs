@@ -386,6 +386,7 @@ pub struct Renderer {
     dry_mix: f64,
     input_gate: f64,
     input_gain: f64,
+    media_input: bool,
     mic_mix: f64,
     frequency: f64,
     pulse_rate: f64,
@@ -448,6 +449,7 @@ impl Renderer {
             dry_mix: f64::from(performance.dry),
             input_gate: 1.,
             input_gain: f64::from(performance.input_gain),
+            media_input: false,
             mic_mix: 1.,
             frequency: performance.frequency,
             pulse_rate: performance.pulse_rate,
@@ -983,9 +985,12 @@ impl Renderer {
                 left[index],
                 right.map_or(left[index], |values| values[index]),
             ];
+            // Recorded media must start at unity even when the microphone's
+            // independent trim follower is still returning from zero/boost.
+            let input_gain = if self.media_input { 1. } else { self.input_gain };
             let mut frame = std::array::from_fn(|channel| {
                 let value = (seed * (1. - self.mic_mix) + f64::from(mic[channel]) * self.mic_mix)
-                    * self.input_gain;
+                    * input_gain;
                 if value.is_finite() {
                     value.clamp(-16., 16.) as f32
                 } else {
@@ -1339,6 +1344,17 @@ pub unsafe extern "C" fn lsd_pitch_offset_value(handle: *const Renderer) -> f64 
         return 0.;
     }
     (*handle).engine.pitch_offset()
+}
+
+/// Transient source routing, outside stored scenes. Pool and performance
+/// updates retain this flag; microphone trim keeps its own smoothed state.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_input_mode(handle: *mut Renderer, media: u32) -> u32 {
+    if handle.is_null() || media > 1 {
+        return 0;
+    }
+    (*handle).media_input = media != 0;
+    1
 }
 #[no_mangle]
 pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slots: usize) -> usize {

@@ -2,8 +2,8 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 410593,
-  "wasmSha256": "55fa95b6a218239d0edecf51a3f217c400dfb72c5bb574c5a81b586506e71c99",
+  "bytes": 410670,
+  "wasmSha256": "cc7741b0c3798558b1031d7416b98a5a3f615ab0fa1b1257a508792199a93c69",
   "sourceHashes": {
     "scripts/build-l-system-delay-wasm.mjs": "04a58d1cd9e06a06240e023003c7278d8d32c777be8c9b5ee41e3d0948504986",
     "src/instruments/micmic/rust/Cargo.lock": "1e126acdbf65c8ce394f0b0812fa3878b4e197c7ea5fe004af0473ac3eadd4e5",
@@ -17,7 +17,7 @@
     "src/instruments/micmic/rust/core/Cargo.toml": "e2c4919e3b43e47aa46a3c5be984c1df6702dec93cc924eee89a0afa0ee2e0ff",
     "src/instruments/micmic/rust/core/src/lib.rs": "6bb24d84261072cf0fed4efb25dd60c02c6bfbc9e58d35a137d6e93a1cc7c13e",
     "src/instruments/micmic/rust/wasm/Cargo.toml": "4013a81589561c286c913ec9222e657f63947316ca6df657785c27df6485c767",
-    "src/instruments/micmic/rust/wasm/src/lib.rs": "2cf60cd2b8cae3715ae084c8ef1dbaab836a0637c66d5fb1ff711ccc4914bef1"
+    "src/instruments/micmic/rust/wasm/src/lib.rs": "9d5fe883a32406203e1e3f2512bd75c5688bbc036040959456360670d59b5fb6"
   },
   "exports": [
     "lsd_abi_version",
@@ -46,6 +46,7 @@
     "lsd_free",
     "lsd_generation_counts_ptr",
     "lsd_generations_ptr",
+    "lsd_input_mode",
     "lsd_install",
     "lsd_install_abort",
     "lsd_install_begin",
