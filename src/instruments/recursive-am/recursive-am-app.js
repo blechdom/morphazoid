@@ -300,7 +300,7 @@ function updateSignalFlow(stack) {
         <text class="recursive-am-compact-title" x="338" y="53">AUDIO</text>
         <text class="recursive-am-compact-value" x="338" y="68">NORMALIZED</text>
       </g>
-      <text class="recursive-am-compact-caption" x="8" y="101">PREVIOUS SINE × GAIN × SINE → NEXT SINE</text>
+      <text class="recursive-am-compact-caption" x="8" y="101">PREVIOUS SINE → BIASED GAIN × NEXT SINE</text>
     </svg>
   `;
   flow.setAttribute(

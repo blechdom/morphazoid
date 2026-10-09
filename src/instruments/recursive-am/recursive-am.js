@@ -30,18 +30,21 @@ const freezePreset = (preset) => Object.freeze({
 });
 
 /**
- * The five Recursive PM factory settings, with the same values and controls.
- * The index now drives carrier-preserving amplitude modulation at every turn.
+ * The five Recursive PM identities retain their seed, index, depth and controls.
+ * AM creates sum/difference sidebands instead of PM's high-order expansion, so
+ * copying the sub-audio PM turns would leave several presets effectively silent.
+ * These frequency spans keep each final AM carrier audible; gentler index
+ * division retains the earlier turns' influence under bounded multiplication.
  */
 export const RECURSIVE_AM_PRESETS = Object.freeze([
   freezePreset({
     id: "low-orbit",
     label: "Low Orbit",
-    description: "A 22 Hz seed shapes three slow, gently shrinking amplitude turns.",
+    description: "A 22 Hz seed shapes three descending amplitude turns around a 71 Hz carrier.",
     settings: {
       depth: 3,
       carrierHz: 22,
-      startModFrequencyHz: 0.16,
+      startModFrequencyHz: 140,
       frequencyDivisor: 1.4,
       startAmplitudeIndex: 3,
       indexDivisor: 1.46,
@@ -50,53 +53,53 @@ export const RECURSIVE_AM_PRESETS = Object.freeze([
   freezePreset({
     id: "chromium-swarm",
     label: "Chromium Swarm",
-    description: "The original default frequencies: a sub-audio seed shapes a 372.64 Hz sine through three amplitude turns.",
+    description: "A 7.29 Hz seed shapes three descending amplitude turns from 372.64 Hz to a 166 Hz carrier.",
     settings: {
       depth: 3,
       carrierHz: 7.29,
       startModFrequencyHz: 372.64,
-      frequencyDivisor: 4.98,
+      frequencyDivisor: 1.5,
       startAmplitudeIndex: 5.14,
-      indexDivisor: 6.25,
+      indexDivisor: 1.25,
     },
   }),
   freezePreset({
     id: "glass-rotor",
     label: "Glass Rotor",
-    description: "Four widely divided amplitude operators turn a slow seed into a breathing contour.",
+    description: "A slow 1.82 Hz seed shapes four closely spaced amplitude turns around a 199 Hz carrier.",
     settings: {
       depth: 4,
       carrierHz: 1.82,
-      startModFrequencyHz: 10.94,
-      frequencyDivisor: 7.16,
+      startModFrequencyHz: 310.94,
+      frequencyDivisor: 1.16,
       startAmplitudeIndex: 4.29,
-      indexDivisor: 2.44,
+      indexDivisor: 1.24,
     },
   }),
   freezePreset({
     id: "brass-fold",
     label: "Brass Fold",
-    description: "A 182 Hz seed and pi-like frequency division form nested amplitude sidebands.",
+    description: "A 182 Hz seed and four descending amplitude turns form sidebands around a 160 Hz carrier.",
     settings: {
       depth: 4,
       carrierHz: 182,
-      startModFrequencyHz: 12,
-      frequencyDivisor: 3.14,
+      startModFrequencyHz: 360,
+      frequencyDivisor: 1.31,
       startAmplitudeIndex: 1.5,
-      indexDivisor: 2.67,
+      indexDivisor: 1.17,
     },
   }),
   freezePreset({
     id: "slow-fracture",
     label: "Slow Fracture",
-    description: "An expanding frequency series rises from 0.488 Hz while its amplitude index falls.",
+    description: "A 3 Hz seed shapes an expanding 3.14, 9.25 and 27.2 Hz series before an 80 Hz carrier.",
     settings: {
       depth: 4,
       carrierHz: 3,
-      startModFrequencyHz: 0.488,
+      startModFrequencyHz: 3.14432,
       frequencyDivisor: 0.34,
       startAmplitudeIndex: 7.18,
-      indexDivisor: 5.26,
+      indexDivisor: 1.53,
     },
   }),
 ]);
@@ -157,8 +160,8 @@ export function sanitizeRecursiveAmSettings(
     ),
     frequencyDivisor: clamp(
       finiteNumber(
-        settingValue(settings, "frequencyDivisor", "freqDiv", 4.98),
-        4.98,
+        settingValue(settings, "frequencyDivisor", "freqDiv", 1.5),
+        1.5,
       ),
       RECURSIVE_AM_LIMITS.minFrequencyDivisor,
       RECURSIVE_AM_LIMITS.maxFrequencyDivisor,
@@ -173,8 +176,8 @@ export function sanitizeRecursiveAmSettings(
     ),
     indexDivisor: clamp(
       finiteNumber(
-        settingValue(settings, "indexDivisor", "indexDiv", 6.25),
-        6.25,
+        settingValue(settings, "indexDivisor", "indexDiv", 1.25),
+        1.25,
       ),
       RECURSIVE_AM_LIMITS.minIndexDivisor,
       RECURSIVE_AM_LIMITS.maxIndexDivisor,
@@ -187,6 +190,14 @@ export function sanitizeRecursiveAmSettings(
 export function recursiveAmModulationDepth(index) {
   const safeIndex = clamp(finiteNumber(index, 0), 0, MAX_INTERNAL_AMPLITUDE_INDEX);
   return safeIndex / (1 + safeIndex);
+}
+
+/** AM sum sidebands need headroom even when both oscillators are below Nyquist. */
+export function recursiveAmSafeModulationDepth(depth, frequencyHz, incomingBandwidthHz,
+  maximumBandwidthHz) {
+  const headroom = maximumBandwidthHz - frequencyHz - incomingBandwidthHz;
+  const fade = clamp(headroom / (maximumBandwidthHz * 0.1), 0, 1);
+  return depth * fade * fade * (3 - 2 * fade);
 }
 
 function normalizedOutputGain(settings, actualDepth) {
@@ -230,6 +241,9 @@ export function deriveRecursiveAmStack(
   let rawAmplitudeIndex = safe.startAmplitudeIndex;
   let boundedByFrequency = false;
   let boundedByIndex = false;
+  let boundedByBandwidth = false;
+  const maximumBandwidthHz = sampleRateLimit(sampleRate);
+  let incomingBandwidthHz = safe.carrierHz;
 
   for (let turn = 1; turn <= safe.depth; turn += 1) {
     if (!Number.isFinite(modFrequencyHz)
@@ -243,6 +257,10 @@ export function deriveRecursiveAmStack(
       MAX_INTERNAL_AMPLITUDE_INDEX,
     );
     if (amplitudeIndex !== rawAmplitudeIndex) boundedByIndex = true;
+    const rawModulationDepth = recursiveAmModulationDepth(amplitudeIndex);
+    const modulationDepth = recursiveAmSafeModulationDepth(rawModulationDepth,
+      modFrequencyHz, incomingBandwidthHz, maximumBandwidthHz);
+    boundedByBandwidth ||= modulationDepth < rawModulationDepth;
     operators.push({
       index: operators.length,
       turn,
@@ -251,8 +269,10 @@ export function deriveRecursiveAmStack(
       frequencyHz: modFrequencyHz,
       amplitudeIndex,
       rawAmplitudeIndex,
-      modulationDepth: recursiveAmModulationDepth(amplitudeIndex),
+      modulationDepth,
+      rawModulationDepth,
     });
+    incomingBandwidthHz = Math.min(maximumBandwidthHz, modFrequencyHz + incomingBandwidthHz);
     modFrequencyHz /= safe.frequencyDivisor;
     rawAmplitudeIndex /= safe.indexDivisor;
   }
@@ -266,6 +286,7 @@ export function deriveRecursiveAmStack(
     audibleIndex: actualDepth,
     boundedByFrequency,
     boundedByIndex,
+    boundedByBandwidth,
     normalizedGain: normalizedOutputGain(safe, actualDepth),
   });
 }
@@ -748,9 +769,9 @@ export class RecursiveAmProcessor extends ProcessorBase {
     this.current = {
       carrierHz: 7.29,
       startModFrequencyHz: 372.64,
-      frequencyDivisor: 4.98,
+      frequencyDivisor: 1.5,
       startAmplitudeIndex: 5.14,
-      indexDivisor: 6.25,
+      indexDivisor: 1.25,
       depth: 3,
       maximumFrequencyHz: sampleRateLimit(this.processorSampleRate),
     };
@@ -827,7 +848,14 @@ export class RecursiveAmProcessor extends ProcessorBase {
         ...this.target,
         ...data.settings,
       }, { sampleRate: this.processorSampleRate });
-      if (data.immediate) this.current = { ...this.target };
+      if (data.immediate) {
+        this.current = {
+          ...this.target,
+          depth: deriveRecursiveAmStack(this.target, {
+            sampleRate: this.processorSampleRate,
+          }).actualDepth,
+        };
+      }
     };
   }
 
@@ -862,9 +890,6 @@ export class RecursiveAmProcessor extends ProcessorBase {
       this.current.maximumFrequencyHz += (
         this.target.maximumFrequencyHz - this.current.maximumFrequencyHz
       ) * parameterCoefficient;
-      this.current.depth += (
-        this.target.depth - this.current.depth
-      ) * depthCoefficient;
       if (this.noteGlideRemainingSamples > 0) {
         const progress = (
           this.noteGlideTotalSamples - this.noteGlideRemainingSamples + 1
@@ -905,16 +930,23 @@ export class RecursiveAmProcessor extends ProcessorBase {
         * this.currentPitchRatio;
       let amplitudeIndex = this.current.startAmplitudeIndex;
       let availableDepth = 0;
+      let frequencyBounded = false;
+      let incomingBandwidthHz = scaledCarrierHz;
       for (
         let turn = 0;
         turn < RECURSIVE_AM_LIMITS.maxDepth;
         turn += 1
       ) {
-        if (!Number.isFinite(modFrequencyHz)
-          || modFrequencyHz >= this.current.maximumFrequencyHz) {
-          break;
-        }
-        const safeFrequency = Math.max(0, modFrequencyHz);
+        frequencyBounded ||= !Number.isFinite(modFrequencyHz)
+          || modFrequencyHz >= this.current.maximumFrequencyHz;
+        if (!frequencyBounded) availableDepth = turn + 1;
+        // A now-out-of-range turn still needs its running sine while its output
+        // tap fades away. Clamp its rate rather than stopping/resetting phase.
+        const safeFrequency = clamp(
+          finiteNumber(modFrequencyHz, this.current.maximumFrequencyHz),
+          0,
+          this.current.maximumFrequencyHz,
+        );
         this.operatorPhases[turn] += safeFrequency / this.processorSampleRate;
         this.operatorPhases[turn] -= Math.floor(this.operatorPhases[turn]);
         const safeIndex = clamp(
@@ -922,12 +954,16 @@ export class RecursiveAmProcessor extends ProcessorBase {
           0,
           MAX_INTERNAL_AMPLITUDE_INDEX,
         );
-        const modulationDepth = safeIndex / (1 + safeIndex);
+        const modulationDepth = recursiveAmSafeModulationDepth(
+          safeIndex / (1 + safeIndex), safeFrequency, incomingBandwidthHz,
+          this.current.maximumFrequencyHz,
+        );
         const amplitude = (1 + modulationDepth * signals[turn])
           / (1 + modulationDepth);
         signals[turn + 1] = Math.sin(TWO_PI * this.operatorPhases[turn])
           * amplitude;
-        availableDepth = turn + 1;
+        incomingBandwidthHz = Math.min(this.current.maximumFrequencyHz,
+          safeFrequency + incomingBandwidthHz);
         modFrequencyHz /= Math.max(
           RECURSIVE_AM_LIMITS.minFrequencyDivisor,
           this.current.frequencyDivisor,
@@ -938,9 +974,15 @@ export class RecursiveAmProcessor extends ProcessorBase {
         );
       }
 
-      const smoothDepth = clamp(this.current.depth, 0, availableDepth);
+      // Use the same depth smoothing for a sample-rate cutoff as for a control
+      // edit. Directly clamping to availableDepth would instantly switch taps
+      // during MIDI glides or live ratio changes at the frequency ceiling.
+      this.current.depth += (
+        Math.min(this.target.depth, availableDepth) - this.current.depth
+      ) * depthCoefficient;
+      const smoothDepth = clamp(this.current.depth, 0, RECURSIVE_AM_LIMITS.maxDepth);
       const lowerDepth = Math.floor(smoothDepth);
-      const upperDepth = Math.min(availableDepth, lowerDepth + 1);
+      const upperDepth = Math.min(RECURSIVE_AM_LIMITS.maxDepth, lowerDepth + 1);
       const mix = smoothDepth - lowerDepth;
       const sample = signals[lowerDepth] * (1 - mix)
         + signals[upperDepth] * mix;

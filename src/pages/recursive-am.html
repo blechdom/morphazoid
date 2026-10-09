@@ -122,7 +122,7 @@
               <button type="button" data-preset="slow-fracture" aria-pressed="false">Slow Fracture</button>
             </div>
             <p class="recursive-am-preset-description" id="presetDescription">
-              The original default frequencies: a sub-audio seed shapes a 372.64 Hz sine through three amplitude turns.
+              A 7.29 Hz seed shapes three descending amplitude turns from 372.64 Hz to a 166 Hz carrier.
             </p>
           </div>
         </details>
@@ -225,8 +225,8 @@
             <small class="recursive-am-control-note" id="modFrequencyNote">Logarithmic · 0.01 Hz to 400 Hz</small>
 
             <label class="control" for="frequencyDivisor">
-              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷4.98</output></span>
-              <input id="frequencyDivisor" type="range" min="0.01" max="8" step="0.01" value="4.98" />
+              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷1.5</output></span>
+              <input id="frequencyDivisor" type="range" min="0.01" max="8" step="0.01" value="1.5" />
             </label>
 
             <label class="control" for="amplitudeIndex">
@@ -235,20 +235,20 @@
             </label>
 
             <label class="control" for="indexDivisor">
-              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.25</output></span>
-              <input id="indexDivisor" type="range" min="0.01" max="8" step="0.01" value="6.25" />
+              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷1.25</output></span>
+              <input id="indexDivisor" type="range" min="0.01" max="8" step="0.01" value="1.25" />
             </label>
 
             <div class="grammar-card recursive-am-ledger chaotic-turn-ledger" aria-label="Current bounded amplitude operator model">
               <span><b>Carrier</b><code id="carrierReadout">7.29 Hz sine</code></span>
               <span><b>Entry</b><code id="entryReadout">372.64 Hz · index 5.14</code></span>
-              <span><b>Recursions</b><code id="turnsReadout">1: 372.6 Hz × 5.14 · 2: 74.8 Hz × 0.82 · 3: 15 Hz × 0.13</code></span>
+              <span><b>Recursions</b><code id="turnsReadout">1: 372.6 Hz · 84% AM · 2: 248.4 Hz · 80% AM · 3: 165.6 Hz · 77% AM</code></span>
               <span><b>Output</b><code id="operatorReadout">operator 3 · normalized</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
             </div>
 
             <p class="recursive-am-safety-note">
-              Every recursion shapes the next sine’s amplitude with the previous signal. The unitless index maps to AM depth as index ÷ (1 + index), retaining each carrier without polarity inversion. At index 0—or after repeated index division—the result approaches a plain sine. Depth changes crossfade, live parameters glide, and the output is normalized before a protective limiter.
+              Every recursion shapes the next sine’s amplitude with the previous signal. The unitless index maps to AM depth as index ÷ (1 + index), retaining each carrier without polarity inversion. At index 0—or after repeated index division—the result approaches a plain sine. Depth changes and frequency cutoffs crossfade, live parameters glide, and AM depth fades before sidebands reach the frequency ceiling. The output is normalized before a protective limiter.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>

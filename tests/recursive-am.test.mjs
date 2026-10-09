@@ -51,13 +51,22 @@ function spectralAmplitude(samples, hz) {
   return 2 * Math.hypot(real, imaginary) / samples.length;
 }
 
-test("AM preserves PM's preset values, ordering, default, and recursive topology", () => {
+test("AM preserves PM preset identities and topology while translating inaudible frequency spans", () => {
   assert.equal(DEFAULT_RECURSIVE_AM_PRESET_ID, DEFAULT_RECURSIVE_PM_PRESET_ID);
   for (const [index, preset] of RECURSIVE_AM_PRESETS.entries()) {
-    const { startPhaseIndex, ...oldSettings } = RECURSIVE_PM_PRESETS[index].settings;
+    const oldSettings = RECURSIVE_PM_PRESETS[index].settings;
+    const { startPhaseIndex } = oldSettings;
     assert.equal(preset.id, RECURSIVE_PM_PRESETS[index].id);
     assert.equal(preset.label, RECURSIVE_PM_PRESETS[index].label);
-    assert.deepEqual(preset.settings, { ...oldSettings, startAmplitudeIndex: startPhaseIndex });
+    // PM's low-rate operators generate many high-order sidebands. AM cannot
+    // copy those Hz values and remain audible, so test the preserved identity
+    // and gesture contract separately from the AM-specific frequency voicing.
+    assert.equal(preset.settings.depth, oldSettings.depth);
+    assert.equal(preset.settings.carrierHz, oldSettings.carrierHz);
+    assert.equal(preset.settings.startAmplitudeIndex, startPhaseIndex);
+    assert.deepEqual(preset.settings, (({ maximumFrequencyHz, ...values }) => values)(
+      sanitizeRecursiveAmSettings(preset.settings),
+    ));
     const stack = deriveRecursiveAmStack(preset.settings);
     assert.equal(stack.actualDepth, preset.settings.depth);
     assert.equal(stack.audibleIndex, stack.actualDepth);
@@ -71,6 +80,131 @@ test("AM preserves PM's preset values, ordering, default, and recursive topology
       assert.ok(operator.modulationDepth >= 0 && operator.modulationDepth < 1);
     }
   }
+});
+
+// Exact finite AM spectrum: every turn contributes its carrier and multiplies
+// the incoming finite spectrum by that sine. Unlike raw RMS, this separates
+// actual audible energy from DC and infrasonic components without FFT leakage.
+function amplitudeSpectrum(settings) {
+  const stack = deriveRecursiveAmStack(settings);
+  const add = (spectrum, frequency, real, imaginary) => {
+    const key = Math.round(frequency * 1e8);
+    const current = spectrum.get(key) ?? [0, 0];
+    spectrum.set(key, [current[0] + real, current[1] + imaginary]);
+  };
+  let spectrum = new Map();
+  add(spectrum, stack.operators[0].frequencyHz, 0, -0.5);
+  add(spectrum, -stack.operators[0].frequencyHz, 0, 0.5);
+  for (const operator of stack.operators.slice(1)) {
+    const next = new Map();
+    const gain = 1 / (1 + operator.modulationDepth);
+    const sidebandGain = operator.modulationDepth * gain / 2;
+    add(next, operator.frequencyHz, 0, -gain / 2);
+    add(next, -operator.frequencyHz, 0, gain / 2);
+    for (const [key, [real, imaginary]] of spectrum) {
+      add(next, key / 1e8 + operator.frequencyHz,
+        imaginary * sidebandGain, -real * sidebandGain);
+      add(next, key / 1e8 - operator.frequencyHz,
+        -imaginary * sidebandGain, real * sidebandGain);
+    }
+    spectrum = next;
+  }
+  return spectrum;
+}
+
+function audibleSpectrumRms(a, b = new Map()) {
+  let energy = 0;
+  for (const key of new Set([...a.keys(), ...b.keys()])) {
+    const hz = Math.abs(key / 1e8);
+    if (hz < 20 || hz > 20_000) continue;
+    const [ar, ai] = a.get(key) ?? [0, 0];
+    const [br, bi] = b.get(key) ?? [0, 0];
+    energy += (ar - br) ** 2 + (ai - bi) ** 2;
+  }
+  return Math.sqrt(energy);
+}
+
+test("every translated preset has audible carrier energy and meaningful nested modulation", () => {
+  for (const preset of RECURSIVE_AM_PRESETS) {
+    const stack = deriveRecursiveAmStack(preset.settings);
+    const carrier = stack.operators.at(-1).frequencyHz;
+    assert.ok(carrier >= 45 && carrier <= 200, `${preset.id}: final carrier is audible`);
+    const spectrum = amplitudeSpectrum(preset.settings);
+    const audibleRms = audibleSpectrumRms(spectrum);
+    assert.ok(audibleRms > 0.35, `${preset.id}: audible RMS ${audibleRms}`);
+    const outputRms = audibleRms * stack.normalizedGain * 0.58 * 0.82;
+    assert.ok(20 * Math.log10(outputRms) > -30, `${preset.id}: useful level after gain staging`);
+    const drySpectrum = amplitudeSpectrum({ ...preset.settings, startAmplitudeIndex: 0 });
+    assert.ok(audibleSpectrumRms(spectrum, drySpectrum) > 0.15,
+      `${preset.id}: amplitude depth changes audible content`);
+    const movedSeed = amplitudeSpectrum({ ...preset.settings, carrierHz: preset.settings.carrierHz * 1.5 });
+    assert.ok(audibleSpectrumRms(spectrum, movedSeed) > 0.002,
+      `${preset.id}: the initial seed still reaches the audible band`);
+    const samples = render(processorFor(preset.settings), SAMPLE_RATE * 2);
+    assert.ok(spectralAmplitude(samples, carrier) > 0.45,
+      `${preset.id}: the actual worklet retains its audible carrier`);
+  }
+});
+
+test("the audible-band check rejects copying the original sub-audio PM presets", () => {
+  const original = RECURSIVE_PM_PRESETS.find(preset => preset.id === "glass-rotor");
+  const { startPhaseIndex, ...settings } = original.settings;
+  assert.equal(audibleSpectrumRms(amplitudeSpectrum({
+    ...settings, startAmplitudeIndex: startPhaseIndex,
+  })), 0);
+});
+
+test("AM sum-sidebands fade before aliasing during high MIDI transposition", () => {
+  const processor = processorFor({ depth: 1, carrierHz: 1200,
+    startModFrequencyHz: 400, frequencyDivisor: 1,
+    startAmplitudeIndex: 20, indexDivisor: 1 });
+  processor.port.onmessage({ data: { type: "note-pitch", pitchRatio: 48, immediate: true } });
+  const samples = render(processor, SAMPLE_RATE);
+  assert.ok(spectralAmplitude(samples, 19_200) > 0.99);
+  assert.ok(spectralAmplitude(samples, 8_800) < 1e-6, "39.2kHz sum must not fold to 8.8kHz");
+  assert.ok(spectralAmplitude(samples, 800) < 1e-6, "the guarded AM link is smoothly bypassed");
+});
+
+test("the displayed AM ledger matches the worklet inside its sideband headroom fade", () => {
+  const settings = { depth: 3, carrierHz: 1100, startModFrequencyHz: 400,
+    frequencyDivisor: 0.16, startAmplitudeIndex: 20, indexDivisor: 1 };
+  const stack = deriveRecursiveAmStack(settings);
+  assert.equal(stack.boundedByBandwidth, true);
+  const guarded = stack.operators.at(-1);
+  assert.ok(guarded.modulationDepth > 0 && guarded.modulationDepth < guarded.rawModulationDepth);
+  const samples = render(processorFor(settings), 1024);
+  for (let n = 0; n < samples.length; n += 1) {
+    let expected = Math.sin(TAU * settings.carrierHz * (n + 1) / SAMPLE_RATE);
+    for (const operator of stack.operators.slice(1)) {
+      expected = Math.sin(TAU * operator.frequencyHz * (n + 1) / SAMPLE_RATE)
+        * (1 + operator.modulationDepth * expected) / (1 + operator.modulationDepth);
+    }
+    assert.ok(Math.abs(samples[n] - expected) < 1e-6);
+  }
+});
+
+test("crossing the recursive frequency ceiling fades the outgoing tap without resetting its phase", () => {
+  const processor = processorFor({ depth: 2, carrierHz: 100,
+    startModFrequencyHz: 100, frequencyDivisor: 0.1,
+    startAmplitudeIndex: 3, indexDivisor: 1 });
+  processor.port.onmessage({ data: { type: "note-pitch", pitchRatio: 19.999, immediate: true } });
+  render(processor, 997);
+  const outgoingPhase = processor.operatorPhases[1];
+  processor.port.onmessage({ data: { type: "note-pitch", pitchRatio: 20.001, immediate: true } });
+  const first = render(processor, 1)[0];
+  const nextPhase = (outgoingPhase + 20_000 / SAMPLE_RATE) % 1;
+  const continuingOutgoingSine = Math.sin(TAU * nextPhase);
+  assert.ok(Math.abs(first - continuingOutgoingSine) < 0.005,
+    "first sample must remain near the outgoing sine, not jump to the lower operator");
+  assert.ok(processor.current.depth > 1.99 && processor.current.depth < 2);
+  assert.ok(Math.abs(processor.operatorPhases[1] - nextPhase) < 1e-12);
+  render(processor, SAMPLE_RATE / 10);
+  assert.ok(Math.abs(processor.current.depth - 1) < 0.0001);
+  processor.port.onmessage({ data: { type: "note-pitch", pitchRatio: 19.999, immediate: true } });
+  render(processor, 1);
+  assert.ok(processor.current.depth < 1.01, "returning turn also fades in");
+  render(processor, SAMPLE_RATE / 10);
+  assert.ok(Math.abs(processor.current.depth - 2) < 0.0001);
 });
 
 test("one AM turn preserves carrier and creates only the two expected sidebands", () => {
