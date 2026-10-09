@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 41,
-    "fullPresets": 1861,
+    "implemented": 42,
+    "fullPresets": 1873,
     "favesImplemented": 17,
-    "activeRemaining": 60,
-    "regularRemaining": 128
+    "activeRemaining": 62,
+    "regularRemaining": 130
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -757,6 +757,15 @@
       "status": "unmigrated"
     },
     {
+      "id": "recursive-am",
+      "label": "Recursive AM",
+      "href": "recursive-am.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
       "id": "chaotic-fm",
       "label": "Chaotic FM",
       "href": "chaotic-fm.html",
@@ -769,6 +778,15 @@
       "id": "chaotic-pm",
       "label": "Chaotic PM",
       "href": "chaotic-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "chaotic-am",
+      "label": "Chaotic AM",
+      "href": "chaotic-am.html",
       "category": "synthesizer",
       "scope": "regular",
       "presets": null,
@@ -797,6 +815,15 @@
       "id": "cascading-pm",
       "label": "Cascading PM",
       "href": "cascading-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "cascading-am",
+      "label": "Cascading AM",
+      "href": "cascading-am.html",
       "category": "synthesizer",
       "scope": "regular",
       "presets": 12,
@@ -1742,8 +1769,10 @@
       "candy-coil-delay",
       "recursive-fm",
       "recursive-pm",
+      "recursive-am",
       "chaotic-fm",
       "chaotic-pm",
+      "chaotic-am",
       "weierstrass",
       "surround-field",
       "sorting-algorithms"

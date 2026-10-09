@@ -1,0 +1,77 @@
+# Cascading, Recursive and Chaotic AM
+
+These three instruments are amplitude-modulation counterparts to the existing
+Cascading, Recursive and Chaotic FM/PM instruments. They keep their PM siblings’
+layouts, frequency controls, operator order, preset organization, live
+analysis, output controls and Audio/MIDI lifecycle. Each has its own route,
+preset identity and sound engine.
+
+## Synthesis
+
+The starting point is Synthesaurus’s AM method, implemented in
+`src/instruments/synthesis/rust/core/src/conventional.rs`. With its Bias set to
+one, the method reduces to:
+
+```text
+output = carrier × (1 + depth × modulator) / (1 + depth)
+```
+
+The new instruments use that carrier-preserving form at every connection.
+Carrier and modulator are bounded to ±1 and depth to 0–1. The gain is nonnegative
+and at most one, so a deep chain cannot amplify itself without bound. Zero depth
+leaves the stage’s sine unchanged. Unlike zero-bias ring modulation, the DC bias
+retains a carrier component. The oscillators advance at their own frequencies;
+the incoming signal never changes an oscillator’s phase increment or phase.
+
+| Instrument | Preserved structure | AM interpretation |
+| --- | --- | --- |
+| Cascading AM | 2–12 stages, root frequency, rising/equal/falling cascade ratio, taper, twelve rhythm presets | Each stage’s output modulates the next sine’s amplitude. Modulation depth sets the first connection; depth taper changes subsequent connections. |
+| Recursive AM | Recursion depth, carrier, starting modulation frequency, frequency divisor, index divisor, five presets | Each recursive turn uses the preceding output as its biased amplitude modulator. AM index maps to depth as `index / (1 + index)`. |
+| Chaotic AM | Recursive frequency/index ladders, nonlinear amount, transfer choice, eight presets, MIDI performance controls | A bounded nonlinear transfer shapes the incoming amplitude modulator before each multiplication. AM index also maps to `index / (1 + index)`. |
+
+Cascading’s depth taper scales modulation strength in index space, then converts
+back to bounded depth. This keeps a taper above one useful without clipping every
+later stage to the same depth. Its preset amounts are translated from the PM
+bank; pitch, timing, stage counts and names are retained. Chaotic retains its
+original calibrated settings and reinterprets the index as AM strength.
+
+Recursive keeps its five preset identities and recursion depths, with translated
+frequency and modulation settings for AM. Several original PM presets relied
+on broad phase-modulation sidebands while their final oscillators were below
+20 Hz. Copying those frequencies into bounded AM made them nearly inaudible.
+The AM bank keeps the recursive movement but gives each scene an audible final
+carrier. The controls retain their original ranges, including sub-audio settings
+for deliberate experimentation.
+
+Chaotic AM is an artistic nonlinear AM cascade. Its name does not imply a proof
+of dynamical chaos in every setting. Smooth and saturated transfers produce
+different modulator shapes, with the same bounded AM multiplication afterward.
+The original PM transfer is not mixed into the new audio path.
+
+## Playing
+
+Enable **Audio**, choose a preset, then adjust the same operator and performance
+controls as the sibling instrument. Low modulation frequencies produce level
+movement; faster modulation creates sum/difference sidebands. Use zero AM amount
+to compare with the final carrier alone. The spectrum and oscilloscope show the
+actual resulting signal, and the flow diagram describes amplitude multiplication.
+
+Recursive AM and Chaotic AM preserve native MIDI notes, expression, sustain,
+pitch bend, glide and amplitude envelopes. Cascading AM retains its sibling’s
+shared MIDI control mapping. MIDI and computer keys are enabled in Settings.
+Preset recall preserves Audio and master output; preset changes do not add a
+second audio owner. Cascading AM corrects its sibling’s preset-level reset so a
+manually adjusted master output stays put. Audio begins off, and page departure
+releases the audio graph.
+
+## Scope and evidence
+
+These are browser instruments with generated WAX counterparts. They do not add
+native JUCE/CLAP/REAPER binaries. Existing FM/PM sound engines and preset banks
+remain intact. Catalogue artwork is reused from the corresponding PM instrument.
+
+Focused model tests check the carrier/sideband relationship, fixed oscillator
+phase, bounds, control sensitivity and lifecycle behavior. Browser checks cover
+live output, preset recall, MIDI, cleanup and responsive layouts. Automated
+measurements do not establish timbral quality or physical-controller feel;
+human listening and hardware-controller acceptance remain separate.

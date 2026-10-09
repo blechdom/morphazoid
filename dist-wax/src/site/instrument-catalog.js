@@ -624,6 +624,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, then play a MIDI or computer key and adjust depth and modulation amount.",
     ["MIDI", "Computer keys"],
   ),
+  "recursive-am": define(
+    "Synth",
+    "Nests amplitude-modulated sine operators, with smaller modulation depths at deeper recursion levels.",
+    "Turn on audio, then play a MIDI or computer key and adjust recursion depth and AM amount.",
+    ["MIDI", "Computer keys"],
+  ),
   "recursive-pm": define(
     "Synth",
     "Folds a carrier through recursive phase operators, adding progressively smaller offsets at deeper levels.",
@@ -636,6 +642,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, then play a MIDI or computer key and shape the cascade depth.",
     ["MIDI", "Computer keys"],
     "plugins.html#chaotic-fm",
+  ),
+  "chaotic-am": define(
+    "Synth",
+    "Shapes each recursive amplitude modulator with a bounded nonlinear transfer, retaining smooth and saturated modes.",
+    "Turn on audio, then play a MIDI or computer key and shape depth, AM amount, and chaos.",
+    ["MIDI", "Computer keys"],
   ),
   "chaotic-pm": define(
     "Synth",
@@ -653,6 +665,11 @@ const CATALOG_DETAILS = Object.freeze({
     "Plays five nonlinear systems through orbit signals, sixteen geometric playheads and changing rhythms, with stereo mappings, tempo maps and fifty presets.",
     "Enable Audio, choose a sonification and try a preset. Shape rhythms maps geometry to pulse speeds; Tempo map shows each head’s BPM and beat progress.",
     ["Pointer", "MIDI", "Computer keys", "AudioWorklet"],
+  ),
+  "cascading-am": define(
+    "Synth",
+    "Chains sine oscillators across rising, equal, or falling frequencies, with each stage modulating the amplitude of the next.",
+    "Turn on audio, then adjust stage count, cascade ratio, modulation depth, and depth taper.",
   ),
   "cascading-pm": define(
     "Synth",

@@ -25,7 +25,9 @@ const EXISTING_MIDI_CLIENTS = new Set([
   "chaotic-fm",
   "recursive-fm",
   "chaotic-pm",
+  "chaotic-am",
   "recursive-pm",
+  "recursive-am",
   "fm-drums",
   "sample-drums",
 ]);

@@ -154,8 +154,10 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "shape-synth",
     "recursive-fm",
     "recursive-pm",
+    "recursive-am",
     "chaotic-fm",
     "chaotic-pm",
+    "chaotic-am",
     "fm-drums",
     "sample-drums",
   ]);

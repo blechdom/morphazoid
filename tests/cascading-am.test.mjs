@@ -173,7 +173,8 @@ test("worklet shutdown stops rendering and randomization preserves level while v
   const values = Object.fromEntries(Object.keys(CASCADING_AM_DEFAULTS).map(k => [k, new Set()]));
   for (let i = 0; i < 64; i++) {
     const result = randomizeCascadingAmPreset({ level: 0.39 }, random);
-    assert.equal(result.level, 0.39); assert.equal(result.activePresetId, null);
+    assert.equal(Object.hasOwn(result, "level"), false, "master output is not preset-owned");
+    assert.equal(result.activePresetId, null);
     for (const [key, value] of Object.entries(result.settings)) values[key].add(value);
   }
   for (const [key, observed] of Object.entries(values)) assert.ok(observed.size > 1, key);
