@@ -91,8 +91,11 @@ test.beforeEach(async ({ page }) => {
 test("chaotic-am: depth and synthesis slider ranges retain the audible carrier", async ({ page, baseURL }, testInfo) => {
   test.setTimeout(90_000);
   const diagnostics = watchPageDiagnostics(page, { baseURL });
-  await openInstrument(page);
-  const defaultId = await presetRow(page).getAttribute("data-preset-id");
+  const ids = await openInstrument(page);
+  // The shared picker starts at Select Preset even when the instrument has
+  // a named startup scene. Read its state rather than the menu's placeholder.
+  const defaultId = (await capture(page)).snapshot.activePresetId;
+  expect(ids).toContain(defaultId);
   await setControl(page, "output", 0.31);
   const graph = await armAudio(page);
   const measurements = [await measureAudible(page, "default")];
