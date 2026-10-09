@@ -55,7 +55,7 @@ function message(error, fallback) {
   return error?.message || String(error || fallback);
 }
 
-/** Captures the output manager's final stereo mix without arming instrument Audio. */
+/** Captures the final stereo mix on the instrument's own audio clock. */
 export class OutputRecorder {
   constructor({ manager, runtime = globalThis, onchange, maxMemoryBytes, maxFileBytes, stopTimeoutMs = 1_000, writeTimeoutMs = 15_000 } = {}) {
     this.manager = manager;
@@ -126,16 +126,14 @@ export class OutputRecorder {
     if (take.finishing) return take.done.promise;
     try {
       if (this.manager?.canRecord?.() === false) throw new Error("Turn Audio on before recording.");
-      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-      if (!Context || !this.runtime.AudioWorkletNode || !this.manager?.tapInto) {
+      if (!this.runtime.AudioWorkletNode || !this.manager?.tapInto) {
         throw new Error("This browser does not support output recording.");
       }
-      // Construct and resume in the original click turn. Only this silent
-      // recorder context is resumed; instrument contexts retain their state.
-      const context = new Context({
-        sampleRate: this.manager.recordingSampleRate?.() || 48_000,
-        latencyHint: "playback",
-      });
+      // Cross-context MediaStream bridges can insert silent blocks and phase
+      // discontinuities even at matching sample rates. Borrow the instrument's
+      // running context and tap its mix directly, without resuming or owning it.
+      const context = this.manager.recordingContext?.();
+      if (!context || context.state !== "running") throw new Error("Turn Audio on before recording.");
       take.context = context;
       take.sampleRate = context.sampleRate;
       if (!context.audioWorklet?.addModule) throw new Error("Audio recording needs a secure browser with AudioWorklet support.");
@@ -146,7 +144,6 @@ export class OutputRecorder {
         }
       };
       context.addEventListener?.("statechange", take.handleStateChange);
-      const resumed = context.resume();
       const loaded = context.audioWorklet.addModule(new URL("./output-recorder-processor.js", import.meta.url));
       if (writable) {
         take.writeChain = this.fileOperation(take, () => writable.write(wavHeader({ sampleRate: take.sampleRate, frames: 0 }))).catch((error) => {
@@ -154,12 +151,12 @@ export class OutputRecorder {
         });
       }
       const started = await Promise.race([
-        Promise.all([resumed, loaded, take.writeChain]).then(() => true),
+        Promise.all([loaded, take.writeChain]).then(() => true),
         take.cancelled.promise.then(() => false),
       ]);
       if (!started || take.finishing) return take.done.promise;
       if (take.writeError) throw take.writeError;
-      if (context.state !== "running") throw new Error("The recording audio context could not start.");
+      if (context.state !== "running") throw new Error("Audio stopped before recording could start.");
       const maxFrames = Math.floor((take.maxBytes - WAV_HEADER_BYTES) / BYTES_PER_FRAME);
       const node = new this.runtime.AudioWorkletNode(context, "morphazoid-output-recorder", {
         numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
@@ -318,9 +315,8 @@ export class OutputRecorder {
     disconnect(take.silent);
     const context = take.context;
     context?.removeEventListener?.("statechange", take.handleStateChange);
-    // Every private node is already disconnected. Context closure must not
-    // delay file finalization if the browser stalls its audio device teardown.
-    try { Promise.resolve(context?.close?.()).catch(() => {}); } catch { /* Already closed. */ }
+    // This is the instrument's context. Release only our tap, worklet and silent
+    // output; recording must never close, suspend or resume audible playback.
     await take.writeChain;
     take.frames = take.persistedFrames;
     try {

@@ -123,6 +123,12 @@ function fixture(options = {}) {
     tapCount: 0, releases: 0, instrumentResumeCalls: 0,
     canRecord: () => options.canRecord !== false,
     recordingSampleRate: () => 48_000,
+    recordingContext: () => {
+      if (contexts.length) return contexts[0];
+      const context = new runtime.AudioContext({ sampleRate: 48_000 });
+      context.state = "running";
+      return context;
+    },
     tapInto(context, node, config) {
       assert.ok(contexts.includes(context));
       assert.ok(nodes.includes(node));
@@ -255,14 +261,14 @@ test("exhausted worklet credits bound a stalled UI to a continuous captured pref
   assert.equal(processBlock(capture), false, "late credits cannot restart a take");
 });
 
-test("buffered take uses actual sample rate, releases the private graph, and stays ready until discarded", async () => {
+test("buffered take uses actual sample rate, releases only recording nodes, and stays ready until discarded", async () => {
   const graph = fixture({ sampleRate: 44_100 });
   const states = [];
   const unsubscribe = graph.recorder.subscribe((status) => states.push(status.state));
   await graph.recorder.start({ filename: "test.wav" });
   assert.equal(graph.recorder.getStatus().state, "recording");
   assert.equal(graph.contexts[0].options.sampleRate, 48_000);
-  assert.equal(graph.contexts[0].resumeCalls, 1);
+  assert.equal(graph.contexts[0].resumeCalls, 0);
   assert.equal(graph.manager.instrumentResumeCalls, 0);
   assert.equal(graph.nodes[0].connected[0].gain.value, 0);
   graph.render({ frames: 133 });
@@ -278,7 +284,8 @@ test("buffered take uses actual sample rate, releases the private graph, and sta
   assert.equal(new DataView(data).getUint32(24, true), 44_100);
   assert.deepEqual(pcm24(data.slice(44, 56)), [2_097_152, -4_194_304, 2_097_152, -4_194_304]);
   assert.equal(graph.manager.releases, 1);
-  assert.equal(graph.contexts[0].closeCalls, 1);
+  assert.equal(graph.contexts[0].closeCalls, 0);
+  assert.equal(graph.contexts[0].state, "running", "stopping must preserve instrument Audio");
   assert.equal(graph.nodes[0].port.closed, true);
   assert.equal(graph.nodes[0].disconnected, true);
   assert.equal(graph.timers.size, 0);
@@ -362,7 +369,7 @@ test("stopping during module load cancels startup and prevents a late capture gr
   const stopped = await graph.recorder.stop();
   assert.equal(stopped.state, "ready");
   assert.equal(stopped.frames, 0);
-  assert.equal(graph.contexts[0].closeCalls, 1);
+  assert.equal(graph.contexts[0].closeCalls, 0);
   module.resolve();
   await starting;
   assert.equal(graph.nodes.length, 0);
@@ -386,7 +393,7 @@ test("unsupported or disabled output never resumes instrument Audio and aborts a
   await graph.recorder.destroy();
 });
 
-test("module failure closes its private context and reports the startup failure", async () => {
+test("module failure leaves the borrowed instrument context running and reports the startup failure", async () => {
   const module = deferred();
   const graph = fixture({ module });
   const starting = graph.recorder.start();
@@ -394,7 +401,8 @@ test("module failure closes its private context and reports the startup failure"
   await assert.rejects(starting, /worklet could not load/);
   assert.equal(graph.recorder.getStatus().reason, "start-error");
   assert.equal(graph.recorder.getStatus().state, "error");
-  assert.equal(graph.contexts[0].closeCalls, 1);
+  assert.equal(graph.contexts[0].closeCalls, 0);
+  assert.equal(graph.contexts[0].state, "running");
   assert.equal(graph.manager.tapCount, 0);
   await graph.recorder.destroy();
 });
@@ -448,17 +456,75 @@ test("processor failure preserves delivered PCM and cleans up the graph", async 
   await graph.recorder.destroy();
 });
 
-test("a dynamic output bridge failure stops capture and preserves the take", async () => {
+test("a newly registered independent output stops capture and preserves the take", async () => {
   const graph = fixture();
   await graph.recorder.start();
   graph.render({ frames: 100 });
-  graph.manager.tapOptions.onerror(new Error("output bridge unavailable"));
+  graph.manager.tapOptions.onerror(new Error("Multiple audio outputs cannot be combined for recording."));
   const status = await graph.recorder.stop();
   assert.equal(status.state, "ready");
   assert.equal(status.frames, 100);
   assert.equal(status.reason, "interrupted");
-  assert.match(status.error, /output bridge unavailable/);
+  assert.match(status.error, /Multiple audio outputs/);
   assert.equal(graph.manager.releases, 1);
+  await graph.recorder.destroy();
+});
+
+test("the borrowed context is never constructed, resumed, suspended or closed by recording lifecycle", async () => {
+  const graph = fixture();
+  const context = graph.manager.recordingContext();
+  const calls = [];
+  graph.runtime.AudioContext = class {
+    constructor() { calls.push("construct"); throw new Error("Recorder must borrow the running context"); }
+  };
+  for (const method of ["resume", "suspend", "close"]) {
+    context[method] = () => { calls.push(method); throw new Error(`Recorder must not ${method} instrument Audio`); };
+  }
+  await graph.recorder.start();
+  graph.render({ frames: 25 });
+  const first = await graph.recorder.stop();
+  assert.equal(first.frames, 25);
+  graph.recorder.discard();
+  await graph.recorder.start();
+  graph.render({ frames: 13 });
+  await graph.recorder.destroy();
+  assert.equal(graph.recorder.getStatus().frames, 13);
+  assert.equal(graph.contexts.length, 1);
+  assert.equal(graph.manager.releases, 2);
+  assert.equal(context.state, "running");
+  assert.equal(context.events.get("statechange").size, 0);
+  assert.deepEqual(calls, []);
+});
+
+test("a context suspended during startup is rejected without arming Audio", async () => {
+  const graph = fixture();
+  const context = graph.manager.recordingContext();
+  context.state = "suspended";
+  await assert.rejects(graph.recorder.start(), /Turn Audio on/);
+  assert.equal(context.resumeCalls, 0);
+  assert.equal(context.closeCalls, 0);
+  assert.equal(context.state, "suspended");
+  assert.equal(graph.nodes.length, 0);
+  await graph.recorder.destroy();
+});
+
+test("a closed instrument context preserves delivered PCM without another context close", async () => {
+  const graph = fixture();
+  await graph.recorder.start();
+  const frames = graph.nodes[0].options.processorOptions.chunkFrames;
+  graph.render({ frames });
+  await tick();
+  graph.nodes[0].processor.port.onmessage = null;
+  const context = graph.contexts[0];
+  await context.close();
+  const stopped = graph.recorder.stop();
+  graph.expireTimers();
+  const status = await stopped;
+  assert.equal(status.state, "ready");
+  assert.equal(status.frames, frames);
+  assert.equal(status.reason, "interrupted");
+  assert.equal(context.closeCalls, 1, "only the instrument owner's explicit close was called");
+  assert.equal(context.resumeCalls, 0);
   await graph.recorder.destroy();
 });
 
