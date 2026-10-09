@@ -14,7 +14,9 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
     this.filled = 0;
     this.bytes = null;
     this.finished = false;
+    this.started = false;
     this.port.onmessage = ({ data }) => {
+      if (data?.type === "start" && !this.finished) this.started = true;
       if (data?.type === "credit") this.credits = Math.min(this.maxCredits, this.credits + 1);
       if (data?.type === "stop") this.finish("stopped");
     };
@@ -51,6 +53,9 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
       for (const channel of output) channel.fill(0);
     }
     if (this.finished) return false;
+    // The node can be pulled as soon as its silent output is connected. Wait
+    // for the main thread to finish attaching the complete output tap first.
+    if (!this.started) return true;
     const input = inputs[0] ?? [];
     // An input disappearing is recorded as silence, keeping time sample based.
     const length = outputs[0]?.[0]?.length || input[0]?.length || 128;

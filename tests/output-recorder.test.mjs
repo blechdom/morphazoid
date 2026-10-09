@@ -48,7 +48,9 @@ function processBlock(processor, { left = 0.25, right = -0.5, frames = 128, chan
   return active;
 }
 function processor(options = {}) {
-  return new Processor({ processorOptions: { chunkFrames: 128, maxFrames: 10_000, credits: 8, ...options } });
+  const capture = new Processor({ processorOptions: { chunkFrames: 128, maxFrames: 10_000, credits: 8, ...options } });
+  capture.port.onmessage({ data: { type: "start" } });
+  return capture;
 }
 function chunkPosts(capture) {
   return capture.port.posts.filter(({ message }) => message.type === "chunk");
@@ -248,6 +250,20 @@ test("processor enforces the frame cap inside a render quantum", () => {
   assert.equal(processBlock(capture), false);
   assert.deepEqual(chunkPosts(capture).map(({ message }) => message.frames), [128, 2]);
   assert.equal(capture.frames, 130);
+});
+
+test("processor waits for the explicit start handshake before counting or capturing frames", () => {
+  const capture = new Processor({ processorOptions: { maxFrames: 10_000 } });
+  processBlock(capture, { channels: 0 });
+  processBlock(capture);
+  assert.equal(capture.frames, 0);
+  assert.equal(capture.port.posts.length, 0);
+  capture.port.onmessage({ data: { type: "start" } });
+  processBlock(capture, { frames: 3 });
+  capture.port.onmessage({ data: { type: "stop" } });
+  const [{ message }] = chunkPosts(capture);
+  assert.equal(message.frames, 3);
+  assert.deepEqual(pcm24(message.buffer), [2_097_152, -4_194_304, 2_097_152, -4_194_304, 2_097_152, -4_194_304]);
 });
 
 test("exhausted worklet credits bound a stalled UI to a continuous captured prefix", () => {

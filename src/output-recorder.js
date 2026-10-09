@@ -200,6 +200,7 @@ export class OutputRecorder {
       if (take.finishing || this.state === "stopping") return take.done.promise;
       node.connect(silent);
       silent.connect(context.destination);
+      node.port.postMessage({ type: "start" });
       this.state = "recording";
       this.publish();
       return this.getStatus();
