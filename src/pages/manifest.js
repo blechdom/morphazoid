@@ -166,6 +166,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "slippery-resynthesis.html",
   "solid-drum-machine.html",
   "solid-synth.html",
+  "spartial.html",
   "spelling-synthesizer.html",
   "spider-synth.html",
   "spiral-drum-machine.html",

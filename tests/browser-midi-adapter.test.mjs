@@ -221,6 +221,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "karplus-carpet",
     "object-forge",
     "surround-field",
+    "spartial",
     "gesturama",
     "simd-resonator",
     "simd-synth",

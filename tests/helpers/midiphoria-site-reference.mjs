@@ -1,10 +1,12 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreSpartialSite } from './spartial-site-reference.mjs';
 
 export const midiphoriaSiteAdditions = JSON.parse(readFileSync(new URL('../fixtures/midiphoria-site-additions.json', import.meta.url), 'utf8'));
 
 // Peel only the exact new lab records; retain every earlier catalogue byte.
 export function restoreMidiphoriaSite(source, file, { allowRestored = false } = {}) {
+  source = restoreSpartialSite(source, file, { allowRestored: true });
   for (const change of midiphoriaSiteAdditions.filter(change => change.file === file)) {
     // Historical reader layers may call this twice. Partial or duplicated
     // additions still fail; direct new-page checks always require every record.

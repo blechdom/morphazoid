@@ -1,0 +1,39 @@
+{
+  "additions": [
+    {
+      "id": "spartial",
+      "label": "SPARTIAL",
+      "href": "spartial.html",
+      "kind": "Surround additive synthesizer",
+      "description": "Distributes up to thirty-two harmonic or inharmonic sine partials across surround speakers, with editable fingerprints, millisecond cascades, optional speaker rotation and one-speaker focus.",
+      "start": "Enable Audio, then play a note or chord. Edit the fingerprint, squeeze or spread its spatial turns, or click a destination in One speaker mode. Speaker motion starts off.",
+      "features": [
+        "Pointer",
+        "Built-in synth",
+        "Spatial audio",
+        "Discrete output",
+        "MIDI",
+        "Computer keys"
+      ],
+      "pluginHref": null,
+      "imageHref": "assets/instruments/spartial.webp",
+      "tags": [
+        {
+          "id": "surround",
+          "label": "Surround"
+        },
+        {
+          "id": "spatial",
+          "label": "Spatial"
+        },
+        {
+          "id": "synthesizer",
+          "label": "Synthesizer"
+        }
+      ],
+      "status": null,
+      "categoryId": "dispersion",
+      "categoryLabel": "Dispersion"
+    }
+  ]
+}

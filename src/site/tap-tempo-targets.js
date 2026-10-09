@@ -181,6 +181,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "splice-ring.html", "selector": "#speed", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "srtuss.html", "selector": "#selectedVoiceRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "striped-staircase.html", "selector": "#speed", "mapping": {"unit": "hz", "cycleUnit": "T-unit"}},
+  {"route": "spartial.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "surround-field.html", "selector": "#orbitRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "synaptic-resonance.html", "selector": "#rate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "synthesis.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},

@@ -530,6 +530,11 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "synthesizer",
     "physical-model"
   ],
+  "spartial": [
+    "surround",
+    "spatial",
+    "synthesizer"
+  ],
   "surround-field": [
     "surround",
     "spatial",

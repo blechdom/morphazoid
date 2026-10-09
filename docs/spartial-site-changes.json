@@ -1,0 +1,56 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "fde095d18c662e9f91d10de35934109b4c935d50",
+  "description": "Exact additive SPARTIAL catalogue records captured against clean remote main; historical catalogue and layout references remain unchanged.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "621daf0c4b02539b26d51e33937bda1fc4e38608e32fc4bf291032c7cc95dfa0",
+      "additions": [
+        "    { id: \"spartial\", label: \"SPARTIAL\", href: \"spartial.html\", imageHref: \"assets/instruments/spartial.webp\" },\n"
+      ],
+      "regressionTests": [
+        "tests/spartial-integration.test.mjs",
+        "tests/spartial.test.mjs",
+        "e2e/spartial.spec.mjs"
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "aabd29cc8bd9b898bcdb2e4b35f6440cb1019c4cc8634f54a5e031ff03d5025a",
+      "additions": [
+        "  ),\n  spartial: define(\n    \"Surround additive synthesizer\",\n    \"Distributes up to thirty-two harmonic or inharmonic sine partials across surround speakers, with editable fingerprints, millisecond cascades, optional speaker rotation and one-speaker focus.\",\n    \"Enable Audio, then play a note or chord. Edit the fingerprint, squeeze or spread its spatial turns, or click a destination in One speaker mode. Speaker motion starts off.\",\n    [\"Pointer\", \"Built-in synth\", \"Spatial audio\", \"Discrete output\"],\n"
+      ],
+      "regressionTests": [
+        "tests/spartial-integration.test.mjs",
+        "tests/spartial.test.mjs",
+        "e2e/spartial.spec.mjs"
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "486f071d8559ee60874f4168867e6c1da0faf4efa47390a0f7516f9ee10864d9",
+      "additions": [
+        "  ],\n  \"spartial\": [\n    \"surround\",\n    \"spatial\",\n    \"synthesizer\"\n"
+      ],
+      "regressionTests": [
+        "tests/spartial-integration.test.mjs",
+        "tests/spartial.test.mjs",
+        "e2e/spartial.spec.mjs"
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "e0c54e1e2ede29f1c05ea63f156e28097105a83fa520693d05030a64bf767e61",
+      "additions": [
+        "    \"spartial\",\n",
+        "  \"spartial\",\n"
+      ],
+      "regressionTests": [
+        "tests/spartial-integration.test.mjs",
+        "tests/spartial.test.mjs",
+        "e2e/spartial.spec.mjs"
+      ]
+    }
+  ]
+}

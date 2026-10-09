@@ -851,6 +851,14 @@ copy+require	src/instruments/vector-flight/vector-flight.css
 copy+require	src/instruments/vector-flight/vector-flight-app.js
 copy	src/instruments/vector-flight/vector-flight.js
 copy	assets/instruments/vector-flight.webp
+copy+require	spartial.html
+copy+require	src/instruments/spartial/spartial-app.js
+copy+require	src/instruments/spartial/spartial.js
+copy+require	src/instruments/spartial/spartial-audio.js
+copy+require	src/instruments/spartial/spartial-processor.js
+copy+require	src/instruments/spartial/spartial.css
+copy+require	assets/instruments/spartial.webp
+copy+require	docs/spartial.md
 copy	surround-field.html
 copy+require	src/instruments/surround-field/surround-field.css
 copy+require	src/instruments/surround-field/surround-field-app.js

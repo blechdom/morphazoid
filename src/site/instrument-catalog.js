@@ -207,6 +207,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on audio, choose Continuous, Notes, or Triggers, drag around the ship to rotate the physics mapping, then raise the throttle until points become hyperspace rays and full-circle plaid.",
     ["Pointer", "Built-in synth", "Spatial audio"],
   ),
+  spartial: define(
+    "Surround additive synthesizer",
+    "Distributes up to thirty-two harmonic or inharmonic sine partials across surround speakers, with editable fingerprints, millisecond cascades, optional speaker rotation and one-speaker focus.",
+    "Enable Audio, then play a note or chord. Edit the fingerprint, squeeze or spread its spatial turns, or click a destination in One speaker mode. Speaker motion starts off.",
+    ["Pointer", "Built-in synth", "Spatial audio", "Discrete output"],
+  ),
   "surround-field": define(
     "Multichannel spatial instrument",
     "Places synth or imported audio inside 7:4:1, 4:1, eight-speaker circle, eight-speaker cube, and two-to-thirty-two-channel custom arrays, with calibrated speaker tests and synchronized channel-stem capture.",

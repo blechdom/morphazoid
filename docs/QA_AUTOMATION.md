@@ -1,5 +1,7 @@
 # Morphazoid QA automation
 
+The focused SPARTIAL suite supports `E2E_AUDIO_SILENT_SINK=1 npx playwright test e2e/spartial.spec.mjs` when a host audio device stalls the browser's audio clock. This opt-in uses a silent AudioContext output while preserving real-time synthesis and analyser assertions. Report that mode explicitly: it checks rendering and controls, but does not verify the default device or physical surround outputs.
+
 This browser suite is the mechanical half of the Morphazoid quality process. It is designed to find regressions, inventory controls, and produce reviewable evidence. It does not replace the listening pass that decides whether an instrument is expressive, coherent, or enjoyable.
 
 The route inventory is generated from the same catalogue and navigation data used by the site. `e2e/routes.mjs`, `src/site/instrument-registry.js` (also re-exported by `nav.js`), and `src/site/instrument-catalog.js` are the source of truth; documentation and cross-registry tests must compare IDs and records dynamically rather than pinning the current total. An explicit count belongs only in a test where cardinality itself is a reviewed product contract.

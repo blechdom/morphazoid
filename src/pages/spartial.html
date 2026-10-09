@@ -1,0 +1,97 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090b" />
+  <meta name="description" content="SPARTIAL — additive surround synthesis with editable harmonic and inharmonic partials, cascading entrances and speaker motion." />
+  <title>SPARTIAL — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/spartial/spartial.css" />
+</head>
+<body class="spartial-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab" href="shape-synth.html">shape</a><a class="tab" href="surround-field.html">surround for safety</a><a class="tab active" href="spartial.html" aria-current="page">SPARTIAL</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="shape-synth.html">shape</option><option value="surround-field.html">surround for safety</option><option value="spartial.html" selected>SPARTIAL</option></select></label>
+    <div class="audio-strip" aria-label="Audio controls">
+      <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-speaker-icon" aria-hidden="true"></span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+      <label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">65%</output></span><input id="level" aria-label="Master audio level" type="range" min="0" max="1" step="0.01" value="0.65" /></label>
+    </div>
+  </header>
+  <main class="shell spartial-shell">
+    <section class="stage spartial-stage" aria-label="SPARTIAL performance surface">
+      <div class="stage-wrap" id="stageWrap">
+        <h1 class="spartial-title">SPARTIAL</h1>
+        <canvas id="stage" tabindex="0" role="img" aria-label="Partial positions around the speaker ring" aria-describedby="stageInstructions">Colored dots show partial destinations. Drag to turn their distribution, or choose One speaker to send everything to a speaker you click.</canvas>
+        <p id="stageInstructions" class="spartial-gesture-hint">Drag to turn the partials. Click a speaker to start there.</p>
+      </div>
+    </section>
+    <div class="spartial-controls" id="spartialControls">
+      <section class="spectrum-panel" aria-labelledby="spectrumTitle">
+        <div class="spectrum-heading"><h2 class="group-title" id="spectrumTitle">Harmonic fingerprint</h2><div class="preset-row spectrum-preset-row"><label class="sr-only" for="spectrumPreset">Harmonic fingerprint preset</label><select id="spectrumPreset"></select><button id="nextSpectrum" class="mini-action" type="button" aria-label="Next harmonic fingerprint" title="Next harmonic fingerprint">▶</button><button id="randomSpectrum" class="mini-action dice-button" type="button" aria-label="Randomize harmonic fingerprint" title="Randomize harmonic fingerprint"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div></div>
+        <div id="partialSliders" class="partial-sliders" role="group" aria-label="Individual partial levels"></div>
+        <div class="spectrum-controls">
+          <label class="control" for="partials"><span><b>Number of partials</b><output id="partialsOut" for="partials">16</output></span><input id="partials" type="range" min="1" max="32" step="1" value="16" /></label>
+          <label class="control" for="stretch"><span><b>Frequency spacing</b><output id="stretchOut" for="stretch">1.00 · harmonic</output></span><input id="stretch" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
+          <label class="control" for="inharmonicity"><span><b>Inharmonicity</b><output id="inharmonicityOut" for="inharmonicity">0%</output></span><input id="inharmonicity" type="range" min="0" max="1" step="0.01" value="0" /></label>
+        </div>
+      </section>
+    <aside class="panel spartial-panel" data-instrument-preset-host aria-label="SPARTIAL controls">
+      <div class="preset-row full-preset-row"><label class="sr-only" for="preset">Instrument preset</label><select id="preset"></select><button id="nextPreset" class="mini-action" type="button" aria-label="Next instrument preset" title="Next instrument preset">▶</button><button id="randomPreset" class="mini-action dice-button" type="button" aria-label="Randomize instrument" title="Randomize instrument"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div>
+      <details class="group control-section performance-group" data-section="play" open>
+        <summary class="group-summary"><h2 class="group-title">Play</h2></summary>
+        <div class="group-body">
+          <div class="spartial-transport"><button id="playButton" class="play-button" data-primary-transport type="button" aria-label="Play selected note" aria-pressed="false"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z"/></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12"/></svg></button><label class="tempo-field" for="tempo"><span>Tempo</span><div><input id="tempo" type="number" min="30" max="240" step="1" value="90" /><span>BPM</span></div></label><button id="panicButton" class="mini-action" type="button" aria-label="Release all notes" title="Release all notes">Silence</button></div>
+          <div class="paired-controls"><label class="control" for="motion"><span><b>Speaker motion</b></span><select id="motion"><option value="off">Off</option><option value="cw">Clockwise</option><option value="ccw">Counterclockwise</option><option value="counter">Opposite directions</option></select></label><label class="control" for="beatsPerTurn"><span><b>Beats per turn</b></span><select id="beatsPerTurn"><option value="4">4</option><option value="8">8</option><option value="16" selected>16</option><option value="32">32</option><option value="64">64</option></select></label></div>
+          <div class="paired-controls"><label class="control" for="mode"><span><b>Sound</b></span><select id="mode"><option value="single">Single note</option><option value="chord">Chord</option></select></label><label class="control" for="chord"><span><b>Chord type</b></span><select id="chord" disabled><option value="minor">Minor</option><option value="major">Major</option><option value="sus">Suspended</option><option value="fifth">Open fifth</option><option value="minor7">Minor 7</option><option value="major7">Major 7</option></select></label></div>
+          <label class="control" for="root"><span><b>Note / chord root</b></span><select id="root"></select></label>
+          <div class="keyboard-heading"><span>Chromatic keyboard</span><div><button id="octaveDown" class="mini-action" type="button" aria-label="Keyboard down one octave">−8va</button><button id="octaveUp" class="mini-action" type="button" aria-label="Keyboard up one octave">+8va</button></div></div>
+          <div class="note-pads" id="notePads" role="group" aria-label="Chromatic note keyboard"></div>
+          <p class="control-note">Play holds the selected note or chord. Keyboard keys sound while held; all twelve semitones are available.</p>
+          <p id="liveStatus" class="spartial-status sr-only" role="status" aria-live="polite"></p>
+          <label class="control" for="attack"><span><b>Fade in</b><output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="2" step="0.005" value="0.04" /></label>
+          <label class="control" for="release"><span><b>Release</b><output id="releaseOut" for="release">1.20 s</output></span><input id="release" type="range" min="0.02" max="5" step="0.01" value="1.2" /></label>
+        </div>
+      </details>
+      <details class="group control-section" data-section="form" open>
+        <summary class="group-summary"><h2 class="group-title">Speaker distribution</h2></summary>
+        <div class="group-body">
+          <label class="control" for="routingMode"><span><b>Send partials</b></span><select id="routingMode"><option value="spread">Across speakers</option><option value="focus">To one speaker</option></select></label>
+          <div id="spreadControls"><label class="control" for="pattern"><span><b>Order around the room</b></span><select id="pattern"><option value="wrap">Low → high</option><option value="reverse">High → low</option><option value="alternate">Alternating sides</option><option value="scatter">Scattered</option></select></label>
+          <label class="control" for="cycles"><span><b>Turns occupied by the partials</b><output id="cyclesOut" for="cycles">1.00 turn</output></span><input id="cycles" type="range" min="0" max="4" step="0.01" value="1" /></label>
+          <p class="control-note">1 = one trip around the room. Below 1 squeezes the partials into an arc; above 1 wraps them around again.</p>
+          <label class="control" for="offset"><span><b>Starting angle</b><output id="offsetOut" for="offset">0°</output></span><input id="offset" type="range" min="0" max="0.995" step="0.005" value="0" /></label></div>
+          <label class="control" id="targetControl" for="target" hidden><span><b>Destination speaker</b></span><select id="target"></select></label>
+        </div>
+      </details>
+      <details class="group control-section" data-section="rotation" open>
+        <summary class="group-summary"><h2 class="group-title">Partial cascade</h2></summary>
+        <div class="group-body">
+          <label class="control" for="cascadeOrder"><span><b>Entrance order</b></span><select id="cascadeOrder"><option value="up">Ascending · low → high</option><option value="down">Descending · high → low</option><option value="alternate">Low / high alternating</option></select></label>
+          <label class="control" for="cascade"><span><b>Average delay per partial</b><output id="cascadeOut" for="cascade cascadeMs">45 ms</output></span><input id="cascade" type="range" min="0" max="500" step="1" value="45" /></label>
+          <div class="delay-number-row"><label for="cascadeMs">Exact delay</label><div><input id="cascadeMs" type="number" min="0" max="500" step="1" value="45" inputmode="numeric" /><span>ms</span></div></div>
+          <label class="control" for="cascadeStart"><span><b>Initial delay</b><output id="cascadeStartOut" for="cascadeStart cascadeStartMs">0 ms</output></span><input id="cascadeStart" type="range" min="0" max="2000" step="1" value="0" /></label>
+          <div class="delay-number-row"><label for="cascadeStartMs">Exact initial delay</label><div><input id="cascadeStartMs" type="number" min="0" max="2000" step="1" value="0" inputmode="numeric" /><span>ms</span></div></div>
+          <label class="control" for="cascadeCurve"><span><b>Spacing curve</b><output id="cascadeCurveOut" for="cascadeCurve">Even</output></span><input id="cascadeCurve" type="range" min="-1" max="1" step="0.01" value="0" /></label>
+          <label class="control" for="cascadeVariation"><span><b>Timing variation</b><output id="cascadeVariationOut" for="cascadeVariation">0%</output></span><input id="cascadeVariation" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <div class="cascade-timing-heading"><span>Last entrance <output id="cascadeDurationOut">675 ms</output></span><button id="restartCascade" class="mini-action" type="button" disabled>Restart cascade</button></div>
+          <div id="cascadeTimeline" class="cascade-timeline" role="img" aria-label="Partial entrance times"></div>
+          <p class="control-note">Timing edits apply to the next note. Restart to hear them now. Variation repeats the same pattern; the curve and variation keep the same total length.</p>
+          <label class="control" for="rolloff"><span><b>High partial falloff</b><output id="rolloffOut" for="rolloff">1.20</output></span><input id="rolloff" type="range" min="0" max="3" step="0.05" value="1.2" /></label>
+        </div>
+      </details>
+      <details class="group control-section" data-section="sound">
+        <summary class="group-summary"><h2 class="group-title">Speaker setup</h2></summary>
+        <div class="group-body"><label class="control" for="layout"><span><b>Layout</b></span><select id="layout"><option value="8-circle">8-speaker circle</option><option value="4-ring">4-speaker circle</option><option value="16-ring">16-speaker circle</option><option value="4-1">4:1 surround</option><option value="7-4-1">7:4:1 surround</option><option value="8-cube">8-speaker cube</option></select></label><label class="check-control"><input id="forcePreview" type="checkbox" /> Stereo preview</label><p class="control-note" id="routeBadge">Audio off</p><p class="control-note" id="outputDetail">Turn Audio on to check the available channels.</p><div class="speaker-patch" id="speakerPatch" aria-label="Speaker channel patch"></div></div>
+      </details>
+      <details class="group control-section"><summary class="group-summary"><h2 class="group-title">About the controls</h2></summary><div class="group-body"><p class="control-note">The fingerprint contains 1–32 sine partials. Frequency spacing at 1 and inharmonicity at 0 produce the harmonic series. Lower spacing compresses their pitches; higher spacing expands them. Inharmonicity offsets upper partials while preserving the fundamental.</p><p class="control-note">The diagram shows speaker routing order. Colored dots are individual partial destinations; faint dots are silent. In One speaker mode all partials share the highlighted output. Click or drag to a speaker to choose it.</p><p class="control-note">Motion follows the tempo while Play is active. Pausing retains the angle. Eight voices can sound at once. Cascade edits affect the next note; spectrum and space edits affect held notes.</p><p class="control-note">Delay is measured in milliseconds per partial. At Even spacing and 0% variation every gap is equal. Silent and out-of-range partials still occupy a step; long fade-ins can blur the entrances. Lower Fade in for sharper attacks. The timing strip shows scheduled entrances, not volume. Restart briefly fades the held note or chord before starting its cascade again.</p><p class="control-note">Layouts come from <a href="surround-field.html">Surround for Safety</a>. LFE stays silent. Stereo previews left/right only; physical surround needs a multichannel output and matching numbered interface patch.</p></div></details>
+      <div class="reset-all-row"><button id="resetAll" class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset SPARTIAL</button></div>
+    </aside>
+    </div>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/spartial/spartial-app.js"></script>
+</body>
+</html>

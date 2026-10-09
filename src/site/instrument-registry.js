@@ -154,6 +154,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("dispersion", "Dispersion", [
     { id: "surround-field", label: "Surround for Safety", href: "surround-field.html" },
+    { id: "spartial", label: "SPARTIAL", href: "spartial.html", imageHref: "assets/instruments/spartial.webp" },
   ]),
   freezeGroup("algorithmic", "Algorithmic", [
     { id: "cellular-automata", label: "Automatapoeia", href: "automatapoeia.html" },
