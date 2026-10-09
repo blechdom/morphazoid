@@ -1775,3 +1775,5 @@ copy+require	src/instruments/recursive-fm/full-presets.js
 copy+require	src/instruments/recursive-pm/full-presets.js
 copy+require	src/families/recursive/full-presets.js
 copy+require	src/families/recursive/preset-voicings.js
+copy+require	src/instruments/chaotic-am/presets.js
+copy+require	src/instruments/chaotic-am/full-presets.js

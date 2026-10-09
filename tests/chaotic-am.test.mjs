@@ -78,27 +78,21 @@ function component(samples, frequency, sampleRate = RATE) {
   return 2 * Math.hypot(real, imaginary) / samples.length;
 }
 
-test("Chaotic AM preserves the calibrated PM scenes, controls and performance defaults", async () => {
+test("Chaotic AM retains familiar preset identities and performance while adopting AM-specific ranges", async () => {
   assert.equal(DEFAULT_CHAOTIC_AM_PRESET_ID, DEFAULT_CHAOTIC_PM_PRESET_ID);
   assert.equal(CHAOTIC_AM_DEFAULTS.output, CHAOTIC_PM_DEFAULTS.output);
   assert.deepEqual(CHAOTIC_AM_PERFORMANCE_DEFAULTS, CHAOTIC_PM_PERFORMANCE_DEFAULTS);
   assert.equal(new ChaoticAmAudio({}).context, null, "Audio is lazy");
-  assert.deepEqual(CHAOTIC_AM_PRESETS.map(({ id, label, settings }) => ({
-    id, label, settings: {
-      ...settings,
-      startPhaseIndex: settings.startAmplitudeIndex,
-      startAmplitudeIndex: undefined,
-    },
-  })), CHAOTIC_PM_PRESETS.map(({ id, label, settings }) => ({
-    id, label, settings: { ...settings, startAmplitudeIndex: undefined },
-  })));
-  const pages = await Promise.all(["pm", "am"].map((type) => readFile(
-    new URL(`../src/pages/chaotic-${type}.html`, import.meta.url), "utf8",
-  )));
-  const inputs = (source) => [...source.matchAll(/<input\b[^>]+>/g)]
-    .map(([tag]) => Object.fromEntries([...tag.matchAll(/\s(id|type|min|max|step|value)="([^"]*)"/g)]
-      .map(([, key, value]) => [key, value.replace("phaseIndex", "amplitudeIndex").replace("phaseWarp", "amplitudeWarp")])));
-  assert.deepEqual(inputs(pages[1]), inputs(pages[0]), "only synthesis labels and identities change the interface");
+  assert.equal(CHAOTIC_AM_PRESETS.length, 12);
+  assert.deepEqual(CHAOTIC_AM_PRESETS.slice(0, 8).map(({ id }) => id), CHAOTIC_PM_PRESETS.map(({ id }) => id));
+  for (const { settings } of CHAOTIC_AM_PRESETS) {
+    const sanitized = sanitizeChaoticAmParams(settings);
+    for (const key of Object.keys(settings)) assert.equal(sanitized[key], settings[key], key);
+  }
+  assert.equal(CHAOTIC_AM_LIMITS.minCarrierHz, 40);
+  assert.equal(CHAOTIC_AM_LIMITS.minModFrequencyHz, 0.5);
+  assert.equal(CHAOTIC_AM_LIMITS.maxFrequencyDivisor, 4);
+  assert.equal(CHAOTIC_AM_LIMITS.maxIndexDivisor, 2);
 });
 
 test("AM retains its carrier and creates the expected sum/difference sidebands", () => {
@@ -156,7 +150,7 @@ test("every factory scene and hostile extremes render finite bounded audio at co
   }
 });
 
-test("all preserved presets have substantial spectral energy in the audible band", () => {
+test("all AM-specific presets have substantial spectral energy in the audible band", () => {
   for (const { id, settings } of CHAOTIC_AM_PRESETS) {
     for (const transferMode of ["smooth", "saturated"]) {
       const stack = deriveChaoticAmStack({ ...settings, transferMode });
@@ -199,12 +193,13 @@ test("worklet matches the pure AM transfer and modulation never alters oscillato
     const stack = deriveChaoticAmStack(settings);
     const turn = transferMode === "smooth" ? smoothChaoticAmTurnSample : saturatedChaoticAmTurnSample;
     output.forEach((sample, frame) => {
-      let expected = 0;
       for (const operator of stack.operators) {
         phases[operator.index] = (phases[operator.index] + operator.frequencyHz / RATE) % 1;
-        expected = operator.index === 0
-          ? Math.sin(TAU * phases[0])
-          : turn(expected, phases[operator.index], operator.frequencyHz, operator.amplitudeIndex, settings.nonlinearity);
+      }
+      let expected = Math.sin(TAU * phases[settings.depth]);
+      for (let index = settings.depth - 1; index >= 0; index -= 1) {
+        const operator = stack.operators[index];
+        expected = turn(expected, phases[index], operator.frequencyHz, operator.amplitudeIndex, settings.nonlinearity);
       }
       assert.ok(Math.abs(sample - expected) < 1e-7, `${transferMode} diverged at frame ${frame}`);
     });
@@ -228,7 +223,7 @@ test("every retained synthesis control changes the sound and live edits preserve
   }
   const changed = configure(settings);
   const unchanged = configure(settings);
-  render(changed, 257);
+  const before = render(changed, 257);
   render(unchanged, 257);
   const oldPhase = changed.carrierPhase;
   changed.port.onmessage({ data: { type: "settings", settings: {
@@ -243,7 +238,16 @@ test("every retained synthesis control changes the sound and live edits preserve
   assert.ok(transitioning.every((sample) => Number.isFinite(sample) && Math.abs(sample) <= 1));
   let largestJump = 0;
   for (let i = 1; i < transitioning.length; i += 1) largestJump = Math.max(largestJump, Math.abs(transitioning[i] - transitioning[i - 1]));
-  assert.ok(largestJump < 0.1, `live shape/depth edit jumped ${largestJump}`);
+  // Strong saturated AM legitimately has sharp periodic edges. Compare a live
+  // edit with the same settled target, rather than treating its timbre as a click.
+  const settled = configure({ ...settings, depth: 7, startAmplitudeIndex: 64,
+    nonlinearity: 1, transferMode: "saturated" });
+  render(settled, 257);
+  const reference = render(settled, 2_048);
+  let settledJump = 0;
+  for (let i = 1; i < reference.length; i += 1) settledJump = Math.max(settledJump, Math.abs(reference[i] - reference[i - 1]));
+  assert.ok(largestJump <= settledJump * 1.1, `transition ${largestJump} exceeds settled edges ${settledJump}`);
+  assert.ok(Math.abs(transitioning[0] - before.at(-1)) < 0.05, "the edit itself must not jump the gain or phase");
 });
 
 test("MIDI gate, note ownership, sustain, release and shutdown retain the PM lifecycle", () => {
@@ -269,4 +273,64 @@ test("MIDI gate, note ownership, sustain, release and shutdown retain the PM lif
   assert.equal(rms(render(processor, 128)), 0);
   processor.port.onmessage({ data: { type: "shutdown" } });
   assert.equal(processor.process([], [[new Float32Array(128)]]), false);
+});
+
+
+test("depth and divided subaudio modulators preserve the audible carrier and zero-amount bypass", () => {
+  const settings = { ...CHAOTIC_AM_DEFAULTS, carrierHz: 211, startModFrequencyHz: 0.5,
+    frequencyDivisor: 4, indexDivisor: 2, startAmplitudeIndex: 8 };
+  const pure = render(configure({ ...settings, depth: 0 }), 12_000);
+  for (let depth = 0; depth <= 10; depth += 1) {
+    const stack = deriveChaoticAmStack({ ...settings, depth });
+    assert.equal(stack.audibleIndex, 0);
+    assert.equal(stack.operators[stack.audibleIndex].frequencyHz, 211);
+    assert.equal(stack.operators.length, depth + 1);
+    assert.equal(stack.operators.at(-1).sourceIndex, null);
+    const output = render(configure({ ...settings, depth }), 12_000);
+    assert.ok(component(output, 211) > 0.4, `depth ${depth} lost its carrier`);
+    assert.ok(rms(output) > 0.25, `depth ${depth} became quiet`);
+    const bypass = render(configure({ ...settings, depth, startAmplitudeIndex: 0 }), 12_000);
+    assert.deepEqual(bypass, pure, "zero AM is the same carrier at every recursion depth");
+  }
+});
+
+test("every preset has prompt output throughout the revised synthesis control ranges", () => {
+  const variations = {
+    depth: [0, 1, 5, 10], carrierHz: [40, 283, 2000],
+    startModFrequencyHz: [0.5, 23, 2400], frequencyDivisor: [0.5, 1, 4],
+    startAmplitudeIndex: [0, 1, 64], indexDivisor: [0.5, 1, 2],
+    nonlinearity: [0, 0.5, 1], transferMode: ["smooth", "saturated"],
+  };
+  for (const preset of CHAOTIC_AM_PRESETS) {
+    for (const [key, values] of Object.entries(variations)) {
+      for (const value of values) {
+        const settings = { ...preset.settings, [key]: value };
+        const output = render(configure(settings), 12_000);
+        assert.ok(output.every(sample => Number.isFinite(sample) && Math.abs(sample) <= 1.000001), `${preset.id}/${key}/${value}`);
+        // A coherent carrier component verifies audible energy, even when an
+        // almost-DC inner modulator would make raw waveform RMS misleading.
+        assert.ok(component(output, settings.carrierHz) > 0.04, `${preset.id}/${key}/${value} lost its carrier`);
+        assert.ok(rms(output.subarray(0, 2400)) > 0.025, `${preset.id}/${key}/${value} has a delayed onset`);
+      }
+    }
+  }
+});
+
+
+test("preset articulation changes glide a held sustain level without restarting its envelope", () => {
+  const processor = configure();
+  processor.setPerformance({ playMode: "midi", ampAttackMs: 0, ampDecayMs: 0, ampSustainLevel: 1 });
+  processor.noteOn(60, 127);
+  render(processor, 1024);
+  assert.equal(processor.envelopeStage, 3);
+  assert.equal(processor.envelopeLevel, 1);
+  processor.setPerformance({ ampSustainLevel: 0.2, ampAttackMs: 200 });
+  assert.equal(processor.envelopeStage, 3);
+  assert.equal(processor.envelopeLevel, 1, "recall cannot instantly step the live gain");
+  render(processor, 128);
+  assert.ok(processor.envelopeLevel > 0.7 && processor.envelopeLevel < 1);
+  assert.equal(processor.selectedNote, 60);
+  render(processor, 4800);
+  assert.ok(Math.abs(processor.envelopeLevel - 0.2) < 0.00001);
+  assert.equal(processor.envelopeStage, 3);
 });

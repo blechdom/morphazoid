@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 45,
-    "fullPresets": 1909,
+    "implemented": 46,
+    "fullPresets": 1921,
     "favesImplemented": 17,
-    "activeRemaining": 59,
-    "regularRemaining": 127
+    "activeRemaining": 58,
+    "regularRemaining": 126
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -792,8 +792,9 @@
       "href": "chaotic-am.html",
       "category": "synthesizer",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Revoiced nested AM carrier, complete preset pulldown/Next/dice; tests/chaotic-am.test.mjs and e2e/chaotic-am-controls.spec.mjs cover control sweeps, onset, live Audio/level and MIDI continuity. Automated characterization only; human listening remains unperformed."
     },
     {
       "id": "bifurcator",
@@ -1772,7 +1773,6 @@
       "candy-coil-delay",
       "chaotic-fm",
       "chaotic-pm",
-      "chaotic-am",
       "weierstrass",
       "surround-field",
       "sorting-algorithms"

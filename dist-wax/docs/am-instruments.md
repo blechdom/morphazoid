@@ -2,8 +2,8 @@
 
 These three instruments are amplitude-modulation counterparts to the existing
 Cascading, Recursive and Chaotic FM/PM instruments. They keep their PM siblings’
-layouts, frequency controls, operator order, preset organization, live
-analysis, output controls and Audio/MIDI lifecycle. Each has its own route,
+layouts, operator controls, live analysis, output controls and Audio/MIDI lifecycle.
+Chaotic AM adapts the routing and parameter ranges to keep its carrier audible. Each has its own route,
 preset identity and sound engine.
 
 ## Synthesis
@@ -27,7 +27,7 @@ the incoming signal never changes an oscillator’s phase increment or phase.
 | --- | --- | --- |
 | Cascading AM | 2–12 stages, root frequency, rising/equal/falling cascade ratio, taper, twelve rhythm presets | Each stage’s output modulates the next sine’s amplitude. Modulation depth sets the first connection; depth taper changes subsequent connections. |
 | Recursive AM | Recursion depth, carrier, starting modulation frequency, frequency divisor, index divisor, twelve presets | Each recursive turn uses the preceding output as its biased amplitude modulator. AM index maps to depth as `index / (1 + index)`. |
-| Chaotic AM | Recursive frequency/index ladders, nonlinear amount, transfer choice, eight presets, MIDI performance controls | A bounded nonlinear transfer shapes the incoming amplitude modulator before each multiplication. AM index also maps to `index / (1 + index)`. |
+| Chaotic AM | Recursive frequency/index ladders, nonlinear amount, transfer choice, twelve presets, MIDI performance controls | A fixed audible carrier receives a nested chain of nonlinear amplitude modulators. Starting index controls the carrier link; divided indices shape deeper links. |
 
 Cascading’s depth taper scales modulation strength in index space, then converts
 back to bounded depth. This keeps a taper above one useful without clipping every
@@ -39,8 +39,7 @@ root's influence. The new bank keeps stable preset IDs/order while changing
 labels and voicings to describe the AM sounds. The full two-to-twelve-stage
 control remains available. Raising Root raises every oscillator, so it speeds
 tremolo into a steady timbre as well as raising pitch. Random scenes also produce
-immediate rhythmic or audio-rate AM sounds. Chaotic retains its
-original calibrated settings and reinterprets the index as AM strength.
+immediate rhythmic or audio-rate AM sounds.
 
 Recursive keeps its five original preset identities and recursion depths, with translated
 frequency and modulation settings for AM. Several original PM presets relied
@@ -50,7 +49,25 @@ The AM bank keeps the recursive movement but gives each scene an audible final
 carrier. The controls retain their original ranges, including sub-audio settings
 for deliberate experimentation.
 
-Chaotic AM is an artistic nonlinear AM cascade. Its name does not imply a proof
+Chaotic AM now builds modulation from the innermost sine outward into a fixed
+40–2000 Hz carrier. The previous serial routing replaced that carrier at every
+turn; the default 40 Hz output became 4, 0.4 and 0.04 Hz as depth increased.
+The revised routing keeps slow frequencies in the modulation path instead.
+Modulator rate spans 0.5–2400 Hz. Frequency divisor (0.5–4) and depth divisor
+(0.5–2) use logarithmic sliders; AM depth has evenly distributed gain-depth
+travel while its stored index remains `depth / (1 - depth)`. Depth changes fade
+nested gain links without resetting phases. Expanding modulator frequencies
+fade before the render ceiling, while the carrier remains connected.
+
+Its twelve revoiced presets retain the first eight IDs/order and cover pulses,
+flutter, bass and metallic tones with short attacks. The shared pulldown, Next
+and dice recall complete synthesis and articulation settings while preserving
+Audio, master output, MIDI mode/devices, held notes and live controllers.
+The new bank deliberately changes the earlier AM sounds. Tests sweep every
+preset's synthesis controls and check immediate carrier energy, bounds,
+parameter influence, zero-amount bypass and live MIDI continuity.
+
+Chaotic AM is an artistic nonlinear AM network. Its name does not imply a proof
 of dynamical chaos in every setting. Smooth and saturated transfers produce
 different modulator shapes, with the same bounded AM multiplication afterward.
 The original PM transfer is not mixed into the new audio path.

@@ -1,3 +1,5 @@
+import { CHAOTIC_AM_PRESETS } from "./presets.js";
+export { CHAOTIC_AM_PRESETS } from "./presets.js";
 import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 
@@ -21,16 +23,16 @@ export const CHAOTIC_AM_TRANSFER_MODES = Object.freeze({
 export const CHAOTIC_AM_LIMITS = Object.freeze({
   minDepth: 0,
   maxDepth: 10,
-  minCarrierHz: 0.001,
-  maxCarrierHz: 1_200,
-  minModFrequencyHz: 0.001,
-  maxModFrequencyHz: 400,
-  minFrequencyDivisor: 0.001,
-  maxFrequencyDivisor: 32,
+  minCarrierHz: 40,
+  maxCarrierHz: 2_000,
+  minModFrequencyHz: 0.5,
+  maxModFrequencyHz: 2_400,
+  minFrequencyDivisor: 0.5,
+  maxFrequencyDivisor: 4,
   minAmplitudeIndex: 0,
   maxAmplitudeIndex: 64,
-  minIndexDivisor: 0.001,
-  maxIndexDivisor: 32,
+  minIndexDivisor: 0.5,
+  maxIndexDivisor: 2,
   minNonlinearity: 0,
   maxNonlinearity: 1,
   maxInternalAmplitudeIndex: 64,
@@ -89,139 +91,7 @@ export const CHAOTIC_AM_PARAMETER_IDS = Object.freeze({
   glideMode: "performance.glideMode",
 });
 
-const freezePreset = (preset) => Object.freeze({
-  ...preset,
-  settings: Object.freeze({ ...preset.settings }),
-});
-
-/**
- * Chaotic PM's eight playable scenes retain their frequencies, recursion,
- * divisors and index values. AM interprets each index as i / (1 + i) depth.
- */
-export const CHAOTIC_AM_PRESETS = Object.freeze([
-  freezePreset({
-    id: "subzero-thread",
-    label: "Subzero Thread",
-    description: "A 60 Hz seed passes through 330 and 110 Hz turns, leaving a taut nonlinear thread.",
-    settings: {
-      transferMode: "smooth",
-      depth: 2,
-      carrierHz: 60,
-      startModFrequencyHz: 330,
-      frequencyDivisor: 3,
-      startAmplitudeIndex: 0.625,
-      indexDivisor: 6,
-      nonlinearity: 0.34,
-    },
-  }),
-  freezePreset({
-    id: "forty-fold",
-    label: "Forty Fold",
-    description: "A 66.6 Hz seed shapes the amplitude of a 40 Hz sine through a deep 6.66 index.",
-    settings: {
-      transferMode: "smooth",
-      depth: 1,
-      carrierHz: 66.6,
-      startModFrequencyHz: 40,
-      frequencyDivisor: 10,
-      startAmplitudeIndex: 6.66,
-      indexDivisor: 6.5,
-      nonlinearity: 0.512,
-    },
-  }),
-  freezePreset({
-    id: "still-glass",
-    label: "Still Glass",
-    description: "Four matched 180 Hz turns polish a 120 Hz seed into a steady glassy contour.",
-    settings: {
-      transferMode: "smooth",
-      depth: 4,
-      carrierHz: 120,
-      startModFrequencyHz: 180,
-      frequencyDivisor: 1,
-      startAmplitudeIndex: 0.365,
-      indexDivisor: 5.75,
-      nonlinearity: 0.246,
-    },
-  }),
-  freezePreset({
-    id: "runaway-stair",
-    label: "Runaway Stair",
-    description: "Eight expanding turns climb from 52 Hz to 389.6 Hz while the amplitude index holds steady.",
-    settings: {
-      transferMode: "smooth",
-      depth: 8,
-      carrierHz: 52,
-      startModFrequencyHz: 52,
-      frequencyDivisor: 0.75,
-      startAmplitudeIndex: 0.625,
-      indexDivisor: 1,
-      nonlinearity: 0.666,
-    },
-  }),
-  freezePreset({
-    id: "braided-orbit",
-    label: "Braided Orbit",
-    description: "Five equal 114 Hz turns braid a 141 Hz seed through rapidly shrinking indices.",
-    settings: {
-      transferMode: "smooth",
-      depth: 5,
-      carrierHz: 141,
-      startModFrequencyHz: 114,
-      frequencyDivisor: 1,
-      startAmplitudeIndex: 0.864,
-      indexDivisor: 6.75,
-      nonlinearity: 0.41,
-    },
-  }),
-  freezePreset({
-    id: "low-ember",
-    label: "Low Ember",
-    description: "Four descending turns fall from 320 Hz to a warm 40 Hz terminal ember.",
-    settings: {
-      transferMode: "smooth",
-      depth: 4,
-      carrierHz: 96,
-      startModFrequencyHz: 320,
-      frequencyDivisor: 2,
-      startAmplitudeIndex: 0.5,
-      indexDivisor: 7,
-      nonlinearity: 0.9,
-    },
-  }),
-  freezePreset({
-    id: "kilohertz-veil",
-    label: "Kilohertz Veil",
-    description: "A 1 kHz seed hangs above four descending turns that resolve at 106.7 Hz.",
-    settings: {
-      transferMode: "smooth",
-      depth: 4,
-      carrierHz: 1_000,
-      startModFrequencyHz: 360,
-      frequencyDivisor: 1.5,
-      startAmplitudeIndex: 13.5,
-      indexDivisor: 6.75,
-      nonlinearity: 0.13,
-    },
-  }),
-  freezePreset({
-    id: "chrome-cascade",
-    label: "Chrome Cascade",
-    description: "Six turns descend from 400 Hz to 131.1 Hz through a 3.25-index amplitude cascade.",
-    settings: {
-      transferMode: "smooth",
-      depth: 6,
-      carrierHz: 144,
-      startModFrequencyHz: 400,
-      frequencyDivisor: 1.25,
-      startAmplitudeIndex: 3.25,
-      indexDivisor: 1.5,
-      nonlinearity: 0.279,
-    },
-  }),
-]);
-
-// Keep the parent instrument's Forty Fold scene and master level as defaults.
+// Keep the familiar default identity and master level with an AM-specific voice.
 export const DEFAULT_CHAOTIC_AM_PRESET_ID = "forty-fold";
 export const CHAOTIC_AM_DEFAULTS = Object.freeze({
   ...CHAOTIC_AM_PRESETS[1].settings,
@@ -655,17 +525,23 @@ export class ChaoticAmWebMidi {
   }
 }
 
-function normalizedOutputGain(_settings, actualDepth) {
-  // Every AM turn is bounded by one; leave headroom for the output chain.
-  return clamp(0.52 / Math.sqrt(1 + actualDepth * 0.025), 0.4, 0.52, 0.48);
+function normalizedOutputGain() {
+  // Every nested link is bounded by one. Depth does not turn down the carrier.
+  return 0.52;
+}
+
+// Fade a modulator before its fundamental reaches the render ceiling. The
+// carrier stays connected; even extreme expanding ladders cannot mute it.
+function modulatorBandGain(frequencyHz, maximumFrequencyHz) {
+  return clamp((maximumFrequencyHz - frequencyHz) / (maximumFrequencyHz * 0.15), 0, 1, 0);
 }
 
 /**
- * The same serial topology as Chaotic PM, with independent sine carriers.
- * Each prior turn shapes the next carrier's amplitude, never its phase/rate:
- *   d = index / (1 + index)
- *   next = sin(TAU * phasor) * (1 + d * nonlinear(previous)) / (1 + d)
- * This is Synthesaurus AM with bias fixed to one, preserving the carrier.
+ * Reverse-nested AM: the audible carrier keeps its pitch while the divided
+ * oscillators recursively modulate its gain. Starting index controls the
+ * outermost link; index division shapes only the deeper modulation.
+ * y[n] = sin(phase[n]) * (1 + d[n] * shape(y[n+1])) / (1 + d[n])
+ * The innermost oscillator is a plain sine. Audio always comes from y[0].
  */
 export function deriveChaoticAmStack(
   params = {},
@@ -673,16 +549,12 @@ export function deriveChaoticAmStack(
 ) {
   const settings = sanitizeChaoticAmParams(params, { sampleRate });
   const operators = [{
-    index: 0,
-    turn: 0,
-    kind: "carrier",
-    sourceIndex: null,
+    index: 0, turn: 0, kind: "carrier",
+    sourceIndex: settings.depth > 0 ? 1 : null,
     frequencyHz: settings.carrierHz,
-    amplitudeIndex: 0,
-    rawAmplitudeIndex: 0,
-    nonlinearity: 0,
-    drive: 0,
-    gain: 1,
+    amplitudeIndex: settings.depth > 0 ? settings.startAmplitudeIndex : 0,
+    rawAmplitudeIndex: settings.startAmplitudeIndex,
+    nonlinearity: settings.nonlinearity, drive: 0, gain: 1,
   }];
   let frequencyHz = settings.startModFrequencyHz;
   let rawAmplitudeIndex = settings.startAmplitudeIndex;
@@ -692,63 +564,42 @@ export function deriveChaoticAmStack(
   const drive = 1 + settings.nonlinearity * (
     (saturated ? MAX_SATURATED_CHAOS_DRIVE : MAX_SMOOTH_CHAOS_DRIVE) - 1
   );
-
+  operators[0].drive = drive;
+  operators[0].modulationDepth = chaoticAmModulationDepth(operators[0].amplitudeIndex);
   for (let turn = 1; turn <= settings.depth; turn += 1) {
-    if (!Number.isFinite(frequencyHz)
-      || frequencyHz >= settings.maximumFrequencyHz) {
-      boundedByFrequency = true;
-      break;
-    }
-    const amplitudeIndex = clamp(
-      rawAmplitudeIndex,
-      0,
-      CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex,
-      CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex,
-    );
+    rawAmplitudeIndex = turn < settings.depth ? rawAmplitudeIndex / settings.indexDivisor : 0;
+    const amplitudeIndex = clamp(rawAmplitudeIndex, 0, CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex,
+      CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex);
     if (amplitudeIndex !== rawAmplitudeIndex) boundedByIndex = true;
+    const bandGain = modulatorBandGain(frequencyHz, settings.maximumFrequencyHz);
+    if (bandGain < 1) boundedByFrequency = true;
     operators.push({
-      index: operators.length,
-      turn,
-      kind: "chaotic-amplitude-operator",
-      sourceIndex: operators.length - 1,
-      frequencyHz,
-      amplitudeIndex,
-      rawAmplitudeIndex,
-      nonlinearity: settings.nonlinearity,
-      drive,
-      modulationDepth: amplitudeIndex / (1 + amplitudeIndex),
-      amplitudeIndexUnit: "index",
-      gain: 1,
+      index: turn, turn, kind: "chaotic-amplitude-operator",
+      sourceIndex: turn < settings.depth ? turn + 1 : null,
+      frequencyHz: Math.min(frequencyHz, settings.maximumFrequencyHz),
+      rawFrequencyHz: frequencyHz, bandGain,
+      amplitudeIndex, rawAmplitudeIndex,
+      nonlinearity: settings.nonlinearity, drive,
+      modulationDepth: chaoticAmModulationDepth(amplitudeIndex),
+      amplitudeIndexUnit: "index", gain: 1,
     });
     frequencyHz /= settings.frequencyDivisor;
-    rawAmplitudeIndex /= settings.indexDivisor;
   }
-
-  const frozenOperators = operators.map((operator) => Object.freeze(operator));
-  const actualDepth = frozenOperators.length - 1;
   return Object.freeze({
-    settings,
-    operators: Object.freeze(frozenOperators),
-    requestedDepth: settings.depth,
-    actualDepth,
-    audibleIndex: actualDepth,
-    boundedByFrequency,
-    boundedByIndex,
-    normalizedGain: normalizedOutputGain(settings, actualDepth),
+    settings, operators: Object.freeze(operators.map(Object.freeze)),
+    requestedDepth: settings.depth, actualDepth: settings.depth, audibleIndex: 0,
+    boundedByFrequency, boundedByIndex, normalizedGain: normalizedOutputGain(),
   });
 }
 
 export function summarizeChaoticAmStack(stack) {
   const model = stack?.operators ? stack : deriveChaoticAmStack(stack);
-  const suffix = model.actualDepth === model.requestedDepth
-    ? ""
-    : " · frequency bounded";
   return Object.freeze({
-    requestedDepth: model.requestedDepth,
-    actualDepth: model.actualDepth,
+    requestedDepth: model.requestedDepth, actualDepth: model.actualDepth,
     operatorCount: model.operators.length,
-    label: `${model.actualDepth} ${model.actualDepth === 1 ? "turn" : "turns"}`
-      + ` · ${model.operators.length} operators${suffix}`,
+    label: `${model.actualDepth} ${model.actualDepth === 1 ? "modulator" : "modulators"}`
+      + ` · carrier ${formatChaoticAmFrequency(model.settings.carrierHz)}`
+      + (model.boundedByFrequency ? " · bandwidth limited" : ""),
   });
 }
 
@@ -1236,11 +1087,15 @@ class ChaoticAmProcessor extends ProcessorBase {
     const defaults = sanitizeChaoticAmParams();
     this.active = true;
     this.processorSampleRate = finiteNumber(globalThis.sampleRate, DEFAULT_SAMPLE_RATE);
+    this.sustainCoefficient = 1 - Math.exp(-1 / (this.processorSampleRate * 0.008));
     this.carrierPhase = 0;
     this.operatorPhases = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth);
     this.signals = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth + 1);
     this.saturatedSignals = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth + 1);
     this.depthGains = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth + 1);
+    this.depthMix = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth + 1);
+    this.oscillatorSamples = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth + 1);
+    this.linkDepths = new Float64Array(CHAOTIC_AM_LIMITS.maxDepth);
     this.current = {
       carrierHz: defaults.carrierHz,
       startModFrequencyHz: defaults.startModFrequencyHz,
@@ -1454,7 +1309,6 @@ class ChaoticAmProcessor extends ProcessorBase {
     this.glideTimeMs = safe.glideTimeMs;
     this.glideMode = safe.glideMode;
     if (previousMode !== safe.playMode) this.allNotesOff(true);
-    if (this.envelopeStage === 3) this.envelopeLevel = this.ampSustainLevel;
     if (this.selectedNote >= 0 && safe.rootMidiNote !== previousRootMidiNote) {
       this.currentBaseSemitones = this.selectedNote - this.rootMidiNote;
       this.targetBaseSemitones = this.currentBaseSemitones;
@@ -1677,7 +1531,8 @@ class ChaoticAmProcessor extends ProcessorBase {
   advanceEnvelope() {
     if (this.envelopeStage === 0) return 0;
     if (this.envelopeStage === 3) {
-      this.envelopeLevel = this.ampSustainLevel;
+      // Preset and CC sustain edits must not step the gain of a held note.
+      this.envelopeLevel += (this.ampSustainLevel - this.envelopeLevel) * this.sustainCoefficient;
       return this.envelopeLevel;
     }
     this.envelopeElapsed += 1;
@@ -1790,86 +1645,57 @@ class ChaoticAmProcessor extends ProcessorBase {
       ) / this.processorSampleRate;
       if (!Number.isFinite(this.carrierPhase)) this.carrierPhase = 0;
       this.carrierPhase -= Math.floor(this.carrierPhase);
-      this.signals[0] = Math.sin(TWO_PI * this.carrierPhase);
-      this.saturatedSignals[0] = this.signals[0];
+      this.oscillatorSamples[0] = Math.sin(TWO_PI * this.carrierPhase);
 
+      // Smooth the presence of each nested link rather than switching output
+      // oscillators. All phases remain alive through depth and mode changes.
+      let activeDepthWeight = 0;
+      for (let depth = CHAOTIC_AM_LIMITS.maxDepth; depth >= 0; depth -= 1) {
+        const targetGain = depth === this.target.depth ? 1 : 0;
+        this.depthGains[depth] += (targetGain - this.depthGains[depth]) * depthCoefficient;
+        activeDepthWeight += this.depthGains[depth];
+        this.depthMix[depth] = activeDepthWeight;
+      }
       let frequencyHz = this.current.startModFrequencyHz;
       let amplitudeIndex = this.current.startAmplitudeIndex;
-      let availableDepth = 0;
-      const warp = clamp(this.current.nonlinearity, 0, 1, 0);
+      for (let turn = 0; turn < CHAOTIC_AM_LIMITS.maxDepth; turn += 1) {
+        const pitchedFrequency = frequencyHz * pitchRatio;
+        const safeFrequency = Math.min(this.current.maximumFrequencyHz, pitchedFrequency);
+        this.operatorPhases[turn] += safeFrequency / this.processorSampleRate;
+        this.operatorPhases[turn] -= Math.floor(this.operatorPhases[turn]);
+        this.oscillatorSamples[turn + 1] = Math.sin(TWO_PI * this.operatorPhases[turn])
+          * modulatorBandGain(pitchedFrequency, this.current.maximumFrequencyHz);
+        this.linkDepths[turn] = chaoticAmModulationDepth(amplitudeIndex) * this.depthMix[turn + 1];
+        frequencyHz /= this.current.frequencyDivisor;
+        amplitudeIndex /= this.current.indexDivisor;
+      }
+      const warp = this.current.nonlinearity;
       const smoothDrive = 1 + warp * (MAX_SMOOTH_CHAOS_DRIVE - 1);
       const smoothNormalization = Math.tanh(smoothDrive);
       const saturatedDrive = 1 + warp * (MAX_SATURATED_CHAOS_DRIVE - 1);
       const saturatedNormalization = Math.tanh(saturatedDrive);
       const saturatedMix = this.currentSaturatedMix;
-
-      for (let turn = 0; turn < CHAOTIC_AM_LIMITS.maxDepth; turn += 1) {
-        if (!Number.isFinite(frequencyHz)
-          || frequencyHz >= this.current.maximumFrequencyHz) {
-          break;
-        }
-        this.operatorPhases[turn] += Math.min(
-          this.current.maximumFrequencyHz,
-          Math.max(0, frequencyHz * pitchRatio),
-        ) / this.processorSampleRate;
-        if (!Number.isFinite(this.operatorPhases[turn])) {
-          this.operatorPhases[turn] = 0;
-        }
-        this.operatorPhases[turn] -= Math.floor(this.operatorPhases[turn]);
-        const safeIndex = clamp(
-          amplitudeIndex,
-          0,
-          CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex,
-          CHAOTIC_AM_LIMITS.maxInternalAmplitudeIndex,
-        );
-        const modulationDepth = safeIndex / (1 + safeIndex);
-        const carrier = Math.sin(TWO_PI * this.operatorPhases[turn]);
-        let smoothNext = 0;
+      this.signals[CHAOTIC_AM_LIMITS.maxDepth] = this.oscillatorSamples[CHAOTIC_AM_LIMITS.maxDepth];
+      this.saturatedSignals[CHAOTIC_AM_LIMITS.maxDepth] = this.oscillatorSamples[CHAOTIC_AM_LIMITS.maxDepth];
+      for (let turn = CHAOTIC_AM_LIMITS.maxDepth - 1; turn >= 0; turn -= 1) {
+        const amount = this.linkDepths[turn];
+        const carrier = this.oscillatorSamples[turn];
         if (saturatedMix < 1) {
-          const previous = this.signals[turn];
-          const shaped = Math.tanh(previous * smoothDrive)
-            / smoothNormalization;
-          const modulator = previous + (shaped - previous) * warp;
-          smoothNext = carrier * (1 + modulationDepth * modulator) / (1 + modulationDepth);
-          this.signals[turn + 1] = Number.isFinite(smoothNext)
-            ? smoothNext
-            : 0;
+          const next = this.signals[turn + 1];
+          const shaped = Math.tanh(next * smoothDrive) / smoothNormalization;
+          const modulator = next + (shaped - next) * warp;
+          this.signals[turn] = carrier * (1 + amount * modulator) / (1 + amount);
         }
         if (saturatedMix > 0) {
-          const previous = this.saturatedSignals[turn];
-          const shaped = Math.tanh(previous * saturatedDrive) / saturatedNormalization;
-          const modulator = previous + (shaped - previous) * warp;
-          const next = carrier * (1 + modulationDepth * modulator) / (1 + modulationDepth);
-          this.saturatedSignals[turn + 1] = Number.isFinite(next) ? next : 0;
+          const next = this.saturatedSignals[turn + 1];
+          const shaped = Math.tanh(next * saturatedDrive) / saturatedNormalization;
+          const modulator = next + (shaped - next) * warp;
+          this.saturatedSignals[turn] = carrier * (1 + amount * modulator) / (1 + amount);
         }
-        availableDepth = turn + 1;
-        frequencyHz /= Math.max(
-          CHAOTIC_AM_LIMITS.minFrequencyDivisor,
-          this.current.frequencyDivisor,
-        );
-        amplitudeIndex /= Math.max(
-          CHAOTIC_AM_LIMITS.minIndexDivisor,
-          this.current.indexDivisor,
-        );
       }
-
-      const audibleDepth = Math.min(this.target.depth, availableDepth);
-      let mixed = 0;
-      for (let depth = 0; depth <= CHAOTIC_AM_LIMITS.maxDepth; depth += 1) {
-        const targetGain = depth === audibleDepth ? 1 : 0;
-        this.depthGains[depth] += (
-          targetGain - this.depthGains[depth]
-        ) * depthCoefficient;
-        let depthSignal = this.signals[depth];
-        if (saturatedMix >= 1) {
-          depthSignal = this.saturatedSignals[depth];
-        } else if (saturatedMix > 0) {
-          depthSignal += (
-            this.saturatedSignals[depth] - depthSignal
-          ) * saturatedMix;
-        }
-        mixed += depthSignal * this.depthGains[depth];
-      }
+      const mixed = saturatedMix <= 0 ? this.signals[0]
+        : saturatedMix >= 1 ? this.saturatedSignals[0]
+        : this.signals[0] + (this.saturatedSignals[0] - this.signals[0]) * saturatedMix;
       const performanceGain = this.playMode === "midi"
         ? envelope * this.currentVelocity * this.currentExpression
         : 1;

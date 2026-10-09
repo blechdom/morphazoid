@@ -15,8 +15,7 @@ test.beforeEach(async ({ page }) => {
 });
 
 async function choosePreset(page, id, index) {
-  if (id === "cascading-am" || id === "recursive-am") await page.locator(".header-preset-next").click();
-  else await page.locator("#presetButtons [data-preset]").nth(index).click();
+  await page.locator(".header-preset-next").click();
 }
 
 for (const id of ["cascading-am", "recursive-am", "chaotic-am"]) {

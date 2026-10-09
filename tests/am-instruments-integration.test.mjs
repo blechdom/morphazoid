@@ -1,3 +1,4 @@
+import { restoreChaoticAmRouting } from "./helpers/chaotic-am-routing-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -13,7 +14,7 @@ import { chaoticDspReferenceForId } from "../src/instruments/chaotic-dsp-referen
 
 test("AM additions preserve the previous shared runtime bytes and reject unrelated changes", async () => {
   for (const change of amSharedAmendments.changes) {
-    const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+    const source = restoreChaoticAmRouting(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file, { allowRestored: true });
     const digest = value => createHash("sha256").update(restoreAmInstrumentAdditions(value, change.file)).digest("hex");
     assert.equal(digest(source), change.sha256, change.file);
     assert.notEqual(digest(source + "\n// unrelated drift\n"), change.sha256);

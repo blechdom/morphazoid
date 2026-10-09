@@ -1,3 +1,4 @@
+import { restoreChaoticAmRouting } from "./chaotic-am-routing-reference.mjs";
 import { restoreRecursivePresets } from "./recursive-presets-reference.mjs";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -8,6 +9,7 @@ export const amSharedAmendments = JSON.parse(readFileSync(
 
 // Reverse only reviewed AM additions; historical source hashes stay frozen.
 export function restoreAmInstrumentAdditions(source, file, { allowRestored = false } = {}) {
+  source = restoreChaoticAmRouting(source, file, { allowRestored: true });
   source = restoreRecursivePresets(source, file, { allowRestored: true });
   for (const change of amSharedAmendments.changes.filter(change => change.file === file)) {
     if (allowRestored && change.replacements.every(({ after }) => !source.includes(after))) continue;

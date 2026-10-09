@@ -346,8 +346,7 @@
   font-size: 18px;
 }
 
-/* The turn is kept at an intrinsic width so the exact transfer remains
-   legible. Touch and keyboard users can pan this region horizontally. */
+/* The full signal path fits the stage; narrow layouts use the compact path. */
 .chaotic-am-page .chaotic-am-flow {
   height: clamp(190px, 31%, 236px);
   overflow-x: auto;
@@ -380,8 +379,8 @@
 
 .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-detailed {
   display: block;
-  width: max(100%, 1260px);
-  min-width: 1260px;
+  width: 100%;
+  min-width: 0;
   height: 100%;
 }
 
@@ -648,5 +647,23 @@
   .chaotic-am-page *::before,
   .chaotic-am-page *::after {
     scroll-behavior: auto !important;
+  }
+}
+
+.chaotic-am-panel .control.is-bypassed,
+.chaotic-am-page .chaotic-viewport-control:has(input:disabled) {
+  opacity: 0.5;
+}
+
+@media (min-width: 651px) and (max-width: 1200px) {
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-detailed {
+    display: none;
+  }
+
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-compact {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
   }
 }

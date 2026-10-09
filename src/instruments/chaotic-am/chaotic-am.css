@@ -650,7 +650,8 @@
   }
 }
 
-.chaotic-am-panel .control.is-bypassed {
+.chaotic-am-panel .control.is-bypassed,
+.chaotic-am-page .chaotic-viewport-control:has(input:disabled) {
   opacity: 0.5;
 }
 

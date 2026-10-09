@@ -28,19 +28,24 @@ const diagram = (title, formula, ariaLabel, sections) => Object.freeze({
   sections: Object.freeze(sections),
 });
 
-function amplitudeReference(id, label, topology, controls, outputStages) {
+function amplitudeReference(id, label, topology, controls, outputStages, nested = false) {
   return Object.freeze({
     id, label, engine: "AudioWorklet", topology,
     algorithm: diagram(
       "Algorithm flow",
-      "signal[n] = sin(phase[n]) x (1 + d[n] x modulator) / (1 + d[n])",
-      `${label} algorithm. Independent sine oscillators keep their own frequencies while each preceding output controls a bounded biased amplitude gain for the next sine.`,
+      "signal[n] = sin(phase[n]) x (1 + d[n] x modulator) / (1 + d[n])"
+        + (nested ? "; modulator = shape(signal[n+1]); audio = signal[0]" : ""),
+      nested
+        ? `${label} algorithm. A fixed audible carrier is amplitude-modulated by a nested chain of divided-frequency oscillators. The innermost sine shapes the next outer gain, ending at the audible carrier.`
+        : `${label} algorithm. Independent sine oscillators keep their own frequencies while each preceding output controls a bounded biased amplitude gain for the next sine.`,
       [sequence("Amplitude modulation", [
         ...controls,
         node("Independent oscillator", "Advance phase at the stage frequency; no phase or frequency modulation", "oscillator"),
         node("Biased AM gain", "gain = (1 + depth x modulator) / (1 + depth)", "mix"),
         node("Amplitude multiplication", "next = sin(phase) x gain; depth and gain stay within 0-1", "oscillator"),
-        node("Output selection", "Smooth depth changes select the audible stage", "output"),
+        nested
+          ? node("Carrier output", "Smooth depth changes introduce nested gain links; carrier pitch stays fixed", "output")
+          : node("Output selection", "Smooth depth changes select the audible stage", "output"),
       ])],
     ),
     audio: diagram(
@@ -333,8 +338,9 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
     node("Performance", "Drone or MIDI ADSR, velocity, expression, glide and bend", "control"),
     node("Output protection", "Normalization, master gain, compressor and 0.82 ceiling gain", "guard"),
   ]),
-  amplitudeReference("chaotic-am", "Chaotic AM", "Parallel Smooth and Saturated amplitude banks", [
-    node("Frequency and index ladders", "Divide frequency and AM index at each recursive turn", "control"),
+  amplitudeReference("chaotic-am", "Chaotic AM", "Audible carrier with nested Smooth and Saturated amplitude modulators", [
+    node("Frequency and index ladders", "Divide modulator frequency and index inward; the carrier keeps its pitch", "control"),
+    node("Bandwidth guard", "Fade expanding modulators near the render ceiling without disconnecting the carrier", "guard"),
     node("AM depth", "depth = I / (1 + I); index bounded to 0-64", "guard"),
     node("Nonlinear modulator", "mix(previous, tanh(k x previous) / tanh(k), chaos)", "nonlinear"),
     node("Transfer choice", "k = 1 + 8 x chaos (Smooth) or 1 + 31 x chaos (Saturated)", "control"),
@@ -343,7 +349,7 @@ export const CHAOTIC_DSP_REFERENCES = Object.freeze([
     node("Performance", "MIDI articulation and smoothed expression in the worklet", "control"),
     node("DC blocker", "18 Hz high-pass", "guard"),
     node("Output protection", "Normalization, compression, 2x soft ceiling and master gain", "guard"),
-  ]),
+  ], true),
   amplitudeReference("cascading-am", "Cascading AM", "2-12 feed-forward amplitude operators", [
     node("Frequency ladder", "f[n] = root x ratio^n, bounded by the render ceiling", "control"),
     node("Depth taper", "Scale depth / (1 - depth) by taper^n, then map back to bounded depth", "control"),
