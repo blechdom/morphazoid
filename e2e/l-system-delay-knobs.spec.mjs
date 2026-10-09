@@ -2,6 +2,7 @@ import { test, expect } from '@playwright/test';
 import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { RULE_MODES } from '../src/instruments/micmic/native/rule-modes.js';
+import { SAMPLE_INPUT_OPTIONS } from '../src/instruments/micmic/native/input-source.js';
 
 const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const APP = '/src/instruments/micmic/native/app.js';
@@ -9,7 +10,7 @@ const CONTRACT = [
   ['inputTrim', '0', '4', '0.01', '0.85'], ['level', '0', '1', '0.01', ''],
   ['voiceCeiling', '0', null, '1', '0'], ['generations', '1', null, '1', '13'],
   ['pruningBias', '-1', '1', '0.01', '0'], ['depth', '0', '1', '0.01', '0.72'],
-  ['interval', '0', '1000', '1', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
+  ['interval', '0', '1000', 'any', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
   ['curls', '-8', '8', '0.01', '0'],
@@ -245,14 +246,15 @@ test('all original native ranges plus Curls, complete parameter controls and run
   for (const id of ['source', 'inputSample', 'lSystemType', 'masteringPreset', 'automatic', 'inputLoop',
     'compressorEnabled', 'autoMakeup', 'micButton', 'audioButton', 'sharedMidiToggle', 'panicButton', 'freezeButton', 'restartInput', 'stopInput',
     'resetGenerationRules', 'inputFile', 'outputBoostHint', 'pruningBiasGuide', 'generationCapacityInline',
-    'grammarSeed', 'grammarSeedOut', 'regrowGrammar']) {
+    'grammarSeed', 'grammarSeedOut', 'regrowGrammar', 'nextInputSample', 'nextLSystemType']) {
     await expect(page.locator(`#${id}`), id).toHaveCount(1);
   }
   expect(await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value).sort())).toEqual([...RULE_MODES].sort());
   await expect(page.locator('#pitchDetail, #pitchDetailStatus')).toHaveCount(0);
   await expect(page.locator('#mixSection #masteringSection')).toHaveCount(1);
   await expect(page.locator('#masteringSection > summary')).toHaveCount(0);
-  expect(await page.locator('#inputSample option').count()).toBe(33);
+  expect(await page.locator('#inputSample option').evaluateAll(options => options.map(option => option.value)))
+    .toEqual(SAMPLE_INPUT_OPTIONS.map(option => option.id));
   expect(await page.locator('#masteringPreset option').count()).toBe(8);
   await expect(page.locator('#grammarSeed')).toHaveAttribute('type', 'number');
   await expect(page.locator('#grammarSeed')).toHaveAttribute('min', '0');
@@ -265,6 +267,67 @@ test('all original native ranges plus Curls, complete parameter controls and run
   const served = await page.request.get('/l-mic-rust.html');
   expect(await served.text()).toContain('max="9007199254740991"');
   await save('knob-contract', { rows, generationLimits: d.generationLimits, memoryVoiceCapacity: d.memoryVoiceCapacity });
+  await cleanup(page, evidence);
+});
+
+test('Sample and L-system Next buttons wrap native choices without arming Audio or changing live gains', async ({ page }) => {
+  test.setTimeout(60000);
+  const evidence = await fixture(page); await ready(page);
+  const before = await diagnostics(page), sampleIds = SAMPLE_INPUT_OPTIONS.map(option => option.id);
+  await chooseInput(page, 'source', 'samples');
+  await expect(page.locator('label[for="inputSample"]')).toHaveText('Sample');
+  const samplePicker = page.locator('[data-select-id="inputSample"]');
+  await expect(samplePicker.locator('summary')).toHaveAttribute('aria-label', /^Sample:/);
+  await samplePicker.locator('summary').click();
+  const list = samplePicker.locator('.instrument-picker-row');
+  expect(await list.locator('button').allTextContents()).toEqual(SAMPLE_INPUT_OPTIONS.map(option =>
+    option.label.replace(/\s+\((?:recorded|synthesized|synthetic voice|original)\)$/i, '')));
+  await expect(list.locator('small, .instrument-picker-description')).toHaveCount(0);
+  await expect(samplePicker.locator('.instrument-picker-group-label')).toHaveCount(0);
+  await expect(page.locator('#inputSample optgroup')).toHaveCount(0);
+  await samplePicker.locator('summary').click();
+  await chooseInput(page, 'inputSample', sampleIds.at(-1));
+  await page.locator('#nextInputSample').click();
+  await expect.poll(async () => (await diagnostics(page)).input.sampleId).toBe(sampleIds[0]);
+  await page.locator('#nextInputSample').click();
+  await expect.poll(async () => (await diagnostics(page)).input.sampleId).toBe(sampleIds[1]);
+  await expect(samplePicker.locator('summary')).toHaveAttribute('aria-label', `Sample: ${SAMPLE_INPUT_OPTIONS[1].label}`);
+  await page.locator('#recursionSection').evaluate(details => { details.open = true; });
+  const modes = await page.locator('#lSystemType option').evaluateAll(options => options.map(option => option.value));
+  // The native select remains the event owner whether its presentation is the
+  // browser control or the shared Choose menu.
+  await page.locator('#lSystemType').selectOption(modes.at(-1), { force: true });
+  await expect.poll(async () => (await diagnostics(page)).parameters.lab?.kind).toBe('sphinx');
+  await page.locator('#nextLSystemType').click();
+  await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe(modes[0]);
+  await expect.poll(async () => (await diagnostics(page)).parameters.lab).toBeUndefined();
+  await page.locator('#nextLSystemType').click();
+  await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe(modes[1]);
+  const after = await diagnostics(page);
+  expect(after.audio).toBe(false); expect(after.connectionCount).toBe(0);
+  expect(after.contextGeneration).toBe(before.contextGeneration);
+  expect(after.input.playing).toBe(false); expect(after.microphoneEnabled).toBe(false);
+  expect(gainValues(after)).toEqual(gainValues(before));
+  // Observe the immediate transaction boundary in the same task that starts
+  // recall. No synthetic waiting or replacement engine is needed to prove
+  // that a Next click cannot alter the scene while its owner is applying it.
+  const lock = await page.evaluate(async scene => {
+    const applying = __knobsQa.applyScene(scene);
+    const buttons = ['nextInputSample', 'nextLSystemType'].map(id => document.getElementById(id));
+    const values = () => ['inputSample', 'lSystemType'].map(id => document.getElementById(id).value);
+    const during = { disabled: buttons.map(button => button.disabled), beforeClicks: values() };
+    for (const button of buttons) button.click();
+    during.afterClicks = values();
+    await applying;
+    return during;
+  }, { parameters: { ...after.parameters, generations: 2 }, performance: after.performance });
+  expect(lock.disabled).toEqual([true, true]); expect(lock.afterClicks).toEqual(lock.beforeClicks);
+  await expect(page.locator('#nextInputSample')).toBeEnabled();
+  await expect(page.locator('#nextLSystemType')).toBeEnabled();
+  const recalled = await diagnostics(page);
+  expect(recalled.parameters.generations).toBe(2); expect(recalled.audio).toBe(false);
+  expect(gainValues(recalled)).toEqual(gainValues(before));
+  await save('sample-rule-next', { sampleIds, modes, before, after, lock, recalled });
   await cleanup(page, evidence);
 });
 
@@ -298,7 +361,9 @@ test('actual knob drags preserve native events, fine movement, keyboard endpoint
       if (type === 'lostpointercapture') input.releasePointerCapture(pointerId);
       else input.dispatchEvent(new PointerEvent(type, { pointerId, bubbles: true }));
     }, type);
-    // The capture event is asynchronous in Chromium; wait for gesture commit.
+    // Pending capture loss is delivered before the next native pointer event.
+    // Horizontal movement leaves this vertical knob's value unchanged.
+    if (type === 'lostpointercapture') await page.mouse.move(p.x + 1, p.y - 12);
     await expect.poll(async () => (await events(page, 'wet')).filter(e => e.type === 'change').length).toBe(1);
     const stopped = await input.inputValue(); await page.mouse.move(p.x, p.y - 24); await page.mouse.up();
     expect(await input.inputValue()).toBe(stopped);
@@ -540,6 +605,24 @@ test('compact knobs and every original control remain reachable in desktop, port
     ['portrait', { width: 390, height: 844 }, true], ['landscape', { width: 844, height: 390 }, true]]) {
     const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport, hasTouch, reducedMotion: 'reduce' }), page = await context.newPage();
     const evidence = await fixture(page); await ready(page);
+    await chooseInput(page, 'source', 'samples');
+    await page.locator('#recursionSection').evaluate(details => { details.open = true; });
+    const nextTargets = [];
+    for (const id of ['nextInputSample', 'nextLSystemType']) {
+      const button = page.locator(`#${id}`); await button.scrollIntoViewIfNeeded();
+      const target = await button.evaluate(button => {
+        const box = button.getBoundingClientRect();
+        return { id: button.id, width: box.width, height: box.height,
+          hit: button.contains(document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2)) };
+      });
+      expect(target.width, `${name}/${id}`).toBeGreaterThanOrEqual(hasTouch ? 48 : 36);
+      expect(target.height, `${name}/${id}`).toBeGreaterThanOrEqual(hasTouch ? 48 : 36);
+      expect(target.hit, `${name}/${id}: Next stays reachable below the sticky row`).toBe(true);
+      await button.click(); nextTargets.push(target);
+    }
+    await expect.poll(async () => (await diagnostics(page)).input.sampleId).toBe(SAMPLE_INPUT_OPTIONS[1].id);
+    await expect.poll(async () => (await diagnostics(page)).parameters.lSystemType).toBe('plant');
+    expect((await diagnostics(page)).audio).toBe(false);
     const depth = await openControl(page, 'depth'); await depth.focus(); await page.keyboard.press('End');
     await assertDepth(page, 1); expect((await diagnostics(page)).audio).toBe(false);
     await page.evaluate(() => { for (const id of ['recursionSection', 'mixSection']) document.getElementById(id).open = true; });
@@ -569,13 +652,28 @@ test('compact knobs and every original control remain reachable in desktop, port
     }
     await page.locator('#nativeSettings').evaluate(details => { details.open = false; });
     await page.locator('#recursionSection').scrollIntoViewIfNeeded();
+    await expect(page.locator('#recursionSection .parameter-cluster-title')).toHaveCount(0);
+    const bank = await page.locator('#recursionSection .native-recursion-grid').evaluate(grid => {
+      const box = grid.getBoundingClientRect(), labels = [...grid.querySelectorAll('.native-knob-control')]
+        .filter(label => label.getBoundingClientRect().width > 0);
+      const ordinary = labels.filter(label => !label.parentElement.classList.contains('mz-tap-tempo-field'));
+      const widths = ordinary.map(label => label.getBoundingClientRect().width);
+      return { controls: labels.map(label => label.htmlFor), width: box.width,
+        minimumCellWidth: Math.min(...widths), maximumCellWidth: Math.max(...widths),
+        contained: labels.every(label => { const cell = label.getBoundingClientRect(); return cell.left >= box.left - 1 && cell.right <= box.right + 1; }),
+        firstRow: ['generations', 'pruningBias', 'depth'].map(id => document.getElementById(id).closest('label').getBoundingClientRect().top) };
+    });
+    expect(bank.contained, `${name}: every visible recursion knob stays in its bank`).toBe(true);
+    expect(bank.minimumCellWidth, `${name}: labels and native targets have useful width`).toBeGreaterThanOrEqual(82);
+    expect(bank.maximumCellWidth - bank.minimumCellWidth, `${name}: ordinary controls flow in even columns`).toBeLessThan(1);
+    expect(Math.max(...bank.firstRow) - Math.min(...bank.firstRow), `${name}: common knobs share a continuous row`).toBeLessThan(1);
     const footprint = await page.evaluate(() => ({ panel: { height: document.querySelector('.panel').clientHeight, scrollHeight: document.querySelector('.panel').scrollHeight },
       sections: Object.fromEntries(['recursionSection', 'mixSection', 'masteringSection'].map(id => [id, document.getElementById(id).getBoundingClientRect().height])),
       overflow: document.documentElement.scrollWidth - innerWidth, coarse: matchMedia('(pointer:coarse)').matches }));
     expect(footprint.overflow).toBeLessThanOrEqual(1); expect(footprint.coarse).toBe(hasTouch);
     for (const id of ['recursionSection', 'masteringSection']) await page.locator(`#${id}`).screenshot({ path: test.info().outputPath(`${name}-${id}.png`) });
     await page.screenshot({ path: test.info().outputPath(`${name}.png`), fullPage: true });
-    layouts.push({ name, viewport, controls, footprint }); await cleanup(page, evidence); await context.close();
+    layouts.push({ name, viewport, controls, nextTargets, bank, footprint }); await cleanup(page, evidence); await context.close();
   }
   const appResponse = await fetch(new URL(APP, test.info().project.use.baseURL));
   const appSha256 = createHash('sha256').update(Buffer.from(await appResponse.arrayBuffer())).digest('hex');

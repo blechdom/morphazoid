@@ -602,6 +602,107 @@ test('staged worklet installs keep the old pool live, reject late faults atomica
   } finally { compiler.dispose(); }
 });
 
+test('queued worklet scene commits retain newer depth gestures atomically and rejected staging leaves live PCM unchanged', async () => {
+  const compiler = renderer();
+  try {
+    const initial = compiler.compile({ generations: 1, intervalMs: 10, timeRatio: 1, pitchScale: 0 }).pool;
+    const candidate = compiler.compile({ generations: 7, intervalMs: 10, timeRatio: 1, pitchScale: 0, depth: .72 }).pool;
+    const fullCount = new DataView(candidate.buffer).getUint32(12, true);
+    for (const newerAfterBegin of [false, true]) {
+      const clock = { value: 0 };
+      await withRecoveryWorklet(({ processor, messages, input, left, right, render }) => {
+        // A second actual worklet receives identical accepted controls and PCM,
+        // but no rejected candidate. Bitwise comparison makes a staging-only
+        // depth leak audible to the test even when target counts stay positive.
+        const reference = new processor.constructor({ processorOptions: { module } }), referenceMessages = [];
+        reference.port.postMessage = message => referenceMessages.push(message);
+        const referenceLeft = new Float32Array(BLOCK), referenceRight = new Float32Array(BLOCK);
+        try {
+          reference.port.onmessage({ data: { id: 1, type: 'install', pool: initial.buffer,
+            baseIntervalMs: 10, intervalMs: 10, liveFold: false } });
+          reference.port.onmessage({ data: { id: 2, type: 'performance', performance: {
+            ...DEFAULT_PERFORMANCE, automatic: false, source: 'mic', inputGain: 1, level: .5,
+            wet: .7, dry: .3, mastering: TRANSPARENT,
+          } } });
+          for (let block = 0; block < 100; block++) {
+            globalThis.currentTime = 7.25 + block * BLOCK / RATE;
+            for (let index = 0; index < BLOCK; index++) input[index] = sine(173, .03)(block * BLOCK + index);
+            assert.equal(reference.process([[input]], [[referenceLeft, referenceRight]]), true);
+          }
+          assert.deepEqual(left, referenceLeft); assert.deepEqual(right, referenceRight);
+          const sendBoth = data => {
+            processor.port.onmessage({ data }); reference.port.onmessage({ data });
+          };
+          const renderBoth = () => {
+            assert.equal(render(), true);
+            assert.equal(reference.process([[input]], [[referenceLeft, referenceRight]]), true);
+            assert.ok(left.every(Number.isFinite) && right.every(Number.isFinite));
+            assert.deepEqual(left, referenceLeft, 'staged metadata never changes the accepted left-channel samples');
+            assert.deepEqual(right, referenceRight, 'staged metadata never changes the accepted right-channel samples');
+          };
+          sendBoth({ id: 100, type: 'performance', performance: { ...DEFAULT_PERFORMANCE,
+            automatic: false, voiceCeiling: 0, source: 'mic', inputGain: 1, level: .5, wet: 1, dry: 0,
+            mastering: TRANSPARENT } });
+          const commits = [], real = processor.api;
+          processor.api = { ...real, lsd_install_step(handle, count) {
+            const result = real.lsd_install_step(handle, count);
+            if (result === 2) {
+              const status = processor.snapshot();
+              commits.push({ revision: status.topologyRevision, targets: status.targetVoices });
+            }
+            return result;
+          } };
+          const scene = (id, revision) => {
+            const pool = candidate.slice(); new DataView(pool.buffer).setUint32(16, revision, true);
+            return { id, type: 'install', pool: pool.buffer, depth: .72, wholeSceneAdmission: true };
+          };
+          sendBoth(scene(101, 501)); sendBoth(scene(102, 502));
+          assert.equal(processor.pendingInstall.id, 101);
+          assert.equal(processor.installQueue.length, 1, 'the second scene waits behind the first staged pool');
+          sendBoth({ id: 103, type: 'depth', depth: 0 });
+          for (let block = 0; block < 128 && !messages.some(message => message.id === 101); block++) renderBoth();
+          assert.equal(messages.find(message => message.id === 101)?.status.targetVoices, 0);
+          assert.equal(processor.pendingInstall, null);
+          renderBoth();
+          assert.equal(processor.pendingInstall?.id, 102, 'the queued scene starts with the newer zero-depth owner');
+          assert.equal(processor.snapshot().targetVoices, 0, 'beginning a compiled .72-depth scene cannot activate the silent live pool');
+          if (newerAfterBegin) sendBoth({ id: 104, type: 'depth', depth: 1 });
+          for (let block = 0; block < 128 && !messages.some(message => message.id === 102); block++) renderBoth();
+          const ack = messages.find(message => message.id === 102)?.status, expected = newerAfterBegin ? fullCount : 0;
+          assert.equal(ack?.topologyRevision, 502); assert.equal(ack?.targetVoices, expected);
+          assert.deepEqual(commits, [{ revision: 501, targets: 0 }, { revision: 502, targets: expected }],
+            'the atomic commit itself adopts the latest depth rather than briefly admitting a stale full scene');
+          for (let block = 0; block < 200; block++) renderBoth();
+          assert.equal(processor.snapshot().targetVoices, expected);
+          if (newerAfterBegin) {
+            assert.equal(processor.snapshot().activeVoices, fullCount);
+            assert.ok(rms(left) > 1e-4, 'the after-begin 100% gesture restores the complete real wet pool');
+          } else {
+            assert.equal(processor.snapshot().activeVoices, 0, 'genuine zero-depth release tails have retired');
+            assert.ok(rms(left) < 1e-12, 'the queued zero-depth scene settles below the PCM silence floor');
+          }
+
+          const before = processor.snapshot(), rejected = candidate.slice(), records = new DataView(rejected.buffer);
+          records.setUint32(16, 503, true); records.setFloat64(rejected.length - 48, NaN, true);
+          processor.port.onmessage({ data: { id: 105, type: 'install', pool: rejected.buffer,
+            depth: .15, wholeSceneAdmission: true } });
+          assert.ok(processor.pendingInstall, 'the malformed late record is validated after staging depth');
+          assert.equal(processor.snapshot().targetVoices, before.targetVoices,
+            'staging-only depth cannot change the accepted voice demand');
+          for (let block = 0; block < 128 && !messages.some(message => message.id === 105); block++) renderBoth();
+          assert.ok(messages.find(message => message.id === 105)?.error);
+          assert.equal(processor.pendingInstall, null);
+          assert.equal(processor.snapshot().topologyRevision, before.topologyRevision);
+          assert.equal(processor.snapshot().targetVoices, before.targetVoices);
+          for (let block = 0; block < 8; block++) renderBoth();
+          assert.equal(messages.filter(message => message.type === 'failure').length, 0);
+          assert.equal(referenceMessages.filter(message => message.type === 'failure').length, 0);
+        } finally { reference.port.onmessage({ data: { id: 998, type: 'dispose' } }); }
+      }, { clock });
+    }
+  } finally { compiler.dispose(); }
+});
+
 test('worklet drains retired storage across callbacks before acknowledging muted cleanup', async () => {
   const compiler = renderer();
   try {

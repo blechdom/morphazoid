@@ -6,6 +6,10 @@
 /* Keep native focus and scrolling below the sticky preset/input row. */
 .micmic-page .panel { scroll-padding-top: 76px; }
 .native-input-choice { display: block; min-width: 0; }
+.native-choice-row { display: flex; min-width: 0; align-items: center; gap: 4px; }
+.native-choice-row > .native-input-choice { flex: 1 1 0; }
+.native-choice-row > .select-shell:has(> select[hidden])::after { display: none; }
+.native-choice-row > .instrument-picker-next:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
 /* Scrolling source choices stay below the sticky preset row. Their open
    panels still use the shared chooser's top layer and viewport anchoring. */
 .micmic-page .native-input-choice .instrument-picker { width: 100%; z-index: 0; }
@@ -86,6 +90,16 @@
   align-items: start;
   gap: 4px 6px;
 }
+/* One continuous bank lets every visible recursion control use the available
+   width. Conditional rule controls keep their owner and native ranges. */
+.micmic-page .native-recursion-grid {
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 82px), 1fr));
+  gap: 2px 4px;
+}
+.native-recursion-conditional { display: contents; }
+.native-recursion-grid .native-control-help,
+.native-recursion-grid .native-form-actions { grid-column: 1 / -1; }
+.native-recursion-grid + .native-capacity-note { margin-block: 4px; }
 .micmic-page .native-knob-control.mz-range-knob {
   --native-knob-target: 44px;
   --native-knob-dial: 28px;
@@ -227,6 +241,7 @@
   .micmic-page .panel > .control-section > .group-summary { padding-inline: 12px; }
   .micmic-page .panel > .control-section > .group-body { padding: 8px 12px; }
   .micmic-page .native-knob-grid { gap: 3px 8px; }
+  .micmic-page .native-recursion-grid { gap: 2px 4px; }
   .micmic-page .native-knob-grid--four { grid-template-columns: repeat(4, minmax(0, 1fr)); }
   .micmic-page .native-knob-control.mz-range-knob > span:first-child > b { font-size: 10px; }
 }

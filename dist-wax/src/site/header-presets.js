@@ -146,6 +146,7 @@ export function mountHeaderPresets(doc) {
   const isAvailable = preset => controller.isPresetAvailable(preset);
   let applying = false;
   let destroyed = false;
+  let refreshQueued = false;
   const refresh = () => {
     if (destroyed) return;
     filter();
@@ -155,11 +156,24 @@ export function mountHeaderPresets(doc) {
       ? bank.find(preset => preset.id === controller.lastPresetId && keys.get(preset.id) === key)
       : null;
     controller.selectedId = selected?.id ?? null;
-    root.dataset.presetId = selected?.id ?? (controller.hasPresetInteraction ? "custom" : "unselected");
+    const selectedId = selected?.id ?? (controller.hasPresetInteraction ? "custom" : "unselected");
+    if (root.dataset.presetId !== selectedId) root.dataset.presetId = selectedId;
     const label = controller.hasPresetInteraction ? selected?.label ?? "Preset · Custom" : "Select Preset";
     if (currentLabel.textContent !== label) currentLabel.textContent = label;
-    summary.title = controller.hasPresetInteraction ? selected?.label ?? "Custom instrument settings" : "Select Preset";
-    for (const button of buttons) button.setAttribute("aria-pressed", String(button.dataset.presetId === selected?.id));
+    const title = controller.hasPresetInteraction ? selected?.label ?? "Custom instrument settings" : "Select Preset";
+    if (summary.title !== title) summary.title = title;
+    for (const button of buttons) {
+      const pressed = String(button.dataset.presetId === selected?.id);
+      if (button.getAttribute("aria-pressed") !== pressed) button.setAttribute("aria-pressed", pressed);
+    }
+  };
+  // Several native events can describe one edit in the same task. Keep the
+  // automatic display update singular without delaying explicit recall,
+  // capture, availability checks or background-page updates until a frame.
+  const queueRefresh = () => {
+    if (destroyed || refreshQueued) return;
+    refreshQueued = true;
+    runtime.queueMicrotask(() => { refreshQueued = false; refresh(); });
   };
   const transact = (prepare, success, failure, updateSelection = () => {}) => {
     if (applying || destroyed) return;
@@ -257,11 +271,11 @@ export function mountHeaderPresets(doc) {
       if (available) availableCount++;
       const visible = available && (!query || `${button.textContent} ${button.title}`.toLocaleLowerCase().includes(query));
       if (!visible && button.parentNode.contains(doc.activeElement)) hiddenFocus = true;
-      button.parentNode.hidden = !visible;
+      if (button.parentNode.hidden !== !visible) button.parentNode.hidden = !visible;
       if (visible) count++;
     }
-    empty.hidden = count > 0;
-    next.disabled = availableCount === 0;
+    if (empty.hidden !== (count > 0)) empty.hidden = count > 0;
+    if (next.disabled !== (availableCount === 0)) next.disabled = availableCount === 0;
     if (hiddenFocus) (details.open ? searchInput : summary).focus();
   };
   listen(searchInput, "input", filter);
@@ -293,7 +307,7 @@ export function mountHeaderPresets(doc) {
     cycle(direction);
   }, { capture: true });
   for (const type of ["input", "change", "click", "pointerup", "keyup"]) {
-    listen(doc, type, () => runtime.queueMicrotask(refresh));
+    listen(doc, type, queueRefresh);
   }
   panel.append(search, list);
   details.append(summary, panel);

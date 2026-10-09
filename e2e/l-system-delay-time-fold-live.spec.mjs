@@ -152,7 +152,7 @@ function captureFoldDraw(branches, now) {
   const qa = __foldRuntime; if (!qa.recording) return;
   const indices = Array.from(state.status.activeVoiceIndices ?? []), active = new Set(indices);
   const coherent = state.status.topologyRevision === visualRevision;
-  const expected = geometry.nodes.filter(n => n.generation === 0 || state.audio && previewParameters.depth > 0 && coherent && active.has(n.voiceIndex));
+  const expected = geometry.nodes.filter(n => n.generation === 0 || state.audio && coherent && active.has(n.voiceIndex));
   const actualIds = branches.map(n => n.id), expectedIds = expected.map(n => n.id), actual = new Set(actualIds), wanted = new Set(expectedIds);
   const row = { at: now, phase: qa.phase, actualIds, expectedIds, activeVoiceIndices: indices,
     active: state.status.activeVoices, requestedFold: state.parameters.intervalMs, installedFold: previewParameters.intervalMs,

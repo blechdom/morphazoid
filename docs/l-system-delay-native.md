@@ -19,6 +19,10 @@ input trim, the microphone switch and meters. The first **Input** control sectio
 offers **Mic/line**, **Audio file** with a local uploader, and **Built-in samples**
 with a second sample dropdown. There is no synthesizer or test-tone input in
 this browser menu.
+The **Sample** and **L-system type** menus each have a **Next** button that
+wraps through the same choices as their dropdown. Sample names form one plain
+list; credits remain below the input controls. Recursion knobs share one compact
+responsive grid, including conditionally available lab and stochastic parameters.
 
 ## Play the browser instrument
 
@@ -89,14 +93,20 @@ retain their complete requested settings; the prepared tree and effective
 iterations are runtime state. Large tilings use a complete, shallower derivation
 when their next substitution would exceed capacity.
 
-Playback then measures real audio-thread deadlines. Three seconds of coherent,
-fully admitted audio can prove headroom for a larger prepared pool, sized from
-the remaining deadline budget. Overload reduces active voices inside the retained
+At preset commit, Rust admits the complete eligible, device-bounded tree together,
+including when switching from a small tree during an earlier cooldown. Playback
+then measures real audio-thread deadlines. Three seconds of coherent, fully
+admitted audio may propose a larger budget for the **next explicit scene edit**;
+it never compiles or installs a larger unchanged tree. Before accepting that
+proposal, the worker measures the candidate's actual pitched DSP in a disposable
+instance with its full delay history populated. An unproved proposal falls back
+to the last measured budget while still applying the requested preset.
+Overload reduces active voices inside the retained
 tree; it does not repeatedly recompile a smaller tree. Inactive voice slots do
 not consume recurring DSP work, and installed storage already keeps its largest
 allocation. Capacity carries between presets and is revalidated under current
 load. There is no fixed final voice-count ceiling; calibration's
-time allowance limits the initial probe, and subsequent measured growth remains
+time allowance limits the initial probe, and later validated scene growth remains
 possible. An optional user cap, memory and processing capacity still constrain
 playback. Graphics retain the complete device-bounded prepared scene. Audio-off
 previews show that scene; playback selects branches from Rust's exact active
@@ -106,8 +116,9 @@ The active slot list is independent of the individual meter capacity and has no
 separate display cap. Drawing cost adjusts frame rate, resolution and waveform detail,
 without a separate branch-count feedback loop. Expensive frames and low signal
 amplitude cannot remove branches while audio admission remains unchanged. Zero
-Depth hides descendants during playback, retaining their prepared metadata for
-immediate recovery. Framing uses the complete prepared scene. Graphics do not
+Depth retains the descendants reported by Rust while their audio releases, then
+removes them when Rust retires their slots. Prepared metadata remains available
+for immediate recovery. Framing uses the complete prepared scene. Graphics do not
 reduce audio admission or restart recording.
 Unchanged musical controls are not repainted on each meter update. Worklet
 telemetry uses transferred compact numeric snapshots, expanded into the existing
@@ -118,6 +129,38 @@ Installation and retirement retain their separate maintenance accounting. These
 measurements describe processing deadlines, not physical output-device underruns.
 Browser performance must be measured on the actual device. The historical CPAL
 benchmarks below do not establish a sustainable browser voice count.
+
+The processing order is audio, the audio-aligned tree, then secondary controls
+and diagnostics. Rust advances the built-in seed's state without evaluating its
+inaudible oscillators during pure microphone, file or sample input. Meter work
+skips only exactly silent slots; nonzero input and release meters retain their
+original arithmetic. The long-history sample-order path tracks pending numeric
+growth once per render block. Exact PCM, future seed state and release tests
+cover these arithmetic optimizations without reducing the voice pool.
+
+The inline branch readout separates the device-bounded **prepared** tree from
+the voices currently **processing**. The prepared count is established before
+playback and changes only with an explicit scene edit, rather than tracking every
+live deadline or silently growing while playing. It is an estimate of prepared work,
+not a promise that changing browser or device load cannot require audio backoff.
+The processing count includes release tails and matches the voice slots used by
+the playback graphic.
+
+Control acknowledgements may repeat an earlier audio snapshot. They still
+update musical settings, but cannot renew the freshness of that snapshot's
+meters or input history. Sparse active-slot selections reuse indexed prepared
+metadata while preserving original branch order. WebGL Time fold changes a
+uniform; Canvas timing is materialized on fallback or geometry rebuild, including
+resize. Secondary UI painting is coalesced into a task after the tree renders;
+lifecycle locks remain synchronous. Unchanged menu, knob and readout values are
+not rewritten, and closed Settings diagnostics do not repaint.
+
+Regression evidence must compare audio/sample clocks with elapsed wall time as
+well as inspect continuous wet PCM: consecutive sample indices alone cannot
+detect a slow audio clock. Browser probes characterize rendering and cannot
+establish physical microphone/DAC continuity or human listening quality.
+Topology allocation, atomic installation and telemetry still have audio-thread
+costs; these optimizations do not establish that every interruption is resolved.
 
 Drag horizontally to change Time fold and vertically to change Branch angle;
 arrow keys provide the same controls, with Shift for finer changes. Presets and
@@ -461,18 +504,17 @@ The live voice controller measures this processing along with the delay engine.
 
 The optional voice cap defaults to **No cap**. Automatic adaptation seeks the
 largest requested eligible voice count supported by measured callback work.
-The browser starts with a conservative budget, measures 300 ms of callback work,
-then tests larger counts from the measured remaining headroom. Trials use 180 ms
-of evidence and another 60 ms of steady work before the next increase, replacing
-the slow generation-by-generation climb. Previously proved device capacity
-survives a smaller scene and is tested again when demand grows. These colors
-show admission, rather than the arrival of delayed sound; waviness shows signal.
-Unsuccessful new probes roll back. If a restored capacity becomes genuinely
-too expensive, measured proportional backoff replaces a collapse to the preceding
-tiny preset's voice count. The native comparison uses
-a separate warmed calibration before those live probes.
-Failed probes are retried, so capacity can increase when device conditions
-improve. The controller accounts for transient load and lets outgoing voices
+The browser measures a device budget before playback and adopts every eligible
+prepared target together. A smaller preset does not force the following dense
+preset to start with its tiny admission count. Depth and manual-cap restoration
+also restore the current safe scene plan together. There are no upward admission
+trials or automatic topology expansions inside an unchanged browser scene.
+Healthy callback evidence can propose more capacity for a later explicit edit;
+that candidate must pass a separate fully warmed worker measurement before
+commit. Genuine overload locks a reduced safe plan for the current scene and
+informs the next scene's budget. No numeric final voice ceiling is imposed.
+The native comparison retains its separate warmed calibration and live upward
+trials. The controller accounts for transient load and lets outgoing voices
 finish fading before repeatedly reducing the same budget. Severe or worsening
 overload still reduces it immediately. Turning adaptation off requests all
 eligible voices, subject to an explicitly chosen cap.
@@ -484,7 +526,10 @@ cleanup receives a share even while another pool is being prepared. A small
 bootstrap batch learns per-record cost on the current device. This is a work
 batch limit, not an audio voice ceiling. The committed pool keeps rendering during
 preparation. An atomic handoff updates audible/releasing voices, while inactive
-slots adopt targets when admitted. Recording, branch phase and delay-edit
+slots adopt targets when admitted. The pending pool stages the latest requested
+depth before its first committed block; later live edits still override it.
+Staging that coefficient leaves the playing scene untouched, and rejection or
+abort preserves its gains and future PCM. Recording, branch phase and delay-edit
 crossfades survive the handoff. Allocation, memory growth and freeing replaced
 storage can still consume time; staging does not guarantee every device deadline.
 Repeated installs recycle the numeric control records and rank maps. Once both
@@ -538,9 +583,8 @@ audible endpoints. Long-edge interiors illustrate nominal input travel, so there
 is no separate generation-activation timer. Frozen input records zeros while
 existing delayed audio and the retained input history continue.
 
-Proved headroom can grow the prepared scene. That can change its effective
-derivation and camera fit; it is separate from active voice admission inside an
-unchanged prepared scene.
+Proved headroom can grow the next explicitly edited scene after worker validation.
+An unchanged prepared scene retains its derivation and camera fit.
 
 The ripple carrier is an activity illustration rather than the literal PCM
 waveform. Metered response uses rendered granular output; long-edge transit and
@@ -552,8 +596,8 @@ Browser status messages copy bounded telemetry separately from the processing ca
 A regression renders 2,049 admitted taps and measures the additional output of
 the final unmetered tap. Increasing Pine from 13 to 14 generations requests
 16,382 to 32,766 voices; automatic mode admits the count supported by measured
-device deadlines and retries when conditions improve. Quiet capacity growth
-colors newly available branches but creates no signal waves.
+device deadlines. Later validated edits can increase capacity when conditions
+improve. Admission colors indicate available processing; waviness indicates signal.
 
 Processing load estimates callback work: control updates, test-tone/input
 preparation, DSP, mixing, adaptive changes and audio activity measurement/publication.
@@ -725,6 +769,23 @@ source/executable hashes. Re-run the comparison to generate a fresh record for
 the current checkout.
 
 ## Why the browser delay loses branches
+
+The original JavaScript page and the earlier Rust browser page both adapted
+their audio voice count. The original retains its budget across smaller demand
+and sends the entire selected voice array in one message. Its full quiet outline
+also makes admission changes less visible. The earlier Rust page could clamp
+its carried-over admission to a small scene, then add voices through live trials
+and replace its prepared pool after recurring headroom proof. That extra growth
+was resource scheduling, not rhythmic propagation through the delays.
+
+The current Rust browser commits its complete device-bounded scene together and
+keeps that scene's prepared count fixed. Both granular engines smooth gains with
+a 15 ms time constant and require recorded history before delayed reads can
+produce sound. Fresh microphone input can therefore reach long delays later;
+a fully warmed preset should not admit generations several seconds apart.
+The original's 1,024-voice maximum and Rust's measured budget are different
+policies, so neither code inspection nor a historical native benchmark proves
+the relative sustainable browser capacity on a particular device.
 
 The catalogue's L-system Delay is `/l-mic.html`, owned by
 `src/instruments/micmic/`. Its audio starts with 48 voices, can reach 256 with

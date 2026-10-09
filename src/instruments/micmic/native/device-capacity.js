@@ -6,7 +6,7 @@ const clock = () => performance.now();
 
 /** Measure the real Rust DSP in a disposable worker instance, never in the
  * playing graph. The time allowance bounds calibration, not device capacity:
- * the live controller can subsequently prove and request a larger pool. */
+ * later scene edits can validate larger pools without growing a playing tree. */
 export function measureAudioCapacity(module, sampleRate = 48000, { now = clock, timeAllowanceMs = 450 } = {}) {
   const api = new WebAssembly.Instance(module, {}).exports;
   const renderer = api.lsd_new(sampleRate, 1);
@@ -68,6 +68,52 @@ export function measureAudioCapacity(module, sampleRate = 48000, { now = clock, 
   }
 }
 
+/** Validate the candidate's real pitched DSP, including long delayed reads.
+ * The dedicated calibration constructor cannot mutate a playing renderer's
+ * history. Only this disposable worker instance receives synthetic history. */
+export function measurePreparedPool(module, pool, sampleRate = 48000, { now = clock,
+  performance: settings = DEFAULT_PERFORMANCE, targetLoad = TARGET_LOAD } = {}) {
+  const api = new WebAssembly.Instance(module, {}).exports;
+  const bytes = pool instanceof Uint8Array ? pool : new Uint8Array(pool);
+  const voices = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(12, true);
+  const renderer = api.lsd_new_calibration(sampleRate, Math.max(1, voices));
+  if (!renderer) throw new Error(wasmError(api, 'The next scene could not be measured.'));
+  const pointers = Array.from({ length: 4 }, () => api.lsd_alloc(BLOCK * 4));
+  const process = count => {
+    for (let block = 0; block < count; block++) {
+      if (!api.lsd_process(renderer, ...pointers, BLOCK)) throw new Error(wasmError(api, 'The next scene probe could not render.'));
+    }
+  };
+  try {
+    if (pointers.some(pointer => !pointer)) throw new Error('Scene probe buffers could not be allocated.');
+    if (!withBytes(api, bytes, (pointer, length) => api.lsd_install(renderer, pointer, length))
+      || !api.lsd_depth(renderer, 1)
+      || !withJson(api, { ...settings, automatic: false, voiceCeiling: voices, source: 'mic', frozen: false, inputGain: 1, wet: 1, dry: 0 },
+        (pointer, length) => api.lsd_performance(renderer, pointer, length))
+      || !api.lsd_prepare_calibration_history(renderer)) {
+      throw new Error(wasmError(api, 'The next scene probe could not prepare its full delay history.'));
+    }
+    for (const pointer of pointers.slice(0, 2)) {
+      const input = new Float32Array(api.memory.buffer, pointer, BLOCK);
+      for (let index = 0; index < BLOCK; index++) input[index] = .08 * Math.sin(index * .13);
+    }
+    process(64);
+    const times = [];
+    for (let trial = 0; trial < 3; trial++) {
+      let blocks = 0, elapsed = 0;
+      const at = now();
+      do { process(16); blocks += 16; elapsed = now() - at; } while (elapsed < 8 && blocks < 4096);
+      times.push(elapsed / 1000 / (blocks * BLOCK / sampleRate));
+    }
+    times.sort((a, b) => a - b);
+    const load = times[1];
+    return { voices, load, targetLoad, proved: voices > 0 && Number.isFinite(load) && load >= 0 && load <= targetLoad };
+  } finally {
+    api.lsd_drop(renderer);
+    for (const pointer of pointers) if (pointer) api.lsd_free(pointer, BLOCK * 4);
+  }
+}
+
 const count = value => Number.isSafeInteger(value) && value >= 0 ? value : null;
 const DEADLINE_LOAD = .95;
 
@@ -94,7 +140,7 @@ function fullPoolProof(current, status, requested, { topologyRevision, eligibleV
 /** Preparation retains its high-water budget: Rust already releases active
  * voices on overload, and a smaller topology does not reclaim pool storage.
  * A proved full pool proposes only part of its remaining deadline headroom;
- * the live controller validates each larger allocation without a final cap. */
+ * the worker validates it on the next explicit scene edit, without a final cap. */
 export function nextPreparedCapacity(current, status, requested, context = {}) {
   const proof = fullPoolProof(current, status, requested, context);
   if (!proof) return current;

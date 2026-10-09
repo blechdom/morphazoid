@@ -34,7 +34,13 @@ test('actual DSP slots retain real releases and remove retired voices despite li
   assert.equal(selection.select({ audio: true, limit: nodes.length, levels, activeVoiceIndices: [...slots] }), retired,
     'unchanged real membership reuses its array through admission and meter changes');
   assert.deepEqual(selection.select({ audio: true, limit: nodes.length, levels, activeVoiceIndices: [] }), [nodes[0]]);
-  assert.deepEqual(selection.select({ audio: true, depth: 0, levels, activeVoiceIndices: slots }), [nodes[0]]);
+  const zeroDepthRelease = selection.select({ audio: true, depth: 0, levels, activeVoiceIndices: slots });
+  assert.deepEqual(zeroDepthRelease.filter(node => node.generation > 0), admitted,
+    'Depth 0 retains every real sounding release until Rust retires it');
+  assert.equal(selection.select({ audio: true, depth: 1, levels, activeVoiceIndices: [...slots] }), zeroDepthRelease,
+    'a coefficient change cannot replace the unchanged actual-slot selection');
+  assert.deepEqual(selection.select({ audio: true, depth: 0, levels, activeVoiceIndices: [] }), [nodes[0]],
+    'retired voices disappear despite nonzero residual meters');
   assert.equal(selection.select({ audio: false, activeVoiceIndices: [] }), nodes);
 });
 
@@ -45,6 +51,23 @@ test('actual slot selection has no meter-capacity ceiling and omits unrepresente
   const drawn = selection.select({ audio: true, limit: 1, activeVoiceIndices: [...activeVoiceIndices, 999999] });
   assert.equal(drawn.length, 4098);
   assert.deepEqual(drawn.slice(1).map(node => node.voiceIndex), activeVoiceIndices);
+});
+
+test('sparse actual admission preserves source order without inspecting retained inactive branches', () => {
+  const nodes = [{ id: 'root', generation: 0 }, ...Array.from({ length: 4096 }, (_, voiceIndex) =>
+    ({ id: String(voiceIndex), generation: 1, voiceIndex }))];
+  let reads = 0;
+  for (const node of nodes.slice(1)) {
+    const slot = node.voiceIndex;
+    Object.defineProperty(node, 'voiceIndex', { get() { reads++; return slot; } });
+  }
+  const selection = createPreviewDrawSelection(nodes), preparedReads = reads;
+  const frame = selection.select({ audio: true, activeVoiceIndices: [4095, 1, 4095, -1, 999999] });
+  assert.deepEqual(frame.map(node => node.id), ['root', '1', '4095']);
+  assert.equal(reads, preparedReads, 'new sparse membership resolves cached slots rather than traversing inactive voices');
+  const releasing = selection.select({ audio: true, depth: 0, activeVoiceIndices: [4095, 2] });
+  assert.deepEqual(releasing.map(node => node.id), ['root', '2', '4095']);
+  assert.equal(reads, preparedReads);
 });
 
 test('a new pool cannot apply its active slots to a previous geometry or fall back to lingering meters', () => {

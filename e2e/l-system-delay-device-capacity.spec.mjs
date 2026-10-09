@@ -37,6 +37,9 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
           if (Number.isFinite(voiceBudget)) data.calibration.voices = voiceBudget;
           qa.compilations.push({ revision: data.revision, voiceBudget: data.voiceBudget,
             preparedVoices: data.result.preparedVoices, nodes: data.result.nodes.length,
+            eligibleVoices: data.result.eligibleVoices,
+            eligibleVoiceIndices: inspectControls ? data.result.nodes.filter(node => node.generation > 0
+              && node.gain > 0 && Number.isInteger(node.priority)).map(node => node.voiceIndex) : undefined,
             requestedGenerations: data.result.parameters.generations, requestedLab: data.result.parameters.lab,
             calibration: structuredClone(data.calibration) });
         });
@@ -60,7 +63,18 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
           };
           port.addEventListener('message', ({ data }) => {
             const record = controlsById.get(`audio:${data.id}`);
-            if (record) record.ackAt = performance.now();
+            if (record) {
+              record.ackAt = performance.now();
+              if (record.type === 'install' && data.status) {
+                // Observe the real atomic commit before application delivery;
+                // waiting for a later status would hide incremental admission.
+                const s = data.status;
+                record.ackStatus = { topologyRevision: s.topologyRevision, elapsedSeconds: s.elapsedSeconds,
+                  requestedTargets: s.requestedTargets, voiceLimit: s.voiceLimit, targetVoices: s.targetVoices,
+                  activeVoices: s.activeVoices, activeVoiceIndices: Array.from(s.activeVoiceIndices ?? []),
+                  deadlineMisses: s.deadlineMisses, cpuLoad: s.cpuLoad, peakLoad: s.peakLoad };
+              }
+            }
           });
           const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
           Object.defineProperty(port, 'onmessage', {
@@ -218,7 +232,7 @@ function captureQaDraw(branches, cost, renderedAt) {
   const activeVoiceIndices = Array.from(state.status.activeVoiceIndices ?? []), active = new Set(activeVoiceIndices);
   const activeRevisionMatches = state.status.topologyRevision === visualRevision;
   const expected = nodes.filter(node => !state.audio || node.generation === 0
-    || previewParameters.depth > 0 && activeRevisionMatches && active.has(node.voiceIndex));
+    || activeRevisionMatches && active.has(node.voiceIndex));
   const actualIds = branches.map(node => node.id), expectedIds = expected.map(node => node.id);
   const actual = new Set(actualIds), wanted = new Set(expectedIds), d = browserEngine.getDiagnostics();
   const previous = __deviceRuntime.lastDraw;
@@ -251,7 +265,7 @@ function captureQaDraw(branches, cost, renderedAt) {
       || frame.activeVoiceDuplicateCount || frame.invalidActiveVoiceCount
       || frame.drawCount !== frame.activeIntersectionCount + frame.rootCount
       || frame.drawCount > frame.activeVoices + frame.rootCount
-      || (frame.depth === 0 || !frame.activeRevisionMatches) && frame.drawCount !== frame.rootCount);
+      || !frame.activeRevisionMatches && frame.drawCount !== frame.rootCount);
   frame.totalAuditedDraws = __deviceRuntime.totalAuditedDraws = (__deviceRuntime.totalAuditedDraws ?? 0) + 1;
   frame.totalDrawViolations = __deviceRuntime.totalDrawViolations = (__deviceRuntime.totalDrawViolations ?? 0) + Number(Boolean(violation));
   if (violation && !__deviceRuntime.firstDrawViolation) __deviceRuntime.firstDrawViolation = frame;
@@ -452,7 +466,7 @@ function correctDraw(frame) {
     expect(frame.activeVoiceDuplicateCount).toBe(0); expect(frame.invalidActiveVoiceCount).toBe(0);
     expect(frame.drawCount).toBe(frame.activeIntersectionCount + frame.rootCount);
     expect(frame.drawCount).toBeLessThanOrEqual(frame.activeVoices + frame.rootCount);
-    if (frame.depth === 0 || !frame.activeRevisionMatches) expect(frame.drawCount).toBe(frame.rootCount);
+    if (!frame.activeRevisionMatches) expect(frame.drawCount).toBe(frame.rootCount);
   }
 }
 async function completeDraw(page) {
@@ -605,6 +619,66 @@ async function fittingScene(page, depth = .85) {
   expect((await diagnostics(page)).requestedVoices).toBeLessThanOrEqual(d.deviceCapacity.voices);
 }
 
+for (const renderer of ['canvas', 'webgl2']) test(`dense UI-only activity preserves the audio clock and exact live graphic with ${renderer}`, async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async () => {} });
+  });
+  await ready(page, renderer); await fittingScene(page);
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page), p = await pcm(page);
+    return d.audio && d.microphoneEnabled && p.peak > 1e-5;
+  }).toBe(true);
+  await page.waitForTimeout(1500); await settledControls(page); await completeDraw(page);
+  const initial = await session(page), scene = await page.evaluate(() => __deviceQa.liveState());
+  const initialControls = await controlCounts(page), phases = [];
+  await startPcm(page);
+  const boundary = () => page.evaluate(() => ({ wall: performance.now(), context: __deviceRuntime.contexts.at(-1).currentTime,
+    state: __deviceRuntime.contexts.at(-1).state, clock: __deviceQa.engine.getSampleTime() }));
+  for (const phase of ['idle', 'settings', 'ui-only', 'recovery']) {
+    await page.evaluate(phase => { __deviceRuntime.phase = phase; }, phase);
+    const before = await boundary();
+    if (phase === 'settings') await page.locator('#settingsButton').click();
+    if (phase === 'ui-only') {
+      await page.locator('#shareSoundName').evaluate(async node => {
+        for (let index = 0; index < 32; index++) {
+          node.value = `Priority ${index}`; node.dispatchEvent(new Event('input', { bubbles: true }));
+          if (index % 8 === 0) document.getElementById('copySoundParameters').click();
+          await new Promise(resolve => setTimeout(resolve, 32));
+        }
+      });
+    }
+    if (phase === 'recovery') await page.locator('#settingsButton').click();
+    await page.waitForTimeout(3000);
+    const after = await boundary();
+    phases.push({ phase, before, after, wallSeconds: (after.wall - before.wall) / 1000,
+      contextSeconds: after.context - before.context, sampleSeconds: after.clock - before.clock });
+  }
+  const recording = await pcmEvidence(page), current = await session(page);
+  await test.info().attach('priority-ui-only-continuity', { body: JSON.stringify({ renderer, initial, current, scene, phases, ...recording,
+    input: 'continuous broadband transported as a real MediaStream', actualWasm: true,
+    fakeAudioMetrics: false, forcedAudioBudget: false, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  continuousGeneratedPcm(recording);
+  for (const row of phases) {
+    expect(row.before.state).toBe('running'); expect(row.after.state).toBe('running');
+    expect(row.contextSeconds, `${row.phase}: the context must progress in real time`).toBeGreaterThan(row.wallSeconds * .8);
+    expect(row.sampleSeconds, `${row.phase}: Rust's clock must progress in real time`).toBeGreaterThan(row.wallSeconds * .8);
+  }
+  expect(await page.evaluate(() => __deviceQa.liveState())).toEqual(scene);
+  expect(await controlCounts(page)).toEqual(initialControls);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  const frames = recording.frames.filter(frame => frame.audio);
+  expect(frames.length).toBeGreaterThan(20);
+  // Catch a frozen display while allowing adaptive frame rate and detail.
+  expect(Math.max(...frames.map(frame => frame.drawGapMs))).toBeLessThan(750);
+  await cleanup(page, evidence);
+});
+
 for (const renderer of ['canvas', 'webgl2']) test(`normal branch waves retain full membership and camera under real drawing and RAF pressure with ${renderer}`, async ({ page }) => {
   test.setTimeout(120000);
   const evidence = await fixture(page, { fixedDrawingWorkMs: 6 }); await ready(page, renderer);
@@ -687,19 +761,109 @@ for (const renderer of ['canvas', 'webgl2']) test(`a zero-depth compilation rest
   await cleanup(page, evidence);
 });
 
+test('the whole playable tree commits together on warmed small-to-dense recall and remains one unchanged scene', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page, null); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page), samples = await pcm(page);
+    return d.audio && d.microphoneEnabled && samples.finite && samples.peak > 1e-5;
+  }, { timeout: 30000 }).toBe(true);
+  // At30ms and .8 child ratio, cumulative delays stay below120ms. Even
+  // an8x pitched read needs less than1.1s history; warm the actual audio clock
+  // so new-tap history readiness cannot masquerade as staged capacity growth.
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const initial = await session(page), dense = await page.evaluate(() => __deviceQa.scene());
+  const sessionPerformance = (await diagnostics(page)).performance;
+  expect(sessionPerformance.automatic).toBe(true); expect(sessionPerformance.voiceCeiling).toBe(0);
+  const small = { ...dense, parameters: { ...dense.parameters, generations: 1 } };
+  const commits = [], rows = [];
+  let recording;
+  await startPcm(page);
+  try {
+    for (const [phase, scene] of [['small-first', small], ['dense-first', dense], ['small-again', small], ['dense-again', dense]]) {
+      await page.evaluate(async ({ phase, scene }) => {
+        __deviceRuntime.phase = phase; await __deviceQa.applyScene(scene);
+      }, { phase, scene });
+      await settledControls(page);
+      const receipt = await page.evaluate(phase => {
+        const acknowledgements = __deviceRuntime.controls.filter(record => record.kind === 'audio'
+          && record.type === 'install' && record.phase === phase);
+        return { acknowledgements, compilations: __deviceRuntime.compilations,
+          diagnostics: __deviceQa.engine.getDiagnostics() };
+      }, phase);
+      expect(receipt.acknowledgements).toHaveLength(1);
+      const acknowledged = receipt.acknowledgements[0].ackStatus;
+      expect(acknowledged, `${phase}: the actual install ACK must describe its committed audio`).toBeDefined();
+      const compiled = receipt.compilations.find(row => row.revision === acknowledged.topologyRevision);
+      expect(compiled).toBeDefined(); expect(compiled.eligibleVoices).toBeGreaterThan(1);
+      expect(compiled.eligibleVoiceIndices).toHaveLength(compiled.eligibleVoices);
+      expect(new Set(compiled.eligibleVoiceIndices).size).toBe(compiled.eligibleVoices);
+      expect(acknowledged.requestedTargets).toBe(compiled.preparedVoices);
+      expect(acknowledged.voiceLimit, `${phase}: admit the prepared eligible tree at commit`).toBe(compiled.eligibleVoices);
+      expect(acknowledged.targetVoices, `${phase}: no later generation admission is needed`).toBe(compiled.eligibleVoices);
+      const actual = new Set(acknowledged.activeVoiceIndices);
+      expect(actual.size).toBe(acknowledged.activeVoices);
+      expect(compiled.eligibleVoiceIndices.filter(slot => !actual.has(slot))).toEqual([]);
+      expect(compiled.preparedVoices).toBeLessThanOrEqual(receipt.diagnostics.deviceCapacity.preparedCapacity);
+      // Outgoing release tails may still be processed. Subsequent real
+      // deadline backoff is allowed; the graphic must show those actual slots.
+      await completeDraw(page);
+      commits.push({ phase, acknowledged, compiled });
+    }
+    const stable = await diagnostics(page), baseline = await view(page), counts = await controlCounts(page);
+    const holdClock = (await session(page)).time, wallStarted = Date.now();
+    while ((await session(page)).time < holdClock + 12 && Date.now() - wallStarted < 30000) {
+      const d = await diagnostics(page), v = await view(page), current = await session(page);
+      expect(d.parameters).toEqual(stable.parameters);
+      expect(d.topologyRevision).toBe(stable.topologyRevision);
+      expect(d.preparedVoices).toBe(stable.preparedVoices);
+      expect(d.deviceCapacity.preparedCapacity).toBe(stable.deviceCapacity.preparedCapacity);
+      expect(v.revision).toBe(baseline.revision); expect(v.ids).toEqual(baseline.ids);
+      expect(await controlCounts(page)).toEqual(counts);
+      const frame = await page.evaluate(() => __deviceQa.lastDraw()); correctDraw(frame);
+      rows.push({ audioSeconds: current.time - holdClock, prepared: d.preparedVoices,
+        processing: d.status.activeVoices, target: d.status.targetVoices, voiceLimit: d.status.voiceLimit,
+        deadlineMisses: d.status.deadlineMisses, frame });
+      await page.waitForTimeout(250);
+    }
+    expect((await session(page)).time).toBeGreaterThanOrEqual(holdClock + 12);
+    expect(await controlCounts(page)).toEqual(counts);
+  } finally {
+    recording = await pcmEvidence(page);
+    await test.info().attach('whole-scene-atomic-admission', { body: JSON.stringify({ initial, commits, rows, ...recording,
+      input: 'continuous broadband transported as a real MediaStream', actualWasm: true,
+      forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  await cleanup(page, evidence);
+});
+
 test('an unforced minute of dense animated real audio retains its complete prepared tree and one source', async ({ page }) => {
   test.setTimeout(180000);
-  const evidence = await fixture(page); await ready(page); await applyDense(page, 'classic'); await builtInInput(page);
+  const evidence = await fixture(page, { inspectControls: true }); await ready(page); await applyDense(page, 'classic'); await builtInInput(page);
+  await settledControls(page); await completeDraw(page);
   await page.evaluate(() => __deviceQa.record());
-  const initial = await session(page), parameters = (await diagnostics(page)).parameters, rows = [];
-  let previousCapacity = 0, previousPrepared = 0;
+  const initial = await session(page), stable = await diagnostics(page), baseline = await view(page), counts = await controlCounts(page);
+  const parameters = stable.parameters, rows = [];
   const started = Date.now();
   try {
     while (Date.now() - started < 60000) {
       const d = await diagnostics(page), v = await view(page), current = await session(page), samples = await pcm(page);
       expect(d.parameters).toEqual(parameters); expect(v.parameters).toEqual(parameters);
-      expect(d.deviceCapacity.preparedCapacity).toBeGreaterThanOrEqual(previousCapacity);
-      expect(d.preparedVoices).toBeGreaterThanOrEqual(previousPrepared);
+      expect(d.deviceCapacity.preparedCapacity).toBe(stable.deviceCapacity.preparedCapacity);
+      expect(d.preparedVoices).toBe(stable.preparedVoices);
+      expect(d.topologyRevision).toBe(stable.topologyRevision);
+      expect(v.revision).toBe(baseline.revision); expect(v.ids).toEqual(baseline.ids);
+      expect(await controlCounts(page)).toEqual(counts);
       expect(d.preparedVoices).toBeLessThanOrEqual(d.deviceCapacity.preparedCapacity);
       expect(v.connected).toBe(true); expect(v.roots).toBe(1);
       if (!v.moving) await fullTree(page);
@@ -710,14 +874,14 @@ test('an unforced minute of dense animated real audio retains its complete prepa
       rows.push({ time: (Date.now() - started) / 1000, sampleClock: current.time, preparedCapacity: d.deviceCapacity.preparedCapacity,
         prepared: d.preparedVoices, voiceLimit: d.status.voiceLimit, nodes: v.nodes, pcm: samples, frame,
         deadlineWarnings: d.status.deadlineMisses, underruns: d.status.underruns, overruns: d.status.overruns });
-      previousCapacity = d.deviceCapacity.preparedCapacity; previousPrepared = d.preparedVoices;
       await page.waitForTimeout(500);
     }
     expect((await session(page)).time).toBeGreaterThan(initial.time + 50);
     for (let second = 0; second < 60; second += 10) expect(rows.some(row => row.time >= second && row.time < second + 10 && row.pcm.peak > 1e-5)).toBe(true);
     const frames = await page.evaluate(() => __deviceQa.frames()); frames.forEach(correctDraw);
   } finally {
-    await test.info().attach('unforced-normal-motion-minute', { body: JSON.stringify({ parameters, rows,
+    await test.info().attach('unforced-normal-motion-minute', { body: JSON.stringify({ parameters, stablePrepared: {
+      capacity: stable.deviceCapacity.preparedCapacity, voices: stable.preparedVoices, revision: stable.topologyRevision, counts }, rows,
       frames: await page.evaluate(() => __deviceQa.frames()), actualWasm: true, actualBundledInput: true,
       forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false }), contentType: 'application/json' });
   }

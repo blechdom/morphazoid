@@ -103,6 +103,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
   message(data) {
     if (this.dead) return;
     if (data.type === 'install') {
+      if (Number.isFinite(data.depth)) this.latestDepth = data.depth;
       this.installQueue.push(data);
       if (!this.pendingInstall) this.startInstall();
       return;
@@ -113,6 +114,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     } else if (data.type === 'depth') {
       const accepted = this.api.lsd_depth(this.engine, data.depth);
       if (!accepted) throw new Error(wasmError(this.api, 'Recursion could not be updated.'));
+      if (Number.isFinite(data.depth)) this.latestDepth = data.depth;
     } else if (data.type === 'time-fold') {
       const accepted = this.api.lsd_time_fold(this.engine, data.intervalMs);
       if (!accepted) throw new Error(wasmError(this.api, 'Time fold could not be updated.'));
@@ -154,6 +156,13 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
         .set(bytes.subarray(0, this.pendingInstall.copied));
       if (!this.api.lsd_install_begin(this.engine, pointer, bytes.length)) {
         throw new Error(wasmError(this.api, 'The audio topology could not be prepared.'));
+      }
+      if (!this.api.lsd_install_scene_admission(this.engine, Number(Boolean(data.wholeSceneAdmission)))) {
+        throw new Error(wasmError(this.api, 'The complete audio scene could not be prepared.'));
+      }
+      if (new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength).getUint32(4, true) === 2
+        && Number.isFinite(this.latestDepth) && !this.api.lsd_install_depth(this.engine, this.latestDepth)) {
+        throw new Error(wasmError(this.api, 'The scene depth could not be prepared.'));
       }
       if (Number.isFinite(data.baseIntervalMs) && Number.isFinite(data.intervalMs)
         && !this.api.lsd_install_time_fold(this.engine, data.baseIntervalMs, data.intervalMs, Number(Boolean(data.liveFold)))) {

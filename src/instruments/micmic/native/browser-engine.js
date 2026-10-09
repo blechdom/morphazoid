@@ -31,7 +31,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let stream, inputNode, microphonePending = false, captureVersion = 0, capturePromise, captureCancel, inputRevision = 0;
   let audio = false, audioDesired = false, audioVersion = 0, disposed = false, failure = null;
   let status = emptyStatus(), sequence = 0, readyTopology;
-  let deviceCapacity = null, preparedCapacity = 0, capacityWorking = false, capacityRetryAt = 0, capacityFailure = null;
+  let deviceCapacity = null, preparedCapacity = 0, nextSceneCapacity = 0, capacityWorking = false, capacityFailure = null;
+  let sceneDeadlineBaseline = 0;
   const capacityController = createPreparedCapacityController();
   let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0, foldRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
@@ -89,9 +90,11 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { workerRequests.delete(id); reject(new Error('The requested topology took too long to compile.')); }, 60000);
       workerRequests.set(id, { resolve, reject, timer });
-      const capacity = capacityOverride ?? (deviceCapacity?.sampleRate === rate ? preparedCapacity : 0);
+      const capacity = capacityOverride ?? (deviceCapacity?.sampleRate === rate ? nextSceneCapacity || preparedCapacity : 0);
       worker.postMessage({ id, parameters: nextParameters, sampleRate: rate, revision, replaceable,
-        voiceBudget: capacity ? Math.min(capacity, topology?.memoryVoiceCapacity ?? capacity) : undefined });
+        voiceBudget: capacity ? Math.min(capacity, topology?.memoryVoiceCapacity ?? capacity) : undefined,
+        validateCapacity: Boolean(capacity > preparedCapacity && deviceCapacity?.sampleRate === rate),
+        fallbackVoiceBudget: preparedCapacity, performance: performanceState });
     });
   }
 
@@ -134,8 +137,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // Transfer delivery avoids cloning the full pool on the audio thread.
     // Keep the compiler/cache allocation attached for graph recovery.
     const audioPool = retainedPool.slice(0);
-    return audioMessage('install', { pool: audioPool, seedCapacity: deviceCapacity?.voices || 0,
-      baseIntervalMs, intervalMs, liveFold }, [audioPool]);
+    return audioMessage('install', { pool: audioPool, seedCapacity: deviceCapacity?.voices || 0, wholeSceneAdmission: true,
+      depth: requestedDepth, baseIntervalMs, intervalMs, liveFold }, [audioPool]);
   }
 
   function suspendControlContext(preparedContext) {
@@ -213,6 +216,9 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     }
     deviceCapacity = compiled.calibration;
     preparedCapacity = compiled.voiceBudget;
+    nextSceneCapacity = preparedCapacity;
+    capacityFailure = compiled.capacityFailure || null;
+    sceneDeadlineBaseline = status.deadlineMisses || 0;
     parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth, intervalMs: appliedInterval }; topology = compiled.result;
     pool = compiled.pool; module = compiled.module; topologyRevision = compiled.revision;
     poolBaseIntervalMs = timing.baseIntervalMs; poolTiming = timing;
@@ -485,38 +491,25 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
 
   async function refresh() {
     if (node && context?.state === 'running' && !starting) status = await audioMessage('status');
-    // Keep the prepared tree when Rust backs off active voices. Inactive slots
-    // add no recurring DSP work, and installed storage already retains its high
-    // water capacity. Rewriting a smaller topology only creates scene churn.
+    // Headroom may propose a budget for the next explicit scene. It never
+    // compiles, installs or adds voices to an unchanged playing tree.
     const time = status.elapsedSeconds || 0;
-    // The request token advances before its new scene commits. During that
-    // interval parameters still describes the old tree; pairing it with the
-    // new token would let a queued capacity probe restore the previous preset.
-    const settled = audio && !starting && !parameterRequestsPending && !foldRequestsPending && !capacityWorking && time >= capacityRetryAt;
+    const settled = audio && !starting && !parameterRequestsPending && !performanceRequestsPending
+      && !depthRequestsPending && !foldRequestsPending;
     const next = Math.min(capacityController.observe({ nowSeconds: time, current: preparedCapacity,
       requested: topology?.requestedVoices || 0, status, topologyRevision,
       eligibleVoices: parameters.depth > 0 ? topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0 : 0,
       preparedVoices: topology?.preparedVoices ?? 0, settled }), topology?.memoryVoiceCapacity ?? Number.MAX_SAFE_INTEGER);
     if (settled) {
-      if (next !== preparedCapacity) {
-        const prepared = topology?.preparedVoices || 0;
-        if ((next < prepared) || (next > prepared && topology?.requestedVoices > prepared)) {
-          const revision = parameterRequestRevision, candidate = { ...parameters };
-          capacityWorking = true;
-          const pending = compileChain.catch(() => {}).then(async () => {
-            if (disposed || revision !== parameterRequestRevision) return;
-            const compiled = await compile(candidate, context?.sampleRate || 48000, true, next);
-            if (!disposed && revision === parameterRequestRevision && !compiled.skipped) {
-              await install(compiled); capacityFailure = null; onStatus(snapshot());
-            }
-          }).catch(error => {
-            // A failed optional probe must not poison subsequent tiny scenes
-            // or replace the working recording. Retain the last installed budget.
-            capacityFailure = String(error.message || error); capacityRetryAt = time + 10;
-          }).finally(() => { capacityWorking = false; });
-          compileChain = pending;
-        }
-      }
+      const eligible = topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0;
+      const demand = performanceState.voiceCeiling > 0 ? Math.min(eligible, performanceState.voiceCeiling) : eligible;
+      if (performanceState.automatic && parameters.depth > 0 && status.deadlineMisses > sceneDeadlineBaseline
+        && status.topologyRevision === topologyRevision && status.voiceLimit > 0 && status.voiceLimit < demand) {
+        // Keep the current prepared tree, but don't reuse a rejected larger
+        // admission plan on the next preset merely because cold proof exists.
+        nextSceneCapacity = Math.min(nextSceneCapacity || preparedCapacity, status.voiceLimit);
+        capacityController.reset();
+      } else if (next > preparedCapacity) nextSceneCapacity = Math.max(nextSceneCapacity, next);
     }
     const reply = snapshot(); onStatus(reply); return reply;
   }
@@ -640,7 +633,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     return { ...reply, initialized: Boolean(topology), disposed, audioDesired, microphoneEnabled: Boolean(stream), microphonePending,
       contextState: context?.state || 'absent', contextGeneration, connectionCount: node && master ? 1 : 0,
       sampleClock: status.elapsedSeconds, processedBlocks: status.processedBlocks || 0, buildRevision: topologyRevision,
-      capacityWorking, capacityFailure, preparedNodes: topology?.nodes?.length || 0 };
+      capacityWorking, capacityFailure, nextSceneCapacity, preparedNodes: topology?.nodes?.length || 0 };
   }
 
   function getSampleTime() {
