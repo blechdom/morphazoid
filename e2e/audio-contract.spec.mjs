@@ -78,6 +78,9 @@ test.describe("real-browser Web Audio contracts", () => {
 
     await setRange("#level", 0);
     await expect(page.locator("#levelOut")).toHaveText("0%");
+    // Output uses a 15 ms gain time constant; the label updates before its
+    // smoothing ramp and the analyser history settle at the requested level.
+    await waitForStableAudioState(page, false, { stableMs: 200 });
     await page.locator("#pluckButton").click();
     const quiet = await sampleAudioEnvelope(page, { durationMs: 450, intervalMs: 50 });
 
