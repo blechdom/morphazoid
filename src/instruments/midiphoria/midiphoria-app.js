@@ -16,7 +16,7 @@ const clock = () => performance.now() / 1000;
 const $ = id => document.getElementById(id);
 const RENDER_CONTROLS = Object.freeze({ viewMode: 'view', trailSeconds: 'trailSeconds',
   palette: 'palette', paletteHue: 'hueOffset', saturation: 'saturation', glow: 'glow',
-  trailWidth: 'width', motion: 'motion', colorSource: 'colorSource', voiceLayout: 'voiceLayout',
+  trailWidth: 'width', motion: 'motion', colorSource: 'colorSource',
   fadeCurve: 'fadeCurve', spin: 'spin', symmetry: 'symmetry', reflection: 'reflection', flow: 'flow' });
 
 function mountMidiphoria() {

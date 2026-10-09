@@ -274,33 +274,8 @@ export class MidiphoriaRenderer {
     const visible = this.trails.filter(note => !this.voiceFocus || note.voiceId === this.voiceFocus);
     this._denseRendering = visible.length > 1024;
     this._frameBlend = midiphoriaBlendRgb({ ...sample, activeNotes: this._lastColorNotes }, settings, this.options);
-    const layout = this.options.voiceLayout ?? 'overlay';
-    const voices = this.getVoices().filter(voice => !this.voiceFocus || voice.id === this.voiceFocus);
-    if (layout === 'overlay' || voices.length <= 1) {
-      this._drawScene(ctx, sample, now, settings, w, h, visible);
-      return;
-    }
-    ctx.globalAlpha = 1; ctx.fillStyle = settings.invert ? '#e7efe9' : '#030706'; ctx.fillRect(0, 0, w, h);
-    const groups = new Map(voices.map(voice => [voice.id, []]));
-    for (const note of visible) {
-      if (!groups.has(note.voiceId)) { // Rare extra MIDI ports remain visible in the final panel.
-        groups.get(voices.at(-1).id).push(note);
-      } else groups.get(note.voiceId).push(note);
-    }
-    const columns = layout === 'panels' ? Math.max(1, Math.ceil(Math.sqrt(voices.length * w / h))) : 1;
-    const rows = Math.ceil(voices.length / columns), cellW = w / columns, cellH = h / rows;
-    voices.forEach((voice, index) => {
-      const x = index % columns * cellW, y = Math.floor(index / columns) * cellH;
-      ctx.save(); ctx.beginPath(); ctx.rect(x, y, cellW, cellH); ctx.clip(); ctx.translate(x, y);
-      this._drawScene(ctx, sample, now, settings, cellW, cellH, groups.get(voice.id));
-      ctx.globalAlpha = 1; ctx.fillStyle = settings.invert ? '#e7efe9e8' : '#030706d9';
-      ctx.fillRect(0, 0, cellW, Math.min(17, cellH));
-      ctx.fillStyle = settings.invert ? '#294838' : voice.color;
-      ctx.font = '10px system-ui'; ctx.textAlign = 'left';
-      if (cellH >= 24) ctx.fillText(voice.label, 6, 12, Math.max(1, cellW - 12));
-      ctx.fillStyle = settings.invert ? '#bdcec3' : '#234032'; ctx.fillRect(0, cellH - 1, cellW, 1);
-      ctx.restore();
-    });
+    // Color distinguishes the parts; every voice uses the same coordinates.
+    this._drawScene(ctx, sample, now, settings, w, h, visible);
   }
 
   _drawScene(ctx, sample, now, settings, w, h, trails) {
