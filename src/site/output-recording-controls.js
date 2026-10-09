@@ -300,11 +300,11 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     const clock = element(doc, "output", "output-recording-clock", "00:00");
     clock.setAttribute("aria-label", "Recording duration");
     clock.setAttribute("aria-live", "off");
-    strip.append(button, clock);
+    strip.append(clock, button);
     const meters = host.querySelector(":scope > .header-output-meter-shell, :scope > .mz-stereo-meter");
-    host.insertBefore(strip, meters ? meters.nextSibling : host.firstChild);
+    host.insertBefore(strip, meters ?? host.firstChild);
     button.addEventListener("click", toggle);
-    strips.push({ strip, button, clock });
+    strips.push({ host, strip, button, clock });
     const panel = host.querySelector(".header-settings-panel");
     if (panel) {
       const section = element(doc, "section", "output-recording-settings");
@@ -366,6 +366,18 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
   };
   const visibility = () => requestWakeLock();
   const audioObserver = runtime.MutationObserver ? new runtime.MutationObserver(records => {
+    if (records.some(record => record.type === "childList" && hosts.includes(record.target))) {
+      // Mic controls move into the header after startup and on resize. Keep
+      // Record beside the output meters, after the independent input group.
+      for (const { host, strip } of strips) {
+        const meters = host.querySelector(":scope > .header-output-meter-shell, :scope > .mz-stereo-meter");
+        if (meters && strip.nextElementSibling !== meters) {
+          const focused = strip.contains(doc.activeElement) ? doc.activeElement : null;
+          host.insertBefore(strip, meters);
+          focused?.focus({ preventScroll: true });
+        }
+      }
+    }
     if (records.some(record => record.type === "childList"
       ? [...record.addedNodes, ...record.removedNodes].some(node => node.matches?.(".audio-button, .audio-toggle")
         || node.querySelector?.(".audio-button, .audio-toggle"))

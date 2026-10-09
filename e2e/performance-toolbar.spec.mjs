@@ -30,7 +30,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         };
       });
       expect(layout.first).toBe(true); expect(layout.inHeader).toBe(false);
-      expect(layout.ioOrder).toEqual(["meters", "output-recording-control", "audio", "settings"]);
+      expect(layout.ioOrder).toEqual(["output-recording-control", "meters", "audio", "settings"]);
       expect(layout.nativeRange).toBe("range"); expect(layout.audio).toBe("false");
       expect(layout.width).toBeLessThanOrEqual(viewport.width + 1);
       for (const box of layout.boxes) { expect(box.x).toBeGreaterThanOrEqual(0); expect(box.right).toBeLessThanOrEqual(viewport.width + 1); expect(box.width).toBeGreaterThan(0); }

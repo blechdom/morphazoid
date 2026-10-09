@@ -13,7 +13,16 @@
   height: 44px;
   padding: 0;
   color: #ff596d;
-  border-color: transparent;
+  border: 1px solid var(--line-strong, var(--mz-color-line-strong));
+  border-radius: 50%;
+}
+.output-recording-button.mz-button:hover:not(:disabled) {
+  border-color: var(--mz-active-accent);
+  color: var(--mz-active-accent);
+  box-shadow: 0 0 14px var(--mz-active-accent-glow), inset 0 0 8px var(--mz-active-accent-glow);
+}
+.output-recording-button.mz-button:focus-visible {
+  outline-color: var(--mz-active-accent);
 }
 .output-recording-button .mz-button__label {
   position: absolute;
@@ -29,7 +38,13 @@
   background: currentColor;
 }
 .output-recording-button[aria-pressed="true"] .mz-button__icon { border-radius: 1px; }
-.output-recording-button.mz-button[aria-pressed="true"] { color: #180b0f; background: #ff596d; }
+.output-recording-button.mz-button[aria-pressed="true"],
+.output-recording-button.mz-button[aria-pressed="true"]:hover:not(:disabled) {
+  border-color: var(--mz-active-accent);
+  color: #180b0f;
+  background: var(--mz-active-accent);
+  box-shadow: 0 0 16px var(--mz-active-accent-glow);
+}
 .output-recording-button[data-recording-state="ready"] .mz-button__icon {
   border-radius: 0;
   clip-path: polygon(35% 0, 65% 0, 65% 50%, 100% 50%, 50% 100%, 0 50%, 35% 50%);

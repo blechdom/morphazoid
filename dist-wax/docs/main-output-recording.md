@@ -1,10 +1,12 @@
 # Main output recording
 
-The red circle beside the output meters records the current instrument's final
-stereo mix, after its effects and master volume. Turn Audio on, click Record,
+The outlined red Record button to the left of the output meters records the
+current instrument's final stereo mix, after its effects and master volume.
+Turn Audio on, click Record,
 then click the square to Stop. Recording does not start transport, enable the
 microphone, or change what you hear. The elapsed counter follows captured audio
-frames. Computer/system volume does not affect the file.
+frames and appears to the left of Record while capturing. The circular button
+outline remains in every state. Computer/system volume does not affect the file.
 
 The recording is an uncompressed **24-bit stereo WAV** at the output's sample
 rate. Mono output becomes dual mono. Surround output uses the shared stereo
