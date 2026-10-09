@@ -157,16 +157,21 @@ function captureFoldDraw(branches, now) {
   const qa = __foldRuntime; if (!qa.recording) return;
   const indices = Array.from(state.status.activeVoiceIndices ?? []), active = new Set(indices);
   const coherent = state.status.topologyRevision === visualRevision;
-  const expected = geometry.nodes.filter(n => n.generation === 0 || state.audio && coherent && active.has(n.voiceIndex));
+  // Audio-off/preparation previews show the prepared tree. Live membership
+  // can be verified only against its matching DSP frame; stale slots must
+  // never be mapped into a different geometry revision.
+  const expected = geometry.nodes.filter(n => !state.audio || n.generation === 0 || coherent && active.has(n.voiceIndex));
   const actualIds = branches.map(n => n.id), expectedIds = expected.map(n => n.id), actual = new Set(actualIds), wanted = new Set(expectedIds);
   const row = { at: now, phase: qa.phase, actualIds, expectedIds, activeVoiceIndices: indices,
     active: state.status.activeVoices, requestedFold: state.parameters.intervalMs, installedFold: previewParameters.intervalMs,
     engineFold: browserEngine.getDiagnostics().parameters.intervalMs,
-    coherent, revision: visualRevision, statusRevision: state.status.topologyRevision,
+    audio: state.audio, coherent, revision: visualRevision, statusRevision: state.status.topologyRevision,
     gpu: gpuRenderer?.available ? gpuRenderer.stats : null };
-  const wrong = actual.size !== actualIds.length || indices.length !== state.status.activeVoices || active.size !== indices.length
+  const liveFrame = state.audio && coherent;
+  const wrong = actual.size !== actualIds.length || liveFrame && (indices.length !== state.status.activeVoices || active.size !== indices.length)
     || actualIds.some(id => !wanted.has(id)) || expectedIds.some(id => !actual.has(id));
-  qa.auditedDraws++; qa.drawViolations += Number(wrong); if (wrong && !qa.firstDrawViolation) qa.firstDrawViolation = row;
+  qa.auditedDraws++; if (liveFrame) qa.liveAuditedDraws = (qa.liveAuditedDraws ?? 0) + 1;
+  qa.drawViolations += Number(wrong); if (wrong && !qa.firstDrawViolation) qa.firstDrawViolation = row;
   qa.draws.push(row);
 }
 window.__foldQa = { engine: browserEngine, applyScene, slider: sliderFromTimeFold,
@@ -419,7 +424,8 @@ test('stage X transposes live Rust audio independently of Y angle and Time fold 
   // timing, source and continuously advancing audio clock remain live.
   await stageDrag(page, 0, -.1);
   const vertical = await diagnostics(page), afterVertical = await session(page);
-  expect(vertical.parameters.angle).toBeCloseTo(horizontal.parameters.angle + 18, 6);
+  // Pointer coordinates round to CSS subpixels; allow 0.0001 degrees.
+  expect(vertical.parameters.angle).toBeCloseTo(horizontal.parameters.angle + 18, 4);
   const { angle: horizontalAngle, ...beforeY } = horizontal.parameters;
   const { angle: verticalAngle, ...afterY } = vertical.parameters;
   expect(afterY).toEqual(beforeY);
@@ -446,9 +452,9 @@ test('stage X transposes live Rust audio independently of Y angle and Time fold 
     qa.recording = false; return { ...data, raw: undefined };
   });
   expect(flush.nonFinite).toBe(0); expect(flush.discontinuities).toBe(0);
-  const drawing = await page.evaluate(() => ({ audited: __foldRuntime.auditedDraws,
+  const drawing = await page.evaluate(() => ({ audited: __foldRuntime.auditedDraws, live: __foldRuntime.liveAuditedDraws,
     violations: __foldRuntime.drawViolations, first: __foldRuntime.firstDrawViolation }));
-  expect(drawing.audited).toBeGreaterThan(0); expect(drawing.violations, JSON.stringify(drawing.first)).toBe(0);
+  expect(drawing.live).toBeGreaterThan(0); expect(drawing.violations, JSON.stringify(drawing.first)).toBe(0);
   await page.locator('#audioButton').click(); expect(errors).toEqual([]);
   await info.attach('stage-pitch-evidence', { contentType: 'application/json', body: JSON.stringify({
     initial: initial.parameters, horizontal: horizontal.parameters, vertical: vertical.parameters,

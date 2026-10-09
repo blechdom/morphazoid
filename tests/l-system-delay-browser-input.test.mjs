@@ -32,8 +32,9 @@ function compiledPool(parameters, revision, provenance) {
   return pool;
 }
 function fixture() {
-  const originals = new Map(), engines = [], contexts = [], worklets = [], workers = [], sources = [], errors = [], updates = [];
-  const f = { contexts, worklets, workers, sources, errors, updates, captureCalls: 0, fetchCalls: 0, statusReplies: [], holdStatus: false,
+  const originals = new Map(), engines = [], contexts = [], worklets = [], workers = [], sources = [], microphoneNodes = [], errors = [], updates = [];
+  const f = { contexts, worklets, workers, sources, microphoneNodes, errors, updates, captureCalls: 0, fetchCalls: 0, statusReplies: [], holdStatus: false,
+    holdNextPerformance: 0, performanceReplies: [],
     compileRequests: [], compileReplies: [], compilePools: [], holdCompile: false, holdInstall: false, installReplies: [],
     holdSuspend: false, suspendReplies: [], holdDrain: false, drainReplies: [],
     holdPitch: false, pitchReplies: [],
@@ -54,8 +55,10 @@ function fixture() {
     createGain() { const node = new Node(); node.gain = { value: 0, cancelScheduledValues() {}, setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime(value) { this.value = value; } }; return node; }
     createBuffer(channels, length, rate) { return pcm(channels, length, rate); }
     decodeAudioData(bytes) { return f.decode(bytes); }
-    createMediaStreamSource(stream) { const node = new Node(); node.stream = stream; return node; }
-    createBufferSource() { const node = new Node(); node.stop = () => { node.stopped = true; }; node.start = () => { node.started = true; }; sources.push(node); return node; }
+    createMediaStreamSource(stream) { const node = new Node(); node.stream = stream; microphoneNodes.push(node); return node; }
+    createBufferSource() { const node = new Node(); node.stop = () => { node.stopped = true; }; node.start = () => {
+      node.started = true; node.performanceAtStart = worklets.at(-1)?.messages.filter(message => message.type === 'performance').at(-1)?.performance;
+    }; sources.push(node); return node; }
   }
   class Worker {
     constructor() { workers.push(this); }
@@ -81,7 +84,8 @@ function fixture() {
           ? { id: data.id, pitchOffset: data.pitchOffset, topologyRevision: status.topologyRevision, processedBlocks: status.processedBlocks }
           : { id: data.id, status };
         const reply = () => this.port.onmessage?.({ data: acknowledgement });
-        if (data.type === 'install' && (f.holdInstall || this.context.state !== 'running')) f.installReplies.push({ context: this.context, reply });
+        if (data.type === 'performance' && f.holdNextPerformance > 0) { f.holdNextPerformance--; f.performanceReplies.push(reply); }
+        else if (data.type === 'install' && (f.holdInstall || this.context.state !== 'running')) f.installReplies.push({ context: this.context, reply });
         else if (f.holdDrain && data.type === 'drain') f.drainReplies.push(reply);
         else if (f.holdPitch && data.type === 'pitch-offset') f.pitchReplies.push(reply);
         else if (f.holdStatus && data.type === 'status') f.statusReplies.push(reply); else queueMicrotask(reply);
@@ -367,10 +371,66 @@ test('file upload prepares muted input, Audio plays the same worklet path and ga
     assert.equal(f.captureCalls, 0); assert.equal(loaded.input.hasFile, true);
     const playing = await engine.request('/api/audio', { enabled: true });
     assert.equal(playing.audio, true); assert.equal(playing.input.playing, true); assert.equal(f.sources[0].target, f.worklets[0]);
+    assert.equal(f.sources[0].performanceAtStart.inputGain, 1, 'uploaded PCM enters at unity before playback');
     assert.equal(playing.performance.source, 'mic'); assert.equal(playing.performance.inputGain, 4); assert.equal(playing.performance.level, 0); assert.equal(playing.performance.mastering.makeupDb, 24);
     await engine.setInputMode('samples'); assert.equal(f.sources[0].stopped, true); assert.equal(f.captureCalls, 0);
     assert.equal(f.sources.at(-1).target, f.worklets[0]); assert.equal(f.sources.length, 2);
+    assert.equal(f.sources.at(-1).performanceAtStart.inputGain, 1, 'bundled samples use unity gain');
     await engine.request('/api/audio', { enabled: false }); assert.equal(f.sources[1].stopped, true); assert.equal(engine.getDiagnostics().input.playing, false);
+  } finally { f.cleanup(); }
+});
+test('media gain stays unity through live mic trim edits, direct upload, mic capture and processor recovery', async () => {
+  const f = fixture();
+  const lastPerformance = () => f.worklets.at(-1).messages.filter(message => message.type === 'performance').at(-1).performance;
+  try {
+    const engine = f.engine();
+    await engine.request('/api/performance', { inputGain: 2 });
+    await engine.setMicrophoneEnabled(true);
+    assert.equal(lastPerformance().inputGain, 2);
+    await engine.request('/api/audio', { enabled: true });
+    const generation = engine.getDiagnostics().contextGeneration;
+    await engine.loadFile(file('unity.wav'));
+    assert.equal(f.sources.at(-1).performanceAtStart.inputGain, 1);
+    assert.equal(f.sources.at(-1).performanceAtStart.inputMode, 'media');
+    const source = f.sources.at(-1);
+    for (const inputGain of [0, .85, 4]) {
+      const reply = await engine.request('/api/performance', { inputGain });
+      assert.equal(reply.performance.inputGain, inputGain); assert.equal(lastPerformance().inputGain, 1);
+      assert.equal(f.sources.at(-1), source); assert.equal(source.stopped, undefined);
+      assert.equal(engine.getDiagnostics().contextGeneration, generation);
+    }
+    await engine.setInputMode('samples');
+    assert.equal(f.sources.at(-1).performanceAtStart.inputGain, 1);
+    assert.equal(f.sources.at(-1).performanceAtStart.inputMode, 'media');
+    await engine.restartInput(); assert.equal(f.sources.at(-1).performanceAtStart.inputGain, 1);
+    assert.equal(f.sources.at(-1).performanceAtStart.inputMode, 'media');
+    await engine.setMicrophoneEnabled(true);
+    assert.equal(lastPerformance().inputGain, 4, 'the direct header mic action restores its stored trim');
+    assert.equal(f.microphoneNodes.at(-1).target, f.worklets.at(-1));
+    await engine.loadFile(file('recovery.wav'));
+    f.worklets.at(-1).onprocessorerror();
+    await engine.request('/api/audio', { enabled: true });
+    assert.equal(f.sources.at(-1).performanceAtStart.inputGain, 1);
+    assert.equal(f.sources.at(-1).performanceAtStart.inputMode, 'media');
+    assert.equal(engine.getDiagnostics().performance.inputGain, 4);
+    assert.equal(engine.getDiagnostics().input.mode, 'file');
+  } finally { f.cleanup(); }
+});
+test('a delayed performance acknowledgement cannot rewind levels or mic/media routing after a source switch', async () => {
+  const f = fixture();
+  try {
+    const engine = f.engine(); await engine.setMicrophoneEnabled(true);
+    f.holdNextPerformance = 1;
+    const edit = engine.request('/api/performance', { inputGain: 3, wet: .31, level: .7 });
+    await until(() => f.performanceReplies.length === 1);
+    await engine.setInputMode('samples');
+    f.performanceReplies[0](); await edit;
+    const reply = engine.getDiagnostics(), payload = f.worklets[0].messages.filter(message => message.type === 'performance').at(-1).performance;
+    assert.equal(reply.input.mode, 'samples'); assert.equal(reply.performance.inputGain, 3);
+    assert.equal(reply.performance.wet, .31); assert.equal(reply.performance.level, .7);
+    assert.equal(payload.inputGain, 1); assert.equal(payload.wet, .31); assert.equal(payload.level, .7);
+    await engine.setMicrophoneEnabled(true);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'performance').at(-1).performance.inputGain, 3);
   } finally { f.cleanup(); }
 });
 test('selected file with no upload keeps already armed output and never requests a microphone', async () => {

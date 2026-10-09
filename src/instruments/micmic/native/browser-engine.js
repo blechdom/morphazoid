@@ -41,7 +41,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0, foldRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
-  const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
+  const input = createInputSource({ prepare: prepareInputAudio, getContext: () => context, getTarget: () => node,
     canPlay: () => audioDesired && !disposed && !document.hidden,
     onChange: () => onStatus(snapshot()), onError: report });
 
@@ -385,7 +385,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
           }
           await audioMessage('depth', { depth: requestedDepth });
           await audioMessage('pitch-offset', { pitchOffset: requestedPitch });
-          await audioMessage('performance', { performance: performanceState });
+          await syncInputPerformance();
         });
         return node;
       })().catch(error => {
@@ -421,11 +421,23 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     return snapshot();
   }
 
+  // Retain the user's microphone trim in state, but recorded media enters the
+  // Rust input at unity. Read the current mode at publication, including decode,
+  // direct Mic gestures and processor recovery.
+  function inputPerformance(value = performanceState) {
+    return input.snapshot().mode === 'mic'
+      ? { ...value, inputMode: 'mic' } : { ...value, inputGain: 1, inputMode: 'media' };
+  }
+  async function syncInputPerformance() {
+    if (node && controlsReady) await audioMessage('performance', { performance: inputPerformance() });
+  }
+  async function prepareInputAudio() {
+    await prepareAudio(); assertOpen(); await syncInputPerformance();
+    return node;
+  }
   async function externalPerformance() {
-    if (performanceState.source === 'mic') return;
-    const next = sanitizePerformance({ ...performanceState, source: 'mic' });
-    if (node && controlsReady) await audioMessage('performance', { performance: next });
-    performanceState = next;
+    performanceState = sanitizePerformance({ ...performanceState, source: 'mic' });
+    await syncInputPerformance();
   }
 
   async function activateInput() {
@@ -484,7 +496,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // This explicit capture action may meter a microphone with output muted.
     if (select) { invalidateInput(); input.selectMode('mic'); }
     // Capture can be prepared while the output gate remains off.
-    const prepared = prepareAudio();
+    const prepared = prepareInputAudio();
     if (stream) return prepared.then(() => snapshot());
     if (capturePromise) return capturePromise;
     const version = ++captureVersion; microphonePending = true;
@@ -676,18 +688,27 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
-      const next = sanitizePerformance({ ...performanceState, ...body,
+      const previous = performanceState;
+      const next = sanitizePerformance({ ...previous, ...body,
         ...(input.snapshot().mode !== 'mic' ? { source: 'mic' } : {}) });
-      if (!failure && !performanceRequestsPending && JSON.stringify(next) === JSON.stringify(performanceState)) return snapshot();
+      if (!failure && !performanceRequestsPending && JSON.stringify(next) === JSON.stringify(previous)) return snapshot();
       capacityController.reset();
       performanceRequestsPending++;
+      // Publish intent before awaiting an ACK. A later source or gain gesture
+      // must not be overwritten by this older control request completing.
+      performanceState = next;
       try {
-        const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
-        if (node && controlsReady) await audioMessage('performance', { performance: next });
-        performanceState = next; failure = null;
-        if (next.source !== 'mic') stopInputs();
-        else if (needsCapture) await activateInput();
+        const needsCapture = audio && next.source === 'mic' && previous.source !== 'mic';
+        if (node && controlsReady) await audioMessage('performance', { performance: inputPerformance(next) });
+        if (performanceState === next) {
+          failure = null;
+          if (next.source !== 'mic') stopInputs();
+          else if (needsCapture) await activateInput();
+        }
         return snapshot();
+      } catch (error) {
+        if (performanceState === next) performanceState = previous;
+        throw error;
       } finally { performanceRequestsPending--; }
     }
     if (path === '/api/strike') {

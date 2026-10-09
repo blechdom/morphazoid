@@ -297,11 +297,18 @@ test('recorded inputs use unity gain while the retained input trim controls only
     else await chooseSelect(page, 'inputSample', 'music-keys');
     if (!(await diagnostics(page)).audio) await page.locator('#audioButton').click();
     await trim(1);
+    await live(page, { frequency: 173 });
+    // The analyser's first window may include the output gate's startup ramp
+    // and pre-playback silence. Measure a complete settled PCM window here;
+    // the WASM onset test separately verifies unity from the first input sample.
+    const expectedRms = mode === 'file' ? .08 * .5 / Math.sqrt(2) : .16 * .5;
+    await expect.poll(async () => {
+      const ratio = (await diagnostics(page)).pcm.rms / expectedRms;
+      return ratio > .95 && ratio < 1.05;
+    }).toBe(true);
     const before = await live(page, { frequency: 173 });
     expect(before.workletPerformance.inputGain).toBe(1);
-    // The shared sample loader balances this tone to .16 RMS; uploaded PCM
-    // keeps its original .08 peak. Both reach Rust at their own unity level.
-    const expectedRms = mode === 'file' ? .08 * .5 / Math.sqrt(2) : .16 * .5;
+    expect(before.workletPerformance.inputMode).toBe('media');
     expect(before.pcm.rms / expectedRms).toBeGreaterThan(.95);
     expect(before.pcm.rms / expectedRms).toBeLessThan(1.05);
     for (const value of [0, 4]) {

@@ -8,7 +8,7 @@ import { enhanceRangeKnob } from '../../../ui/primitives/range-knob.js';
 import { registerHeaderPresets, presetStateKey } from '../../../site/header-presets.js';
 import { timeFoldFromSlider, sliderFromTimeFold, formatTimeFold, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS } from './time-fold.js';
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
-  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth, applyPreviewTimeFold,
+  presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth, applyPreviewTimeFold, applyPreviewPitchOffset,
   topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
   topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame, audioFrameChanged } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
@@ -40,7 +40,7 @@ const state = { parameters: sanitizeParameters(initialParameters), performance: 
   requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER,
   deviceCapacity: null, capacityWorking: false, capacityFailure: null, capacityTest: null, sceneMeasurement: null, userCapacityBudget: 0 };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
-  asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread',
+  asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pitchOffset: 'pitchOffset', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread',
   ...($('grammarSeed') ? { grammarSeed: 'grammarSeed', branchProbability: 'branchProbability' } : {}) };
 const PERFORMANCE_IDS = { wet: 'wet', dry: 'dry', inputGain: 'inputTrim', level: 'level', voiceCeiling: 'voiceCeiling' };
 const MASTERING_FREQUENCIES = { inputHighpassHz: 2000, highpassHz: 2000, lowpassHz: 20000 };
@@ -51,7 +51,8 @@ let disposed = false, bootstrapped = false, parameterRevision = 0, performanceRe
 let parameterDirty = false, performanceDirty = false, parameterWorking = false, performanceWorking = false;
 let depthDirty = false, depthWorking = false, depthRevision = 0, depthTimer;
 let foldDirty = false, foldWorking = false, foldRevision = 0, foldTimer;
-let depthRequest = null, foldRequest = null, performanceRequest = null;
+let pitchDirty = false, pitchWorking = false, pitchRevision = 0, pitchTimer;
+let depthRequest = null, foldRequest = null, pitchRequest = null, performanceRequest = null;
 let parameterTimer, performanceTimer, pollTimer, pollWorking = false;
 let audioRevision = 0, audioDesired = false, audioPending = false, mutationChain = Promise.resolve(), lastFailure = '';
 let microphoneRevision = 0, microphoneDesired = false, microphonePending = false;
@@ -87,6 +88,9 @@ const gpuRenderer = rendererMode === 'canvas' ? null
   : createGpuBranchRenderer(canvas, COLORS, { onInvalidate: scheduleDraw, force: rendererMode === 'webgl2' });
 canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
 const inputStrip = createAudioInputStrip({ button: $('micButton'), gainInput: $('inputTrim'), gainOutput: $('inputTrimOut'), channels: 1 });
+inputStrip.gainInput.setAttribute('aria-label', 'Mic / line input gain');
+inputStrip.gainField.title = 'Mic / line gain. Samples and audio files enter at unity gain.';
+inputStrip.gainField.querySelector('b').textContent = 'Mic';
 $('inputMenu').classList.add('mz-input-legacy');
 const sampleName = label => label.replace(/\s+\((?:recorded|synthesized|synthetic voice|original)\)$/i, '');
 $('inputSample').replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(sampleName(option.label), option.id)));
@@ -96,7 +100,7 @@ const inputChoices = new Map([
   ['inputSample', enhanceChooseSelect($('inputSample'), { label: 'Sample' })],
 ]);
 const outputMeter = createStereoMeter({ active: false });
-const audioStrip = createAudioStrip({ buttonId: 'audioButton', levelId: 'level', level: .58, levelLabel: 'Output',
+const audioStrip = createAudioStrip({ buttonId: 'audioButton', levelId: 'level', level: DEFAULT_PERFORMANCE.level, levelLabel: 'Output',
   levelAriaLabel: `${INSTRUMENT_LABEL} output level`, onAudioClick: () => void toggleAudio(),
   onLevelInput: value => updatePerformance('level', value, false, false), onLevelChange: () => schedulePerformance(true) });
 audioStrip.levelOutput.id = 'levelOut';
@@ -253,6 +257,27 @@ function materializeVisualTimeFold(intervalMs) {
   }
   geometry.canvasTimeFold = intervalMs;
 }
+function appliedPitchOffset(reply, parameters) {
+  return reply.audio && Number.isFinite(reply.status?.pitchOffset) ? reply.status.pitchOffset : parameters.pitchOffset;
+}
+function updateVisualPitchOffset(pitchOffset) {
+  if (pitchOffset === previewParameters.pitchOffset) return;
+  previewParameters.pitchOffset = pitchOffset;
+  if (nativePreview) nativePreview.parameters.pitchOffset = pitchOffset;
+  if (!geometry || !gpuRenderer?.available) materializeVisualPitchOffset(pitchOffset);
+  gpuRenderer?.setPitchOffset(pitchOffset);
+  scheduleDraw();
+}
+function materializeVisualPitchOffset(pitchOffset) {
+  const nodes = geometry?.nodes ?? nativePreview?.nodes;
+  if (nodes) applyPreviewPitchOffset(nodes, pitchOffset);
+  if (!geometry) return;
+  for (const wave of geometry.waves.values()) {
+    const node = geometry.byId.get(wave.signal.id);
+    if (node) wave.signal.rate = node.rate;
+  }
+  geometry.canvasPitchOffset = pitchOffset;
+}
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
   if (reply.input) state.input = { ...state.input, ...reply.input };
@@ -275,7 +300,10 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
       syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = receivedAt;
     }
     if (reply.topologyRevision >= visualRevision && Number.isFinite(applied.depth)) updateVisualDepth(applied.depth);
-    if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
+    if (reply.topologyRevision === visualRevision) {
+      updateVisualTimeFold(appliedTimeFold(reply, applied));
+      updateVisualPitchOffset(appliedPitchOffset(reply, applied));
+    }
     if (reply.topologyRevision > visualRevision) void refreshNativePreview();
   }
   // Audio-off compilation has acknowledged musical coefficients but no DSP
@@ -283,7 +311,10 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!coherentStatus && reply.audio === false && reply.parameters && reply.topologyRevision >= visualRevision) {
     const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
     updateVisualDepth(applied.depth);
-    if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
+    if (reply.topologyRevision === visualRevision) {
+      updateVisualTimeFold(appliedTimeFold(reply, applied));
+      updateVisualPitchOffset(appliedPitchOffset(reply, applied));
+    }
     else void refreshNativePreview();
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
@@ -307,9 +338,10 @@ async function refreshNativePreview() {
     if (disposed || !reply.parameters || reply.topologyRevision < visualRevision) return;
     const parameters = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
     parameters.intervalMs = appliedTimeFold(reply, parameters);
+    parameters.pitchOffset = appliedPitchOffset(reply, parameters);
     if (LAB_CONFIG && (!parameters.lab || !LAB_CONFIG.kinds.includes(parameters.lab.kind))) return;
     if (reply.topologyRevision === visualRevision && nativePreview) {
-      updateVisualDepth(parameters.depth); updateVisualTimeFold(parameters.intervalMs);
+      updateVisualDepth(parameters.depth); updateVisualTimeFold(parameters.intervalMs); updateVisualPitchOffset(parameters.pitchOffset);
       nativePreview.requestedParameters = sanitizeParameters(reply.parameters);
       return;
     }
@@ -337,11 +369,13 @@ async function refreshNativePreview() {
       for (let index = 0; index < targets.length; index++) {
         const node = geometry.nodes[index], target = targets[index];
         node.priority = target.priority;
-        node.delay = target.delay; node.rate = target.rate;
+        node.delay = target.delay; node.rate = target.rate; node.pitchOffsetBaseRate = target.rate;
       }
       applyPreviewTimeFold(geometry.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       geometry.canvasTimeFold = parameters.intervalMs;
       applyPreviewDepth(geometry.nodes, parameters.depth);
+      applyPreviewPitchOffset(geometry.nodes, parameters.pitchOffset);
+      geometry.canvasPitchOffset = parameters.pitchOffset;
       for (const wave of geometry.waves.values()) {
         const node = geometry.byId.get(wave.signal.id);
         if (!node) continue;
@@ -354,10 +388,12 @@ async function refreshNativePreview() {
       gpuRenderer?.setGeometry(geometry.nodes, { intervalMs: parameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
         limit: state.status.voiceLimit, levels: tapLevels, depth: parameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
         revision: visualRevision, activeRevision: state.status.topologyRevision }) });
+      gpuRenderer?.setPitchOffset(parameters.pitchOffset);
     } else {
       previewTransition = preparePreviewTransition(targets, geometry?.byId);
       applyPreviewTimeFold(previewTransition.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
       applyPreviewDepth(previewTransition.nodes, parameters.depth);
+      applyPreviewPitchOffset(previewTransition.nodes, parameters.pitchOffset, true);
       nativePreviewStarted = performance.now();
       nativePreviewMoving = Boolean(geometry && previewTransition.moving);
       if (!nativePreviewMoving) advancePreviewTransition(previewTransition, 1);
@@ -391,7 +427,7 @@ async function flushParameters() {
   const revision = parameterRevision, parameters = { ...state.parameters };
   try {
     const reply = await enqueue(() => revision === parameterRevision
-      ? request('/api/parameters', { ...parameters, intervalMs: state.parameters.intervalMs }) : null);
+      ? request('/api/parameters', { ...parameters, intervalMs: state.parameters.intervalMs, pitchOffset: state.parameters.pitchOffset }) : null);
     if (revision === parameterRevision) { acceptStatus(reply); void refreshNativePreview(revision); }
   }
   catch (error) {
@@ -461,12 +497,38 @@ async function flushFold() {
   }
   finally { foldRequest = null; foldWorking = false; if (foldDirty && !disposed) foldTimer = setTimeout(flushFold, 16); }
 }
+function schedulePitch(immediate = false) {
+  pitchDirty = true; if (pitchWorking) return;
+  if (!pitchTimer || immediate) { clearTimeout(pitchTimer); pitchTimer = setTimeout(flushPitch, immediate ? 0 : 16); }
+}
+async function flushPitch() {
+  pitchTimer = null;
+  if (disposed || pitchWorking || !pitchDirty) return;
+  pitchDirty = false; pitchWorking = true;
+  const revision = pitchRevision, pitchOffset = state.parameters.pitchOffset;
+  try {
+    const pending = request('/api/pitch-offset', { pitchOffset }); pitchRequest = pending;
+    const reply = await pending;
+    if (revision === pitchRevision) acceptStatus(reply);
+  } catch (error) {
+    showError(error.message);
+    try {
+      const reply = await request('/api/status');
+      if (revision === pitchRevision && reply.parameters) {
+        state.parameters = { ...state.parameters, pitchOffset: sanitizeParameters(reply.parameters).pitchOffset };
+        presetController?.refresh();
+      }
+      acceptStatus(reply);
+    } catch { /* Retain the error until recovery. */ }
+  } finally { pitchRequest = null; pitchWorking = false; if (pitchDirty && !disposed) pitchTimer = setTimeout(flushPitch, 16); }
+}
 function updateParameter(key, value, immediate = false) {
   if (sceneApplying) return;
   state.parameters = sanitizeParameters({ ...state.parameters, [key]: value,
     ...(state.parameters.lab && key === 'generations' ? { lab: { ...state.parameters.lab, iterations: value } } : {}) });
   if (key === 'depth') { depthRevision++; scheduleDepth(immediate); }
   else if (key === 'intervalMs') { foldRevision++; startPreview(); scheduleFold(immediate); }
+  else if (key === 'pitchOffset') { pitchRevision++; schedulePitch(immediate); scheduleDraw(); }
   else { parameterRevision++; startPreview(); scheduleParameters(immediate); }
   paintControls(); presetController?.refresh();
 }
@@ -493,9 +555,9 @@ async function applyScene(scene, id = 'custom') {
   canvas.setAttribute('aria-busy', 'true');
   if (drag && canvas.hasPointerCapture(drag.id)) canvas.releasePointerCapture(drag.id);
   drag = null; cancelParameterGestures(); lockedFit = geometry ? { ...geometry.fit } : null;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
-  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
-  depthRevision++; foldRevision++;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer); clearTimeout(pitchTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = pitchTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = pitchDirty = false;
+  depthRevision++; foldRevision++; pitchRevision++;
   state.parameters = next.parameters; state.performance = next.performance; parameterRevision++; performanceRevision++;
   const revision = parameterRevision; startPreview({ lock: false }); paintControls();
   try {
@@ -503,7 +565,7 @@ async function applyScene(scene, id = 'custom') {
       if (disposed || revision !== parameterRevision) return;
       // A preset owns its complete mix/depth after older live controls finish.
       // Their canceled timers cannot enqueue another stale gesture afterward.
-      await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
+      await Promise.allSettled([depthRequest, foldRequest, pitchRequest, performanceRequest].filter(Boolean));
       if (disposed || revision !== parameterRevision) return;
       acceptStatus(await request('/api/performance', presetState(scene, state.performance).performance));
       const reply = await request('/api/parameters', next.parameters);
@@ -604,6 +666,7 @@ function formatParameter(key, value) {
   if (key === 'angle') return `${Number(value.toFixed(1))}°`;
   if (key === 'curls') return Math.abs(value) < .005 ? 'original' : `${Number(Math.abs(value).toFixed(2))} turns ${value < 0 ? 'CW' : 'CCW'}`;
   if (key === 'pitchScale') return `${Math.round(value * 100)}% / 180°`;
+  if (key === 'pitchOffset') return Math.abs(value) < .0005 ? '0 st' : `${value > 0 ? '+' : ''}${Number(value.toFixed(2))} st`;
   if (key === 'pruningBias') return value <= .01 ? 'breadth first' : value >= .99 ? 'depth first' : `${Math.round(value * 100)}% depth first`;
   if (key === 'asymmetry') return Math.abs(value) < .005 ? 'even' : `${Math.round(Math.abs(value) * 100)}% ${value > 0 ? 'right' : 'left'} wider`;
   if (key === 'depth' && value === 1) return '100% · no decay';
@@ -875,14 +938,16 @@ function buildGeometry() {
   // Resize replaces geometry, including the GPU's uniform timing basis. A
   // deferred live fold must be materialized before that basis is rebuilt.
   applyPreviewTimeFold(nodes, previewParameters.intervalMs);
+  applyPreviewPitchOffset(nodes, previewParameters.pitchOffset);
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
-    canvasTimeFold: previewParameters.intervalMs,
+    canvasTimeFold: previewParameters.intervalMs, canvasPitchOffset: previewParameters.pitchOffset,
     activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null, drawSelection: createPreviewDrawSelection(nodes) };
   gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
     limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
     revision: visualRevision, activeRevision: state.status.topologyRevision }) });
+  gpuRenderer?.setPitchOffset(previewParameters.pitchOffset);
   paintPreviewDescription(nodes);
 }
 function paintPreviewDescription(nodes) {
@@ -919,6 +984,7 @@ function draw(now) {
   if (rebuilding) buildGeometry();
   const { width, height, nodes, desiredFit } = geometry;
   if (!gpuRenderer?.available && geometry.canvasTimeFold !== previewParameters.intervalMs) materializeVisualTimeFold(previewParameters.intervalMs);
+  if (!gpuRenderer?.available && geometry.canvasPitchOffset !== previewParameters.pitchOffset) materializeVisualPitchOffset(previewParameters.pitchOffset);
   const dpr = state.audio ? Math.min(geometry.dpr, budget.pressure === 2 ? 1 : budget.pressure === 1 ? 1.5 : 2) : geometry.dpr;
   const pixelWidth = Math.round(width * dpr), pixelHeight = Math.round(height * dpr);
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
@@ -1050,7 +1116,7 @@ canvas.addEventListener('pointerdown', event => {
   if (sceneApplying || event.button !== 0 || event.isPrimary === false) return;
   event.preventDefault(); canvas.focus({ preventScroll: true }); lockedFit = geometry ? { ...geometry.fit } : null;
   drag = { id: event.pointerId, x: event.clientX, y: event.clientY, start: { ...state.parameters },
-    changed: false, foldChanged: false, structureChanged: false }; canvas.setPointerCapture(event.pointerId);
+    changed: false, pitchChanged: false, structureChanged: false }; canvas.setPointerCapture(event.pointerId);
 });
 canvas.addEventListener('pointermove', event => {
   if (!drag || drag.id !== event.pointerId) return;
@@ -1058,18 +1124,19 @@ canvas.addEventListener('pointermove', event => {
   if (dx * dx + dy * dy < 16 && !drag.changed) return;
   drag.changed = true; const box = canvas.getBoundingClientRect();
   const next = gestureParameters(drag.start, dx, dy, box.width, box.height, event.shiftKey);
-  const foldChanged = next.intervalMs !== state.parameters.intervalMs, angleChanged = next.angle !== state.parameters.angle;
-  state.parameters = { ...state.parameters, intervalMs: next.intervalMs, angle: next.angle };
-  if (foldChanged) { drag.foldChanged = true; foldRevision++; scheduleFold(); }
+  const pitchChanged = next.pitchOffset !== state.parameters.pitchOffset, angleChanged = next.angle !== state.parameters.angle;
+  state.parameters = { ...state.parameters, pitchOffset: next.pitchOffset, angle: next.angle };
+  if (pitchChanged) { drag.pitchChanged = true; pitchRevision++; schedulePitch(); }
   if (angleChanged) { drag.structureChanged = true; parameterRevision++; scheduleParameters(); }
-  startPreview(); paintControls(); presetController?.refresh();
+  if (angleChanged) startPreview(); else scheduleDraw();
+  paintControls(); presetController?.refresh();
 });
 function endDrag(event, cancelled = false) {
   if (!drag || drag.id !== event.pointerId) return;
   const previous = drag; drag = null; if (canvas.hasPointerCapture(event.pointerId)) canvas.releasePointerCapture(event.pointerId);
   gestureUntil = performance.now() + 100;
   if (previous.changed) {
-    if (previous.foldChanged) scheduleFold(true);
+    if (previous.pitchChanged) schedulePitch(true);
     if (previous.structureChanged) scheduleParameters(true);
   } else if (!cancelled) void strike();
   scheduleDraw();
@@ -1080,12 +1147,12 @@ canvas.addEventListener('keydown', event => {
   if (event.key === 'Enter' && !event.repeat) { event.preventDefault(); void strike(); return; }
   if (!['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown'].includes(event.key)) return;
   event.preventDefault();
-  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') updateParameter('intervalMs', state.parameters.intervalMs * Math.exp((event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? .005 : .04)), true);
+  if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') updateParameter('pitchOffset', state.parameters.pitchOffset + (event.key === 'ArrowRight' ? 1 : -1) * (event.shiftKey ? .01 : .1), true);
   else updateParameter('angle', state.parameters.angle + (event.key === 'ArrowUp' ? 1 : -1) * (event.shiftKey ? .1 : 1), true);
 });
 for (const [key, id] of Object.entries(CONTROL_IDS)) {
   $(id).addEventListener('input', () => updateParameter(key, key === 'intervalMs' ? timeFoldFromSlider($(id).value) : Number($(id).value)));
-  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : key === 'intervalMs' ? scheduleFold(true) : scheduleParameters(true));
+  $(id).addEventListener('change', () => key === 'depth' ? scheduleDepth(true) : key === 'intervalMs' ? scheduleFold(true) : key === 'pitchOffset' ? schedulePitch(true) : scheduleParameters(true));
   const input = $(id);
   input.addEventListener('pointerdown', event => {
     if (input.disabled || event.button !== 0 || event.isPrimary === false || rangeGestureOwner) return;
@@ -1219,7 +1286,7 @@ async function testCapacity(reset = false) {
   const voices = Number($('capacityBudget').value);
   capacityTesting = true; cancelParameterGestures(); paintControls();
   try {
-    await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
+    await Promise.allSettled([depthRequest, foldRequest, pitchRequest, performanceRequest].filter(Boolean));
     acceptStatus(await request('/api/capacity', reset ? { reset: true } : { voices }));
     if (reset) capacityBudgetEdited = false;
     await refreshNativePreview();
@@ -1328,19 +1395,19 @@ const resizeObserver = new ResizeObserver(() => { lockedFit = null; geometry = n
 
 async function bootstrap() {
   if (disposed) return;
-  const initialRevision = parameterRevision, initialFoldRevision = foldRevision;
+  const initialRevision = parameterRevision, initialFoldRevision = foldRevision, initialPitchRevision = pitchRevision;
   try {
     let [reply, bank] = await Promise.all([request('/api/state'), LAB_CONFIG ? Promise.resolve(LAB_CONFIG.presets) : request(new URL('./presets.json', import.meta.url).href)]);
-    if (LAB_CONFIG && initialRevision === 0 && initialFoldRevision === 0
-      && parameterRevision === initialRevision && foldRevision === initialFoldRevision) {
+    if (LAB_CONFIG && initialRevision === 0 && initialFoldRevision === 0 && initialPitchRevision === 0
+      && parameterRevision === initialRevision && foldRevision === initialFoldRevision && pitchRevision === initialPitchRevision) {
       const initial = presetState(LAB_CONFIG.presets[0], state.performance);
       state.parameters = initial.parameters;
       if (performanceRevision === 0) state.performance = initial.performance;
       reply = await request('/api/performance', state.performance);
       if (JSON.stringify(reply.parameters) !== JSON.stringify(state.parameters)) reply = await request('/api/parameters', state.parameters);
     } if (disposed) return;
-    if (parameterRevision === initialRevision && initialRevision === 0 && initialFoldRevision === 0
-      && foldRevision === initialFoldRevision && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
+    if (parameterRevision === initialRevision && initialRevision === 0 && initialFoldRevision === 0 && initialPitchRevision === 0
+      && foldRevision === initialFoldRevision && pitchRevision === initialPitchRevision && reply.parameters) state.parameters = sanitizeParameters(reply.parameters);
     if (performanceRevision === 0 && reply.performance) state.performance = sanitizePerformance(reply.performance);
     presets = LAB_CONFIG ? bank : combinedPresets(bank);
     const initialScene = presets.find(p => presetStateKey(p.snapshot) === presetStateKey(captureScene(state.parameters, state.performance)));
@@ -1376,8 +1443,8 @@ function muteForDeparture() {
   audioRevision++; audioDesired = false; audioPending = false; state.audio = false;
   microphoneRevision++; microphoneDesired = false; microphonePending = false;
   inputRevision++;
-  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer);
-  parameterTimer = performanceTimer = depthTimer = foldTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = false;
+  clearTimeout(parameterTimer); clearTimeout(performanceTimer); clearTimeout(depthTimer); clearTimeout(foldTimer); clearTimeout(pitchTimer);
+  parameterTimer = performanceTimer = depthTimer = foldTimer = pitchTimer = null; parameterDirty = performanceDirty = depthDirty = foldDirty = pitchDirty = false;
   browserEngine.muteForDeparture();
   paintControls(); scheduleDraw();
 }

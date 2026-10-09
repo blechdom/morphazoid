@@ -199,8 +199,8 @@ sound presets and never arm Audio, restart input, or replace delay history.
 Control acknowledgements may repeat an earlier audio snapshot. They still
 update musical settings, but cannot renew the freshness of that snapshot's
 meters or input history. Sparse active-slot selections reuse indexed prepared
-metadata while preserving original branch order. WebGL Time fold changes a
-uniform; Canvas timing is materialized on fallback or geometry rebuild, including
+metadata while preserving original branch order. WebGL Time fold and Pitch offset change
+uniforms; Canvas timing and rates are materialized on fallback or geometry rebuild, including
 resize. Secondary UI painting is coalesced into a task after the tree renders;
 lifecycle locks remain synchronous. Unchanged menu, knob and readout values are
 not rewritten, and closed Settings diagnostics do not repaint.
@@ -212,10 +212,16 @@ establish physical microphone/DAC continuity or human listening quality.
 Topology allocation, atomic installation and telemetry still have audio-thread
 costs; these optimizations do not establish that every interruption is resolved.
 
-Drag horizontally to change Time fold and vertically to change Branch angle;
+Drag horizontally to change **Pitch offset** and vertically to change Branch angle;
 arrow keys provide the same controls, with Shift for finer changes. Presets and
-randomization preserve Audio, input policy, input gain, output level and output
+randomization preserve Audio, input policy, mic gain, output level and output
 boost. Mastering presets preserve the tree, live recording and those gain controls.
+Pitch offset continuously transposes the delay voices from −24 to +24 semitones,
+within their existing 0.125–8× playback-rate range. It does not quantize pitches,
+change Time fold, transpose the original dry input or rebuild the prepared tree.
+The new knob captures and recalls with the musical scene; older captures and
+factory presets use a neutral zero offset. Left/right arrows change 0.1 semitone
+at a time, or 0.01 with Shift. Vertical gestures retain the original angle mapping.
 Hiding or leaving the page mutes output and releases
 microphone capture; returning requires an explicit restart.
 
@@ -378,7 +384,9 @@ history eligibility, it changes one Rust scalar without compiling or uploading
 another pool. Crossing that boundary prepares new ranks and generation gains
 through the ordinary compiler. Preset recall cancels pending gesture timers and
 owns the complete scene; preparation and processor recovery retain the latest
-live fold. Mix and mastering
+live fold and pitch offset. Pitch offset has its own scalar lane; its rates and
+grain-mode transitions are smoothed without resetting phases or recorded history.
+Capacity preparation measures the current pitch-offset workload. Mix and mastering
 updates bypass structural compilation and acknowledge without copying the full
 meter/history payload. Existing DSP smoothing applies to these live coefficients.
 Repeating a fully acknowledged parameter, Recursion or performance value skips
@@ -464,8 +472,9 @@ motion at zero input.
 Live Time fold follows a common 35 ms smoothed coefficient with a single moving
 readhead per voice. Large moves additionally limit readhead travel to four
 samples per sample. Grain phase, recorded input, source playback and release
-tails survive the gesture. Movement intentionally produces a tape-like pitch
-glide; it avoids running two delay lanes for every voice at once. A longer delay
+tails survive the gesture. Read velocity is also smoothed on starts, stops and
+reversals to reduce abrupt waveform changes during a held knob gesture.
+Movement intentionally produces a tape-like pitch glide; it avoids running two delay lanes for every voice at once. A longer delay
 waits at its last readable position when the required input history is not ready.
 Extreme moves can therefore take longer to reach their requested delay than the
 nominal 35 ms smoothing.
@@ -500,7 +509,8 @@ with wet/dry levels, stereo spread and output boost. Moving these controls does
 not change their ranges or processing. **Original** retains the prior sound:
 input HPF at 55 Hz, output HPF/LPF bypassed, compressor threshold −12 dB,
 knee 5 dB, ratio 18:1, attack
-3 ms, release 180 ms and automatic makeup on. Manual output boost starts at 0 dB
+3 ms, release 180 ms and automatic makeup on. Browser output starts at 100%;
+manual output boost starts at +6 dB
 and remains independent of preset recall.
 
 Input HPF affects newly recorded audio before the delay tree. Output HPF and LPF
@@ -529,7 +539,14 @@ ceiling, including with the compressor off. The editable ranges are threshold
 and output boost (manual makeup) −12–+24 dB. Input/output HPF support up to 2 kHz and output LPF up to
 20 kHz, subject to the device-rate limit.
 
-Mic input gain supports 0–4×. Output remains a 0–100% level control; the
+Mic / line gain supports 0–4× and affects microphone capture only. Samples and
+decoded audio files enter the Rust input at unity gain from their first sample,
+retaining their source buffer levels. An internal source policy bypasses the
+smoothed mic multiplier for media while preserving its independent follower;
+source switches need no settling delay. Changing mic gain while they play preserves their playback,
+recording history and gain; returning to Mic / line restores the retained trim.
+Bundled samples retain their existing asset-level balancing, and input HPF still
+shapes every source. Output remains a 0–100% level control; the
 Output boost control in Mix adds gain to the complete mix after compression,
 including when compression is off, and before the fixed 0.94 ceiling. This provides more
 gain for quiet microphones. The three gain controls remain live across presets,

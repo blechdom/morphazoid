@@ -50,8 +50,10 @@ test('sub-ms custom folds remain exact through capture, recall, and viewport ges
     assert.deepEqual(captureScene(recalled.parameters, recalled.performance), saved);
     assert.equal(recalled.performance.inputGain, 2.5);
     assert.equal(recalled.performance.level, .19);
-    assert.equal(gestureParameters(parameters, -10000, 0, 1000, 700).intervalMs, .05);
-    assert.equal(gestureParameters(parameters, 10000, 0, 1000, 700).intervalMs, 3000);
+    assert.equal(gestureParameters(parameters, -10000, 0, 1000, 700).intervalMs, intervalMs);
+    assert.equal(gestureParameters(parameters, 10000, 0, 1000, 700).intervalMs, intervalMs);
+    assert.equal(gestureParameters(parameters, -10000, 0, 1000, 700).pitchOffset, -24);
+    assert.equal(gestureParameters(parameters, 10000, 0, 1000, 700).pitchOffset, 24);
   }
   assert.equal(sanitizeParameters({ intervalMs: 0 }).intervalMs, .05);
   assert.equal(sanitizeParameters({ intervalMs: 3001 }).intervalMs, 3000);

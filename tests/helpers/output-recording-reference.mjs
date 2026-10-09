@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 
 export const outputRecordingAmendments = JSON.parse(readFileSync(new URL("../../docs/output-recording-runtime-changes.json", import.meta.url), "utf8"));
 export const voiceControlAmendments = JSON.parse(readFileSync(new URL("./l-system-voice-control-amendments.json", import.meta.url), "utf8"));
+export const liveFlowAmendments = JSON.parse(readFileSync(new URL("./l-system-live-flow-amendments.json", import.meta.url), "utf8"));
 const sha256 = source => createHash("sha256").update(source).digest("hex");
 
 /** Independently reverse recording hooks on either approved UI baseline. */
@@ -32,7 +33,22 @@ export function restoreVoiceControls(source, file) {
   return source;
 }
 
-/** Compose approved UI and recording amendments without changing old hashes. */
+/** Reverse only the exact live-flow extension; preserve both prior baselines. */
+export function restoreLiveFlow(source, file) {
+  for (const change of liveFlowAmendments.changes.filter(change => change.file === file)) {
+    const digest = sha256(source), historical = voiceControlAmendments.changes.find(change => change.file === file)?.baseSha256;
+    if (digest === change.baseSha256 || digest === historical) continue;
+    assert.equal(digest, change.approvedSha256, `${file}: exact approved live flow amendment source`);
+    for (const replacement of [...change.replacements].reverse()) {
+      assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact live flow amendment`);
+      source = source.replace(replacement.after, replacement.before);
+    }
+    assert.equal(sha256(source), change.baseSha256, `${file}: original live flow amendment baseline`);
+  }
+  return source;
+}
+
+/** Compose approved runtime extensions without changing historical hashes. */
 export function restoreOutputRecording(source, file) {
-  return restoreVoiceControls(restoreOutputRecordingHooks(source, file), file);
+  return restoreVoiceControls(restoreLiveFlow(restoreOutputRecordingHooks(source, file), file), file);
 }

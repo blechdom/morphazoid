@@ -7,12 +7,12 @@ export const RUST_EXPLORATION_TYPES = Object.freeze(['peano', 'arrowhead', 'quad
 export const L_SYSTEM_TYPES = Object.freeze(['pythagorean', 'plant', 'coral', 'dragon', 'koch', 'sierpinski', 'hilbert', 'gosper', 'cantor', 'levy', 'terdragon',
   ...RUST_BRANCHING_TYPES, ...RUST_EXPLORATION_TYPES]);
 export const DEFAULT_PARAMETERS = Object.freeze({ lSystemType: 'pythagorean', generations: 13, intervalMs: 240,
-  timeRatio: .72, angle: 45, asymmetry: 0, curls: 0, mutation: 0, pitchScale: 1, pruningBias: 0, depth: .72, spread: .9,
+  timeRatio: .72, angle: 45, asymmetry: 0, curls: 0, mutation: 0, pitchScale: 1, pitchOffset: 0, pruningBias: 0, depth: .72, spread: .9,
   grammarSeed: 1, branchProbability: .65 });
-export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: .58, wet: .76, dry: 0,
+export const DEFAULT_PERFORMANCE = Object.freeze({ source: 'mic', level: 1, wet: .76, dry: 0,
   frozen: false, inputGain: .85, frequency: 173, pulseRate: 2, voiceCeiling: 0, automatic: true, mastering: DEFAULT_MASTERING });
 export const PARAMETER_LIMITS = Object.freeze({ generations: [1, 52], intervalMs: [MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS], timeRatio: [.2, 2],
-  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pruningBias: [-1, 1], depth: [0, 1], spread: [0, 1],
+  angle: [0, 180], asymmetry: [-.8, .8], curls: [-8, 8], mutation: [0, 1], pitchScale: [0, 4], pitchOffset: [-24, 24], pruningBias: [-1, 1], depth: [0, 1], spread: [0, 1],
   grammarSeed: [0, 0xffffffff], branchProbability: [0, 1] });
 export const PERFORMANCE_LIMITS = Object.freeze({ level: [0, 1], wet: [0, 1], dry: [0, .5], inputGain: [0, 4], frequency: [40, 1200], pulseRate: [.1, 12], voiceCeiling: [0, Number.MAX_SAFE_INTEGER] });
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
@@ -61,15 +61,25 @@ export function randomState(parameters, performance, random = Math.random) {
   const between = (a, b) => a + (b - a) * unit();
   return { parameters: sanitizeParameters({ ...parameters, lSystemType: L_SYSTEM_TYPES[Math.min(L_SYSTEM_TYPES.length - 1, Math.floor(unit() * L_SYSTEM_TYPES.length))],
     generations: Math.floor(between(3, 14)), intervalMs: 10 ** between(Math.log10(MIN_TIME_FOLD_MS), 3.1), timeRatio: between(.2, 2), angle: between(0, 180),
-    asymmetry: between(-.8, .8), curls: between(-1.5, 1.5), mutation: unit(), pitchScale: between(0, 4), pruningBias: unit(), depth: between(.25, .92), spread: unit(),
+    asymmetry: between(-.8, .8), curls: between(-1.5, 1.5), mutation: unit(), pitchScale: between(0, 4), pitchOffset: between(-24, 24), pruningBias: unit(), depth: between(.25, .92), spread: unit(),
     grammarSeed: Math.floor(between(0, 0x100000000)), branchProbability: between(.15, .95) }),
   performance: sanitizePerformance({ ...performance, wet: between(.4, .9), dry: between(0, .25),
     mastering: { ...randomMastering(random), makeupDb: performance.mastering?.makeupDb ?? DEFAULT_MASTERING.makeupDb } }) };
 }
 export function gestureParameters(start, dx, dy, width, height, fine = false) {
   const scale = fine ? .15 : 1;
-  return sanitizeParameters({ ...start, intervalMs: start.intervalMs * Math.exp(clamp(dx / Math.max(1, width) * 8 * scale, -30, 30)),
+  return sanitizeParameters({ ...start, pitchOffset: start.pitchOffset + dx / Math.max(1, width) * 48 * scale,
     angle: start.angle - dy / Math.max(1, height) * 180 * scale });
+}
+/** Shift delay rates from their compiled base, keeping the original input wave
+ * unchanged and avoiding accumulated pitch drift through gesture reversals. */
+export function applyPreviewPitchOffset(nodes, pitchOffset, rebase = false) {
+  const ratio = 2 ** (clamp(pitchOffset, -24, 24) / 12);
+  for (const node of nodes) {
+    if (rebase || !Number.isFinite(node.pitchOffsetBaseRate)) node.pitchOffsetBaseRate = Number.isFinite(node.rate) ? node.rate : 1;
+    node.rate = node.generation === 0 ? node.pitchOffsetBaseRate : clamp(node.pitchOffsetBaseRate * ratio, .125, 8);
+  }
+  return nodes;
 }
 export function isVoiceActive(node, limit) { return Number.isInteger(node.priority) && node.priority >= 0 && node.priority < limit && node.gain > 0; }
 /** Preview gain follows the applied coefficient, including a newer live edit

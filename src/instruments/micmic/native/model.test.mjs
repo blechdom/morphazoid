@@ -6,7 +6,7 @@ import { MICMIC_FULL_PRESETS } from '../../../families/branch-presets/full-prese
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, PARAMETER_LIMITS, L_SYSTEM_TYPES, sanitizeParameters,
   sanitizePerformance, presetState, randomState, gestureParameters, isVoiceActive,
   buildPreview, interpolateParameters, topologyBounds, fitTransform, captureScene, visualBudget, nativePreviewNodes, interpolatePreviewNodes,
-  admittedPreviewNodes, applyPreviewDepth, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
+  admittedPreviewNodes, applyPreviewDepth, applyPreviewPitchOffset, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints,
   preparePreviewTransition, advancePreviewTransition } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_LIMITS, MASTERING_PROFILES, sanitizeMastering, captureMastering,
   cutoffFromSlider, sliderFromCutoff, masteringProfileId } from './mastering.js';
@@ -26,7 +26,7 @@ test('native bank preserves the sound settings in all sixteen original scenes', 
     assert.deepEqual(sanitizeParameters(scene.parameters), scene.parameters);
     assert.deepEqual(scene.parameters, { lSystemType: original.lSystemType, generations: original.generations,
       intervalMs: original.interval, timeRatio: original.timeRatio, angle: original.generationAngle,
-      asymmetry: original.generationAsymmetry, curls: 0, mutation: original.mutation, pitchScale: original.generationPitchScale,
+      asymmetry: original.generationAsymmetry, curls: 0, mutation: original.mutation, pitchScale: original.generationPitchScale, pitchOffset: 0,
       pruningBias: original.pruningBias, depth: original.depth, spread: original.spread, grammarSeed: 1, branchProbability: .65 }, preset.id);
     assert.deepEqual(legacyScene(scene).performance, {
       wet: original.wet, dry: original.dry,
@@ -130,7 +130,35 @@ test('continuous preview interpolates locally and locked fit stays independent o
   const a = buildPreview(from, generationTopology), b = buildPreview({ ...from, intervalMs: 3000 }, generationTopology);
   assert.deepEqual(fitTransform(topologyBounds(a), 1000, 700), fitTransform(topologyBounds(b), 1000, 700));
   assert.deepEqual(gestureParameters(from, 0, 0, 1000, 700), from);
-  const moved = gestureParameters(from, 100, -100, 1000, 700); assert.ok(moved.angle > from.angle && moved.intervalMs > from.intervalMs);
+  const moved = gestureParameters(from, 100, -100, 1000, 700); assert.ok(moved.angle > from.angle && moved.pitchOffset > from.pitchOffset);
+  assert.equal(moved.intervalMs, from.intervalMs);
+});
+test('stage axes independently control continuous pitch and angle with exact recovery and bounds', () => {
+  const start = { ...DEFAULT_PARAMETERS, pitchOffset: -3.5, intervalMs: .075 };
+  const horizontal = gestureParameters(start, 250, 0, 1000, 700);
+  assert.equal(horizontal.pitchOffset, 8.5);
+  assert.equal(horizontal.angle, start.angle); assert.equal(horizontal.intervalMs, start.intervalMs);
+  const vertical = gestureParameters(start, 0, -70, 1000, 700);
+  assert.equal(vertical.pitchOffset, start.pitchOffset); assert.equal(vertical.angle, start.angle + 18);
+  assert.equal(vertical.intervalMs, start.intervalMs);
+  assert.deepEqual(gestureParameters(start, 0, 0, 1000, 700), start);
+  assert.equal(gestureParameters(start, 10000, 0, 1000, 700).pitchOffset, 24);
+  assert.equal(gestureParameters(start, -10000, 0, 1000, 700).pitchOffset, -24);
+  assert.ok(Math.abs(gestureParameters(start, 250, 0, 1000, 700, true).pitchOffset + 1.7) < 1e-12);
+  const saved = captureScene(horizontal, DEFAULT_PERFORMANCE);
+  assert.deepEqual(presetState({ snapshot: saved }, DEFAULT_PERFORMANCE).parameters, horizontal);
+  assert.equal(sanitizeParameters({ intervalMs: 240 }).pitchOffset, 0, 'legacy captures migrate to unshifted delays');
+});
+test('preview pitch shifts retain base rates, source wave and geometry through reversals', () => {
+  const nodes = [{ generation: 0, rate: 1, x: 0 }, { generation: 1, rate: 1.5, x: 1 }, { generation: 2, rate: 4, x: 2 }];
+  for (const [pitch, rates] of [[12, [1, 3, 8]], [-12, [1, .75, 2]], [24, [1, 6, 8]], [-24, [1, .375, 1]], [0, [1, 1.5, 4]]]) {
+    assert.equal(applyPreviewPitchOffset(nodes, pitch), nodes);
+    assert.deepEqual(nodes.map(node => node.rate), rates);
+    assert.deepEqual(nodes.map(node => node.x), [0, 1, 2]);
+  }
+  nodes[1].rate = 2;
+  applyPreviewPitchOffset(nodes, 12, true);
+  assert.equal(nodes[1].rate, 4, 'a new accepted pool rebases the coefficient once');
 });
 test('committed tree transitions reuse geometry and keep growing branches connected', () => {
   const previous = new Map([

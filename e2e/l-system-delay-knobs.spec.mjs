@@ -13,7 +13,7 @@ const CONTRACT = [
   ['interval', '0', '1000', 'any', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
   ['generationAsymmetry', '-0.8', '0.8', '0.01', '0'], ['mutation', '0', '1', '0.01', '0'],
-  ['curls', '-8', '8', '0.01', '0'],
+  ['curls', '-8', '8', '0.01', '0'], ['pitchOffset', '-24', '24', '0.01', '0'],
   ['branchProbability', '0', '1', '0.01', '0.65'],
   ['labLengthRatio', '0.2', '1.25', '0.01', '0.72'], ['labAngleIncrement', '-90', '90', '0.1', '0'],
   ['labDelayRatio', '0.2', '2', '0.01', '0.72'], ['labPitchRatio', '0.5', '2', '0.001', '1'],
@@ -24,7 +24,7 @@ const CONTRACT = [
   ['lowpassHz', '0', '1000', '1', '1000'], ['thresholdDb', '-60', '0', '0.5', '-12'],
   ['ratio', '1', '20', '0.1', '18'], ['kneeDb', '0', '40', '0.5', '5'],
   ['attackMs', '0.1', '100', '0.1', '3'], ['releaseMs', '10', '1500', '1', '180'],
-  ['makeupDb', '-12', '24', '0.1', '0'],
+  ['makeupDb', '-12', '24', '0.1', '6'],
 ];
 const BANK = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
 const LIVE_GAINS = [1.13, .37, 4];
@@ -603,7 +603,7 @@ test('compact knobs and every original control remain reachable in desktop, port
   const layouts = [];
   for (const [name, viewport, hasTouch] of [['desktop', { width: 1440, height: 900 }, false],
     ['portrait', { width: 390, height: 844 }, true], ['landscape', { width: 844, height: 390 }, true]]) {
-    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport, hasTouch, reducedMotion: 'reduce' }), page = await context.newPage();
+    const context = await browser.newContext({ baseURL: test.info().project.use.baseURL, viewport, hasTouch, reducedMotion: 'no-preference' }), page = await context.newPage();
     const evidence = await fixture(page); await ready(page);
     await chooseInput(page, 'source', 'samples');
     await page.locator('#recursionSection').evaluate(details => { details.open = true; });
