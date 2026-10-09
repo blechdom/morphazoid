@@ -988,10 +988,13 @@
 @media (min-width: 961px) {
   .chaotic-fm-page .chaotic-path-graph,
   .chaotic-pm-page .chaotic-path-graph,
+  .chaotic-am-page .chaotic-path-graph,
   .recursive-fm-page .recursive-fm-signal-graph,
   .recursive-pm-page .chaotic-path-graph,
+  .recursive-am-page .chaotic-path-graph,
   .cascading-fm-page .cascading-fm-signal-graph,
-  .cascading-pm-page .cascading-pm-signal-graph {
+  .cascading-pm-page .cascading-pm-signal-graph,
+  .cascading-am-page .cascading-am-signal-graph {
     top: var(--chaotic-flow-top, calc(40% + 128px));
     bottom: auto;
   }

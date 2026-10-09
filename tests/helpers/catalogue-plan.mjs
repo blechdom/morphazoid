@@ -9,6 +9,7 @@ const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-2026
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-spartial.json', import.meta.url), 'utf8')).additions,
+  ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-am.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-l-system-labs.json', import.meta.url), 'utf8')).additions,
   { id: "blobs", label: "Blobs", href: "blobs.html", imageHref: "assets/instruments/blobs.webp", categoryId: "geometric", categoryLabel: "Geometric", tags: [{ id: "graphic-ui", label: "Graphic-UI" }, { id: "2d", label: "2D" }, { id: "synthesizer", label: "Synthesizer" }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-bifurcator.json', import.meta.url), 'utf8')).additions,

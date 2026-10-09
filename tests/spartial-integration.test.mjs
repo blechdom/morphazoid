@@ -8,6 +8,7 @@ import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capab
 import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js";
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { spartialSiteChanges, restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
+import { restoreAmInstrumentAdditions } from "./helpers/am-instruments-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -18,7 +19,9 @@ test("SPARTIAL metadata additions preserve the independently captured published 
     "src/site/catalogue-taxonomy.js", "src/site/instrument-midi-capabilities.js",
   ]);
   for (const change of spartialSiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), "utf8");
+    const source = restoreAmInstrumentAdditions(
+      await readFile(new URL(change.file, root), "utf8"), change.file,
+    );
     const preserved = candidate => assert.equal(
       createHash("sha256").update(restoreSpartialSite(candidate, change.file)).digest("hex"),
       change.sha256, `${change.file}: pre-SPARTIAL source preserved`,

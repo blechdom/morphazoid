@@ -7,6 +7,13 @@ file** in Settings for longer recordings in supporting browsers.
 
 **[SPARTIAL](spartial.html)** sends individual additive partials around a surround array. Edit up to thirty-two harmonic or inharmonic partials, squeeze their spatial spread, or gather them at one speaker. Hold sustains a note or chord; keyboard and MIDI notes have independent gates. Rotation Play/Pause and its tempo knob control movement separately. Presets, fingerprint banks, optional tempo-driven rotation and exact millisecond cascades support drones and articulated playing. On mobile the graphic stays fixed while the controls scroll. Audio and motion start off. [Controls and output limits](docs/spartial.md).
 
+**[Cascading AM](cascading-am.html)**, **[Recursive AM](recursive-am.html)** and
+**[Chaotic AM](chaotic-am.html)** preserve their FM/PM siblings’ operator layouts,
+preset organization and performance controls, with amplitude modulation in place of frequency
+or phase modulation. Their sine operators vary one another’s levels through
+bounded amplitude modulation while retaining an audible carrier. Audio starts off.
+[AM mapping and controls](docs/am-instruments.md).
+
 **[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails, ribbons
 and spinning geometry. Enable MIDI in Settings or play the on-screen pads.
 Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR

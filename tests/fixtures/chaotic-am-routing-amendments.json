@@ -1,0 +1,31 @@
+{
+  "baseCommit": "eb53afb46720a17f3e36909a4f877505818af3d2",
+  "changes": [
+    {
+      "file": "src/instruments/chaotic-dsp-reference/chaotic-dsp-reference.js",
+      "sha256": "510f468d47fe6cae8f562304f08ed99cbea1fbf46b9130761d01f220a1b55960",
+      "replacements": [
+        {
+          "before": "\nfunction amplitudeReference(id, label, topology, controls, outputStages) {\n  return Object.freeze({\n",
+          "after": "\nfunction amplitudeReference(id, label, topology, controls, outputStages, nested = false) {\n  return Object.freeze({\n"
+        },
+        {
+          "before": "      \"Algorithm flow\",\n      \"signal[n] = sin(phase[n]) x (1 + d[n] x modulator) / (1 + d[n])\",\n      `${label} algorithm. Independent sine oscillators keep their own frequencies while each preceding output controls a bounded biased amplitude gain for the next sine.`,\n      [sequence(\"Amplitude modulation\", [\n",
+          "after": "      \"Algorithm flow\",\n      \"signal[n] = sin(phase[n]) x (1 + d[n] x modulator) / (1 + d[n])\"\n        + (nested ? \"; modulator = shape(signal[n+1]); audio = signal[0]\" : \"\"),\n      nested\n        ? `${label} algorithm. A fixed audible carrier is amplitude-modulated by a nested chain of divided-frequency oscillators. The innermost sine shapes the next outer gain, ending at the audible carrier.`\n        : `${label} algorithm. Independent sine oscillators keep their own frequencies while each preceding output controls a bounded biased amplitude gain for the next sine.`,\n      [sequence(\"Amplitude modulation\", [\n"
+        },
+        {
+          "before": "        node(\"Amplitude multiplication\", \"next = sin(phase) x gain; depth and gain stay within 0-1\", \"oscillator\"),\n        node(\"Output selection\", \"Smooth depth changes select the audible stage\", \"output\"),\n      ])],\n",
+          "after": "        node(\"Amplitude multiplication\", \"next = sin(phase) x gain; depth and gain stay within 0-1\", \"oscillator\"),\n        nested\n          ? node(\"Carrier output\", \"Smooth depth changes introduce nested gain links; carrier pitch stays fixed\", \"output\")\n          : node(\"Output selection\", \"Smooth depth changes select the audible stage\", \"output\"),\n      ])],\n"
+        },
+        {
+          "before": "  ]),\n  amplitudeReference(\"chaotic-am\", \"Chaotic AM\", \"Parallel Smooth and Saturated amplitude banks\", [\n    node(\"Frequency and index ladders\", \"Divide frequency and AM index at each recursive turn\", \"control\"),\n    node(\"AM depth\", \"depth = I / (1 + I); index bounded to 0-64\", \"guard\"),\n",
+          "after": "  ]),\n  amplitudeReference(\"chaotic-am\", \"Chaotic AM\", \"Audible carrier with nested Smooth and Saturated amplitude modulators\", [\n    node(\"Frequency and index ladders\", \"Divide modulator frequency and index inward; the carrier keeps its pitch\", \"control\"),\n    node(\"Bandwidth guard\", \"Fade expanding modulators near the render ceiling without disconnecting the carrier\", \"guard\"),\n    node(\"AM depth\", \"depth = I / (1 + I); index bounded to 0-64\", \"guard\"),\n"
+        },
+        {
+          "before": "    node(\"Output protection\", \"Normalization, compression, 2x soft ceiling and master gain\", \"guard\"),\n  ]),\n  amplitudeReference(\"cascading-am\", \"Cascading AM\", \"2-12 feed-forward amplitude operators\", [\n",
+          "after": "    node(\"Output protection\", \"Normalization, compression, 2x soft ceiling and master gain\", \"guard\"),\n  ], true),\n  amplitudeReference(\"cascading-am\", \"Cascading AM\", \"2-12 feed-forward amplitude operators\", [\n"
+        }
+      ]
+    }
+  ]
+}

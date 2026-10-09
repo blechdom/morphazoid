@@ -1,0 +1,407 @@
+.cascading-am-page {
+  --accent: #c084fc;
+  --accent-soft: color-mix(in oklab, #c084fc 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c084fc 20%, transparent);
+  --cascading-am-root: #67e8f9;
+  --cascading-am-mid: #c084fc;
+  --cascading-am-carrier: #f472b6;
+  --cascading-am-conn: #a78bfa;
+  --cascading-am-output: #ffe4f6;
+  --cascading-am-warning: #fbbf8a;
+}
+
+.cascading-am-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.cascading-am-stage .stage-wrap {
+  background:
+    repeating-linear-gradient(
+      118deg,
+      transparent 0,
+      transparent 43px,
+      color-mix(in oklab, var(--cascading-am-mid) 3.5%, transparent) 44px,
+      transparent 45px
+    ),
+    linear-gradient(color-mix(in oklab, var(--cascading-am-root) 2.5%, transparent) 1px, transparent 1px),
+    radial-gradient(circle at 68% 30%, color-mix(in oklab, var(--cascading-am-carrier) 8%, transparent), transparent 42%),
+    var(--bg-deep);
+  background-size: auto, 52px 52px, auto, auto;
+}
+
+.cascading-am-page #stage {
+  cursor: default;
+}
+
+.cascading-am-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.cascading-am-heading p {
+  margin: 0;
+  color: var(--cascading-am-root);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.cascading-am-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+/* Preserve the PM sibling’s violet chain geometry for the AM variant. */
+
+.cascading-am-signal-graph {
+  position: absolute;
+  z-index: 4;
+  right: clamp(12px, 2vw, 28px);
+  bottom: clamp(16px, 3%, 28px);
+  left: clamp(12px, 2vw, 28px);
+  height: clamp(150px, 29%, 220px);
+  overflow: hidden;
+  border-top: 1px solid color-mix(in oklab, var(--cascading-am-conn) 34%, transparent);
+  border-bottom: 1px solid color-mix(in oklab, var(--cascading-am-output) 13%, transparent);
+  background:
+    linear-gradient(120deg, color-mix(in oklab, var(--cascading-am-mid) 4%, transparent), transparent 42%),
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.24);
+  pointer-events: none;
+}
+
+.cascading-am-signal-graph::before {
+  position: absolute;
+  z-index: 1;
+  top: 7px;
+  left: 10px;
+  color: var(--cascading-am-root);
+  content: "AMPLITUDE PATH · EACH SINE MODULATES THE NEXT OPERATOR’S GAIN";
+  font-size: 7px;
+  letter-spacing: 0.12em;
+  opacity: 0.82;
+}
+
+.cascading-am-signal-graph svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.cascading-am-signal-graph .cascading-am-flow-compact {
+  display: none;
+}
+
+.cascading-am-stage-node rect,
+.cascading-am-index-block rect,
+.cascading-am-output-node rect,
+.cascading-am-junction circle {
+  fill: color-mix(in oklab, var(--bg-deep) 91%, transparent);
+}
+
+.cascading-am-stage-node rect {
+  stroke: var(--cascading-am-mid);
+  stroke-width: 1.45;
+}
+
+.cascading-am-stage-node.is-root rect {
+  stroke: var(--cascading-am-root);
+}
+
+.cascading-am-stage-node.is-carrier rect {
+  fill: color-mix(in oklab, var(--cascading-am-carrier) 8%, var(--bg-deep));
+  stroke: var(--cascading-am-carrier);
+  stroke-width: 1.8;
+}
+
+.cascading-am-stage-title,
+.cascading-am-stage-value,
+.cascading-am-index-label,
+.cascading-am-index-value,
+.cascading-am-output-label,
+.cascading-am-output-value,
+.cascading-am-compact-title,
+.cascading-am-compact-value,
+.cascading-am-compact-caption,
+.cascading-am-compact-arrow,
+.cascading-am-junction text {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.cascading-am-stage-title,
+.cascading-am-index-label {
+  fill: var(--ink);
+  font-size: 7.5px;
+  font-weight: 600;
+}
+
+.cascading-am-stage-value,
+.cascading-am-index-value {
+  fill: var(--muted);
+  font-size: 6.5px;
+}
+
+.cascading-am-amplitude-wire,
+.cascading-am-control-wire {
+  fill: none;
+  stroke: var(--cascading-am-conn);
+  stroke-width: 1.55;
+}
+
+.cascading-am-control-wire {
+  stroke: var(--cascading-am-root);
+  stroke-dasharray: 3 3;
+  opacity: 0.56;
+}
+
+.cascading-am-index-block rect {
+  stroke: var(--cascading-am-conn);
+  stroke-width: 1.25;
+}
+
+.cascading-am-junction circle {
+  stroke: var(--cascading-am-carrier);
+  stroke-width: 1.2;
+}
+
+.cascading-am-junction text {
+  fill: var(--cascading-am-carrier);
+  font-size: 10px;
+}
+
+#cascadingAmArrow path {
+  fill: var(--cascading-am-output);
+}
+
+.cascading-am-output-node rect {
+  stroke: var(--cascading-am-output);
+}
+
+.cascading-am-output-label {
+  fill: var(--cascading-am-output);
+  font-size: 9px;
+}
+
+.cascading-am-output-value {
+  fill: var(--muted);
+  font-size: 8px;
+}
+
+.cascading-am-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 91%, transparent);
+  stroke: var(--cascading-am-mid);
+  stroke-width: 1.3;
+}
+
+.cascading-am-compact-node.is-root rect {
+  stroke: var(--cascading-am-root);
+}
+
+.cascading-am-compact-node.is-carrier rect {
+  stroke: var(--cascading-am-carrier);
+}
+
+.cascading-am-compact-title {
+  fill: var(--ink);
+  font-size: 8px;
+  font-weight: 600;
+}
+
+.cascading-am-compact-value {
+  fill: var(--muted);
+  font-size: 6.5px;
+}
+
+.cascading-am-compact-arrow {
+  fill: var(--cascading-am-conn);
+  font-size: 15px;
+}
+
+.cascading-am-compact-caption {
+  fill: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.04em;
+  text-anchor: start;
+}
+
+.cascading-am-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--cascading-am-mid) 4%, transparent), transparent 270px),
+    var(--panel);
+}
+
+.cascading-am-presets {
+  --accent: #67e8f9;
+  --accent-soft: color-mix(in oklab, #67e8f9 55%, transparent);
+  --accent-glow: color-mix(in oklab, #67e8f9 18%, transparent);
+}
+
+.cascading-am-structure {
+  --accent: #c084fc;
+  --accent-soft: color-mix(in oklab, #c084fc 55%, transparent);
+  --accent-glow: color-mix(in oklab, #c084fc 20%, transparent);
+}
+
+.cascading-am-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.cascading-am-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.cascading-am-preset-grid button:hover,
+.cascading-am-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.cascading-am-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.cascading-am-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.cascading-am-control-note {
+  display: block;
+  margin: -8px 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.055em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.cascading-am-taper-hint {
+  margin: -8px 0 14px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.055em;
+}
+
+.cascading-am-taper-hint b {
+  color: var(--cascading-am-root);
+  font-weight: 500;
+}
+
+.cascading-am-ledger {
+  margin-top: 16px;
+}
+
+.cascading-am-ledger > span {
+  grid-template-columns: 68px minmax(0, 1fr);
+}
+
+.cascading-am-ledger code {
+  color: color-mix(in oklab, var(--ink) 86%, var(--cascading-am-mid));
+  font-variant-numeric: tabular-nums;
+}
+
+.cascading-am-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--cascading-am-warning);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--cascading-am-warning) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.cascading-am-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.cascading-am-audio-glyph {
+  color: var(--cascading-am-root);
+  font-size: 19px;
+}
+
+@media (max-width: 960px) {
+  .cascading-am-shell {
+    grid-template-columns: 1fr;
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
+  .cascading-am-heading {
+    top: 28px;
+  }
+
+  .cascading-am-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+}
+
+@media (max-width: 650px) {
+  .cascading-am-heading {
+    top: 20px;
+    left: 16px;
+  }
+
+  .cascading-am-heading p,
+  .cascading-am-stage .stage-meta {
+    display: none;
+  }
+
+  .cascading-am-signal-graph {
+    right: 5px;
+    bottom: 8px;
+    left: 5px;
+    height: clamp(0px, calc(100% - 274px), 132px);
+  }
+
+  .cascading-am-signal-graph::before {
+    top: 4px;
+    font-size: 6px;
+  }
+
+  .cascading-am-signal-graph .cascading-am-flow-detailed {
+    display: none;
+  }
+
+  .cascading-am-signal-graph .cascading-am-flow-compact {
+    display: block;
+  }
+}
+
+@media (max-width: 390px) {
+  .cascading-am-preset-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .cascading-am-preset-grid button {
+    min-height: 38px;
+  }
+}
