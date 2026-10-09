@@ -92,6 +92,7 @@ async function installFilePicker(page) {
   await page.addInitScript(() => {
     const state = {
       calls: [], files: [], cancelNext: false, failNextWrite: false,
+      denyNextCreateWritable: false,
       stallNextWrite: false, stallNextAbort: false,
       writing: 0, maxConcurrentWrites: 0,
     };
@@ -104,7 +105,7 @@ async function installFilePicker(page) {
           state.cancelNext = false;
           throw new DOMException("Picker cancelled", "AbortError");
         }
-        const file = { bytes: new Uint8Array(0), cursor: 0, closed: false, aborted: false, writes: [] };
+        const file = { bytes: new Uint8Array(0), cursor: 0, closed: false, closeCalls: 0, aborted: false, writes: [] };
         state.files.push(file);
         const writer = {
           async write(value) {
@@ -154,6 +155,7 @@ async function installFilePicker(page) {
             file.bytes = resized;
           },
           async close() {
+            file.closeCalls += 1;
             if (state.writing) throw new Error("File closed before pending PCM writes completed");
             file.closed = true;
           },
@@ -166,7 +168,16 @@ async function installFilePicker(page) {
             }
           },
         };
-        return { name: options?.suggestedName || "recording.wav", createWritable: async () => writer };
+        return {
+          name: options?.suggestedName || "recording.wav",
+          createWritable: async () => {
+            if (state.denyNextCreateWritable) {
+              state.denyNextCreateWritable = false;
+              throw new DOMException("The browser denied write access", "NotAllowedError");
+            }
+            return writer;
+          },
+        };
       },
     });
   });
@@ -180,7 +191,7 @@ async function readPickedFile(page, index = 0) {
     for (let offset = 0; offset < file.bytes.length; offset += 0x4000) {
       binary += String.fromCharCode(...file.bytes.subarray(offset, offset + 0x4000));
     }
-    return { base64: btoa(binary), closed: file.closed, aborted: file.aborted,
+    return { base64: btoa(binary), closed: file.closed, closeCalls: file.closeCalls, aborted: file.aborted,
       writes: file.writes, maxConcurrentWrites: state.maxConcurrentWrites, calls: state.calls };
   }, index);
   return { ...result, bytes: Buffer.from(result.base64, "base64") };
@@ -276,10 +287,10 @@ async function stopRecording(page) {
   await expect(page.locator(RECORD_DIALOG)).toBeVisible();
 }
 
-async function downloadTake(page, name = "stereo-output-contract") {
+async function downloadTake(page, name = "stereo-output-contract", { buttonName = "Save WAV" } = {}) {
   await page.locator(RECORD_NAME).fill(name);
   const downloadPromise = page.waitForEvent("download");
-  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  await page.getByRole("button", { name: buttonName, exact: true }).click();
   const download = await downloadPromise;
   expect(download.suggestedFilename()).toBe(`${name}.wav`);
   expect(await download.failure()).toBeNull();
@@ -446,6 +457,97 @@ test("cancelling Save WAV and keeping a take for later preserves its name and re
   expect(file.calls).toHaveLength(2);
   for (const call of file.calls) expect(call.suggestedName).toBe("keep-this-performance.wav");
   expectStereoTones(readStereoWave(file.bytes));
+  await expectAudibleRoute(page, source.index);
+  await releaseStereoSource(page, source.index);
+});
+
+test("a denied same-name Save WAV retry retains the exact take for Download WAV", async ({ page }) => {
+  await installFilePicker(page);
+  const downloads = [];
+  page.on("download", download => downloads.push(download));
+  await openInstrument(page);
+  const source = await addStereoSource(page);
+  await startRecording(page);
+  await page.waitForTimeout(600);
+  await stopRecording(page);
+  await page.locator(RECORD_NAME).fill("same-name-take");
+  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  await expect.poll(() => page.evaluate(() => globalThis.__recordingFilePicker.files[0]?.closed)).toBe(true);
+  const saved = await readPickedFile(page);
+
+  await page.evaluate(() => { globalThis.__recordingFilePicker.denyNextCreateWritable = true; });
+  await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+  await expect(page.locator(".output-recording-message")).toContainText(/did not allow writing/i);
+  await expect(page.locator(".output-recording-message")).toContainText("Download WAV");
+  await expect(page.locator(RECORD_NAME)).toHaveValue("same-name-take.wav");
+  await expect(page.locator(RECORD_NAME)).toBeEditable();
+  for (const label of ["Save WAV", "Download WAV", "Keep for later", "New recording"]) {
+    await expect(page.getByRole("button", { name: label, exact: true })).toBeEnabled();
+  }
+  expect(downloads, "write denial must leave the download choice to the user").toHaveLength(0);
+  const denied = await readPickedFile(page, 1);
+  expect(denied.calls.map(call => call.suggestedName)).toEqual(["same-name-take.wav", "same-name-take.wav"]);
+  expect(denied.writes).toEqual([]);
+  expect(denied.closed).toBe(false);
+
+  const downloaded = await downloadTake(page, "same-name-take", { buttonName: "Download WAV" });
+  expect(downloaded.equals(saved.bytes), "fallback downloads the original take byte-for-byte").toBe(true);
+  expectStereoTones(readStereoWave(downloaded));
+  expect(await page.evaluate(() => globalThis.__recordingFilePicker.calls.length)).toBe(2);
+  expect(downloads).toHaveLength(1);
+  await expect(page.locator(RECORD_NAME)).toHaveValue("same-name-take.wav");
+  await expectAudibleRoute(page, source.index);
+  await releaseStereoSource(page, source.index);
+});
+
+test("Download WAV bypasses an advertised picker and retains the unsaved-take navigation guard", async ({ page }) => {
+  await installFilePicker(page);
+  await openInstrument(page);
+  const source = await addStereoSource(page);
+  await startRecording(page);
+  await page.waitForTimeout(600);
+  await stopRecording(page);
+  await expect(page.getByRole("button", { name: "Save WAV", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Download WAV", exact: true })).toBeVisible();
+  const bytes = await downloadTake(page, "embedded-browser-take", { buttonName: "Download WAV" });
+  expectStereoTones(readStereoWave(bytes));
+  expect(await page.evaluate(() => globalThis.__recordingFilePicker.calls.length)).toBe(0);
+  await expect(page.locator(`${RECORD_DIALOG} h2`)).not.toHaveText("Recording saved");
+
+  const originalURL = page.url();
+  const confirmationPromise = page.waitForEvent("dialog");
+  const navigation = page.goto("settings.html").catch(() => {});
+  const confirmation = await confirmationPromise;
+  expect(confirmation.type()).toBe("beforeunload");
+  await confirmation.dismiss();
+  await navigation;
+  await expect(page).toHaveURL(originalURL);
+  await expect(page.locator(RECORD_NAME)).toHaveValue("embedded-browser-take.wav");
+  await expect(page.locator(RECORD_DIALOG)).toBeVisible();
+  await expectAudibleRoute(page, source.index);
+  await releaseStereoSource(page, source.index);
+});
+
+test("repeated successful Save WAV with the same name uses fresh file handles and closes each once", async ({ page }) => {
+  await installFilePicker(page);
+  await openInstrument(page);
+  const source = await addStereoSource(page);
+  await startRecording(page);
+  await page.waitForTimeout(600);
+  await stopRecording(page);
+  await page.locator(RECORD_NAME).fill("repeat-save");
+  for (let index = 0; index < 2; index += 1) {
+    await page.getByRole("button", { name: "Save WAV", exact: true }).click();
+    await expect.poll(() => page.evaluate(index => globalThis.__recordingFilePicker.files[index]?.closed, index)).toBe(true);
+  }
+  const first = await readPickedFile(page);
+  const second = await readPickedFile(page, 1);
+  expect(second.calls.map(call => call.suggestedName)).toEqual(["repeat-save.wav", "repeat-save.wav"]);
+  expect(first.closeCalls).toBe(1);
+  expect(second.closeCalls).toBe(1);
+  expect(first.aborted || second.aborted).toBe(false);
+  expect(second.bytes.equals(first.bytes)).toBe(true);
+  expectStereoTones(readStereoWave(second.bytes));
   await expectAudibleRoute(page, source.index);
   await releaseStereoSource(page, source.index);
 });
