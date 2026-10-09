@@ -8,7 +8,7 @@ const ENGINE = '/src/instruments/micmic/native/browser-engine.js';
 const APP = '/src/instruments/micmic/native/app.js';
 const CONTRACT = [
   ['inputTrim', '0', '4', '0.01', '0.85'], ['level', '0', '1', '0.01', ''],
-  ['voiceCeiling', '0', null, '1', '0'], ['generations', '1', null, '1', '13'],
+  ['voiceCeiling', '0', null, '1', '0'], ['capacityBudget', '1', null, '1', '1'], ['generations', '1', null, '1', '13'],
   ['pruningBias', '-1', '1', '0.01', '0'], ['depth', '0', '1', '0.01', '0.72'],
   ['interval', '0', '1000', 'any', '300'], ['timeRatio', '0.2', '2', '0.01', '0.72'],
   ['generationAngle', '0', '180', '0.5', '45'], ['generationPitchScale', '0', '4', '0.05', '1'],
@@ -196,7 +196,7 @@ async function cleanup(page, evidence) {
 async function needleChecks(page) {
   return page.evaluate(ids => ids.map(id => {
     const input = document.getElementById(id), min = Number(input.min), max = Number(input.max), value = Number(input.value);
-    const fraction = id === 'voiceCeiling' ? Math.log1p(value - min) / Math.log1p(max - min) : (value - min) / (max - min);
+    const fraction = ['voiceCeiling', 'capacityBudget'].includes(id) ? Math.log1p(value - min) / Math.log1p(max - min) : (value - min) / (max - min);
     const needle = input.parentElement.querySelector('.mz-range-knob__dial > i');
     return { id, value, expected: -135 + Math.max(0, Math.min(1, fraction)) * 270,
       actual: Number(needle?.style.transform.match(/rotate\(([-\d.]+)deg\)/)?.[1]) };
@@ -630,7 +630,8 @@ test('compact knobs and every original control remain reachable in desktop, port
     for (const [id] of CONTRACT) {
       const input = await openControl(page, id);
       const result = await input.evaluate(input => {
-        const box = input.getBoundingClientRect(), label = input.parentElement.querySelector(':scope > span:first-child > b'), output = document.querySelector(`output[for="${input.id}"]`);
+        const box = input.getBoundingClientRect(), label = input.parentElement.querySelector(':scope > span:first-child > b');
+        const output = input.closest('.native-voice-control')?.querySelector('input[type="number"]') ?? document.querySelector(`output[for="${input.id}"]`);
         const caption = label?.getBoundingClientRect(), readout = output?.getBoundingClientRect(), panelKnob = input.parentElement.classList.contains('native-knob-control');
         return { id: input.id, width: box.width, height: box.height,
           hit: document.elementFromPoint(box.x + box.width / 2, box.y + box.height / 2) === input,

@@ -50,9 +50,6 @@
                 <div><dt>Input losses / callback deadlines</dt><dd id="streamMisses">0 / 0</dd></div>
               </dl>
               <div id="nativeMidiControl"></div>
-              <div class="native-voice-cap">
-                <label class="control native-knob-control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
-              </div>
             </section>
             <p class="header-settings-copy">Rust audio runs directly in this browser. Choose an input, then enable Audio to hear the delay. Mic / line input uses your Audio Settings device.</p>
           </div>
@@ -100,7 +97,13 @@
             <div title="Branches compiled for this scene. This number stays fixed until a scene or capacity edit."><dt>Prepared</dt><dd id="performancePrepared">—</dd></div>
             <div title="Prepared voices whose delay fits the delay-history buffer capacity, with Depth above zero."><dt>Eligible</dt><dd id="performanceEligible">—</dd></div>
             <div title="Actual processing voices, including fading release tails. The playing graphic follows these slots."><dt>Processing</dt><dd id="performanceProcessing">—</dd></div>
-            <div title="Current audio protection limit; admitted target may be smaller due to depth or your optional Settings voice cap."><dt>Live limit</dt><dd id="performanceLimit">—</dd></div>
+            <div title="Current allowed voices after protection and your live cap. The target is the number the engine aims to run."><dt>Live limit</dt><dd><output id="performanceLimit">—</output>
+              <div class="native-voice-control" role="group" aria-labelledby="voiceCeilingLabel">
+                <label class="control native-knob-control" for="voiceCeiling"><span><b id="voiceCeilingLabel">Live cap</b><output id="voiceCeilingOut" for="voiceCeiling" hidden>All available</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" aria-describedby="liveCapHint" /></label>
+                <input class="native-voice-value" id="voiceCeilingExact" type="number" inputmode="numeric" min="0" max="9007199254740991" step="1" value="0" aria-labelledby="voiceCeilingLabel" aria-describedby="liveCapHint" />
+                <span class="native-live-cap-hint" id="liveCapHint">0 = All available</span>
+              </div>
+            </dd></div>
             <div title="Most recent proved warm scene count, or the initial conservative device estimate. A workload estimate, not a permanent device maximum."><dt>Measured estimate</dt><dd id="performanceMeasured">—</dd></div>
           </dl>
           <div class="native-performance-foot"><output id="performanceMisses" title="Measured callback deadline misses, not physical sound-device dropout counts.">0 deadlines missed</output></div>
@@ -108,8 +111,11 @@
             <summary>Capacity tests</summary>
             <div class="native-capacity-test-body">
               <div class="native-capacity-controls">
-                <label class="control native-knob-control" for="capacityBudget"><span><b>Test voice budget</b><output id="capacityBudgetOut" for="capacityBudget">—</output></span><input id="capacityBudget" type="range" min="1" max="9007199254740991" step="1" value="1" /></label>
-                <div class="native-capacity-actions"><label for="capacityBudgetExact">Exact voices<input id="capacityBudgetExact" type="number" inputmode="numeric" min="1" step="1" value="1" /></label><button class="mini-action" id="testCapacity" type="button" disabled>Test capacity</button></div>
+                <div class="native-voice-control" role="group" aria-labelledby="capacityBudgetLabel">
+                  <label class="control native-knob-control" for="capacityBudget"><span><b id="capacityBudgetLabel">Voice budget</b><output id="capacityBudgetOut" for="capacityBudget" hidden>—</output></span><input id="capacityBudget" type="range" min="1" max="9007199254740991" step="1" value="1" /></label>
+                  <input class="native-voice-value" id="capacityBudgetExact" type="number" inputmode="numeric" min="1" max="9007199254740991" step="1" value="1" aria-labelledby="capacityBudgetLabel" />
+                </div>
+                <div class="native-capacity-actions"><button class="mini-action" id="testCapacity" type="button" disabled>Test capacity</button></div>
               </div>
               <div class="native-performance-foot"><label class="native-check" title="Keeps automatic audio deadline protection active. Turn off for a manual overload trial."><input id="automatic" type="checkbox" checked /> Protect audio</label><button class="mini-action" id="autoCapacity" type="button" title="Test the device estimate and return to automatic preparation budgets" hidden>Auto budget</button></div>
               <p class="native-input-note" id="performanceCapacityStatus" role="status">Choose a budget, then test. Audio keeps playing during preparation.</p>

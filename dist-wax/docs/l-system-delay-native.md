@@ -161,7 +161,14 @@ four times per second with at most two pending queries; unavailable or stale
 measurements are labelled accordingly. It measures branch drawing time, not
 total GPU utilization, and never waits for the GPU to finish.
 
-Turn **Test voice budget** or enter an exact count, then press **Test capacity**.
+**Requested** is the full rule's descendant count before device fitting;
+**Voice budget** is the preparation ceiling you choose to test. For example,
+1,329 requested branches with a budget of 512 asks to prepare up to 512 branches.
+A larger budget cannot invent more branches than the current rule requests.
+
+Turn **Voice budget** or edit its number directly beneath the knob, then press
+**Test capacity**. The dial and editable value are one control. Enter or leaving
+the number commits the draft; Escape restores the previous value.
 These controls, protection options and test results sit inside **Capacity tests**,
 a caret disclosure that starts closed. Live meters, voice counts and deadline
 misses remain visible. Closing it preserves the chosen budget and any running test.
@@ -173,8 +180,12 @@ a declined test retains the current pool and reports its measured cost. This
 explicit test can retry a scene after overload, rather than waiting for
 background growth. The requested budget carries across preset changes, which
 revalidate each different workload. Small scenes prove only their actual voices
-and retain earlier safe fallback capacity. The optional Settings voice cap still
-limits live admission within the prepared pool. **Auto budget** tests the device
+and retain earlier safe fallback capacity. **Live cap**, beside **Live limit**,
+changes how many prepared voices can run; 0 means **All available**. It changes
+existing voice admission smoothly without rebuilding the tree or restarting
+input. Audio protection still applies. To prepare a larger pool or revalidate a
+scene after a real overload, use **Voice budget → Test capacity**.
+**Auto budget** tests the device
 estimate again and returns preparation to device-managed budgets; even a declined
 recovery test clears the user ceiling while retaining the playing tree.
 
