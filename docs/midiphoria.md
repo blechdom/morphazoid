@@ -38,23 +38,30 @@ capture a hardware mapping.
 ## Text MIDI
 
 Type up to 32 characters in **Text MIDI**, then choose **Make MIDI**. Original
-5×7 block glyphs map horizontal position to time and vertical position to MIDI
-pitch. Horizontal strokes sustain notes; gaps create rests. Letters, numbers
-and punctuation are supported, lowercase becomes uppercase, and unsupported
-characters become spaces. The generated MIDI appears in the session song menu;
+5×7 block glyphs map horizontal position to MIDI pitch and vertical position to
+time. A horizontal playhead climbs from bottom to top, keeping the letters
+upright. Vertical strokes sustain notes; gaps create rests. Letters read left
+to right in phrases of up to eight characters, with longer text continuing in
+the next phrase above. Letters, numbers and punctuation are supported,
+lowercase becomes uppercase, and unsupported characters become spaces.
+The generated MIDI appears in the session song menu. When Audio is already on,
+**Make MIDI** immediately auditions the new score, including when playback was
+paused or the previous score had ended. With Audio off, generation stays muted;
 enable Audio and press Play to hear it through the existing SoundFont player.
 Regenerating text while playing keeps playback active.
 
-**Letter score** shows the actual MIDI pitches and durations with a playhead
-following the file's audio clock. Long words scroll through a readable window;
-seek, speed and Loop use the same player. Turn Letter score off to watch the
-normal light graphics, or choose a visual preset. **Download MIDI** exports the
-complete Standard MIDI File for a DAW or another player. Text and generated
-files stay in this browser session.
+**Letter score** shows the actual MIDI pitches and durations, following the
+file's audio clock. Long scores scroll vertically through a readable window;
+seek, speed and Loop use the same player. Every phrase ends with one silent
+row. Turn Letter score off to watch the normal light graphics, or choose a
+visual preset. **Download MIDI** exports the exact Standard MIDI File played
+in the browser, for a DAW or another player. Text and generated files stay in
+this browser session.
 
-The generator is bounded to 12 seconds at 1×, seven simultaneous pitches and
-672 note runs. It uses a General MIDI sawtooth lead at 120 BPM and chromatic
-pitches 60–66, with no scale quantization. The score renderer never schedules
+The generator is bounded to eight seconds at 1×, 40 simultaneous pitches and
+640 note runs. It uses a General MIDI sawtooth lead at 120 BPM and chromatic
+pitches within 48–94, with no scale quantization. Each time row lasts 0.25 s;
+a one-phrase score lasts two seconds. The score renderer never schedules
 audio; notes are played by the existing AudioWorklet.
 
 ## Collection and arrangement quality

@@ -1,6 +1,6 @@
 // Original 5 × 7 block lettering, authored here rather than rasterized from a
-// font. A lit pixel is a MIDI note: columns are time, rows are chromatic pitch.
-// Horizontal runs sustain a single note; empty columns remain audible rests.
+// font. A lit pixel is a MIDI note: columns are chromatic pitch, rows are time.
+// Each phrase plays from its bottom row upward; vertical runs sustain notes.
 const GLYPHS = Object.freeze({
   A: ['01110', '10001', '10001', '11111', '10001', '10001', '10001'],
   B: ['11110', '10001', '10001', '11110', '10001', '10001', '11110'],
@@ -70,11 +70,12 @@ const INPUT_SCAN_LIMIT = 4096;
 const ROWS = 7;
 const GLYPH_COLUMNS = 5;
 const GLYPH_STRIDE = GLYPH_COLUMNS + 1;
-const LOWEST_NOTE = 60;
-const HIGHEST_NOTE = LOWEST_NOTE + ROWS - 1;
+const GLYPHS_PER_PHRASE = 8;
+const ROWS_PER_PHRASE = ROWS + 1;
+const LOWEST_NOTE = 48;
 const TICKS_PER_BEAT = 480;
-const TICKS_PER_COLUMN = TICKS_PER_BEAT / 8;
-const SECONDS_PER_COLUMN = 0.5 / 8; // 120 BPM, one eighth of a beat.
+const TICKS_PER_ROW = TICKS_PER_BEAT / 2;
+const SECONDS_PER_ROW = 0.5 / 2; // 120 BPM, one half of a beat.
 const VELOCITY = 88;
 
 /** Bounded ASCII lettering; unsupported characters become word separators. */
@@ -102,26 +103,35 @@ function variableLength(value) {
 /**
  * Generate a format-0 Standard MIDI File and its matching piano-roll score.
  * start, duration and total duration are in seconds at the file's 120 BPM.
- * Pitch 66 is the top row and 60 the bottom; no scale snapping is applied.
- * A 32-glyph score lasts at most 12 s, holds at most seven notes, and contains
- * at most 672 note runs / 1,344 note events. This owns no audio or UI lifecycle.
+ * Up to eight upright glyphs read left to right in each phrase. Pitch increases
+ * from left to right; time climbs from the bottom row to the top, followed by a
+ * blank row before the next phrase. No scale snapping is applied.
+ * A 32-glyph score lasts at most 8 s, holds at most 40 notes, and contains
+ * at most 640 note runs / 1,280 note events. This owns no audio or UI lifecycle.
  */
 export function generateTextMidi(input) {
   const text = normalizeTextMidi(input);
   if (!text) throw new Error('Type letters, numbers or punctuation to make a MIDI.');
-  const columns = text.length * GLYPH_STRIDE;
+  const phrases = [];
+  for (let index = 0; index < text.length; index += GLYPHS_PER_PHRASE) {
+    phrases.push(text.slice(index, index + GLYPHS_PER_PHRASE));
+  }
+  const columns = Math.min(GLYPHS_PER_PHRASE, text.length) * GLYPH_STRIDE - 1;
+  const rows = phrases.length * ROWS_PER_PHRASE;
   const notes = [];
   for (let glyphIndex = 0; glyphIndex < text.length; glyphIndex++) {
     const glyph = GLYPHS[text[glyphIndex]];
-    if (!glyph) continue; // Space is six silent columns.
-    for (let row = 0; row < ROWS; row++) {
-      for (let column = 0; column < GLYPH_COLUMNS;) {
-        if (glyph[row][column] !== '1') { column++; continue; }
-        const from = column;
-        while (column < GLYPH_COLUMNS && glyph[row][column] === '1') column++;
-        notes.push({ note: HIGHEST_NOTE - row,
-          start: (glyphIndex * GLYPH_STRIDE + from) * SECONDS_PER_COLUMN,
-          duration: (column - from) * SECONDS_PER_COLUMN, velocity: VELOCITY });
+    if (!glyph) continue; // Spaces retain their silent pitch columns.
+    const phrase = Math.floor(glyphIndex / GLYPHS_PER_PHRASE);
+    const pitchOffset = glyphIndex % GLYPHS_PER_PHRASE * GLYPH_STRIDE;
+    for (let column = 0; column < GLYPH_COLUMNS; column++) {
+      for (let row = 0; row < ROWS;) {
+        if (glyph[ROWS - 1 - row][column] !== '1') { row++; continue; }
+        const from = row;
+        while (row < ROWS && glyph[ROWS - 1 - row][column] === '1') row++;
+        notes.push({ note: LOWEST_NOTE + pitchOffset + column,
+          start: (phrase * ROWS_PER_PHRASE + from) * SECONDS_PER_ROW,
+          duration: (row - from) * SECONDS_PER_ROW, velocity: VELOCITY });
       }
     }
   }
@@ -133,14 +143,14 @@ export function generateTextMidi(input) {
     { tick: 0, order: 0, bytes: [0xc0, 81] }, // GM Lead 2 (sawtooth), channel 1.
   ];
   for (const { note, start, duration, velocity } of notes) {
-    const from = Math.round(start / SECONDS_PER_COLUMN) * TICKS_PER_COLUMN;
-    const length = Math.round(duration / SECONDS_PER_COLUMN) * TICKS_PER_COLUMN;
+    const from = Math.round(start / SECONDS_PER_ROW) * TICKS_PER_ROW;
+    const length = Math.round(duration / SECONDS_PER_ROW) * TICKS_PER_ROW;
     events.push({ tick: from, order: 2, bytes: [0x90, note, velocity] });
     events.push({ tick: from + length, order: 1, bytes: [0x80, note, 0] });
   }
   // SpessaSynth measures duration through the last channel event, not EOT.
-  // Preserve the final blank column when looping, without adding a sounding note.
-  const endTick = columns * TICKS_PER_COLUMN;
+  // Preserve the final blank row when looping, without adding a sounding note.
+  const endTick = rows * TICKS_PER_ROW;
   events.push({ tick: endTick, order: 3, bytes: [0xb0, 123, 0] });
   events.push({ tick: endTick, order: 4, bytes: [0xff, 0x2f, 0] });
   events.sort((a, b) => a.tick - b.tick || a.order - b.order);
@@ -155,6 +165,7 @@ export function generateTextMidi(input) {
     TICKS_PER_BEAT >>> 8, TICKS_PER_BEAT & 255,
     0x4d, 0x54, 0x72, 0x6b, ...uint32(track.length), ...track,
   ]).buffer;
-  return { buffer, text, notes, duration: columns * SECONDS_PER_COLUMN,
-    columns, secondsPerColumn: SECONDS_PER_COLUMN, lowestNote: LOWEST_NOTE, highestNote: HIGHEST_NOTE };
+  return { buffer, text, notes, duration: rows * SECONDS_PER_ROW,
+    columns, rows, phrases, rowsPerPhrase: ROWS_PER_PHRASE, secondsPerRow: SECONDS_PER_ROW,
+    lowestNote: LOWEST_NOTE, highestNote: LOWEST_NOTE + columns - 1 };
 }

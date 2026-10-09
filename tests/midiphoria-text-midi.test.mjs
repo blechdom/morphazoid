@@ -80,27 +80,32 @@ function readScore(buffer) {
     duration: endTick * tempo / 1000000 / division };
 }
 
-function rasterize(score) {
+function rasterize(score, phrase = 0) {
   const pixels = Array.from({ length: 7 }, () => Array(score.columns).fill('0'));
   for (const note of score.notes) {
-    const from = Math.round(note.start / score.secondsPerColumn);
-    const width = Math.round(note.duration / score.secondsPerColumn);
-    for (let column = from; column < from + width; column++) pixels[score.highestNote - note.note][column] = '1';
+    const from = Math.round(note.start / score.secondsPerRow);
+    const length = Math.round(note.duration / score.secondsPerRow);
+    for (let row = from; row < from + length; row++) {
+      if (Math.floor(row / score.rowsPerPhrase) !== phrase) continue;
+      const glyphRow = 6 - row % score.rowsPerPhrase;
+      assert.ok(glyphRow >= 0, 'blank time rows never acquire sounding pixels');
+      pixels[glyphRow][note.note - score.lowestNote] = '1';
+    }
   }
   return pixels.map(row => row.join(''));
 }
 
-test('exported MIDI notes spell the same H I shape as the preview, with high pitches on top', () => {
+test('exported MIDI spells upright H I left to right while time moves from bottom to top', () => {
   const score = generateTextMidi('hi');
   assert.equal(score.text, 'HI');
   assert.deepEqual(rasterize(score), [
-    '100010111110',
-    '100010001000',
-    '100010001000',
-    '111110001000',
-    '100010001000',
-    '100010001000',
-    '100010111110',
+    '10001011111',
+    '10001000100',
+    '10001000100',
+    '11111000100',
+    '10001000100',
+    '10001000100',
+    '10001011111',
   ]);
   const parsed = readScore(score.buffer);
   assert.deepEqual(parsed.notes, score.notes);
@@ -108,34 +113,67 @@ test('exported MIDI notes spell the same H I shape as the preview, with high pit
   assert.equal(parsed.tempo, 500000);
   assert.equal(parsed.program, 81);
   assert.equal(parsed.title, 'Text: HI');
-  assert.equal(score.secondsPerColumn, 0.0625);
-  assert.equal(score.lowestNote, 60);
-  assert.equal(score.highestNote, 66);
+  assert.equal(score.secondsPerRow, 0.25);
+  assert.equal(score.lowestNote, 48);
+  assert.equal(score.highestNote, 58);
+  assert.equal(score.columns, 11);
+  assert.equal(score.rows, 8);
+  assert.deepEqual(score.phrases, ['HI']);
 });
 
-test('horizontal pixels sustain notes and every glyph retains its final blank column', () => {
+test('asymmetric letters retain their upright orientation in the sounding MIDI', () => {
+  for (const [letter, pixels] of Object.entries({
+    F: ['11111', '10000', '10000', '11110', '10000', '10000', '10000'],
+    R: ['11110', '10001', '10001', '11110', '10100', '10010', '10001'],
+    J: ['00111', '00010', '00010', '00010', '10010', '10010', '01100'],
+  })) {
+    const score = generateTextMidi(letter);
+    assert.deepEqual(rasterize({ ...score, notes: readScore(score.buffer).notes }), pixels);
+  }
+});
+
+test('vertical pixels sustain notes, spaces leave silent pitches and phrases end with a rest', () => {
   const score = generateTextMidi('I I');
   const parsed = readScore(score.buffer);
-  assert.equal(score.notes.length, 14, 'two I glyphs have seven sustained row runs each');
-  assert.equal(score.columns, 18);
-  assert.equal(score.duration, 1.125);
-  assert.ok(score.notes.some(note => note.note === 66 && note.start === 0 && note.duration === 0.3125));
+  assert.equal(score.notes.length, 18, 'two I glyphs have nine sustained vertical runs each');
+  assert.equal(score.columns, 17);
+  assert.equal(score.duration, 2);
+  assert.ok(score.notes.some(note => note.note === 50 && note.start === 0 && note.duration === 1.75));
   const lastNoteEnd = Math.max(...score.notes.map(note => note.start + note.duration));
-  assert.equal(score.duration - lastNoteEnd, score.secondsPerColumn);
+  assert.equal(score.duration - lastNoteEnd, score.secondsPerRow);
   for (const note of parsed.notes) {
-    assert.ok(note.start + note.duration <= 0.3125 || note.start >= 0.75,
-      'inter-letter space does not secretly schedule notes');
+    assert.ok(note.note <= 52 || note.note >= 60, 'inter-letter space does not secretly schedule notes');
   }
   assert.deepEqual(parsed.notes, score.notes);
+});
+
+test('long inputs wrap in eight-glyph phrases without reversing characters or exceeding MIDI pitch bounds', () => {
+  for (const text of ['FRJABCDEFG', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ012345']) {
+    const score = generateTextMidi(text), parsed = readScore(score.buffer);
+    assert.equal(score.phrases.join(''), text);
+    assert.equal(score.rows, Math.ceil(text.length / 8) * 8);
+    assert.equal(score.duration, Math.ceil(text.length / 8) * 2);
+    assert.deepEqual(parsed.notes, score.notes);
+    score.phrases.forEach((phrase, index) => {
+      const separate = generateTextMidi(phrase);
+      const pixels = rasterize({ ...score, notes: parsed.notes }, index);
+      assert.deepEqual(pixels.map(row => row.slice(0, separate.columns)), rasterize(separate));
+      assert.ok(pixels.every(row => /^0*$/.test(row.slice(separate.columns))));
+      const restFrom = (index * 8 + 7) * score.secondsPerRow;
+      assert.ok(parsed.notes.every(note => note.start + note.duration <= restFrom
+        || note.start >= restFrom + score.secondsPerRow), 'a full silent row separates successive phrases');
+    });
+    assert.ok(parsed.notes.every(note => note.note >= 48 && note.note <= 94));
+  }
 });
 
 test('a silent final channel event preserves the exact score duration in SpessaSynth loops', () => {
   for (const text of ['HELLO MIDI', 'I', '"']) {
     const score = generateTextMidi(text), parsed = readScore(score.buffer);
-    assert.deepEqual(parsed.controllers, [{ tick: score.columns * 60, controller: 123, value: 0 }]);
+    assert.deepEqual(parsed.controllers, [{ tick: score.rows * 240, controller: 123, value: 0 }]);
     const lastNoteOffTick = Math.max(...parsed.events.filter(event => !event.on).map(event => event.tick));
     const lastChannelTick = parsed.controllers[0].tick;
-    assert.ok(lastChannelTick - lastNoteOffTick >= 60, 'at least one blank column remains before loop restart');
+    assert.ok(lastChannelTick - lastNoteOffTick >= 240, 'at least one blank row remains before loop restart');
     assert.equal(lastChannelTick * 0.5 / 480, score.duration);
     assert.equal(parsed.duration, score.duration);
   }
@@ -173,11 +211,12 @@ test('large and hostile inputs stay inside the text, duration, event and file bu
     assert.ok(normalized.length <= MAX_TEXT_MIDI_GLYPHS);
     if (!normalized) { assert.throws(() => generateTextMidi(text)); continue; }
     const score = generateTextMidi(text), parsed = readScore(score.buffer);
-    assert.ok(score.columns <= 192);
-    assert.ok(score.duration <= 12);
-    assert.ok(score.notes.length <= 672);
-    assert.ok(parsed.events.length <= 1344);
-    assert.ok(parsed.maxPolyphony <= 7);
+    assert.ok(score.columns <= 47);
+    assert.ok(score.rows <= 32);
+    assert.ok(score.duration <= 8);
+    assert.ok(score.notes.length <= 640);
+    assert.ok(parsed.events.length <= 1280);
+    assert.ok(parsed.maxPolyphony <= 40);
     assert.ok(score.buffer.byteLength < 6000);
     assert.deepEqual(parsed.notes, score.notes);
     assert.equal(parsed.duration, score.duration);
@@ -190,16 +229,17 @@ test('all supported lettering produces finite, distinct, exactly aligned MIDI sh
   for (const character of characters) {
     const score = generateTextMidi(character), parsed = readScore(score.buffer);
     assert.equal(score.text, character);
-    assert.equal(score.columns, 6);
+    assert.equal(score.columns, 5);
+    assert.equal(score.rows, 8);
     assert.ok(score.notes.length > 0);
     assert.deepEqual(parsed.notes, score.notes);
-    assert.ok(parsed.maxPolyphony <= 7);
+    assert.ok(parsed.maxPolyphony <= 5);
     for (const note of score.notes) {
-      assert.ok(Number.isInteger(note.note) && note.note >= 60 && note.note <= 66);
+      assert.ok(Number.isInteger(note.note) && note.note >= 48 && note.note <= 52);
       assert.ok(Number.isFinite(note.start) && note.start >= 0);
       assert.ok(Number.isFinite(note.duration) && note.duration > 0);
-      assert.equal(note.start / score.secondsPerColumn % 1, 0);
-      assert.equal(note.duration / score.secondsPerColumn % 1, 0);
+      assert.equal(note.start / score.secondsPerRow % 1, 0);
+      assert.equal(note.duration / score.secondsPerRow % 1, 0);
       assert.ok(note.velocity > 0 && note.velocity <= 127);
     }
     shapes.add(rasterize(score).join('/'));
