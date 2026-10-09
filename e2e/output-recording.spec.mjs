@@ -273,6 +273,40 @@ async function downloadTake(page, name = "stereo-output-contract") {
   return readFile(await download.path());
 }
 
+test("Record follows the Audio button when an engine mutes without suspending its context", async ({ page }) => {
+  await useDownloadFallback(page);
+  await openInstrument(page);
+  await expect(page.locator(RECORD_BUTTON)).toBeEnabled();
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator(RECORD_BUTTON)).toBeDisabled();
+  const output = await page.evaluate(async () => {
+    const { getSharedAudioOutputManager } = await import("/src/audio-output-manager.js");
+    return getSharedAudioOutputManager().getStatus();
+  });
+  expect(output.connectionCount, "Audio off preserves Karplus Strong's prepared graph").toBeGreaterThan(0);
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator(RECORD_BUTTON)).toBeEnabled();
+  await expect(page.locator(RECORD_BUTTON)).toHaveCount(1);
+});
+
+for (const route of [
+  "l-mic-rust.html", "l-system-parametric-lab.html", "l-system-experiments.html",
+  "fractal-synthesis.html", "birdsong-lab.html", "crickets.html",
+  "acoustic-manifold.html", "nightingale-manifold.html",
+]) {
+  test(`${route}: custom and dynamically created headers expose one output Record control`, async ({ page }) => {
+    await useDownloadFallback(page);
+    await page.goto(route);
+    await expect(page.locator(RECORD_BUTTON)).toHaveCount(1);
+    await expect(page.locator(RECORD_BUTTON)).toBeVisible();
+    await expect(page.locator(RECORD_BUTTON)).toHaveAccessibleName("Record stereo output");
+    await expect(page.locator(RECORD_BUTTON)).toBeDisabled();
+    await expect(page.locator(RECORD_DIALOG)).toHaveCount(1);
+  });
+}
+
 test("records independent stereo channels as 24-bit WAV and flushes the final partial chunk", async ({ page }, testInfo) => {
   await useDownloadFallback(page);
   await openInstrument(page);
