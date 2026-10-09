@@ -28,7 +28,6 @@ function mountMidiphoria() {
   const on = (node, type, listener, options = {}) => node.addEventListener(type, listener, { ...options, signal: events.signal });
   const model = new MidiphoriaModel();
   const renderer = new MidiphoriaRenderer($('visualCanvas'));
-  model.onNoteEvent = event => renderer.captureEvent(event);
   renderer.view = $('viewMode').value;
   const manager = getSharedMidiManager(globalThis);
   let settings = { ...DEFAULT_VISUALS };
@@ -40,6 +39,19 @@ function mountMidiphoria() {
   const padTimers = new Map();
   const pads = [];
   let player, audioStarting = false, loadingFile = false, selectionReady = false, fileError = '';
+  let receivingLiveMidi = false;
+  const liveAudioNotes = new Set();
+  model.onNoteEvent = event => {
+    const sourceId = `midiphoria:live:${event.id}`;
+    // Model events already obey routing, sustain and source-specific cleanup.
+    // Only manager attacks use this bridge; files and pads own their audio.
+    if (event.type === 'noteOn' && receivingLiveMidi && player?.padNoteOn(sourceId, event.note, event.velocity)) {
+      liveAudioNotes.add(event.id);
+    } else if (event.type === 'noteOff' && liveAudioNotes.delete(event.id)) {
+      player?.padNoteOff(sourceId);
+    }
+    renderer.captureEvent(event);
+  };
   let currentSongId = '';
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false;
@@ -94,6 +106,7 @@ function mountMidiphoria() {
   function reflectPlayer() {
     if (!player || disposed) return;
     const state = player.state;
+    if (!state.audioEnabled) liveAudioNotes.clear();
     $('audioButton').setAttribute('aria-pressed', String(state.audioEnabled));
     $('audioButton').disabled = audioStarting;
     $('audioState').textContent = audioStarting ? 'loading' : state.audioEnabled ? 'on' : 'off';
@@ -429,6 +442,7 @@ function mountMidiphoria() {
 
   function releasePads() {
     player?.releasePads();
+    liveAudioNotes.clear();
     for (const timer of padTimers.values()) clearTimeout(timer);
     padTimers.clear();
     for (const sourceId of padHeld.keys()) model.releaseSource(sourceId, clock());
@@ -569,9 +583,14 @@ function mountMidiphoria() {
 
   const unregister = manager.registerClient({
     id: 'midiphoria', computerKeyboard: { layout: 'piano', baseNote: 48, velocity: 100 },
-    onMessage: message => accept(message.virtual ? {
-      ...message, channel: settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel),
-    } : message),
+    onMessage: message => {
+      receivingLiveMidi = true;
+      try {
+        accept(message.virtual ? {
+          ...message, channel: settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel),
+        } : message);
+      } finally { receivingLiveMidi = false; }
+    },
     onEnabledChange: enabled => { if (!enabled) { model.panic(clock()); renderer.clear(); } },
   });
   const unsubscribe = manager.subscribeStatus(status => {
