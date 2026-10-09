@@ -71,6 +71,14 @@ after a backoff. The flag defaults to zero for each staged installation; omittin
 it or using synchronous `lsd_install` restores legacy adaptive admission. These
 exports are additive; ABI version 1 and the 26 metric fields are unchanged.
 
+`lsd_install_depth(engine, depth)` stages a finite depth in `[0, 1]` on a pending
+version-2 pool without changing the playing scene. Use it before install steps
+when a gesture changed recursion while the Worker was compiling. Later live
+`lsd_depth` calls still override that pending value in command order. Rejection
+or abort preserves the old gains and recording; omitting the staged depth keeps
+the compiled pool's authored depth. It rejects ordinary calls without a pending
+installation, unsupported legacy pools and invalid values.
+
 ## Processing and telemetry
 
 `lsd_process(engine, inLeft, inRight, outLeft, outRight, frames)` renders

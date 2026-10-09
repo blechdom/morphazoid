@@ -499,10 +499,15 @@ impl Renderer {
         self.update_metrics();
     }
 
-    fn set_depth(&mut self, depth: f64) -> Result<(), String> {
+    fn validate_depth(depth: f64) -> Result<(), String> {
         if !depth.is_finite() || !(0.0..=1.0).contains(&depth) {
             return Err("Recursion is outside its supported range".into());
         }
+        Ok(())
+    }
+
+    fn set_depth(&mut self, depth: f64) -> Result<(), String> {
+        Self::validate_depth(depth)?;
         if !self.depth_controls {
             return Err("This pool requires a complete topology update".into());
         }
@@ -597,6 +602,19 @@ impl Renderer {
             .as_mut()
             .ok_or("No delay pool is being prepared")?;
         pending.whole_scene_admission = whole_scene;
+        Ok(())
+    }
+
+    fn configure_install_depth(&mut self, depth: f64) -> Result<(), String> {
+        Self::validate_depth(depth)?;
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        if !pending.depth_controls {
+            return Err("This pool requires a complete topology update".into());
+        }
+        pending.depth_override = Some(depth);
         Ok(())
     }
 
@@ -1236,6 +1254,20 @@ pub unsafe extern "C" fn lsd_install_scene_admission(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn lsd_install_depth(handle: *mut Renderer, depth: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).configure_install_depth(depth) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn lsd_install_time_fold(
     handle: *mut Renderer,
     base_ms: f64,
@@ -1565,6 +1597,147 @@ mod browser_tests {
         renderer.begin_install(&compiled.pool).unwrap();
         assert_eq!(unsafe { lsd_install_scene_admission(renderer, 1) }, 1);
         while !renderer.step_install(32).unwrap() {}
+    }
+
+    #[test]
+    fn install_depth_is_staging_only_and_rejection_or_abort_preserves_exact_live_pcm() {
+        let old = scene(4);
+        let next = scene(7);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        for renderer in [&mut live, &mut reference] {
+            install_bounded(renderer, &old);
+            renderer.set_depth(0.63).unwrap();
+        }
+        let compare_block = |live: &mut Renderer, reference: &mut Renderer| {
+            let mut left = [0.; BLOCK];
+            let mut right = [0.; BLOCK];
+            let mut reference_l = [0.; BLOCK];
+            let mut reference_r = [0.; BLOCK];
+            let input = signal(live.frames as usize);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left.map(f32::to_bits), reference_l.map(f32::to_bits));
+            assert_eq!(right.map(f32::to_bits), reference_r.map(f32::to_bits));
+            assert_eq!(live.frames, reference.frames);
+            assert_eq!(live.current_limit(), reference.current_limit());
+            assert_eq!(live.live_depth, reference.live_depth);
+        };
+        for _ in 0..20 {
+            compare_block(&mut live, &mut reference);
+        }
+        assert_eq!(unsafe { lsd_install_depth(std::ptr::null_mut(), 0.) }, 0);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 0);
+        for reject in [false, true] {
+            let mut candidate = next.pool.clone();
+            if reject {
+                let last = candidate.len() - RECORD;
+                candidate[last..last + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+            }
+            live.begin_install(&candidate).unwrap();
+            assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+            assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+            for invalid in [f64::NAN, f64::INFINITY, -0.1, 1.1] {
+                assert_eq!(unsafe { lsd_install_depth(&mut live, invalid) }, 0);
+            }
+            assert_eq!(
+                live.pending_install.as_ref().unwrap().depth_override,
+                Some(0.)
+            );
+            assert_eq!(live.live_depth, Some(0.63));
+            assert!(!live.step_install(32).unwrap());
+            for _ in 0..5 {
+                compare_block(&mut live, &mut reference);
+            }
+            if reject {
+                loop {
+                    match live.step_install(32) {
+                        Ok(false) => compare_block(&mut live, &mut reference),
+                        Ok(true) => panic!("the malformed final record must reject"),
+                        Err(_) => break,
+                    }
+                }
+            } else {
+                live.abort_install();
+            }
+            assert!(live.pending_install.is_none());
+            assert_eq!(live.requested, reference.requested);
+            assert_eq!(live.revision, reference.revision);
+            assert_eq!(live.target_normalization, reference.target_normalization);
+            for _ in 0..32 {
+                compare_block(&mut live, &mut reference);
+            }
+        }
+        let mut legacy = next.pool.clone();
+        legacy[4..8].copy_from_slice(&1u32.to_le_bytes());
+        live.begin_install(&legacy).unwrap();
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.9) }, 0);
+        assert_eq!(live.pending_install.as_ref().unwrap().depth_override, None);
+        live.abort_install();
+        compare_block(&mut live, &mut reference);
+    }
+
+    #[test]
+    fn install_depth_commits_latest_zero_or_live_override_with_complete_restoration() {
+        let old = scene(2);
+        let dense = scene(7);
+        let denser = scene(8);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        install_bounded(&mut live, &old);
+        live.set_depth(0.48).unwrap();
+        let old_limit = live.current_limit();
+        live.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.9) }, 1);
+        assert!(!live.step_install(32).unwrap());
+        assert_eq!(live.current_limit(), old_limit);
+        assert_eq!(live.live_depth, Some(0.48));
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(live.requested, 254);
+        assert_eq!(live.live_depth, Some(0.));
+        assert_eq!(live.engine.target_voice_count(), 0);
+        assert_eq!(
+            live.current_limit(),
+            0,
+            "commit never arms the stale compiled depth"
+        );
+        live.set_depth(0.91).unwrap();
+        assert_eq!(live.current_limit(), 254);
+        assert_eq!(live.engine.target_voice_count(), 254);
+        assert_eq!(
+            live.engine.active_voice_indices(),
+            &(0..254).collect::<Vec<_>>()
+        );
+
+        live.begin_install(&denser.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+        assert!(!live.step_install(32).unwrap());
+        live.set_depth(0.83).unwrap();
+        assert_eq!(
+            live.pending_install.as_ref().unwrap().depth_override,
+            Some(0.83)
+        );
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(live.requested, 510);
+        assert_eq!(
+            live.live_depth,
+            Some(0.83),
+            "the later live gesture owns the commit"
+        );
+        assert_eq!(live.current_limit(), 510);
+        assert_eq!(live.engine.target_voice_count(), 510);
+
+        live.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(
+            live.live_depth, None,
+            "omitting staged depth keeps the pool's authored gains"
+        );
+        assert_eq!(live.current_limit(), 254);
+        assert_eq!(live.engine.target_voice_count(), 254);
     }
 
     #[test]
