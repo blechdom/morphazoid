@@ -617,7 +617,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
   "midiphoria": {
     "kind": "Live MIDI visualizer",
-    "description": "Turn live MIDI notes, velocity and controller messages into color, masks and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.",
+    "description": "Turn live MIDI notes, velocity and controller messages into colorful geometry and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.",
     "start": "Choose a song, enable Audio, then Play. Tweak the light while listening, or enable MIDI in Settings for a live controller.",
     "features": ["MIDI", "Computer keys", "SoundFont playback", "Visual envelopes", "Note trails"],
     "pluginHref": null

@@ -11,7 +11,7 @@
     "sha256": "8848d94235982a6dbb5eee0b545a30974eb00d8ebcc056aa69e10b79923ab525",
     "additions": [
       "  \"midiphoria\": [\"2d\"],\n",
-      "  \"midiphoria\": {\n    \"kind\": \"Live MIDI visualizer\",\n    \"description\": \"Turn live MIDI notes, velocity and controller messages into color, masks and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.\",\n    \"start\": \"Choose a song, enable Audio, then Play. Tweak the light while listening, or enable MIDI in Settings for a live controller.\",\n    \"features\": [\"MIDI\", \"Computer keys\", \"SoundFont playback\", \"Visual envelopes\", \"Note trails\"],\n    \"pluginHref\": null\n  },\n"
+      "  \"midiphoria\": {\n    \"kind\": \"Live MIDI visualizer\",\n    \"description\": \"Turn live MIDI notes, velocity and controller messages into colorful geometry and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.\",\n    \"start\": \"Choose a song, enable Audio, then Play. Tweak the light while listening, or enable MIDI in Settings for a live controller.\",\n    \"features\": [\"MIDI\", \"Computer keys\", \"SoundFont playback\", \"Visual envelopes\", \"Note trails\"],\n    \"pluginHref\": null\n  },\n"
     ]
   },
   {

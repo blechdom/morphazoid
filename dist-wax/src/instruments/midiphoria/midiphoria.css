@@ -2,7 +2,7 @@ html.midiphoria-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-accent); height: auto; min-height: 100dvh; overflow: visible; }
 .midiphoria-shell { display: grid; grid-template-columns: minmax(0, 1fr) 310px; gap: 26px; padding: 26px 30px; max-width: 1800px; margin: 0 auto; }
 .midiphoria-stage { min-width: 0; align-self: start; position: sticky; top: 22px; }
-.midiphoria-stage-heading { display: flex; flex-wrap: wrap; align-items: baseline; padding: 0 0 20px; gap: 12px; }
+.midiphoria-stage-heading { display: flex; flex-direction: column; align-items: flex-start; padding: 0 0 20px; gap: 6px; }
 .midiphoria-stage h1 { margin: 0; color: var(--midiphoria-accent); font-size: clamp(26px, 3vw, 42px); font-weight: 500; letter-spacing: -.045em; }
 .midiphoria-viewport { position: relative; background: #030706; height: clamp(300px, 56vh, 650px); overflow: hidden; border-radius: 4px; }
 #visualCanvas { display: block; width: 100%; height: 100%; }

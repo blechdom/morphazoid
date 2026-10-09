@@ -306,7 +306,6 @@ function mountMidiphoria() {
         : `${Number(value).toFixed(2)}×`;
     }
     for (const id of ['spin', 'symmetry']) $(id).disabled = !['radial', 'orbit'].includes(renderer.options.view);
-    for (const id of ['reflection', 'flow']) $(id).disabled = renderer.options.view === 'mask';
     envelopeEditor.refresh();
     presetController?.refresh();
   };

@@ -114,16 +114,19 @@ The SpessaSynth versions, hashes and lifecycle patch are documented in
 
 The first row of the right panel contains the visual preset menu, Next and
 parameter dice. Sixteen complete looks span note trails, mirrored trails,
-radial bursts, ribbons, orbits and solid masks. Five palettes, palette shift,
+radial bursts, ribbons and orbits. Five palettes, palette shift,
 saturation, trail length/width, glow and motion are available for live edits.
+Twelve of the sixteen factory looks (75%) use None for reflections and no
+repeated radial copies. Candy mirror, Ice blueprint, Disco prism and Silver
+kaleidoscope use symmetry with thin trails (0.4–0.65×) and restrained glow. All symmetry controls remain
+available for manual edits and parameter dice.
 Color by pitch, MIDI channel or velocity; adjust the trail fade curve, add
 clockwise/counterclockwise spin, and repeat radial/orbit forms up to eight times.
 Spin and radial-copy controls are enabled in the two circular views.
 Reflection adds vertical, horizontal, both, either diagonal, both diagonals or
 all center axes. Diagonal reflections use a centered square region and preserve
 45-degree geometry. Travel can retain each view's Classic motion, move from the
-center to the edges, or draw from the edges toward the center. Reflection and
-travel are disabled for the uniform solid mask. Every preset and parameter dice
+center to the edges, or draw from the edges toward the center. Every preset and parameter dice
 includes these fields. Older version-1 snapshots use None/Classic for missing
 fields.
 
@@ -159,7 +162,8 @@ bundled. Matching capabilities does not imply identical defaults or pixels.
 | All-note trigger or mapped note/CC/channel | Implemented, including MIDI Learn |
 | Velocity, mixed note color, monochrome, invert | Implemented |
 | ADSR light envelope; static, rotating and activity hue | Implemented |
-| Solid mask and fullscreen | Implemented |
+| Solid mask | Removed by request; the two former mask presets now draw lines |
+| Fullscreen | Implemented |
 | MIDI-file playback | Implemented with audible browser SoundFont synthesis |
 | Note-set trigger, drum sets and add-to-set learning | Missing |
 | Select a specific MIDI input port | Missing; receives all connected inputs |

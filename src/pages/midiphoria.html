@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Midiphoria on Morphazoid: visualize live MIDI notes and controllers as luminous note trails or a full-field color mask." />
+    <meta name="description" content="Midiphoria on Morphazoid: visualize live MIDI notes and controllers as luminous note trails, ribbons and spinning geometry." />
     <title>Midiphoria — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -22,7 +22,7 @@
     </header>
     <main class="midiphoria-shell" id="midiphoria">
       <section class="midiphoria-stage" aria-label="MIDI visualization">
-        <div class="midiphoria-stage-heading"><h1>Midiphoria</h1><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a></div>
+        <div class="midiphoria-stage-heading"><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a><h1>Midiphoria</h1></div>
         <div class="midiphoria-viewport" id="visualViewport">
           <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
@@ -69,7 +69,7 @@
         </section>
         <section class="midiphoria-section" aria-labelledby="lookHeading">
           <h2 id="lookHeading">Light</h2>
-          <label class="control" for="viewMode"><span><b>View</b></span><select id="viewMode"><option value="trails">Note trails</option><option value="mirror">Mirror trails</option><option value="radial">Radial burst</option><option value="ribbons">Ribbons</option><option value="orbit">Orbit</option><option value="mask">Solid mask</option></select></label>
+          <label class="control" for="viewMode"><span><b>View</b></span><select id="viewMode"><option value="trails">Note trails</option><option value="mirror">Mirror trails</option><option value="radial">Radial burst</option><option value="ribbons">Ribbons</option><option value="orbit">Orbit</option></select></label>
           <label class="control" for="reflection"><span><b>Reflection</b></span><select id="reflection"><option value="none">None</option><option value="vertical">Vertical axis</option><option value="horizontal">Horizontal axis</option><option value="both">Vertical + horizontal</option><option value="diagonal">Diagonal ↘</option><option value="anti-diagonal">Diagonal ↗</option><option value="diagonals">Both diagonals</option><option value="all">All axes</option></select></label>
           <label class="control" for="flow"><span><b>Travel</b></span><select id="flow"><option value="classic">Classic</option><option value="outward">Center → edges</option><option value="inward">Edges → center</option></select></label>
           <label class="control" for="palette"><span><b>Palette</b></span><select id="palette"><option value="pitch">Pitch rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>

@@ -20,18 +20,28 @@ async function pixel(page) {
   return page.locator('#visualCanvas').evaluate(canvas => Array.from(canvas.getContext('2d').getImageData(10, 10, 1, 1).data).slice(0, 3));
 }
 
+async function trailPixel(page) {
+  return page.locator('#visualCanvas').evaluate(canvas => {
+    const box = canvas.getBoundingClientRect(), ratio = canvas.width / box.width;
+    const x = (16 + 60.5 / 128 * (box.width - 32)) * ratio;
+    const y = (box.height - 36) * ratio;
+    return Array.from(canvas.getContext('2d').getImageData(x, y, 1, 1).data).slice(0, 3);
+  });
+}
+
 test('pads work before MIDI permission, and Reset in About preserves the connection', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
   expect((await fakeMidiSnapshot(page)).requests).toHaveLength(0);
-  await page.locator('#viewMode').selectOption('mask');
+  await range(page, 'trailSeconds', .3); await range(page, 'glow', 0); await range(page, 'motion', 0);
+  const idle = await trailPixel(page);
   const pad = page.locator('[data-note="60"]');
   await pad.focus(); await page.keyboard.down('Enter');
   await expect(page.locator('#noteReadout')).toContainText('C4');
-  await expect.poll(async () => Math.max(...await pixel(page))).toBeGreaterThan(80);
+  await expect.poll(() => trailPixel(page)).not.toEqual(idle);
   await page.keyboard.up('Enter');
   await expect(page.locator('#levelReadout')).toHaveText('0% light');
-  await expect.poll(() => pixel(page)).toEqual([0, 0, 0]);
+  await expect.poll(() => trailPixel(page)).toEqual(idle);
   await connect(page);
   await page.locator('#aboutSetup > summary').click();
   await page.locator('#resetButton').click();
@@ -189,24 +199,18 @@ test('pagehide releases devices and a restored page has one set of controls', as
   await expect(page.locator('#noteReadout')).toContainText('C4 · 1 held');
 });
 
-test('activity hue changes the actual trail pixels and inversion flips the mask', async ({ page }) => {
+test('activity hue changes the actual trail pixels and inversion changes the background', async ({ page }) => {
   await open(page); await connect(page);
   await page.locator('#hueMode').selectOption('activity');
   await range(page, 'hueSpeed', 1);
-  const trailPixel = () => page.locator('#visualCanvas').evaluate(canvas => {
-    const box = canvas.getBoundingClientRect(), ratio = canvas.width / box.width;
-    const x = (16 + 60.5 / 128 * (box.width - 32)) * ratio;
-    const y = (box.height - 36) * ratio;
-    return Array.from(canvas.getContext('2d').getImageData(x, y, 1, 1).data).slice(0, 3);
-  });
   await sendMidi(page, [0x90, 60, 127]);
-  const first = await trailPixel();
+  const first = await trailPixel(page);
   await sendMidi(page, [0x80, 60, 0]); await sendMidi(page, [0x90, 60, 127]);
-  const second = await trailPixel();
+  const second = await trailPixel(page);
   expect(second).not.toEqual(first);
-  await page.locator('#viewMode').selectOption('mask');
+  await range(page, 'glow', 0);
   await sendMidi(page, [0xb0, 120, 0]);
-  await expect.poll(() => pixel(page)).toEqual([0, 0, 0]);
+  await expect.poll(() => pixel(page)).toEqual([3, 7, 6]);
   await page.locator('#invert').check();
-  await expect.poll(() => pixel(page)).toEqual([255, 255, 255]);
+  await expect.poll(() => pixel(page)).toEqual([231, 239, 233]);
 });

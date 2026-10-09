@@ -7,7 +7,7 @@ import { MIDIPHORIA_PRESETS, MIDIPHORIA_VIEWS, MIDIPHORIA_PALETTES, MIDIPHORIA_C
   captureMidiphoriaPreset, applyMidiphoriaPreset, randomizeMidiphoriaPreset,
   sanitizeMidiphoriaPreset, isValidMidiphoriaPreset,
 } from '../src/instruments/midiphoria/midiphoria-presets.js';
-import { MidiphoriaRenderer, midiphoriaMaskRgb, midiColorHue,
+import { MidiphoriaRenderer, midiphoriaBlendRgb, midiColorHue,
   midiphoriaReflectionTransforms, midiphoriaTravelFraction,
 } from '../src/instruments/midiphoria/midiphoria-renderer.js';
 
@@ -41,7 +41,12 @@ test('factory scenes are complete, distinct, immutable and recall without changi
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.view)), new Set(MIDIPHORIA_VIEWS));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.palette)), new Set(MIDIPHORIA_PALETTES));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.colorSource)), new Set(MIDIPHORIA_COLOR_SOURCES));
-  assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.reflection)), new Set(MIDIPHORIA_REFLECTIONS));
+  const symmetric = MIDIPHORIA_PRESETS.filter(({ snapshot: { render } }) => render.view === 'mirror'
+    || render.reflection !== 'none' || (['radial', 'orbit'].includes(render.view) && render.symmetry > 1));
+  assert.ok(symmetric.length <= MIDIPHORIA_PRESETS.length / 4, 'at least 75% of factory looks have no mirror/repeated geometry');
+  assert.ok(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.reflection === 'none').length >= 12);
+  assert.ok(symmetric.every(preset => preset.snapshot.render.width <= 0.65), 'reflected looks use thin trails');
+  assert.equal(MIDIPHORIA_VIEWS.includes('mask'), false);
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.flow)), new Set(MIDIPHORIA_FLOWS));
   const model = new MidiphoriaModel({ channel: 7, trigger: 'mapped', mappedNumber: 72, mappedChannel: 7 });
   model.handleMessage({ type: 'noteOn', note: 72, channel: 7, velocity: 100, sourceId: 'keyboard' }, 1);
@@ -122,17 +127,17 @@ test('seeded randomization is pure and covers every visual field, boolean, palet
   }
 });
 
-test('mask neutral settings preserve original RGB; hue, palette and saturation visibly affect the mask', () => {
+test('neutral color blend preserves original RGB; hue, palette and saturation affect ambient light', () => {
   const model = new MidiphoriaModel({ attack: 0, decay: 0, sustain: 1, velocity: false });
   model.handleMessage({ type: 'noteOn', note: 30, channel: 0, velocity: 127 }, 0);
   const sample = model.sample(1);
-  const original = midiphoriaMaskRgb(sample, model.options);
+  const original = midiphoriaBlendRgb(sample, model.options);
   assert.deepEqual(original, sample.rgb);
   const changed = [
     { ...DEFAULT_RENDER_OPTIONS, palette: 'ice' },
     { ...DEFAULT_RENDER_OPTIONS, hueOffset: 110 },
     { ...DEFAULT_RENDER_OPTIONS, saturation: 0 },
-  ].map(options => midiphoriaMaskRgb(sample, model.options, options));
+  ].map(options => midiphoriaBlendRgb(sample, model.options, options));
   for (const rgb of changed) {
     assert.notDeepEqual(rgb, original);
     assert.ok(rgb.every(value => Number.isFinite(value) && value >= 0 && value <= 1));
@@ -140,8 +145,8 @@ test('mask neutral settings preserve original RGB; hue, palette and saturation v
   assert.equal(changed[2][0], changed[2][1]); assert.equal(changed[2][1], changed[2][2]);
   model.configure({ invert: true }, 1);
   const inverse = model.sample(1);
-  assert.deepEqual(midiphoriaMaskRgb(inverse, model.options), inverse.rgb);
-  const recoloredInverse = midiphoriaMaskRgb(inverse, model.options, { ...DEFAULT_RENDER_OPTIONS, palette: 'ice' });
+  assert.deepEqual(midiphoriaBlendRgb(inverse, model.options), inverse.rgb);
+  const recoloredInverse = midiphoriaBlendRgb(inverse, model.options, { ...DEFAULT_RENDER_OPTIONS, palette: 'ice' });
   assert.deepEqual(recoloredInverse, changed[0].map(value => 1 - value));
 });
 
@@ -161,7 +166,7 @@ test('renderer captures bounded event histories independent of drawing and expir
   renderer.clear(); assert.equal(renderer.trails.length, 0);
 });
 
-test('six views produce distinct bounded finite paths with no per-note shadow effects', () => {
+test('five views produce distinct bounded finite paths with no per-note shadow effects', () => {
   const signatures = new Set();
   for (const view of MIDIPHORIA_VIEWS) {
     const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
@@ -182,7 +187,7 @@ test('six views produce distinct bounded finite paths with no per-note shadow ef
 });
 
 
-test('note color follows pitch, channel or attack velocity independently and recolors the mask', () => {
+test('note color follows pitch, channel or attack velocity independently and recolors the light strip', () => {
   const first = { note: 32, channel: 3, velocity: 25 };
   const second = { note: 81, channel: 3, velocity: 25 };
   assert.notEqual(midiColorHue(first), midiColorHue(second));
@@ -194,11 +199,11 @@ test('note color follows pitch, channel or attack velocity independently and rec
   model.handleMessage({ type: 'noteOn', ...first }, 0);
   const sample = model.sample(1);
   const colors = MIDIPHORIA_COLOR_SOURCES.map(colorSource =>
-    midiphoriaMaskRgb(sample, model.options, { ...DEFAULT_RENDER_OPTIONS, colorSource }));
+    midiphoriaBlendRgb(sample, model.options, { ...DEFAULT_RENDER_OPTIONS, colorSource }));
   assert.equal(new Set(colors.map(rgb => JSON.stringify(rgb))).size, 3);
   for (const rgb of colors) assert.ok(rgb.every(value => Number.isFinite(value) && value >= 0 && value <= 1));
   const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
-  renderer.configure({ view: 'mask', colorSource: 'channel' });
+  renderer.configure({ view: 'trails', colorSource: 'channel' });
   renderer.draw(sample, 1, model.options);
   model.handleMessage({ type: 'noteOff', ...first }, 1);
   const release = model.sample(2);
@@ -311,7 +316,7 @@ test('released note heads move from center to edge or edge to center in every ge
   assert.equal(midiphoriaTravelFraction(-2, 'outward'), 0);
   assert.equal(midiphoriaTravelFraction(3, 'inward'), 0);
   assert.equal(midiphoriaTravelFraction(Infinity, 'inward'), 1);
-  for (const view of MIDIPHORIA_VIEWS.filter(value => value !== 'mask')) {
+  for (const view of MIDIPHORIA_VIEWS) {
     for (const flow of ['outward', 'inward']) {
       const surface = canvas(640, 400), renderer = new MidiphoriaRenderer(surface);
       renderer.configure({ view, flow, motion: 0, glow: 0, trailSeconds: 4, spin: 0 });
@@ -367,7 +372,7 @@ test('reflection composites the bounded history once and reuses its canvas throu
 });
 
 test('diagonal reflection keeps extreme-pitch centerlines inside its undistorted square at maximum motion', () => {
-  for (const view of MIDIPHORIA_VIEWS.filter(value => value !== 'mask')) {
+  for (const view of MIDIPHORIA_VIEWS) {
     for (const flow of MIDIPHORIA_FLOWS) {
       const surface = canvas(1000, 300), renderer = new MidiphoriaRenderer(surface);
       renderer.configure({ view, flow, reflection: 'all', symmetry: 8, motion: 2, glow: 1 });

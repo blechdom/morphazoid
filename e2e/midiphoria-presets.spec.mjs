@@ -178,8 +178,7 @@ test('preset tour and dice preserve the playing song, Audio, loop, speed and out
     expect((await capture(page)).snapshot.render.flow).toBe(flow);
     await assertContinuous();
   }
-  await page.locator('#viewMode').selectOption('mask');
-  await expect(page.locator('#reflection')).toBeDisabled(); await expect(page.locator('#flow')).toBeDisabled();
+  await expect(page.locator('#viewMode option[value="mask"]')).toHaveCount(0);
   await page.locator('#viewMode').selectOption('radial');
   await expect(page.locator('#reflection')).toBeEnabled(); await expect(page.locator('#flow')).toBeEnabled();
   await expect(page.locator('#spinOut')).toHaveText('-1.25 rpm');

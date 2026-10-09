@@ -85,8 +85,8 @@ function rgbHsv(rgb) {
   return [wrap(hue), max ? delta / max : 0, max];
 }
 
-/** The neutral pitch mask is exactly the model's RGB, including inversion and ADSR. */
-export function midiphoriaMaskRgb(sample, settings, options = DEFAULT_RENDER_OPTIONS) {
+/** The neutral pitch blend is exactly the model's RGB, including inversion and ADSR. */
+export function midiphoriaBlendRgb(sample, settings, options = DEFAULT_RENDER_OPTIONS) {
   if (!settings.color || (options.colorSource === 'pitch' && options.palette === 'pitch'
     && options.hueOffset === 0 && options.saturation === 1)) {
     return [...sample.rgb];
@@ -197,12 +197,11 @@ export class MidiphoriaRenderer {
     const options = this.options, w = this.width, h = this.height;
     const background = settings.invert ? '#e7efe9' : '#030706';
     // Retain the last channel/velocity blend through the model's release envelope.
-    const mask = midiphoriaMaskRgb({ ...sample, activeNotes: this._lastColorNotes }, settings, options);
+    const blend = midiphoriaBlendRgb({ ...sample, activeNotes: this._lastColorNotes }, settings, options);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = 'source-over';
-    ctx.fillStyle = options.view === 'mask' ? cssRgb(mask) : background;
+    ctx.fillStyle = background;
     ctx.fillRect(0, 0, w, h);
-    if (options.view === 'mask') return;
 
     const floor = Math.max(8, h - 36), span = Math.max(1, w - 32);
     const xFor = note => 16 + (note + 0.5) / 128 * span;
@@ -227,7 +226,7 @@ export class MidiphoriaRenderer {
     if (sample.level > 0.001 && options.glow > 0) {
       const centerY = round || options.flow !== 'classic' ? h / 2 : floor;
       const ambient = ctx.createRadialGradient(w / 2, centerY, 0, w / 2, centerY, Math.max(w, h) * 0.65);
-      ambient.addColorStop(0, cssRgb(mask)); ambient.addColorStop(1, background);
+      ambient.addColorStop(0, cssRgb(blend)); ambient.addColorStop(1, background);
       ctx.globalAlpha = options.glow * 0.45;
       ctx.fillStyle = ambient; ctx.fillRect(0, 0, w, h); ctx.globalAlpha = 1;
     }
@@ -261,7 +260,7 @@ export class MidiphoriaRenderer {
     ctx.strokeStyle = settings.invert ? '#9eb6a6' : '#274e39';
     ctx.beginPath(); ctx.moveTo(16, floor + 8); ctx.lineTo(w - 16, floor + 8); ctx.stroke();
     // CC mappings create no fake notes; the strip shows their actual envelope.
-    ctx.fillStyle = cssRgb(mask);
+    ctx.fillStyle = cssRgb(blend);
     ctx.fillRect(16, floor + 7, span * sample.level, 2);
   }
 

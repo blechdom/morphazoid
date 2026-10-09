@@ -37,7 +37,7 @@ test('light envelope pointer and keyboard edits reach live light, native fields,
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
 
   await press(page, 'attack', 'Home'); await press(page, 'decay', 'Home'); await press(page, 'sustain', 'End');
-  await page.locator('#viewMode').selectOption('mask');
+  await page.locator('#viewMode').selectOption('ribbons');
   await enableFakeMidi(page);
   await page.locator('.header-settings-menu').evaluate(node => { node.open = false; });
   await sendMidi(page, [0x90, 60, 127]);
