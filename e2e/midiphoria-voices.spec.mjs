@@ -4,16 +4,28 @@ import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs'
 import { installFakeMidi, enableFakeMidi, sendMidiSequence } from './helpers/fake-midi.mjs';
 
 const rendererPath = '/src/instruments/midiphoria/midiphoria-renderer.js';
+const presetPath = '/src/instruments/midiphoria/midiphoria-presets.js';
 
 // Observe the real page's renderer without adding a production debug API or
 // replacing its model, MIDI transport, synthesizer, or rendering decisions.
 async function observeRenderer(page) {
+  await page.route('**/src/site/header-presets.js', async route => {
+    const response = await route.fetch();
+    const body = await response.text();
+    const registration = '  registrations.set(doc, controller);';
+    expect(body).toContain(registration);
+    // Expose the real registered adapter solely for legacy-snapshot recall;
+    // its apply/capture callbacks and the header's normal UI remain unchanged.
+    await route.fulfill({ response, body: body.replace(registration, `${registration}
+      if (id === 'midiphoria') globalThis.__midiphoriaVoicePreset = controller;
+    `) });
+  });
   await page.route(`**${rendererPath}`, async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}
       const audit = globalThis.__midiphoriaVoiceAudit = {
         events: [], seenTrailIds: new Set(), peakHeld: 0, peakTrails: 0,
-        renderer: null, scenes: [], pendingScenes: [],
+        renderer: null, scenes: [], pendingScenes: [], trailColors: new Set(),
       };
       const captureEvent = MidiphoriaRenderer.prototype.captureEvent;
       MidiphoriaRenderer.prototype.captureEvent = function (event) {
@@ -34,9 +46,24 @@ async function observeRenderer(page) {
         });
         return drawScene.call(this, ctx, sample, now, settings, width, height, trails);
       };
+      const drawTrails = MidiphoriaRenderer.prototype._drawTrails;
+      MidiphoriaRenderer.prototype._drawTrails = function (ctx, ...args) {
+        // Observe actual trail paint styles, excluding grid/ambient colors.
+        // Dense-event cases do not need per-stroke instrumentation.
+        if (args.at(-1).length > 32) return drawTrails.call(this, ctx, ...args);
+        const stroke = ctx.stroke, fill = ctx.fill;
+        ctx.stroke = function (...values) {
+          audit.trailColors.add(this.strokeStyle); return stroke.apply(this, values);
+        };
+        ctx.fill = function (...values) {
+          audit.trailColors.add(this.fillStyle); return fill.apply(this, values);
+        };
+        try { return drawTrails.call(this, ctx, ...args); }
+        finally { ctx.stroke = stroke; ctx.fill = fill; }
+      };
       const draw = MidiphoriaRenderer.prototype.draw;
       MidiphoriaRenderer.prototype.draw = function (...args) {
-        audit.renderer = this; audit.pendingScenes = [];
+        audit.renderer = this; audit.pendingScenes = []; audit.trailColors.clear();
         const result = draw.apply(this, args);
         audit.scenes = audit.pendingScenes;
         return result;
@@ -50,7 +77,7 @@ async function open(page, { midi = false } = {}) {
   if (midi) await installFakeMidi(page);
   await page.goto('/midiphoria.html');
   await expect(page.locator('#notePads button')).toHaveCount(24);
-  await expect(page.locator('#voiceLayout')).toHaveValue('lanes');
+  await expect(page.locator('#voiceLayout')).toHaveCount(0);
   await expect(page.locator('#colorSource')).toHaveValue('voice');
 }
 
@@ -105,10 +132,11 @@ function denseChord() {
 
 function fourVoices() {
   const events = [];
+  const pitches = [48, 60, 67, 76];
   for (const [channel, program] of [16, 48, 56, 80].entries()) {
     events.push({ tick: 0, bytes: [0xc0 | channel, program] },
-      { tick: 960, bytes: [0x90 | channel, 60, 96] },
-      { tick: 76800, bytes: [0x80 | channel, 60, 0] });
+      { tick: 960, bytes: [0x90 | channel, pitches[channel], 96] },
+      { tick: 76800, bytes: [0x80 | channel, pitches[channel], 0] });
   }
   return midiFile(events, 78720);
 }
@@ -129,8 +157,31 @@ const audit = page => page.evaluate(() => {
     seenTrailIds: [...value.seenTrailIds], peakHeld: value.peakHeld, peakTrails: value.peakTrails,
     voices: value.renderer.getVoices(), focus: value.renderer.voiceFocus, scenes: value.scenes,
     width: value.renderer.width, height: value.renderer.height,
+    render: { ...value.renderer.options }, trailColors: [...value.trailColors],
   };
 });
+
+async function expectSharedScene(page, voiceIds) {
+  await expect.poll(async () => {
+    const result = await audit(page);
+    return {
+      count: result.scenes.length,
+      fullSize: result.scenes.every(scene => scene.width === result.width && scene.height === result.height),
+      voices: result.scenes.flatMap(scene => scene.voiceIds).sort(),
+    };
+  }).toEqual({ count: 1, fullSize: true, voices: [...voiceIds].sort() });
+  expect((await audit(page)).render).not.toHaveProperty('voiceLayout');
+}
+
+const capturePreset = page => page.evaluate(async () =>
+  (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
+
+async function selectPreset(page, id) {
+  await page.locator('.header-preset-picker > summary').click();
+  await page.locator(`.header-preset-picker button[data-preset-id="${id}"]`).click();
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', id);
+  await page.evaluate(() => new Promise(resolve => requestAnimationFrame(() => requestAnimationFrame(resolve))));
+}
 
 async function expectAllNotes(page, count) {
   await expect.poll(async () => (await audit(page)).events.filter(event => event.type === 'noteOff').length)
@@ -185,46 +236,73 @@ test('same-pitch attacks within one display frame remain independent trails', as
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 });
 
-test('voice colors, separate lanes, panels and visual focus preserve the sounding arrangement', async ({ page }, testInfo) => {
+test('voice colors share one complete canvas through every preset, randomization and legacy recall', async ({ page }, testInfo) => {
   test.setTimeout(60000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
   await loadAndPlay(page, fourVoices());
   await expect(page.locator('#voiceLegend button[data-voice-id]')).toHaveCount(4);
-  await expect.poll(async () => (await audit(page)).scenes.length).toBe(4);
+  await expect.poll(async () => (await audit(page)).trailColors.length).toBe(4);
   const initial = await audit(page);
+  const initialPreset = await capturePreset(page);
+  const voiceIds = initial.voices.map(voice => voice.id);
+  const voiceColors = initial.voices.map(({ id, color }) => ({ id, color }));
+  await expectSharedScene(page, voiceIds);
   expect(initial.voices.every(voice => voice.active)).toBe(true);
   expect(new Set(initial.voices.map(voice => voice.color)).size).toBe(4);
   expect(initial.voices.every(voice => /Ch \d+ · \S/.test(voice.label))).toBe(true);
-  expect(initial.scenes.every(scene => scene.voiceIds.length === 1 && scene.noteIds.length === 1)).toBe(true);
-  expect(new Set(initial.scenes.flatMap(scene => scene.voiceIds))).toEqual(new Set(initial.voices.map(voice => voice.id)));
-  expect(initial.scenes.every(scene => scene.width === initial.width && scene.height < initial.height)).toBe(true);
+  expect(initial.scenes[0].noteIds).toHaveLength(4);
   const song = await currentSongId(page);
   const before = Number(await page.locator('#songPosition').inputValue());
 
-  await page.locator('#voiceLayout').selectOption('panels');
-  await expect.poll(async () => (await audit(page)).scenes.every(scene => scene.width < initial.width)).toBe(true);
-  await page.locator('#voiceLayout').selectOption('overlay');
-  await expect.poll(async () => (await audit(page)).scenes.length).toBe(1);
-  expect((await audit(page)).scenes[0].voiceIds).toHaveLength(4);
-
   const focusedId = initial.voices[1].id;
   await page.locator('#voiceFocus').selectOption(focusedId);
-  await expect.poll(async () => (await audit(page)).scenes.map(scene => scene.voiceIds)).toEqual([[focusedId]]);
+  await expectSharedScene(page, [focusedId]);
   await expect(page.locator('#voiceLegend button[aria-pressed="true"]')).toHaveCount(1);
   await page.locator('#voiceLegend button[aria-pressed="true"]').click();
   await expect(page.locator('#voiceFocus')).toHaveValue('');
-  await expect.poll(async () => (await audit(page)).scenes[0].voiceIds.length).toBe(4);
-  await page.locator('#voiceLayout').selectOption('lanes');
+  await expectSharedScene(page, voiceIds);
   await page.locator('#voiceLegend button[data-voice-id]').nth(2).click();
   await expect(page.locator('#voiceFocus')).toHaveValue(initial.voices[2].id);
-  await expect.poll(async () => (await audit(page)).scenes.map(scene => scene.voiceIds)).toEqual([[initial.voices[2].id]]);
+  await expectSharedScene(page, [initial.voices[2].id]);
   await page.locator('#voiceFocus').selectOption('');
 
+  const assertContinuous = async () => {
+    await expectSharedScene(page, voiceIds);
+    expect((await audit(page)).voices.map(({ id, color }) => ({ id, color }))).toEqual(voiceColors);
+    expect((await capturePreset(page)).render).not.toHaveProperty('voiceLayout');
+    await expect(page.locator('#voiceLayout')).toHaveCount(0);
+    await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+    await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+    await expect(selectedSong(page)).toHaveAttribute('data-song-id', song);
+  };
+  const presets = await page.evaluate(async url => (await import(url)).MIDIPHORIA_PRESETS, presetPath);
+  for (const preset of presets) {
+    await selectPreset(page, preset.id);
+    await assertContinuous();
+    if (preset.snapshot.render.colorSource === 'voice' && preset.snapshot.model.color
+      && preset.snapshot.render.saturation > 0) {
+      await expect.poll(async () => (await audit(page)).trailColors.length).toBe(4);
+    }
+  }
   await page.locator('.header-preset-next').click();
-  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(selectedSong(page)).toHaveAttribute('data-song-id', song);
+  await assertContinuous();
+  for (let index = 0; index < 4; index++) {
+    await page.locator('.header-preset-random').click();
+    await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
+    await assertContinuous();
+  }
+  for (const oldLayout of ['lanes', 'panels']) {
+    const migrated = await page.evaluate(({ snapshot, oldLayout }) => {
+      const controller = globalThis.__midiphoriaVoicePreset;
+      controller.apply({ ...snapshot, render: { ...snapshot.render, voiceLayout: oldLayout } });
+      controller.refresh();
+      return controller.capture();
+    }, { snapshot: initialPreset, oldLayout });
+    expect(migrated).toEqual(initialPreset);
+    await assertContinuous();
+    await expect.poll(async () => (await audit(page)).trailColors.length).toBe(4);
+  }
   await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(before + .5);
   const signal = await sampleAudioEnvelope(page, { durationMs: 700, intervalMs: 40 });
   expect(signal.summary.finite).toBe(true);
@@ -233,8 +311,32 @@ test('voice colors, separate lanes, panels and visual focus preserve the soundin
   expect(signal.summary.clippedSamples).toBe(0);
   expect((await readAudioStatus(page)).connectionCount).toBe(1);
   expect((await audit(page)).events.filter(event => event.type === 'noteOn')).toHaveLength(4);
-  await testInfo.attach('voice-layouts.json', { body: JSON.stringify(initial, null, 2), contentType: 'application/json' });
+  await testInfo.attach('shared-voice-canvas.json', { body: JSON.stringify(initial, null, 2), contentType: 'application/json' });
+  await testInfo.attach('shared-voice-canvas.png', {
+    body: await page.locator('#visualCanvas').screenshot(), contentType: 'image/png',
+  });
   expect(errors).toEqual([]);
+});
+
+test('phone voice colors fill one canvas without shrinking the shared pitch and time axes', async ({ browser, baseURL }, testInfo) => {
+  const page = await browser.newPage({ baseURL, viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  try {
+    await open(page);
+    await loadAndPlay(page, fourVoices());
+    await expect(page.locator('#voiceLegend button[data-voice-id]')).toHaveCount(4);
+    const voices = (await audit(page)).voices;
+    await expectSharedScene(page, voices.map(voice => voice.id));
+    await expect.poll(async () => (await audit(page)).trailColors.length).toBe(4);
+    const sound = await sampleAudioEnvelope(page, { durationMs: 1400, intervalMs: 40 });
+    expect(sound.summary.maxRms).toBeGreaterThan(.001);
+    expect(sound.summary.clippedSamples).toBe(0);
+    await page.locator('#visualCanvas').scrollIntoViewIfNeeded();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(390);
+    await testInfo.attach('phone-shared-voice-canvas.png', {
+      body: await page.screenshot(), contentType: 'image/png',
+    });
+    await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  } finally { await page.close(); }
 });
 
 test('replacing a playing file clears its stale visual focus and shows the new voices', async ({ page }) => {
