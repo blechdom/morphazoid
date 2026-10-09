@@ -39,6 +39,7 @@ export class MicBranchEngine {
     this.inputGainValue = 1;
     this.inputGain = null;
     this.context = null;
+    this.ownsContext = true;
     this.master = null;
     this.releaseAudioOutput = null;
     this.processor = null;
@@ -190,10 +191,14 @@ export class MicBranchEngine {
     });
   }
 
-  async initialize() {
+  async initialize({ context = null } = {}) {
+    if (context?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (context && this.context && this.context.state !== "closed" && context !== this.context) {
+      throw new Error("Close the microphone engine before changing its audio context.");
+    }
     const Audio = globalThis.AudioContext ?? globalThis.webkitAudioContext;
-    if (!Audio) throw new Error("Web Audio is unavailable.");
-    if (!this.context || this.context.state === "closed") this.buildGraph(Audio);
+    if (!context && !this.context && !Audio) throw new Error("Web Audio is unavailable.");
+    if (!this.context || this.context.state === "closed") this.buildGraph(Audio, context);
     await this.context.resume();
     await this.buildProcessor();
     return this.context;
@@ -242,8 +247,10 @@ export class MicBranchEngine {
     }
   }
 
-  buildGraph(AudioContextConstructor) {
-    this.context = new AudioContextConstructor();
+  buildGraph(AudioContextConstructor, context = null) {
+    this.releaseAudioOutput?.();
+    this.context = context ?? new AudioContextConstructor();
+    this.ownsContext = !context;
     this.master = this.context.createGain();
     this.inputGain = configureAudioInputNode(this.context.createGain(), globalThis);
     this.inputGain.gain.value = this.inputGainValue;
@@ -380,8 +387,9 @@ export class MicBranchEngine {
     this.inputGain?.disconnect();
     this.inputGain = null;
     this.master?.disconnect();
-    await this.context?.close();
+    if (this.ownsContext) await this.context?.close();
     this.context = null;
+    this.ownsContext = true;
     this.master = null;
   }
 }

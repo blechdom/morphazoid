@@ -191,6 +191,7 @@ export class SampleDrumAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime;
     this.context = null;
+    this.ownsContext = true;
     this.input = null;
     this.master = null;
     this.analyser = null;
@@ -205,7 +206,11 @@ export class SampleDrumAudio {
     return this.loadedUrls.size;
   }
 
-  async start() {
+  async start({ context: sharedContext = null } = {}) {
+    if (sharedContext?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (sharedContext && this.context && this.context.state !== "closed" && sharedContext !== this.context) {
+      throw new Error("Close Sample Drum audio before changing its audio context.");
+    }
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
     if (!context || context.state === "closed") {
@@ -216,9 +221,10 @@ export class SampleDrumAudio {
       this.master = null;
       this.analyser = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-      if (!Context) throw new Error("Web Audio is not available in this browser.");
-      context = new Context();
+      if (!sharedContext && !Context) throw new Error("Web Audio is not available in this browser.");
+      context = sharedContext ?? new Context();
       this.context = context;
+      this.ownsContext = !sharedContext;
       const compressor = context.createDynamicsCompressor();
       compressor.threshold.value = -10;
       compressor.knee.value = 10;
@@ -253,13 +259,18 @@ export class SampleDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    const ownsContext = this.ownsContext;
     this.releaseAudioOutput?.();
     this.releaseAudioOutput = null;
+    for (const node of [this.input, this.master, this.analyser]) {
+      try { node?.disconnect(); } catch { /* The context may already be closed. */ }
+    }
     this.context = null;
+    this.ownsContext = true;
     this.input = null;
     this.master = null;
     this.analyser = null;
-    if (context && context.state !== "closed" && typeof context.close === "function") {
+    if (ownsContext && context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();
     }
   }
