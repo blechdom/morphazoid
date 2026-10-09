@@ -934,7 +934,15 @@ impl Renderer {
                 0.
             }) - self.mic_mix)
                 * self.smooth;
-            let seed = f64::from(self.seed.next(self.frequency, self.pulse_rate));
+            // Preserve the hidden source's clock/state while its contribution
+            // is exactly zero, without spending the audio deadline on three
+            // inaudible sine evaluations. Source fades still evaluate every
+            // sample as soon as the seed has a nonzero mix weight.
+            let seed = f64::from(self.seed.next(
+                self.frequency,
+                self.pulse_rate,
+                self.mic_mix != 1.,
+            ));
             let mic = [
                 left[index],
                 right.map_or(left[index], |values| values[index]),
@@ -1372,6 +1380,10 @@ struct Seed {
     decay: f64,
     transient_decay: f64,
     rate: f64,
+    #[cfg(test)]
+    evaluate_muted: bool,
+    #[cfg(test)]
+    output_evaluations: usize,
 }
 impl Seed {
     fn new(rate: u32) -> Self {
@@ -1384,13 +1396,23 @@ impl Seed {
             decay: (-1.0 / (rate as f64 * 0.12)).exp(),
             transient_decay: (-1.0 / (rate as f64 * 0.008)).exp(),
             rate: rate as f64,
+            #[cfg(test)]
+            evaluate_muted: false,
+            #[cfg(test)]
+            output_evaluations: 0,
         }
     }
     fn strike(&mut self) {
         self.envelope = 1.0;
         self.transient = 1.0;
     }
-    fn next(&mut self, frequency: f64, pulse_rate: f64) -> f32 {
+    fn next(&mut self, frequency: f64, pulse_rate: f64, evaluate_output: bool) -> f32 {
+        #[cfg(test)]
+        let evaluate_output = evaluate_output || self.evaluate_muted;
+        #[cfg(test)]
+        if evaluate_output {
+            self.output_evaluations += 1;
+        }
         self.pulse_phase += pulse_rate / self.rate;
         if self.pulse_phase >= 1.0 {
             self.pulse_phase -= self.pulse_phase.floor();
@@ -1405,13 +1427,19 @@ impl Seed {
             if self.phases[i] >= 1.0 {
                 self.phases[i] -= self.phases[i].floor();
             }
-            tone += (std::f64::consts::TAU * self.phases[i]).sin() * gain;
+            if evaluate_output {
+                tone += (std::f64::consts::TAU * self.phases[i]).sin() * gain;
+            }
         }
         self.rng ^= self.rng << 13;
         self.rng ^= self.rng >> 17;
         self.rng ^= self.rng << 5;
-        let noise = self.rng as f64 / u32::MAX as f64 * 2.0 - 1.0;
-        let output = tone * self.envelope * 0.14 + noise * self.transient * 0.025;
+        let output = if evaluate_output {
+            let noise = self.rng as f64 / u32::MAX as f64 * 2.0 - 1.0;
+            tone * self.envelope * 0.14 + noise * self.transient * 0.025
+        } else {
+            0.
+        };
         self.envelope *= self.decay;
         self.transient *= self.transient_decay;
         output as f32
@@ -1466,6 +1494,124 @@ mod browser_tests {
             ..model::Parameters::default()
         };
         compile(&serde_json::to_vec(&params).unwrap(), 8000).unwrap()
+    }
+
+    fn assert_same_seed_state(actual: &Seed, reference: &Seed) {
+        assert_eq!(
+            actual.phases.map(f64::to_bits),
+            reference.phases.map(f64::to_bits)
+        );
+        assert_eq!(
+            actual.pulse_phase.to_bits(),
+            reference.pulse_phase.to_bits()
+        );
+        assert_eq!(actual.envelope.to_bits(), reference.envelope.to_bits());
+        assert_eq!(actual.transient.to_bits(), reference.transient.to_bits());
+        assert_eq!(actual.rng, reference.rng);
+    }
+
+    #[test]
+    fn muted_seed_retains_exact_clock_state_and_future_sound() {
+        for rate in [8000, 48000] {
+            let mut muted = Seed::new(rate);
+            let mut evaluated = Seed::new(rate);
+            // Changing frequency, pulse timing and strikes must continue to
+            // affect the hidden source while microphone audio is selected.
+            for frame in 0..rate * 3 {
+                let frequency = if frame < rate { 117. } else { 713.25 };
+                let pulse_rate = if frame < rate * 2 { 0.7 } else { 13.125 };
+                if frame % 1379 == 0 {
+                    muted.strike();
+                    evaluated.strike();
+                }
+                assert_eq!(muted.next(frequency, pulse_rate, false), 0.);
+                evaluated.next(frequency, pulse_rate, true);
+                if frame % 128 == 0 {
+                    assert_same_seed_state(&muted, &evaluated);
+                }
+            }
+            assert_eq!(muted.output_evaluations, 0);
+            assert_eq!(evaluated.output_evaluations, (rate * 3) as usize);
+            assert_same_seed_state(&muted, &evaluated);
+            // Reactivation must start at the exact phase/noise/envelope that
+            // the former continuously evaluated implementation would produce.
+            for _ in 0..4096 {
+                assert_eq!(
+                    muted.next(391.75, 2.3, true).to_bits(),
+                    evaluated.next(391.75, 2.3, true).to_bits()
+                );
+            }
+            assert_same_seed_state(&muted, &evaluated);
+        }
+    }
+
+    #[test]
+    fn microphone_pcm_and_source_crossfades_match_continuous_seed_evaluation() {
+        let compiled = scene(4);
+        let mut actual = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        // The reference follows the former render path: all seed output math
+        // executes even when it is multiplied by an exactly zero mix weight.
+        reference.seed.evaluate_muted = true;
+        let mut settings = Performance {
+            automatic: false,
+            voice_ceiling: 8,
+            source: Source::Mic,
+            ..Performance::default()
+        };
+        actual.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        actual.install(&compiled.pool).unwrap();
+        reference.install(&compiled.pool).unwrap();
+        let mut actual_l = [0.; BLOCK];
+        let mut actual_r = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..240 {
+            if block % 19 == 0 {
+                settings.frequency = 117. + block as f64 * 1.5;
+                settings.pulse_rate = 0.7 + block as f64 * 0.0125;
+                settings.input_gain = 0.3 + (block % 5) as f32 * 0.1;
+                actual.set_performance(settings).unwrap();
+                reference.set_performance(settings).unwrap();
+                actual.seed.strike();
+                reference.seed.strike();
+            }
+            if block == 120 || block == 176 {
+                settings.source = if block == 120 {
+                    Source::Seed
+                } else {
+                    Source::Mic
+                };
+                actual.set_performance(settings).unwrap();
+                reference.set_performance(settings).unwrap();
+            }
+            let input = signal(block * BLOCK);
+            actual.process(&input, None, &mut actual_l, &mut actual_r);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(
+                actual_l.map(f32::to_bits),
+                reference_l.map(f32::to_bits),
+                "left PCM block {block}"
+            );
+            assert_eq!(
+                actual_r.map(f32::to_bits),
+                reference_r.map(f32::to_bits),
+                "right PCM block {block}"
+            );
+            assert_same_seed_state(&actual.seed, &reference.seed);
+            if block == 119 {
+                assert_eq!(actual.seed.output_evaluations, 0);
+                assert_eq!(reference.seed.output_evaluations, 120 * BLOCK);
+            }
+        }
+        assert_eq!(
+            actual.seed.output_evaluations,
+            120 * BLOCK,
+            "both source fades remain evaluated whenever their contribution is nonzero"
+        );
+        assert_eq!(reference.seed.output_evaluations, 240 * BLOCK);
+        assert_eq!(actual.frames, reference.frames);
     }
 
     #[test]

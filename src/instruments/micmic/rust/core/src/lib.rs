@@ -399,10 +399,14 @@ pub struct Engine {
     pool_admission_dirty: bool,
     #[cfg(test)]
     last_admission_visits: usize,
+    #[cfg(test)]
+    last_meter_evaluations: usize,
     pool_group_counts: [usize; 256],
     pool_group_gains: Option<[f64; 256]>,
     pool_controls: Option<PreparedPoolControls>,
     growth_tracking: bool,
+    #[cfg(test)]
+    growth_tracking_passes: usize,
     growth_epoch: u64,
     growth_dirty_indices: Vec<usize>,
     activity_energy: [f64; 256],
@@ -539,10 +543,14 @@ impl Engine {
             pool_admission_dirty: true,
             #[cfg(test)]
             last_admission_visits: 0,
+            #[cfg(test)]
+            last_meter_evaluations: 0,
             pool_group_counts: [0; 256],
             pool_group_gains: None,
             pool_controls: None,
             growth_tracking: false,
+            #[cfg(test)]
+            growth_tracking_passes: 0,
             growth_epoch: 0,
             growth_dirty_indices: Vec::new(),
             activity_energy: [0.; 256],
@@ -797,6 +805,10 @@ impl Engine {
 
     fn track_numeric_growth(&mut self) {
         if self.growth_tracking {
+            #[cfg(test)]
+            {
+                self.growth_tracking_passes += 1;
+            }
             for &index in &self.active_indices {
                 let voice = &mut self.voices[index];
                 if voice.growth_epoch != self.growth_epoch {
@@ -1273,12 +1285,26 @@ impl Engine {
                 .sum::<usize>()
     }
     pub fn finish_block(&mut self) {
+        #[cfg(test)]
+        {
+            self.last_meter_evaluations = 0;
+        }
         let release = (-(self.activity_phase as f64) / (self.sample_rate * 0.18)).exp();
         for (level, energy) in self
             .activity
             .iter_mut()
             .zip(self.activity_energy.iter_mut())
         {
+            // Prepared but silent slots have no new energy or decaying meter.
+            // Preserve every nonzero transient and release while omitting the
+            // square root/division for a display value that is exactly zero.
+            if *energy == 0. && *level == 0. {
+                continue;
+            }
+            #[cfg(test)]
+            {
+                self.last_meter_evaluations += 1;
+            }
             let measured = (*energy / self.activity_samples.max(1) as f64).sqrt() as f32;
             *level = measured.max(*level * release as f32);
             *energy = 0.;
@@ -1291,6 +1317,13 @@ impl Engine {
             .zip(&mut self.tap_energy)
             .take(self.tap_count)
         {
+            if *energy == 0. && *level == 0. {
+                continue;
+            }
+            #[cfg(test)]
+            {
+                self.last_meter_evaluations += 1;
+            }
             let measured = (*energy / self.activity_phase.max(1) as f64).sqrt() as f32;
             *level = measured.max(*level * tap_release as f32);
             *energy = 0.;
@@ -1317,6 +1350,12 @@ impl Engine {
 
     pub fn process_frame(&mut self, input: [f32; 2]) -> [f32; 2] {
         self.track_numeric_growth();
+        self.process_frame_inner(input)
+    }
+
+    /// The block entry point already tracks its complete active list. Audio
+    /// controls and retirement cannot change that list inside a render block.
+    fn process_frame_inner(&mut self, input: [f32; 2]) -> [f32; 2] {
         let left_in = if input[0].is_finite() {
             f64::from(input[0])
         } else {
@@ -1412,7 +1451,7 @@ impl Engine {
         });
         if needs_sample_order {
             for (frame, result) in input.iter().zip(output.iter_mut()) {
-                *result = self.process_frame(*frame);
+                *result = self.process_frame_inner(*frame);
             }
             self.finish_block();
             return;
@@ -1838,6 +1877,118 @@ mod arithmetic_tests {
         assert_admission_matches(actual, reference);
     }
 
+    // The former full meter pass is an exact numerical oracle. It includes
+    // silent slots so zero-work optimization cannot hide a transient or round
+    // away the decay of a previously sounding branch.
+    fn finish_meters_against_full_pass(engine: &mut Engine) {
+        let mut generations = engine.activity;
+        let mut taps = engine.tap_activity;
+        let generation_release =
+            (-(engine.activity_phase as f64) / (engine.sample_rate * 0.18)).exp() as f32;
+        let tap_release =
+            (-(engine.activity_phase as f64) / (engine.sample_rate * 0.1)).exp() as f32;
+        let mut expected_evaluations = 0;
+        for (level, energy) in generations.iter_mut().zip(engine.activity_energy) {
+            expected_evaluations += usize::from(energy != 0. || *level != 0.);
+            let measured = (energy / engine.activity_samples.max(1) as f64).sqrt() as f32;
+            *level = measured.max(*level * generation_release);
+        }
+        for (level, energy) in taps
+            .iter_mut()
+            .zip(engine.tap_energy)
+            .take(engine.tap_count)
+        {
+            expected_evaluations += usize::from(energy != 0. || *level != 0.);
+            let measured = (energy / engine.activity_phase.max(1) as f64).sqrt() as f32;
+            *level = measured.max(*level * tap_release);
+        }
+        engine.finish_block();
+        assert_eq!(
+            engine.activity.map(f32::to_bits),
+            generations.map(f32::to_bits)
+        );
+        assert_eq!(
+            engine.tap_activity.map(f32::to_bits),
+            taps.map(f32::to_bits)
+        );
+        assert_eq!(engine.activity_energy, [0.; 256]);
+        assert_eq!(engine.tap_energy, [0.; TAP_ACTIVITY_CAPACITY]);
+        assert_eq!(engine.last_meter_evaluations, expected_evaluations);
+    }
+
+    #[test]
+    fn silent_prepared_meters_skip_work_without_losing_transients_or_releases() {
+        let count = TAP_ACTIVITY_CAPACITY;
+        let keys: Vec<_> = (0..count).map(|index| format!("meter:{index}")).collect();
+        let mut engine = Engine::new(8000, 4., count, 1).unwrap();
+        engine.install_pool(&keys).unwrap();
+        let targets = vec![
+            PoolTarget {
+                delay: 0.004,
+                gain: 0.4,
+                ..PoolTarget::default()
+            };
+            count
+        ];
+        let ranks: Vec<_> = (0..count).collect();
+        let groups = vec![1; count];
+        engine.update_pool_ranked(&targets, &ranks, &groups, 1);
+        assert_eq!(engine.tap_count, count);
+        finish_meters_against_full_pass(&mut engine);
+        assert_eq!(engine.last_meter_evaluations, 0);
+        let mut heard_impulse = false;
+        let mut retained_release = false;
+        for block in 0..48 {
+            match block {
+                14 => engine.set_pool_limit(5),
+                18 => engine.set_pool_limit(1),
+                24 => engine.set_pool_limit(0),
+                32 => engine.update_pool_ranked(&targets, &ranks, &groups, 2),
+                _ => {}
+            }
+            for frame in 0..128 {
+                let input = if block == 2 && frame == 64 {
+                    0.25
+                } else if block == 10 {
+                    1e-15
+                } else {
+                    0.
+                };
+                engine.process_frame([input; 2]);
+            }
+            let before = engine.tap_activity;
+            finish_meters_against_full_pass(&mut engine);
+            heard_impulse |= engine.tap_activity[0] > 0.;
+            if block == 25 {
+                retained_release = before[0] > 0. && engine.tap_activity[0] > 0.;
+            }
+            assert!(
+                engine.last_meter_evaluations <= 6,
+                "one generation and at most five live/decaying tap meters need evaluation"
+            );
+        }
+        assert!(heard_impulse);
+        assert!(retained_release);
+    }
+
+    #[test]
+    fn meter_fast_path_preserves_tiny_energy_and_nonzero_decay_exactly() {
+        let mut engine = Engine::new(8000, 4., 1, 1).unwrap();
+        engine.tap_count = TAP_ACTIVITY_CAPACITY;
+        engine.activity_phase = 128;
+        engine.activity_samples = 4;
+        engine.activity_energy[9] = 1e-60;
+        engine.activity[10] = 1e-20;
+        engine.tap_energy[2046] = 1e-60;
+        engine.tap_activity[2047] = 1e-20;
+        finish_meters_against_full_pass(&mut engine);
+        assert_eq!(engine.last_meter_evaluations, 4);
+        assert!(engine.activity[9] > 0.);
+        assert!(engine.activity[10] > 0.);
+        assert!(engine.tap_activity[2046] > 0.);
+        assert!(engine.tap_activity[2047] > 0.);
+    }
+
     #[test]
     fn incremental_admission_matches_full_scan_through_rank_controls_and_retirement() {
         let keys: Vec<_> = (0..64)
@@ -2136,6 +2287,104 @@ mod arithmetic_tests {
         assert_eq!(engine.voices.len(), 8192);
         assert!(!engine.growth_tracking);
     }
+
+    #[test]
+    fn long_history_blocks_track_growth_once_and_match_public_sample_rendering() {
+        let keys: Vec<_> = (0..8).map(|index| format!("long-growth:{index}")).collect();
+        let targets = vec![
+            PoolTarget {
+                delay: 3.99,
+                rate: 1.7,
+                gain: 0.1,
+                pan: -0.25,
+            };
+            keys.len()
+        ];
+        let mut block = Engine::new(8000, 4., keys.len(), 2).unwrap();
+        let mut samples = Engine::new(8000, 4., keys.len(), 2).unwrap();
+        for engine in [&mut block, &mut samples] {
+            engine.install_pool(&keys).unwrap();
+            engine.update_pool(&targets, 3);
+            engine.prepare_calibration_history();
+            engine.write = engine.history.len() - 100;
+            engine.begin_numeric_growth().unwrap();
+        }
+        let mut block_growth = PreparedPool::numeric(16).unwrap();
+        let mut sample_growth = PreparedPool::numeric(16).unwrap();
+        block.prepare_numeric_growth_until(&mut block_growth, keys.len());
+        samples.prepare_numeric_growth_until(&mut sample_growth, keys.len());
+        let original_phase = block_growth.voices[0].phase;
+        for index in 0..64 {
+            match index {
+                3 => {
+                    block.set_pool_limit(6);
+                    samples.set_pool_limit(6);
+                }
+                8 => {
+                    block.set_pool_limit(1);
+                    samples.set_pool_limit(1);
+                }
+                20 => {
+                    block.silence();
+                    samples.silence();
+                }
+                _ => {}
+            }
+            let input: [[f32; 2]; 128] = std::array::from_fn(|frame| {
+                let phase = (index * 128 + frame) as f32;
+                [(phase * 0.13).sin() * 0.05, (phase * 0.17).cos() * 0.08]
+            });
+            let mut output = [[0.; 2]; 128];
+            block.growth_tracking_passes = 0;
+            samples.growth_tracking_passes = 0;
+            block.process_block(&input, &mut output);
+            for (frame, rendered) in input.iter().zip(output) {
+                assert_eq!(
+                    rendered.map(f32::to_bits),
+                    samples.process_frame(*frame).map(f32::to_bits)
+                );
+            }
+            samples.finish_block();
+            assert_eq!(
+                block.growth_tracking_passes, 1,
+                "history-safe sample order must not repeat the growth scan per frame"
+            );
+            assert_eq!(
+                samples.growth_tracking_passes, 128,
+                "the public sample entry point still tracks each independent call"
+            );
+            assert_eq!(block.growth_dirty_indices, samples.growth_dirty_indices);
+            assert_admission_matches(&block, &samples);
+            assert_eq!(
+                block.activity.map(f32::to_bits),
+                samples.activity.map(f32::to_bits)
+            );
+            assert_eq!(
+                block.tap_activity.map(f32::to_bits),
+                samples.tap_activity.map(f32::to_bits)
+            );
+        }
+        assert_eq!(
+            block.active_voice_count(),
+            0,
+            "all releasing branches retired while growth was staged"
+        );
+        let retired_phase = block.voices[0].phase;
+        assert_ne!(retired_phase, original_phase);
+        block.prepare_numeric_growth_until(&mut block_growth, 16);
+        samples.prepare_numeric_growth_until(&mut sample_growth, 16);
+        block.commit_numeric_growth(&mut block_growth);
+        samples.commit_numeric_growth(&mut sample_growth);
+        assert_admission_matches(&block, &samples);
+        assert_eq!(block.voices[0].phase, retired_phase);
+        assert!(block.voices[0].inactive);
+        assert_eq!(block.history, samples.history);
+        assert_eq!(block.history_right, samples.history_right);
+        assert_eq!(block.write, samples.write);
+        assert_eq!(block.recorded, samples.recorded);
+        assert!(!block.growth_tracking);
+    }
+
     #[test]
     fn optimized_wrapping_interpolation_matches_floor_at_boundaries() {
         let history: Vec<f32> = (0..17).map(|i| i as f32 * 0.03 - 0.2).collect();
