@@ -339,7 +339,9 @@ const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSample
   contexts: __deviceRuntime.contexts.length,
   worklets: __deviceRuntime.worklets.length, sources: structuredClone(__deviceRuntime.sources), microphoneRequests: __deviceRuntime.microphoneRequests }));
 async function native(page, id, value) {
-  if (['capacityBudget', 'automatic'].includes(id)) {
+  if (['capacityBudget', 'capacityBudgetExact', 'automatic'].includes(id)) {
+    const liveData = page.locator('#liveData');
+    if (!await liveData.evaluate(details => details.open)) await liveData.locator(':scope > summary').click();
     const disclosure = page.locator('#capacityTests');
     if (!await disclosure.evaluate(details => details.open)) await disclosure.locator('summary').click();
   }
@@ -587,16 +589,65 @@ test('the performance panel precedes presets and explicit capacity testing stays
       await page.setViewportSize(viewport);
       await page.locator('.panel').evaluate(panel => panel.scrollTop = 0);
       await expect(page.locator('#performancePanel')).toBeVisible();
+      const liveData = page.locator('#liveData'), liveSummary = page.locator('#performanceTitle');
+      await expect(liveSummary).toHaveText('Live data');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await expect(page.locator('#voiceCeiling')).toBeVisible();
+      await expect(page.locator('#voiceCeilingExact')).toBeVisible();
+      expect(await page.locator('#voiceCeiling').evaluate(input => !input.closest('#liveData'))).toBe(true);
+      expect(await page.locator('#voiceCeilingExact').evaluate(input => !input.closest('#liveData'))).toBe(true);
       const disclosure = page.locator('#capacityTests'), summary = disclosure.locator('summary');
       await expect(disclosure).toHaveJSProperty('open', false);
       await expect(page.locator('#testCapacity')).not.toBeVisible();
-      await expect(page.locator('#performanceMisses')).toBeVisible();
+      await expect(page.locator('#performanceMisses')).not.toBeVisible();
+      await expect(page.locator('#performanceAudioLoad')).not.toBeVisible();
+      const initiallyFolded = await diagnostics(page);
+      await page.locator('#voiceCeilingExact').fill('7'); await page.locator('#voiceCeilingExact').press('Enter');
+      await expect.poll(async () => (await diagnostics(page)).performance.voiceCeiling).toBe(7);
+      await expect(page.locator('#voiceCeiling')).toHaveValue('7');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await page.locator('#voiceCeilingExact').fill('0'); await page.locator('#voiceCeilingExact').press('Enter');
+      await expect.poll(async () => (await diagnostics(page)).performance.voiceCeiling).toBe(0);
+      expect((await diagnostics(page)).parameters).toEqual(initiallyFolded.parameters);
+      expect((await diagnostics(page)).performance).toEqual(initiallyFolded.performance);
+      expect(await session(page)).toMatchObject({ contexts: 0, worklets: 0, microphoneRequests: 0, sources: [] });
       const foldedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
       const beforeDisclosure = await diagnostics(page);
+      await liveSummary.focus(); await liveSummary.press('Enter');
+      await expect(liveData).toHaveJSProperty('open', true);
+      await expect(page.locator('#performanceMisses')).toBeVisible();
+      await expect(page.locator('#performanceAudioLoad')).toBeVisible();
       await summary.focus(); await summary.press('Enter');
       await expect(disclosure).toHaveJSProperty('open', true);
       await expect(page.locator('#capacityBudget')).toBeEnabled();
       await expect(page.locator('#testCapacity')).toBeEnabled();
+      await expect(page.locator('#capacityBudgetLabel')).toHaveText('Voice budget');
+      await expect(page.locator('#voiceCeilingLabel')).toHaveText('Live cap');
+      expect(await page.getByText('Exact voices', { exact: true }).count()).toBe(0);
+      expect(await page.evaluate(() => {
+        const ids = [...document.querySelectorAll('[id]')].map(element => element.id);
+        return ids.filter((id, index) => ids.indexOf(id) !== index);
+      })).toEqual([]);
+      for (const [rangeId, editorId, labelId, min] of [
+        ['capacityBudget', 'capacityBudgetExact', 'capacityBudgetLabel', '1'],
+        ['voiceCeiling', 'voiceCeilingExact', 'voiceCeilingLabel', '0'],
+      ]) {
+        await expect(page.locator(`#${editorId}`)).toHaveAttribute('aria-labelledby', labelId);
+        await expect(page.locator(`#${editorId}`)).toHaveAttribute('min', min);
+        await expect(page.locator(`#${editorId}`)).toHaveAttribute('max', String(beforeDisclosure.memoryVoiceCapacity));
+        expect(await page.evaluate(({ rangeId, editorId }) => {
+          const range = document.getElementById(rangeId), editor = document.getElementById(editorId);
+          const group = range.closest('.native-voice-control');
+          return Boolean(group) && group === editor.closest('.native-voice-control')
+            && group.querySelectorAll('input[type="range"]').length === 1
+            && group.querySelectorAll('input[type="number"]').length === 1
+            && editor.getBoundingClientRect().top >= range.getBoundingClientRect().bottom - 1;
+        }, { rangeId, editorId })).toBe(true);
+      }
+      expect(await page.locator('#voiceCeiling').evaluate(input =>
+        Boolean(input.closest('#performancePanel')) && !input.closest('#nativeSettings'))).toBe(true);
+      expect(await page.locator('#performanceLimit').evaluate(output =>
+        output.tagName === 'OUTPUT' && Boolean(output.closest('dd')))).toBe(true);
       await expect.poll(() => page.evaluate(() => {
         const panel = document.getElementById('performancePanel').getBoundingClientRect();
         const preset = document.querySelector('.instrument-preset-controls').getBoundingClientRect();
@@ -604,7 +655,7 @@ test('the performance panel precedes presets and explicit capacity testing stays
           && panel.left >= -1 && panel.right <= innerWidth + 1
           && document.documentElement.scrollWidth <= innerWidth + 1;
       })).toBe(true);
-      for (const id of ['capacityBudget', 'testCapacity']) {
+      for (const id of ['capacityBudget', 'capacityBudgetExact', 'voiceCeiling', 'voiceCeilingExact', 'testCapacity']) {
         const input = page.locator(`#${id}`); await input.scrollIntoViewIfNeeded();
         await expect(input).toBeVisible();
         expect(await input.evaluate(input => {
@@ -622,6 +673,11 @@ test('the performance panel precedes presets and explicit capacity testing stays
       await summary.focus(); await summary.press('Space');
       await expect(disclosure).toHaveJSProperty('open', false);
       await expect(page.locator('#capacityBudget')).not.toBeVisible();
+      await liveSummary.focus(); await liveSummary.press('Space');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await expect(page.locator('#performanceMisses')).not.toBeVisible();
+      await expect(page.locator('#voiceCeiling')).toBeVisible();
+      await expect(page.locator('#voiceCeilingExact')).toBeVisible();
       expect(await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height)).toBeLessThan(expandedHeight);
       const afterDisclosure = await diagnostics(page);
       expect(afterDisclosure.parameters).toEqual(beforeDisclosure.parameters);
@@ -647,6 +703,160 @@ test('the performance panel precedes presets and explicit capacity testing stays
   await test.info().attach('responsive-performance-panel', { body: JSON.stringify({ rows,
     initialCalibrationBound: 32, actualWasm: true, liveAudioMetricsInjected: false,
     humanListening: false }), contentType: 'application/json' });
+});
+
+test('grouped voice editors keep numeric drafts separate and Live cap changes only prepared wet DSP membership', async ({ page }) => {
+  test.setTimeout(150000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, fakeMicrophone: true,
+    broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const liveData = page.locator('#liveData'), liveSummary = page.locator('#performanceTitle');
+  await expect(liveData).toHaveJSProperty('open', false);
+  await liveSummary.click(); await expect(liveData).toHaveJSProperty('open', true);
+  const disclosure = page.locator('#capacityTests');
+  await disclosure.locator('summary').click(); await expect(disclosure).toHaveJSProperty('open', true);
+  const budget = page.locator('#capacityBudget'), budgetEditor = page.locator('#capacityBudgetExact');
+  const cap = page.locator('#voiceCeiling'), capEditor = page.locator('#voiceCeilingExact');
+  const initial = await session(page), before = await diagnostics(page), initialCounts = await controlCounts(page), rows = [];
+  expect(before.preparedVoices).toBe(32); expect(before.performance.automatic).toBe(true);
+  await startPcm(page);
+  let recording;
+  const noSceneOrSourceChurn = async (baseline, expectedCap) => {
+    await settledControls(page);
+    const d = await diagnostics(page), counts = await controlCounts(page), current = await session(page);
+    expect(d.performance.voiceCeiling).toBe(expectedCap); expect(d.performance.automatic).toBe(true);
+    expect(d.preparedVoices).toBe(baseline.preparedVoices); expect(d.topologyRevision).toBe(baseline.topologyRevision);
+    expect(counts.worker).toBe(baseline.counts.worker); expect(counts.install).toBe(baseline.counts.install);
+    expect(d.status.targetVoices).toBeLessThanOrEqual(d.eligibleVoices);
+    expect(d.status.voiceLimit).toBeLessThanOrEqual(d.deviceCapacity.preparedCapacity);
+    expect(d.status.inputEnvelope.endTime).toBeGreaterThanOrEqual(baseline.historyEnd);
+    expect(d.status.inputEnvelope.values.length).toBeGreaterThan(0);
+    expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+    expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+    expect(d.audio).toBe(true); expect(d.microphoneEnabled).toBe(true);
+    rows.push({ expectedCap, diagnostics: d, session: current, counts });
+  };
+  try {
+    // Poll real audio for long enough to repaint several times while the
+    // number is only an uncommitted draft. The knob and DSP keep their values.
+    await budgetEditor.fill('64');
+    const draftClock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(draftClock + 1.5);
+    await expect(budgetEditor).toHaveValue('64'); await expect(budget).toHaveValue('32');
+    expect(await controlCounts(page)).toEqual(initialCounts);
+    await budgetEditor.press('Enter'); await expect(budget).toHaveValue('64');
+    expect(await controlCounts(page)).toEqual(initialCounts);
+    expect((await diagnostics(page)).preparedVoices).toBe(32);
+    await budgetEditor.fill('96'); await budgetEditor.press('Escape');
+    await expect(budgetEditor).toHaveValue('64'); await expect(budget).toHaveValue('64');
+    await budgetEditor.fill('48'); await budgetEditor.press('Tab');
+    await expect(budget).toHaveValue('48'); await expect(budgetEditor).toHaveValue('48');
+    await budgetEditor.fill(''); await budgetEditor.press('Tab');
+    await expect(budgetEditor).toHaveValue('48'); await expect(budget).toHaveValue('48');
+    expect(await controlCounts(page)).toEqual(initialCounts);
+    await budgetEditor.fill('64'); await budgetEditor.press('Enter');
+    await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 64 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page);
+    const prepared = await diagnostics(page), preparedCounts = await controlCounts(page);
+    expect(prepared.preparedVoices).toBe(64); expect(prepared.status.targetVoices).toBe(64);
+    expect(preparedCounts.worker).toBe(initialCounts.worker + 1); expect(preparedCounts.install).toBe(initialCounts.install + 1);
+    const baseline = { preparedVoices: prepared.preparedVoices, topologyRevision: prepared.topologyRevision,
+      counts: preparedCounts, historyEnd: prepared.status.inputEnvelope.endTime };
+    await liveSummary.focus(); await liveSummary.press('Space');
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(cap).toBeVisible(); await expect(capEditor).toBeVisible();
+    await expect(budgetEditor).not.toBeVisible();
+    expect(await controlCounts(page)).toEqual(preparedCounts);
+    await capEditor.fill('16');
+    const capDraftClock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(capDraftClock + 1.5);
+    await expect(capEditor).toHaveValue('16'); await expect(cap).toHaveValue('0');
+    expect((await diagnostics(page)).performance.voiceCeiling).toBe(0);
+    expect(await controlCounts(page)).toEqual(preparedCounts);
+    await capEditor.press('Enter');
+    await expect.poll(async () => {
+      const d = await diagnostics(page); return d.status.targetVoices === 16 && d.status.activeVoices === 16;
+    }, { timeout: 15000 }).toBe(true);
+    await noSceneOrSourceChurn(baseline, 16);
+    await capEditor.fill('4'); await capEditor.press('Escape');
+    await expect(capEditor).toHaveValue('16'); await expect(cap).toHaveValue('16');
+    await capEditor.fill(''); await capEditor.press('Tab');
+    await expect(capEditor).toHaveValue('16'); await expect(cap).toHaveValue('16');
+    await noSceneOrSourceChurn(baseline, 16);
+    // A ceiling above the prepared pool never allocates more voices or turns
+    // off deadline protection. Zero restores every admitted available tap.
+    await capEditor.fill('128'); await capEditor.press('Tab');
+    await expect.poll(async () => (await diagnostics(page)).status.targetVoices).toBe(64);
+    await noSceneOrSourceChurn(baseline, 128);
+    await cap.focus(); await cap.press('Home');
+    await expect(cap).toHaveValue('0');
+    await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(64);
+    await noSceneOrSourceChurn(baseline, 0);
+    const foldedCounts = await controlCounts(page), foldedHistory = (await diagnostics(page)).status.inputEnvelope.endTime;
+    await liveSummary.focus(); await liveSummary.press('Enter');
+    await expect(liveData).toHaveJSProperty('open', true);
+    await expect(disclosure).toHaveJSProperty('open', true);
+    await expect(budget).toHaveValue('64'); await expect(budgetEditor).toHaveValue('64');
+    expect(await controlCounts(page)).toEqual(foldedCounts);
+    expect((await diagnostics(page)).status.inputEnvelope.endTime).toBeGreaterThanOrEqual(foldedHistory);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 64 && p.processing === p.diagnostics.status.activeVoices
+        && p.limit === p.diagnostics.status.voiceLimit;
+    }).toBe(true);
+    await cap.press('ArrowUp');
+    await expect(cap).toHaveValue('1');
+    await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(1);
+    await noSceneOrSourceChurn(baseline, 1);
+    await capEditor.fill('16'); await capEditor.press('Enter');
+    await expect.poll(async () => (await diagnostics(page)).status.targetVoices).toBe(16);
+    await noSceneOrSourceChurn(baseline, 16);
+    const beforeRefoldCounts = await controlCounts(page);
+    await liveSummary.focus(); await liveSummary.press('Space');
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(capEditor).toBeVisible(); expect(await controlCounts(page)).toEqual(beforeRefoldCounts);
+    const picker = page.locator('.instrument-preset-controls');
+    await picker.locator('summary').click();
+    await picker.locator('button[data-full-preset][data-preset-id="pythagorean"]').click();
+    await expect(picker).toHaveAttribute('data-preset-id', 'pythagorean');
+    await settledControls(page); await completeDraw(page);
+    const recalled = await diagnostics(page), recalledCounts = await controlCounts(page);
+    expect(recalled.performance.voiceCeiling).toBe(16); expect(recalled.performance.automatic).toBe(true);
+    expect(recalled.userCapacityBudget).toBe(64); expect(recalled.preparedVoices).toBe(64);
+    expect(recalled.status.targetVoices).toBe(16);
+    expect(recalled.performance.inputGain).toBe(.7); expect(recalled.performance.level).toBe(.6);
+    const presetBaseline = { preparedVoices: recalled.preparedVoices, topologyRevision: recalled.topologyRevision,
+      counts: recalledCounts, historyEnd: recalled.status.inputEnvelope.endTime };
+    await capEditor.fill('0'); await capEditor.press('Enter');
+    await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(64);
+    await noSceneOrSourceChurn(presetBaseline, 0);
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(cap).toBeVisible(); await expect(capEditor).toHaveValue('0');
+    await completeDraw(page);
+    const finalClock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(finalClock + 2);
+    expect((await diagnostics(page)).status.inputEnvelope.endTime).toBeGreaterThan(presetBaseline.historyEnd);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.time).toBeGreaterThan(initial.time);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  await test.info().attach('grouped-budget-and-live-cap', { body: JSON.stringify({ before, rows, ...recording,
+    actualWasm: true, actualMediaStreamInput: true, initialCalibrationBound: 32,
+    workerProbeTimingInjected: false, liveAudioMetricsInjected: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
 });
 
 test('explicit capacity knob tests replace the complete warm tree together while live meters describe real wet DSP', async ({ page }) => {

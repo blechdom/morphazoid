@@ -69,7 +69,8 @@ let paintedInputState = null, paintedInputActive = null, paintedAudioState = nul
 let paintedInputPeak = null, paintedOutputLevels = null, paintedAudioLevel = null, paintedInputGain = null;
 const paintedKnobs = new Map();
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
-let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
+let rangeGestureOwner = null, rangeGesturePointer = null;
+const voiceCeilingExact = $('voiceCeilingExact');
 const parameterKnobs = new Map();
 let stageWidth = 0, stageHeight = 0;
 const waveScratch = [];
@@ -673,7 +674,8 @@ function paintStaticControls() {
   setProperty($('voiceCeiling'), 'max', String(state.memoryVoiceCapacity));
   for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
     const value = state.performance[key]; setProperty($(id), 'value', value);
-    setText($(`${id}Out`), key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`);
+    setText($(`${id}Out`), key === 'voiceCeiling' ? value === 0 ? 'All available' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`);
+    if (key === 'voiceCeiling') setAttribute($(id), 'aria-valuetext', value === 0 ? 'All available' : `${value.toLocaleString()} voices maximum`);
   }
   const mastering = state.performance.mastering;
   for (const key of MASTERING_IDS) {
@@ -1189,13 +1191,29 @@ for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry',
   $(id).addEventListener('blur', () => knob.cancelGesture());
 }
 $('capacityBudget').addEventListener('input', () => { capacityBudgetEdited = true; paintControls(); });
-$('capacityBudgetExact').addEventListener('change', () => {
-  const value = $('capacityBudgetExact').valueAsNumber, range = $('capacityBudget');
-  if (Number.isSafeInteger(value) && value > 0) {
-    range.value = String(Math.min(value, Number(range.max))); capacityBudgetEdited = true;
-  }
-  paintControls();
-});
+function bindVoiceValue(editor, range) {
+  const restore = () => { editor.value = range.value; };
+  const commit = () => {
+    const value = editor.valueAsNumber;
+    if (Number.isSafeInteger(value)) {
+      const bounded = clamp(value, Number(range.min), Number(range.max));
+      if (Number(range.value) !== bounded) {
+        range.value = String(bounded);
+        range.dispatchEvent(new Event('input', { bubbles: true }));
+        range.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    }
+    restore();
+  };
+  editor.addEventListener('change', commit);
+  editor.addEventListener('blur', commit);
+  editor.addEventListener('keydown', event => {
+    if (event.key === 'Enter') { event.preventDefault(); commit(); }
+    if (event.key === 'Escape') { event.preventDefault(); restore(); editor.blur(); }
+  });
+}
+bindVoiceValue($('capacityBudgetExact'), $('capacityBudget'));
+bindVoiceValue(voiceCeilingExact, $('voiceCeiling'));
 async function testCapacity(reset = false) {
   if (!bootstrapped || sceneApplying || capacityTesting || state.capacityWorking) return;
   const voices = Number($('capacityBudget').value);
@@ -1210,30 +1228,6 @@ async function testCapacity(reset = false) {
 }
 $('testCapacity').addEventListener('click', () => void testCapacity());
 $('autoCapacity').addEventListener('click', () => void testCapacity(true));
-{
-  const label = document.createElement('label');
-  label.htmlFor = 'voiceCeilingExact'; label.textContent = 'Exact voice cap (0 = no cap)';
-  voiceCeilingExact = document.createElement('input');
-  voiceCeilingExact.id = 'voiceCeilingExact'; voiceCeilingExact.type = 'number'; voiceCeilingExact.inputMode = 'numeric';
-  label.append(voiceCeilingExact); $('voiceCeiling').closest('.native-voice-cap').append(label);
-  const commit = () => {
-    const input = $('voiceCeiling'), value = voiceCeilingExact.valueAsNumber;
-    if (Number.isFinite(value)) {
-      input.value = String(Math.round(clamp(value, Number(input.min), Number(input.max))));
-      if (Number(input.value) !== state.performance.voiceCeiling) {
-        input.dispatchEvent(new Event('input', { bubbles: true }));
-        input.dispatchEvent(new Event('change', { bubbles: true }));
-      }
-    }
-    voiceCeilingExact.value = String(state.performance.voiceCeiling);
-  };
-  voiceCeilingExact.addEventListener('change', commit);
-  voiceCeilingExact.addEventListener('blur', commit);
-  voiceCeilingExact.addEventListener('keydown', event => {
-    if (event.key === 'Enter') { event.preventDefault(); commit(); }
-    if (event.key === 'Escape') { event.preventDefault(); voiceCeilingExact.value = String(state.performance.voiceCeiling); voiceCeilingExact.blur(); }
-  });
-}
 for (const key of ['compressorEnabled', 'autoMakeup']) {
   $(key).addEventListener('change', () => updateMastering({ [key]: $(key).checked }, true));
 }
@@ -1253,8 +1247,8 @@ $('restartInput').addEventListener('click', () => void changeInput(() => browser
 $('stopInput').addEventListener('click', () => void changeInput(() => browserEngine.stopInput()));
 inputStrip.button.addEventListener('click', () => void toggleMicrophone());
 $('automatic').addEventListener('change', () => updatePerformance('automatic', $('automatic').checked, true, false));
-$('capacityTests').addEventListener('toggle', () => {
-  if (!$('capacityTests').open) parameterKnobs.get('capacityBudget')?.cancelGesture();
+for (const id of ['liveData', 'capacityTests']) $(id).addEventListener('toggle', () => {
+  if (!$(id).open) parameterKnobs.get('capacityBudget')?.cancelGesture();
   paintControls();
 });
 $('panicButton').addEventListener('click', () => void toggleAudio(false));
