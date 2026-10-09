@@ -6,7 +6,7 @@
     <meta name="theme-color" content="#07090b" />
     <meta
       name="description"
-      content="Morphazoid Chaotic AM — recursive carrier-preserving amplitude modulation with bounded nonlinear shaping and smooth or saturated transfer."
+      content="Morphazoid Chaotic AM — nested amplitude modulation around an audible carrier with bounded nonlinear shaping and smooth or saturated transfer."
     />
     <title>Chaotic AM — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
@@ -73,7 +73,7 @@
             id="stage"
             tabindex="0"
             role="img"
-            aria-label="Chaotic AM algorithm with one nonlinear amplitude turn. Audio off."
+            aria-label="Chaotic AM with two nested modulators around a 188 Hz carrier. Audio off."
             aria-describedby="chaoticAmDescription liveStatus"
           >
             A live log-frequency spectrum with a foreground oscilloscope and the Chaotic AM signal-flow transfer.
@@ -82,11 +82,11 @@
           <div class="chaotic-am-heading">
             <p>CHAOTIC SYNTHS · AM</p>
             <h1 id="chaoticAmTitle">Chaotic AM</h1>
-            <span>recursive amplitude · continuous nonlinear shaping</span>
+            <span>nested amplitude · continuous nonlinear shaping</span>
           </div>
 
           <div class="stage-meta" aria-hidden="true">
-            <span id="stageReadout">1 TURN · 2 OPERATORS · AUDIO OFF</span>
+            <span id="stageReadout">2 MODULATORS · CARRIER 188 HZ · AUDIO OFF</span>
           </div>
 
           <div
@@ -94,39 +94,28 @@
             id="chaoticAmFlow"
             role="img"
             tabindex="0"
-            data-path-label="LIVE TURN · PREVIOUS → TANH → CHAOS MIX → BIASED GAIN × SINE → NORMALIZE"
-            aria-label="Smooth Chaotic AM signal flow. The previous signal is continuously tanh-shaped, mixed by the chaos amount, and controls a positive normalized gain on an independent sine carrier."
+            data-path-label="NESTED MODULATORS → NONLINEAR SHAPE → POSITIVE GAIN × CARRIER → AUDIO"
+            aria-label="Nested modulators pass through nonlinear shaping and control a positive gain on the audible carrier. Frequency division changes modulation while carrier pitch stays fixed."
           ></div>
         </div>
       </section>
 
-      <aside class="panel chaotic-am-panel" aria-label="Chaotic AM controls">
+      <aside class="panel chaotic-am-panel" data-instrument-preset-host aria-label="Chaotic AM controls">
         <details class="group control-section chaotic-am-presets" open>
           <summary class="group-summary">
-            <h2 class="group-title">Character</h2>
+            <h2 class="group-title">Preset guide</h2>
             <span class="section-state" id="presetState">Forty Fold</span>
           </summary>
           <div class="group-body">
-            <div class="chaotic-am-preset-grid" id="presetButtons" role="group" aria-label="Chaotic AM factory presets">
-              <button type="button" data-preset="subzero-thread" aria-pressed="false">Subzero Thread</button>
-              <button type="button" data-preset="forty-fold" aria-pressed="true">Forty Fold</button>
-              <button type="button" data-preset="still-glass" aria-pressed="false">Still Glass</button>
-              <button type="button" data-preset="runaway-stair" aria-pressed="false">Runaway Stair</button>
-              <button type="button" data-preset="braided-orbit" aria-pressed="false">Braided Orbit</button>
-              <button type="button" data-preset="low-ember" aria-pressed="false">Low Ember</button>
-              <button type="button" data-preset="kilohertz-veil" aria-pressed="false">Kilohertz Veil</button>
-              <button type="button" data-preset="chrome-cascade" aria-pressed="false">Chrome Cascade</button>
-            </div>
             <p class="chaotic-am-preset-description" id="presetDescription">
-              A 66.6 Hz seed shapes the amplitude of a 40 Hz sine through a deep 6.66 index.
+              A 188 Hz carrier holds its pitch while nested 40 and 25 Hz modulators make a firm, rippling flutter.
             </p>
             <details class="chaotic-am-repair-note">
               <summary>About these AM variations</summary>
               <p>
-                These eight scenes retain Chaotic PM's frequencies, recursion and divisors.
-                The index now controls amplitude depth: index ÷ (1 + index).
-                Smooth and Saturated shape the modulating signal continuously while each
-                turn preserves its independent sine carrier.
+                Twelve scenes explore pulses, flutter and metallic sidebands.
+                Nested modulators shape the carrier’s amplitude. Carrier pitch stays
+                independent of recursion depth and frequency division.
               </p>
             </details>
           </div>
@@ -201,7 +190,7 @@
             </label>
 
             <p class="chaotic-am-control-note chaotic-midi-map-note">
-              Controller macros · 1 Depth · 2 Mod frequency · 3 Amplitude index · 4 Chaos / shape · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
+              Controller macros · 1 Depth · 2 Mod frequency · 3 AM depth · 4 Chaos / shape · 5 Attack · 6 Release · 7 Glide · 8 Output. Standard MIDI · CC5 glide · CC11 expression · CC64 sustain · CC65 portamento · CC72 release · CC73 attack · CC75 decay · CC120/121/123 panic and reset.
             </p>
           </div>
         </details>
@@ -209,7 +198,7 @@
         <details class="group control-section chaotic-am-algorithm" open>
           <summary class="group-summary">
             <h2 class="group-title">Algorithm</h2>
-            <span class="section-state" id="algorithmState">1 turn · final 40 Hz</span>
+            <span class="section-state" id="algorithmState">2 modulators · carrier 188 Hz</span>
           </summary>
           <div class="group-body">
             <div class="chaotic-glide-row">
@@ -223,40 +212,42 @@
             </div>
 
             <label class="control" for="depth">
-              <span><b>Recursion depth</b><output id="depthOut" for="depth">1</output></span>
-              <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="1" />
+              <span><b>Recursion depth</b><output id="depthOut" for="depth">2</output></span>
+              <input id="depth" data-parameter-id="synthesis.depth" type="range" min="0" max="10" step="1" value="2" />
             </label>
 
             <label class="control" for="carrier">
-              <span><b>Carrier</b><output id="carrierOut" for="carrier">66.6 Hz</output></span>
-              <input id="carrier" data-parameter-id="synthesis.carrierHz" type="range" min="0" max="1" step="0.0001" value="0.7934" aria-describedby="carrierNote" />
+              <span><b>Carrier pitch</b><output id="carrierOut" for="carrier">188 Hz</output></span>
+              <input id="carrier" data-parameter-id="synthesis.carrierHz" type="range" min="0" max="1" step="0.0001" value="0.3955914" aria-describedby="carrierNote" />
             </label>
-            <small class="chaotic-am-control-note" id="carrierNote">Logarithmic · 0.001 Hz to 1.2 kHz</small>
+            <small class="chaotic-am-control-note" id="carrierNote">Logarithmic · 40 Hz to 2 kHz · audible carrier</small>
 
             <label class="control" for="modFrequency">
-              <span><b>Starting mod frequency</b><output id="modFrequencyOut" for="modFrequency">40 Hz</output></span>
-              <input id="modFrequency" data-parameter-id="synthesis.startModFrequencyHz" type="range" min="0" max="1" step="0.0001" value="0.8215" aria-describedby="modFrequencyNote" />
+              <span><b>Modulator rate</b><output id="modFrequencyOut" for="modFrequency">40 Hz</output></span>
+              <input id="modFrequency" data-parameter-id="synthesis.startModFrequencyHz" type="range" min="0" max="1" step="0.0001" value="0.5169696" aria-describedby="modFrequencyNote" />
             </label>
-            <small class="chaotic-am-control-note" id="modFrequencyNote">Logarithmic · 0.001 Hz to 400 Hz</small>
+            <small class="chaotic-am-control-note" id="modFrequencyNote">Logarithmic · 0.5 Hz to 2.4 kHz · slow pulses to sidebands</small>
 
             <label class="control" for="frequencyDivisor">
-              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷10</output></span>
-              <input id="frequencyDivisor" data-parameter-id="synthesis.frequencyDivisor" type="range" min="0.001" max="32" step="0.001" value="10" />
+              <span><b>Frequency divisor</b><output id="frequencyDivisorOut" for="frequencyDivisor">÷1.6</output></span>
+              <input id="frequencyDivisor" data-parameter-id="synthesis.frequencyDivisor" type="range" min="0" max="1" step="0.0001" value="0.5593573" aria-describedby="modulationStateNote" />
             </label>
 
             <label class="control" for="amplitudeIndex">
-              <span><b>Starting amplitude index</b><output id="amplitudeIndexOut" for="amplitudeIndex">6.66</output></span>
-              <input id="amplitudeIndex" data-parameter-id="synthesis.startAmplitudeIndex" type="range" min="0" max="64" step="0.001" value="6.66" aria-describedby="amplitudeIndexNote" />
+              <span><b>AM depth</b><output id="amplitudeIndexOut" for="amplitudeIndex">86.9%</output></span>
+              <input id="amplitudeIndex" data-parameter-id="synthesis.startAmplitudeIndex" type="range" min="0" max="0.9846153846153847" step="any" value="0.86945170" aria-describedby="amplitudeIndexNote" />
             </label>
-            <small class="chaotic-am-control-note" id="amplitudeIndexNote">Depth = index ÷ (1 + index) · carrier preserved</small>
+            <small class="chaotic-am-control-note" id="amplitudeIndexNote">Controls the carrier’s amplitude movement from 0 to 98.5%.</small>
 
             <label class="control" for="indexDivisor">
-              <span><b>Index divisor</b><output id="indexDivisorOut" for="indexDivisor">÷6.5</output></span>
-              <input id="indexDivisor" data-parameter-id="synthesis.indexDivisor" type="range" min="0.001" max="32" step="0.001" value="6.5" />
+              <span><b>Depth divisor</b><output id="indexDivisorOut" for="indexDivisor">÷1.25</output></span>
+              <input id="indexDivisor" data-parameter-id="synthesis.indexDivisor" type="range" min="0" max="1" step="0.0001" value="0.6609640" aria-describedby="modulationStateNote" />
             </label>
 
+            <small class="chaotic-am-control-note" id="modulationStateNote">Divisors shape the nested modulators; carrier pitch stays fixed.</small>
+
             <label class="control" for="amplitudeWarp">
-              <span><b>Chaos / amplitude shape</b><output id="amplitudeWarpOut" for="amplitudeWarp">0.512</output></span>
+              <span><b>Chaos / shape</b><output id="amplitudeWarpOut" for="amplitudeWarp">0.512</output></span>
               <input
                 id="amplitudeWarp"
                 data-parameter-id="synthesis.nonlinearity"
@@ -269,24 +260,22 @@
               />
             </label>
             <small class="chaotic-am-control-note chaotic-am-warp-note" id="amplitudeWarpNote">
-              Smooth blends the previous signal with tanh shaping; Saturated applies a stronger continuous tanh curve.
+              Smooth rounds the modulating signal; Saturated creates sharper amplitude shapes.
             </small>
 
             <div class="grammar-card chaotic-am-ledger chaotic-turn-ledger" aria-label="Current bounded Chaotic AM operator model">
-              <span><b>Carrier</b><code id="carrierReadout">66.6 Hz sine</code></span>
-              <span><b>Entry</b><code id="entryReadout">40 Hz · index 6.66 · 86.9% AM</code></span>
-              <span><b>Turns</b><code id="turnsReadout">1: 40 Hz · I 6.66 · drive 5.096</code></span>
+              <span><b>Carrier</b><code id="carrierReadout">188 Hz sine</code></span>
+              <span><b>Modulator</b><code id="entryReadout">40 Hz · index 6.66 · 86.9% AM</code></span>
+              <span><b>Nested rates</b><code id="turnsReadout">40 Hz → 25 Hz</code></span>
               <span><b>Transfer</b><code id="transferReadout">continuous tanh control · k 5.096</code></span>
-              <span><b>Output</b><code id="operatorReadout">operator 1 · 40 Hz · normalized</code></span>
+              <span><b>Output</b><code id="operatorReadout">carrier · 188 Hz · normalized</code></span>
               <span><b>Ceiling</b><code id="ceilingReadout">20 kHz</code></span>
             </div>
 
             <p class="chaotic-am-safety-note">
-              Each turn multiplies its sine carrier by a positive, normalized gain derived
-              from the previous turn. Zero index leaves that carrier unchanged. Chaos shapes
-              the modulator; it never changes oscillator phase or frequency. Live parameters
-              glide, depth and transfer changes crossfade, and the output retains the family's
-              DC blocker, dynamics and soft ceiling.
+              Carrier pitch sets the audible tone. Slow modulators create pulses;
+              faster modulators create sidebands. Recursion nests their amplitude shapes,
+              and Chaos changes those shapes. Zero AM depth leaves a pure carrier sine.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
@@ -313,7 +302,7 @@
               </article>
               <article aria-current="true">
                 <h3>Chaotic AM</h3>
-                <p>Tanh-shaped signal → amplitude. Each turn shapes the next carrier’s gain while preserving its frequency.</p>
+                <p>Nested, tanh-shaped modulators control a positive gain on one audible carrier.</p>
               </article>
             </div>
           </div>
@@ -334,9 +323,9 @@
 
       <p class="sr-only" id="chaoticAmDescription">
         A live non-scrolling log-frequency spectrum and foreground oscilloscope sit above
-        the Chaotic AM turn. The preceding signal is tanh-shaped, mixed by the chaos amount,
-        and sets a positive normalized gain on the next independent sine carrier. Smooth and
-        Saturated use different shaping strengths. The final turn is audible.
+        the Chaotic AM signal flow. Nested modulators are shaped by the Chaos control
+        and set a positive normalized gain on the audible carrier. Smooth and Saturated
+        use different shaping strengths. Carrier pitch is independent of the modulators.
       </p>
       <p class="sr-only" id="liveStatus" aria-live="polite"></p>
     </main>

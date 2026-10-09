@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { chaoticAmPresets, CHAOTIC_AM_PRESET_PERFORMANCE_KEYS } from "./full-presets.js";
 import {
   CHAOTIC_AM_DEFAULTS,
   CHAOTIC_AM_LIMITS,
@@ -26,6 +28,7 @@ import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const VISUAL_FRAME_INTERVAL = 1_000 / 30;
+let presetController = null;
 
 const defaultPreset = CHAOTIC_AM_PRESETS.find(
   ({ id }) => id === DEFAULT_CHAOTIC_AM_PRESET_ID,
@@ -35,7 +38,7 @@ const state = {
   settings: { ...defaultPreset.settings },
   activePresetId: defaultPreset.id,
   output: CHAOTIC_AM_DEFAULTS.output,
-  performance: { ...CHAOTIC_AM_PERFORMANCE_DEFAULTS },
+  performance: { ...CHAOTIC_AM_PERFORMANCE_DEFAULTS, ...defaultPreset.performance },
   expression: 1,
   sustain: false,
   bend: 0,
@@ -105,20 +108,31 @@ const controls = {
   frequencyDivisor: {
     input: $("frequencyDivisor"),
     output: $("frequencyDivisorOut"),
-    read: (input) => Number(input.value),
-    write: (value, input) => { input.value = String(value); },
+    read: (input) => logarithmicChaoticAmValue(Number(input.value),
+      CHAOTIC_AM_LIMITS.minFrequencyDivisor, CHAOTIC_AM_LIMITS.maxFrequencyDivisor),
+    write: (value, input) => {
+      input.value = String(logarithmicChaoticAmPosition(value,
+        CHAOTIC_AM_LIMITS.minFrequencyDivisor, CHAOTIC_AM_LIMITS.maxFrequencyDivisor));
+    },
   },
   startAmplitudeIndex: {
     input: $("amplitudeIndex"),
     output: $("amplitudeIndexOut"),
-    read: (input) => Number(input.value),
-    write: (value, input) => { input.value = String(value); },
+    read: (input) => {
+      const depth = Math.min(64 / 65, Math.max(0, Number(input.value) || 0));
+      return Math.min(64, depth / (1 - depth));
+    },
+    write: (value, input) => { input.value = String(chaoticAmModulationDepth(value)); },
   },
   indexDivisor: {
     input: $("indexDivisor"),
     output: $("indexDivisorOut"),
-    read: (input) => Number(input.value),
-    write: (value, input) => { input.value = String(value); },
+    read: (input) => logarithmicChaoticAmValue(Number(input.value),
+      CHAOTIC_AM_LIMITS.minIndexDivisor, CHAOTIC_AM_LIMITS.maxIndexDivisor),
+    write: (value, input) => {
+      input.value = String(logarithmicChaoticAmPosition(value,
+        CHAOTIC_AM_LIMITS.minIndexDivisor, CHAOTIC_AM_LIMITS.maxIndexDivisor));
+    },
   },
   nonlinearity: {
     input: $("amplitudeWarp"),
@@ -205,7 +219,7 @@ function currentStack() {
 }
 
 function presetById(id) {
-  return CHAOTIC_AM_PRESETS.find((preset) => preset.id === id) ?? null;
+  return chaoticAmPresets.bank.find((preset) => preset.id === id) ?? null;
 }
 
 function announce(message) {
@@ -308,7 +322,8 @@ function isMidiNoteHeld(note) {
 }
 
 function applyPerformanceSettings(settings, { message = null } = {}) {
-  const previousMode = state.performance.playMode;
+  const previous = state.performance;
+  const previousMode = previous.playMode;
   state.performance = { ...sanitizeChaoticAmPerformance({
     ...state.performance,
     ...settings,
@@ -320,6 +335,10 @@ function applyPerformanceSettings(settings, { message = null } = {}) {
     $("midiActivity").textContent = "Waiting for MIDI";
   }
   audio.setPerformanceParameters(state.performance);
+  if (CHAOTIC_AM_PRESET_PERFORMANCE_KEYS.some(key => previous[key] !== state.performance[key])) {
+    state.activePresetId = null;
+    updatePresetPresentation();
+  }
   writePerformanceControls();
   if (message) announce(message);
 }
@@ -418,7 +437,7 @@ function dispatchMidiActionToAudio(action) {
 const sharedMidiMacroTargets = [
   { label: "Depth", input: controls.depth.input },
   { label: "Mod frequency", input: controls.startModFrequencyHz.input },
-  { label: "Amplitude index", input: controls.startAmplitudeIndex.input },
+  { label: "AM depth", input: controls.startAmplitudeIndex.input },
   { label: "Chaos / shape", input: controls.nonlinearity.input },
   { label: "Attack", input: performanceControls.ampAttackMs.input },
   { label: "Release", input: performanceControls.ampReleaseMs.input },
@@ -511,17 +530,12 @@ function compactDrive(value) {
   return formatChaoticAmNumber(value, 3);
 }
 
-function updatePresetButtons() {
-  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.preset === state.activePresetId),
-    );
-  }
+function updatePresetPresentation() {
   const preset = presetById(state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description
-    ?? "A custom stack of recursively shaped amplitude operators.";
+    ?? "A custom carrier with nested amplitude modulation.";
+  presetController?.refresh();
 }
 
 function flowBlock(x, width, title, value, className = "is-warp") {
@@ -536,96 +550,80 @@ function flowBlock(x, width, title, value, className = "is-warp") {
 
 function updateSignalFlow(stack) {
   const flow = $("chaoticAmFlow");
-  const operator = stack.operators[1] ?? null;
-  const finalOperator = stack.operators[stack.audibleIndex];
-  const active = Boolean(operator);
+  const active = stack.actualDepth > 0;
   const saturated = stack.settings.transferMode === "saturated";
-  const index = active ? formatChaoticAmNumber(operator.amplitudeIndex) : "bypassed";
-  const frequency = active ? formatChaoticAmFrequency(operator.frequencyHz) : "no turn";
-  const drive = active ? compactDrive(operator.drive) : "—";
-  const amount = active ? `${(operator.modulationDepth * 100).toFixed(1)}%` : "—";
+  const frequency = formatChaoticAmFrequency(stack.settings.startModFrequencyHz);
+  const carrier = formatChaoticAmFrequency(stack.settings.carrierHz);
+  const amount = `${(chaoticAmModulationDepth(stack.settings.startAmplitudeIndex) * 100).toFixed(1)}%`;
   const repeat = active
-    ? `${stack.actualDepth} ${stack.actualDepth === 1 ? "turn" : "turns"} · f ÷ ${formatChaoticAmNumber(stack.settings.frequencyDivisor)} · I ÷ ${formatChaoticAmNumber(stack.settings.indexDivisor)}`
-    : "0 turns · carrier sine goes directly to output";
+    ? `${stack.actualDepth} nested ${stack.actualDepth === 1 ? "modulator" : "modulators"} · frequency ÷ ${formatChaoticAmNumber(stack.settings.frequencyDivisor)} · depth index ÷ ${formatChaoticAmNumber(stack.settings.indexDivisor)}`
+    : "Modulation bypassed · carrier sine goes directly to output";
 
-  flow.dataset.pathLabel = "LIVE TURN · PREVIOUS → TANH → CHAOS MIX → 1 + DEPTH × SIGNAL → × SINE → NORMALIZE";
+  flow.dataset.pathLabel = "NESTED MODULATORS → NONLINEAR SHAPE → POSITIVE GAIN × CARRIER → AUDIO";
   flow.innerHTML = `
-    <svg class="chaotic-am-flow-detailed" viewBox="0 0 1260 210" preserveAspectRatio="xMinYMid meet" aria-hidden="true">
+    <svg class="chaotic-am-flow-detailed" viewBox="0 0 1020 210" preserveAspectRatio="xMinYMid meet" aria-hidden="true">
       <defs>
         <marker class="chaotic-path-arrow" id="chaoticAmArrow" viewBox="0 0 8 8"
           refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
           <path d="M 0 0 L 8 4 L 0 8 z" />
         </marker>
       </defs>
-
-      <g class="chaotic-path-operator is-seed">
-        <rect x="18" y="91" width="112" height="52" rx="4" />
-        <text class="chaotic-path-title" x="74" y="112">PREVIOUS SINE</text>
-        <text class="chaotic-path-value" x="74" y="129">${formatChaoticAmFrequency(stack.settings.carrierHz)}</text>
-      </g>
-      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 130 117 H 157" />
-      ${flowBlock(162, 90, saturated ? "SATURATED" : "TANH", active ? `k ${drive}` : "—", "is-warp")}
-      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 252 117 H 279" />
-      ${flowBlock(284, 110, "CHAOS MIX", active ? formatChaoticAmNumber(stack.settings.nonlinearity) : "—", "is-warp")}
-      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 394 117 H 421" />
-      ${flowBlock(426, 100, "1 + d × SIGNAL", amount, "is-phase")}
-      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 526 117 H 553" />
-
+      ${flowBlock(18, 160, active ? "NESTED MODULATORS" : "MODULATION BYPASS", active ? frequency : "gain 1", "is-phase")}
+      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 178 117 H 201" />
+      ${flowBlock(208, 110, saturated ? "SATURATED" : "SMOOTH", active ? "tanh shape" : "bypassed", "is-warp")}
+      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 318 117 H 341" />
+      ${flowBlock(348, 120, "CHAOS / SHAPE", active ? formatChaoticAmNumber(stack.settings.nonlinearity) : "bypassed", "is-warp")}
+      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 468 117 H 491" />
+      ${flowBlock(498, 140, "POSITIVE AM GAIN", active ? `${amount} depth` : "unity", "is-phase")}
+      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 638 117 H 706" />
       <g class="chaotic-path-block is-control">
-        <rect x="521" y="35" width="88" height="42" rx="4" />
-        <text class="chaotic-path-title" x="565" y="52">SINE</text>
-        <text class="chaotic-path-value" x="565" y="67">${frequency}</text>
+        <rect x="650" y="35" width="140" height="42" rx="4" />
+        <text class="chaotic-path-title" x="720" y="52">AUDIBLE CARRIER</text>
+        <text class="chaotic-path-value" x="720" y="67">${carrier}</text>
       </g>
-      <path class="chaotic-path-control-wire" marker-end="url(#chaoticAmArrow)" d="M 565 77 V 106" />
+      <path class="chaotic-path-control-wire" marker-end="url(#chaoticAmArrow)" d="M 720 77 V 102" />
       <g class="chaotic-path-junction">
-        <circle cx="565" cy="117" r="10" />
-        <text x="565" y="121">×</text>
+        <circle cx="720" cy="117" r="10" />
+        <text x="720" y="121">×</text>
       </g>
-      <path class="chaotic-path-wire" marker-end="url(#chaoticAmArrow)" d="M 575 117 H 602" />
-      ${flowBlock(607, 90, "÷ (1 + d)", active ? "normalize" : "carrier", "is-phase")}
-      <path class="chaotic-path-audio-wire" marker-end="url(#chaoticAmArrow)" d="M 697 117 H 735" />
-
+      <path class="chaotic-path-audio-wire" marker-end="url(#chaoticAmArrow)" d="M 730 117 H 773" />
       <g class="chaotic-path-output">
-        <rect x="740" y="88" width="170" height="58" rx="4" />
-        <text class="chaotic-path-title" x="825" y="110">FINAL TURN → AUDIO</text>
-        <text class="chaotic-path-value" x="825" y="128">${formatChaoticAmFrequency(finalOperator.frequencyHz)} · ${(stack.normalizedGain * 100).toFixed(0)}%</text>
+        <rect x="780" y="88" width="180" height="58" rx="4" />
+        <text class="chaotic-path-title" x="870" y="110">CARRIER → AUDIO</text>
+        <text class="chaotic-path-value" x="870" y="128">${carrier}</text>
       </g>
-      <path class="chaotic-am-repeat-bracket" d="M 18 164 V 174 H 697 V 164" />
-      <text class="chaotic-am-flow-note" x="18" y="191">${repeat} · carrier-preserving amplitude</text>
+      <text class="chaotic-am-flow-note" x="18" y="191">${repeat}</text>
     </svg>
     <svg class="chaotic-am-flow-compact" viewBox="0 0 380 116" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
-      <g class="chaotic-am-compact-node is-carrier">
-        <rect x="8" y="34" width="70" height="46" rx="3" />
-        <text class="chaotic-am-compact-title" x="43" y="52">CARRIER</text>
-        <text class="chaotic-am-compact-value" x="43" y="68">${formatChaoticAmFrequency(stack.settings.carrierHz)}</text>
-      </g>
-      <text class="chaotic-am-compact-arrow" x="88" y="61">→</text>
       <g class="chaotic-am-compact-node is-phase">
-        <rect x="100" y="34" width="78" height="46" rx="3" />
-        <text class="chaotic-am-compact-title" x="139" y="52">AM ENTRY</text>
-        <text class="chaotic-am-compact-value" x="139" y="68">${frequency} · I ${index}</text>
+        <rect x="8" y="34" width="82" height="46" rx="3" />
+        <text class="chaotic-am-compact-title" x="49" y="52">${active ? `${stack.actualDepth} MODULATORS` : "BYPASS"}</text>
+        <text class="chaotic-am-compact-value" x="49" y="68">${active ? frequency : "gain 1"}</text>
       </g>
-      <text class="chaotic-am-compact-arrow" x="188" y="61">→</text>
+      <text class="chaotic-am-compact-arrow" x="99" y="61">→</text>
       <g class="chaotic-am-compact-node is-warp">
-        <rect x="200" y="34" width="80" height="46" rx="3" />
-        <text class="chaotic-am-compact-title" x="240" y="52">${stack.actualDepth === 0 ? "BYPASS" : `${stack.actualDepth} ${stack.actualDepth === 1 ? "TURN" : "TURNS"}`}</text>
-        <text class="chaotic-am-compact-value" x="240" y="68">${stack.actualDepth === 0 ? "CARRIER TAP" : "TANH CONTROL · AM"}</text>
+        <rect x="112" y="34" width="70" height="46" rx="3" />
+        <text class="chaotic-am-compact-title" x="147" y="52">SHAPE</text>
+        <text class="chaotic-am-compact-value" x="147" y="68">${active ? (saturated ? "SATURATED" : "SMOOTH") : "BYPASSED"}</text>
       </g>
-      <text class="chaotic-am-compact-arrow" x="290" y="61">→</text>
+      <text class="chaotic-am-compact-arrow" x="190" y="61">→</text>
+      <g class="chaotic-am-compact-node is-carrier">
+        <rect x="204" y="34" width="74" height="46" rx="3" />
+        <text class="chaotic-am-compact-title" x="241" y="52">× CARRIER</text>
+        <text class="chaotic-am-compact-value" x="241" y="68">${carrier}</text>
+      </g>
+      <text class="chaotic-am-compact-arrow" x="286" y="61">→</text>
       <g class="chaotic-am-compact-node is-output">
-        <rect x="302" y="34" width="70" height="46" rx="3" />
-        <text class="chaotic-am-compact-title" x="337" y="52">AUDIO</text>
-        <text class="chaotic-am-compact-value" x="337" y="68">OP ${stack.audibleIndex} · ${formatChaoticAmFrequency(finalOperator.frequencyHz)}</text>
+        <rect x="300" y="34" width="72" height="46" rx="3" />
+        <text class="chaotic-am-compact-title" x="336" y="52">AUDIO</text>
+        <text class="chaotic-am-compact-value" x="336" y="68">${active ? `${amount} AM` : "PURE SINE"}</text>
       </g>
-      <text class="chaotic-am-compact-caption" x="8" y="101">PREVIOUS → TANH → BIASED GAIN × SINE → NORMALIZE</text>
+      <text class="chaotic-am-compact-caption" x="8" y="101">NESTED MODULATORS → POSITIVE GAIN × CARRIER</text>
     </svg>
   `;
-  flow.setAttribute(
-    "aria-label",
-    active
-      ? `Live ${saturated ? "Saturated" : "Smooth"} Chaotic AM turn. The previous signal is tanh-shaped with drive ${drive}, mixed by chaos ${formatChaoticAmNumber(stack.settings.nonlinearity)}, and sets a positive amplitude multiplier at depth ${amount} on an independent ${frequency} sine. The gain is normalized by one plus depth. The path repeats for ${stack.actualDepth} turns; the final ${formatChaoticAmFrequency(finalOperator.frequencyHz)} carrier remains audible.`
-      : `Chaotic AM depth is zero. The ${formatChaoticAmFrequency(stack.settings.carrierHz)} carrier sine bypasses the nonlinear turn and reaches normalized audio directly.`,
-  );
+  flow.setAttribute("aria-label", active
+    ? `${stack.actualDepth} nested modulators starting at ${frequency} shape a positive amplitude gain with ${amount} AM depth and ${saturated ? "saturated" : "smooth"} nonlinear shaping. This gain multiplies the audible ${carrier} carrier. Frequency division changes the modulators; the carrier pitch remains ${carrier}.`
+    : `Chaotic AM modulation is bypassed. The ${carrier} carrier sine reaches audio directly.`);
 }
 
 function updateControlOutputs(stack = currentStack()) {
@@ -633,31 +631,27 @@ function updateControlOutputs(stack = currentStack()) {
   const saturated = settings.transferMode === "saturated";
   const finalOperator = stack.operators[stack.audibleIndex];
   const finalFrequency = formatChaoticAmFrequency(finalOperator.frequencyHz);
-  const finalBand = finalOperator.frequencyHz < 20 ? " · sub-audio" : "";
   controls.depth.output.textContent = String(settings.depth);
   controls.carrierHz.output.textContent = formatChaoticAmFrequency(settings.carrierHz);
   controls.startModFrequencyHz.output.textContent = formatChaoticAmFrequency(
     settings.startModFrequencyHz,
   );
   controls.frequencyDivisor.output.textContent = `÷${formatChaoticAmNumber(settings.frequencyDivisor)}`;
-  controls.startAmplitudeIndex.output.textContent = formatChaoticAmNumber(settings.startAmplitudeIndex);
+  controls.startAmplitudeIndex.output.textContent = `${(chaoticAmModulationDepth(settings.startAmplitudeIndex) * 100).toFixed(1)}%`;
+  controls.startAmplitudeIndex.input.setAttribute("aria-valuetext", controls.startAmplitudeIndex.output.textContent);
   controls.indexDivisor.output.textContent = `÷${formatChaoticAmNumber(settings.indexDivisor)}`;
   controls.nonlinearity.output.textContent = formatChaoticAmNumber(settings.nonlinearity);
   $("outputOut").textContent = `${Math.round(state.output * 100)}%`;
 
   const summary = summarizeChaoticAmStack(stack);
-  const bound = stack.boundedByFrequency
-    ? " · frequency bounded"
-    : (stack.boundedByIndex ? " · index bounded" : "");
+  const bound = stack.boundedByFrequency ? " · modulation bandwidth limited" : "";
   $("algorithmState").textContent = stack.actualDepth === 0
-    ? `${saturated ? "Saturated" : "Smooth"} · 0 turns · carrier ${finalFrequency}${finalBand}`
-    : `${saturated ? "Saturated" : "Smooth"} · ${stack.actualDepth} ${stack.actualDepth === 1 ? "turn" : "turns"} · final ${finalFrequency}${finalBand}${bound}`;
+    ? `${saturated ? "Saturated" : "Smooth"} · 0 turns · carrier ${finalFrequency}`
+    : `${saturated ? "Saturated" : "Smooth"} · ${stack.actualDepth} ${stack.actualDepth === 1 ? "modulator" : "modulators"} · carrier ${finalFrequency}${bound}`;
   $("carrierReadout").textContent = `${formatChaoticAmFrequency(settings.carrierHz)} sine`;
   $("entryReadout").textContent = `${formatChaoticAmFrequency(settings.startModFrequencyHz)} · index ${formatChaoticAmNumber(settings.startAmplitudeIndex)} · ${(chaoticAmModulationDepth(settings.startAmplitudeIndex) * 100).toFixed(1)}% AM`;
 
-  const amplitudeOperators = stack.operators.filter(
-    (operator) => operator.kind === "chaotic-amplitude-operator",
-  );
+  const amplitudeOperators = stack.operators.slice(1);
   $("turnsReadout").textContent = amplitudeOperators.length > 0
     ? amplitudeOperators.map(
       (operator) => (
@@ -669,10 +663,22 @@ function updateControlOutputs(stack = currentStack()) {
     : "none · carrier sine is audible";
   $("transferMode").value = settings.transferMode;
   $("transferMode").dataset.parameterId = CHAOTIC_AM_PARAMETER_IDS.transferMode;
-  $("amplitudeIndexNote").textContent = "Depth = index ÷ (1 + index) · carrier preserved";
+  $("amplitudeIndexNote").textContent = "Controls the carrier’s amplitude movement from 0 to 98.5%.";
+  for (const key of ["startModFrequencyHz", "startAmplitudeIndex", "nonlinearity", "frequencyDivisor", "indexDivisor"]) {
+    const needsTwoModulators = key === "frequencyDivisor" || key === "indexDivisor";
+    const disabled = stack.actualDepth < (needsTwoModulators ? 2 : 1);
+    controls[key].input.disabled = disabled;
+    controls[key].input.closest(".control")?.classList.toggle("is-bypassed", disabled);
+  }
+  $("transferMode").disabled = stack.actualDepth === 0;
+  $("modulationStateNote").textContent = stack.actualDepth === 0
+    ? "Modulation bypassed. Raise recursion depth to shape the carrier."
+    : stack.actualDepth === 1
+      ? "One modulator. Both divisors take effect from two modulators onward."
+      : "Divisors shape the nested modulators; carrier pitch stays fixed.";
   const maximumDrive = saturated ? 32 : 9;
   $("transferReadout").textContent = `${saturated ? "saturated" : "smooth"} tanh control · k ${formatChaoticAmNumber(1 + settings.nonlinearity * (maximumDrive - 1))}`;
-  $("operatorReadout").textContent = `operator ${stack.audibleIndex} · ${finalFrequency}${finalBand} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
+  $("operatorReadout").textContent = `carrier · ${finalFrequency} · ${(stack.normalizedGain * 100).toFixed(0)}% normalized`;
   $("ceilingReadout").textContent = formatChaoticAmFrequency(settings.maximumFrequencyHz);
 
   updateSignalFlow(stack);
@@ -709,7 +715,7 @@ function applySettings(settings, { presetId = null, announceChange = false } = {
   state.activePresetId = presetId;
   writeControlsFromState();
   const stack = audio.updateSettings(state.settings);
-  updatePresetButtons();
+  updatePresetPresentation();
   updateControlOutputs(stack);
   visualizationDirty = true;
   scheduleVisualization();
@@ -880,17 +886,6 @@ $("transferMode").addEventListener("change", () => {
   );
 });
 
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (!button) return;
-  const preset = presetById(button.dataset.preset);
-  if (!preset) return;
-  clearError();
-  applySettings(preset.settings, {
-    presetId: preset.id,
-    announceChange: true,
-  });
-});
 
 $("output").addEventListener("input", () => {
   state.output = Number($("output").value);
@@ -907,6 +902,7 @@ $("resetChaoticAm").addEventListener("click", () => {
   state.output = CHAOTIC_AM_DEFAULTS.output;
   state.performance = {
     ...CHAOTIC_AM_PERFORMANCE_DEFAULTS,
+    ...defaultPreset.performance,
     playMode: state.midiActive ? "midi" : "drone",
   };
   clearMidiMonitorState();
@@ -967,7 +963,19 @@ window.addEventListener("keydown", (event) => {
 writeControlsFromState();
 writePerformanceControls();
 registerSharedMidiClient();
-updatePresetButtons();
+updatePresetPresentation();
 updateControlOutputs();
 beginResizeObservation();
 resizeCanvas();
+
+
+presetController = registerHeaderPresets({
+  id: "chaotic-am", presets: chaoticAmPresets.bank,
+  capture: () => chaoticAmPresets.capture(state),
+  randomize: chaoticAmPresets.randomize,
+  apply(raw) {
+    const snapshot = chaoticAmPresets.validate(raw);
+    applyPerformanceSettings(snapshot.performance);
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });
+  },
+});
