@@ -1,0 +1,195 @@
+{
+  "baseCommit": "3022fbd3c04ae97899c5f063ebd1b1982f318ab1",
+  "changes": [
+    {
+      "file": "src/instruments/recursive-am/recursive-am-app.js",
+      "sha256": "6ca442db293d931490f940abfc179ec434c7d217b1809162bbae7955d30eac2d",
+      "replacements": [
+        {
+          "before": "import {\n",
+          "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { recursiveAmPresets } from \"./full-presets.js\";\nimport {\n"
+        },
+        {
+          "before": "const DEFAULT_LEVEL = 0.58;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\n",
+          "after": "const DEFAULT_LEVEL = 0.58;\nlet presetController = null;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\n"
+        },
+        {
+          "before": "function presetById(id) {\n  return RECURSIVE_AM_PRESETS.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetButtons() {\n  for (const button of $(\"presetButtons\").querySelectorAll(\"[data-preset]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n      String(button.dataset.preset === state.activePresetId),\n    );\n  }\n  const preset = presetById(state.activePresetId);\n",
+          "after": "function presetById(id) {\n  return recursiveAmPresets.bank.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetPresentation() {\n  const preset = presetById(state.activePresetId);\n"
+        },
+        {
+          "before": "    ?? \"A custom recursive amplitude-operator stack.\";\n}\n",
+          "after": "    ?? \"A custom recursive amplitude-operator stack.\";\n  presetController?.refresh();\n}\n"
+        },
+        {
+          "before": "    : currentStack();\n  updatePresetButtons();\n  updateControlOutputs(stack);\n",
+          "after": "    : currentStack();\n  updatePresetPresentation();\n  updateControlOutputs(stack);\n"
+        },
+        {
+          "before": "    };\n    if (event.key === \"ampSustainLevel\") {\n",
+          "after": "    };\n    state.activePresetId = null;\n    updatePresetPresentation();\n    if (event.key === \"ampSustainLevel\") {\n"
+        },
+        {
+          "before": "    };\n    if (name === \"rootMidiNote\"\n",
+          "after": "    };\n    state.activePresetId = null;\n    updatePresetPresentation();\n    if (name === \"rootMidiNote\"\n"
+        },
+        {
+          "before": "  };\n  writePerformanceControls();\n});\n\n$(\"presetButtons\").addEventListener(\"click\", (event) => {\n  const button = event.target.closest(\"[data-preset]\");\n  if (!button) return;\n  const preset = presetById(button.dataset.preset);\n  if (!preset) return;\n  clearError();\n  applySettings(preset.settings, { presetId: preset.id, announce: true });\n});\n",
+          "after": "  };\n  state.activePresetId = null;\n  updatePresetPresentation();\n  writePerformanceControls();\n});\n"
+        },
+        {
+          "before": "registerSharedMidiClient();\nupdatePresetButtons();\nupdateControlOutputs();\n",
+          "after": "registerSharedMidiClient();\nupdatePresetPresentation();\nupdateControlOutputs();\n"
+        },
+        {
+          "before": "resizeCanvas();\n",
+          "after": "resizeCanvas();\n\npresetController = registerHeaderPresets({\n  id: \"recursive-am\", presets: recursiveAmPresets.bank,\n  capture: () => recursiveAmPresets.capture(state),\n  randomize: recursiveAmPresets.randomize,\n  apply: (raw) => {\n    // Validate the whole snapshot before changing either synthesis or envelopes.\n    const snapshot = recursiveAmPresets.validate(raw);\n    const previous = state.performance;\n    state.performance = { ...sanitizeRecursiveAmPerformance({\n      ...snapshot.performance, playMode: previous.playMode,\n    }) };\n    // Retune held notes only when their mapping changes; never retrigger a gate.\n    if (previous.rootMidiNote !== state.performance.rootMidiNote) {\n      for (const event of midiPerformance.setRootMidiNote(state.performance.rootMidiNote)) applyMidiPerformanceEvent(event);\n    }\n    if (previous.pitchBendRangeSemitones !== state.performance.pitchBendRangeSemitones) {\n      for (const event of midiPerformance.setPitchBendRange(state.performance.pitchBendRangeSemitones)) applyMidiPerformanceEvent(event);\n    }\n    if (previous.ampSustainLevel !== state.performance.ampSustainLevel) engine.setSustainLevel(state.performance.ampSustainLevel);\n    writePerformanceControls();\n    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });\n  },\n});\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/recursive-fm/recursive-fm-app.js",
+      "sha256": "8c7920123ce5f13ab530edc89b9cc2068f916396bc9b979858355d39355bee83",
+      "replacements": [
+        {
+          "before": "import {\n  DEFAULT_RECURSIVE_FM_PRESET_ID,\n  RECURSIVE_FM_LIMITS,\n",
+          "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { recursiveFmPresets } from \"./full-presets.js\";\nimport {\n  DEFAULT_RECURSIVE_FM_PRESET_ID,\n  RECURSIVE_FM_LIMITS,\n"
+        },
+        {
+          "before": "\nconst $ = (id) => document.getElementById(id);\nconst DEFAULT_LEVEL = 0.58;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\nconst PARAMETER_SMOOTHING_SECONDS = 0.018;\n\n",
+          "after": "\nconst $ = (id) => document.getElementById(id);\nconst DEFAULT_LEVEL = 0.58;\nlet presetController = null;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\nconst PARAMETER_SMOOTHING_SECONDS = 0.018;\n\n"
+        },
+        {
+          "before": "    if (!this.context) return deriveRecursiveFmStack(settings);\n\n    const context = this.context;\n    const releaseAudioOutput = this.releaseAudioOutput;\n    const stack = deriveRecursiveFmStack(settings, { sampleRate: context.sampleRate });\n    this.settings = stack.settings;\n    const maximumStack = deriveRecursiveFmStack({\n",
+          "after": "    if (!this.context) return deriveRecursiveFmStack(settings);\n\n    const context = this.context;\n    const stack = deriveRecursiveFmStack(settings, { sampleRate: context.sampleRate });\n    this.settings = stack.settings;\n    const maximumStack = deriveRecursiveFmStack({\n"
+        },
+        {
+          "before": "    if (!this.context || this.stopping) return;\n    this.stopping = true;\n    const context = this.context;\n    const oscillators = [...this.oscillators];\n    const nodes = [...this.nodes];\n    this.releaseAudioOutput = null;\n",
+          "after": "    if (!this.context || this.stopping) return;\n    this.stopping = true;\n    const context = this.context;\n    const releaseAudioOutput = this.releaseAudioOutput;\n    const oscillators = [...this.oscillators];\n    const nodes = [...this.nodes];\n    this.releaseAudioOutput = null;\n"
+        },
+        {
+          "before": "        ...state.performance,\n        [semantic.key]: semantic.value,\n      }) };\n    } else if (semantic?.type === \"expression\" && performanceActive) {\n      state.expression = semantic.value;\n    } else if (semantic?.type === \"sustain\" && performanceActive) {\n",
+          "after": "        ...state.performance,\n        [semantic.key]: semantic.value,\n      }) };\n      state.activePresetId = null;\n      updatePresetPresentation();\n    } else if (semantic?.type === \"expression\" && performanceActive) {\n      state.expression = semantic.value;\n    } else if (semantic?.type === \"sustain\" && performanceActive) {\n"
+        },
+        {
+          "before": "}\n\nfunction presetById(id) {\n  return RECURSIVE_FM_PRESETS.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetButtons() {\n  for (const button of $(\"presetButtons\").querySelectorAll(\"[data-preset]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n      String(button.dataset.preset === state.activePresetId),\n    );\n  }\n  const preset = presetById(state.activePresetId);\n  $(\"presetState\").textContent = preset?.label ?? \"Custom\";\n  $(\"presetDescription\").textContent = preset?.description\n    ?? \"A custom recursive operator stack.\";\n}\n\nfunction updateSignalFlow(stack) {\n",
+          "after": "}\n\nfunction presetById(id) {\n  return recursiveFmPresets.bank.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetPresentation() {\n  const preset = presetById(state.activePresetId);\n  $(\"presetState\").textContent = preset?.label ?? \"Custom\";\n  $(\"presetDescription\").textContent = preset?.description\n    ?? \"A custom recursive operator stack.\";\n  presetController?.refresh();\n}\n\nfunction updateSignalFlow(stack) {\n"
+        },
+        {
+          "before": "}\n\nfunction applyPerformanceSettings(settings, { message = null } = {}) {\n  state.performance = { ...sanitizeRecursiveFmPerformance({\n    ...state.performance,\n    ...settings,\n  }) };\n  engine.updatePerformance(state.performance);\n  writePerformanceControls();\n  updateControlOutputs();\n  if (message) $(\"liveStatus\").textContent = message;\n",
+          "after": "}\n\nfunction applyPerformanceSettings(settings, { message = null } = {}) {\n  const previous = recursiveFmPresets.capture(state).performance;\n  state.performance = { ...sanitizeRecursiveFmPerformance({\n    ...state.performance,\n    ...settings,\n  }) };\n  engine.updatePerformance(state.performance);\n  if (Object.keys(previous).some(key => previous[key] !== state.performance[key])) state.activePresetId = null;\n  updatePresetPresentation();\n  writePerformanceControls();\n  updateControlOutputs();\n  if (message) $(\"liveStatus\").textContent = message;\n"
+        },
+        {
+          "before": "  const stack = engine.running\n    ? engine.updateSettings(state.settings)\n    : currentStack();\n  updatePresetButtons();\n  updateControlOutputs(stack);\n  visualizationDirty = true;\n  scheduleVisualization();\n",
+          "after": "  const stack = engine.running\n    ? engine.updateSettings(state.settings)\n    : currentStack();\n  updatePresetPresentation();\n  updateControlOutputs(stack);\n  visualizationDirty = true;\n  scheduleVisualization();\n"
+        },
+        {
+          "before": "  );\n});\n\n$(\"presetButtons\").addEventListener(\"click\", (event) => {\n  const button = event.target.closest(\"[data-preset]\");\n  if (!button) return;\n  const preset = presetById(button.dataset.preset);\n  if (!preset) return;\n  clearError();\n  applySettings(preset.settings, { presetId: preset.id, announce: true });\n});\n\n$(\"level\").addEventListener(\"input\", () => {\n  state.level = Number($(\"level\").value);\n  $(\"levelOut\").textContent = `${Math.round(state.level * 100)}%`;\n",
+          "after": "  );\n});\n\n$(\"level\").addEventListener(\"input\", () => {\n  state.level = Number($(\"level\").value);\n  $(\"levelOut\").textContent = `${Math.round(state.level * 100)}%`;\n"
+        },
+        {
+          "before": "\nwriteControlsFromState();\nwritePerformanceControls();\nupdatePresetButtons();\nupdateControlOutputs();\nresizeCanvas();\nregisterSharedMidiClient();\n",
+          "after": "\nwriteControlsFromState();\nwritePerformanceControls();\nupdatePresetPresentation();\nupdateControlOutputs();\nresizeCanvas();\nregisterSharedMidiClient();\n\npresetController = registerHeaderPresets({\n  id: \"recursive-fm\", presets: recursiveFmPresets.bank,\n  capture: () => recursiveFmPresets.capture(state),\n  randomize: recursiveFmPresets.randomize,\n  apply: (raw) => {\n    // Validate the whole snapshot before changing either synthesis or envelopes.\n    const snapshot = recursiveFmPresets.validate(raw);\n    applyPerformanceSettings(snapshot.performance);\n    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });\n  },\n});\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/recursive-pm/recursive-pm-app.js",
+      "sha256": "aa18fac75bb4bf69f7b381e40a48d4d55f0b79bd849b9e93b1fdba3b7dc87fbb",
+      "replacements": [
+        {
+          "before": "import {\n",
+          "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { recursivePmPresets } from \"./full-presets.js\";\nimport {\n"
+        },
+        {
+          "before": "const DEFAULT_LEVEL = 0.58;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\n",
+          "after": "const DEFAULT_LEVEL = 0.58;\nlet presetController = null;\nconst VISUAL_FRAME_INTERVAL = 1_000 / 30;\n"
+        },
+        {
+          "before": "function presetById(id) {\n  return RECURSIVE_PM_PRESETS.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetButtons() {\n  for (const button of $(\"presetButtons\").querySelectorAll(\"[data-preset]\")) {\n    button.setAttribute(\n      \"aria-pressed\",\n      String(button.dataset.preset === state.activePresetId),\n    );\n  }\n  const preset = presetById(state.activePresetId);\n",
+          "after": "function presetById(id) {\n  return recursivePmPresets.bank.find((preset) => preset.id === id) ?? null;\n}\n\nfunction updatePresetPresentation() {\n  const preset = presetById(state.activePresetId);\n"
+        },
+        {
+          "before": "    ?? \"A custom recursive phase-operator stack.\";\n}\n",
+          "after": "    ?? \"A custom recursive phase-operator stack.\";\n  presetController?.refresh();\n}\n"
+        },
+        {
+          "before": "    : currentStack();\n  updatePresetButtons();\n  updateControlOutputs(stack);\n",
+          "after": "    : currentStack();\n  updatePresetPresentation();\n  updateControlOutputs(stack);\n"
+        },
+        {
+          "before": "    };\n    if (event.key === \"ampSustainLevel\") {\n",
+          "after": "    };\n    state.activePresetId = null;\n    updatePresetPresentation();\n    if (event.key === \"ampSustainLevel\") {\n"
+        },
+        {
+          "before": "    };\n    if (name === \"rootMidiNote\"\n",
+          "after": "    };\n    state.activePresetId = null;\n    updatePresetPresentation();\n    if (name === \"rootMidiNote\"\n"
+        },
+        {
+          "before": "  };\n  writePerformanceControls();\n});\n\n$(\"presetButtons\").addEventListener(\"click\", (event) => {\n  const button = event.target.closest(\"[data-preset]\");\n  if (!button) return;\n  const preset = presetById(button.dataset.preset);\n  if (!preset) return;\n  clearError();\n  applySettings(preset.settings, { presetId: preset.id, announce: true });\n});\n",
+          "after": "  };\n  state.activePresetId = null;\n  updatePresetPresentation();\n  writePerformanceControls();\n});\n"
+        },
+        {
+          "before": "registerSharedMidiClient();\nupdatePresetButtons();\nupdateControlOutputs();\n",
+          "after": "registerSharedMidiClient();\nupdatePresetPresentation();\nupdateControlOutputs();\n"
+        },
+        {
+          "before": "resizeCanvas();\n",
+          "after": "resizeCanvas();\n\npresetController = registerHeaderPresets({\n  id: \"recursive-pm\", presets: recursivePmPresets.bank,\n  capture: () => recursivePmPresets.capture(state),\n  randomize: recursivePmPresets.randomize,\n  apply: (raw) => {\n    // Validate the whole snapshot before changing either synthesis or envelopes.\n    const snapshot = recursivePmPresets.validate(raw);\n    const previous = state.performance;\n    state.performance = { ...sanitizeRecursivePmPerformance({\n      ...snapshot.performance, playMode: previous.playMode,\n    }) };\n    // Retune held notes only when their mapping changes; never retrigger a gate.\n    if (previous.rootMidiNote !== state.performance.rootMidiNote) {\n      for (const event of midiPerformance.setRootMidiNote(state.performance.rootMidiNote)) applyMidiPerformanceEvent(event);\n    }\n    if (previous.pitchBendRangeSemitones !== state.performance.pitchBendRangeSemitones) {\n      for (const event of midiPerformance.setPitchBendRange(state.performance.pitchBendRangeSemitones)) applyMidiPerformanceEvent(event);\n    }\n    if (previous.ampSustainLevel !== state.performance.ampSustainLevel) engine.setSustainLevel(state.performance.ampSustainLevel);\n    writePerformanceControls();\n    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });\n  },\n});\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/recursive-am.html",
+      "sha256": "ea577dd113f728914b49c58cff00bbfea10c51a91c7143686e9089397d39fb4b",
+      "replacements": [
+        {
+          "before": "\n      <aside class=\"panel recursive-am-panel\" aria-label=\"Recursive AM controls\">\n        <details class=\"group control-section recursive-am-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Character</h2>\n            <span class=\"section-state\" id=\"presetState\">Chromium Swarm</span>\n",
+          "after": "\n      <aside class=\"panel recursive-am-panel\" data-instrument-preset-host aria-label=\"Recursive AM controls\">\n        <details class=\"group control-section recursive-am-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Preset guide</h2>\n            <span class=\"section-state\" id=\"presetState\">Chromium Swarm</span>\n"
+        },
+        {
+          "before": "          <div class=\"group-body\">\n            <div class=\"recursive-am-preset-grid\" id=\"presetButtons\" role=\"group\" aria-label=\"Recursive AM presets\">\n              <button type=\"button\" data-preset=\"low-orbit\" aria-pressed=\"false\">Low Orbit</button>\n              <button type=\"button\" data-preset=\"chromium-swarm\" aria-pressed=\"true\">Chromium Swarm</button>\n              <button type=\"button\" data-preset=\"glass-rotor\" aria-pressed=\"false\">Glass Rotor</button>\n              <button type=\"button\" data-preset=\"brass-fold\" aria-pressed=\"false\">Brass Fold</button>\n              <button type=\"button\" data-preset=\"slow-fracture\" aria-pressed=\"false\">Slow Fracture</button>\n            </div>\n            <p class=\"recursive-am-preset-description\" id=\"presetDescription\">\n",
+          "after": "          <div class=\"group-body\">\n            <p class=\"recursive-am-preset-description\" id=\"presetDescription\">\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/recursive-fm.html",
+      "sha256": "60d9a8cca75e52872bdd5e7f1bf0c408aa10ddf94710b3ffec9fae4824c520b3",
+      "replacements": [
+        {
+          "before": "\n      <aside class=\"panel recursive-fm-panel\" aria-label=\"Recursive FM controls\">\n        <details class=\"group control-section recursive-fm-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Character</h2>\n            <span class=\"section-state\" id=\"presetState\">Deep Well</span>\n",
+          "after": "\n      <aside class=\"panel recursive-fm-panel\" data-instrument-preset-host aria-label=\"Recursive FM controls\">\n        <details class=\"group control-section recursive-fm-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Preset guide</h2>\n            <span class=\"section-state\" id=\"presetState\">Deep Well</span>\n"
+        },
+        {
+          "before": "          <div class=\"group-body\">\n            <div class=\"recursive-fm-preset-grid\" id=\"presetButtons\" role=\"group\" aria-label=\"Recursive FM presets\">\n              <button type=\"button\" data-preset=\"seed-pulse\" aria-pressed=\"false\">Seed Pulse</button>\n              <button type=\"button\" data-preset=\"deep-well\" aria-pressed=\"true\">Deep Well</button>\n              <button type=\"button\" data-preset=\"glass-lattice\" aria-pressed=\"false\">Glass Lattice</button>\n              <button type=\"button\" data-preset=\"undertow\" aria-pressed=\"false\">Undertow</button>\n              <button type=\"button\" data-preset=\"high-window\" aria-pressed=\"false\">High Window</button>\n              <button type=\"button\" data-preset=\"bent-brass\" aria-pressed=\"false\">Bent Brass</button>\n            </div>\n            <p class=\"recursive-fm-preset-description\" id=\"presetDescription\">\n",
+          "after": "          <div class=\"group-body\">\n            <p class=\"recursive-fm-preset-description\" id=\"presetDescription\">\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/recursive-pm.html",
+      "sha256": "98f654e4f3682310f68268c1236cd4738a9dfcb20f55b556797b57340f078072",
+      "replacements": [
+        {
+          "before": "\n      <aside class=\"panel recursive-pm-panel\" aria-label=\"Recursive PM controls\">\n        <details class=\"group control-section recursive-pm-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Character</h2>\n            <span class=\"section-state\" id=\"presetState\">Chromium Swarm</span>\n",
+          "after": "\n      <aside class=\"panel recursive-pm-panel\" data-instrument-preset-host aria-label=\"Recursive PM controls\">\n        <details class=\"group control-section recursive-pm-presets\" open>\n          <summary class=\"group-summary\">\n            <h2 class=\"group-title\">Preset guide</h2>\n            <span class=\"section-state\" id=\"presetState\">Chromium Swarm</span>\n"
+        },
+        {
+          "before": "          <div class=\"group-body\">\n            <div class=\"recursive-pm-preset-grid\" id=\"presetButtons\" role=\"group\" aria-label=\"Recursive PM presets\">\n              <button type=\"button\" data-preset=\"low-orbit\" aria-pressed=\"false\">Low Orbit</button>\n              <button type=\"button\" data-preset=\"chromium-swarm\" aria-pressed=\"true\">Chromium Swarm</button>\n              <button type=\"button\" data-preset=\"glass-rotor\" aria-pressed=\"false\">Glass Rotor</button>\n              <button type=\"button\" data-preset=\"brass-fold\" aria-pressed=\"false\">Brass Fold</button>\n              <button type=\"button\" data-preset=\"slow-fracture\" aria-pressed=\"false\">Slow Fracture</button>\n            </div>\n            <p class=\"recursive-pm-preset-description\" id=\"presetDescription\">\n",
+          "after": "          <div class=\"group-body\">\n            <p class=\"recursive-pm-preset-description\" id=\"presetDescription\">\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/wax/wax-universal-adapter.js",
+      "sha256": "b79a560f8dae350e0dc976198f0db95b5a4704c72ccfd5591ca70c4f81de5a54",
+      "replacements": [
+        {
+          "before": "function choosePreset(documentObject, runtime, index) {\n  const select = documentObject.querySelector?.(\n",
+          "after": "function choosePreset(documentObject, runtime, index) {\n  // Full-preset rows exclude the adjacent Next and Random actions and take\n  // precedence over independent sub-preset selects.\n  const fullPresets = [...(documentObject.querySelectorAll?.(\"[data-full-preset]\") || [])];\n  if (fullPresets.length) {\n    fullPresets[index % fullPresets.length]?.click?.();\n    return true;\n  }\n  const select = documentObject.querySelector?.(\n"
+        }
+      ]
+    }
+  ]
+}

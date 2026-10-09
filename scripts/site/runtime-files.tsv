@@ -1770,3 +1770,8 @@ copy+require	src/instruments/recursive-am/recursive-am-midi.js
 copy+require	src/instruments/cascading-am/presets.js
 copy+require	src/instruments/cascading-am/full-presets.js
 copy+require	docs/am-instruments.md
+copy+require	src/instruments/recursive-am/full-presets.js
+copy+require	src/instruments/recursive-fm/full-presets.js
+copy+require	src/instruments/recursive-pm/full-presets.js
+copy+require	src/families/recursive/full-presets.js
+copy+require	src/families/recursive/preset-voicings.js

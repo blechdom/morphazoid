@@ -26,7 +26,7 @@ the incoming signal never changes an oscillator’s phase increment or phase.
 | Instrument | Preserved structure | AM interpretation |
 | --- | --- | --- |
 | Cascading AM | 2–12 stages, root frequency, rising/equal/falling cascade ratio, taper, twelve rhythm presets | Each stage’s output modulates the next sine’s amplitude. Modulation depth sets the first connection; depth taper changes subsequent connections. |
-| Recursive AM | Recursion depth, carrier, starting modulation frequency, frequency divisor, index divisor, five presets | Each recursive turn uses the preceding output as its biased amplitude modulator. AM index maps to depth as `index / (1 + index)`. |
+| Recursive AM | Recursion depth, carrier, starting modulation frequency, frequency divisor, index divisor, twelve presets | Each recursive turn uses the preceding output as its biased amplitude modulator. AM index maps to depth as `index / (1 + index)`. |
 | Chaotic AM | Recursive frequency/index ladders, nonlinear amount, transfer choice, eight presets, MIDI performance controls | A bounded nonlinear transfer shapes the incoming amplitude modulator before each multiplication. AM index also maps to `index / (1 + index)`. |
 
 Cascading’s depth taper scales modulation strength in index space, then converts
@@ -42,7 +42,7 @@ tremolo into a steady timbre as well as raising pitch. Random scenes also produc
 immediate rhythmic or audio-rate AM sounds. Chaotic retains its
 original calibrated settings and reinterprets the index as AM strength.
 
-Recursive keeps its five preset identities and recursion depths, with translated
+Recursive keeps its five original preset identities and recursion depths, with translated
 frequency and modulation settings for AM. Several original PM presets relied
 on broad phase-modulation sidebands while their final oscillators were below
 20 Hz. Copying those frequencies into bounded AM made them nearly inaudible.
@@ -70,6 +70,15 @@ Preset recall preserves Audio and master output; preset changes do not add a
 second audio owner. Cascading AM corrects its sibling’s preset-level reset so a
 manually adjusted master output stays put. Audio begins off, and page departure
 releases the audio graph.
+
+Recursive AM, FM and PM now each have twelve complete presets in the shared
+pulldown, with Next and dice controls. Existing preset IDs, order and synthesis
+settings are retained. New scenes cover pulsed, harmonic and metallic sounds
+with immediate onset. Dice varies every synthesis and envelope/glide parameter
+within bounded, audible-oriented ranges. Manual edits and MIDI CC changes mark
+the sound Custom. Recall includes ADSR, glide, root note and bend range; Audio,
+master level, drone/MIDI mode, devices, held notes, pedal and live bend/expression
+remain under the performer's control.
 
 ## Scope and evidence
 

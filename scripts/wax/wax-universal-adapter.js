@@ -208,6 +208,13 @@ function dispatchMidiEvent(runtime, message) {
 }
 
 function choosePreset(documentObject, runtime, index) {
+  // Full-preset rows exclude the adjacent Next and Random actions and take
+  // precedence over independent sub-preset selects.
+  const fullPresets = [...(documentObject.querySelectorAll?.("[data-full-preset]") || [])];
+  if (fullPresets.length) {
+    fullPresets[index % fullPresets.length]?.click?.();
+    return true;
+  }
   const select = documentObject.querySelector?.(
     "select[id*='preset' i], select[name*='preset' i], select[id*='program' i]",
   );
