@@ -767,6 +767,150 @@ test('a declined explicit warm capacity test keeps the live tree, source and DSP
   await cleanup(page, evidence);
 });
 
+test('a tiny scene capacity test preserves the measured fallback for a later declined dense preset', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, rejectSceneAbove: 32,
+    fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page);
+  const dense = await applyDense(page, 'classic');
+  const small = { ...dense, parameters: { ...dense.parameters, generations: 1 } };
+  await page.evaluate(scene => __deviceQa.applyScene(scene), small);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const before = await diagnostics(page), initial = await session(page);
+  expect(before.deviceCapacity.preparedCapacity).toBe(32); expect(before.preparedVoices).toBe(2);
+  expect(before.userCapacityBudget).toBe(0); expect(before.status.targetVoices).toBe(2);
+  await startPcm(page);
+  let recording, tiny, fallback, denseCommit;
+  try {
+    await page.evaluate(() => { __deviceRuntime.phase = 'tiny-capacity-128'; });
+    await native(page, 'capacityBudget', 128); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 128 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); tiny = await diagnostics(page);
+    expect(tiny.capacityTest.voices).toBe(2); expect(tiny.capacityTest.proved).toBe(true);
+    expect(tiny.userCapacityBudget).toBe(128); expect(tiny.preparedVoices).toBe(2);
+    expect(tiny.deviceCapacity.preparedCapacity).toBe(32, 'testing two voices must not erase the existing dense-scene fallback');
+    await expect.poll(async () => (await performancePanelSnapshot(page)).measured).toBe(2);
+    await page.evaluate(() => { __deviceRuntime.phase = 'dense-capacity-128-fallback'; });
+    await page.evaluate(scene => __deviceQa.applyScene(scene), dense);
+    await settledControls(page); await completeDraw(page); fallback = await diagnostics(page);
+    expect(fallback.parameters).toEqual(dense.parameters); expect(fallback.userCapacityBudget).toBe(128);
+    expect(fallback.preparedVoices).toBe(32); expect(fallback.eligibleVoices).toBe(32);
+    expect(fallback.deviceCapacity.preparedCapacity).toBe(32);
+    expect(fallback.sceneMeasurement?.voices).toBe(128); expect(fallback.sceneMeasurement?.load).toBe(1.25);
+    expect(fallback.sceneMeasurement?.proved).toBe(false); expect(fallback.capacityFailure).toBeTruthy();
+    expect(fallback.capacityTest).toBeNull();
+    expect(fallback.performance).toEqual(before.performance);
+    denseCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'dense-capacity-128-fallback'));
+    expect(denseCommit).toHaveLength(1);
+    expect(denseCommit[0].ackStatus.requestedTargets).toBe(32);
+    expect(denseCommit[0].ackStatus.targetVoices).toBe(32);
+    expect(denseCommit[0].ackStatus.voiceLimit).toBe(32);
+    expect(denseCommit[0].ackStatus.activeVoiceIndices).toHaveLength(denseCommit[0].ackStatus.activeVoices);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 32 && p.measured === 32 && /128/.test(p.capacityStatus) && /125/.test(p.capacityStatus);
+    }).toBe(true);
+    const counts = await controlCounts(page), clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 2);
+    expect(await controlCounts(page)).toEqual(counts);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect(current.time).toBeGreaterThan(initial.time);
+  await test.info().attach('tiny-proof-retains-dense-fallback', { body: JSON.stringify({ before, tiny, fallback, denseCommit,
+    ...recording, actualWasm: true, actualMediaStreamInput: true, initialCalibrationBound: 32,
+    workerProbeTimingInjected: true, injectedWorkerProbeLoad: 1.25, liveAudioMetricsInjected: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
+});
+
+test('a manual overload trial reports unproved capacity and Auto budget recovers without restarting playback', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, rejectSceneAbove: 32,
+    fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const before = await diagnostics(page), initial = await session(page), musicalScene = await page.evaluate(() => __deviceQa.scene());
+  await expect(page.locator('#autoCapacity')).toBeHidden();
+  await startPcm(page);
+  let recording, manual, recovered, manualCommit, recoveryCommit;
+  try {
+    await native(page, 'automatic', false);
+    await expect.poll(async () => (await diagnostics(page)).performance.automatic).toBe(false);
+    await settledControls(page);
+    await page.evaluate(() => { __deviceRuntime.phase = 'manual-unproved-64'; });
+    await native(page, 'capacityBudget', 64); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 64 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); manual = await diagnostics(page);
+    expect(manual.capacityTest.voices).toBe(64); expect(manual.capacityTest.load).toBe(1.25);
+    expect(manual.capacityTest.proved).toBe(false); expect(manual.sceneMeasurement.proved).toBe(false);
+    expect(manual.preparedVoices).toBe(64); expect(manual.userCapacityBudget).toBe(64);
+    expect(manual.performance.automatic).toBe(false); expect(manual.status.targetVoices).toBe(64);
+    expect(manual.capacityFailure).toMatch(/manual/i);
+    manualCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'manual-unproved-64'));
+    expect(manualCommit).toHaveLength(1); expect(manualCommit[0].ackStatus.targetVoices).toBe(64);
+    expect(manualCommit[0].ackStatus.voiceLimit).toBe(64);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 64 && p.measured === 32 && /64/.test(p.capacityStatus) && /125/.test(p.capacityStatus);
+    }).toBe(true);
+    await expect(page.locator('#autoCapacity')).toBeVisible();
+    const counts = await controlCounts(page);
+    await native(page, 'automatic', true);
+    await expect.poll(async () => (await diagnostics(page)).performance.automatic).toBe(true);
+    await settledControls(page);
+    expect((await controlCounts(page)).install).toBe(counts.install, 'reenabling protection changes the running DSP without installing another scene');
+    expect((await diagnostics(page)).audio).toBe(true);
+    await page.evaluate(() => { __deviceRuntime.phase = 'auto-budget-recovery'; });
+    await page.locator('#autoCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.userCapacityBudget === 0 && d.capacityTest?.requestedVoices === 32 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); recovered = await diagnostics(page);
+    expect(recovered.capacityTest.voices).toBe(32); expect(recovered.capacityTest.proved).toBe(true);
+    expect(recovered.preparedVoices).toBe(32); expect(recovered.deviceCapacity.preparedCapacity).toBe(32);
+    expect(recovered.sceneMeasurement.proved).toBe(true); expect(recovered.sceneMeasurement.voices).toBe(32);
+    expect(recovered.parameters).toEqual(before.parameters); expect(recovered.performance).toEqual(before.performance);
+    expect(await page.evaluate(() => __deviceQa.scene())).toEqual(musicalScene);
+    await expect(page.locator('#autoCapacity')).toBeHidden();
+    recoveryCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'auto-budget-recovery'));
+    expect(recoveryCommit).toHaveLength(1); expect(recoveryCommit[0].ackStatus.targetVoices).toBe(32);
+    const clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 2);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect(current.time).toBeGreaterThan(initial.time);
+  await test.info().attach('manual-trial-auto-budget-recovery', { body: JSON.stringify({ before, manual, recovered, manualCommit, recoveryCommit,
+    ...recording, actualWasm: true, actualMediaStreamInput: true, initialCalibrationBound: 32,
+    workerProbeTimingInjected: true, injectedWorkerProbeLoad: 1.25, liveAudioMetricsInjected: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
+});
+
 test('dense rule-family switches preserve exactly active animated branches, real wet audio and one source', async ({ page }) => {
   test.setTimeout(180000);
   const evidence = await fixture(page); await ready(page); await builtInInput(page);
