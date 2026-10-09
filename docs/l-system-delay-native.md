@@ -146,6 +146,41 @@ not a promise that changing browser or device load cannot require audio backoff.
 The processing count includes release tails and matches the voice slots used by
 the playback graphic.
 
+The **Live performance** panel sits above the presets on all three Rust delay
+pages. It displays the complete requested count, prepared branches, history-eligible
+voices, actual processing voices, current audio limit and admitted target. The
+**Measured estimate** is the most recent proved warm scene count, or the initial
+conservative device estimate. Neither is a permanent device maximum: pitched
+read cost, sample rate, mastering and competing applications affect capacity.
+The audio load and peak are callback processing time divided by available sample
+time, including maintenance. They are not total machine CPU usage. Deadline
+misses measure late callbacks, rather than physical sound-device dropouts.
+Graphics reports main-thread drawing milliseconds and actual frame rate. GPU
+time uses asynchronous WebGL2 elapsed queries where supported, sampled around
+four times per second with at most two pending queries; unavailable or stale
+measurements are labelled accordingly. It measures branch drawing time, not
+total GPU utilization, and never waits for the GPU to finish.
+
+Turn **Test voice budget** or enter an exact count, then press **Test capacity**.
+Turning the knob alone does not rebuild or interrupt the playing tree. The
+worker measures the requested scene with fully populated delay history while
+the existing audio source continues. With **Protect audio** enabled, a candidate
+must fit 95% of the measured audio budget before its complete pool is committed;
+a declined test retains the current pool and reports its measured cost. This
+explicit test can retry a scene after overload, rather than waiting for
+background growth. The requested budget carries across preset changes, which
+revalidate each different workload. Small scenes prove only their actual voices
+and retain earlier safe fallback capacity. The optional Settings voice cap still
+limits live admission within the prepared pool. **Auto budget** tests the device
+estimate again and returns preparation to device-managed budgets; even a declined
+recovery test clears the user ceiling while retaining the playing tree.
+
+Disabling **Protect audio** permits a manual trial above measured headroom and
+shows that it is unproved. Re-enable protection to restore automatic deadline
+backoff. More voices give fuller branch coverage at greater DSP cost; GPU drawing
+does not offload their audio processing. Capacity controls stay outside captured
+sound presets and never arm Audio, restart input, or replace delay history.
+
 Control acknowledgements may repeat an earlier audio snapshot. They still
 update musical settings, but cannot renew the freshness of that snapshot's
 meters or input history. Sparse active-slot selections reuse indexed prepared

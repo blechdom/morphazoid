@@ -36,7 +36,8 @@ const labControlIds = Object.values(LAB_CONTROL_IDS).filter(id => $(id));
 const initialParameters = LAB_CONFIG?.presets[0].snapshot.parameters ?? DEFAULT_PARAMETERS;
 const state = { parameters: sanitizeParameters(initialParameters), performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {},
   input: { mode: 'mic', sampleId: DEFAULT_SAMPLE_ID, label: 'Mic / line', pending: false, playing: false, hasFile: false, fileName: '', loop: true, ended: false, credit: '', creditUrl: '' },
-  requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
+  requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER,
+  deviceCapacity: null, capacityWorking: false, capacityFailure: null, capacityTest: null, sceneMeasurement: null, userCapacityBudget: 0 };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
   asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread',
   ...($('grammarSeed') ? { grammarSeed: 'grammarSeed', branchProbability: 'branchProbability' } : {}) };
@@ -58,7 +59,8 @@ let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
-let lastDrawAt = -Infinity, visualCostMs = 0;
+let lastDrawAt = -Infinity, visualCostMs = 0, visualFps = 0;
+let capacityBudgetEdited = false, capacityTesting = false;
 let preparedGraphicsNodes = null, preparedGraphicsBounds = null;
 let paintedControlsKey = null;
 let controlsDirty = false, controlsTimer = null;
@@ -251,6 +253,9 @@ function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (reply.input) state.input = { ...state.input, ...reply.input };
   if (reply.generationLimits) state.generationLimits = reply.generationLimits;
   if (reply.memoryVoiceCapacity) state.memoryVoiceCapacity = reply.memoryVoiceCapacity;
+  for (const key of ['deviceCapacity', 'capacityWorking', 'capacityFailure', 'capacityTest', 'sceneMeasurement', 'userCapacityBudget', 'requestedVoicesDecimal']) {
+    if (key in reply) state[key] = reply[key];
+  }
   // Installation acknowledges its new DSP pool before the matching scene
   // metadata commits. Preserve the complete prior status during that interval.
   const coherentStatus = reply.status && (reply.status.topologyRevision === undefined || reply.status.topologyRevision === reply.topologyRevision);
@@ -741,6 +746,7 @@ function paintControlsNow() {
     state.memoryVoiceCapacity, state.status.sampleRate, state.audio, sceneApplying, $('voiceCeiling').disabled]);
   if (key !== paintedControlsKey) { paintStaticControls(); paintedControlsKey = key; }
   paintNextChoice('nextLSystemType', 'lSystemType');
+  paintPerformancePanel();
   const reduction = state.audio ? Math.max(0, Number(state.status.gainReductionDb) || 0) : 0;
   setText($('gainReductionOut'), `${reduction.toFixed(1)} dB`);
   const reductionWidth = `${clamp(reduction / 30) * 100}%`;
@@ -800,6 +806,60 @@ function paintControlsNow() {
   if (audioLevel !== paintedAudioLevel) { audioStrip.update(); paintedAudioLevel = audioLevel; }
 }
 
+function paintPerformancePanel() {
+  const s = state.status, now = performance.now(), live = state.audio && s.processedBlocks > 0;
+  const load = live && Number.isFinite(s.cpuLoad) ? s.cpuLoad : null;
+  const peak = live && Number.isFinite(s.peakLoad) ? s.peakLoad : null;
+  setText('performanceAudioLoad', load === null ? '—' : `${(load * 100).toFixed(1)}% · ${(Math.max(0, peak ?? load) * 100).toFixed(0)}% peak`);
+  const audioMeterValue = Math.max(0, Math.min(1, load ?? 0));
+  if ($('performanceAudioMeter').value !== audioMeterValue) $('performanceAudioMeter').value = audioMeterValue;
+  setAttribute('performancePanel', 'data-pressure', load > .85 ? 'high' : 'normal');
+  const gpu = gpuRenderer?.available, stats = gpuRenderer?.stats;
+  setText('performanceRenderer', gpu ? 'WebGL2' : 'Canvas');
+  const gpuTime = gpu && stats?.gpuTimeMs !== null && Number.isFinite(stats?.gpuTimeMs)
+    && now - stats.gpuTimeSampledAt < 2000 ? stats.gpuTimeMs : null;
+  setText('performanceGpuTime', gpuTime !== null ? `${gpuTime.toFixed(2)} ms` : gpu && stats?.gpuTimingSupported ? 'Measuring…' : 'Unavailable');
+  const freshDraw = now - lastDrawAt < 2000;
+  setText('performanceFrameTime', freshDraw ? `${visualCostMs.toFixed(2)} ms · ${Math.round(visualFps)} fps` : 'Idle');
+  const count = value => Math.max(0, Number(value) || 0).toLocaleString();
+  const decimal = state.requestedVoicesDecimal;
+  const exactRequested = decimal && /^\d+$/.test(decimal) ? decimal : null;
+  setText('performanceRequested', exactRequested ? exactRequested.length > 16
+    ? `≈${exactRequested[0]}.${exactRequested.slice(1, 5)} × 10^${exactRequested.length - 1}`
+    : exactRequested.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : count(state.requestedVoices));
+  setProperty('performanceRequested', 'title', exactRequested || count(state.requestedVoices));
+  setText('performancePrepared', count(state.preparedVoices)); setText('performanceEligible', count(state.eligibleVoices));
+  setText('performanceProcessing', state.audio ? count(s.activeVoices) : '0');
+  setText('performanceLimit', state.audio ? `${count(s.voiceLimit)} · ${count(s.targetVoices)} target` : 'Audio off');
+  const measured = state.sceneMeasurement?.proved ? state.sceneMeasurement : state.deviceCapacity;
+  setText('performanceMeasured', measured ? `${count(measured.voices)}${state.sceneMeasurement?.proved ? ' tested' : ' initial'}` : 'Measuring…');
+  setText('performanceMisses', `${count(s.deadlineMisses)} deadlines missed`);
+  const range = $('capacityBudget'), exact = $('capacityBudgetExact');
+  setProperty(range, 'max', state.memoryVoiceCapacity); setProperty(exact, 'max', state.memoryVoiceCapacity);
+  setProperty(exact, 'title', `Current library/memory ceiling: ${count(state.memoryVoiceCapacity)} voices. Timing capability is measured by testing.`);
+  if (!capacityBudgetEdited) setProperty(range, 'value', Math.max(1, state.userCapacityBudget || state.deviceCapacity?.preparedCapacity || 1));
+  const budget = Number(range.value);
+  setText('capacityBudgetOut', count(budget)); setAttribute(range, 'aria-valuetext', `${count(budget)} voices to test`);
+  if (document.activeElement !== exact) setProperty(exact, 'value', budget);
+  const busy = state.capacityWorking || capacityTesting;
+  setProperty('testCapacity', 'disabled', !bootstrapped || sceneApplying || busy || parameterWorking || parameterDirty);
+  setAttribute('testCapacity', 'aria-busy', busy); setText('testCapacity', busy ? 'Testing…' : 'Test capacity');
+  setProperty(range, 'disabled', !bootstrapped || sceneApplying || busy); setProperty(exact, 'disabled', range.disabled);
+  setProperty('autoCapacity', 'hidden', !state.userCapacityBudget);
+  setProperty('autoCapacity', 'disabled', $('testCapacity').disabled);
+  const test = state.capacityTest;
+  const measurement = test || state.sceneMeasurement;
+  const testCost = measurement && Number.isFinite(measurement.load) ? `${count(measurement.voices)} tested voices at ${(measurement.load * 100).toFixed(1)}% audio budget` : '';
+  const message = busy ? 'Measuring a warm scene while the current audio keeps playing…'
+    : state.capacityFailure ? `${state.capacityFailure}${testCost ? ` ${testCost}.` : ''}`
+      : (measurement ? `${test?.accepted === false ? 'Retained current tree' : 'Applied'} · ${testCost || `${count(measurement.voices)} tested voices`}.`
+      : 'Choose a budget, then test. Audio keeps playing during preparation.');
+  setText('performanceCapacityStatus', message);
+  const knob = parameterKnobs.get('capacityBudget');
+  const key = [range.value, range.max, range.disabled, range.getAttribute('aria-valuetext')].join('|');
+  if (knob && paintedKnobs.get('capacityBudget') !== key) { knob.update(); paintedKnobs.set('capacityBudget', key); }
+}
+
 function buildGeometry() {
   const box = canvas.getBoundingClientRect(), width = Math.max(1, box.width), height = Math.max(1, box.height), dpr = Math.min(2, devicePixelRatio || 1);
   if (width !== stageWidth || height !== stageHeight) { stageWidth = width; stageHeight = height; lockedFit = null; }
@@ -836,6 +896,9 @@ function draw(now) {
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
     Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
+  if (Number.isFinite(lastDrawAt) && now - lastDrawAt > 0 && now - lastDrawAt < 1000) {
+    const fps = 1000 / (now - lastDrawAt); visualFps = visualFps ? visualFps + (fps - visualFps) * .15 : fps;
+  }
   lastDrawAt = now;
   const drawStarted = performance.now();
   if (nativePreviewMoving) {
@@ -1114,13 +1177,35 @@ for (const key of MASTERING_IDS) {
 }
 // The input/output strips already own their header knobs. Enhance the existing
 // panel controls only, preserving their IDs, native bounds and live listeners.
-for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry', 'voiceCeiling', ...MASTERING_IDS]) {
+for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry', 'voiceCeiling', 'capacityBudget', ...MASTERING_IDS]) {
   const input = $(id);
   if (input.type !== 'range') continue;
-  const knob = enhanceRangeKnob(input, id === 'voiceCeiling' ? { scale: 'log' } : {});
+  const knob = enhanceRangeKnob(input, ['voiceCeiling', 'capacityBudget'].includes(id) ? { scale: 'log' } : {});
   parameterKnobs.set(id, knob);
   $(id).addEventListener('blur', () => knob.cancelGesture());
 }
+$('capacityBudget').addEventListener('input', () => { capacityBudgetEdited = true; paintControls(); });
+$('capacityBudgetExact').addEventListener('change', () => {
+  const value = $('capacityBudgetExact').valueAsNumber, range = $('capacityBudget');
+  if (Number.isSafeInteger(value) && value > 0) {
+    range.value = String(Math.min(value, Number(range.max))); capacityBudgetEdited = true;
+  }
+  paintControls();
+});
+async function testCapacity(reset = false) {
+  if (!bootstrapped || sceneApplying || capacityTesting || state.capacityWorking) return;
+  const voices = Number($('capacityBudget').value);
+  capacityTesting = true; cancelParameterGestures(); paintControls();
+  try {
+    await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
+    acceptStatus(await request('/api/capacity', reset ? { reset: true } : { voices }));
+    if (reset) capacityBudgetEdited = false;
+    await refreshNativePreview();
+  } catch (error) { showError(error.message); }
+  finally { capacityTesting = false; paintControls(); }
+}
+$('testCapacity').addEventListener('click', () => void testCapacity());
+$('autoCapacity').addEventListener('click', () => void testCapacity(true));
 {
   const label = document.createElement('label');
   label.htmlFor = 'voiceCeilingExact'; label.textContent = 'Exact voice cap (0 = no cap)';
@@ -1231,6 +1316,9 @@ function placeInput() {
     $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.inputPlacement = 'header';
     if (inputRow && presetsRow) { inputRow.before(presetsRow); inputRow.remove(); inputRow = null; }
   }
+  // The shared preset mount keeps its global first-row contract. This owner
+  // explicitly puts the requested performance monitor above that row.
+  if (presetsRow) (inputRow || presetsRow).before($('performancePanel'));
   inputStrip.repositionError(); lockedFit = null; geometry = null; scheduleDraw();
 }
 mobile.addEventListener('change', placeInput);

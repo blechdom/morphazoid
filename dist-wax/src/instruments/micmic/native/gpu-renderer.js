@@ -196,6 +196,76 @@ const clamp = (value, low = 0, high = 1) => Math.min(high, Math.max(low, Number.
 const finite = (value, fallback = 0) => Number.isFinite(value) ? value : fallback;
 const EMPTY_MAP = new Map();
 
+/** Optional branch-draw timing, never whole-device GPU utilization. Results are
+ * read only after the browser reports availability, at four samples per second.
+ * A timer failure must not take a working renderer away from the instrument. */
+export function createGpuFrameTimer(gl, { now = () => performance.now() } = {}) {
+  const sampleIntervalMs = 250, maximumPending = 2, maximumAgeMs = 2000;
+  let extension = null, active = null, pending = [], disposed = false;
+  let lastPollAt = -Infinity, sampleMs = null, sampledAt = null, samples = 0;
+  try { extension = gl.getExtension('EXT_disjoint_timer_query_webgl2'); }
+  catch { /* Optional browser telemetry may be privacy-limited. */ }
+
+  function deleteQuery(query) {
+    try { gl.deleteQuery(query); } catch { /* Context may have been lost. */ }
+  }
+  function reset({ contextLost = false, disable = false } = {}) {
+    if (!contextLost) {
+      if (active) {
+        try { gl.endQuery(extension.TIME_ELAPSED_EXT); } catch { /* Optional timer failed. */ }
+        deleteQuery(active.query);
+      }
+      for (const entry of pending) deleteQuery(entry.query);
+    }
+    active = null; pending = []; sampleMs = null; sampledAt = null;
+    if (disable) extension = null;
+  }
+  function begin() {
+    if (!extension || disposed || active) return;
+    const time = now();
+    if (!Number.isFinite(time) || time - lastPollAt < sampleIntervalMs) return;
+    lastPollAt = time;
+    try {
+      if (gl.getParameter(extension.GPU_DISJOINT_EXT)) { reset(); return; }
+      const remaining = [];
+      for (const entry of pending) {
+        const available = gl.getQueryParameter(entry.query, gl.QUERY_RESULT_AVAILABLE);
+        if (available) {
+          const nanoseconds = gl.getQueryParameter(entry.query, gl.QUERY_RESULT);
+          // Preserve the full JS number; bitwise coercion loses timer precision.
+          if (Number.isFinite(nanoseconds) && nanoseconds >= 0) {
+            sampleMs = nanoseconds / 1e6; sampledAt = entry.startedAt; samples++;
+          }
+          deleteQuery(entry.query);
+        } else if (time - entry.startedAt >= maximumAgeMs) deleteQuery(entry.query);
+        else remaining.push(entry);
+      }
+      pending = remaining;
+      if (pending.length >= maximumPending) return;
+      const query = gl.createQuery();
+      if (!query) return;
+      active = { query, startedAt: time };
+      gl.beginQuery(extension.TIME_ELAPSED_EXT, query);
+    } catch { reset({ disable: true }); }
+  }
+  function end() {
+    if (!active || disposed || !extension) return;
+    try {
+      gl.endQuery(extension.TIME_ELAPSED_EXT);
+      pending.push(active); active = null;
+    } catch { reset({ disable: true }); }
+  }
+  function dispose(options) {
+    if (disposed) return;
+    disposed = true; reset({ ...options, disable: true });
+  }
+  return { begin, end, dispose, get stats() {
+    const time = now(), fresh = sampledAt !== null && Number.isFinite(time) && time - sampledAt < maximumAgeMs;
+    return { gpuTimingSupported: Boolean(extension) && !disposed, gpuTimeMs: fresh ? sampleMs : null,
+      gpuTimeSampledAt: fresh ? sampledAt : null, gpuTimingSamples: samples };
+  } };
+}
+
 function paletteValues(colors) {
   const values = new Float32Array(21);
   for (let index = 0; index < 7; index++) {
@@ -210,7 +280,7 @@ function paletteValues(colors) {
  * Separate transparent layer keeps the original gesture/annotation Canvas2D
  * intact. Unsupported GPUs and lost contexts fall back without touching audio.
  */
-export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = () => {}, force = false } = {}) {
+export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = () => {}, force = false, now = () => performance.now() } = {}) {
   const document = stageCanvas?.ownerDocument;
   if (!document || !stageCanvas.parentNode) return null;
   const canvas = document.createElement('canvas');
@@ -242,10 +312,12 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
   let historyScratch = new Float32Array();
   const palette = paletteValues(colors);
+  let gpuTimer = null;
   const counters = { backend, nodeCount: 0, previewNodeCount: 0, topologyUploads: 0, selectionUploads: 0, positionUploads: 0, meterUploads: 0,
     historyUploads: 0, historyTextureAllocations: 0, historyScratchAllocations: 0, historyTextureCapacity: 1, historyScratchCapacity: 0, drawCalls: 0 };
 
   function releaseResources() {
+    gpuTimer?.dispose(); gpuTimer = null;
     if (!resources) return;
     gl.deleteBuffer(resources.topology);
     gl.deleteBuffer(resources.meters);
@@ -297,6 +369,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA); gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE);
       gl.clearColor(0, 0, 0, 0);
       historyValues = null; historyCount = 0; historyWidth = 1; historyHeight = 1;
+      gpuTimer = createGpuFrameTimer(gl, { now });
       ready = true;
     } finally {
       if (vertex) gl.deleteShader(vertex);
@@ -445,6 +518,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       gl.bindVertexArray(resources.vao); gl.bindBuffer(gl.ARRAY_BUFFER, resources.meters);
       gl.bufferSubData(gl.ARRAY_BUFFER, 0, meterData); counters.meterUploads++;
       gl.activeTexture(gl.TEXTURE0); gl.bindTexture(gl.TEXTURE_2D, resources.history);
+      gpuTimer?.begin();
       gl.viewport(0, 0, pixelWidth, pixelHeight); gl.clear(gl.COLOR_BUFFER_BIT);
       const detailSteps = Math.floor(clamp(frame.detailSteps, 5, 14));
       for (const [program, uniforms] of [[resources.program, resources.uniforms], [resources.caps, resources.capUniforms]]) {
@@ -462,6 +536,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         }
         counters.drawCalls += (availableCount ? 2 : 0) + (availableCount < nodes.length ? 2 : 0);
       }
+      gpuTimer?.end();
       canvas.hidden = false;
       return true;
     } catch {
@@ -474,6 +549,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     event.preventDefault();
     ready = false; canvas.hidden = true;
     // All handles are invalidated by the browser; restoration allocates anew.
+    gpuTimer?.dispose({ contextLost: true }); gpuTimer = null;
     resources = null;
     if (!disposed) onInvalidate();
   }
@@ -499,5 +575,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   catch { ready = false; releaseResources(); gl.getExtension('WEBGL_lose_context')?.loseContext(); return null; }
   canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
   stageCanvas.parentNode.insertBefore(canvas, stageCanvas);
-  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters }; }, setGeometry, setTimeFold, updateGeometryPositions, render, dispose };
+  return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters,
+    ...(gpuTimer?.stats ?? { gpuTimingSupported: false, gpuTimeMs: null, gpuTimeSampledAt: null, gpuTimingSamples: 0 }) }; },
+  setGeometry, setTimeFold, updateGeometryPositions, render, dispose };
 }
