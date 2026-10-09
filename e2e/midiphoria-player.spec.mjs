@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { songButtons, selectedSong, currentSongId, selectSong } from './helpers/midiphoria-library.mjs';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 const shortMidi = Buffer.from([
@@ -14,12 +15,12 @@ async function open(page) {
     window.AudioContext = class extends Native { constructor(...args) { super(...args); window.__midiContexts.push(this); } };
   });
   await page.goto('/midiphoria.html');
-  await expect(page.locator('#songSelect option')).not.toHaveCount(0);
+  await expect(songButtons(page)).not.toHaveCount(0);
   await expect(page.locator('#notePads button')).toHaveCount(24);
 }
 async function arm(page) {
   // The library starts unselected; tests that need transport choose a score.
-  if (!await page.locator('#songSelect').inputValue()) await page.locator('#songSelect').selectOption('rock-theme-four');
+  if (!await currentSongId(page)) await selectSong(page, 'rock-theme-four');
   await page.locator('#audioButton').click();
   await expect(page.locator('#playButton')).toBeEnabled({ timeout: 15000 });
 }
@@ -32,7 +33,7 @@ async function range(page, id, value, event = 'input') {
 test('SoundFont audio requires Audio; live visual edits and mute preserve playback', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
-  await page.locator('#songSelect').selectOption('rock-theme-four');
+  await selectSong(page, 'rock-theme-four');
   await expect(page.locator('#playButton')).toBeDisabled();
   expect(await page.evaluate(() => window.__midiContexts.length)).toBe(0);
   await arm(page);
@@ -69,8 +70,8 @@ test('local MIDI library, loop, seek and rate work without uploads or stuck note
     { name: 'One.mid', mimeType: 'audio/midi', buffer: shortMidi },
     { name: 'Two.mid', mimeType: 'audio/midi', buffer: shortMidi },
   ]);
-  await expect(page.locator('#songSelect')).toHaveValue('local-1');
-  await expect(page.locator('#songSelect option[value^="local-"]')).toHaveCount(2);
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'local-1');
+  await expect(page.locator('#songList button[data-song-id^="local-"]')).toHaveCount(2);
   await expect(page.locator('#songCredit')).toContainText('Local MIDI');
   await arm(page);
   await page.locator('#loopSong').check(); await range(page, 'playbackRate', 4);
@@ -82,7 +83,7 @@ test('local MIDI library, loop, seek and rate work without uploads or stuck note
   await range(page, 'songPosition', .8, 'change');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#levelReadout')).toHaveText('0% light');
-  await page.locator('#songSelect').selectOption('local-2');
+  await selectSong(page, 'local-2');
   await expect(page.locator('#songPosition')).toHaveValue('0');
   await expect(page.locator('#playbackRate')).toHaveValue('4');
 });
@@ -92,7 +93,7 @@ test('bad input reports an error, subsequent songs recover, pagehide closes audi
   await page.locator('#midiFile').setInputFiles({ name: 'Broken.mid', mimeType: 'audio/midi', buffer: Buffer.from('not midi') });
   await expect(page.locator('#playerStatus')).toContainText('Standard MIDI');
   await expect(page.locator('#playButton')).toBeDisabled();
-  await page.locator('#songSelect').selectOption('rock-theme-four');
+  await selectSong(page, 'rock-theme-four');
   await expect(page.locator('#playButton')).toBeEnabled();
   await page.locator('#playButton').click();
   await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
@@ -106,7 +107,7 @@ test('bad input reports an error, subsequent songs recover, pagehide closes audi
 
 test('full volume lifts a fixed arrangement while zero volume preserves transport', async ({ page }) => {
   await open(page);
-  await page.locator('#songSelect').selectOption('electric-postcard');
+  await selectSong(page, 'electric-postcard');
   await arm(page);
   await range(page, 'outputLevel', 1);
   await range(page, 'songPosition', 8, 'change');
@@ -129,23 +130,25 @@ test('full volume lifts a fixed arrangement while zero volume preserves transpor
 
 test('song search filters titles and artists without replacing the playing file', async ({ page }) => {
   await open(page);
-  await page.locator('#songSelect').selectOption('rock-theme-four');
+  await selectSong(page, 'rock-theme-four');
   await arm(page);
   await page.locator('#playButton').click();
   const position = Number(await page.locator('#songPosition').inputValue());
   await page.locator('#songSearch').fill('Depeche');
-  await expect(page.locator('#songSelect option')).not.toHaveCount(0);
-  expect(await page.locator('#songSelect option').allTextContents()).toEqual(
+  await expect(songButtons(page)).not.toHaveCount(0);
+  expect(await songButtons(page).allTextContents()).toEqual(
     expect.arrayContaining([expect.stringContaining('Depeche Mode')]),
   );
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#songCredit')).toContainText('Rock Theme Four');
+  await expect(page.locator('#currentSong')).toContainText('Rock Theme Four');
+  await expect(selectedSong(page)).toHaveCount(0);
   await page.locator('#songSearch').fill('no matching arrangement 987654');
-  await expect(page.locator('#songSelect')).toBeDisabled();
+  await expect(songButtons(page)).toHaveCount(0);
   await expect(page.locator('#songSearchStatus')).toContainText('No matching songs');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#songSearch').fill('');
-  await expect(page.locator('#songSelect')).toHaveValue('rock-theme-four');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'rock-theme-four');
   await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(position + .2);
 });
 
@@ -158,7 +161,7 @@ test('every bundled arrangement plays finite audio; the dense study stays bounde
   expect(songs.filter(song => song.webArrangement).length).toBeGreaterThanOrEqual(40);
   await arm(page);
   for (const song of songs) {
-    await page.locator('#songSelect').selectOption(song.id);
+    await selectSong(page, song.id);
     await expect(page.locator('#playButton')).toBeEnabled();
     await page.locator('#loopSong').setChecked(song.kind === 'pattern');
     await range(page, 'songPosition', song.smokeSeekSeconds ?? Math.min(8, song.durationSeconds / 2), 'change');
@@ -174,22 +177,22 @@ test('every bundled arrangement plays finite audio; the dense study stays bounde
   expect(errors).toEqual([]);
 });
 
-test('collection filtering preserves playback and local imports remain reachable', async ({ page }) => {
+test('collection words combine with title filtering and imports clear the search', async ({ page }) => {
   await open(page);
-  await page.locator('#songSelect').selectOption('rock-theme-four');
+  await selectSong(page, 'rock-theme-four');
   await arm(page); await page.locator('#playButton').click();
-  await page.locator('#collectionSelect').selectOption('Geometric patterns');
-  await expect(page.locator('#songSelect option')).toHaveCount(9);
+  await page.locator('#songSearch').fill('geometric patterns');
+  await expect(songButtons(page)).toHaveCount(9);
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#songSelect')).toHaveValue('');
-  await page.locator('#songSearch').fill('funnel');
-  expect((await page.locator('#songSelect option').allTextContents()).every(text => /Funnel/i.test(text))).toBe(true);
+  await expect(selectedSong(page)).toHaveCount(0);
+  await page.locator('#songSearch').fill('geometric patterns funnel');
+  expect((await songButtons(page).allTextContents()).every(text => /Funnel/i.test(text))).toBe(true);
   await page.locator('#midiFile').setInputFiles({ name: 'Collection test.mid', mimeType: 'audio/midi', buffer: shortMidi });
-  await expect(page.locator('#collectionSelect')).toHaveValue('');
-  await expect(page.locator('#songSelect')).toHaveValue('local-1');
-  await expect(page.locator('#songSelect optgroup[label="Your MIDIs"] option')).toHaveCount(1);
-  await page.locator('#collectionSelect').selectOption('Black MIDI');
-  await expect(page.locator('#songSelect option')).toHaveCount(16);
+  await expect(page.locator('#songSearch')).toHaveValue('');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'local-1');
+  await expect(page.locator('#songList button[data-song-id^="local-"]')).toHaveCount(1);
+  await page.locator('#songSearch').fill('Black MIDI');
+  await expect(songButtons(page)).toHaveCount(26);
 });
 
 test('black MIDI peak passages at 4× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {
@@ -207,7 +210,7 @@ test('black MIDI peak passages at 4× stay audible and controllable with maximum
   await range(page, 'playbackRate', 4);
   await expect(page.locator('#playbackRateOut')).toHaveText('4.00×');
   for (const song of dense) {
-    await page.locator('#songSelect').selectOption(song.id);
+    await selectSong(page, song.id);
     await expect(page.locator('#playButton')).toBeEnabled();
     await range(page, 'songPosition', Math.max(0, song.densestSecond - 1), 'change');
     await page.locator('#playButton').click();

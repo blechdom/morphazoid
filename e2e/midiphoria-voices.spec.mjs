@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectedSong, currentSongId } from './helpers/midiphoria-library.mjs';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 import { installFakeMidi, enableFakeMidi, sendMidiSequence } from './helpers/fake-midi.mjs';
 
@@ -198,7 +199,7 @@ test('voice colors, separate lanes, panels and visual focus preserve the soundin
   expect(initial.scenes.every(scene => scene.voiceIds.length === 1 && scene.noteIds.length === 1)).toBe(true);
   expect(new Set(initial.scenes.flatMap(scene => scene.voiceIds))).toEqual(new Set(initial.voices.map(voice => voice.id)));
   expect(initial.scenes.every(scene => scene.width === initial.width && scene.height < initial.height)).toBe(true);
-  const song = await page.locator('#songSelect').inputValue();
+  const song = await currentSongId(page);
   const before = Number(await page.locator('#songPosition').inputValue());
 
   await page.locator('#voiceLayout').selectOption('panels');
@@ -223,7 +224,7 @@ test('voice colors, separate lanes, panels and visual focus preserve the soundin
   await page.locator('.header-preset-next').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#songSelect')).toHaveValue(song);
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', song);
   await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(before + .5);
   const signal = await sampleAudioEnvelope(page, { durationMs: 700, intervalMs: 40 });
   expect(signal.summary.finite).toBe(true);

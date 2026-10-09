@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectedSong, currentSongId } from './helpers/midiphoria-library.mjs';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 import { installFakeMidi, enableFakeMidi, sendMidi, fakeMidiSnapshot } from './helpers/fake-midi.mjs';
 
@@ -142,7 +143,7 @@ test('preset tour and dice preserve the playing song, Audio, loop, speed and out
   test.setTimeout(60000);
   await open(page);
   await page.locator('#midiFile').setInputFiles({ name: 'Preset continuity.mid', mimeType: 'audio/midi', buffer: organChord() });
-  const song = await page.locator('#songSelect').inputValue();
+  const song = await currentSongId(page);
   await page.locator('#audioButton').click();
   await expect(page.locator('#playButton')).toBeEnabled({ timeout: 15000 });
   await page.locator('#loopSong').check();
@@ -151,7 +152,7 @@ test('preset tour and dice preserve the playing song, Audio, loop, speed and out
   const assertContinuous = async () => {
     await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#songSelect')).toHaveValue(song);
+    await expect(selectedSong(page)).toHaveAttribute('data-song-id', song);
     await expect(page.locator('#loopSong')).toBeChecked();
     await expect(page.locator('#playbackRate')).toHaveValue('1.25');
     await expect(page.locator('#outputLevel')).toHaveValue('0.37');

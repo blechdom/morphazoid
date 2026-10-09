@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { songButtons } from './helpers/midiphoria-library.mjs';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 // A sustained church-organ C4 lets the pad play/release the same pitch without
@@ -21,7 +22,7 @@ async function open(page) {
   });
   await page.goto('/midiphoria.html');
   await expect(page.locator('#notePads button')).toHaveCount(24);
-  await expect(page.locator('#songSelect option')).not.toHaveCount(0);
+  await expect(songButtons(page)).not.toHaveCount(0);
 }
 
 async function arm(page) {

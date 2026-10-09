@@ -143,14 +143,15 @@ for (const [name, width, height] of [['desktop', 1440, 900], ['portrait', 390, 8
     await page.setViewportSize({ width, height }); await open(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await expect(page.locator('#demoButton, #clearButton, .midiphoria-silent')).toHaveCount(0);
-    await expect(page.locator('.midiphoria-player h2')).toHaveCount(0);
+    await expect(page.locator('.midiphoria-player h2')).toHaveText('MIDI files');
+    await expect(page.getByText('Listen & watch', { exact: true })).toHaveCount(0);
     const geometry = await page.evaluate(() => {
       const read = selector => {
         const node = document.querySelector(selector), bounds = node.getBoundingClientRect(), style = getComputedStyle(node);
         return { top: bounds.top, bottom: bounds.bottom, width: bounds.width, height: bounds.height,
           border: style.borderTopWidth, radius: style.borderRadius, background: style.backgroundColor };
       };
-      return { play: read('#playButton'), speed: read('#playbackRate'), songs: read('#collectionSelect'),
+      return { play: read('#playButton'), speed: read('#playbackRate'), songs: read('#songSearch'),
         presets: ['.instrument-preset-controls', '.header-preset-picker > summary', '.header-preset-next', '.header-preset-random'].map(read) };
     });
     expect(geometry.play.width).toBe(geometry.play.height);

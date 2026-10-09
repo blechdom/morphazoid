@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { selectedSong, songButton, selectSong } from './helpers/midiphoria-library.mjs';
 import { readFile } from 'node:fs/promises';
 import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
@@ -19,17 +20,20 @@ async function open(page) {
 async function generate(page, text) {
   await page.locator('#textMidiInput').fill(text);
   await page.locator('#generateTextMidi').click();
-  await expect(page.locator('#songSelect')).toHaveValue('text-midi');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'text-midi');
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'letters');
 }
 
 test('typing generates the actual downloadable letter MIDI without arming audio or firing piano keys', async ({ page }) => {
   await installFakeMidi(page); await open(page); await enableFakeMidi(page, { computerKeyboard: true });
+  await page.locator('#songSearch').fill('no matching arrangement 987654');
   await page.locator('#textMidiInput').pressSequentially('hello!');
   await expect(page.locator('#noteReadout')).toHaveText('Waiting for a note');
   await page.locator('#textMidiInput').press('Enter');
-  await expect(page.locator('#songSelect')).toHaveValue('text-midi');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'text-midi');
   await expect(page.locator('#visualCanvas')).toHaveAttribute('aria-label', /HELLO!/);
+  await expect(page.locator('#songSearch')).toHaveValue('');
+  await expect(page.locator('#currentSong')).toContainText('HELLO!');
   expect(await page.evaluate(() => window.__textMidiContexts.length)).toBe(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   const waiting = page.waitForEvent('download');
@@ -40,14 +44,14 @@ test('typing generates the actual downloadable letter MIDI without arming audio 
   await page.locator('#textMidiInput').fill('😃');
   await page.locator('#generateTextMidi').click();
   await expect(page.locator('#textMidiStatus')).toContainText('Type letters');
-  await expect(page.locator('#songSelect')).toHaveValue('text-midi');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'text-midi');
   await expect(page.locator('#downloadTextMidi')).toBeVisible();
   await page.evaluate(() => {
     dispatchEvent(new PageTransitionEvent('pagehide'));
     dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
   });
   await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
-  await expect(page.locator('#songSelect option[value="text-midi"]')).toHaveCount(0);
+  await expect(songButton(page, 'text-midi')).toHaveCount(0);
   await expect(page.locator('#downloadTextMidi')).toBeHidden();
   await expect(page.locator('#downloadTextMidi')).not.toHaveAttribute('href');
 });
@@ -72,18 +76,18 @@ test('generated MIDI sounds, retains playback on regeneration, and stays selecte
   await generate(page, 'JAZZ ROBOT');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#songCount')).toHaveText('101 MIDIs');
-  await expect(page.locator('#songSelect option[value="text-midi"]')).toHaveCount(1);
+  await expect(songButton(page, 'text-midi')).toHaveCount(1);
   await page.locator('.header-preset-next').click();
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'lights');
-  await expect(page.locator('#songSelect')).toHaveValue('text-midi');
+  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'text-midi');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#showTextScore').check();
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'letters');
-  await page.locator('#songSelect').selectOption('rock-theme-four');
+  await selectSong(page, 'rock-theme-four');
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'lights');
   await expect(page.locator('#textScoreView')).toBeHidden();
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#songSelect').selectOption('text-midi');
+  await selectSong(page, 'text-midi');
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'letters');
   await page.locator('#stopButton').click();
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
