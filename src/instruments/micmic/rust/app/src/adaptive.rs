@@ -157,13 +157,14 @@ impl Adaptive {
             .max(self.jitter_margin * (-duration / 3.).exp());
         let releasing = self.retirement_frames > 0
             && active > target
-            && load < 1.5
             && load <= self.recovery_load * 1.15
             && !underrun;
         let old = self.limit;
         // One rejected probe may leave outgoing voices processing for several
         // blocks. Allow that fade to retire before judging the lower target.
-        // Severe or worsening overload and output underruns still cut at once.
+        // The first severe overload still cuts immediately. The same outgoing
+        // DSP workload must not repeatedly reduce an unrealized lower target;
+        // worsening load and output underruns still bypass this bounded grace.
         if !releasing
             && (underrun || load >= 1. || (self.mean >= 0.95 && self.cooldown_frames == 0))
         {
@@ -419,6 +420,140 @@ mod tests {
             "Output underruns bypass retirement grace"
         );
     }
+
+    #[test]
+    fn unchanged_severe_outgoing_workload_is_one_reduction_not_a_cascade() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let quantum = 128. / 48000.;
+        let first = controller.observe_active(2. * quantum, 128, false, 1000, 1000);
+        assert_eq!(
+            first,
+            Some(425),
+            "the initial severe overload cuts immediately"
+        );
+        assert_eq!(controller.measured_limit(), 425);
+        for _ in 0..80 {
+            assert_eq!(
+                controller.observe_active(2. * quantum, 128, false, 1000, 425),
+                None,
+                "the original 1000 voices are still rendering their release"
+            );
+        }
+        assert_eq!(controller.limit(), 425);
+        assert_eq!(
+            controller.measured_limit(),
+            425,
+            "the same unreduced workload cannot invalidate proof repeatedly to one voice"
+        );
+        controller.observe_active(2. * quantum, 128, false, 425, 425);
+        assert!(
+            controller.limit() < 425,
+            "overload measured after the smaller workload is actually installed is new evidence"
+        );
+    }
+
+    #[test]
+    fn worsening_severe_load_and_real_underruns_bypass_outgoing_grace() {
+        for underrun in [false, true] {
+            let mut controller = Adaptive::new(48000, 2000);
+            controller.start_at_measured_limit(1000);
+            let quantum = 128. / 48000.;
+            controller.observe_active(2. * quantum, 128, false, 1000, 1000);
+            let first = controller.limit();
+            let load = if underrun { 0.7 } else { 2.4 };
+            controller.observe_active(load * quantum, 128, underrun, 1000, first);
+            assert!(controller.limit() < first,
+                "a real underrun or worsening load must reduce the target without waiting on old tails");
+            assert_eq!(controller.measured_limit(), controller.limit());
+        }
+    }
+
+    #[test]
+    fn outgoing_grace_expires_even_if_the_reported_active_count_never_retires() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let frames = 4096;
+        let quantum = frames as f64 / 48000.;
+        controller.observe_active(2. * quantum, frames, false, 1000, 1000);
+        let first = controller.limit();
+        for _ in 0..7 {
+            controller.observe_active(2. * quantum, frames, false, 1000, first);
+            assert_eq!(controller.limit(), first);
+        }
+        controller.observe_active(2. * quantum, frames, false, 1000, first);
+        assert!(controller.limit() < first,
+            "retirement grace is bounded in audio frames and cannot hide sustained overload indefinitely");
+    }
+
+    #[test]
+    fn severe_finite_preparation_keeps_proof_and_revalidates_after_outgoing_tails() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let quantum = 128. / 48000.;
+        controller.observe_active_with_maintenance(
+            4. * quantum,
+            3.5 * quantum,
+            128,
+            false,
+            1000,
+            1000,
+        );
+        let reduced = controller.limit();
+        assert!(
+            reduced < 1000,
+            "total deadline pressure still reduces the target immediately"
+        );
+        for _ in 0..40 {
+            controller.observe_active_with_maintenance(
+                4. * quantum,
+                3.5 * quantum,
+                128,
+                false,
+                1000,
+                reduced,
+            );
+        }
+        assert_eq!(
+            controller.limit(),
+            reduced,
+            "unchanged finite preparation cannot repeatedly reduce the same outgoing workload"
+        );
+        assert_eq!(
+            controller.measured_limit(),
+            1000,
+            "finite work does not disprove the previously measured recurring voice cost"
+        );
+        let mut restored = false;
+        for _ in 0..80 {
+            controller.observe_active(0.5 * quantum, 128, false, reduced, controller.limit());
+            if controller.limit() >= 1000 {
+                restored = true;
+                break;
+            }
+        }
+        assert!(
+            restored,
+            "headroom reopens after finite preparation finishes"
+        );
+        assert!(
+            controller.trial,
+            "restoration still needs real callback validation"
+        );
+        controller.observe_active(
+            2. * quantum,
+            128,
+            false,
+            controller.limit(),
+            controller.limit(),
+        );
+        assert!(
+            controller.limit() < 1000,
+            "a restored workload that genuinely overloads is rejected immediately"
+        );
+        assert_eq!(controller.measured_limit(), controller.limit());
+    }
+
     #[test]
     fn mean_overload_settles_without_repeated_cuts_but_actual_misses_override() {
         let mut controller = Adaptive::new(48000, 1000);
