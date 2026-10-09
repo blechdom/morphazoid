@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { DEFAULT_VISUALS, MidiphoriaModel } from '../src/instruments/midiphoria/midiphoria-model.js';
+import { DEFAULT_VISUALS, MIDIPHORIA_NOTE_LIMIT, MidiphoriaModel } from '../src/instruments/midiphoria/midiphoria-model.js';
 
 const close = (actual, expected, tolerance = 1e-9) => assert.ok(Math.abs(actual - expected) <= tolerance, `${actual} != ${expected}`);
 const instant = options => new MidiphoriaModel({ attack: 0, decay: 0, sustain: 1, release: 0, ...options });
@@ -105,7 +105,7 @@ test('sustain is scoped to input and channel and preserves released notes', () =
   off(model, 60, 0.1);
   off(model, 60, 0.1, { channel: 1 });
   off(model, 60, 0.1, { sourceId: 'keyboard-b' });
-  assert.deepEqual(model.sample(0.1).activeNotes, [{ note: 60, velocity: 127, channel: 0, sourceId: 'keyboard-a' }]);
+  assert.deepEqual(model.sample(0.1).activeNotes, [{ id: 1, note: 60, velocity: 127, channel: 0, sourceId: 'keyboard-a' }]);
   cc(model, 64, 0, 1, { channel: 1 });
   close(model.sample(1).level, 1);
   cc(model, 64, 0, 2);
@@ -301,7 +301,7 @@ test('active notes and pedal scopes are bounded under many inputs', () => {
     cc(model, 64, 127, index / 1000, { sourceId });
     on(model, index % 128, index / 1000, { sourceId });
   }
-  assert.equal(model.sample(1).activeNotes.length, 256);
+  assert.equal(model.sample(1).activeNotes.length, 1000);
   assert.ok(model._pedals.size <= 256);
   const snapshot = model.sample(1);
   snapshot.activeNotes[0].velocity = 0;
@@ -309,4 +309,150 @@ test('active notes and pedal scopes are bounded under many inputs', () => {
   model.panic(1);
   assert.equal(model.sample(1).activeNotes.length, 0);
   assert.equal(model._pedals.size, 0);
+});
+
+
+test('every short attack and release emits synchronously before any display sample', () => {
+  const events = [];
+  const model = instant({ onNoteEvent: event => events.push(event) });
+  for (let index = 0; index < 20; index += 1) {
+    assert.equal(on(model, 60, 1, { velocity: 70 + index }), true);
+    assert.equal(events.length, index * 2 + 1);
+    assert.equal(off(model, 60, 1), true);
+    assert.equal(events.length, index * 2 + 2);
+  }
+  assert.equal(model.sample(1).activeNotes.length, 0);
+  for (let index = 0; index < 20; index += 1) {
+    const attack = events[index * 2];
+    const release = events[index * 2 + 1];
+    assert.deepEqual(attack, { type: 'noteOn', id: index + 1, sourceId: 'keyboard-a',
+      channel: 0, note: 60, velocity: 70 + index, time: 1 });
+    assert.deepEqual(release, { ...attack, type: 'noteOff' });
+  }
+});
+
+test('overlapping attacks retain individual velocity and release ids in FIFO order', () => {
+  const model = instant();
+  const events = [];
+  model.onNoteEvent = event => events.push(event);
+  on(model, 60, 0, { velocity: 20 });
+  on(model, 60, 0.01, { velocity: 100 });
+  on(model, 60, 0.02, { velocity: 40 });
+  const attacks = model.sample(0.02).activeNotes;
+  assert.equal(new Set(attacks.map(entry => entry.id)).size, 3);
+  assert.deepEqual(attacks.map(entry => entry.velocity), [20, 100, 40]);
+  off(model, 60, 0.03);
+  assert.deepEqual(model.sample(0.03).activeNotes.map(entry => entry.velocity), [100, 40]);
+  off(model, 60, 0.04);
+  assert.deepEqual(model.sample(0.04).activeNotes.map(entry => entry.velocity), [40]);
+  close(model.sample(0.06).level, 40 / 127);
+  off(model, 60, 0.07);
+  assert.deepEqual(events.filter(event => event.type === 'noteOff').map(event => event.id), attacks.map(entry => entry.id));
+  assert.equal(off(model, 60, 0.08), false);
+  assert.equal(events.length, 6);
+});
+
+test('sustain preserves each released instance and does not consume a later attack', () => {
+  const model = instant();
+  const events = [];
+  model.onNoteEvent = event => events.push(event);
+  cc(model, 64, 127, 0);
+  on(model, 60, 0, { velocity: 20 });
+  on(model, 60, 0, { velocity: 100 });
+  off(model, 60, 0.1);
+  off(model, 60, 0.2);
+  assert.equal(off(model, 60, 0.3), false);
+  on(model, 60, 0.4, { velocity: 70 });
+  assert.equal(model.sample(0.4).activeNotes.length, 3);
+  assert.equal(events.length, 3);
+  cc(model, 64, 0, 1);
+  assert.deepEqual(events.slice(3).map(event => [event.type, event.id, event.time]), [
+    ['noteOff', 1, 1], ['noteOff', 2, 1],
+  ]);
+  assert.deepEqual(model.sample(1).activeNotes.map(entry => entry.id), [3]);
+  off(model, 60, 2);
+  assert.deepEqual(events.at(-1), { type: 'noteOff', id: 3, sourceId: 'keyboard-a',
+    channel: 0, note: 60, velocity: 70, time: 2 });
+});
+
+test('dense 512-note chords retain every attack and mix all instance colors', () => {
+  const model = instant();
+  const events = [];
+  model.onNoteEvent = event => events.push(event);
+  for (let index = 0; index < 512; index += 1) {
+    assert.equal(on(model, index % 128, 0, { channel: Math.floor(index / 128) }), true);
+  }
+  const snapshot = model.sample(0);
+  assert.equal(snapshot.activeNotes.length, 512);
+  assert.equal(events.length, 512);
+  assert.equal(new Set(snapshot.activeNotes.map(entry => entry.id)).size, 512);
+  for (const component of snapshot.rgb) close(component, 0.5);
+  for (let index = 0; index < 512; index += 1) off(model, index % 128, 1, { channel: Math.floor(index / 128) });
+  assert.equal(events.length, 1024);
+  assert.equal(model.sample(1).activeNotes.length, 0);
+  assert.equal(model.droppedNotes, 0);
+});
+
+test('instance capacity rejects overflow without evicting held notes and panic recovers it', () => {
+  const model = instant();
+  const events = [];
+  model.onNoteEvent = event => events.push(event);
+  for (let index = 0; index < MIDIPHORIA_NOTE_LIMIT; index += 1) assert.equal(on(model, 60, 0), true);
+  const ids = model.sample(0).activeNotes.map(entry => entry.id);
+  for (let index = 0; index < 512; index += 1) assert.equal(on(model, 61, 1), false);
+  assert.deepEqual(model.sample(1).activeNotes.map(entry => entry.id), ids);
+  assert.equal(model.droppedNotes, 512);
+  assert.equal(events.length, MIDIPHORIA_NOTE_LIMIT);
+  off(model, 60, 2);
+  assert.equal(on(model, 61, 2), true);
+  const latestId = events.at(-1).id;
+  model.panic(3);
+  assert.equal(model.sample(3).activeNotes.length, 0);
+  assert.equal(model.droppedNotes, 0);
+  const attackIds = events.filter(event => event.type === 'noteOn').map(event => event.id);
+  const releaseIds = events.filter(event => event.type === 'noteOff').map(event => event.id);
+  assert.deepEqual(releaseIds, attackIds);
+  on(model, 62, 4);
+  assert.ok(events.at(-1).id > latestId, 'panic must not reuse ids');
+  assert.equal(model.sample(4).activeNotes.length, 1);
+});
+
+test('synthetic offs, CC123, source release, and panic emit all relevant instance releases', () => {
+  const model = instant();
+  const events = [];
+  model.onNoteEvent = event => events.push(event);
+  cc(model, 64, 127, 0);
+  for (let index = 0; index < 3; index += 1) on(model, 60, 0);
+  on(model, 61, 0);
+  on(model, 62, 0, { channel: 1 });
+  on(model, 63, 0, { sourceId: 'keyboard-b' });
+  off(model, 60, 1, { synthetic: true });
+  assert.deepEqual(events.filter(event => event.type === 'noteOff').map(event => event.id), [1, 2, 3]);
+  cc(model, 123, 0, 2);
+  assert.deepEqual(model.sample(2).activeNotes.map(entry => entry.id), [5, 6]);
+  model.releaseSource('keyboard-a', 3);
+  assert.deepEqual(model.sample(3).activeNotes.map(entry => entry.id), [6]);
+  model.panic(4);
+  assert.deepEqual(events.filter(event => event.type === 'noteOff').map(event => [event.id, event.time]), [
+    [1, 1], [2, 1], [3, 1], [4, 2], [5, 3], [6, 4],
+  ]);
+});
+
+test('observer exceptions cannot break accepted notes, sustain release, or panic cleanup', () => {
+  const model = instant();
+  model.onNoteEvent = () => { throw new Error('observer failure'); };
+  assert.equal(on(model, 60, 0), true);
+  cc(model, 64, 127, 0);
+  off(model, 60, 1);
+  assert.equal(model.sample(1).activeNotes.length, 1);
+  assert.doesNotThrow(() => cc(model, 64, 0, 2));
+  assert.equal(model.sample(2).activeNotes.length, 0);
+  on(model, 61, 3);
+  on(model, 61, 3);
+  assert.doesNotThrow(() => model.panic(4));
+  assert.equal(model.sample(4).activeNotes.length, 0);
+  model.onNoteEvent = null;
+  on(model, 62, 5);
+  assert.equal(model.sample(5).activeNotes.length, 1);
+  close(model.sample(5).level, 1);
 });
