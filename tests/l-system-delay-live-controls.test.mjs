@@ -17,7 +17,7 @@ const differencePeak = (values, order = 1) => {
   return peak;
 };
 
-function engine({ count = 1, delay = .24, rate = 1, dry = 0, wasmModule = module } = {}) {
+function engine({ count = 1, delay = .24, rate = 1, dry = 0, automatic = false, bounded = false, wasmModule = module } = {}) {
   const api = new WebAssembly.Instance(wasmModule).exports, owned = [];
   const handle = api.lsd_new(RATE, count); assert.ok(handle);
   const error = () => new TextDecoder().decode(new Uint8Array(api.memory.buffer, api.lsd_error_ptr(), api.lsd_error_len()));
@@ -38,11 +38,12 @@ function engine({ count = 1, delay = .24, rate = 1, dry = 0, wasmModule = module
   }
   const poolPointer = allocate(pool);
   assert.equal(api.lsd_install_begin(handle, poolPointer, pool.length), 1, error());
+  if (bounded) assert.equal(api.lsd_install_scene_admission(handle, 1), 1, error());
   assert.equal(api.lsd_install_time_fold(handle, 240, 240, 0), 1, error());
   let installed;
   do { installed = api.lsd_install_step(handle, 4096); } while (installed === 1);
   assert.equal(installed, 2, error());
-  const defaults = { ...DEFAULT_PERFORMANCE, automatic: false,
+  const defaults = { ...DEFAULT_PERFORMANCE, automatic,
     source: 'mic', frozen: false, inputGain: 1, level: 1, wet: dry ? 0 : 1, dry, mastering: transparent };
   const performance = candidate => {
     const settings = new TextEncoder().encode(JSON.stringify({ ...defaults, ...candidate }));
@@ -164,6 +165,49 @@ test('dense live pitch coefficients retain admission, memory, finite output and 
     assert.ok(Math.abs(live.metrics()[14] - before[14] - .1) < 1e-9);
     for (const invalid of [25, -25, NaN, Infinity]) assert.equal(live.api.lsd_pitch_offset(live.handle, invalid), 0);
     assert.equal(live.api.lsd_pitch_offset_value(live.handle), 0, 'invalid controls preserve the last coefficient');
+  } finally { live.close(); }
+});
+
+test('automatic protection reduces an overloaded pitched bounded scene and preserves its continuous recording', () => {
+  const count = 32, live = engine({ count, automatic: true, bounded: true }), duration = BLOCK / RATE;
+  try {
+    // Warm genuine unison PCM while reporting a cheap measured callback. This
+    // models the worker-proved scene whose live pitch change costs more later.
+    for (let block = 0; block < 190; block++) {
+      live.render(BLOCK);
+      live.api.lsd_observe(live.handle, duration * .2, BLOCK, 0);
+    }
+    const before = live.metrics(), memory = live.api.memory.buffer;
+    const activeStorage = live.api.lsd_active_indices_ptr(live.handle);
+    assert.equal(before[1], count); assert.equal(before[2], count); assert.equal(before[17], 1);
+    live.pitch(12);
+    let preceding;
+    for (let block = 0; block < 64; block++) preceding = live.render(BLOCK);
+    const clockAtObservation = live.metrics()[14];
+    // Only callback cost is injected: samples, pitch, admission and release
+    // still run the real binary. A genuine missed deadline must cut at once.
+    const reduced = live.api.lsd_observe(live.handle, duration * 1.3, BLOCK, 0);
+    assert.ok(reduced > 0 && reduced < count, 'automatic admission responds to the newly expensive pitched workload');
+    assert.equal(live.metrics()[2], reduced);
+    assert.equal(live.metrics()[14], clockAtObservation, 'load observation never rewinds or advances recorded audio');
+    const tail = live.render(BLOCK, () => 0);
+    assert.ok(rms(tail) > rms(preceding) * .1, 'the captured pitched history remains audible after the reduction');
+    assert.ok(differencePeak([...preceding.slice(-1), ...tail]) < differencePeak(preceding) * 2,
+      'admission fades preserve the continuous tone across the load observation');
+    for (let block = 0; block < 720; block++) {
+      const samples = live.render(BLOCK);
+      assert.ok(rms(samples) > 1e-5, 'reduced rendering continues without a dropout');
+      live.api.lsd_observe(live.handle, duration * .15, BLOCK, 0);
+      assert.equal(live.metrics()[2], reduced, 'spare CPU does not regrow an unchanged bounded scene after cooldown');
+    }
+    const after = live.metrics();
+    assert.equal(after[1], reduced, 'outgoing voices retire after their smooth release');
+    assert.equal(after[4], before[4]); assert.equal(after[5], before[5]); assert.equal(after[16], before[16]);
+    assert.equal(after[13], before[13] + 1, 'the injected overload remains visible in deadline telemetry');
+    assert.ok(Math.abs(after[14] - before[14] - (64 + 1 + 720) * duration) < 1e-9);
+    assert.equal(after[23], before[23] + 64 + 1 + 720);
+    assert.equal(live.api.memory.buffer, memory, 'pitch and automatic fallback require no WASM memory growth');
+    assert.equal(live.api.lsd_active_indices_ptr(live.handle), activeStorage, 'admission reuses its existing storage without a pool install');
   } finally { live.close(); }
 });
 
