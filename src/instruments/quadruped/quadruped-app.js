@@ -34,12 +34,13 @@ import {
   solveQuadrupedLimbChain,
 } from "./quadruped.js";
 import {
-  advanceQuadrupedMotor,
+  advanceQuadrupedMotorState,
   createQuadrupedMotorState,
   kickQuadrupedMotor,
   predictQuadrupedMotor,
   quadrupedMotorSnapshot,
   synchronizeQuadrupedMotorTempo,
+  QUADRUPED_MOTOR_LIMITS,
 } from "./quadruped-motor.js";
 import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
 import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedFootprint, deriveQuadrupedVisualRig } from "./quadruped-visual-skins.js";
@@ -50,7 +51,7 @@ import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGestur
 import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
+import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls, quadrupedPitchRatio } from "./quadruped-voices.js";
 import { unlockAudioContext } from "../../audio.js";
 import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, sanitizeQuadrupedWorld } from "./quadruped-world.js";
 
@@ -109,7 +110,7 @@ let groupMode = "solo";
 let selectedActor = 0;
 let groupSeed = 1;
 let soundSkinId = "ground";
-let visualSkinId = "animal";
+let visualSkinId = "constellation";
 let world = sanitizeQuadrupedWorld();
 let courseOriginX = 0;
 const actors = [{ score: state, motor, nextOrdinal: null, transitions: new Map(), offset: 0 }];
@@ -136,6 +137,7 @@ function scoreForActor(index) {
     const behavior = motion.kind === "jump" ? "jump" : motion.kind === "dance" ? "dance"
       : motion.kind === "run" ? "sprint" : base.behaviorId;
     score = { ...applyQuadrupedBehavior(base, behavior), stride: base.stride,
+      momentum: base.momentum, gravity: base.gravity,
       paceRatio: motion.kind === "jump" ? 1 : motion.pace, suspensionBeats: 0 };
     // Backward travel uses the current authored feet, changing spatial travel only.
     if (motion.kind === "backward") score = { ...base, paceRatio: motion.pace };
@@ -415,7 +417,7 @@ function materializeMotor(now = performance.now()) {
     const actor = actors[index], score = scoreForActor(index), motion = performanceFor(index).motion;
     const remaining = motion?.untilPosition == null ? Infinity
       : Math.max(0, (quadrupedClockAtPosition(score, motion.untilPosition) - quadrupedClockAtPosition(score, actor.motor.position)) / (score.tempoBpm * 16 / 60));
-    actor.motor = advanceQuadrupedMotor(score, actor.motor, Math.min(deltaSeconds, remaining)).motor;
+    actor.motor = advanceQuadrupedMotorState(score, actor.motor, Math.min(deltaSeconds, remaining));
     if (index === selectedActor) motor = actor.motor;
     if (remaining <= deltaSeconds + 0.000001) {
       // The fixed-step motor can retain a fractional tick. Finish on the actual
@@ -672,10 +674,11 @@ function syncFlightVoice(snapshot, score = state, index = selectedActor) {
   const energy = clamp(0.68 * speed + 0.2 * vertical + 0.12 * height);
   const ensembleGain = groupMode === "solo" ? 1 : 0.52;
   const pan = groupMode === "solo" ? 0 : (index - 1) * 0.6;
+  const pitchRatio = quadrupedPitchRatio(score.pitchSemitones);
   voice.active = unsupported;
   voice.gain.gain.setTargetAtTime(unsupported ? 0.075 * energy ** 1.25 * ensembleGain : 0, now, 0.018);
-  voice.highpass.frequency.setTargetAtTime(80 + 420 * speed, now, 0.025);
-  voice.bandpass.frequency.setTargetAtTime(450 + 2_800 * speed + 850 * vertical, now, 0.025);
+  voice.highpass.frequency.setTargetAtTime(clamp((80 + 420 * speed) * pitchRatio, 20, 12_000), now, 0.025);
+  voice.bandpass.frequency.setTargetAtTime(clamp((450 + 2_800 * speed + 850 * vertical) * pitchRatio, 40, 18_000), now, 0.025);
   voice.bandpass.Q.setTargetAtTime(0.55 + 0.8 * height, now, 0.025);
   voice.panner.pan?.setTargetAtTime(pan, now, 0.03);
 
@@ -1103,6 +1106,7 @@ function scheduleContactSound(phase, contact, terrain, when, normalization, posi
     skinId: soundSkinId, phase, animal: quadrupedAnimal(score.animalId), terrain, contact,
     velocity: velocity ?? actors[actorIndex]?.motor.velocity ?? 0,
     resonance: score.groundResonance, scrape: world.grain, pitchRatio: placement.pitch,
+    pitchSemitones: score.pitchSemitones, spring: score.spring,
     seed: (world.seed + Math.floor(position * 997) + laneIndex * 173 + actorIndex * 53) >>> 0,
   });
   const pan = lanePan[contact.id] ?? 0;
@@ -1330,7 +1334,7 @@ function scheduleAudioWindow() {
     let scheduled = 0;
     for (const crossing of prediction.events) {
       if (crossing.ordinal < actor.nextOrdinal || crossing.ordinal >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
-      if (scheduled >= 48) break;
+      if (scheduled >= QUADRUPED_MOTOR_LIMITS.maxCrossingEvents) break;
       scheduleStep(crossing.ordinal, audioNow + Math.max(0.006, crossing.offsetSeconds), crossing, actor.score, index);
       actor.nextOrdinal = crossing.ordinal + 1;
       actors[index].nextOrdinal = actor.nextOrdinal;
@@ -1502,17 +1506,17 @@ function updateStateValue(key, value) {
   const actorPerformance = performanceFor(selectedActor);
   if (feet && actorPerformance.travel) actorPerformance.travel = changeQuadrupedTravel(actorPerformance.travel, { position, direction: 1, stride: state.stride, feet });
   retimeTransport(position, now, { preserveMotion: true });
-  if (["tempoBpm", "paceRatio", "suspensionBeats"].includes(key)) {
+  if (["tempoBpm", "paceRatio", "suspensionBeats", "lopsided"].includes(key)) {
     motor = synchronizeQuadrupedMotorTempo(state, motor);
     stoppedPosition = motor.position;
   }
   shareGroupControls();
   if (key === "outputLevel" && graph) {
     graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
-  } else if (["tempoBpm", "paceRatio", "suspensionBeats", "stride", "momentum", "gravity"].includes(key)) {
+  } else if (["tempoBpm", "paceRatio", "suspensionBeats", "stride", "momentum", "gravity", "pitchSemitones", "lopsided", "spring"].includes(key)) {
     resetAudioSchedule();
   }
-  syncAllControls({ grid: ["paceRatio", "suspensionBeats", "stride", "momentum", "gravity"].includes(key) });
+  syncAllControls({ grid: ["paceRatio", "suspensionBeats", "stride", "momentum", "gravity", "lopsided", "spring"].includes(key) });
 }
 
 function setSelectedStep(step, { announceStep = false, focus = false } = {}) {
@@ -2182,9 +2186,13 @@ function syncAllControls({ grid = true } = {}) {
   $("groundResonance").value = String(state.groundResonance);
   $("level").value = String(state.outputLevel);
   setOutput($("tempoOut"), `${Math.round(state.tempoBpm)} BPM · global`);
-  setOutput($("strideOut"), `${Math.round((state.stride - QUADRUPED_LIMITS.stride[0]) / (QUADRUPED_LIMITS.stride[1] - QUADRUPED_LIMITS.stride[0]) * 100)}%`);
+  setOutput($("strideOut"), `${state.stride.toFixed(2)}×`);
   setOutput($("momentumOut"), `${Math.round(state.momentum * 100)}%`);
   setOutput($("gravityOut"), `${Math.round(state.gravity * 100)}%`);
+  for (const key of ["pitchSemitones", "lopsided", "spring"]) $(key).value = String(state[key]);
+  setOutput($("pitchSemitonesOut"), `${state.pitchSemitones > 0 ? "+" : ""}${Number(state.pitchSemitones.toFixed(1))} st`);
+  setOutput($("lopsidedOut"), `${state.lopsided > 0 ? "+" : ""}${Math.round(state.lopsided * 100)}%`);
+  setOutput($("springOut"), `${Math.round(state.spring * 100)}%`);
   setOutput($("groundResonanceOut"), `${Math.round(state.groundResonance * 100)}%`);
   setOutput($("levelOut"), `${Math.round(state.outputLevel * 100)}%`);
   controlKnobs.forEach(knob => knob.update());
@@ -3598,6 +3606,7 @@ function bindControls() {
   $("stride").addEventListener("input", () => updateStateValue("stride", $("stride").value));
   $("momentum").addEventListener("input", () => updateStateValue("momentum", $("momentum").value));
   $("gravity").addEventListener("input", () => updateStateValue("gravity", $("gravity").value));
+  for (const key of ["pitchSemitones", "lopsided", "spring"]) $(key).addEventListener("input", () => updateStateValue(key, $(key).value));
   $("terrain").addEventListener("change", () => setSurface($("terrain").value));
   $("groundProfile").addEventListener("change", () => setGroundProfile($("groundProfile").value));
   $("groundResonance").addEventListener("input", () => updateStateValue("groundResonance", $("groundResonance").value));
@@ -3694,7 +3703,7 @@ for (const [id, skins] of [["soundSkinSelect", QUADRUPED_SOUND_SKINS], ["visualS
 }
 buildBehaviorOptions();
 buildSequenceGrid();
-for (const input of document.querySelectorAll('.quadruped-console input[type="range"]')) controlKnobs.push(enhanceRangeKnob(input));
+for (const input of document.querySelectorAll('.quadruped-console input[type="range"]')) controlKnobs.push(enhanceRangeKnob(input, { scale: input.dataset.knobScale ?? "linear" }));
 bindControls();
 syncAllControls();
 setAudioPresentation("off");

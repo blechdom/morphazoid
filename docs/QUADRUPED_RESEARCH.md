@@ -41,18 +41,47 @@ project-owned Hiccup Head atlases described below.
 
 The control rail follows Shape and Roach Synth: flat dark surfaces, compact
 native menus, one graphic title, and full presets → Next → Random at the top.
-Animal and gait remain independent menus. Playing notes hold the instructions;
-the graphic keeps the animal and its contact feedback. Solo/Herd/Trio share the
+Animal and gait remain independent menus. Hidden accessible help holds the
+instructions; the graphic keeps the animal and its contact feedback. Solo/Herd/Trio share the
 pace row, with the numbered animal editor buttons alongside or wrapped on narrow
 screens. Air / slide rest uses an inline knob only on compatible gaits. Redundant
 four-foot audition boxes are removed; the score and keyboard 1–4 still edit feet.
 
-Fifteen complete scenes recall animal scores, foot/call patterns, gait, tempo,
+Twenty-seven complete scenes recall animal scores, foot/call patterns, gait, tempo,
 pace, rests, group composition, surface, course, grain, cavern and both skins.
 Random creates a bounded new complete scene. Successful preset, Next and Random
 recall starts Play, as requested by the owner; startup remains stopped. Audio
 arming and master output are preserved. Turn **Audio** on to hear a playing scene.
-Tempo spans 25–500 BPM, including immediate retiming at 3× pace (400 frames/sec).
+Tempo spans 10–1,000 BPM, including immediate retiming at 3× pace (800 frames/sec
+on average before extra rests). The logarithmic tempo knob keeps slow speeds
+accessible; Shift-drag gives fine adjustment. Constellation is the startup and
+global-reset skin. The original filled animal rendering is labelled Cartoon;
+its saved `animal` ID is unchanged.
+
+### Expanded motion and pitch
+
+These are expressive, fictional extensions of the gait model. The same clock
+and contacts drive movement and sound; presets retain explicit Audio arming,
+master level and transport phase. New controls belong to the selected animal,
+including independently editable Trio performers. Version 2 scene snapshots
+add neutral controls to older snapshots without replacing saved skins or scores.
+
+| Control | Range | Visible and audible relationship |
+| --- | --- | --- |
+| Stride reach | 0.15–2.4× | Short shuffles through long world-travelling strides |
+| Momentum | 12–300% | Push, stance, swing return, lean and empty-score coasting |
+| Gravity | 10–300% | Floating airborne arcs through heavy, rapid falls |
+| Pitch | −36 to +36 semitones, continuous | Transposes contact resonances, calls and the air voice |
+| Lopsided | −100% to +100% | Uneven left/right pressure, lift, lean and timing within each cycle |
+| Spring | 0–250% | Low skimming steps and damped impacts through exaggerated bounce, leaps and elastic ringing contacts |
+
+Neutral Pitch/Lopsided/Spring are 0/0/100%. The twelve new scenes cover Slow
+motion, Lopsided, Superhero and Extreme settings, including Lunar drift,
+Crooked parade, Silver streak, Skybound and Hyperdrive. The original fifteen
+scene IDs remain available. Full randomization explores all new controls and
+their endpoints, biased toward moderate settings. Output and voice limits stay
+bounded at the enlarged ranges; recorded signal checks establish parameter
+direction and finite output, not human judgments of timbre or physical realism.
 
 A fixed 4× (+12.04 dB) calibration follows the existing compressor. The native
 master default/range stays 0.62 / 0–0.72. A soft ceiling and final reconstruction
@@ -74,12 +103,18 @@ changes event variation. Four prepared variants per contact are held in a
 bounded 256-entry cache. No persistent scratch source runs during a skid.
 
 The scheduler mixes its next contact window into one stereo sample buffer,
-preserving each onset, pitch and pan. This prevents dense 500 BPM trios from
+preserving each onset, pitch and pan. This prevents dense 1,000 BPM trios from
 exhausting the 48-node budget with future contacts and silencing an earlier
 actor. Control edits release queued batches before rescheduling. Melodic calls
 keep their separate voices; extended flight rests remain silent unless scored.
+Exact-rate contact resamples use a shared 32 MiB / 2,048-entry limit, with up to
+32 rates per prepared source. The motor prepares contact cards separately from
+drawing geometry; live state advancement skips discarded event records while
+audio prediction retains every crossing and stance transition. Parity tests
+compare these paths against full support geometry, eventful advancement and
+direct stereo interpolation.
 
-Five animal skins share the same poses and fixed-length limb IK: Original,
+Five animal skins share the same poses and fixed-length limb IK: Cartoon,
 Skeleton, Constellation (open Shapes-like connections and joint stars), Cutout
 collage (photographic Hiccup Head atlas pieces), and Motion cards (sepia study
 contours). Collage loads the existing project-owned assets only when selected;
@@ -90,7 +125,7 @@ Each visual skin also owns its environment. Constellation uses outlined sky
 checks and a perspective ground grid, with laser structures and wireframe objects;
 its background has no stars. Skeleton uses an eerie field with tombstones,
 bones and bare trees. Cutout collage extends the existing photographic atlas
-into the sky, hills, ground and scenery with white paper edges. Original uses
+into the sky, hills, ground and scenery with white paper edges. Cartoon uses
 an earthy field with cacti and tumbleweeds; Motion cards draws its scenery in ink.
 
 Passing objects are decorative scenery behind the animal, with near/far layers
@@ -102,7 +137,7 @@ neighborhood is drawn; no growing object list, independent clock, collisions or
 new sound triggers are introduced. Terrain still follows the selected course.
 
 Footprints and landing flashes follow the visual skin in every group mode:
-Original keeps soft colored stamps; Skeleton leaves ivory toe bones;
+Cartoon keeps soft colored stamps; Skeleton leaves ivory toe bones;
 Constellation leaves hollow rectangles; Collage uses photographic paper scraps
 with pale cut edges; Motion cards uses sepia outlines and hatching. Contact
 positions, timing, fading and the existing footprint hit targets stay tied to

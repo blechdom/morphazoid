@@ -2,7 +2,7 @@ import { QUADRUPED_LANES, QUADRUPED_STEP_COUNT, quadrupedAnimal, solveQuadrupedL
 import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 
 export const QUADRUPED_VISUAL_SKINS = Object.freeze([
-  Object.freeze({ id: "animal", label: "Original" }),
+  Object.freeze({ id: "animal", label: "Cartoon" }),
   Object.freeze({ id: "skeleton", label: "Skeleton" }),
   Object.freeze({ id: "constellation", label: "Constellation" }),
   Object.freeze({ id: "collage", label: "Cutout collage" }),

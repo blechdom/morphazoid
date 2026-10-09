@@ -26,7 +26,10 @@ test("call migration bounds hostile input and frog has tailless folded hind anat
   assert.deepEqual(pattern[0].slice(0, 4), [0, 0, 1, 0.58]);
   assert.equal(pattern.length, 3); assert.equal(pattern[2].length, 16);
   const old = sanitizeQuadrupedState({ version: 7, animalId: "frog" });
-  assert.equal(old.version, 8);
+  assert.equal(old.version, 9);
+  assert.equal(old.pitchSemitones, 0);
+  assert.equal(old.lopsided, 0);
+  assert.equal(old.spring, 1);
   assert.ok(old.callPattern.every(row => row.every(value => value === 0)));
   const frog = QUADRUPED_ANIMALS.find(animal => animal.id === "frog");
   assert.equal(frog.morphology.tailLength, 0);

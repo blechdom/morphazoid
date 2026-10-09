@@ -1,3 +1,5 @@
+import { QUADRUPED_LIMITS } from "./quadruped-limits.js";
+export { QUADRUPED_LIMITS } from "./quadruped-limits.js";
 import { emptyQuadrupedCalls, sanitizeQuadrupedCalls, quadrupedCallEvents } from "./quadruped-voices.js";
 import { quadrupedWorldAtPosition, quadrupedTravelSwing } from "./quadruped-travel.js";
 const CONTACT_LEVELS = Object.freeze([0, 0.58, 1]);
@@ -24,18 +26,7 @@ const ALL_QUADRUPED_IDS = Object.freeze([
   "frog",
 ]);
 
-export const QUADRUPED_LIMITS = Object.freeze({
-  tempoBpm: Object.freeze([25, 500]),
-  stride: Object.freeze([0.55, 1.35]),
-  momentum: Object.freeze([0.5, 1.4]),
-  gravity: Object.freeze([0.55, 1.55]),
-  mood: Object.freeze([0, 1]),
-  groundResonance: Object.freeze([0, 1]),
-  outputLevel: Object.freeze([0, 0.72]),
-  maxScheduledVoices: 48,
-  maxHeadVoices: 16,
-  schedulerLookaheadSeconds: 0.09,
-});
+
 
 export const QUADRUPED_LANES = Object.freeze([
   Object.freeze({ id: "front-left", label: "Left front foot", shortLabel: "LF", color: "#ffcc66" }),
@@ -894,12 +885,17 @@ const timingCache = new WeakMap();
 export function quadrupedScoreTiming(state) {
   const ratio = QUADRUPED_PACE_RATIOS.includes(Number(state?.paceRatio)) ? Number(state.paceRatio) : 1;
   const extra = clamp(state?.suspensionBeats ?? 2, 0, 8);
-  const key = `${state?.behaviorId}:${ratio}:${extra}`;
+  const lopsided = clamp(state?.lopsided ?? 0, ...QUADRUPED_LIMITS.lopsided);
+  const key = `${state?.behaviorId}:${ratio}:${extra}:${lopsided}`;
   const cached = state && timingCache.get(state);
   if (cached?.key === key) return cached;
   const window = SUSPENSION_WINDOWS[state?.behaviorId] ?? null;
   const durations = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, frame) => (
-    1 / ratio + (window && frame >= window[0] && frame < window[1]
+    // A side-to-side push/pause within each beat. The sinusoid sums to zero:
+    // total cycle duration, card order and extra air rests remain unchanged.
+    (1 + (1 - QUADRUPED_LIMITS.minimumTimingWeight) * lopsided
+      * Math.sin((frame + 0.5) / QUADRUPED_STEP_COUNT * Math.PI * 2)) / ratio
+      + (window && frame >= window[0] && frame < window[1]
       ? extra * QUADRUPED_STEP_COUNT / (window[1] - window[0]) : 0)
   ));
   const boundaries = [0];
@@ -946,7 +942,9 @@ export function quadrupedFlightTrajectory(state, position, support = quadrupedSu
   const progress = clamp((quadrupedClockAtPosition(state, position) - quadrupedClockAtPosition(state, start)) * secondsPerClockFrame / Math.max(0.001, duration));
   // A bounded ballistic-shaped arc: long musical rests are intentional slow
   // motion, not a claim of real-world multi-second jumps under Earth gravity.
-  const apex = Math.min(1.55, 9.8 * duration * duration / 8) / Math.sqrt(clamp(state.gravity, 0.55, 1.55));
+  const spring = clamp(state.spring ?? 1, ...QUADRUPED_LIMITS.spring);
+  const apex = Math.min(2, Math.min(1.55, 9.8 * duration * duration / 8)
+    * spring / Math.sqrt(clamp(state.gravity, ...QUADRUPED_LIMITS.gravity)));
   return Object.freeze({ start, end, progress, duration, height: 4 * apex * progress * (1 - progress), verticalVelocity: 4 * apex * (1 - 2 * progress) / Math.max(0.001, duration) });
 }
 
@@ -1017,7 +1015,7 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
   const animal = quadrupedAnimal(animalId);
   const behavior = behaviorDefinition(behaviorId ?? animal.defaultBehaviorId, animal.id);
   return {
-    version: 8,
+    version: 9,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: QUADRUPED_DEFAULT_TEMPO_BPM,
@@ -1026,6 +1024,9 @@ export function createQuadrupedState(animalId = "elephant", behaviorId = null) {
     stride: defaultStride(animal.id, behavior.id),
     momentum: quadrupedMotion(behavior.id).momentum,
     gravity: quadrupedMotion(behavior.id).gravity,
+    lopsided: 0,
+    spring: 1,
+    pitchSemitones: 0,
     mood: animal.mood,
     groundResonance: animal.groundResonance,
     outputLevel: animal.outputLevel,
@@ -1064,7 +1065,7 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     ? Number(source.mutationSeed) >>> 0
     : Number(fallback?.mutationSeed ?? 0x51414452) >>> 0;
   return {
-    version: 8,
+    version: 9,
     animalId: animal.id,
     behaviorId: behavior.id,
     tempoBpm: clamp(source.tempoBpm ?? fallback?.tempoBpm ?? QUADRUPED_DEFAULT_TEMPO_BPM, ...QUADRUPED_LIMITS.tempoBpm),
@@ -1073,6 +1074,9 @@ export function sanitizeQuadrupedState(candidate, fallback = createQuadrupedStat
     stride: clamp(source.stride ?? fallback?.stride ?? defaultStride(animal.id, behavior.id), ...QUADRUPED_LIMITS.stride),
     momentum: clamp(source.momentum ?? fallback?.momentum ?? quadrupedMotion(behavior.id).momentum, ...QUADRUPED_LIMITS.momentum),
     gravity: clamp(source.gravity ?? fallback?.gravity ?? quadrupedMotion(behavior.id).gravity, ...QUADRUPED_LIMITS.gravity),
+    lopsided: clamp(source.lopsided ?? fallback?.lopsided ?? 0, ...QUADRUPED_LIMITS.lopsided),
+    spring: clamp(source.spring ?? fallback?.spring ?? 1, ...QUADRUPED_LIMITS.spring),
+    pitchSemitones: clamp(source.pitchSemitones ?? fallback?.pitchSemitones ?? 0, ...QUADRUPED_LIMITS.pitchSemitones),
     mood: clamp(source.mood ?? fallback?.mood ?? animal.mood, ...QUADRUPED_LIMITS.mood),
     groundResonance: clamp(source.groundResonance ?? fallback?.groundResonance ?? animal.groundResonance, ...QUADRUPED_LIMITS.groundResonance),
     outputLevel: clamp(source.outputLevel ?? fallback?.outputLevel ?? animal.outputLevel, ...QUADRUPED_LIMITS.outputLevel),
@@ -1095,6 +1099,9 @@ export function applyQuadrupedAnimal(state, animalId) {
     paceRatio: state?.paceRatio ?? 1,
     suspensionBeats: state?.suspensionBeats ?? 2,
     tempoBpm: state?.tempoBpm ?? next.tempoBpm,
+    lopsided: state?.lopsided ?? 0,
+    spring: state?.spring ?? 1,
+    pitchSemitones: state?.pitchSemitones ?? 0,
     outputLevel: state?.outputLevel ?? next.outputLevel,
     surfaceId: state?.surfaceId ?? next.surfaceId,
     groundProfileId: state?.groundProfileId ?? next.groundProfileId,
@@ -1107,6 +1114,9 @@ export function applyQuadrupedBehavior(state, behaviorId) {
   return sanitizeQuadrupedState({
     ...next,
     tempoBpm: current.tempoBpm,
+    lopsided: current.lopsided,
+    spring: current.spring,
+    pitchSemitones: current.pitchSemitones,
     callPattern: current.callPattern,
     paceRatio: current.paceRatio,
     suspensionBeats: current.suspensionBeats,
@@ -1337,11 +1347,18 @@ function headPhraseFromEvent(safe, step, terrain, footEnergy, totalEnergy, force
   return null;
 }
 
+function contactStrength(safe, laneId, intensity) {
+  const side = laneId.endsWith("left") ? 1 : -1;
+  const momentumRatio = safe.momentum / quadrupedMotion(safe.behaviorId).momentum;
+  return clamp(intensity * (1 + safe.lopsided * side * 0.65)
+    * clamp(0.75 + momentumRatio * 0.25, 0.65, 1.75));
+}
+
 function sequenceEventFromSafe(safe, absoluteStep = 0, forceHead = false) {
   const numericStep = Number(absoluteStep);
   const step = mod(Number.isFinite(numericStep) ? Math.trunc(numericStep) : 0, QUADRUPED_STEP_COUNT);
   const contacts = QUADRUPED_LANES
-    .map((lane) => Object.freeze({ ...lane, intensity: safe.pattern[lane.id][step] }))
+    .map((lane) => Object.freeze({ ...lane, intensity: contactStrength(safe, lane.id, safe.pattern[lane.id][step]) }))
     .filter(({ intensity }) => intensity > 0);
   const terrain = quadrupedTerrain(safe.surfaceId);
   const footContacts = contacts;
@@ -1554,7 +1571,7 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   let next = null;
   for (let lag = 0; lag < QUADRUPED_STEP_COUNT; lag += 1) {
     const step = mod(wholeStep - lag, QUADRUPED_STEP_COUNT);
-    const intensity = lanePattern[step] ?? 0;
+    const intensity = contactStrength(safe, laneId, lanePattern[step] ?? 0);
     if (intensity > 0) {
       previous = { age: lag + fraction, intensity, step };
       break;
@@ -1562,7 +1579,7 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   }
   for (let lead = 1; lead <= QUADRUPED_STEP_COUNT; lead += 1) {
     const step = mod(wholeStep + lead, QUADRUPED_STEP_COUNT);
-    const intensity = lanePattern[step] ?? 0;
+    const intensity = contactStrength(safe, laneId, lanePattern[step] ?? 0);
     if (intensity > 0) {
       next = { distance: lead - fraction, intensity, step };
       break;
@@ -1607,7 +1624,11 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   const direction = quadrupedGroundProfile(safe.groundProfileId).direction;
   const fore = laneId.startsWith("front");
   const stairDuty = direction > 0 ? (fore ? 1.02 : 1.14) : direction < 0 ? (fore ? 1.14 : 1.02) : 1;
-  const stanceDuration = clamp(cycleSteps * dutyFactor * stairDuty, 0.28, Math.max(0.3, cycleSteps - 0.08));
+  const side = laneId.endsWith("left") ? 1 : -1;
+  const momentumRatio = safe.momentum / quadrupedMotion(safe.behaviorId).momentum;
+  const pushDuration = clamp(1 / Math.sqrt(momentumRatio), 0.6, 1.3);
+  const stanceDuration = clamp(cycleSteps * dutyFactor * stairDuty
+    * (1 + safe.lopsided * side * 0.25) * pushDuration, 0.28, Math.max(0.3, cycleSteps - 0.08));
   const previousTouchdownPosition = unwrappedPosition - previous.age;
   const nextTouchdownPosition = unwrappedPosition + next.distance;
   const cycleOrdinal = Math.round((previousTouchdownPosition - previous.step) / QUADRUPED_STEP_COUNT);
@@ -1646,12 +1667,13 @@ function footCycleStateFromSafe(safe, laneId, absolutePosition) {
   } else {
     const swingDuration = Math.max(0.08, cycleSteps - stanceDuration);
     swingProgress = clamp((previous.age - stanceDuration) / swingDuration);
-    const pathProgress = minimumJerk(swingProgress);
+    const pathProgress = minimumJerk(swingProgress ** clamp(1 / Math.sqrt(momentumRatio), 0.5, 2));
     footWorldX = anchorWorldX + (nextAnchorWorldX - anchorWorldX) * pathProgress;
     footWorldY = anchorWorldY + (nextAnchorWorldY - anchorWorldY) * pathProgress;
     const retarget = quadrupedTravelSwing(safe.worldTravel, laneId, eventId, unwrappedPosition, nextTouchdownPosition, nextAnchorWorldX, nextAnchorWorldY);
     if (retarget) { footWorldX = retarget.worldX; footWorldY = retarget.worldY; }
-    lift = Math.sin(Math.PI * swingProgress) ** 2 * quadrupedGroundProfile(safe.groundProfileId).clearanceScale;
+    lift = Math.sin(Math.PI * swingProgress) ** 2 * quadrupedGroundProfile(safe.groundProfileId).clearanceScale
+      * (0.3 + safe.spring * 0.7) * (1 - safe.lopsided * side * 0.35);
   }
   const footX = footWorldX - bodyWorldX;
   return Object.freeze({
@@ -1694,9 +1716,7 @@ export function quadrupedFootCycleState(state, laneId, absolutePosition = 0) {
   return footCycleStateFromSafe(safe, laneId, absolutePosition);
 }
 
-export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
-  const sanitized = sanitizeQuadrupedState(state);
-  const safe = state?.worldTravel ? { ...sanitized, worldTravel: state.worldTravel } : sanitized;
+function supportSnapshotFromSafe(safe, absolutePosition) {
   const legs = Object.fromEntries(QUADRUPED_LANES.map(({ id }) => [
     id,
     footCycleStateFromSafe(safe, id, absolutePosition),
@@ -1718,6 +1738,86 @@ export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
     bodyGroundHeight,
     supportSlope: courseSlope,
   });
+}
+
+// A motor advance samples one fixed score many times. Sanitize once per advance,
+// without caching mutable caller state or retaining a stale live edit.
+export function createQuadrupedSupportSampler(state) {
+  const sanitized = sanitizeQuadrupedState(state);
+  const safe = state?.worldTravel ? { ...sanitized, worldTravel: state.worldTravel } : sanitized;
+  return (position = 0) => supportSnapshotFromSafe(safe, position);
+}
+
+// Motor integration needs support, not world anchors or limb drawing geometry.
+// Prepare the sixteen contact cards once, then evaluate the same stance/load
+// equations as the full foot snapshot at any score position.
+export function createQuadrupedContactSampler(state) {
+  const safe = sanitizeQuadrupedState(state);
+  const profile = quadrupedGaitProfile(safe.behaviorId, safe.animalId);
+  const direction = quadrupedGroundProfile(safe.groundProfileId).direction;
+  const momentumRatio = safe.momentum / quadrupedMotion(safe.behaviorId).momentum;
+  const pushDuration = clamp(1 / Math.sqrt(momentumRatio), 0.6, 1.3);
+  const lanes = QUADRUPED_LANES.map(({ id }) => {
+    const fore = id.startsWith("front");
+    const side = id.endsWith("left") ? 1 : -1;
+    const dutyFactor = fore ? profile.frontDutyFactor : profile.hindDutyFactor;
+    const stairDuty = direction > 0 ? (fore ? 1.02 : 1.14) : direction < 0 ? (fore ? 1.14 : 1.02) : 1;
+    const weightShift = direction < 0 ? (fore ? 1.35 : 0.8) : direction > 0 ? (fore ? 0.84 : 1.3) : 1;
+    const driveBias = fore ? 0.72 : 1.16;
+    const uphillPush = direction > 0 && !fore ? 1.35 : 1;
+    const cards = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, frame) => {
+      let previous = null, next = null;
+      for (let lag = 0; lag < QUADRUPED_STEP_COUNT; lag += 1) {
+        const step = mod(frame - lag, QUADRUPED_STEP_COUNT);
+        const intensity = contactStrength(safe, id, safe.pattern[id][step]);
+        if (intensity > 0) { previous = { lag, intensity, step }; break; }
+      }
+      for (let lead = 1; lead <= QUADRUPED_STEP_COUNT; lead += 1) {
+        const step = mod(frame + lead, QUADRUPED_STEP_COUNT);
+        if (safe.pattern[id][step] > 0) { next = { lead }; break; }
+      }
+      return { previous, next };
+    });
+    return { id, side, dutyFactor, stairDuty, weightShift, driveBias, uphillPush, cards };
+  });
+  return (absolutePosition = 0) => {
+    const unwrappedPosition = Number.isFinite(Number(absolutePosition)) ? Number(absolutePosition) : 0;
+    const local = mod(unwrappedPosition, QUADRUPED_STEP_COUNT);
+    const frame = Math.floor(local), fraction = local - frame;
+    const legs = {};
+    let supportCount = 0, supportEnergy = 0, propulsion = 0;
+    for (const lane of lanes) {
+      const { previous, next } = lane.cards[frame];
+      if (!previous || !next) {
+        legs[lane.id] = { laneId: lane.id, eventId: null, intensity: 0, grounded: false,
+          load: 0, propulsion: 0, stanceDuration: 0, previousTouchdownPosition: null, nextTouchdownPosition: null };
+        continue;
+      }
+      const age = previous.lag + fraction, distance = next.lead - fraction;
+      const cycleSteps = Math.max(0.5, age + distance);
+      const stanceDuration = clamp(cycleSteps * lane.dutyFactor * lane.stairDuty
+        * (1 + safe.lopsided * lane.side * 0.25) * pushDuration, 0.28, Math.max(0.3, cycleSteps - 0.08));
+      const previousTouchdownPosition = unwrappedPosition - age;
+      const grounded = age < stanceDuration;
+      const progress = grounded ? clamp(age / stanceDuration) : 1;
+      const release = progress > 0.92 ? clamp((1 - progress) / 0.08) : 1;
+      const contact = grounded ? previous.intensity * release : 0;
+      const load = contact * (0.34 + Math.sin(Math.PI * progress) * 0.66) * lane.weightShift;
+      const push = load * lane.driveBias * (0.42 + 0.58 * progress) * lane.uphillPush;
+      const cycleOrdinal = Math.round((previousTouchdownPosition - previous.step) / QUADRUPED_STEP_COUNT);
+      legs[lane.id] = { laneId: lane.id, eventId: `${lane.id}:${cycleOrdinal}:${previous.step}`,
+        intensity: previous.intensity, grounded, load, propulsion: push, stanceDuration,
+        previousTouchdownPosition, nextTouchdownPosition: unwrappedPosition + distance };
+      if (grounded) supportCount += 1;
+      supportEnergy += load;
+      propulsion += push;
+    }
+    return { legs, supportCount, supportEnergy, propulsion };
+  };
+}
+
+export function quadrupedSupportSnapshot(state, absolutePosition = 0) {
+  return createQuadrupedSupportSampler(state)(absolutePosition);
 }
 
 export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot = null) {
@@ -1748,7 +1848,7 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
   const legs = {};
   for (const lane of QUADRUPED_LANES.slice(0, 4)) {
     const cycle = footCycleStateFromSafe(safe, lane.id, absolutePosition);
-    legs[lane.id] = Object.freeze({ ...cycle, lift: clamp(cycle.lift * motion.lift, 0, 1.2) });
+    legs[lane.id] = Object.freeze({ ...cycle, lift: clamp(cycle.lift * motion.lift, 0, 2.8) });
   }
   legs.tail = Object.freeze({
     intensity: 0,
@@ -1796,7 +1896,7 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
   const timedArc = quadrupedFlightTrajectory(safe, absolutePosition, supportPlane);
   const simulatedHeight = Number.isFinite(Number(motorSnapshot?.height)) ? clamp(motorSnapshot.height, 0, 2) : timedArc?.height ?? null;
   const aerial = simulatedHeight === null
-    ? flightArc * motion.aerial / Math.sqrt(safe.gravity)
+    ? flightArc * motion.aerial * safe.spring / Math.sqrt(safe.gravity)
     : simulatedHeight * (0.34 + motion.aerial * 0.34);
   const legImpact = QUADRUPED_LANES.slice(0, 4).reduce((sum, { id }) => sum + legs[id].impact, 0) / 4;
   const impact = Math.max(legImpact, clamp(motorSnapshot?.landing, 0, 1));
@@ -1813,7 +1913,7 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     ? clamp(motorSnapshot.propulsion / 2.4)
     : clamp(event.footEnergy / 3.2);
   const compression = clamp(motorSnapshot?.compression ?? impact * 0.42);
-  const bodyLift = bodySlide > 0 ? 0 : clamp(0.05 + aerial + propulsion * motion.bounce * 0.16 - compression * 0.2 + (safe.behaviorId === "tiptoe" ? 0.16 : 0), -0.1, 1.2);
+  const bodyLift = bodySlide > 0 ? 0 : clamp(0.05 + aerial + propulsion * motion.bounce * 0.16 * safe.spring - compression * 0.2 + (safe.behaviorId === "tiptoe" ? 0.16 : 0), -0.1, 1.2);
   const headExpression = 0;
   const danceBalance = ["dance", "rear-waltz", "rear-up", "lizard-sprint"].includes(safe.behaviorId) && groundSupportCount === 2
     ? clamp(Math.sin(Math.PI * phase))
@@ -1834,8 +1934,10 @@ export function deriveQuadrupedPose(state, sequencePosition = 0, motorSnapshot =
     groundSupportCount,
     airborne: bodySlide > 0 ? false : typeof motorSnapshot?.airborne === "boolean" ? motorSnapshot.airborne : groundSupportCount === 0,
     bodyLift,
-    bodyRoll: clamp((rightEnergy - leftEnergy) * motion.sway + danceSway + stagger + wandering, -0.5, 0.5),
-    bodyPitch: clamp((rearSupport - foreSupport) * 0.09 - compression * 0.05 - Math.atan(supportPlane.supportSlope) * 1.35 + stagger * 0.3, -0.42, 0.42) * (1 - bodySlide),
+    bodyRoll: clamp((rightEnergy - leftEnergy) * motion.sway + danceSway + stagger + wandering
+      + safe.lopsided * Math.sin(cycleProgress * Math.PI * 2) * 0.28, -0.7, 0.7),
+    bodyPitch: clamp((rearSupport - foreSupport) * 0.09 - compression * 0.05 - Math.atan(supportPlane.supportSlope) * 1.35 + stagger * 0.3
+      - (safe.momentum - motion.momentum) * 0.1, -0.58, 0.58) * (1 - bodySlide),
     bodyGroundHeight: supportPlane.bodyGroundHeight,
     groundSlope: supportPlane.supportSlope,
     groundProfileId: safe.groundProfileId,

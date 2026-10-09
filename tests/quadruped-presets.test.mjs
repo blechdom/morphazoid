@@ -6,7 +6,7 @@ import {
 } from "../src/instruments/quadruped/quadruped-presets.js";
 import {
   QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS, QUADRUPED_GROUND_PROFILES,
-  QUADRUPED_LANES, QUADRUPED_TERRAINS, createQuadrupedState, sanitizeQuadrupedState,
+  QUADRUPED_LANES, QUADRUPED_LIMITS, QUADRUPED_TERRAINS, createQuadrupedState, sanitizeQuadrupedState,
 } from "../src/instruments/quadruped/quadruped.js";
 import {
   QUADRUPED_GROUP_MODES, QUADRUPED_SHARED_FIELDS, quadrupedRandom,
@@ -21,7 +21,7 @@ const sharedFields = QUADRUPED_SHARED_FIELDS.filter(key => key !== "outputLevel"
 function assertComplete(snapshot) {
   assert.doesNotThrow(() => presetStateKey(snapshot));
   assert.deepEqual(Object.keys(snapshot).sort(), ["actors", "groupMode", "groupSeed", "selectedActor", "soundSkinId", "version", "visualSkinId", "world"]);
-  assert.equal(snapshot.version, 1);
+  assert.equal(snapshot.version, 2);
   assert.ok(["ground", "tendon", "porcelain", "voltage", "breath"].includes(snapshot.soundSkinId));
   assert.ok(["animal", "skeleton", "constellation", "collage", "motion-card"].includes(snapshot.visualSkinId));
   assert.ok(QUADRUPED_GROUP_MODES.includes(snapshot.groupMode));
@@ -44,10 +44,18 @@ function assertComplete(snapshot) {
   assert.deepEqual(normalizeQuadrupedPreset(snapshot), snapshot);
 }
 
-test("fifteen complete scenes span every animal, group, terrain and ground profile", () => {
+test("complete scenes retain the original bank and expand every animal, group, terrain and ground profile", () => {
   validateFullPresetBank(QUADRUPED_FULL_PRESETS);
-  assert.equal(QUADRUPED_FULL_PRESETS.length, 15);
-  for (const { snapshot } of QUADRUPED_FULL_PRESETS) assertComplete(snapshot);
+  assert.equal(QUADRUPED_FULL_PRESETS.length, 27);
+  assert.deepEqual(QUADRUPED_FULL_PRESETS.slice(0, 15).map(preset => preset.id), [
+    "earth-procession", "crystal-carousel", "stair-flight", "velvet-paws", "crosswind",
+    "long-shadows", "copper-scuttle", "timber-canter", "waterside-pack", "high-steps",
+    "rabbit-springs", "dune-pace", "ice-whisper", "cavern-thunder", "glass-pond",
+  ]);
+  for (const { snapshot } of QUADRUPED_FULL_PRESETS) {
+    assertComplete(snapshot);
+    assert.deepEqual(clone(snapshot), snapshot, "factory scenes survive saved JSON without changing signed zero or other state");
+  }
   const snapshots = QUADRUPED_FULL_PRESETS.map(preset => preset.snapshot);
   assert.equal(new Set(snapshots.map(scene => scene.soundSkinId)).size, 5);
   assert.equal(new Set(snapshots.map(scene => scene.visualSkinId)).size, 5);
@@ -62,7 +70,7 @@ test("fifteen complete scenes span every animal, group, terrain and ground profi
       { animalId, behaviorId, tempoBpm, surfaceId, groundProfileId, pattern, callPattern }
     )),
   }));
-  assert.equal(new Set(musicalKeys).size, 15);
+  assert.equal(new Set(musicalKeys).size, QUADRUPED_FULL_PRESETS.length);
 });
 
 test("capture retains edited and parked actors while ignoring output, transport and clocks", () => {
@@ -190,5 +198,74 @@ test("full snapshots recall each independent skin and repair unsupported IDs", (
   assert.deepEqual(captureQuadrupedPreset(scene), scene);
   const oldScene = normalizeQuadrupedPreset({ soundSkinId: "missing", visualSkinId: "missing" });
   assert.equal(oldScene.soundSkinId, "ground");
-  assert.equal(oldScene.visualSkinId, "animal");
+  assert.equal(oldScene.visualSkinId, "constellation");
+  assert.equal(normalizeQuadrupedPreset().visualSkinId, "constellation");
+  assert.equal(normalizeQuadrupedPreset({ visualSkinId: "animal" }).visualSkinId, "animal");
+});
+
+
+test("version-one scenes migrate expressive controls neutrally without changing saved music", () => {
+  const source = clone(QUADRUPED_FULL_PRESETS[6].snapshot);
+  source.version = 1;
+  source.visualSkinId = "animal";
+  for (const score of source.actors) {
+    score.version = 8;
+    delete score.pitchSemitones;
+    delete score.lopsided;
+    delete score.spring;
+  }
+  const before = clone(source);
+  const migrated = normalizeQuadrupedPreset(source);
+  assertComplete(migrated);
+  assert.deepEqual(source, before, "migration must be detached and transactional");
+  assert.equal(migrated.visualSkinId, "animal", "a saved cartoon skin keeps its stable ID");
+  for (let index = 0; index < source.actors.length; index += 1) {
+    const { version, pitchSemitones, lopsided, spring, ...music } = migrated.actors[index];
+    const { version: oldVersion, ...oldMusic } = source.actors[index];
+    assert.deepEqual(music, oldMusic);
+    assert.deepEqual({ pitchSemitones, lopsided, spring }, { pitchSemitones: 0, lopsided: 0, spring: 1 });
+  }
+  const edited = clone(migrated);
+  Object.assign(edited.actors[0], { pitchSemitones: -31.7, lopsided: -0.94, spring: 2.34 });
+  assert.deepEqual(captureQuadrupedPreset(edited), edited, "new fields survive capture and recall");
+});
+
+test("new scenes expose slow, uneven, superhero and extreme motion/register relationships", () => {
+  const expanded = QUADRUPED_FULL_PRESETS.slice(15);
+  assert.deepEqual(expanded.map(scene => scene.label.split(" · ")[0]), [
+    "Slow motion", "Slow motion", "Slow motion", "Lopsided", "Lopsided", "Lopsided",
+    "Superhero", "Superhero", "Superhero", "Extreme", "Extreme", "Extreme",
+  ]);
+  const scores = expanded.map(scene => scene.snapshot.actors[0]);
+  const spans = {
+    tempoBpm: [10, 1000], stride: [0.15, 2.4], momentum: [0.12, 3],
+    gravity: [0.1, 3], pitchSemitones: [-36, 36], lopsided: [-1, 1], spring: [0, 2.5],
+  };
+  for (const [key, endpoints] of Object.entries(spans)) {
+    assert.deepEqual([Math.min(...scores.map(score => score[key])), Math.max(...scores.map(score => score[key]))], endpoints, key);
+  }
+  assert.ok(scores.slice(0, 3).every(score => score.tempoBpm < 40));
+  assert.ok(scores.slice(3, 6).every(score => Math.abs(score.lopsided) >= 0.75));
+  assert.ok(scores.slice(6, 9).every(score => score.stride >= 2 && score.momentum >= 2.5));
+  assert.ok(scores.slice(9).every(score => score.tempoBpm > 500));
+  const crooked = expanded.find(scene => scene.id === "crooked-parade").snapshot;
+  assert.ok(crooked.actors[0].lopsided * crooked.actors[1].lopsided < 0, "the trio opposes its lean");
+});
+
+test("dice reaches both expressive limits and favors playable centers without freezing fields", () => {
+  const keys = ["tempoBpm", "stride", "momentum", "gravity", "pitchSemitones", "lopsided", "spring"];
+  for (const [unit, endpoint] of [[0, 0], [1, 1]]) {
+    const scene = randomizeQuadrupedPreset(null, () => unit);
+    for (const score of scene.actors) for (const key of keys) {
+      assert.ok(Math.abs(score[key] - QUADRUPED_LIMITS[key][endpoint]) < 1e-9, `${key} reaches ${endpoint ? "maximum" : "minimum"}`);
+    }
+  }
+  const rng = quadrupedRandom(0x17883211);
+  const scores = Array.from({ length: 500 }, () => randomizeQuadrupedPreset(null, rng).actors[0]);
+  for (const [key, low, high] of [["tempoBpm", 45, 210], ["pitchSemitones", -12, 12], ["lopsided", -0.45, 0.45], ["spring", 0.6, 1.6]]) {
+    const centered = scores.filter(score => score[key] >= low && score[key] <= high).length;
+    assert.ok(centered > 300 && centered < 480, `${key}: ${centered} of 500 center-biased rolls`);
+    assert.ok(scores.some(score => score[key] < low), `${key} explores below center`);
+    assert.ok(scores.some(score => score[key] > high), `${key} explores above center`);
+  }
 });

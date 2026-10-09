@@ -38,8 +38,8 @@ test("½×, 1×, 2×, and 3× are exact ratios independent of the animal", () =>
   }
 });
 
-test("25–500 BPM keeps the requested cadence and snapshot velocity at every pace", () => {
-  for (const tempoBpm of [25, 500]) {
+test("10–1,000 BPM keeps the requested cadence and snapshot velocity at every pace", () => {
+  for (const tempoBpm of [10, 1000]) {
     for (const paceRatio of QUADRUPED_PACE_RATIOS) {
       const state = sanitizeQuadrupedState({ ...createQuadrupedState("horse", "walk"), tempoBpm, paceRatio });
       assert.equal(state.tempoBpm, tempoBpm);
@@ -55,14 +55,14 @@ test("25–500 BPM keeps the requested cadence and snapshot velocity at every pa
     }
   }
   const base = createQuadrupedState();
-  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 1 }).tempoBpm, 25);
-  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 999 }).tempoBpm, 500);
+  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 1 }).tempoBpm, 10);
+  assert.equal(sanitizeQuadrupedState({ ...base, tempoBpm: 9999 }).tempoBpm, 1000);
 });
 
-test("retiming between 25 and 500 BPM at triple pace preserves phase and every crossing", () => {
-  let state = { ...createQuadrupedState("horse", "walk"), tempoBpm: 25, paceRatio: 3 };
+test("retiming between 10 and 1,000 BPM at triple pace preserves phase and every crossing", () => {
+  let state = { ...createQuadrupedState("horse", "walk"), tempoBpm: 10, paceRatio: 3 };
   let motor = synchronizeQuadrupedMotorTempo(state, createQuadrupedMotorState(state, { position: 5.25 }));
-  for (const tempoBpm of [500, 25, 500]) {
+  for (const tempoBpm of [1000, 10, 1000]) {
     state = { ...state, tempoBpm };
     const position = motor.position;
     motor = synchronizeQuadrupedMotorTempo(state, motor);
@@ -82,7 +82,7 @@ test("retiming between 25 and 500 BPM at triple pace preserves phase and every c
 });
 
 test("flight duration and progress follow both extended tempo endpoints", () => {
-  for (const tempoBpm of [25, 500]) {
+  for (const tempoBpm of [10, 1000]) {
     const state = { ...createQuadrupedState("cat", "leap"), tempoBpm, paceRatio: 3, suspensionBeats: 2 };
     const position = 6;
     const trajectory = quadrupedFlightTrajectory(state, position);

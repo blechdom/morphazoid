@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { QUADRUPED_LIMITS } from "../src/instruments/quadruped/quadruped-limits.js";
 import {
   QUADRUPED_SOUND_LIMITS,
   QUADRUPED_SOUND_SKINS,
@@ -223,4 +224,190 @@ test("batched contacts preserve each onset, level and stereo position without vo
   const many = mixQuadrupedContacts(Array.from({ length: 432 }, (_, index) => ({ voice, offset: index * 0.0001, gain: 0.25, pan: index % 3 - 1 })), 8000);
   assert.ok(many.channels.every(channel => channel.every(Number.isFinite)));
   assert.ok(many.channels[0].some(value => value !== 0) && many.channels[1].some(value => value !== 0));
+});
+
+test("three-octave pitch travel moves all five spectra while contact lengths and output stay bounded", t => {
+  const summary = {};
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const registers = [-36, 0, 36].map(pitchSemitones => [7, 101, 904].map(seed => {
+      const voice = renderQuadrupedContact({ skinId: id, pitchSemitones, seed });
+      assert.ok(voice.duration / voice.playbackRate <= QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+      assert.equal(Math.abs(voice.samples[0]), 0);
+      assert.equal(Math.abs(voice.samples.at(-1)), 0);
+      const result = metrics(voice);
+      assert.ok(result.rms > 0.008, `${id}/${pitchSemitones} remains an audible contact`);
+      assert.ok(result.peak <= QUADRUPED_SOUND_LIMITS.maxPeak);
+      return result;
+    }));
+    const means = registers.map(rows => rows.reduce((sum, row) => sum + row.centroid, 0) / rows.length);
+    const spread = rows => Math.max(...rows.map(row => row.centroid)) - Math.min(...rows.map(row => row.centroid));
+    assert.ok(means[0] < means[1] && means[1] < means[2], `${id}: ${means.join(", ")}`);
+    assert.ok(means[2] - means[0] > Math.max(...registers.map(spread)), `${id}: pitch change exceeds seeded texture variation`);
+    summary[id] = means.map(Math.round);
+  }
+  t.diagnostic(`Low / neutral / high spectral centroids (Hz): ${JSON.stringify(summary)}`);
+});
+
+test("deep stair pitch plus the pitch knob never lengthens contact buffers or grows the cache", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank({ maxEntries: 12 });
+    for (const pitchSemitones of [-36, -24, -12, 0, 12, 24, 36, NaN, Infinity, -1e90, 1e90]) {
+      for (const pitchRatio of [0.25, 0.251, 1, 3.99, 4, Infinity]) {
+        const voice = bank.get({ skinId: id, pitchSemitones, pitchRatio, velocity: 0 });
+        assert.ok(voice.samples.every(Number.isFinite));
+        assert.ok(voice.playbackRate >= Math.SQRT1_2 * 0.94);
+        assert.ok(voice.playbackRate <= Math.SQRT2 * 1.11);
+        assert.ok(voice.duration / voice.playbackRate <= QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+        assert.ok(bank.size <= 12);
+      }
+    }
+    const a = bank.get({ skinId: id, pitchSemitones: -32.71 });
+    const b = bank.get({ skinId: id, pitchSemitones: -32.7 });
+    assert.equal(a.samples, b.samples, "fractional pitch remains cheap and continuous within a prepared register");
+    assert.ok(Math.abs(b.playbackRate / a.playbackRate - 2 ** (0.01 / 12)) < 1e-12);
+    const neutral = bank.get({ skinId: id, pitchSemitones: 0 });
+    assert.equal(neutral.samples, bank.get({ skinId: id }).samples, "old presets retain neutral pitch");
+  }
+});
+
+test("prepared-register seams never reverse pitch, including the lowest and highest stair ranges", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) for (const pitchRatio of [0.25, 1, 4]) {
+    const bank = createQuadrupedSoundBank({ sampleRate: 8000, maxEntries: 8 });
+    let previous = 0;
+    for (let pitchSemitones = -36; pitchSemitones <= 36; pitchSemitones += 0.5) {
+      const voice = bank.get({ skinId: id, pitchSemitones, pitchRatio });
+      const frequency = voice.frequency * voice.playbackRate;
+      assert.ok(frequency >= previous - 1e-8, `${id}/${pitchRatio}/${pitchSemitones}: ${frequency} after ${previous}`);
+      previous = frequency;
+    }
+  }
+});
+
+test("Spring changes all five grounded excitations and decay without replacing the pitch control", t => {
+  const summary = {};
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const observations = [7, 101, 904].map(seed => {
+      const voices = [0, 1, 2.5].map(spring => renderQuadrupedContact({ skinId: id, spring, seed }));
+      const [rigid, neutral, elastic] = voices;
+      assert.ok(rigid.duration < neutral.duration && neutral.duration < elastic.duration);
+      assert.ok(elastic.duration > rigid.duration * 2, `${id}: Spring should substantially change the decay`);
+      assert.ok(voices.every(voice => voice.frequency === neutral.frequency && voice.playbackRate === neutral.playbackRate));
+      assert.deepEqual(neutral.samples, renderQuadrupedContact({ skinId: id, seed }).samples);
+      const measurements = voices.map(metrics);
+      assert.ok(Math.max(...measurements.map(value => value.rms)) / Math.min(...measurements.map(value => value.rms)) < 1.6,
+        `${id}: Spring changes excitation, rather than acting as a second level control`);
+      // Compare the same early 25 ms at equal RMS; a simple level or tail-length
+      // adjustment alone cannot pass this waveform-shape check.
+      const count = Math.floor(0.025 * rigid.sampleRate);
+      const norm = voice => Math.sqrt(voice.samples.slice(0, count).reduce((sum, value) => sum + value * value, 0));
+      const a = norm(rigid), b = norm(elastic);
+      let similarity = 0;
+      for (let index = 0; index < count; index++) similarity += rigid.samples[index] / a * elastic.samples[index] / b;
+      assert.ok(Math.abs(similarity) < 0.98, `${id}: the grounded excitation must change shape, similarity ${similarity}`);
+      return measurements.map((value, index) => ({ rms: value.rms, centroid: value.centroid, duration: voices[index].duration }));
+    });
+    summary[id] = [0, 1, 2].map(index => ({
+      centroidHz: Math.round(observations.reduce((sum, row) => sum + row[index].centroid, 0) / 3),
+      durationMs: Math.round(observations[0][index].duration * 1000),
+    }));
+  }
+  t.diagnostic(`Spring 0 / 1 / 2.5: ${JSON.stringify(summary)}`);
+});
+
+test("Spring extrema stay finite at every contact phase and pitch, with neutral recovery and a bounded cache", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank({ sampleRate: 8000, maxEntries: 8 });
+    const neutral = bank.get({ skinId: id, spring: 1 });
+    for (const spring of [undefined, NaN, Infinity, "bad"]) {
+      assert.equal(neutral.samples, bank.get({ skinId: id, spring }).samples);
+    }
+    for (const spring of [-1e99, 0, 0.35, 1, 1.8, 2.5, 1e99]) {
+      for (const phase of ["touchdown", "load", "push", "toe-off"]) for (const pitchSemitones of [-36, 0, 36]) {
+        const voice = bank.get({ skinId: id, spring, phase, pitchSemitones });
+        assert.ok(voice.samples.every(value => Number.isFinite(value) && Math.abs(value) <= QUADRUPED_SOUND_LIMITS.maxPeak));
+        assert.ok(rms(voice.samples) > 0.0001);
+        assert.equal(Math.abs(voice.samples[0]), 0);
+        assert.equal(Math.abs(voice.samples.at(-1)), 0);
+        assert.ok(voice.duration / voice.playbackRate <= QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+        assert.ok(bank.size <= 8);
+      }
+    }
+  }
+});
+
+test("contact articulation still responds at the lopsided motor's highest instantaneous velocity", () => {
+  const maximum = QUADRUPED_LIMITS.tempoBpm[1] * 16 / 60 * 3 / QUADRUPED_LIMITS.minimumTimingWeight;
+  const bank = createQuadrupedSoundBank();
+  const fast = bank.get({ velocity: 800 });
+  const faster = bank.get({ velocity: 1200 });
+  const fastest = bank.get({ velocity: maximum });
+  assert.equal(fast.samples, faster.samples);
+  assert.equal(faster.samples, fastest.samples);
+  assert.ok(fast.playbackRate < faster.playbackRate && faster.playbackRate < fastest.playbackRate);
+  assert.equal(fastest.playbackRate, bank.get({ velocity: maximum * 100 }).playbackRate);
+  assert.ok(fastest.gain <= 1);
+});
+
+test("cached mixer preserves every exact-rate onset, sample and stereo gain against direct interpolation", () => {
+  const voices = [1, 2, 7, 53, 997].map((frames, index) => {
+    const sampleRate = [8000, 24000, 48000][index % 3];
+    return { samples: Float32Array.from({ length: frames }, (_, frame) => Math.sin(frame * 0.731 + index) * 0.1),
+      sampleRate, duration: frames / sampleRate };
+  });
+  const events = Array.from({ length: 80 }, (_, index) => ({
+    voice: { ...voices[index % voices.length], playbackRate: [0.667, 1, 1.0000000003, Math.SQRT2][index % 4] },
+    offset: index % 7 * 0.00013, gain: 0.1 + index % 5 * 0.13, pan: index % 9 / 4 - 1,
+  }));
+  for (const sampleRate of [8000, 24000, 48000]) {
+    const length = Math.ceil(Math.max(...events.map(event => event.offset + event.voice.duration / event.voice.playbackRate)) * sampleRate) + 1;
+    const reference = [new Float32Array(length), new Float32Array(length)];
+    for (const { voice, offset, gain, pan } of events) {
+      const start = Math.round(offset * sampleRate);
+      const increment = voice.playbackRate * voice.sampleRate / sampleRate;
+      const angle = (pan + 1) * Math.PI / 4;
+      const leftGain = Math.cos(angle) * gain, rightGain = Math.sin(angle) * gain;
+      const frames = Math.min(Math.ceil(voice.samples.length / increment), length - start);
+      for (let frame = 0; frame < frames; frame++) {
+        const position = frame * increment;
+        const index = Math.floor(position), fraction = position - index;
+        const value = Math.fround((voice.samples[index] ?? 0) * (1 - fraction) + (voice.samples[index + 1] ?? 0) * fraction);
+        reference[0][start + frame] += value * leftGain;
+        reference[1][start + frame] += value * rightGain;
+      }
+    }
+    const cache = new WeakMap();
+    assert.deepEqual(mixQuadrupedContacts(events, sampleRate).channels, reference);
+    assert.deepEqual(mixQuadrupedContacts(events, sampleRate, cache).channels, reference);
+    assert.deepEqual(mixQuadrupedContacts(events, sampleRate, cache).channels, reference);
+  }
+});
+
+test("dense gait playback rates stay warm within global PCM and entry limits", () => {
+  const cache = new WeakMap();
+  const samples = Float32Array.from({ length: 80 }, (_, index) => Math.sin(index * 0.3));
+  const requests = Array.from({ length: 18 }, (_, index) => ({
+    voice: { samples, duration: samples.length / 24000, sampleRate: 24000, playbackRate: 0.75 + index * 0.017 },
+    offset: 0, gain: 0.3, pan: 0,
+  }));
+  mixQuadrupedContacts(requests, 24000, cache);
+  const prepared = new Map(cache.get(samples));
+  for (let repeat = 0; repeat < 5; repeat++) mixQuadrupedContacts(requests, 24000, cache);
+  for (const [rate, array] of prepared) assert.equal(cache.get(samples).get(rate), array);
+
+  const longBuffers = Array.from({ length: 40 }, () => new Float32Array(8000).fill(0.001));
+  for (const buffer of longBuffers) for (let index = 0; index < 36; index++) {
+    mixQuadrupedContacts([{ voice: { samples: buffer, duration: buffer.length / 24000, sampleRate: 24000,
+      playbackRate: 0.67 + index * 0.007 }, offset: 0, gain: 1, pan: 0 }], 24000, cache);
+  }
+  const cached = [samples, ...longBuffers].flatMap(buffer => {
+    assert.ok((cache.get(buffer)?.size ?? 0) <= QUADRUPED_SOUND_LIMITS.maxResamplesPerBuffer);
+    return [...(cache.get(buffer)?.values() ?? [])];
+  });
+  assert.ok(cached.reduce((sum, buffer) => sum + buffer.length, 0) <= QUADRUPED_SOUND_LIMITS.maxResampleFrames);
+
+  const shortBuffers = Array.from({ length: QUADRUPED_SOUND_LIMITS.maxResampleEntries + 50 }, () => Float32Array.of(0.01, 0));
+  for (const buffer of shortBuffers) mixQuadrupedContacts([{ voice: { samples: buffer, duration: 2 / 24000,
+    sampleRate: 24000, playbackRate: 0.7 }, offset: 0, gain: 1, pan: 0 }], 24000, cache);
+  const entries = [samples, ...longBuffers, ...shortBuffers].reduce((sum, buffer) => sum + (cache.get(buffer)?.size ?? 0), 0);
+  assert.ok(entries <= QUADRUPED_SOUND_LIMITS.maxResampleEntries);
 });

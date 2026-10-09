@@ -1,3 +1,5 @@
+import { QUADRUPED_LIMITS } from "./quadruped-limits.js";
+
 // Transient world travel is separate from the monotonically advancing score.
 // Keep this on an effective performance score, never in saved animal/preset state.
 export const QUADRUPED_TRAVEL_LIMITS = Object.freeze({
@@ -12,7 +14,7 @@ const finite = (value, fallback = 0) => Number.isFinite(Number(value)) ? Number(
 const clamp = (value, low, high, fallback = low) => Math.min(high, Math.max(low, finite(value, fallback)));
 const positionValue = value => clamp(value, -QUADRUPED_TRAVEL_LIMITS.maxPosition, QUADRUPED_TRAVEL_LIMITS.maxPosition);
 const worldValue = value => clamp(value, -QUADRUPED_TRAVEL_LIMITS.maxWorldX, QUADRUPED_TRAVEL_LIMITS.maxWorldX);
-const strideValue = (value, fallback = 0.9) => clamp(value, 0.55, 1.35, fallback);
+const strideValue = (value, fallback = 0.9) => clamp(value, ...QUADRUPED_LIMITS.stride, fallback);
 const directionValue = (value, fallback = 1) => finite(value, fallback) < 0 ? -1 : 1;
 const minimumJerk = value => value ** 3 * (10 - 15 * value + 6 * value ** 2);
 
@@ -94,7 +96,7 @@ function boundedSegments(segments, position) {
     const previous = kept[candidate - 1];
     const next = kept[candidate + 1];
     const slope = (next.worldX - previous.worldX) * 16 / Math.max(1e-12, next.position - previous.position);
-    kept[candidate - 1] = { ...previous, stride: 1.35, direction: clamp(slope / 1.35, -1, 1) };
+    kept[candidate - 1] = { ...previous, stride: QUADRUPED_LIMITS.stride[1], direction: clamp(slope / QUADRUPED_LIMITS.stride[1], -1, 1) };
     kept.splice(candidate, 1);
   }
   return kept;

@@ -7,6 +7,7 @@ import {
   quadrupedAnimal,
   quadrupedSequenceEvent,
   quadrupedSupportSnapshot,
+  createQuadrupedContactSampler,
   quadrupedTerrain,
   quadrupedScoreTiming,
   quadrupedClockAtPosition,
@@ -63,9 +64,11 @@ export const QUADRUPED_MOTOR_LIMITS = Object.freeze({
   integrationStepSeconds: 1 / 480,
   maxAdvanceSeconds: 2,
   maxCrossingEvents: 384,
-  maxTransitionEvents: 192,
+  // A dense four-foot score at 1,000 BPM ×3 retains every stance accent
+  // across a normal 125 ms advance; stale multi-second catch-up stays bounded.
+  maxTransitionEvents: 1536,
   // Snapshots and coasting must retain the fastest allowed tempo and pace.
-  maxVelocity: QUADRUPED_LIMITS.tempoBpm[1] * QUADRUPED_STEP_COUNT / 60 / (1 / Math.max(...QUADRUPED_PACE_RATIOS)),
+  maxVelocity: QUADRUPED_LIMITS.tempoBpm[1] * QUADRUPED_STEP_COUNT / 60 / (QUADRUPED_LIMITS.minimumTimingWeight / Math.max(...QUADRUPED_PACE_RATIOS)),
   maxHeight: 2,
   maxPosition: 1_000_000_000,
 });
@@ -96,9 +99,10 @@ function scoreView(score) {
     animalId,
     behaviorId: typeof score?.behaviorId === "string" ? score.behaviorId : "walk",
     cadenceFramesPerSecond: tempoBpm * QUADRUPED_STEP_COUNT / 60,
-    stride: clamp(score?.stride, 0.4, 1.6, 0.9),
-    momentum: clamp(score?.momentum, 0.5, 1.4, 0.82),
-    gravity: clamp(score?.gravity, 0.55, 1.55, 1),
+    stride: clamp(score?.stride, ...QUADRUPED_LIMITS.stride, 0.9),
+    momentum: clamp(score?.momentum, ...QUADRUPED_LIMITS.momentum, 0.82),
+    gravity: clamp(score?.gravity, ...QUADRUPED_LIMITS.gravity, 1),
+    spring: clamp(score?.spring, ...QUADRUPED_LIMITS.spring, 1),
     physics: Object.freeze({
       mass: clamp(animal.mass, 0.3, 2, 1),
       power: clamp(animal.power, 0.4, 1.8, 1),
@@ -132,28 +136,9 @@ function targetVelocity(view) {
   return clamp(view.cadenceFramesPerSecond, 0, QUADRUPED_MOTOR_LIMITS.maxVelocity, 0);
 }
 
-function framesUntilSupport(score, position) {
-  for (let offset = 0.0625; offset <= QUADRUPED_STEP_COUNT; offset += 0.0625) {
-    if (footSupport(score, position + offset).supportCount > 0) return offset;
-  }
-  return 0;
-}
-
 function clockFraction(score, at, start, end) {
   const span = quadrupedClockAtPosition(score, end) - quadrupedClockAtPosition(score, start);
   return span > EPSILON ? clamp((quadrupedClockAtPosition(score, at) - quadrupedClockAtPosition(score, start)) / span, 0, 1, 1) : 1;
-}
-
-function supportBoundaryPosition(score, startPosition, endPosition, supportedAtEnd) {
-  let low = startPosition;
-  let high = endPosition;
-  for (let iteration = 0; iteration < 14; iteration += 1) {
-    const middle = (low + high) * 0.5;
-    const supported = footSupport(score, middle).supportCount > 0;
-    if (supported === supportedAtEnd) high = middle;
-    else low = middle;
-  }
-  return high;
 }
 
 function immutableMotor(value) {
@@ -238,7 +223,7 @@ function immutableEvent(event) {
   return Object.freeze(event);
 }
 
-function simulate(score, motor, deltaSeconds) {
+function simulate(score, motor, deltaSeconds, collectEvents = true) {
   const view = scoreView(score);
   let current = sanitizeMotor(score, motor);
   const requestedDelta = Number(deltaSeconds);
@@ -246,7 +231,12 @@ function simulate(score, motor, deltaSeconds) {
     ? clamp(requestedDelta, 0, QUADRUPED_MOTOR_LIMITS.maxAdvanceSeconds, 0)
     : 0;
   const callStartSeconds = current.elapsedSeconds;
-  const integrationStep = QUADRUPED_MOTOR_LIMITS.integrationStepSeconds;
+  // Subdivide only at extreme cadences. Staying under a quarter score card
+  // retains short toe-off/load/push windows instead of leaping over them.
+  const shortestCard = Math.min(...quadrupedScoreTiming(score).durations);
+  const subdivisions = Math.max(1, Math.ceil(targetVelocity(view)
+    * QUADRUPED_MOTOR_LIMITS.integrationStepSeconds / shortestCard / 0.25));
+  const integrationStep = QUADRUPED_MOTOR_LIMITS.integrationStepSeconds / subdivisions;
   const availableSeconds = current.remainderSeconds + advancedSeconds;
   const tickCount = Math.min(
     Math.floor((availableSeconds + EPSILON) / integrationStep),
@@ -255,11 +245,15 @@ function simulate(score, motor, deltaSeconds) {
   const remainderSeconds = Math.max(0, availableSeconds - tickCount * integrationStep);
   const events = [];
   const transitions = [];
+  const frameEvents = new Map();
   const hasScoredFootfalls = scoredFootEnergy(score) > EPSILON;
+  const supportAt = createQuadrupedContactSampler(score);
+  let previousSupport = supportAt(current.position);
   let droppedEvents = 0;
   let droppedTransitions = 0;
 
   const emitTransition = (transition) => {
+    if (!collectEvents) return;
     if (transitions.length < QUADRUPED_MOTOR_LIMITS.maxTransitionEvents) {
       transitions.push(immutableEvent(transition));
     } else {
@@ -271,7 +265,7 @@ function simulate(score, motor, deltaSeconds) {
     const tickStartSeconds = current.simulatedSeconds;
     const previousPosition = current.position;
     const previousVelocity = current.velocity;
-    const supportStart = footSupport(score, previousPosition);
+    const supportStart = previousSupport;
     const desiredVelocity = targetVelocity(view);
     let velocity;
     let position;
@@ -309,7 +303,8 @@ function simulate(score, motor, deltaSeconds) {
       );
     }
     if (position >= QUADRUPED_MOTOR_LIMITS.maxPosition - EPSILON) velocity = 0;
-    const supportEnd = footSupport(score, position);
+    const supportEnd = supportAt(position);
+    previousSupport = supportEnd;
 
     let height = current.height;
     let verticalVelocity = current.verticalVelocity;
@@ -327,54 +322,43 @@ function simulate(score, motor, deltaSeconds) {
       0,
     );
 
+    const toeOffPositions = new Set();
     for (const laneId of FOOT_LANE_IDS) {
       const startLeg = supportStart.legs[laneId];
       const endLeg = supportEnd.legs[laneId];
-      if (!startLeg?.grounded || endLeg?.grounded || !startLeg.eventId) continue;
-      const toeOffPosition = startLeg.previousTouchdownPosition + startLeg.stanceDuration;
-      if (toeOffPosition <= previousPosition + EPSILON || toeOffPosition > position + EPSILON) continue;
-      const travel = position - previousPosition;
-      const fraction = clockFraction(score, toeOffPosition, previousPosition, position);
-      emitTransition({
-        type: "toe-off",
-        laneId,
-        eventId: `${startLeg.eventId}:toe-off`,
-        touchdownId: startLeg.eventId,
-        intensity: startLeg.intensity,
-        position: toeOffPosition,
-        offsetSeconds: clamp(tickStartSeconds + fraction * integrationStep - callStartSeconds, 0, advancedSeconds, 0),
-        velocity: previousVelocity + (velocity - previousVelocity) * fraction,
-      });
-    }
-
-    for (const laneId of FOOT_LANE_IDS) {
-      const startLeg = supportStart.legs[laneId];
-      const endLeg = supportEnd.legs[laneId];
-      if (!startLeg?.grounded || !endLeg?.grounded || !startLeg.eventId || startLeg.eventId !== endLeg.eventId) continue;
-      for (const [type, stancePoint] of [["load", 0.28], ["push", 0.72]]) {
-        const accentPosition = startLeg.previousTouchdownPosition + startLeg.stanceDuration * stancePoint;
-        if (accentPosition <= previousPosition + EPSILON || accentPosition > position + EPSILON) continue;
-        const travel = position - previousPosition;
-        const fraction = clockFraction(score, accentPosition, previousPosition, position);
-        emitTransition({
-          type,
-          laneId,
-          eventId: `${startLeg.eventId}:${type}`,
-          touchdownId: startLeg.eventId,
-          intensity: startLeg.intensity * (type === "load" ? 0.62 : 0.74),
-          stanceProgress: stancePoint,
-          position: accentPosition,
-          offsetSeconds: clamp(tickStartSeconds + fraction * integrationStep - callStartSeconds, 0, advancedSeconds, 0),
-          velocity: previousVelocity + (velocity - previousVelocity) * fraction,
-        });
+      // A high-speed tick may cross touchdown and load together. Examine both
+      // touched cycles instead of requiring matching planted endpoints.
+      const cycles = startLeg.eventId === endLeg.eventId ? [startLeg] : [startLeg, endLeg];
+      for (const leg of cycles) {
+        if (!leg?.eventId) continue;
+        for (const [type, stancePoint, strength] of [["load", 0.28, 0.62], ["push", 0.72, 0.74], ["toe-off", 1, 1]]) {
+          const accentPosition = leg.previousTouchdownPosition + leg.stanceDuration * stancePoint;
+          if (accentPosition <= previousPosition + EPSILON || accentPosition > position + EPSILON) continue;
+          if (type === "toe-off") toeOffPositions.add(accentPosition);
+          if (!collectEvents) continue;
+          const fraction = clockFraction(score, accentPosition, previousPosition, position);
+          emitTransition({
+            type,
+            laneId,
+            eventId: `${leg.eventId}:${type}`,
+            touchdownId: leg.eventId,
+            intensity: leg.intensity * strength,
+            ...(type === "toe-off" ? {} : { stanceProgress: stancePoint }),
+            position: accentPosition,
+            offsetSeconds: clamp(tickStartSeconds + fraction * integrationStep - callStartSeconds, 0, advancedSeconds, 0),
+            velocity: previousVelocity + (velocity - previousVelocity) * fraction,
+          });
+        }
       }
     }
 
     if (current.supportCount > 0 && supportEnd.supportCount === 0 && velocity > STALL_VELOCITY && view.behaviorId !== "skid") {
-      const liftPosition = supportBoundaryPosition(score, previousPosition, position, false);
+      const liftPosition = Math.max(...Object.values(supportStart.legs).filter(leg => leg.grounded)
+        .map(leg => leg.previousTouchdownPosition + leg.stanceDuration));
       const travel = position - previousPosition;
       const liftFraction = clockFraction(score, liftPosition, previousPosition, position);
-      const flightFrames = framesUntilSupport(score, liftPosition);
+      const flightFrames = Math.max(0, Math.min(...Object.values(supportEnd.legs)
+        .map(leg => leg.nextTouchdownPosition).filter(Number.isFinite)) - liftPosition);
       const flightSeconds = (quadrupedClockAtPosition(score, liftPosition + flightFrames) - quadrupedClockAtPosition(score, liftPosition)) / desiredVelocity;
       const behaviorFlight = clamp(FLIGHT_BY_BEHAVIOR[view.behaviorId] ?? (view.behaviorId === "walk-leap" ? 1 : 0), 0, 1, 0);
       const launchScale = clamp(Math.sqrt(view.physics.power / view.physics.mass), 0.72, 1.32, 1);
@@ -384,10 +368,10 @@ function simulate(score, motor, deltaSeconds) {
         4.8,
         0,
       );
-      if (ballisticLaunch > 0.04) {
+      if (flightFrames > EPSILON && hasScoredFootfalls) {
         verticalVelocity = Math.max(
           verticalVelocity,
-          ballisticLaunch * Math.sqrt(view.physics.compliance),
+          ballisticLaunch * Math.sqrt(view.physics.compliance) * view.spring,
         );
         airborne = true;
         flightSerial += 1;
@@ -408,7 +392,8 @@ function simulate(score, motor, deltaSeconds) {
     if (supportEnd.supportCount > 0) {
       if (airborne || height > EPSILON) {
         const landingPosition = supportStart.supportCount === 0
-          ? supportBoundaryPosition(score, previousPosition, position, true)
+          ? Math.min(...Object.values(supportEnd.legs).filter(leg => leg.grounded)
+            .map(leg => leg.previousTouchdownPosition))
           : position;
         const travel = position - previousPosition;
         const landingFraction = clockFraction(score, landingPosition, previousPosition, position);
@@ -474,6 +459,38 @@ function simulate(score, motor, deltaSeconds) {
       }
     }
 
+    // A dense score can leave an air gap shorter than an integration tick.
+    // Retain both causal transitions even when both sampled endpoints are on
+    // the ground; subdivision alone would otherwise erase these micro-leaps.
+    if (supportStart.supportCount > 0 && supportEnd.supportCount > 0
+      && hasScoredFootfalls && view.behaviorId !== "skid") {
+      for (const liftPosition of toeOffPositions) {
+        const unsupported = supportAt(liftPosition + 1e-7);
+        if (unsupported.supportCount > 0) continue;
+        const landingPosition = Math.min(...Object.values(unsupported.legs)
+          .map(leg => leg.nextTouchdownPosition).filter(Number.isFinite));
+        if (landingPosition > position + EPSILON || landingPosition <= liftPosition) continue;
+        flightSerial += 1;
+        const shortFlightId = `flight:${flightSerial}`;
+        const flightSeconds = (quadrupedClockAtPosition(score, landingPosition)
+          - quadrupedClockAtPosition(score, liftPosition)) / desiredVelocity;
+        emitTransition({ type: "lift-off", eventId: `${shortFlightId}:lift-off`, flightId: shortFlightId,
+          position: liftPosition, velocity, flightFrames: landingPosition - liftPosition,
+          predictedFlightSeconds: flightSeconds,
+          offsetSeconds: clamp(tickStartSeconds + clockFraction(score, liftPosition, previousPosition, position)
+            * integrationStep - callStartSeconds, 0, advancedSeconds, 0) });
+        const impact = clamp(velocity * 0.012 * (0.72 + view.physics.hardness * 0.34), 0, 1, 0);
+        emitTransition({ type: "landing", eventId: `${shortFlightId}:landing`, flightId: shortFlightId,
+          position: landingPosition, impact,
+          offsetSeconds: clamp(tickStartSeconds + clockFraction(score, landingPosition, previousPosition, position)
+            * integrationStep - callStartSeconds, 0, advancedSeconds, 0) });
+        landing = Math.max(landing, impact);
+        compression = clamp(compression + impact * 0.56 * view.physics.compliance, 0, 1, 0);
+        landingCount += 1;
+        landedThisTick = true;
+      }
+    }
+
     const firstBoundary = Math.floor(previousPosition + EPSILON) + 1;
     const lastBoundary = Math.floor(position + EPSILON);
     for (let ordinal = firstBoundary; ordinal <= lastBoundary; ordinal += 1) {
@@ -481,13 +498,15 @@ function simulate(score, motor, deltaSeconds) {
       const fraction = hasScoredFootfalls ? clockFraction(score, ordinal, previousPosition, position) : travel > EPSILON ? clamp((ordinal - previousPosition) / travel, 0, 1, 1) : 1;
       const crossingSeconds = tickStartSeconds + fraction * integrationStep;
       const frame = mod(ordinal, QUADRUPED_STEP_COUNT);
-      const scoreEvent = quadrupedSequenceEvent(score, ordinal);
+      let scoreEvent = frameEvents.get(frame);
+      if (!scoreEvent) { scoreEvent = quadrupedSequenceEvent(score, ordinal); frameEvents.set(frame, scoreEvent); }
       const footEnergy = scoreEvent.footEnergy;
       if (footEnergy > 0) {
         const impact = clamp(footEnergy / 4, 0, 1, 0);
         compression = clamp(compression + impact * 0.16, 0, 1, 0);
         landing = Math.max(landing, impact * 0.72);
       }
+      if (!collectEvents) continue;
       const event = {
         ordinal,
         frame,
@@ -563,6 +582,13 @@ function simulate(score, motor, deltaSeconds) {
 
 export function advanceQuadrupedMotor(score, motor, deltaSeconds) {
   return simulate(score, motor, deltaSeconds);
+}
+
+// Rendering materializes state after the scheduler has already predicted the
+// audio events. Keep identical integration, but avoid rebuilding discarded
+// event/transition records on that path.
+export function advanceQuadrupedMotorState(score, motor, deltaSeconds) {
+  return simulate(score, motor, deltaSeconds, false).motor;
 }
 
 export function predictQuadrupedMotor(score, motor, horizonSeconds) {

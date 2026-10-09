@@ -12,12 +12,20 @@ import { QUADRUPED_SOUND_SKINS } from "./quadruped-sound-skins.js";
 import { QUADRUPED_VISUAL_SKINS } from "./quadruped-visual-skins.js";
 import { presetRandom } from "../../site/preset-random.js";
 
-const skinId = (skins, value) => skins.find(skin => skin.id === value)?.id ?? skins[0].id;
+const skinId = (skins, value, fallback = skins[0].id) => skins.find(skin => skin.id === value)?.id ?? fallback;
 const sharedFields = QUADRUPED_SHARED_FIELDS.filter(key => key !== "outputLevel");
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const seed = (value, fallback = 1) => (finite(value, fallback) >>> 0) || 1;
 const scoreSnapshot = value => {
-  const { outputLevel, ...score } = sanitizeQuadrupedState(value);
+  // Version-one scenes have no expressive controls. Add their neutral values
+  // before validation, without mutating a saved scene or inheriting live edits.
+  const source = value && typeof value === "object" ? value : {};
+  const { outputLevel, ...score } = sanitizeQuadrupedState({
+    ...source,
+    pitchSemitones: source.pitchSemitones ?? 0,
+    lopsided: source.lopsided ?? 0,
+    spring: source.spring ?? 1,
+  });
   return score;
 };
 
@@ -44,9 +52,9 @@ export function normalizeQuadrupedPreset(value = {}) {
     });
   }
   return {
-    version: 1, actors, groupMode, selectedActor, groupSeed: seed(source.groupSeed),
+    version: 2, actors, groupMode, selectedActor, groupSeed: seed(source.groupSeed),
     soundSkinId: skinId(QUADRUPED_SOUND_SKINS, source.soundSkinId),
-    visualSkinId: skinId(QUADRUPED_VISUAL_SKINS, source.visualSkinId),
+    visualSkinId: skinId(QUADRUPED_VISUAL_SKINS, source.visualSkinId, "constellation"),
     world: { ...sanitizeQuadrupedWorld(source.world && typeof source.world === "object" ? source.world : {}) },
   };
 }
@@ -74,7 +82,9 @@ const scenes = [
   ["glass-pond", "Glass pond", "frog", "bound", "solo", "crystal", "level", 88, 0.46, 0.5],
 ];
 
-export function createQuadrupedFullPresets() {
+const originalVisualSkins = ["animal", "skeleton", "constellation", "collage", "motion-card"];
+
+function createOriginalPresets() {
   return scenes.map(([id, label, animalId, behaviorId, groupMode, surfaceId, groundProfileId, tempoBpm, grain, cavern], index) => {
     const leader = sanitizeQuadrupedState({
       ...createQuadrupedState(animalId, behaviorId), tempoBpm, surfaceId, groundProfileId,
@@ -92,11 +102,115 @@ export function createQuadrupedFullPresets() {
       snapshot: normalizeQuadrupedPreset({
         actors, groupMode, selectedActor: 0, groupSeed: 1 + index * 97,
         soundSkinId: QUADRUPED_SOUND_SKINS[index % 5].id,
-        visualSkinId: QUADRUPED_VISUAL_SKINS[index % 5].id,
+        visualSkinId: originalVisualSkins[index % originalVisualSkins.length],
         world: { seed: 0x71750000 + index * 173, grain, cavern },
       }),
     };
   });
+}
+
+// Each scene explores a different motion/register relationship. These are
+// expressive fantasy settings, not claims about an animal's physical limits.
+const expandedScenes = [
+  {
+    id: "lunar-drift", label: "Slow motion · Lunar drift", description: "Low elephant breath; long, floating steps.",
+    animalId: "elephant", behaviorId: "walk", soundSkinId: "breath",
+    controls: { tempoBpm: 18, stride: 0.38, momentum: 0.18, gravity: 0.13, pitchSemitones: -24, lopsided: -0.15, spring: 1.8, surfaceId: "snow", groundResonance: 0.2 },
+    world: { grain: 0.14, cavern: 0.82 }, calls: [[0, 1, 0.76], [2, 11, 0.48]],
+  },
+  {
+    id: "deep-time", label: "Slow motion · Deep time", description: "Subterranean triceratops; almost-still, heavy impacts.",
+    animalId: "dinosaur", behaviorId: "charge", soundSkinId: "ground", visualSkinId: "skeleton",
+    controls: { tempoBpm: 10, stride: 0.22, momentum: 0.12, gravity: 2.8, pitchSemitones: -36, lopsided: 0.1, spring: 0.25, surfaceId: "stone", groundResonance: 0.9 },
+    world: { grain: 0.28, cavern: 0.96 }, calls: [[0, 0, 0.82]],
+  },
+  {
+    id: "weightless-carousel", label: "Slow motion · Weightless carousel", description: "A high glass unicorn with elastic, low-gravity turns.",
+    animalId: "unicorn", behaviorId: "carousel", soundSkinId: "porcelain",
+    controls: { tempoBpm: 32, stride: 1.4, momentum: 1.1, gravity: 0.1, pitchSemitones: 12.4, lopsided: 0, spring: 2.5, surfaceId: "crystal", groundResonance: 0.8 },
+    world: { grain: 0.08, cavern: 0.68 }, calls: [[2, 3, 0.54], [1, 12, 0.36]],
+  },
+  {
+    id: "crooked-parade", label: "Lopsided · Crooked parade", description: "Three stretched strides pull in opposing directions.",
+    animalId: "camel", behaviorId: "pace", groupMode: "trio", soundSkinId: "tendon", visualSkinId: "collage",
+    controls: { tempoBpm: 82, stride: 1.75, momentum: 1.4, gravity: 0.6, pitchSemitones: -7.3, lopsided: -0.92, spring: 1.5, surfaceId: "wood", groundResonance: 0.66 },
+    world: { grain: 0.84, cavern: 0.22 }, calls: [[1, 5, 0.58]],
+  },
+  {
+    id: "sideways-moon", label: "Lopsided · Sideways moon", description: "An elastic cat tilts hard into an uneven electronic shuffle.",
+    animalId: "cat", behaviorId: "drunk", soundSkinId: "voltage",
+    controls: { tempoBpm: 143, stride: 1.9, momentum: 0.6, gravity: 0.4, pitchSemitones: 6.7, lopsided: 1, spring: 2.1, surfaceId: "metal", groundResonance: 0.76 },
+    world: { grain: 0.92, cavern: 0.32 }, calls: [[1, 2, 0.48], [2, 9, 0.72]],
+  },
+  {
+    id: "stilt-shuffle", label: "Lopsided · Stilt shuffle", description: "Tiny goat steps, heavy gravity, and a stubborn sideways lean.",
+    animalId: "goat", behaviorId: "tiptoe", soundSkinId: "tendon", visualSkinId: "motion-card",
+    controls: { tempoBpm: 63, stride: 0.3, momentum: 2.3, gravity: 2.4, pitchSemitones: -14.2, lopsided: -0.78, spring: 0.16, surfaceId: "wood", groundProfileId: "stairs-up", groundResonance: 0.42 },
+    world: { grain: 0.72, cavern: 0.14 }, calls: [[0, 6, 0.66], [1, 14, 0.44]],
+  },
+  {
+    id: "silver-streak", label: "Superhero · Silver streak", description: "A sleek electric cheetah at full stride and momentum.",
+    animalId: "cheetah", behaviorId: "run-leap", soundSkinId: "voltage",
+    controls: { tempoBpm: 310, stride: 2.4, momentum: 3, gravity: 0.42, pitchSemitones: 18, lopsided: 0, spring: 1.35, suspensionBeats: 0.4, surfaceId: "metal", groundResonance: 0.44 },
+    world: { grain: 0.2, cavern: 0.1 }, calls: [[2, 0, 0.62]],
+  },
+  {
+    id: "skybound", label: "Superhero · Skybound", description: "A gazelle vaults through long, bright low-gravity arcs.",
+    animalId: "gazelle", behaviorId: "stot", soundSkinId: "porcelain",
+    controls: { tempoBpm: 190, stride: 2.1, momentum: 2.5, gravity: 0.1, pitchSemitones: 7.6, lopsided: 0.08, spring: 2.5, suspensionBeats: 5.5, surfaceId: "crystal", groundResonance: 0.66 },
+    world: { grain: 0.12, cavern: 0.58 }, calls: [[2, 2, 0.66], [1, 13, 0.4]],
+  },
+  {
+    id: "thunder-charge", label: "Superhero · Thunder charge", description: "A low, fast armored herd drives massive grounded steps.",
+    animalId: "dinosaur", behaviorId: "charge", groupMode: "herd", soundSkinId: "ground", visualSkinId: "animal",
+    controls: { tempoBpm: 220, stride: 2.2, momentum: 2.8, gravity: 3, pitchSemitones: -30, lopsided: 0, spring: 0.25, surfaceId: "stone", groundResonance: 0.96 },
+    world: { grain: 0.48, cavern: 0.4 }, calls: [[0, 0, 0.74]],
+  },
+  {
+    id: "hyperdrive", label: "Extreme · Hyperdrive", description: "A tiny mouse becomes a bright, rapid electrical swarm.",
+    animalId: "mouse", behaviorId: "sprint", soundSkinId: "voltage",
+    controls: { tempoBpm: 1000, stride: 0.15, momentum: 2.8, gravity: 0.3, pitchSemitones: 36, lopsided: 0.2, spring: 0.4, suspensionBeats: 0, surfaceId: "metal", groundResonance: 0.18 },
+    world: { grain: 0.42, cavern: 0.04 }, calls: [[2, 4, 0.44]],
+  },
+  {
+    id: "rubber-storm", label: "Extreme · Rubber storm", description: "A fast frog trio bounces and buckles in opposing elastic gaits.",
+    animalId: "frog", behaviorId: "bound", groupMode: "trio", soundSkinId: "tendon", visualSkinId: "collage",
+    controls: { tempoBpm: 560, stride: 2.3, momentum: 1.8, gravity: 0.18, pitchSemitones: -18.6, lopsided: -1, spring: 2.5, suspensionBeats: 0.7, surfaceId: "water", groundResonance: 0.78 },
+    world: { grain: 0.98, cavern: 0.28 }, calls: [[0, 3, 0.56], [1, 10, 0.4]],
+  },
+  {
+    id: "needle-rain", label: "Extreme · Needle rain", description: "High porcelain clicks over short, stiff, off-balance steps.",
+    animalId: "lizard", behaviorId: "lizard-scuttle", soundSkinId: "porcelain", visualSkinId: "motion-card",
+    controls: { tempoBpm: 720, stride: 0.24, momentum: 0.2, gravity: 2.7, pitchSemitones: 30.8, lopsided: 0.76, spring: 0, surfaceId: "crystal", groundProfileId: "stairs-down", groundResonance: 0.28 },
+    world: { grain: 0.64, cavern: 0.12 }, calls: [[1, 8, 0.36]],
+  },
+];
+
+function createExpandedPreset(scene, index) {
+  const { id, label, description, animalId, behaviorId, controls, calls } = scene;
+  const groupMode = scene.groupMode ?? "solo";
+  const leader = sanitizeQuadrupedState({ ...createQuadrupedState(animalId, behaviorId), ...controls });
+  const actors = createQuadrupedGroup(leader, groupMode).map((score, actorIndex) => {
+    const callPattern = emptyQuadrupedCalls();
+    for (const [voice, step, strength] of calls) callPattern[voice][(step + actorIndex * 5) % 16] = strength;
+    return {
+      ...score, ...controls,
+      lopsided: actorIndex === 1 && controls.lopsided !== 0 ? -controls.lopsided : controls.lopsided,
+      callPattern, mutationSeed: 0x58410000 + index * 31 + actorIndex,
+    };
+  });
+  return {
+    id, label, description,
+    snapshot: normalizeQuadrupedPreset({
+      actors, groupMode, selectedActor: 0, groupSeed: 0x1150 + index * 97,
+      soundSkinId: scene.soundSkinId, visualSkinId: scene.visualSkinId ?? "constellation",
+      world: { seed: 0x78750000 + index * 173, ...scene.world },
+    }),
+  };
+}
+
+export function createQuadrupedFullPresets() {
+  return [...createOriginalPresets(), ...expandedScenes.map(createExpandedPreset)];
 }
 
 export const QUADRUPED_FULL_PRESETS = Object.freeze(createQuadrupedFullPresets());
@@ -126,6 +240,15 @@ function randomCalls(rng) {
   return calls;
 }
 
+// Spend most rolls near a playable center, while both limits remain reachable.
+// Positive tempo uses a logarithmic spread so slow scenes are not crowded out.
+function exploreRange(rng, limits, center, logarithmic = false) {
+  const band = rng.unit();
+  const [low, high] = band > 0.15 && band < 0.85 ? center : limits;
+  const unit = rng.unit();
+  return logarithmic ? low * (high / low) ** unit : low + (high - low) * unit;
+}
+
 /** Generate a new bounded score, including every editable foot/call cell. */
 export function randomizeQuadrupedPreset(current, random = Math.random) {
   const rng = presetRandom(random);
@@ -137,9 +260,14 @@ export function randomizeQuadrupedPreset(current, random = Math.random) {
     const behaviorId = rng.pick(QUADRUPED_BEHAVIORS).id;
     return {
       ...createQuadrupedState(animalId, behaviorId),
-      tempoBpm: rng.integer(56, 160), paceRatio: rng.pick(QUADRUPED_PACE_RATIOS),
-      suspensionBeats: rng.between(0, 8), stride: rng.between(...QUADRUPED_LIMITS.stride),
-      momentum: rng.between(...QUADRUPED_LIMITS.momentum), gravity: rng.between(...QUADRUPED_LIMITS.gravity),
+      tempoBpm: Math.round(exploreRange(rng, QUADRUPED_LIMITS.tempoBpm, [45, 210], true)), paceRatio: rng.pick(QUADRUPED_PACE_RATIOS),
+      suspensionBeats: rng.between(0, 8),
+      stride: exploreRange(rng, QUADRUPED_LIMITS.stride, [0.55, 1.5]),
+      momentum: exploreRange(rng, QUADRUPED_LIMITS.momentum, [0.5, 1.7]),
+      gravity: exploreRange(rng, QUADRUPED_LIMITS.gravity, [0.45, 1.7]),
+      pitchSemitones: exploreRange(rng, QUADRUPED_LIMITS.pitchSemitones, [-12, 12]),
+      lopsided: exploreRange(rng, QUADRUPED_LIMITS.lopsided, [-0.45, 0.45]),
+      spring: exploreRange(rng, QUADRUPED_LIMITS.spring, [0.6, 1.6]),
       mood: rng.unit(), groundResonance: rng.unit(),
       surfaceId: rng.pick(QUADRUPED_TERRAINS).id, groundProfileId: rng.pick(QUADRUPED_GROUND_PROFILES).id,
       pattern: randomPattern(rng), callPattern: randomCalls(rng),

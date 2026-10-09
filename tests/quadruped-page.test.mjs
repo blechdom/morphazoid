@@ -17,7 +17,7 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.doesNotMatch(html, /FIVE CONTACT LANES|quadroped/i);
   for (const animal of animals) assert.match(html, new RegExp(`<option value="${animal}">`));
   assert.doesNotMatch(html, /id="padGrid"|data-pad-index/);
-  assert.match(html, /id="tempo"[^>]*min="25"[^>]*max="500"/);
+  assert.match(html, /id="tempo"[^>]*min="10"[^>]*max="1000"/);
   assert.doesNotMatch(html, /data-lane-id="tail"/);
   assert.match(html, /id="sequenceGrid"[^>]*role="grid"/);
   assert.match(html, /data-instrument-preset-host/);
@@ -55,7 +55,7 @@ test("transport remains independent of explicit Audio arming", async () => {
 test("animation and audio both advance from the foot-driven motor", async () => {
   const app = await read("src/instruments/quadruped/quadruped-app.js");
   for (const symbol of [
-    "advanceQuadrupedMotor", "createQuadrupedMotorState", "kickQuadrupedMotor",
+    "advanceQuadrupedMotorState", "createQuadrupedMotorState", "kickQuadrupedMotor",
     "predictQuadrupedMotor", "quadrupedMotorSnapshot", "synchronizeQuadrupedMotorTempo",
   ]) assert.match(app, new RegExp(`\\b${symbol}\\b`));
   const position = app.match(/function currentPosition[^\{]*\{([\s\S]*?)\n\}/)?.[1] ?? "";

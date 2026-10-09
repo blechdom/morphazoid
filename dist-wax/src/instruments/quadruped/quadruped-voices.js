@@ -1,4 +1,27 @@
+import { QUADRUPED_LIMITS } from "./quadruped-limits.js";
+
 // Authored melodic character voices, not recordings or species-identification models.
+const bounded = (value, low, high, fallback) => {
+  const number = Number(value);
+  return Math.min(high, Math.max(low, Number.isFinite(number) ? number : fallback));
+};
+
+/** Continuous tuning: semitones are a ratio unit, never a note quantizer. */
+export const quadrupedPitchRatio = semitones => 2 ** (bounded(semitones, ...QUADRUPED_LIMITS.pitchSemitones, 0) / 12);
+
+export function transposeQuadrupedCall(voice, semitones = 0) {
+  // An additional octave belongs to the temporary head drag, independent of
+  // the score's three-octave pitch control in either direction.
+  const transpose = bounded(semitones, -48, 48, 0);
+  if (!transpose) return voice;
+  return { ...voice, notes: voice.notes.map(note => note + transpose),
+    filter: bounded(voice.filter * 2 ** (transpose / 12), 35, 18_000, 1_800) };
+}
+
+export function quadrupedCallDuration(voice, tempoBpm) {
+  return bounded(voice.beats * 60 / bounded(tempoBpm, ...QUADRUPED_LIMITS.tempoBpm, 96), 0.09, 1.8, 0.5);
+}
+
 const call = (label, notes, type, filter, gesture, beats = 0.75, pulse = 0) =>
   Object.freeze({ label, notes: Object.freeze(notes), type, filter, gesture, beats, pulse });
 export const QUADRUPED_CALLS = Object.freeze({
@@ -18,7 +41,7 @@ export const QUADRUPED_CALLS = Object.freeze({
   dinosaur: [call("Roar", [31, 43, 38, 29], "sawtooth", 950, "head-toss", 1.3, 18), call("Chuff", [43, 38, 31], "square", 700, "neck-sway", 0.45, 24), call("Bellow", [38, 45, 50, 43], "triangle", 1200, "head-toss", 1.5)],
   frog: [call("Croak", [43, 50, 46, 43], "sawtooth", 850, "throat-pulse", 0.9, 27), call("Ribbit", [62, 55, 65, 58], "square", 1800, "throat-pulse", 0.6, 12), call("Peep", [86, 89, 86], "sine", 4000, "throat-pulse", 0.45)],
 });
-export const quadrupedCalls = id => QUADRUPED_CALLS[id] ?? QUADRUPED_CALLS.elephant;
+export const quadrupedCalls = id => Object.hasOwn(QUADRUPED_CALLS, id) ? QUADRUPED_CALLS[id] : QUADRUPED_CALLS.elephant;
 export const emptyQuadrupedCalls = () => Array.from({ length: 3 }, () => Array(16).fill(0));
 export function sanitizeQuadrupedCalls(pattern) {
   return Array.from({ length: 3 }, (_, row) => Array.from({ length: 16 }, (_, step) => {
@@ -28,8 +51,9 @@ export function sanitizeQuadrupedCalls(pattern) {
 }
 export function quadrupedCallEvents(score, position) {
   const step = ((Math.floor(Number(position) || 0) % 16) + 16) % 16;
-  return quadrupedCalls(score.animalId).flatMap((voice, row) => {
-    const intensity = Math.max(0, Math.min(1, Number(score.callPattern?.[row]?.[step]) || 0));
-    return intensity ? [{ ...voice, row, intensity, duration: Math.max(0.09, Math.min(1.8, voice.beats * 60 / score.tempoBpm)) }] : [];
+  return quadrupedCalls(score?.animalId).flatMap((voice, row) => {
+    const intensity = bounded(score?.callPattern?.[row]?.[step], 0, 1, 0);
+    return intensity ? [{ ...transposeQuadrupedCall(voice, bounded(score?.pitchSemitones, ...QUADRUPED_LIMITS.pitchSemitones, 0)),
+      row, intensity, duration: quadrupedCallDuration(voice, score?.tempoBpm) }] : [];
   });
 }

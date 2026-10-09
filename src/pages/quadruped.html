@@ -140,7 +140,7 @@
             </p>
             <label class="quadruped-tempo quadruped-knob" for="tempo">
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
-              <input id="tempo" name="tempo" type="range" min="25" max="500" step="1" value="96" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests" />
+              <input id="tempo" name="tempo" type="range" min="10" max="1000" step="1" value="96" data-knob-scale="log" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests. Hold Shift while dragging for fine adjustment." />
             </label>
             <div class="quadruped-performance-row">
               <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
@@ -222,16 +222,28 @@
             <div class="quadruped-control-body">
               <div class="quadruped-knob-bank">
                 <label class="quadruped-control quadruped-knob" for="stride">
-                <span><b>Stride reach</b><output id="strideOut" for="stride">62%</output></span>
-                <input id="stride" type="range" min="0.55" max="1.35" step="0.01" value="0.62" />
+                <span><b>Stride reach</b><output id="strideOut" for="stride">0.62×</output></span>
+                <input id="stride" type="range" min="0.15" max="2.4" step="0.01" value="0.62" />
               </label>
                 <label class="quadruped-control quadruped-knob" for="momentum">
                 <span><b>Momentum</b><output id="momentumOut" for="momentum">72%</output></span>
-                <input id="momentum" type="range" min="0.5" max="1.4" step="0.01" value="0.72" />
+                <input id="momentum" type="range" min="0.12" max="3" step="0.01" value="0.72" />
               </label>
                 <label class="quadruped-control quadruped-knob" for="gravity">
                 <span><b>Gravity</b><output id="gravityOut" for="gravity">108%</output></span>
-                <input id="gravity" type="range" min="0.55" max="1.55" step="0.01" value="1.08" />
+                <input id="gravity" type="range" min="0.1" max="3" step="0.01" value="1.08" />
+              </label>
+                <label class="quadruped-control quadruped-knob" for="pitchSemitones">
+                <span><b>Pitch</b><output id="pitchSemitonesOut" for="pitchSemitones">0 st</output></span>
+                <input id="pitchSemitones" type="range" min="-36" max="36" step="0.1" value="0" title="Transpose this animal's footsteps, calls and air sound by up to three octaves in either direction" />
+              </label>
+                <label class="quadruped-control quadruped-knob" for="lopsided">
+                <span><b>Lopsided</b><output id="lopsidedOut" for="lopsided">0%</output></span>
+                <input id="lopsided" type="range" min="-1" max="1" step="0.01" value="0" title="Lean into uneven timing and foot pressure: right-heavy below zero, left-heavy above zero" />
+              </label>
+                <label class="quadruped-control quadruped-knob" for="spring">
+                <span><b>Spring</b><output id="springOut" for="spring">100%</output></span>
+                <input id="spring" type="range" min="0" max="2.5" step="0.01" value="1" title="From low skimming steps and damped impacts to elastic lift, bounce and ringing footsteps" />
               </label>
                 <label class="quadruped-control quadruped-knob" for="groundResonance">
                 <span><b>Ground resonance</b><output id="groundResonanceOut" for="groundResonance">72%</output></span>

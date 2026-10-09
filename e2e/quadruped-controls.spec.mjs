@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 
-const knobIds = ['tempo', 'suspensionBeats', 'stride', 'momentum', 'gravity', 'groundResonance', 'grain', 'cavern'];
+const knobIds = ['tempo', 'suspensionBeats', 'stride', 'momentum', 'gravity', 'pitchSemitones', 'lopsided', 'spring', 'groundResonance', 'grain', 'cavern'];
 const nextFields = { animalSelect: 'animalId', behaviorSelect: 'behaviorId', soundSkinSelect: 'soundSkinId', visualSkinSelect: 'visualSkinId', terrain: 'surfaceId', groundProfile: 'groundProfileId' };
 const capture = page => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
 const audioStatus = page => page.evaluate(async () => (await import('/src/audio-output-manager.js')).getSharedAudioOutputManager().getStatus());
@@ -11,7 +11,7 @@ async function openInstrument(page) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   await page.goto('/quadruped.html');
-  await expect(page.locator('.quadruped-console .mz-range-knob')).toHaveCount(8);
+  await expect(page.locator('.quadruped-console .mz-range-knob')).toHaveCount(11);
   await expect(page.locator('.mz-tap-tempo[data-tap-control="#tempo"]')).toBeVisible();
   return errors;
 }
@@ -31,11 +31,14 @@ async function expectKnob(page, id) {
   expect(valueIn(await capture(page), id), `${id} reaches its model field`).toBeCloseTo(value, 8);
   const expectedOutput = id === 'tempo' ? `${Math.round(value)} BPM · global`
     : id === 'suspensionBeats' ? `Rest · ${value}b`
-    : id === 'stride' ? `${Math.round((value - .55) / .8 * 100)}%`
+    : id === 'stride' ? `${value.toFixed(2)}×`
+    : id === 'pitchSemitones' ? `${value > 0 ? '+' : ''}${Number(value.toFixed(1))} st`
+    : id === 'lopsided' ? `${value > 0 ? '+' : ''}${Math.round(value * 100)}%`
     : `${Math.round(value * 100)}%`;
   await expect(page.locator(`#${id === 'suspensionBeats' ? 'suspension' : id}Out`)).toHaveText(expectedOutput);
-  const dial = await input.evaluate(node => ({ min: Number(node.min), max: Number(node.max), rotation: Number(node.parentElement.querySelector('.mz-range-knob__dial i').style.transform.match(/rotate\(([-.\d]+)deg\)/)[1]) }));
-  expect(dial.rotation, `${id} needle follows its native value`).toBeCloseTo(-135 + (value - dial.min) / (dial.max - dial.min) * 270, 2);
+  const dial = await input.evaluate(node => ({ min: Number(node.min), max: Number(node.max), logarithmic: node.dataset.knobScale === 'log', rotation: Number(node.parentElement.querySelector('.mz-range-knob__dial i').style.transform.match(/rotate\(([-.\d]+)deg\)/)[1]) }));
+  const fraction = dial.logarithmic ? Math.log1p(value - dial.min) / Math.log1p(dial.max - dial.min) : (value - dial.min) / (dial.max - dial.min);
+  expect(dial.rotation, `${id} needle follows its native value`).toBeCloseTo(-135 + fraction * 270, 2);
 }
 
 test('six Next controls wrap through native change events and retain Audio and Play', async ({ page }) => {
@@ -80,7 +83,8 @@ test('six Next controls wrap through native change events and retain Audio and P
   expect(errors).toEqual([]);
 });
 
-test('eight native knobs support keys, vertical drag, cancel, synchronized readouts and physical Tap', async ({ page }) => {
+test('eleven native knobs support keys, vertical drag, cancel, synchronized readouts and physical Tap', async ({ page }) => {
+  test.setTimeout(60_000);
   const errors = await openInstrument(page);
   await page.locator('#behaviorSelect').selectOption('walk-leap');
   await expect(page.locator('#suspensionBeats')).toBeEnabled();
@@ -134,6 +138,13 @@ test('eight native knobs support keys, vertical drag, cancel, synchronized reado
   const expected = Math.round(60000 / (times[1] - times[0]));
   expect(Number(await page.locator('#tempo').inputValue())).toBe(expected);
   await expectKnob(page, 'tempo');
+  // Exercise the native Tap adapter at both new endpoints without a six-second
+  // wall-clock wait. Its actual physical pointer path was exercised above.
+  for (const [interval, bpm] of [[6000, 10], [60, 1000]]) {
+    await tap.evaluate((node, interval) => { node.reset(); node.tap(0); node.tap(interval); }, interval);
+    await expect(page.locator('#tempo')).toHaveValue(String(bpm));
+    await expectKnob(page, 'tempo');
+  }
   await expectLiveState(page);
   expect((await audioStatus(page)).connectionCount).toBe(0);
   expect(errors).toEqual([]);
@@ -179,7 +190,7 @@ async function editTrio(page) {
   }
   await page.locator('#behaviorSelect').selectOption('walk-leap');
   await page.locator('[data-pace-ratio="3"]').click();
-  for (const [id, value] of Object.entries({ tempo: 173, suspensionBeats: 5, stride: 1.3, momentum: 1.2, gravity: .65, groundResonance: .15, grain: .14, cavern: .93, level: .23 })) await setRange(page, id, value);
+  for (const [id, value] of Object.entries({ tempo: 173, suspensionBeats: 5, stride: 1.3, momentum: 1.2, gravity: .65, pitchSemitones: -24.5, lopsided: -.87, spring: 2.4, groundResonance: .15, grain: .14, cavern: .93, level: .23 })) await setRange(page, id, value);
   await page.locator('#terrain').selectOption('metal');
   await page.locator('#groundProfile').selectOption('stairs-down');
   for (const id of ['soundSkinSelect', 'visualSkinSelect']) {
@@ -213,7 +224,9 @@ test('Reset all restores the complete startup scene and zero clock from edited T
       await expectLiveState(page, true, true);
     }
     const handle = page.locator('.quadruped-animal-handle[data-gesture-actor="2"]');
-    await handle.scrollIntoViewIfNeeded();
+    // The hit area follows the running animal every frame. Scroll its static
+    // stage into view instead of waiting for the animation to become still.
+    await page.locator('#stage').scrollIntoViewIfNeeded();
     const startPosition = (await page.evaluate(() => globalThis.__quadrupedResetProbe())).position;
     if (playing) {
       const origin = await handle.evaluate(node => {

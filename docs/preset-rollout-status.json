@@ -5,7 +5,7 @@
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
     "implemented": 46,
-    "fullPresets": 1921,
+    "fullPresets": 1933,
     "favesImplemented": 17,
     "activeRemaining": 59,
     "regularRemaining": 127
@@ -541,9 +541,9 @@
       "href": "quadruped.html",
       "category": "bioacoustic",
       "scope": "regular",
-      "presets": 15,
+      "presets": 27,
       "status": "implemented-verification-pending",
-      "evidence": "Fifteen full scenes and bounded dice recall both skins, animal/gait/ensemble and scores. Owner-requested successful recall starts Play; Audio/master stay live. Pure and browser coverage includes quadruped-presets and quadruped-skins. Human listening and physical-device acceptance remain separate."
+      "evidence": "Twenty-seven full scenes and bounded dice recall both skins, animal/gait/ensemble and scores. Owner-requested successful recall starts Play; Audio/master stay live. Pure and browser coverage includes quadruped-presets and quadruped-skins. Human listening and physical-device acceptance remain separate."
     },
     {
       "id": "roach-synth",

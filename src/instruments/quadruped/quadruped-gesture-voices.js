@@ -1,4 +1,5 @@
-import { QUADRUPED_CALLS, quadrupedCalls } from "./quadruped-voices.js";
+import { QUADRUPED_LIMITS } from "./quadruped-limits.js";
+import { QUADRUPED_CALLS, quadrupedCalls, quadrupedCallDuration, transposeQuadrupedCall } from "./quadruped-voices.js";
 
 const ARPEGGIOS = new Set(["Sparkle", "Prism", "Marimba", "Neck harp", "Click song"]);
 const TAU = Math.PI * 2;
@@ -20,16 +21,16 @@ export function createQuadrupedGestureCall(score, { row = 0, strength = 0.8, pit
   const animalId = Object.hasOwn(QUADRUPED_CALLS, score?.animalId) ? score.animalId : "elephant";
   const voices = quadrupedCalls(animalId);
   const selectedRow = Math.trunc(bounded(row, 0, voices.length - 1, 0));
-  const voice = voices[selectedRow];
   const semitones = bounded(pitch, -12, 12, 0);
+  const scorePitch = bounded(score?.pitchSemitones, ...QUADRUPED_LIMITS.pitchSemitones, 0);
+  const voice = transposeQuadrupedCall(voices[selectedRow], scorePitch + semitones);
   const intensity = bounded(strength, 0, 1, 0.8);
-  const tempo = bounded(score?.tempoBpm ?? 96, 25, 500, 96);
-  const duration = bounded(voice.beats * 60 / tempo, 0.09, 1.8, 0.5);
+  const duration = quadrupedCallDuration(voice, score?.tempoBpm);
   const arpeggio = ARPEGGIOS.has(voice.label);
   const noteDuration = Math.min(1.4, Math.max(0.025, duration / 3));
   return Object.freeze({
     ...voice, animalId, row: selectedRow, pitch: semitones, intensity, duration,
-    notes: Object.freeze(voice.notes.map(note => note + semitones)),
+    notes: Object.freeze([...voice.notes]),
     noteOffsetsSeconds: Object.freeze(voice.notes.map((_, index) => index / voice.notes.length * duration * 0.8)),
     articulation: arpeggio ? "arpeggio" : "contour",
     // Match scheduleCall/schedulePitchContour, including Strings' slower

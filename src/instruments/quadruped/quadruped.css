@@ -342,6 +342,7 @@ body.quadruped-page {
 .quadruped-select-row .select-shell { flex: 1; min-width: 0; }
 .quadruped-console .quadruped-select-row [data-next-select] { flex: 0 0 28px; min-width: 28px; padding: 0; font-size: 18px; }
 @media (pointer: coarse) {
+  .quadruped-console .quadruped-performance-row button, .quadruped-console .quadruped-restart { min-width: 44px; }
   .quadruped-console .quadruped-select-row [data-next-select] { flex-basis: 44px; min-width: 44px; }
   .quadruped-console .quadruped-knob { min-height: 74px; }
   .quadruped-knob .mz-range-knob__dial { width: 34px; height: 34px; }
