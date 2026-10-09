@@ -335,7 +335,15 @@ test('GPU short branches retain the visible coverage of thin round Canvas stroke
       const canvas = document.createElement('canvas'); canvas.width = width; canvas.height = height;
       const context = canvas.getContext('2d'); context.scale(dpr, dpr); context.lineCap = 'round'; context.lineJoin = 'round';
       context.lineWidth = 1.2; context.globalAlpha = .85; context.strokeStyle = colors[1];
-      context.beginPath(); context.moveTo(node.startX, -node.startY); context.lineTo(node.x, -node.y); context.stroke();
+      if (length === 0) {
+        // A coincident Canvas path has no stroke on current Chrome. Compare
+        // the GPU's visible degenerate round cap with an explicit equal-size
+        // Canvas disk; every nonzero branch retains its real stroke reference.
+        context.fillStyle = context.strokeStyle;
+        context.beginPath(); context.arc(node.startX, -node.startY, context.lineWidth / 2, 0, Math.PI * 2); context.fill();
+      } else {
+        context.beginPath(); context.moveTo(node.startX, -node.startY); context.lineTo(node.x, -node.y); context.stroke();
+      }
       const pixels = context.getImageData(0, 0, width, height).data;
       let cpuMass = 0, gpuMass = 0, symmetryError = 0;
       for (let index = 3; index < pixels.length; index += 4) { cpuMass += pixels[index] / 255; gpuMass += gpuPixels[index] / 255; }
@@ -354,6 +362,7 @@ test('GPU short branches retain the visible coverage of thin round Canvas stroke
   });
   await test.info().attach('gpu-short-branch-coverage', { body: JSON.stringify(report, null, 2), contentType: 'application/json' });
   for (const row of report) {
+    expect(row.canvasAlphaMass, `${row.lengthCssPx}px at ${row.angleRadians}rad DPR${row.dpr}: visible reference`).toBeGreaterThan(0);
     expect(row.ratio, `${row.lengthCssPx}px at ${row.angleRadians}rad DPR${row.dpr}: visible coverage`).toBeGreaterThan(.7);
     expect(row.ratio, `${row.lengthCssPx}px at ${row.angleRadians}rad DPR${row.dpr}: bounded opacity`).toBeLessThan(1.5);
     expect(row.symmetryError, `zero-length round cap DPR${row.dpr}: symmetric alpha`).toBeLessThanOrEqual(2);
@@ -435,6 +444,144 @@ test('GPU context loss redraws the complete Canvas fallback while Audio is off',
   await page.evaluate(() => __delayGpuLoss.restoreContext());
   await expect(page.locator('#stage')).toHaveAttribute('data-renderer', 'webgl2');
   expect((await diagnostics(page)).audio).toBe(false);
+});
+
+test('live app Time fold keeps its waveform timing through resize and Canvas loss/restore', async ({ page }) => {
+  test.setTimeout(60000);
+  await page.emulateMedia({ reducedMotion: 'no-preference' });
+  const errors = [], evidence = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await installShaderProbe(page);
+  await page.route('**/src/instruments/micmic/native/app.js', async route => {
+    const response = await route.fetch();
+    // Observe the real app's geometry rebuild and live uniform. The reference
+    // delays come from the initial accepted scene, independently of its later
+    // materialization stamp or cached node delays. Controlled envelope input
+    // is confined to a QA draw; Audio, input and the engine are never replaced.
+    await route.fulfill({ response, body: `${await response.text()}
+let qaFoldReference;
+window.__gpuFoldResizeQa = {
+  view: () => ({ intervalMs: previewParameters.intervalMs, generations: previewParameters.generations,
+    timeRatio: previewParameters.timeRatio, materializedMs: geometry?.canvasTimeFold,
+    nodes: geometry?.nodes.length ?? 0, width: geometry?.width ?? 0, renderer: gpuRenderer?.available ? 'webgl2' : 'canvas',
+    committed: visualRevision === browserEngine.getDiagnostics().topologyRevision,
+    settled: !parameterWorking && !parameterDirty && parameterTimer == null
+      && !foldWorking && !foldDirty && foldTimer == null
+      && !previewRefreshWorking && !previewRefreshDirty && !nativePreviewMoving,
+    maximumDelayError: qaFoldReference && geometry ? Math.max(0, ...geometry.nodes.map(node =>
+      Math.abs(node.delay - qaFoldReference.get(node.id) * previewParameters.intervalMs))) : null }),
+  remember: () => { qaFoldReference = new Map(geometry.nodes.map(node => [node.id, node.delay / previewParameters.intervalMs])); },
+  probe: async () => {
+    const model = await import('./model.js'), nodes = geometry.nodes;
+    const reference = nodes.map(node => ({ ...node, delay: qaFoldReference.get(node.id) * previewParameters.intervalMs }));
+    const byId = new Map(reference.map(node => [node.id, node]));
+    const counts = new Map(); for (const node of nodes) counts.set(node.generation, (counts.get(node.generation) ?? 0) + 1);
+    const history = { values: Array.from({ length: 2000 }, (_, index) => .005 + index * .00004), interval: .01, endTime: 10 };
+    const frame = { width: geometry.width, height: geometry.height, dpr: 1, fit: geometry.fit,
+      seconds: 10, detailSteps: 14, reducedMotion: false, limit: Number.MAX_SAFE_INTEGER, pending: false,
+      historyFresh: true, history, levels: new Map(), targets: new Map(), rootLevel: .03,
+      wet: .7, wetBusGain: .7, depth: previewParameters.depth, selectedCounts: counts,
+      drawNodes: nodes, activeVoiceSelection: true };
+    __delayGpuProbe.draws = []; __delayGpuProbe.remaining = 1; __delayGpuProbe.enabled = true;
+    if (!gpuRenderer.render(frame)) throw new Error('The real app GPU renderer could not capture its restored timing');
+    const draw = __delayGpuProbe.draws.at(-1), reader = model.inputEnvelopeReader(history);
+    if (!draw || draw.instances !== nodes.length) throw new Error('The app timing probe missed its complete accepted scene');
+    let maximumCoordinateError = 0, maximumEnergyError = 0;
+    for (let row = 0; row < reference.length; row++) {
+      const node = reference[row], parent = byId.get(node.parentId);
+      const project = (x, y) => ({ x: x * frame.fit.scale + frame.fit.x, y: -y * frame.fit.scale + frame.fit.y });
+      const gain = .5 * frame.depth ** (node.generation * .72) / Math.sqrt(counts.get(node.generation) || 1);
+      const points = model.branchWavePoints({ ...node,
+        startDelay: parent?.delay ?? Math.max(0, node.delay - previewParameters.intervalMs / 1000),
+        voiceLevel: node.generation === 0 ? 1 : model.clamp(Math.sqrt(gain / .5) * Math.sqrt(frame.wet)),
+        measuredEnergy: node.generation === 0 ? frame.rootLevel : undefined,
+        parentEnergy: parent?.generation === 0 ? frame.rootLevel * Math.sqrt(frame.wet) : undefined },
+        project(node.startX, node.startY), project(node.x, node.y), reader, frame.detailSteps, false, frame.seconds);
+      for (let column = 0; column < draw.count; column++) {
+        const point = points[Math.min(Math.floor(column / 2), points.length - 1)], offset = (row * draw.count + column) * 7;
+        maximumCoordinateError = Math.max(maximumCoordinateError, Math.hypot(draw.output[offset] - point.x, draw.output[offset + 1] - point.y));
+        maximumEnergyError = Math.max(maximumEnergyError, Math.abs(draw.output[offset + 2] - point.energy));
+      }
+    }
+    return { maximumCoordinateError, maximumEnergyError, glError: draw.error, stats: gpuRenderer.stats };
+  },
+};` });
+  });
+  await ready(page);
+  const initialEngine = await diagnostics(page);
+  await page.evaluate(() => {
+    for (const [id, value] of [['generations', '3'], ['timeRatio', '1']]) {
+      const input = document.getElementById(id); input.value = value;
+      input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
+  // Establish the accepted small scene and finish its deferred control paint
+  // before testing a scalar sweep. Structural edit/fold races are covered by
+  // the live Time fold suite; this case isolates GPU rebase and restoration.
+  await expect.poll(() => page.evaluate(() => __gpuFoldResizeQa.view())).toMatchObject({
+    generations: 3, timeRatio: 1, committed: true, settled: true,
+  });
+  await expect.poll(async () => (await diagnostics(page)).parameters).toMatchObject({ generations: 3, timeRatio: 1 });
+  await expect(page.locator('#generations')).toHaveValue('3');
+  await expect(page.locator('#timeRatio')).toHaveValue('1');
+  const referenceBasis = await page.evaluate(() => __gpuFoldResizeQa.view());
+  expect(referenceBasis.materializedMs, 'The initial accepted node timing establishes the independent fold reference').toBe(referenceBasis.intervalMs);
+  await page.evaluate(() => __gpuFoldResizeQa.remember());
+  const fold = async intervalMs => {
+    await page.evaluate(async intervalMs => {
+      const { sliderFromTimeFold } = await import('/src/instruments/micmic/native/time-fold.js');
+      const input = document.getElementById('interval'); input.value = String(sliderFromTimeFold(intervalMs));
+      input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, intervalMs);
+    await expect.poll(() => page.evaluate(() => __gpuFoldResizeQa.view().intervalMs)).toBeCloseTo(intervalMs, 6);
+    await expect.poll(() => page.evaluate(() => __gpuFoldResizeQa.view())).toMatchObject({ committed: true, settled: true });
+  };
+  await fold(250);
+  const assertTiming = async (phase, materialized = false, shader = true) => {
+    const view = await page.evaluate(() => __gpuFoldResizeQa.view());
+    if (materialized) {
+      expect(view.materializedMs, `${phase}: Canvas timing follows the applied fold`).toBe(view.intervalMs);
+      expect(view.maximumDelayError, `${phase}: every accepted delay retains its initial coefficient`).toBeLessThan(1e-10);
+    }
+    const gpu = shader ? await page.evaluate(() => __gpuFoldResizeQa.probe()) : null;
+    if (gpu) {
+      expect(gpu.glError, phase).toBe(0);
+      expect(gpu.maximumCoordinateError, `${phase}: actual GPU wave aligns with the Canvas reference`).toBeLessThan(.005);
+      expect(gpu.maximumEnergyError, `${phase}: actual GPU history timing`).toBeLessThan(.0001);
+    }
+    evidence.push({ phase, view, gpu });
+  };
+  await assertTiming('initial');
+  await fold(73); await assertTiming('uniform sweep');
+  const desktopWidth = await page.evaluate(() => __gpuFoldResizeQa.view().width);
+  await page.setViewportSize({ width: 390, height: 844 });
+  await expect.poll(async () => {
+    const width = await page.evaluate(() => __gpuFoldResizeQa.view().width);
+    return width > 0 && width <= 390 && width !== desktopWidth;
+  }).toBe(true);
+  await assertTiming('portrait resize', true);
+  await page.evaluate(() => {
+    const canvas = document.getElementById('stage').parentElement.querySelector('canvas:not(#stage)');
+    window.__delayGpuLoss = canvas.getContext('webgl2').getExtension('WEBGL_lose_context');
+    if (!__delayGpuLoss) throw new Error('Browser cannot simulate the app context loss');
+    __delayGpuLoss.loseContext();
+  });
+  await expect(page.locator('#stage')).toHaveAttribute('data-renderer', 'canvas');
+  await assertTiming('Canvas fallback', true, false);
+  await fold(1200); await assertTiming('fold during Canvas fallback', true, false);
+  await page.evaluate(() => __delayGpuLoss.restoreContext());
+  await expect(page.locator('#stage')).toHaveAttribute('data-renderer', 'webgl2', { timeout: 15000 });
+  await assertTiming('GPU restore', true);
+  await fold(.05); await assertTiming('uniform reversal after restore');
+  const portraitWidth = await page.evaluate(() => __gpuFoldResizeQa.view().width);
+  await page.setViewportSize({ width: 844, height: 390 });
+  await expect.poll(() => page.evaluate(() => __gpuFoldResizeQa.view().width)).not.toBe(portraitWidth);
+  await assertTiming('landscape resize', true);
+  const finalEngine = await diagnostics(page);
+  expect(finalEngine.audio).toBe(false); expect(finalEngine.connectionCount).toBe(0);
+  expect(finalEngine.contextGeneration).toBe(initialEngine.contextGeneration);
+  expect(finalEngine.microphoneEnabled).toBe(false); expect(errors).toEqual([]);
+  await test.info().attach('gpu-fold-resize-loss-parity', { body: JSON.stringify({ evidence, initialEngine, finalEngine }, null, 2), contentType: 'application/json' });
 });
 
 for (const mode of ['canvas', 'null', 'throw', 'shader']) {

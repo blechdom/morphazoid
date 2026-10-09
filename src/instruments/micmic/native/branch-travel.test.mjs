@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { inputEnvelopeReader, inputHistoryFrame, tapActivityFrame, branchWavePoints, activityEnergy } from './model.js';
+import { inputEnvelopeReader, inputHistoryFrame, tapActivityFrame, branchWavePoints, activityEnergy, audioFrameChanged } from './model.js';
 
 test('input history keeps its audio timestamps and interpolates adjacent samples', () => {
   const read = inputEnvelopeReader({ interval: .1, endTime: 2, values: [0, .4, 0] });
@@ -159,4 +159,33 @@ test('accepted microphone history retains the same raw snapshot for GPU and Canv
   const stopped = inputHistoryFrame({ audio: false, status: { sampleRate: 0, elapsedSeconds: 0 } }, stale, 300);
   assert.equal(stopped.envelope, null);
   assert.equal(stopped.reader, null);
+});
+
+test('repeated control acknowledgements cannot renew captured history or its clock reference', () => {
+  const envelope = { interval: .1, endTime: 4, values: [.1, .2, .3] };
+  const reply = { audio: true, status: { sampleRate: 48000, elapsedSeconds: 4, inputEnvelope: envelope } };
+  const first = inputHistoryFrame(reply, {}, 1000);
+  const duplicate = inputHistoryFrame({ ...reply, status: { ...reply.status,
+    inputEnvelope: structuredClone(envelope), timeFoldMs: 42 } }, first, 4000);
+  assert.equal(duplicate.receivedAt, 1000, 'an old capture cannot become fresh through a coefficient ACK');
+  assert.equal(duplicate.clockReceivedAt, 1000, 'the same sample clock cannot move its wall-time anchor');
+  assert.equal(duplicate.reader, first.reader, 'an identical capture retains its established interpolation');
+  assert.equal(duplicate.envelope, first.envelope);
+  const nextClock = inputHistoryFrame({ ...reply, status: { ...reply.status, elapsedSeconds: 4.05 } }, duplicate, 4100);
+  assert.equal(nextClock.clockReceivedAt, 4100);
+  assert.equal(nextClock.receivedAt, 1000, 'clock progression alone is not a new captured envelope');
+  const nextCapture = inputHistoryFrame({ ...reply, status: { ...reply.status, elapsedSeconds: 4.1,
+    inputEnvelope: { ...envelope, endTime: 4.1, values: [.2, .3, .4] } } }, nextClock, 4200);
+  assert.equal(nextCapture.receivedAt, 4200);
+  assert.equal(nextCapture.reader(4.1), .4);
+});
+
+test('audio frame freshness follows rendering and pool identity, independently of control metadata', () => {
+  const frame = { sampleRate: 48000, topologyRevision: 2, processedBlocks: 500, elapsedSeconds: 4, timeFoldMs: 80 };
+  assert.equal(audioFrameChanged({ ...frame, timeFoldMs: 81, timeFoldTargetMs: 90 }, frame), false);
+  assert.equal(audioFrameChanged({ ...frame, processedBlocks: 501 }, frame), true);
+  assert.equal(audioFrameChanged({ ...frame, topologyRevision: 3 }, frame), true);
+  assert.equal(audioFrameChanged({ ...frame, processedBlocks: 0, elapsedSeconds: 0 }, frame), true, 'recovery starts an independent frame clock');
+  assert.equal(audioFrameChanged({ sampleRate: 48000, elapsedSeconds: 4 }, { sampleRate: 48000, elapsedSeconds: 4 }), false, 'legacy duplicate frames remain stale');
+  assert.equal(audioFrameChanged({ sampleRate: 48000, elapsedSeconds: 4.1 }, { sampleRate: 48000, elapsedSeconds: 4 }), true);
 });

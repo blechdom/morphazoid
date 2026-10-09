@@ -70,7 +70,6 @@
                 <div><dt>Input losses / callback deadlines</dt><dd id="streamMisses">0 / 0</dd></div>
               </dl>
               <div id="nativeMidiControl"></div>
-              <label class="native-check"><input id="automatic" type="checkbox" checked /> Adapt voices to this device</label>
               <div class="native-voice-cap">
                 <label class="control native-knob-control" for="voiceCeiling"><span><b>Optional voice cap</b><output id="voiceCeilingOut" for="voiceCeiling">No cap</output></span><input id="voiceCeiling" type="range" min="0" max="9007199254740991" step="1" value="0" /></label>
               </div>
@@ -109,6 +108,34 @@
       </section>
 
       <aside class="panel" data-instrument-preset-host aria-label="L-system Delay controls">
+        <section class="native-performance-panel" id="performancePanel" aria-labelledby="performanceTitle">
+          <div class="native-performance-heading"><h2 id="performanceTitle">Live performance</h2><output id="performanceRenderer">WebGL2</output></div>
+          <div class="native-performance-meters">
+            <div title="Audio callback processing time divided by its sample-time deadline. This is not total device CPU usage."><span>Audio load</span><output id="performanceAudioLoad">—</output><meter id="performanceAudioMeter" min="0" max="1" low="0.55" high="0.85" optimum="0.4" value="0" aria-label="Audio processing budget usage"></meter></div>
+            <div title="Measured branch drawing time on the GPU, when the browser supports timer queries. This is not total GPU utilization."><span>GPU time</span><output id="performanceGpuTime">Unavailable</output></div>
+            <div title="Main-thread graphics frame time, including CPU submission and canvas annotations; FPS counts actual drawn frames."><span>Graphics</span><output id="performanceFrameTime">—</output></div>
+          </div>
+          <dl class="native-performance-counts">
+            <div title="Descendant voices requested by the complete rule, before device fitting."><dt>Requested</dt><dd id="performanceRequested">—</dd></div>
+            <div title="Branches compiled for this scene. This number stays fixed until a scene or capacity edit."><dt>Prepared</dt><dd id="performancePrepared">—</dd></div>
+            <div title="Prepared voices whose delay fits the delay-history buffer capacity, with Depth above zero."><dt>Eligible</dt><dd id="performanceEligible">—</dd></div>
+            <div title="Actual processing voices, including fading release tails. The playing graphic follows these slots."><dt>Processing</dt><dd id="performanceProcessing">—</dd></div>
+            <div title="Current audio protection limit; admitted target may be smaller due to depth or your optional Settings voice cap."><dt>Live limit</dt><dd id="performanceLimit">—</dd></div>
+            <div title="Most recent proved warm scene count, or the initial conservative device estimate. A workload estimate, not a permanent device maximum."><dt>Measured estimate</dt><dd id="performanceMeasured">—</dd></div>
+          </dl>
+          <div class="native-performance-foot"><output id="performanceMisses" title="Measured callback deadline misses, not physical sound-device dropout counts.">0 deadlines missed</output></div>
+          <details class="native-capacity-disclosure" id="capacityTests">
+            <summary>Capacity tests</summary>
+            <div class="native-capacity-test-body">
+              <div class="native-capacity-controls">
+                <label class="control native-knob-control" for="capacityBudget"><span><b>Test voice budget</b><output id="capacityBudgetOut" for="capacityBudget">—</output></span><input id="capacityBudget" type="range" min="1" max="9007199254740991" step="1" value="1" /></label>
+                <div class="native-capacity-actions"><label for="capacityBudgetExact">Exact voices<input id="capacityBudgetExact" type="number" inputmode="numeric" min="1" step="1" value="1" /></label><button class="mini-action" id="testCapacity" type="button" disabled>Test capacity</button></div>
+              </div>
+              <div class="native-performance-foot"><label class="native-check" title="Keeps automatic audio deadline protection active. Turn off for a manual overload trial."><input id="automatic" type="checkbox" checked /> Protect audio</label><button class="mini-action" id="autoCapacity" type="button" title="Test the device estimate and return to automatic preparation budgets" hidden>Auto budget</button></div>
+              <p class="native-input-note" id="performanceCapacityStatus" role="status">Choose a budget, then test. Audio keeps playing during preparation.</p>
+            </div>
+          </details>
+        </section>
         <div class="micmic-panel-input mz-input-legacy" id="mobileInput">
           <details class="micmic-input-menu" id="inputMenu" data-input-state="off">
             <summary class="micmic-input-trigger" id="inputMenuButton" aria-label="Microphone controls: microphone off">
@@ -147,7 +174,13 @@
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
           <div class="group-body native-input-controls">
             <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
-            <label class="select-control" for="inputSample" id="inputSampleControl" hidden><span class="field-label">Sample preset</span><span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span></label>
+            <div class="select-control" id="inputSampleControl" hidden>
+              <label class="field-label" for="inputSample">Sample</label>
+              <div class="native-choice-row">
+                <span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span>
+                <button class="instrument-picker-next" id="nextInputSample" type="button" title="Next sample" aria-label="Next sample" disabled><span aria-hidden="true">▶</span></button>
+              </div>
+            </div>
             <div id="inputFileControl" class="native-input-file" hidden>
               <label for="inputFile"><span class="field-label">Choose local audio</span><input id="inputFile" type="file" accept="audio/*" aria-describedby="inputFileHint" /></label>
               <p class="native-input-note" id="inputFileHint">Local files · up to 64 MiB · first 2 minutes</p>
@@ -167,91 +200,75 @@
             <span class="section-state" id="recursionSummary">Pythagorean tree · 13 generations</span>
           </summary>
           <div class="group-body">
-            <label class="select-control" for="lSystemType" hidden>
-              <span class="field-label">L-system type</span>
-              <span class="select-shell">
-                <select id="lSystemType">
-                  <optgroup label="Branching systems">
-                    <option value="pythagorean" selected>Pythagorean tree</option>
-                    <option value="plant">Branching plant</option>
-                    <option value="coral">Coral</option>
-                    <option value="bush">Meadow bush</option>
-                    <option value="fan">Frond fan</option>
-                    <option value="fern">Ladder fern</option>
-                    <option value="whorled">Whorled shrub · 3-way</option>
-                    <option value="ternary">Trident tree · 3-way</option>
-                    <option value="quaternary">Four-way canopy · 4-way</option>
-                  </optgroup>
-                  <optgroup label="Classic fractals">
-                    <option value="dragon">Dragon curve</option>
-                    <option value="koch">Koch snowflake</option>
-                    <option value="sierpinski">Sierpiński triangle</option>
-                    <option value="hilbert">Hilbert curve</option>
-                    <option value="gosper">Gosper curve</option>
-                    <option value="cantor">Cantor set</option>
-                    <option value="levy">Lévy C curve</option>
-                    <option value="terdragon">Terdragon</option>
-                  </optgroup>
-                </select>
-              </span>
-            </label>
-            <section class="recursion-parameter-cluster" id="labRuleControls" aria-labelledby="labRulesTitle"><h3 class="parameter-cluster-title" id="labRulesTitle">Rule experiment</h3><label class="select-control" for="labKind"><span class="field-label">Rule family</span><span class="select-shell"><select id="labKind"><option value="context">Context-sensitive sequence</option><option value="thue-morse">Thue–Morse sequence</option><option value="fibonacci">Algae / Fibonacci sequence</option><option value="penrose">Penrose triangle tiling</option><option value="sphinx">Sphinx tiling</option></select></span></label><div class="native-knob-grid"><label class="control native-knob-control" for="labContextStrength"><span><b>Neighbor influence</b><output id="labContextStrengthOut" for="labContextStrength">0.5</output></span><input id="labContextStrength" type="range" min="0" max="1" step="0.01" value="0.5" /></label><label class="control native-knob-control" for="labSymbolRatio"><span><b>Symbol ratio</b><output id="labSymbolRatioOut" for="labSymbolRatio">1.5</output></span><input id="labSymbolRatio" type="range" min="0.25" max="4" step="0.01" value="1.5" /></label></div><details class="native-control-help"><summary>Rule family help</summary><p id="labRuleHelp">Neighboring symbols determine replacements. All visible edges use the same delay voices and measured audio waves.</p></details></section>
-            <section class="recursion-parameter-cluster" aria-labelledby="branchingParametersTitle">
-              <h3 class="parameter-cluster-title" id="branchingParametersTitle">Branching</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control generation-control" for="generations">
-                  <span>
-                    <b>Rule iterations</b>
-                    <output id="generationsOut" for="generations">13 / 13</output>
-                  </span>
-                  <input id="generations" type="range" min="1" max="24" step="1" value="6" aria-describedby="generationCapacityInline" />
-                </label>
-                <label class="control native-knob-control signed-form-range" for="pruningBias">
-                  <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
-                  <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" aria-valuetext="breadth first" aria-describedby="pruningBiasGuide" />
-                  <span class="form-range-poles" id="pruningBiasGuide" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
-                </label>
-                <label class="control native-knob-control" for="depth">
-                  <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
-                  <input id="depth" type="range" min="0" max="1" step="0.01" value="0.72" aria-describedby="depthGuide" title="Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply." />
-                  <small class="sr-only" id="depthGuide">Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply.</small>
-                </label>
+            <div class="select-control" hidden>
+              <label class="field-label" for="lSystemType">L-system type</label>
+              <div class="native-choice-row">
+                <span class="native-input-choice select-shell"><select id="lSystemType">
+                    <optgroup label="Branching systems">
+                      <option value="pythagorean" selected>Pythagorean tree</option>
+                      <option value="plant">Branching plant</option>
+                      <option value="coral">Coral</option>
+                      <option value="bush">Meadow bush</option>
+                      <option value="fan">Frond fan</option>
+                      <option value="fern">Ladder fern</option>
+                      <option value="whorled">Whorled shrub · 3-way</option>
+                      <option value="ternary">Trident tree · 3-way</option>
+                      <option value="quaternary">Four-way canopy · 4-way</option>
+                    </optgroup>
+                    <optgroup label="Classic fractals">
+                      <option value="dragon">Dragon curve</option>
+                      <option value="koch">Koch snowflake</option>
+                      <option value="sierpinski">Sierpiński triangle</option>
+                      <option value="hilbert">Hilbert curve</option>
+                      <option value="gosper">Gosper curve</option>
+                      <option value="cantor">Cantor set</option>
+                      <option value="levy">Lévy C curve</option>
+                      <option value="terdragon">Terdragon</option>
+                    </optgroup>
+                </select></span>
+                <button class="instrument-picker-next" id="nextLSystemType" type="button" title="Next L-system type" aria-label="Next L-system type" disabled><span aria-hidden="true">▶</span></button>
               </div>
-              <small class="native-capacity-note" id="generationCapacityInline">48 of 1,022 branches ready · breadth first pruning · device-adjusted</small>
-            </section>
-
-            <section class="recursion-parameter-cluster" aria-labelledby="timingParametersTitle">
-              <h3 class="parameter-cluster-title" id="timingParametersTitle">Timing</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control" for="interval">
-                  <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
-                  <input id="interval" type="range" min="0" max="1000" step="any" value="300" aria-valuetext="240 ms" />
-                </label>
-                <label class="control native-knob-control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+            </div>
+            <label class="select-control" for="labKind"><span class="field-label">Rule family</span><span class="select-shell"><select id="labKind"><option value="context">Context-sensitive sequence</option><option value="thue-morse">Thue–Morse sequence</option><option value="fibonacci">Algae / Fibonacci sequence</option><option value="penrose">Penrose triangle tiling</option><option value="sphinx">Sphinx tiling</option></select></span></label>
+            <div class="native-knob-grid native-recursion-grid">
+              <label class="control native-knob-control generation-control" for="generations">
+                <span>
+                  <b>Rule iterations</b>
+                  <output id="generationsOut" for="generations">13 / 13</output>
+                </span>
+                <input id="generations" type="range" min="1" max="24" step="1" value="6" aria-describedby="generationCapacityInline" />
+              </label>
+              <label class="control native-knob-control signed-form-range" for="pruningBias">
+                <span><b>Pruning strategy</b><output id="pruningBiasOut" for="pruningBias">breadth first</output></span>
+                <input id="pruningBias" type="range" min="-1" max="1" step="0.01" value="0" aria-valuetext="breadth first" aria-describedby="pruningBiasGuide" />
+                <span class="form-range-poles" id="pruningBiasGuide" aria-hidden="true"><span>Breadth first</span><span>Balanced</span><span>Depth first</span></span>
+              </label>
+              <label class="control native-knob-control" for="depth">
+                <span><b>Depth / decay</b><output id="depthOut" for="depth">72%</output></span>
+                <input id="depth" type="range" min="0" max="1" step="0.01" value="0.72" aria-describedby="depthGuide" title="Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply." />
+                <small class="sr-only" id="depthGuide">Controls the fade across generations. At 100%, there is no generation decay; voice balancing and mastering still apply.</small>
+              </label>
+              <label class="control native-knob-control" for="interval">
+                <span><b>Time fold</b><output id="intervalOut" for="interval">240 ms</output></span>
+                <input id="interval" type="range" min="0" max="1000" step="any" value="300" aria-valuetext="240 ms" />
+              </label>
+              <label class="control native-knob-control" for="timeRatio"><span><b>Child time ratio</b><output id="timeRatioOut" for="timeRatio">0.72× per generation</output></span><input id="timeRatio" type="range" min="0.2" max="2" step="0.01" value="0.72" aria-valuemax="2" aria-valuetext="0.72× per generation" /></label>
+              <label class="control native-knob-control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
+              <label class="control native-knob-control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
+              <label class="control native-knob-control signed-form-range" for="curls"><span><b>Curls</b><output id="curlsOut" for="curls">original</output></span><input id="curls" type="range" min="-8" max="8" step="0.01" value="0" aria-describedby="curlsGuide" title="Added turns distributed along the longest root-to-tip path. Positive curls counterclockwise; negative curls clockwise. Pitch follows Angle → octave span." /><span class="form-range-poles" aria-hidden="true"><span>CW</span><span>Original</span><span>CCW</span></span><small class="sr-only" id="curlsGuide">Curls bends successive branches while keeping the input root fixed. Zero preserves the original shape. Positive values turn counterclockwise; negative values turn clockwise. The changed turns also affect pitch through Angle → octave span, and stereo position through Spread.</small></label>
+              <label class="control native-knob-control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="generationAsymmetryGuide" /><span class="form-range-poles" id="generationAsymmetryGuide" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control native-knob-control" for="mutation">
+                <span><b id="mutationLabel">Branch variation</b><output id="mutationOut" for="mutation">0% branch variation</output></span>
+                <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" aria-describedby="mutationGuide" />
+                <small class="sr-only" id="mutationGuide">Varies branch turns, lengths and delay timing in Pythagorean Pine.</small>
+              </label>
+              <div class="native-recursion-conditional" id="labRuleControls">
+                <label class="control native-knob-control" for="labContextStrength"><span><b>Neighbor influence</b><output id="labContextStrengthOut" for="labContextStrength">0.5</output></span><input id="labContextStrength" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+                <label class="control native-knob-control" for="labSymbolRatio"><span><b>Symbol ratio</b><output id="labSymbolRatioOut" for="labSymbolRatio">1.5</output></span><input id="labSymbolRatio" type="range" min="0.25" max="4" step="0.01" value="1.5" /></label>
+                <details class="native-control-help"><summary>Rule family help</summary><p id="labRuleHelp">Neighboring symbols determine replacements. All visible edges use the same delay voices and measured audio waves.</p></details>
               </div>
-            </section>
-
-            <section class="recursion-parameter-cluster" aria-labelledby="pitchParametersTitle">
-              <h3 class="parameter-cluster-title" id="pitchParametersTitle">Pitch</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control" for="generationAngle"><span><b>Branch angle</b><output id="generationAngleOut" for="generationAngle">45°</output></span><input id="generationAngle" type="range" min="0" max="180" step="0.5" value="45" /></label>
-                <label class="control native-knob-control" for="generationPitchScale"><span><b>Angle → octave span</b><output id="generationPitchScaleOut" for="generationPitchScale">100% / 180°</output></span><input id="generationPitchScale" type="range" min="0" max="4" step="0.05" value="1" /></label>
-              </div>
-            </section>
-
-            <section class="recursion-parameter-cluster" aria-labelledby="variationParametersTitle">
-              <h3 class="parameter-cluster-title" id="variationParametersTitle">Variation</h3>
-              <div class="native-knob-grid">
-                <label class="control native-knob-control signed-form-range" for="curls"><span><b>Curls</b><output id="curlsOut" for="curls">original</output></span><input id="curls" type="range" min="-8" max="8" step="0.01" value="0" aria-describedby="curlsGuide" title="Added turns distributed along the longest root-to-tip path. Positive curls counterclockwise; negative curls clockwise. Pitch follows Angle → octave span." /><span class="form-range-poles" aria-hidden="true"><span>CW</span><span>Original</span><span>CCW</span></span><small class="sr-only" id="curlsGuide">Curls bends successive branches while keeping the input root fixed. Zero preserves the original shape. Positive values turn counterclockwise; negative values turn clockwise. The changed turns also affect pitch through Angle → octave span, and stereo position through Spread.</small></label>
-                <label class="control native-knob-control signed-form-range" for="generationAsymmetry"><span><b>Turn asymmetry</b><output id="generationAsymmetryOut" for="generationAsymmetry">even</output></span><input id="generationAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" aria-describedby="generationAsymmetryGuide" /><span class="form-range-poles" id="generationAsymmetryGuide" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
-                <label class="control native-knob-control" for="mutation">
-                  <span><b id="mutationLabel">Branch variation</b><output id="mutationOut" for="mutation">0% branch variation</output></span>
-                  <input id="mutation" type="range" min="0" max="1" step="0.01" value="0" aria-describedby="mutationGuide" />
-                  <small class="sr-only" id="mutationGuide">Varies branch turns, lengths and delay timing in Pythagorean Pine.</small>
-                </label>
-              </div>
-            </section>
-
+            </div>
+            <small class="native-capacity-note" id="generationCapacityInline">Measuring device branch capacity…</small>
             <div class="native-form-actions">
               <button class="mini-action reset-form" id="centerAngles" type="button" title="Branch angle 90° · Turn asymmetry even · Curls 0">Center angles</button>
               <button class="mini-action reset-form" id="resetGenerationRules" type="button">Reload selected preset</button>

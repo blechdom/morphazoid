@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createBrowserDelayEngine } from '../src/instruments/micmic/native/browser-engine.js';
-import { DEFAULT_PARAMETERS } from '../src/instruments/micmic/native/model.js';
+import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE } from '../src/instruments/micmic/native/model.js';
 
 const tick = () => new Promise(resolve => setImmediate(resolve));
 async function until(predicate) {
@@ -27,18 +27,31 @@ function fixture({ depth = .72 } = {}) {
     elapsedMs: 40, measurements: [{ voices: 64, load: .3 }] };
   const f = { contexts, worklets, sources, compileRequests, errors, calibration,
     rejectAbove: Infinity, now: 1, load: .2, peak: .3, installed: 0, structuralEligible: 0,
-    liveDepth: depth, revision: 0, active: 0, calibrationProof: 0,
+    liveDepth: depth, revision: 0, active: 0, autoDemand: 0, calibrationProof: 0, deadlineMisses: 0,
+    performance: structuredClone(DEFAULT_PERFORMANCE),
     holdCompile: false, compileReplies: [], heldControlType: null, controlReplies: [],
     fold: DEFAULT_PARAMETERS.intervalMs, rejectFold: false, lightFoldAck: false };
   f.delayCoefficient = () => .1 / DEFAULT_PARAMETERS.intervalMs;
+  const updateDemand = (newScene = false, automaticChanged = false) => {
+    const eligible = f.liveDepth > 0 ? f.structuralEligible : 0;
+    const demand = f.performance.voiceCeiling > 0 ? Math.min(eligible, f.performance.voiceCeiling) : eligible;
+    // DSP backoff can be injected independently through f.active. Mix-only
+    // controls retain it; a changed demand or a complete scene re-admits the
+    // bounded membership, including restoration after a manual ceiling.
+    if (newScene || automaticChanged || demand !== f.autoDemand) f.active = demand;
+    f.autoDemand = demand;
+  };
   function replace(key, value) {
     originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key));
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
   }
   const status = () => ({ sampleRate: 48000, elapsedSeconds: f.now, audioTimeSeconds: f.now,
     processedBlocks: Math.round(f.now * 48000 / 128), requestedTargets: f.installed,
-    installedCapacity: f.installed, voiceLimit: f.active, targetVoices: f.active,
-    activeVoices: f.active, calibratedVoices: f.calibrationProof,
+    installedCapacity: f.installed, voiceLimit: f.performance.automatic ? Math.min(f.active, f.autoDemand) : f.autoDemand,
+    targetVoices: f.performance.automatic ? Math.min(f.active, f.autoDemand) : f.autoDemand,
+    activeVoices: f.performance.automatic ? Math.min(f.active, f.autoDemand) : f.autoDemand,
+    automatic: f.performance.automatic, calibratedVoices: f.calibrationProof,
+    deadlineMisses: f.deadlineMisses,
     cpuLoad: f.load, peakLoad: f.peak, topologyRevision: f.revision,
     inputPeak: .1, outputPeak: f.active ? .2 : 0, wetBusGain: 1,
     timeFoldMs: f.nominalFold ?? f.fold, timeFoldTargetMs: f.fold });
@@ -67,13 +80,31 @@ function fixture({ depth = .72 } = {}) {
     }
   }
   class Worker {
+    constructor() { f.worker = this; }
     postMessage(data) {
       compileRequests.push(structuredClone(data));
-      const voiceBudget = data.voiceBudget ?? calibration.voices;
+      let voiceBudget = data.voiceBudget ?? calibration.voices, capacityFailure = null;
       if (voiceBudget > f.rejectAbove) {
-        const reply = () => this.onmessage?.({ data: { id: data.id, error: 'QA rejected optional prepared pool' } });
-        if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
-        return;
+        if (data.capacityProbe && !data.manualTrial) {
+          const reply = () => this.onmessage?.({ data: { id: data.id, revision: data.revision, capacityRejected: true,
+            capacityFailure: 'QA rejected explicit capacity test', sceneMeasurement: { voices: voiceBudget, load: 1.25, targetLoad: .95, proved: false } } });
+          if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
+          return;
+        }
+        if (data.capacityProbe && data.manualTrial) capacityFailure = 'Manual trial exceeds the measured audio budget.';
+        else {
+        if (data.validateCapacity && Number.isFinite(data.fallbackVoiceBudget)
+          && data.fallbackVoiceBudget <= f.rejectAbove) {
+          // The worker owns optional preflight. A declined larger proposal
+          // still returns the requested scene at its last successful budget.
+          voiceBudget = data.fallbackVoiceBudget;
+          capacityFailure = 'QA rejected optional prepared pool';
+        } else {
+          const reply = () => this.onmessage?.({ data: { id: data.id, error: 'QA rejected optional prepared pool' } });
+          if (f.holdCompile) f.compileReplies.push(reply); else queueMicrotask(reply);
+          return;
+        }
+        }
       }
       const requestedVoices = 2 ** (data.parameters.generations + 1) - 2;
       const preparedVoices = Math.min(voiceBudget, requestedVoices);
@@ -99,7 +130,10 @@ function fixture({ depth = .72 } = {}) {
         startX: 0, startY: 0, x: index, y: 0, delay: index ? data.parameters.intervalMs * f.delayCoefficient(index - 1) : 0,
         rate: 1, gain: data.parameters.depth ? .5 : 0 }));
       const reply = () => this.onmessage?.({ data: { id: data.id, revision: data.revision,
-        calibration, voiceBudget, module: {}, pool, result: {
+        calibration, voiceBudget, requestedVoiceBudget: data.voiceBudget ?? calibration.voices, manualTrial: Boolean(data.manualTrial), capacityFailure,
+        sceneMeasurement: data.validateCapacity ? { voices: preparedVoices,
+          load: capacityFailure ? 1 : .3, targetLoad: .55, proved: !capacityFailure } : undefined,
+        module: {}, pool, result: {
           parameters: structuredClone(data.parameters),
           effectiveParameters: { ...data.parameters, generations: effectiveGenerations },
           requestedVoices, requestedVoicesExact: true, preparedVoices, nodes,
@@ -120,10 +154,15 @@ function fixture({ depth = .72 } = {}) {
           const header = new DataView(data.pool); f.installed = header.getUint32(8, true);
           f.structuralEligible = header.getUint32(12, true); f.revision = header.getUint32(16, true);
           f.calibrationProof = Math.max(f.calibrationProof, data.seedCapacity || 0);
-          f.active = f.liveDepth > 0 ? f.structuralEligible : 0;
+          if (data.wholeSceneAdmission) f.calibrationProof = Math.max(f.calibrationProof, f.structuralEligible);
+          updateDemand(true);
           f.fold = data.intervalMs;
         }
-        if (data.type === 'depth') { f.liveDepth = data.depth; f.active = data.depth > 0 ? f.structuralEligible : 0; }
+        if (data.type === 'depth') { f.liveDepth = data.depth; updateDemand(); }
+        if (data.type === 'performance') {
+          const automaticChanged = data.performance.automatic !== f.performance.automatic;
+          f.performance = structuredClone(data.performance); updateDemand(false, automaticChanged);
+        }
         if (data.type === 'time-fold') {
           if (f.rejectFold) {
             queueMicrotask(() => this.port.onmessage?.({ data: { id: data.id, error: 'QA rejected live fold' } }));
@@ -529,7 +568,28 @@ for (const type of ['performance', 'depth']) {
   });
 }
 
-test('a rejected optional growth probe retains the installed budget and a tiny scene can recover in the same session', async () => {
+test('sustained headroom stages a future budget without expanding an unchanged playing scene', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, before = await engine.request('/api/preview'), source = f.sources[0], buffer = source.buffer;
+    await sustainedHeadroom(f, 12);
+    const staged = await engine.request('/api/preview');
+    assert.ok(engine.getDiagnostics().nextSceneCapacity > 64, 'headroom remains available for a future explicit scene');
+    assert.equal(staged.deviceCapacity.preparedCapacity, 64); assert.equal(staged.preparedVoices, 64);
+    assert.deepEqual(staged.nodes, before.nodes); assert.equal(staged.topologyRevision, before.topologyRevision);
+    assert.deepEqual(staged.parameters, before.parameters);
+    await engine.request('/api/parameters', structuredClone(before.parameters));
+    assert.equal(f.compileRequests.length, 1, 'an identical acknowledged scene does not consume a capacity proposal');
+    const installs = f.worklets[0].messages.filter(message => message.type === 'install');
+    assert.equal(installs.length, 1); assert.equal(installs[0].wholeSceneAdmission, true);
+    assert.equal(staged.audio, true); assert.equal(staged.input.playing, true); assert.equal(staged.status.elapsedSeconds, 13);
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+    assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined); assert.deepEqual(f.errors, []);
+  } finally { f.cleanup(); }
+});
+
+test('a rejected future capacity proposal commits the requested scene at the proven fallback budget', async () => {
   const f = fixture();
   try {
     await f.start();
@@ -537,19 +597,29 @@ test('a rejected optional growth probe retains the installed budget and a tiny s
     assert.equal(before.deviceCapacity.preparedCapacity, 64);
     f.rejectAbove = 64;
     await sustainedHeadroom(f);
-    await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
-    const rejected = engine.getDiagnostics();
-    assert.match(rejected.capacityFailure, /QA rejected optional prepared pool/);
+    assert.equal(f.compileRequests.length, 1, 'status never sends the optional proposal to the compiler');
+    const proposal = engine.getDiagnostics().nextSceneCapacity;
+    assert.ok(proposal > 64);
+    const nextParameters = { ...before.parameters, angle: before.parameters.angle + 7 };
+    const rejected = await engine.request('/api/parameters', nextParameters);
+    const request = f.compileRequests.at(-1);
+    assert.equal(request.voiceBudget, proposal); assert.equal(request.validateCapacity, true);
+    assert.equal(request.fallbackVoiceBudget, 64); assert.deepEqual(request.performance, before.performance);
+    assert.match(engine.getDiagnostics().capacityFailure, /QA rejected optional prepared pool/);
     assert.equal(rejected.deviceCapacity.preparedCapacity, 64, 'uninstalled candidate never becomes the next scene budget');
-    assert.equal(rejected.buildRevision, before.buildRevision); assert.equal(rejected.audio, true);
-    assert.equal(rejected.error, null); assert.equal(rejected.sampleClock, 4); assert.deepEqual(f.errors, []);
-    const recovered = await engine.request('/api/parameters', { ...before.parameters, generations: 1 });
+    assert.deepEqual(rejected.parameters, nextParameters, 'declining capacity does not discard the requested preset');
+    assert.equal(rejected.preparedVoices, 64); assert.ok(rejected.topologyRevision > before.buildRevision);
+    assert.equal(engine.getDiagnostics().nextSceneCapacity, 64); assert.equal(rejected.audio, true);
+    assert.equal(rejected.error, null); assert.equal(rejected.status.elapsedSeconds, 4); assert.deepEqual(f.errors, []);
+    const recovered = await engine.request('/api/parameters', { ...nextParameters, generations: 1 });
     assert.equal(f.compileRequests.at(-1).voiceBudget, 64, 'a tiny scene receives the last successful capacity');
     assert.equal(recovered.parameters.generations, 1); assert.equal(recovered.preparedVoices, 2);
     assert.equal(recovered.requestedVoices, 2); assert.equal(recovered.audio, true);
     assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
     assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined);
     assert.equal(engine.getDiagnostics().sampleClock, 4); assert.equal(engine.getDiagnostics().input.playing, true);
+    const installs = f.worklets[0].messages.filter(message => message.type === 'install');
+    assert.equal(installs.length, 3); assert.ok(installs.every(message => message.wholeSceneAdmission === true));
   } finally { f.cleanup(); }
 });
 
@@ -573,7 +643,7 @@ test('zero-depth startup keeps cold calibration metadata and resumes without reb
   } finally { f.cleanup(); }
 });
 
-test('a fully admitted pool above the cold benchmark target seeks more prepared voices while preserving requested scene and playback', async () => {
+test('the next explicit scene validates staged capacity before atomically installing its full playable pool', async () => {
   const f = fixture();
   try {
     await f.start();
@@ -582,17 +652,36 @@ test('a fully admitted pool above the cold benchmark target seeks more prepared 
     assert.equal(before.parameters.generations, 8); assert.equal(before.effectiveParameters.generations, 6);
     f.load = f.peak = .6;
     await sustainedHeadroom(f);
-    await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
+    const proposal = engine.getDiagnostics().nextSceneCapacity;
+    assert.ok(proposal > 64, '.60 recurring load leaves headroom to propose for the next scene');
+    assert.equal(f.compileRequests.length, 1); assert.equal(engine.getDiagnostics().buildRevision, before.buildRevision);
+    f.holdCompile = true;
+    const nextParameters = { ...before.parameters, angle: before.parameters.angle + 7 };
+    const changing = engine.request('/api/parameters', nextParameters);
+    await until(() => f.compileReplies.length === 1);
+    assert.equal(engine.getDiagnostics().deviceCapacity.preparedCapacity, 64, 'preflight cannot publish unaccepted capacity');
+    assert.deepEqual(engine.getDiagnostics().parameters, before.parameters);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 1);
+    f.holdCompile = false; f.compileReplies.shift()(); await changing;
     const grown = engine.getDiagnostics(), request = f.compileRequests.at(-1);
-    assert.ok(request.voiceBudget > 64, '.60 recurring load leaves sustainable capacity to test');
+    assert.equal(request.voiceBudget, proposal); assert.equal(request.validateCapacity, true);
+    assert.equal(request.fallbackVoiceBudget, 64); assert.deepEqual(request.performance, before.performance);
     assert.equal(request.replaceable, true); assert.equal(request.parameters.generations, 8);
     assert.equal(grown.deviceCapacity.preparedCapacity, request.voiceBudget);
     assert.equal(grown.preparedVoices, request.voiceBudget); assert.equal(grown.requestedVoices, 510);
-    assert.deepEqual(grown.parameters, before.parameters); assert.ok(grown.buildRevision > before.buildRevision);
+    assert.deepEqual(grown.parameters, nextParameters); assert.ok(grown.buildRevision > before.buildRevision);
+    assert.equal(grown.status.targetVoices, grown.eligibleVoices); assert.equal(grown.status.voiceLimit, grown.eligibleVoices);
+    assert.equal(grown.nextSceneCapacity, request.voiceBudget);
     assert.equal(grown.audio, true); assert.equal(grown.input.playing, true); assert.equal(grown.sampleClock, 4);
     assert.equal(grown.capacityFailure, null); assert.deepEqual(f.errors, []);
     assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
     assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined);
+    const installs = f.worklets[0].messages.filter(message => message.type === 'install');
+    assert.equal(installs.length, 2); assert.ok(installs.every(message => message.wholeSceneAdmission === true));
+    await sustainedHeadroom(f, 12);
+    assert.equal(f.compileRequests.length, 2, 'proved additional headroom still waits for another explicit scene');
+    assert.equal(engine.getDiagnostics().buildRevision, grown.buildRevision);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 2);
   } finally { f.cleanup(); }
 });
 
@@ -629,36 +718,292 @@ test('headroom reported during a pending scene compile cannot queue an old-scene
   } finally { f.cleanup(); }
 });
 
-test('audio backoff retains its prepared tree until sustained improved capacity proves a larger pool', async () => {
+test('real audio backoff changes the next scene budget without rebuilding or expanding the current tree', async () => {
   const f = fixture();
   try {
     await f.start();
     const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0];
     f.load = f.peak = .8;
     await sustainedHeadroom(f);
-    await until(() => f.compileRequests.length === 2 && !engine.getDiagnostics().capacityWorking);
-    const grown = engine.getDiagnostics(), budget = grown.deviceCapacity.preparedCapacity;
-    assert.ok(budget > 64 && budget < 64 * 1.2, 'busy audio gets a proportional probe, not a predictable overload');
+    const proposal = engine.getDiagnostics().nextSceneCapacity, budget = before.deviceCapacity.preparedCapacity;
+    assert.ok(proposal > 64 && proposal < 64 * 1.2, 'busy audio proposes only part of its remaining headroom');
+    assert.equal(f.compileRequests.length, 1, 'the proposal cannot expand the current tree');
     const installedMessages = f.worklets[0].messages.filter(message => message.type === 'install').length;
     // Rust can reduce actual processing without rewriting or freeing the
     // prepared pool. Alternate rejected admission and healthy partial work.
     for (let index = 0; index < 80; index++) {
       f.active = 48; f.calibrationProof = 48;
       f.load = f.peak = index % 8 === 0 ? 1.1 : .6;
+      if (index % 8 === 0) f.deadlineMisses++;
       f.now += .25; await engine.request('/api/status');
       assert.equal(engine.getDiagnostics().deviceCapacity.preparedCapacity, budget);
-      assert.equal(engine.getDiagnostics().buildRevision, grown.buildRevision);
+      assert.equal(engine.getDiagnostics().buildRevision, before.buildRevision);
+      assert.equal(engine.getDiagnostics().nextSceneCapacity, 48, 'a deadline-rejected plan is not reused on the next preset');
+      assert.equal(engine.getDiagnostics().status.activeVoices, 48, 'actual processing remains separate from prepared capacity');
     }
-    assert.equal(f.compileRequests.length, 2);
+    assert.equal(f.compileRequests.length, 1);
     assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installedMessages);
     assert.deepEqual(engine.getDiagnostics().parameters, before.parameters);
-    f.active = f.structuralEligible; f.calibrationProof = f.active; f.load = f.peak = .4;
+    // Bounded playback never restores rejected voices in this same scene.
+    // A new explicit scene first adopts the reduced proven budget; only that
+    // complete newly admitted pool can prove headroom for a subsequent scene.
+    const safe = await engine.request('/api/parameters', { ...before.parameters, angle: before.parameters.angle + 7 });
+    assert.equal(f.compileRequests.at(-1).voiceBudget, 48);
+    assert.equal(safe.preparedVoices, 48); assert.equal(safe.status.targetVoices, 48);
+    const safeRevision = safe.topologyRevision, safeInstalls = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    f.load = f.peak = .4;
     await engine.request('/api/status');
     await sustainedHeadroom(f);
-    await until(() => f.compileRequests.length === 3 && !engine.getDiagnostics().capacityWorking);
-    assert.ok(engine.getDiagnostics().deviceCapacity.preparedCapacity > budget, 'retained capacity is not a permanent ceiling');
+    assert.ok(engine.getDiagnostics().nextSceneCapacity > 48, 'fresh full-pool proof proposes more for a subsequent explicit scene');
+    assert.equal(engine.getDiagnostics().deviceCapacity.preparedCapacity, 48);
+    assert.equal(engine.getDiagnostics().buildRevision, safeRevision);
+    assert.equal(engine.getDiagnostics().status.targetVoices, 48);
+    assert.equal(f.compileRequests.length, 2);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, safeInstalls);
     assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
     assert.equal(source.stopped, undefined); assert.equal(engine.getDiagnostics().input.playing, true);
-    assert.ok(engine.getDiagnostics().sampleClock > grown.sampleClock); assert.deepEqual(f.errors, []);
+    assert.ok(engine.getDiagnostics().sampleClock > before.sampleClock); assert.deepEqual(f.errors, []);
+  } finally { f.cleanup(); }
+});
+
+test('a manual voice ceiling after a scene deadline miss cannot become the next device budget', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const engine = f.engine, before = engine.getDiagnostics(), source = f.sources[0], buffer = source.buffer;
+    assert.equal(before.nextSceneCapacity, 64); assert.equal(before.status.voiceLimit, 64);
+    // A real past deadline warning can remain in cumulative telemetry after
+    // the complete scene is processing normally. It must not make a subsequent
+    // deliberate two-voice ceiling look like new evidence of device backoff.
+    f.deadlineMisses++; f.now += .25;
+    await engine.request('/api/status');
+    assert.equal(engine.getDiagnostics().nextSceneCapacity, 64);
+    await engine.request('/api/performance', { voiceCeiling: 2, automatic: true });
+    assert.equal(f.autoDemand, 2);
+    for (let index = 0; index < 4; index++) {
+      f.now += .25; await engine.request('/api/status');
+      const capped = engine.getDiagnostics();
+      assert.equal(capped.status.deadlineMisses, 1);
+      assert.equal(capped.status.voiceLimit, 2); assert.equal(capped.status.targetVoices, 2);
+      assert.equal(capped.nextSceneCapacity, 64, 'meeting the manual capped demand is not a failed device plan');
+      assert.equal(capped.deviceCapacity.preparedCapacity, 64); assert.equal(capped.preparedVoices, 64);
+      assert.equal(capped.buildRevision, before.buildRevision);
+    }
+    await engine.request('/api/performance', { voiceCeiling: 0 });
+    const restored = await engine.request('/api/status');
+    assert.equal(f.autoDemand, 64); assert.equal(restored.status.voiceLimit, 64);
+    assert.equal(restored.status.targetVoices, 64); assert.equal(restored.preparedVoices, 64);
+    assert.equal(engine.getDiagnostics().nextSceneCapacity, 64);
+    assert.equal(f.compileRequests.length, 1);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 1);
+    const recalled = await engine.request('/api/parameters', { ...before.parameters, angle: before.parameters.angle + 7 });
+    assert.equal(f.compileRequests.at(-1).voiceBudget, 64, 'the next explicit preset inherits device proof, not the temporary ceiling');
+    assert.equal(f.compileRequests.at(-1).validateCapacity, false);
+    assert.equal(recalled.preparedVoices, 64); assert.equal(recalled.status.targetVoices, 64);
+    assert.equal(recalled.performance.voiceCeiling, 0);
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+    assert.equal(source.buffer, buffer); assert.equal(source.stopped, undefined);
+    assert.equal(recalled.audio, true); assert.equal(recalled.input.playing, true); assert.deepEqual(f.errors, []);
+  } finally { f.cleanup(); }
+});
+
+test('explicit capacity testing expands the complete pool once without changing musical state or input', async () => {
+  const f = fixture();
+  try {
+    await f.start();
+    const before = f.engine.getDiagnostics(), source = f.sources[0];
+    const installs = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    f.holdCompile = true;
+    const testing = f.engine.request('/api/capacity', { voices: 128 });
+    await until(() => f.compileReplies.length === 1);
+    assert.equal(f.engine.getDiagnostics().capacityWorking, true);
+    assert.equal(f.engine.getDiagnostics().preparedVoices, before.preparedVoices);
+    assert.equal(source.stopped, undefined);
+    f.holdCompile = false; f.compileReplies.shift()();
+    await testing;
+    const after = f.engine.getDiagnostics();
+    assert.deepEqual(after.parameters, before.parameters); assert.deepEqual(after.performance, before.performance);
+    assert.equal(after.preparedVoices, 128); assert.equal(after.status.targetVoices, 128);
+    assert.equal(after.capacityTest.accepted, true); assert.equal(after.capacityTest.voices, 128);
+    assert.equal(after.userCapacityBudget, 128); assert.equal(after.capacityWorking, false);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installs + 1);
+    assert.equal(f.contexts.length, 1); assert.equal(f.sources.length, 1); assert.equal(source.stopped, undefined);
+    await sustainedHeadroom(f, 4);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installs + 1,
+      'accepted tests do not initiate background expansion');
+  } finally { f.cleanup(); }
+});
+
+test('explicit retry after actual backoff forces measurement even at the existing prepared budget', async () => {
+  const f = fixture();
+  try {
+    await f.start(); f.active = 24; f.deadlineMisses++;
+    await f.engine.request('/api/status');
+    assert.equal(f.engine.getDiagnostics().nextSceneCapacity, 24);
+    await f.engine.request('/api/capacity', { voices: 64 });
+    const request = f.compileRequests.at(-1), after = f.engine.getDiagnostics();
+    assert.equal(request.capacityProbe, true); assert.equal(request.validateCapacity, true);
+    assert.equal(request.voiceBudget, 64); assert.equal(after.status.targetVoices, 64);
+    assert.equal(after.capacityTest.accepted, true);
+  } finally { f.cleanup(); }
+});
+
+test('declined capacity test retains pool, source, revision, and live admission', async () => {
+  const f = fixture();
+  try {
+    await f.start(); f.rejectAbove = 64;
+    const before = f.engine.getDiagnostics(), installs = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    await f.engine.request('/api/capacity', { voices: 128 });
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.buildRevision, before.buildRevision); assert.equal(after.preparedVoices, before.preparedVoices);
+    assert.deepEqual(after.parameters, before.parameters); assert.equal(after.status.targetVoices, before.status.targetVoices);
+    assert.equal(after.capacityTest.accepted, false); assert.equal(after.capacityTest.load, 1.25);
+    assert.equal(after.userCapacityBudget, 0); assert.equal(after.capacityWorking, false);
+    assert.equal(after.error, null); assert.deepEqual(f.errors, []);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installs);
+    assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined);
+  } finally { f.cleanup(); }
+});
+
+test('explicit manual trial can exceed worker headroom without reporting that trial as proved', async () => {
+  const f = fixture();
+  try {
+    await f.start(); f.rejectAbove = 64;
+    await f.engine.request('/api/performance', { automatic: false });
+    await f.engine.request('/api/capacity', { voices: 128 });
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.preparedVoices, 128); assert.equal(after.status.targetVoices, 128);
+    assert.equal(after.capacityTest.accepted, true); assert.equal(after.capacityTest.proved, false);
+    assert.equal(after.sceneMeasurement.proved, false); assert.equal(after.performance.automatic, false);
+    assert.match(after.capacityFailure, /Manual trial/);
+  } finally { f.cleanup(); }
+});
+
+test('silent capacity testing proves only the current small scene and revalidates the user budget on later scenes', async () => {
+  const f = fixture();
+  try {
+    await f.engine.request('/api/state');
+    await f.engine.request('/api/parameters', { ...f.engine.getDiagnostics().parameters, generations: 1 });
+    await f.engine.request('/api/capacity', { voices: 128 });
+    const small = f.engine.getDiagnostics();
+    assert.equal(small.audio, false); assert.equal(f.contexts.length, 0); assert.equal(f.sources.length, 0);
+    assert.equal(small.capacityTest.voices, 2); assert.equal(small.userCapacityBudget, 128);
+    await f.engine.request('/api/parameters', { ...small.parameters, generations: 8 });
+    const request = f.compileRequests.at(-1);
+    assert.equal(request.voiceBudget, 128); assert.equal(request.revalidateCapacity, true);
+    assert.equal(request.validateCapacity, true); assert.equal(f.engine.getDiagnostics().preparedVoices, 128);
+  } finally { f.cleanup(); }
+});
+
+test('a newer preset supersedes a held capacity probe without installing or retaining its budget', async () => {
+  const f = fixture();
+  try {
+    await f.start(); const before = f.engine.getDiagnostics();
+    f.holdCompile = true;
+    const testing = f.engine.request('/api/capacity', { voices: 128 });
+    await until(() => f.compileReplies.length === 1);
+    const changing = f.engine.request('/api/parameters', { ...before.parameters, angle: 77 });
+    f.holdCompile = false; f.compileReplies.shift()();
+    await Promise.all([testing, changing]);
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.parameters.angle, 77); assert.equal(after.userCapacityBudget, 0);
+    assert.equal(after.preparedVoices, before.preparedVoices); assert.equal(after.capacityWorking, false);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 2);
+  } finally { f.cleanup(); }
+});
+
+test('latest live fold and Depth survive an explicit capacity probe', async () => {
+  const f = fixture();
+  try {
+    await f.start(); f.holdCompile = true;
+    const testing = f.engine.request('/api/capacity', { voices: 128 });
+    await until(() => f.compileReplies.length === 1);
+    await f.engine.request('/api/depth', { depth: 1 });
+    await f.engine.request('/api/time-fold', { intervalMs: .075 });
+    f.holdCompile = false; f.compileReplies.shift()();
+    await testing;
+    const after = f.engine.getDiagnostics(), install = f.worklets[0].messages.filter(message => message.type === 'install').at(-1);
+    assert.equal(after.parameters.depth, 1); assert.equal(after.parameters.intervalMs, .075);
+    assert.equal(install.depth, 1); assert.equal(install.intervalMs, .075);
+    assert.equal(after.preparedVoices, 128); assert.equal(f.sources.length, 1);
+  } finally { f.cleanup(); }
+});
+
+test('re-enabling protection during a manual capacity probe rejects unproved admission', async () => {
+  const f = fixture();
+  try {
+    await f.start(); f.rejectAbove = 64;
+    await f.engine.request('/api/performance', { automatic: false });
+    const before = f.engine.getDiagnostics(), installs = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    f.holdCompile = true;
+    const testing = f.engine.request('/api/capacity', { voices: 128 });
+    await until(() => f.compileReplies.length === 1);
+    await f.engine.request('/api/performance', { automatic: true });
+    f.holdCompile = false; f.compileReplies.shift()();
+    await testing;
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.performance.automatic, true); assert.equal(after.capacityTest.accepted, false);
+    assert.equal(after.preparedVoices, before.preparedVoices); assert.equal(after.buildRevision, before.buildRevision);
+    assert.equal(after.userCapacityBudget, 0); assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installs);
+  } finally { f.cleanup(); }
+});
+
+test('explicit capacity is retained and remeasured at the actual output sample rate', async () => {
+  const f = fixture();
+  try {
+    await f.engine.request('/api/state'); await f.engine.request('/api/capacity', { voices: 128 });
+    // A different context sample rate must not revert to the conservative
+    // bootstrap budget or reuse proof from the previous sample rate.
+    const BaseContext = globalThis.AudioContext;
+    globalThis.AudioContext = class extends BaseContext { constructor(...args) { super(...args); this.sampleRate = 44100; } };
+    await f.start();
+    const request = f.compileRequests.at(-1), after = f.engine.getDiagnostics();
+    assert.equal(request.sampleRate, 44100); assert.equal(request.voiceBudget, 128);
+    assert.equal(request.revalidateCapacity, true); assert.equal(request.fallbackVoiceBudget, 0);
+    assert.equal(after.userCapacityBudget, 128); assert.equal(after.preparedVoices, 128);
+  } finally { f.cleanup(); }
+});
+
+test('a candidate-only history boundary forces a new explicit probe and a decline retains latest live timing', async () => {
+  const f = fixture();
+  try {
+    f.delayCoefficient = index => index < 64 ? .1 / 240 : 20 / 240;
+    await f.start(); const before = f.engine.getDiagnostics();
+    f.holdCompile = true;
+    const testing = f.engine.request('/api/capacity', { voices: 128 });
+    await until(() => f.compileReplies.length === 1);
+    await f.engine.request('/api/time-fold', { intervalMs: 500 });
+    f.compileReplies.shift()();
+    await until(() => f.compileReplies.length === 1);
+    const repeated = f.compileRequests.at(-1);
+    assert.equal(repeated.capacityProbe, true); assert.equal(repeated.validateCapacity, true);
+    assert.equal(repeated.voiceBudget, 128); assert.equal(repeated.parameters.intervalMs, 500);
+    // Reject this second, fully measured candidate before its installation.
+    // The preceding pool's 64 short delays remain usable at the latest fold.
+    f.compileReplies.length = 0;
+    const workerReply = { id: repeated.id, revision: repeated.revision, capacityRejected: true,
+      capacityFailure: 'QA declined boundary candidate', sceneMeasurement: { voices: 64, load: 1.25, proved: false, targetLoad: .95 } };
+    // Access the current compiler receiver through a fixture-owned endpoint.
+    f.worker.onmessage({ data: workerReply });
+    await testing;
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.parameters.intervalMs, 500); assert.equal(after.buildRevision, before.buildRevision);
+    assert.equal(after.preparedVoices, 64); assert.equal(after.capacityTest.accepted, false);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, 1);
+  } finally { f.cleanup(); }
+});
+
+test('automatic budget recovery tests the device estimate without resetting input or musical settings', async () => {
+  const f = fixture();
+  try {
+    await f.start(); await f.engine.request('/api/capacity', { voices: 128 });
+    const before = f.engine.getDiagnostics();
+    await f.engine.request('/api/capacity', { reset: true });
+    const after = f.engine.getDiagnostics();
+    assert.equal(after.userCapacityBudget, 0); assert.equal(after.preparedVoices, 64);
+    assert.equal(after.status.targetVoices, 64); assert.equal(after.capacityTest.requestedVoices, 64);
+    assert.deepEqual(after.parameters, before.parameters); assert.deepEqual(after.performance, before.performance);
+    assert.equal(f.sources.length, 1); assert.equal(f.sources[0].stopped, undefined);
+    assert.equal(f.contexts.length, 1);
   } finally { f.cleanup(); }
 });

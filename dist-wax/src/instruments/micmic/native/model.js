@@ -100,6 +100,8 @@ const EMPTY_VOICE_INDICES = Object.freeze([]);
  * Legacy replies without that list retain their existing display fallback. */
 export function createPreviewDrawSelection(nodes) {
   const byVoice = new Map(nodes.filter(node => node.generation > 0).map(node => [node.voiceIndex, node]));
+  const sourceOrder = new Map(nodes.map((node, index) => [node, index]));
+  const roots = nodes.filter(node => node.generation === 0);
   let key, activeSlots = null, admitted = [], admittedIds = new Set(), selected = nodes, releaseKey = '';
   return {
     invalidate() { key = undefined; },
@@ -108,14 +110,26 @@ export function createPreviewDrawSelection(nodes) {
         // A newly installed pool can report before its matching geometry is
         // accepted. Never assign those slots to branches in the previous scene.
         if (revision !== undefined && activeRevision !== undefined && revision !== activeRevision) activeVoiceIndices = EMPTY_VOICE_INDICES;
-        const nextKey = `active:${depth > 0}`;
+        const nextKey = 'active';
         const changed = activeSlots !== activeVoiceIndices && (!activeSlots
           || activeSlots.length !== activeVoiceIndices.length
           || activeSlots.some((slot, index) => slot !== activeVoiceIndices[index]));
         if (key !== nextKey || changed) {
           key = nextKey;
           const active = new Set(activeVoiceIndices);
-          selected = nodes.filter(node => node.generation === 0 || depth > 0 && active.has(node.voiceIndex));
+          // Actual DSP membership includes smoothed release tails at Depth 0.
+          // Resolve sparse admission through the cached slot map rather than
+          // traversing every inactive branch retained by the prepared pool.
+          if (active.size * 4 >= byVoice.size) {
+            selected = nodes.filter(node => node.generation === 0 || active.has(node.voiceIndex));
+          } else {
+            selected = roots.slice();
+            for (const slot of active) {
+              const node = byVoice.get(slot);
+              if (node) selected.push(node);
+            }
+            selected.sort((a, b) => sourceOrder.get(a) - sourceOrder.get(b));
+          }
         }
         // Main-thread status arrays are immutable snapshots. Equal membership
         // reuses the draw array even when the admission limit or meters change.
@@ -196,14 +210,24 @@ export function inputHistoryFrame(reply, previous = {}, receivedAt = 0) {
   if (!Number.isFinite(elapsed) || elapsed < 0) return previous;
   const reset = reply.audio === false || status.sampleRate === 0 || elapsed + 1 < (previous.clock ?? 0);
   const next = { ...previous, clock: reset ? elapsed : Math.max(previous.clock ?? 0, elapsed),
-    clockReceivedAt: reset || elapsed >= (previous.clock ?? 0) ? receivedAt : previous.clockReceivedAt };
+    clockReceivedAt: reset || !Number.isFinite(previous.clock) || elapsed > previous.clock ? receivedAt : previous.clockReceivedAt };
   if (reset) Object.assign(next, { reader: null, envelope: null, receivedAt: -Infinity, endTime: -Infinity });
   if (reply.audio === false || status.sampleRate === 0) return next;
-  const reader = inputEnvelopeReader(status.inputEnvelope), endTime = status.inputEnvelope?.endTime;
-  if (reader && (reset || endTime >= (previous.endTime ?? -Infinity))) {
-    Object.assign(next, { reader, envelope: status.inputEnvelope, receivedAt, endTime });
+  const endTime = status.inputEnvelope?.endTime;
+  if (reset || endTime > (previous.endTime ?? -Infinity) || !previous.reader) {
+    const reader = inputEnvelopeReader(status.inputEnvelope);
+    if (reader) Object.assign(next, { reader, envelope: status.inputEnvelope, receivedAt, endTime });
   }
   return next;
+}
+/** Coefficient ACKs can carry the previous immutable audio frame. They update
+ * controls, but cannot renew meter/history freshness or rebuild its tap map. */
+export function audioFrameChanged(status, previous) {
+  if (!status) return false;
+  if (!previous || status.sampleRate !== previous.sampleRate || status.topologyRevision !== previous.topologyRevision) return true;
+  if (Number.isFinite(status.processedBlocks) && Number.isFinite(previous.processedBlocks)) return status.processedBlocks !== previous.processedBlocks;
+  if (Number.isFinite(status.elapsedSeconds) && Number.isFinite(previous.elapsedSeconds)) return status.elapsedSeconds !== previous.elapsedSeconds;
+  return status !== previous;
 }
 /** Keep sounding branches legible without inventing activity at zero input.
  * Rendered tap energy takes precedence on transit times below visual resolution.

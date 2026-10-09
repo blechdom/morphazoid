@@ -20,6 +20,8 @@ pub struct Adaptive {
     recovery_load: f64,
     jitter_margin: f64,
     maintenance_recovery: bool,
+    bounded_scene: bool,
+    bounded_scene_limit: usize,
 }
 impl Adaptive {
     pub fn new(sample_rate: u32, max_limit: usize) -> Self {
@@ -45,6 +47,8 @@ impl Adaptive {
             recovery_load: 0.,
             jitter_margin: 0.,
             maintenance_recovery: false,
+            bounded_scene: false,
+            bounded_scene_limit: 0,
         }
     }
     pub fn limit(&self) -> usize {
@@ -55,6 +59,10 @@ impl Adaptive {
     }
     pub fn set_capacity(&mut self, capacity: usize) {
         self.maximum = capacity.max(1);
+        if self.bounded_scene {
+            self.bounded_scene_limit = self.bounded_scene_limit.min(self.maximum);
+            self.limit = self.limit.min(self.bounded_scene_limit);
+        }
     }
     pub fn start_at_measured_limit(&mut self, limit: usize) {
         self.limit = limit.max(1).min(self.demand).min(self.maximum);
@@ -70,12 +78,66 @@ impl Adaptive {
         if limit == 0 {
             return;
         }
+        if self.bounded_scene {
+            // A worker proof informs a future explicitly prepared scene. It
+            // cannot grow admission inside the currently playing scene.
+            self.measured_limit = self.measured_limit.max(limit);
+            return;
+        }
         self.start_at_measured_limit(limit);
         self.measured_limit = limit;
     }
+
+    /// The caller has prepared this complete scene within a device-proved
+    /// budget. Admit that membership together, then protect its real deadline
+    /// without auditioning progressively larger portions of the same scene.
+    /// Structural capacity remains available when depth or a manual ceiling
+    /// temporarily makes the current positive-gain demand smaller.
+    pub fn begin_bounded_scene(&mut self, demand: usize, structural_capacity: usize) {
+        self.bounded_scene = true;
+        self.bounded_scene_limit = structural_capacity.min(self.maximum);
+        self.demand = demand.min(self.maximum);
+        self.limit = self.demand.min(self.bounded_scene_limit);
+        self.last_good = self.limit;
+        self.trial = self.limit > 0;
+        self.restored_trial = self.trial;
+        self.trial_frames = 0;
+        self.stable_frames = 0;
+        self.cooldown_frames = 0;
+        self.retirement_frames = 0;
+        self.maintenance_recovery = false;
+        // Old per-scene render cost must not reject an independently proved
+        // new scene before its first actual callback. Scheduling jitter is
+        // retained, and new overload/underrun observations still cut at once.
+        self.initialized = false;
+        self.mean = 0.;
+        self.peak = 0.;
+    }
+
+    /// Omitted browser staging policy and native callers keep the historical
+    /// adaptive search. Switching policies never turns a prior prepared count
+    /// into newly measured device proof.
+    pub fn begin_adaptive_scene(&mut self, demand: usize) {
+        self.bounded_scene = false;
+        self.bounded_scene_limit = 0;
+        self.set_demand(demand);
+    }
+
     pub fn set_demand(&mut self, demand: usize) {
         let previous_demand = self.demand;
         self.demand = demand.min(self.maximum);
+        if self.bounded_scene {
+            let previous_limit = self.limit;
+            self.limit = self.demand.min(self.bounded_scene_limit);
+            self.last_good = self.limit;
+            if self.limit != previous_limit {
+                self.stable_frames = 0;
+                self.trial_frames = 0;
+                self.trial = self.limit > previous_limit;
+                self.restored_trial = self.trial;
+            }
+            return;
+        }
         self.limit = self.limit.min(self.demand);
         self.last_good = self.last_good.min(self.limit);
         if self.demand == 0 {
@@ -157,13 +219,14 @@ impl Adaptive {
             .max(self.jitter_margin * (-duration / 3.).exp());
         let releasing = self.retirement_frames > 0
             && active > target
-            && load < 1.5
             && load <= self.recovery_load * 1.15
             && !underrun;
         let old = self.limit;
         // One rejected probe may leave outgoing voices processing for several
         // blocks. Allow that fade to retire before judging the lower target.
-        // Severe or worsening overload and output underruns still cut at once.
+        // The first severe overload still cuts immediately. The same outgoing
+        // DSP workload must not repeatedly reduce an unrealized lower target;
+        // worsening load and output underruns still bypass this bounded grace.
         if !releasing
             && (underrun || load >= 1. || (self.mean >= 0.95 && self.cooldown_frames == 0))
         {
@@ -182,6 +245,11 @@ impl Adaptive {
             }
             .min(self.demand);
             self.last_good = self.limit;
+            if self.bounded_scene {
+                // Retain the reduced membership for this scene. A later
+                // worker-proved explicit scene can establish a larger plan.
+                self.bounded_scene_limit = self.bounded_scene_limit.min(self.limit);
+            }
             let transient =
                 maintenance > 0. && recurring_load < 1. && self.mean < 0.95 && !underrun;
             if transient {
@@ -220,7 +288,7 @@ impl Adaptive {
                     // Fully satisfied small scenes still provide real device
                     // evidence. Candidate admission is the separate operation.
                     self.measured_limit = self.measured_limit.max(self.limit);
-                    if self.limit < self.demand {
+                    if !self.bounded_scene && self.limit < self.demand {
                         // Extrapolating complete callback cost per admitted voice
                         // overestimates the slope because it includes fixed input
                         // and mastering work. Spend only 80% of measured headroom,
@@ -263,6 +331,152 @@ impl Adaptive {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn bounded_scene_admits_the_complete_prepared_membership_after_a_tiny_scene_and_cooldown() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        controller.set_demand(2);
+        controller.observe_active(2. * 128. / 48000., 128, false, 2, 2);
+        assert!(controller.cooldown_frames > 0);
+        assert_eq!(controller.limit(), 1);
+        controller.begin_bounded_scene(1000, 1000);
+        assert_eq!(
+            controller.limit(),
+            1000,
+            "the explicit new preflighted scene is complete before its first callback"
+        );
+        let quantum = 128. / 48000.;
+        for _ in 0..48_000 / 128 * 10 {
+            assert_eq!(
+                controller.observe_active(0.25 * quantum, 128, false, 1000, 1000),
+                None
+            );
+        }
+        assert_eq!(controller.limit(), 1000);
+        assert_eq!(controller.measured_limit(), 1000);
+    }
+
+    #[test]
+    fn bounded_scene_does_not_regrow_after_a_backoff_but_a_new_proved_scene_can_be_larger() {
+        let mut controller = Adaptive::new(48000, 5000);
+        controller.begin_bounded_scene(1000, 1000);
+        let quantum = 128. / 48000.;
+        controller.observe_active(2. * quantum, 128, false, 1000, 1000);
+        assert_eq!(controller.limit(), 425);
+        for _ in 0..48_000 / 128 * 10 {
+            controller.observe_active(0.1 * quantum, 128, false, 425, 425);
+        }
+        assert_eq!(
+            controller.limit(),
+            425,
+            "quiet playback cannot audition larger membership"
+        );
+        controller.seed_measured_capacity(3000);
+        assert_eq!(
+            controller.limit(),
+            425,
+            "a worker hint belongs to a future scene"
+        );
+        assert_eq!(controller.measured_limit(), 3000);
+        controller.begin_bounded_scene(3000, 3000);
+        assert_eq!(
+            controller.limit(),
+            3000,
+            "a newly preflighted scene has no fixed voice-count ceiling"
+        );
+        controller.observe_active(0.2 * quantum, 128, true, 3000, 3000);
+        assert!(
+            controller.limit() < 3000,
+            "real underruns retain immediate protection"
+        );
+    }
+
+    #[test]
+    fn bounded_scene_depth_and_manual_ceiling_restores_are_complete_and_keep_the_safe_plan() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.begin_bounded_scene(0, 1000);
+        assert_eq!(controller.limit(), 0);
+        controller.set_demand(1000);
+        assert_eq!(
+            controller.limit(),
+            1000,
+            "a scene committed at zero depth retains structural capacity"
+        );
+        controller.set_demand(5);
+        assert_eq!(controller.limit(), 5);
+        controller.set_demand(0);
+        assert_eq!(controller.limit(), 0);
+        controller.set_demand(1000);
+        assert_eq!(
+            controller.limit(),
+            1000,
+            "an explicit ceiling/depth restore does not start at the tiny prior demand"
+        );
+        controller.observe_active(2. * 128. / 48000., 128, false, 1000, 1000);
+        let safe = controller.limit();
+        controller.set_demand(0);
+        controller.set_demand(1000);
+        assert_eq!(
+            controller.limit(),
+            safe,
+            "coefficient changes cannot undo an actual overload backoff"
+        );
+    }
+
+    #[test]
+    fn finite_work_retains_future_proof_without_growing_the_current_bounded_scene() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        controller.begin_bounded_scene(1000, 1000);
+        let quantum = 128. / 48000.;
+        controller.observe_active_with_maintenance(
+            4. * quantum,
+            3.5 * quantum,
+            128,
+            false,
+            1000,
+            1000,
+        );
+        let reduced = controller.limit();
+        assert!(reduced < 1000);
+        assert_eq!(controller.measured_limit(), 1000);
+        for _ in 0..48_000 / 128 * 10 {
+            controller.observe_active(0.5 * quantum, 128, false, reduced, reduced);
+        }
+        assert_eq!(controller.limit(), reduced);
+        assert_eq!(controller.measured_limit(), 1000);
+        controller.begin_bounded_scene(1000, 1000);
+        assert_eq!(
+            controller.limit(),
+            1000,
+            "future preflighted commits can use the retained proof"
+        );
+    }
+
+    #[test]
+    fn bounded_scene_validation_does_not_manufacture_live_capacity_proof() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.begin_bounded_scene(1000, 1000);
+        assert_eq!(controller.measured_limit(), 0);
+        observe_load(&mut controller, 0.25, 60);
+        assert_eq!(controller.measured_limit(), 0);
+        observe_load(&mut controller, 0.25, 10);
+        assert_eq!(controller.measured_limit(), 1000);
+    }
+
+    #[test]
+    fn omitted_scene_policy_restores_legacy_adaptive_search_without_a_permanent_cap() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.begin_bounded_scene(1000, 1000);
+        controller.observe_active(2. * 128. / 48000., 128, false, 1000, 1000);
+        let reduced = controller.limit();
+        controller.begin_adaptive_scene(1000);
+        observe_load(&mut controller, 0.1, 48_000 / 128 * 15);
+        assert_eq!(controller.limit(), 1000);
+        assert!(controller.limit() > reduced);
+    }
+
     #[test]
     fn cold_capacity_proof_survives_a_small_pool_and_revalidates_larger_demand() {
         let mut controller = Adaptive::new(48000, 14);
@@ -419,6 +633,140 @@ mod tests {
             "Output underruns bypass retirement grace"
         );
     }
+
+    #[test]
+    fn unchanged_severe_outgoing_workload_is_one_reduction_not_a_cascade() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let quantum = 128. / 48000.;
+        let first = controller.observe_active(2. * quantum, 128, false, 1000, 1000);
+        assert_eq!(
+            first,
+            Some(425),
+            "the initial severe overload cuts immediately"
+        );
+        assert_eq!(controller.measured_limit(), 425);
+        for _ in 0..80 {
+            assert_eq!(
+                controller.observe_active(2. * quantum, 128, false, 1000, 425),
+                None,
+                "the original 1000 voices are still rendering their release"
+            );
+        }
+        assert_eq!(controller.limit(), 425);
+        assert_eq!(
+            controller.measured_limit(),
+            425,
+            "the same unreduced workload cannot invalidate proof repeatedly to one voice"
+        );
+        controller.observe_active(2. * quantum, 128, false, 425, 425);
+        assert!(
+            controller.limit() < 425,
+            "overload measured after the smaller workload is actually installed is new evidence"
+        );
+    }
+
+    #[test]
+    fn worsening_severe_load_and_real_underruns_bypass_outgoing_grace() {
+        for underrun in [false, true] {
+            let mut controller = Adaptive::new(48000, 2000);
+            controller.start_at_measured_limit(1000);
+            let quantum = 128. / 48000.;
+            controller.observe_active(2. * quantum, 128, false, 1000, 1000);
+            let first = controller.limit();
+            let load = if underrun { 0.7 } else { 2.4 };
+            controller.observe_active(load * quantum, 128, underrun, 1000, first);
+            assert!(controller.limit() < first,
+                "a real underrun or worsening load must reduce the target without waiting on old tails");
+            assert_eq!(controller.measured_limit(), controller.limit());
+        }
+    }
+
+    #[test]
+    fn outgoing_grace_expires_even_if_the_reported_active_count_never_retires() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let frames = 4096;
+        let quantum = frames as f64 / 48000.;
+        controller.observe_active(2. * quantum, frames, false, 1000, 1000);
+        let first = controller.limit();
+        for _ in 0..7 {
+            controller.observe_active(2. * quantum, frames, false, 1000, first);
+            assert_eq!(controller.limit(), first);
+        }
+        controller.observe_active(2. * quantum, frames, false, 1000, first);
+        assert!(controller.limit() < first,
+            "retirement grace is bounded in audio frames and cannot hide sustained overload indefinitely");
+    }
+
+    #[test]
+    fn severe_finite_preparation_keeps_proof_and_revalidates_after_outgoing_tails() {
+        let mut controller = Adaptive::new(48000, 2000);
+        controller.start_at_measured_limit(1000);
+        let quantum = 128. / 48000.;
+        controller.observe_active_with_maintenance(
+            4. * quantum,
+            3.5 * quantum,
+            128,
+            false,
+            1000,
+            1000,
+        );
+        let reduced = controller.limit();
+        assert!(
+            reduced < 1000,
+            "total deadline pressure still reduces the target immediately"
+        );
+        for _ in 0..40 {
+            controller.observe_active_with_maintenance(
+                4. * quantum,
+                3.5 * quantum,
+                128,
+                false,
+                1000,
+                reduced,
+            );
+        }
+        assert_eq!(
+            controller.limit(),
+            reduced,
+            "unchanged finite preparation cannot repeatedly reduce the same outgoing workload"
+        );
+        assert_eq!(
+            controller.measured_limit(),
+            1000,
+            "finite work does not disprove the previously measured recurring voice cost"
+        );
+        let mut restored = false;
+        for _ in 0..80 {
+            controller.observe_active(0.5 * quantum, 128, false, reduced, controller.limit());
+            if controller.limit() >= 1000 {
+                restored = true;
+                break;
+            }
+        }
+        assert!(
+            restored,
+            "headroom reopens after finite preparation finishes"
+        );
+        assert!(
+            controller.trial,
+            "restoration still needs real callback validation"
+        );
+        controller.observe_active(
+            2. * quantum,
+            128,
+            false,
+            controller.limit(),
+            controller.limit(),
+        );
+        assert!(
+            controller.limit() < 1000,
+            "a restored workload that genuinely overloads is rejected immediately"
+        );
+        assert_eq!(controller.measured_limit(), controller.limit());
+    }
+
     #[test]
     fn mean_overload_settles_without_repeated_cuts_but_actual_misses_override() {
         let mut controller = Adaptive::new(48000, 1000);

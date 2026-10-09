@@ -3,13 +3,14 @@ import { test, expect } from '@playwright/test';
 // The normal animated workload must run; reduced motion bypasses branch waves.
 test.use({ reducedMotion: 'no-preference' });
 
-async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixedDrawingWorkMs = 0,
+async function fixture(page, { voiceBudget = null, initialVoiceBudget = null, rejectSceneAbove = null,
+  fakeMicrophone = false, fixedDrawingWorkMs = 0,
   observePcm = false, inspectControls = false, broadbandInput = false } = {}) {
   const errors = [], failures = [];
   page.on('pageerror', error => errors.push(error.message));
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   page.on('response', response => { if (response.status() >= 400 && new URL(response.url()).origin === new URL(page.url()).origin) failures.push(response.url()); });
-  await page.addInitScript(({ voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput }) => {
+  await page.addInitScript(({ voiceBudget, initialVoiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput }) => {
     const qa = window.__deviceRuntime = { contexts: [], worklets: [], sources: [], compilations: [], microphoneRequests: 0 };
     qa.controls = []; const controlsById = new Map();
     const recordControl = (kind, data) => {
@@ -26,7 +27,12 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
         const post = worker.postMessage.bind(worker);
         worker.postMessage = (data, ...rest) => {
           if (inspectControls) recordControl('worker', data);
-          post(Number.isFinite(voiceBudget) ? { ...data, voiceBudget } : data, ...rest);
+          // An initial-only bound creates headroom for the performer's explicit
+          // test. Later candidate budgets and actual warm WASM probes are kept.
+          const initial = Number.isFinite(initialVoiceBudget) && !qa.initialBudgetInjected;
+          if (initial) qa.initialBudgetInjected = true;
+          post(Number.isFinite(voiceBudget) ? { ...data, voiceBudget }
+            : initial ? { ...data, voiceBudget: initialVoiceBudget } : data, ...rest);
         };
         // This listener is registered before the application's onmessage.
         // Actual worker Rust measurement and bounded compilation still run.
@@ -35,10 +41,16 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
           if (record) { record.ackAt = performance.now(); record.skipped = data.skipped; record.revision = data.revision; }
           if (!data.result) return;
           if (Number.isFinite(voiceBudget)) data.calibration.voices = voiceBudget;
+          else if (Number.isFinite(initialVoiceBudget)) data.calibration.voices = initialVoiceBudget;
           qa.compilations.push({ revision: data.revision, voiceBudget: data.voiceBudget,
             preparedVoices: data.result.preparedVoices, nodes: data.result.nodes.length,
+            eligibleVoices: data.result.eligibleVoices,
+            eligibleVoiceIndices: inspectControls ? data.result.nodes.filter(node => node.generation > 0
+              && node.gain > 0 && Number.isInteger(node.priority)).map(node => node.voiceIndex) : undefined,
             requestedGenerations: data.result.parameters.generations, requestedLab: data.result.parameters.lab,
-            calibration: structuredClone(data.calibration) });
+            calibration: structuredClone(data.calibration),
+            sceneMeasurement: data.sceneMeasurement ? structuredClone(data.sceneMeasurement) : null,
+            capacityFailure: data.capacityFailure ?? null });
         });
       }
       return worker;
@@ -60,7 +72,18 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
           };
           port.addEventListener('message', ({ data }) => {
             const record = controlsById.get(`audio:${data.id}`);
-            if (record) record.ackAt = performance.now();
+            if (record) {
+              record.ackAt = performance.now();
+              if (record.type === 'install' && data.status) {
+                // Observe the real atomic commit before application delivery;
+                // waiting for a later status would hide incremental admission.
+                const s = data.status;
+                record.ackStatus = { topologyRevision: s.topologyRevision, elapsedSeconds: s.elapsedSeconds,
+                  requestedTargets: s.requestedTargets, voiceLimit: s.voiceLimit, targetVoices: s.targetVoices,
+                  activeVoices: s.activeVoices, activeVoiceIndices: Array.from(s.activeVoiceIndices ?? []),
+                  deadlineMisses: s.deadlineMisses, cpuLoad: s.cpuLoad, peakLoad: s.peakLoad };
+              }
+            }
           });
           const descriptor = Object.getOwnPropertyDescriptor(MessagePort.prototype, 'onmessage');
           Object.defineProperty(port, 'onmessage', {
@@ -191,7 +214,16 @@ async function fixture(page, { voiceBudget = null, fakeMicrophone = false, fixed
       return destination.stream;
     } : navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
     navigator.mediaDevices.getUserMedia = (...args) => { qa.microphoneRequests++; return capture(...args); };
-  }, { voiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput });
+  }, { voiceBudget, initialVoiceBudget, fakeMicrophone, fixedDrawingWorkMs, observePcm, inspectControls, broadbandInput });
+  if (Number.isFinite(rejectSceneAbove)) await page.route('**/src/instruments/micmic/native/device-capacity.js', async route => {
+    const response = await route.fetch(), source = await response.text();
+    const load = 'const load = times[1];';
+    expect(source.split(load).length - 1).toBe(1);
+    // This changes only the reported worker benchmark timing after the real
+    // complete warm scene has run. Live DSP timing and PCM stay unmodified.
+    await route.fulfill({ response, body: source.replace(load,
+      `const load = voices > ${rejectSceneAbove} ? 1.25 : times[1];`) });
+  });
   await page.route('**/src/instruments/micmic/native/app.js', async route => {
     const response = await route.fetch();
     let source = await response.text();
@@ -218,7 +250,7 @@ function captureQaDraw(branches, cost, renderedAt) {
   const activeVoiceIndices = Array.from(state.status.activeVoiceIndices ?? []), active = new Set(activeVoiceIndices);
   const activeRevisionMatches = state.status.topologyRevision === visualRevision;
   const expected = nodes.filter(node => !state.audio || node.generation === 0
-    || previewParameters.depth > 0 && activeRevisionMatches && active.has(node.voiceIndex));
+    || activeRevisionMatches && active.has(node.voiceIndex));
   const actualIds = branches.map(node => node.id), expectedIds = expected.map(node => node.id);
   const actual = new Set(actualIds), wanted = new Set(expectedIds), d = browserEngine.getDiagnostics();
   const previous = __deviceRuntime.lastDraw;
@@ -251,7 +283,7 @@ function captureQaDraw(branches, cost, renderedAt) {
       || frame.activeVoiceDuplicateCount || frame.invalidActiveVoiceCount
       || frame.drawCount !== frame.activeIntersectionCount + frame.rootCount
       || frame.drawCount > frame.activeVoices + frame.rootCount
-      || (frame.depth === 0 || !frame.activeRevisionMatches) && frame.drawCount !== frame.rootCount);
+      || !frame.activeRevisionMatches && frame.drawCount !== frame.rootCount);
   frame.totalAuditedDraws = __deviceRuntime.totalAuditedDraws = (__deviceRuntime.totalAuditedDraws ?? 0) + 1;
   frame.totalDrawViolations = __deviceRuntime.totalDrawViolations = (__deviceRuntime.totalDrawViolations ?? 0) + Number(Boolean(violation));
   if (violation && !__deviceRuntime.firstDrawViolation) __deviceRuntime.firstDrawViolation = frame;
@@ -295,8 +327,8 @@ window.__deviceQa = {
   return { errors, failures };
 }
 
-async function ready(page, renderer = 'webgl2') {
-  await page.goto(`/l-mic-rust.html${renderer ? `?renderer=${renderer}` : ''}`);
+async function ready(page, renderer = 'webgl2', route = '/l-mic-rust.html') {
+  await page.goto(`${route}${renderer ? `?renderer=${renderer}` : ''}`);
   await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 60000 });
   await page.waitForFunction(() => window.__deviceQa?.engine.getDiagnostics().initialized && __deviceQa.view().nodes > 0);
 }
@@ -307,6 +339,10 @@ const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSample
   contexts: __deviceRuntime.contexts.length,
   worklets: __deviceRuntime.worklets.length, sources: structuredClone(__deviceRuntime.sources), microphoneRequests: __deviceRuntime.microphoneRequests }));
 async function native(page, id, value) {
+  if (['capacityBudget', 'automatic'].includes(id)) {
+    const disclosure = page.locator('#capacityTests');
+    if (!await disclosure.evaluate(details => details.open)) await disclosure.locator('summary').click();
+  }
   await page.locator(`#${id}`).evaluate((input, value) => {
     if (input.type === 'checkbox') input.checked = Boolean(value); else input.value = String(value);
     input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -452,7 +488,7 @@ function correctDraw(frame) {
     expect(frame.activeVoiceDuplicateCount).toBe(0); expect(frame.invalidActiveVoiceCount).toBe(0);
     expect(frame.drawCount).toBe(frame.activeIntersectionCount + frame.rootCount);
     expect(frame.drawCount).toBeLessThanOrEqual(frame.activeVoices + frame.rootCount);
-    if (frame.depth === 0 || !frame.activeRevisionMatches) expect(frame.drawCount).toBe(frame.rootCount);
+    if (!frame.activeRevisionMatches) expect(frame.drawCount).toBe(frame.rootCount);
   }
 }
 async function completeDraw(page) {
@@ -523,6 +559,386 @@ test('explicit slow and fast preparation budgets bound actual Rust compilation b
   }
   expect(counts[1].prepared).toBeGreaterThan(counts[0].prepared);
   await test.info().attach('explicit-preparation-budgets', { body: JSON.stringify(counts), contentType: 'application/json' });
+});
+
+async function performancePanelSnapshot(page) {
+  return page.evaluate(() => {
+    const integer = suffix => {
+      const text = document.getElementById(`performance${suffix}`).textContent;
+      const first = text.match(/^\s*(\d[\d,\s]*)/);
+      return first ? Number(first[1].replace(/[,\s]/g, '')) : null;
+    };
+    return { diagnostics: __deviceQa.engine.getDiagnostics(),
+      processing: integer('Processing'), prepared: integer('Prepared'), requested: integer('Requested'),
+      limit: integer('Limit'), measured: integer('Measured'), misses: integer('Misses'),
+      audioLoad: document.getElementById('performanceAudioLoad').textContent,
+      gpuTime: document.getElementById('performanceGpuTime').textContent,
+      frameTime: document.getElementById('performanceFrameTime').textContent,
+      capacityStatus: document.getElementById('performanceCapacityStatus').textContent };
+  });
+}
+
+test('the performance panel precedes presets and explicit capacity testing stays Audio off across delay routes and layouts', async ({ page }) => {
+  test.setTimeout(180000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, inspectControls: true }), rows = [];
+  for (const route of ['/l-mic-rust.html', '/l-system-parametric-lab.html', '/l-system-experiments.html']) {
+    await ready(page, 'canvas', route);
+    for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+      await page.setViewportSize(viewport);
+      await page.locator('.panel').evaluate(panel => panel.scrollTop = 0);
+      await expect(page.locator('#performancePanel')).toBeVisible();
+      const disclosure = page.locator('#capacityTests'), summary = disclosure.locator('summary');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(page.locator('#testCapacity')).not.toBeVisible();
+      await expect(page.locator('#performanceMisses')).toBeVisible();
+      const foldedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
+      const beforeDisclosure = await diagnostics(page);
+      await summary.focus(); await summary.press('Enter');
+      await expect(disclosure).toHaveJSProperty('open', true);
+      await expect(page.locator('#capacityBudget')).toBeEnabled();
+      await expect(page.locator('#testCapacity')).toBeEnabled();
+      await expect.poll(() => page.evaluate(() => {
+        const panel = document.getElementById('performancePanel').getBoundingClientRect();
+        const preset = document.querySelector('.instrument-preset-controls').getBoundingClientRect();
+        return panel.width > 0 && panel.bottom <= preset.top + 1
+          && panel.left >= -1 && panel.right <= innerWidth + 1
+          && document.documentElement.scrollWidth <= innerWidth + 1;
+      })).toBe(true);
+      for (const id of ['capacityBudget', 'testCapacity']) {
+        const input = page.locator(`#${id}`); await input.scrollIntoViewIfNeeded();
+        await expect(input).toBeVisible();
+        expect(await input.evaluate(input => {
+          const b = input.getBoundingClientRect();
+          return input.contains(document.elementFromPoint(b.x + b.width / 2, b.y + b.height / 2));
+        })).toBe(true);
+      }
+      const snapshot = await performancePanelSnapshot(page);
+      expect(snapshot.processing).toBe(0); expect(snapshot.prepared).toBe(snapshot.diagnostics.preparedVoices);
+      expect(snapshot.requested).toBe(snapshot.diagnostics.requestedVoices);
+      expect(snapshot.gpuTime).not.toContain('%');
+      const expandedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
+      expect(expandedHeight).toBeGreaterThan(foldedHeight);
+      rows.push({ route, viewport, snapshot });
+      await summary.focus(); await summary.press('Space');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(page.locator('#capacityBudget')).not.toBeVisible();
+      expect(await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height)).toBeLessThan(expandedHeight);
+      const afterDisclosure = await diagnostics(page);
+      expect(afterDisclosure.parameters).toEqual(beforeDisclosure.parameters);
+      expect(afterDisclosure.performance).toEqual(beforeDisclosure.performance);
+      expect(afterDisclosure.audio).toBe(false);
+    }
+    const before = await diagnostics(page);
+    // Use a small fully warm candidate, including on lab routes; no output
+    // context, media capture or transport may be armed by this worker test.
+    await native(page, 'capacityBudget', 32); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 32 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    const after = await diagnostics(page);
+    expect(after.parameters).toEqual(before.parameters); expect(after.performance).toEqual(before.performance);
+    expect(after.audio).toBe(false); expect(after.audioDesired).toBe(false);
+    expect(after.capacityTest.voices).toBeGreaterThan(0);
+    expect(after.capacityTest.proved).toBe(true);
+    expect(await session(page)).toMatchObject({ contexts: 0, worklets: 0, microphoneRequests: 0, sources: [] });
+    await cleanup(page, evidence);
+  }
+  await test.info().attach('responsive-performance-panel', { body: JSON.stringify({ rows,
+    initialCalibrationBound: 32, actualWasm: true, liveAudioMetricsInjected: false,
+    humanListening: false }), contentType: 'application/json' });
+});
+
+test('explicit capacity knob tests replace the complete warm tree together while live meters describe real wet DSP', async ({ page }) => {
+  test.setTimeout(150000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, fakeMicrophone: true,
+    broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page), samples = await pcm(page);
+    return d.audio && d.microphoneEnabled && samples.finite && samples.peak > 1e-5;
+  }, { timeout: 30000 }).toBe(true);
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const initial = await session(page), initialDiagnostics = await diagnostics(page), rows = [];
+  const musicalScene = await page.evaluate(() => __deviceQa.scene());
+  await startPcm(page);
+  let recording;
+  try {
+    for (const budget of [64, 32, 64]) {
+      const before = await diagnostics(page), counts = await controlCounts(page), phase = `capacity-${budget}-${rows.length}`;
+      await page.evaluate(phase => { __deviceRuntime.phase = phase; }, phase);
+      await native(page, 'capacityBudget', budget);
+      expect(await controlCounts(page)).toEqual(counts, 'turning the test knob must not rebuild the playing tree');
+      expect((await diagnostics(page)).topologyRevision).toBe(before.topologyRevision);
+      await page.locator('#testCapacity').click();
+      const disclosure = page.locator('#capacityTests');
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect.poll(async () => {
+        const d = await diagnostics(page);
+        return !d.capacityWorking && d.capacityTest?.requestedVoices === budget && d.capacityTest.accepted;
+      }, { timeout: 60000 }).toBe(true);
+      await settledControls(page); await completeDraw(page);
+      const settledCounts = await controlCounts(page);
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveJSProperty('open', true);
+      expect(await controlCounts(page)).toEqual(settledCounts, 'opening test info must not dispatch audio controls');
+      await expect(page.locator('#capacityBudget')).toHaveValue(String(budget));
+      const receipt = await page.evaluate(phase => ({
+        acknowledgements: __deviceRuntime.controls.filter(record => record.kind === 'audio'
+          && record.type === 'install' && record.phase === phase),
+        compilations: __deviceRuntime.compilations,
+        diagnostics: __deviceQa.engine.getDiagnostics(), scene: __deviceQa.scene() }), phase);
+      expect(receipt.acknowledgements).toHaveLength(1);
+      const ack = receipt.acknowledgements[0].ackStatus;
+      const compiled = receipt.compilations.find(row => row.revision === ack.topologyRevision);
+      expect(compiled).toBeDefined(); expect(compiled.preparedVoices).toBe(budget);
+      expect(ack.requestedTargets).toBe(budget); expect(ack.targetVoices).toBe(compiled.eligibleVoices);
+      expect(ack.voiceLimit).toBe(compiled.eligibleVoices);
+      expect(compiled.eligibleVoiceIndices.filter(slot => !ack.activeVoiceIndices.includes(slot))).toEqual([]);
+      expect(receipt.diagnostics.deviceCapacity.preparedCapacity).toBe(budget);
+      expect(receipt.diagnostics.capacityTest.proved).toBe(true);
+      expect(receipt.diagnostics.capacityTest.voices).toBe(budget);
+      expect(receipt.diagnostics.capacityTest.load).toBeLessThanOrEqual(.95);
+      expect(receipt.diagnostics.userCapacityBudget).toBe(budget);
+      expect(receipt.scene).toEqual(musicalScene);
+      expect(receipt.diagnostics.performance).toEqual(initialDiagnostics.performance);
+      await expect.poll(async () => {
+        const p = await performancePanelSnapshot(page), d = p.diagnostics;
+        return p.processing === d.status.activeVoices && p.prepared === d.preparedVoices
+          && p.requested === d.requestedVoices && p.limit === d.status.voiceLimit
+          && p.misses === d.status.deadlineMisses && p.measured === budget;
+      }).toBe(true);
+      const panel = await performancePanelSnapshot(page);
+      expect(panel.audioLoad).toMatch(/\d+(?:\.\d+)?%/);
+      expect(panel.frameTime).toMatch(/\d+(?:\.\d+)?\s*ms/);
+      expect(panel.gpuTime).not.toContain('%');
+      rows.push({ budget, ack, compiled, panel });
+    }
+    await page.evaluate(() => { __deviceRuntime.phase = 'capacity-persist-parametric'; });
+    await applyDense(page, 'parametric'); await settledControls(page); await completeDraw(page);
+    const switched = await diagnostics(page);
+    expect(switched.userCapacityBudget).toBe(64); expect(switched.preparedVoices).toBe(64);
+    expect(switched.sceneMeasurement?.voices).toBe(64); expect(switched.sceneMeasurement?.proved).toBe(true);
+    const presetCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'capacity-persist-parametric'));
+    expect(presetCommit).toHaveLength(1);
+    expect(presetCommit[0].ackStatus.targetVoices).toBe(switched.eligibleVoices);
+    expect(presetCommit[0].ackStatus.voiceLimit).toBe(switched.eligibleVoices);
+    rows.push({ phase: 'capacity-persist-parametric', ack: presetCommit[0].ackStatus,
+      prepared: switched.preparedVoices, sceneMeasurement: switched.sceneMeasurement });
+    const before = await controlCounts(page), stable = await diagnostics(page);
+    const clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 3.5);
+    expect(await controlCounts(page)).toEqual(before, 'the accepted scene cannot grow again in the background');
+    expect((await diagnostics(page)).topologyRevision).toBe(stable.topologyRevision);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect(current.time).toBeGreaterThan(initial.time);
+  await test.info().attach('explicit-warm-capacity-tests', { body: JSON.stringify({ rows, ...recording,
+    initialCalibrationBound: 32, workerProbeTimingInjected: false, liveAudioMetricsInjected: false,
+    actualWasm: true, actualMediaStreamInput: true, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
+});
+
+test('a declined explicit warm capacity test keeps the live tree, source and DSP clock without installing fallback audio', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, rejectSceneAbove: 32,
+    fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const before = await diagnostics(page), initial = await session(page), counts = await controlCounts(page), beforeView = await view(page);
+  await startPcm(page);
+  let recording;
+  try {
+    await native(page, 'capacityBudget', 64); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 64 && d.capacityTest.accepted === false;
+    }, { timeout: 60000 }).toBe(true);
+    const declined = await diagnostics(page), currentCounts = await controlCounts(page);
+    expect(declined.capacityTest.voices).toBe(64);
+    expect(declined.capacityTest.load).toBe(1.25);
+    expect(declined.capacityTest.proved).toBe(false);
+    expect(declined.capacityFailure).toBeTruthy(); expect(declined.topologyRevision).toBe(before.topologyRevision);
+    expect(declined.parameters).toEqual(before.parameters); expect(declined.performance).toEqual(before.performance);
+    expect(declined.preparedVoices).toBe(before.preparedVoices);
+    expect(declined.deviceCapacity.preparedCapacity).toBe(before.deviceCapacity.preparedCapacity);
+    expect(currentCounts.worker).toBe(counts.worker + 1); expect(currentCounts.install).toBe(counts.install);
+    await completeDraw(page); expect((await view(page)).ids).toEqual(beforeView.ids);
+    expect((await view(page)).revision).toBe(beforeView.revision);
+    const clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 2);
+    expect((await controlCounts(page)).install).toBe(counts.install);
+    await expect(page.locator('#testCapacity')).toBeEnabled();
+    await expect(page.locator('#performanceCapacityStatus')).not.toBeEmpty();
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  await test.info().attach('declined-explicit-capacity-test', { body: JSON.stringify({ before,
+    after: await diagnostics(page), ...recording, actualWasm: true, actualMediaStreamInput: true,
+    initialCalibrationBound: 32, workerProbeTimingInjected: true, injectedWorkerProbeLoad: 1.25,
+    liveAudioMetricsInjected: false, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
+});
+
+test('a tiny scene capacity test preserves the measured fallback for a later declined dense preset', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, rejectSceneAbove: 32,
+    fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page);
+  const dense = await applyDense(page, 'classic');
+  const small = { ...dense, parameters: { ...dense.parameters, generations: 1 } };
+  await page.evaluate(scene => __deviceQa.applyScene(scene), small);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const before = await diagnostics(page), initial = await session(page);
+  expect(before.deviceCapacity.preparedCapacity).toBe(32); expect(before.preparedVoices).toBe(2);
+  expect(before.userCapacityBudget).toBe(0); expect(before.status.targetVoices).toBe(2);
+  await startPcm(page);
+  let recording, tiny, fallback, denseCommit;
+  try {
+    await page.evaluate(() => { __deviceRuntime.phase = 'tiny-capacity-128'; });
+    await native(page, 'capacityBudget', 128); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 128 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); tiny = await diagnostics(page);
+    expect(tiny.capacityTest.voices).toBe(2); expect(tiny.capacityTest.proved).toBe(true);
+    expect(tiny.userCapacityBudget).toBe(128); expect(tiny.preparedVoices).toBe(2);
+    expect(tiny.deviceCapacity.preparedCapacity).toBe(32, 'testing two voices must not erase the existing dense-scene fallback');
+    await expect.poll(async () => (await performancePanelSnapshot(page)).measured).toBe(2);
+    await page.evaluate(() => { __deviceRuntime.phase = 'dense-capacity-128-fallback'; });
+    await page.evaluate(scene => __deviceQa.applyScene(scene), dense);
+    await settledControls(page); await completeDraw(page); fallback = await diagnostics(page);
+    expect(fallback.parameters).toEqual(dense.parameters); expect(fallback.userCapacityBudget).toBe(128);
+    expect(fallback.preparedVoices).toBe(32); expect(fallback.eligibleVoices).toBe(32);
+    expect(fallback.deviceCapacity.preparedCapacity).toBe(32);
+    expect(fallback.sceneMeasurement?.voices).toBe(128); expect(fallback.sceneMeasurement?.load).toBe(1.25);
+    expect(fallback.sceneMeasurement?.proved).toBe(false); expect(fallback.capacityFailure).toBeTruthy();
+    expect(fallback.capacityTest).toBeNull();
+    expect(fallback.performance).toEqual(before.performance);
+    denseCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'dense-capacity-128-fallback'));
+    expect(denseCommit).toHaveLength(1);
+    expect(denseCommit[0].ackStatus.requestedTargets).toBe(32);
+    expect(denseCommit[0].ackStatus.targetVoices).toBe(32);
+    expect(denseCommit[0].ackStatus.voiceLimit).toBe(32);
+    expect(denseCommit[0].ackStatus.activeVoiceIndices).toHaveLength(denseCommit[0].ackStatus.activeVoices);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 32 && p.measured === 32 && /128/.test(p.capacityStatus) && /125/.test(p.capacityStatus);
+    }).toBe(true);
+    const counts = await controlCounts(page), clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 2);
+    expect(await controlCounts(page)).toEqual(counts);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect(current.time).toBeGreaterThan(initial.time);
+  await test.info().attach('tiny-proof-retains-dense-fallback', { body: JSON.stringify({ before, tiny, fallback, denseCommit,
+    ...recording, actualWasm: true, actualMediaStreamInput: true, initialCalibrationBound: 32,
+    workerProbeTimingInjected: true, injectedWorkerProbeLoad: 1.25, liveAudioMetricsInjected: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
+});
+
+test('a manual overload trial reports unproved capacity and Auto budget recovers without restarting playback', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { initialVoiceBudget: 32, rejectSceneAbove: 32,
+    fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const before = await diagnostics(page), initial = await session(page), musicalScene = await page.evaluate(() => __deviceQa.scene());
+  await expect(page.locator('#autoCapacity')).toBeHidden();
+  await startPcm(page);
+  let recording, manual, recovered, manualCommit, recoveryCommit;
+  try {
+    await native(page, 'automatic', false);
+    await expect.poll(async () => (await diagnostics(page)).performance.automatic).toBe(false);
+    await settledControls(page);
+    await page.evaluate(() => { __deviceRuntime.phase = 'manual-unproved-64'; });
+    await native(page, 'capacityBudget', 64); await page.locator('#testCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.capacityTest?.requestedVoices === 64 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); manual = await diagnostics(page);
+    expect(manual.capacityTest.voices).toBe(64); expect(manual.capacityTest.load).toBe(1.25);
+    expect(manual.capacityTest.proved).toBe(false); expect(manual.sceneMeasurement.proved).toBe(false);
+    expect(manual.preparedVoices).toBe(64); expect(manual.userCapacityBudget).toBe(64);
+    expect(manual.performance.automatic).toBe(false); expect(manual.status.targetVoices).toBe(64);
+    expect(manual.capacityFailure).toMatch(/manual/i);
+    manualCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'manual-unproved-64'));
+    expect(manualCommit).toHaveLength(1); expect(manualCommit[0].ackStatus.targetVoices).toBe(64);
+    expect(manualCommit[0].ackStatus.voiceLimit).toBe(64);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 64 && p.measured === 32 && /64/.test(p.capacityStatus) && /125/.test(p.capacityStatus);
+    }).toBe(true);
+    await expect(page.locator('#autoCapacity')).toBeVisible();
+    const counts = await controlCounts(page);
+    await native(page, 'automatic', true);
+    await expect.poll(async () => (await diagnostics(page)).performance.automatic).toBe(true);
+    await settledControls(page);
+    expect((await controlCounts(page)).install).toBe(counts.install, 'reenabling protection changes the running DSP without installing another scene');
+    expect((await diagnostics(page)).audio).toBe(true);
+    await page.evaluate(() => { __deviceRuntime.phase = 'auto-budget-recovery'; });
+    await page.locator('#autoCapacity').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.capacityWorking && d.userCapacityBudget === 0 && d.capacityTest?.requestedVoices === 32 && d.capacityTest.accepted;
+    }, { timeout: 60000 }).toBe(true);
+    await settledControls(page); await completeDraw(page); recovered = await diagnostics(page);
+    expect(recovered.capacityTest.voices).toBe(32); expect(recovered.capacityTest.proved).toBe(true);
+    expect(recovered.preparedVoices).toBe(32); expect(recovered.deviceCapacity.preparedCapacity).toBe(32);
+    expect(recovered.sceneMeasurement.proved).toBe(true); expect(recovered.sceneMeasurement.voices).toBe(32);
+    expect(recovered.parameters).toEqual(before.parameters); expect(recovered.performance).toEqual(before.performance);
+    expect(await page.evaluate(() => __deviceQa.scene())).toEqual(musicalScene);
+    await expect(page.locator('#autoCapacity')).toBeHidden();
+    recoveryCommit = await page.evaluate(() => __deviceRuntime.controls.filter(record => record.kind === 'audio'
+      && record.type === 'install' && record.phase === 'auto-budget-recovery'));
+    expect(recoveryCommit).toHaveLength(1); expect(recoveryCommit[0].ackStatus.targetVoices).toBe(32);
+    const clock = (await session(page)).time;
+    await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(clock + 2);
+  } finally { recording = await pcmEvidence(page); }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  expect(current.time).toBeGreaterThan(initial.time);
+  await test.info().attach('manual-trial-auto-budget-recovery', { body: JSON.stringify({ before, manual, recovered, manualCommit, recoveryCommit,
+    ...recording, actualWasm: true, actualMediaStreamInput: true, initialCalibrationBound: 32,
+    workerProbeTimingInjected: true, injectedWorkerProbeLoad: 1.25, liveAudioMetricsInjected: false,
+    humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  await cleanup(page, evidence);
 });
 
 test('dense rule-family switches preserve exactly active animated branches, real wet audio and one source', async ({ page }) => {
@@ -604,6 +1020,66 @@ async function fittingScene(page, depth = .85) {
   await expect.poll(() => fullTree(page), { timeout: 30000 }).toBe(true);
   expect((await diagnostics(page)).requestedVoices).toBeLessThanOrEqual(d.deviceCapacity.voices);
 }
+
+for (const renderer of ['canvas', 'webgl2']) test(`dense UI-only activity preserves the audio clock and exact live graphic with ${renderer}`, async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator.clipboard, 'writeText', { configurable: true, value: async () => {} });
+  });
+  await ready(page, renderer); await fittingScene(page);
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page), p = await pcm(page);
+    return d.audio && d.microphoneEnabled && p.peak > 1e-5;
+  }).toBe(true);
+  await page.waitForTimeout(1500); await settledControls(page); await completeDraw(page);
+  const initial = await session(page), scene = await page.evaluate(() => __deviceQa.liveState());
+  const initialControls = await controlCounts(page), phases = [];
+  await startPcm(page);
+  const boundary = () => page.evaluate(() => ({ wall: performance.now(), context: __deviceRuntime.contexts.at(-1).currentTime,
+    state: __deviceRuntime.contexts.at(-1).state, clock: __deviceQa.engine.getSampleTime() }));
+  for (const phase of ['idle', 'settings', 'ui-only', 'recovery']) {
+    await page.evaluate(phase => { __deviceRuntime.phase = phase; }, phase);
+    const before = await boundary();
+    if (phase === 'settings') await page.locator('#settingsButton').click();
+    if (phase === 'ui-only') {
+      await page.locator('#shareSoundName').evaluate(async node => {
+        for (let index = 0; index < 32; index++) {
+          node.value = `Priority ${index}`; node.dispatchEvent(new Event('input', { bubbles: true }));
+          if (index % 8 === 0) document.getElementById('copySoundParameters').click();
+          await new Promise(resolve => setTimeout(resolve, 32));
+        }
+      });
+    }
+    if (phase === 'recovery') await page.locator('#settingsButton').click();
+    await page.waitForTimeout(3000);
+    const after = await boundary();
+    phases.push({ phase, before, after, wallSeconds: (after.wall - before.wall) / 1000,
+      contextSeconds: after.context - before.context, sampleSeconds: after.clock - before.clock });
+  }
+  const recording = await pcmEvidence(page), current = await session(page);
+  await test.info().attach('priority-ui-only-continuity', { body: JSON.stringify({ renderer, initial, current, scene, phases, ...recording,
+    input: 'continuous broadband transported as a real MediaStream', actualWasm: true,
+    fakeAudioMetrics: false, forcedAudioBudget: false, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  continuousGeneratedPcm(recording);
+  for (const row of phases) {
+    expect(row.before.state).toBe('running'); expect(row.after.state).toBe('running');
+    expect(row.contextSeconds, `${row.phase}: the context must progress in real time`).toBeGreaterThan(row.wallSeconds * .8);
+    expect(row.sampleSeconds, `${row.phase}: Rust's clock must progress in real time`).toBeGreaterThan(row.wallSeconds * .8);
+  }
+  expect(await page.evaluate(() => __deviceQa.liveState())).toEqual(scene);
+  expect(await controlCounts(page)).toEqual(initialControls);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  const frames = recording.frames.filter(frame => frame.audio);
+  expect(frames.length).toBeGreaterThan(20);
+  // Catch a frozen display while allowing adaptive frame rate and detail.
+  expect(Math.max(...frames.map(frame => frame.drawGapMs))).toBeLessThan(750);
+  await cleanup(page, evidence);
+});
 
 for (const renderer of ['canvas', 'webgl2']) test(`normal branch waves retain full membership and camera under real drawing and RAF pressure with ${renderer}`, async ({ page }) => {
   test.setTimeout(120000);
@@ -687,19 +1163,109 @@ for (const renderer of ['canvas', 'webgl2']) test(`a zero-depth compilation rest
   await cleanup(page, evidence);
 });
 
+test('the whole playable tree commits together on warmed small-to-dense recall and remains one unchanged scene', async ({ page }) => {
+  test.setTimeout(120000);
+  const evidence = await fixture(page, { fakeMicrophone: true, broadbandInput: true, observePcm: true, inspectControls: true });
+  await ready(page, null); await applyDense(page, 'classic');
+  await native(page, 'wet', .65); await native(page, 'dry', 0);
+  await native(page, 'inputTrim', .7); await native(page, 'level', .6);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page), samples = await pcm(page);
+    return d.audio && d.microphoneEnabled && samples.finite && samples.peak > 1e-5;
+  }, { timeout: 30000 }).toBe(true);
+  // At30ms and .8 child ratio, cumulative delays stay below120ms. Even
+  // an8x pitched read needs less than1.1s history; warm the actual audio clock
+  // so new-tap history readiness cannot masquerade as staged capacity growth.
+  const coldClock = (await session(page)).time;
+  await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
+  await settledControls(page); await completeDraw(page);
+  const initial = await session(page), dense = await page.evaluate(() => __deviceQa.scene());
+  const sessionPerformance = (await diagnostics(page)).performance;
+  expect(sessionPerformance.automatic).toBe(true); expect(sessionPerformance.voiceCeiling).toBe(0);
+  const small = { ...dense, parameters: { ...dense.parameters, generations: 1 } };
+  const commits = [], rows = [];
+  let recording;
+  await startPcm(page);
+  try {
+    for (const [phase, scene] of [['small-first', small], ['dense-first', dense], ['small-again', small], ['dense-again', dense]]) {
+      await page.evaluate(async ({ phase, scene }) => {
+        __deviceRuntime.phase = phase; await __deviceQa.applyScene(scene);
+      }, { phase, scene });
+      await settledControls(page);
+      const receipt = await page.evaluate(phase => {
+        const acknowledgements = __deviceRuntime.controls.filter(record => record.kind === 'audio'
+          && record.type === 'install' && record.phase === phase);
+        return { acknowledgements, compilations: __deviceRuntime.compilations,
+          diagnostics: __deviceQa.engine.getDiagnostics() };
+      }, phase);
+      expect(receipt.acknowledgements).toHaveLength(1);
+      const acknowledged = receipt.acknowledgements[0].ackStatus;
+      expect(acknowledged, `${phase}: the actual install ACK must describe its committed audio`).toBeDefined();
+      const compiled = receipt.compilations.find(row => row.revision === acknowledged.topologyRevision);
+      expect(compiled).toBeDefined(); expect(compiled.eligibleVoices).toBeGreaterThan(1);
+      expect(compiled.eligibleVoiceIndices).toHaveLength(compiled.eligibleVoices);
+      expect(new Set(compiled.eligibleVoiceIndices).size).toBe(compiled.eligibleVoices);
+      expect(acknowledged.requestedTargets).toBe(compiled.preparedVoices);
+      expect(acknowledged.voiceLimit, `${phase}: admit the prepared eligible tree at commit`).toBe(compiled.eligibleVoices);
+      expect(acknowledged.targetVoices, `${phase}: no later generation admission is needed`).toBe(compiled.eligibleVoices);
+      const actual = new Set(acknowledged.activeVoiceIndices);
+      expect(actual.size).toBe(acknowledged.activeVoices);
+      expect(compiled.eligibleVoiceIndices.filter(slot => !actual.has(slot))).toEqual([]);
+      expect(compiled.preparedVoices).toBeLessThanOrEqual(receipt.diagnostics.deviceCapacity.preparedCapacity);
+      // Outgoing release tails may still be processed. Subsequent real
+      // deadline backoff is allowed; the graphic must show those actual slots.
+      await completeDraw(page);
+      commits.push({ phase, acknowledged, compiled });
+    }
+    const stable = await diagnostics(page), baseline = await view(page), counts = await controlCounts(page);
+    const holdClock = (await session(page)).time, wallStarted = Date.now();
+    while ((await session(page)).time < holdClock + 12 && Date.now() - wallStarted < 30000) {
+      const d = await diagnostics(page), v = await view(page), current = await session(page);
+      expect(d.parameters).toEqual(stable.parameters);
+      expect(d.topologyRevision).toBe(stable.topologyRevision);
+      expect(d.preparedVoices).toBe(stable.preparedVoices);
+      expect(d.deviceCapacity.preparedCapacity).toBe(stable.deviceCapacity.preparedCapacity);
+      expect(v.revision).toBe(baseline.revision); expect(v.ids).toEqual(baseline.ids);
+      expect(await controlCounts(page)).toEqual(counts);
+      const frame = await page.evaluate(() => __deviceQa.lastDraw()); correctDraw(frame);
+      rows.push({ audioSeconds: current.time - holdClock, prepared: d.preparedVoices,
+        processing: d.status.activeVoices, target: d.status.targetVoices, voiceLimit: d.status.voiceLimit,
+        deadlineMisses: d.status.deadlineMisses, frame });
+      await page.waitForTimeout(250);
+    }
+    expect((await session(page)).time).toBeGreaterThanOrEqual(holdClock + 12);
+    expect(await controlCounts(page)).toEqual(counts);
+  } finally {
+    recording = await pcmEvidence(page);
+    await test.info().attach('whole-scene-atomic-admission', { body: JSON.stringify({ initial, commits, rows, ...recording,
+      input: 'continuous broadband transported as a real MediaStream', actualWasm: true,
+      forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false, physicalDeliveryChecked: false }), contentType: 'application/json' });
+  }
+  continuousGeneratedPcm(recording);
+  const current = await session(page);
+  expect(current.contexts).toBe(initial.contexts); expect(current.worklets).toBe(initial.worklets);
+  expect(current.sources).toEqual(initial.sources); expect(current.microphoneRequests).toBe(initial.microphoneRequests);
+  await cleanup(page, evidence);
+});
+
 test('an unforced minute of dense animated real audio retains its complete prepared tree and one source', async ({ page }) => {
   test.setTimeout(180000);
-  const evidence = await fixture(page); await ready(page); await applyDense(page, 'classic'); await builtInInput(page);
+  const evidence = await fixture(page, { inspectControls: true }); await ready(page); await applyDense(page, 'classic'); await builtInInput(page);
+  await settledControls(page); await completeDraw(page);
   await page.evaluate(() => __deviceQa.record());
-  const initial = await session(page), parameters = (await diagnostics(page)).parameters, rows = [];
-  let previousCapacity = 0, previousPrepared = 0;
+  const initial = await session(page), stable = await diagnostics(page), baseline = await view(page), counts = await controlCounts(page);
+  const parameters = stable.parameters, rows = [];
   const started = Date.now();
   try {
     while (Date.now() - started < 60000) {
       const d = await diagnostics(page), v = await view(page), current = await session(page), samples = await pcm(page);
       expect(d.parameters).toEqual(parameters); expect(v.parameters).toEqual(parameters);
-      expect(d.deviceCapacity.preparedCapacity).toBeGreaterThanOrEqual(previousCapacity);
-      expect(d.preparedVoices).toBeGreaterThanOrEqual(previousPrepared);
+      expect(d.deviceCapacity.preparedCapacity).toBe(stable.deviceCapacity.preparedCapacity);
+      expect(d.preparedVoices).toBe(stable.preparedVoices);
+      expect(d.topologyRevision).toBe(stable.topologyRevision);
+      expect(v.revision).toBe(baseline.revision); expect(v.ids).toEqual(baseline.ids);
+      expect(await controlCounts(page)).toEqual(counts);
       expect(d.preparedVoices).toBeLessThanOrEqual(d.deviceCapacity.preparedCapacity);
       expect(v.connected).toBe(true); expect(v.roots).toBe(1);
       if (!v.moving) await fullTree(page);
@@ -710,14 +1276,14 @@ test('an unforced minute of dense animated real audio retains its complete prepa
       rows.push({ time: (Date.now() - started) / 1000, sampleClock: current.time, preparedCapacity: d.deviceCapacity.preparedCapacity,
         prepared: d.preparedVoices, voiceLimit: d.status.voiceLimit, nodes: v.nodes, pcm: samples, frame,
         deadlineWarnings: d.status.deadlineMisses, underruns: d.status.underruns, overruns: d.status.overruns });
-      previousCapacity = d.deviceCapacity.preparedCapacity; previousPrepared = d.preparedVoices;
       await page.waitForTimeout(500);
     }
     expect((await session(page)).time).toBeGreaterThan(initial.time + 50);
     for (let second = 0; second < 60; second += 10) expect(rows.some(row => row.time >= second && row.time < second + 10 && row.pcm.peak > 1e-5)).toBe(true);
     const frames = await page.evaluate(() => __deviceQa.frames()); frames.forEach(correctDraw);
   } finally {
-    await test.info().attach('unforced-normal-motion-minute', { body: JSON.stringify({ parameters, rows,
+    await test.info().attach('unforced-normal-motion-minute', { body: JSON.stringify({ parameters, stablePrepared: {
+      capacity: stable.deviceCapacity.preparedCapacity, voices: stable.preparedVoices, revision: stable.topologyRevision, counts }, rows,
       frames: await page.evaluate(() => __deviceQa.frames()), actualWasm: true, actualBundledInput: true,
       forcedAudioBudget: false, fakeAudioMetrics: false, humanListening: false }), contentType: 'application/json' });
   }

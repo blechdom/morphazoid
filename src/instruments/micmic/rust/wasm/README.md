@@ -21,6 +21,15 @@ Handles from `lsd_compile` and `lsd_new` require their matching free/drop call.
 Invalid controls return zero and retain the previous sound; latest error bytes
 are available through `lsd_error_ptr/len`.
 
+`lsd_new_calibration(sampleRate, initialCapacity)` creates a separate Worker-only
+renderer, released with `lsd_drop`. After installing the candidate pool and
+enabling its complete eligible membership, call
+`lsd_prepare_calibration_history(engine)` before measuring DSP cost. It fills the
+forty-second recording history without advancing the sample clock, so long delay
+heads perform their actual history reads during calibration. Ordinary `lsd_new`
+handles reject this operation and retain their live recording. Calibration
+renderers must never be used as the live instrument.
+
 `lsd_compile(parametersJSON, bytes, sampleRate)` runs in the Worker. Its handle
 exposes JSON (`lsd_compile_json_ptr/len`) and a binary pool
 (`lsd_compile_pool_ptr/len`). Copy both before `lsd_compile_free(handle)`.
@@ -44,6 +53,32 @@ crossfades, gain ramps and output conditioning. `lsd_performance` accepts the
 native full performance JSON, including mastering. `lsd_strike` preserves the
 optional native seed source for legacy scenes; microphone input is the default.
 
+For a device-proved complete scene, call `lsd_install_begin`, then
+`lsd_install_scene_admission(engine, 1)` before incremental `lsd_install_step`
+calls. The flag is staged with the pool: preparing or aborting it does not change
+the playing scene. Commit admits every prepared eligible voice together, subject
+to the current depth and explicit performance ceiling; the normal gain attack
+still applies. The caller must prove the candidate pool fits the device budget
+before requesting this policy. No numeric voice-count ceiling is introduced.
+
+This policy holds membership during unchanged playback. Real overload still
+reduces it immediately, and reduced membership stays fixed until a new proved
+scene commits. Depth or manual ceiling restores return to the current scene's
+safe membership in one update. Committing at zero depth preserves the full
+structural plan for a subsequent depth restore. `lsd_capacity_hint` records
+capacity for future scenes without expanding a playing bounded scene, including
+after a backoff. The flag defaults to zero for each staged installation; omitting
+it or using synchronous `lsd_install` restores legacy adaptive admission. These
+exports are additive; ABI version 1 and the 26 metric fields are unchanged.
+
+`lsd_install_depth(engine, depth)` stages a finite depth in `[0, 1]` on a pending
+version-2 pool without changing the playing scene. Use it before install steps
+when a gesture changed recursion while the Worker was compiling. Later live
+`lsd_depth` calls still override that pending value in command order. Rejection
+or abort preserves the old gains and recording; omitting the staged depth keeps
+the compiled pool's authored depth. It rejects ordinary calls without a pending
+installation, unsupported legacy pools and invalid values.
+
 ## Processing and telemetry
 
 `lsd_process(engine, inLeft, inRight, outLeft, outRight, frames)` renders
@@ -57,9 +92,11 @@ Native 20 ms parameter ramps and 65 ms fixed-read-head retiming remain unchanged
 
 The host times rendering and calls
 `lsd_observe(engine, processSeconds, frames, underrun)` with measured DSP cost.
-Accumulate coarse timer costs across blocks before observing. Admission starts
-cautiously, probes additional requested voices, rolls back missed deadlines and
-retries; it has no preset numeric ceiling. Explicit performance `voiceCeiling`
+Accumulate coarse timer costs across blocks before observing. Legacy admission
+starts cautiously, probes additional requested voices, rolls back missed
+deadlines and retries. Complete-scene admission instead holds its proved
+membership and retains deadline protection. Neither policy has a preset numeric
+ceiling. Explicit performance `voiceCeiling`
 remains an optional user limit. The complete requested pool is allocated before
 voice admission. Growth/preparation must stay outside `lsd_process`.
 

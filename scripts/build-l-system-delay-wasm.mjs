@@ -18,8 +18,8 @@ const sourceFiles = [
 const requiredExports = [
   'memory', 'lsd_abi_version', 'lsd_alloc', 'lsd_free', 'lsd_error_ptr', 'lsd_error_len',
   'lsd_compile', 'lsd_compile_bounded', 'lsd_capacity_hint', 'lsd_compile_json_ptr', 'lsd_compile_json_len', 'lsd_compile_pool_ptr',
-  'lsd_compile_pool_len', 'lsd_compile_free', 'lsd_new', 'lsd_drop', 'lsd_install',
-  'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_install_time_fold', 'lsd_alloc_uninitialized', 'lsd_collect_retired',
+  'lsd_compile_pool_len', 'lsd_compile_free', 'lsd_new', 'lsd_new_calibration', 'lsd_prepare_calibration_history', 'lsd_drop', 'lsd_install',
+  'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_install_time_fold', 'lsd_install_scene_admission', 'lsd_install_depth', 'lsd_alloc_uninitialized', 'lsd_collect_retired',
   'lsd_performance', 'lsd_depth', 'lsd_time_fold', 'lsd_time_fold_value', 'lsd_time_fold_target',
   'lsd_strike', 'lsd_process', 'lsd_observe', 'lsd_metrics_ptr', 'lsd_metrics_len',
   'lsd_active_indices_ptr', 'lsd_active_indices_count',

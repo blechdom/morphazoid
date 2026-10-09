@@ -340,6 +340,7 @@ struct StagedInstall {
     revision: u64,
     normalization: f64,
     depth_controls: bool,
+    whole_scene_admission: bool,
     depth_override: Option<f64>,
     fold_base_ms: Option<f64>,
     fold_interval_ms: Option<f64>,
@@ -397,6 +398,7 @@ pub struct Renderer {
     output_peak: f32,
     channel_peaks: Frame,
     metrics: [f64; METRICS],
+    calibration: bool,
 }
 impl Renderer {
     fn new(rate: u32, capacity: usize) -> Result<Self, String> {
@@ -458,6 +460,7 @@ impl Renderer {
             output_peak: 0.,
             channel_peaks: [0.; 2],
             metrics: [0.; METRICS],
+            calibration: false,
         })
     }
     fn set_performance(&mut self, settings: Performance) -> Result<(), String> {
@@ -496,10 +499,15 @@ impl Renderer {
         self.update_metrics();
     }
 
-    fn set_depth(&mut self, depth: f64) -> Result<(), String> {
+    fn validate_depth(depth: f64) -> Result<(), String> {
         if !depth.is_finite() || !(0.0..=1.0).contains(&depth) {
             return Err("Recursion is outside its supported range".into());
         }
+        Ok(())
+    }
+
+    fn set_depth(&mut self, depth: f64) -> Result<(), String> {
+        Self::validate_depth(depth)?;
         if !self.depth_controls {
             return Err("This pool requires a complete topology update".into());
         }
@@ -588,6 +596,28 @@ impl Renderer {
         Ok(())
     }
 
+    fn configure_install_scene_admission(&mut self, whole_scene: bool) -> Result<(), String> {
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        pending.whole_scene_admission = whole_scene;
+        Ok(())
+    }
+
+    fn configure_install_depth(&mut self, depth: f64) -> Result<(), String> {
+        Self::validate_depth(depth)?;
+        let pending = self
+            .pending_install
+            .as_mut()
+            .ok_or("No delay pool is being prepared")?;
+        if !pending.depth_controls {
+            return Err("This pool requires a complete topology update".into());
+        }
+        pending.depth_override = Some(depth);
+        Ok(())
+    }
+
     /// The caller retains this byte allocation until commit, rejection or abort.
     /// Reserve numeric storage once; validation and voice construction then run
     /// in bounded batches while the old recording and scene continue rendering.
@@ -651,6 +681,7 @@ impl Renderer {
             revision: u64::from(read_u32(header, 16)) | u64::from(read_u32(header, 20)) << 32,
             normalization,
             depth_controls: read_u32(header, 4) == 2,
+            whole_scene_admission: false,
             depth_override: None,
             fold_base_ms: None,
             fold_interval_ms: None,
@@ -776,7 +807,12 @@ impl Renderer {
                 gains
             });
         self.demand = self.performance.capped(self.available);
-        self.adaptive.set_demand(self.demand);
+        if pending.whole_scene_admission {
+            self.adaptive
+                .begin_bounded_scene(self.demand, self.structural_group_counts.iter().sum());
+        } else {
+            self.adaptive.begin_adaptive_scene(self.demand);
+        }
         self.revision = pending.revision;
         self.requested = pending.count;
         self.target_normalization = self
@@ -898,7 +934,7 @@ impl Renderer {
         self.depth_controls = read_u32(bytes, 4) == 2;
         self.live_depth = None;
         self.demand = self.performance.capped(available);
-        self.adaptive.set_demand(self.demand);
+        self.adaptive.begin_adaptive_scene(self.demand);
         self.target_normalization = normalization;
         let limit = if self.performance.automatic {
             self.adaptive.limit().min(self.demand)
@@ -934,7 +970,15 @@ impl Renderer {
                 0.
             }) - self.mic_mix)
                 * self.smooth;
-            let seed = f64::from(self.seed.next(self.frequency, self.pulse_rate));
+            // Preserve the hidden source's clock/state while its contribution
+            // is exactly zero, without spending the audio deadline on three
+            // inaudible sine evaluations. Source fades still evaluate every
+            // sample as soon as the seed has a nonzero mix weight.
+            let seed = f64::from(self.seed.next(
+                self.frequency,
+                self.pulse_rate,
+                self.mic_mix != 1.,
+            ));
             let mic = [
                 left[index],
                 right.map_or(left[index], |values| values[index]),
@@ -1081,6 +1125,33 @@ pub extern "C" fn lsd_new(rate: u32, capacity: usize) -> *mut Renderer {
         }
     }
 }
+
+/// Disposable worker calibration owns an independent recording. Ordinary
+/// audio renderers never permit the calibration history preparation export.
+#[no_mangle]
+pub extern "C" fn lsd_new_calibration(rate: u32, capacity: usize) -> *mut Renderer {
+    let handle = lsd_new(rate, capacity);
+    if !handle.is_null() {
+        unsafe {
+            (*handle).calibration = true;
+        }
+    }
+    handle
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_prepare_calibration_history(handle: *mut Renderer) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    if !(*handle).calibration {
+        report("Recording history can only be prepared on a calibration renderer");
+        return 0;
+    }
+    (*handle).engine.prepare_calibration_history();
+    1
+}
+
 #[no_mangle]
 pub unsafe extern "C" fn lsd_drop(handle: *mut Renderer) {
     if !handle.is_null() {
@@ -1159,6 +1230,40 @@ pub unsafe extern "C" fn lsd_install_step(handle: *mut Renderer, maximum_records
 pub unsafe extern "C" fn lsd_install_abort(handle: *mut Renderer) {
     if !handle.is_null() {
         (*handle).abort_install();
+    }
+}
+
+/// Optional staging policy. The caller must preflight the complete prepared
+/// scene within a device-reliable budget before selecting whole membership.
+/// Omission leaves the historical automatic admission search unchanged.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_scene_admission(
+    handle: *mut Renderer,
+    whole_scene: u32,
+) -> u32 {
+    if handle.is_null() || whole_scene > 1 {
+        return 0;
+    }
+    match (*handle).configure_install_scene_admission(whole_scene != 0) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_install_depth(handle: *mut Renderer, depth: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).configure_install_depth(depth) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
     }
 }
 
@@ -1372,6 +1477,10 @@ struct Seed {
     decay: f64,
     transient_decay: f64,
     rate: f64,
+    #[cfg(test)]
+    evaluate_muted: bool,
+    #[cfg(test)]
+    output_evaluations: usize,
 }
 impl Seed {
     fn new(rate: u32) -> Self {
@@ -1384,13 +1493,23 @@ impl Seed {
             decay: (-1.0 / (rate as f64 * 0.12)).exp(),
             transient_decay: (-1.0 / (rate as f64 * 0.008)).exp(),
             rate: rate as f64,
+            #[cfg(test)]
+            evaluate_muted: false,
+            #[cfg(test)]
+            output_evaluations: 0,
         }
     }
     fn strike(&mut self) {
         self.envelope = 1.0;
         self.transient = 1.0;
     }
-    fn next(&mut self, frequency: f64, pulse_rate: f64) -> f32 {
+    fn next(&mut self, frequency: f64, pulse_rate: f64, evaluate_output: bool) -> f32 {
+        #[cfg(test)]
+        let evaluate_output = evaluate_output || self.evaluate_muted;
+        #[cfg(test)]
+        if evaluate_output {
+            self.output_evaluations += 1;
+        }
         self.pulse_phase += pulse_rate / self.rate;
         if self.pulse_phase >= 1.0 {
             self.pulse_phase -= self.pulse_phase.floor();
@@ -1405,13 +1524,19 @@ impl Seed {
             if self.phases[i] >= 1.0 {
                 self.phases[i] -= self.phases[i].floor();
             }
-            tone += (std::f64::consts::TAU * self.phases[i]).sin() * gain;
+            if evaluate_output {
+                tone += (std::f64::consts::TAU * self.phases[i]).sin() * gain;
+            }
         }
         self.rng ^= self.rng << 13;
         self.rng ^= self.rng >> 17;
         self.rng ^= self.rng << 5;
-        let noise = self.rng as f64 / u32::MAX as f64 * 2.0 - 1.0;
-        let output = tone * self.envelope * 0.14 + noise * self.transient * 0.025;
+        let output = if evaluate_output {
+            let noise = self.rng as f64 / u32::MAX as f64 * 2.0 - 1.0;
+            tone * self.envelope * 0.14 + noise * self.transient * 0.025
+        } else {
+            0.
+        };
         self.envelope *= self.decay;
         self.transient *= self.transient_decay;
         output as f32
@@ -1466,6 +1591,502 @@ mod browser_tests {
             ..model::Parameters::default()
         };
         compile(&serde_json::to_vec(&params).unwrap(), 8000).unwrap()
+    }
+
+    fn install_bounded(renderer: &mut Renderer, compiled: &Compilation) {
+        renderer.begin_install(&compiled.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(renderer, 1) }, 1);
+        while !renderer.step_install(32).unwrap() {}
+    }
+
+    #[test]
+    fn install_depth_is_staging_only_and_rejection_or_abort_preserves_exact_live_pcm() {
+        let old = scene(4);
+        let next = scene(7);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        for renderer in [&mut live, &mut reference] {
+            install_bounded(renderer, &old);
+            renderer.set_depth(0.63).unwrap();
+        }
+        let compare_block = |live: &mut Renderer, reference: &mut Renderer| {
+            let mut left = [0.; BLOCK];
+            let mut right = [0.; BLOCK];
+            let mut reference_l = [0.; BLOCK];
+            let mut reference_r = [0.; BLOCK];
+            let input = signal(live.frames as usize);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left.map(f32::to_bits), reference_l.map(f32::to_bits));
+            assert_eq!(right.map(f32::to_bits), reference_r.map(f32::to_bits));
+            assert_eq!(live.frames, reference.frames);
+            assert_eq!(live.current_limit(), reference.current_limit());
+            assert_eq!(live.live_depth, reference.live_depth);
+        };
+        for _ in 0..20 {
+            compare_block(&mut live, &mut reference);
+        }
+        assert_eq!(unsafe { lsd_install_depth(std::ptr::null_mut(), 0.) }, 0);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 0);
+        for reject in [false, true] {
+            let mut candidate = next.pool.clone();
+            if reject {
+                let last = candidate.len() - RECORD;
+                candidate[last..last + 8].copy_from_slice(&f64::NAN.to_le_bytes());
+            }
+            live.begin_install(&candidate).unwrap();
+            assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+            assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+            for invalid in [f64::NAN, f64::INFINITY, -0.1, 1.1] {
+                assert_eq!(unsafe { lsd_install_depth(&mut live, invalid) }, 0);
+            }
+            assert_eq!(
+                live.pending_install.as_ref().unwrap().depth_override,
+                Some(0.)
+            );
+            assert_eq!(live.live_depth, Some(0.63));
+            assert!(!live.step_install(32).unwrap());
+            for _ in 0..5 {
+                compare_block(&mut live, &mut reference);
+            }
+            if reject {
+                loop {
+                    match live.step_install(32) {
+                        Ok(false) => compare_block(&mut live, &mut reference),
+                        Ok(true) => panic!("the malformed final record must reject"),
+                        Err(_) => break,
+                    }
+                }
+            } else {
+                live.abort_install();
+            }
+            assert!(live.pending_install.is_none());
+            assert_eq!(live.requested, reference.requested);
+            assert_eq!(live.revision, reference.revision);
+            assert_eq!(live.target_normalization, reference.target_normalization);
+            for _ in 0..32 {
+                compare_block(&mut live, &mut reference);
+            }
+        }
+        let mut legacy = next.pool.clone();
+        legacy[4..8].copy_from_slice(&1u32.to_le_bytes());
+        live.begin_install(&legacy).unwrap();
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.9) }, 0);
+        assert_eq!(live.pending_install.as_ref().unwrap().depth_override, None);
+        live.abort_install();
+        compare_block(&mut live, &mut reference);
+    }
+
+    #[test]
+    fn install_depth_commits_latest_zero_or_live_override_with_complete_restoration() {
+        let old = scene(2);
+        let dense = scene(7);
+        let denser = scene(8);
+        let mut live = Renderer::new(8000, 1).unwrap();
+        install_bounded(&mut live, &old);
+        live.set_depth(0.48).unwrap();
+        let old_limit = live.current_limit();
+        live.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.9) }, 1);
+        assert!(!live.step_install(32).unwrap());
+        assert_eq!(live.current_limit(), old_limit);
+        assert_eq!(live.live_depth, Some(0.48));
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(live.requested, 254);
+        assert_eq!(live.live_depth, Some(0.));
+        assert_eq!(live.engine.target_voice_count(), 0);
+        assert_eq!(
+            live.current_limit(),
+            0,
+            "commit never arms the stale compiled depth"
+        );
+        live.set_depth(0.91).unwrap();
+        assert_eq!(live.current_limit(), 254);
+        assert_eq!(live.engine.target_voice_count(), 254);
+        assert_eq!(
+            live.engine.active_voice_indices(),
+            &(0..254).collect::<Vec<_>>()
+        );
+
+        live.begin_install(&denser.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        assert_eq!(unsafe { lsd_install_depth(&mut live, 0.) }, 1);
+        assert!(!live.step_install(32).unwrap());
+        live.set_depth(0.83).unwrap();
+        assert_eq!(
+            live.pending_install.as_ref().unwrap().depth_override,
+            Some(0.83)
+        );
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(live.requested, 510);
+        assert_eq!(
+            live.live_depth,
+            Some(0.83),
+            "the later live gesture owns the commit"
+        );
+        assert_eq!(live.current_limit(), 510);
+        assert_eq!(live.engine.target_voice_count(), 510);
+
+        live.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut live, 1) }, 1);
+        while !live.step_install(32).unwrap() {}
+        assert_eq!(
+            live.live_depth, None,
+            "omitting staged depth keeps the pool's authored gains"
+        );
+        assert_eq!(live.current_limit(), 254);
+        assert_eq!(live.engine.target_voice_count(), 254);
+    }
+
+    #[test]
+    fn bounded_staging_commits_every_prepared_voice_together_after_tiny_scene_and_backoff() {
+        let small = scene(2);
+        let dense = scene(7);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&small.pool).unwrap();
+        renderer.seed_capacity(1000);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let old_limit = renderer.current_limit();
+        assert_eq!(old_limit, 2);
+        let old_clock = renderer.frames;
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        renderer.begin_install(&dense.pool).unwrap();
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut renderer, 1) }, 1);
+        while !renderer.step_install(32).unwrap() {
+            assert_eq!(
+                renderer.current_limit(),
+                old_limit,
+                "staging policy does not change the committed old scene"
+            );
+            let input = signal(renderer.frames as usize);
+            renderer.process(&input, None, &mut left, &mut right);
+        }
+        let count = renderer.requested;
+        assert_eq!(count, 254);
+        assert_eq!(renderer.current_limit(), count);
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        assert_eq!(
+            renderer.engine.active_voice_indices(),
+            &(0..count).collect::<Vec<_>>(),
+            "every available branch is admitted in the atomic commit, before its gain attack"
+        );
+        assert!(
+            renderer.frames > old_clock,
+            "old playback ran throughout preparation"
+        );
+        for _ in 0..3 {
+            let input = signal(renderer.frames as usize);
+            renderer.process(&input, None, &mut left, &mut right);
+        }
+        assert!(
+            renderer.engine.tap_activity()[..count]
+                .iter()
+                .all(|level| *level > 0.),
+            "all prepared taps produce measured sound without waiting for admission generations"
+        );
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.2 * BLOCK as f64 / 8000., BLOCK, false);
+            assert_eq!(renderer.current_limit(), count);
+            assert_eq!(renderer.engine.target_voice_count(), count);
+        }
+    }
+
+    #[test]
+    fn bounded_zero_depth_and_manual_caps_restore_the_whole_structural_scene() {
+        let parameters = model::Parameters {
+            generations: 6,
+            depth: 0.,
+            interval_ms: 2.,
+            pitch_scale: 0.,
+            ..model::Parameters::default()
+        };
+        let compiled = compile(&serde_json::to_vec(&parameters).unwrap(), 8000).unwrap();
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        install_bounded(&mut renderer, &compiled);
+        let count = renderer.structural_group_counts.iter().sum::<usize>();
+        assert_eq!(count, 126);
+        assert_eq!(renderer.current_limit(), 0);
+        assert_eq!(unsafe { lsd_capacity_hint(&mut renderer, 1000) }, 1);
+        assert_eq!(
+            renderer.current_limit(),
+            0,
+            "a first-install worker hint cannot arm a zero-depth scene"
+        );
+        assert_eq!(renderer.adaptive.measured_limit(), 1000);
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(renderer.current_limit(), count);
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        let mut settings = renderer.performance;
+        settings.voice_ceiling = 3;
+        renderer.set_performance(settings).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 3);
+        renderer.set_depth(0.).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 0);
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), 3);
+        settings.voice_ceiling = 0;
+        renderer.set_performance(settings).unwrap();
+        assert_eq!(renderer.engine.target_voice_count(), count);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let safe = renderer.current_limit();
+        assert!(safe < count);
+        assert_eq!(unsafe { lsd_capacity_hint(&mut renderer, 2000) }, 1);
+        assert_eq!(
+            renderer.current_limit(),
+            safe,
+            "a later worker hint cannot regrow an unchanged scene after real overload"
+        );
+        renderer.set_depth(0.).unwrap();
+        renderer.set_depth(0.8).unwrap();
+        assert_eq!(
+            renderer.engine.target_voice_count(),
+            safe,
+            "live coefficient restoration cannot undo an actual deadline backoff"
+        );
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.2 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            safe,
+            "quiet playback retains fixed scene membership"
+        );
+    }
+
+    #[test]
+    fn scene_admission_policy_is_atomic_abortable_and_resets_when_omitted() {
+        let first = scene(6);
+        let next = scene(7);
+        let mut renderer = Renderer::new(8000, 1).unwrap();
+        renderer.install(&first.pool).unwrap();
+        let old_limit = renderer.current_limit();
+        assert_eq!(
+            unsafe { lsd_install_scene_admission(&mut renderer, 1) },
+            0,
+            "policy configuration requires a staged pool"
+        );
+        renderer.begin_install(&next.pool).unwrap();
+        assert_eq!(
+            unsafe { lsd_install_scene_admission(&mut renderer, 2) },
+            0,
+            "unsupported flags cannot change the pending scene"
+        );
+        assert_eq!(unsafe { lsd_install_scene_admission(&mut renderer, 1) }, 1);
+        assert!(!renderer.step_install(1).unwrap());
+        assert_eq!(renderer.current_limit(), old_limit);
+        renderer.abort_install();
+        for _ in 0..8000 / BLOCK * 4 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            126,
+            "aborted policy must not freeze the previous adaptive scene"
+        );
+        install_bounded(&mut renderer, &next);
+        assert_eq!(renderer.current_limit(), 254);
+        renderer.observe(2. * BLOCK as f64 / 8000., BLOCK, false);
+        let reduced = renderer.current_limit();
+        for _ in 0..8000 / BLOCK * 10 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(renderer.current_limit(), reduced);
+        renderer.begin_install(&next.pool).unwrap();
+        while !renderer.step_install(32).unwrap() {}
+        for _ in 0..8000 / BLOCK * 15 {
+            renderer.observe(0.1 * BLOCK as f64 / 8000., BLOCK, false);
+        }
+        assert_eq!(
+            renderer.current_limit(),
+            254,
+            "omitting the optional flag restores legacy search"
+        );
+    }
+
+    #[test]
+    fn calibration_history_is_ready_for_long_heads_and_cannot_mutate_live_recording() {
+        let mut live = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        let compiled = scene(3);
+        for renderer in [&mut live, &mut reference] {
+            renderer.install(&compiled.pool).unwrap();
+            renderer.seed_capacity(100);
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..64 {
+            let input = signal(block * BLOCK);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+        }
+        let frames = live.frames;
+        assert_eq!(unsafe { lsd_prepare_calibration_history(&mut live) }, 0);
+        assert_eq!(live.frames, frames);
+        for block in 64..96 {
+            let input = signal(block * BLOCK);
+            live.process(&input, None, &mut left, &mut right);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(left.map(f32::to_bits), reference_l.map(f32::to_bits));
+            assert_eq!(right.map(f32::to_bits), reference_r.map(f32::to_bits));
+        }
+        unsafe {
+            assert_eq!(lsd_prepare_calibration_history(std::ptr::null_mut()), 0);
+            let calibration = lsd_new_calibration(8000, 1);
+            assert!(!calibration.is_null());
+            let mut long = scene(2);
+            for record in long.pool[HEADER..].chunks_exact_mut(RECORD) {
+                record[..8].copy_from_slice(&30f64.to_le_bytes());
+            }
+            (*calibration).install(&long.pool).unwrap();
+            (*calibration).seed_capacity(100);
+            (*calibration).process(&[0.; BLOCK], None, &mut left, &mut right);
+            assert_eq!(
+                (*calibration).engine.tap_activity()[0],
+                0.,
+                "the long head initially lacks recorded history"
+            );
+            let before = (*calibration).frames;
+            assert_eq!(lsd_prepare_calibration_history(calibration), 1);
+            assert_eq!(
+                (*calibration).frames,
+                before,
+                "history preparation never advances the clock"
+            );
+            (*calibration).process(&[0.; BLOCK], None, &mut left, &mut right);
+            assert!(
+                (*calibration).engine.tap_activity()[0] > 0.,
+                "timed calibration includes real 30-second history reads"
+            );
+            assert_eq!(
+                lsd_prepare_calibration_history(calibration),
+                1,
+                "worker preflight can reuse its independent renderer"
+            );
+            lsd_drop(calibration);
+        }
+    }
+
+    fn assert_same_seed_state(actual: &Seed, reference: &Seed) {
+        assert_eq!(
+            actual.phases.map(f64::to_bits),
+            reference.phases.map(f64::to_bits)
+        );
+        assert_eq!(
+            actual.pulse_phase.to_bits(),
+            reference.pulse_phase.to_bits()
+        );
+        assert_eq!(actual.envelope.to_bits(), reference.envelope.to_bits());
+        assert_eq!(actual.transient.to_bits(), reference.transient.to_bits());
+        assert_eq!(actual.rng, reference.rng);
+    }
+
+    #[test]
+    fn muted_seed_retains_exact_clock_state_and_future_sound() {
+        for rate in [8000, 48000] {
+            let mut muted = Seed::new(rate);
+            let mut evaluated = Seed::new(rate);
+            // Changing frequency, pulse timing and strikes must continue to
+            // affect the hidden source while microphone audio is selected.
+            for frame in 0..rate * 3 {
+                let frequency = if frame < rate { 117. } else { 713.25 };
+                let pulse_rate = if frame < rate * 2 { 0.7 } else { 13.125 };
+                if frame % 1379 == 0 {
+                    muted.strike();
+                    evaluated.strike();
+                }
+                assert_eq!(muted.next(frequency, pulse_rate, false), 0.);
+                evaluated.next(frequency, pulse_rate, true);
+                if frame % 128 == 0 {
+                    assert_same_seed_state(&muted, &evaluated);
+                }
+            }
+            assert_eq!(muted.output_evaluations, 0);
+            assert_eq!(evaluated.output_evaluations, (rate * 3) as usize);
+            assert_same_seed_state(&muted, &evaluated);
+            // Reactivation must start at the exact phase/noise/envelope that
+            // the former continuously evaluated implementation would produce.
+            for _ in 0..4096 {
+                assert_eq!(
+                    muted.next(391.75, 2.3, true).to_bits(),
+                    evaluated.next(391.75, 2.3, true).to_bits()
+                );
+            }
+            assert_same_seed_state(&muted, &evaluated);
+        }
+    }
+
+    #[test]
+    fn microphone_pcm_and_source_crossfades_match_continuous_seed_evaluation() {
+        let compiled = scene(4);
+        let mut actual = Renderer::new(8000, 1).unwrap();
+        let mut reference = Renderer::new(8000, 1).unwrap();
+        // The reference follows the former render path: all seed output math
+        // executes even when it is multiplied by an exactly zero mix weight.
+        reference.seed.evaluate_muted = true;
+        let mut settings = Performance {
+            automatic: false,
+            voice_ceiling: 8,
+            source: Source::Mic,
+            ..Performance::default()
+        };
+        actual.set_performance(settings).unwrap();
+        reference.set_performance(settings).unwrap();
+        actual.install(&compiled.pool).unwrap();
+        reference.install(&compiled.pool).unwrap();
+        let mut actual_l = [0.; BLOCK];
+        let mut actual_r = [0.; BLOCK];
+        let mut reference_l = [0.; BLOCK];
+        let mut reference_r = [0.; BLOCK];
+        for block in 0..240 {
+            if block % 19 == 0 {
+                settings.frequency = 117. + block as f64 * 1.5;
+                settings.pulse_rate = 0.7 + block as f64 * 0.0125;
+                settings.input_gain = 0.3 + (block % 5) as f32 * 0.1;
+                actual.set_performance(settings).unwrap();
+                reference.set_performance(settings).unwrap();
+                actual.seed.strike();
+                reference.seed.strike();
+            }
+            if block == 120 || block == 176 {
+                settings.source = if block == 120 {
+                    Source::Seed
+                } else {
+                    Source::Mic
+                };
+                actual.set_performance(settings).unwrap();
+                reference.set_performance(settings).unwrap();
+            }
+            let input = signal(block * BLOCK);
+            actual.process(&input, None, &mut actual_l, &mut actual_r);
+            reference.process(&input, None, &mut reference_l, &mut reference_r);
+            assert_eq!(
+                actual_l.map(f32::to_bits),
+                reference_l.map(f32::to_bits),
+                "left PCM block {block}"
+            );
+            assert_eq!(
+                actual_r.map(f32::to_bits),
+                reference_r.map(f32::to_bits),
+                "right PCM block {block}"
+            );
+            assert_same_seed_state(&actual.seed, &reference.seed);
+            if block == 119 {
+                assert_eq!(actual.seed.output_evaluations, 0);
+                assert_eq!(reference.seed.output_evaluations, 120 * BLOCK);
+            }
+        }
+        assert_eq!(
+            actual.seed.output_evaluations,
+            120 * BLOCK,
+            "both source fades remain evaluated whenever their contribution is nonzero"
+        );
+        assert_eq!(reference.seed.output_evaluations, 240 * BLOCK);
+        assert_eq!(actual.frames, reference.frames);
     }
 
     #[test]

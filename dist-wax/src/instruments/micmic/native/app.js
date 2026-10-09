@@ -10,7 +10,7 @@ import { timeFoldFromSlider, sliderFromTimeFold, formatTimeFold, MIN_TIME_FOLD_M
 import { DEFAULT_PARAMETERS, DEFAULT_PERFORMANCE, sanitizeParameters, sanitizePerformance,
   presetState, randomState, captureScene, gestureParameters, clamp, admittedPreviewNodes, applyPreviewDepth, applyPreviewTimeFold,
   topologyBounds, fitTransform, visualBudget, nativePreviewNodes, preparePreviewTransition, advancePreviewTransition, createPreviewDrawSelection,
-  topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame } from './model.js';
+  topologyIdentity, tapActivityFrame, activityEnergy, smoothActivity, branchWavePoints, inputHistoryFrame, audioFrameChanged } from './model.js';
 import { DEFAULT_MASTERING, MASTERING_PROFILES, masteringProfileId, cutoffFromSlider, sliderFromCutoff } from './mastering.js';
 import { createBrowserDelayEngine } from './browser-engine.js';
 import { SAMPLE_INPUT_OPTIONS, DEFAULT_SAMPLE_ID } from './input-source.js';
@@ -36,7 +36,8 @@ const labControlIds = Object.values(LAB_CONTROL_IDS).filter(id => $(id));
 const initialParameters = LAB_CONFIG?.presets[0].snapshot.parameters ?? DEFAULT_PARAMETERS;
 const state = { parameters: sanitizeParameters(initialParameters), performance: { ...DEFAULT_PERFORMANCE }, audio: false, status: {},
   input: { mode: 'mic', sampleId: DEFAULT_SAMPLE_ID, label: 'Mic / line', pending: false, playing: false, hasFile: false, fileName: '', loop: true, ended: false, credit: '', creditUrl: '' },
-  requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER };
+  requestedVoices: 0, preparedVoices: 0, eligibleVoices: 0, generationLimits: {}, memoryVoiceCapacity: Number.MAX_SAFE_INTEGER,
+  deviceCapacity: null, capacityWorking: false, capacityFailure: null, capacityTest: null, sceneMeasurement: null, userCapacityBudget: 0 };
 const CONTROL_IDS = { generations: 'generations', intervalMs: 'interval', timeRatio: 'timeRatio', angle: 'generationAngle',
   asymmetry: 'generationAsymmetry', curls: 'curls', mutation: 'mutation', pitchScale: 'generationPitchScale', pruningBias: 'pruningBias', depth: 'depth', spread: 'spread',
   ...($('grammarSeed') ? { grammarSeed: 'grammarSeed', branchProbability: 'branchProbability' } : {}) };
@@ -58,9 +59,14 @@ let manualFlashUntil = 0, tapReceivedAt = -Infinity, inputReceivedAt = -Infinity
 let inputTelemetry = { reader: null, receivedAt: -Infinity, clock: 0, clockReceivedAt: 0, endTime: -Infinity };
 let tapIdentity = topologyIdentity(state.parameters), tapRuleMode = ruleMode(state.parameters), tapTargets = new Map(), tapLevels = new Map(), rootLevel = 0;
 let minimumTapRevision = 0;
-let lastDrawAt = -Infinity, visualCostMs = 0;
+let lastDrawAt = -Infinity, visualCostMs = 0, visualFps = 0;
+let capacityBudgetEdited = false, capacityTesting = false;
 let preparedGraphicsNodes = null, preparedGraphicsBounds = null;
 let paintedControlsKey = null;
+let controlsDirty = false, controlsTimer = null;
+let paintedInputState = null, paintedInputActive = null, paintedAudioState = null, paintedOutputActive = null;
+let paintedInputPeak = null, paintedOutputLevels = null, paintedAudioLevel = null, paintedInputGain = null;
+const paintedKnobs = new Map();
 let geometry = null, frameId = 0, drag = null, rangeGesture = false, gestureUntil = 0, lockedFit = null;
 let rangeGestureOwner = null, rangeGesturePointer = null, voiceCeilingExact = null;
 const parameterKnobs = new Map();
@@ -80,16 +86,12 @@ const gpuRenderer = rendererMode === 'canvas' ? null
 canvas.dataset.renderer = gpuRenderer?.available ? 'webgl2' : 'canvas';
 const inputStrip = createAudioInputStrip({ button: $('micButton'), gainInput: $('inputTrim'), gainOutput: $('inputTrimOut'), channels: 1 });
 $('inputMenu').classList.add('mz-input-legacy');
-const sampleGroups = new Map();
-for (const option of SAMPLE_INPUT_OPTIONS) {
-  const group = option.group || 'Recordings';
-  if (!sampleGroups.has(group)) { const element = document.createElement('optgroup'); element.label = group; sampleGroups.set(group, element); }
-  sampleGroups.get(group).append(new Option(option.label, option.id));
-}
-$('inputSample').replaceChildren(...sampleGroups.values()); $('inputSample').value = DEFAULT_SAMPLE_ID;
+const sampleName = label => label.replace(/\s+\((?:recorded|synthesized|synthetic voice|original)\)$/i, '');
+$('inputSample').replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(sampleName(option.label), option.id)));
+$('inputSample').value = DEFAULT_SAMPLE_ID;
 const inputChoices = new Map([
   ['source', enhanceChooseSelect($('source'), { label: 'Choose input' })],
-  ['inputSample', enhanceChooseSelect($('inputSample'), { label: 'Choose sample preset' })],
+  ['inputSample', enhanceChooseSelect($('inputSample'), { label: 'Sample' })],
 ]);
 const outputMeter = createStereoMeter({ active: false });
 const audioStrip = createAudioStrip({ buttonId: 'audioButton', levelId: 'level', level: .58, levelLabel: 'Output',
@@ -229,6 +231,12 @@ function updateVisualTimeFold(intervalMs) {
   if (intervalMs === previewParameters.intervalMs) return;
   previewParameters.intervalMs = intervalMs;
   if (nativePreview) nativePreview.parameters.intervalMs = intervalMs;
+  // GPU branch timing is already a scalar uniform. Canvas data is only
+  // materialized when that renderer needs it, including after context loss.
+  if (!geometry || !gpuRenderer?.available) materializeVisualTimeFold(intervalMs);
+  gpuRenderer?.setTimeFold(intervalMs);
+}
+function materializeVisualTimeFold(intervalMs) {
   const nodes = geometry?.nodes ?? nativePreview?.nodes;
   if (nodes) applyPreviewTimeFold(nodes, intervalMs);
   if (!geometry) return;
@@ -238,26 +246,40 @@ function updateVisualTimeFold(intervalMs) {
     wave.signal.delay = node.delay;
     wave.signal.startDelay = wave.parent?.delay ?? Math.max(0, node.delay - intervalMs / 1000);
   }
-  gpuRenderer?.setTimeFold(intervalMs);
+  geometry.canvasTimeFold = intervalMs;
 }
 function acceptStatus(reply, { acceptAudio = true } = {}) {
   if (!reply || disposed) return;
   if (reply.input) state.input = { ...state.input, ...reply.input };
   if (reply.generationLimits) state.generationLimits = reply.generationLimits;
   if (reply.memoryVoiceCapacity) state.memoryVoiceCapacity = reply.memoryVoiceCapacity;
+  for (const key of ['deviceCapacity', 'capacityWorking', 'capacityFailure', 'capacityTest', 'sceneMeasurement', 'userCapacityBudget', 'requestedVoicesDecimal']) {
+    if (key in reply) state[key] = reply[key];
+  }
   // Installation acknowledges its new DSP pool before the matching scene
   // metadata commits. Preserve the complete prior status during that interval.
-  if (reply.status && (reply.status.topologyRevision === undefined || reply.status.topologyRevision === reply.topologyRevision)) {
-    state.status = reply.status; inputReceivedAt = performance.now();
-    inputTelemetry = inputHistoryFrame(reply, inputTelemetry, performance.now());
+  const coherentStatus = reply.status && (reply.status.topologyRevision === undefined || reply.status.topologyRevision === reply.topologyRevision);
+  if (coherentStatus) {
+    const freshFrame = audioFrameChanged(reply.status, state.status), receivedAt = performance.now();
+    state.status = reply.status;
+    if (freshFrame) inputReceivedAt = receivedAt;
+    inputTelemetry = inputHistoryFrame(reply, inputTelemetry, receivedAt);
     const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters ?? previewParameters);
-    const activity = reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, applied) : null;
+    const activity = freshFrame && reply.topologyRevision >= minimumTapRevision ? tapActivityFrame(reply, applied) : null;
     if (activity) {
-      syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = performance.now();
+      syncActivityIdentity(applied); tapTargets = activity.levels; tapReceivedAt = receivedAt;
     }
     if (reply.topologyRevision >= visualRevision && Number.isFinite(applied.depth)) updateVisualDepth(applied.depth);
     if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
     if (reply.topologyRevision > visualRevision) void refreshNativePreview();
+  }
+  // Audio-off compilation has acknowledged musical coefficients but no DSP
+  // revision yet. Keep that preview responsive without accepting stale meters.
+  if (!coherentStatus && reply.audio === false && reply.parameters && reply.topologyRevision >= visualRevision) {
+    const applied = sanitizeParameters(reply.effectiveParameters ?? reply.parameters);
+    updateVisualDepth(applied.depth);
+    if (reply.topologyRevision === visualRevision) updateVisualTimeFold(appliedTimeFold(reply, applied));
+    else void refreshNativePreview();
   }
   if (acceptAudio && !audioPending && typeof reply.audio === 'boolean' && (!reply.audio || !document.hidden)) { state.audio = reply.audio; audioDesired = reply.audio; }
   state.requestedVoices = reply.requestedVoices ?? state.requestedVoices; state.eligibleVoices = reply.eligibleVoices ?? state.eligibleVoices;
@@ -313,6 +335,7 @@ async function refreshNativePreview() {
         node.delay = target.delay; node.rate = target.rate;
       }
       applyPreviewTimeFold(geometry.nodes, parameters.intervalMs, reply.timeFoldBaseIntervalMs ?? parameters.intervalMs);
+      geometry.canvasTimeFold = parameters.intervalMs;
       applyPreviewDepth(geometry.nodes, parameters.depth);
       for (const wave of geometry.waves.values()) {
         const node = geometry.byId.get(wave.signal.id);
@@ -458,7 +481,7 @@ async function applyScene(scene, id = 'custom') {
   const restoreFocus = Boolean(picker?.contains(document.activeElement));
   if (picker) picker.inert = true;
   const controls = [...new Set([...Object.values(CONTROL_IDS), ...labControlIds, 'labKind', 'regrowGrammar', 'lSystemType', 'wet', 'dry', 'inputTrim', 'level',
-    ...MASTERING_IDS, 'masteringPreset', 'compressorEnabled', 'autoMakeup', 'frequency', 'pulseRate', 'centerAngles', 'resetGenerationRules'])]
+    ...MASTERING_IDS, 'masteringPreset', 'compressorEnabled', 'autoMakeup', 'frequency', 'pulseRate', 'centerAngles', 'resetGenerationRules', 'nextInputSample', 'nextLSystemType'])]
     .map($).filter(Boolean);
   const disabled = controls.map(control => control.disabled);
   for (const control of controls) control.disabled = true;
@@ -502,6 +525,7 @@ async function applyScene(scene, id = 'custom') {
     for (let index = 0; index < controls.length; index++) controls[index].disabled = disabled[index];
     if (picker) picker.inert = false;
     canvas.setAttribute('aria-busy', 'false');
+    paintControls();
     if (restoreFocus && document.activeElement === document.body) picker?.querySelector('summary')?.focus({ preventScroll: true });
   }
 }
@@ -597,23 +621,24 @@ function paintInput() {
   const playing = mic ? microphoneActive : input.playing;
   const summary = pending ? 'loading' : playing ? state.performance.frozen ? 'paused' : 'live' : input.ended ? 'finished' : 'ready';
   for (const [id, value] of [['source', input.mode], ['inputSample', input.sampleId]]) {
-    if ($(id).value !== value) { $(id).value = value; inputChoices.get(id).refresh(); }
+    if ($(id).value !== value) { setProperty($(id), 'value', value); inputChoices.get(id).refresh(); }
   }
-  $('inputSampleControl').hidden = input.mode !== 'samples';
-  $('inputFileControl').hidden = !file; $('inputMicHelp').hidden = !mic;
-  $('inputPlaybackControls').hidden = mic;
-  $('inputLoop').checked = input.loop;
-  $('restartInput').disabled = !bootstrapped || !state.audio || pending || file && !input.hasFile;
-  $('restartInput').textContent = file ? 'Restart file' : 'Restart sample';
-  $('stopInput').disabled = !pending && !playing;
-  $('inputSummary').textContent = `${mic ? label : file ? 'Audio file' : 'Built-in samples'} · ${summary}`;
+  setProperty($('inputSampleControl'), 'hidden', input.mode !== 'samples');
+  paintNextChoice('nextInputSample', 'inputSample');
+  setProperty($('inputFileControl'), 'hidden', !file); setProperty($('inputMicHelp'), 'hidden', !mic);
+  setProperty($('inputPlaybackControls'), 'hidden', mic);
+  setProperty($('inputLoop'), 'checked', input.loop);
+  setProperty($('restartInput'), 'disabled', !bootstrapped || !state.audio || pending || file && !input.hasFile);
+  setText($('restartInput'), file ? 'Restart file' : 'Restart sample');
+  setProperty($('stopInput'), 'disabled', !pending && !playing);
+  setText($('inputSummary'), `${mic ? label : file ? 'Audio file' : 'Built-in samples'} · ${summary}`);
   const status = pending ? `Loading ${label}…`
     : mic ? microphoneActive ? `Mic / line ${state.performance.frozen ? 'paused' : 'live'}${state.audio ? '' : ' · Audio off'}` : 'Mic / line ready · use Mic to start input'
       : file && !input.hasFile ? 'Choose a local audio file'
         : playing ? `${label} · ${state.performance.frozen ? 'paused' : input.loop ? 'looping' : 'playing'}`
           : input.ended ? `${label} · finished · Restart to play again`
             : `${label} · ${state.audio ? 'stopped · Restart to play' : 'ready · enable Audio to play'}`;
-  if ($('inputSourceStatus').textContent !== status) $('inputSourceStatus').textContent = status;
+  if ($('inputSourceStatus').textContent !== status) setText($('inputSourceStatus'), status);
   const credit = $('inputSourceCredit'), creditKey = `${input.credit || ''}\n${input.creditUrl || ''}`;
   if (credit.dataset.credit !== creditKey) {
     credit.dataset.credit = creditKey; credit.replaceChildren();
@@ -626,105 +651,213 @@ function paintInput() {
   credit.hidden = !input.credit;
 }
 function paintStaticControls() {
-  if ($('stochasticControls')) $('stochasticControls').hidden = Boolean(state.parameters.lab) || state.parameters.lSystemType !== 'stochastic';
+  if ($('stochasticControls')) setProperty($('stochasticControls'), 'hidden', Boolean(state.parameters.lab) || state.parameters.lSystemType !== 'stochastic');
   const branchVariation = state.parameters.lSystemType === 'pythagorean';
-  $('mutationLabel').textContent = state.parameters.lab ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation';
+  setText($('mutationLabel'), state.parameters.lab ? 'Module variation' : branchVariation ? 'Branch variation' : 'Delay variation');
   const mutationGuide = state.parameters.lab ? 'Adds stable per-module length and timing variation while retaining the same rule identities.'
     : branchVariation ? 'Varies branch turns, lengths and delay timing in Pythagorean Pine.'
     : 'Varies delay timing while preserving this pattern’s branch shape and pitch turns.';
-  $('mutationGuide').textContent = mutationGuide; $('mutation').title = mutationGuide;
+  setText($('mutationGuide'), mutationGuide); setProperty($('mutation'), 'title', mutationGuide);
   // Set the active family’s bound before assigning a recalled value. A range
   // otherwise clamps high lab iterations to the previous classic rule’s limit.
-  $('generations').max = String(state.parameters.lab ? 24 : state.generationLimits[state.parameters.lSystemType] ?? 52);
+  setProperty($('generations'), 'max', String(state.parameters.lab ? 24 : state.generationLimits[state.parameters.lSystemType] ?? 52));
   for (const [key, id] of Object.entries(CONTROL_IDS)) {
-    const value = state.parameters[key]; $(id).value = key === 'intervalMs' ? sliderFromTimeFold(value) : value;
-    const text = formatParameter(key, value); $(`${id}Out`).textContent = text; $(id).setAttribute('aria-valuetext', text);
+    const value = state.parameters[key]; setProperty($(id), 'value', key === 'intervalMs' ? sliderFromTimeFold(value) : value);
+    const text = formatParameter(key, value); setText($(`${id}Out`), text); setAttribute($(id), 'aria-valuetext', text);
   }
-  $('lSystemType').value = LAB_CONFIG ? state.parameters.lSystemType : ruleMode(state.parameters);
-  $('voiceCeiling').max = String(state.memoryVoiceCapacity);
+  setProperty($('lSystemType'), 'value', LAB_CONFIG ? state.parameters.lSystemType : ruleMode(state.parameters));
+  setProperty($('voiceCeiling'), 'max', String(state.memoryVoiceCapacity));
   for (const [key, id] of Object.entries(PERFORMANCE_IDS)) {
-    const value = state.performance[key]; $(id).value = value;
-    $(`${id}Out`).textContent = key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`;
+    const value = state.performance[key]; setProperty($(id), 'value', value);
+    setText($(`${id}Out`), key === 'voiceCeiling' ? value === 0 ? 'No cap' : value.toLocaleString() : key === 'dry' && value === 0 ? 'muted' : `${Math.round(value * 100)}%`);
   }
   const mastering = state.performance.mastering;
   for (const key of MASTERING_IDS) {
     const isCutoff = key in MASTERING_FREQUENCIES, requested = mastering[key], sampleRate = Number(state.status.sampleRate);
-    $(key).value = isCutoff ? sliderFromCutoff(requested, MASTERING_FREQUENCIES[key], key === 'lowpassHz') : requested;
+    setProperty($(key), 'value', isCutoff ? sliderFromCutoff(requested, MASTERING_FREQUENCIES[key], key === 'lowpassHz') : requested);
     const effective = isCutoff && state.audio && Number.isFinite(sampleRate) && sampleRate > 0
       ? Math.min(requested, sampleRate * .45) : requested;
     const text = formatMastering(key, effective), output = $(`${key}Out`), clamped = effective < requested;
-    output.textContent = text;
-    $(key).setAttribute('aria-valuetext', clamped ? `${text} effective (${formatMastering(key, requested)} requested)` : text);
+    setText(output, text);
+    setAttribute($(key), 'aria-valuetext', clamped ? `${text} effective (${formatMastering(key, requested)} requested)` : text);
     if (clamped) {
       const title = `${text} effective; ${formatMastering(key, requested)} requested`;
-      output.title = title; $(key).title = title;
+      setProperty(output, 'title', title); setProperty($(key), 'title', title);
     } else { output.removeAttribute('title'); $(key).removeAttribute('title'); }
   }
-  $('compressorEnabled').checked = mastering.compressorEnabled; $('autoMakeup').checked = mastering.autoMakeup;
+  setProperty($('compressorEnabled'), 'checked', mastering.compressorEnabled); setProperty($('autoMakeup'), 'checked', mastering.autoMakeup);
   const profileId = masteringProfileId(mastering);
-  $('masteringPreset').value = profileId;
-  $('masteringSummary').textContent = `${MASTERING_PROFILES.find(item => item.id === profileId)?.label ?? 'Custom'} · ${mastering.compressorEnabled ? `${Number(mastering.ratio.toFixed(1))}:1 compression` : 'compression off'}`;
-  $('generations').closest('label').querySelector('b').textContent = state.parameters.lab ? 'Rule iterations' : 'Generations';
+  setProperty($('masteringPreset'), 'value', profileId);
+  setText($('masteringSummary'), `${MASTERING_PROFILES.find(item => item.id === profileId)?.label ?? 'Custom'} · ${mastering.compressorEnabled ? `${Number(mastering.ratio.toFixed(1))}:1 compression` : 'compression off'}`);
+  setText($('generations').closest('label').querySelector('b'), state.parameters.lab ? 'Rule iterations' : 'Generations');
   paintLabControls();
-  $('automatic').checked = state.performance.automatic;
-  inputStrip.setGain(state.performance.inputGain);
+  setProperty($('automatic'), 'checked', state.performance.automatic);
+  if (paintedInputGain !== state.performance.inputGain) {
+    inputStrip.setGain(state.performance.inputGain); paintedInputGain = state.performance.inputGain;
+  }
   // Status polling changes meters, not musical controls. Update each dial
   // once after real parameter or dynamic-limit changes, avoiding duplicate
   // MutationObserver updates from unchanged readout and range writes.
-  for (const knob of parameterKnobs.values()) knob.update();
+  for (const [id, knob] of parameterKnobs) {
+    const input = $(id), key = [input.value, input.min, input.max, input.step, input.disabled, input.getAttribute('aria-valuetext')].join('|');
+    if (paintedKnobs.get(id) !== key) { knob.update(); paintedKnobs.set(id, key); }
+  }
   if (voiceCeilingExact) {
     const input = $('voiceCeiling');
-    voiceCeilingExact.min = input.min; voiceCeilingExact.max = input.max; voiceCeilingExact.step = input.step;
-    voiceCeilingExact.disabled = input.disabled;
-    if (document.activeElement !== voiceCeilingExact) voiceCeilingExact.value = String(state.performance.voiceCeiling);
+    setProperty(voiceCeilingExact, 'min', input.min); setProperty(voiceCeilingExact, 'max', input.max); setProperty(voiceCeilingExact, 'step', input.step);
+    setProperty(voiceCeilingExact, 'disabled', input.disabled);
+    if (document.activeElement !== voiceCeilingExact) setProperty(voiceCeilingExact, 'value', state.performance.voiceCeiling);
   }
 }
+function setText(element, value) {
+  if (typeof element === 'string') element = $(element);
+  const text = String(value);
+  if (element.textContent !== text) element.textContent = text;
+}
+function setProperty(element, name, value) {
+  if (typeof element === 'string') element = $(element);
+  if (['value', 'min', 'max', 'step'].includes(name)) value = String(value);
+  if (element[name] !== value) element[name] = value;
+}
+function setAttribute(element, name, value) {
+  if (typeof element === 'string') element = $(element);
+  const text = String(value);
+  if (element.getAttribute(name) !== text) element.setAttribute(name, text);
+}
 function paintControls() {
-  $('copySoundParameters').disabled = !bootstrapped || sceneApplying || soundCopyWorking;
+  // Lifecycle locks remain synchronous. Musical state and DSP dispatch never
+  // wait for repainting secondary readouts or hidden diagnostics.
+  setProperty('copySoundParameters', 'disabled', !bootstrapped || sceneApplying || soundCopyWorking);
+  controlsDirty = true;
+  if (document.hidden) queueControlsPaint();
+  else scheduleDraw();
+}
+function queueControlsPaint() {
+  if (disposed || !controlsDirty || controlsTimer !== null) return;
+  controlsTimer = setTimeout(() => {
+    controlsTimer = null;
+    if (disposed || !controlsDirty) return;
+    controlsDirty = false;
+    paintControlsNow();
+  }, 0);
+}
+function paintControlsNow() {
   const key = JSON.stringify([state.parameters, state.performance, state.generationLimits,
     state.memoryVoiceCapacity, state.status.sampleRate, state.audio, sceneApplying, $('voiceCeiling').disabled]);
   if (key !== paintedControlsKey) { paintStaticControls(); paintedControlsKey = key; }
+  paintNextChoice('nextLSystemType', 'lSystemType');
+  paintPerformancePanel();
   const reduction = state.audio ? Math.max(0, Number(state.status.gainReductionDb) || 0) : 0;
-  $('gainReductionOut').textContent = `${reduction.toFixed(1)} dB`;
-  $('gainReductionBar').style.width = `${clamp(reduction / 30) * 100}%`;
+  setText($('gainReductionOut'), `${reduction.toFixed(1)} dB`);
+  const reductionWidth = `${clamp(reduction / 30) * 100}%`;
+  if ($('gainReductionBar').style.width !== reductionWidth) $('gainReductionBar').style.width = reductionWidth;
   const mic = state.input.mode === 'mic', microphoneActive = Boolean(state.status.microphoneEnabled);
   const inputActive = (state.performance.source === 'seed' ? state.audio : mic ? microphoneActive : state.input.playing) && !state.performance.frozen;
-  inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
-  inputStrip.meter.setActive(inputActive);
+  const inputState = `${mic && microphoneActive}:${microphonePending || Boolean(state.status.microphonePending)}:${bootstrapped}`;
+  if (inputState !== paintedInputState) {
+    inputStrip.setInputState({ active: mic && microphoneActive, pending: microphonePending || Boolean(state.status.microphonePending), supported: bootstrapped });
+    paintedInputState = inputState; paintedInputActive = null; paintedInputPeak = null;
+  }
+  if (inputActive !== paintedInputActive) { inputStrip.meter.setActive(inputActive); paintedInputActive = inputActive; }
   const inputLabel = `${mic && microphoneActive ? 'Stop' : 'Start'} microphone input${state.audio ? '' : '. Audio remains off'}`;
-  inputStrip.button.setAttribute('aria-label', inputLabel); inputStrip.button.title = inputLabel;
-  inputStrip.setLevels(inputActive ? Number(state.status.inputPeak) || 0 : 0);
+  setAttribute(inputStrip.button, 'aria-label', inputLabel); setProperty(inputStrip.button, 'title', inputLabel);
+  const inputPeak = inputActive ? Number(state.status.inputPeak) || 0 : 0;
+  if (inputPeak !== paintedInputPeak) { inputStrip.setLevels(inputPeak); paintedInputPeak = inputPeak; }
   paintInput();
   const audioState = audioPending ? 'starting' : state.audio ? 'on' : lastFailure ? 'error' : 'off';
-  audioStrip.setAudioState(audioState); $('audioButton').disabled = !bootstrapped;
-  $('audioButton').setAttribute('aria-pressed', String(audioDesired)); $('audioButton').setAttribute('aria-busy', String(audioPending));
+  if (audioState !== paintedAudioState) { audioStrip.setAudioState(audioState); paintedAudioState = audioState; }
+  setProperty('audioButton', 'disabled', !bootstrapped);
+  setAttribute($('audioButton'), 'aria-pressed', String(audioDesired)); setAttribute($('audioButton'), 'aria-busy', String(audioPending));
   const audioLabel = audioPending ? audioDesired ? 'Audio starting. Cancel Audio start' : 'Audio stopping. Enable Audio' : state.audio ? 'Audio is on. Disable Audio' : 'Audio is off. Enable Audio';
-  $('audioButton').setAttribute('aria-label', audioLabel); $('audioButton').title = audioLabel;
-  outputMeter.setActive(state.audio); outputMeter.setLevels(state.audio ? Number(state.status.outputLeftPeak) || 0 : 0, state.audio ? Number(state.status.outputRightPeak) || 0 : 0);
-  $('panicButton').disabled = !state.audio && !audioPending;
+  setAttribute($('audioButton'), 'aria-label', audioLabel); setProperty($('audioButton'), 'title', audioLabel);
+  if (state.audio !== paintedOutputActive) { outputMeter.setActive(state.audio); paintedOutputActive = state.audio; }
+  const outputLeft = state.audio ? Number(state.status.outputLeftPeak) || 0 : 0, outputRight = state.audio ? Number(state.status.outputRightPeak) || 0 : 0;
+  const outputLevels = `${outputLeft}:${outputRight}`;
+  if (outputLevels !== paintedOutputLevels) { outputMeter.setLevels(outputLeft, outputRight); paintedOutputLevels = outputLevels; }
+  setProperty($('panicButton'), 'disabled', !state.audio && !audioPending);
   const p = state.parameters, s = state.status, type = p.lab ? KIND_LABELS[p.lab.kind] ?? 'Parametric branches' : TYPE_LABELS[p.lSystemType], pruning = formatParameter('pruningBias', p.pruningBias);
   const requested = Number(state.requestedVoices) || (!p.lab && p.lSystemType === 'pythagorean' ? 2 ** (p.generations + 1) - 2 : 0);
-  const limit = Math.max(0, Number(state.audio ? s.voiceLimit : state.preparedVoices) || 0);
-  $('generationCapacityInline').textContent = `${limit.toLocaleString()} of ${requested.toLocaleString()} branches ${state.audio ? 'available' : 'ready'} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`;
-  $('generationCapacityInline').title = 'Color shows admitted audio voices. Waves show signal amplitude. Device capacity is measured separately from sound travel time.';
-  $('recursionSummary').textContent = `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`;
-  $('mixSummary').textContent = `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`;
-  $('currentSettingsSummary').textContent = `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${formatTimeFold(p.intervalMs)} root fold`;
-  $('generationKeyEnd').textContent = `G${p.generations} DESCENDANT`;
+  const prepared = Math.max(0, Number(state.preparedVoices) || 0);
+  const processing = Math.max(0, Number(s.activeVoices) || 0);
+  setText($('generationCapacityInline'), !bootstrapped ? 'Measuring device branch capacity…'
+    : `${prepared.toLocaleString()} of ${requested.toLocaleString()} branches prepared${state.audio ? ` · ${processing.toLocaleString()} processing` : ''} · ${pruning} pruning · ${state.performance.automatic ? 'device-adjusted' : 'manual ceiling'}`);
+  setProperty($('generationCapacityInline'), 'title', 'Prepared branches are fitted to measured device capacity before playback and remain fixed until a scene edit. Processing counts the actual Rust voices, including release tails; the graphic draws only those voices.');
+  setText($('recursionSummary'), `${type} · ${p.generations} ${p.lab ? 'iterations' : 'generations'}${p.curls ? ` · ${formatParameter('curls', p.curls)} curls` : ''}`);
+  setText($('mixSummary'), `${Math.round(state.performance.wet * 100)}% descendants · ${state.performance.dry ? `${Math.round(state.performance.dry * 100)}% root` : 'root muted'}`);
+  setText($('currentSettingsSummary'), `${p.generations} ${p.lab ? 'iterations' : 'gen'} · ${formatTimeFold(p.intervalMs)} root fold`);
+  setText($('generationKeyEnd'), `G${p.generations} DESCENDANT`);
   const sourceState = state.performance.frozen ? 'INPUT PAUSED' : inputActive ? mic ? 'MIC / LINE LIVE' : state.input.mode === 'file' ? 'FILE LIVE' : 'SAMPLE LIVE' : 'INPUT STOPPED';
-  $('stageReadout').textContent = `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${p.lab ? 'ITERATIONS' : 'GENERATIONS'}`;
-  $('generationTimingReadout').textContent = `${formatTimeFold(p.intervalMs)} → ${formatTimeFold(p.intervalMs * p.timeRatio)} → ${formatTimeFold(p.intervalMs * p.timeRatio ** 2)} … ${formatTimeFold(p.intervalMs * p.timeRatio ** p.generations)} at G${p.generations}`;
-  if (p.lab) $('generationTimingReadout').textContent = p.lab.kind === 'parametric'
+  setText($('stageReadout'), `${state.audio ? sourceState : 'AUDIO OFF'} · ${type.toUpperCase()} · ${p.generations} ${p.lab ? 'ITERATIONS' : 'GENERATIONS'}`);
+  const timingReadout = p.lab ? p.lab.kind === 'parametric'
     ? `${formatTimeFold(p.intervalMs)} base fold · ${Number((p.timeRatio * p.lab.delayRatio).toFixed(3))}× child duration`
-    : `${formatTimeFold(p.intervalMs)} base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`;
-  $('generationPitchReadout').textContent = `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`;
-  $('outputDevice').textContent = s.device || 'Default output'; $('inputDevice').textContent = mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample');
-  $('sampleRate').textContent = s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—';
-  $('activeVoices').textContent = s.activeVoices === undefined ? '—' : `${s.activeVoices.toLocaleString()} / ${(s.voiceLimit ?? state.performance.voiceCeiling).toLocaleString()}`;
-  $('requestedVoices').textContent = requested.toLocaleString(); $('eligibleVoices').textContent = Number(state.eligibleVoices).toLocaleString();
-  $('cpuLoad').textContent = Number.isFinite(s.cpuLoad) ? `${(s.cpuLoad * 100).toFixed(1)}%` : '—'; $('peakLoad').textContent = Number.isFinite(s.peakLoad) ? `${(s.peakLoad * 100).toFixed(1)}%` : '—';
-  $('streamMisses').textContent = `${s.underruns || 0} / ${s.deadlineMisses || 0}`; $('engineStatus').textContent = lastFailure || (state.audio ? 'Audio is running.' : 'Audio is off.');
-  audioStrip.update();
+    : `${formatTimeFold(p.intervalMs)} base fold · ${Number(p.lab.symbolRatio.toFixed(3))}× ${['penrose', 'sphinx'].includes(p.lab.kind) ? 'tile pitch contrast' : 'symbol duration ratio'}`
+    : `${formatTimeFold(p.intervalMs)} → ${formatTimeFold(p.intervalMs * p.timeRatio)} → ${formatTimeFold(p.intervalMs * p.timeRatio ** 2)} … ${formatTimeFold(p.intervalMs * p.timeRatio ** p.generations)} at G${p.generations}`;
+  setText('generationTimingReadout', timingReadout);
+  setText($('generationPitchReadout'), `${Number((-p.angle * (1 - p.asymmetry)).toFixed(1))}° → ${Number((-p.angle * (1 - p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave · ${Number((p.angle * (1 + p.asymmetry)).toFixed(1))}° → ${Number((p.angle * (1 + p.asymmetry) / 180 * p.pitchScale * 100).toFixed(1))}% octave`);
+  if ($('nativeSettings').open) {
+    setText($('outputDevice'), s.device || 'Default output'); setText($('inputDevice'), mic ? s.inputDevice || 'Default input' : state.input.label || (state.input.mode === 'file' ? 'Audio file' : 'Built-in sample'));
+    setText($('sampleRate'), s.sampleRate ? `${(s.sampleRate / 1000).toFixed(1)} kHz` : '—');
+    setText($('activeVoices'), s.activeVoices === undefined ? '—' : `${s.activeVoices.toLocaleString()} / ${(s.voiceLimit ?? state.performance.voiceCeiling).toLocaleString()}`);
+    setText($('requestedVoices'), requested.toLocaleString()); setText($('eligibleVoices'), Number(state.eligibleVoices).toLocaleString());
+    setText($('cpuLoad'), Number.isFinite(s.cpuLoad) ? `${(s.cpuLoad * 100).toFixed(1)}%` : '—'); setText($('peakLoad'), Number.isFinite(s.peakLoad) ? `${(s.peakLoad * 100).toFixed(1)}%` : '—');
+    setText($('streamMisses'), `${s.underruns || 0} / ${s.deadlineMisses || 0}`); setText($('engineStatus'), lastFailure || (state.audio ? 'Audio is running.' : 'Audio is off.'));
+  }
+  const audioLevel = $('level').value;
+  if (audioLevel !== paintedAudioLevel) { audioStrip.update(); paintedAudioLevel = audioLevel; }
+}
+
+function paintPerformancePanel() {
+  const s = state.status, now = performance.now(), live = state.audio && s.processedBlocks > 0;
+  const load = live && Number.isFinite(s.cpuLoad) ? s.cpuLoad : null;
+  const peak = live && Number.isFinite(s.peakLoad) ? s.peakLoad : null;
+  setText('performanceAudioLoad', load === null ? '—' : `${(load * 100).toFixed(1)}% · ${(Math.max(0, peak ?? load) * 100).toFixed(0)}% peak`);
+  const audioMeterValue = Math.max(0, Math.min(1, load ?? 0));
+  if ($('performanceAudioMeter').value !== audioMeterValue) $('performanceAudioMeter').value = audioMeterValue;
+  setAttribute('performancePanel', 'data-pressure', load > .85 ? 'high' : 'normal');
+  const gpu = gpuRenderer?.available, stats = gpuRenderer?.stats;
+  setText('performanceRenderer', gpu ? 'WebGL2' : 'Canvas');
+  const gpuTime = gpu && stats?.gpuTimeMs !== null && Number.isFinite(stats?.gpuTimeMs)
+    && now - stats.gpuTimeSampledAt < 2000 ? stats.gpuTimeMs : null;
+  setText('performanceGpuTime', gpuTime !== null ? `${gpuTime.toFixed(2)} ms` : gpu && stats?.gpuTimingSupported ? 'Measuring…' : 'Unavailable');
+  const freshDraw = now - lastDrawAt < 2000;
+  setText('performanceFrameTime', freshDraw ? `${visualCostMs.toFixed(2)} ms · ${Math.round(visualFps)} fps` : 'Idle');
+  const count = value => Math.max(0, Number(value) || 0).toLocaleString();
+  const decimal = state.requestedVoicesDecimal;
+  const exactRequested = decimal && /^\d+$/.test(decimal) ? decimal : null;
+  setText('performanceRequested', exactRequested ? exactRequested.length > 16
+    ? `≈${exactRequested[0]}.${exactRequested.slice(1, 5)} × 10^${exactRequested.length - 1}`
+    : exactRequested.replace(/\B(?=(\d{3})+(?!\d))/g, ',') : count(state.requestedVoices));
+  setProperty('performanceRequested', 'title', exactRequested || count(state.requestedVoices));
+  setText('performancePrepared', count(state.preparedVoices)); setText('performanceEligible', count(state.eligibleVoices));
+  setText('performanceProcessing', state.audio ? count(s.activeVoices) : '0');
+  setText('performanceLimit', state.audio ? `${count(s.voiceLimit)} · ${count(s.targetVoices)} target` : 'Audio off');
+  const measured = state.sceneMeasurement?.proved ? state.sceneMeasurement : state.deviceCapacity;
+  setText('performanceMeasured', measured ? `${count(measured.voices)}${state.sceneMeasurement?.proved ? ' tested' : ' initial'}` : 'Measuring…');
+  setText('performanceMisses', `${count(s.deadlineMisses)} deadlines missed`);
+  const range = $('capacityBudget'), exact = $('capacityBudgetExact');
+  setProperty(range, 'max', state.memoryVoiceCapacity); setProperty(exact, 'max', state.memoryVoiceCapacity);
+  setProperty(exact, 'title', `Current library/memory ceiling: ${count(state.memoryVoiceCapacity)} voices. Timing capability is measured by testing.`);
+  if (!capacityBudgetEdited) setProperty(range, 'value', Math.max(1, state.userCapacityBudget || state.deviceCapacity?.preparedCapacity || 1));
+  const budget = Number(range.value);
+  setText('capacityBudgetOut', count(budget)); setAttribute(range, 'aria-valuetext', `${count(budget)} voices to test`);
+  if (document.activeElement !== exact) setProperty(exact, 'value', budget);
+  const busy = state.capacityWorking || capacityTesting;
+  setProperty('testCapacity', 'disabled', !bootstrapped || sceneApplying || busy || parameterWorking || parameterDirty);
+  setAttribute('testCapacity', 'aria-busy', busy); setText('testCapacity', busy ? 'Testing…' : 'Test capacity');
+  setProperty(range, 'disabled', !bootstrapped || sceneApplying || busy); setProperty(exact, 'disabled', range.disabled);
+  setProperty('autoCapacity', 'hidden', !state.userCapacityBudget);
+  setProperty('autoCapacity', 'disabled', $('testCapacity').disabled);
+  const test = state.capacityTest;
+  const measurement = test || state.sceneMeasurement;
+  const testCost = measurement && Number.isFinite(measurement.load) ? `${count(measurement.voices)} tested voices at ${(measurement.load * 100).toFixed(1)}% audio budget` : '';
+  const message = busy ? 'Measuring a warm scene while the current audio keeps playing…'
+    : state.capacityFailure ? `${state.capacityFailure}${testCost ? ` ${testCost}.` : ''}`
+      : (measurement ? `${test?.accepted === false ? 'Retained current tree' : 'Applied'} · ${testCost || `${count(measurement.voices)} tested voices`}.`
+      : 'Choose a budget, then test. Audio keeps playing during preparation.');
+  setText('performanceCapacityStatus', message);
+  const knob = parameterKnobs.get('capacityBudget');
+  const key = [range.value, range.max, range.disabled, range.getAttribute('aria-valuetext')].join('|');
+  if (knob && paintedKnobs.get('capacityBudget') !== key) { knob.update(); paintedKnobs.set('capacityBudget', key); }
 }
 
 function buildGeometry() {
@@ -733,9 +866,13 @@ function buildGeometry() {
   // The worker has already fitted topology preparation to measured capacity.
   // Never construct the requested exponential tree as a temporary UI fallback.
   const nodes = nativePreview?.nodes ?? [];
+  // Resize replaces geometry, including the GPU's uniform timing basis. A
+  // deferred live fold must be materialized before that basis is rebuilt.
+  applyPreviewTimeFold(nodes, previewParameters.intervalMs);
   const desiredFit = fitTransform(nativePreview?.bounds ?? topologyBounds(nodes), width, height);
   const byId = new Map(nodes.map(n => [n.id, n]));
   geometry = { width, height, dpr, nodes, byId, waves: new Map(), root: nodes.find(n => n.generation === 0), desiredFit, fit: lockedFit ? { ...lockedFit } : desiredFit,
+    canvasTimeFold: previewParameters.intervalMs,
     activeLimit: -1, active: [], activeIds: new Set(), unavailableKey: null, drawSelection: createPreviewDrawSelection(nodes) };
   gpuRenderer?.setGeometry(nodes, { intervalMs: previewParameters.intervalMs, drawNodes: geometry.drawSelection.select({ audio: state.audio,
     limit: state.status.voiceLimit, levels: tapLevels, depth: previewParameters.depth, activeVoiceIndices: state.status.activeVoiceIndices,
@@ -759,6 +896,9 @@ function draw(now) {
   const budget = visualBudget(state.status.cpuLoad, state.status.peakLoad,
     Boolean(drag || rangeGesture || nativePreviewMoving), state.audio, visualCostMs);
   if (now - lastDrawAt < 1000 / budget.fps - 1) { scheduleDraw(); return; }
+  if (Number.isFinite(lastDrawAt) && now - lastDrawAt > 0 && now - lastDrawAt < 1000) {
+    const fps = 1000 / (now - lastDrawAt); visualFps = visualFps ? visualFps + (fps - visualFps) * .15 : fps;
+  }
   lastDrawAt = now;
   const drawStarted = performance.now();
   if (nativePreviewMoving) {
@@ -772,6 +912,7 @@ function draw(now) {
   const rebuilding = !geometry;
   if (rebuilding) buildGeometry();
   const { width, height, nodes, desiredFit } = geometry;
+  if (!gpuRenderer?.available && geometry.canvasTimeFold !== previewParameters.intervalMs) materializeVisualTimeFold(previewParameters.intervalMs);
   const dpr = state.audio ? Math.min(geometry.dpr, budget.pressure === 2 ? 1 : budget.pressure === 1 ? 1.5 : 2) : geometry.dpr;
   const pixelWidth = Math.round(width * dpr), pixelHeight = Math.round(height * dpr);
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) { canvas.width = pixelWidth; canvas.height = pixelHeight; }
@@ -893,6 +1034,9 @@ function draw(now) {
   if (now < manualFlashUntil) { context.strokeStyle = COLORS[0]; context.globalAlpha = (manualFlashUntil - now) / 240; context.beginPath(); context.arc(root.x, root.y, seedSize / 2 + 5, 0, Math.PI * 2); context.stroke(); context.globalAlpha = 1; }
   const cost = Math.max(0, performance.now() - drawStarted);
   visualCostMs += (cost - visualCostMs) * .15;
+  // Rendering consumes the latest audio state first; a later task coalesces
+  // ordinary UI/data paints without making the audio or tree wait for them.
+  queueControlsPaint();
   if (state.audio || tapLevels.size || rootLevel > 0 || drag || nativePreviewMoving || fitMoving || (lockedFit && now <= gestureUntil) || now < manualFlashUntil) scheduleDraw();
 }
 
@@ -948,6 +1092,25 @@ for (const [key, id] of Object.entries(CONTROL_IDS)) {
   const release = event => releaseRangeGesture(event, input);
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture', 'blur']) input.addEventListener(type, release);
 }
+function selectableChoices(id) {
+  return [...$(id).options].filter(option => !option.disabled && !option.hidden
+    && !(option.parentElement?.tagName === 'OPTGROUP' && (option.parentElement.disabled || option.parentElement.hidden)));
+}
+function paintNextChoice(buttonId, selectId) {
+  setProperty($(buttonId), 'disabled', !bootstrapped || sceneApplying || $(selectId).disabled || selectableChoices(selectId).length < 2);
+}
+function advanceChoice(id) {
+  const select = $(id);
+  if (disposed || !bootstrapped || sceneApplying || select.disabled) return;
+  const options = selectableChoices(id);
+  if (options.length < 2) return;
+  const index = options.findIndex(option => option.value === select.value);
+  select.value = options[(index + 1) % options.length].value;
+  select.dispatchEvent(new Event('input', { bubbles: true }));
+  select.dispatchEvent(new Event('change', { bubbles: true }));
+}
+$('nextInputSample').addEventListener('click', () => advanceChoice('inputSample'));
+$('nextLSystemType').addEventListener('click', () => advanceChoice('lSystemType'));
 $('lSystemType').addEventListener('change', () => {
   if (sceneApplying) return;
   cancelParameterGestures();
@@ -961,25 +1124,25 @@ function updateLab(key, value, immediate = false) {
   parameterRevision++; startPreview(); scheduleParameters(immediate); paintControls(); presetController?.refresh();
 }
 function paintLabControls() {
-  if ($('labRuleControls')) $('labRuleControls').hidden = !state.parameters.lab;
+  if ($('labRuleControls')) setProperty($('labRuleControls'), 'hidden', !state.parameters.lab);
   if (!state.parameters.lab) return;
   const lab = state.parameters.lab;
-  if ($('labKind')) $('labKind').value = lab.kind;
+  if ($('labKind')) setProperty($('labKind'), 'value', lab.kind);
   for (const [key, id] of Object.entries(LAB_CONTROL_IDS)) {
     const input = $(id); if (!input) continue;
     const value = lab[key], text = key === 'angleIncrement' ? `${Number(value.toFixed(1))}°` : key === 'branchCount' ? String(value)
       : key === 'contextStrength' || key === 'minLength' ? `${Number((value * 100).toFixed(1))}%` : `${Number(value.toFixed(3))}×`;
-    input.value = value; $(`${id}Out`).textContent = text; input.setAttribute('aria-valuetext', text);
-    input.closest('label').hidden = key === 'contextStrength' ? lab.kind !== 'context'
-      : key === 'symbolRatio' ? lab.kind === 'parametric' : lab.kind !== 'parametric';
+    setProperty(input, 'value', value); setText(`${id}Out`, text); setAttribute(input, 'aria-valuetext', text);
+    setProperty(input.closest('label'), 'hidden', key === 'contextStrength' ? lab.kind !== 'context'
+      : key === 'symbolRatio' ? lab.kind === 'parametric' : lab.kind !== 'parametric');
   }
-  if ($('labSymbolRatio')) $('labSymbolRatio').closest('label').querySelector('b').textContent = ['penrose', 'sphinx'].includes(lab.kind) ? 'Tile pitch contrast' : 'Symbol ratio';
+  if ($('labSymbolRatio')) setText($('labSymbolRatio').closest('label').querySelector('b'), ['penrose', 'sphinx'].includes(lab.kind) ? 'Tile pitch contrast' : 'Symbol ratio');
   if ($('labRulesTitle')) $('labRulesTitle').textContent = lab.kind === 'parametric' ? 'Numeric rules' : 'Rule experiment';
   const help = $('labRuleHelp');
-  if (help) help.textContent = lab.kind === 'parametric' ? 'Numeric modules carry child length, turn, delay and pitch. A branch ends when its length falls below Stopping length.'
+  if (help) setText(help, lab.kind === 'parametric' ? 'Numeric modules carry child length, turn, delay and pitch. A branch ends when its length falls below Stopping length.'
     : lab.kind === 'context' ? 'Parallel replacements use neighboring symbols. Neighbor influence changes the length and duration carried by each resulting module.'
     : lab.kind === 'thue-morse' || lab.kind === 'fibonacci' ? 'Symbols A and B form a rewritten sequence. Symbol ratio changes their lengths and delay contributions.'
-      : 'The tiling is drawn through its unique edges. Symbol ratio changes the pitch contrast between tile types and orientations.';
+      : 'The tiling is drawn through its unique edges. Symbol ratio changes the pitch contrast between tile types and orientations.');
 }
 for (const [key, id] of Object.entries(LAB_CONTROL_IDS)) {
   if (!$(id)) continue;
@@ -1014,13 +1177,35 @@ for (const key of MASTERING_IDS) {
 }
 // The input/output strips already own their header knobs. Enhance the existing
 // panel controls only, preserving their IDs, native bounds and live listeners.
-for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry', 'voiceCeiling', ...MASTERING_IDS]) {
+for (const id of [...Object.values(CONTROL_IDS), ...labControlIds, 'wet', 'dry', 'voiceCeiling', 'capacityBudget', ...MASTERING_IDS]) {
   const input = $(id);
   if (input.type !== 'range') continue;
-  const knob = enhanceRangeKnob(input, id === 'voiceCeiling' ? { scale: 'log' } : {});
+  const knob = enhanceRangeKnob(input, ['voiceCeiling', 'capacityBudget'].includes(id) ? { scale: 'log' } : {});
   parameterKnobs.set(id, knob);
   $(id).addEventListener('blur', () => knob.cancelGesture());
 }
+$('capacityBudget').addEventListener('input', () => { capacityBudgetEdited = true; paintControls(); });
+$('capacityBudgetExact').addEventListener('change', () => {
+  const value = $('capacityBudgetExact').valueAsNumber, range = $('capacityBudget');
+  if (Number.isSafeInteger(value) && value > 0) {
+    range.value = String(Math.min(value, Number(range.max))); capacityBudgetEdited = true;
+  }
+  paintControls();
+});
+async function testCapacity(reset = false) {
+  if (!bootstrapped || sceneApplying || capacityTesting || state.capacityWorking) return;
+  const voices = Number($('capacityBudget').value);
+  capacityTesting = true; cancelParameterGestures(); paintControls();
+  try {
+    await Promise.allSettled([depthRequest, foldRequest, performanceRequest].filter(Boolean));
+    acceptStatus(await request('/api/capacity', reset ? { reset: true } : { voices }));
+    if (reset) capacityBudgetEdited = false;
+    await refreshNativePreview();
+  } catch (error) { showError(error.message); }
+  finally { capacityTesting = false; paintControls(); }
+}
+$('testCapacity').addEventListener('click', () => void testCapacity());
+$('autoCapacity').addEventListener('click', () => void testCapacity(true));
 {
   const label = document.createElement('label');
   label.htmlFor = 'voiceCeilingExact'; label.textContent = 'Exact voice cap (0 = no cap)';
@@ -1064,6 +1249,10 @@ $('restartInput').addEventListener('click', () => void changeInput(() => browser
 $('stopInput').addEventListener('click', () => void changeInput(() => browserEngine.stopInput()));
 inputStrip.button.addEventListener('click', () => void toggleMicrophone());
 $('automatic').addEventListener('change', () => updatePerformance('automatic', $('automatic').checked, true, false));
+$('capacityTests').addEventListener('toggle', () => {
+  if (!$('capacityTests').open) parameterKnobs.get('capacityBudget')?.cancelGesture();
+  paintControls();
+});
 $('panicButton').addEventListener('click', () => void toggleAudio(false));
 $('freezeButton').addEventListener('click', () => void toggleAudio(false));
 document.querySelector('[data-reset-all]').addEventListener('click', resetAll);
@@ -1131,6 +1320,9 @@ function placeInput() {
     $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.inputPlacement = 'header';
     if (inputRow && presetsRow) { inputRow.before(presetsRow); inputRow.remove(); inputRow = null; }
   }
+  // The shared preset mount keeps its global first-row contract. This owner
+  // explicitly puts the requested performance monitor above that row.
+  if (presetsRow) (inputRow || presetsRow).before($('performancePanel'));
   inputStrip.repositionError(); lockedFit = null; geometry = null; scheduleDraw();
 }
 mobile.addEventListener('change', placeInput);
@@ -1195,10 +1387,11 @@ document.addEventListener('visibilitychange', () => { if (document.hidden) muteF
 addEventListener('pagehide', event => {
   muteForDeparture();
   if (event.persisted) return;
-  disposed = true; clearTimeout(pollTimer); cancelAnimationFrame(frameId); resizeObserver.disconnect(); mobile.removeEventListener('change', placeInput);
+  disposed = true; clearTimeout(pollTimer); clearTimeout(controlsTimer); cancelAnimationFrame(frameId); resizeObserver.disconnect(); mobile.removeEventListener('change', placeInput);
   gpuRenderer?.dispose(); browserEngine.dispose();
   midiManager.disable(); midiAdapter?.dispose(); unsubscribeMidiStatus(); unsubscribeMidiMessages(); clearTimeout(midiActivityTimer); midiStatus.destroy();
   foldTap.destroy(); for (const picker of inputChoices.values()) picker.destroy(); inputStrip.destroy(); audioStrip.destroy(); presetController?.destroy();
   for (const knob of parameterKnobs.values()) knob.destroy(); parameterKnobs.clear();
 });
+$('nativeSettings').addEventListener('toggle', paintControls);
 paintControls(); scheduleDraw(); void bootstrap(); void poll();
