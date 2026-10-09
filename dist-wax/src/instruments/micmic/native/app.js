@@ -1243,8 +1243,8 @@ $('restartInput').addEventListener('click', () => void changeInput(() => browser
 $('stopInput').addEventListener('click', () => void changeInput(() => browserEngine.stopInput()));
 inputStrip.button.addEventListener('click', () => void toggleMicrophone());
 $('automatic').addEventListener('change', () => updatePerformance('automatic', $('automatic').checked, true, false));
-$('capacityTests').addEventListener('toggle', () => {
-  if (!$('capacityTests').open) parameterKnobs.get('capacityBudget')?.cancelGesture();
+for (const id of ['liveData', 'capacityTests']) $(id).addEventListener('toggle', () => {
+  if (!$(id).open) parameterKnobs.get('capacityBudget')?.cancelGesture();
   paintControls();
 });
 $('panicButton').addEventListener('click', () => void toggleAudio(false));

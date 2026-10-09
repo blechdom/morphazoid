@@ -169,9 +169,10 @@ A larger budget cannot invent more branches than the current rule requests.
 Turn **Voice budget** or edit its number directly beneath the knob, then press
 **Test capacity**. The dial and editable value are one control. Enter or leaving
 the number commits the draft; Escape restores the previous value.
-These controls, protection options and test results sit inside **Capacity tests**,
-a caret disclosure that starts closed. Live meters, voice counts and deadline
-misses remain visible. Closing it preserves the chosen budget and any running test.
+**Live data** starts closed and contains the live meters, voice counts, deadline
+misses and **Capacity tests** disclosure. **Live cap** remains visible beside its
+caret, with its editable value directly beneath the dial. Both disclosures
+preserve the chosen budget and any running test when closed.
 Turning the knob alone does not rebuild or interrupt the playing tree. The
 worker measures the requested scene with fully populated delay history while
 the existing audio source continues. With **Protect audio** enabled, a candidate
@@ -180,7 +181,7 @@ a declined test retains the current pool and reports its measured cost. This
 explicit test can retry a scene after overload, rather than waiting for
 background growth. The requested budget carries across preset changes, which
 revalidate each different workload. Small scenes prove only their actual voices
-and retain earlier safe fallback capacity. **Live cap**, beside **Live limit**,
+and retain earlier safe fallback capacity. **Live cap**, beside **Live data**,
 changes how many prepared voices can run; 0 means **All available**. It changes
 existing voice admission smoothly without rebuilding the tree or restarting
 input. Audio protection still applies. To prepare a larger pool or revalidate a

@@ -339,7 +339,9 @@ const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSample
   contexts: __deviceRuntime.contexts.length,
   worklets: __deviceRuntime.worklets.length, sources: structuredClone(__deviceRuntime.sources), microphoneRequests: __deviceRuntime.microphoneRequests }));
 async function native(page, id, value) {
-  if (['capacityBudget', 'automatic'].includes(id)) {
+  if (['capacityBudget', 'capacityBudgetExact', 'automatic'].includes(id)) {
+    const liveData = page.locator('#liveData');
+    if (!await liveData.evaluate(details => details.open)) await liveData.locator(':scope > summary').click();
     const disclosure = page.locator('#capacityTests');
     if (!await disclosure.evaluate(details => details.open)) await disclosure.locator('summary').click();
   }
@@ -587,12 +589,34 @@ test('the performance panel precedes presets and explicit capacity testing stays
       await page.setViewportSize(viewport);
       await page.locator('.panel').evaluate(panel => panel.scrollTop = 0);
       await expect(page.locator('#performancePanel')).toBeVisible();
+      const liveData = page.locator('#liveData'), liveSummary = page.locator('#performanceTitle');
+      await expect(liveSummary).toHaveText('Live data');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await expect(page.locator('#voiceCeiling')).toBeVisible();
+      await expect(page.locator('#voiceCeilingExact')).toBeVisible();
+      expect(await page.locator('#voiceCeiling').evaluate(input => !input.closest('#liveData'))).toBe(true);
+      expect(await page.locator('#voiceCeilingExact').evaluate(input => !input.closest('#liveData'))).toBe(true);
       const disclosure = page.locator('#capacityTests'), summary = disclosure.locator('summary');
       await expect(disclosure).toHaveJSProperty('open', false);
       await expect(page.locator('#testCapacity')).not.toBeVisible();
-      await expect(page.locator('#performanceMisses')).toBeVisible();
+      await expect(page.locator('#performanceMisses')).not.toBeVisible();
+      await expect(page.locator('#performanceAudioLoad')).not.toBeVisible();
+      const initiallyFolded = await diagnostics(page);
+      await page.locator('#voiceCeilingExact').fill('7'); await page.locator('#voiceCeilingExact').press('Enter');
+      await expect.poll(async () => (await diagnostics(page)).performance.voiceCeiling).toBe(7);
+      await expect(page.locator('#voiceCeiling')).toHaveValue('7');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await page.locator('#voiceCeilingExact').fill('0'); await page.locator('#voiceCeilingExact').press('Enter');
+      await expect.poll(async () => (await diagnostics(page)).performance.voiceCeiling).toBe(0);
+      expect((await diagnostics(page)).parameters).toEqual(initiallyFolded.parameters);
+      expect((await diagnostics(page)).performance).toEqual(initiallyFolded.performance);
+      expect(await session(page)).toMatchObject({ contexts: 0, worklets: 0, microphoneRequests: 0, sources: [] });
       const foldedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
       const beforeDisclosure = await diagnostics(page);
+      await liveSummary.focus(); await liveSummary.press('Enter');
+      await expect(liveData).toHaveJSProperty('open', true);
+      await expect(page.locator('#performanceMisses')).toBeVisible();
+      await expect(page.locator('#performanceAudioLoad')).toBeVisible();
       await summary.focus(); await summary.press('Enter');
       await expect(disclosure).toHaveJSProperty('open', true);
       await expect(page.locator('#capacityBudget')).toBeEnabled();
@@ -649,6 +673,11 @@ test('the performance panel precedes presets and explicit capacity testing stays
       await summary.focus(); await summary.press('Space');
       await expect(disclosure).toHaveJSProperty('open', false);
       await expect(page.locator('#capacityBudget')).not.toBeVisible();
+      await liveSummary.focus(); await liveSummary.press('Space');
+      await expect(liveData).toHaveJSProperty('open', false);
+      await expect(page.locator('#performanceMisses')).not.toBeVisible();
+      await expect(page.locator('#voiceCeiling')).toBeVisible();
+      await expect(page.locator('#voiceCeilingExact')).toBeVisible();
       expect(await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height)).toBeLessThan(expandedHeight);
       const afterDisclosure = await diagnostics(page);
       expect(afterDisclosure.parameters).toEqual(beforeDisclosure.parameters);
@@ -687,6 +716,9 @@ test('grouped voice editors keep numeric drafts separate and Live cap changes on
   const coldClock = (await session(page)).time;
   await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(coldClock + 2);
   await settledControls(page); await completeDraw(page);
+  const liveData = page.locator('#liveData'), liveSummary = page.locator('#performanceTitle');
+  await expect(liveData).toHaveJSProperty('open', false);
+  await liveSummary.click(); await expect(liveData).toHaveJSProperty('open', true);
   const disclosure = page.locator('#capacityTests');
   await disclosure.locator('summary').click(); await expect(disclosure).toHaveJSProperty('open', true);
   const budget = page.locator('#capacityBudget'), budgetEditor = page.locator('#capacityBudgetExact');
@@ -740,6 +772,11 @@ test('grouped voice editors keep numeric drafts separate and Live cap changes on
     expect(preparedCounts.worker).toBe(initialCounts.worker + 1); expect(preparedCounts.install).toBe(initialCounts.install + 1);
     const baseline = { preparedVoices: prepared.preparedVoices, topologyRevision: prepared.topologyRevision,
       counts: preparedCounts, historyEnd: prepared.status.inputEnvelope.endTime };
+    await liveSummary.focus(); await liveSummary.press('Space');
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(cap).toBeVisible(); await expect(capEditor).toBeVisible();
+    await expect(budgetEditor).not.toBeVisible();
+    expect(await controlCounts(page)).toEqual(preparedCounts);
     await capEditor.fill('16');
     const capDraftClock = (await session(page)).time;
     await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(capDraftClock + 1.5);
@@ -765,6 +802,18 @@ test('grouped voice editors keep numeric drafts separate and Live cap changes on
     await expect(cap).toHaveValue('0');
     await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(64);
     await noSceneOrSourceChurn(baseline, 0);
+    const foldedCounts = await controlCounts(page), foldedHistory = (await diagnostics(page)).status.inputEnvelope.endTime;
+    await liveSummary.focus(); await liveSummary.press('Enter');
+    await expect(liveData).toHaveJSProperty('open', true);
+    await expect(disclosure).toHaveJSProperty('open', true);
+    await expect(budget).toHaveValue('64'); await expect(budgetEditor).toHaveValue('64');
+    expect(await controlCounts(page)).toEqual(foldedCounts);
+    expect((await diagnostics(page)).status.inputEnvelope.endTime).toBeGreaterThanOrEqual(foldedHistory);
+    await expect.poll(async () => {
+      const p = await performancePanelSnapshot(page);
+      return p.prepared === 64 && p.processing === p.diagnostics.status.activeVoices
+        && p.limit === p.diagnostics.status.voiceLimit;
+    }).toBe(true);
     await cap.press('ArrowUp');
     await expect(cap).toHaveValue('1');
     await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(1);
@@ -772,6 +821,10 @@ test('grouped voice editors keep numeric drafts separate and Live cap changes on
     await capEditor.fill('16'); await capEditor.press('Enter');
     await expect.poll(async () => (await diagnostics(page)).status.targetVoices).toBe(16);
     await noSceneOrSourceChurn(baseline, 16);
+    const beforeRefoldCounts = await controlCounts(page);
+    await liveSummary.focus(); await liveSummary.press('Space');
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(capEditor).toBeVisible(); expect(await controlCounts(page)).toEqual(beforeRefoldCounts);
     const picker = page.locator('.instrument-preset-controls');
     await picker.locator('summary').click();
     await picker.locator('button[data-full-preset][data-preset-id="pythagorean"]').click();
@@ -787,6 +840,8 @@ test('grouped voice editors keep numeric drafts separate and Live cap changes on
     await capEditor.fill('0'); await capEditor.press('Enter');
     await expect.poll(async () => (await diagnostics(page)).status.activeVoices).toBe(64);
     await noSceneOrSourceChurn(presetBaseline, 0);
+    await expect(liveData).toHaveJSProperty('open', false);
+    await expect(cap).toBeVisible(); await expect(capEditor).toHaveValue('0');
     await completeDraw(page);
     const finalClock = (await session(page)).time;
     await expect.poll(async () => (await session(page)).time, { timeout: 15000 }).toBeGreaterThan(finalClock + 2);
