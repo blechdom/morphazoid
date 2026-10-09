@@ -48,7 +48,7 @@ body.quadruped-page {
   border-left: 1px solid var(--line); scrollbar-width: thin;
   scrollbar-color: var(--faint) transparent;
 }
-.quadruped-console > section, .quadruped-notes { padding: 12px 20px; }
+.quadruped-console > section { padding: 12px 20px; }
 .quadruped-console button:not(.instrument-picker-next), .quadruped-sequence-actions button {
   min-height: 32px; padding: 6px 9px; border: 1px solid var(--line-strong);
   border-radius: 0; color: var(--ink); background: var(--bg-deep);
@@ -63,12 +63,15 @@ body.quadruped-page {
 }
 .quadruped-play-glyph { display: block; width: 0; height: 0; margin-left: 3px; border-top: 8px solid transparent; border-bottom: 8px solid transparent; border-left: 12px solid currentColor; }
 .quadruped-play[aria-pressed="true"] .quadruped-play-glyph { width: 12px; height: 16px; margin: 0; border: 0; border-right: 4px solid currentColor; border-left: 4px solid currentColor; }
-.quadruped-transport-card { display: grid; grid-template-columns: 48px minmax(0, 1fr) 40px; gap: 10px; align-items: center; }
+.quadruped-transport-card { display: grid; grid-template-columns: 48px minmax(45px, 1fr) auto 36px; gap: 8px; align-items: center; }
 .quadruped-play-state { font-size: 10px; color: var(--muted); }
 .quadruped-restart { min-width: 40px; min-height: 40px; }
 .quadruped-transport-hint { grid-column: 1 / -1; margin: 0; color: var(--accent); font-size: 10px; }
-.quadruped-transport-card > .mz-tap-tempo-field { grid-column: 1 / -1; }
-.quadruped-tempo { grid-column: 1 / -1; display: grid; gap: 4px; min-width: 0; }
+.quadruped-transport-card > .mz-tap-tempo-field { grid-column: 3; grid-row: 1; width: auto; }
+.quadruped-transport-card > .quadruped-play { grid-column: 1; grid-row: 1; }
+.quadruped-play-state { grid-column: 2; grid-row: 1; }
+.quadruped-restart { grid-column: 4; grid-row: 1; min-width: 36px; }
+.quadruped-tempo { grid-column: 3; grid-row: 1; display: grid; gap: 4px; min-width: 0; }
 .quadruped-tempo > span, .quadruped-control > span:first-child { display: flex; justify-content: space-between; gap: 6px; font-size: 10px; }
 .quadruped-tempo b, .quadruped-control b { font-weight: 500; color: var(--muted); }
 .quadruped-tempo output, .quadruped-control output { color: var(--accent); font-variant-numeric: tabular-nums; }
@@ -93,10 +96,7 @@ body.quadruped-page {
 .quadruped-control-group summary b { font-weight: 500; }
 .quadruped-control-group summary output { color: var(--muted); font-size: 9px; }
 .quadruped-control-body { padding: 0 20px 16px; }
-#newGrainButton { align-self: end; }
-.quadruped-notes { color: var(--muted); font-size: 10px; line-height: 1.6; }
-.quadruped-notes summary { color: var(--accent); cursor: pointer; }
-.quadruped-notes a { color: var(--accent); }
+#newGrainButton { grid-column: 1 / -1; justify-self: end; }
 .quadruped-audio-error { margin: 10px 20px; padding: 10px; border: 1px solid #ff7e8a; color: #ffb5be; font-size: 11px; }
 .quadruped-console .quadruped-reset { display: block; width: calc(100% - 40px); margin: 4px 20px; }
 .quadruped-page :is(button, input, select, summary):focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -287,7 +287,7 @@ body.quadruped-page {
 }
 @media (max-width: 760px) {
   .quadruped-grid-row { grid-template-columns: 84px repeat(16, 46px); }
-  .quadruped-console > section, .quadruped-notes { padding-left: 16px; padding-right: 16px; }
+  .quadruped-console > section { padding-left: 16px; padding-right: 16px; }
   .quadruped-card-header { padding: 10px; }
 }
 @media (max-height: 480px) and (orientation: landscape) {
@@ -318,3 +318,31 @@ body.quadruped-page {
 .quadruped-animal-handle[hidden] { display: none; }
 .quadruped-animal-handle:active { cursor: grabbing; }
 .quadruped-animal-handle:focus-visible { outline: 2px dashed var(--accent); outline-offset: 4px; }
+
+/* Compact instrument-owned labels around the shared native-range knobs. */
+.quadruped-console .quadruped-knob {
+  width: 100%; min-width: 64px; height: 70px; gap: 0;
+}
+.quadruped-console .quadruped-knob > span:not(.mz-range-knob__dial) {
+  inset: 0; display: flex; flex-direction: column; align-items: center;
+  justify-content: space-between; gap: 0; font: 9px var(--mono);
+}
+.quadruped-console .quadruped-knob > span > b {
+  position: static; width: auto; height: auto; overflow: visible;
+  clip-path: none; white-space: nowrap; font-weight: 500;
+}
+.quadruped-knob .mz-range-knob__dial { top: 21px; width: 30px; height: 30px; }
+.quadruped-knob output { white-space: nowrap; }
+.quadruped-console .quadruped-tempo { width: 78px; min-width: 78px; }
+.quadruped-console .quadruped-tempo output { font-size: 8px; }
+.quadruped-knob-bank { grid-column: 1 / -1; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px 8px; }
+.quadruped-choice > label { color: var(--muted); font: 10px var(--mono); }
+.quadruped-choice > label b { font-weight: 500; }
+.quadruped-select-row { display: flex; align-items: stretch; min-width: 0; gap: 4px; }
+.quadruped-select-row .select-shell { flex: 1; min-width: 0; }
+.quadruped-console .quadruped-select-row [data-next-select] { flex: 0 0 28px; min-width: 28px; padding: 0; font-size: 18px; }
+@media (pointer: coarse) {
+  .quadruped-console .quadruped-select-row [data-next-select] { flex-basis: 44px; min-width: 44px; }
+  .quadruped-console .quadruped-knob { min-height: 74px; }
+  .quadruped-knob .mz-range-knob__dial { width: 34px; height: 34px; }
+}

@@ -7,7 +7,9 @@ const capture = page => page.evaluate(async () => {
 });
 
 test("Quadruped full recall and dice start Play while retaining Audio and level", async ({ page }) => {
-  test.setTimeout(60_000);
+  // The full bank plus twenty live randomizations can exceed a minute while
+  // the repository's audio checks run concurrently on a shared machine.
+  test.setTimeout(120_000);
   const errors = [];
   page.on("pageerror", error => errors.push(error.message));
   page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });

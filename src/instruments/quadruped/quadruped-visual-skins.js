@@ -1,4 +1,5 @@
 import { QUADRUPED_LANES, QUADRUPED_STEP_COUNT, quadrupedAnimal, solveQuadrupedLimbChain } from "./quadruped.js";
+import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 
 export const QUADRUPED_VISUAL_SKINS = Object.freeze([
   Object.freeze({ id: "animal", label: "Original" }),
@@ -70,6 +71,17 @@ export function deriveQuadrupedVisualRig(pose, width, height, groundY, score, { 
     : [[-0.56, -0.32], [-0.23, -0.64], [0.23, -0.6], [0.59, -0.13], [0.67, 0.22], [0.29, 0.51], [-0.33, 0.38]];
   if (["amphibian", "lizard"].includes(m.family)) skull = [[-0.66, -0.17], [-0.37, -0.47], [0.24, -0.39], [0.78, -0.04], [0.67, 0.25], [-0.35, 0.3]];
   if (m.family === "rodent") skull = [[-0.54, -0.25], [-0.05, -0.5], [0.93, 0.22], [0.12, 0.47], [-0.46, 0.32]];
+  const profile = quadrupedProfileMouth(m.family, performance.strength);
+  const toHead = p => headPoint(p.x, p.y);
+  const mouth = {
+    strength: profile.strength, angle: profile.angle,
+    ...Object.fromEntries(["hinge", "upperLip", "lowerLip", "chin", "back"].map(key => [key, toHead(profile[key])])),
+    opening: profile.opening.map(toHead), jaw: profile.jaw.map(toHead),
+  };
+  // Split only the painted face at its profile slit. The original skull remains
+  // available to the gesture hit rig, independent of the voice's opening.
+  const foreheadCount = m.family === "rodent" ? 3 : longFace || ["amphibian", "lizard"].includes(m.family) ? 4 : 5;
+  const upperSkull = [...skull.slice(0, foreheadCount).map(([x, y]) => headPoint(x, y)), mouth.upperLip, mouth.hinge, headPoint(...skull[skull.length - 1])];
   const features = [];
   const feature = (points, kind = "ear") => features.push({ kind, points: points.map(([x, y]) => headPoint(x, y)) });
   if (m.family === "elephant") {
@@ -97,7 +109,7 @@ export function deriveQuadrupedVisualRig(pose, width, height, groundY, score, { 
     return point(tailRoot.x - scale * m.tailLength * t, tailRoot.y + scale * (Math.sin(pose.tailAngle + t * 2.1) * 0.2 * t + t * 0.06));
   });
   const humps = m.family === "camel" ? [-0.23, 0.22].map(x => [[x - 0.21, -0.3], [x - 0.09, -0.95], [x + 0.08, -0.96], [x + 0.23, -0.3]].map(([px, py]) => bodyPoint(px * bodyWidth, py * bodyHeight))) : [];
-  return { skinId: score.visualSkinId ?? "animal", animal, morphology: m, scale, center, rotation, bodyWidth, bodyHeight, body, bodyPoint, head, headPoint, skull: skull.map(([x, y]) => headPoint(x, y)), headRotation, neck, legs, tail, features, humps, pose };
+  return { skinId: score.visualSkinId ?? "animal", animal, morphology: m, scale, center, rotation, bodyWidth, bodyHeight, body, bodyPoint, head, headPoint, skull: skull.map(([x, y]) => headPoint(x, y)), upperSkull, mouth, headRotation, neck, legs, tail, features, humps, pose };
 }
 
 function path(context, points, close = false) {
@@ -222,15 +234,28 @@ function drawSkeleton(context, rig) {
     path(context, f.points, true); context.fillStyle = "#f4e7c615"; context.fill(); context.strokeStyle = "#b6ac9470"; context.lineWidth = Math.max(1, s * 0.012); context.stroke();
   }
   rig.legs.filter(l => !l.far).forEach(drawLeg);
-  path(context, rig.skull, true); context.fillStyle = ivory; context.fill();
+  path(context, rig.upperSkull, true); context.fillStyle = ivory; context.fill();
+  path(context, rig.mouth.jaw, true); context.fillStyle = ivory; context.fill();
+  stroke(context, [rig.mouth.lowerLip, rig.mouth.chin, rig.mouth.back, rig.mouth.hinge], shade, Math.max(0.8, s * 0.01));
   for (const f of rig.features.filter(f => !["ear", "frill"].includes(f.kind))) {
     path(context, f.points, true); context.fillStyle = f.kind === "trunk" ? "#b6ac9455" : ivory; context.fill(); context.strokeStyle = shade; context.lineWidth = Math.max(1, s * 0.012); context.stroke();
   }
   const eye = rig.headPoint(m.family === "amphibian" ? 0.23 : 0.05, -0.2);
   dot(context, eye, s * m.headScale * 0.145, joint);
   dot(context, rig.headPoint(0.5, 0.12), s * m.headScale * 0.064, joint);
-  stroke(context, [rig.headPoint(-0.06, 0.26), rig.headPoint(0.62, 0.3)], joint, Math.max(1, s * 0.013));
-  for (let tooth = 0; tooth < 5; tooth++) stroke(context, [rig.headPoint(0.05 + tooth * 0.1, 0.23), rig.headPoint(0.05 + tooth * 0.1, 0.38)], joint, Math.max(0.8, s * 0.008));
+  path(context, rig.mouth.opening, true); context.fillStyle = joint; context.fill();
+  stroke(context, rig.mouth.opening, joint, Math.max(0.8, s * 0.01), true);
+  // Teeth follow each rigid jaw edge, with the lower row rotating at the cheek.
+  for (const [lip, direction] of [[rig.mouth.upperLip, 1], [rig.mouth.lowerLip, -1]]) {
+    const a = rig.mouth.hinge, dx = lip.x - a.x, dy = lip.y - a.y;
+    for (let tooth = 0; tooth < 5; tooth++) {
+      const t = 0.34 + tooth * 0.13, root = between(a, lip, t);
+      const tip = point(root.x - dy * 0.075 * direction, root.y + dx * 0.075 * direction);
+      path(context, [between(a, lip, t - 0.036), tip, between(a, lip, t + 0.036)], true);
+      context.fillStyle = ivory; context.fill(); context.strokeStyle = shade; context.lineWidth = Math.max(0.45, s * 0.004); context.stroke();
+    }
+  }
+  dot(context, rig.mouth.hinge, Math.max(0.9, s * m.headScale * 0.05), shade);
 }
 
 function drawConstellation(context, rig) {
@@ -249,7 +274,9 @@ function drawConstellation(context, rig) {
   mesh(rig.body, gold, rig.center);
   stroke(context, [rig.body[1], rig.body[6], rig.body[3], rig.body[8], rig.body[4]], `${lilac}99`, Math.max(0.8, s * 0.006));
   stroke(context, rig.neck, gold, Math.max(1, s * 0.012));
-  mesh(rig.skull, gold, rig.head);
+  mesh(rig.upperSkull, gold, rig.head);
+  mesh(rig.mouth.jaw, lilac);
+  stroke(context, rig.mouth.opening, gold, Math.max(0.8, s * 0.01), true);
   for (const f of rig.features) mesh(f.points, f.kind === "horn" ? lilac : gold);
   for (const hump of rig.humps) mesh(hump, gold);
   stroke(context, rig.tail, `${gold}bb`, Math.max(0.8, s * 0.009));
@@ -321,7 +348,8 @@ function drawCollage(context, rig) {
   rig.neck.slice(1).forEach((p, i) => piece(strip(rig.neck[i], p, s * (m.family === "giraffe" ? 0.17 : 0.14)), 2));
   for (const f of rig.features.filter(f => f.kind === "ear" || f.kind === "frill")) piece(f.points, 1);
   rig.legs.filter(l => !l.far).forEach(drawLeg);
-  piece(rig.skull, 2);
+  piece(rig.upperSkull, 2);
+  piece(rig.mouth.jaw, 5);
   for (const f of rig.features.filter(f => !["ear", "frill"].includes(f.kind))) piece(f.points, f.kind === "horn" ? 4 : 1);
   const eye = rig.headPoint(0.08, -0.17), eyeSize = s * m.headScale * 0.63;
   if (eyes?.complete && eyes.naturalWidth) {
@@ -330,7 +358,8 @@ function drawCollage(context, rig) {
   } else {
     dot(context, eye, eyeSize * 0.21, "#fff6e7"); dot(context, eye, eyeSize * 0.09, "#183734");
   }
-  stroke(context, [rig.headPoint(0.17, 0.3), rig.headPoint(0.57, 0.27)], "#f8eaca", Math.max(1, s * 0.014));
+  path(context, rig.mouth.opening, true); context.fillStyle = "#281b25"; context.fill();
+  stroke(context, rig.mouth.opening, "#f8eaca", Math.max(0.8, s * 0.009), true);
 }
 
 function smoothOutline(context, points) {
@@ -364,10 +393,13 @@ function drawMotionCard(context, rig) {
   stroke(context, rig.tail, ink, Math.max(1, s * 0.018));
   for (const f of rig.features.filter(f => f.kind === "ear" || f.kind === "frill")) outline(f.points);
   rig.legs.filter(l => !l.far).forEach(leg);
-  outline(rig.skull, true);
+  // Keep the slit and jaw corners crisp like a side-profile ink study.
+  outline(rig.upperSkull);
+  outline(rig.mouth.jaw);
   for (const f of rig.features.filter(f => !["ear", "frill"].includes(f.kind))) outline(f.points);
   dot(context, rig.headPoint(0.12, -0.16), Math.max(1.3, s * m.headScale * 0.055), ink);
-  stroke(context, [rig.headPoint(0.2, 0.28), rig.headPoint(0.59, 0.23)], ink, Math.max(0.8, s * 0.012));
+  path(context, rig.mouth.opening, true); context.fillStyle = ink; context.fill();
+  stroke(context, rig.mouth.opening, ink, Math.max(0.8, s * 0.012), true);
   if (rig.animal.id === "giraffe" || rig.animal.id === "cheetah") {
     for (let i = 0; i < 9; i++) dot(context, rig.bodyPoint((i % 5 - 2) * rig.bodyWidth * 0.16, (i < 5 ? -0.17 : 0.16) * rig.bodyHeight), s * (rig.animal.id === "giraffe" ? 0.042 : 0.018), ink);
   }

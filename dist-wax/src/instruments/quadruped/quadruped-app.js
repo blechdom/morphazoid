@@ -47,6 +47,7 @@ import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
 import { createQuadrupedGestureCall, quadrupedGestureCallPerformance } from "./quadruped-gesture-voices.js";
 import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture } from "./quadruped-gestures.js";
+import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
@@ -74,7 +75,7 @@ const lanePan = Object.freeze({
   "rear-right": 0.3,
 });
 let presetController = null;
-let suspensionKnob = null;
+const controlKnobs = [];
 let state = createQuadrupedState("elephant");
 let selectedStep = 0;
 let transportPlaying = false;
@@ -2171,7 +2172,7 @@ function syncAllControls({ grid = true } = {}) {
   $("suspensionControl").hidden = !supportsRest;
   $("suspensionBeats").setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
   setOutput($("suspensionOut"), `Rest · ${state.suspensionBeats}b`);
-  suspensionKnob?.update();
+
   setOutput($("phraseLength"), `${Number(quadrupedScoreTiming(state).beats.toFixed(2))} beats / loop`);
   $("stride").value = String(state.stride);
   $("momentum").value = String(state.momentum);
@@ -2186,6 +2187,7 @@ function syncAllControls({ grid = true } = {}) {
   setOutput($("gravityOut"), `${Math.round(state.gravity * 100)}%`);
   setOutput($("groundResonanceOut"), `${Math.round(state.groundResonance * 100)}%`);
   setOutput($("levelOut"), `${Math.round(state.outputLevel * 100)}%`);
+  controlKnobs.forEach(knob => knob.update());
   setOutput($("animalDescription"), animal.description);
   syncBehaviorReadouts();
   setOutput($("motionSummary"), `${Math.round(state.tempoBpm)} BPM · ${quadrupedTerrain(state.surfaceId).shortLabel} · ${quadrupedGroundProfile(state.groundProfileId).shortLabel}`);
@@ -2447,24 +2449,43 @@ function drawLeg(context, id, hipX, hipY, centerX, groundY, bodyScale, pose, col
   drawContactRipple(context, chain.footX, contactGroundY, laneById.get(id).color, impact, bodyScale);
 }
 
-function drawEyeAndMouth(context, headX, headY, size, pose, facing = 1) {
-  const callStrength = pose.performanceActive ? pose.headPerformance?.strength ?? 0 : 0;
-  if (callStrength > 0.02) {
-    context.save(); context.fillStyle = "#172017";
-    context.beginPath(); context.ellipse(headX + facing * size * 0.3, headY + size * 0.2, size * 0.15, size * (0.02 + callStrength * 0.15), 0, 0, Math.PI * 2); context.fill(); context.restore();
+function drawProfileMouth(context, headX, headY, size, pose, score = state) {
+  const animal = quadrupedAnimal(score.animalId), family = animal.morphology.family;
+  const strength = pose.performanceActive ? clamp(pose.headPerformance?.strength) : 0;
+  const mouth = quadrupedProfileMouth(family, strength);
+  // The original unicorn has a shorter muzzle than the alternate rig.
+  const reach = score.animalId === "unicorn" ? 0.84 : 1;
+  const p = point => ({ x: headX + point.x * size * reach, y: headY + point.y * size });
+  const hinge = p(mouth.hinge), upper = p(mouth.upperLip), lower = p(mouth.lowerLip);
+  context.save();
+  context.strokeStyle = animal.palette[3];
+  context.lineWidth = Math.max(1, size * 0.023);
+  context.lineCap = "round"; context.lineJoin = "round";
+  if (strength > 0.01) {
+    const jaw = mouth.jaw.map(p);
+    context.fillStyle = ["feline", "canid", "giraffe", "lizard", "rabbit"].includes(family)
+      ? animal.palette[4] : score.animalId === "horse" ? animal.palette[1] : animal.palette[0];
+    context.beginPath(); context.moveTo(jaw[0].x, jaw[0].y);
+    context.lineTo(jaw[1].x, jaw[1].y);
+    context.quadraticCurveTo(jaw[2].x, jaw[2].y, jaw[3].x, jaw[3].y);
+    context.closePath(); context.fill(); context.stroke();
+    // An opening from the cheek hinge to the muzzle edge reads in profile.
+    context.fillStyle = "#172017";
+    context.beginPath(); context.moveTo(hinge.x, hinge.y);
+    context.lineTo(upper.x, upper.y); context.lineTo(lower.x, lower.y);
+    context.closePath(); context.fill();
   }
+  context.beginPath(); context.moveTo(hinge.x, hinge.y); context.lineTo(upper.x, upper.y); context.stroke();
+  context.restore();
+}
+
+function drawEyeAndMouth(context, headX, headY, size, pose, score = state) {
+  drawProfileMouth(context, headX, headY, size, pose, score);
   context.save();
   context.fillStyle = "#07100f";
   context.beginPath();
-  context.ellipse(headX + facing * size * 0.16, headY - size * 0.12, size * 0.055, size * 0.055 * pose.eyeOpen, 0, 0, Math.PI * 2);
+  context.ellipse(headX + size * 0.16, headY - size * 0.12, size * 0.055, size * 0.055 * pose.eyeOpen, 0, 0, Math.PI * 2);
   context.fill();
-  context.strokeStyle = "#07100f";
-  context.lineWidth = Math.max(1.5, size * 0.025);
-  context.lineCap = "round";
-  context.beginPath();
-  context.moveTo(headX + facing * size * 0.12, headY + size * 0.17);
-  context.quadraticCurveTo(headX + facing * size * 0.24, headY + size * (0.2 + pose.smile * 0.08), headX + facing * size * 0.34, headY + size * 0.15);
-  context.stroke();
   context.restore();
 }
 
@@ -2527,7 +2548,7 @@ function drawNewSpeciesHead(context, x, y, size, family, palette) {
 
 function drawHeadAura(context, headX, headY, size, pose, performanceState, score = state) {
   const strength = clamp(performanceState.strength);
-  if (strength < 0.02) return;
+  if (strength < 0.02 || score.animalId === "elephant") return;
   const animal = quadrupedAnimal(score.animalId);
   context.save();
   context.globalAlpha = 0.2 + strength * 0.55;
@@ -2799,9 +2820,7 @@ function drawAnimal(context, pose, width, height, groundY, score = state) {
       context.beginPath(); context.ellipse(eyeX + headSize * 0.065, eyeY, headSize * 0.125, headSize * 0.055, 0, 0, Math.PI * 2); context.fill();
       context.fillStyle = "#ffffe6"; context.beginPath(); context.arc(eyeX + headSize * 0.095, eyeY - headSize * 0.065, headSize * 0.035, 0, Math.PI * 2); context.fill();
     }
-    context.strokeStyle = animal.palette[3]; context.lineWidth = Math.max(1, headSize * 0.025);
-    context.beginPath(); context.moveTo(headX - headSize * 0.52, headY + headSize * 0.1);
-    context.quadraticCurveTo(headX + headSize * 0.24, headY + headSize * 0.31, headX + headSize * 0.72, headY + headSize * 0.03); context.stroke();
+    drawProfileMouth(context, headX, headY, headSize, pose, score);
     context.fillStyle = animal.palette[3]; context.beginPath(); context.arc(headX + headSize * 0.6, headY - headSize * 0.12, headSize * 0.028, 0, Math.PI * 2); context.fill();
   } else if (score.animalId === "elephant") {
     context.beginPath();
@@ -2850,33 +2869,13 @@ function drawAnimal(context, pose, width, height, groundY, score = state) {
     context.beginPath();
     context.arc(trunkTipX + headSize * 0.045, trunkTipY - headSize * 0.018, headSize * 0.027, 0, Math.PI * 2);
     context.fill();
-    if (trunkRaise > 0.02) {
-      context.save();
-      context.globalAlpha = 0.28 + trunkRaise * 0.68;
-      context.strokeStyle = animal.palette[2];
-      context.lineWidth = Math.max(1.5, headSize * 0.055);
-      context.shadowColor = animal.palette[2];
-      context.shadowBlur = headSize * 0.22;
-      for (let ray = -1; ray <= 1; ray += 1) {
-        context.beginPath();
-        context.moveTo(trunkTipX, trunkTipY);
-        context.quadraticCurveTo(
-          trunkTipX + headSize * (0.26 + ray * 0.13),
-          trunkTipY - headSize * (0.2 + Math.abs(ray) * 0.08),
-          trunkTipX + headSize * (0.48 + ray * 0.2),
-          trunkTipY - headSize * (0.42 + Math.abs(ray) * 0.12),
-        );
-        context.stroke();
-      }
-      context.restore();
-    }
     context.strokeStyle = animal.palette[4];
     context.lineWidth = headSize * 0.07;
     context.beginPath();
     context.moveTo(headX + headSize * 0.15, headY + headSize * 0.35);
     context.quadraticCurveTo(headX + headSize * 0.43, headY + headSize * 0.44, headX + headSize * 0.52, headY + headSize * 0.23);
     context.stroke();
-    drawEyeAndMouth(context, headX - headSize * 0.19, headY, headSize, pose);
+    drawEyeAndMouth(context, headX - headSize * 0.19, headY, headSize, pose, score);
   } else {
     context.beginPath();
     context.ellipse(
@@ -3163,7 +3162,14 @@ function drawAnimal(context, pose, width, height, groundY, score = state) {
         context.stroke();
       }
     }
-    drawEyeAndMouth(context, headX, headY, headSize, pose);
+    if (["bovid", "goat", "rabbit"].includes(morphology.family)) {
+      context.fillStyle = animal.palette[0]; context.strokeStyle = animal.palette[3];
+      context.lineWidth = Math.max(1, headSize * 0.025);
+      context.beginPath();
+      context.ellipse(headX + headSize * 0.34, headY + headSize * 0.2, headSize * 0.34, headSize * 0.2, -0.08, 0, Math.PI * 2);
+      context.fill(); context.stroke();
+    }
+    drawEyeAndMouth(context, headX, headY, headSize, pose, score);
   }
   context.restore();
   drawHeadAura(context, headX, headY, headSize, pose, performanceState, score);
@@ -3620,10 +3626,22 @@ function bindControls() {
     announce("Feet cleared. Stored momentum is coasting; the score will stall without another foot push.");
   });
   $("resetButton").addEventListener("click", () => {
-    const next = { ...createQuadrupedState(state.animalId, state.behaviorId), tempoBpm: state.tempoBpm };
-    modeMemory.delete(modeKey());
-    replaceState(next, { announceMessage: `${quadrupedAnimal(state.animalId).label} ${quadrupedBehavior(state.behaviorId).label} reset to its reproducible starting score.` });
+    controlKnobs.forEach(knob => knob.cancelGesture());
+    cancelPerformances();
+    silenceFlightVoice();
+    releaseAllSources();
+    applyPreset(normalizeQuadrupedPreset());
+    restartTransport();
+    presetController?.refresh();
+    announce("Quadruped reset to the default Elephant walk. Audio, Play and output level retained.");
   });
+  document.querySelectorAll("[data-next-select]").forEach(button => button.addEventListener("click", () => {
+    const select = $(button.dataset.nextSelect);
+    const options = [...select.options].filter(option => !option.disabled && !option.hidden);
+    const index = options.findIndex(option => option.value === select.value);
+    select.value = options[(index + 1) % options.length].value;
+    select.dispatchEvent(new Event("change", { bubbles: true }));
+  }));
   $("animalSelect").addEventListener("change", () => switchAnimal($("animalSelect").value));
   $("behaviorSelect").addEventListener("change", () => switchBehavior($("behaviorSelect").value));
   $("soundSkinSelect").addEventListener("change", () => {
@@ -3653,7 +3671,7 @@ async function teardown() {
   animationFrame = 0;
   stopAudioScheduler();
   presetController?.destroy();
-  suspensionKnob?.destroy();
+  controlKnobs.forEach(knob => knob.destroy());
   resizeObserver?.disconnect();
   intersectionObserver?.disconnect();
   for (const timer of uiTimers) globalThis.clearTimeout(timer);
@@ -3676,7 +3694,7 @@ for (const [id, skins] of [["soundSkinSelect", QUADRUPED_SOUND_SKINS], ["visualS
 }
 buildBehaviorOptions();
 buildSequenceGrid();
-suspensionKnob = enhanceRangeKnob($("suspensionBeats"));
+for (const input of document.querySelectorAll('.quadruped-console input[type="range"]')) controlKnobs.push(enhanceRangeKnob(input));
 bindControls();
 syncAllControls();
 setAudioPresentation("off");
