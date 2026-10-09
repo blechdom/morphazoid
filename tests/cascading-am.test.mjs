@@ -39,17 +39,43 @@ function renderWorklet(settings, frames, sr = 48000) {
   }
 }
 
-test("AM preserves PM preset identities, geometry, frequency span, timing and output levels", () => {
+test("AM preserves stable preset IDs and output levels with immediate AM-specific voicings", () => {
   assert.deepEqual(CASCADING_AM_PRESETS.map(p => p.id), CASCADING_PM_PRESETS.map(p => p.id));
+  assert.equal(new Set(CASCADING_AM_PRESETS.map(p => p.label)).size, 12);
   for (const [i, preset] of CASCADING_AM_PRESETS.entries()) {
     const original = CASCADING_PM_PRESETS[i];
-    for (const key of ["label", "motion", "level"]) assert.equal(preset[key], original[key]);
-    for (const key of ["stages", "rootHz", "cascadeRatio"]) assert.equal(preset.settings[key], original.settings[key]);
-    assert.equal(preset.settings.depthTaper, original.settings.indexTaper);
-    near(preset.settings.modulationDepth, original.settings.phaseIndex / (1 + original.settings.phaseIndex));
+    assert.equal(preset.level, original.level);
+    const stack = deriveCascadeStack(preset.settings);
+    const carrier = stack.oscillators.at(-1).frequencyHz;
+    assert.ok(carrier >= 240 && carrier <= 1400, `${preset.id}: carrier must be clear above the sub-bass register`);
+    assert.ok(preset.settings.rootHz >= 2, `${preset.id}: no slow evolution required`);
     assert.deepEqual(sanitizeCascadingAmSettings(preset.settings), preset.settings);
     assert.ok(Object.isFrozen(preset.settings));
     assert.deepEqual(CASCADING_AM_FULL_PRESETS[i].snapshot.settings, preset.settings);
+  }
+});
+
+test("factory presets speak in the first quarter-second with substantial AM sidebands", () => {
+  const sampleRate = 8000;
+  for (const preset of CASCADING_AM_PRESETS) {
+    const samples = renderCascadingAmSamples(preset.settings, { sampleRate, frameCount: sampleRate });
+    const carrier = deriveCascadeStack(preset.settings).oscillators.at(-1).frequencyHz;
+    const carrierAmplitude = projection(samples, carrier, sampleRate);
+    assert.ok(rms(samples.subarray(0, sampleRate / 4)) > 0.25, `${preset.id}: immediate sound`);
+    assert.ok(carrierAmplitude > 0.45, `${preset.id}: audible carrier survives modulation`);
+    assert.ok(20 * Math.log10(rms(samples) * 0.7 * preset.level * 0.82) > -24, `${preset.id}: useful starting level`);
+    const sidebandPower = 1 - carrierAmplitude ** 2 / (2 * rms(samples) ** 2);
+    assert.ok(sidebandPower > 0.08, `${preset.id}: substantial modulation, not a nearly dry sine`);
+    if (preset.settings.stages !== 2 || preset.settings.rootHz >= 20) continue;
+    const envelope = [];
+    const window = sampleRate * 0.02;
+    for (let start = 0; start + window <= samples.length; start += window) {
+      envelope.push(rms(samples.subarray(start, start + window)));
+    }
+    envelope.sort((a, b) => a - b);
+    const contrastDb = 20 * Math.log10(envelope[Math.floor(envelope.length * 0.9)]
+      / envelope[Math.floor(envelope.length * 0.1)]);
+    assert.ok(contrastDb >= 8, `${preset.id}: ${contrastDb.toFixed(2)} dB of amplitude movement`);
   }
 });
 
@@ -140,7 +166,8 @@ test("offline and audio-thread rendering agree for presets and headroom transiti
     for (const settings of cases) {
       const actual = renderWorklet(settings, 2048, sr).samples;
       const expected = renderCascadingAmSamples(settings, { sampleRate: sr, frameCount: 2048 });
-      assert.deepEqual(actual, expected);
+      assert.ok(actual.every((sample, index) => sample === expected[index]),
+        "worklet and reference samples agree, including equivalent signed silence");
     }
   }
 });
@@ -151,13 +178,18 @@ test("all presets produce bounded audio and every ordered preset transition reta
     assert.ok(rms(steady) > 0.1, from.id);
     assert.ok(steady.every(v => Number.isFinite(v) && Math.abs(v) <= 1));
     for (const to of CASCADING_AM_PRESETS) {
-      const { processor, samples } = renderWorklet(from.settings, 5000);
+      const { processor } = renderWorklet(from.settings, 5000);
+      const unchanged = renderWorklet(from.settings, 5000).processor;
+      const nextUnchangedSample = new Float32Array(1);
+      unchanged.process([], [[nextUnchangedSample]]);
       const storage = Object.entries(processor).filter(([, v]) => ArrayBuffer.isView(v));
       processor.port.onmessage({ data: { type: "settings", settings: to.settings } });
       const transition = new Float32Array(4096);
       processor.process([], [[transition]]);
       assert.ok(transition.every(v => Number.isFinite(v) && Math.abs(v) <= 1));
-      assert.ok(Math.abs(transition[0] - samples.at(-1)) < 0.1, `${from.id} -> ${to.id}`);
+      // Compare against the next unedited sample: a bright carrier has a large
+      // natural inter-sample slope which must not be mistaken for a preset click.
+      assert.ok(Math.abs(transition[0] - nextUnchangedSample[0]) < 0.02, `${from.id} -> ${to.id}`);
       for (const [name, value] of storage) assert.equal(processor[name], value);
       near(processor._tapGains.reduce((sum, v) => sum + v, 0), 1);
     }
@@ -175,6 +207,10 @@ test("worklet shutdown stops rendering and randomization preserves level while v
     const result = randomizeCascadingAmPreset({ level: 0.39 }, random);
     assert.equal(Object.hasOwn(result, "level"), false, "master output is not preset-owned");
     assert.equal(result.activePresetId, null);
+    const stack = deriveCascadeStack(result.settings);
+    assert.ok(stack.oscillators.at(-1).frequencyHz >= 240 - 1e-8);
+    assert.ok(stack.oscillators.at(-1).frequencyHz <= 1400 + 1e-8);
+    assert.ok(result.settings.rootHz >= 2);
     for (const [key, value] of Object.entries(result.settings)) values[key].add(value);
   }
   for (const [key, observed] of Object.entries(values)) assert.ok(observed.size > 1, key);

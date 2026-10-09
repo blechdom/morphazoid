@@ -3,6 +3,17 @@ import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from ".
 import { watchPageDiagnostics, pageDiagnosticMessages, settlePage } from "./helpers/diagnostics.mjs";
 import { installFakeMidi, enableFakeMidi, sendMidi, MIDI_BYTES } from "./helpers/fake-midi.mjs";
 
+test.beforeEach(async ({ page }) => {
+  // Keep the real audio thread and clock running independently of a physical
+  // output device. The analyser still measures the instrument's actual output.
+  await page.addInitScript(() => {
+    const AudioContextConstructor = window.AudioContext;
+    window.AudioContext = class extends AudioContextConstructor {
+      constructor(options = {}) { super({ ...options, sinkId: { type: "none" } }); }
+    };
+  });
+});
+
 async function choosePreset(page, id, index) {
   if (id === "cascading-am") await page.locator(".header-preset-next").click();
   else await page.locator("#presetButtons [data-preset]").nth(index).click();
@@ -14,6 +25,9 @@ for (const id of ["cascading-am", "recursive-am", "chaotic-am"]) {
     const diagnostics = watchPageDiagnostics(page, { baseURL });
     await page.goto(`${id}.html`);
     await settlePage(page);
+    if (id === "cascading-am") {
+      await expect(page.locator("#cascadeRatioOut")).toHaveText("×150");
+    }
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     expect((await readAudioStatus(page)).connectionCount).toBe(0);
     // Preset recall while disarmed must never create an audible graph.
@@ -30,7 +44,7 @@ for (const id of ["cascading-am", "recursive-am", "chaotic-am"]) {
     await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBeGreaterThan(0);
     const connections = (await readAudioStatus(page)).connectionCount;
     const samples = [];
-    for (let index = 0; index < 3; index += 1) {
+    for (let index = 0; index < (id === "cascading-am" ? 12 : 3); index += 1) {
       const envelope = await sampleAudioEnvelope(page, { durationMs: 1100 });
       expect(envelope.summary.finite).toBe(true);
       expect(envelope.summary.maxPeak).toBeGreaterThan(0.0001);

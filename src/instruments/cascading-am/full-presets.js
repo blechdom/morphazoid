@@ -8,11 +8,16 @@ export const CASCADING_AM_FULL_PRESETS = Object.freeze(CASCADING_AM_PRESETS.map(
 
 export function randomizeCascadingAmPreset(current, random = Math.random) {
   const rng = presetRandom(random);
-  const stages = rng.integer(2, 7), carrier = rng.between(45, 150);
-  const rootHz = Math.max(rng.between(0.125, 3), stages === 2 ? carrier / 180 : 0);
-  const strength = rng.between(1, 3.5);
+  const rhythmic = rng.unit() < 0.4;
+  const stages = rhythmic ? 2 : rng.integer(3, 7);
+  const carrier = rng.between(240, rhythmic ? 650 : 1400);
+  // Immediate chops or audio-rate AM textures; no sub-audio waiting scenes.
+  const rootHz = rhythmic
+    ? rng.between(Math.max(2, carrier / 200), 14)
+    : rng.between(25, 110);
+  const cascadeRatio = (carrier / rootHz) ** (1 / (stages - 1));
   return { settings: sanitizeCascadingAmSettings({ stages, rootHz,
-    cascadeRatio: (carrier / rootHz) ** (1 / (stages - 1)),
-    modulationDepth: strength / (1 + strength), depthTaper: rng.between(0.9, 1.3),
+    cascadeRatio,
+    modulationDepth: rng.between(0.8, 1), depthTaper: rng.between(0.8, 1.6),
   }), activePresetId: null };
 }

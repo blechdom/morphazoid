@@ -2,7 +2,7 @@
 
 **[Cascading AM](cascading-am.html)**, **[Recursive AM](recursive-am.html)** and
 **[Chaotic AM](chaotic-am.html)** preserve their FM/PM siblings’ operator layouts,
-presets and performance controls, with amplitude modulation in place of frequency
+preset organization and performance controls, with amplitude modulation in place of frequency
 or phase modulation. Each stage varies the next sine’s level while retaining its
 carrier. Audio starts off. [AM mapping and controls](docs/am-instruments.md).
 

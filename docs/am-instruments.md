@@ -31,8 +31,15 @@ the incoming signal never changes an oscillator’s phase increment or phase.
 
 Cascading’s depth taper scales modulation strength in index space, then converts
 back to bounded depth. This keeps a taper above one useful without clipping every
-later stage to the same depth. Its preset amounts are translated from the PM
-bank; pitch, timing, stage counts and names are retained. Chaotic retains its
+later stage to the same depth. Its twelve AM-specific presets demonstrate sound
+immediately: deep chops, flutter, harmonic buzzes and inharmonic metallic tones.
+Carriers span 288–1234 Hz and every root is at least 2 Hz. The original 48–89 Hz
+carriers were too bass-heavy, and each extra biased-AM link dilutes the slow
+root's influence. The new bank keeps stable preset IDs/order while changing
+labels and voicings to describe the AM sounds. The full two-to-twelve-stage
+control remains available. Raising Root raises every oscillator, so it speeds
+tremolo into a steady timbre as well as raising pitch. Random scenes also produce
+immediate rhythmic or audio-rate AM sounds. Chaotic retains its
 original calibrated settings and reinterprets the index as AM strength.
 
 Recursive keeps its five preset identities and recursion depths, with translated
