@@ -1,4 +1,5 @@
 import { restoreNativeDelaySite } from './native-delay-site-reference.mjs';
+import { restoreMainOutputRouting } from './main-output-routing-reference.mjs';
 import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -23,5 +24,5 @@ export function restoreAudioInput(source, file) {
 export async function readAudioInputReference(file, encoding) {
   const source = await readFileAsync(file, encoding);
   const relative = path.relative(root, file instanceof URL ? fileURLToPath(file) : file);
-  return typeof source === "string" ? restoreAudioInput(restoreNativeDelaySite(restoreLSystemLabSite(source, relative), relative), relative) : source;
+  return typeof source === "string" ? restoreAudioInput(restoreNativeDelaySite(restoreLSystemLabSite(restoreMainOutputRouting(source, relative), relative), relative), relative) : source;
 }
