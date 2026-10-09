@@ -28,6 +28,13 @@
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
         </div>
         <div class="midiphoria-readout"><output id="noteReadout" aria-live="off">Waiting for a note</output><output id="levelReadout" aria-live="off">0% light</output></div>
+        <div class="midiphoria-voices" id="voiceControls" hidden>
+          <div class="midiphoria-voice-toolbar">
+            <label for="voiceFocus">Show voice <select id="voiceFocus"><option value="">All voices</option></select></label>
+            <p id="voiceLegendHelp" class="midiphoria-help">Click a voice to isolate its picture.</p>
+          </div>
+          <div id="voiceLegend" class="midiphoria-voice-legend" role="group" aria-label="Visual voices" aria-describedby="voiceLegendHelp"></div>
+        </div>
         <div class="midiphoria-keyboard" id="notePads" role="group" aria-label="Piano pads, C3 through B4"></div>
       </section>
       <aside class="panel midiphoria-panel" aria-label="Midiphoria controls" data-instrument-preset-host>
@@ -70,10 +77,12 @@
         <section class="midiphoria-section" aria-labelledby="lookHeading">
           <h2 id="lookHeading">Light</h2>
           <label class="control" for="viewMode"><span><b>View</b></span><select id="viewMode"><option value="trails">Note trails</option><option value="mirror">Mirror trails</option><option value="radial">Radial burst</option><option value="ribbons">Ribbons</option><option value="orbit">Orbit</option></select></label>
+          <label class="control" for="voiceLayout"><span><b>Voices</b></span><select id="voiceLayout"><option value="lanes">Separate lanes</option><option value="panels">Separate panels</option><option value="overlay">Overlay</option></select></label>
           <label class="control" for="reflection"><span><b>Reflection</b></span><select id="reflection"><option value="none">None</option><option value="vertical">Vertical axis</option><option value="horizontal">Horizontal axis</option><option value="both">Vertical + horizontal</option><option value="diagonal">Diagonal ↘</option><option value="anti-diagonal">Diagonal ↗</option><option value="diagonals">Both diagonals</option><option value="all">All axes</option></select></label>
           <label class="control" for="flow"><span><b>Travel</b></span><select id="flow"><option value="classic">Classic</option><option value="outward">Center → edges</option><option value="inward">Edges → center</option></select></label>
           <label class="control" for="palette"><span><b>Palette</b></span><select id="palette"><option value="pitch">Pitch rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
-          <label class="control" for="colorSource"><span><b>Color by</b></span><select id="colorSource"><option value="pitch">Pitch</option><option value="channel">MIDI channel</option><option value="velocity">Note velocity</option></select></label>
+          <label class="control" for="colorSource"><span><b>Color by</b></span><select id="colorSource" aria-describedby="voiceColorHelp"><option value="voice">Voice</option><option value="pitch">Pitch</option><option value="channel">MIDI channel</option><option value="velocity">Note velocity</option></select></label>
+          <p class="midiphoria-help midiphoria-voice-color-help" id="voiceColorHelp">Stable colors identify each MIDI source and channel.</p>
           <label class="control" for="trailSeconds"><span><b>Trail length</b><output id="trailSecondsOut" for="trailSeconds">7.0 s</output></span><input id="trailSeconds" type="range" min="0.3" max="12" step="0.1" value="7" /></label>
           <label class="control" for="trailWidth"><span><b>Trail width</b><output id="trailWidthOut" for="trailWidth">1.00×</output></span><input id="trailWidth" type="range" min="0.3" max="3" step="0.05" value="1" /></label>
           <label class="control" for="fadeCurve"><span><b>Trail fade</b><output id="fadeCurveOut" for="fadeCurve">1.00×</output></span><input id="fadeCurve" type="range" min="0.25" max="4" step="0.05" value="1" /></label>

@@ -129,3 +129,22 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
   .midiphoria-text-form :is(input, button), .midiphoria-text-actions label, .midiphoria-text-actions a { min-height: 48px; }
   .midiphoria-text-actions a { display: inline-flex; align-items: center; }
 }
+
+.midiphoria-voices { margin: 0 0 14px; }
+.midiphoria-voices[hidden], #voiceColorHelp[hidden] { display: none; }
+.midiphoria-voice-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 18px; margin-bottom: 5px; }
+.midiphoria-voice-toolbar label { display: flex; align-items: center; gap: 8px; min-width: 0; max-width: 100%; color: #a1b4ae; font-size: 11px; }
+.midiphoria-voice-toolbar select { min-width: 0; max-width: 240px; min-height: 32px; padding: 4px 8px; border: 1px solid #324037; border-radius: 3px; background: #111916; color: #dbe6df; font: inherit; }
+.midiphoria-voice-toolbar .midiphoria-help { margin: 0; }
+.midiphoria-voice-legend { display: flex; flex-wrap: wrap; gap: 2px 14px; max-height: 128px; overflow-y: auto; padding: 3px; margin: 0 -3px; }
+.midiphoria-voice-legend button { display: inline-flex; align-items: center; gap: 6px; min-width: 0; max-width: 100%; min-height: 30px; border: 0; border-radius: 0; padding: 4px 0; background: transparent; color: #a1b4ae; font: inherit; font-size: 11px; cursor: pointer; text-align: left; }
+.midiphoria-voice-legend button::before { content: ''; flex: none; width: 7px; height: 7px; border-radius: 50%; background: var(--voice-color); opacity: .4; }
+.midiphoria-voice-legend button[data-active="true"]::before { opacity: 1; }
+.midiphoria-voice-legend button:hover, .midiphoria-voice-legend button[aria-pressed="true"] { color: #e3f4eb; }
+.midiphoria-voice-legend button[aria-pressed="true"] { text-decoration: underline; text-underline-offset: 4px; }
+.midiphoria-voice-legend button span { overflow-wrap: anywhere; }
+.midiphoria-voice-color-help { margin: -4px 0 14px; }
+@media (pointer: coarse) {
+  .midiphoria-voice-toolbar select, .midiphoria-voice-legend button { min-height: 44px; }
+  .midiphoria-voice-legend { max-height: 180px; }
+}

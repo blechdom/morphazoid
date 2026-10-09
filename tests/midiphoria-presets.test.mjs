@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../src/instruments/midiphoria/midiphoria-model.js';
 import { MIDIPHORIA_PRESETS, MIDIPHORIA_VIEWS, MIDIPHORIA_PALETTES, MIDIPHORIA_COLOR_SOURCES,
-  MIDIPHORIA_REFLECTIONS, MIDIPHORIA_FLOWS,
+  MIDIPHORIA_REFLECTIONS, MIDIPHORIA_FLOWS, MIDIPHORIA_VOICE_LAYOUTS,
   DEFAULT_RENDER_OPTIONS, MIDIPHORIA_MODEL_KEYS, MIDIPHORIA_RENDER_KEYS,
   captureMidiphoriaPreset, applyMidiphoriaPreset, randomizeMidiphoriaPreset,
   sanitizeMidiphoriaPreset, isValidMidiphoriaPreset,
@@ -41,6 +41,10 @@ test('factory scenes are complete, distinct, immutable and recall without changi
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.view)), new Set(MIDIPHORIA_VIEWS));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.palette)), new Set(MIDIPHORIA_PALETTES));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.colorSource)), new Set(MIDIPHORIA_COLOR_SOURCES));
+  assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.voiceLayout)), new Set(MIDIPHORIA_VOICE_LAYOUTS));
+  assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.colorSource === 'voice').length, 10);
+  assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.voiceLayout === 'lanes').length, 9);
+  assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.voiceLayout === 'panels').length, 4);
   const symmetric = MIDIPHORIA_PRESETS.filter(({ snapshot: { render } }) => render.view === 'mirror'
     || render.reflection !== 'none' || (['radial', 'orbit'].includes(render.view) && render.symmetry > 1));
   assert.ok(symmetric.length <= MIDIPHORIA_PRESETS.length / 4, 'at least 75% of factory looks have no mirror/repeated geometry');
@@ -81,7 +85,7 @@ test('sanitization bounds all fields and strips external state; validation rejec
   assert.equal(value.render.hueOffset, 0); assert.equal(value.render.saturation, 1);
   assert.equal(value.render.glow, DEFAULT_RENDER_OPTIONS.glow); assert.equal(value.render.width, 0.3);
   assert.equal(value.render.motion, 2);
-  assert.equal(value.render.colorSource, 'pitch'); assert.equal(value.render.fadeCurve, 0.25);
+  assert.equal(value.render.colorSource, DEFAULT_RENDER_OPTIONS.colorSource); assert.equal(value.render.fadeCurve, 0.25);
   assert.equal(value.render.spin, -2); assert.equal(value.render.symmetry, 3);
   assert.equal(value.render.reflection, 'none'); assert.equal(value.render.flow, 'classic');
   assert.equal(isValidMidiphoriaPreset({ ...value, render: { ...value.render, symmetry: 2.6 } }), false);
@@ -117,6 +121,7 @@ test('seeded randomization is pure and covers every visual field, boolean, palet
   assert.equal(values.render.colorSource.size, MIDIPHORIA_COLOR_SOURCES.length);
   assert.equal(values.render.reflection.size, MIDIPHORIA_REFLECTIONS.length);
   assert.equal(values.render.flow.size, MIDIPHORIA_FLOWS.length);
+  assert.equal(values.render.voiceLayout.size, MIDIPHORIA_VOICE_LAYOUTS.length);
   assert.deepEqual([...values.render.symmetry].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.ok([...values.render.spin].some(value => value < 0));
   assert.ok([...values.render.spin].some(value => value > 0));
@@ -270,16 +275,17 @@ test('circular spin reverses without a phase jump and symmetry adds bounded copi
   }
 });
 
-test('older complete version 1 snapshots recall Classic and None without inheriting the current geometry', () => {
+test('older complete version 1 snapshots recall Classic, None and Overlay without inheriting current geometry', () => {
   const older = structuredClone(MIDIPHORIA_PRESETS[0].snapshot);
-  delete older.render.flow; delete older.render.reflection;
+  delete older.render.flow; delete older.render.reflection; delete older.render.voiceLayout;
   const model = new MidiphoriaModel(), renderer = new MidiphoriaRenderer(canvas());
-  renderer.configure({ reflection: 'all', flow: 'inward' });
+  renderer.configure({ reflection: 'all', flow: 'inward', voiceLayout: 'panels' });
   assert.ok(isValidMidiphoriaPreset(older));
   const applied = applyMidiphoriaPreset(model, renderer, older, 0);
   assert.equal(applied.render.flow, 'classic'); assert.equal(applied.render.reflection, 'none');
+  assert.equal(applied.render.voiceLayout, 'overlay');
   assert.equal('flow' in older.render, false); // Migration never mutates stored data.
-  for (const key of ['flow', 'reflection']) {
+  for (const key of ['flow', 'reflection', 'voiceLayout']) {
     assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: undefined } }), false);
     assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: 'invalid' } }), false);
   }
