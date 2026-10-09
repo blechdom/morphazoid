@@ -1,7 +1,7 @@
 /** Mastering settings use physical units shared with the native audio engine. */
 export const DEFAULT_MASTERING = Object.freeze({ inputHighpassHz: 55, highpassHz: 0, lowpassHz: 0,
   compressorEnabled: true, thresholdDb: -12, kneeDb: 5, ratio: 18, attackMs: 3, releaseMs: 180,
-  autoMakeup: true, makeupDb: 0 });
+  autoMakeup: true, makeupDb: 6 });
 export const MASTERING_LIMITS = Object.freeze({ inputHighpassHz: [0, 2000], highpassHz: [0, 2000], lowpassHz: [0, 20000],
   thresholdDb: [-60, 0], kneeDb: [0, 40], ratio: [1, 20], attackMs: [.1, 100], releaseMs: [10, 1500], makeupDb: [-12, 24] });
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));

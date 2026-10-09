@@ -4,7 +4,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { borrowedContextAmendments, restoreBorrowedAudioContext } from "./helpers/borrowed-audio-context-reference.mjs";
 import { outputRecordingAmendments, restoreOutputRecording, restoreOutputRecordingHooks,
-  restoreVoiceControls, voiceControlAmendments } from "./helpers/output-recording-reference.mjs";
+  restoreVoiceControls, voiceControlAmendments, restoreLiveFlow, liveFlowAmendments } from "./helpers/output-recording-reference.mjs";
 
 for (const [name, amendments, restore] of [
   ["borrowed audio contexts", borrowedContextAmendments, restoreBorrowedAudioContext],
@@ -26,7 +26,8 @@ test("L-system recording hooks reverse independently on the historical and appro
   const recording = outputRecordingAmendments.changes.find(candidate => candidate.file === change.file);
   assert.equal(change.baseSha256, recording.baseSha256, "the independently recorded historical hash stays unchanged");
   const current = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
-  const approved = restoreOutputRecordingHooks(current, change.file);
+  const liveFlow = restoreOutputRecordingHooks(current, change.file);
+  const approved = restoreLiveFlow(liveFlow, change.file);
   const historical = restoreVoiceControls(approved, change.file);
   const hash = source => createHash("sha256").update(source).digest("hex");
   assert.equal(hash(approved), change.approvedSha256);
@@ -40,7 +41,7 @@ test("L-system recording hooks reverse independently on the historical and appro
   }
   assert.equal(reapplied, approved, "the five exact approved UI hunks reconstruct the independent commit hash");
 
-  for (const source of [historical, approved]) {
+  for (const source of [historical, approved, liveFlow]) {
     let recorded = source;
     for (const replacement of recording.replacements) {
       assert.equal(recorded.split(replacement.before).length - 1, 1);
@@ -59,11 +60,30 @@ test("L-system recording hooks reverse independently on the historical and appro
 test("L-system approved UI preservation rejects missing, duplicated, and unrelated changes", async () => {
   const change = voiceControlAmendments.changes[0];
   const current = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
-  const approved = restoreOutputRecordingHooks(current, change.file);
+  const approved = restoreLiveFlow(restoreOutputRecordingHooks(current, change.file), change.file);
   for (const replacement of change.replacements) {
     assert.throws(() => restoreVoiceControls(approved.replace(replacement.after, ""), change.file), /exact approved voice control amendment/);
     assert.throws(() => restoreVoiceControls(approved + replacement.after, change.file), /exact approved voice control amendment/);
   }
   assert.throws(() => restoreVoiceControls(approved + "\n// unrelated runtime change\n", change.file), /exact approved voice control amendment/);
   assert.equal(restoreVoiceControls("unrelated source", "unrelated.js"), "unrelated source");
+});
+
+test("L-system live flow independently reconstructs the exact extension and rejects unrelated drift", async () => {
+  const change = liveFlowAmendments.changes[0];
+  assert.equal(change.baseSha256, voiceControlAmendments.changes[0].approvedSha256);
+  const current = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+  const live = restoreOutputRecordingHooks(current, change.file), approved = restoreLiveFlow(live, change.file);
+  const hash = source => createHash("sha256").update(source).digest("hex");
+  assert.equal(hash(live), change.approvedSha256); assert.equal(hash(approved), change.baseSha256);
+  let rebuilt = approved;
+  for (const replacement of change.replacements) {
+    assert.equal(rebuilt.split(replacement.before).length - 1, 1);
+    rebuilt = rebuilt.replace(replacement.before, replacement.after);
+    assert.throws(() => restoreLiveFlow(live.replace(replacement.after, ""), change.file), /exact approved live flow amendment/);
+    assert.throws(() => restoreLiveFlow(live + replacement.after, change.file), /exact approved live flow amendment/);
+  }
+  assert.equal(rebuilt, live);
+  assert.throws(() => restoreLiveFlow(live + "\n// unrelated runtime drift\n", change.file), /exact approved live flow amendment/);
+  assert.equal(restoreLiveFlow("unrelated source", "unrelated.js"), "unrelated source");
 });

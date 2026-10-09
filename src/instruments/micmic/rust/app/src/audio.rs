@@ -186,6 +186,7 @@ struct Telemetry {
 /// reclamation after the callback copies their numeric state into the pool.
 pub struct PoolUpdate {
     pub revision: u64,
+    pub pitch_offset: f64,
     pub phase_seeds: Vec<u32>,
     pub targets: Vec<PoolTarget>,
     pub ranks: Vec<usize>,
@@ -200,6 +201,7 @@ impl PoolUpdate {
         let count = targets.len();
         Self {
             revision: 1,
+            pitch_offset: 0.,
             phase_seeds: Vec::new(),
             targets,
             ranks: (0..count).collect(),
@@ -263,6 +265,8 @@ fn validate_targets(targets: &[PoolTarget], capacity: usize) -> Result<(), Strin
 fn validate_pool(pool: &PoolUpdate, capacity: usize) -> Result<(), String> {
     validate_targets(&pool.targets, capacity)?;
     if !pool.wet_normalization.is_finite()
+        || !pool.pitch_offset.is_finite()
+        || !(-24.0..=24.0).contains(&pool.pitch_offset)
         || !(0.0..=1.0).contains(&pool.wet_normalization)
         || pool.ranks.len() != pool.targets.len()
         || pool.groups.len() != pool.targets.len()
@@ -294,6 +298,7 @@ fn calibrate_capacity(
     let mut engine = Engine::new(rate, 40., keys.len(), 1)?;
     engine.install_pool(keys)?;
     engine.set_pool_phase_seeds(&pool.phase_seeds);
+    engine.set_pitch_offset(pool.pitch_offset)?;
     engine.prepare_calibration_history();
     let input = [[0.03125; 2]; BLOCK];
     let mut output = [[0.; 2]; BLOCK];
@@ -379,6 +384,7 @@ impl Session {
             telemetry.clone(),
         )?;
         renderer.engine.set_pool_phase_seeds(&pool.phase_seeds);
+        renderer.engine.set_pitch_offset(pool.pitch_offset)?;
         renderer.engine.update_pool_ranked(
             &pool.targets,
             &pool.ranks,
@@ -813,6 +819,8 @@ impl Renderer {
                         self.telemetry.capacity.store(capacity, Ordering::Relaxed);
                     }
                     self.engine.set_pool_phase_seeds(&pool.phase_seeds);
+                    // Validated on the control thread with the other pool values.
+                    let _ = self.engine.set_pitch_offset(pool.pitch_offset);
                     self.target_wet_normalization = pool.wet_normalization;
                     self.available = pool
                         .targets
@@ -1683,6 +1691,7 @@ mod tests {
             let topology = try_compile(&parameters, 8000).unwrap();
             let pool = PoolUpdate {
                 revision: 2,
+                pitch_offset: parameters.pitch_offset,
                 phase_seeds: Vec::new(),
                 targets: topology.targets,
                 ranks: topology.ranks,

@@ -10,6 +10,7 @@ uniform vec2 uSize;
 uniform vec3 uFit;
 uniform float uSeconds;
 uniform float uTimeFoldScale;
+uniform float uPitchOffsetRatio;
 uniform int uDetailSteps;
 uniform bool uReducedMotion;
 uniform bool uAvailablePass;
@@ -61,7 +62,8 @@ vec2 centerAt(float progress, vec2 start, vec2 delta, float length) {
   if (uReducedMotion || (int(aSignal.w) & 1) == 0 || progress <= 0.0 || progress >= 1.0 || length <= .000001) return point;
   float shortness = unit(1.0 - length / 64.0);
   float maximum = 8.0 + shortness * 8.0;
-  float carrier = sin(uSeconds * 9.0 * sqrt(clamp(aTiming.z, .25, 4.0)) + progress * 3.141592653589793 * (3.0 + aTiming.w * .35) + aPhase);
+  float rate = aTiming.w == 0.0 ? aTiming.z : clamp(aTiming.z * uPitchOffsetRatio, .125, 8.0);
+  float carrier = sin(uSeconds * 9.0 * sqrt(clamp(rate, .25, 4.0)) + progress * 3.141592653589793 * (3.0 + aTiming.w * .35) + aPhase);
   float offset = sin(3.141592653589793 * progress) * sqrt(signalAt(progress)) * maximum * carrier;
   return point + vec2(-delta.y, delta.x) / length * offset;
 }
@@ -308,7 +310,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   let cachedNodes = [], cachedGeometryOptions = {}, cachedDrawNodes = [], sourceNodes = [], sourceIndices = new Map(), sourceStaticData = new Float32Array();
   let nodes = [], drawIndices = [], staticData = new Float32Array(), meterData = new Float32Array();
   let maximumGeneration = 0, generationLevels = new Float32Array(1);
-  let timeFoldBaseIntervalMs = null, timeFoldScale = 1;
+  let timeFoldBaseIntervalMs = null, timeFoldScale = 1, pitchOffsetRatio = 1;
   let historyValues = null, historyInterval = 0, historyEnd = 0, historyCount = 0, historyWidth = 1, historyHeight = 1;
   let historyScratch = new Float32Array();
   const palette = paletteValues(colors);
@@ -347,7 +349,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       capVertex = shader(gl.VERTEX_SHADER, CAP_VERTEX_SOURCE); capFragment = shader(gl.FRAGMENT_SHADER, CAP_FRAGMENT_SOURCE);
       gl.attachShader(resources.caps, capVertex); gl.attachShader(resources.caps, capFragment); gl.linkProgram(resources.caps);
       if (!gl.getProgramParameter(resources.caps, gl.LINK_STATUS)) throw new Error('GPU cap program unavailable');
-      for (const name of ['uSize', 'uFit', 'uSeconds', 'uTimeFoldScale', 'uDetailSteps', 'uReducedMotion', 'uAvailablePass', 'uHistory', 'uHistorySettings', 'uPalette[0]']) {
+      for (const name of ['uSize', 'uFit', 'uSeconds', 'uTimeFoldScale', 'uPitchOffsetRatio', 'uDetailSteps', 'uReducedMotion', 'uAvailablePass', 'uHistory', 'uHistorySettings', 'uPalette[0]']) {
         resources.uniforms[name] = gl.getUniformLocation(resources.program, name);
         resources.capUniforms[name] = gl.getUniformLocation(resources.caps, name);
       }
@@ -422,7 +424,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
       // Pool indices may exceed exact Float32 integers on deep native trees.
       // Reduce the phase in JS once, before uploading immutable topology.
       const phase = (finite(node.index, finite(node.voiceIndex)) * .71) % (Math.PI * 2);
-      sourceStaticData.set([finite(node.startX), finite(node.startY), finite(node.x), finite(node.y), startDelay, endDelay, finite(node.rate, 1), generation, phase], index * 9);
+      sourceStaticData.set([finite(node.startX), finite(node.startY), finite(node.x), finite(node.y), startDelay, endDelay, finite(node.pitchOffsetBaseRate, finite(node.rate, 1)), generation, phase], index * 9);
       return { root, generation, voiceIndex: node.voiceIndex, parentVoiceIndex: parent?.voiceIndex, parentRoot: parent?.generation === 0,
         priority: Number.isInteger(node.priority) && node.priority >= 0 ? node.priority : Infinity };
     });
@@ -436,6 +438,10 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
     // Both delay endpoints scale together. The immutable timing buffer, branch
     // selection, meter storage and topology maps survive the entire gesture.
     timeFoldScale = intervalMs / timeFoldBaseIntervalMs;
+  }
+  function setPitchOffset(semitones) {
+    if (disposed || !Number.isFinite(semitones)) return;
+    pitchOffsetRatio = 2 ** (Math.max(-24, Math.min(24, semitones)) / 12);
   }
 
   function updateGeometryPositions(nextNodes) {
@@ -526,6 +532,7 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
         gl.uniform2f(uniforms.uSize, width, height); gl.uniform3f(uniforms.uFit, finite(frame.fit?.scale, 1), finite(frame.fit?.x), finite(frame.fit?.y));
         gl.uniform1f(uniforms.uSeconds, finite(frame.seconds)); gl.uniform1i(uniforms.uDetailSteps, detailSteps); gl.uniform1i(uniforms.uReducedMotion, Boolean(frame.reducedMotion));
         gl.uniform1f(uniforms.uTimeFoldScale, timeFoldScale);
+        gl.uniform1f(uniforms.uPitchOffsetRatio, pitchOffsetRatio);
         gl.uniform4f(uniforms.uHistorySettings, historyCount, historyWidth, historyInterval || 1, finite(frame.seconds) - historyEnd);
       }
       if (nodes.length) {
@@ -577,5 +584,5 @@ export function createGpuBranchRenderer(stageCanvas, colors, { onInvalidate = ()
   stageCanvas.parentNode.insertBefore(canvas, stageCanvas);
   return { canvas, get available() { return ready && !disposed; }, get stats() { return { ...counters,
     ...(gpuTimer?.stats ?? { gpuTimingSupported: false, gpuTimeMs: null, gpuTimeSampledAt: null, gpuTimingSamples: 0 }) }; },
-  setGeometry, setTimeFold, updateGeometryPositions, render, dispose };
+  setGeometry, setTimeFold, setPitchOffset, updateGeometryPositions, render, dispose };
 }

@@ -48,7 +48,7 @@ function observeInstances(action) {
     Object.defineProperty(WebAssembly, 'Instance', { configurable: true, writable: true, value: class {
       constructor(compiled, imports) {
         const api = new NativeInstance(compiled, imports).exports;
-        const record = { api, handle: 0, constructors: [], warm: [], depth: [], settings: [],
+        const record = { api, handle: 0, constructors: [], warm: [], depth: [], pitch: [], settings: [],
           frames: 0, peak: 0, finite: true, bounded: true, allocations: new Map(), drops: [] };
         observations.push(record);
         return { exports: { ...api,
@@ -56,6 +56,7 @@ function observeInstances(action) {
           lsd_new_calibration(...args) { const handle = api.lsd_new_calibration(...args); record.constructors.push('calibration'); record.handle = handle; return handle; },
           lsd_prepare_calibration_history(handle) { const accepted = api.lsd_prepare_calibration_history(handle); record.warm.push(accepted); return accepted; },
           lsd_depth(handle, depth) { record.depth.push(depth); return api.lsd_depth(handle, depth); },
+          lsd_pitch_offset(handle, offset) { record.pitch.push(offset); return api.lsd_pitch_offset(handle, offset); },
           lsd_performance(handle, pointer, length) {
             record.settings.push(JSON.parse(new TextDecoder().decode(new Uint8Array(api.memory.buffer, pointer, length))));
             return api.lsd_performance(handle, pointer, length);
@@ -83,7 +84,7 @@ function measureWithClock(pool, trialMilliseconds) {
   return observeInstances(observations => {
     let clock = 0;
     const reads = [];
-    const result = measurePreparedPool(module, pool, RATE, { performance: SETTINGS, now: () => {
+    const result = measurePreparedPool(module, pool, RATE, { performance: SETTINGS, pitchOffset: 7.25, now: () => {
       const record = observations[0];
       // Synthetic timing is read only after genuine warm DSP. A removed fill,
       // early clock read or partial admission cannot pass on a fast machine.
@@ -103,6 +104,7 @@ function measureWithClock(pool, trialMilliseconds) {
     const record = observations[0];
     assert.deepEqual(record.constructors, ['calibration']); assert.deepEqual(record.warm, [1]);
     assert.deepEqual(record.depth, [1]);
+    assert.deepEqual(record.pitch, [7.25], 'scene proof uses the actual transposition before warmup');
     assert.equal(record.settings.length, 1);
     assert.deepEqual(record.settings[0], { ...SETTINGS, automatic: false, voiceCeiling: ELIGIBLE,
       source: 'mic', frozen: false, inputGain: 1, wet: 1, dry: 0 });

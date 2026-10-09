@@ -43,7 +43,8 @@ self.onmessage = ({ data }) => {
               // needs a benchmark nor establishes the proposed larger budget.
               voiceBudget = fallbackBudget;
             } else {
-              sceneMeasurement = measurePreparedPool(module, pool, rate, { performance: data.performance, targetLoad: .95 });
+              sceneMeasurement = measurePreparedPool(module, pool, rate, { performance: data.performance,
+                pitchOffset: data.parameters.pitchOffset ?? 0, targetLoad: .95 });
               if (data.capacityProbe || data.revalidateCapacity) {
                 const rejected = !sceneMeasurement.proved && !data.manualTrial;
                 capacityFailure = sceneMeasurement.proved ? null : data.manualTrial

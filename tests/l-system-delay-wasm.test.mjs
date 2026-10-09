@@ -104,7 +104,7 @@ test('published Rust delay binary has no native or JavaScript DSP imports', () =
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const exports = new Set(WebAssembly.Module.exports(module).map(record => record.name));
   for (const name of ['memory', 'lsd_compile', 'lsd_install', 'lsd_install_begin', 'lsd_install_step', 'lsd_install_abort', 'lsd_alloc_uninitialized',
-    'lsd_install_time_fold', 'lsd_time_fold', 'lsd_time_fold_value', 'lsd_time_fold_target',
+    'lsd_install_time_fold', 'lsd_time_fold', 'lsd_time_fold_value', 'lsd_time_fold_target', 'lsd_input_mode',
     'lsd_depth', 'lsd_process', 'lsd_observe', 'lsd_observe_maintenance', 'lsd_drop', 'lsd_collect_retired',
     'lsd_envelope_ptr', 'lsd_taps_ptr', 'lsd_metrics_ptr']) assert.ok(exports.has(name), name);
 });
@@ -115,7 +115,7 @@ test('actual WASM preserves all factory topology settings and unlimited voice de
     const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
     for (const preset of bank) {
       const { preview, pool } = engine.compile(preset.snapshot.parameters);
-      assert.deepEqual(preview.parameters, preset.snapshot.parameters, preset.id);
+      assert.deepEqual(preview.parameters, { pitchOffset: 0, ...preset.snapshot.parameters }, preset.id);
       assert.equal(pool.byteLength, 32 + preview.requestedVoices * 48);
       assert.ok(preview.nodes.length > 1 && preview.nodes.every(node => Number.isFinite(node.x) && Number.isFinite(node.y)), preset.id);
     }
@@ -529,6 +529,32 @@ test('actual worklet live Time fold uses scalar ACKs and retains latest timing a
   } finally { compiler.dispose(); }
 });
 
+test('worklet applies transient media routing before performance and retains older module compatibility', async () => {
+  await withRecoveryWorklet(({ processor, messages, render }) => {
+    const api = processor.api, calls = [];
+    processor.api = { ...api,
+      lsd_input_mode(...args) { calls.push(['mode', args[1]]); return api.lsd_input_mode(...args); },
+      lsd_performance(...args) { calls.push(['performance']); return api.lsd_performance(...args); },
+    };
+    processor.port.onmessage({ data: { id: 88, type: 'performance', performance: {
+      ...DEFAULT_PERFORMANCE, inputMode: 'media', automatic: false, source: 'mic', inputGain: 1, level: .5,
+      wet: .7, dry: .3, mastering: TRANSPARENT,
+    } } });
+    assert.deepEqual(calls, [['mode', 1], ['performance']]);
+    assert.equal(messages.find(message => message.id === 88)?.error, undefined);
+    assert.equal(render(), true);
+    processor.api = { ...processor.api, lsd_input_mode: undefined };
+    calls.length = 0;
+    processor.port.onmessage({ data: { id: 89, type: 'performance', performance: {
+      ...DEFAULT_PERFORMANCE, inputMode: 'mic', automatic: false, source: 'mic', inputGain: .5, level: .5,
+      wet: .7, dry: .3, mastering: TRANSPARENT,
+    } } });
+    assert.deepEqual(calls, [['performance']], 'an older module omits only the new routing flag');
+    assert.equal(messages.find(message => message.id === 89)?.error, undefined);
+    assert.equal(render(), true);
+  });
+});
+
 test('staged worklet installs keep the old pool live, reject late faults atomically and retain concurrent controls', async () => {
   const compiler = renderer();
   try {
@@ -931,7 +957,7 @@ test('the actual topology worker recreates a trapped Rust compiler and retains t
     const recovered = await exchange(2, parameters, 0x10000002a);
     assert.equal(recovered.error, undefined);
     assert.equal(instances.length, 3, 'capacity measurement uses a disposable renderer and a Rust trap retires the first compiler');
-    assert.deepEqual(recovered.result.parameters, parameters);
+    assert.deepEqual(recovered.result.parameters, { pitchOffset: 0, ...parameters });
     assert.equal(recovered.result.requestedVoices, 14);
     assert.equal(recovered.pool.byteLength, 32 + 14 * 48, 'the recovered compiler returns the complete real WASM pool');
     assert.ok(recovered.module instanceof WebAssembly.Module);

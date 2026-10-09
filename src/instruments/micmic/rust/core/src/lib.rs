@@ -161,12 +161,14 @@ struct Voice {
     target: VoiceSpec,
     raw_base_delay: f64,
     live_delay: f64,
+    live_delay_step: f64,
     live_following: bool,
     desired_gain: f64,
     pool_rank: usize,
     pool_group: u8,
     gain: f64,
     rate: f64,
+    pitch_mix: f64,
     pan: f64,
     pan_left: f64,
     pan_right: f64,
@@ -186,12 +188,14 @@ impl Voice {
         Self {
             raw_base_delay: target.delay,
             live_delay: target.delay,
+            live_delay_step: 0.,
             live_following: false,
             desired_gain: target.gain,
             pool_rank: usize::MAX,
             pool_group: 0,
             gain: 0.,
             rate: target.rate,
+            pitch_mix: f64::from((target.rate - 1.).abs() >= 0.0005),
             pan: target.pan,
             pan_left: ((1. - target.pan) * 0.5).sqrt(),
             pan_right: ((1. + target.pan) * 0.5).sqrt(),
@@ -220,12 +224,14 @@ impl Voice {
             },
             raw_base_delay: self.raw_base_delay,
             live_delay: self.live_delay,
+            live_delay_step: self.live_delay_step,
             live_following: self.live_following,
             desired_gain: self.desired_gain,
             pool_rank: self.pool_rank,
             pool_group: self.pool_group,
             gain: self.gain,
             rate: self.rate,
+            pitch_mix: self.pitch_mix,
             pan: self.pan,
             pan_left: self.pan_left,
             pan_right: self.pan_right,
@@ -365,6 +371,7 @@ fn adopt_pool_control(voice: &mut Voice, control: Option<&PoolControl>, rate: f6
     voice.pool_group = control.group;
     if voice.inactive {
         voice.rate = voice.target.rate;
+        voice.pitch_mix = f64::from((voice.rate - 1.).abs() >= 0.0005);
         voice.pan = voice.target.pan;
         voice.pan_left = ((1. - voice.pan) * 0.5).sqrt();
         voice.pan_right = ((1. + voice.pan) * 0.5).sqrt();
@@ -429,9 +436,12 @@ pub struct Engine {
     delay_fade_step: f64,
     gain_smoothing: f64,
     parameter_smoothing: f64,
+    live_delay_smoothing: f64,
     time_fold_scale: f64,
     target_time_fold_scale: f64,
     live_time_fold: bool,
+    pitch_offset: f64,
+    pitch_ratio: f64,
 }
 
 /// Allocate on the control thread; swap into the callback and return the old
@@ -573,16 +583,19 @@ impl Engine {
             delay_fade_step: 1. / (rate * 0.065),
             gain_smoothing: 1. - (-1. / (rate * 0.015)).exp(),
             parameter_smoothing: 1. - (-1. / (rate * 0.035)).exp(),
+            live_delay_smoothing: 1. - (-1. / (rate * 0.008)).exp(),
             time_fold_scale: 1.,
             target_time_fold_scale: 1.,
             live_time_fold: false,
+            pitch_offset: 0.,
+            pitch_ratio: 1.,
         })
     }
 
     /// O(1) live timing control. Immutable pool delays remain in their compiled
     /// base units; admitted and future voices derive their own scaled target.
-    /// A 35 ms follower and bounded moving read head produce a tape-like pitch
-    /// glide without allocating or adding another delay lane during a gesture.
+    /// A 35 ms follower and an 8 ms read-velocity follower produce a tape-like
+    /// pitch glide without allocating or adding a delay lane during a gesture.
     pub fn set_time_fold_scale(&mut self, scale: f64) -> Result<(), String> {
         if !scale.is_finite() || scale <= 0. {
             return Err("Time fold scale must be positive and finite".into());
@@ -596,6 +609,21 @@ impl Engine {
     /// during extreme sweeps or while waiting for sufficient recorded history.
     pub fn time_fold_scale(&self) -> f64 {
         self.time_fold_scale
+    }
+
+    /// O(1) live transposition; the existing per-voice rate follower smooths
+    /// base-rate times this coefficient, retaining phase, history and bounds.
+    pub fn set_pitch_offset(&mut self, semitones: f64) -> Result<(), String> {
+        if !semitones.is_finite() || !(-24.0..=24.0).contains(&semitones) {
+            return Err("Pitch offset must be finite and between -24 and 24 semitones".into());
+        }
+        self.pitch_offset = semitones;
+        self.pitch_ratio = 2f64.powf(semitones / 12.);
+        Ok(())
+    }
+
+    pub fn pitch_offset(&self) -> f64 {
+        self.pitch_offset
     }
 
     /// Call atomically before adopting a new base pool. Fixed and moving read
@@ -922,6 +950,7 @@ impl Engine {
                     // Subsequent budget growth then fades in the intended pitch
                     // and position, with its stable phase and raw history intact.
                     voice.rate = voice.target.rate;
+                    voice.pitch_mix = f64::from((voice.rate - 1.).abs() >= 0.0005);
                     voice.pan = voice.target.pan;
                     voice.pan_left = ((1. - voice.pan) * 0.5).sqrt();
                     voice.pan_right = ((1. + voice.pan) * 0.5).sqrt();
@@ -1387,6 +1416,8 @@ impl Engine {
             delay_fade_step: self.delay_fade_step,
             gain_smoothing: self.gain_smoothing,
             parameter_smoothing: self.parameter_smoothing,
+            live_delay_smoothing: self.live_delay_smoothing,
+            pitch_ratio: self.pitch_ratio,
             live_time_fold: self.live_time_fold,
             history: &self.history,
             history_right: self.history_right.as_deref(),
@@ -1494,6 +1525,8 @@ impl Engine {
             delay_fade_step: self.delay_fade_step,
             gain_smoothing: self.gain_smoothing,
             parameter_smoothing: self.parameter_smoothing,
+            live_delay_smoothing: self.live_delay_smoothing,
+            pitch_ratio: self.pitch_ratio,
             live_time_fold: self.live_time_fold,
             history: &self.history,
             history_right: self.history_right.as_deref(),
@@ -1565,6 +1598,8 @@ struct RenderView<'a> {
     delay_fade_step: f64,
     gain_smoothing: f64,
     parameter_smoothing: f64,
+    live_delay_smoothing: f64,
+    pitch_ratio: f64,
     live_time_fold: bool,
     history: &'a [f32],
     history_right: Option<&'a [f32]>,
@@ -1581,14 +1616,29 @@ fn render_voice(
 ) -> [f64; 2] {
     let silent = voice.gain == 0.;
     voice.gain += (voice.target.gain - voice.gain) * view.gain_smoothing;
-    voice.rate += (voice.target.rate - voice.rate) * view.parameter_smoothing;
+    let rate_target = (voice.target.rate * view.pitch_ratio).clamp(0.125, 8.);
+    voice.rate += (rate_target - voice.rate) * view.parameter_smoothing;
     let pan_delta = voice.target.pan - voice.pan;
     if pan_delta.abs() > 1e-14 {
         voice.pan += pan_delta * view.parameter_smoothing;
         voice.pan_left = ((1. - voice.pan) * 0.5).sqrt();
         voice.pan_right = ((1. + voice.pan) * 0.5).sqrt();
     }
-    let shifted = (voice.rate - 1.).abs() >= 0.0005;
+    let pitched = (voice.rate - 1.).abs() >= 0.0005;
+    // Preserve the plain read until the new grain's history exists. Legacy
+    // voices initialized in pitch mode retain their original delayed onset.
+    let grain_ready = if pitched && voice.pitch_mix < 1. {
+        let physical_delay = if voice.live_following { voice.live_delay } else { voice.delays[voice.from] };
+        let grain_delay = (view.grain * 1.25)
+            .max(physical_delay * view.sample_rate + (voice.rate - 1.).max(0.) * view.grain);
+        recorded as f64 >= grain_delay + view.grain
+    } else { true };
+    let mix_target = f64::from(pitched && grain_ready);
+    voice.pitch_mix += (mix_target - voice.pitch_mix) * view.parameter_smoothing;
+    if (mix_target - voice.pitch_mix).abs() < 1e-12 {
+        voice.pitch_mix = mix_target;
+    }
+    let shifted = pitched || voice.pitch_mix > 0.;
     if shifted {
         voice.phase += view.grain_step;
         if voice.phase >= 1. {
@@ -1612,6 +1662,7 @@ fn render_voice(
         phase: voice.phase,
         other,
         window_a,
+        pitch_mix: voice.pitch_mix,
     };
     if view.pool_mode && view.live_time_fold && voice.fade == 0. {
         // The source still has unit weight before the first fade sample.
@@ -1636,9 +1687,17 @@ fn render_voice(
                 voice.delays[voice.from]
             };
             voice.live_following = true;
+            voice.live_delay_step = 0.;
         }
         let step = LIVE_DELAY_SLEW_SAMPLES / view.sample_rate;
-        let candidate = voice.live_delay + (target - voice.live_delay).clamp(-step, step);
+        // Follow position as well as velocity: smoothing only the global knob
+        // still jumps the read speed at each UI update and reversal. Keep the
+        // velocity in physical seconds so a timing-only pool rebase cannot
+        // restart it. The two followers are overdamped (35 ms / 8 ms).
+        let desired_step = ((target - voice.live_delay) * view.parameter_smoothing)
+            .clamp(-step, step);
+        voice.live_delay_step += (desired_step - voice.live_delay_step) * view.live_delay_smoothing;
+        let candidate = voice.live_delay + voice.live_delay_step;
         let next = geometry.head(position, candidate * view.sample_rate, recorded);
         let head = if next.ready {
             voice.live_delay = candidate;
@@ -1720,6 +1779,7 @@ struct GrainGeometry {
     phase: f64,
     other: f64,
     window_a: f64,
+    pitch_mix: f64,
 }
 struct ReadHead {
     ready: bool,
@@ -1727,6 +1787,9 @@ struct ReadHead {
     first: f64,
     second: f64,
     window_a: f64,
+    pitch_mix: f64,
+    direct_ready: bool,
+    direct: f64,
 }
 impl GrainGeometry {
     #[inline(always)]
@@ -1749,6 +1812,9 @@ impl GrainGeometry {
                 first: position - delay,
                 second: 0.,
                 window_a: 0.,
+                pitch_mix: 0.,
+                direct_ready: false,
+                direct: 0.,
             };
         }
         let delay = self.delay(requested);
@@ -1759,6 +1825,9 @@ impl GrainGeometry {
             first: anchor + self.phase * self.span,
             second: anchor + self.other * self.span,
             window_a: self.window_a,
+            pitch_mix: self.pitch_mix,
+            direct_ready: recorded as f64 >= requested.max(1.).ceil() + 2.,
+            direct: position - requested.max(1.),
         }
     }
 }
@@ -1766,13 +1835,23 @@ impl ReadHead {
     #[inline(always)]
     fn sample(&self, history: &[f32]) -> f64 {
         if !self.ready {
+            if self.pitch_mix < 1. && self.direct_ready {
+                return read(history, self.direct);
+            }
             return 0.;
         }
         if !self.shifted {
             return read(history, self.first);
         }
-        read(history, self.first) * self.window_a
-            + read(history, self.second) * (1. - self.window_a)
+        let grain = read(history, self.first) * self.window_a
+            + read(history, self.second) * (1. - self.window_a);
+        if self.pitch_mix >= 1. || !self.direct_ready {
+            return grain;
+        }
+        // A short unit-rate tap and a pitched grain have different anchors.
+        // Blend their actual reads at the mode boundary instead of jumping
+        // 137.5 ms into history as soon as a smoothed rate leaves unity.
+        grain * self.pitch_mix + read(history, self.direct) * (1. - self.pitch_mix)
     }
 }
 
@@ -2710,6 +2789,7 @@ mod live_time_fold_tests {
             engine.process_frame([0.08; 2]);
         }
         let physical = engine.voices[0].live_delay;
+        let velocity = engine.voices[0].live_delay_step;
         let phase = engine.voices[0].phase;
         let gain = engine.voices[0].gain;
         let history_pointer = engine.history.as_ptr();
@@ -2718,6 +2798,7 @@ mod live_time_fold_tests {
         engine.set_time_fold_scale(1.).unwrap();
         assert_eq!(engine.time_fold_scale(), 1.);
         assert_eq!(engine.voices[0].live_delay, physical);
+        assert_eq!(engine.voices[0].live_delay_step, velocity);
         assert_eq!(engine.voices[0].phase, phase);
         assert_eq!(engine.voices[0].gain, gain);
         assert_eq!(engine.history.as_ptr(), history_pointer);
@@ -2760,5 +2841,34 @@ mod live_time_fold_tests {
         assert_eq!(engine.voices[0].fade, 1.);
         assert!(engine.voices[0].live_following);
         assert!(engine.voices[0].live_delay < 0.7);
+    }
+
+    #[test]
+    fn live_pitch_keeps_base_rates_phases_history_and_existing_rate_bounds() {
+        let rates = [0.125, 0.7, 1., 7.9];
+        let targets: Vec<_> = rates.iter().map(|&rate| target(0.2, rate)).collect();
+        let mut engine = pool(&targets, targets.len(), true);
+        for _ in 0..1600 { engine.process_frame([0.08; 2]); }
+        let phases: Vec<_> = engine.voices.iter().map(|voice| voice.phase).collect();
+        let write = engine.write;
+        let history = engine.history.as_ptr();
+        engine.set_pitch_offset(24.).unwrap();
+        for (voice, phase) in engine.voices.iter().zip(phases) { assert_eq!(voice.phase, phase); }
+        assert_eq!(engine.write, write);
+        assert_eq!(engine.history.as_ptr(), history);
+        for _ in 0..RATE as usize { engine.process_frame([0.08; 2]); }
+        for (voice, rate) in engine.voices.iter().zip(rates) {
+            assert_eq!(voice.target.rate, rate, "the prepared coefficient is never multiplied in place");
+            assert!((voice.rate - (rate * 4.).clamp(0.125, 8.)).abs() < 1e-10);
+        }
+        engine.set_pitch_offset(-24.).unwrap();
+        for _ in 0..RATE as usize { engine.process_frame([0.08; 2]); }
+        for (voice, rate) in engine.voices.iter().zip(rates) {
+            assert!((voice.rate - (rate * 0.25).clamp(0.125, 8.)).abs() < 1e-10);
+        }
+        for invalid in [-25., 25., f64::NAN, f64::INFINITY] { assert!(engine.set_pitch_offset(invalid).is_err()); }
+        assert_eq!(engine.pitch_offset(), -24.);
+        assert_eq!(engine.active_voice_count(), rates.len());
+        assert_eq!(engine.history.as_ptr(), history);
     }
 }

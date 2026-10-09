@@ -114,7 +114,7 @@ test('context-loss teardown forgets invalid query handles and requires fresh tim
 
 test('timer API failures preserve a working branch renderer and its context lifecycle', () => {
   let time = 0, failTelemetry = false, current = null, queryId = 0;
-  const listeners = new Map(), drawCalls = [], deleted = [];
+  const listeners = new Map(), drawCalls = [], deleted = [], uniforms = new Map();
   const extension = { TIME_ELAPSED_EXT: 101, GPU_DISJOINT_EXT: 102 };
   const gl = new Proxy({
     RENDERER: 1, MAX_TEXTURE_SIZE: 2, QUERY_RESULT_AVAILABLE: 3, QUERY_RESULT: 4,
@@ -127,6 +127,8 @@ test('timer API failures preserve a working branch renderer and its context life
     getQueryParameter(query, parameter) { return parameter === gl.QUERY_RESULT_AVAILABLE ? true : 3_000_000; },
     deleteQuery(query) { deleted.push(query); },
     drawArraysInstanced(...args) { drawCalls.push(args); },
+    getUniformLocation(program, name) { return name; },
+    uniform1f(name, value) { uniforms.set(name, value); },
     finish() { assert.fail('renderer timing must not wait for the GPU'); }
   }, { get(target, key) {
     if (key in target) return target[key];
@@ -145,6 +147,12 @@ test('timer API failures preserve a working branch renderer and its context life
   renderer.setGeometry([root], { intervalMs: 100 });
   const frame = { width: 400, height: 300, dpr: 1, seconds: 0, fit: { scale: 1, x: 20, y: 20 }, detailSteps: 5 };
   assert.equal(renderer.render(frame), true); assert.equal(renderer.available, true);
+  const topologyUploads = renderer.stats.topologyUploads;
+  for (const [semitones, ratio] of [[12, 2], [-12, .5], [0, 1], [24, 4]]) {
+    renderer.setPitchOffset(semitones); assert.equal(renderer.render(frame), true);
+    assert.equal(uniforms.get('uPitchOffsetRatio'), ratio);
+    assert.equal(renderer.stats.topologyUploads, topologyUploads, 'live pitch edits reuse immutable branch buffers');
+  }
   time = 250; assert.equal(renderer.render(frame), true); assert.equal(renderer.stats.gpuTimeMs, 3);
   failTelemetry = true; time = 500;
   assert.equal(renderer.render(frame), true); assert.equal(renderer.available, true);
@@ -156,6 +164,7 @@ test('timer API failures preserve a working branch renderer and its context life
   assert.equal(renderer.available, true); assert.equal(renderer.stats.gpuTimingSupported, true);
   assert.equal(renderer.stats.gpuTimeMs, null, 'old GPU sample cannot survive restored resources');
   time = 750; assert.equal(renderer.render(frame), true);
+  assert.equal(uniforms.get('uPitchOffsetRatio'), 4, 'context restoration retains the current pitch coefficient');
   renderer.dispose(); assert.equal(renderer.available, false); assert.equal(renderer.stats.gpuTimeMs, null);
   assert.equal(listeners.size, 0); assert.ok(deleted.length >= 3);
 });

@@ -1594,7 +1594,8 @@ for (const renderer of ['canvas', 'webgl2']) test(`dense physical knob releases 
   await native(page, 'wet', .65); await native(page, 'dry', 0);
   await native(page, 'inputTrim', .7); await native(page, 'level', .6);
   await page.locator('#audioButton').click();
-  await expect.poll(async () => { const d = await diagnostics(page), p = await pcm(page); return d.audio && d.microphoneEnabled && p.peak > 1e-5; }).toBe(true);
+  // Cold worklet/pool preparation precedes arming Audio; it may outlast5s on a busy host.
+  await expect.poll(async () => { const d = await diagnostics(page), p = await pcm(page); return d.audio && d.microphoneEnabled && p.peak > 1e-5; }, { timeout: 30000 }).toBe(true);
   await page.waitForTimeout(1500); await settledControls(page);
   const initial = await session(page), releases = [], selections = [];
   await startPcm(page);

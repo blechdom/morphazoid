@@ -7,6 +7,7 @@ import { normalizeAudioStatus } from './telemetry.js';
 
 const WORKER_URL = new URL('./topology-worker.js', import.meta.url);
 const WORKLET_URL = new URL('./delay-worklet.js', import.meta.url);
+const sanitizePitchOffset = value => Math.max(-24, Math.min(24, Number(value) || 0));
 let currentEngine;
 
 export function getBrowserDelayEngine() { return currentEngine; }
@@ -21,10 +22,12 @@ const emptyStatus = () => ({ sampleRate: 0, device: 'Audio off', inputDevice: nu
 
 /** Browser lifecycle and messages only. Topology and audio share the Rust core. */
 export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETERS, onStatus = () => {}, onError = () => {} } = {}) {
-  let parameters = sanitizeParameters(initialParameters), performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
+  let parameters = { ...sanitizeParameters(initialParameters), pitchOffset: sanitizePitchOffset(initialParameters.pitchOffset) },
+    performanceState = sanitizePerformance(DEFAULT_PERFORMANCE);
   let worker, module, topology, pool, topologyRevision = 0, compilerRevision = 0, compileChain = Promise.resolve();
   let parameterRequestRevision = 0, depthRevision = 0, requestedDepth = parameters.depth;
   let foldRevision = 0, requestedFold = parameters.intervalMs, requestedFoldLive = false, requestedParameters = { ...parameters };
+  let pitchRevision = 0, requestedPitch = sanitizePitchOffset(parameters.pitchOffset), pitchRequestsPending = 0;
   let poolBaseIntervalMs = parameters.intervalMs, poolTiming, installingTiming;
   let context, node, master, releaseOutput, starting, ready, finishReady, controlsReady = false, contextGeneration = 0;
   let controlOperations = 0, preparationRevision = 0, controlSuspension = null, contextSuspension = null;
@@ -38,7 +41,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
   let parameterRequestsPending = 0, performanceRequestsPending = 0, depthRequestsPending = 0, foldRequestsPending = 0;
   const workerRequests = new Map(), audioRequests = new Map();
   const inputWaiters = new Set();
-  const input = createInputSource({ prepare: prepareAudio, getContext: () => context, getTarget: () => node,
+  const input = createInputSource({ prepare: prepareInputAudio, getContext: () => context, getTarget: () => node,
     canPlay: () => audioDesired && !disposed && !document.hidden,
     onChange: () => onStatus(snapshot()), onError: report });
 
@@ -106,7 +109,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     const id = ++sequence;
     return new Promise((resolve, reject) => {
       const timer = setTimeout(() => { audioRequests.delete(id); reject(new Error('The audio engine did not respond.')); }, 15000);
-      audioRequests.set(id, { resolve, reject, timer, foldRevision: type === 'time-fold' ? foldRevision : null });
+      audioRequests.set(id, { resolve, reject, timer, foldRevision: type === 'time-fold' ? foldRevision : null,
+        pitchRevision: type === 'pitch-offset' ? pitchRevision : null, pitchFrameRevision: pitchRevision });
       node.port.postMessage({ id, type, ...values }, transfers);
     });
   }
@@ -224,6 +228,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
         // Recursion is a live coefficient. A gesture can move it while a large
         // structural pool is compiling; installing that pool must not rewind it.
         await audioMessage('depth', { depth: requestedDepth });
+        await audioMessage('pitch-offset', { pitchOffset: requestedPitch });
         if (canFold(timing, requestedFold)) appliedInterval = requestedFold;
       }); } finally { if (installingTiming === timing) installingTiming = null; }
     }
@@ -234,7 +239,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     sceneMeasurement = compiled.sceneMeasurement || null;
     if (!capacityProbe) capacityTest = null;
     sceneDeadlineBaseline = status.deadlineMisses || 0;
-    parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth, intervalMs: appliedInterval }; topology = compiled.result;
+    parameters = { ...sanitizeParameters(compiled.result.parameters), depth: requestedDepth, intervalMs: appliedInterval,
+      pitchOffset: requestedPitch }; topology = compiled.result;
     pool = compiled.pool; module = compiled.module; topologyRevision = compiled.revision;
     poolBaseIntervalMs = timing.baseIntervalMs; poolTiming = timing;
     return compiled;
@@ -261,6 +267,26 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       }
       throw error;
     } finally { foldRequestsPending--; }
+  }
+
+  async function setPitchOffset(value) {
+    const pitchOffset = sanitizePitchOffset(value);
+    if (!failure && !pitchRequestsPending && pitchOffset === (parameters.pitchOffset ?? 0) && pitchOffset === requestedPitch) return snapshot();
+    const revision = ++pitchRevision; requestedPitch = pitchOffset;
+    requestedParameters = { ...requestedParameters, pitchOffset };
+    capacityController.reset();
+    pitchRequestsPending++;
+    try {
+      if (node && controlsReady) await audioMessage('pitch-offset', { pitchOffset });
+      if (revision === pitchRevision) { parameters = { ...parameters, pitchOffset }; failure = null; }
+      return snapshot();
+    } catch (error) {
+      if (revision === pitchRevision) {
+        requestedPitch = parameters.pitchOffset ?? 0;
+        requestedParameters = { ...requestedParameters, pitchOffset: requestedPitch };
+      }
+      throw error;
+    } finally { pitchRequestsPending--; }
   }
 
   function ensureTopology() {
@@ -321,13 +347,21 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
           if (data.error) pending.reject(new Error(data.error));
           else {
             const received = normalizeAudioStatus(data.status);
-            if (received) status = received;
+            if (received) {
+              // A held meter/install reply may predate a newer pitch gesture
+              // even when it reports the same block. Retain the scalar ACK.
+              if (pending.pitchFrameRevision !== pitchRevision && Number.isFinite(status.pitchOffset)) received.pitchOffset = status.pitchOffset;
+              status = received;
+            }
             else if (pending.foldRevision === foldRevision && data.topologyRevision === status.topologyRevision
               && data.processedBlocks >= (status.processedBlocks || 0) && Number.isFinite(data.timeFoldMs)
               && Number.isFinite(data.timeFoldTargetMs)) {
               // Scalar ACKs publish current timing without copying the waveform
               // or meters. An older gesture or audio frame cannot rewind them.
               status = { ...status, timeFoldMs: data.timeFoldMs, timeFoldTargetMs: data.timeFoldTargetMs };
+            } else if (pending.pitchRevision === pitchRevision && data.topologyRevision === status.topologyRevision
+              && data.processedBlocks >= (status.processedBlocks || 0) && Number.isFinite(data.pitchOffset)) {
+              status = { ...status, pitchOffset: data.pitchOffset };
             }
             pending.resolve(received);
           }
@@ -350,7 +384,8 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
             await audioMessage('time-fold', { intervalMs: requestedFold });
           }
           await audioMessage('depth', { depth: requestedDepth });
-          await audioMessage('performance', { performance: performanceState });
+          await audioMessage('pitch-offset', { pitchOffset: requestedPitch });
+          await syncInputPerformance();
         });
         return node;
       })().catch(error => {
@@ -386,11 +421,23 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     return snapshot();
   }
 
+  // Retain the user's microphone trim in state, but recorded media enters the
+  // Rust input at unity. Read the current mode at publication, including decode,
+  // direct Mic gestures and processor recovery.
+  function inputPerformance(value = performanceState) {
+    return input.snapshot().mode === 'mic'
+      ? { ...value, inputMode: 'mic' } : { ...value, inputGain: 1, inputMode: 'media' };
+  }
+  async function syncInputPerformance() {
+    if (node && controlsReady) await audioMessage('performance', { performance: inputPerformance() });
+  }
+  async function prepareInputAudio() {
+    await prepareAudio(); assertOpen(); await syncInputPerformance();
+    return node;
+  }
   async function externalPerformance() {
-    if (performanceState.source === 'mic') return;
-    const next = sanitizePerformance({ ...performanceState, source: 'mic' });
-    if (node && controlsReady) await audioMessage('performance', { performance: next });
-    performanceState = next;
+    performanceState = sanitizePerformance({ ...performanceState, source: 'mic' });
+    await syncInputPerformance();
   }
 
   async function activateInput() {
@@ -449,7 +496,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // This explicit capture action may meter a microphone with output muted.
     if (select) { invalidateInput(); input.selectMode('mic'); }
     // Capture can be prepared while the output gate remains off.
-    const prepared = prepareAudio();
+    const prepared = prepareInputAudio();
     if (stream) return prepared.then(() => snapshot());
     if (capturePromise) return capturePromise;
     const version = ++captureVersion; microphonePending = true;
@@ -491,8 +538,10 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       requestedVoicesExact: topology?.requestedVoicesExact ?? true,
       requestedVoicesDecimal: topology?.requestedVoicesDecimal ?? String(topology?.requestedVoices || 0),
       preparedVoices: topology?.preparedVoices ?? topology?.requestedVoices ?? 0,
-      effectiveParameters: { ...sanitizeParameters(topology?.effectiveParameters ?? parameters), depth: requestedDepth, intervalMs: parameters.intervalMs },
+      effectiveParameters: { ...sanitizeParameters(topology?.effectiveParameters ?? parameters), depth: requestedDepth, intervalMs: parameters.intervalMs,
+        pitchOffset: parameters.pitchOffset ?? 0 },
       timeFoldBaseIntervalMs: poolBaseIntervalMs, timeFoldScale: parameters.intervalMs / poolBaseIntervalMs,
+      pitchOffsetBase: 0, pitchOffsetRatio: 2 ** ((parameters.pitchOffset ?? 0) / 12),
       deviceCapacity: deviceCapacity ? { ...deviceCapacity, preparedCapacity } : null,
       capacityWorking, capacityFailure, capacityTest, sceneMeasurement, userCapacityBudget,
       eligibleVoices: parameters.depth > 0 ? (topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0) : 0,
@@ -512,7 +561,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     // compiles, installs or adds voices to an unchanged playing tree.
     const time = status.elapsedSeconds || 0;
     const settled = audio && !starting && !parameterRequestsPending && !performanceRequestsPending
-      && !depthRequestsPending && !foldRequestsPending;
+      && !depthRequestsPending && !foldRequestsPending && !pitchRequestsPending;
     const next = Math.min(capacityController.observe({ nowSeconds: time, current: preparedCapacity,
       requested: topology?.requestedVoices || 0, status, topologyRevision,
       eligibleVoices: parameters.depth > 0 ? topology?.structuralEligibleVoices ?? topology?.eligibleVoices ?? 0 : 0,
@@ -550,6 +599,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
     if (path === '/api/state' || path === '/api/preview') return snapshot(true);
     if (path === '/api/status') return refresh();
     if (path === '/api/time-fold') return setTimeFold(body?.intervalMs);
+    if (path === '/api/pitch-offset') return setPitchOffset(body?.pitchOffset);
     if (path === '/api/capacity') {
       const resetBudget = body?.reset === true;
       const value = resetBudget ? deviceCapacity?.voices : Number(body?.voices);
@@ -600,9 +650,11 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       } finally { depthRequestsPending--; }
     }
     if (path === '/api/parameters' || path === '/api/reset') {
-      const next = sanitizeParameters(path === '/api/reset' ? DEFAULT_PARAMETERS : body);
-      if (!failure && !parameterRequestsPending && !depthRequestsPending && !foldRequestsPending
+      const source = path === '/api/reset' ? DEFAULT_PARAMETERS : body;
+      const next = { ...sanitizeParameters(source), pitchOffset: sanitizePitchOffset(source?.pitchOffset) };
+      if (!failure && !parameterRequestsPending && !depthRequestsPending && !foldRequestsPending && !pitchRequestsPending
         && next.depth === requestedDepth && next.intervalMs === requestedFold
+        && (next.pitchOffset ?? 0) === requestedPitch
         && JSON.stringify(next) === JSON.stringify(parameters)) return snapshot();
       capacityController.reset();
       // An eligibility fallback belongs to the live gesture that initiated it.
@@ -611,6 +663,7 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
       if (!body?.liveTimeFold) ++foldRevision;
       requestedFold = next.intervalMs; requestedFoldLive = Boolean(body?.liveTimeFold); requestedParameters = next;
       const ownedFoldRevision = foldRevision;
+      const ownedPitchRevision = ++pitchRevision; requestedPitch = sanitizePitchOffset(next.pitchOffset);
       const revision = ++parameterRequestRevision;
       parameterRequestsPending++;
       const ownedDepthRevision = ++depthRevision; requestedDepth = next.depth;
@@ -627,25 +680,35 @@ export function createBrowserDelayEngine({ initialParameters = DEFAULT_PARAMETER
             requestedFold = parameters.intervalMs; requestedFoldLive = previousFoldLive;
           }
           if (depthRevision === ownedDepthRevision) requestedDepth = parameters.depth;
-          requestedParameters = { ...parameters, intervalMs: requestedFold, depth: requestedDepth };
+          if (pitchRevision === ownedPitchRevision) requestedPitch = parameters.pitchOffset ?? 0;
+          requestedParameters = { ...parameters, intervalMs: requestedFold, depth: requestedDepth, pitchOffset: requestedPitch };
         }
         throw error;
       }).finally(() => { parameterRequestsPending--; });
       compileChain = pending; return pending;
     }
     if (path === '/api/performance') {
-      const next = sanitizePerformance({ ...performanceState, ...body,
+      const previous = performanceState;
+      const next = sanitizePerformance({ ...previous, ...body,
         ...(input.snapshot().mode !== 'mic' ? { source: 'mic' } : {}) });
-      if (!failure && !performanceRequestsPending && JSON.stringify(next) === JSON.stringify(performanceState)) return snapshot();
+      if (!failure && !performanceRequestsPending && JSON.stringify(next) === JSON.stringify(previous)) return snapshot();
       capacityController.reset();
       performanceRequestsPending++;
+      // Publish intent before awaiting an ACK. A later source or gain gesture
+      // must not be overwritten by this older control request completing.
+      performanceState = next;
       try {
-        const needsCapture = audio && next.source === 'mic' && performanceState.source !== 'mic';
-        if (node && controlsReady) await audioMessage('performance', { performance: next });
-        performanceState = next; failure = null;
-        if (next.source !== 'mic') stopInputs();
-        else if (needsCapture) await activateInput();
+        const needsCapture = audio && next.source === 'mic' && previous.source !== 'mic';
+        if (node && controlsReady) await audioMessage('performance', { performance: inputPerformance(next) });
+        if (performanceState === next) {
+          failure = null;
+          if (next.source !== 'mic') stopInputs();
+          else if (needsCapture) await activateInput();
+        }
         return snapshot();
+      } catch (error) {
+        if (performanceState === next) performanceState = previous;
+        throw error;
       } finally { performanceRequestsPending--; }
     }
     if (path === '/api/strike') {

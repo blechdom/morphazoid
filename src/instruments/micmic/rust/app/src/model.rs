@@ -54,6 +54,8 @@ pub struct Parameters {
     pub asymmetry: f64,
     pub mutation: f64,
     pub pitch_scale: f64,
+    /// Live global transposition. Prepared pool rates retain their base values.
+    pub pitch_offset: f64,
     pub pruning_bias: f64,
     /// Generation decay factor; 1 retains equal energy at every audible layer.
     pub depth: f64,
@@ -77,6 +79,7 @@ impl Default for Parameters {
             asymmetry: 0.,
             mutation: 0.,
             pitch_scale: 1.,
+            pitch_offset: 0.,
             pruning_bias: 0.,
             depth: 0.72,
             spread: 0.9,
@@ -104,6 +107,7 @@ impl Parameters {
             ("asymmetry", self.asymmetry, -0.8, 0.8),
             ("mutation", self.mutation, 0., 1.),
             ("pitchScale", self.pitch_scale, 0., 4.),
+            ("pitchOffset", self.pitch_offset, -24., 24.),
             ("pruningBias", self.pruning_bias, -1., 1.),
             ("depth", self.depth, 0., 1.),
             ("spread", self.spread, 0., 1.),
