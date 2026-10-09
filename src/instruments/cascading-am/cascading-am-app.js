@@ -1,0 +1,575 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { CASCADING_AM_FULL_PRESETS, randomizeCascadingAmPreset } from "./full-presets.js";
+import {
+  CASCADING_AM_LIMITS,
+  CASCADING_AM_PRESETS,
+  DEFAULT_CASCADING_AM_PRESET_ID,
+  CascadingAmAudioEngine,
+  cascadeRatioForStageCount,
+  deriveCascadeStack,
+  formatCascadeFrequency,
+  modulationDepthSliderPosition,
+  modulationDepthSliderValue,
+  ratioSliderPosition,
+  ratioSliderValue,
+  rootHzSliderPosition,
+  rootHzSliderValue,
+  sanitizeCascadingAmSettings,
+} from "./cascading-am.js";
+import {
+  createChaoticSpectrum,
+  drawChaoticLiveAnalysis,
+} from "../../families/chaotic/chaotic-synth-visuals.js";
+import { canvasSizing } from "../../graphics/canvas-sizing.js";
+
+const $ = (id) => document.getElementById(id);
+const DEFAULT_LEVEL = CASCADING_AM_PRESETS[0].level;
+const VISUAL_FRAME_INTERVAL = 1_000 / 30;
+
+const defaultPreset = CASCADING_AM_PRESETS.find(
+  ({ id }) => id === DEFAULT_CASCADING_AM_PRESET_ID,
+) ?? CASCADING_AM_PRESETS[0];
+
+const state = {
+  settings: { ...defaultPreset.settings },
+  activePresetId: defaultPreset.id,
+  level: DEFAULT_LEVEL,
+  audioStarting: false,
+};
+
+const engine = new CascadingAmAudioEngine(window);
+const canvas = $("stage");
+const canvasContext = canvas.getContext("2d");
+const spectrum = createChaoticSpectrum();
+const stageWrap = $("stageWrap");
+let pixelRatio = 1;
+let cssWidth = 1;
+let cssHeight = 1;
+let visualFrameId = null;
+let lastVisualFrame = -Infinity;
+let visualizationDirty = true;
+let resizeObserver = null;
+
+function formatModulationDepth(value, { unit = true } = {}) {
+  const number = Math.max(0, Number(value) || 0);
+  const digits = number >= 10 ? 1 : (number >= 1 ? 2 : 3);
+  const label = number.toFixed(digits).replace(/\.?0+$/, "");
+  return unit ? `${(number * 100).toFixed(1).replace(/\.?0+$/, "")}%` : label;
+}
+
+function formatCascadeRatio(value) {
+  const number = Number(value) || 0;
+  // Several presets deliberately sit just off simple ratios. Preserve a
+  // decimal through the extended musical range so 11.3 does not read as 11.
+  const digits = number < 10 ? 2 : (number < 100 ? 1 : 0);
+  return number.toFixed(digits).replace(/\.?0+$/, "");
+}
+
+function currentStack() {
+  return deriveCascadeStack(state.settings, { sampleRate: engine.sampleRate });
+}
+
+function presetById(id) {
+  return CASCADING_AM_PRESETS.find((preset) => preset.id === id) ?? null;
+}
+
+function updatePresetPresentation() {
+  const preset = presetById(state.activePresetId);
+  $("presetState").textContent = preset?.label ?? "Custom";
+  $("presetDescription").textContent = preset?.description
+    ?? "A custom chain of nested amplitude modulation.";
+}
+
+// ---------------------------------------------------------------------------
+// Canvas visualization
+// ---------------------------------------------------------------------------
+
+function drawCascadeNodes(context, stack, width, height) {
+  const { oscillators, connections } = stack;
+  if (!oscillators?.length) return;
+
+  const count = oscillators.length;
+  const left = Math.max(28, width * 0.07);
+  const right = width - left;
+  const graphY = Math.max(80, Math.min(height * 0.43, height - 128));
+  const available = Math.max(1, right - left);
+  const spacing = count > 1 ? available / (count - 1) : 0;
+  const radius = Math.max(7, Math.min(14, spacing * 0.22));
+  const rootColor = "#67e8f9";
+  const amplitudeColor = "#c084fc";
+  const carrierColor = "#f472b6";
+
+  context.save();
+  context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+  context.textAlign = "center";
+  context.textBaseline = "middle";
+
+  for (let index = 0; index < connections.length; index++) {
+    const x1 = left + spacing * index;
+    const x2 = left + spacing * (index + 1);
+    const middle = (x1 + x2) * 0.5;
+    context.beginPath();
+    context.moveTo(x1 + radius + 3, graphY);
+    context.bezierCurveTo(middle - 8, graphY, middle - 8, graphY - 11, middle, graphY - 11);
+    context.bezierCurveTo(middle + 8, graphY - 11, middle + 8, graphY, x2 - radius - 3, graphY);
+    context.strokeStyle = index === connections.length - 1 ? carrierColor : amplitudeColor;
+    context.globalAlpha = 0.48;
+    context.lineWidth = 1;
+    context.stroke();
+    context.globalAlpha = 1;
+
+    if (spacing > 54) {
+      context.fillStyle = "#8d7b9d";
+      context.fillText(formatModulationDepth(connections[index].modulationDepth), middle, graphY - 23);
+    }
+  }
+
+  for (let index = 0; index < count; index++) {
+    const oscillator = oscillators[index];
+    const x = left + spacing * index;
+    const isRoot = index === 0;
+    const isCarrier = index === count - 1;
+    const color = isCarrier ? carrierColor : (isRoot ? rootColor : amplitudeColor);
+    const r = isCarrier ? radius + 2 : radius;
+
+    context.beginPath();
+    context.arc(x, graphY, r, 0, Math.PI * 2);
+    context.fillStyle = isCarrier ? "rgba(244, 114, 182, 0.14)" : "#07090b";
+    context.fill();
+    context.strokeStyle = color;
+    context.lineWidth = isCarrier ? 2 : 1.25;
+    context.stroke();
+
+    context.fillStyle = color;
+    context.font = `${Math.max(6, Math.min(9, r * 0.72))}px ui-monospace, SFMono-Regular, Menlo, monospace`;
+    context.fillText(String(index), x, graphY + 0.5);
+
+    if (spacing > 32 || count <= 7) {
+      context.fillStyle = isCarrier ? carrierColor : "#887c91";
+      context.font = "7px ui-monospace, SFMono-Regular, Menlo, monospace";
+      context.fillText(isRoot ? "ROOT" : (isCarrier ? "OUT" : "AM"), x, graphY + r + 16);
+      if (spacing > 54) {
+        context.fillText(formatCascadeFrequency(oscillator.freq), x, graphY + r + 28);
+      }
+    }
+  }
+
+  context.restore();
+}
+
+function drawVisualization() {
+  canvasContext.setTransform(pixelRatio, 0, 0, pixelRatio, 0, 0);
+  canvasContext.clearRect(0, 0, cssWidth, cssHeight);
+  drawChaoticLiveAnalysis(canvasContext, {
+    analyser: engine.analyser,
+    audioOn: engine.running,
+    height: cssHeight,
+    scopeGlow: "rgba(192, 132, 252, 0.66)",
+    scopeStroke: "#ffe4f6",
+    spectrum,
+    spectrumBarCap: "rgba(103, 232, 249, 0.72)",
+    spectrumBarFill: "rgba(192, 132, 252, 0.25)",
+    waveform: engine.readWaveform(),
+    width: cssWidth,
+  });
+  drawCascadeNodes(canvasContext, currentStack(), cssWidth, cssHeight);
+}
+
+function visualizationFrame(timestamp) {
+  visualFrameId = null;
+  if (visualizationDirty || timestamp - lastVisualFrame >= VISUAL_FRAME_INTERVAL) {
+    drawVisualization();
+    visualizationDirty = false;
+    lastVisualFrame = timestamp;
+  }
+  if (engine.running && !document.hidden) {
+    visualFrameId = requestAnimationFrame(visualizationFrame);
+  }
+}
+
+function scheduleVisualization() {
+  if (visualFrameId === null && !document.hidden) {
+    visualFrameId = requestAnimationFrame(visualizationFrame);
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Signal-flow diagram
+// ---------------------------------------------------------------------------
+
+function buildFlowSvg(stack) {
+  const { oscillators, connections, settings } = stack;
+  const count = oscillators.length;
+  // Twelve operators still need readable node/index labels at desktop widths.
+  const graphWidth = Math.max(900, count * 116 + 235);
+  const left = 62;
+  const outputX = graphWidth - 132;
+  const right = outputX - 126;
+  const nodeY = 110;
+  const busY = 180;
+  const spacing = count > 1 ? (right - left) / (count - 1) : 0;
+  const nodeWidth = Math.max(48, Math.min(88, spacing * 0.55));
+  const nodeHeight = 46;
+  const positions = Array.from({ length: count }, (_, index) => left + spacing * index);
+
+  const connectionMarkup = connections.map((connection, index) => {
+    const sourceEdge = positions[index] + nodeWidth * 0.5;
+    const targetEdge = positions[index + 1] - nodeWidth * 0.5;
+    const junctionX = targetEdge - 9;
+    const indexX = sourceEdge + (junctionX - sourceEdge) * 0.5;
+    const blockWidth = Math.max(42, Math.min(64, spacing * 0.31));
+    return `
+      <path class="cascading-am-amplitude-wire"
+        d="M ${sourceEdge} ${nodeY} L ${indexX - blockWidth * 0.5} ${nodeY}
+           M ${indexX + blockWidth * 0.5} ${nodeY} L ${junctionX - 7} ${nodeY}
+           M ${junctionX + 7} ${nodeY} L ${targetEdge} ${nodeY}" />
+      <g class="cascading-am-index-block">
+        <rect x="${indexX - blockWidth * 0.5}" y="${nodeY - 17}" width="${blockWidth}" height="34" rx="3" />
+        <text class="cascading-am-index-label" x="${indexX}" y="${nodeY - 4}">DEPTH</text>
+        <text class="cascading-am-index-value" x="${indexX}" y="${nodeY + 9}">${formatModulationDepth(connection.modulationDepth)}</text>
+      </g>
+      <g class="cascading-am-junction">
+        <circle cx="${junctionX}" cy="${nodeY}" r="7" />
+        <text x="${junctionX}" y="${nodeY + 3}">×</text>
+      </g>`;
+  }).join("");
+
+  const nodeMarkup = oscillators.map((oscillator, index) => {
+    const x = positions[index];
+    const isRoot = index === 0;
+    const isCarrier = index === count - 1;
+    const className = `cascading-am-stage-node${isRoot ? " is-root" : ""}${isCarrier ? " is-carrier" : ""}`;
+    const label = isRoot ? "ROOT SINE" : (isCarrier ? "CARRIER" : `AM ${index}`);
+    return `
+      <g class="${className}">
+        <rect x="${x - nodeWidth * 0.5}" y="${nodeY - nodeHeight * 0.5}" width="${nodeWidth}" height="${nodeHeight}" rx="4" />
+        <text class="cascading-am-stage-title" x="${x}" y="${nodeY - 6}">${label}</text>
+        <text class="cascading-am-stage-value" x="${x}" y="${nodeY + 8}">${formatCascadeFrequency(oscillator.freq)}</text>
+        ${isCarrier ? `<path class="cascading-am-amplitude-wire" style="stroke:var(--cascading-am-output);opacity:.72" d="M ${x} ${nodeY + nodeHeight * 0.5} L ${x} ${busY}" />` : ""}
+      </g>`;
+  }).join("");
+
+  return `
+    <svg class="cascading-am-flow-detailed" viewBox="0 0 ${graphWidth} 218" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <defs>
+        <marker id="cascadingAmArrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto">
+          <path d="M 0 0 L 8 4 L 0 8 z" />
+        </marker>
+      </defs>
+      ${connectionMarkup}
+      ${nodeMarkup}
+      <path class="cascading-am-amplitude-wire" style="stroke:var(--cascading-am-output);opacity:.72" marker-end="url(#cascadingAmArrow)" d="M ${positions[count - 1]} ${busY} L ${outputX - 6} ${busY}" />
+      <g class="cascading-am-output-node">
+        <rect x="${outputX}" y="${busY - 28}" width="118" height="52" rx="4" />
+        <text class="cascading-am-output-label" x="${outputX + 59}" y="${busY - 9}">AM CARRIER</text>
+        <text class="cascading-am-output-value" x="${outputX + 59}" y="${busY + 8}">BOUNDED → AUDIO</text>
+      </g>
+      <text style="font-family:ui-monospace,monospace;font-size:6px;fill:var(--faint);letter-spacing:.07em" x="${left}" y="208">
+        sᵢ = sin(φᵢ) × (1 + dᵢsᵢ₋₁) / (1 + dᵢ) · depth ${formatModulationDepth(settings.modulationDepth)} · taper ${settings.depthTaper.toFixed(2)}×
+      </text>
+    </svg>
+    <svg class="cascading-am-flow-compact" viewBox="0 0 380 112" preserveAspectRatio="xMidYMid meet" aria-hidden="true">
+      <g class="cascading-am-compact-node is-root">
+        <rect x="8" y="33" width="72" height="44" rx="3" />
+        <text class="cascading-am-compact-title" x="44" y="51">ROOT SINE</text>
+        <text class="cascading-am-compact-value" x="44" y="66">${formatCascadeFrequency(oscillators[0].freq)}</text>
+      </g>
+      <text class="cascading-am-compact-arrow" x="88" y="59">→</text>
+      <g class="cascading-am-compact-node">
+        <rect x="102" y="33" width="88" height="44" rx="3" />
+        <text class="cascading-am-compact-title" x="146" y="51">${count - 1} AM LINKS</text>
+        <text class="cascading-am-compact-value" x="146" y="66">${formatModulationDepth(settings.modulationDepth)}</text>
+      </g>
+      <text class="cascading-am-compact-arrow" x="198" y="59">→</text>
+      <g class="cascading-am-compact-node is-carrier">
+        <rect x="212" y="33" width="80" height="44" rx="3" />
+        <text class="cascading-am-compact-title" x="252" y="51">CARRIER</text>
+        <text class="cascading-am-compact-value" x="252" y="66">${formatCascadeFrequency(oscillators[count - 1].freq)}</text>
+      </g>
+      <text class="cascading-am-compact-arrow" x="300" y="59">→</text>
+      <g class="cascading-am-compact-node is-carrier">
+        <rect x="314" y="33" width="60" height="44" rx="3" />
+        <text class="cascading-am-compact-title" x="344" y="51">AUDIO</text>
+        <text class="cascading-am-compact-value" x="344" y="66">OUT</text>
+      </g>
+      <text class="cascading-am-compact-caption" x="8" y="99">DEPTH = AMPLITUDE CHANGE · BASE FREQUENCIES STAY FIXED</text>
+    </svg>`;
+}
+
+function updateSignalFlow(stack) {
+  const flow = $("cascadingAmFlow");
+  flow.innerHTML = buildFlowSvg(stack);
+  const carrier = stack.oscillators[stack.oscillators.length - 1];
+  flow.setAttribute(
+    "aria-label",
+    `${stack.oscillators.length}-stage amplitude cascade. The root sine at ${formatCascadeFrequency(stack.oscillators[0].freq)} modulates each successive amplitude by depths starting at ${formatModulationDepth(stack.settings.modulationDepth)}, ending at the ${formatCascadeFrequency(carrier.freq)} carrier.`,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Controls
+// ---------------------------------------------------------------------------
+
+function updateControlOutputs(stack = currentStack()) {
+  const { settings, oscillators, connections } = stack;
+  const direction = settings.cascadeRatio < 1
+    ? "descending"
+    : (settings.cascadeRatio > 1 ? "rising" : "equal");
+  $("stagesOut").textContent = String(settings.stages);
+  $("rootHzOut").textContent = formatCascadeFrequency(settings.rootHz);
+  $("cascadeRatioOut").textContent = `×${formatCascadeRatio(settings.cascadeRatio)}`;
+  $("cascadeRatio").setAttribute(
+    "aria-valuetext",
+    `times ${formatCascadeRatio(settings.cascadeRatio)}; ${direction} stage frequencies`,
+  );
+  $("modulationDepthOut").textContent = formatModulationDepth(settings.modulationDepth);
+  $("depthTaperOut").textContent = `${settings.depthTaper.toFixed(2)}×`;
+  $("taperHint").style.color = Math.abs(settings.depthTaper - 1) < 0.015 ? "var(--cascading-am-root)" : "";
+
+  $("structureState").textContent = `${settings.stages} stages · ×${formatCascadeRatio(settings.cascadeRatio)} · ${direction}`;
+  $("rootReadout").textContent = `${formatCascadeFrequency(settings.rootHz)}${settings.rootHz < 20 ? " LFO" : ""}`;
+  $("carrierReadout").textContent = formatCascadeFrequency(oscillators[oscillators.length - 1].freq);
+  $("stagesReadout").textContent = oscillators.map((oscillator) => formatCascadeFrequency(oscillator.freq)).join(" → ");
+  $("indicesReadout").textContent = connections.length
+    ? `${connections.map((connection) => (
+      `${formatModulationDepth(connection.modulationDepth)}${connection.wasLimited ? " (safe)" : ""}`
+    )).join(" · ")}`
+    : "—";
+  const safetyLimits = [];
+  if (stack.boundedByFrequency) safetyLimits.push("base frequency");
+  if (stack.boundedByBandwidth) safetyLimits.push("AM sidebands");
+
+  const rawCarrierHz = oscillators[oscillators.length - 1].rawFrequencyHz;
+  const outputStageNumber = stack.outputIndex + 1;
+  if (rawCarrierHz < 20) {
+    $("outputReadout").textContent = `stage ${outputStageNumber} · ${formatCascadeFrequency(rawCarrierHz)} base · sub-audio`;
+    $("cascadeSafetyNote").textContent = "The final base carrier is below 20 Hz. Raise Root or Cascade ratio to bring it into the audio range; AM sidebands may still remain audible.";
+  } else {
+    $("outputReadout").textContent = safetyLimits.length
+      ? `stage ${outputStageNumber} · safety limited`
+      : `stage ${outputStageNumber} · bounded AM carrier`;
+    $("cascadeSafetyNote").textContent = safetyLimits.length
+      ? `Safety guard active: ${safetyLimits.join(" + ")} limited to retain bandwidth headroom below Nyquist.`
+      : "Every connection shapes amplitude while oscillator phase rates stay fixed. Modulation fades out where its sidebands would exceed the bandwidth ceiling.";
+  }
+
+  updateSignalFlow(stack);
+  $("stageReadout").textContent = `${settings.stages} STAGES · AM CHAIN · ${engine.running ? "ON" : "OFF"}`;
+  canvas.setAttribute(
+    "aria-label",
+    `Cascading AM live spectrum with a foreground oscilloscope and a ${settings.stages}-stage nested amplitude chain. Audio ${engine.running ? "on" : "off"}.`,
+  );
+}
+
+function applySettings(rawSettings, { presetId = null, syncControls = false } = {}) {
+  const safe = sanitizeCascadingAmSettings(rawSettings, { sampleRate: engine.sampleRate });
+  state.settings = { ...safe };
+  if (presetId !== null) {
+    state.activePresetId = presetId;
+  } else if (state.activePresetId) {
+    const preset = presetById(state.activePresetId);
+    if (preset && Object.keys(preset.settings).some((key) => safe[key] !== preset.settings[key])) {
+      state.activePresetId = null;
+    }
+  }
+
+  if (syncControls) writeControlsFromState();
+  const stack = engine.running ? engine.updateSettings(safe) : currentStack();
+  updatePresetPresentation();
+  updateControlOutputs(stack);
+  visualizationDirty = true;
+  scheduleVisualization();
+}
+
+const controls = {
+  stages: {
+    input: $("stages"),
+    read: (input) => Math.round(Number(input.value)),
+    write: (value, input) => { input.value = String(value); },
+  },
+  rootHz: {
+    input: $("rootHz"),
+    read: (input) => rootHzSliderValue(Number(input.value)),
+    write: (value, input) => { input.value = String(rootHzSliderPosition(value)); },
+  },
+  cascadeRatio: {
+    input: $("cascadeRatio"),
+    read: (input) => ratioSliderValue(Number(input.value)),
+    write: (value, input) => { input.value = String(ratioSliderPosition(value)); },
+  },
+  modulationDepth: {
+    input: $("modulationDepth"),
+    read: (input) => modulationDepthSliderValue(Number(input.value)),
+    write: (value, input) => { input.value = String(modulationDepthSliderPosition(value)); },
+  },
+  depthTaper: {
+    input: $("depthTaper"),
+    read: (input) => Number(input.value),
+    write: (value, input) => { input.value = String(value); },
+  },
+};
+
+// Keep the direct integer control in lockstep with the synthesis guardrails.
+controls.stages.input.min = String(CASCADING_AM_LIMITS.minStages);
+controls.stages.input.max = String(CASCADING_AM_LIMITS.maxStages);
+
+function writeControlsFromState() {
+  for (const [key, control] of Object.entries(controls)) {
+    control.write(state.settings[key], control.input);
+  }
+}
+
+function showError(error) {
+  const message = error instanceof Error ? error.message : String(error);
+  $("audioError").textContent = message;
+  $("audioError").hidden = false;
+  $("liveStatus").textContent = `Audio error: ${message}`;
+}
+
+function clearError() {
+  $("audioError").hidden = true;
+  $("audioError").textContent = "";
+}
+
+function updateAudioUi() {
+  const active = engine.running;
+  $("audioButton").setAttribute("aria-pressed", String(active));
+  $("audioButton").disabled = state.audioStarting;
+  $("audioState").textContent = active ? "on" : "off";
+  updateControlOutputs();
+}
+
+function resizeCanvas() {
+  const bounds = stageWrap.getBoundingClientRect();
+  const sizing = canvasSizing(bounds, window.devicePixelRatio, { pixelBudget: null });
+  cssWidth = sizing.cssWidth;
+  cssHeight = sizing.cssHeight;
+  pixelRatio = sizing.pixelRatio;
+  canvas.width = sizing.width;
+  canvas.height = sizing.height;
+  canvas.style.width = `${cssWidth}px`;
+  canvas.style.height = `${cssHeight}px`;
+  visualizationDirty = true;
+  scheduleVisualization();
+}
+
+for (const [key, control] of Object.entries(controls)) {
+  control.input.addEventListener("input", () => {
+    const value = control.read(control.input);
+    if (key === "stages") {
+      applySettings({
+        ...state.settings,
+        stages: value,
+        cascadeRatio: cascadeRatioForStageCount(
+          state.settings.cascadeRatio,
+          state.settings.stages,
+          value,
+        ),
+      }, { syncControls: true });
+      return;
+    }
+    applySettings({ ...state.settings, [key]: value });
+  });
+}
+
+
+$("level").addEventListener("input", () => {
+  state.level = Number($("level").value);
+  $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+  engine.setLevel(state.level);
+});
+
+$("audioButton").addEventListener("click", async () => {
+  if (state.audioStarting) return;
+  clearError();
+  state.audioStarting = true;
+  updateAudioUi();
+  try {
+    if (engine.running) {
+      await engine.stop();
+      $("liveStatus").textContent = "Cascading AM audio off.";
+    } else {
+      await engine.start(state.settings, state.level);
+      $("liveStatus").textContent = "Cascading AM audio on.";
+    }
+  } catch (error) {
+    await engine.stop({ immediate: true });
+    showError(error);
+  } finally {
+    state.audioStarting = false;
+    visualizationDirty = true;
+    updateAudioUi();
+    scheduleVisualization();
+  }
+});
+
+$("resetCascadingAm").addEventListener("click", () => {
+  clearError();
+  state.level = DEFAULT_LEVEL;
+  $("level").value = String(DEFAULT_LEVEL);
+  $("levelOut").textContent = `${Math.round(DEFAULT_LEVEL * 100)}%`;
+  engine.setLevel(DEFAULT_LEVEL);
+  applySettings(defaultPreset.settings, { presetId: defaultPreset.id, syncControls: true });
+  $("liveStatus").textContent = "Parameters reset.";
+});
+
+document.addEventListener("visibilitychange", () => {
+  if (!document.hidden) {
+    visualizationDirty = true;
+    scheduleVisualization();
+  }
+});
+
+window.addEventListener("pagehide", () => {
+  engine.stop({ immediate: true });
+});
+
+window.addEventListener("pageshow", (event) => {
+  if (!event.persisted) return;
+  updateAudioUi();
+  visualizationDirty = true;
+  scheduleVisualization();
+});
+
+window.addEventListener("keydown", (event) => {
+  if (event.key !== "Escape" || !engine.running) return;
+  engine.stop({ immediate: true }).finally(() => {
+    state.audioStarting = false;
+    updateAudioUi();
+    visualizationDirty = true;
+    scheduleVisualization();
+  });
+});
+
+if ("ResizeObserver" in window) {
+  resizeObserver = new ResizeObserver(resizeCanvas);
+  resizeObserver.observe(stageWrap);
+} else {
+  window.addEventListener("resize", resizeCanvas);
+}
+
+writeControlsFromState();
+updatePresetPresentation();
+updateControlOutputs();
+resizeCanvas();
+
+// Useful for module-level smoke tests without exposing mutable state.
+export { buildFlowSvg, formatModulationDepth };
+
+registerHeaderPresets({
+  id: "cascading-am",
+  presets: CASCADING_AM_FULL_PRESETS,
+  randomize: randomizeCascadingAmPreset,
+  capture: () => ({ settings: state.settings, activePresetId: state.activePresetId, level: state.level }),
+  apply(snapshot) {
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId, syncControls: true });
+    state.activePresetId = snapshot.activePresetId;
+    state.level = snapshot.level;
+    $("level").value = String(state.level);
+    $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
+    engine.setLevel(state.level);
+    const preset = CASCADING_AM_FULL_PRESETS.find(item => item.id === state.activePresetId);
+    $("presetState").textContent = preset?.label ?? "Custom";
+    $("presetDescription").textContent = preset?.description ?? "Custom cascade";
+  },
+});
