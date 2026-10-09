@@ -183,6 +183,14 @@ export class MidiphoriaPlayer {
     if (this._disposed || !this.state.ready || this.context?.state !== 'running') return false;
     if (this._playing) return true;
     if (this._time >= this._duration) this.seek(0);
+    if (this._time === 0 && finite(this._sequencer.midiData?.firstNoteOn) > 0) {
+      // MIDI exports can contain seconds of setup before their first note.
+      // Skip that lead-in only when starting from zero. Ordered worklet
+      // messages retain setup controllers and leave ordinary seeks unchanged.
+      this._sequencer.skipToFirstNoteOn = true;
+      this._sequencer.currentTime = 0;
+      this._sequencer.skipToFirstNoteOn = false;
+    }
     this._playing = true;
     this._sequencer.play(); this._error = null; this._publish();
     return true;

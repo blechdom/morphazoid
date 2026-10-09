@@ -110,6 +110,8 @@ function mountMidiphoria() {
     $('audioButton').setAttribute('aria-pressed', String(state.audioEnabled));
     $('audioButton').disabled = audioStarting;
     $('audioState').textContent = audioStarting ? 'loading' : state.audioEnabled ? 'on' : 'off';
+    $('startAudioButton').hidden = !currentSongId || state.audioEnabled;
+    $('startAudioButton').disabled = audioStarting;
     $('playButton').disabled = !state.ready || !selectionReady || loadingFile || state.loading;
     $('playButton').setAttribute('aria-pressed', String(state.playing));
     const playLabel = state.playing ? 'Pause MIDI' : 'Play MIDI';
@@ -301,6 +303,9 @@ function mountMidiphoria() {
     catch (error) { if (!disposed) fileError = error.message || 'Audio could not start. Try Audio again.'; }
     finally { audioStarting = false; reflectPlayer(); }
   });
+  // This labelled recovery action stays beside Play when the phone masthead is
+  // offscreen. The existing Audio handler still owns activation and recovery.
+  on($('startAudioButton'), 'click', () => { if (!player.state.audioEnabled) $('audioButton').click(); });
   on($('outputLevel'), 'input', () => {
     player.setVolume(Number($('outputLevel').value));
     $('outputLevelOut').value = `${Math.round(Number($('outputLevel').value) * 100)}%`;

@@ -64,6 +64,31 @@ test('SoundFont audio requires Audio; live visual edits and mute preserve playba
   expect(errors).toEqual([]);
 });
 
+test('the contextual Audio action arms and recovers sound beside Play without starting transport', async ({ page }) => {
+  await open(page);
+  await expect(page.locator('#startAudioButton')).toBeHidden();
+  await selectSong(page, 'rock-theme-four');
+  await expect(page.locator('#startAudioButton')).toBeVisible();
+  expect(await page.evaluate(() => window.__midiContexts.length)).toBe(0);
+  await page.locator('#startAudioButton').click();
+  await expect(page.locator('#playButton')).toBeEnabled({ timeout: 20000 });
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#startAudioButton')).toBeHidden();
+  // A queued recovery action must not toggle audio off after it has recovered.
+  await page.locator('#startAudioButton').evaluate(button => button.click());
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#playButton').click();
+  await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
+  await page.locator('#audioButton').click();
+  await expect(page.locator('#startAudioButton')).toBeVisible();
+  await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
+  await page.locator('#startAudioButton').click();
+  await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(.001);
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.evaluate(() => window.__midiContexts.length)).toBe(1);
+});
+
 test('local MIDI library, loop, seek and rate work without uploads or stuck notes', async ({ page }) => {
   await open(page);
   await page.locator('#midiFile').setInputFiles([
@@ -86,6 +111,31 @@ test('local MIDI library, loop, seek and rate work without uploads or stuck note
   await selectSong(page, 'local-2');
   await expect(page.locator('#songPosition')).toHaveValue('0');
   await expect(page.locator('#playbackRate')).toHaveValue('4');
+});
+
+test('fresh Play skips a silent MIDI lead-in while pause, Stop and manual seeks retain their positions', async ({ page }) => {
+  await open(page);
+  await selectSong(page, 'toto-africa'); // First note is at 6.593 seconds in the file.
+  await arm(page);
+  await expect(page.locator('#songPosition')).toHaveValue('0');
+  await page.locator('#playButton').click();
+  const onset = await sampleAudioEnvelope(page, { durationMs: 700, intervalMs: 40 });
+  expect(onset.summary.finite).toBe(true);
+  expect(onset.summary.maxRms).toBeGreaterThan(.001);
+  expect(onset.summary.clippedSamples).toBe(0);
+  expect(Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(6.5);
+
+  await page.locator('#playButton').click();
+  const paused = Number(await page.locator('#songPosition').inputValue());
+  await page.locator('#playButton').click();
+  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(paused + .2);
+  await page.locator('#stopButton').click();
+  await expect(page.locator('#songPosition')).toHaveValue('0');
+  await range(page, 'songPosition', 2, 'change');
+  await expect(page.locator('#songPosition')).toHaveValue('2');
+  await page.locator('#playButton').click();
+  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(2.2);
+  expect(Number(await page.locator('#songPosition').inputValue())).toBeLessThan(3.5);
 });
 
 test('bad input reports an error, subsequent songs recover, pagehide closes audio', async ({ page }) => {

@@ -7,7 +7,8 @@ and spinning geometry. Enable MIDI in Settings or play the on-screen pads.
 Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR
 shape the picture. A searchable MIDI song collection and local file imports play through a
 SoundFont in the browser: enable Audio, then Play. With Audio on, the on-screen
-pads also play piano, independently of the song. Speed, loop, seek and live visual
+pads and enabled computer/MIDI keys also play piano, independently of the song.
+Speed, loop, seek and live visual
 tweaks include axis reflections and travel from or toward the center, with sixteen visual presets, Next and parameter dice.
 Type a word to create and download a playable letter-shaped MIDI score. Song
 Next/Random keeps playback active; the light ADSR has draggable envelope nodes. Independently implemented

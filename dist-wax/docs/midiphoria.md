@@ -1,6 +1,11 @@
 # Midiphoria on Morphazoid
 
 Open `/midiphoria.html`. Choose a song, enable **Audio**, then **Play**.
+When a song is selected with Audio off, **Turn audio on** appears beside Play;
+it uses the same audio action as the masthead speaker without starting transport.
+Starting from zero skips any silent MIDI lead-in to the first note. The playhead
+keeps the file's original time; Stop returns to zero, and manual seeks and
+pause/resume retain their chosen positions.
 SpessaSynth plays Standard MIDI Files through the bundled TimGM6mb SoundFont in
 an AudioWorklet. The same note and controller events drive Canvas graphics.
 Mute leaves the transport and graphics running. Color, velocity weighting,
@@ -40,8 +45,10 @@ controllers, stop and seek cannot change or cancel a held pad. Releasing a pad
 cannot cancel a matching note in the song. Reset (in About & setup), window blur, hiding the
 page, Audio off and page exit release pad sound. Muted presses are never queued.
 
-Incoming hardware/computer MIDI controls light only.
-Enable hardware/computer MIDI separately in shared Settings.
+Incoming hardware/computer MIDI also plays the piano when **Audio** is on.
+Enable hardware/computer MIDI separately in shared Settings. Note velocity,
+channel/trigger filtering and sustain apply to those live notes; program changes
+and pitch bend do not change this piano voice. Muted notes are never replayed.
 Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
 capture a hardware mapping.

@@ -79,6 +79,7 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-transport > :is(.control, .mz-tap-tempo-field) { flex: 1; min-width: 0; margin: 0; }
 .midiphoria-transport .control { margin-bottom: 0; }
 .midiphoria-transport .play-button { flex: none; }
+.midiphoria-transport .play-button[aria-pressed="true"] { color: var(--bg-deep, var(--mz-color-bg-deep)); }
 .midiphoria-stop, .midiphoria-reset { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 8px; border: 0; background: transparent; color: #a1b4ae; cursor: pointer; }
 .midiphoria-stop { width: 32px; height: 44px; flex: none; }
 .midiphoria-stop svg, .midiphoria-reset svg { width: 18px; height: 18px; }
@@ -87,9 +88,13 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-stop:hover, .midiphoria-reset:hover { color: var(--midiphoria-accent); }
 .midiphoria-loop { display: flex; align-items: center; gap: 6px; width: fit-content; min-height: 32px; margin: 0 0 14px; color: #a1b4ae; font-size: 11px; }
 .midiphoria-loop input { accent-color: var(--midiphoria-accent); }
+.midiphoria-audio-start { display: block; min-height: 36px; margin: 0 0 8px; padding: 4px 0; border: 0; background: transparent; color: var(--midiphoria-accent); font: inherit; font-size: 12px; cursor: pointer; text-decoration: underline; text-underline-offset: 4px; }
+.midiphoria-audio-start[hidden] { display: none; }
+.midiphoria-audio-start:disabled { opacity: .5; cursor: wait; }
 @media (pointer: coarse) {
   .midiphoria-transport .play-button { width: 48px; height: 48px; min-width: 48px; min-height: 48px; }
   .midiphoria-stop, .midiphoria-reset, .midiphoria-loop { min-width: 48px; min-height: 48px; }
+  .midiphoria-audio-start { min-height: 48px; }
 }
 
 .midiphoria-original { color: #a1b4ae; font-size: 11px; line-height: 1.5; text-underline-offset: 3px; }
