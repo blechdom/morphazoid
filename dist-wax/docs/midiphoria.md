@@ -14,8 +14,14 @@ at the top of the song list for this page session. Nothing is uploaded. Limits a
 and 50 MB total. Reloading or leaving the page clears the local library.
 Changing songs retains Play/Pause: a playing arrangement is replaced from the
 new song's beginning, while a paused player stays paused. Rapid changes select
-only the newest request; Stop cancels a pending restart. Next and Random beside
-the song menu browse the current collection/search results without changing Audio.
+only the newest request; Stop cancels a pending restart. All MIDI files appear in
+one scrollable list. The single filter matches song titles, artists and collection
+names, including multiple search words. Filtering keeps the selected song playing;
+its name remains visible even outside the results. Next and Random browse those
+results without changing Audio. Clicking the selected song again preserves its
+position. Arrow keys, Home/End and Page Up/Down browse the list without selecting;
+Enter or Space selects the focused file. Imports and generated text clear the
+filter so their new rows remain visible.
 Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and looping.
 Seeking restores MIDI programs/controllers and resumes subsequent note events;
 it does not reconstruct notes whose attacks precede the seek point.

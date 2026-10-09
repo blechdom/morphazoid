@@ -94,15 +94,26 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 
 .midiphoria-original { color: #a1b4ae; font-size: 11px; line-height: 1.5; text-underline-offset: 3px; }
 .midiphoria-original:hover { color: var(--midiphoria-accent); }
-.midiphoria-song-picker { display: flex; gap: 5px; align-items: flex-end; margin-bottom: 12px; }
-.midiphoria-song-picker > .control { flex: 1; min-width: 0; margin-bottom: 0; }
+.midiphoria-library-heading { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+.midiphoria-library-heading h2 { margin: 0; }
+.midiphoria-library-heading output { margin-right: auto; font-size: 10px; white-space: nowrap; }
+.midiphoria-song-list { list-style: none; height: 360px; max-height: 52vh; min-height: 240px; overflow-y: auto; scrollbar-gutter: stable; margin: 10px 0 14px; padding: 2px; }
+.midiphoria-song-list li { margin: 0; padding: 0; }
+.midiphoria-song { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; width: 100%; min-height: 48px; padding: 8px 10px; border: 0; border-inline-start: 2px solid transparent; border-radius: 0; background: transparent; color: #dbe6df; font: inherit; text-align: left; overflow-wrap: anywhere; cursor: pointer; }
+.midiphoria-song:hover { background: #96f4cc0a; }
+.midiphoria-song[aria-pressed="true"] { color: var(--midiphoria-accent); border-inline-start-color: currentColor; background: #96f4cc12; }
+.midiphoria-song-title { font-size: 12px; line-height: 1.4; }
+.midiphoria-song-meta { color: #a1b4ae; font-size: 10px; line-height: 1.3; }
+.midiphoria-song-list .midiphoria-song:focus-visible { outline-offset: -2px; }
+.midiphoria-current-song { color: var(--midiphoria-accent); font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; margin: 8px 0; }
+.midiphoria-current-song[hidden] { display: none; }
 .midiphoria-song-action { display: grid; place-items: center; width: 34px; min-height: 34px; flex: none; padding: 6px; border: 0; background: transparent; color: #a1b4ae; cursor: pointer; }
 .midiphoria-song-action:hover { color: var(--midiphoria-accent); }
 .midiphoria-song-action svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linecap: round; stroke-linejoin: round; }
 .midiphoria-song-action circle { fill: currentColor; stroke: none; }
 @media (pointer: coarse) {
   .midiphoria-song-action { width: 48px; min-height: 48px; }
-  .midiphoria-song-picker select { min-height: 48px; }
+  #songSearch { min-height: 48px; }
 }
 
 /* Shape's direct envelope controls, with separated stages for short phone rails. */

@@ -46,7 +46,10 @@ function mountMidiphoria() {
   let textScore = null, textDownloadUrl = null;
   let voiceSignature = '';
   const voiceButtons = new Map();
+  const songRows = new Map();
+  let songFocusId = '';
   const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
+  const songLabel = song => `${!song.demo && song.composer ? `${song.composer} · ` : ''}${song.title}${song.kind === 'pattern' ? ' · pattern' : ''}`;
 
   function reflectVoices() {
     const voices = renderer.getVoices();
@@ -139,40 +142,64 @@ function mountMidiphoria() {
     }
   }
 
-  function renderSongMenu(preferredId) {
-    const selected = preferredId ?? currentSongId;
-    const query = $('songSearch').value.trim().toLocaleLowerCase();
+  function renderSongList() {
+    const query = $('songSearch').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
     const all = [...localSongs, ...collection];
     const groupFor = song => song.collection || (song.localFile || song.buffer ? 'Your MIDIs' : 'Popular arrangements');
-    const selectedCollection = $('collectionSelect').value;
-    const groups = [...new Set(all.map(groupFor))];
-    $('collectionSelect').replaceChildren(new Option('All collections', ''), ...groups.map(group => new Option(group, group)));
-    $('collectionSelect').value = groups.includes(selectedCollection) ? selectedCollection : '';
-    const songs = visibleSongs = all.filter(song => (!$('collectionSelect').value || groupFor(song) === $('collectionSelect').value)
-      && `${song.title} ${song.composer || ''} ${groupFor(song)}`.toLocaleLowerCase().includes(query));
-    const menuGroups = new Map();
+    const songs = visibleSongs = all.filter(song => {
+      const text = `${song.title} ${song.composer || ''} ${groupFor(song)}`.toLocaleLowerCase();
+      return query.every(word => text.includes(word));
+    });
+    const list = $('songList');
+    const focusedId = list.contains(document.activeElement) ? document.activeElement.dataset.songId : null;
+    const scrollTop = list.scrollTop;
+    if (!songs.some(song => song.id === songFocusId)) {
+      songFocusId = songs.find(song => song.id === currentSongId)?.id ?? songs[0]?.id ?? '';
+    }
+    const rows = [];
     for (const song of songs) {
-      const label = groupFor(song);
-      if (!menuGroups.has(label)) {
-        const group = document.createElement('optgroup'); group.label = label; menuGroups.set(label, group);
+      let row = songRows.get(song.id);
+      if (!row) {
+        row = document.createElement('li');
+        const button = document.createElement('button');
+        button.type = 'button'; button.className = 'midiphoria-song'; button.dataset.songId = song.id;
+        const title = document.createElement('span'); title.className = 'midiphoria-song-title';
+        const meta = document.createElement('span'); meta.className = 'midiphoria-song-meta';
+        button.append(title, meta); row.append(button); songRows.set(song.id, row);
       }
-      const composer = song.demo ? '' : song.composer;
-      menuGroups.get(label).append(new Option(`${composer ? `${composer} · ` : ''}${song.title}${song.kind === 'pattern' ? ' · pattern' : ''}`, song.id));
+      const button = row.firstElementChild;
+      button.firstElementChild.textContent = songLabel(song);
+      button.lastElementChild.textContent = groupFor(song);
+      button.setAttribute('aria-pressed', String(song.id === currentSongId));
+      button.tabIndex = song.id === songFocusId ? 0 : -1;
+      rows.push(row);
     }
-    $('songSelect').replaceChildren(...menuGroups.values());
-    // Browsing and filtering never choose a file or change the playing song.
-    if (!selected && songs.length) {
-      const placeholder = new Option('Choose a MIDI…', '');
-      placeholder.disabled = true; placeholder.hidden = true;
-      $('songSelect').prepend(placeholder);
+    // Selecting a row leaves its node, keyboard focus and scroll position intact.
+    if (rows.length !== list.children.length || rows.some((row, index) => row !== list.children[index])) {
+      list.replaceChildren(...rows);
+      list.scrollTop = scrollTop;
+      if (focusedId && songs.some(song => song.id === focusedId)) {
+        songRows.get(focusedId).firstElementChild.focus({ preventScroll: true });
+      }
     }
-    $('songSelect').value = selected;
-    $('songCount').value = query || $('collectionSelect').value ? `${songs.length} / ${all.length}` : `${all.length} MIDIs`;
-    $('songSelect').disabled = !songs.length;
+    list.setAttribute('aria-busy', 'false');
+    const selected = all.find(song => song.id === currentSongId);
+    $('currentSong').hidden = !selected;
+    $('currentSong').textContent = selected ? `Selected: ${songLabel(selected)}` : '';
+    $('songCount').value = query.length ? `${songs.length} / ${all.length}` : `${all.length} MIDIs`;
     $('nextSongButton').disabled = !songs.length;
     $('randomSongButton').disabled = !songs.length;
-    $('songSearchStatus').textContent = songs.length ? '' : 'No matching songs. Try another title or artist.';
+    $('songSearchStatus').textContent = songs.length ? '' : 'No matching songs. Try another search.';
     return songs;
+  }
+
+  function showSongInList(id) {
+    const list = $('songList'), row = songRows.get(id);
+    if (!row || row.parentElement !== list) return;
+    const bounds = row.getBoundingClientRect(), viewport = list.getBoundingClientRect();
+    // Scroll only the list; Next/Random must not pull the whole page away from transport.
+    if (bounds.top < viewport.top) list.scrollTop -= viewport.top - bounds.top;
+    else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
   }
 
   async function selectSong(song, { audition = false } = {}) {
@@ -181,7 +208,8 @@ function mountMidiphoria() {
     pendingPresetSong = false; currentSongId = song.id;
     textScore = song.textScore ?? null;
     $('showTextScore').checked = Boolean(textScore);
-    renderSongMenu();
+    songFocusId = song.id;
+    renderSongList(); showSongInList(song.id);
     const file = song.localFile;
     const version = ++selectionVersion;
     songRequest?.abort(); songRequest = new AbortController();
@@ -220,7 +248,7 @@ function mountMidiphoria() {
     if (currentSongId) return;
     const song = randomSong(collection);
     if (!song) { pendingPresetSong = true; return; }
-    $('songSearch').value = ''; $('collectionSelect').value = '';
+    $('songSearch').value = '';
     void selectSong(song);
   }
 
@@ -238,7 +266,7 @@ function mountMidiphoria() {
     const song = { ...metadata, id: songId, title: String(title || 'Your MIDI').slice(0, 256),
       buffer, collection: group, description, attribution };
     localSongs = [...retained, song];
-    $('songSearch').value = ''; $('collectionSelect').value = '';
+    $('songSearch').value = '';
     return selectSong(song, options).then(() => song);
   }
 
@@ -264,9 +292,32 @@ function mountMidiphoria() {
     player.setVolume(Number($('outputLevel').value));
     $('outputLevelOut').value = `${Math.round(Number($('outputLevel').value) * 100)}%`;
   });
-  on($('songSelect'), 'change', () => {
-    const song = [...localSongs, ...collection].find(item => item.id === $('songSelect').value);
-    if (song) void selectSong(song);
+  on($('songList'), 'click', event => {
+    const button = event.target.closest('button[data-song-id]');
+    if (!button || !$('songList').contains(button)) return;
+    const song = visibleSongs.find(item => item.id === button.dataset.songId);
+    if (!song || (song.id === currentSongId && (loadingFile || (selectionReady && !fileError && !player.state.error)))) return;
+    void selectSong(song);
+  });
+  on($('songList'), 'focusin', event => {
+    const button = event.target.closest('button[data-song-id]');
+    if (!button) return;
+    songFocusId = button.dataset.songId;
+    for (const row of $('songList').children) row.firstElementChild.tabIndex = row.firstElementChild === button ? 0 : -1;
+  });
+  on($('songList'), 'keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
+    const button = event.target.closest('button[data-song-id]');
+    if (!button) return;
+    const buttons = [...$('songList').querySelectorAll('button[data-song-id]')];
+    const index = buttons.indexOf(button);
+    const page = Math.max(1, Math.floor($('songList').clientHeight / button.offsetHeight));
+    const next = { ArrowDown: index + 1, ArrowUp: index - 1, Home: 0, End: buttons.length - 1,
+      PageDown: index + page, PageUp: index - page }[event.key];
+    if (next === undefined) return;
+    event.preventDefault();
+    const target = buttons[Math.max(0, Math.min(buttons.length - 1, next))];
+    target.focus({ preventScroll: true }); showSongInList(target.dataset.songId);
   });
   on($('nextSongButton'), 'click', () => {
     const index = visibleSongs.findIndex(song => song.id === currentSongId);
@@ -277,8 +328,7 @@ function mountMidiphoria() {
     const song = randomSong(visibleSongs);
     if (song) void selectSong(song);
   });
-  on($('songSearch'), 'input', () => renderSongMenu());
-  on($('collectionSelect'), 'change', () => renderSongMenu());
+  on($('songSearch'), 'input', () => { $('songList').scrollTop = 0; renderSongList(); });
   on($('midiFile'), 'change', () => {
     const files = [...$('midiFile').files];
     $('midiFile').value = '';
@@ -289,7 +339,7 @@ function mountMidiphoria() {
       fileError = 'Open up to 20 MIDIs per session, 10 MB each and 50 MB in total.'; reflectPlayer(); return;
     }
     const added = files.map(file => ({ id: `local-${++localSerial}`, title: file.name, localFile: file }));
-    localSongs.push(...added); $('songSearch').value = ''; $('collectionSelect').value = ''; renderSongMenu(added[0].id);
+    localSongs.push(...added); $('songSearch').value = '';
     void selectSong(added[0]);
   });
   on($('playButton'), 'click', () => {
@@ -586,10 +636,10 @@ function mountMidiphoria() {
     .then(songs => {
       if (disposed) return;
       collection = songs;
-      renderSongMenu();
+      renderSongList();
       if (pendingPresetSong) choosePresetSong();
     })
-    .catch(error => { if (!disposed && error.name !== 'AbortError') { fileError = error.message; reflectPlayer(); } });
+    .catch(error => { if (!disposed && error.name !== 'AbortError') { renderSongList(); fileError = error.message; reflectPlayer(); } });
 }
 
 mountMidiphoria();

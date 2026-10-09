@@ -68,14 +68,15 @@
             <button class="midiphoria-stop" id="stopButton" type="button" aria-label="Stop and rewind MIDI" title="Stop and rewind" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="7" width="10" height="10" /></svg></button>
           </div>
           <label class="midiphoria-loop"><input type="checkbox" id="loopSong" /> Loop</label>
-          <label class="control" for="collectionSelect"><span><b>Collection</b></span><select id="collectionSelect"><option value="">All collections</option></select></label>
-          <label class="control" for="songSearch"><span><b>Find a song or artist</b><output id="songCount">Loading…</output></span><input id="songSearch" type="search" placeholder="Search the MIDI collection" autocomplete="off" /></label>
-          <p class="midiphoria-help" id="songSearchStatus" role="status"></p>
-          <div class="midiphoria-song-picker">
-            <label class="control" for="songSelect"><span><b>MIDI collection</b></span><select id="songSelect"><option value="">Loading collection…</option></select></label>
+          <div class="midiphoria-library-heading">
+            <h2 id="songListHeading">MIDI files</h2><output id="songCount">Loading…</output>
             <button class="midiphoria-song-action" id="nextSongButton" type="button" aria-label="Next MIDI" title="Next MIDI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 7 7-7 7" /></svg></button>
             <button class="midiphoria-song-action" id="randomSongButton" type="button" aria-label="Random MIDI" title="Random MIDI" disabled><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="3" /><circle cx="8" cy="8" r="1" /><circle cx="16" cy="8" r="1" /><circle cx="12" cy="12" r="1" /><circle cx="8" cy="16" r="1" /><circle cx="16" cy="16" r="1" /></svg></button>
           </div>
+          <label class="control" for="songSearch"><span class="sr-only">Filter MIDI files</span><input id="songSearch" type="search" placeholder="Filter by song, artist or collection" autocomplete="off" /></label>
+          <p class="midiphoria-help" id="songSearchStatus" role="status"></p>
+          <p id="currentSong" class="midiphoria-current-song" hidden></p>
+          <ul id="songList" class="midiphoria-song-list" aria-labelledby="songListHeading" aria-busy="true"></ul>
           <p id="songDescription" class="midiphoria-help"></p>
           <label class="midiphoria-file" for="midiFile"><span>Open your MIDIs</span><input id="midiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple /></label>
           <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>

@@ -54,8 +54,9 @@ test("Midiphoria is a browseable visual lab with one native MIDI client and opti
 
 test("Midiphoria publishes the accessible visual page and complete runtime assets", async () => {
   const page = await readFile(new URL("../src/pages/midiphoria.html", import.meta.url), "utf8");
-  assert.doesNotMatch(page, /id="genreSelect"/);
+  assert.doesNotMatch(page, /id="(?:genreSelect|collectionSelect|songSelect)"/);
   assert.match(page, /id="songSearch"/);
+  assert.match(page, /<ul\b[^>]*id="songList"[^>]*aria-labelledby="songListHeading"/);
   assert.match(page, /data-instrument-preset-host/);
   assert.match(page, /<canvas\b[^>]*\baria-label=/);
   assert.match(page, /href="midiphoria\.html"/);
