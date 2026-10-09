@@ -23,7 +23,7 @@ if writing to the chosen file is blocked. Embedded browsers (including editor
 previews) may expose the picker while restricting file writes. Try another
 filename/folder or use Download WAV; cancelled and failed saves keep the take.
 Saving again requests a new writable file and keeps the same recorded audio.
-Keep for later closes the dialog
+Cancel closes the dialog
 without deleting the take. The header's save arrow reopens it. New recording
 returns to the red circle, confirming before discarding an unconfirmed take.
 An initiated download is not proof that the browser saved it: the take is kept

@@ -119,8 +119,8 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
   const save = createButton({ label: "Save WAV", variant: "primary" }, doc);
   const download = createButton({ label: "Download WAV" }, doc);
   const next = createButton({ label: "New recording" }, doc);
-  const keep = createButton({ label: "Keep for later", variant: "quiet" }, doc);
-  actions.append(save, download, next, keep);
+  const cancel = createButton({ label: "Cancel", variant: "quiet" }, doc);
+  actions.append(save, download, next, cancel);
   dialog.append(heading, summary, message, nameLabel, name, actions);
   doc.body.append(dialog);
 
@@ -204,8 +204,7 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     name.disabled = saving;
     next.hidden = !ready && status.state !== "error";
     next.disabled = busy;
-    keep.disabled = saving;
-    keep.labelElement.textContent = ready ? "Keep for later" : "Close";
+    cancel.disabled = saving;
     if (active) requestWakeLock();
     else releaseWakeLock();
   }
@@ -335,7 +334,7 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
   save.addEventListener("click", saveTake);
   download.addEventListener("click", downloadTake);
   next.addEventListener("click", newTake);
-  keep.addEventListener("click", closeDialog);
+  cancel.addEventListener("click", closeDialog);
   dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
   const unsubscribe = recorder.subscribe(nextStatus => {
     status = nextStatus;
@@ -399,7 +398,7 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     audioObserver?.disconnect();
     for (const url of objectUrls) runtime.URL.revokeObjectURL(url);
     for (const { button, strip } of strips) { button.destroy(); strip.remove(); }
-    for (const button of [save, download, next, keep]) button.destroy();
+    for (const button of [save, download, next, cancel]) button.destroy();
     for (const { select } of options) select.parentElement.remove();
     dialog.remove();
     controllers.delete(doc);

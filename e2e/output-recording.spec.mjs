@@ -446,7 +446,7 @@ test("cancelling Save WAV and keeping a take for later preserves its name and re
   await expect(page.locator(RECORD_DIALOG)).toBeVisible();
   await expect(page.getByRole("button", { name: "Save WAV", exact: true })).toBeEnabled();
   expect(await page.evaluate(() => globalThis.__recordingFilePicker.files.length)).toBe(0);
-  await page.getByRole("button", { name: "Keep for later", exact: true }).click();
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
   await expect(page.locator(RECORD_DIALOG)).not.toBeVisible();
   await expect(page.locator(RECORD_BUTTON)).toHaveAccessibleName("Save recording");
   await page.locator(RECORD_BUTTON).click();
@@ -481,7 +481,7 @@ test("a denied same-name Save WAV retry retains the exact take for Download WAV"
   await expect(page.locator(".output-recording-message")).toContainText("Download WAV");
   await expect(page.locator(RECORD_NAME)).toHaveValue("same-name-take.wav");
   await expect(page.locator(RECORD_NAME)).toBeEditable();
-  for (const label of ["Save WAV", "Download WAV", "Keep for later", "New recording"]) {
+  for (const label of ["Save WAV", "Download WAV", "Cancel", "New recording"]) {
     await expect(page.getByRole("button", { name: label, exact: true })).toBeEnabled();
   }
   expect(downloads, "write denial must leave the download choice to the user").toHaveLength(0);
@@ -612,13 +612,13 @@ for (const viewport of [
       expect(dialog.x + dialog.width).toBeLessThanOrEqual(viewport.width + 1);
       expect(dialog.y + dialog.height).toBeLessThanOrEqual(viewport.height + 1);
       await expect(page.locator(RECORD_NAME)).toBeEditable();
-      for (const label of ["Save WAV", "Download WAV", "New recording", "Keep for later"]) {
+      for (const label of ["Save WAV", "Download WAV", "New recording", "Cancel"]) {
         const action = page.getByRole("button", { name: label, exact: true });
         await action.scrollIntoViewIfNeeded();
         await expect(action).toBeInViewport();
         await expect(action).toBeEnabled();
       }
-      await page.getByRole("button", { name: "Keep for later", exact: true }).click();
+      await page.getByRole("button", { name: "Cancel", exact: true }).click();
       await expect(page.locator(RECORD_BUTTON)).toHaveAccessibleName("Save recording");
       await releaseStereoSource(page, source.index);
     });
@@ -734,7 +734,7 @@ test("a stalled Save WAV write restores controls and preserves the take even whe
   await page.getByRole("button", { name: "Save WAV", exact: true }).click();
   await expect(page.locator(".output-recording-message")).toContainText(/timed out/i);
   await expect(page.locator(RECORD_DIALOG)).toBeVisible();
-  for (const label of ["Save WAV", "Keep for later", "New recording"]) {
+  for (const label of ["Save WAV", "Cancel", "New recording"]) {
     await expect(page.getByRole("button", { name: label, exact: true })).toBeEnabled();
   }
   await expect(page.locator(RECORD_NAME)).toBeEditable();
