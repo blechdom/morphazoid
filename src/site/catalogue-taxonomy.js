@@ -157,6 +157,10 @@ export const CATALOGUE_TAGS = Object.freeze([
     "label": "PM"
   },
   {
+    "id": "am",
+    "label": "AM"
+  },
+  {
     "id": "filter",
     "label": "Filter"
   },
@@ -474,6 +478,12 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "recursive",
     "pm"
   ],
+  "recursive-am": [
+    "chaotic",
+    "nonlinear",
+    "recursive",
+    "am"
+  ],
   "chaotic-fm": [
     "chaotic",
     "nonlinear",
@@ -483,6 +493,11 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "chaotic",
     "nonlinear",
     "pm"
+  ],
+  "chaotic-am": [
+    "chaotic",
+    "nonlinear",
+    "am"
   ],
   "bifurcator": ["chaotic", "nonlinear", "sonification"],
   "cascading-fm": [
@@ -494,6 +509,11 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
     "chaotic",
     "nonlinear",
     "pm"
+  ],
+  "cascading-am": [
+    "chaotic",
+    "nonlinear",
+    "am"
   ],
   "weierstrass": [
     "chaotic",

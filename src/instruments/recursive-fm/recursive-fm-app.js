@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { recursiveFmPresets } from "./full-presets.js";
 import {
   DEFAULT_RECURSIVE_FM_PRESET_ID,
   RECURSIVE_FM_LIMITS,
@@ -30,6 +32,7 @@ import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
+let presetController = null;
 const VISUAL_FRAME_INTERVAL = 1_000 / 30;
 const PARAMETER_SMOOTHING_SECONDS = 0.018;
 
@@ -298,7 +301,6 @@ class RecursiveFmAudioEngine {
     if (!this.context) return deriveRecursiveFmStack(settings);
 
     const context = this.context;
-    const releaseAudioOutput = this.releaseAudioOutput;
     const stack = deriveRecursiveFmStack(settings, { sampleRate: context.sampleRate });
     this.settings = stack.settings;
     const maximumStack = deriveRecursiveFmStack({
@@ -627,6 +629,7 @@ class RecursiveFmAudioEngine {
     if (!this.context || this.stopping) return;
     this.stopping = true;
     const context = this.context;
+    const releaseAudioOutput = this.releaseAudioOutput;
     const oscillators = [...this.oscillators];
     const nodes = [...this.nodes];
     this.releaseAudioOutput = null;
@@ -959,6 +962,8 @@ function handleMidiAction(action) {
         ...state.performance,
         [semantic.key]: semantic.value,
       }) };
+      state.activePresetId = null;
+      updatePresetPresentation();
     } else if (semantic?.type === "expression" && performanceActive) {
       state.expression = semantic.value;
     } else if (semantic?.type === "sustain" && performanceActive) {
@@ -1095,20 +1100,15 @@ function currentStack() {
 }
 
 function presetById(id) {
-  return RECURSIVE_FM_PRESETS.find((preset) => preset.id === id) ?? null;
+  return recursiveFmPresets.bank.find((preset) => preset.id === id) ?? null;
 }
 
-function updatePresetButtons() {
-  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.preset === state.activePresetId),
-    );
-  }
+function updatePresetPresentation() {
   const preset = presetById(state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description
     ?? "A custom recursive operator stack.";
+  presetController?.refresh();
 }
 
 function updateSignalFlow(stack) {
@@ -1289,11 +1289,14 @@ function writeControlsFromState() {
 }
 
 function applyPerformanceSettings(settings, { message = null } = {}) {
+  const previous = recursiveFmPresets.capture(state).performance;
   state.performance = { ...sanitizeRecursiveFmPerformance({
     ...state.performance,
     ...settings,
   }) };
   engine.updatePerformance(state.performance);
+  if (Object.keys(previous).some(key => previous[key] !== state.performance[key])) state.activePresetId = null;
+  updatePresetPresentation();
   writePerformanceControls();
   updateControlOutputs();
   if (message) $("liveStatus").textContent = message;
@@ -1313,7 +1316,7 @@ function applySettings(settings, { presetId = null, announce = false } = {}) {
   const stack = engine.running
     ? engine.updateSettings(state.settings)
     : currentStack();
-  updatePresetButtons();
+  updatePresetPresentation();
   updateControlOutputs(stack);
   visualizationDirty = true;
   scheduleVisualization();
@@ -1535,15 +1538,6 @@ $("glideMode").addEventListener("change", () => {
   );
 });
 
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (!button) return;
-  const preset = presetById(button.dataset.preset);
-  if (!preset) return;
-  clearError();
-  applySettings(preset.settings, { presetId: preset.id, announce: true });
-});
-
 $("level").addEventListener("input", () => {
   state.level = Number($("level").value);
   $("levelOut").textContent = `${Math.round(state.level * 100)}%`;
@@ -1645,7 +1639,19 @@ if ("ResizeObserver" in window) {
 
 writeControlsFromState();
 writePerformanceControls();
-updatePresetButtons();
+updatePresetPresentation();
 updateControlOutputs();
 resizeCanvas();
 registerSharedMidiClient();
+
+presetController = registerHeaderPresets({
+  id: "recursive-fm", presets: recursiveFmPresets.bank,
+  capture: () => recursiveFmPresets.capture(state),
+  randomize: recursiveFmPresets.randomize,
+  apply: (raw) => {
+    // Validate the whole snapshot before changing either synthesis or envelopes.
+    const snapshot = recursiveFmPresets.validate(raw);
+    applyPerformanceSettings(snapshot.performance);
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });
+  },
+});

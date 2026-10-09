@@ -4,11 +4,11 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 41,
-    "fullPresets": 1861,
+    "implemented": 46,
+    "fullPresets": 1921,
     "favesImplemented": 17,
-    "activeRemaining": 61,
-    "regularRemaining": 129
+    "activeRemaining": 59,
+    "regularRemaining": 127
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -744,8 +744,9 @@
       "href": "recursive-fm.html",
       "category": "synthesizer",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Shared pulldown, Next and bounded full-state Random; original scenes retained. tests/recursive-full-presets.test.mjs and e2e/recursive-presets.spec.mjs cover recall, live Audio/level and held MIDI continuity. Human listening and hardware-controller acceptance remain unperformed."
     },
     {
       "id": "recursive-pm",
@@ -753,8 +754,19 @@
       "href": "recursive-pm.html",
       "category": "synthesizer",
       "scope": "regular",
-      "presets": null,
-      "status": "unmigrated"
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Shared pulldown, Next and bounded full-state Random; original scenes retained. tests/recursive-full-presets.test.mjs and e2e/recursive-presets.spec.mjs cover recall, live Audio/level and held MIDI continuity. Human listening and hardware-controller acceptance remain unperformed."
+    },
+    {
+      "id": "recursive-am",
+      "label": "Recursive AM",
+      "href": "recursive-am.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Shared pulldown, Next and bounded full-state Random; original scenes retained. tests/recursive-full-presets.test.mjs and e2e/recursive-presets.spec.mjs cover recall, live Audio/level and held MIDI continuity. Human listening and hardware-controller acceptance remain unperformed."
     },
     {
       "id": "chaotic-fm",
@@ -773,6 +785,16 @@
       "scope": "regular",
       "presets": null,
       "status": "unmigrated"
+    },
+    {
+      "id": "chaotic-am",
+      "label": "Chaotic AM",
+      "href": "chaotic-am.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending",
+      "evidence": "Revoiced nested AM carrier, complete preset pulldown/Next/dice; tests/chaotic-am.test.mjs and e2e/chaotic-am-controls.spec.mjs cover control sweeps, onset, live Audio/level and MIDI continuity. Automated characterization only; human listening remains unperformed."
     },
     {
       "id": "bifurcator",
@@ -797,6 +819,15 @@
       "id": "cascading-pm",
       "label": "Cascading PM",
       "href": "cascading-pm.html",
+      "category": "synthesizer",
+      "scope": "regular",
+      "presets": 12,
+      "status": "implemented-verification-pending"
+    },
+    {
+      "id": "cascading-am",
+      "label": "Cascading AM",
+      "href": "cascading-am.html",
       "category": "synthesizer",
       "scope": "regular",
       "presets": 12,
@@ -1749,8 +1780,6 @@
       "ouroboros-borealis",
       "sandy-syrup-delay",
       "candy-coil-delay",
-      "recursive-fm",
-      "recursive-pm",
       "chaotic-fm",
       "chaotic-pm",
       "weierstrass",

@@ -128,3 +128,9 @@ variant directory retains the exact `catalogue-current.webp` copied to
 `bifurcator.webp` is original procedural artwork rendered from the Lorenz
 equation as a 512 × 512 WebP. The attractor samples supply the butterfly
 trajectory; no third-party image is used.
+
+## AM instrument variants
+
+`cascading-am.webp`, `recursive-am.webp`, and `chaotic-am.webp` reuse their
+corresponding PM catalogue artwork unchanged, retaining each instrument family’s
+visual identity alongside its AM sound engine. No new external artwork is used.

@@ -353,7 +353,8 @@ test("Recursive PM page is internal, gesture controlled, and cleans up audio", a
   assert.match(app, /updateSignalFlow\(stack\)/);
   assert.match(html, /id="turnsReadout"/);
   assert.doesNotMatch(html, />Turn \d+</);
-  assert.match(html, /data-preset="chromium-swarm"/);
+  assert.match(html, /data-instrument-preset-host/);
+  assert.match(app, /registerHeaderPresets/);
   assert.match(html, /src="src\/instruments\/recursive-pm\/recursive-pm-app\.js"/);
   assert.doesNotMatch(html, /https?:\/\//);
   assert.match(app, /new RecursivePmAudioEngine\(window\)/);

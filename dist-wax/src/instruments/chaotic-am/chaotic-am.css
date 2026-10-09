@@ -1,0 +1,669 @@
+.chaotic-am-page {
+  --accent: #b98cff;
+  --accent-soft: color-mix(in oklab, #b98cff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b98cff 22%, transparent);
+  --chaotic-am-carrier: #62ecc6;
+  --chaotic-am-phase: #ffab65;
+  --chaotic-am-warp: #b98cff;
+  --chaotic-am-output: #fff0c7;
+  --chaotic-am-caution: #f2bf67;
+  --chaotic-path-signal: #b98cff;
+  --chaotic-path-control: #62ecc6;
+  --chaotic-path-operator: #ffab65;
+  --chaotic-path-output: #fff0c7;
+}
+
+.chaotic-am-shell {
+  grid-template-columns: minmax(0, 1fr) clamp(350px, 27vw, 410px);
+}
+
+.chaotic-am-stage .stage-wrap {
+  background:
+    linear-gradient(color-mix(in oklab, var(--chaotic-am-warp) 2.7%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--chaotic-am-carrier) 2.2%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 52% 39%, color-mix(in oklab, var(--chaotic-am-warp) 9%, transparent), transparent 50%),
+    var(--bg-deep);
+  background-size: 44px 44px, 44px 44px, auto, auto;
+}
+
+.chaotic-am-page #stage {
+  cursor: default;
+}
+
+.chaotic-am-heading {
+  position: absolute;
+  z-index: 2;
+  top: clamp(38px, 7vh, 72px);
+  left: clamp(20px, 4vw, 58px);
+  display: grid;
+  pointer-events: none;
+  gap: 5px;
+}
+
+.chaotic-am-heading p,
+.chaotic-am-heading span {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+}
+
+.chaotic-am-heading p {
+  color: var(--accent);
+}
+
+.chaotic-am-heading h1 {
+  margin: 0;
+  color: var(--ink);
+  font-size: clamp(25px, 4vw, 52px);
+  font-weight: 400;
+  letter-spacing: -0.055em;
+  line-height: 1;
+}
+
+.chaotic-am-heading span {
+  margin-top: 3px;
+  color: var(--faint);
+  letter-spacing: 0.11em;
+}
+
+.chaotic-am-panel {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, var(--accent) 3%, transparent), transparent 270px),
+    var(--panel);
+}
+
+.chaotic-am-presets {
+  --accent: #62ecc6;
+  --accent-soft: color-mix(in oklab, #62ecc6 55%, transparent);
+  --accent-glow: color-mix(in oklab, #62ecc6 20%, transparent);
+}
+
+.chaotic-am-algorithm {
+  --accent: #b98cff;
+  --accent-soft: color-mix(in oklab, #b98cff 55%, transparent);
+  --accent-glow: color-mix(in oklab, #b98cff 20%, transparent);
+}
+
+.chaotic-am-performance {
+  --accent: #ffab65;
+  --accent-soft: color-mix(in oklab, #ffab65 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffab65 18%, transparent);
+}
+
+.chaotic-midi-monitor {
+  display: grid;
+  padding: 9px 10px;
+  margin-bottom: 13px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 86%, transparent);
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.chaotic-midi-monitor > span {
+  display: grid;
+  min-width: 0;
+  color: var(--muted);
+  font-size: 8px;
+  gap: 3px;
+}
+
+.chaotic-midi-monitor b {
+  color: var(--faint);
+  font-size: 6px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-monitor output {
+  overflow: hidden;
+  color: var(--ink);
+  font-variant-numeric: tabular-nums;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.chaotic-expression-row {
+  grid-column: 1 / -1;
+  grid-template-columns: 54px minmax(0, 1fr) 34px !important;
+  align-items: center;
+}
+
+.chaotic-expression-row i {
+  position: relative;
+  height: 3px;
+  overflow: hidden;
+  background: var(--line-strong);
+}
+
+.chaotic-expression-row i::after {
+  position: absolute;
+  inset: 0;
+  width: calc(var(--expression, 1) * 100%);
+  content: "";
+  background: var(--chaotic-am-carrier);
+}
+
+.chaotic-midi-activity {
+  color: var(--faint) !important;
+  grid-column: 1 / -1;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-activity.is-active {
+  color: var(--chaotic-am-carrier) !important;
+}
+
+.chaotic-adsr-preview {
+  display: grid;
+  margin: 2px 0 12px;
+  grid-template-columns: repeat(4, 1fr);
+}
+
+.chaotic-adsr-preview svg {
+  width: 100%;
+  height: 74px;
+  grid-column: 1 / -1;
+}
+
+.chaotic-adsr-preview path:not(.chaotic-adsr-grid) {
+  fill: none;
+  stroke: var(--accent);
+  stroke-width: 1.6;
+  filter: drop-shadow(0 0 5px var(--accent-glow));
+}
+
+.chaotic-adsr-preview .chaotic-adsr-grid {
+  fill: none;
+  stroke: var(--line-strong);
+  stroke-width: 1;
+}
+
+.chaotic-adsr-preview > span {
+  margin-top: -5px;
+  color: var(--faint);
+  font-size: 6px;
+  letter-spacing: 0.12em;
+  text-align: center;
+}
+
+.chaotic-glide-row {
+  margin: 2px 0 12px;
+}
+
+.chaotic-glide-row label {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  color: var(--ink);
+  font-size: 9px;
+  gap: 10px;
+}
+
+.chaotic-glide-row select {
+  min-width: 106px;
+  height: 30px;
+  padding: 0 24px 0 8px;
+  border: 1px solid var(--line-strong);
+  border-radius: 0;
+  color: var(--ink);
+  background: var(--bg-deep);
+  font: inherit;
+  font-size: 8px;
+  text-transform: uppercase;
+}
+
+.chaotic-midi-map-note {
+  margin-top: 3px;
+  line-height: 1.65;
+}
+
+.chaotic-am-family {
+  --accent: #ffab65;
+  --accent-soft: color-mix(in oklab, #ffab65 55%, transparent);
+  --accent-glow: color-mix(in oklab, #ffab65 18%, transparent);
+}
+
+.chaotic-am-preset-grid {
+  display: grid;
+  padding: 3px;
+  border: 1px solid var(--line-strong);
+  background: var(--bg-deep);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3px;
+}
+
+.chaotic-am-preset-grid button {
+  min-height: 42px;
+  padding: 7px 8px;
+  border: 1px solid transparent;
+  cursor: pointer;
+  color: var(--muted);
+  background: transparent;
+  font: inherit;
+  font-size: 9px;
+  letter-spacing: 0.035em;
+}
+
+.chaotic-am-preset-grid button:hover,
+.chaotic-am-preset-grid button:focus-visible {
+  border-color: var(--line-strong);
+  color: var(--ink);
+}
+
+.chaotic-am-preset-grid button[aria-pressed="true"] {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+  background: var(--accent-glow);
+}
+
+.chaotic-am-preset-description {
+  min-height: 2.9em;
+  margin: 10px 0 3px;
+  color: var(--muted);
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-am-repair-note {
+  margin: 8px 0 3px;
+  padding: 8px 10px;
+  border: 1px solid color-mix(in oklab, var(--chaotic-am-caution) 28%, var(--line));
+  color: var(--muted);
+  background: color-mix(in oklab, var(--chaotic-am-caution) 3%, transparent);
+  font-size: 8px;
+  line-height: 1.5;
+}
+
+.chaotic-am-repair-note summary {
+  cursor: pointer;
+  color: color-mix(in oklab, var(--chaotic-am-caution) 78%, var(--ink));
+  font-size: 8px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.chaotic-am-repair-note p {
+  margin: 8px 0 1px;
+}
+
+.chaotic-am-control-note {
+  display: block;
+  margin: -8px 0 12px;
+  color: var(--faint);
+  font-size: 7px;
+  letter-spacing: 0.06em;
+  line-height: 1.45;
+  text-transform: uppercase;
+}
+
+.chaotic-am-control-note code,
+.chaotic-am-safety-note code {
+  color: var(--chaotic-am-output);
+  font: inherit;
+}
+
+.chaotic-am-warp-note {
+  color: color-mix(in oklab, var(--chaotic-am-caution) 72%, var(--muted));
+}
+
+.chaotic-am-ledger {
+  margin-top: 16px;
+}
+
+.chaotic-am-ledger > span {
+  grid-template-columns: 66px minmax(0, 1fr);
+}
+
+.chaotic-am-ledger code {
+  color: color-mix(in oklab, var(--ink) 88%, var(--accent));
+  font-variant-numeric: tabular-nums;
+}
+
+.chaotic-am-safety-note {
+  margin: -4px 0 11px;
+  padding: 10px 11px;
+  border-left: 1px solid var(--chaotic-am-caution);
+  color: var(--muted);
+  background: color-mix(in oklab, var(--chaotic-am-caution) 4%, transparent);
+  font-size: 8px;
+  line-height: 1.55;
+}
+
+.chaotic-am-page .audio-error {
+  margin: 11px 0 4px;
+  color: #ffb2a8;
+  font-size: 9px;
+  line-height: 1.5;
+}
+
+.chaotic-am-audio-glyph {
+  color: var(--accent);
+  font-size: 18px;
+}
+
+/* The full signal path fits the stage; narrow layouts use the compact path. */
+.chaotic-am-page .chaotic-am-flow {
+  height: clamp(190px, 31%, 236px);
+  overflow-x: auto;
+  overflow-y: hidden;
+  border-color: color-mix(in oklab, var(--chaotic-path-signal) 38%, transparent);
+  scrollbar-color: color-mix(in oklab, var(--chaotic-path-signal) 62%, transparent)
+    color-mix(in oklab, var(--bg-deep) 88%, transparent);
+  scrollbar-width: thin;
+  overscroll-behavior-x: contain;
+  pointer-events: auto;
+  touch-action: pan-x;
+}
+
+.chaotic-am-page .chaotic-am-flow:focus-visible {
+  outline: 1px solid var(--chaotic-path-control);
+  outline-offset: 2px;
+}
+
+.chaotic-am-page .chaotic-am-flow::before {
+  top: 8px;
+  left: 14px;
+  max-width: calc(100% - 28px);
+  color: color-mix(in oklab, var(--chaotic-path-signal) 82%, var(--ink));
+  font-size: 9px;
+  font-weight: 650;
+  letter-spacing: 0.085em;
+  line-height: 1.25;
+  opacity: 1;
+}
+
+.chaotic-am-page .chaotic-am-flow .chaotic-am-flow-detailed {
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: 100%;
+}
+
+.chaotic-am-page .chaotic-am-flow .chaotic-am-flow-compact {
+  display: none;
+}
+
+.chaotic-am-compact-node rect {
+  fill: color-mix(in oklab, var(--bg-deep) 90%, transparent);
+  stroke: var(--chaotic-am-warp);
+  stroke-width: 1.3;
+}
+
+.chaotic-am-compact-node.is-carrier rect {
+  stroke: var(--chaotic-am-carrier);
+}
+
+.chaotic-am-compact-node.is-phase rect {
+  stroke: var(--chaotic-am-phase);
+}
+
+.chaotic-am-compact-node.is-output rect {
+  fill: color-mix(in oklab, var(--chaotic-am-output) 8%, var(--bg-deep));
+  stroke: var(--chaotic-am-output);
+}
+
+.chaotic-am-compact-title,
+.chaotic-am-compact-value,
+.chaotic-am-compact-caption,
+.chaotic-am-compact-arrow {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  text-anchor: middle;
+}
+
+.chaotic-am-compact-title {
+  fill: var(--ink);
+  font-size: 7.5px;
+  font-weight: 650;
+}
+
+.chaotic-am-compact-value {
+  fill: var(--muted);
+  font-size: 5.9px;
+}
+
+.chaotic-am-compact-arrow {
+  fill: var(--chaotic-am-phase);
+  font-size: 15px;
+}
+
+.chaotic-am-compact-caption {
+  fill: var(--faint);
+  font-size: 5.8px;
+  letter-spacing: 0.035em;
+  text-anchor: start;
+}
+
+.chaotic-am-flow .chaotic-path-wire,
+.chaotic-am-flow .chaotic-path-audio-wire {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2.2;
+  filter: drop-shadow(0 0 3px color-mix(in oklab, var(--chaotic-path-signal) 38%, transparent));
+}
+
+.chaotic-am-flow .chaotic-path-control-wire {
+  stroke-width: 2;
+  stroke-dasharray: 5 3;
+  opacity: 0.9;
+}
+
+.chaotic-am-flow .chaotic-path-block rect,
+.chaotic-am-flow .chaotic-path-operator rect,
+.chaotic-am-flow .chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--bg-deep) 84%, #12101b);
+  stroke-width: 1.8;
+}
+
+.chaotic-am-flow .chaotic-path-title {
+  fill: var(--ink);
+  font-size: 10.5px;
+  font-weight: 700;
+}
+
+.chaotic-am-flow .chaotic-path-value {
+  fill: color-mix(in oklab, var(--ink) 72%, var(--muted));
+  font-size: 8.8px;
+  font-weight: 520;
+}
+
+.chaotic-am-flow .chaotic-am-flow-label,
+.chaotic-am-flow .chaotic-am-flow-note {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  paint-order: stroke fill;
+  stroke: color-mix(in oklab, var(--bg-deep) 92%, transparent);
+  stroke-linejoin: round;
+  stroke-width: 2px;
+  text-anchor: middle;
+}
+
+.chaotic-am-flow .chaotic-am-flow-label {
+  fill: var(--chaotic-am-phase);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.chaotic-am-flow .chaotic-am-flow-note {
+  fill: var(--faint);
+  font-size: 8px;
+  text-anchor: start;
+}
+
+.chaotic-am-flow .is-warp rect {
+  stroke: var(--chaotic-am-warp);
+}
+
+.chaotic-am-flow .is-phase rect {
+  stroke: var(--chaotic-am-phase);
+}
+
+.chaotic-am-flow .is-control rect {
+  stroke: var(--chaotic-am-carrier);
+}
+
+.chaotic-am-flow .chaotic-path-output rect {
+  fill: color-mix(in oklab, var(--chaotic-am-output) 8%, var(--bg-deep));
+}
+
+.chaotic-am-flow .chaotic-am-repeat-bracket {
+  fill: none;
+  stroke: color-mix(in oklab, var(--chaotic-am-phase) 72%, transparent);
+  stroke-dasharray: 4 4;
+  stroke-width: 1.4;
+}
+
+.chaotic-am-family-grid {
+  display: grid;
+  margin: 0 0 7px;
+  border: 1px solid var(--line);
+  background: color-mix(in oklab, var(--bg-deep) 82%, transparent);
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.chaotic-am-family-grid article {
+  min-width: 0;
+  padding: 10px;
+}
+
+.chaotic-am-family-grid article:nth-child(even) {
+  border-left: 1px solid var(--line);
+}
+
+.chaotic-am-family-grid article:nth-child(n + 3) {
+  border-top: 1px solid var(--line);
+}
+
+.chaotic-am-family-grid article[aria-current="true"] {
+  background: color-mix(in oklab, var(--accent) 8%, transparent);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+
+.chaotic-am-family-grid h3 {
+  margin: 0 0 5px;
+  color: var(--ink);
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.chaotic-am-family-grid article[aria-current="true"] h3 {
+  color: var(--accent);
+}
+
+.chaotic-am-family-grid p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 8px;
+  line-height: 1.45;
+}
+
+@media (max-width: 960px) {
+  .chaotic-am-shell {
+    grid-template-columns: 1fr;
+  }
+
+  .chaotic-am-heading {
+    top: 27px;
+  }
+
+  .chaotic-am-heading h1 {
+    font-size: clamp(24px, 6vw, 40px);
+  }
+
+  .chaotic-am-page .chaotic-am-flow {
+    height: 158px;
+  }
+}
+
+@media (max-width: 650px) {
+  .chaotic-am-shell {
+    grid-template-rows: clamp(360px, 50dvh, 460px) minmax(0, 1fr);
+  }
+
+  .chaotic-am-heading {
+    top: 19px;
+    left: 16px;
+  }
+
+  .chaotic-am-heading p,
+  .chaotic-am-heading span {
+    display: none;
+  }
+
+  .chaotic-am-page .chaotic-am-flow {
+    right: 5px;
+    bottom: 8px;
+    left: 5px;
+    /* Keep the graph below the shared analyzer at the 360px stage floor. */
+    height: clamp(0px, calc(100% - 274px), 118px);
+    overflow: hidden;
+    pointer-events: none;
+    touch-action: auto;
+  }
+
+  .chaotic-am-page .chaotic-am-flow::before {
+    display: none;
+  }
+
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-detailed {
+    display: none;
+  }
+
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-compact {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+  }
+}
+
+@media (max-width: 390px) {
+  .chaotic-am-preset-grid,
+  .chaotic-am-family-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .chaotic-am-preset-grid button {
+    min-height: 38px;
+  }
+
+  .chaotic-am-family-grid article:nth-child(even) {
+    border-left: 0;
+  }
+
+  .chaotic-am-family-grid article + article {
+    border-top: 1px solid var(--line);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chaotic-am-page *,
+  .chaotic-am-page *::before,
+  .chaotic-am-page *::after {
+    scroll-behavior: auto !important;
+  }
+}
+
+.chaotic-am-panel .control.is-bypassed,
+.chaotic-am-page .chaotic-viewport-control:has(input:disabled) {
+  opacity: 0.5;
+}
+
+@media (min-width: 651px) and (max-width: 1200px) {
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-detailed {
+    display: none;
+  }
+
+  .chaotic-am-page .chaotic-am-flow .chaotic-am-flow-compact {
+    display: block;
+    width: 100%;
+    min-width: 0;
+    height: 100%;
+  }
+}

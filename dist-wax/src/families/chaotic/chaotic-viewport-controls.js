@@ -1,19 +1,25 @@
 const CHAOTIC_INSTRUMENT_IDS = new Set([
   "recursive-fm",
   "recursive-pm",
+  "recursive-am",
   "chaotic-fm",
   "chaotic-pm",
+  "chaotic-am",
   "cascading-fm",
   "cascading-pm",
+  "cascading-am",
   "weierstrass",
 ]);
 const FLOW_OVERLAY_IDS = new Set([
   "recursive-fm",
   "recursive-pm",
+  "recursive-am",
   "chaotic-fm",
   "chaotic-pm",
+  "chaotic-am",
   "cascading-fm",
   "cascading-pm",
+  "cascading-am",
 ]);
 
 const INSTANCES = new WeakMap();
