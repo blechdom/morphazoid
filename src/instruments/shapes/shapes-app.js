@@ -118,6 +118,15 @@ let state = loadState();
 const synthAudio = createGeometryVoicePool();
 const drumAudio = new ShapesKitAudio(globalThis);
 const rattlesnakeAudio = new LinearDrumAudio(globalThis);
+let sharedAudioContext = null;
+function instrumentAudioContext() {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!Context) throw new Error("Web Audio is not available in this browser.");
+    sharedAudioContext = new Context({ latencyHint: "interactive" });
+  }
+  return sharedAudioContext;
+}
 const canvas = $("stage");
 const context = canvas.getContext("2d", { desynchronized: true });
 const app = $("shapesApp");
@@ -966,12 +975,13 @@ function frame(now) {
 
 async function prepareActiveAudio() {
   const request = ++audioRequest;
+  const context = instrumentAudioContext();
   if (state.selection.playingMode !== "triggers" || state.trigger.soundBank === "rattlesnake") drumAudio.cancelPreparation();
   if (state.selection.playingMode === "triggers") {
-    if (state.trigger.soundBank === "rattlesnake") await rattlesnakeAudio.start();
-    else await drumAudio.start(state.trigger.soundBank);
+    if (state.trigger.soundBank === "rattlesnake") await rattlesnakeAudio.start({ context });
+    else await drumAudio.start(state.trigger.soundBank, { context });
   } else {
-    await synthAudio.enable();
+    await synthAudio.enable({ context });
   }
   if (request !== audioRequest || !state.audio.enabled) return;
   showAudioNotice("");
@@ -2208,6 +2218,9 @@ window.addEventListener("pagehide", () => {
   synthAudio.close();
   drumAudio.close();
   rattlesnakeAudio.close();
+  const context = sharedAudioContext;
+  sharedAudioContext = null;
+  void context?.close().catch(() => {});
 });
 window.addEventListener("pageshow", event => {
   if (!event.persisted) return;

@@ -1,0 +1,177 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "be2c13aad1072ff9ef1a4ef980df77be24082022",
+  "reason": "Keep multi-engine instruments on one locally owned AudioContext for complete main-output recording with exact sample-clock timing. Preserve all authored graph chains, levels, source models and Audio/transport semantics; borrowed engines release their own nodes and never close the controller context. Reverse exact changes before prior frozen layout/feature amendments.",
+  "changes": [
+    {
+      "file": "src/families/graph/graph-drum-audio.js",
+      "sha256": "23500da914cd883b027efb53aa8c1a494cfa12009b0d3844b38bdc725bbc09a8",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  const requested = Number(startAt);\n  if (!Number.isFinite(requested)) return undefined;\n  const sourceNow = Number(sourceContext?.currentTime) || 0;\n  const targetNow = Number(targetContext?.currentTime) || 0;\n  return targetNow + Math.max(0, requested - sourceNow);\n}\n",
+          "after": "  const requested = Number(startAt);\n  if (!Number.isFinite(requested)) return undefined;\n  const sourceNow = Number(sourceContext?.currentTime) || 0;\n  if (sourceContext === targetContext) return Math.max(sourceNow, requested);\n  const targetNow = Number(targetContext?.currentTime) || 0;\n  return targetNow + Math.max(0, requested - sourceNow);\n}\n"
+        },
+        {
+          "before": "    this.rattlesnakeAttackTimes = [];\n  }\n\n  async start() {\n    if (\n      this.context\n      && this.context === this.fmAudio.context\n",
+          "after": "    this.rattlesnakeAttackTimes = [];\n  }\n\n  async start({ context: suppliedContext = null } = {}) {\n    if (suppliedContext && this.context && this.context.state !== \"closed\" && this.context !== suppliedContext) {\n      throw new Error(\"Close the graph drums before changing their audio context.\");\n    }\n    if (\n      this.context\n      && this.context === this.fmAudio.context\n"
+        },
+        {
+          "before": "    const lifecycleGeneration = ++this.lifecycleGeneration;\n    const startPromise = (async () => {\n      try {\n        const [fmContext, physicalContext] = await Promise.all([\n          this.fmAudio.start(),\n          this.physicalAudio.start(),\n        ]);\n        if (lifecycleGeneration !== this.lifecycleGeneration) {\n          throw cancelledGraphDrumStart();\n        }\n",
+          "after": "    const lifecycleGeneration = ++this.lifecycleGeneration;\n    const startPromise = (async () => {\n      try {\n        const fmContext = await this.fmAudio.start({ context: suppliedContext });\n        if (lifecycleGeneration !== this.lifecycleGeneration) throw cancelledGraphDrumStart();\n        // Both authored output chains retain their gains/dynamics and share\n        // the same device clock. The FM engine owns a standalone context;\n        // callers supplying one retain ownership of it.\n        const physicalContext = await this.physicalAudio.start({ context: fmContext });\n        if (lifecycleGeneration !== this.lifecycleGeneration) {\n          throw cancelledGraphDrumStart();\n        }\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/l-systems/l-systems-app.js",
+      "sha256": "9a2096e9b93f0273a61efb1161e2003ac73df345c783126a01a9772a08d3cd30",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const synthPool = new LSystemsSynthAudio(128, { adaptive: true, maxVoices: 4096 });\nconst drumAudio = new LSystemsDrumAudio(globalThis);\nconst micEngine = new LSystemsMicDelayAudio(128, { adaptive: true, maxVoices: 4096 });\nlet inputControl = null;\nlet micInputGeneration = 0;\nlet micInputError = \"\";\n",
+          "after": "const synthPool = new LSystemsSynthAudio(128, { adaptive: true, maxVoices: 4096 });\nconst drumAudio = new LSystemsDrumAudio(globalThis);\nconst micEngine = new LSystemsMicDelayAudio(128, { adaptive: true, maxVoices: 4096 });\nlet sharedAudioContext = null;\nfunction instrumentAudioContext() {\n  if (!sharedAudioContext || sharedAudioContext.state === \"closed\") {\n    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n    sharedAudioContext = new Context({ latencyHint: \"interactive\" });\n  }\n  return sharedAudioContext;\n}\nlet inputControl = null;\nlet micInputGeneration = 0;\nlet micInputError = \"\";\n"
+        },
+        {
+          "before": "\nasync function prepareActiveAudio() {\n  if (!state.audio) return false;\n  const request = ++audioRequest;\n  audioReady = false;\n  invalidateDiscreteScheduler();\n",
+          "after": "\nasync function prepareActiveAudio() {\n  if (!state.audio) return false;\n  const context = instrumentAudioContext();\n  const request = ++audioRequest;\n  audioReady = false;\n  invalidateDiscreteScheduler();\n"
+        },
+        {
+          "before": "  // prompt can suspend this handoff.\n  silenceAudioRoutes();\n  if (activeAudioKind() === \"synth\") {\n    await synthPool.enable();\n    if (request !== audioRequest || !state.audio) return false;\n    synthPool.setLevel(clamp(state.level * modeGain(), 0, 1));\n    synthPool.setHostGain(1, 45);\n",
+          "after": "  // prompt can suspend this handoff.\n  silenceAudioRoutes();\n  if (activeAudioKind() === \"synth\") {\n    await synthPool.enable({ context });\n    if (request !== audioRequest || !state.audio) return false;\n    synthPool.setLevel(clamp(state.level * modeGain(), 0, 1));\n    synthPool.setHostGain(1, 45);\n"
+        },
+        {
+          "before": "    return true;\n  }\n  if (state.mode === \"triggers\") {\n    await drumAudio.start();\n    if (request !== audioRequest || !state.audio) return false;\n    drumAudio.setOutput(clamp(state.level * modeGain(\"triggers\") * 0.9, 0, 0.9));\n    drumAudio.setHostGain(1, 45);\n",
+          "after": "    return true;\n  }\n  if (state.mode === \"triggers\") {\n    await drumAudio.start({ context });\n    if (request !== audioRequest || !state.audio) return false;\n    drumAudio.setOutput(clamp(state.level * modeGain(\"triggers\") * 0.9, 0, 0.9));\n    drumAudio.setHostGain(1, 45);\n"
+        },
+        {
+          "before": "  }\n  micEngine.setGeometryModel(state.geometryModel);\n  generationMicSubmitted = false;\n  await micEngine.initialize();\n  micEngine.setOutputEnabled(state.audio);\n  if (request !== audioRequest || !state.audio) return false;\n  micEngine.setGeometryModel(state.geometryModel);\n",
+          "after": "  }\n  micEngine.setGeometryModel(state.geometryModel);\n  generationMicSubmitted = false;\n  await micEngine.initialize({ context });\n  micEngine.setOutputEnabled(state.audio);\n  if (request !== audioRequest || !state.audio) return false;\n  micEngine.setGeometryModel(state.geometryModel);\n"
+        },
+        {
+          "before": "      const generation = ++micInputGeneration;\n      micEngine.setGeometryModel(state.geometryModel);\n      micEngine.setInputGain(state.mic.inputTrim);\n      await micEngine.initialize();\n      if (generation !== micInputGeneration || disposed) return;\n      micEngine.setOutputEnabled(state.audio);\n      await micEngine.startMicrophone();\n",
+          "after": "      const generation = ++micInputGeneration;\n      micEngine.setGeometryModel(state.geometryModel);\n      micEngine.setInputGain(state.mic.inputTrim);\n      await micEngine.initialize({ context: instrumentAudioContext() });\n      if (generation !== micInputGeneration || disposed) return;\n      micEngine.setOutputEnabled(state.audio);\n      await micEngine.startMicrophone();\n"
+        },
+        {
+          "before": "    synthPool.close?.();\n    drumAudio.close?.();\n    micEngine.close?.();\n  });\n}\n\n",
+          "after": "    synthPool.close?.();\n    drumAudio.close?.();\n    micEngine.close?.();\n    const context = sharedAudioContext;\n    sharedAudioContext = null;\n    void context?.close().catch(() => {});\n  });\n}\n\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/l-systems/sound-engines.js",
+      "sha256": "5fd5cb46ba6290058312aa3139d9c22f548b92d76b2e6cf793eadee44ec2feda",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "\n/** One smoothed tone stage for the bounded worklet, not a filter per branch. */\nexport class LSystemsSynthAudio extends VoicePool {\n  buildGraph() {\n    super.buildGraph();\n    this.toneFilter = this.context.createBiquadFilter();\n    this.toneFilter.type = \"lowpass\";\n    this.toneFilter.frequency.value = Math.min(this.context.sampleRate * .45, this.tone?.cutoff ?? 9000);\n",
+          "after": "\n/** One smoothed tone stage for the bounded worklet, not a filter per branch. */\nexport class LSystemsSynthAudio extends VoicePool {\n  buildGraph(context = null) {\n    super.buildGraph(context);\n    this.toneFilter = this.context.createBiquadFilter();\n    this.toneFilter.type = \"lowpass\";\n    this.toneFilter.frequency.value = Math.min(this.context.sampleRate * .45, this.tone?.cutoff ?? 9000);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/lattice-drum-machine/lattice-drum-machine-app.js",
+      "sha256": "50b3a5bb5ac247885c99dbd180bb2b8a66bcac4cd974ade4149e4bc2c3942d90",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "    voices: loadSampleDrumBank(),\n  },\n};\nconst canvas = $(\"stage\");\nconst drawing = canvas.getContext(\"2d\");\nconst stageWrap = $(\"stageWrap\");\n",
+          "after": "    voices: loadSampleDrumBank(),\n  },\n};\nlet sharedAudioContext = null;\nfunction instrumentAudioContext() {\n  if (!sharedAudioContext || sharedAudioContext.state === \"closed\") {\n    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n    sharedAudioContext = new Context({ latencyHint: \"interactive\" });\n  }\n  return sharedAudioContext;\n}\nconst canvas = $(\"stage\");\nconst drawing = canvas.getContext(\"2d\");\nconst stageWrap = $(\"stageWrap\");\n"
+        },
+        {
+          "before": "    const pattern = ENGINE_AUDITION_PATTERN[engine.id] ?? [0];\n    if (engine.id === \"samples\") setEngineStatus(\"Loading 808/909 audition...\");\n    for (let step = 0; step < pattern.length; step += 1) {\n      if (generation !== auditionGeneration || state.drumEngine !== engine.id) return false;\n      const voiceIndex = pattern[step];\n      const baseVoice = engine.voices[voiceIndex] ?? engine.voices[0];\n      if (!baseVoice) return false;\n",
+          "after": "    const pattern = ENGINE_AUDITION_PATTERN[engine.id] ?? [0];\n    if (engine.id === \"samples\") setEngineStatus(\"Loading 808/909 audition...\");\n    for (let step = 0; step < pattern.length; step += 1) {\n      if (generation !== auditionGeneration || !state.audioOn || state.drumEngine !== engine.id) return false;\n      const voiceIndex = pattern[step];\n      const baseVoice = engine.voices[voiceIndex] ?? engine.voices[0];\n      if (!baseVoice) return false;\n"
+        },
+        {
+          "before": "}\n\nfunction setAudioState(enabled) {\n  if (!enabled) clearManualScan();\n  state.audioOn = Boolean(enabled);\n  setPressed($(\"audioButton\"), state.audioOn);\n  $(\"audioState\").textContent = state.audioOn ? \"on\" : \"off\";\n",
+          "after": "}\n\nfunction setAudioState(enabled) {\n  if (!enabled) {\n    auditionGeneration += 1;\n    clearManualScan();\n  }\n  state.audioOn = Boolean(enabled);\n  setPressed($(\"audioButton\"), state.audioOn);\n  $(\"audioState\").textContent = state.audioOn ? \"on\" : \"off\";\n"
+        },
+        {
+          "before": "async function enableAudio() {\n  try {\n    $(\"audioError\").hidden = true;\n    await currentAudio().start();\n    setAudioState(true);\n    warmSampleEngine();\n    return true;\n",
+          "after": "async function enableAudio() {\n  try {\n    $(\"audioError\").hidden = true;\n    await currentAudio().start({ context: instrumentAudioContext() });\n    setAudioState(true);\n    warmSampleEngine();\n    return true;\n"
+        },
+        {
+          "before": "window.addEventListener(\"pagehide\", () => {\n  pointerDrag = null;\n  positionPointerActive = false;\n  clearManualScan();\n  clearMidiPreviewManualScan();\n  for (const engine of Object.values(drumEngines)) {\n    void engine.audio.close().catch(() => {});\n  }\n});\nwindow.addEventListener(\"blur\", () => {\n  pointerDrag = null;\n",
+          "after": "window.addEventListener(\"pagehide\", () => {\n  pointerDrag = null;\n  positionPointerActive = false;\n  setAudioState(false);\n  clearMidiPreviewManualScan();\n  for (const engine of Object.values(drumEngines)) {\n    void engine.audio.close().catch(() => {});\n  }\n  const context = sharedAudioContext;\n  sharedAudioContext = null;\n  void context?.close().catch(() => {});\n});\nwindow.addEventListener(\"blur\", () => {\n  pointerDrag = null;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/linear-drums/linear-drums.js",
+      "sha256": "fea8c25ced0290221cc470b0dfd706b6212cde0c8cf59a978a53b5895c02f84a",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n",
+          "after": "  constructor(runtime = globalThis) {\n    this.runtime = runtime;\n    this.context = null;\n    this.ownsContext = true;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n"
+        },
+        {
+          "before": "    this.lifecycleGeneration = 0;\n  }\n\n  async start() {\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (!context || context.state === \"closed\") {\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = new Context();\n      this.context = context;\n      this.input = context.createGain();\n      this.input.gain.value = .78;\n",
+          "after": "    this.lifecycleGeneration = 0;\n  }\n\n  async start({ context: suppliedContext = null } = {}) {\n    const lifecycleGeneration = this.lifecycleGeneration;\n    let context = this.context;\n    if (suppliedContext?.state === \"closed\") throw new Error(\"The supplied audio context is closed.\");\n    if (suppliedContext && context && context.state !== \"closed\" && context !== suppliedContext) {\n      throw new Error(\"Close the drum graph before changing its audio context.\");\n    }\n    if (!context || context.state === \"closed\") {\n      this.releaseAudioOutput?.();\n      this.releaseAudioOutput = null;\n      const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;\n      if (!suppliedContext && !Context) throw new Error(\"Web Audio is not available in this browser.\");\n      context = suppliedContext ?? new Context();\n      this.ownsContext = !suppliedContext;\n      this.context = context;\n      this.input = context.createGain();\n      this.input.gain.value = .78;\n"
+        },
+        {
+          "before": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    this.silence();\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n    this.noiseBuffer = null;\n    this.activeVoices = [];\n    if (context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n",
+          "after": "  async close() {\n    this.lifecycleGeneration += 1;\n    const context = this.context;\n    const ownsContext = this.ownsContext;\n    this.silence();\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    this.input?.disconnect?.();\n    this.master?.disconnect?.();\n    this.analyser?.disconnect?.();\n    this.context = null;\n    this.input = null;\n    this.master = null;\n    this.analyser = null;\n    this.noiseBuffer = null;\n    this.activeVoices = [];\n    if (ownsContext && context && context.state !== \"closed\" && typeof context.close === \"function\") {\n      await context.close();\n    }\n  }\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/shapes/shapes-app.js",
+      "sha256": "491d22dd4500afa4171b0aed8def3d17617fa2c27fc577e4ee0bf21de71d5c0b",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const synthAudio = createGeometryVoicePool();\nconst drumAudio = new ShapesKitAudio(globalThis);\nconst rattlesnakeAudio = new LinearDrumAudio(globalThis);\nconst canvas = $(\"stage\");\nconst context = canvas.getContext(\"2d\", { desynchronized: true });\nconst app = $(\"shapesApp\");\n",
+          "after": "const synthAudio = createGeometryVoicePool();\nconst drumAudio = new ShapesKitAudio(globalThis);\nconst rattlesnakeAudio = new LinearDrumAudio(globalThis);\nlet sharedAudioContext = null;\nfunction instrumentAudioContext() {\n  if (!sharedAudioContext || sharedAudioContext.state === \"closed\") {\n    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n    sharedAudioContext = new Context({ latencyHint: \"interactive\" });\n  }\n  return sharedAudioContext;\n}\nconst canvas = $(\"stage\");\nconst context = canvas.getContext(\"2d\", { desynchronized: true });\nconst app = $(\"shapesApp\");\n"
+        },
+        {
+          "before": "\nasync function prepareActiveAudio() {\n  const request = ++audioRequest;\n  if (state.selection.playingMode !== \"triggers\" || state.trigger.soundBank === \"rattlesnake\") drumAudio.cancelPreparation();\n  if (state.selection.playingMode === \"triggers\") {\n    if (state.trigger.soundBank === \"rattlesnake\") await rattlesnakeAudio.start();\n    else await drumAudio.start(state.trigger.soundBank);\n  } else {\n    await synthAudio.enable();\n  }\n  if (request !== audioRequest || !state.audio.enabled) return;\n  showAudioNotice(\"\");\n",
+          "after": "\nasync function prepareActiveAudio() {\n  const request = ++audioRequest;\n  const context = instrumentAudioContext();\n  if (state.selection.playingMode !== \"triggers\" || state.trigger.soundBank === \"rattlesnake\") drumAudio.cancelPreparation();\n  if (state.selection.playingMode === \"triggers\") {\n    if (state.trigger.soundBank === \"rattlesnake\") await rattlesnakeAudio.start({ context });\n    else await drumAudio.start(state.trigger.soundBank, { context });\n  } else {\n    await synthAudio.enable({ context });\n  }\n  if (request !== audioRequest || !state.audio.enabled) return;\n  showAudioNotice(\"\");\n"
+        },
+        {
+          "before": "  synthAudio.close();\n  drumAudio.close();\n  rattlesnakeAudio.close();\n});\nwindow.addEventListener(\"pageshow\", event => {\n  if (!event.persisted) return;\n",
+          "after": "  synthAudio.close();\n  drumAudio.close();\n  rattlesnakeAudio.close();\n  const context = sharedAudioContext;\n  sharedAudioContext = null;\n  void context?.close().catch(() => {});\n});\nwindow.addEventListener(\"pageshow\", event => {\n  if (!event.persisted) return;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/tesselation/tesselation-app.js",
+      "sha256": "02831a71102e1e43397f55b6eea999fb7c9c95cba526165572d1f9c3fb53adf2",
+      "regressionTests": [
+        "tests/shared-drum-context.test.mjs",
+        "e2e/shared-instrument-context.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const $ = (id) => document.getElementById(id);\nconst synthPool = new VoicePool(128, { adaptive: true, maxVoices: 4096 });\nconst drumAudio = new FmDrumAudio(globalThis);\nconst drumVoices = cloneDefaultFmDrumVoices();\n\nconst defaultInfo = tilingInfo(20);\n",
+          "after": "const $ = (id) => document.getElementById(id);\nconst synthPool = new VoicePool(128, { adaptive: true, maxVoices: 4096 });\nconst drumAudio = new FmDrumAudio(globalThis);\nlet sharedAudioContext = null;\nfunction instrumentAudioContext() {\n  if (!sharedAudioContext || sharedAudioContext.state === \"closed\") {\n    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n    if (!Context) throw new Error(\"Web Audio is not available in this browser.\");\n    sharedAudioContext = new Context({ latencyHint: \"interactive\" });\n  }\n  return sharedAudioContext;\n}\nconst drumVoices = cloneDefaultFmDrumVoices();\n\nconst defaultInfo = tilingInfo(20);\n"
+        },
+        {
+          "before": "}\n\nasync function prepareActiveAudio() {\n  silenceAudioRoutes();\n  if (isDrumMode()) {\n    await drumAudio.start();\n    drumAudio.setOutput(state.level);\n    drumAudio.setHostGain(1, 45);\n    synthPool.setLevel(0);\n    return;\n  }\n  await synthPool.enable();\n  synthPool.setLevel(state.level);\n  synthPool.setHostGain(1, 45);\n  drumAudio.setHostGain(0, 45);\n",
+          "after": "}\n\nasync function prepareActiveAudio() {\n  const context = instrumentAudioContext();\n  silenceAudioRoutes();\n  if (isDrumMode()) {\n    await drumAudio.start({ context });\n    drumAudio.setOutput(state.level);\n    drumAudio.setHostGain(1, 45);\n    synthPool.setLevel(0);\n    return;\n  }\n  await synthPool.enable({ context });\n  synthPool.setLevel(state.level);\n  synthPool.setHostGain(1, 45);\n  drumAudio.setHostGain(0, 45);\n"
+        },
+        {
+          "before": "  scheduleFrame();\n}\n\ninitialize();\n",
+          "after": "  scheduleFrame();\n}\n\nwindow.addEventListener(\"pagehide\", () => {\n  state.audio = false;\n  silenceAudioRoutes(0);\n  renderControls();\n  void synthPool.close();\n  void drumAudio.close();\n  const context = sharedAudioContext;\n  sharedAudioContext = null;\n  void context?.close().catch(() => {});\n});\n\ninitialize();\n"
+        }
+      ]
+    }
+  ]
+}

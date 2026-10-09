@@ -162,7 +162,7 @@ test("L-Systems app owns the audio engines and preserves shared state while swit
   assert.match(app, /async function setMode\(modeId\)/);
   assert.match(app, /if \(state\.audio\) \{\s*const request = audioRequest \+ 1;\s*try \{\s*await prepareActiveAudio\(\);/);
   assert.match(app, /function silenceAudioRoutes\(rampMilliseconds = 45\)/);
-  assert.match(app, /clearError\(\);\s*\/\/ Mute the outgoing route[\s\S]*?silenceAudioRoutes\(\);\s*if \(activeAudioKind\(\) === "synth"\) \{\s*await synthPool\.enable\(\);/);
+  assert.match(app, /clearError\(\);\s*\/\/ Mute the outgoing route[\s\S]*?silenceAudioRoutes\(\);\s*if \(activeAudioKind\(\) === "synth"\) \{\s*await synthPool\.enable\(\{ context \}\);/);
   assert.match(app, /const previousMode = state\.mode;[\s\S]*?state\.mode = nextMode/);
   assert.match(app, /catch \(error\) \{\s*if \(request !== audioRequest\) return;\s*state\.mode = previousMode;[\s\S]*?restored = await prepareActiveAudio\(\);[\s\S]*?showError\(error\);/);
   assert.match(app, /state\.mode = nextMode/);
