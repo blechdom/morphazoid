@@ -28,7 +28,7 @@ async function fixture(page, { fault = false } = {}) {
   page.on('console', message => { if (message.type() === 'error') consoleErrors.push(message.text()); });
   await page.addInitScript(() => {
     Math.random = () => .5;
-    const qa = window.__recordedInputQa = { monitors: [], nodes: [], bufferSources: [], microphoneRequests: 0,
+    const qa = window.__recordedInputQa = { monitors: [], nodes: [], bufferSources: [], controls: [], microphoneRequests: 0,
       streams: [], holdDecode: false, pendingDecodes: [], decoded: 0, hidden: false,
       holdMicrophone: false, pendingMicrophones: [] };
     Object.defineProperty(document, 'hidden', { configurable: true, get: () => qa.hidden });
@@ -37,6 +37,11 @@ async function fixture(page, { fault = false } = {}) {
       const node = new Target(...args);
       if (args[1] === 'morphazoid-l-system-delay') {
         qa.nodes.push(node);
+        const post = node.port.postMessage.bind(node.port);
+        node.port.postMessage = (data, ...rest) => {
+          if (data.type === 'performance') qa.controls.push(structuredClone(data.performance));
+          return post(data, ...rest);
+        };
         const analyser = node.context.createAnalyser(), mute = node.context.createGain();
         analyser.fftSize = 4096; mute.gain.value = 0;
         node.connect(analyser).connect(mute).connect(node.context.destination);
@@ -145,6 +150,7 @@ async function diagnostics(page) {
     return { audio: d.audio, microphoneEnabled: d.microphoneEnabled, contextState: d.contextState,
       contextGeneration: d.contextGeneration, connectionCount: d.connectionCount, input: d.input,
       performance: d.performance, parameters: d.parameters, error: d.error,
+      workletPerformance: qa.controls.at(-1) ?? null,
       status: { elapsedSeconds: d.status.elapsedSeconds, inputPeak: d.status.inputPeak, outputPeak: d.status.outputPeak },
       pcm: { peak, rms: Math.sqrt(square / (monitor?.samples.length || 1)), nonFinite, frequency },
       microphoneRequests: qa.microphoneRequests,
@@ -179,6 +185,13 @@ async function dryScene(page) {
       performance: { ...d.performance, wet: 0, dry: .5,
         mastering: { ...d.performance.mastering, ...mastering } } });
   }, TRANSPARENT);
+  // Makeup is a retained live output control, so scene recall preserves it.
+  // Set its native control explicitly to make these PCM ratios transparent.
+  await page.locator('#makeupDb').evaluate(input => {
+    input.value = '0'; input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
+  await expect.poll(async () => (await diagnostics(page)).performance.mastering.makeupDb).toBe(0);
 }
 
 async function upload(page, frequency, name = `tone-${frequency}.wav`, duration = 3) {
@@ -255,6 +268,80 @@ test('sample/file selection and preset recall preserve external input and gains 
   expect(gains(randomized)).toEqual(gains(before)); expect(randomized.audio).toBe(false);
   expect(randomized.microphoneRequests).toBe(0); expect(randomized.sources.every(s => s.started === 0)).toBe(true);
   expect(evidence.errors).toEqual([]); expect(evidence.consoleErrors).toEqual([]);
+});
+
+test('recorded inputs use unity gain while the retained input trim controls only the microphone', async ({ page }) => {
+  test.setTimeout(60000);
+  const evidence = await fixture(page);
+  // A known recording exercises the sample loader's real decoding and playback
+  // path, alongside the uploaded-file path and the independent fake microphone.
+  await page.route(KEYS, route => route.fulfill({ contentType: 'audio/wav', body: wav(173, 6) }));
+  await ready(page);
+  const startup = await diagnostics(page);
+  expect(startup.performance.level).toBe(1);
+  expect(startup.performance.mastering.makeupDb).toBe(6);
+  await expect(page.locator('#level')).toHaveValue('1');
+  await expect(page.locator('#makeupDb')).toHaveValue('6');
+  await dryScene(page);
+  const trim = async value => {
+    await page.locator('#inputTrim').evaluate((input, value) => {
+      input.value = String(value); input.dispatchEvent(new Event('input', { bubbles: true }));
+      input.dispatchEvent(new Event('change', { bubbles: true }));
+    }, value);
+    await expect.poll(async () => (await diagnostics(page)).performance.inputGain).toBe(value);
+  };
+  const readings = [];
+  for (const mode of ['file', 'samples']) {
+    await chooseSelect(page, 'source', mode);
+    if (mode === 'file') await upload(page, 173, 'unity-gain.wav', 6);
+    else await chooseSelect(page, 'inputSample', 'music-keys');
+    if (!(await diagnostics(page)).audio) await page.locator('#audioButton').click();
+    await trim(1);
+    const before = await live(page, { frequency: 173 });
+    expect(before.workletPerformance.inputGain).toBe(1);
+    // The shared sample loader balances this tone to .16 RMS; uploaded PCM
+    // keeps its original .08 peak. Both reach Rust at their own unity level.
+    const expectedRms = mode === 'file' ? .08 * .5 / Math.sqrt(2) : .16 * .5;
+    expect(before.pcm.rms / expectedRms).toBeGreaterThan(.95);
+    expect(before.pcm.rms / expectedRms).toBeLessThan(1.05);
+    for (const value of [0, 4]) {
+      await trim(value);
+      await page.waitForTimeout(180);
+      const current = await live(page, { frequency: 173, previousClock: before.status.elapsedSeconds });
+      expect(current.workletPerformance.inputGain).toBe(1);
+      expect(current.pcm.rms / before.pcm.rms).toBeGreaterThan(.95);
+      expect(current.pcm.rms / before.pcm.rms).toBeLessThan(1.05);
+      expect(current.contextGeneration).toBe(before.contextGeneration);
+      expect(current.sources).toEqual(before.sources);
+      expect(current.input).toEqual(before.input);
+      expect(current.microphoneRequests).toBe(0);
+      readings.push({ mode, micGain: value, rms: current.pcm.rms, clock: current.status.elapsedSeconds,
+        effectiveInputGain: current.workletPerformance.inputGain });
+    }
+  }
+  await chooseSelect(page, 'source', 'mic');
+  await trim(1);
+  await page.waitForTimeout(180);
+  const microphone = await live(page, { frequency: 173 });
+  expect(microphone.performance.inputGain).toBe(1); expect(microphone.workletPerformance.inputGain).toBe(1);
+  expect(microphone.liveTracks).toBe(1);
+  await trim(2); await page.waitForTimeout(180);
+  const boosted = await live(page, { frequency: 173, previousClock: microphone.status.elapsedSeconds });
+  expect(boosted.workletPerformance.inputGain).toBe(2);
+  expect(boosted.pcm.rms / microphone.pcm.rms).toBeGreaterThan(1.9);
+  expect(boosted.pcm.rms / microphone.pcm.rms).toBeLessThan(2.1);
+  expect(boosted.contextGeneration).toBe(microphone.contextGeneration);
+  expect(boosted.sources).toEqual(microphone.sources); expect(boosted.liveTracks).toBe(1);
+  await trim(0);
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.audio && d.liveTracks === 1 && d.workletPerformance.inputGain === 0 && d.pcm.rms < 1e-6;
+  }).toBe(true);
+  await audioOff(page);
+  expect(evidence.errors).toEqual([]); expect(evidence.consoleErrors).toEqual([]);
+  await test.info().attach('mic-only-gain-evidence', { contentType: 'application/json',
+    body: JSON.stringify({ startup: { level: startup.performance.level, makeupDb: startup.performance.mastering.makeupDb },
+      recordings: readings, microphone: { unityRms: microphone.pcm.rms, boostedRms: boosted.pcm.rms } }, null, 2) });
 });
 
 test('uploaded WAVs reach real Rust PCM with distinct pitches and Original voice controls its level', async ({ page }) => {

@@ -14,7 +14,8 @@ async function fixture(page, input) {
     const controls = new Map();
     const record = (kind, data) => {
       const row = { kind, type: data.type ?? 'compile', id: data.id, at: performance.now(), phase: qa.phase,
-        foldMs: data.parameters?.intervalMs ?? data.intervalMs, budget: data.voiceBudget };
+        foldMs: data.parameters?.intervalMs ?? data.intervalMs,
+        pitchOffset: data.parameters?.pitchOffset ?? data.pitchOffset, budget: data.voiceBudget };
       qa.controls.push(row); controls.set(`${kind}:${data.id}`, row);
     };
     window.Worker = new Proxy(NativeWorker, { construct(Target, args) {
@@ -130,12 +131,16 @@ async function fixture(page, input) {
       node.stop = (...args) => { row.stops++; return stop(...args); };
       qa.sources.push(row); return node;
     };
-    if (input === 'broadband') navigator.mediaDevices.getUserMedia = async () => {
+    if (input === 'broadband' || input === 'tone') navigator.mediaDevices.getUserMedia = async () => {
       const context = new NativeContext(), destination = context.createMediaStreamDestination();
       const buffer = context.createBuffer(1, context.sampleRate * 2, context.sampleRate), data = buffer.getChannelData(0);
       let seed = 0x5eed1234;
-      for (let i=0; i<data.length; i++) { seed = (Math.imul(seed,1664525)+1013904223)>>>0; data[i] = (seed/2147483648-1)*.03; }
+      for (let i=0; i<data.length; i++) {
+        seed = (Math.imul(seed,1664525)+1013904223)>>>0;
+        data[i] = input === 'tone' ? Math.sin(i/context.sampleRate*Math.PI*2*173)*.03 : (seed/2147483648-1)*.03;
+      }
       const node = context.createBufferSource(); node.buffer = buffer; node.loop = true; node.connect(destination); node.start();
+      if (input === 'tone') qa.silenceInput = () => node.disconnect();
       await context.resume();
       for (const track of destination.stream.getTracks()) {
         const stop = track.stop.bind(track); track.stop = () => { stop(); node.stop(); void context.close(); };
@@ -174,7 +179,7 @@ $('interval').addEventListener('input', () => __foldRuntime.inputs.push({ at: pe
 $('stage').addEventListener('pointermove', event => {
   if (__foldRuntime.recording && event.buttons === 1) __foldRuntime.screenInputs.push({ at: performance.now(),
     phase: __foldRuntime.phase, x: event.clientX, y: event.clientY,
-    foldMs: state.parameters.intervalMs, angle: state.parameters.angle });
+    foldMs: state.parameters.intervalMs, angle: state.parameters.angle, pitchOffset: state.parameters.pitchOffset });
 });
 ` });
   });
@@ -218,26 +223,6 @@ async function sweep(page) {
   expect((await diagnostics(page)).parameters.intervalMs).toBeCloseTo(240,6);
 }
 
-async function screenSweep(page) {
-  const canvas = page.locator('#stage');
-  await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
-  const x = box.x + box.width / 2, y = box.y + box.height / 2;
-  expect(await canvas.evaluate((node, point) => document.elementFromPoint(point.x, point.y) === node, { x, y })).toBe(true);
-  const initial = await page.evaluate(() => __foldQa.requested());
-  await page.evaluate(() => { __foldRuntime.phase = 'screen-sweep'; });
-  await page.mouse.move(x, y); await page.mouse.down();
-  try {
-    for (let step = 1; step <= 12; step++) { await page.mouse.move(x + box.width * .12 * step / 12, y); await page.waitForTimeout(16); }
-    const stretched = await page.evaluate(() => __foldQa.requested());
-    expect(stretched.intervalMs).toBeGreaterThan(initial.intervalMs * 1.5); expect(stretched.angle).toBe(initial.angle);
-    for (let step = 11; step >= 0; step--) { await page.mouse.move(x + box.width * .12 * step / 12, y); await page.waitForTimeout(16); }
-  } finally { await page.mouse.up(); }
-  await settled(page);
-  const final = await page.evaluate(() => __foldQa.requested());
-  expect(final.intervalMs).toBeCloseTo(initial.intervalMs, 6); expect(final.angle).toBe(initial.angle);
-  await page.evaluate(() => { __foldRuntime.phase = 'recovery'; });
-}
-
 function wav(raw, channels, rate) {
   const frames = raw.length/3, bytes = Buffer.alloc(44+frames*channels*2);
   bytes.write('RIFF'); bytes.writeUInt32LE(bytes.length-8,4); bytes.write('WAVEfmt ',8);
@@ -275,7 +260,7 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
     qa.start={wall:performance.now(),contextClock:qa.contexts.at(-1).currentTime};
   });
   let captured;
-  try { await page.waitForTimeout(2000); await sweep(page); await screenSweep(page); await page.waitForTimeout(2000); }
+  try { await page.waitForTimeout(2000); await sweep(page); await page.waitForTimeout(2000); }
   finally {
     captured=await page.evaluate(async () => {
       const qa=__foldRuntime;
@@ -324,8 +309,6 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
   expect(finalRest).toEqual(initialRest); expect(finalFold).toBeCloseTo(initialFold,6);
   expect(captured.draws.some(row=>row.engineFold<1),'sub-ms targets must reach the audio engine').toBe(true);
   expect(captured.draws.some(row=>row.engineFold>1000),'long targets must reach the audio engine').toBe(true);
-  expect(captured.screenInputs.length).toBe(24);
-  expect(new Set(captured.screenInputs.map(row=>row.y)).size,'screen sweep remains purely horizontal').toBe(1);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(false);
   await page.locator('#audioButton').click(); await expect.poll(async()=>(await diagnostics(page)).audio).toBe(true);
   const restarted=await session(page); expect(restarted.contexts).toBe(before.contexts); expect(restarted.worklets).toBe(before.worklets);
@@ -340,4 +323,134 @@ for(const input of ['broadband','speech']) test(`dense sustained Time fold keeps
       expect(next.gpu?.selectionUploads).toBe(previous.gpu?.selectionUploads);
     }
   }
+});
+
+async function stageDrag(page, dx, dy = 0, fine = false) {
+  const canvas = page.locator('#stage');
+  await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
+  const x = box.x + box.width * .375, y = box.y + box.height / 2;
+  expect(await canvas.evaluate((node, point) => document.elementFromPoint(point.x, point.y) === node, { x, y })).toBe(true);
+  if (fine) await page.keyboard.down('Shift');
+  await page.mouse.move(x, y); await page.mouse.down();
+  try {
+    for (let step = 1; step <= 12; step++) {
+      await page.mouse.move(x + box.width * dx * step / 12, y + box.height * dy * step / 12);
+      await page.waitForTimeout(16);
+    }
+  } finally {
+    await page.mouse.up(); if (fine) await page.keyboard.up('Shift');
+  }
+  await settled(page);
+}
+
+async function latestPcm(page) {
+  return page.evaluate(() => {
+    const packet = __foldRuntime.packets.at(-1);
+    if (!packet) return { frequency: 0, rms: 0, inputRms: 0 };
+    const crossings = [];
+    for (let frame = 1; frame < packet.frames; frame++) {
+      const before = packet.raw[(frame - 1) * 3], after = packet.raw[frame * 3];
+      if (before <= 0 && after > 0) crossings.push(frame - 1 - before / (after - before));
+    }
+    return { frequency: crossings.length > 3
+      ? packet.rate * (crossings.length - 1) / (crossings.at(-1) - crossings[0]) : 0,
+      rms: packet.rms, inputRms: packet.inputRms };
+  });
+}
+
+test('stage X transposes live Rust audio independently of Y angle and Time fold without reinstalling or retriggering', async ({ page }, info) => {
+  test.setTimeout(60000);
+  const errors = await fixture(page, 'tone');
+  await page.goto('/l-mic-rust.html?renderer=webgl2');
+  await expect(page.locator('#audioButton')).toBeEnabled({ timeout: 30000 });
+  await page.evaluate(async () => {
+    const scene = __foldQa.scene(), { lab, ...classic } = scene.parameters;
+    await __foldQa.applyScene({ ...scene, parameters: { ...classic, lSystemType: 'pythagorean',
+      generations: 1, intervalMs: 240, timeRatio: 1, pitchScale: 0, pitchOffset: 0, angle: 45 },
+      performance: { ...scene.performance, wet: .7, dry: 0,
+        mastering: { ...scene.performance.mastering, inputHighpassHz: 0, highpassHz: 0,
+          lowpassHz: 0, compressorEnabled: false, autoMakeup: false } } });
+  });
+  await native(page, 'inputTrim', 1); await native(page, 'makeupDb', 0); await native(page, 'level', .5);
+  await page.locator('#audioButton').click(); await page.evaluate(() => __foldRuntime.probeReady);
+  await page.waitForTimeout(1000); await settled(page);
+  await page.evaluate(async () => {
+    const qa = __foldRuntime;
+    await new Promise(resolve => { qa.resetAck = resolve; qa.probe.port.postMessage('reset'); });
+    qa.packets = []; qa.controlsStart = qa.controls.length; qa.phase = 'stage-pitch'; qa.recording = true;
+  });
+  await expect.poll(async () => Math.abs((await latestPcm(page)).frequency - 173)).toBeLessThan(8);
+  const before = await session(page), initial = await diagnostics(page), baseline = await latestPcm(page);
+  const gpuBefore = await page.evaluate(() => __foldQa.gpu());
+  await stageDrag(page, .25);
+  const octave = await diagnostics(page);
+  expect(octave.parameters.pitchOffset).toBeCloseTo(12, 6);
+  expect(octave.parameters.angle).toBe(initial.parameters.angle);
+  expect(octave.parameters.intervalMs).toBe(initial.parameters.intervalMs);
+  await expect.poll(async () => Math.abs((await latestPcm(page)).frequency - 346), { timeout: 10000 }).toBeLessThan(18);
+  const transposed = await latestPcm(page);
+  expect(transposed.rms).toBeGreaterThan(1e-5);
+  await stageDrag(page, -.25);
+  expect((await diagnostics(page)).parameters.pitchOffset).toBeCloseTo(0, 6);
+  await expect.poll(async () => Math.abs((await latestPcm(page)).frequency - 173)).toBeLessThan(8);
+  await stageDrag(page, .25, 0, true);
+  expect((await diagnostics(page)).parameters.pitchOffset).toBeCloseTo(1.8, 6);
+  await page.locator('#stage').press('ArrowRight'); await settled(page);
+  expect((await diagnostics(page)).parameters.pitchOffset).toBeCloseTo(1.9, 6);
+  await page.locator('#stage').press('Shift+ArrowLeft'); await settled(page);
+  const horizontal = await diagnostics(page), after = await session(page);
+  expect(horizontal.parameters.pitchOffset).toBeCloseTo(1.89, 6);
+  const { pitchOffset: initialPitch, ...initialRest } = initial.parameters;
+  const { pitchOffset: horizontalPitch, ...horizontalRest } = horizontal.parameters;
+  expect(horizontalRest).toEqual(initialRest);
+  expect(after.contexts).toBe(before.contexts); expect(after.worklets).toBe(before.worklets);
+  expect(after.sources).toEqual(before.sources); expect(after.contextState).toBe('running');
+  expect(after.clock).toBeGreaterThan(before.clock);
+  expect(horizontal.topologyRevision).toBe(initial.topologyRevision);
+  const pitchControls = await page.evaluate(() => __foldRuntime.controls.slice(__foldRuntime.controlsStart));
+  expect(pitchControls.some(control => control.type === 'pitch-offset')).toBe(true);
+  expect(pitchControls.filter(control => control.kind === 'worker')).toHaveLength(0);
+  expect(pitchControls.filter(control => control.type === 'install')).toHaveLength(0);
+  expect(pitchControls.filter(control => control.type === 'time-fold')).toHaveLength(0);
+  const gpuAfter = await page.evaluate(() => __foldQa.gpu());
+  expect(gpuAfter?.topologyUploads).toBe(gpuBefore?.topologyUploads);
+
+  // Y retains its existing angle destination while the independent X target,
+  // timing, source and continuously advancing audio clock remain live.
+  await stageDrag(page, 0, -.1);
+  const vertical = await diagnostics(page), afterVertical = await session(page);
+  expect(vertical.parameters.angle).toBeCloseTo(horizontal.parameters.angle + 18, 6);
+  const { angle: horizontalAngle, ...beforeY } = horizontal.parameters;
+  const { angle: verticalAngle, ...afterY } = vertical.parameters;
+  expect(afterY).toEqual(beforeY);
+  expect(afterVertical.contexts).toBe(before.contexts); expect(afterVertical.worklets).toBe(before.worklets);
+  expect(afterVertical.sources).toEqual(before.sources); expect(afterVertical.clock).toBeGreaterThan(after.clock);
+  const expectedPitch = 173 * 2 ** (horizontal.parameters.pitchOffset / 12);
+  await expect.poll(async () => Math.abs((await latestPcm(page)).frequency - expectedPitch)).toBeLessThan(12);
+
+  // Silence only the fixture's external generator. A subsequent pitch gesture
+  // must still render recorded input from the existing 240ms delay history.
+  await page.waitForTimeout(300);
+  await page.evaluate(() => { __foldRuntime.historyControlStart = __foldRuntime.controls.length; __foldRuntime.silenceInput(); });
+  await page.locator('#stage').press('ArrowRight'); await settled(page);
+  await expect.poll(async () => {
+    const pcm = await latestPcm(page); return pcm.inputRms < 1e-7 && pcm.rms > 1e-5;
+  }, { timeout: 2000, intervals: [10, 20, 30] }).toBe(true);
+  const history = await latestPcm(page);
+  const historyControls = await page.evaluate(() => __foldRuntime.controls.slice(__foldRuntime.historyControlStart));
+  expect(historyControls.some(control => control.type === 'pitch-offset')).toBe(true);
+  expect(historyControls.filter(control => control.kind === 'worker' || control.type === 'install')).toHaveLength(0);
+  const flush = await page.evaluate(async () => {
+    const qa = __foldRuntime;
+    const data = await new Promise(resolve => { qa.flushAck = resolve; qa.probe.port.postMessage('flush'); });
+    qa.recording = false; return { ...data, raw: undefined };
+  });
+  expect(flush.nonFinite).toBe(0); expect(flush.discontinuities).toBe(0);
+  const drawing = await page.evaluate(() => ({ audited: __foldRuntime.auditedDraws,
+    violations: __foldRuntime.drawViolations, first: __foldRuntime.firstDrawViolation }));
+  expect(drawing.audited).toBeGreaterThan(0); expect(drawing.violations, JSON.stringify(drawing.first)).toBe(0);
+  await page.locator('#audioButton').click(); expect(errors).toEqual([]);
+  await info.attach('stage-pitch-evidence', { contentType: 'application/json', body: JSON.stringify({
+    initial: initial.parameters, horizontal: horizontal.parameters, vertical: vertical.parameters,
+    baseline, transposed, history, before, after, pitchControls, historyControls, flush }, null, 2) });
 });
