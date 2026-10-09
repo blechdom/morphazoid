@@ -389,3 +389,25 @@ engines, not physical predictions or literal speech synthesis. Automated checks
 cover gesture recognition, signed anchors, audio output/release, independent
 actors, score preservation, keyboard operation, and real browser touch events.
 Human listening and physical touch-device feel remain separate acceptance work.
+
+The compact controls use shared rotary presentations over native range inputs,
+including keyboard adjustment and Tap tempo. Next buttons cycle Animal, Gait,
+both skins, Surface, and Path through the same native change handlers as their
+menus. The single bottom Reset all restores the startup scene, default scores,
+world settings, skins and clock while retaining Audio, Play/Pause and output
+level. Visible Playing notes are removed; gesture help remains available to
+assistive technology.
+
+All five visual skins articulate a side-profile jaw from the existing voice
+strength envelope. The alternate rigs split the upper skull and hinged lower
+jaw without changing hit targets, feet or sound scheduling. Skeleton teeth,
+constellation nodes, collage paper and motion-card ink follow the same opening;
+the default elephant retains its raised trunk without emitted sound marks.
+Paused and released calls return to a closed mouth.
+
+Skeleton scenery is sparse: a single full moon accompanies irregularly spaced
+bare trees and plain gravestones. Gravestones
+have no crosses. Constellation scenery uses floating solids and orbital shapes
+over its outlined grid. Landmark density is bounded to three visible objects on
+desktop and two on compact screens, while travel and pause still control their
+positions.

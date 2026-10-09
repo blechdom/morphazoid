@@ -1,0 +1,74 @@
+{
+  "additions": [
+    {
+      "id": "recursive-am",
+      "label": "Recursive AM",
+      "href": "recursive-am.html",
+      "imageHref": "assets/instruments/recursive-am.webp",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "recursive",
+          "label": "Recursive"
+        },
+        {
+          "id": "am",
+          "label": "AM"
+        }
+      ]
+    },
+    {
+      "id": "chaotic-am",
+      "label": "Chaotic AM",
+      "href": "chaotic-am.html",
+      "imageHref": "assets/instruments/chaotic-am.webp",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "am",
+          "label": "AM"
+        }
+      ]
+    },
+    {
+      "id": "cascading-am",
+      "label": "Cascading AM",
+      "href": "cascading-am.html",
+      "imageHref": "assets/instruments/cascading-am.webp",
+      "categoryId": "synthesizer",
+      "categoryLabel": "Synthesizer",
+      "tags": [
+        {
+          "id": "chaotic",
+          "label": "Chaotic"
+        },
+        {
+          "id": "nonlinear",
+          "label": "Nonlinear"
+        },
+        {
+          "id": "am",
+          "label": "AM"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { recursivePmPresets } from "./full-presets.js";
 import {
   DEFAULT_RECURSIVE_PM_PRESET_ID,
   RECURSIVE_PM_LIMITS,
@@ -26,6 +28,7 @@ import { canvasSizing } from "../../graphics/canvas-sizing.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_LEVEL = 0.58;
+let presetController = null;
 const VISUAL_FRAME_INTERVAL = 1_000 / 30;
 
 const defaultPreset = RECURSIVE_PM_PRESETS.find(
@@ -160,20 +163,15 @@ function currentStack() {
 }
 
 function presetById(id) {
-  return RECURSIVE_PM_PRESETS.find((preset) => preset.id === id) ?? null;
+  return recursivePmPresets.bank.find((preset) => preset.id === id) ?? null;
 }
 
-function updatePresetButtons() {
-  for (const button of $("presetButtons").querySelectorAll("[data-preset]")) {
-    button.setAttribute(
-      "aria-pressed",
-      String(button.dataset.preset === state.activePresetId),
-    );
-  }
+function updatePresetPresentation() {
   const preset = presetById(state.activePresetId);
   $("presetState").textContent = preset?.label ?? "Custom";
   $("presetDescription").textContent = preset?.description
     ?? "A custom recursive phase-operator stack.";
+  presetController?.refresh();
 }
 
 function updateSignalFlow(stack) {
@@ -372,7 +370,7 @@ function applySettings(settings, { presetId = null, announce = false } = {}) {
   const stack = engine.running
     ? engine.updateSettings(state.settings)
     : currentStack();
-  updatePresetButtons();
+  updatePresetPresentation();
   updateControlOutputs(stack);
   visualizationDirty = true;
   scheduleVisualization();
@@ -501,6 +499,8 @@ function applyMidiPerformanceEvent(event) {
         [event.key]: event.value,
       }),
     };
+    state.activePresetId = null;
+    updatePresetPresentation();
     if (event.key === "ampSustainLevel") {
       engine.setSustainLevel(state.performance.ampSustainLevel);
     }
@@ -872,6 +872,8 @@ for (const [name, control] of Object.entries(performanceControls)) {
         [name]: Number(control.input.value),
       }),
     };
+    state.activePresetId = null;
+    updatePresetPresentation();
     if (name === "rootMidiNote"
       || name === "pitchBendRangeSemitones") {
       const events = name === "rootMidiNote"
@@ -895,16 +897,9 @@ $("glideMode").addEventListener("change", () => {
       glideMode: $("glideMode").value,
     }),
   };
+  state.activePresetId = null;
+  updatePresetPresentation();
   writePerformanceControls();
-});
-
-$("presetButtons").addEventListener("click", (event) => {
-  const button = event.target.closest("[data-preset]");
-  if (!button) return;
-  const preset = presetById(button.dataset.preset);
-  if (!preset) return;
-  clearError();
-  applySettings(preset.settings, { presetId: preset.id, announce: true });
 });
 
 $("level").addEventListener("input", () => {
@@ -1017,7 +1012,31 @@ window.addEventListener("keydown", (event) => {
 writeControlsFromState();
 writePerformanceControls();
 registerSharedMidiClient();
-updatePresetButtons();
+updatePresetPresentation();
 updateControlOutputs();
 beginResizeObservation();
 resizeCanvas();
+
+presetController = registerHeaderPresets({
+  id: "recursive-pm", presets: recursivePmPresets.bank,
+  capture: () => recursivePmPresets.capture(state),
+  randomize: recursivePmPresets.randomize,
+  apply: (raw) => {
+    // Validate the whole snapshot before changing either synthesis or envelopes.
+    const snapshot = recursivePmPresets.validate(raw);
+    const previous = state.performance;
+    state.performance = { ...sanitizeRecursivePmPerformance({
+      ...snapshot.performance, playMode: previous.playMode,
+    }) };
+    // Retune held notes only when their mapping changes; never retrigger a gate.
+    if (previous.rootMidiNote !== state.performance.rootMidiNote) {
+      for (const event of midiPerformance.setRootMidiNote(state.performance.rootMidiNote)) applyMidiPerformanceEvent(event);
+    }
+    if (previous.pitchBendRangeSemitones !== state.performance.pitchBendRangeSemitones) {
+      for (const event of midiPerformance.setPitchBendRange(state.performance.pitchBendRangeSemitones)) applyMidiPerformanceEvent(event);
+    }
+    if (previous.ampSustainLevel !== state.performance.ampSustainLevel) engine.setSustainLevel(state.performance.ampSustainLevel);
+    writePerformanceControls();
+    applySettings(snapshot.settings, { presetId: snapshot.activePresetId });
+  },
+});

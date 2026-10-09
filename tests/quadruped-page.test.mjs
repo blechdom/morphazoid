@@ -34,7 +34,6 @@ test("Quadruped page exposes animal choices, four feet, sixteen cards, one surfa
   assert.match(html, /<b>Surface<\/b>/);
   assert.match(html, /<select id="terrain">[\s\S]*Packed earth[\s\S]*Resonant crystal/);
   assert.match(html, /<select id="groundProfile">[\s\S]*Level ground[\s\S]*Steps up[\s\S]*Steps down/);
-  assert.match(html, /Touchdown, load, push, lift\. Feet drive the clock\./);
   assert.match(html, /aria-label="Interactive side-view Quadruped/);
   assert.match(html, /id="playButton"[\s\S]*?data-primary-transport/);
   assert.match(html, /Audio is off — turn it on to hear playback/);
@@ -159,12 +158,13 @@ test("edits preserve motion and global surface/path changes relatch honestly", a
   assert.match(catalog, /tempo stays independent/i);
 });
 
-test("the page uses native animal/gait menus and leaves explanations in playing notes", async () => {
+test("the page uses native animal/gait menus with accessible hidden gesture help", async () => {
   const html = await read("src/pages/quadruped.html");
   const app = await read("src/instruments/quadruped/quadruped-app.js");
   assert.match(html, /<select id="animalSelect"/);
   assert.match(html, /<select id="behaviorSelect"/);
-  assert.match(html, /<details class="quadruped-notes">/);
+  assert.doesNotMatch(html, /quadruped-notes|Playing notes|Reset animal \+ gait/);
+  assert.match(html, /class="sr-only" id="gestureHelp"/);
   assert.doesNotMatch(html, /48 maximum|16 CABINET FRAMES|01 \/ ANIMAL/);
   assert.match(app, /registerHeaderPresets/);
   assert.match(app, /onApplied: \(\) => startTransport\(\)/);

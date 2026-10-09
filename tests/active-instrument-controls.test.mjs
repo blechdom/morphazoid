@@ -52,6 +52,8 @@ function controlRoot(controls) {
         const control = controls.find(candidate => candidate.id === id);
         return control ? [{ textContent: control.label ?? id }] : [];
       }
+      if (selector === "[data-full-preset]") return controls.filter(control => control.fullPreset);
+      if (selector.startsWith("[id*='preset'")) return controls.filter(control => control.presetAction);
       if (selector.startsWith("select[id*='preset'")) {
         return controls.filter(control => control.tagName === "SELECT" && /preset/i.test(control.id));
       }
@@ -220,4 +222,34 @@ test("active control roots never enable WAX behavior on normal browser pages", (
   page.select(instrumentControls().root);
   assert.equal(installUniversalWaxAdapter({ document: page.document }, page.document), null);
   assert.equal(page.creations, 0);
+});
+
+
+test("WAX program changes select full preset rows without triggering Next, dice or sub-presets", () => {
+  const page = pageHarness();
+  const next = new Control("presetNext", { tagName: "BUTTON", presetAction: true });
+  const dice = new Control("presetRandom", { tagName: "BUTTON", presetAction: true });
+  const rows = Array.from({ length: 12 }, (_, index) => new Control(`scene${index}`, {
+    tagName: "BUTTON", fullPreset: true, presetAction: true,
+  }));
+  const focused = new Control("bodyPreset", {
+    tagName: "SELECT", value: "body-a", options: [{ value: "body-a" }, { value: "body-b" }],
+  });
+  page.select(controlRoot([next, dice, focused, ...rows]));
+  const runtime = Object.assign(new Emitter(), {
+    document: page.document, location: { pathname: "/dist-wax/recursive-am.html" }, Event, CustomEvent,
+    MorphazoidWAX: { register() { return () => {}; } },
+  });
+  const adapter = installUniversalWaxAdapter(runtime, page.document);
+  try {
+    const client = adapter.manager.clients.get("wax-universal:recursive-am");
+    for (const program of [0, 11, 12, 25]) client.onMessage({ type: "programChange", program });
+    assert.equal(rows[0].clicks, 2);
+    assert.equal(rows[1].clicks, 1);
+    assert.equal(rows[11].clicks, 1);
+    assert.equal(rows.reduce((sum, row) => sum + row.clicks, 0), 4);
+    assert.equal(next.clicks, 0);
+    assert.equal(dice.clicks, 0);
+    assert.equal(focused.value, "body-a");
+  } finally { adapter.cleanup(); }
 });

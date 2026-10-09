@@ -17,6 +17,9 @@ const SYNTH_PAGES = Object.freeze([
   "chaotic-pm",
   "cascading-fm",
   "cascading-pm",
+  "recursive-am",
+  "chaotic-am",
+  "cascading-am",
   "weierstrass",
 ]);
 
@@ -24,9 +27,9 @@ function referenceText(id) {
   return JSON.stringify(chaoticDspReferenceForId(id));
 }
 
-test("the Chaos Synth DSP reference set covers seven instruments and excludes Plasma Ball", () => {
+test("the Chaos Synth DSP reference set covers the FM, PM and AM instruments and excludes Plasma Ball", () => {
   assert.deepEqual(CHAOTIC_DSP_REFERENCE_IDS, SYNTH_PAGES);
-  assert.equal(CHAOTIC_DSP_REFERENCES.length, 7);
+  assert.equal(CHAOTIC_DSP_REFERENCES.length, SYNTH_PAGES.length);
   assert.equal(chaoticDspReferenceForId("plasma-ball"), null);
   assert.equal(renderChaoticDspReferences(undefined), 0);
 
@@ -109,7 +112,7 @@ test("only Recursive FM and PM link to explicitly archival comparison charts", (
   }
 });
 
-test("all seven pages attach the shared reference after controls and before reset", async () => {
+test("all synth pages attach the shared reference after controls and before reset", async () => {
   for (const id of SYNTH_PAGES) {
     const markup = await readFile(new URL(`src/pages/${id}.html`, ROOT), "utf8");
     assert.equal((markup.match(/data-chaos-dsp-reference="/g) ?? []).length, 1);
@@ -138,7 +141,7 @@ test("the dedicated page renders an unconstrained selectable reference", async (
   assert.match(markup, /data-chaos-dsp-reference-page/);
   assert.match(markup, /data-chaos-dsp-full-page/);
   assert.match(markup, /id="dspSynthSelect"/);
-  assert.equal((markup.match(/<option value="(?:recursive|chaotic|cascading|weierstrass)/g) ?? []).length, 7);
+  assert.equal((markup.match(/<option value="(?:recursive|chaotic|cascading|weierstrass)/g) ?? []).length, SYNTH_PAGES.length);
   assert.match(markup, /src="src\/site\/chaotic-dsp-reference-page\.js"/);
   assert.match(app, /searchParams\.get\("synth"\)/);
   assert.match(app, /renderChaoticDspReference\(root, reference, document\)/);

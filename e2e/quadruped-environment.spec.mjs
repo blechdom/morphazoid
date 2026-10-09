@@ -101,6 +101,7 @@ test("every skin paints all herd and trio lanes while preserving sound and score
           expect(Number.isFinite(call.worldX)).toBe(true);
           expect(Number.isInteger(call.propCount)).toBe(true);
           expect(call.propCount).toBeGreaterThanOrEqual(0);
+          expect(call.propCount).toBeLessThanOrEqual(2);
         }
         expect(await capture(page)).toEqual({ ...before, visualSkinId: skin });
         await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");

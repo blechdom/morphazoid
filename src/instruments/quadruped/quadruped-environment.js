@@ -14,8 +14,8 @@ const hash = (cell, salt = 0) => {
 };
 const THEMES = Object.freeze({
   animal: { sky: ["#101c1d", "#344132"], ground: "#65583b", ink: "#b2b780", props: ["cactus", "tumbleweed", "rock", "grass"] },
-  skeleton: { sky: ["#151821", "#353c39"], ground: "#252b27", ink: "#b9c3a9", props: ["dead-tree", "tombstone", "ribs", "bone", "grave"] },
-  constellation: { sky: ["#071124", "#0e1b36"], ground: "#101a32", ink: "#799de9", props: ["laser", "prism", "laser", "pylon"] },
+  skeleton: { sky: ["#151821", "#353c39"], ground: "#252b27", ink: "#b9c3a9", props: ["dead-tree", "tombstone"] },
+  constellation: { sky: ["#071124", "#0e1b36"], ground: "#101a32", ink: "#799de9", props: ["diamond", "orbit", "floating-cube", "tetrahedron"] },
   collage: { sky: ["#193b49", "#426c67"], ground: "#937947", ink: "#fff9e8", props: ["paper-tree", "cactus", "paper-flower", "tumbleweed"] },
   "motion-card": { sky: ["#eee4cd", "#ded0af"], ground: "#c7b796", ink: "#665539", props: ["cactus", "tumbleweed", "dead-tree", "grass"] },
 });
@@ -35,23 +35,32 @@ export function deriveQuadrupedEnvironmentLayout(options = {}) {
   const theme = THEMES[skinId];
   const salt = [...skinId].reduce((value, letter) => Math.imul(value + letter.charCodeAt(0), 31), 193);
   const props = [];
-  const maxPerLayer = options.compact ? 5 : 7;
+  // One or two landmarks per depth, with room for their silhouettes. Skeleton
+  // landmarks get a full viewport between neighbours of the same kind, so a
+  // travelling grave can leave naturally before the next one enters.
+  const sparse = skinId === "skeleton" || options.compact || width < 480;
   for (const [layer, parallax] of [[0, 0.28], [1, 0.82]]) {
-    const spacing = Math.max(2.5, width / maxPerLayer / worldScale / parallax);
-    const left = worldX - width * 0.7 / (worldScale * parallax);
-    const firstCell = Math.floor(left / spacing);
-    const count = Math.min(13, Math.ceil(width * 1.4 / (spacing * worldScale * parallax)) + 2);
+    const viewportSpacing = sparse || layer === 0 ? 1.5 : 1.05;
+    const spacing = width * viewportSpacing / (worldScale * parallax);
+    const maxSize = Math.min(width * 0.12, height * (layer === 0 ? 0.22 : 0.18), Math.max(11, worldScale * (layer === 0 ? 0.85 : 0.6)));
+    const left = worldX - (width * 0.5 + maxSize) / (worldScale * parallax);
+    const firstCell = Math.floor(left / spacing) - 1;
+    const count = Math.ceil((width + maxSize * 2) / (spacing * worldScale * parallax)) + 3;
     for (let i = 0; i < count; i++) {
       const cell = firstCell + i;
       const seed = hash(cell, salt + layer * 719);
-      const world = (cell + 0.15 + seed * 0.66) * spacing;
+      const world = (cell + (layer === 0 ? -0.22 : 0.23) + (seed - 0.5) * 0.14) * spacing;
       const x = width * 0.5 + (world - worldX) * worldScale * parallax;
-      const y = groundAt(x) - height * (layer === 0 ? 0.075 : 0.009);
-      const size = Math.max(0, Math.min(height * (layer === 0 ? 0.17 : 0.22), Math.max(11, worldScale * (layer === 0 ? 0.56 : 0.85)), (y - Math.min(58, height * 0.36)) / (skinId === "constellation" ? 1.3 : 1)));
+      const groundOffset = height * (skinId === "constellation" ? 0.18 + seed * 0.2 : layer === 0 ? 0.06 + seed * 0.05 : 0.008 + seed * 0.025);
+      const y = groundAt(x) - groundOffset;
+      const size = Math.max(0, Math.min(maxSize * (0.8 + seed * 0.2), y - Math.min(58, height * 0.36)));
+      if (size < 2 || x + size < 0 || x - size > width) continue;
       const focusFade = clamp(0.27 + Math.abs(x - width * 0.5) / Math.max(1, width * 0.34), 0.27, 1);
-      props.push({ id: `${skinId}:${layer}:${cell}`, cell, layer, parallax, world, x, y, size, seed,
-        kind: theme.props[Math.floor(hash(cell, salt + layer * 719 + 47) * theme.props.length)],
-        alpha: (layer === 0 ? 0.35 : 0.72) * focusFade,
+      // Give each depth its own alternating silhouettes without consulting the
+      // current viewport or changing anything already on screen.
+      const kind = skinId === "skeleton" ? theme.props[layer] : theme.props[mod(cell, theme.props.length / 2) * 2 + layer];
+      props.push({ id: `${skinId}:${layer}:${cell}`, cell, layer, parallax, world, x, y, size, seed, groundOffset, kind,
+        alpha: (layer === 0 ? 0.44 : 0.72) * focusFade,
         rotation: worldX * worldScale * parallax / Math.max(8, size * 0.3) + seed * TAU,
       });
     }
@@ -220,37 +229,33 @@ function drawProp(context, prop, layout, image) {
       const px = (i - 1) * s * 0.25, py = -s * (0.62 + (i % 2) * 0.24);
       photoPiece(context, image, i === 1 ? 1 : 3, [[px - s * 0.13, py], [px - s * 0.2, py - s * 0.17], [px, py - s * 0.24], [px + s * 0.17, py - s * 0.12], [px + s * 0.06, py + s * 0.08]], 1.7);
     }
-  } else if (kind === "tombstone" || kind === "grave") {
+  } else if (kind === "tombstone") {
     context.rotate((seed - 0.5) * 0.16);
-    if (kind === "grave") {
-      line(context, [[0, 0], [0, -s * 0.92]], ink, Math.max(2, s * 0.11));
-      line(context, [[-s * 0.28, -s * 0.61], [s * 0.28, -s * 0.61]], ink, Math.max(2, s * 0.1));
-    } else {
-      context.beginPath(); context.moveTo(-s * 0.26, 0); context.lineTo(-s * 0.26, -s * 0.52); context.quadraticCurveTo(-s * 0.27, -s * 0.95, s * 0.05, -s * 0.93); context.quadraticCurveTo(s * 0.29, -s * 0.9, s * 0.29, -s * 0.49); context.lineTo(s * 0.29, 0); context.closePath(); context.fill(); context.stroke();
-      line(context, [[0, -s * 0.65], [0, -s * 0.32]], ink, 0.9);
-      line(context, [[-s * 0.11, -s * 0.52], [s * 0.11, -s * 0.52]], ink, 0.9);
-      line(context, [[-s * 0.15, -s * 0.19], [s * 0.13, -s * 0.19]], ink, 0.65);
-    }
+    context.beginPath(); context.moveTo(-s * 0.26, 0); context.lineTo(-s * 0.26, -s * 0.52); context.quadraticCurveTo(-s * 0.27, -s * 0.95, s * 0.05, -s * 0.93); context.quadraticCurveTo(s * 0.29, -s * 0.9, s * 0.29, -s * 0.49); context.lineTo(s * 0.29, 0); context.closePath(); context.fill(); context.stroke();
     context.beginPath(); context.ellipse(0, 1, s * 0.43, s * 0.07, 0, 0, TAU); context.stroke();
-  } else if (kind === "bone" || kind === "ribs") {
-    if (kind === "ribs") {
-      for (let i = 0; i < 5; i++) {
-        context.beginPath(); context.ellipse((i - 2) * s * 0.14, -s * 0.11, s * 0.14, s * (0.27 - Math.abs(i - 2) * 0.035), -0.15, Math.PI, TAU + 0.2); context.stroke();
-      }
-      line(context, [[-s * 0.4, -s * 0.08], [s * 0.41, -s * 0.13]], ink, Math.max(1, s * 0.032));
-    } else {
-      context.rotate(-0.2); line(context, [[-s * 0.4, -s * 0.12], [s * 0.35, -s * 0.12]], ink, Math.max(1.2, s * 0.065));
-      for (const end of [-0.4, 0.35]) for (const off of [-0.05, 0.05]) { context.beginPath(); context.arc(end * s, (-0.12 + off) * s, s * 0.06, 0, TAU); context.fillStyle = ink; context.fill(); }
-    }
-  } else if (kind === "laser" || kind === "prism" || kind === "pylon") {
+  } else if (["diamond", "orbit", "floating-cube", "tetrahedron"].includes(kind)) {
     const color = seed > 0.5 ? "#c47cff" : "#69dded";
-    line(context, [[-s * 0.2, 0], [0, -s * 0.62], [s * 0.2, 0], [-s * 0.2, 0]], color, 1);
-    line(context, [[-s * 0.13, -s * 0.2], [s * 0.13, -s * 0.2]], color, 0.7);
-    if (kind === "laser") {
-      const reach = s * (1.1 + seed);
-      line(context, [[0, -s * 0.6], [reach * (seed > 0.5 ? 1 : -1), -s * 1.25]], `${color}4d`, 3.5);
-      line(context, [[0, -s * 0.6], [reach * (seed > 0.5 ? 1 : -1), -s * 1.25]], color, 0.7);
-    } else if (kind === "prism") line(context, [[-s * 0.2, 0], [s * 0.38, -s * 0.12], [s * 0.14, -s * 0.73], [0, -s * 0.62]], color, 0.65);
+    // Closed suspended volumes: nothing extends to the ground like a support
+    // or beam. Their stable tilt comes from the world cell, never a wall clock.
+    context.translate(0, -s * 0.5); context.rotate((seed - 0.5) * 0.5);
+    const wire = points => line(context, points.map(([px, py]) => [px * s, py * s]), color, Math.max(0.7, s * 0.018));
+    if (kind === "diamond") {
+      wire([[0, -0.43], [0.3, 0], [0, 0.43], [-0.3, 0], [0, -0.43]]);
+      wire([[-0.3, 0], [0, -0.1], [0.3, 0], [0, 0.1], [-0.3, 0]]);
+      wire([[0, -0.43], [0, -0.1]]); wire([[0, 0.1], [0, 0.43]]);
+    } else if (kind === "floating-cube") {
+      wire([[-0.3, -0.17], [0.04, -0.31], [0.32, -0.09], [-0.02, 0.06], [-0.3, -0.17], [-0.3, 0.19], [-0.02, 0.39], [0.32, 0.24], [0.32, -0.09]]);
+      wire([[-0.02, 0.06], [-0.02, 0.39]]);
+    } else if (kind === "tetrahedron") {
+      wire([[0.07, -0.43], [-0.34, 0.17], [0.34, 0.27], [0.07, -0.43], [-0.05, 0.02], [-0.34, 0.17]]);
+      wire([[-0.05, 0.02], [0.34, 0.27]]);
+    } else {
+      context.strokeStyle = color;
+      for (const angle of [-0.6, 0.8]) {
+        context.beginPath(); context.ellipse(0, 0, s * 0.43, s * 0.16, angle, 0, TAU); context.stroke();
+      }
+      wire([[0, -0.15], [0.12, 0], [0, 0.15], [-0.12, 0], [0, -0.15]]);
+    }
   } else if (kind === "cactus") {
     const points = [[-0.09, 0], [-0.09, -0.33], [-0.3, -0.33], [-0.39, -0.44], [-0.39, -0.73], [-0.26, -0.73], [-0.26, -0.46], [-0.09, -0.46], [-0.09, -0.91], [0, -1], [0.09, -0.91], [0.09, -0.58], [0.26, -0.58], [0.26, -0.81], [0.39, -0.81], [0.39, -0.54], [0.29, -0.44], [0.09, -0.44], [0.09, 0]].map(([px, py]) => [px * s, py * s]);
     if (collage) photoPiece(context, image, 2, points, 1.8);
@@ -285,7 +290,7 @@ export function drawQuadrupedEnvironment(context, options = {}) {
   else {
     if (skinId === "skeleton") {
       const x = width * 0.8, y = height * 0.24, r = Math.min(height * 0.065, width * 0.06);
-      context.save(); context.globalAlpha = 0.26; context.fillStyle = "#c6d0b7"; context.beginPath(); context.arc(x, y, r, 0, TAU); context.fill(); context.fillStyle = theme.sky[0]; context.beginPath(); context.arc(x + r * 0.45, y - r * 0.23, r * 0.88, 0, TAU); context.fill(); context.restore();
+      context.save(); context.globalAlpha = 0.26; context.fillStyle = "#c6d0b7"; context.beginPath(); context.arc(x, y, r, 0, TAU); context.fill(); context.restore();
     }
     traceTerrain(context, layout, true);
     context.fillStyle = skinId === "animal" ? options.surface?.color ?? theme.ground : theme.ground; context.fill();
