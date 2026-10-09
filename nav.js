@@ -3,6 +3,7 @@ import {
   getSharedMidiManager,
 } from "./src/midi-manager.js";
 import { getSharedAudioOutputManager } from "./src/audio-output-manager.js";
+import { initializeOutputRecording } from "./src/site/output-recording-controls.js";
 import { installBrowserMidiAdapter } from "./src/browser-midi-adapter.js";
 import { instrumentMidiCapabilityForId } from "./src/site/instrument-midi-capabilities.js";
 import { initializeMidiOutputMonitor } from "./src/midi-output-preview.js";
@@ -1544,6 +1545,7 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
     });
   }
   initializeSettingsMenus(doc, runtime);
+  initializeOutputRecording(doc, runtime, { routeId: navigation.activeTool?.id });
   initializeAudioTransportContract(doc, runtime);
   mountHeaderPresets(doc);
   initializeTapTempoControls(doc, runtime);

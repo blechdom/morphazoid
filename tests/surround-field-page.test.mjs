@@ -42,7 +42,7 @@ test("audio routing has real discrete and explicit stereo-preview paths", () => 
   assert.match(app, /channelBus\.connect\(virtualBus, 0, targetIndex\)/);
   assert.match(app, /speaker\.channel - 1/);
   assert.match(app, /createStereoPanner\(\)/);
-  assert.match(app, /connectAudioOutput\(context, this\.outputNode\)/);
+  assert.match(app, /connectAudioOutput\(context, this\.outputNode, \{ stereoSource: this\.previewLimiter \}\)/);
   assert.match(app, /limiter\.threshold\.value = -3/);
   assert.match(app, /speaker\.kind === "lfe"/);
   assert.match(app, /lowpass\.frequency\.value = 120/);

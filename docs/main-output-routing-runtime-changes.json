@@ -1,0 +1,293 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "0fe8fae9d9177b778ed3861b6dd0be387f2cba47",
+  "reason": "Register final stereo outputs for master recording. Route local blob media through Web Audio while preserving native playback controls, reuse prototype final mix graphs across rearming, and release output leases on teardown. Reverse these exact changes before earlier frozen layout/input amendments; do not update historical hashes.",
+  "changes": [
+    {
+      "file": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+      "sha256": "da18e63b3a5ea63ab6350923dafbc16f5963da8387aab3a81a24c666b511b433",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { initializeTapTempoControls } from \"../../site/tap-tempo-controls.js\";\ninitializeTapTempoControls(document);\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { encodeMonoWav } from \"../../families/acoustic/birdsong-analysis.js\";\nimport {\n  AcousticLiveCapture,\n",
+          "after": "import { initializeTapTempoControls } from \"../../site/tap-tempo-controls.js\";\ninitializeTapTempoControls(document);\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { createMediaElementOutput } from \"../../media-element-output.js\";\nimport { encodeMonoWav } from \"../../families/acoustic/birdsong-analysis.js\";\nimport {\n  AcousticLiveCapture,\n"
+        },
+        {
+          "before": "});\n\nconst routeAudio = new Audio();\nrouteAudio.preload = \"auto\";\n\nlet sourceSamples = null;\n",
+          "after": "});\n\nconst routeAudio = new Audio();\nconst mediaOutput = createMediaElementOutput([routeAudio]);\nrouteAudio.preload = \"auto\";\n\nlet sourceSamples = null;\n"
+        },
+        {
+          "before": "  const cancelledRender = pendingPlayback;\n  const stoppedPlayback = !routeAudio.paused;\n  audioEnabled = Boolean(enabled);\n  $(\"audioButton\").setAttribute(\"aria-pressed\", String(audioEnabled));\n  $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  routeAudio.muted = !audioEnabled;\n",
+          "after": "  const cancelledRender = pendingPlayback;\n  const stoppedPlayback = !routeAudio.paused;\n  audioEnabled = Boolean(enabled);\n  if (audioEnabled) void mediaOutput.resume().catch((error) => {\n    setAudioEnabled(false);\n    setStatus(`Audio could not start: ${error.message}`, \"error\");\n  });\n  $(\"audioButton\").setAttribute(\"aria-pressed\", String(audioEnabled));\n  $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  routeAudio.muted = !audioEnabled;\n"
+        },
+        {
+          "before": "  setBusy(true);\n  if (!audioEnabled) setAudioEnabled(true);\n  try {\n    const rendered = purpose === \"route\" && routeRenderKey === key && routeRender\n      ? routeRender\n      : await renderIndices(indices, mode);\n",
+          "after": "  setBusy(true);\n  if (!audioEnabled) setAudioEnabled(true);\n  try {\n    await mediaOutput.resume();\n    if (version !== taskVersion) return;\n    const rendered = purpose === \"route\" && routeRenderKey === key && routeRender\n      ? routeRender\n      : await renderIndices(indices, mode);\n"
+        },
+        {
+          "before": "  ++taskVersion;\n  stopPlayback(false);\n  revokeUrl(routeUrl);\n  if (event.persisted) return;\n  disposed = true;\n  navigator.mediaDevices?.removeEventListener?.(\"devicechange\", handleDeviceChange);\n  renderer.dispose();\n",
+          "after": "  ++taskVersion;\n  stopPlayback(false);\n  revokeUrl(routeUrl);\n  if (event.persisted) {\n    void mediaOutput.suspend().catch(() => {});\n    return;\n  }\n  void mediaOutput.close().catch(() => {});\n  disposed = true;\n  navigator.mediaDevices?.removeEventListener?.(\"devicechange\", handleDeviceChange);\n  renderer.dispose();\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/adaptive-airway/adaptive-airway-app.js",
+      "sha256": "2b372f01b3940ce69987d0f9202f5de62c623271653225f999237319f97bab28",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const SPEED_OF_SOUND = 343;\n\nconst PRESETS = Object.freeze({\n",
+          "after": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst SPEED_OF_SOUND = 343;\n\nconst PRESETS = Object.freeze({\n"
+        },
+        {
+          "before": "\nlet context = null;\nlet nodes = null;\n\nfunction clamp(value, minimum = 0, maximum = 1) {\n  const number = Number(value);\n",
+          "after": "\nlet context = null;\nlet nodes = null;\nlet releaseAudioOutput = null;\n\nfunction clamp(value, minimum = 0, maximum = 1) {\n  const number = Number(value);\n"
+        },
+        {
+          "before": "    .connect(liquidLowpass)\n    .connect(preMaster)\n    .connect(activityGain)\n    .connect(master)\n    .connect(context.destination);\n\n  leftOsc.start();\n  rightOsc.start();\n",
+          "after": "    .connect(liquidLowpass)\n    .connect(preMaster)\n    .connect(activityGain)\n    .connect(master);\n  releaseAudioOutput = connectAudioOutput(context, master);\n\n  leftOsc.start();\n  rightOsc.start();\n"
+        },
+        {
+          "before": "  applyState();\n}\n\ninit();\n",
+          "after": "  applyState();\n}\n\nglobalThis.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) return;\n  releaseAudioOutput?.();\n  releaseAudioOutput = null;\n  context?.close().catch(() => {});\n});\n\ninit();\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/birdsong-lab/birdsong-lab-app.js",
+      "sha256": "30503629a4e9fbeedbaeda23110272cb05d538fde3ef41968ea8bef9762a68c3",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  monoSamples,\n  renderBirdsongModel,\n} from \"../../families/acoustic/birdsong-analysis.js\";\n\nconst $ = (id) => document.getElementById(id);\n\n",
+          "after": "  monoSamples,\n  renderBirdsongModel,\n} from \"../../families/acoustic/birdsong-analysis.js\";\nimport { createMediaElementOutput } from \"../../media-element-output.js\";\n\nconst $ = (id) => document.getElementById(id);\n\n"
+        },
+        {
+          "before": "const drawing = canvas.getContext(\"2d\");\nconst originalAudio = new Audio();\nconst modelAudio = new Audio();\noriginalAudio.preload = \"auto\";\nmodelAudio.preload = \"auto\";\n\n",
+          "after": "const drawing = canvas.getContext(\"2d\");\nconst originalAudio = new Audio();\nconst modelAudio = new Audio();\nconst mediaOutput = createMediaElementOutput([originalAudio, modelAudio]);\noriginalAudio.preload = \"auto\";\nmodelAudio.preload = \"auto\";\n\n"
+        },
+        {
+          "before": "  audio.loop = $(\"loopPlayback\").checked;\n  audio.volume = clamp(Number($(\"level\").value));\n  audio.currentTime = 0;\n  const playPromise = audio.play();\n  if (playPromise?.catch) {\n    playPromise.catch((error) => {\n      stopPlayback(false);\n",
+          "after": "  audio.loop = $(\"loopPlayback\").checked;\n  audio.volume = clamp(Number($(\"level\").value));\n  audio.currentTime = 0;\n  const playPromise = Promise.all([mediaOutput.resume(), audio.play()]);\n  if (playPromise?.catch) {\n    playPromise.catch((error) => {\n      stopPlayback(false);\n"
+        },
+        {
+          "before": "fileDrop.addEventListener(\"drop\", (event) => decodeFile(event.dataTransfer?.files?.[0]));\n\nwindow.addEventListener(\"resize\", drawAnalysis);\nwindow.addEventListener(\"beforeunload\", () => {\n  revokeUrl(originalUrl);\n  revokeUrl(modelUrl);\n",
+          "after": "fileDrop.addEventListener(\"drop\", (event) => decodeFile(event.dataTransfer?.files?.[0]));\n\nwindow.addEventListener(\"resize\", drawAnalysis);\nwindow.addEventListener(\"pagehide\", (event) => {\n  stopPlayback(false);\n  if (event.persisted) void mediaOutput.suspend().catch(() => {});\n  else void mediaOutput.close().catch(() => {});\n});\nwindow.addEventListener(\"beforeunload\", () => {\n  revokeUrl(originalUrl);\n  revokeUrl(modelUrl);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/crickets/crickets-app.js",
+      "sha256": "8a696e0a5f6eef3e636439057ad0c58b238fa8cefcb7398db2e82ac95571660d",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  renderCricketModel,\n} from \"./crickets.js\";\nimport { encodeMonoWav } from \"../../families/acoustic/birdsong-analysis.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum = 0, maximum = 1) => (\n",
+          "after": "  renderCricketModel,\n} from \"./crickets.js\";\nimport { encodeMonoWav } from \"../../families/acoustic/birdsong-analysis.js\";\nimport { createMediaElementOutput } from \"../../media-element-output.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst clamp = (value, minimum = 0, maximum = 1) => (\n"
+        },
+        {
+          "before": "const inputAudio = new Audio();\nconst modelAudio = new Audio();\nconst manualAudio = new Audio();\nfor (const audio of [inputAudio, modelAudio, manualAudio]) audio.preload = \"auto\";\n\nlet sourceSamples = null;\n",
+          "after": "const inputAudio = new Audio();\nconst modelAudio = new Audio();\nconst manualAudio = new Audio();\nconst mediaOutput = createMediaElementOutput([inputAudio, modelAudio, manualAudio]);\nfor (const audio of [inputAudio, modelAudio, manualAudio]) audio.preload = \"auto\";\n\nlet sourceSamples = null;\n"
+        },
+        {
+          "before": "\nfunction setAudioEnabled(enabled, announce = true) {\n  audioEnabled = Boolean(enabled);\n  $(\"audioButton\")?.setAttribute(\"aria-pressed\", String(audioEnabled));\n  if ($(\"audioState\")) $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  for (const audio of [inputAudio, modelAudio, manualAudio]) {\n",
+          "after": "\nfunction setAudioEnabled(enabled, announce = true) {\n  audioEnabled = Boolean(enabled);\n  if (audioEnabled) void mediaOutput.resume().catch((error) => {\n    setAudioEnabled(false, false);\n    setStatus(`Audio could not start: ${error.message}`, \"error\");\n  });\n  $(\"audioButton\")?.setAttribute(\"aria-pressed\", String(audioEnabled));\n  if ($(\"audioState\")) $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  for (const audio of [inputAudio, modelAudio, manualAudio]) {\n"
+        },
+        {
+          "before": "  } catch {\n    // Seeking becomes available as soon as the generated WAV metadata loads.\n  }\n  next.play().catch((error) => {\n    stopPlayback(false);\n    setStatus(`Playback could not start: ${error.message}`, \"error\");\n  });\n",
+          "after": "  } catch {\n    // Seeking becomes available as soon as the generated WAV metadata loads.\n  }\n  Promise.all([mediaOutput.resume(), next.play()]).catch((error) => {\n    stopPlayback(false);\n    setStatus(`Playback could not start: ${error.message}`, \"error\");\n  });\n"
+        },
+        {
+          "before": "  manualAudio.volume = masterLevel();\n  activeAudio = manualAudio;\n  activeKind = \"manual\";\n  manualAudio.play().catch((error) => setStatus(`Manual stroke could not play: ${error.message}`, \"error\"));\n  $(\"stop-audio\").disabled = false;\n  setStatus(\"Manual closing stroke: teeth excite it; the wings choose the pitch.\", \"ready\");\n  animateStage();\n",
+          "after": "  manualAudio.volume = masterLevel();\n  activeAudio = manualAudio;\n  activeKind = \"manual\";\n  Promise.all([mediaOutput.resume(), manualAudio.play()]).catch((error) => {\n    stopPlayback(false);\n    setStatus(`Manual stroke could not play: ${error.message}`, \"error\");\n  });\n  $(\"stop-audio\").disabled = false;\n  setStatus(\"Manual closing stroke: teeth excite it; the wings choose the pitch.\", \"ready\");\n  animateStage();\n"
+        },
+        {
+          "before": "});\n\nwindow.addEventListener(\"resize\", drawStage);\ndocument.addEventListener(\"visibilitychange\", () => {\n  if (document.hidden) stopPlayback(false);\n});\n",
+          "after": "});\n\nwindow.addEventListener(\"resize\", drawStage);\nwindow.addEventListener(\"pagehide\", (event) => {\n  stopPlayback(false);\n  if (event.persisted) void mediaOutput.suspend().catch(() => {});\n  else void mediaOutput.close().catch(() => {});\n});\ndocument.addEventListener(\"visibilitychange\", () => {\n  if (document.hidden) stopPlayback(false);\n});\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/gesturama/gesturama-audio.js",
+      "sha256": "76e86e70608ab169321b846cff46efc31cc40dbad8aa8a193ff5858065aa3ddb",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n\nfunction clampValue(value, min, max) {\n",
+          "after": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;\n\nfunction clampValue(value, min, max) {\n"
+        },
+        {
+          "before": "  constructor() {\n    this.context = null;\n    this.master = null;\n    this.noiseBuffer = null;\n    this.sampleBuffer = null;\n    this.gestureVoices = new Map();\n",
+          "after": "  constructor() {\n    this.context = null;\n    this.master = null;\n    this.releaseAudioOutput = null;\n    this.noiseBuffer = null;\n    this.sampleBuffer = null;\n    this.gestureVoices = new Map();\n"
+        },
+        {
+          "before": "    compressor.attack.value = 0.003;\n    compressor.release.value = 0.18;\n    this.master.gain.value = this.muted ? 0 : this.volume;\n    this.master.connect(compressor).connect(this.context.destination);\n    this.noiseBuffer = this.makeNoiseBuffer(1);\n  }\n\n",
+          "after": "    compressor.attack.value = 0.003;\n    compressor.release.value = 0.18;\n    this.master.gain.value = this.muted ? 0 : this.volume;\n    this.master.connect(compressor);\n    this.releaseAudioOutput = connectAudioOutput(this.context, compressor);\n    this.noiseBuffer = this.makeNoiseBuffer(1);\n  }\n\n"
+        },
+        {
+          "before": "\n  async close() {\n    this.stopAllGesturePads({ release: 0 });\n    if (!this.context) return;\n    const context = this.context;\n    this.context = null;\n",
+          "after": "\n  async close() {\n    this.stopAllGesturePads({ release: 0 });\n    this.releaseAudioOutput?.();\n    this.releaseAudioOutput = null;\n    if (!this.context) return;\n    const context = this.context;\n    this.context = null;\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/head-shed/head-shed-app.js",
+      "sha256": "04d31f820ec17baa537ce429b35617fd3fe5334bb8cf8ae505893706b6d74d07",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { audioInputConstraints } from \"../../audio-input-settings.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n",
+          "after": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { audioInputConstraints } from \"../../audio-input-settings.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n"
+        },
+        {
+          "before": "let micPending = false;\nlet micVersion = 0;\nlet graphPromise = null;\nlet tapeView = new Float32Array(720);\n\nconst params = { speed: 1, retain: 1, writeLevel: 0.9, genLoss: 0.12, rotorOnly: false, seconds: 4, dry: 0.7 };\n",
+          "after": "let micPending = false;\nlet micVersion = 0;\nlet graphPromise = null;\nlet releaseAudioOutput = null;\nlet tapeView = new Float32Array(720);\n\nconst params = { speed: 1, retain: 1, writeLevel: 0.9, genLoss: 0.12, rotorOnly: false, seconds: 4, dry: 0.7 };\n"
+        },
+        {
+          "before": "  comp.threshold.value = -10; comp.ratio.value = 6; comp.attack.value = 0.008; comp.release.value = 0.18;\n  node.connect(wetGain).connect(master);\n  dryGain.connect(master);\n  master.connect(comp).connect(context.destination);\n\n  // Demo material is written onto the tape so the page is playable with no microphone.\n  const demo = renderDemoPhrase(context, params.seconds, 11);\n",
+          "after": "  comp.threshold.value = -10; comp.ratio.value = 6; comp.attack.value = 0.008; comp.release.value = 0.18;\n  node.connect(wetGain).connect(master);\n  dryGain.connect(master);\n  master.connect(comp);\n  releaseAudioOutput = connectAudioOutput(context, comp);\n\n  // Demo material is written onto the tape so the page is playable with no microphone.\n  const demo = renderDemoPhrase(context, params.seconds, 11);\n"
+        },
+        {
+          "before": "document.addEventListener(\"visibilitychange\", () => { if (document.hidden) releaseMic(); });\nglobalThis.addEventListener(\"pagehide\", () => {\n  releaseMic(); inputControl.destroy();\n  try { shell.context?.close(); } catch { /* closed */ }\n}, { once: true });\n\n",
+          "after": "document.addEventListener(\"visibilitychange\", () => { if (document.hidden) releaseMic(); });\nglobalThis.addEventListener(\"pagehide\", () => {\n  releaseMic(); inputControl.destroy();\n  releaseAudioOutput?.();\n  releaseAudioOutput = null;\n  try { shell.context?.close(); } catch { /* closed */ }\n}, { once: true });\n\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/nightingale-manifold/nightingale-manifold-app.js",
+      "sha256": "86f148ee6d8cab367e89e0df0eaf037ebb20f757033daad896ff7a2bb9c3bfe4",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  renderBirdsongModel,\n} from \"../../families/acoustic/birdsong-analysis.js\";\nimport { createNightingaleManifoldRenderer } from \"./nightingale-manifold-3d.js\";\nimport {\n  NIGHTINGALE_MANIFOLD_LIMITS,\n  analyzeNightingaleSequence,\n",
+          "after": "  renderBirdsongModel,\n} from \"../../families/acoustic/birdsong-analysis.js\";\nimport { createNightingaleManifoldRenderer } from \"./nightingale-manifold-3d.js\";\nimport { createMediaElementOutput } from \"../../media-element-output.js\";\nimport {\n  NIGHTINGALE_MANIFOLD_LIMITS,\n  analyzeNightingaleSequence,\n"
+        },
+        {
+          "before": "const PHYSICAL_MODEL_ID = \"effective-bilateral-syrinx-v0\";\n\nconst routeAudio = new Audio();\nrouteAudio.preload = \"auto\";\n\nlet sourceSamples = null;\n",
+          "after": "const PHYSICAL_MODEL_ID = \"effective-bilateral-syrinx-v0\";\n\nconst routeAudio = new Audio();\nconst mediaOutput = createMediaElementOutput([routeAudio]);\nrouteAudio.preload = \"auto\";\n\nlet sourceSamples = null;\n"
+        },
+        {
+          "before": "  const cancelledRender = pendingPlayback;\n  const stoppedPlayback = !routeAudio.paused;\n  audioEnabled = Boolean(enabled);\n  $(\"audioButton\").setAttribute(\"aria-pressed\", String(audioEnabled));\n  $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  routeAudio.muted = !audioEnabled;\n",
+          "after": "  const cancelledRender = pendingPlayback;\n  const stoppedPlayback = !routeAudio.paused;\n  audioEnabled = Boolean(enabled);\n  if (audioEnabled) void mediaOutput.resume().catch((error) => {\n    setAudioEnabled(false);\n    setStatus(`Audio could not start: ${error.message}`, \"error\");\n  });\n  $(\"audioButton\").setAttribute(\"aria-pressed\", String(audioEnabled));\n  $(\"audioState\").textContent = audioEnabled ? \"on\" : \"off\";\n  routeAudio.muted = !audioEnabled;\n"
+        },
+        {
+          "before": "  setBusy(true);\n  if (!audioEnabled) setAudioEnabled(true);\n  try {\n    let rendered;\n    if (purpose === \"route\" && routeRenderKey === key && routeRender) {\n      rendered = routeRender;\n",
+          "after": "  setBusy(true);\n  if (!audioEnabled) setAudioEnabled(true);\n  try {\n    await mediaOutput.resume();\n    if (version !== taskVersion) return;\n    let rendered;\n    if (purpose === \"route\" && routeRenderKey === key && routeRender) {\n      rendered = routeRender;\n"
+        },
+        {
+          "before": "window.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) {\n    stopPlayback(false, true);\n    return;\n  }\n  ++taskVersion;\n  stopPlayback(false);\n  revokeUrl(routeUrl);\n  renderer.dispose();\n});\n",
+          "after": "window.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) {\n    stopPlayback(false, true);\n    void mediaOutput.suspend().catch(() => {});\n    return;\n  }\n  ++taskVersion;\n  stopPlayback(false);\n  void mediaOutput.close().catch(() => {});\n  revokeUrl(routeUrl);\n  renderer.dispose();\n});\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/onset-atlas/onset-atlas-app.js",
+      "sha256": "78ab2ced94bbe42a0525e2465744292322089592fef9b7accc30f4dc25da0769",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n",
+          "after": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n"
+        },
+        {
+          "before": "let graphEdges = [];   // {from, to, count}\nlet accepted = false;\nlet master = null;\nlet walkNode = 0;\nlet walkT0 = 0, walkDur = 0;\nlet rotor = new Map();\n",
+          "after": "let graphEdges = [];   // {from, to, count}\nlet accepted = false;\nlet master = null;\nlet releaseAudioOutput = null;\nlet walkNode = 0;\nlet walkT0 = 0, walkDur = 0;\nlet rotor = new Map();\n"
+        },
+        {
+          "before": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    master = context.createGain(); master.gain.value = 0.8;\n    const comp = context.createDynamicsCompressor();\n    comp.threshold.value = -10; comp.ratio.value = 6;\n    master.connect(comp).connect(context.destination);\n    if (!buffer) { buffer = renderDemoPhrase(context, 4, 5); analyse(); }\n    walkT0 = 0; walkDur = 0; linearIndex = 0;\n  },\n",
+          "after": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    if (!master) {\n      master = context.createGain(); master.gain.value = 0.8;\n      const comp = context.createDynamicsCompressor();\n      comp.threshold.value = -10; comp.ratio.value = 6;\n      master.connect(comp);\n      releaseAudioOutput = connectAudioOutput(context, comp);\n    }\n    if (!buffer) { buffer = renderDemoPhrase(context, 4, 5); analyse(); }\n    walkT0 = 0; walkDur = 0; linearIndex = 0;\n  },\n"
+        },
+        {
+          "before": "});\n$(\"reanalyse\").addEventListener(\"click\", () => { analyse(); shell.say(\"Re-analysed. The recording itself is unchanged.\"); });\n\nglobalThis.addEventListener(\"resize\", resize);\nresize(); refresh(); tick();\n",
+          "after": "});\n$(\"reanalyse\").addEventListener(\"click\", () => { analyse(); shell.say(\"Re-analysed. The recording itself is unchanged.\"); });\n\nglobalThis.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) return;\n  releaseAudioOutput?.();\n  releaseAudioOutput = null;\n  shell.context?.close().catch(() => {});\n});\nglobalThis.addEventListener(\"resize\", resize);\nresize(); refresh(); tick();\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/splice-ring/splice-ring-app.js",
+      "sha256": "1fde4fda09737228fa5e68c9d4f5a851456b014b27da36276ec1fc919c55715b",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n",
+          "after": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n"
+        },
+        {
+          "before": "let readerT0 = 0;\nlet readerDur = 0;\nlet master = null;\nlet timer = null;\nlet waveform = new Float32Array(720);\nconst params = { speed: 1, crossfade: 0.02, useChords: true, alternate: true };\n",
+          "after": "let readerT0 = 0;\nlet readerDur = 0;\nlet master = null;\nlet releaseAudioOutput = null;\nlet timer = null;\nlet waveform = new Float32Array(720);\nconst params = { speed: 1, crossfade: 0.02, useChords: true, alternate: true };\n"
+        },
+        {
+          "before": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    master = context.createGain();\n    master.gain.value = 0.75;\n    const comp = context.createDynamicsCompressor();\n    comp.threshold.value = -10; comp.ratio.value = 6;\n    master.connect(comp).connect(context.destination);\n    if (!buffer) {\n      buffer = renderDemoPhrase(context, 4, 23);\n      const ch = buffer.getChannelData(0);\n",
+          "after": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    if (!master) {\n      master = context.createGain();\n      master.gain.value = 0.75;\n      const comp = context.createDynamicsCompressor();\n      comp.threshold.value = -10; comp.ratio.value = 6;\n      master.connect(comp);\n      releaseAudioOutput = connectAudioOutput(context, comp);\n    }\n    if (!buffer) {\n      buffer = renderDemoPhrase(context, 4, 23);\n      const ch = buffer.getChannelData(0);\n"
+        },
+        {
+          "before": "  shell.say(\"Original loop restored. The recording was never modified \u2014 only the markers were.\");\n});\n\nglobalThis.addEventListener(\"resize\", resize);\nresize(); refresh(); tick();\n",
+          "after": "  shell.say(\"Original loop restored. The recording was never modified \u2014 only the markers were.\");\n});\n\nglobalThis.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) return;\n  releaseAudioOutput?.();\n  releaseAudioOutput = null;\n  shell.context?.close().catch(() => {});\n});\nglobalThis.addEventListener(\"resize\", resize);\nresize(); refresh(); tick();\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/synaptic-resonance/synaptic-resonance-app.js",
+      "sha256": "8c1a164f90ca00f93452696c23a6d00ff54b56bc5ebf33c1651a3a66b02e48ec",
+      "regressionTests": [
+        "tests/main-output-routing.test.mjs",
+        "tests/media-element-output.test.mjs",
+        "e2e/main-output-routing.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { createProtoShell } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n",
+          "after": "import { createProtoShell } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n\nconst $ = (id) => document.getElementById(id);\nconst TAU = Math.PI * 2;\n"
+        },
+        {
+          "before": "};\n\nlet master = null;\nlet pending = [];        // {node, at, amp}\nlet nextPulseAt = 0;\nlet lookahead = 0.12;\n",
+          "after": "};\n\nlet master = null;\nlet releaseAudioOutput = null;\nlet pending = [];        // {node, at, amp}\nlet nextPulseAt = 0;\nlet lookahead = 0.12;\n"
+        },
+        {
+          "before": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    master = context.createGain();\n    master.gain.value = 0.55;\n    const comp = context.createDynamicsCompressor();\n    comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.005; comp.release.value = 0.2;\n    master.connect(comp).connect(context.destination);\n    nextPulseAt = context.currentTime + 0.1;\n  },\n  onDisarm: () => { pending = []; },\n",
+          "after": "\nconst shell = createProtoShell({\n  onArm: async (context) => {\n    if (!master) {\n      master = context.createGain();\n      master.gain.value = 0.55;\n      const comp = context.createDynamicsCompressor();\n      comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.005; comp.release.value = 0.2;\n      master.connect(comp);\n      releaseAudioOutput = connectAudioOutput(context, comp);\n    }\n    nextPulseAt = context.currentTime + 0.1;\n  },\n  onDisarm: () => { pending = []; },\n"
+        },
+        {
+          "before": "});\n\nsetInterval(updateReadout, 120);\nglobalThis.addEventListener(\"resize\", resize);\nresize();\ntick();\n",
+          "after": "});\n\nsetInterval(updateReadout, 120);\nglobalThis.addEventListener(\"pagehide\", (event) => {\n  if (event.persisted) return;\n  releaseAudioOutput?.();\n  releaseAudioOutput = null;\n  shell.context?.close().catch(() => {});\n});\nglobalThis.addEventListener(\"resize\", resize);\nresize();\ntick();\n"
+        }
+      ]
+    }
+  ]
+}

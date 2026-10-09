@@ -1,3 +1,4 @@
+import { restoreOutputRecording } from "./helpers/output-recording-reference.mjs";
 import { restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
@@ -8,7 +9,7 @@ import { rainVolumeMeterAmendments, restoreRainVolumeMeters } from './helpers/ra
 
 test('the audio-only meter amendment preserves the independent navigation baseline exactly', async () => {
   assert.deepEqual(rainVolumeMeterAmendments.changes.map(change => change.file), ['nav.js']);
-  const source = restoreTapTempo(restoreNativeDelaySite(await readFile(new URL('../nav.js', import.meta.url), 'utf8'), 'nav.js'), 'nav.js');
+  const source = restoreTapTempo(restoreNativeDelaySite(restoreOutputRecording(await readFile(new URL('../nav.js', import.meta.url), 'utf8'), 'nav.js'), 'nav.js'), 'nav.js');
   const restored = restoreRainVolumeMeters(source, 'nav.js');
   assert.equal(createHash('sha256').update(restored).digest('hex'), rainVolumeMeterAmendments.baseSha256);
   for (const change of rainVolumeMeterAmendments.changes) {

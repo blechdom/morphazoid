@@ -60,6 +60,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
           };
           const header = document.querySelector(".masthead");
           const output = header.querySelector(".header-output-meter-shell");
+          const recording = output?.previousElementSibling?.matches(".output-recording-control") ? output.previousElementSibling : null;
           const row = root.closest(".mz-input-preset-row");
           const picker = row?.querySelector(".header-preset-picker > summary, .mz-input-native-preset select, select.mz-input-native-preset");
           return {
@@ -70,7 +71,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
             }),
             buttonRadius: getComputedStyle(root.button).borderRadius,
             inHeader: header.contains(root),
-            beforeOutput: output ? root.nextElementSibling === output : true,
+            beforeOutput: output ? root.nextElementSibling === (recording ?? output) : true,
             output: output && !output.hidden ? box(output) : null,
             picker: picker ? box(picker) : null,
             overflow: document.documentElement.scrollWidth > innerWidth + 1 || root.scrollWidth > root.clientWidth + 1,

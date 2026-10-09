@@ -1,3 +1,4 @@
+import { restoreOutputRecording } from "./helpers/output-recording-reference.mjs";
 import { restoreNativeDelaySite } from './helpers/native-delay-site-reference.mjs';
 import { restoreRainVolumeMeters } from './helpers/rain-volume-meter-reference.mjs';
 import { restoreTapTempo } from "./helpers/tap-tempo-reference.mjs";
@@ -28,7 +29,7 @@ test("every implemented full-preset owner declares exactly one explicit preset h
 });
 
 test("navigation reverses only the exact requested UI changes to independently captured fresh main", async () => {
-  const source = restoreRubixoidsSite(restoreHeaderInteractions(restoreRainVolumeMeters(restoreTapTempo(restoreNativeDelaySite(await read("nav.js"), 'nav.js'), "nav.js"), "nav.js"), "nav.js"), "nav.js");
+  const source = restoreRubixoidsSite(restoreHeaderInteractions(restoreRainVolumeMeters(restoreTapTempo(restoreNativeDelaySite(restoreOutputRecording(await read("nav.js"), "nav.js"), 'nav.js'), "nav.js"), "nav.js"), "nav.js"), "nav.js");
   const restored = restorePresetToolbar(source, "nav.js");
   assert.equal(createHash("sha256").update(restored).digest("hex"), toolbarAmendments.baseSha256);
   const block = toolbarAmendments.changes[0].replacements[0].after;

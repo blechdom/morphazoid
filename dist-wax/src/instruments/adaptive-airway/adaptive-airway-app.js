@@ -1,3 +1,5 @@
+import { connectAudioOutput } from "../../audio-output-manager.js";
+
 const SPEED_OF_SOUND = 343;
 
 const PRESETS = Object.freeze({
@@ -67,6 +69,7 @@ const $ = (id) => document.getElementById(id);
 
 let context = null;
 let nodes = null;
+let releaseAudioOutput = null;
 
 function clamp(value, minimum = 0, maximum = 1) {
   const number = Number(value);
@@ -156,8 +159,8 @@ async function ensureAudio() {
     .connect(liquidLowpass)
     .connect(preMaster)
     .connect(activityGain)
-    .connect(master)
-    .connect(context.destination);
+    .connect(master);
+  releaseAudioOutput = connectAudioOutput(context, master);
 
   leftOsc.start();
   rightOsc.start();
@@ -443,5 +446,12 @@ function init() {
   setFamily(state.family);
   applyState();
 }
+
+globalThis.addEventListener("pagehide", (event) => {
+  if (event.persisted) return;
+  releaseAudioOutput?.();
+  releaseAudioOutput = null;
+  context?.close().catch(() => {});
+});
 
 init();

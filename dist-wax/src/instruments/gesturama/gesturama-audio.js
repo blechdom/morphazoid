@@ -1,3 +1,5 @@
+import { connectAudioOutput } from "../../audio-output-manager.js";
+
 const AudioContextClass = globalThis.AudioContext ?? globalThis.webkitAudioContext;
 
 function clampValue(value, min, max) {
@@ -241,6 +243,7 @@ export class DrumEngine {
   constructor() {
     this.context = null;
     this.master = null;
+    this.releaseAudioOutput = null;
     this.noiseBuffer = null;
     this.sampleBuffer = null;
     this.gestureVoices = new Map();
@@ -266,7 +269,8 @@ export class DrumEngine {
     compressor.attack.value = 0.003;
     compressor.release.value = 0.18;
     this.master.gain.value = this.muted ? 0 : this.volume;
-    this.master.connect(compressor).connect(this.context.destination);
+    this.master.connect(compressor);
+    this.releaseAudioOutput = connectAudioOutput(this.context, compressor);
     this.noiseBuffer = this.makeNoiseBuffer(1);
   }
 
@@ -326,6 +330,8 @@ export class DrumEngine {
 
   async close() {
     this.stopAllGesturePads({ release: 0 });
+    this.releaseAudioOutput?.();
+    this.releaseAudioOutput = null;
     if (!this.context) return;
     const context = this.context;
     this.context = null;

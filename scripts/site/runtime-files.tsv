@@ -4,6 +4,12 @@
 # require: require it in the artifact without granting an additional untracked-file inclusion.
 # Other tracked-file and asset-glob rules remain in scripts/build-site.sh.
 # Keep requirement order stable; every path is declared once. See README.md.
+copy+require	src/output-recorder.js
+copy+require	src/output-recorder-processor.js
+copy+require	src/media-element-output.js
+copy+require	src/site/output-recording-controls.js
+copy+require	src/site/output-recording-controls.css
+copy+require	docs/main-output-recording.md
 copy+require	src/instruments/midiphoria/midiphoria-app.js
 copy+require	src/instruments/midiphoria/midiphoria-envelope.js
 copy+require	src/instruments/midiphoria/midiphoria-text-midi.js

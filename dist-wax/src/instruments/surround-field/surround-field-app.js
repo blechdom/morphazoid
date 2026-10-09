@@ -227,7 +227,6 @@ class SurroundAudio {
     const virtualBus = context.createChannelMerger(layout.speakers.length);
     virtualBus.channelInterpretation = "discrete";
     this.captureBus = virtualBus;
-    let stereoBus = null;
     if (mode === "preview") {
       try {
         context.destination.channelCount = Math.min(2, this.deviceChannels);
@@ -235,21 +234,23 @@ class SurroundAudio {
       } catch {
         // Some destinations expose fixed channel configuration; stereo nodes still down-mix safely.
       }
-      stereoBus = context.createGain();
-      stereoBus.channelCount = 2;
-      stereoBus.channelCountMode = "explicit";
-      stereoBus.channelInterpretation = "speakers";
-      stereoBus.gain.value = 0.92;
-      const limiter = context.createDynamicsCompressor();
-      limiter.threshold.value = -3;
-      limiter.knee.value = 0;
-      limiter.ratio.value = 20;
-      limiter.attack.value = 0.001;
-      limiter.release.value = 0.08;
-      stereoBus.connect(limiter);
-      this.previewBus = stereoBus;
-      this.previewLimiter = limiter;
     }
+    // The same authored stereo mix feeds meters and recording in either mode.
+    // Native speaker downmixing can omit channels from arbitrary surround arrays.
+    const stereoBus = context.createGain();
+    stereoBus.channelCount = 2;
+    stereoBus.channelCountMode = "explicit";
+    stereoBus.channelInterpretation = "speakers";
+    stereoBus.gain.value = 0.92;
+    const limiter = context.createDynamicsCompressor();
+    limiter.threshold.value = -3;
+    limiter.knee.value = 0;
+    limiter.ratio.value = 20;
+    limiter.attack.value = 0.001;
+    limiter.release.value = 0.08;
+    stereoBus.connect(limiter);
+    this.previewBus = stereoBus;
+    this.previewLimiter = limiter;
 
     layout.speakers.forEach((speaker) => {
       const targetIndex = Math.round(clamp(speaker.channel - 1, 0, layout.speakers.length - 1));
@@ -284,12 +285,10 @@ class SurroundAudio {
 
       channelBus.connect(virtualBus, 0, targetIndex);
       channelBus.connect(analyser);
-      if (stereoBus) {
-        const panner = context.createStereoPanner();
-        panner.pan.value = speaker.kind === "lfe" ? 0 : speakerPan(speaker);
-        channelBus.connect(panner).connect(stereoBus);
-        nodes.push(panner);
-      }
+      const panner = context.createStereoPanner();
+      panner.pan.value = speaker.kind === "lfe" ? 0 : speakerPan(speaker);
+      channelBus.connect(panner).connect(stereoBus);
+      nodes.push(panner);
       this.speakerRoutes.push({
         spatialGain,
         channelBus,
@@ -303,7 +302,7 @@ class SurroundAudio {
     });
 
     this.outputNode = mode === "discrete" ? virtualBus : this.previewLimiter;
-    this.releaseOutput = connectAudioOutput(context, this.outputNode);
+    this.releaseOutput = connectAudioOutput(context, this.outputNode, { stereoSource: this.previewLimiter });
 
     this.mode = mode;
     this.routeSignature = signature;

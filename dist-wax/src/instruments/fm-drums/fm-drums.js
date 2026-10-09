@@ -93,6 +93,7 @@ export class FmDrumAudio {
   } = {}) {
     this.runtime = runtime;
     this.context = null;
+    this.ownsContext = true;
     this.input = null;
     this.master = null;
     this.hostGate = null;
@@ -135,7 +136,11 @@ export class FmDrumAudio {
     return count;
   }
 
-  async start() {
+  async start({ context: sharedContext = null } = {}) {
+    if (sharedContext?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (sharedContext && this.context && this.context.state !== "closed" && sharedContext !== this.context) {
+      throw new Error("Close FM Drum audio before changing its audio context.");
+    }
     const lifecycleGeneration = this.lifecycleGeneration;
     let context = this.context;
     if (!context || context.state === "closed") {
@@ -154,8 +159,9 @@ export class FmDrumAudio {
       this.noiseBuffer = null;
       this.noiseBufferContext = null;
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-      if (!Context) throw new Error("Web Audio is not available in this browser.");
-      context = new Context();
+      if (!sharedContext && !Context) throw new Error("Web Audio is not available in this browser.");
+      context = sharedContext ?? new Context();
+      const ownsContext = !sharedContext;
       let compressor = null;
       let master = null;
       let hostGate = null;
@@ -185,7 +191,7 @@ export class FmDrumAudio {
         safeDisconnect(hostGate);
         safeDisconnect(analyser);
         try {
-          await context.close?.();
+          if (ownsContext) await context.close?.();
         } catch {
           // The original construction error is the useful failure to report.
         }
@@ -197,10 +203,11 @@ export class FmDrumAudio {
         safeDisconnect(master);
         safeDisconnect(hostGate);
         safeDisconnect(analyser);
-        try { await context.close?.(); } catch { /* Lifecycle teardown already won. */ }
+        try { if (ownsContext) await context.close?.(); } catch { /* Lifecycle teardown already won. */ }
         throw cancelledAudioStart();
       }
       this.context = context;
+      this.ownsContext = ownsContext;
       this.input = compressor;
       this.master = master;
       this.hostGate = hostGate;
@@ -246,6 +253,7 @@ export class FmDrumAudio {
   async close() {
     this.lifecycleGeneration += 1;
     const context = this.context;
+    const ownsContext = this.ownsContext;
     this.silence();
     for (const hit of [...this.activeHits]) this.#cleanupHit(hit);
     this.releaseAudioOutput?.();
@@ -255,13 +263,14 @@ export class FmDrumAudio {
     safeDisconnect(this.hostGate);
     safeDisconnect(this.analyser);
     this.context = null;
+    this.ownsContext = true;
     this.input = null;
     this.master = null;
     this.hostGate = null;
     this.analyser = null;
     this.noiseBuffer = null;
     this.noiseBufferContext = null;
-    if (context && context.state !== "closed" && typeof context.close === "function") {
+    if (ownsContext && context && context.state !== "closed" && typeof context.close === "function") {
       await context.close();
     }
   }

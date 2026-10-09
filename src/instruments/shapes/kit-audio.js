@@ -26,6 +26,7 @@ export class ShapesKitAudio {
   constructor(runtime = globalThis) {
     this.runtime = runtime;
     this.context = null;
+    this.ownsContext = true;
     this.output = 0.6;
     this.hostGain = 0;
     this.activeHits = new Set();
@@ -36,12 +37,18 @@ export class ShapesKitAudio {
     this.tokenTime = 0;
   }
 
-  async start(bank = "fm-kit") {
+  async start(bank = "fm-kit", { context: sharedContext = null } = {}) {
+    if (sharedContext?.state === "closed") throw new Error("The supplied audio context is closed.");
+    if (sharedContext && this.context && this.context.state !== "closed" && sharedContext !== this.context) {
+      throw new Error("Close the Shapes kit before changing its audio context.");
+    }
     const id = kits.has(bank) ? bank : "fm-kit";
     if (!this.context || this.context.state === "closed") {
       const Context = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-      if (!Context) throw new Error("Web Audio is unavailable.");
-      this.context = new Context({ latencyHint: "interactive" });
+      if (!sharedContext && !Context) throw new Error("Web Audio is unavailable.");
+      this.releaseOutput?.();
+      this.context = sharedContext ?? new Context({ latencyHint: "interactive" });
+      this.ownsContext = !sharedContext;
       const context = this.context;
       this.input = context.createDynamicsCompressor();
       Object.assign(this.input.threshold, { value: -14 });
@@ -176,10 +183,11 @@ export class ShapesKitAudio {
   async close() {
     this.cancelPreparation(); this.silence();
     const context = this.context; this.context = null; this.readyBank = null;
+    const ownsContext = this.ownsContext; this.ownsContext = true;
     this.releaseOutput?.(); this.releaseOutput = null;
     for (const hit of [...this.activeHits]) this.cleanup(hit);
     for (const key of ["input", "limiter", "master", "hostGate", "analyser"]) { disconnect(this[key]); this[key] = null; }
     this.buffers.clear();
-    if (context && context.state !== "closed") await context.close();
+    if (ownsContext && context && context.state !== "closed") await context.close();
   }
 }

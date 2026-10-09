@@ -96,8 +96,8 @@ command names.
   lane, kernel, budget, topology, implementation counts, slogans, and explanatory
   diagrams in diagnostics or documentation unless a performer needs them to act.
 - Keep transport and recovery immediately reachable. The performance masthead is
-  Morphazoid → Choose → next instrument → flexible space → mic input (where used) → stereo meters →
-  volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
+  Morphazoid → Choose → next instrument → flexible space → mic input (where used) → Record (browser) →
+  stereo meters → volume knob → Audio → Settings. MIDI on/off and receive activity belong inside
   Settings. Main preset menu → next preset → randomize (dice) belongs in the
   first row of the instrument's right control panel, using the Choose-menu UI.
   See `docs/performance-toolbar.md`; retain native level values/events and do not

@@ -42,7 +42,7 @@ test("Crickets ships as a named, local, accessible physical-model page", () => {
   assert.match(html, /not recovered anatomy/i);
   assert.match(html, /role="button"[^>]+aria-keyshortcuts="Space"/s);
   assert.match(html, /type="file"[^>]+accept="audio/i);
-  assert.doesNotMatch(html, /src="nav\.js"/);
+  assert.match(html, /<script type="module" src="nav\.js"><\/script>/);
   assert.equal((html.match(/<option value="(?:field-chirps|slow-low-chirps|fast-high-trill)"/g) ?? []).length, 3);
   assert.equal((html.match(/<option value="recorded-(?:house-cricket|field-cricket|european-field-cricket)"/g) ?? []).length, 3);
   assert.match(html, /procedural choices are labeled synthetic/i);

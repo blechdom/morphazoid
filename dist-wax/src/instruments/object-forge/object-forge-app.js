@@ -1,4 +1,4 @@
-import { connectAudioOutput } from "../../audio-output-manager.js?v=2dc7e3c86320";
+import { connectAudioOutput } from "../../audio-output-manager.js?v=197a27302dae";
 import {
   PHYSICAL_SOUND_LIMITS,
   buildPhysicalModalBank,

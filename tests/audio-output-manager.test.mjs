@@ -123,6 +123,71 @@ class FakeChannelSplitter {
   }
 }
 
+test("recording taps the original clock, deduplicates sources and leaves playback connected", () => {
+  const manager = new AudioOutputManager();
+  const graph = fakeAudioGraph();
+  graph.context.sampleRate = 44100;
+  const releaseFirst = manager.connect(graph.context, graph.source);
+  const secondSource = new FakeGain();
+  const releaseSecond = manager.connect(graph.context, secondSource);
+  assert.equal(manager.canRecord(), true);
+  assert.equal(manager.recordingContext(), graph.context);
+  assert.equal(manager.recordingSampleRate(), 44100);
+  const input = new FakeGain();
+  const releaseTap = manager.tapInto(graph.context, input);
+  assert.deepEqual(graph.gains[0].connections, [graph.splitters[0], input]);
+  assert.deepEqual(graph.source.connections, [graph.destination, graph.gains[0]]);
+  releaseFirst();
+  assert.deepEqual(graph.gains[0].disconnections, [], "second output keeps the tap alive");
+  releaseTap();
+  releaseTap();
+  assert.deepEqual(graph.gains[0].disconnections, [input]);
+  assert.deepEqual(secondSource.disconnections, [], "stopping recording does not stop playback");
+  assert.equal(manager.recordingTaps.size, 0);
+  releaseSecond();
+});
+
+test("separate running clocks are rejected without touching either audible route", () => {
+  const manager = new AudioOutputManager();
+  const first = fakeAudioGraph();
+  const second = fakeAudioGraph();
+  const releaseFirst = manager.connect(first.context, first.source);
+  const releaseSecond = manager.connect(second.context, second.source);
+  assert.throws(() => manager.tapInto(first.context, new FakeGain()), /separate audio outputs/);
+  assert.equal(manager.recordingTaps.size, 0);
+  assert.deepEqual(first.source.disconnections, []);
+  assert.deepEqual(second.source.disconnections, []);
+  releaseFirst(); releaseSecond();
+});
+
+test("a new independent output interrupts capture explicitly while preserving playback", () => {
+  const manager = new AudioOutputManager();
+  const first = fakeAudioGraph();
+  const releaseFirst = manager.connect(first.context, first.source);
+  const errors = [];
+  const releaseTap = manager.tapInto(first.context, new FakeGain(), { onerror: error => errors.push(error.message) });
+  const second = fakeAudioGraph();
+  const releaseSecond = manager.connect(second.context, second.source);
+  assert.match(errors[0], /separate audio outputs/);
+  assert.deepEqual(first.source.disconnections, []);
+  assert.deepEqual(second.source.disconnections, []);
+  releaseTap(); releaseFirst(); releaseSecond();
+});
+
+test("recording eligibility respects Audio off and host ownership", () => {
+  const graph = fakeAudioGraph();
+  const manager = new AudioOutputManager();
+  const release = manager.connect(graph.context, graph.source);
+  graph.context.state = "suspended";
+  assert.equal(manager.canRecord(), false);
+  graph.context.state = "running";
+  assert.equal(manager.canRecord(), true);
+  const hostManager = new AudioOutputManager({ MorphazoidWAX: {} });
+  assert.equal(hostManager.canRecord(), false);
+  assert.throws(() => hostManager.tapInto({}, {}), /plug-in host/);
+  release();
+});
+
 function fakeAudioGraph(samples = [-0.5, 0.5, -0.5, 0.5]) {
   const destination = { kind: "destination" };
   const analysers = [];
@@ -165,6 +230,43 @@ function fakeAudioGraph(samples = [-0.5, 0.5, -0.5, 0.5]) {
   };
   return { context, source, destination, analysers, gains, splitters };
 }
+
+test("authored stereo downmix feeds capture without duplicating the physical surround output", () => {
+  const runtime = {};
+  const graph = fakeAudioGraph();
+  const stereoSource = new FakeGain();
+  const releaseFirst = connectAudioOutput(graph.context, graph.source, { runtime, stereoSource });
+  const releaseSecond = connectAudioOutput(graph.context, graph.source, { runtime, stereoSource });
+  const manager = getSharedAudioOutputManager(runtime);
+  const capture = new FakeGain();
+  const releaseTap = manager.tapInto(graph.context, capture);
+  assert.deepEqual(graph.source.connections, [graph.destination]);
+  assert.deepEqual(stereoSource.connections, [graph.gains[0]]);
+  assert.deepEqual(graph.gains[0].connections, [graph.splitters[0], capture]);
+  releaseTap();
+  assert.deepEqual(graph.source.disconnections, []);
+  assert.deepEqual(stereoSource.disconnections, []);
+  releaseFirst();
+  assert.equal(manager.connectionCount(), 1);
+  releaseSecond();
+  releaseSecond();
+  assert.equal(manager.connectionCount(), 0);
+  assert.deepEqual(graph.source.disconnections, [graph.destination]);
+  assert.deepEqual(stereoSource.disconnections, [graph.gains[0]]);
+});
+
+test("an unavailable authored downmix preserves playback and rejects incomplete capture", () => {
+  const graph = fakeAudioGraph();
+  const manager = new AudioOutputManager();
+  const stereoSource = { connect() { throw new Error("Stereo route unavailable"); } };
+  const release = manager.connect(graph.context, graph.source, { stereoSource });
+  assert.deepEqual(graph.source.connections, [graph.destination]);
+  assert.throws(() => manager.tapInto(graph.context, new FakeGain()), /cannot be recorded/);
+  assert.equal(manager.recordingTaps.size, 0);
+  assert.deepEqual(graph.source.disconnections, []);
+  release();
+  assert.deepEqual(graph.source.disconnections, [graph.destination]);
+});
 
 test("shared audio output managers are stable and scoped to a runtime", () => {
   const firstRuntime = {};

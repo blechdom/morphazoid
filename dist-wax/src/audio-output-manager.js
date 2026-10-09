@@ -105,6 +105,7 @@ export class AudioOutputManager {
     this.contexts = new Map();
     this.sources = new WeakMap();
     this.subscribers = new Set();
+    this.recordingTaps = new Set();
     this.timer = null;
     this.listeningForVisibility = false;
     this.listeningForDevices = false;
@@ -147,6 +148,67 @@ export class AudioOutputManager {
     let count = 0;
     for (const record of this.contexts.values()) count += record.sources.size;
     return count;
+  }
+
+  canRecord() {
+    return !this.isWaxHost() && Boolean(this.recordingContext());
+  }
+
+  recordingContext() {
+    return [...this.contexts.values()].find(({ context, meterBus, sources }) => (
+      context.state === "running" && meterBus && sources.size > 0
+    ))?.context ?? null;
+  }
+
+  recordingSampleRate() {
+    return this.recordingContext()?.sampleRate || 48000;
+  }
+
+  /** Tap the final stereo mix on its original audio clock. MediaStream connections
+   * between independent contexts can insert/drop render blocks, so unsupported
+   * simultaneous contexts fail explicitly instead of corrupting a take.
+   * The audible destination routes and meter visibility loop stay independent.
+   */
+  tapInto(context, input, { onerror = () => {} } = {}) {
+    if (this.isWaxHost()) throw new Error("Record audio in your plug-in host.");
+    const tap = { context, input, onerror, connections: new Map() };
+    const release = () => {
+      this.recordingTaps.delete(tap);
+      for (const record of [...tap.connections.keys()]) this.detachRecordingTap(tap, record);
+    };
+    try {
+      for (const record of this.contexts.values()) this.attachRecordingTap(tap, record);
+      this.recordingTaps.add(tap);
+    } catch (error) {
+      release();
+      throw error;
+    }
+    return release;
+  }
+
+  attachRecordingTap(tap, record) {
+    if (record.context.state !== "running" || record.sources.size === 0) return;
+    if (record.context !== tap.context) {
+      throw new Error("This instrument has separate audio outputs that cannot currently be combined for recording.");
+    }
+    if (!record.meterBus || [...record.sources].some(source => (
+      this.sources.get(source)?.meterTarget !== record.meterBus
+    ))) throw new Error("This audio output cannot be recorded in this browser.");
+    if (tap.connections.has(record)) return;
+    try {
+      record.meterBus.connect(tap.input);
+      tap.connections.set(record, tap.input);
+    } catch (error) {
+      safeDisconnect(record.meterBus, tap.input);
+      throw error;
+    }
+  }
+
+  detachRecordingTap(tap, record) {
+    const bridge = tap.connections.get(record);
+    if (!bridge) return;
+    tap.connections.delete(record);
+    safeDisconnect(record.meterBus, bridge);
   }
 
   supportsSinkSelection() {
@@ -406,6 +468,17 @@ export class AudioOutputManager {
         ? new Float32Array(DEFAULT_FFT_SIZE)
         : null,
     };
+    record.onStateChange = () => {
+      for (const tap of this.recordingTaps) {
+        if (context.state !== "running") this.detachRecordingTap(tap, record);
+        else {
+          try { this.attachRecordingTap(tap, record); }
+          catch (error) { try { tap.onerror(error); } catch { /* Preserve playback. */ } }
+        }
+      }
+      this.publish();
+    };
+    context.addEventListener?.("statechange", record.onStateChange);
     this.contexts.set(context, record);
 
     if (this.selectedOutputId && typeof context?.setSinkId === "function" && !this.isWaxHost()) {
@@ -423,7 +496,7 @@ export class AudioOutputManager {
     return record;
   }
 
-  connect(context, source) {
+  connect(context, source, { stereoSource = source } = {}) {
     if (!context?.destination || typeof source?.connect !== "function") return noOpRelease;
     if (context.state === "closed") return noOpRelease;
 
@@ -445,7 +518,7 @@ export class AudioOutputManager {
     let meterTarget = null;
     if (record.meterInput) {
       try {
-        source.connect(record.meterInput);
+        stereoSource.connect(record.meterInput);
         meterTarget = record.meterInput;
       } catch {
         // Metering is optional; the direct audible route remains valid.
@@ -455,11 +528,18 @@ export class AudioOutputManager {
     const sourceRecord = {
       contextRecord: record,
       audibleTarget,
+      stereoSource,
       meterTarget,
       references: 1,
     };
     record.sources.add(source);
     this.sources.set(source, sourceRecord);
+    for (const tap of this.recordingTaps) {
+      try { this.attachRecordingTap(tap, record); }
+      catch (error) {
+        try { tap.onerror(error); } catch { /* A recorder cannot break playback. */ }
+      }
+    }
     this.publish();
     this.ensureMeterLoop();
     return this.createRelease(source, sourceRecord);
@@ -483,7 +563,7 @@ export class AudioOutputManager {
       }
       if (sourceRecord.meterTarget) {
         try {
-          source.disconnect?.(sourceRecord.meterTarget);
+          sourceRecord.stereoSource.disconnect?.(sourceRecord.meterTarget);
         } catch {
           // Engines may disconnect their full graph before releasing this lease.
         }
@@ -497,6 +577,8 @@ export class AudioOutputManager {
     if (record.sources.size > 0) return;
     if (this.contexts.get(record.context) !== record) return;
     this.contexts.delete(record.context);
+    record.context.removeEventListener?.("statechange", record.onStateChange);
+    for (const tap of this.recordingTaps) this.detachRecordingTap(tap, record);
     safeDisconnect(record.meterBus);
     safeDisconnect(record.splitter);
     safeDisconnect(record.leftAnalyser);
@@ -582,8 +664,10 @@ export function getSharedAudioOutputManager(runtime = globalThis) {
 
 /**
  * Route an engine's final mix node through shared output metering.
+ * Surround engines supply their authored stereo downmix as stereoSource;
+ * the full multichannel source still connects directly to the destination.
  * Returns an idempotent release function for engine teardown.
  */
-export function connectAudioOutput(context, source, { runtime = globalThis } = {}) {
-  return getSharedAudioOutputManager(runtime).connect(context, source);
+export function connectAudioOutput(context, source, { runtime = globalThis, stereoSource = source } = {}) {
+  return getSharedAudioOutputManager(runtime).connect(context, source, { stereoSource });
 }

@@ -95,28 +95,29 @@ export class SpartialAudio {
       this.context.destination.channelInterpretation = mode === "discrete" ? "discrete" : "speakers";
     } catch { mode = "preview"; }
     const splitter = this.context.createChannelSplitter(16);
+    // Keep the complete azimuth mix available for stereo meters/recording
+    // even when the physical destination uses discrete surround channels.
+    const stereo = this.context.createGain();
+    stereo.channelInterpretation = "speakers";
+    stereo.channelCount = 2;
+    stereo.channelCountMode = "explicit";
+    // A constant sum bound covers equal-power crossfades folding into stereo.
+    stereo.gain.value = 0.7;
     const output = mode === "discrete"
-      ? this.context.createChannelMerger(layout.speakers.length) : this.context.createGain();
+      ? this.context.createChannelMerger(layout.speakers.length) : stereo;
     output.channelInterpretation = mode === "discrete" ? "discrete" : "speakers";
-    if (mode === "preview") {
-      output.channelCount = 2;
-      output.channelCountMode = "explicit";
-      // A constant sum bound covers equal-power crossfades folding into stereo.
-      output.gain.value = 0.7;
-    }
     this.master.connect(splitter);
-    this.routes.push(splitter, output);
+    this.routes.push(splitter, stereo);
+    if (output !== stereo) this.routes.push(output);
     speakers.forEach((speaker, index) => {
       if (mode === "discrete") splitter.connect(output, index, speaker.channel - 1);
-      else {
-        const panner = this.context.createStereoPanner();
-        panner.pan.value = speakerPan(speaker);
-        splitter.connect(panner, index, 0);
-        panner.connect(output);
-        this.routes.push(panner);
-      }
+      const panner = this.context.createStereoPanner();
+      panner.pan.value = speakerPan(speaker);
+      splitter.connect(panner, index, 0);
+      panner.connect(stereo);
+      this.routes.push(panner);
     });
-    this.releaseOutput = connectAudioOutput(this.context, output);
+    this.releaseOutput = connectAudioOutput(this.context, output, { stereoSource: stereo });
     this.onRoute?.({ mode, capacity, layout, speakers });
   }
 

@@ -1,6 +1,7 @@
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { audioInputConstraints } from "../../audio-input-settings.js";
+import { connectAudioOutput } from "../../audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -30,6 +31,7 @@ let micGain = null;
 let micPending = false;
 let micVersion = 0;
 let graphPromise = null;
+let releaseAudioOutput = null;
 let tapeView = new Float32Array(720);
 
 const params = { speed: 1, retain: 1, writeLevel: 0.9, genLoss: 0.12, rotorOnly: false, seconds: 4, dry: 0.7 };
@@ -246,7 +248,8 @@ async function buildAudio(context) {
   comp.threshold.value = -10; comp.ratio.value = 6; comp.attack.value = 0.008; comp.release.value = 0.18;
   node.connect(wetGain).connect(master);
   dryGain.connect(master);
-  master.connect(comp).connect(context.destination);
+  master.connect(comp);
+  releaseAudioOutput = connectAudioOutput(context, comp);
 
   // Demo material is written onto the tape so the page is playable with no microphone.
   const demo = renderDemoPhrase(context, params.seconds, 11);
@@ -386,6 +389,8 @@ $("clearTape").addEventListener("click", () => {
 document.addEventListener("visibilitychange", () => { if (document.hidden) releaseMic(); });
 globalThis.addEventListener("pagehide", () => {
   releaseMic(); inputControl.destroy();
+  releaseAudioOutput?.();
+  releaseAudioOutput = null;
   try { shell.context?.close(); } catch { /* closed */ }
 }, { once: true });
 

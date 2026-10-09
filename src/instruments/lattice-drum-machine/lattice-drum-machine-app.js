@@ -120,6 +120,15 @@ const drumEngines = {
     voices: loadSampleDrumBank(),
   },
 };
+let sharedAudioContext = null;
+function instrumentAudioContext() {
+  if (!sharedAudioContext || sharedAudioContext.state === "closed") {
+    const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
+    if (!Context) throw new Error("Web Audio is not available in this browser.");
+    sharedAudioContext = new Context({ latencyHint: "interactive" });
+  }
+  return sharedAudioContext;
+}
 const canvas = $("stage");
 const drawing = canvas.getContext("2d");
 const stageWrap = $("stageWrap");
@@ -287,7 +296,7 @@ async function auditionCurrentEngine({ allowEnable = true } = {}) {
     const pattern = ENGINE_AUDITION_PATTERN[engine.id] ?? [0];
     if (engine.id === "samples") setEngineStatus("Loading 808/909 audition...");
     for (let step = 0; step < pattern.length; step += 1) {
-      if (generation !== auditionGeneration || state.drumEngine !== engine.id) return false;
+      if (generation !== auditionGeneration || !state.audioOn || state.drumEngine !== engine.id) return false;
       const voiceIndex = pattern[step];
       const baseVoice = engine.voices[voiceIndex] ?? engine.voices[0];
       if (!baseVoice) return false;
@@ -527,7 +536,10 @@ function invalidateGeometry() {
 }
 
 function setAudioState(enabled) {
-  if (!enabled) clearManualScan();
+  if (!enabled) {
+    auditionGeneration += 1;
+    clearManualScan();
+  }
   state.audioOn = Boolean(enabled);
   setPressed($("audioButton"), state.audioOn);
   $("audioState").textContent = state.audioOn ? "on" : "off";
@@ -539,7 +551,7 @@ function setAudioState(enabled) {
 async function enableAudio() {
   try {
     $("audioError").hidden = true;
-    await currentAudio().start();
+    await currentAudio().start({ context: instrumentAudioContext() });
     setAudioState(true);
     warmSampleEngine();
     return true;
@@ -1773,11 +1785,14 @@ window.addEventListener("pageshow", scheduleFrame);
 window.addEventListener("pagehide", () => {
   pointerDrag = null;
   positionPointerActive = false;
-  clearManualScan();
+  setAudioState(false);
   clearMidiPreviewManualScan();
   for (const engine of Object.values(drumEngines)) {
     void engine.audio.close().catch(() => {});
   }
+  const context = sharedAudioContext;
+  sharedAudioContext = null;
+  void context?.close().catch(() => {});
 });
 window.addEventListener("blur", () => {
   pointerDrag = null;

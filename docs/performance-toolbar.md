@@ -15,14 +15,21 @@ This supersedes the earlier rule that placed presets and MIDI beside the meters.
 ## Layout
 
 - Masthead: **Morphazoid → Choose → next instrument → flexible space → input
-  gain knob, input meter(s), mic icon (on mic pages, grouped in violet) → stereo
-  meters → volume knob → Audio on/off → Settings**.
+  gain knob, input meter(s), mic icon (on mic pages, grouped in violet) → Record →
+  stereo meters → volume knob → Audio on/off → Settings**.
 - Right control panel, first row: **Select Preset → next preset → randomize**.
 - Settings: the existing **MIDI In on/off button and receive light** occupy the
   MIDI In row. Other routing/profile controls remain available. Its former
   aggregate-select handle remains hidden and synchronized for compatibility.
 - Narrow phones wrap the masthead in reading order rather than hide playing
   controls or shrink touch targets. The wordmark remains readable.
+
+The browser's red Record control has the same circular outline as Play in every
+state. It captures the main stereo output and becomes Stop while recording,
+with the elapsed timer immediately to its left. Settings → Recording selects Save
+after Stop or direct file recording where supported. Record never enables Audio
+or starts transport. WAX uses its host's recorder. See
+[main output recording](main-output-recording.md) for saving and take limits.
 
 All 24 existing full-preset owners declare an explicit
 `data-instrument-preset-host`; this includes existing WIP adapters, not new WIP

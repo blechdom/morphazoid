@@ -10,8 +10,8 @@ export function lSystemTimbreGain(mode) {
 
 /** One smoothed tone stage for the bounded worklet, not a filter per branch. */
 export class LSystemsSynthAudio extends VoicePool {
-  buildGraph() {
-    super.buildGraph();
+  buildGraph(context = null) {
+    super.buildGraph(context);
     this.toneFilter = this.context.createBiquadFilter();
     this.toneFilter.type = "lowpass";
     this.toneFilter.frequency.value = Math.min(this.context.sampleRate * .45, this.tone?.cutoff ?? 9000);

@@ -24,6 +24,7 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../../../site/instrument-registry.js
 import { createMidiStatus } from '../../../ui/patterns/midi-status.js';
 import { installBrowserMidiAdapter } from '../../../browser-midi-adapter.js';
 import { getSharedMidiManager } from '../../../midi-manager.js';
+import { initializeOutputRecording } from '../../../site/output-recording-controls.js';
 
 const SITE_ROOT = new URL('../../../../', import.meta.url);
 const $ = id => document.getElementById(id);
@@ -101,6 +102,9 @@ audioStrip.levelOutput.id = 'levelOut';
 $('headerAudio').replaceWith(outputMeter, audioStrip);
 $('headerControls').insertBefore(inputStrip, outputMeter); inputStrip.dataset.inputPlacement = 'header';
 audioStrip.setAudioDisabled(true);
+if (document.body.dataset.audioBackend === 'rust-wasm') {
+  initializeOutputRecording(document, globalThis, { routeId: INSTRUMENT_ID });
+}
 const errorBox = $('audioError'); errorBox.className = 'audio-error native-audio-error'; errorBox.setAttribute('popover', 'manual'); document.body.append(errorBox);
 errorBox.addEventListener('click', () => { errorBox.hidden = true; if (errorBox.matches(':popover-open')) errorBox.hidePopover(); });
 const foldTap = createTapTempoButton({ ariaLabel: 'Tap Time fold', onTempo: bpm => updateParameter('intervalMs', clamp(60000 / bpm, MIN_TIME_FOLD_MS, MAX_TIME_FOLD_MS), true) });

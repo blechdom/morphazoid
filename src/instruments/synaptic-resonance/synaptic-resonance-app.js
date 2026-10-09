@@ -1,4 +1,5 @@
 import { createProtoShell } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
+import { connectAudioOutput } from "../../audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -58,6 +59,7 @@ const params = {
 };
 
 let master = null;
+let releaseAudioOutput = null;
 let pending = [];        // {node, at, amp}
 let nextPulseAt = 0;
 let lookahead = 0.12;
@@ -250,11 +252,14 @@ canvas.addEventListener("keydown", (event) => {
 
 const shell = createProtoShell({
   onArm: async (context) => {
-    master = context.createGain();
-    master.gain.value = 0.55;
-    const comp = context.createDynamicsCompressor();
-    comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.005; comp.release.value = 0.2;
-    master.connect(comp).connect(context.destination);
+    if (!master) {
+      master = context.createGain();
+      master.gain.value = 0.55;
+      const comp = context.createDynamicsCompressor();
+      comp.threshold.value = -12; comp.ratio.value = 8; comp.attack.value = 0.005; comp.release.value = 0.2;
+      master.connect(comp);
+      releaseAudioOutput = connectAudioOutput(context, comp);
+    }
     nextPulseAt = context.currentTime + 0.1;
   },
   onDisarm: () => { pending = []; },
@@ -282,6 +287,12 @@ $("resetSynapses").addEventListener("click", () => {
 });
 
 setInterval(updateReadout, 120);
+globalThis.addEventListener("pagehide", (event) => {
+  if (event.persisted) return;
+  releaseAudioOutput?.();
+  releaseAudioOutput = null;
+  shell.context?.close().catch(() => {});
+});
 globalThis.addEventListener("resize", resize);
 resize();
 tick();

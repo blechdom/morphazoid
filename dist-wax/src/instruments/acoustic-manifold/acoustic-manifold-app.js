@@ -1,6 +1,7 @@
 import { initializeTapTempoControls } from "../../site/tap-tempo-controls.js";
 initializeTapTempoControls(document);
 import { mountAudioInputControl } from "../../audio-input-control.js";
+import { createMediaElementOutput } from "../../media-element-output.js";
 import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
 import {
   AcousticLiveCapture,
@@ -129,6 +130,7 @@ const SOURCE_ID_ALIASES = Object.freeze({
 });
 
 const routeAudio = new Audio();
+const mediaOutput = createMediaElementOutput([routeAudio]);
 routeAudio.preload = "auto";
 
 let sourceSamples = null;
@@ -542,6 +544,10 @@ function setAudioEnabled(enabled) {
   const cancelledRender = pendingPlayback;
   const stoppedPlayback = !routeAudio.paused;
   audioEnabled = Boolean(enabled);
+  if (audioEnabled) void mediaOutput.resume().catch((error) => {
+    setAudioEnabled(false);
+    setStatus(`Audio could not start: ${error.message}`, "error");
+  });
   $("audioButton").setAttribute("aria-pressed", String(audioEnabled));
   $("audioState").textContent = audioEnabled ? "on" : "off";
   routeAudio.muted = !audioEnabled;
@@ -1618,6 +1624,8 @@ async function playIndices(indices, purpose = "route") {
   setBusy(true);
   if (!audioEnabled) setAudioEnabled(true);
   try {
+    await mediaOutput.resume();
+    if (version !== taskVersion) return;
     const rendered = purpose === "route" && routeRenderKey === key && routeRender
       ? routeRender
       : await renderIndices(indices, mode);
@@ -2411,7 +2419,11 @@ window.addEventListener("pagehide", (event) => {
   ++taskVersion;
   stopPlayback(false);
   revokeUrl(routeUrl);
-  if (event.persisted) return;
+  if (event.persisted) {
+    void mediaOutput.suspend().catch(() => {});
+    return;
+  }
+  void mediaOutput.close().catch(() => {});
   disposed = true;
   navigator.mediaDevices?.removeEventListener?.("devicechange", handleDeviceChange);
   renderer.dispose();

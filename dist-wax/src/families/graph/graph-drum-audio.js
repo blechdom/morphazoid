@@ -173,6 +173,7 @@ export function translateGraphDrumStartAt(startAt, sourceContext, targetContext)
   const requested = Number(startAt);
   if (!Number.isFinite(requested)) return undefined;
   const sourceNow = Number(sourceContext?.currentTime) || 0;
+  if (sourceContext === targetContext) return Math.max(sourceNow, requested);
   const targetNow = Number(targetContext?.currentTime) || 0;
   return targetNow + Math.max(0, requested - sourceNow);
 }
@@ -202,7 +203,10 @@ export class GraphDrumAudio {
     this.rattlesnakeAttackTimes = [];
   }
 
-  async start() {
+  async start({ context: suppliedContext = null } = {}) {
+    if (suppliedContext && this.context && this.context.state !== "closed" && this.context !== suppliedContext) {
+      throw new Error("Close the graph drums before changing their audio context.");
+    }
     if (
       this.context
       && this.context === this.fmAudio.context
@@ -214,10 +218,12 @@ export class GraphDrumAudio {
     const lifecycleGeneration = ++this.lifecycleGeneration;
     const startPromise = (async () => {
       try {
-        const [fmContext, physicalContext] = await Promise.all([
-          this.fmAudio.start(),
-          this.physicalAudio.start(),
-        ]);
+        const fmContext = await this.fmAudio.start({ context: suppliedContext });
+        if (lifecycleGeneration !== this.lifecycleGeneration) throw cancelledGraphDrumStart();
+        // Both authored output chains retain their gains/dynamics and share
+        // the same device clock. The FM engine owns a standalone context;
+        // callers supplying one retain ownership of it.
+        const physicalContext = await this.physicalAudio.start({ context: fmContext });
         if (lifecycleGeneration !== this.lifecycleGeneration) {
           throw cancelledGraphDrumStart();
         }

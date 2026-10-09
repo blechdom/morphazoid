@@ -1,4 +1,5 @@
 import { createProtoShell, renderDemoPhrase } from "../../families/proto-graph/proto-shell.js?v=proto-20260918-1";
+import { connectAudioOutput } from "../../audio-output-manager.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -19,6 +20,7 @@ let readerSeg = 0;
 let readerT0 = 0;
 let readerDur = 0;
 let master = null;
+let releaseAudioOutput = null;
 let timer = null;
 let waveform = new Float32Array(720);
 const params = { speed: 1, crossfade: 0.02, useChords: true, alternate: true };
@@ -283,11 +285,14 @@ function lcmPeriod() {
 
 const shell = createProtoShell({
   onArm: async (context) => {
-    master = context.createGain();
-    master.gain.value = 0.75;
-    const comp = context.createDynamicsCompressor();
-    comp.threshold.value = -10; comp.ratio.value = 6;
-    master.connect(comp).connect(context.destination);
+    if (!master) {
+      master = context.createGain();
+      master.gain.value = 0.75;
+      const comp = context.createDynamicsCompressor();
+      comp.threshold.value = -10; comp.ratio.value = 6;
+      master.connect(comp);
+      releaseAudioOutput = connectAudioOutput(context, comp);
+    }
     if (!buffer) {
       buffer = renderDemoPhrase(context, 4, 23);
       const ch = buffer.getChannelData(0);
@@ -314,5 +319,11 @@ $("restoreLoop").addEventListener("click", () => {
   shell.say("Original loop restored. The recording was never modified — only the markers were.");
 });
 
+globalThis.addEventListener("pagehide", (event) => {
+  if (event.persisted) return;
+  releaseAudioOutput?.();
+  releaseAudioOutput = null;
+  shell.context?.close().catch(() => {});
+});
 globalThis.addEventListener("resize", resize);
 resize(); refresh(); tick();
