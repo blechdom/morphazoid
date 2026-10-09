@@ -133,7 +133,8 @@ for (const mode of ["triangle", "square", "saw"]) test(`${mode} notes and contin
 test("Mic recall and delay sliders keep one input, one context and the same history", async ({ page, baseURL }) => {
   const diagnostics = watchPageDiagnostics(page, { baseURL }); await instrument(page);
   await page.locator("#modeMic").click(); await page.locator(".header-preset-next").click();
-  await page.locator("#audioButton").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
+  await page.locator("#audioButton").click();
+  await page.locator(".mz-input-toggle").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
   await page.locator("#playButton").click();
   await page.evaluate(() => { __ls.stream = __ls.micEngine.stream; __ls.processor = __ls.micEngine.generationProcessor; __ls.context = __ls.micEngine.context; });
   const initial = await sampleAudioEnvelope(page, { durationMs: 1600 }); expect(initial.summary.maxRms).toBeGreaterThan(.0005);
@@ -166,10 +167,13 @@ test("cancelled microphone permission cannot revive audio or disrupt a newer exp
     globalThis.__resumeMicFactory = () => navigator.mediaDevices.getUserMedia = get;
   });
   await page.locator("#modeMic").click(); await page.locator(".header-preset-next").click();
-  await page.locator("#audioButton").click(); await page.waitForFunction(() => globalThis.__grant);
+  await page.locator("#audioButton").click();
+  await page.locator(".mz-input-toggle").click(); await page.waitForFunction(() => globalThis.__grant);
+  await page.locator(".mz-input-toggle").click();
   await page.locator("#audioButton").click();
   await page.evaluate(() => __resumeMicFactory());
-  await page.locator("#audioButton").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
+  await page.locator("#audioButton").click();
+  await page.locator(".mz-input-toggle").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
   await page.evaluate(() => __grant());
   await expect.poll(() => page.evaluate(() => __lateStream.getTracks()[0].readyState)).toBe("ended");
   expect(await page.evaluate(() => __ls.micEngine.stream.getTracks()[0].readyState)).toBe("live");
@@ -195,17 +199,19 @@ for (const style of ["drum-bank", "rattlesnake-physical", "karplus-strong", "kar
 
 test("a failed Mic processor releases input and can be explicitly restarted", async ({ page }) => {
   await instrument(page); await page.locator("#modeMic").click(); await page.locator(".header-preset-next").click();
-  await page.locator("#audioButton").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
+  await page.locator("#audioButton").click();
+  await page.locator(".mz-input-toggle").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
   await page.evaluate(() => {
     __ls.failedStream = __ls.micEngine.stream;
     __ls.failedProcessor = __ls.micEngine.generationProcessor;
     __ls.failedProcessor.onprocessorerror();
   });
   expect(await page.evaluate(() => __ls.failedStream.getTracks()[0].readyState)).toBe("ended");
-  await expect(page.locator("#audioError")).toBeVisible();
+  await expect(page.locator(".mz-input-error")).toBeVisible();
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
-  await page.locator("#audioButton").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
+  await page.locator("#audioButton").click();
+  await page.locator(".mz-input-toggle").click(); await page.waitForFunction(() => __ls.micEngine.enabled);
   expect(await page.evaluate(() => __ls.micEngine.generationProcessor !== __ls.failedProcessor)).toBe(true);
-  await expect(page.locator("#audioError")).toBeHidden();
+  await expect(page.locator(".mz-input-error")).toBeHidden();
   await page.locator("#audioButton").click();
 });
