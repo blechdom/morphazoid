@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MidiphoriaRenderer, MAX_MIDIPHORIA_TRAILS } from '../src/instruments/midiphoria/midiphoria-renderer.js';
 import { DEFAULT_VISUALS } from '../src/instruments/midiphoria/midiphoria-model.js';
+import { MIDIPHORIA_VIEWS } from '../src/instruments/midiphoria/midiphoria-presets.js';
 
 function surface() {
   const commands = [], strokes = [];
@@ -39,7 +40,7 @@ test('512 simultaneous attacks remain distinct; visual solo preserves all captur
   assert.equal(renderer.held.size, 512); assert.equal(renderer.trails.length, 512);
   assert.equal(renderer.getVoices().length, 16);
   const id = renderer.getVoices()[0].id;
-  renderer.focusVoice(id); renderer.configure({ voiceLayout: 'panels' });
+  renderer.focusVoice(id);
   renderer.draw(idle, .2, DEFAULT_VISUALS);
   assert.equal(renderer.voiceFocus, id); assert.equal(renderer.trails.length, 512);
   renderer.focusVoice(null); assert.equal(renderer.voiceFocus, null);
@@ -62,9 +63,9 @@ test('dense history stays bounded, keeps current notes, and expires released his
   renderer.clear(); assert.equal(renderer.trails.length, 0); assert.equal(renderer.getVoices().length, 0);
 });
 
-test('voice colors stay stable across pitch, palette and moving hue; panels clip each voice separately', () => {
+test('voice colors stay distinct and stable on the shared canvas across palette and moving hue', () => {
   const { canvas, commands, strokes } = surface(), renderer = new MidiphoriaRenderer(canvas);
-  renderer.configure({ colorSource: 'voice', voiceLayout: 'overlay', glow: 0 });
+  renderer.configure({ colorSource: 'voice', glow: 0 });
   renderer.captureEvent(event(1)); renderer.captureEvent(event(2, 'noteOn', 0, 1));
   renderer.draw({ ...idle, hueOffset: .1 }, .5, DEFAULT_VISUALS);
   const firstColors = strokes.filter(stroke => stroke.width !== 1).map(stroke => stroke.color);
@@ -73,16 +74,30 @@ test('voice colors stay stable across pitch, palette and moving hue; panels clip
   renderer.configure({ palette: 'candy', hueOffset: 190 });
   renderer.draw({ ...idle, hueOffset: .7 }, .5, DEFAULT_VISUALS);
   assert.deepEqual(strokes.filter(stroke => stroke.width !== 1).map(stroke => stroke.color), firstColors);
-  renderer.configure({ voiceLayout: 'panels' }); commands.length = 0;
-  renderer.draw(idle, .6, DEFAULT_VISUALS);
-  assert.equal(commands.filter(command => command[0] === 'clip').length, 2);
-  assert.equal(commands.filter(command => command[0] === 'fillText' && command[1].startsWith('Ch ')).length, 2);
+  assert.equal(commands.filter(command => command[0] === 'clip').length, 0);
+  assert.equal(commands.filter(command => command[0] === 'fillText' && command[1].startsWith('Ch ')).length, 0);
 });
 
+test('every view draws all parts in one full-size scene, including notes beyond the legend limit', () => {
+  const renderer = new MidiphoriaRenderer(surface().canvas), scenes = [];
+  renderer._drawScene = (_context, _sample, _time, _settings, width, height, trails) => {
+    scenes.push({ width, height, ids: trails.map(note => note.id) });
+  };
+  for (let id = 0; id < 80; id++) renderer.captureEvent({ ...event(id), sourceId: `port-${id}` });
+  assert.equal(renderer.getVoices().length, 64);
+  for (const view of MIDIPHORIA_VIEWS) {
+    for (const voiceLayout of ['lanes', 'panels', 'overlay']) {
+      renderer.configure({ view, voiceLayout }); // Obsolete saved settings must never split the picture.
+      scenes.length = 0;
+      renderer.draw(idle, .5, DEFAULT_VISUALS);
+      assert.deepEqual(scenes, [{ width: 960, height: 540, ids: Array.from({ length: 80 }, (_, id) => id) }]);
+    }
+  }
+});
 
 test('the full 8192-note history renders every note with bounded dense orbit geometry', () => {
   const { canvas, commands, strokes } = surface(), renderer = new MidiphoriaRenderer(canvas);
-  renderer.configure({ view: 'orbit', voiceLayout: 'overlay', symmetry: 8, flow: 'inward', glow: 1 });
+  renderer.configure({ view: 'orbit', symmetry: 8, flow: 'inward', glow: 1 });
   for (let id = 0; id < MAX_MIDIPHORIA_TRAILS; id++) {
     renderer.captureEvent(event(id)); renderer.captureEvent(event(id, 'noteOff', .001));
   }
