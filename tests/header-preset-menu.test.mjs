@@ -35,6 +35,7 @@ class Element {
     this.parentNode = null;
   }
   setAttribute(key, value) { this.attributes.set(key, String(value)); }
+  getAttribute(key) { return this.attributes.get(key) ?? null; }
   addEventListener(type, callback, options = {}) {
     if (options.signal?.aborted) return;
     if (!this.listeners.has(type)) this.listeners.set(type, new Set());
@@ -64,14 +65,14 @@ function randomFixture(options = {}) {
   const rail = doc.createElement("aside"); rail.setAttribute("data-instrument-preset-host", ""); doc.append(rail);
   const runtime = new Element("window", doc);
   runtime.AbortController = AbortController;
-  runtime.queueMicrotask = callback => callback();
+  runtime.queueMicrotask = options.queueMicrotask ?? (callback => callback());
   const errors = [];
   runtime.console = { error: (...message) => errors.push(message) };
   const presets = Array.from({ length: 12 }, (_, value) => ({ id: `p-${value}`, label: `Scene ${value}`, snapshot: { value } }));
   let state = { value: 0 }, applies = 0;
   const controller = registerHeaderPresets({
     id: "test", presets, document: doc, runtime,
-    capture: () => state,
+    capture: () => { options.onCapture?.(); return state; },
     apply: snapshot => {
       applies++;
       const result = options.apply ? options.apply(snapshot) : snapshot;
@@ -83,6 +84,98 @@ function randomFixture(options = {}) {
   });
   return { doc, controller, errors, state: () => state, applies: () => applies };
 }
+
+// Count display writes, including assignments of the same attribute value.
+// Repeated live-state checks must not cause menu mutation/layout churn.
+function trackMenuMutations(fixture) {
+  const writes = [], root = fixture.doc.querySelector(".header-preset-controls");
+  for (const node of [root, ...root.descendants()]) {
+    const setAttribute = node.setAttribute.bind(node);
+    node.setAttribute = (key, value) => { writes.push({ node, key }); setAttribute(key, value); };
+    node.dataset = new Proxy(node.dataset, { set(target, key, value) {
+      writes.push({ node, key: `data-${key}` }); target[key] = value; return true;
+    } });
+    for (const key of ["hidden", "disabled", "title", "textContent"]) {
+      let value = node[key];
+      Object.defineProperty(node, key, { configurable: true, get: () => value,
+        set: next => { writes.push({ node, key }); value = next; } });
+    }
+  }
+  return writes;
+}
+
+test("unchanged menu refreshes evaluate live state and availability without any display mutations", () => {
+  let captures = 0, availabilityChecks = 0;
+  const fixture = randomFixture({ onCapture: () => captures++, isPresetAvailable: () => { availabilityChecks++; return true; } });
+  try {
+    fixture.controller.view.select("p-5");
+    const writes = trackMenuMutations(fixture), beforeCaptures = captures, beforeChecks = availabilityChecks;
+    for (let iteration = 0; iteration < 5; iteration++) fixture.controller.refresh();
+    assert.equal(writes.length, 0, "an unchanged full bank and selected scene need no DOM writes");
+    assert.equal(captures, beforeCaptures + 5, "complete musical state remains live");
+    assert.equal(availabilityChecks, beforeChecks + 5 * fixture.controller.bank.length, "dynamic eligibility is never memoized away");
+    fixture.state().value = 5.125; fixture.controller.refresh();
+    assert.equal(fixture.controller.selectedId, null);
+    assert.equal(fixture.doc.querySelector(".header-preset-controls").dataset.presetId, "custom");
+    assert.equal(fixture.doc.querySelector(".instrument-picker-current").textContent, "Preset · Custom");
+    const pressedWrites = writes.filter(write => write.key === "aria-pressed");
+    assert.equal(pressedWrites.length, 1, "only the previously selected preset changes its pressed state");
+    assert.equal(pressedWrites[0].node.dataset.presetId, "p-5");
+    writes.length = 0; fixture.controller.refresh();
+    assert.equal(writes.length, 0, "Custom edits also retain an unchanged menu");
+    fixture.controller.view.select("p-5");
+    assert.deepEqual(fixture.state(), { value: 5 });
+    assert.equal(fixture.controller.selectedId, "p-5", "complete recall still restores the scene");
+  } finally { fixture.controller.destroy(); }
+});
+
+test("one task of automatic edit events queues one live refresh, including on a hidden document", () => {
+  let captures = 0;
+  const queued = [], fixture = randomFixture({ onCapture: () => captures++, queueMicrotask: callback => queued.push(callback) });
+  try {
+    fixture.controller.view.select("p-2"); fixture.state().value = 2.125;
+    const beforeCaptures = captures;
+    for (const type of ["input", "input", "change", "click", "pointerup", "keyup"]) fixture.doc.emit(type);
+    assert.equal(queued.length, 1, "a burst does not enqueue a separate bank pass per event");
+    assert.equal(captures, beforeCaptures, "automatic display work yields until the native event task completes");
+    fixture.doc.hidden = true; queued.shift()();
+    assert.equal(captures, beforeCaptures + 1);
+    assert.equal(fixture.controller.selectedId, null);
+    assert.equal(fixture.doc.querySelector(".instrument-picker-current").textContent, "Preset · Custom");
+    fixture.doc.emit("input"); assert.equal(queued.length, 1, "the next edit can enqueue its own refresh");
+    const writes = trackMenuMutations(fixture); queued.shift()();
+    assert.equal(writes.length, 0, "an unchanged follow-up still has no menu DOM mutations");
+  } finally { fixture.controller.destroy(); }
+});
+
+test("coalesced display updates keep dynamic availability and asynchronous recall independent", async () => {
+  let available = true, release;
+  const queued = [], fixture = randomFixture({ queueMicrotask: callback => queued.push(callback),
+    isPresetAvailable: () => available,
+    apply: snapshot => new Promise(resolve => { release = () => resolve(snapshot); }),
+  });
+  try {
+    fixture.controller.view.select("p-4");
+    available = false;
+    fixture.doc.emit("change"); fixture.doc.emit("input"); queued.shift()();
+    assert.equal(fixture.doc.querySelector(".header-preset-next").disabled, true);
+    assert.ok(fixture.doc.descendants().filter(node => node.dataset.fullPreset !== undefined).every(button => button.parentNode.hidden));
+    release(); await settle();
+    assert.deepEqual(fixture.state(), { value: 4 }); assert.equal(fixture.controller.selectedId, "p-4");
+    assert.equal(fixture.applies(), 1, "display batching cannot replay or cancel the transaction");
+  } finally { fixture.controller.destroy(); }
+});
+
+test("an automatic refresh queued before teardown cannot capture or revive the removed menu", () => {
+  let captures = 0;
+  const queued = [], fixture = randomFixture({ onCapture: () => captures++, queueMicrotask: callback => queued.push(callback) });
+  fixture.doc.emit("input"); fixture.doc.emit("change");
+  assert.equal(queued.length, 1);
+  fixture.controller.destroy();
+  const beforeCaptures = captures; queued.shift()();
+  assert.equal(captures, beforeCaptures);
+  assert.equal(fixture.doc.querySelector(".header-preset-controls"), null);
+});
 
 test("dice is an accessible ordinary button; random settings become Custom and a preset restores them", () => {
   const fixture = randomFixture();
