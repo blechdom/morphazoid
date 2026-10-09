@@ -145,11 +145,13 @@ Twelve of the sixteen factory looks (75%) use None for reflections and no
 repeated radial copies. Candy mirror, Ice blueprint, Disco prism and Silver
 kaleidoscope use symmetry with thin trails (0.4–0.65×) and restrained glow. All symmetry controls remain
 available for manual edits and parameter dice.
-Voice colors keep a distinct, stable color for each MIDI channel. Voice rain
-starts with separate channel lanes; panels and the original overlay are also
-available. The legend and Show voice menu isolate the picture without muting
-any audio. Instrument names follow the SoundFont patch on each channel. MIDI
-ports stay distinct; musical parts sharing one channel cannot be inferred as
+Instrument / channel colors keep a distinct, stable color for each MIDI channel.
+All instruments draw together on one shared canvas, including every preset and
+randomized look. Older presets with separate lanes or panels load into that same
+shared view. The legend and Show voice menu can isolate the picture without
+muting any audio. Instrument names follow the SoundFont patch on each channel.
+MIDI ports retain separate note ownership and legend entries; matching channel
+numbers reuse a color. Musical parts sharing one channel cannot be inferred as
 separate voices. Color by pitch, MIDI channel or velocity remains available; adjust the trail fade curve, add
 clockwise/counterclockwise spin, and repeat radial/orbit forms up to eight times.
 Spin and radial-copy controls are enabled in the two circular views.
@@ -242,8 +244,8 @@ files bounded rather than claiming unlimited black-MIDI fidelity.
 Above 1,024 visible trails, graphics omit the glow stroke, simplify curved
 orbits and use small held-note markers while retaining one path for every
 retained note. Reflection still composites one rendered layer. Up to 64 source/
-channel labels are shown; rarer additional ports remain drawn in the final
-panel. Audio scheduling and polyphony are unaffected by layout and visual solo.
+channel labels are shown; notes from additional ports still draw on the same
+canvas. Audio scheduling and polyphony are unaffected by visual solo.
 
 Regression fixtures using the real browser SoundFont player now capture 200/200
 millisecond notes at both 1× and 4×, 512/512 simultaneous notes at 4×, and all 64
