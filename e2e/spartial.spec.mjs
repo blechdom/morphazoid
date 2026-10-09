@@ -94,6 +94,12 @@ async function armAudio(page) {
   await expect(audio).toHaveAttribute("aria-pressed", "true");
 }
 
+async function expectKeyboardBeforeRotation(page) {
+  const keyboard = await page.locator("#notePads").boundingBox();
+  const rotation = await page.locator("#playButton").boundingBox();
+  expect(keyboard.y + keyboard.height, "the keyboard appears above rotation playback").toBeLessThanOrEqual(rotation.y);
+}
+
 async function expectSustainedAudio(page, testInfo, name) {
   await waitForStableAudioState(page, true, { stableMs: 200 });
   const envelope = await sampleAudioEnvelope(page, { durationMs: 650, intervalMs: 50 });
@@ -164,6 +170,12 @@ test("SPARTIAL opens stationary with a chromatic keyboard and current performanc
   await expect(page.locator(".panel #playButton")).toBeVisible();
   await expect(page.locator(".panel #tempo")).toBeVisible();
   await expect(page.locator(".panel #notePads")).toBeVisible();
+  await expectKeyboardBeforeRotation(page);
+  await expect(page.locator(".tempo-field.mz-range-knob #tempo")).toHaveAttribute("type", "range");
+  await expect(page.locator("#tempoOut")).toHaveText("90 BPM");
+  await expect(page.locator("#playButton")).toHaveAccessibleName("Play rotation");
+  await expect(page.locator("#holdButton")).toHaveText("Hold note");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator(".instrument-picker-next")).toBeVisible();
   await expect(page.locator(".header-level.mz-range-knob #level")).toHaveCount(1);
   await expect(page.locator(".header-settings-menu #sharedMidiToggle")).toHaveCount(1);
@@ -181,7 +193,34 @@ test("SPARTIAL opens stationary with a chromatic keyboard and current performanc
   await capture(page, testInfo, "spartial-static-default");
 });
 
-test("SPARTIAL moves its partials only when motion and Play are both enabled", async ({ page }) => {
+test("SPARTIAL tempo knob responds live to drag and keyboard without starting rotation or sound", async ({ page }) => {
+  await openSpartial(page);
+  const tempo = page.locator("#tempo");
+  await tempo.scrollIntoViewIfNeeded();
+  const box = await tempo.boundingBox();
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await page.mouse.down();
+  try {
+    await expect(tempo, "taking hold of the knob must not jump its value").toHaveValue("90");
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2 - 24, { steps: 6 });
+    const dragged = Number(await tempo.inputValue());
+    expect(dragged).toBeGreaterThan(90);
+    await expect(page.locator("#tempoOut"), "BPM follows the drag before pointer release").toHaveText(`${dragged} BPM`);
+  } finally {
+    await page.mouse.up();
+  }
+  await tempo.press("Home");
+  await expect(tempo).toHaveValue("30");
+  await tempo.press("ArrowUp");
+  await expect(tempo).toHaveValue("31");
+  await expect(page.locator("#tempoOut")).toHaveText("31 BPM");
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+});
+
+test("SPARTIAL Play rotation starts clockwise from Off and Pause retains the angle", async ({ page }) => {
   await openSpartial(page);
   const distinctCanvasFrames = () => page.locator("#stage").evaluate(async canvas => {
     const frames = new Set();
@@ -193,22 +232,29 @@ test("SPARTIAL moves its partials only when motion and Play are both enabled", a
     return frames.size;
   });
   expect(await distinctCanvasFrames(), "default routing is stationary").toBe(1);
-  await page.locator("#tempo").click();
-  await page.locator("#tempo").press("ControlOrMeta+A");
-  await page.locator("#tempo").pressSequentially("120");
-  await page.locator("#tempo").press("Tab");
-  await expect(page.locator("#tempo")).toHaveValue("120");
-  await page.locator("#motion").selectOption("cw");
-  expect(await distinctCanvasFrames(), "selecting motion does not start transport").toBe(1);
+  await setRange(page, "tempo", 120);
+  await expect(page.locator("#tempoOut")).toHaveText("120 BPM");
   await page.locator("#playButton").click();
+  await expect(page.locator("#motion")).toHaveValue("cw");
+  await expect(page.locator("#playButton")).toHaveAccessibleName("Pause rotation");
   expect(await distinctCanvasFrames(), "Play advances the partial destinations").toBeGreaterThan(1);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
   await page.locator("#playButton").click();
+  await expect(page.locator("#playButton")).toHaveAccessibleName("Play rotation");
   expect(await distinctCanvasFrames(), "Pause retains the stopped position").toBe(1);
+  await page.locator("#motion").selectOption("ccw");
+  expect(await distinctCanvasFrames(), "selecting a pattern while paused does not start rotation").toBe(1);
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
   await page.locator("#motion").selectOption("off");
   await page.locator("#playButton").click();
-  expect(await distinctCanvasFrames(), "Play with motion off remains stationary").toBe(1);
+  await expect(page.locator("#motion")).toHaveValue("cw");
+  expect(await distinctCanvasFrames(), "Play restarts a usable clockwise rotation from Off").toBeGreaterThan(1);
+  await page.locator("#routingMode").selectOption("focus");
+  await expect(page.locator("#playButton")).toBeDisabled();
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#playButton")).toHaveAccessibleName("Play rotation");
+  expect(await distinctCanvasFrames(), "one-speaker routing has no rotation").toBe(1);
 });
 
 test("SPARTIAL cascade controls preserve individual milliseconds and deterministic timing readouts", async ({ page }) => {
@@ -262,19 +308,24 @@ test("SPARTIAL cascade controls preserve individual milliseconds and determinist
   await expectCascadeControlsReachable(page);
 });
 
-test("SPARTIAL Restart applies the next cascade without arming Audio or stopping transport", async ({ page }, testInfo) => {
+test("SPARTIAL Restart belongs to Hold and preserves independent rotation and Audio", async ({ page }, testInfo) => {
   await openSpartial(page);
   const restart = page.locator("#restartCascade");
   await expect(restart).toBeDisabled();
   await page.locator("#motion").selectOption("cw");
   await page.locator("#playButton").click();
+  await expect(restart, "rotation alone does not create a note to restart").toBeDisabled();
+  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await expect(restart).toBeEnabled();
   await restart.click();
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveText("Release note");
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#motion")).toHaveValue("cw");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await expect(restart).toBeDisabled();
 
   await shortEnvelope(page);
@@ -282,6 +333,7 @@ test("SPARTIAL Restart applies the next cascade without arming Audio or stopping
   await setRange(page, "release", 2);
   await page.locator("#mode").selectOption("chord");
   await page.locator("#chord").selectOption("major");
+  await expect(page.locator("#holdButton")).toHaveText("Hold chord");
   // Make only the last partial audible: a milliseconds/seconds wiring error
   // then postpones the entire new sound instead of hiding behind its root.
   await page.locator("#partialSliders input").evaluateAll(inputs => {
@@ -291,6 +343,8 @@ test("SPARTIAL Restart applies the next cascade without arming Audio or stopping
     }
   });
   await armAudio(page);
+  await page.locator("#holdButton").click();
+  await expect(page.locator("#holdButton")).toHaveText("Release chord");
   await page.locator("#playButton").click();
   await expectSustainedAudio(page, testInfo, "cascade-before-edit");
 
@@ -299,6 +353,7 @@ test("SPARTIAL Restart applies the next cascade without arming Audio or stopping
   await expectSustainedAudio(page, testInfo, "cascade-edit-keeps-held-chord");
   await restart.click();
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#motion")).toHaveValue("cw");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
   // Restart must clear the old chord promptly even with a long normal release,
@@ -311,6 +366,8 @@ test("SPARTIAL Restart applies the next cascade without arming Audio or stopping
   await expectSustainedAudio(page, testInfo, "cascade-short-restart");
   await page.locator("#panicButton").click();
   await expect(restart).toBeDisabled();
+  await expect(page.locator("#holdButton")).toHaveText("Hold chord");
+  await expect(page.locator("#playButton"), "Silence releases voices without pausing rotation").toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, false);
 });
 
@@ -318,16 +375,16 @@ test("SPARTIAL preset and fingerprint controls reshape a held sound without stop
   await openSpartial(page);
   await shortEnvelope(page);
   await armAudio(page);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await waitForAudioState(page, true);
 
   const firstPreset = await page.locator("#preset").inputValue();
   await page.locator("#nextPreset").click();
   await expect(page.locator("#preset")).not.toHaveValue(firstPreset);
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, true, { stableMs: 150 });
   await page.locator("#randomPreset").click();
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, true, { stableMs: 150 });
 
   const partialValues = () => page.locator("#partialSliders input").evaluateAll(inputs => inputs.map(input => Number(input.value)));
@@ -341,7 +398,7 @@ test("SPARTIAL preset and fingerprint controls reshape a held sound without stop
   const randomValues = await partialValues();
   expect(randomValues).not.toEqual(nextValues);
   expect(randomValues.every(value => Number.isFinite(value) && value >= 0 && value <= 1)).toBe(true);
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
   await expectSustainedAudio(page, testInfo, "mutated-fingerprint");
   await page.locator("#panicButton").click();
@@ -352,7 +409,7 @@ test("SPARTIAL supports 32 inharmonic partials and compressed or repeated spatia
   await openSpartial(page);
   await shortEnvelope(page);
   await armAudio(page);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await waitForAudioState(page, true);
   await setRange(page, "partials", 32);
   await expect(page.locator("#partialSliders input")).toHaveCount(32);
@@ -361,7 +418,7 @@ test("SPARTIAL supports 32 inharmonic partials and compressed or repeated spatia
   for (const cycles of [0, 0.25, 1, 4]) {
     await setRange(page, "cycles", cycles);
     await expect(page.locator("#cycles")).toHaveValue(String(cycles));
-    await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
     await waitForStableAudioState(page, true, { stableMs: 150 });
   }
   await expectSustainedAudio(page, testInfo, "inharmonic-four-turns");
@@ -378,7 +435,7 @@ test("SPARTIAL supports 32 inharmonic partials and compressed or repeated spatia
   await expect(page.locator("#target")).toHaveValue("6");
   await stage.press("ArrowRight");
   await expect(page.locator("#target")).toHaveValue("7");
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await expectSustainedAudio(page, testInfo, "inharmonic-focused");
   await capture(page, testInfo, "spartial-single-speaker");
   await page.locator("#routingMode").selectOption("spread");
@@ -389,11 +446,12 @@ test("SPARTIAL supports 32 inharmonic partials and compressed or repeated spatia
   await waitForStableAudioState(page, false);
 });
 
-test("SPARTIAL transport stays separate from Audio and joins the sustained sound when armed", async ({ page }, testInfo) => {
+test("SPARTIAL rotation, Hold, and Audio remain independent through pause and re-arm", async ({ page }, testInfo) => {
   await openSpartial(page);
   await shortEnvelope(page);
   const audio = page.locator("#audioButton");
   const play = page.locator("#playButton");
+  const hold = page.locator("#holdButton");
   await expect(audio).toHaveAttribute("aria-pressed", "false");
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 
@@ -405,18 +463,38 @@ test("SPARTIAL transport stays separate from Audio and joins the sustained sound
   expect((await readAudioStatus(page)).active).toBe(false);
 
   await armAudio(page);
+  await waitForStableAudioState(page, false);
+  const rotationOnly = await sampleAudioEnvelope(page, { durationMs: 350, intervalMs: 50 });
+  expect(rotationOnly.summary.finite).toBe(true);
+  expect(rotationOnly.summary.maxPeak, "rotation must not start a synthesizer voice").toBeLessThan(0.001);
+  await expect(hold).toHaveAttribute("aria-pressed", "false");
+
+  await audio.click();
+  await hold.click();
+  await expect(hold).toHaveAttribute("aria-pressed", "true");
+  await expect(audio).toHaveAttribute("aria-pressed", "false");
+  await waitForStableAudioState(page, false);
+  await armAudio(page);
   await expectSustainedAudio(page, testInfo, "armed-note");
   await capture(page, testInfo, "spartial-desktop-playing");
 
+  await play.click();
+  await expect(play).toHaveAttribute("aria-pressed", "false");
+  await expect(hold).toHaveAttribute("aria-pressed", "true");
+  await expectSustainedAudio(page, testInfo, "rotation-paused-note-remains");
+
   await audio.click();
   await expect(audio).toHaveAttribute("aria-pressed", "false");
-  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await expect(hold).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, false);
 
   await armAudio(page);
   await expectSustainedAudio(page, testInfo, "rearmed-note");
   await play.click();
-  await expect(play).toHaveAttribute("aria-pressed", "false");
+  await expect(play).toHaveAttribute("aria-pressed", "true");
+  await hold.click();
+  await expect(hold).toHaveAttribute("aria-pressed", "false");
+  await expect(play).toHaveAttribute("aria-pressed", "true");
   await expect(audio).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, false);
 });
@@ -425,7 +503,7 @@ test("SPARTIAL master level reaches silence and Silence releases the held sound"
   await openSpartial(page);
   await shortEnvelope(page);
   await armAudio(page);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   const sounding = await expectSustainedAudio(page, testInfo, "level-normal");
 
   await setRange(page, "level", 0);
@@ -434,21 +512,21 @@ test("SPARTIAL master level reaches silence and Silence releases the held sound"
   const muted = await sampleAudioEnvelope(page, { durationMs: 350, intervalMs: 50 });
   expect(muted.summary.maxPeak).toBeLessThan(0.001);
   expect(muted.summary.maxRms).toBeLessThan(sounding.summary.maxRms * 0.01);
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
 
   await setRange(page, "level", 0.65);
   await waitForAudioState(page, true);
   await page.locator("#panicButton").click();
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, false);
 });
 
-test("SPARTIAL keeps transport running across voice, preset, and speaker-array changes", async ({ page }, testInfo) => {
+test("SPARTIAL keeps held notes sounding across voice, preset, and speaker-array changes", async ({ page }, testInfo) => {
   await openSpartial(page);
   await shortEnvelope(page);
   await armAudio(page);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await waitForAudioState(page, true);
 
   await page.locator('[data-section="sound"] > summary').click();
@@ -466,7 +544,7 @@ test("SPARTIAL keeps transport running across voice, preset, and speaker-array c
     await test.step(`${id}: ${value}`, async () => {
       await page.locator(`#${id}`).selectOption(value);
       await expect(page.locator(`#${id}`)).toHaveValue(value);
-      await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+      await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
       await waitForStableAudioState(page, true, { stableMs: 150, timeout: 6000 });
     });
@@ -479,7 +557,7 @@ test("SPARTIAL keeps transport running across voice, preset, and speaker-array c
   await expect(page.locator("#routingMode")).toHaveValue("focus");
   await expect(page.locator("#target")).toBeVisible();
   await page.locator("#target").selectOption({ index: 2 });
-  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await expectSustainedAudio(page, testInfo, "single-speaker");
   await page.locator("#panicButton").click();
   await waitForStableAudioState(page, false);
@@ -539,6 +617,11 @@ test("SPARTIAL MIDI note-on and note-off own independent sustained voices", asyn
   await sendMidi(page, MIDI_BYTES.noteOn(67, 90));
   await expectSustainedAudio(page, testInfo, "midi-two-notes");
   await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+  await page.locator("#playButton").click();
+  await expectSustainedAudio(page, testInfo, "midi-notes-during-rotation");
+  await page.locator("#playButton").click();
+  await expectSustainedAudio(page, testInfo, "midi-notes-after-rotation-pause");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
 
   await sendMidi(page, MIDI_BYTES.noteOff(60));
   await expectSustainedAudio(page, testInfo, "midi-one-note-remains");
@@ -619,7 +702,7 @@ test("SPARTIAL can re-arm and play after navigating away and returning with Back
   await openSpartial(page);
   await shortEnvelope(page);
   await armAudio(page);
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await expectSustainedAudio(page, testInfo, "before-navigation");
 
   await page.goto("index.html", { waitUntil: "load" });
@@ -639,15 +722,15 @@ test("SPARTIAL can re-arm and play after navigating away and returning with Back
     contentType: "application/json",
   });
 
-  // A cached document can retain its visual transport; a reload starts idle.
+  // A cached document can retain Hold; a reload starts with Hold off.
   // Both must recover through the same explicit Audio action.
   await shortEnvelope(page);
   await armAudio(page);
-  if (await page.locator("#playButton").getAttribute("aria-pressed") !== "true") {
-    await page.locator("#playButton").click();
+  if (await page.locator("#holdButton").getAttribute("aria-pressed") !== "true") {
+    await page.locator("#holdButton").click();
   }
   await expectSustainedAudio(page, testInfo, "after-back");
-  await page.locator("#playButton").click();
+  await page.locator("#holdButton").click();
   await waitForStableAudioState(page, false);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
 });
@@ -694,7 +777,7 @@ test.describe("SPARTIAL phone layout", () => {
 
       // Follow the same continuous control pane using native touch input only.
       // No scrollIntoView/scrollTop writes participate in this navigation.
-      for (const selector of ["#playButton", "#cascadeMs", "#resetAll"]) {
+      for (const selector of ["#notePads button:first-child", "#playButton", "#cascadeMs", "#resetAll"]) {
         for (let step = 0; step < 55 && !await hitVisibleControl(page, selector); step += 1) {
           const previous = await scrollPosition();
           await swipeControls("forward");
@@ -746,10 +829,13 @@ test.describe("SPARTIAL phone layout", () => {
     test(`SPARTIAL ${layout.name} keeps controls reachable and primary targets large enough`, async ({ page }, testInfo) => {
       await page.setViewportSize({ width: layout.width, height: layout.height });
       await openSpartial(page);
+      await expectKeyboardBeforeRotation(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-      await capture(page, testInfo, `spartial-phone-${layout.name}`);
+      await testInfo.attach(`spartial-phone-${layout.name}.png`, {
+        body: await page.screenshot({ fullPage: false }), contentType: "image/png",
+      });
 
-      for (const id of ["audioButton", "playButton"]) {
+      for (const id of ["audioButton", "playButton", "holdButton", "tempo"]) {
         const control = page.locator(`#${id}`);
         await control.scrollIntoViewIfNeeded();
         const box = await control.boundingBox();
@@ -779,6 +865,26 @@ test.describe("SPARTIAL phone layout", () => {
       });
       expect(unreachable, "all visible controls can be scrolled to and hit").toEqual([]);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+
+      const tempo = page.locator("#tempo");
+      await tempo.scrollIntoViewIfNeeded();
+      const scroller = page.locator("#spartialControls");
+      const scrollBefore = await scroller.evaluate(node => node.scrollTop);
+      const graphicBefore = await page.locator("#stageWrap").boundingBox();
+      const tempoBefore = Number(await tempo.inputValue());
+      const knob = await tempo.boundingBox();
+      const session = await page.context().newCDPSession(page);
+      await nativeTouchDrag(page, session,
+        { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 },
+        { x: knob.x + knob.width / 2, y: knob.y + knob.height / 2 - 20 });
+      await session.detach();
+      const tempoAfter = Number(await tempo.inputValue());
+      expect(tempoAfter, "a native touch drag turns the tempo knob").toBeGreaterThan(tempoBefore);
+      await expect(page.locator("#tempoOut")).toHaveText(`${tempoAfter} BPM`);
+      expect(Math.abs(await scroller.evaluate(node => node.scrollTop) - scrollBefore), "turning the knob must not scroll the pane").toBeLessThan(1);
+      expect(await page.locator("#stageWrap").boundingBox()).toEqual(graphicBefore);
+      await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
+      await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
 
       await page.locator("#playButton").tap();
       await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");

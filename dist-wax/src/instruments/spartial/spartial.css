@@ -21,12 +21,18 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 .full-preset-row { padding: 16px 18px; border-bottom: 1px solid var(--line); }
 .dice-button svg { width: 21px; height: 21px; vertical-align: middle; fill: none; stroke: currentColor; stroke-width: 1.5; }
 .dice-button svg circle { fill: currentColor; stroke: none; }
-.spartial-transport { display: flex; gap: 12px; align-items: center; margin-bottom: 18px; }
+.spartial-note-actions { display: flex; gap: 10px; align-items: center; }
+.spartial-note-actions button { min-height: 48px; font-size: 10px; }
+.spartial-note-actions #panicButton { margin-left: auto; }
+.spartial-note-actions #holdButton[aria-pressed="true"] { color: var(--bg-deep); background: var(--accent); border-color: var(--accent); }
+.spartial-transport { display: flex; gap: 20px; align-items: center; margin: 22px 0 18px; }
+.rotation-toggle { display: flex; align-items: center; gap: 10px; flex: 1 1 auto; color: var(--ink); font-size: 11px; }
 .spartial-transport .play-button { min-width: 48px; min-height: 48px; width: 48px; height: 48px; flex: 0 0 48px; }
-.spartial-transport #panicButton { margin-left: auto; min-height: 36px; font-size: 9px; }
-.tempo-field { min-width: 0; font-size: 9px; color: var(--muted); }
-.tempo-field > div { display: flex; align-items: center; gap: 6px; margin-top: 4px; }
-.tempo-field input { width: 66px; min-width: 0; padding: 7px; font: 12px var(--mono); border: 1px solid var(--line-strong); background: var(--bg-deep); color: var(--ink); }
+.tempo-field.mz-range-knob { width: 64px; min-width: 64px; height: 72px; color: var(--muted); font-size: 9px; }
+.tempo-field.mz-range-knob > span:not(.mz-range-knob__dial) { inset: 0; flex-direction: column; align-items: center; justify-content: space-between; }
+.tempo-field.mz-range-knob > span > b { position: static; width: auto; height: auto; overflow: visible; clip-path: none; font-weight: 400; }
+.tempo-field .mz-range-knob__dial { top: 20px; width: 32px; height: 32px; }
+.spartial-controls .tempo-field > input[type="range"] { touch-action: none; }
 .paired-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; min-width: 0; }
 .paired-controls select { padding-left: 5px; padding-right: 24px; font-size: 10px; }
 .keyboard-heading { display: flex; justify-content: space-between; align-items: center; gap: 5px; margin: 4px 0 10px; font-size: 9px; color: var(--muted); }

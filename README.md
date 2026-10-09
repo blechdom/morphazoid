@@ -1,6 +1,6 @@
 # Morphazoid
 
-**[SPARTIAL](spartial.html)** sends individual additive partials around a surround array. Edit up to thirty-two harmonic or inharmonic partials, squeeze their spatial spread, or gather them at one speaker. Play sustains a note or chord; keyboard and MIDI notes have independent gates. Presets, fingerprint banks, optional tempo-driven rotation and exact millisecond cascades support drones and articulated playing. On mobile the graphic stays fixed while the controls scroll. Audio and motion start off. [Controls and output limits](docs/spartial.md).
+**[SPARTIAL](spartial.html)** sends individual additive partials around a surround array. Edit up to thirty-two harmonic or inharmonic partials, squeeze their spatial spread, or gather them at one speaker. Hold sustains a note or chord; keyboard and MIDI notes have independent gates. Rotation Play/Pause and its tempo knob control movement separately. Presets, fingerprint banks, optional tempo-driven rotation and exact millisecond cascades support drones and articulated playing. On mobile the graphic stays fixed while the controls scroll. Audio and motion start off. [Controls and output limits](docs/spartial.md).
 
 **[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails, ribbons
 and spinning geometry. Enable MIDI in Settings or play the on-screen pads.

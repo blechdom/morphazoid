@@ -1,5 +1,6 @@
 import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
 import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audio.js";
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -23,7 +24,7 @@ const PRESETS = [
 const state = {
   settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: "single", root: 48,
   chord: "minor", keyboardBase: 48, layout: "8-circle", forcePreview: false,
-  audioOn: false, playing: false, phase: 0, motion: "off", tempo: 90, beatsPerTurn: 16,
+  audioOn: false, playing: false, holding: false, phase: 0, motion: "off", tempo: 90, beatsPerTurn: 16,
   routingMode: "spread", presetIndex: 0, spectrumIndex: 0, randomSeed: 173,
 };
 const held = new Map();
@@ -37,6 +38,7 @@ let geometry = null;
 let routeInfo = null;
 const canvas = $("stage");
 const context = canvas.getContext("2d");
+const tempoKnob = enhanceRangeKnob($("tempo"));
 const audio = new SpartialAudio(
   next => { snapshot = next; state.phase = next.phase; },
   route => { routeInfo = route; updateRouteStatus(); },
@@ -74,15 +76,23 @@ function updateAudioButton() {
   $("audioState").textContent = state.audioOn ? "on" : "off";
   updateRouteStatus();
 }
+function rotationRunning() { return state.playing && state.motion !== "off" && state.routingMode !== "focus"; }
 function updatePerformance() {
-  $("playButton").setAttribute("aria-pressed", String(state.playing));
-  $("playButton").setAttribute("aria-label", state.playing ? "Pause" : `Play selected ${state.mode === "chord" ? "chord" : "note"}`);
+  const rotating = rotationRunning();
+  $("playButton").setAttribute("aria-pressed", String(rotating));
+  $("playButton").setAttribute("aria-label", rotating ? "Pause rotation" : "Play rotation");
+  $("playButton").title = rotating ? "Pause rotation" : "Play rotation";
+  $("playButton").disabled = state.routingMode === "focus";
+  const sound = state.mode === "chord" ? "chord" : "note";
+  $("holdButton").setAttribute("aria-pressed", String(state.holding));
+  $("holdButton").setAttribute("aria-label", `${state.holding ? "Release" : "Hold"} selected ${sound}`);
+  $("holdButton").textContent = `${state.holding ? "Release" : "Hold"} ${sound}`;
   $("chord").disabled = state.mode !== "chord";
   $("spreadControls").hidden = state.routingMode === "focus";
   $("targetControl").hidden = state.routingMode !== "focus";
   $("motion").disabled = state.routingMode === "focus";
   $("beatsPerTurn").disabled = state.motion === "off" || state.routingMode === "focus";
-  $("restartCascade").disabled = !state.playing;
+  $("restartCascade").disabled = !state.holding;
   $("stageInstructions").textContent = state.routingMode === "focus"
     ? "Click a speaker to send all partials there. Drag around the ring to change speakers."
     : "Drag to turn the partials. Click a speaker to start there.";
@@ -100,6 +110,9 @@ function syncControls() {
   }
   for (const id of ["pattern", "cascadeOrder"]) $(id).value = state.settings[id];
   for (const id of ["mode", "root", "chord", "layout", "motion", "tempo", "beatsPerTurn", "routingMode"]) $(id).value = state[id];
+  $("tempoOut").textContent = `${state.tempo} BPM`;
+  $("tempo").setAttribute("aria-valuetext", `${state.tempo} BPM`);
+  tempoKnob.update();
   $("forcePreview").checked = state.forcePreview;
   $("target").value = state.settings.target;
   for (const [index, bar] of [...$("partialSliders").children].entries()) {
@@ -126,7 +139,7 @@ function customPreset(spectrum = false) {
   if (spectrum) $("spectrumPreset").value = "custom";
 }
 function motionPatch() {
-  const running = state.playing && state.motion !== "off" && state.routingMode !== "focus";
+  const running = rotationRunning();
   return { rotation: running ? state.tempo / 60 / state.beatsPerTurn * (state.motion === "ccw" ? -1 : 1) : 0, counterRotate: state.motion === "counter" };
 }
 function patchSettings(patch) {
@@ -175,23 +188,29 @@ function playGroup(id, note, velocity = .8, exactNote = false) {
   updatePerformance();
   if (!state.audioOn) announce("Audio is off — turn it on to hear playback", true);
 }
-function refreshLatch() { if (state.playing) playGroup("latch", state.root); }
+function refreshLatch() { if (state.holding) playGroup("latch", state.root); }
 function restartCascade() {
-  if (!state.playing) return;
+  if (!state.holding) return;
   const record = held.get("latch");
   if (!record) { refreshLatch(); return; }
   record.notes.forEach((note, index) => audio.retrigger(`latch:${index}`, note, record.velocity));
   if (!state.audioOn) announce("Audio is off — turn it on to hear playback", true);
 }
 function setPlaying(playing) {
-  state.playing = playing; patchSettings({});
-  if (playing) refreshLatch(); else releaseGroup("latch");
-  if (!playing) announce(""); updatePerformance();
+  state.playing = playing;
+  if (playing && state.motion === "off") { state.motion = "cw"; customPreset(); }
+  patchSettings({});
+}
+function setHolding(holding) {
+  state.holding = holding;
+  if (holding) refreshLatch(); else releaseGroup("latch");
+  if (!holding) announce("");
+  updatePerformance();
 }
 function allNotesOff() {
-  state.playing = false;
+  state.holding = false;
   for (const id of [...held.keys()]) releaseGroup(id);
-  audio.panic(); downKeys.clear(); patchSettings({}); announce("");
+  audio.panic(); downKeys.clear(); announce(""); updatePerformance();
 }
 function releaseManualNotes() {
   for (const id of [...held.keys()]) if (id !== "latch") releaseGroup(id);
@@ -288,9 +307,13 @@ for (const id of millisecondSettings) {
   });
 }
 for (const id of ["pattern", "cascadeOrder"]) $(id).addEventListener("change", () => { patchSettings({ [id]: $(id).value }); customPreset(); });
-for (const id of ["tempo", "beatsPerTurn", "motion"]) $(id).addEventListener("change", () => {
-  state[id] = id === "motion" ? $(id).value : Math.max(id === "tempo" ? 30 : 4, Math.min(id === "tempo" ? 240 : 64, Number($(id).value) || 90));
-  patchSettings({}); if (id !== "tempo") customPreset();
+$("tempo").addEventListener("input", () => {
+  state.tempo = Math.max(30, Math.min(240, Math.round(Number($("tempo").value) || 90)));
+  patchSettings({});
+});
+for (const id of ["beatsPerTurn", "motion"]) $(id).addEventListener("change", () => {
+  state[id] = id === "motion" ? $(id).value : Math.max(4, Math.min(64, Number($(id).value) || 16));
+  patchSettings({}); customPreset();
 });
 for (const id of ["mode", "root", "chord"]) $(id).addEventListener("change", () => {
   state[id] = id === "root" ? Number($(id).value) : $(id).value;
@@ -313,7 +336,8 @@ $("routingMode").addEventListener("change", () => {
 $("target").addEventListener("change", () => { patchSettings({ target: Number($("target").value) }); customPreset(); });
 $("layout").addEventListener("change", () => { state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview); });
 $("forcePreview").addEventListener("change", () => { state.forcePreview = $("forcePreview").checked; audio.route(state.layout, state.forcePreview); });
-$("playButton").addEventListener("click", () => setPlaying(!state.playing));
+$("playButton").addEventListener("click", () => setPlaying(!rotationRunning()));
+$("holdButton").addEventListener("click", () => setHolding(!state.holding));
 $("restartCascade").addEventListener("click", restartCascade);
 $("panicButton").addEventListener("click", allNotesOff);
 $("resetAll").addEventListener("click", () => {
@@ -347,7 +371,7 @@ document.addEventListener("keyup", event => {
   const index = KEYS.indexOf(event.key.toLowerCase()); if (index < 0) return;
   downKeys.delete(index); releaseGroup(`key:${index}`);
 });
-window.addEventListener("blur", releaseManualNotes);
+window.addEventListener("blur", () => { releaseManualNotes(); tempoKnob.cancelGesture(); });
 document.addEventListener("visibilitychange", () => { if (document.hidden) releaseManualNotes(); });
 window.addEventListener("morphazoid:midi-input", event => {
   const { routeId, message } = event.detail ?? {}; if (routeId !== "spartial" || !message) return;
@@ -442,14 +466,15 @@ function draw(now) {
 buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
 frame = requestAnimationFrame(draw);
 window.addEventListener("pagehide", event => {
+  tempoKnob.cancelGesture();
   if (event.persisted) {
     releaseManualNotes(); audio.disable(); state.audioOn = false; updateAudioButton(); cancelAnimationFrame(frame); void audio.context?.suspend(); return;
   }
-  disposed = true; cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose();
+  disposed = true; cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
 });
 window.addEventListener("pageshow", event => {
   if (event.persisted && !disposed) {
     previousFrameTime = performance.now(); frame = requestAnimationFrame(draw);
-    if (state.playing) announce("Audio is off — turn it on to hear playback", true);
+    if (state.holding) announce("Audio is off — turn it on to hear playback", true);
   }
 });
