@@ -579,7 +579,7 @@ for (const viewport of [
   test.describe(`output recording ${viewport.width}x${viewport.height}`, () => {
     test.use({ viewport, hasTouch: viewport.width < 900 });
     test("keeps Record, Audio, Settings and the save dialog reachable without duplicate controls", async ({ page }) => {
-      await useDownloadFallback(page);
+      await installFilePicker(page);
       await page.goto("karplus-strong.html");
       await expect(page.locator(RECORD_BUTTON)).toBeVisible();
       await expect(page.locator(RECORD_BUTTON)).toHaveCount(1);
@@ -612,7 +612,12 @@ for (const viewport of [
       expect(dialog.x + dialog.width).toBeLessThanOrEqual(viewport.width + 1);
       expect(dialog.y + dialog.height).toBeLessThanOrEqual(viewport.height + 1);
       await expect(page.locator(RECORD_NAME)).toBeEditable();
-      await expect(page.getByRole("button", { name: "Save WAV", exact: true })).toBeVisible();
+      for (const label of ["Save WAV", "Download WAV", "New recording", "Keep for later"]) {
+        const action = page.getByRole("button", { name: label, exact: true });
+        await action.scrollIntoViewIfNeeded();
+        await expect(action).toBeInViewport();
+        await expect(action).toBeEnabled();
+      }
       await page.getByRole("button", { name: "Keep for later", exact: true }).click();
       await expect(page.locator(RECORD_BUTTON)).toHaveAccessibleName("Save recording");
       await releaseStereoSource(page, source.index);

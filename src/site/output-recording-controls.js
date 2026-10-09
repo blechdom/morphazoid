@@ -117,9 +117,10 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
   nameLabel.htmlFor = name.id;
   const actions = element(doc, "div", "output-recording-actions");
   const save = createButton({ label: "Save WAV", variant: "primary" }, doc);
+  const download = createButton({ label: "Download WAV" }, doc);
   const next = createButton({ label: "New recording" }, doc);
   const keep = createButton({ label: "Keep for later", variant: "quiet" }, doc);
-  actions.append(save, next, keep);
+  actions.append(save, download, next, keep);
   dialog.append(heading, summary, message, nameLabel, name, actions);
   doc.body.append(dialog);
 
@@ -198,6 +199,8 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     name.hidden = nameLabel.hidden = !status.blob;
     save.hidden = !status.blob;
     save.disabled = saving;
+    download.hidden = !status.blob || !canPick;
+    download.disabled = saving;
     name.disabled = saving;
     next.hidden = !ready && status.state !== "error";
     next.disabled = busy;
@@ -249,23 +252,38 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
         savedConfirmed = true;
         localMessage = `Saved ${handle.name || filename}.`;
       } else {
-        const url = runtime.URL.createObjectURL(status.blob);
-        objectUrls.add(url);
-        const link = element(doc, "a", "");
-        link.href = url;
-        link.download = filename;
-        doc.body.append(link);
-        link.click();
-        link.remove();
-        // Browsers cannot tell us whether a download was accepted. Retain the
-        // take and the navigation guard, allowing another save after cancel.
-        localMessage = "Download started. Your take stays here until you start a new recording.";
-        runtime.setTimeout(() => { runtime.URL.revokeObjectURL(url); objectUrls.delete(url); }, 60_000);
+        downloadBlob(filename);
       }
     } catch (error) {
       abortFile(writable);
-      if (error.name !== "AbortError") localMessage = `Could not save: ${error.message}. Your take is still available.`;
+      if (["NotAllowedError", "SecurityError"].includes(error.name)) {
+        localMessage = "The browser did not allow writing to this file. Choose another name or folder, or use Download WAV. Your take is still available.";
+      } else if (error.name !== "AbortError") {
+        localMessage = `Could not save: ${error.message}. Use Download WAV or choose another file. Your take is still available.`;
+      }
     } finally { saving = false; render(); }
+  }
+  function downloadBlob(filename) {
+    const url = runtime.URL.createObjectURL(status.blob);
+    objectUrls.add(url);
+    const link = element(doc, "a", "");
+    link.href = url;
+    link.download = filename;
+    doc.body.append(link);
+    link.click();
+    link.remove();
+    // A picker can exist in an embedded browser without permission to write.
+    // This separate click uses the download mechanism with fresh activation.
+    // A download does not confirm saving; retain the take and its existing guard.
+    localMessage = "Download started. Your take stays here until you start a new recording.";
+    runtime.setTimeout(() => { runtime.URL.revokeObjectURL(url); objectUrls.delete(url); }, 60_000);
+  }
+  function downloadTake() {
+    if (!status.blob || saving || destroyed) return;
+    name.value = safeRecordingFilename(name.value);
+    try { downloadBlob(name.value); }
+    catch (error) { localMessage = `Could not download: ${error.message}. Your take is still available.`; }
+    render();
   }
   function newTake() {
     if (status.blob && !savedConfirmed && !runtime.confirm("Start a new recording and discard this take? Save it first if you want to keep it.")) return;
@@ -315,6 +333,7 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     }
   }
   save.addEventListener("click", saveTake);
+  download.addEventListener("click", downloadTake);
   next.addEventListener("click", newTake);
   keep.addEventListener("click", closeDialog);
   dialog.addEventListener("cancel", event => { if (saving) event.preventDefault(); });
@@ -368,7 +387,7 @@ export function initializeOutputRecording(doc = globalThis.document, runtime = g
     audioObserver?.disconnect();
     for (const url of objectUrls) runtime.URL.revokeObjectURL(url);
     for (const { button, strip } of strips) { button.destroy(); strip.remove(); }
-    for (const button of [save, next, keep]) button.destroy();
+    for (const button of [save, download, next, keep]) button.destroy();
     for (const { select } of options) select.parentElement.remove();
     dialog.remove();
     controllers.delete(doc);
