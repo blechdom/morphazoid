@@ -339,6 +339,10 @@ const session = page => page.evaluate(() => ({ time: __deviceQa.engine.getSample
   contexts: __deviceRuntime.contexts.length,
   worklets: __deviceRuntime.worklets.length, sources: structuredClone(__deviceRuntime.sources), microphoneRequests: __deviceRuntime.microphoneRequests }));
 async function native(page, id, value) {
+  if (['capacityBudget', 'automatic'].includes(id)) {
+    const disclosure = page.locator('#capacityTests');
+    if (!await disclosure.evaluate(details => details.open)) await disclosure.locator('summary').click();
+  }
   await page.locator(`#${id}`).evaluate((input, value) => {
     if (input.type === 'checkbox') input.checked = Boolean(value); else input.value = String(value);
     input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true }));
@@ -583,6 +587,14 @@ test('the performance panel precedes presets and explicit capacity testing stays
       await page.setViewportSize(viewport);
       await page.locator('.panel').evaluate(panel => panel.scrollTop = 0);
       await expect(page.locator('#performancePanel')).toBeVisible();
+      const disclosure = page.locator('#capacityTests'), summary = disclosure.locator('summary');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(page.locator('#testCapacity')).not.toBeVisible();
+      await expect(page.locator('#performanceMisses')).toBeVisible();
+      const foldedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
+      const beforeDisclosure = await diagnostics(page);
+      await summary.focus(); await summary.press('Enter');
+      await expect(disclosure).toHaveJSProperty('open', true);
       await expect(page.locator('#capacityBudget')).toBeEnabled();
       await expect(page.locator('#testCapacity')).toBeEnabled();
       await expect.poll(() => page.evaluate(() => {
@@ -604,7 +616,17 @@ test('the performance panel precedes presets and explicit capacity testing stays
       expect(snapshot.processing).toBe(0); expect(snapshot.prepared).toBe(snapshot.diagnostics.preparedVoices);
       expect(snapshot.requested).toBe(snapshot.diagnostics.requestedVoices);
       expect(snapshot.gpuTime).not.toContain('%');
+      const expandedHeight = await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height);
+      expect(expandedHeight).toBeGreaterThan(foldedHeight);
       rows.push({ route, viewport, snapshot });
+      await summary.focus(); await summary.press('Space');
+      await expect(disclosure).toHaveJSProperty('open', false);
+      await expect(page.locator('#capacityBudget')).not.toBeVisible();
+      expect(await page.locator('#performancePanel').evaluate(panel => panel.getBoundingClientRect().height)).toBeLessThan(expandedHeight);
+      const afterDisclosure = await diagnostics(page);
+      expect(afterDisclosure.parameters).toEqual(beforeDisclosure.parameters);
+      expect(afterDisclosure.performance).toEqual(beforeDisclosure.performance);
+      expect(afterDisclosure.audio).toBe(false);
     }
     const before = await diagnostics(page);
     // Use a small fully warm candidate, including on lab routes; no output
@@ -654,11 +676,19 @@ test('explicit capacity knob tests replace the complete warm tree together while
       expect(await controlCounts(page)).toEqual(counts, 'turning the test knob must not rebuild the playing tree');
       expect((await diagnostics(page)).topologyRevision).toBe(before.topologyRevision);
       await page.locator('#testCapacity').click();
+      const disclosure = page.locator('#capacityTests');
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveJSProperty('open', false);
       await expect.poll(async () => {
         const d = await diagnostics(page);
         return !d.capacityWorking && d.capacityTest?.requestedVoices === budget && d.capacityTest.accepted;
       }, { timeout: 60000 }).toBe(true);
       await settledControls(page); await completeDraw(page);
+      const settledCounts = await controlCounts(page);
+      await disclosure.locator('summary').click();
+      await expect(disclosure).toHaveJSProperty('open', true);
+      expect(await controlCounts(page)).toEqual(settledCounts, 'opening test info must not dispatch audio controls');
+      await expect(page.locator('#capacityBudget')).toHaveValue(String(budget));
       const receipt = await page.evaluate(phase => ({
         acknowledgements: __deviceRuntime.controls.filter(record => record.kind === 'audio'
           && record.type === 'install' && record.phase === phase),

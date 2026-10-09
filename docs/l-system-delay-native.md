@@ -162,6 +162,9 @@ measurements are labelled accordingly. It measures branch drawing time, not
 total GPU utilization, and never waits for the GPU to finish.
 
 Turn **Test voice budget** or enter an exact count, then press **Test capacity**.
+These controls, protection options and test results sit inside **Capacity tests**,
+a caret disclosure that starts closed. Live meters, voice counts and deadline
+misses remain visible. Closing it preserves the chosen budget and any running test.
 Turning the knob alone does not rebuild or interrupt the playing tree. The
 worker measures the requested scene with fully populated delay history while
 the existing audio source continues. With **Protect audio** enabled, a candidate
