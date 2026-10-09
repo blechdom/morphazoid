@@ -1317,6 +1317,29 @@ pub unsafe extern "C" fn lsd_time_fold_target(handle: *const Renderer) -> f64 {
     }
     (*handle).fold_interval_ms
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn lsd_pitch_offset(handle: *mut Renderer, semitones: f64) -> u32 {
+    if handle.is_null() {
+        return 0;
+    }
+    match (*handle).engine.set_pitch_offset(semitones) {
+        Ok(()) => 1,
+        Err(error) => {
+            report(error);
+            0
+        }
+    }
+}
+
+/// Applied scalar coefficient. Individual voice rates use their 35 ms follower.
+#[no_mangle]
+pub unsafe extern "C" fn lsd_pitch_offset_value(handle: *const Renderer) -> f64 {
+    if handle.is_null() {
+        return 0.;
+    }
+    (*handle).engine.pitch_offset()
+}
 #[no_mangle]
 pub unsafe extern "C" fn lsd_collect_retired(handle: *mut Renderer, maximum_slots: usize) -> usize {
     if handle.is_null() {

@@ -73,6 +73,7 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     status.audioTimeSeconds = this.audioTimeSeconds;
     status.timeFoldMs = this.api.lsd_time_fold_value(this.engine);
     status.timeFoldTargetMs = this.api.lsd_time_fold_target(this.engine);
+    status.pitchOffset = this.api.lsd_pitch_offset_value(this.engine);
     // This synchronous read/copy shares the scalar metrics' DSP state. Rust
     // exposes only its actual processing list, never inactive prepared slots.
     const activeCount = this.api.lsd_active_indices_count(this.engine);
@@ -118,6 +119,8 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     } else if (data.type === 'time-fold') {
       const accepted = this.api.lsd_time_fold(this.engine, data.intervalMs);
       if (!accepted) throw new Error(wasmError(this.api, 'Time fold could not be updated.'));
+    } else if (data.type === 'pitch-offset') {
+      if (!this.api.lsd_pitch_offset(this.engine, data.pitchOffset)) throw new Error(wasmError(this.api, 'Pitch offset could not be updated.'));
     } else if (data.type === 'performance') {
       let accepted;
       try {
@@ -137,6 +140,9 @@ class LSystemDelayProcessor extends AudioWorkletProcessor {
     if (data.type === 'status') this.postStatus(data.id);
     else if (data.type === 'time-fold') this.port.postMessage({ id: data.id,
       timeFoldMs: this.api.lsd_time_fold_value(this.engine), timeFoldTargetMs: this.api.lsd_time_fold_target(this.engine),
+      topologyRevision: this.metrics[16], processedBlocks: this.metrics[23] });
+    else if (data.type === 'pitch-offset') this.port.postMessage({ id: data.id,
+      pitchOffset: this.api.lsd_pitch_offset_value(this.engine),
       topologyRevision: this.metrics[16], processedBlocks: this.metrics[23] });
     else this.port.postMessage({ id: data.id });
   }

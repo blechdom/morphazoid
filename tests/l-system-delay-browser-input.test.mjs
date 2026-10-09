@@ -36,7 +36,8 @@ function fixture() {
   const f = { contexts, worklets, workers, sources, errors, updates, captureCalls: 0, fetchCalls: 0, statusReplies: [], holdStatus: false,
     compileRequests: [], compileReplies: [], compilePools: [], holdCompile: false, holdInstall: false, installReplies: [],
     holdSuspend: false, suspendReplies: [], holdDrain: false, drainReplies: [],
-    workletStatus: { elapsedSeconds: 1, inputPeak: .1, outputPeak: .2, processedBlocks: 4 },
+    holdPitch: false, pitchReplies: [],
+    workletStatus: { elapsedSeconds: 1, inputPeak: .1, outputPeak: .2, processedBlocks: 4, pitchOffset: 0 },
     capture: async () => microphone(), decode: async () => pcm(), fetch: async () => ({ ok: true, arrayBuffer: async () => new ArrayBuffer(8) }) };
   function replace(key, value) { originals.set(key, Object.getOwnPropertyDescriptor(globalThis, key)); Object.defineProperty(globalThis, key, { configurable: true, writable: true, value }); }
   class Node { connect(target) { this.target = target; } disconnect() { this.disconnected = true; } }
@@ -74,10 +75,15 @@ function fixture() {
         if (data.type === 'install') this.transferInputs.push(data.pool);
         if (transfers.length) data = structuredClone(data, { transfer: transfers });
         this.messages.push(data); if (data.id) {
+        if (data.type === 'pitch-offset') f.workletStatus.pitchOffset = data.pitchOffset;
         const status = { ...f.workletStatus };
-        const reply = () => this.port.onmessage?.({ data: { id: data.id, status } });
+        const acknowledgement = data.type === 'pitch-offset'
+          ? { id: data.id, pitchOffset: data.pitchOffset, topologyRevision: status.topologyRevision, processedBlocks: status.processedBlocks }
+          : { id: data.id, status };
+        const reply = () => this.port.onmessage?.({ data: acknowledgement });
         if (data.type === 'install' && (f.holdInstall || this.context.state !== 'running')) f.installReplies.push({ context: this.context, reply });
         else if (f.holdDrain && data.type === 'drain') f.drainReplies.push(reply);
+        else if (f.holdPitch && data.type === 'pitch-offset') f.pitchReplies.push(reply);
         else if (f.holdStatus && data.type === 'status') f.statusReplies.push(reply); else queueMicrotask(reply);
       } }, close: () => { this.port.closed = true; } };
       queueMicrotask(() => this.port.onmessage?.({ data: { type: 'ready' } }));
@@ -254,6 +260,55 @@ test('live recursion and mix bypass a pending structural compile and its eventua
       'the old compile cannot restore its captured recursion coefficient');
     assert.equal(committed.performance.wet, .37); assert.equal(committed.performance.dry, .12);
     assert.equal(committed.audio, true); assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+  } finally { f.cleanup(); }
+});
+
+test('live pitch bypasses structural preparation and stale scalar or meter ACKs cannot rewind it', async () => {
+  const f = fixture(); try {
+    const engine = f.engine(); await engine.setInputMode('samples'); await engine.request('/api/audio', { enabled: true });
+    const initial = engine.getDiagnostics(), compiles = f.compileRequests.length;
+    const installs = f.worklets[0].messages.filter(message => message.type === 'install').length;
+    f.holdCompile = true;
+    const structural = engine.request('/api/parameters', { ...initial.parameters, angle: 71 });
+    await until(() => f.compileReplies.length === 1);
+    f.holdPitch = true;
+    const older = engine.request('/api/pitch-offset', { pitchOffset: 12 });
+    await until(() => f.pitchReplies.length === 1);
+    const newer = engine.request('/api/pitch-offset', { pitchOffset: -6.25 });
+    await until(() => f.pitchReplies.length === 2);
+    f.pitchReplies.pop()(); await newer;
+    f.pitchReplies.shift()(); const stale = await older;
+    assert.equal(stale.parameters.pitchOffset, -6.25); assert.equal(stale.status.pitchOffset, -6.25);
+    assert.equal(f.compileRequests.length, compiles + 1);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'install').length, installs);
+    f.holdPitch = false; f.compileReplies.shift()(); const committed = await structural;
+    assert.equal(committed.parameters.pitchOffset, -6.25);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'pitch-offset').at(-1).pitchOffset, -6.25);
+    assert.equal(committed.pitchOffsetBase, 0); assert.equal(committed.pitchOffsetRatio, 2 ** (-6.25 / 12));
+    f.holdStatus = true;
+    const heldStatus = engine.request('/api/status'); await until(() => f.statusReplies.length === 1);
+    await engine.request('/api/pitch-offset', { pitchOffset: 3.5 });
+    f.statusReplies.shift()(); const lateStatus = await heldStatus;
+    assert.equal(lateStatus.status.pitchOffset, 3.5, 'a pre-gesture meter frame cannot overwrite the new scalar ACK');
+    assert.equal(f.contexts.length, 1); assert.equal(f.worklets.length, 1); assert.equal(f.sources.length, 1);
+  } finally { f.cleanup(); }
+});
+
+test('complete scenes own pitch offset and a newer live offset wins during their staged install', async () => {
+  const f = fixture(); try {
+    const engine = f.engine(); await engine.prepareAudio(); await engine.request('/api/pitch-offset', { pitchOffset: 12 });
+    const initial = engine.getDiagnostics(); f.holdInstall = true;
+    const scene = engine.request('/api/parameters', { ...initial.parameters, angle: 62, pitchOffset: -12 });
+    await until(() => f.installReplies.length === 1);
+    const gesture = await engine.request('/api/pitch-offset', { pitchOffset: 5.25 });
+    assert.equal(gesture.parameters.pitchOffset, 5.25);
+    f.holdInstall = false; f.flushInstallReplies(); const installed = await scene;
+    assert.equal(installed.parameters.pitchOffset, 5.25);
+    assert.equal(f.worklets[0].messages.filter(message => message.type === 'pitch-offset').at(-1).pitchOffset, 5.25);
+    const recalled = await engine.request('/api/parameters', { ...installed.parameters, angle: 91, pitchOffset: -12 });
+    assert.equal(recalled.parameters.pitchOffset, -12);
+    const reset = await engine.request('/api/reset'); assert.equal(reset.parameters.pitchOffset, 0);
+    assert.equal(reset.audio, false); assert.equal(f.captureCalls, 0); assert.equal(f.sources.length, 0);
   } finally { f.cleanup(); }
 });
 

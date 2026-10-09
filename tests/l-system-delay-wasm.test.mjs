@@ -115,7 +115,7 @@ test('actual WASM preserves all factory topology settings and unlimited voice de
     const bank = JSON.parse(await readFile(new URL('../src/instruments/micmic/native/presets.json', import.meta.url), 'utf8'));
     for (const preset of bank) {
       const { preview, pool } = engine.compile(preset.snapshot.parameters);
-      assert.deepEqual(preview.parameters, preset.snapshot.parameters, preset.id);
+      assert.deepEqual(preview.parameters, { pitchOffset: 0, ...preset.snapshot.parameters }, preset.id);
       assert.equal(pool.byteLength, 32 + preview.requestedVoices * 48);
       assert.ok(preview.nodes.length > 1 && preview.nodes.every(node => Number.isFinite(node.x) && Number.isFinite(node.y)), preset.id);
     }
@@ -931,7 +931,7 @@ test('the actual topology worker recreates a trapped Rust compiler and retains t
     const recovered = await exchange(2, parameters, 0x10000002a);
     assert.equal(recovered.error, undefined);
     assert.equal(instances.length, 3, 'capacity measurement uses a disposable renderer and a Rust trap retires the first compiler');
-    assert.deepEqual(recovered.result.parameters, parameters);
+    assert.deepEqual(recovered.result.parameters, { pitchOffset: 0, ...parameters });
     assert.equal(recovered.result.requestedVoices, 14);
     assert.equal(recovered.pool.byteLength, 32 + 14 * 48, 'the recovered compiler returns the complete real WASM pool');
     assert.ok(recovered.module instanceof WebAssembly.Module);

@@ -71,7 +71,7 @@ export function measureAudioCapacity(module, sampleRate = 48000, { now = clock, 
 /** Validate the candidate's real pitched DSP, including long delayed reads.
  * The dedicated calibration constructor cannot mutate a playing renderer's
  * history. Only this disposable worker instance receives synthetic history. */
-export function measurePreparedPool(module, pool, sampleRate = 48000, { now = clock,
+export function measurePreparedPool(module, pool, sampleRate = 48000, { now = clock, pitchOffset = 0,
   performance: settings = DEFAULT_PERFORMANCE, targetLoad = TARGET_LOAD } = {}) {
   const api = new WebAssembly.Instance(module, {}).exports;
   const bytes = pool instanceof Uint8Array ? pool : new Uint8Array(pool);
@@ -88,6 +88,7 @@ export function measurePreparedPool(module, pool, sampleRate = 48000, { now = cl
     if (pointers.some(pointer => !pointer)) throw new Error('Scene probe buffers could not be allocated.');
     if (!withBytes(api, bytes, (pointer, length) => api.lsd_install(renderer, pointer, length))
       || !api.lsd_depth(renderer, 1)
+      || !api.lsd_pitch_offset(renderer, pitchOffset)
       || !withJson(api, { ...settings, automatic: false, voiceCeiling: voices, source: 'mic', frozen: false, inputGain: 1, wet: 1, dry: 0 },
         (pointer, length) => api.lsd_performance(renderer, pointer, length))
       || !api.lsd_prepare_calibration_history(renderer)) {

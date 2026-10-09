@@ -21,7 +21,7 @@ use tiny_http::{Header, Method, Request, Response, Server};
 const MAX_BODY: usize = 16 * 1024;
 const IDLE_TIMEOUT: Duration = Duration::from_secs(10);
 
-fn pool_update(topology: &Topology, depth: f64, revision: u64) -> Result<PoolUpdate, String> {
+fn pool_update(topology: &Topology, depth: f64, pitch_offset: f64, revision: u64) -> Result<PoolUpdate, String> {
     let mut phase_seeds = resources::filled(topology.targets.len(), 0_u32)?;
     for node in &topology.nodes {
         phase_seeds[node.voice_index] = l_system_delay_core::phase_seed(&node.key);
@@ -29,6 +29,7 @@ fn pool_update(topology: &Topology, depth: f64, revision: u64) -> Result<PoolUpd
     Ok(PoolUpdate {
         phase_seeds,
         revision,
+        pitch_offset,
         targets: resources::copied(&topology.targets)?,
         ranks: resources::copied(&topology.ranks)?,
         groups: resources::copied(&topology.groups)?,
@@ -131,7 +132,7 @@ impl Application {
         let revision = self.topology_revision.wrapping_add(1).max(1);
         if let Some(session) = &mut self.session {
             session.update(
-                pool_update(&topology, parameters.depth, revision)?,
+                pool_update(&topology, parameters.depth, parameters.pitch_offset, revision)?,
                 self.performance,
             )?;
         }
@@ -161,6 +162,7 @@ impl Application {
                 pool_update(
                     &self.topology,
                     self.parameters.depth,
+                    self.parameters.pitch_offset,
                     self.topology_revision,
                 )?,
                 self.performance,

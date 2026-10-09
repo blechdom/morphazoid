@@ -116,7 +116,7 @@ fn engine(channels: usize) -> Engine {
 }
 
 #[test]
-fn live_time_fold_block_matches_sample_order_through_sweeps_admission_and_history_wrap() {
+fn live_fold_and_pitch_block_match_sample_order_through_sweeps_admission_and_history_wrap() {
     let targets = [
         PoolTarget {
             delay: 0.0000001,
@@ -158,6 +158,11 @@ fn live_time_fold_block_matches_sample_order_through_sweeps_admission_and_histor
             block.set_pool_limit(limit);
             sample.set_pool_limit(limit);
         }
+        if quantum % 17 == 0 {
+            let offset = [-24., 0., 7.25, 24., -3.][(quantum / 17) % 5];
+            block.set_pitch_offset(offset).unwrap();
+            sample.set_pitch_offset(offset).unwrap();
+        }
         for (offset, frame) in input.iter_mut().enumerate() {
             *frame = [
                 tone(quantum * 128 + offset, 173.),
@@ -175,7 +180,7 @@ fn live_time_fold_block_matches_sample_order_through_sweeps_admission_and_histor
 }
 
 #[test]
-fn live_time_fold_setters_and_dense_render_have_no_callback_heap_activity() {
+fn live_fold_and_pitch_setters_and_dense_render_have_no_callback_heap_activity() {
     let count = 128;
     let keys: Vec<_> = (0..count).map(|index| format!("live:{index}")).collect();
     let targets: Vec<_> = (0..count)
@@ -201,6 +206,7 @@ fn live_time_fold_setters_and_dense_render_have_no_callback_heap_activity() {
     TRACK.with(|track| track.set(true));
     for scale in [0.25, 0.75, 1., 2., 5., 0.5, 8., 1.] {
         dsp.set_time_fold_scale(scale).unwrap();
+        dsp.set_pitch_offset((scale - 1.) * 3.).unwrap();
         for _ in 0..4 {
             dsp.process_block(&input, &mut output);
         }
