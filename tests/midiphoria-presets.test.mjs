@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../src/instruments/midiphoria/midiphoria-model.js';
 import { MIDIPHORIA_PRESETS, MIDIPHORIA_VIEWS, MIDIPHORIA_PALETTES, MIDIPHORIA_COLOR_SOURCES,
-  MIDIPHORIA_REFLECTIONS, MIDIPHORIA_FLOWS, MIDIPHORIA_VOICE_LAYOUTS,
+  MIDIPHORIA_REFLECTIONS, MIDIPHORIA_FLOWS,
   DEFAULT_RENDER_OPTIONS, MIDIPHORIA_MODEL_KEYS, MIDIPHORIA_RENDER_KEYS,
   captureMidiphoriaPreset, applyMidiphoriaPreset, randomizeMidiphoriaPreset,
   sanitizeMidiphoriaPreset, isValidMidiphoriaPreset,
@@ -41,10 +41,10 @@ test('factory scenes are complete, distinct, immutable and recall without changi
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.view)), new Set(MIDIPHORIA_VIEWS));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.palette)), new Set(MIDIPHORIA_PALETTES));
   assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.colorSource)), new Set(MIDIPHORIA_COLOR_SOURCES));
-  assert.deepEqual(new Set(MIDIPHORIA_PRESETS.map(preset => preset.snapshot.render.voiceLayout)), new Set(MIDIPHORIA_VOICE_LAYOUTS));
+  assert.equal(DEFAULT_RENDER_OPTIONS.colorSource, 'voice');
+  assert.equal(MIDIPHORIA_RENDER_KEYS.includes('voiceLayout'), false);
+  assert.ok(MIDIPHORIA_PRESETS.every(preset => !Object.hasOwn(preset.snapshot.render, 'voiceLayout')));
   assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.colorSource === 'voice').length, 10);
-  assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.voiceLayout === 'lanes').length, 9);
-  assert.equal(MIDIPHORIA_PRESETS.filter(preset => preset.snapshot.render.voiceLayout === 'panels').length, 4);
   const symmetric = MIDIPHORIA_PRESETS.filter(({ snapshot: { render } }) => render.view === 'mirror'
     || render.reflection !== 'none' || (['radial', 'orbit'].includes(render.view) && render.symmetry > 1));
   assert.ok(symmetric.length <= MIDIPHORIA_PRESETS.length / 4, 'at least 75% of factory looks have no mirror/repeated geometry');
@@ -109,6 +109,7 @@ test('seeded randomization is pure and covers every visual field, boolean, palet
   for (let index = 0; index < 1000; index += 1) {
     const result = randomizeMidiphoriaPreset(original, random);
     assert.ok(isValidMidiphoriaPreset(result));
+    assert.equal(Object.hasOwn(result.render, 'voiceLayout'), false);
     for (const section of ['model', 'render']) {
       for (const key of Object.keys(values[section])) values[section][key].add(result[section][key]);
     }
@@ -121,7 +122,6 @@ test('seeded randomization is pure and covers every visual field, boolean, palet
   assert.equal(values.render.colorSource.size, MIDIPHORIA_COLOR_SOURCES.length);
   assert.equal(values.render.reflection.size, MIDIPHORIA_REFLECTIONS.length);
   assert.equal(values.render.flow.size, MIDIPHORIA_FLOWS.length);
-  assert.equal(values.render.voiceLayout.size, MIDIPHORIA_VOICE_LAYOUTS.length);
   assert.deepEqual([...values.render.symmetry].sort((a, b) => a - b), [1, 2, 3, 4, 5, 6, 7, 8]);
   assert.ok([...values.render.spin].some(value => value < 0));
   assert.ok([...values.render.spin].some(value => value > 0));
@@ -176,7 +176,7 @@ test('five views produce distinct bounded finite paths with no per-note shadow e
   const signatures = new Set();
   for (const view of MIDIPHORIA_VIEWS) {
     const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
-    renderer.configure({ voiceLayout: 'overlay', view });
+    renderer.configure({ view });
     const model = new MidiphoriaModel({ attack: 0 });
     for (const note of [32, 60, 77, 89]) model.handleMessage({ type: 'noteOn', note, channel: 0, velocity: 100 }, 0);
     renderer.draw(model.sample(0), 0, model.options);
@@ -209,7 +209,7 @@ test('note color follows pitch, channel or attack velocity independently and rec
   assert.equal(new Set(colors.map(rgb => JSON.stringify(rgb))).size, MIDIPHORIA_COLOR_SOURCES.length);
   for (const rgb of colors) assert.ok(rgb.every(value => Number.isFinite(value) && value >= 0 && value <= 1));
   const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
-  renderer.configure({ voiceLayout: 'overlay', view: 'trails', colorSource: 'channel' });
+  renderer.configure({ view: 'trails', colorSource: 'channel' });
   renderer.draw(sample, 1, model.options);
   model.handleMessage({ type: 'noteOff', ...first }, 1);
   const release = model.sample(2);
@@ -242,7 +242,7 @@ test('trail fade changes released opacity while preserving note geometry and the
 
 test('circular spin reverses without a phase jump and symmetry adds bounded copies of actual notes', () => {
   const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
-  renderer.configure({ voiceLayout: 'overlay', view: 'radial', motion: 0, spin: 1, glow: 0 });
+  renderer.configure({ view: 'radial', motion: 0, spin: 1, glow: 0 });
   const sample = { activeNotes: [{ note: 32, channel: 0, velocity: 127 }], rgb: [1, 0, 0], level: 1 };
   const head = now => {
     surface.commands.length = 0;
@@ -262,7 +262,7 @@ test('circular spin reverses without a phase jump and symmetry adds bounded copi
   assert.equal(renderer.held.size, 1);
 
   for (const view of ['radial', 'orbit']) {
-    renderer.clear(); renderer.configure({ voiceLayout: 'overlay', view, symmetry: 8, glow: 1, spin: 2, width: 3 });
+    renderer.clear(); renderer.configure({ view, symmetry: 8, glow: 1, spin: 2, width: 3 });
     const notes = Array.from({ length: 192 }, (_, index) => ({ note: index % 128,
       channel: index % 16, velocity: 127, sourceId: `dense-${index}` }));
     renderer.capture({ ...sample, activeNotes: notes }, 20);
@@ -276,17 +276,37 @@ test('circular spin reverses without a phase jump and symmetry adds bounded copi
   }
 });
 
-test('older complete version 1 snapshots recall Classic, None and Overlay without inheriting current geometry', () => {
+test('version 1 split layouts are ignored while their colors, trails and live notes survive recall', () => {
+  const expected = MIDIPHORIA_PRESETS[1].snapshot;
+  const model = new MidiphoriaModel({ channel: 2 });
+  const renderer = new MidiphoriaRenderer(canvas());
+  model.handleMessage({ type: 'noteOn', note: 72, channel: 2, velocity: 100, sourceId: 'keyboard' }, 0);
+  const notes = model.sample(0).activeNotes;
+  for (const voiceLayout of ['lanes', 'panels', 'overlay', undefined, 'obsolete']) {
+    const legacy = structuredClone(expected);
+    legacy.render.voiceLayout = voiceLayout;
+    const stored = structuredClone(legacy);
+    assert.ok(isValidMidiphoriaPreset(legacy));
+    assert.deepEqual(sanitizeMidiphoriaPreset(legacy), expected);
+    assert.deepEqual(captureMidiphoriaPreset(legacy.model, legacy.render), expected);
+    assert.deepEqual(applyMidiphoriaPreset(model, renderer, legacy, 0), expected);
+    assert.equal(Object.hasOwn(renderer.options, 'voiceLayout'), false);
+    assert.deepEqual(model.sample(0).activeNotes, notes);
+    assert.equal(model.options.channel, 2);
+    assert.deepEqual(legacy, stored, 'recall must not mutate the saved scene');
+  }
+});
+
+test('older complete version 1 snapshots recall Classic and None without inheriting current geometry', () => {
   const older = structuredClone(MIDIPHORIA_PRESETS[0].snapshot);
-  delete older.render.flow; delete older.render.reflection; delete older.render.voiceLayout;
+  delete older.render.flow; delete older.render.reflection;
   const model = new MidiphoriaModel(), renderer = new MidiphoriaRenderer(canvas());
-  renderer.configure({ reflection: 'all', flow: 'inward', voiceLayout: 'panels' });
+  renderer.configure({ reflection: 'all', flow: 'inward' });
   assert.ok(isValidMidiphoriaPreset(older));
   const applied = applyMidiphoriaPreset(model, renderer, older, 0);
   assert.equal(applied.render.flow, 'classic'); assert.equal(applied.render.reflection, 'none');
-  assert.equal(applied.render.voiceLayout, 'overlay');
   assert.equal('flow' in older.render, false); // Migration never mutates stored data.
-  for (const key of ['flow', 'reflection', 'voiceLayout']) {
+  for (const key of ['flow', 'reflection']) {
     assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: undefined } }), false);
     assert.equal(isValidMidiphoriaPreset({ ...older, render: { ...older.render, [key]: 'invalid' } }), false);
   }
@@ -326,7 +346,7 @@ test('released note heads move from center to edge or edge to center in every ge
   for (const view of MIDIPHORIA_VIEWS) {
     for (const flow of ['outward', 'inward']) {
       const surface = canvas(640, 400), renderer = new MidiphoriaRenderer(surface);
-      renderer.configure({ voiceLayout: 'overlay', view, flow, motion: 0, glow: 0, trailSeconds: 4, spin: 0 });
+      renderer.configure({ view, flow, motion: 0, glow: 0, trailSeconds: 4, spin: 0 });
       const sample = { activeNotes: [{ note: 25, channel: 0, velocity: 127 }], rgb: [1, 0, 0], level: 1 };
       renderer.capture(sample, 0); renderer.capture({ ...sample, activeNotes: [] }, 1);
       const distances = [];
@@ -351,7 +371,7 @@ test('released note heads move from center to edge or edge to center in every ge
 test('reflection composites the bounded history once and reuses its canvas through live edits and resize', () => {
   for (const view of ['radial', 'orbit', 'mirror', 'ribbons', 'trails']) {
     const surface = canvas(), renderer = new MidiphoriaRenderer(surface);
-    renderer.configure({ voiceLayout: 'overlay', view, reflection: 'all', flow: 'inward', symmetry: 8, glow: 1, spin: 2, width: 3 });
+    renderer.configure({ view, reflection: 'all', flow: 'inward', symmetry: 8, glow: 1, spin: 2, width: 3 });
     const notes = Array.from({ length: 192 }, (_, index) => ({ note: index % 128,
       channel: index % 16, velocity: 127, sourceId: `dense-${index}` }));
     const sample = { activeNotes: notes, rgb: [1, 0, 0], level: 1 };
@@ -382,7 +402,7 @@ test('diagonal reflection keeps extreme-pitch centerlines inside its undistorted
   for (const view of MIDIPHORIA_VIEWS) {
     for (const flow of MIDIPHORIA_FLOWS) {
       const surface = canvas(1000, 300), renderer = new MidiphoriaRenderer(surface);
-      renderer.configure({ voiceLayout: 'overlay', view, flow, reflection: 'all', symmetry: 8, motion: 2, glow: 1 });
+      renderer.configure({ view, flow, reflection: 'all', symmetry: 8, motion: 2, glow: 1 });
       const sample = { activeNotes: [0, 127].map(note => ({ note, channel: 0, velocity: 127 })), rgb: [1, 0, 0], level: 1 };
       renderer.capture(sample, 0);
       renderer.draw(sample, 7, DEFAULT_VISUALS);

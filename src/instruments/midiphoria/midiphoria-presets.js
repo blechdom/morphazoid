@@ -3,7 +3,6 @@ import { DEFAULT_VISUALS } from './midiphoria-model.js';
 export const MIDIPHORIA_VIEWS = Object.freeze(['trails', 'mirror', 'radial', 'ribbons', 'orbit']);
 export const MIDIPHORIA_PALETTES = Object.freeze(['pitch', 'candy', 'ember', 'ice', 'acid']);
 export const MIDIPHORIA_COLOR_SOURCES = Object.freeze(['voice', 'pitch', 'channel', 'velocity']);
-export const MIDIPHORIA_VOICE_LAYOUTS = Object.freeze(['overlay', 'lanes', 'panels']);
 export const MIDIPHORIA_REFLECTIONS = Object.freeze([
   'none', 'vertical', 'horizontal', 'both', 'diagonal', 'anti-diagonal', 'diagonals', 'all',
 ]);
@@ -14,7 +13,7 @@ export const MIDIPHORIA_MODEL_KEYS = Object.freeze([
 export const DEFAULT_RENDER_OPTIONS = Object.freeze({
   view: 'trails', trailSeconds: 7, palette: 'pitch', hueOffset: 0,
   saturation: 1, glow: 0.2, width: 1, motion: 1,
-  colorSource: 'voice', voiceLayout: 'lanes', fadeCurve: 1, spin: 0, symmetry: 1,
+  colorSource: 'voice', fadeCurve: 1, spin: 0, symmetry: 1,
   reflection: 'none', flow: 'classic',
 });
 export const MIDIPHORIA_RENDER_KEYS = Object.freeze(Object.keys(DEFAULT_RENDER_OPTIONS));
@@ -40,7 +39,7 @@ export function normalizeMidiphoriaRenderOptions(partial, previous = DEFAULT_REN
   result.symmetry = Math.round(result.symmetry);
   for (const [key, choices] of [['view', MIDIPHORIA_VIEWS], ['palette', MIDIPHORIA_PALETTES],
     ['colorSource', MIDIPHORIA_COLOR_SOURCES], ['reflection', MIDIPHORIA_REFLECTIONS],
-    ['flow', MIDIPHORIA_FLOWS], ['voiceLayout', MIDIPHORIA_VOICE_LAYOUTS]]) {
+    ['flow', MIDIPHORIA_FLOWS]]) {
     result[key] = choices.includes(source[key]) ? source[key]
       : choices.includes(previous?.[key]) ? previous[key] : DEFAULT_RENDER_OPTIONS[key];
   }
@@ -60,10 +59,8 @@ export function captureMidiphoriaPreset(modelOptions = DEFAULT_VISUALS, renderOp
 }
 
 export function sanitizeMidiphoriaPreset(snapshot) {
-  const render = snapshot?.render;
-  // Existing version 1 scenes predate spatial voice separation.
-  return captureMidiphoriaPreset(snapshot?.model, render && !Object.hasOwn(render, 'voiceLayout')
-    ? { ...render, voiceLayout: 'overlay' } : render);
+  // Obsolete split-layout fields in version 1 scenes are ignored on recall.
+  return captureMidiphoriaPreset(snapshot?.model, snapshot?.render);
 }
 
 export function isValidMidiphoriaPreset(snapshot) {
@@ -71,8 +68,8 @@ export function isValidMidiphoriaPreset(snapshot) {
   const sanitized = sanitizeMidiphoriaPreset(snapshot);
   return MIDIPHORIA_MODEL_KEYS.every(key => snapshot.model[key] === sanitized.model[key])
     && MIDIPHORIA_RENDER_KEYS.every(key => snapshot.render[key] === sanitized.render[key]
-      // Older version 1 snapshots keep their original geometry and overlap.
-      || ((key === 'reflection' || key === 'flow' || key === 'voiceLayout') && !Object.hasOwn(snapshot.render, key)));
+      // Older version 1 snapshots predate reflection and flow controls.
+      || ((key === 'reflection' || key === 'flow') && !Object.hasOwn(snapshot.render, key)));
 }
 
 export function applyMidiphoriaPreset(model, renderer, snapshot, now) {
@@ -109,7 +106,6 @@ export function randomizeMidiphoriaPreset(_current, random = Math.random) {
     colorSource: choice(MIDIPHORIA_COLOR_SOURCES), fadeCurve: range(0.25, 4),
     spin: range(-2, 2), symmetry: choice([1, 2, 3, 4, 5, 6, 7, 8]),
     reflection: choice(MIDIPHORIA_REFLECTIONS), flow: choice(MIDIPHORIA_FLOWS),
-    voiceLayout: choice(MIDIPHORIA_VOICE_LAYOUTS),
   });
 }
 
@@ -120,50 +116,50 @@ function preset(id, label, description, model, render) {
 }
 
 export const MIDIPHORIA_PRESETS = Object.freeze([
-  preset('pitch-rain', 'Voice rain', 'Separate lanes and stable colors reveal the voices in the arrangement.', {}, { voiceLayout: 'lanes', colorSource: 'voice' }),
-  preset('candy-mirror', 'Candy mirror', 'Fine colored notes unfold inside separate voice panels.',
+  preset('pitch-rain', 'Voice rain', 'Stable colors identify each voice as the arrangement plays.', {}, { colorSource: 'voice' }),
+  preset('candy-mirror', 'Candy mirror', 'Fine colored notes unfold through mirrored reflections.',
     { hueMode: 'rotate', hueSpeed: 0.045, release: 0.8 },
-    { voiceLayout: 'panels', colorSource: 'voice', view: 'mirror', palette: 'candy', trailSeconds: 5.5, glow: 0.15, width: 0.5, motion: 0.7, fadeCurve: 0.7, reflection: 'both', flow: 'outward' }),
-  preset('solar-wheel', 'Solar wheel', 'Fine warm spokes radiate outward in separate voice wheels.',
+    { colorSource: 'voice', view: 'mirror', palette: 'candy', trailSeconds: 5.5, glow: 0.15, width: 0.5, motion: 0.7, fadeCurve: 0.7, reflection: 'both', flow: 'outward' }),
+  preset('solar-wheel', 'Solar wheel', 'Fine warm spokes radiate outward across the canvas.',
     { attack: 0.005, decay: 0.2, sustain: 0.7, release: 0.6, hueMode: 'activity', hueSpeed: 0.18 },
-    { voiceLayout: 'panels', colorSource: 'pitch', view: 'radial', palette: 'ember', trailSeconds: 3.8, width: 0.7, glow: 0.2, motion: 0.65, spin: 0.5, fadeCurve: 1.4, flow: 'outward' }),
-  preset('aurora-ribbons', 'Aurora ribbons', 'Slow ribbons draw inward through separate colored voice lanes.',
+    { colorSource: 'pitch', view: 'radial', palette: 'ember', trailSeconds: 3.8, width: 0.7, glow: 0.2, motion: 0.65, spin: 0.5, fadeCurve: 1.4, flow: 'outward' }),
+  preset('aurora-ribbons', 'Aurora ribbons', 'Slow colored voice ribbons draw inward toward the center.',
     { attack: 0.3, decay: 0.6, sustain: 0.9, release: 2.2, hueMode: 'rotate', hueSpeed: 0.025 },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'ribbons', palette: 'ice', trailSeconds: 10, width: 2, glow: 0.45, motion: 0.7, saturation: 0.75, fadeCurve: 0.5, flow: 'inward' }),
-  preset('acid-orbits', 'Acid orbits', 'Green comets trace spirals through separate voice panels.',
+    { colorSource: 'voice', view: 'ribbons', palette: 'ice', trailSeconds: 10, width: 2, glow: 0.45, motion: 0.7, saturation: 0.75, fadeCurve: 0.5, flow: 'inward' }),
+  preset('acid-orbits', 'Acid orbits', 'Green comets trace spirals across the field.',
     { attack: 0.01, decay: 0.25, sustain: 0.8, release: 0.5, hueMode: 'activity', hueSpeed: 0.4 },
-    { voiceLayout: 'panels', colorSource: 'velocity', view: 'orbit', palette: 'acid', trailSeconds: 4.8, width: 1.2, glow: 0.7, motion: 1.5, spin: -1.2, fadeCurve: 1.6, flow: 'inward' }),
-  preset('chromatic-field', 'Chromatic threads', 'Fine pitch-colored threads separate each voice in the score.',
+    { colorSource: 'velocity', view: 'orbit', palette: 'acid', trailSeconds: 4.8, width: 1.2, glow: 0.7, motion: 1.5, spin: -1.2, fadeCurve: 1.6, flow: 'inward' }),
+  preset('chromatic-field', 'Chromatic threads', 'Fine pitch-colored threads trace every note in the score.',
     { velocity: false, attack: 0.01, decay: 0.1, sustain: 1, release: 0.4 },
-    { voiceLayout: 'lanes', colorSource: 'pitch', view: 'trails', trailSeconds: 3.2, width: 0.6, glow: 0.05, motion: 0, fadeCurve: 1.8 }),
-  preset('ember-falls', 'Ember falls', 'Long colored voice trails fan out from each lane center.',
+    { colorSource: 'pitch', view: 'trails', trailSeconds: 3.2, width: 0.6, glow: 0.05, motion: 0, fadeCurve: 1.8 }),
+  preset('ember-falls', 'Ember falls', 'Long colored voice trails fan out from the center.',
     { attack: 0.04, decay: 0.4, sustain: 0.75, release: 1.3 },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'trails', palette: 'ember', trailSeconds: 9, width: 2.4, glow: 0.7, motion: 0.3, fadeCurve: 0.6, flow: 'outward' }),
-  preset('ice-blueprint', 'Ice blueprint', 'Fine voice geometry converges through diagonal mirrors in separate panels.',
+    { colorSource: 'voice', view: 'trails', palette: 'ember', trailSeconds: 9, width: 2.4, glow: 0.7, motion: 0.3, fadeCurve: 0.6, flow: 'outward' }),
+  preset('ice-blueprint', 'Ice blueprint', 'Fine voice geometry converges through diagonal mirrors.',
     { attack: 0, decay: 0.05, sustain: 0.9, release: 0.15 },
-    { voiceLayout: 'panels', colorSource: 'voice', view: 'mirror', palette: 'ice', trailSeconds: 4, width: 0.5, glow: 0.05, motion: 0, saturation: 0.8, fadeCurve: 2, reflection: 'diagonals', flow: 'inward' }),
+    { colorSource: 'voice', view: 'mirror', palette: 'ice', trailSeconds: 4, width: 0.5, glow: 0.05, motion: 0, saturation: 0.8, fadeCurve: 2, reflection: 'diagonals', flow: 'inward' }),
   preset('disco-prism', 'Disco prism', 'Fine spinning spokes expand through every mirror axis.',
     { attack: 0, decay: 0.1, sustain: 0.65, release: 0.2, velocity: false, hueMode: 'rotate', hueSpeed: 0.22 },
-    { voiceLayout: 'overlay', colorSource: 'channel', view: 'radial', trailSeconds: 2.4, width: 0.65, glow: 0.15, motion: 1.8, hueOffset: 35, symmetry: 6, spin: 1.5, fadeCurve: 1.8, reflection: 'all', flow: 'outward' }),
-  preset('pink-tape', 'Pink tape', 'Colored ribbons fan outward through separate voice lanes.',
+    { colorSource: 'channel', view: 'radial', trailSeconds: 2.4, width: 0.65, glow: 0.15, motion: 1.8, hueOffset: 35, symmetry: 6, spin: 1.5, fadeCurve: 1.8, reflection: 'all', flow: 'outward' }),
+  preset('pink-tape', 'Pink tape', 'Colored voice ribbons fan outward from the center.',
     { attack: 0.12, decay: 0.35, sustain: 0.85, release: 1.2, hueMode: 'activity', hueSpeed: 0.12 },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'ribbons', palette: 'candy', trailSeconds: 7.5, width: 2.6, glow: 0.25, motion: 1.2, hueOffset: 20, fadeCurve: 0.8, flow: 'outward' }),
-  preset('deep-space', 'Deep space', 'Thin colored spirals leave separate voice constellations.',
+    { colorSource: 'voice', view: 'ribbons', palette: 'candy', trailSeconds: 7.5, width: 2.6, glow: 0.25, motion: 1.2, hueOffset: 20, fadeCurve: 0.8, flow: 'outward' }),
+  preset('deep-space', 'Deep space', 'Thin colored spirals leave voice constellations.',
     { attack: 0.4, decay: 0.6, sustain: 0.75, release: 3.2, hueMode: 'rotate', hueSpeed: 0.015 },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'orbit', palette: 'ice', trailSeconds: 12, width: 0.7, glow: 0.3, motion: 0.35, saturation: 0.65, spin: -0.35, fadeCurve: 0.45, flow: 'outward' }),
-  preset('paper-ink', 'Paper ink', 'Monochrome voice lanes approach the center from the edge.',
+    { colorSource: 'voice', view: 'orbit', palette: 'ice', trailSeconds: 12, width: 0.7, glow: 0.3, motion: 0.35, saturation: 0.65, spin: -0.35, fadeCurve: 0.45, flow: 'outward' }),
+  preset('paper-ink', 'Paper ink', 'Monochrome trails approach the center from the edge.',
     { color: false, invert: true, velocity: true, attack: 0, decay: 0.1, sustain: 1, release: 0.3 },
-    { voiceLayout: 'lanes', colorSource: 'pitch', view: 'trails', trailSeconds: 5, width: 1.5, glow: 0, motion: 0, saturation: 0, fadeCurve: 2.5, flow: 'inward' }),
+    { colorSource: 'pitch', view: 'trails', trailSeconds: 5, width: 1.5, glow: 0, motion: 0, saturation: 0, fadeCurve: 2.5, flow: 'inward' }),
   preset('silver-kaleidoscope', 'Silver kaleidoscope', 'Fine silver geometry opens from the center through all mirror axes.',
     { color: false, velocity: false, attack: 0.08, decay: 0.3, sustain: 0.8, release: 1.4 },
-    { voiceLayout: 'overlay', colorSource: 'pitch', view: 'mirror', trailSeconds: 8, width: 0.4, glow: 0.08, motion: 1.4, saturation: 0, fadeCurve: 0.65, reflection: 'all', flow: 'outward' }),
+    { colorSource: 'pitch', view: 'mirror', trailSeconds: 8, width: 0.4, glow: 0.08, motion: 1.4, saturation: 0, fadeCurve: 0.65, reflection: 'all', flow: 'outward' }),
   preset('liquid-candy', 'Liquid candy', 'Pastel voice ribbons drift inward with a slowly breathing envelope.',
     { attack: 0.6, decay: 0.8, sustain: 0.85, release: 2.5, hueMode: 'rotate', hueSpeed: 0.055 },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'ribbons', palette: 'candy', trailSeconds: 11, width: 1.1, saturation: 0.55, hueOffset: 15, motion: 0.25, glow: 0.15, fadeCurve: 0.6, flow: 'inward' }),
-  preset('black-midi-scope', 'Black MIDI scope', 'Short sharp voice lanes keep dense experimental MIDI legible.',
+    { colorSource: 'voice', view: 'ribbons', palette: 'candy', trailSeconds: 11, width: 1.1, saturation: 0.55, hueOffset: 15, motion: 0.25, glow: 0.15, fadeCurve: 0.6, flow: 'inward' }),
+  preset('black-midi-scope', 'Black MIDI scope', 'Short sharp voice trails keep dense experimental MIDI legible.',
     { attack: 0, decay: 0.04, sustain: 0.8, release: 0.1, velocity: false },
-    { voiceLayout: 'lanes', colorSource: 'voice', view: 'trails', palette: 'acid', trailSeconds: 1.2, width: 0.45, glow: 0, motion: 0, fadeCurve: 3.2, flow: 'classic' }),
+    { colorSource: 'voice', view: 'trails', palette: 'acid', trailSeconds: 1.2, width: 0.45, glow: 0, motion: 0, fadeCurve: 3.2, flow: 'classic' }),
   preset('negative-sun', 'Negative sun', 'Colored voice spokes collapse toward the center on a pale field.',
     { invert: true, attack: 0.03, decay: 0.25, sustain: 0.9, release: 0.65, hueMode: 'activity', hueSpeed: 0.2 },
-    { voiceLayout: 'overlay', colorSource: 'voice', view: 'radial', palette: 'ember', trailSeconds: 5.2, width: 1.1, glow: 0.15, motion: 0.9, hueOffset: 10, spin: -0.8, fadeCurve: 1.2, flow: 'inward' }),
+    { colorSource: 'voice', view: 'radial', palette: 'ember', trailSeconds: 5.2, width: 1.1, glow: 0.15, motion: 0.9, hueOffset: 10, spin: -0.8, fadeCurve: 1.2, flow: 'inward' }),
 ]);
