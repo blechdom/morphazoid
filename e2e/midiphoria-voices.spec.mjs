@@ -235,3 +235,38 @@ test('voice colors, separate lanes, panels and visual focus preserve the soundin
   await testInfo.attach('voice-layouts.json', { body: JSON.stringify(initial, null, 2), contentType: 'application/json' });
   expect(errors).toEqual([]);
 });
+
+test('replacing a playing file clears its stale visual focus and shows the new voices', async ({ page }) => {
+  await open(page);
+  await loadAndPlay(page, fourVoices());
+  await expect(page.locator('#voiceLegend button[data-voice-id]')).toHaveCount(4);
+  const oldVoices = (await audit(page)).voices;
+  const absentVoice = oldVoices.find(voice => voice.channel === 3);
+  await page.locator('#voiceFocus').selectOption(absentVoice.id);
+  await expect.poll(async () => (await audit(page)).scenes.map(scene => scene.voiceIds)).toEqual([[absentVoice.id]]);
+  const replacement = midiFile([
+    { tick: 0, bytes: [0xc0, 32] },
+    { tick: 960, bytes: [0x90, 67, 100] },
+    { tick: 76800, bytes: [0x80, 67, 0] },
+  ], 78720);
+  await page.locator('#midiFile').setInputFiles({
+    name: 'New solo arrangement.mid', mimeType: 'audio/midi', buffer: replacement,
+  });
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#voiceFocus')).toHaveValue('');
+  await expect(page.locator('#voiceLegend button[data-voice-id]')).toHaveCount(1);
+  await expect.poll(async () => (await audit(page)).voices.filter(voice => voice.active).length).toBe(1);
+  const result = await audit(page);
+  expect(result.focus).toBe(null);
+  expect(result.voices[0].channel).toBe(0);
+  expect(result.voices.some(voice => voice.id === absentVoice.id)).toBe(false);
+  expect(result.scenes).toHaveLength(1);
+  expect(result.scenes[0].voiceIds).toEqual([result.voices[0].id]);
+  expect(result.scenes[0].noteIds).toHaveLength(1);
+  const position = Number(await page.locator('#songPosition').inputValue());
+  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(position + .2);
+  const sound = await sampleAudioEnvelope(page, { durationMs: 400, intervalMs: 40 });
+  expect(sound.summary.finite).toBe(true);
+  expect(sound.summary.maxRms).toBeGreaterThan(.001);
+  expect(sound.summary.clippedSamples).toBe(0);
+});
