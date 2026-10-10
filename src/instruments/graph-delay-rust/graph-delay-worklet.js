@@ -6,14 +6,20 @@ const now = fineClock ? () => globalThis.performance.now() : () => Date.now();
 class GraphDelayRustProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
-    this.engine = this.api.gdr_new(sampleRate);
-    if (!this.engine) throw new Error('The Rust graph engine could not allocate its audio state.');
-    this.pointers = Array.from({ length: 4 }, () => this.api.gdr_alloc(BLOCK * 4));
-    if (this.pointers.some(pointer => !pointer)) throw new Error('The Rust graph audio buffers could not be allocated.');
-    this.refresh();
+    this.engine = 0; this.pointers = [];
     this.closed = false; this.pendingId = null; this.frames = 0; this.timingFrames = 0; this.timingMs = 0;
     this.cpuLoad = 0; this.peakLoad = 0; this.deadlineMisses = 0; this.lastAudioTime = 0;
+    try {
+      this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
+      this.engine = this.api.gdr_new(sampleRate);
+      if (!this.engine) throw new Error('The Rust graph engine could not allocate its audio state.');
+      for (let index = 0; index < 4; index++) {
+        const pointer = this.api.gdr_alloc(BLOCK * 4);
+        if (!pointer) throw new Error('The Rust graph audio buffers could not be allocated.');
+        this.pointers.push(pointer);
+      }
+      this.refresh();
+    } catch (error) { this.release(); throw error; }
     this.port.onmessage = ({ data }) => {
       try {
         if (this.closed) return;
@@ -24,9 +30,13 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
           try {
             new Float64Array(this.api.memory.buffer, pointer, plan.length).set(plan);
             accepted = this.api.gdr_plan(this.engine, pointer, plan.length);
-          } finally { this.api.gdr_free(pointer, plan.byteLength); this.refresh(); }
+          } finally {
+            this.api.gdr_free(pointer, plan.byteLength);
+            if (this.memory !== this.api.memory.buffer) this.refresh();
+          }
           if (!accepted) throw new Error('The Rust graph exceeds its route or device memory limits.');
-          if (this.pendingId !== null) this.port.postMessage({ id: this.pendingId, superseded: true });
+          if (this.pendingId !== null) this.reply({ id: this.pendingId, superseded: true });
+          if (this.closed) return;
           this.pendingId = data.id;
           // Commit an in-place coefficient edit immediately; a structural scene
           // waits for bounded history preparation in spare callback time.
@@ -36,17 +46,15 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
         } else if (data.type === 'clear') {
           this.api.gdr_clear(this.engine);
         } else if (data.type === 'dispose') {
-          this.closed = true;
-          this.api.gdr_drop(this.engine);
-          for (const pointer of this.pointers) this.api.gdr_free(pointer, BLOCK * 4);
-          this.port.postMessage({ id: data.id });
+          this.release();
+          this.reply({ id: data.id });
         } else if (data.type === 'status') this.status();
       } catch (error) {
-        this.port.postMessage({ id: data.id, error: String(error.message || error) });
+        this.reply({ id: data.id, error: String(error.message || error) });
         if (error instanceof WebAssembly.RuntimeError) this.failure(error);
       }
     };
-    this.port.postMessage({ type: 'ready' });
+    this.reply({ type: 'ready' });
   }
   refresh() {
     this.memory = this.api.memory.buffer;
@@ -57,16 +65,35 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
   }
   complete() {
     if (this.pendingId === null) return;
-    this.port.postMessage({ id: this.pendingId }); this.pendingId = null;
+    const id = this.pendingId; this.pendingId = null; this.reply({ id });
+  }
+  reply(message, transfer = []) {
+    try { this.port.postMessage(message, transfer); }
+    catch { this.release(); }
+  }
+  release() {
+    if (this.closed) return;
+    this.closed = true; this.pendingId = null; this.port.onmessage = null;
+    const engine = this.engine; this.engine = 0;
+    if (engine) {
+      try { this.api.gdr_drop(engine); } catch { /* A trapped instance may not be reusable. */ }
+    }
+    for (const pointer of this.pointers) {
+      try { this.api.gdr_free(pointer, BLOCK * 4); } catch { /* Release remaining buffers independently. */ }
+    }
+    this.pointers = [];
+    this.memory = this.left = this.right = this.outLeft = this.outRight = this.values = this.nodeLevels = this.edgeLevels = null;
+    this.api = null;
   }
   failure(error) {
-    this.closed = true;
-    this.port.postMessage({ type: 'failure', error: String(error.message || error) });
+    if (this.closed) return;
+    this.release();
+    this.reply({ type: 'failure', error: String(error.message || error) });
   }
   status() {
     if (this.memory !== this.api.memory.buffer) this.refresh();
     const nodeLevels = this.nodeLevels.slice(0, this.values[3]), edgeLevels = this.edgeLevels.slice(0, this.values[4]);
-    this.port.postMessage({ type: 'metrics', metrics: {
+    this.reply({ type: 'metrics', metrics: {
       elapsedSeconds: this.values[0], audioTimeSeconds: this.lastAudioTime,
       inputPeak: this.values[1], outputPeak: this.values[2], nodes: this.values[3], edges: this.values[4],
       routes: this.values[5], activeRoutes: this.values[5], nodeLevels, edgeLevels,
