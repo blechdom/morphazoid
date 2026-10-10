@@ -3,6 +3,8 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { generateGraph, generateGraphWithinTurnBudget } from '../src/instruments/graph-delay/graph-delay.js';
 import { compileGraphDelayPlan, MAX_RUST_GRAPH_NODES, MAX_RUST_GRAPH_TURN_ROUTES } from '../src/instruments/graph-delay-rust/graph-delay-plan.js';
+import { GRAPH_DELAY_RUST_PRESETS } from '../src/instruments/graph-delay-rust/graph-delay-presets.js';
+import { GRAPH_DELAY_INITIAL_STATE } from '../src/families/graph-presets/initial-state.js';
 
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/graph-delay.wasm', import.meta.url)));
 const RATE = 48000, BLOCK = 128;
@@ -45,6 +47,7 @@ function fixture(g = graph(), options = settings, rate = RATE) {
 }
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
 const energy = values => values.reduce((sum, value) => sum + value * value, 0);
+const tone = (amplitude = .05, frequency = 233) => (_frame, time) => amplitude * Math.sin(2 * Math.PI * frequency * time);
 
 test('Rust graph module has a checked raw ABI and no runtime imports', () => {
   assert.deepEqual(WebAssembly.Module.imports(module), []);
@@ -80,12 +83,12 @@ test('Rust graph remains cold-silent and starts wet sound only after the directe
 test('extreme 64-node recalls retain the old wet scene beyond forty seconds', () => {
   const f = fixture(graph(), settings, 8000);
   try {
-    f.render(.2, () => .05);
+    f.render(.2, tone(.05));
     const longPath = graph('chain', 64);
     longPath.nodes.forEach((node, index) => { node.x = node.y = index % 2 ? .98 : .02; });
     const installed = f.install(longPath, { ...settings, baseDelay: 600, timeScale: 800, pitchScale: 2 });
     assert.ok(installed.data[11] > 86, 'geometry needs more than 86 seconds before its first wet arrival');
-    const output = f.render(41, () => .05)[0];
+    const output = f.render(41, tone(.05))[0];
     assert.ok(peak(output.subarray(-1600)) > .003, 'old wet signal must still be audible at 41 seconds');
   } finally { f.close(); }
 });
@@ -97,9 +100,46 @@ test('feedback is a real recirculating network and its decay control changes lat
     try { captures.push(f.render(.8, (_frame, time) => time < .005 ? .08 * Math.sin(time * 2 * Math.PI * 300) : 0)[0]); }
     finally { f.close(); }
   }
-  assert.ok(energy(captures[0].subarray(.18 * RATE)) < 1e-10);
+  // The DC rejector has a short settling tail after the finite input burst.
+  assert.ok(energy(captures[0].subarray(.4 * RATE)) < 1e-10);
   assert.ok(energy(captures[1].subarray(.18 * RATE)) > 1e-6);
   assert.ok(energy(captures[1].subarray(.6 * RATE)) < energy(captures[1].subarray(.18 * RATE, .4 * RATE)));
+});
+
+test('downward pitched feedback rejects DC before it consumes output headroom', () => {
+  const preset = GRAPH_DELAY_RUST_PRESETS.find(item => item.id === 'islandConstellation').snapshot;
+  const f = fixture(preset.graph, { ...GRAPH_DELAY_INITIAL_STATE, ...preset.parameters,
+    wet: 1, dry: 0, pitchScale: 2, pitchCurve: 1.5, pitchAsymmetry: -.15 });
+  try {
+    f.api.gdr_performance(f.engine, 0, 0);
+    const output = f.render(12, tone(.04));
+    for (const channel of output) {
+      const settled = channel.subarray(-4 * RATE);
+      const mean = settled.reduce((sum, value) => sum + value, 0) / settled.length;
+      const rms = Math.sqrt(energy(settled) / settled.length);
+      assert.ok(Math.abs(mean) < .001, `feedback DC is rejected: ${mean}`);
+      assert.ok(rms > .0001 && rms < .05, `usable AC remains without saturated offset: ${rms}`);
+      assert.ok(peak(settled) < .15);
+    }
+    assert.equal(f.metrics()[6], f.initial.routes, 'DC rejection does not conceal a voice reduction');
+  } finally { f.close(); }
+});
+
+test('output DC rejection preserves a quiet audible signal and stereo isolation before limiting', () => {
+  const levels = [];
+  for (const offset of [0, 2]) {
+    const f = fixture(graph(), { ...settings, wet: 0, dry: 1 });
+    try {
+      const output = f.render(2, (_frame, time) => offset + .02 * Math.sin(2 * Math.PI * 233 * time), () => 0);
+      const tail = output[0].subarray(-RATE / 2);
+      assert.equal(peak(output[1]), 0);
+      assert.ok(Math.abs(tail.reduce((sum, value) => sum + value, 0) / tail.length) < .0001);
+      levels.push(energy(tail) / tail.length);
+      f.api.gdr_clear(f.engine);
+      assert.equal(peak(f.render(.1)[0]), 0, 'Clear also releases DC-filter state');
+    } finally { f.close(); }
+  }
+  assert.ok(Math.abs(levels[1] / levels[0] - 1) < .001, 'removed DC cannot keep the limiter attenuating the tone');
 });
 
 test('stereo histories retain channel identity and left-only input does not become mono', () => {
@@ -175,7 +215,7 @@ test('live geometry and mix updates retain sample clock and feedback history', (
 test('Clear removes even long old history immediately without resetting the sample clock', () => {
   const f = fixture(graph('ring'), { ...settings, pitchScale: .8, feedback: .92 });
   try {
-    f.render(.25, () => .1); const time = f.metrics()[0]; f.api.gdr_clear(f.engine);
+    f.render(.25, tone(.1)); const time = f.metrics()[0]; f.api.gdr_clear(f.engine);
     const result = f.render(.4);
     assert.equal(peak(result[0]), 0); assert.ok(f.metrics()[0] > time);
   } finally { f.close(); }
@@ -184,11 +224,11 @@ test('Clear removes even long old history immediately without resetting the samp
 test('large plans prepare in bounded steps while the installed scene still sounds', () => {
   const f = fixture();
   try {
-    f.render(.1, () => .05);
+    f.render(.1, tone(.05));
     const large = generateGraphWithinTurnBudget({ type: 'dag', nodeCount: 64, maxNodes: 64, density: .5, seed: 3 }, 512).graph;
     const plan = f.install(large, { ...settings, pitchScale: .7 }, null, false);
     assert.equal(f.api.gdr_prepare(f.engine, 1), 0);
-    const result = f.render(.03, () => .05);
+    const result = f.render(.03, tone(.05));
     assert.ok(peak(result[0]) > .01); assert.ok(plan.routes > 192);
     // An explicit return to the installed scene cancels the uncommitted scene.
     f.install(graph(), settings);
@@ -217,11 +257,11 @@ test('fixed safety limits are explicit and larger node graphs retain the shared 
 test('structural recall keeps the previous audible graph until the new long path arrives', () => {
   const f = fixture();
   try {
-    f.render(.3, () => .05);
+    f.render(.3, tone(.05));
     const next = graph('chain', 8);
     const plan = f.install(next, { ...settings, baseDelay: 180 }, null, false);
     assert.ok(plan.data[11] > 1.28);
-    const result = f.render(1.8, () => .05)[0];
+    const result = f.render(1.8, tone(.05))[0];
     for (let at = 0; at + 480 < result.length; at += 480) assert.ok(peak(result.subarray(at, at + 480)) > .005, `gap at ${at / RATE}s`);
     assert.equal(f.metrics()[3], 8);
   } finally { f.close(); }
@@ -231,12 +271,12 @@ test('structural recall keeps the previous audible graph until the new long path
 test('multi-hop pitched recalls retain output until every granular hop has history', () => {
   const f = fixture();
   try {
-    f.render(.3, () => .05);
+    f.render(.3, tone(.05));
     const zigzag = graph('chain', 32);
     zigzag.nodes.forEach((node, index) => { node.y = index % 2 ? .8 : .2; });
     const plan = f.install(zigzag, { ...settings, pitchScale: 2, pitchSlew: 10, feedback: 0 }, null, false);
     assert.ok(plan.data[11] > 4);
-    const output = f.render(5, () => .05)[0];
+    const output = f.render(5, tone(.05))[0];
     for (let at = 0; at + 2400 < output.length; at += 2400) assert.ok(peak(output.subarray(at, at + 2400)) > .003, `pitched gap at ${at / RATE}s`);
     assert.equal(f.metrics()[3], 32);
   } finally { f.close(); }
@@ -247,18 +287,18 @@ test('live cap releases routes smoothly, preserves history, and re-admits prepar
   try {
     const routes = f.initial.routes;
     assert.ok(routes > 2);
-    f.render(.5, () => .04);
+    f.render(.5, tone(.04));
     const elapsed = f.metrics()[0];
     assert.equal(f.api.gdr_performance(f.engine, 2, 0), 1);
     let metrics = f.metrics();
     assert.equal(metrics[6], routes, 'releasing voices still count as processing');
     assert.equal(metrics[7], 2); assert.equal(metrics[8], routes); assert.equal(metrics[15], 2);
-    const output = f.render(.22, () => .04)[0];
+    const output = f.render(.22, tone(.04))[0];
     assert.ok(output.every(Number.isFinite));
     metrics = f.metrics(); assert.equal(metrics[6], 2); assert.ok(metrics[0] > elapsed);
     assert.ok(peak(output.subarray(-1024)) > .001, 'path-priority preserves an audible wet path at a low cap');
     assert.equal(f.api.gdr_performance(f.engine, 0, 0), 1);
-    assert.equal(f.metrics()[7], routes); f.render(.2, () => .04);
+    assert.equal(f.metrics()[7], routes); f.render(.2, tone(.04));
     assert.equal(f.metrics()[6], routes); assert.equal(f.metrics()[15], 512);
     assert.equal(f.api.gdr_performance(f.engine, 513, 0), 0);
     assert.equal(f.api.gdr_limit(f.engine, 0), 0);
@@ -268,11 +308,11 @@ test('live cap releases routes smoothly, preserves history, and re-admits prepar
 test('gated routes become ineligible and stop processing after smooth release', () => {
   const geometry = graph('ring', 6), f = fixture(geometry);
   try {
-    f.render(.1, () => .05);
+    f.render(.1, tone(.05));
     f.install(geometry, settings, geometry.edges.map(() => false));
     assert.equal(f.metrics()[8], 0); assert.equal(f.metrics()[7], 0); assert.ok(f.metrics()[6] > 0);
     f.render(.2); assert.equal(f.metrics()[6], 0);
-    f.install(geometry, settings); f.render(.2, () => .05);
+    f.install(geometry, settings); f.render(.2, tone(.05));
     assert.equal(f.metrics()[6], f.initial.routes);
   } finally { f.close(); }
 });
@@ -280,13 +320,13 @@ test('gated routes become ineligible and stop processing after smooth release', 
 test('the cap applies per graph while transition processing and targets report both scenes', () => {
   const f = fixture(graph('ring', 8));
   try {
-    f.api.gdr_performance(f.engine, 3, 0); f.render(.25, () => .04);
+    f.api.gdr_performance(f.engine, 3, 0); f.render(.25, tone(.04));
     f.install(graph('ring', 10));
     let metrics = f.metrics();
     assert.equal(metrics[9], 3); assert.equal(metrics[10], 3);
     assert.equal(metrics[6], 6); assert.equal(metrics[7], 6);
     assert.equal(metrics[13], 11); assert.equal(metrics[14], 9); assert.equal(metrics[8], 20);
-    f.render(.7, () => .04); metrics = f.metrics();
+    f.render(.7, tone(.04)); metrics = f.metrics();
     assert.equal(metrics[10], 0); assert.equal(metrics[6], 3);
   } finally { f.close(); }
 });
@@ -323,11 +363,11 @@ entries: [0], indegree: [0, 1, 1, 2], outdegree: [2, 1, 1, 0] });
 for (const closedEdge of [0, 1]) test(`a two-voice cap follows the remaining complete path after diamond edge ${closedEdge} closes`, () => {
   const geometry = diamond(), f = fixture(geometry, { ...settings, feedback: 0 });
   try {
-    f.api.gdr_performance(f.engine, 2, 0); f.render(.2, () => .04);
+    f.api.gdr_performance(f.engine, 2, 0); f.render(.2, tone(.04));
     const gates = geometry.edges.map(edge => edge.id !== closedEdge);
     f.install(geometry, { ...settings, feedback: 0 }, gates);
     assert.equal(f.metrics()[7], 2); assert.equal(f.metrics()[8], 3);
-    const output = f.render(.7, () => .04)[0];
+    const output = f.render(.7, tone(.04))[0];
     assert.ok(peak(output.subarray(-4800)) > .01, 'the intact lower path remains audible');
     assert.equal(f.metrics()[6], 2, 'retired old-path routes release before leaving processing count');
     assert.equal(f.metrics()[3], 4); assert.equal(f.metrics()[4], 4);
@@ -337,7 +377,7 @@ for (const closedEdge of [0, 1]) test(`a two-voice cap follows the remaining com
 test('all-prepared mode retains delayed downstream history after an incoming edge closes', () => {
   const geometry = diamond(), f = fixture(geometry, { ...settings, baseDelay: 250, feedback: 0 });
   try {
-    f.render(1, () => .04);
+    f.render(1, tone(.04));
     // The other branch is also closed; only already-delayed upper-branch
     // history can produce this output after the source input stops.
     f.install(geometry, { ...settings, baseDelay: 250, feedback: 0 }, [false, true, false, false]);
@@ -355,12 +395,12 @@ for (const capAt of [0, .1, .3]) test(`structural warmup follows the admitted sl
   const options = { ...settings, baseDelay: 20, timeScale: 1600, timeCurve: 1, pitchScale: capAt === .1 ? 1 : 0, feedback: 0, inputX: .1, inputY: .5 };
   const f = fixture(graph(), { ...settings, feedback: 0 });
   try {
-    f.render(.3, () => .04);
+    f.render(.3, tone(.04));
     if (!capAt) f.api.gdr_performance(f.engine, 2, 0);
     const plan = f.install(geometry, options);
     assert.ok(plan.data[11] < .5, 'uncapped graph has a much faster excluded path');
-    if (capAt) { f.render(capAt, () => .04); f.api.gdr_performance(f.engine, 2, 0); }
-    const output = f.render(3, () => .04)[0];
+    if (capAt) { f.render(capAt, tone(.04)); f.api.gdr_performance(f.engine, 2, 0); }
+    const output = f.render(3, tone(.04))[0];
     const window = Math.floor(.05 * RATE);
     for (let at = 0; at + window < output.length; at += window) {
       assert.ok(peak(output.subarray(at, at + window)) > .003, `wet continuity at ${at / RATE}s`);

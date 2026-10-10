@@ -14,6 +14,9 @@ const SOURCES: usize = EDGES + NODES;
 const ROUTES: usize = 512;
 const BLOCK: usize = 128;
 const WINDOW: usize = 4096;
+// Repeated downward pitch shifts can turn feedback into a near-constant
+// offset. Remove it before it circulates or spends the output limiter's gain.
+const DC_CUTOFF_HZ: f64 = 10.;
 type Stereo = [f64; 2];
 
 fn finite(x: f64) -> f64 {
@@ -25,6 +28,10 @@ fn finite(x: f64) -> f64 {
 }
 fn smooth(x: f64, target: f64, amount: f64) -> f64 {
     x + (target - x) * amount
+}
+fn reject_dc(sample: f64, mean: &mut f64, amount: f64) -> f64 {
+    *mean = smooth(*mean, sample, amount);
+    sample - *mean
 }
 fn hash(mut value: u32) -> f64 {
     value ^= value >> 16;
@@ -62,6 +69,7 @@ struct Edge {
     target_gate: f64,
     z1: Stereo,
     z2: Stereo,
+    dc: Stereo,
 }
 #[derive(Clone, Copy, Default)]
 struct Entry {
@@ -118,6 +126,7 @@ struct Network {
     node_peaks: [f64; NODES],
     edge_peaks: [f64; EDGES],
     rate: f64,
+    dc_amount: f64,
     grain: f64,
     mix: [f64; 4],
     target_mix: [f64; 4],
@@ -197,6 +206,7 @@ impl Network {
             edge_peaks: [0.; EDGES],
             rate,
             grain: (rate * 0.11).round(),
+            dc_amount: 1. - (-2. * PI * DC_CUTOFF_HZ / rate).exp(),
             mix: [0.; 4],
             target_mix: [0.; 4],
             damping: 4800.,
@@ -632,7 +642,11 @@ impl Network {
                         edge.z1[channel] =
                             self.filter[1] * *sample - self.filter[3] * filtered + edge.z2[channel];
                         edge.z2[channel] = self.filter[2] * *sample - self.filter[4] * filtered;
-                        *sample = filtered;
+                        *sample = reject_dc(
+                            finite(filtered).clamp(-32., 32.),
+                            &mut edge.dc[channel],
+                            self.dc_amount,
+                        );
                     }
                     *sample = finite(*sample).clamp(-32., 32.);
                     self.node_block[edge.to * BLOCK + frame][channel] += *sample;
@@ -805,7 +819,11 @@ impl Network {
                     edge.z1[channel] =
                         self.filter[1] * *sample - self.filter[3] * output + edge.z2[channel];
                     edge.z2[channel] = self.filter[2] * *sample - self.filter[4] * output;
-                    *sample = output;
+                    *sample = reject_dc(
+                        finite(output).clamp(-32., 32.),
+                        &mut edge.dc[channel],
+                        self.dc_amount,
+                    );
                 }
                 *sample = finite(*sample).clamp(-32., 32.);
                 self.sums[edge.to][channel] += *sample;
@@ -933,6 +951,8 @@ impl Network {
 
 pub struct Engine {
     rate: f64,
+    dc_amount: f64,
+    output_dc: Stereo,
     active: Option<Network>,
     pending: Option<Network>,
     old: Option<Network>,
@@ -956,6 +976,8 @@ impl Engine {
     fn new(rate: f64) -> Self {
         Self {
             rate,
+            dc_amount: 1. - (-2. * PI * DC_CUTOFF_HZ / rate).exp(),
+            output_dc: [0.; 2],
             active: None,
             pending: None,
             old: None,
@@ -1154,6 +1176,13 @@ impl Engine {
                 }
             }
             self.enabled = smooth(self.enabled, self.target_enabled, smoothing);
+            for (channel, sample) in value.iter_mut().enumerate() {
+                *sample = reject_dc(
+                    finite(*sample),
+                    &mut self.output_dc[channel],
+                    self.dc_amount,
+                );
+            }
             let peak = value[0].abs().max(value[1].abs());
             self.envelope = smooth(
                 self.envelope,
@@ -1334,9 +1363,11 @@ pub unsafe extern "C" fn gdr_clear(engine: *mut Engine) {
         for edge in &mut network.edges {
             edge.z1 = [0.; 2];
             edge.z2 = [0.; 2];
+            edge.dc = [0.; 2];
         }
     }
     engine.envelope = 0.;
+    engine.output_dc = [0.; 2];
     engine.node_levels.fill(0.);
     engine.edge_levels.fill(0.);
 }
