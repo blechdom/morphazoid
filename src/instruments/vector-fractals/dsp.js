@@ -1,4 +1,5 @@
 import { HARMONICS, TABLE_SIZE, clamp, mipSelection } from './model.js';
+import { TraceDSP } from './trace-dsp.js';
 
 function sample(table, index, next, fraction) {
   return table[index] + (table[next] - table[index]) * fraction;
@@ -13,8 +14,14 @@ export class VectorDSP {
     this.bank = null; this.previous = null; this.pending = null; this.fade = 1; this.previousVoyage = 0;
     this.smoothing = 1 - Math.exp(-1 / (.035 * sampleRate));
     this.pair = new Float64Array(2); this.oldPair = new Float64Array(2);
+    this.trace = new TraceDSP(sampleRate); this.tracePair = new Float64Array(2); this.traceMix = 0;
   }
-  setState(state) { this.state = state; }
+  setState(state) { this.state = state; this.trace.setState(state); }
+  setTraceBank(bank) { this.trace.setBank(bank); }
+  get traceActive() { return this.state.mode === 'explorer' && this.state.contourReader === 'trace'; }
+  get tracePhase() { return this.trace.phase; }
+  set tracePhase(value) { this.trace.setPhase(value); }
+  get traceRate() { return this.playing && this.traceActive ? this.trace.rate : 0; }
   setBank(bank, resetMotion = false) {
     if (!bank?.frames?.length) return;
     if (this.previous) { this.pending = { bank, resetMotion: resetMotion || this.pending?.resetMotion }; return; }
@@ -22,7 +29,7 @@ export class VectorDSP {
     this.previous = this.bank; this.bank = bank; this.fade = this.previous ? 0 : 1;
     if (resetMotion) this.voyage = 0;
   }
-  resetMotion() { this.scanPhase = 0; this.setBank(this.bank, true); }
+  resetMotion() { this.scanPhase = 0; this.trace.reset(); this.setBank(this.bank, true); }
   read(bank, mip, mix, out, voyage = this.voyage) {
     if (!bank) { out.fill(0); return; }
     const position = voyage * bank.frames.length;
@@ -43,7 +50,8 @@ export class VectorDSP {
     // Selecting for the higher end of this block's glide never exposes an unsafe mip.
     const endFrequency = targetFrequency + (this.frequency - targetFrequency) * (1 - this.smoothing) ** left.length;
     const mip = mipSelection(Math.max(this.frequency, endFrequency), this.sampleRate);
-    const targetAmplitude = this.playing && this.bank ? clamp(this.level, 0, .8, .35) : 0;
+    const traceActive = this.traceActive;
+    const targetAmplitude = this.playing && (this.bank || traceActive) ? clamp(this.level, 0, .8, .35) : 0;
     const targetRotation = clamp(this.state.rotation, -180, 180) * Math.PI / 180;
     const speed = this.state.mode === 'voyager' ? clamp(this.state.speed, .005, .4, .06) : 0;
     for (let i = 0; i < left.length; i++) {
@@ -51,6 +59,7 @@ export class VectorDSP {
       this.amplitude += (targetAmplitude - this.amplitude) * this.smoothing;
       this.rotation += (targetRotation - this.rotation) * this.smoothing;
       this.monoMix += ((this.state.readout === 'mono' ? 1 : 0) - this.monoMix) * this.smoothing;
+      this.traceMix += ((traceActive ? 1 : 0) - this.traceMix) * this.smoothing;
       this.read(this.bank, mip.index, mip.mix, this.pair);
       if (this.previous) {
         this.read(this.previous, mip.index, mip.mix, this.oldPair, this.previousVoyage);
@@ -64,9 +73,14 @@ export class VectorDSP {
         }
       }
       const cos = Math.cos(this.rotation), sin = Math.sin(this.rotation);
-      const x = (this.pair[0] * cos - this.pair[1] * sin) * this.amplitude;
+      const stereoX = (this.pair[0] * cos - this.pair[1] * sin) * this.amplitude;
       const stereoY = (this.pair[0] * sin + this.pair[1] * cos) * this.amplitude;
-      const y = stereoY + (x - stereoY) * this.monoMix;
+      const monoY = stereoY + (stereoX - stereoY) * this.monoMix;
+      this.trace.sample(this.tracePair, this.frequency, this.playing && traceActive);
+      // Preserve the original XY readout while the slow reader fades in/out.
+      // Trace pan always follows position, independent of saved XY mono/rotation.
+      const x = stereoX + (this.tracePair[0] * this.amplitude - stereoX) * this.traceMix;
+      const y = monoY + (this.tracePair[1] * this.amplitude - monoY) * this.traceMix;
       left[i] = Number.isFinite(x) ? Math.max(-.95, Math.min(.95, x)) : 0;
       right[i] = Number.isFinite(y) ? Math.max(-.95, Math.min(.95, y)) : 0;
       // Carrier remains continuous during the release; slow motion pauses with transport.
