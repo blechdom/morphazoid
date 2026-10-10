@@ -40,6 +40,15 @@ file and sample input, and the device-adaptive Rust/WASM delay engine.
 Audio starts off.
 [Grammar sources](docs/l-system-delay-grammars.md); [lab mappings and limits](docs/l-system-labs-models.md).
 
+**[Fractal Delay](fractal-delay.html)** explores five mappings in one instrument:
+Julia inverse trees, coupled escape-potential contours, repeating or finite
+orbit routes, numerical gradient-ray lattices, and filled or explicitly thickened
+fractal chambers. Mic/line, audio files and the L-system Delay sample bank feed
+a browser Rust/WebAssembly bidirectional delay network; geometric edge lengths
+set wave travel times. Twenty complete presets cover echoes and short-delay
+resonances. Audio starts off. Find it in Work in Progress.
+[Controls, mathematics and approximation limits](docs/fractal-delay.md).
+
 **[Bifurcator](bifurcator.html)** plays five nonlinear systems: Hopf onset,
 logistic period-doubling, fold hysteresis, Lorenz and Rössler chaos. Its live
 orbit and sound share the same audio-clock simulation. Regime changes the

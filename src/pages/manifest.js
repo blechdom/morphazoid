@@ -54,6 +54,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "fm-drums.html",
   "fourier-epicycles.html",
   "freeze-point.html",
+  "fractal-delay.html",
   "fractal-synthesis.html",
   "gear-ratio-drums.html",
   "geodesic-drift.html",
