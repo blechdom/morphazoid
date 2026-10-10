@@ -182,7 +182,9 @@ export function createFractalDelayEngine(options = {}) {
     stopPulses();stopMicrophone();input.stop();compiling=false;
     const failure=new Error(String(reason?.message||reason));
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.reject(failure);}requests.clear();
-    for(const pending of builds.values())pending.resolve(false);builds.clear();report(failure);
+    for(const pending of builds.values())pending.resolve(false);builds.clear();
+    if(context?.state==='running')void context.suspend().catch(report);
+    report(failure);
   }
   function stopMicrophone() {
     micVersion++; micPending=false; micNode?.disconnect(); micNode=null;
@@ -269,7 +271,7 @@ export function createFractalDelayEngine(options = {}) {
     }).finally(()=>{motionBusy=false;if(!disposed&&!motionPlaying()&&!motionDirty())stopMotionTimer();});
   }
   function setMotionPlaying(axis,playing) {
-    if(disposed)return false;
+    if(disposed||processorFailure)return false;
     advanceMotionClock();
     if(!motion.setPlaying(axis,playing))return false;
     if(!motionTimer)motionTimer=setInterval(pumpMotion,50);
