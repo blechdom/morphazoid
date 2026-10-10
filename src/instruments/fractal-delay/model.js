@@ -10,9 +10,13 @@
 export const MODES = Object.freeze([
   Object.freeze({ id: 'inverse', label: 'Inverse tree', description: 'Both square-root predecessors form a Julia vector tree.' }),
   Object.freeze({ id: 'contours', label: 'Contour loops', description: 'Numerical escape-potential contours connect at nearby spatial bridges.' }),
-  Object.freeze({ id: 'orbits', label: 'Orbit routes', description: 'Repeating critical orbits close into loops; finite nonperiodic routes remain open.' }),
+  Object.freeze({ id: 'orbits', label: 'Orbit routes', description: 'Numerical near-returns close critical orbits into approximate loops; finite nonperiodic routes remain open.' }),
   Object.freeze({ id: 'rays', label: 'Ray lattice', description: 'Numerical potential-gradient rays join surrounding equipotential loops.' }),
   Object.freeze({ id: 'membrane', label: 'Fractal chamber', description: 'A finite filled silhouette bounds a connected waveguide mesh.' }),
+]);
+export const PROPAGATION_MODES = Object.freeze([
+  Object.freeze({ id: 'paths', label: 'Path echoes', description: 'Travelling delays connect geometric length, direction and turns to echoes.' }),
+  Object.freeze({ id: 'resonance', label: 'Resonance', description: 'Bidirectional waveguides scatter through the graph as a resonant network.' }),
 ]);
 export const INPUT_MODES = Object.freeze([
   Object.freeze({ id: 'point', label: 'Point', description: 'Inject at one position in the admitted graph.' }),
@@ -33,14 +37,16 @@ export const ROUTING_MODES = Object.freeze([
   Object.freeze({ id: 'shortcuts', label: 'Shortcuts', description: 'Add visible long-range connections between existing graph nodes.' }),
   Object.freeze({ id: 'hub', label: 'Hub', description: 'Connect selected graph nodes to an existing central junction.' }),
 ]);
-export const DEFAULT_PARAMETERS = Object.freeze({ mode: 'inverse', domain: 'julia', cReal: -.745, cImag: .113,
+export const DEFAULT_PARAMETERS = Object.freeze({ mode: 'inverse', domain: 'julia', propagation: 'paths', cReal: -.745, cImag: .113,
   detail: 6, timeMs: 140, coupling: .82, decay: .84, pitchOffset: 0, pickup: .7,
+  geometryPitch: 8, tapCoverage: .65, turnTone: .3,
   inputMode: 'point', inputPosition: 0, inputCount: 4, inputSpread: .5,
   pickupMode: 'point', pickupCount: 4, pickupSpread: .5, boundary: 1,
   routing: 'geometry', linkDensity: .25 });
 export const PARAMETER_LIMITS = Object.freeze({ cReal: Object.freeze([-2, 1]), cImag: Object.freeze([-1.5, 1.5]),
   detail: Object.freeze([2, 12]), timeMs: Object.freeze([.05, 2000]), coupling: Object.freeze([0, 1]),
   decay: Object.freeze([0, .98]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]),
+  geometryPitch: Object.freeze([0, 24]), tapCoverage: Object.freeze([0, 1]), turnTone: Object.freeze([0, 1]),
   inputPosition: Object.freeze([0, 1]), inputCount: Object.freeze([1, 256]), inputSpread: Object.freeze([0, 1]),
   pickupCount: Object.freeze([1, 256]), pickupSpread: Object.freeze([0, 1]), boundary: Object.freeze([0, 1]),
   linkDensity: Object.freeze([0, 1]) });
@@ -49,6 +55,7 @@ export const COMPLEX_COORDINATE_SCALE = 2.5;
 const MAX_ITERATIONS = 96;
 const TAU = 2 * Math.PI;
 const MIN_LENGTH = .0001;
+const ORBIT_RETURN_TOLERANCE = 1e-5;
 const MODE_IDS = MODES.map(mode => mode.id);
 export const clamp = (value, low = 0, high = 1) => Math.max(low, Math.min(high, value));
 const numberOr = (value, fallback) => (typeof value === 'number' || typeof value === 'string') && Number.isFinite(Number(value)) ? Number(value) : fallback;
@@ -57,7 +64,7 @@ export function sanitizeParameters(candidate = {}) {
   const source = candidate && typeof candidate === 'object' ? candidate : {};
   const result = { mode: MODE_IDS.includes(source.mode) ? source.mode : DEFAULT_PARAMETERS.mode,
     domain: source.domain === 'mandelbrot' ? 'mandelbrot' : 'julia' };
-  for (const [key, values] of [['inputMode', INPUT_MODES], ['pickupMode', PICKUP_MODES], ['routing', ROUTING_MODES]]) {
+  for (const [key, values] of [['propagation', PROPAGATION_MODES], ['inputMode', INPUT_MODES], ['pickupMode', PICKUP_MODES], ['routing', ROUTING_MODES]]) {
     result[key] = values.some(({ id }) => id === source[key]) ? source[key] : DEFAULT_PARAMETERS[key];
   }
   for (const [key, [low, high]] of Object.entries(PARAMETER_LIMITS)) result[key] = clamp(numberOr(source[key], DEFAULT_PARAMETERS[key]), low, high);
@@ -73,9 +80,11 @@ export function randomizeParameters(candidate = DEFAULT_PARAMETERS, random = Mat
   // Consume a value for every musical field, including enums. No previous field
   // silently cages a new scene, and no output/device state enters this object.
   return sanitizeParameters({ mode: MODE_IDS[Math.floor(unit() * MODE_IDS.length)], domain: unit() < .7 ? 'julia' : 'mandelbrot',
+    propagation: PROPAGATION_MODES[Math.floor(unit() * PROPAGATION_MODES.length)].id,
     cReal: -2 + 3 * unit(), cImag: -1.5 + 3 * unit(), detail: 2 + Math.floor(11 * unit()),
     timeMs: .05 * (2000 / .05) ** unit(), coupling: .3 + .7 * unit(), decay: .35 + .63 * unit(),
     pitchOffset: -24 + 48 * unit(), pickup: unit(),
+    geometryPitch: 24 * unit(), tapCoverage: unit(), turnTone: unit(),
     inputMode: INPUT_MODES[Math.floor(unit() * INPUT_MODES.length)].id, inputPosition: unit(),
     inputCount: 1 + Math.floor(256 * unit()), inputSpread: unit(),
     pickupMode: PICKUP_MODES[Math.floor(unit() * PICKUP_MODES.length)].id,
@@ -314,14 +323,18 @@ function contourLoops(p, detail, mode = 'contours') {
 
 function orbitGraph(p, detail) {
   const graph = graphBuilder('orbits'), points = [{ x: 0, y: 0 }];
-  let repeatAt = -1, escaped = false;
+  let repeatAt = -1, escaped = false, nearReturnDistance = null;
   const steps = Math.max(8, detail * 8);
   for (let step = 0; step < steps; step++) {
     const last = points.at(-1), next = { x: last.x * last.x - last.y * last.y + p.cReal, y: 2 * last.x * last.y + p.cImag };
     if (Math.hypot(next.x, next.y) > 3.5 || !Number.isFinite(next.x + next.y)) { escaped = true; break; }
-    const tolerance = step < 4 ? 1e-10 : 1e-5;
-    repeatAt = points.findIndex(point => Math.hypot(point.x - next.x, point.y - next.y) < tolerance);
-    if (repeatAt >= 0) break;
+    // One complex-plane tolerance applies from the first step. An early
+    // near-return is not retained as a duplicate merely because it is early.
+    repeatAt = points.findIndex(point => Math.hypot(point.x - next.x, point.y - next.y) < ORBIT_RETURN_TOLERANCE);
+    if (repeatAt >= 0) {
+      nearReturnDistance = Math.hypot(points[repeatAt].x - next.x, points[repeatAt].y - next.y);
+      break;
+    }
     points.push(next);
   }
   // At a fixed critical point the exact orbit has zero travel distance. A local
@@ -330,6 +343,7 @@ function orbitGraph(p, detail) {
   if (points.length < 2) {
     perturbedFixedPoint = true;
     let last = { x: .18, y: .11 }; points.splice(0, points.length, last); repeatAt = -1;
+    nearReturnDistance = null;
     for (let step = 0; step < Math.min(steps, 16); step++) {
       const next = { x: last.x * last.x - last.y * last.y + p.cReal, y: 2 * last.x * last.y + p.cImag };
       if (Math.hypot(next.x, next.y) > 3.5) break;
@@ -340,7 +354,8 @@ function orbitGraph(p, detail) {
   for (let index = 1; index < indices.length; index++) graph.edge(`step:${index}`, indices[index - 1], indices[index]);
   if (repeatAt >= 0 && indices.length > 1) graph.edge(`return:${repeatAt}`, indices.at(-1), indices[repeatAt], { returnRoute: true });
   return { ...graph, metadata: { orbitSteps: points.length, repeatAt, period: repeatAt >= 0 ? points.length - repeatAt : 0,
-    escaped, perturbedFixedPoint, construction: repeatAt >= 0 ? 'finite detected periodic critical orbit' : 'finite forward orbit, open reflective end',
+    nearReturnTolerance: ORBIT_RETURN_TOLERANCE, nearReturnDistance, numericalApproximation: repeatAt >= 0,
+    escaped, perturbedFixedPoint, construction: repeatAt >= 0 ? 'finite approximate near-return critical orbit' : 'finite forward orbit, open reflective end',
     domainMeaning: 'Mandelbrot coordinates select c; orbit routes show its Julia dynamics.' } };
 }
 
