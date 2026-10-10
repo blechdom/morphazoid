@@ -89,8 +89,51 @@
       </section>
 
       <aside class="panel" data-instrument-preset-host aria-label="graph delay controls">
+        <details class="group control-section graph-live-section" id="playSection" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
+          <div class="group-body">
+            <div class="graph-live-actions" role="group" aria-label="Graph variation">
+              <button class="mini-action" id="randomGraphButton" type="button" title="Create a new randomized graph">Random graph</button>
+              <button class="mini-action" id="randomizeNodePositionsButton" type="button" title="Randomize node positions while keeping graph connections">Random positions</button>
+            </div>
+            <label class="select-control" for="topology">
+              <span class="field-label">Graph shape</span>
+              <span class="select-shell">
+                <select id="topology" aria-describedby="topologyDescription">
+                  <optgroup label="Directed acyclic graphs">
+                    <option value="chain">Delay Chain</option>
+                    <option value="tree">Branching Tree</option>
+                    <option value="dag" selected>Layered DAG</option>
+                    <option value="bipartite">Bipartite Field</option>
+                  </optgroup>
+                  <optgroup label="Cyclic and network graphs">
+                    <option value="ring">Directed Ring</option>
+                    <option value="smallworld">Small World</option>
+                    <option value="hub">Hub + Spokes</option>
+                    <option value="mesh">Feedback Mesh</option>
+                    <option value="modular">Modular Islands</option>
+                    <option value="random">Seeded Random</option>
+                  </optgroup>
+                </select>
+              </span>
+            </label>
+            <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
+            <div class="native-knob-grid graph-live-knobs" role="group" aria-label="Live sound controls">
+              <label class="control native-knob-control" for="pitchScale" title="Signed graph turns set pitch; this amount controls the octave span at 180 degrees."><span><b>Pitch shift</b><output id="pitchScaleOut" for="pitchScale">26% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
+              <label class="control native-knob-control" for="baseDelay"><span><b>Edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
+              <label class="control native-knob-control" for="feedback"><span><b>Feedback</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
+              <label class="control native-knob-control" for="timeScale"><span><b>Distance time</b><output id="timeScaleOut" for="timeScale">+58 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
+              <label class="control native-knob-control" for="wet"><span><b>Wet</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
+              <label class="control native-knob-control" for="dry"><span><b>Dry</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            </div>
+            <div class="graph-live-actions graph-live-motion" role="group" aria-label="Graph motion">
+              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg><span>Node motion</span></button>
+              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play input motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg><span>Input motion</span></button>
+            </div>
+          </div>
+        </details>
         <section class="native-performance-panel" id="performancePanel" aria-labelledby="performanceTitle">
-          <details class="native-live-disclosure" id="liveData" open>
+          <details class="native-live-disclosure" id="liveData">
             <summary id="performanceTitle">Live data</summary>
             <div class="native-live-data-body">
           <div class="native-performance-heading"><span>Renderer</span><output id="performanceRenderer">WebGL2</output></div>
@@ -128,10 +171,10 @@
           <div class="native-voice-control native-live-cap" role="group" aria-labelledby="voiceCeilingLabel">
             <label class="control native-knob-control" for="voiceCeiling"><span><b id="voiceCeilingLabel">Live cap</b><output id="voiceCeilingOut" for="voiceCeiling" hidden>All available</output></span><input id="voiceCeiling" type="range" min="0" max="512" step="1" value="0" aria-describedby="liveCapHint" /></label>
             <input class="native-voice-value" id="voiceCeilingExact" type="number" inputmode="numeric" min="0" max="512" step="1" value="0" aria-labelledby="voiceCeilingLabel" aria-describedby="liveCapHint" />
-            <span class="native-live-cap-hint" id="liveCapHint" title="0 removes the manual cap. Protect audio can still lower the live limit.">0 = All · per graph</span>
+            <span class="native-live-cap-hint" id="liveCapHint" title="0 removes the manual cap for each graph. Protect audio can still lower the live limit.">0 = All</span>
           </div>
         </section>
-        <details class="group control-section" id="inputSection" data-section="input" open>
+        <details class="group control-section" id="inputSection" data-section="input">
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
           <div class="group-body native-input-controls">
             <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
@@ -179,33 +222,16 @@
             <p class="growth-preset-description" id="graphPatchDescription">The punchy default: crossing DAG taps with close times and restrained pitch.</p>
             <section class="recursion-parameter-cluster graph-generator-cluster">
               <h3 class="parameter-cluster-title">Graph generator</h3>
-              <label class="select-control" for="topology">
-                <span class="field-label">Graph shape</span>
-                <span class="select-shell">
-                  <select id="topology" aria-describedby="topologyDescription">
-                    <optgroup label="Directed acyclic graphs">
-                      <option value="chain">Delay Chain</option>
-                      <option value="tree">Branching Tree</option>
-                      <option value="dag" selected>Layered DAG</option>
-                      <option value="bipartite">Bipartite Field</option>
-                    </optgroup>
-                    <optgroup label="Cyclic and network graphs">
-                      <option value="ring">Directed Ring</option>
-                      <option value="smallworld">Small World</option>
-                      <option value="hub">Hub + Spokes</option>
-                      <option value="mesh">Feedback Mesh</option>
-                      <option value="modular">Modular Islands</option>
-                      <option value="random">Seeded Random</option>
-                    </optgroup>
-                  </select>
-                </span>
-              </label>
-              <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
-              <label class="control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="64" step="1" value="10" /></label>
-              <label class="control" for="density"><span><b>Connection density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
-              <label class="control" for="seed"><span><b>Graph seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
-              <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
-              <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+              <div class="native-knob-grid">
+                <label class="control native-knob-control" for="nodeCount"><span><b>Nodes</b><output id="nodeCountOut" for="nodeCount">10</output></span><input id="nodeCount" type="range" min="3" max="64" step="1" value="10" /></label>
+                <label class="control native-knob-control" for="density"><span><b>Density</b><output id="densityOut" for="density">34%</output></span><input id="density" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+                <label class="control native-knob-control" for="seed"><span><b>Seed</b><output id="seedOut" for="seed">17</output></span><input id="seed" type="range" min="1" max="99" step="1" value="17" /></label>
+              </div>
+              <div class="graph-secondary-actions">
+                <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
+                <button class="mini-action" id="restoreNodePositionsButton" type="button">Restore layout</button>
+                <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
+              </div>
             </section>
           </div>
         </details>
@@ -236,49 +262,23 @@
         <details class="group control-section" id="delaySection" data-section="delay">
           <summary class="group-summary"><h2 class="group-title">Time + pitch</h2><span class="section-state" id="delaySummary">62–120 ms · angle → 26% octave</span></summary>
           <div class="group-body">
-            <section class="recursion-parameter-cluster">
-              <h3 class="parameter-cluster-title">Signal flow</h3>
-              <label class="control" for="nodePass"><span><b>Node pass-through</b><output id="nodePassOut" for="nodePass">100% per node</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="1" /></label>
-            </section>
-            <section class="recursion-parameter-cluster">
-              <h3 class="parameter-cluster-title">Timing</h3>
-              <label class="control" for="baseDelay"><span><b>Shared edge delay</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
-              <label class="control" for="timeScale"><span><b>Edge-length variation</b><output id="timeScaleOut" for="timeScale">+58 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
-              <label class="control" for="timeCurve"><span><b>Length response</b><output id="timeCurveOut" for="timeCurve">0.90 · broad</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
-            </section>
-            <section class="recursion-parameter-cluster">
-              <h3 class="parameter-cluster-title">Pitch</h3>
-              <label class="control" for="pitchScale"><span><b>Angle → octave span</b><output id="pitchScaleOut" for="pitchScale">26% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
-              <label class="control signed-form-range" for="pitchAsymmetry"><span><b>Turn asymmetry</b><output id="pitchAsymmetryOut" for="pitchAsymmetry">even</output></span><input id="pitchAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
-              <label class="control" for="pitchCurve"><span><b>Angle response</b><output id="pitchCurveOut" for="pitchCurve">1.35 · gentler small turns</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.05" value="1.35" /></label>
-              <label class="control" for="pitchSlew"><span><b>Pitch glide</b><output id="pitchSlewOut" for="pitchSlew">165 ms</output></span><input id="pitchSlew" type="range" min="10" max="500" step="5" value="165" /></label>
-            </section>
-            <section class="recursion-parameter-cluster">
-              <h3 class="parameter-cluster-title">Feedback</h3>
-              <label class="control" for="feedback"><span><b>Feedback decay</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
-              <label class="control" for="damping"><span><b>Feedback damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="500" max="12000" step="50" value="4800" /></label>
-            </section>
+            <div class="native-knob-grid" role="group" aria-label="Detailed sound controls">
+              <label class="control native-knob-control signed-form-range" for="pitchAsymmetry"><span><b>Turn bias</b><output id="pitchAsymmetryOut" for="pitchAsymmetry">even</output></span><input id="pitchAsymmetry" type="range" min="-0.8" max="0.8" step="0.01" value="0" /><span class="form-range-poles" aria-hidden="true"><span>Left wider</span><span>Even</span><span>Right wider</span></span></label>
+              <label class="control native-knob-control" for="pitchCurve"><span><b>Pitch curve</b><output id="pitchCurveOut" for="pitchCurve">1.35 · gentler small turns</output></span><input id="pitchCurve" type="range" min="0.5" max="2" step="0.05" value="1.35" /></label>
+              <label class="control native-knob-control" for="pitchSlew"><span><b>Pitch glide</b><output id="pitchSlewOut" for="pitchSlew">165 ms</output></span><input id="pitchSlew" type="range" min="10" max="500" step="5" value="165" /></label>
+              <label class="control native-knob-control" for="timeCurve"><span><b>Time curve</b><output id="timeCurveOut" for="timeCurve">0.90 · broad</output></span><input id="timeCurve" type="range" min="0.25" max="3" step="0.05" value="0.9" /></label>
+              <label class="control native-knob-control" for="nodePass"><span><b>Node pass</b><output id="nodePassOut" for="nodePass">100% per node</output></span><input id="nodePass" type="range" min="0" max="1" step="0.01" value="1" /></label>
+              <label class="control native-knob-control" for="damping"><span><b>Damping</b><output id="dampingOut" for="damping">4.8 kHz</output></span><input id="damping" type="range" min="500" max="12000" step="50" value="4800" /></label>
+              <label class="control native-knob-control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
+            </div>
           </div>
         </details>
 
-        <details class="group control-section" id="mixSection" data-section="mix">
-          <summary class="group-summary"><h2 class="group-title">Mix</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
-          <div class="group-body">
-            <label class="control" for="wet"><span><b>Graph presence</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
-            <label class="control" for="dry"><span><b>Direct input</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
-            <label class="control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
-          </div>
-        </details>
-
-        <details class="group control-section" id="motionSection" data-section="motion" open>
+        <details class="group control-section" id="motionSection" data-section="motion">
           <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · mic paused</span></summary>
           <div class="group-body">
             <span class="field-label">Node motion</span>
             <div class="mic-motion-row">
-              <button class="play-button motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion">
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              </button>
               <label class="select-control mic-motion-select" for="nodeMotionMode">
                 <span class="select-shell">
                   <select id="nodeMotionMode">
@@ -289,15 +289,13 @@
                 </span>
               </label>
             </div>
-            <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
-            <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            <div class="native-knob-grid graph-motion-knobs">
+              <label class="control native-knob-control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
+              <label class="control native-knob-control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+            </div>
             <div class="motion-divider" aria-hidden="true"></div>
             <span class="field-label">Input path</span>
             <div class="mic-motion-row">
-              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play input motion">
-                <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
-                <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
-              </button>
               <label class="select-control mic-motion-select" for="micMotionMode">
                 <span class="select-shell">
                   <select id="micMotionMode">
@@ -311,8 +309,10 @@
                 </span>
               </label>
             </div>
-            <label class="control" for="micMotionSpeed"><span><b>Input speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
-            <label class="control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+            <div class="native-knob-grid graph-motion-knobs">
+              <label class="control native-knob-control" for="micMotionSpeed"><span><b>Input speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
+              <label class="control native-knob-control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+            </div>
             <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset input</button>
           </div>
         </details>
