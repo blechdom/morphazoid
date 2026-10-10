@@ -22,13 +22,81 @@ function wav({ duration = 4, amplitude = .035, frequencies = [173, 311, 659] } =
   return bytes;
 }
 
-async function fixture(page, { holdContext = false } = {}) {
+async function fixture(page, { holdContext = false, observeRenderer = false } = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(({ holdContext }) => {
+  await page.addInitScript(({ holdContext, observeRenderer }) => {
     const NativeContext = AudioContext, NativeNode = AudioWorkletNode;
     const qa = window.__fractalPcmWitness = { contexts: [], sources: [], nodes: [], packets: [], statuses: [], allStatuses: [],
       streams: [], microphoneRequests: 0, pendingMicrophones: [], holdMicrophone: false, recording: false };
+    if (observeRenderer) {
+      // Observe vertices actually submitted to the marker draw, without adding
+      // a product-only QA API or asking the model what it intended to display.
+      const states = new WeakMap(), canvasMarkers = new WeakMap();
+      const state = gl => {
+        if (!states.has(gl)) states.set(gl, { buffers: new WeakMap(), attributes: new WeakMap() });
+        return states.get(gl);
+      };
+      const glPrototype = globalThis.WebGL2RenderingContext?.prototype;
+      if (glPrototype) {
+        for (const name of ['bindBuffer', 'bindVertexArray', 'bufferData', 'vertexAttribPointer', 'drawArrays']) {
+          const original = glPrototype[name];
+          glPrototype[name] = function (...args) {
+            const result = original.apply(this, args), s = state(this);
+            if (name === 'bindBuffer' && args[0] === this.ARRAY_BUFFER) s.buffer = args[1];
+            if (name === 'bindVertexArray') s.vao = args[0];
+            if (name === 'bufferData' && args[0] === this.ARRAY_BUFFER && s.buffer && ArrayBuffer.isView(args[1]))
+              s.buffers.set(s.buffer, Array.from(args[1]));
+            if (name === 'vertexAttribPointer' && s.vao) {
+              if (!s.attributes.has(s.vao)) s.attributes.set(s.vao, new Map());
+              s.attributes.get(s.vao).set(args[0], { buffer: s.buffer, size: args[1], stride: args[4], offset: args[5] });
+            }
+            if (name === 'drawArrays' && args[0] === this.POINTS) {
+              const position = s.attributes.get(s.vao)?.get(0), data = s.buffers.get(position?.buffer);
+              if (position?.stride === 32 && data) {
+                if (qa.markerData !== data || qa.markerCount !== args[2]) {
+                  qa.markerData = data; qa.markerCount = args[2];
+                  qa.markerFrame = { backend: 'WebGL2', markers: Array.from({ length: args[2] }, (_, i) => {
+                    const row = data.slice((args[1] + i) * 8, (args[1] + i + 1) * 8);
+                    return { x: row[0], y: row[1], kind: row[3] > .9 ? 'input' : 'pickup',
+                      scale: row[5], alpha: row[6], ring: !!row[7] };
+                  }) };
+                }
+                qa.markerFrame.renderedAt = performance.now();
+              }
+            }
+            return result;
+          };
+        }
+      }
+      // Canvas fallback paints its static marker overlay once and composites
+      // it on each pressure frame. Follow the surface that is really copied.
+      for (const prototype of new Set([globalThis.CanvasRenderingContext2D?.prototype, globalThis.OffscreenCanvasRenderingContext2D?.prototype].filter(Boolean))) {
+        for (const name of ['clearRect', 'beginPath', 'arc', 'fill', 'stroke', 'drawImage']) {
+          const original = prototype[name];
+          prototype[name] = function (...args) {
+            const result = original.apply(this, args);
+            if (name === 'clearRect') canvasMarkers.set(this.canvas, { markers: [] });
+            const frame = canvasMarkers.get(this.canvas);
+            if (name === 'beginPath' && frame) frame.arc = null;
+            if (name === 'arc' && frame) frame.arc = { x: args[0], y: args[1], radius: args[2] };
+            const color = name === 'fill' ? this.fillStyle : this.strokeStyle;
+            if (frame?.arc && ['fill', 'stroke'].includes(name) && ['#40ff76', '#ff9f33'].includes(color)) {
+              frame.markers.push({ ...frame.arc, kind: color === '#40ff76' ? 'input' : 'pickup',
+                alpha: this.globalAlpha, ring: name === 'stroke' });
+              if (this.canvas.id === 'stage') qa.markerFrame = { backend: 'Canvas2D', ...frame,
+                width: this.canvas.width, height: this.canvas.height, renderedAt: performance.now() };
+            }
+            if (name === 'drawImage' && this.canvas.id === 'stage') {
+              const overlay = canvasMarkers.get(args[0]);
+              if (overlay?.markers.length) qa.markerFrame = { backend: 'Canvas2D', markers: overlay.markers,
+                width: this.canvas.width, height: this.canvas.height, renderedAt: performance.now() };
+            }
+            return result;
+          };
+        }
+      }
+    }
     qa.holdContext = holdContext; qa.pendingInitializers = [];
     const addModule = AudioWorklet.prototype.addModule;
     AudioWorklet.prototype.addModule = async function (url, ...args) {
@@ -138,7 +206,7 @@ async function fixture(page, { holdContext = false } = {}) {
         } }));
       return destination.stream;
     };
-  }, { holdContext });
+  }, { holdContext, observeRenderer });
   await page.route('**/assets/synthesis/loops/*.wav', route => route.fulfill({
     status: 200, contentType: 'audio/wav', body: wav(),
   }));
@@ -174,6 +242,39 @@ async function ready(page) {
     const d = await diagnostics(page); return d.preparedEdges ?? d.activeEdges;
   }, { timeout: 30000 }).toBeGreaterThan(0);
   expect((await diagnostics(page)).audioDesired).toBe(false);
+}
+
+async function markerEvidence(page) {
+  return page.evaluate(async module => {
+    const d = (await import(module)).getFractalDelayEngine().getDiagnostics(), network = d.network;
+    const frame = __fractalPcmWitness.markerFrame, errors = [];
+    if (!network || !frame) return { matches: false, errors: ['no installed graph or rendered marker frame'] };
+    const inputs = network.inputPorts, pickups = network.pickupPorts;
+    if (!Array.isArray(inputs) || !Array.isArray(pickups)) return { matches: false, errors: ['installed scene has no explicit ports'] };
+    const expected = [...inputs.map(port => ({ ...port, kind: 'input' })), ...pickups.map(port => ({ ...port, kind: 'pickup' }))];
+    let transform;
+    if (frame.backend === 'Canvas2D') {
+      const bounds = network.bounds, dpr = Math.min(1.75, Math.max(1, devicePixelRatio || 1));
+      const pad = Math.min(36 * dpr, frame.width * .12, frame.height * .12);
+      const scale = Math.min(Math.max(1, frame.width - 2 * pad) / Math.max(.15, bounds.maxX - bounds.minX),
+        Math.max(1, frame.height - 2 * pad) / Math.max(.15, bounds.maxY - bounds.minY));
+      transform = { scale, x: frame.width * .5 - (bounds.minX + bounds.maxX) * .5 * scale,
+        y: frame.height * .5 + (bounds.minY + bounds.maxY) * .5 * scale };
+    }
+    if (frame.markers.length !== expected.length) errors.push(`drawn ${frame.markers.length}; installed ${expected.length}`);
+    let maximumPositionError = 0;
+    for (let i = 0; i < Math.min(frame.markers.length, expected.length); i++) {
+      const actual = frame.markers[i], port = expected[i], node = network.nodes[port.node];
+      const x = transform ? node.x * transform.scale + transform.x : node.x;
+      const y = transform ? -node.y * transform.scale + transform.y : node.y;
+      const distance = Math.hypot(actual.x - x, actual.y - y); maximumPositionError = Math.max(maximumPositionError, distance);
+      if (distance > .00001 || actual.kind !== port.kind) errors.push(`marker ${i} is not on its installed ${port.kind} node ${port.node}`);
+      if (!(actual.alpha > 0 && actual.alpha <= 1)) errors.push(`marker ${i} has invalid opacity`);
+    }
+    return { matches: errors.length === 0 && performance.now() - frame.renderedAt < 1000,
+      backend: frame.backend, revision: network.revision, inputCount: inputs.length, pickupCount: pickups.length,
+      drawnCount: frame.markers.length, maximumPositionError, errors };
+  }, ENGINE);
 }
 
 async function choose(page, id, value) {
@@ -340,6 +441,58 @@ test('presets, continuous controls and a blocked UI preserve the audio clock and
   await testInfo.attach('live-edit-continuity.json', { body: JSON.stringify({ before, after, pcm }, null, 2), contentType: 'application/json' });
 });
 
+test('multiport excitation, pickups and routing show the installed scene without interrupting playback', async ({ page }, testInfo) => {
+  test.setTimeout(120000);
+  const errors = await fixture(page, { observeRenderer: true }); await ready(page);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
+  await parameters(page, { mode: 'inverse', detail: 5, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0, pickup: .3 });
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 30000 }).toBe(true);
+  await performanceState(page, { wet: .7, dry: .3 });
+  const before = await diagnostics(page), evidence = [];
+  const scenes = [
+    { inputMode: 'point', pickupMode: 'point', routing: 'geometry', boundary: 1 },
+    { inputMode: 'cluster', pickupMode: 'cluster', routing: 'loop', boundary: .8 },
+    { inputMode: 'distributed', pickupMode: 'distributed', routing: 'shortcuts', boundary: .5 },
+    { inputMode: 'boundary', pickupMode: 'distributed', routing: 'hub', boundary: .2 },
+    { inputMode: 'all', pickupMode: 'all', routing: 'geometry', boundary: 0 },
+  ];
+  for (const [index, scene] of scenes.entries()) {
+    await beginCapture(page);
+    for (const id of ['inputMode', 'pickupMode', 'routing']) await choose(page, id, scene[id]);
+    for (const [id, value] of Object.entries({ inputPosition: .2 + index * .12, inputCount: 8, inputSpread: .65,
+      pickupCount: 7, pickupSpread: .7, boundary: scene.boundary, linkDensity: .35 })) await range(page, id, value);
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.compiling && d.network?.parameters.inputMode === scene.inputMode
+        && d.network?.parameters.pickupMode === scene.pickupMode && d.network?.parameters.routing === scene.routing
+        && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
+    }, { timeout: 30000 }).toBe(true);
+    await expect.poll(async () => (await markerEvidence(page)).matches, { timeout: 15000 }).toBe(true);
+    const d = await diagnostics(page), markers = await markerEvidence(page), pcm = await capture(page);
+    boundedPcm(pcm); expect(pcm.longestZeroSeconds, JSON.stringify(scene)).toBeLessThan(.04);
+    expect(d.contextGeneration).toBe(before.contextGeneration);
+    expect(d.witness.sources).toEqual(before.witness.sources); expect(d.sourceCount).toBe(1);
+    expect(d.sampleClock).toBeGreaterThan(before.sampleClock); expect(d.audioDesired).toBe(true); expect(d.input.playing).toBe(true);
+    expect(d.error).toBeFalsy(); expect(markers.drawnCount).toBe(d.network.inputPorts.length + d.network.pickupPorts.length);
+    if (scene.inputMode === 'point') expect(d.network.inputPorts).toHaveLength(1);
+    else expect(d.network.inputPorts.length).toBeGreaterThan(1);
+    if (scene.pickupMode === 'point') expect(d.network.pickupPorts).toHaveLength(1);
+    else expect(d.network.pickupPorts.length).toBeGreaterThan(1);
+    if (scene.inputMode === 'all') expect(d.network.inputPorts).toHaveLength(d.network.nodes.length);
+    if (scene.pickupMode === 'all') expect(d.network.pickupPorts).toHaveLength(d.network.nodes.length);
+    const links = d.network.edges.filter(edge => edge.routingLink);
+    if (scene.routing === 'geometry') expect(links).toHaveLength(0);
+    else { expect(links.length).toBeGreaterThan(0); expect(links.every(edge => edge.routingType === scene.routing)).toBe(true); }
+    const displayedPorts = (await page.locator('#portsReadout').textContent()).match(/[\d,]+/g).map(value => Number(value.replaceAll(',', '')));
+    expect(displayedPorts).toEqual([d.network.inputPorts.length, d.network.pickupPorts.length]);
+    expect(Number((await page.locator('#linksReadout').textContent()).replaceAll(',', ''))).toBe(links.length);
+    evidence.push({ scene, revision: d.network.revision, markers, links: links.length, pcm });
+  }
+  expect(errors).toEqual([]);
+  await testInfo.attach('multiport-routing-pcm.json', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' });
+});
+
 test('file and sample input stay at unity independently of retained mic gain', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
@@ -493,6 +646,7 @@ for (const viewport of SIZES) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
       'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
+      'inputMode', 'inputPosition', 'inputCount', 'inputSpread', 'pickupMode', 'pickupCount', 'pickupSpread', 'boundary', 'routing', 'linkDensity',
       'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
       'compressorAttackMs', 'compressorReleaseMs', 'compressorMakeupDb', 'masteringPreset', 'inputTrim', 'outputLevel',
       'voiceBudget', 'manualBudget', 'captureSound', 'audioButton', 'presetSelect']) {
