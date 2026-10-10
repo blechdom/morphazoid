@@ -189,8 +189,10 @@ The device memory envelope is 48, 96 or 192 MiB based on the browser's device
 memory hint (96 MiB when unavailable). Half is available to each scene so
 current and replacement networks can coexist. These are application budgets,
 not a claim to have measured all available system memory. A worker benchmarks
-the actual Rust graph to select a steady processing target with room for a
-transition. The test budget can bypass that CPU target while retaining memory
+the actual Rust graph with the maximum path mappings and Travel time to select
+a steady processing target with room for a transition. Live scalar edits keep
+that admitted graph instead of recalibrating capacity during the gesture.
+The test budget can bypass that CPU target while retaining memory
 and finite model bounds. It never changes automatically as sound gets louder.
 Admission reduces whole inverse depths, coherent contour/ray resolution or
 whole mesh resolution. The graphic displays the admitted network; it does not
