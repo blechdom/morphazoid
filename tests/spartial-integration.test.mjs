@@ -10,6 +10,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { spartialSiteChanges, restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import { restoreAmInstrumentAdditions } from "./helpers/am-instruments-reference.mjs";
 import { restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
+import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -20,8 +21,9 @@ test("SPARTIAL metadata additions preserve the independently captured published 
     "src/site/catalogue-taxonomy.js", "src/site/instrument-midi-capabilities.js",
   ]);
   for (const change of spartialSiteChanges.changes) {
+    const beforeRename = restoreMidiophiliaRename(await readFile(new URL(change.file, root), "utf8"), change.file);
     const source = restoreAmInstrumentAdditions(
-      restoreFractalDelaySite(await readFile(new URL(change.file, root), "utf8"), change.file), change.file,
+      restoreFractalDelaySite(beforeRename, change.file), change.file,
     );
     const preserved = candidate => assert.equal(
       createHash("sha256").update(restoreSpartialSite(candidate, change.file)).digest("hex"),
