@@ -161,9 +161,24 @@ test('structural recall keeps the previous audible graph until the new long path
     f.render(.3, () => .05);
     const next = graph('chain', 8);
     const plan = f.install(next, { ...settings, baseDelay: 180 }, null, false);
-    assert.ok(plan.data[11] > 1.3);
+    assert.ok(plan.data[11] > 1.28);
     const result = f.render(1.8, () => .05)[0];
     for (let at = 0; at + 480 < result.length; at += 480) assert.ok(peak(result.subarray(at, at + 480)) > .005, `gap at ${at / RATE}s`);
     assert.equal(f.metrics()[3], 8);
+  } finally { f.close(); }
+});
+
+
+test('multi-hop pitched recalls retain output until every granular hop has history', () => {
+  const f = fixture();
+  try {
+    f.render(.3, () => .05);
+    const zigzag = graph('chain', 32);
+    zigzag.nodes.forEach((node, index) => { node.y = index % 2 ? .8 : .2; });
+    const plan = f.install(zigzag, { ...settings, pitchScale: 2, pitchSlew: 10, feedback: 0 }, null, false);
+    assert.ok(plan.data[11] > 4);
+    const output = f.render(5, () => .05)[0];
+    for (let at = 0; at + 2400 < output.length; at += 2400) assert.ok(peak(output.subarray(at, at + 2400)) > .003, `pitched gap at ${at / RATE}s`);
+    assert.equal(f.metrics()[3], 32);
   } finally { f.close(); }
 });

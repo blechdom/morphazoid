@@ -37,7 +37,9 @@ fn read(history: &[f32], base: usize, length: usize, position: usize, delay: f64
     if p < 0. {
         p += length as f64;
     }
-    let first = p as usize % length;
+    let first = p as usize;
+    // Adding a negative sub-ULP fraction can round exactly to ring length.
+    let first = if first >= length { 0 } else { first };
     let next = if first + 1 == length { 0 } else { first + 1 };
     let mix = p.fract();
     let a = base + first * 2;
@@ -98,6 +100,9 @@ struct Network {
     entries: Vec<Entry>,
     routes: Vec<Route>,
     history: Vec<f32>,
+    source_block: Vec<Stereo>,
+    send_block: Vec<Stereo>,
+    node_block: Vec<Stereo>,
     history_size: usize,
     delay_length: usize,
     pitch_length: usize,
@@ -125,6 +130,12 @@ struct Network {
 impl Network {
     fn counts(plan: &[f64]) -> Option<[usize; 4]> {
         if plan.len() < 16 || plan[0] != 1. || plan.iter().any(|value| !value.is_finite()) {
+            return None;
+        }
+        if plan[1..5]
+            .iter()
+            .any(|value| *value < 0. || value.fract() != 0.)
+        {
             return None;
         }
         let c = [
@@ -163,6 +174,9 @@ impl Network {
             entries: vec![Entry::default(); i],
             routes: vec![Route::default(); r],
             history,
+            source_block: vec![[0.; 2]; (e + i) * BLOCK],
+            send_block: vec![[0.; 2]; e * BLOCK],
+            node_block: vec![[0.; 2]; n * BLOCK],
             history_size,
             delay_length,
             pitch_length,
@@ -348,6 +362,205 @@ impl Network {
             route.direct_delta = (end_direct - route.direct) / frames as f64;
             route.shifted_delta = (end_shifted - route.shifted) / frames as f64;
         }
+    }
+    /// Cache-friendly block order is legal only when every delay breaks a
+    /// complete quantum. Near the grain ring boundary or at low sample rates,
+    /// retain the exact sample-order path rather than adding feedback latency.
+    fn can_render_block(&self, frames: usize) -> bool {
+        self.pitch_length as f64 > self.grain + frames as f64 + 8.
+            && self
+                .edges
+                .iter()
+                .all(|edge| edge.delay.min(edge.target_delay) >= frames as f64)
+            && self
+                .entries
+                .iter()
+                .all(|entry| entry.delay.min(entry.target_delay) >= frames as f64)
+    }
+    fn render(&mut self, input: &[Stereo], output: &mut [Stereo], window: &[f64; WINDOW]) {
+        self.begin_block(input.len());
+        if self.can_render_block(input.len()) {
+            self.render_block(input, output, window);
+        } else {
+            for (frame, result) in input.iter().zip(output) {
+                *result = self.frame(*frame, window);
+            }
+        }
+    }
+    fn render_block(&mut self, input: &[Stereo], output: &mut [Stereo], window: &[f64; WINDOW]) {
+        let frames = input.len();
+        let positions: [usize; BLOCK] = std::array::from_fn(|frame| {
+            let p = self.write + frame;
+            if p >= self.delay_length {
+                p - self.delay_length
+            } else {
+                p
+            }
+        });
+        let mut trimmed = [[0.; 2]; BLOCK];
+        let mut mixes = [[0.; 3]; BLOCK];
+        for frame in 0..frames {
+            for index in 0..4 {
+                self.mix[index] = smooth(self.mix[index], self.target_mix[index], self.smoothing);
+            }
+            trimmed[frame] = [input[frame][0] * self.mix[0], input[frame][1] * self.mix[0]];
+            mixes[frame] = [self.mix[1], self.mix[2], self.mix[3]];
+        }
+        self.node_block.fill([0.; 2]);
+        self.send_block.fill([0.; 2]);
+        for (index, edge) in self.edges.iter_mut().enumerate() {
+            for (frame, &position) in positions.iter().enumerate().take(frames) {
+                edge.delay = smooth(edge.delay, edge.target_delay, self.smoothing);
+                edge.gain = smooth(edge.gain, edge.target_gain, self.smoothing);
+                // Gate is advanced while writing the sends below, after all
+                // reads. Its per-sample values and position remain identical.
+                let mut value = if edge.delay > (self.age + frame as u64) as f64 {
+                    [0.; 2]
+                } else {
+                    read(
+                        &self.history,
+                        index * self.delay_length * 2,
+                        self.delay_length,
+                        position,
+                        edge.delay,
+                    )
+                };
+                for (channel, sample) in value.iter_mut().enumerate() {
+                    *sample *= edge.gain;
+                    if edge.feedback {
+                        let filtered = self.filter[0] * *sample + edge.z1[channel];
+                        edge.z1[channel] =
+                            self.filter[1] * *sample - self.filter[3] * filtered + edge.z2[channel];
+                        edge.z2[channel] = self.filter[2] * *sample - self.filter[4] * filtered;
+                        *sample = filtered;
+                    }
+                    *sample = finite(*sample).clamp(-32., 32.);
+                    self.node_block[edge.to * BLOCK + frame][channel] += *sample;
+                }
+                self.source_block[index * BLOCK + frame] = value;
+                self.edge_peaks[index] = self.edge_peaks[index]
+                    .max(value[0].abs())
+                    .max(value[1].abs());
+            }
+        }
+        for (index, entry) in self.entries.iter_mut().enumerate() {
+            let source = self.edges.len() + index;
+            for (frame, input_sample) in trimmed.iter().enumerate().take(frames) {
+                entry.delay = smooth(entry.delay, entry.target_delay, self.smoothing);
+                let position = positions[frame];
+                let value = if entry.delay > (self.age + frame as u64) as f64 {
+                    [0.; 2]
+                } else {
+                    read(
+                        &self.history,
+                        source * self.delay_length * 2,
+                        self.delay_length,
+                        position,
+                        entry.delay,
+                    )
+                };
+                let value = [value[0] * entry.gain, value[1] * entry.gain];
+                self.source_block[source * BLOCK + frame] = value;
+                for (channel, sample) in value.iter().enumerate() {
+                    self.node_block[entry.node * BLOCK + frame][channel] += sample;
+                    self.history[(source * self.delay_length + position) * 2 + channel] =
+                        input_sample[channel] as f32;
+                }
+            }
+        }
+        // The complete source blocks can be recorded ahead: can_render_block
+        // proves that future writes cannot overwrite the oldest grain reads.
+        for source in 0..self.edges.len() + self.entries.len() {
+            for frame in 0..frames {
+                let position = (self.pitch_write + frame) & (self.pitch_length - 1);
+                let base = self.pitch_base + (source * self.pitch_length + position) * 2;
+                self.history[base] = self.source_block[source * BLOCK + frame][0] as f32;
+                self.history[base + 1] = self.source_block[source * BLOCK + frame][1] as f32;
+            }
+        }
+        for route in &mut self.routes {
+            for frame in 0..frames {
+                let source = self.source_block[route.source * BLOCK + frame];
+                let mut value = [source[0] * route.direct, source[1] * route.direct];
+                if route.shifted > 0. {
+                    let alternate = (route.phase + 0.5).fract();
+                    let first = (if route.ratio > 1. {
+                        1. - route.phase
+                    } else {
+                        route.phase
+                    }) * self.grain
+                        + 4.;
+                    let second = (if route.ratio > 1. {
+                        1. - alternate
+                    } else {
+                        alternate
+                    }) * self.grain
+                        + 4.;
+                    let base = self.pitch_base + route.source * self.pitch_length * 2;
+                    let position = (self.pitch_write + frame + 1) & (self.pitch_length - 1);
+                    let age = (self.age + frame as u64 + 1) as f64;
+                    let a = if first > age {
+                        [0.; 2]
+                    } else {
+                        read(&self.history, base, self.pitch_length, position, first)
+                    };
+                    let b = if second > age {
+                        [0.; 2]
+                    } else {
+                        read(&self.history, base, self.pitch_length, position, second)
+                    };
+                    let wa = window[(route.phase * WINDOW as f64) as usize % WINDOW];
+                    let wb = window[(alternate * WINDOW as f64) as usize % WINDOW];
+                    for channel in 0..2 {
+                        value[channel] += (a[channel] * wa + b[channel] * wb) * route.shifted;
+                    }
+                    route.phase = (route.phase + (1. - route.ratio).abs() / self.grain).fract();
+                }
+                route.ratio += route.ratio_delta;
+                route.direct += route.direct_delta;
+                route.shifted += route.shifted_delta;
+                for (channel, sample) in value.iter().enumerate() {
+                    self.send_block[route.edge * BLOCK + frame][channel] += sample;
+                }
+            }
+        }
+        for (index, edge) in self.edges.iter_mut().enumerate() {
+            for (frame, &position) in positions.iter().enumerate().take(frames) {
+                edge.gate = smooth(edge.gate, edge.target_gate, self.smoothing);
+                let base = (index * self.delay_length + position) * 2;
+                for channel in 0..2 {
+                    self.history[base + channel] =
+                        finite(self.send_block[index * BLOCK + frame][channel] * edge.gate)
+                            .clamp(-32., 32.) as f32;
+                }
+            }
+        }
+        output.fill([0.; 2]);
+        for (index, node) in self.nodes.iter().enumerate() {
+            for (frame, result) in output.iter_mut().enumerate() {
+                let value = self.node_block[index * BLOCK + frame];
+                self.node_peaks[index] = self.node_peaks[index]
+                    .max(value[0].abs())
+                    .max(value[1].abs());
+                if node.pan <= 0. {
+                    result[0] += (value[0] + value[1] * node.left) * node.tap;
+                    result[1] += value[1] * node.right * node.tap;
+                } else {
+                    result[0] += value[0] * node.left * node.tap;
+                    result[1] += (value[1] + value[0] * node.right) * node.tap;
+                }
+            }
+        }
+        for (frame, result) in output.iter_mut().enumerate() {
+            for channel in 0..2 {
+                result[channel] = (result[channel] * mixes[frame][0]
+                    + trimmed[frame][channel] * mixes[frame][1])
+                    * mixes[frame][2];
+            }
+        }
+        self.write = (self.write + frames) % self.delay_length;
+        self.pitch_write = (self.pitch_write + frames) & (self.pitch_length - 1);
+        self.age = self.age.saturating_add(frames as u64);
     }
     fn frame(&mut self, input: Stereo, window: &[f64; WINDOW]) -> Stereo {
         self.sums.fill([0.; 2]);
@@ -579,11 +792,28 @@ impl Engine {
         out_left: &mut [f32],
         out_right: &mut [f32],
     ) {
+        let mut input_frames = [[0.; 2]; BLOCK];
+        let mut active_frames = [[0.; 2]; BLOCK];
+        let mut old_frames = [[0.; 2]; BLOCK];
+        for index in 0..left.len() {
+            input_frames[index] = [
+                finite(f64::from(left[index])),
+                finite(f64::from(right[index])),
+            ];
+        }
         if let Some(net) = &mut self.active {
-            net.begin_block(left.len());
+            net.render(
+                &input_frames[..left.len()],
+                &mut active_frames[..left.len()],
+                &self.window,
+            );
         }
         if let Some(net) = &mut self.old {
-            net.begin_block(left.len());
+            net.render(
+                &input_frames[..left.len()],
+                &mut old_frames[..left.len()],
+                &self.window,
+            );
         }
         let smoothing = 1. - (-1. / (self.rate * 0.025)).exp();
         let attack = 1. - (-1. / (self.rate * 0.008)).exp();
@@ -593,12 +823,9 @@ impl Engine {
         for i in 0..left.len() {
             let input = [finite(f64::from(left[i])), finite(f64::from(right[i]))];
             input_peak = input_peak.max(input[0].abs()).max(input[1].abs());
-            let mut value = self
-                .active
-                .as_mut()
-                .map_or([0.; 2], |net| net.frame(input, &self.window));
-            if let Some(old) = &mut self.old {
-                let old_value = old.frame(input, &self.window);
+            let mut value = active_frames[i];
+            if self.old.is_some() {
+                let old_value = old_frames[i];
                 for channel in 0..2 {
                     value[channel] =
                         value[channel] * self.fade + old_value[channel] * (1. - self.fade);
@@ -869,5 +1096,53 @@ mod tests {
         assert!(!engine.prepare(7));
         assert_eq!(engine.pending.as_ref().unwrap().history.len(), 7);
         assert!(engine.active.is_none());
+    }
+    #[test]
+    fn block_order_matches_sample_order_through_live_edits_and_ring_wrap() {
+        for rate in [8000., 48000., 96000.] {
+            let mut p = vec![
+                1., 2., 2., 1., 3., 1., 1., 0., 0.5, 4800., 0.03, 0.144, 0., 0., 0., 0.,
+            ];
+            p.extend([0., 0., 0., 0.9]);
+            p.extend([0., 1., 0.02, 0.7, 1., 0., 1., 0., 0.027, 0.5, 1., 1.]);
+            p.extend([0., 0.004, 1.]);
+            p.extend([2., 0., 12., 17., 1., 0., -7., 33., 0., 1., 4., 55.]);
+            let mut scalar = Network::new(&p, rate).unwrap();
+            let mut blocked = Network::new(&p, rate).unwrap();
+            while !scalar.prepare(65536) {}
+            while !blocked.prepare(65536) {}
+            let window = std::array::from_fn(|i| (PI * i as f64 / WINDOW as f64).sin().powi(2));
+            for block in 0..900 {
+                if block == 180 {
+                    let mut edited = p.clone();
+                    edited[22] = 0.037;
+                    edited[5] = 0.7;
+                    edited[6] = 0.8;
+                    let last_pitch = edited.len() - 2;
+                    edited[last_pitch] = -11.;
+                    assert!(scalar.controls(&edited, false));
+                    assert!(blocked.controls(&edited, false));
+                }
+                let input: [Stereo; BLOCK] = std::array::from_fn(|frame| {
+                    let phase = (block * BLOCK + frame) as f64;
+                    [(phase * 0.029).sin() * 0.08, (phase * 0.039).cos() * 0.04]
+                });
+                let mut expected = [[0.; 2]; BLOCK];
+                let mut actual = [[0.; 2]; BLOCK];
+                scalar.begin_block(BLOCK);
+                for (frame, result) in input.iter().zip(&mut expected) {
+                    *result = scalar.frame(*frame, &window);
+                }
+                blocked.render(&input, &mut actual, &window);
+                for frame in 0..BLOCK {
+                    for channel in 0..2 {
+                        assert!(
+                            (actual[frame][channel] - expected[frame][channel]).abs() < 1e-12,
+                            "rate={rate} block={block} frame={frame}"
+                        );
+                    }
+                }
+            }
+        }
     }
 }

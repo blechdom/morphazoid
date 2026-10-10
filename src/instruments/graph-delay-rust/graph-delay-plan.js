@@ -60,16 +60,17 @@ export function compileGraphDelayPlan(graph, source = {}, switches = null) {
   }
   // Shortest causal wet arrival bounds structural warmup. Cycles cannot
   // decrease these strictly positive path delays.
+  const pitchedEdges = new Set(routes.filter(route => Math.abs(route.semitones) > .08).map(route => route.edge));
   const visited = new Set();
   for (let count = 0; count < graph.nodes.length; count++) {
     let nearest = -1;
     for (let id = 0; id < arrivals.length; id++) if (!visited.has(id) && (nearest < 0 || arrivals[id] < arrivals[nearest])) nearest = id;
     if (nearest < 0 || !Number.isFinite(arrivals[nearest])) break;
     visited.add(nearest);
-    for (const edge of edges) if (edge.from === nearest && gates[edge.id] > 0) arrivals[edge.to] = Math.min(arrivals[edge.to], arrivals[nearest] + edge.delaySeconds);
+    for (const edge of edges) if (edge.from === nearest && gates[edge.id] > 0) arrivals[edge.to] = Math.min(arrivals[edge.to], arrivals[nearest] + edge.delaySeconds + (pitchedEdges.has(edge.id) ? .12 : 0));
   }
   const firstArrival = Math.min(...sinks.map(id => arrivals[id]));
-  data[11] = Number.isFinite(firstArrival) ? Math.min(40, firstArrival + .12) : .15;
+  data[11] = Number.isFinite(firstArrival) ? Math.min(40, firstArrival + .02) : .15;
   for (const route of routes) { data.set([route.source, route.edge, route.semitones, route.seed], at); at += 4; }
   const signature = [graph.nodes.length, ...edges.flatMap(edge => [edge.from, edge.to, Number(Boolean(edge.feedbackEdge))]), 'entries', ...entries].join(':');
   return { data, signature, nodes: graph.nodes.length, edges: edges.length, routes: routes.length, settings };
