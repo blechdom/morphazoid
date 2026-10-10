@@ -137,7 +137,7 @@ test("extended stride survives signed travel and live reversal preserves planted
 });
 
 test("the fastest dense lopsided score retains every crossing and stance accent inside live scheduling windows", () => {
-  for (const horizon of [0.09, 0.125]) for (const lopsided of [-1, 1]) for (const momentum of [0.12, 3]) {
+  for (const horizon of [0.09, 0.125, QUADRUPED_LIMITS.schedulerLookaheadSeconds]) for (const lopsided of [-1, 1]) for (const momentum of [0.12, 3]) {
     const score = actor({ tempoBpm: 1000, paceRatio: 3, lopsided, momentum, spring: 2.5 });
     for (const row of Object.values(score.pattern)) row.fill(1);
     const initial = synchronizeQuadrupedMotorTempo(score, createQuadrupedMotorState(score, { position: 11 }));

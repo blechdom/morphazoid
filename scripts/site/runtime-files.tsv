@@ -290,6 +290,7 @@ copy+require	src/instruments/quadruped/quadruped.css
 copy+require	src/instruments/quadruped/quadruped-app.js
 copy+require	src/instruments/quadruped/quadruped.js
 copy+require	src/instruments/quadruped/quadruped-motor.js
+copy+require	src/instruments/quadruped/quadruped-clock.js
 copy+require	src/instruments/quadruped/quadruped-voices.js
 copy+require	src/instruments/quadruped/quadruped-environment.js
 copy+require	src/instruments/quadruped/quadruped-output.js

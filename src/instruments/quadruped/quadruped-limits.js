@@ -13,5 +13,5 @@ export const QUADRUPED_LIMITS = Object.freeze({
   outputLevel: Object.freeze([0, 0.72]),
   maxScheduledVoices: 48,
   maxHeadVoices: 16,
-  schedulerLookaheadSeconds: 0.09,
+  schedulerLookaheadSeconds: 0.24,
 });

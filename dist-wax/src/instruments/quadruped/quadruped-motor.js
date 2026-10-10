@@ -65,8 +65,8 @@ export const QUADRUPED_MOTOR_LIMITS = Object.freeze({
   maxAdvanceSeconds: 2,
   maxCrossingEvents: 384,
   // A dense four-foot score at 1,000 BPM ×3 retains every stance accent
-  // across a normal 125 ms advance; stale multi-second catch-up stays bounded.
-  maxTransitionEvents: 1536,
+  // across the 240 ms audio horizon; stale multi-second catch-up stays bounded.
+  maxTransitionEvents: 4096,
   // Snapshots and coasting must retain the fastest allowed tempo and pace.
   maxVelocity: QUADRUPED_LIMITS.tempoBpm[1] * QUADRUPED_STEP_COUNT / 60 / (QUADRUPED_LIMITS.minimumTimingWeight / Math.max(...QUADRUPED_PACE_RATIOS)),
   maxHeight: 2,

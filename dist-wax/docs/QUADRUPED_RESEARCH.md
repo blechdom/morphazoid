@@ -122,6 +122,24 @@ audio prediction retains every crossing and stance transition. Parity tests
 compare these paths against full support geometry, eventful advancement and
 direct stereo interpolation.
 
+The independent 20 ms transport pump uses the audio device clock whenever Audio
+is enabled, including a suspended context; explicit Audio-off uses monotonic
+wall time. Drawing projects snapshots without advancing the committed clock or
+ending gestures. Audio on/off rebases once while preserving musical position.
+The pump incrementally fills a 240 ms audio horizon from retained prediction
+cursors aligned to complete integration ticks. It does not recompute that entire
+horizon on every callback. A late mixed buffer trims elapsed samples rather than
+moving its remaining attacks. Slow drawing reduces the visual frame rate, and
+an overdue audio callback takes precedence over another scenery paint.
+
+The timing regression exercises real browser audio deadlines with animation,
+4× CPU throttling, animation disabled, and a 150 ms main-thread stall. It also
+covers explicit Audio transitions, suspended clocks, and late-buffer offsets.
+This finite scheduling horizon does not guarantee continuity through arbitrary
+browser suspension or stalls longer than the queued audio. Hiding the page
+releases queued sound and pauses its clock until return. Physical-device
+listening remains separate from these automated timing checks.
+
 Five animal skins share the same poses and fixed-length limb IK: Cartoon,
 Skeleton, Constellation (open Shapes-like connections and joint stars), Cutout
 collage (photographic Hiccup Head atlas pieces), and Motion cards (sepia study

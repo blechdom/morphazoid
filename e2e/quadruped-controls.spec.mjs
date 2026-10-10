@@ -161,7 +161,7 @@ async function installResetProbe(page) {
   await page.route('**/src/instruments/quadruped/quadruped-app.js', async route => {
     const response = await route.fetch();
     const source = await response.text();
-    const retimeAnchor = 'motor = createQuadrupedMotorState(scoreForActor(selectedActor), options);\n  motorPerformance = now;';
+    const retimeAnchor = 'motor = createQuadrupedMotorState(scoreForActor(selectedActor), options);\n  actors[selectedActor].motor = motor;\n  rebaseMotorClock(now);';
     expect(source).toContain(retimeAnchor);
     const observedSource = source.replace(retimeAnchor, retimeAnchor + `
       globalThis.__quadrupedClockOrigin = { position: motor.position, stoppedPosition, at: now };

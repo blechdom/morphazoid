@@ -49,10 +49,10 @@ test("transport remains independent of explicit Audio arming", async () => {
   assert.doesNotMatch(start, /ensureAudio|createAudioGraph|toggleAudio/);
   assert.doesNotMatch(stop, /closeAudio/);
   assert.doesNotMatch(close, /stopTransport|transportPlaying\s*=\s*false/);
-  assert.match(app, /if \(graph\) resetAudioSchedule\(\{ includeCurrentBoundary: true \}\)/);
+  assert.match(start, /resetAudioSchedule\(\{ includeCurrentBoundary: true \}\)/);
 });
 
-test("animation and audio both advance from the foot-driven motor", async () => {
+test("animation samples the foot-driven motor and audio owns progression", async () => {
   const app = await read("src/instruments/quadruped/quadruped-app.js");
   for (const symbol of [
     "advanceQuadrupedMotorState", "createQuadrupedMotorState", "kickQuadrupedMotor",
@@ -61,7 +61,7 @@ test("animation and audio both advance from the foot-driven motor", async () => 
   const position = app.match(/function currentPosition[^\{]*\{([\s\S]*?)\n\}/)?.[1] ?? "";
   const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(position, /materializeMotor\(now\)\.position/);
-  assert.match(scheduler, /predictQuadrupedMotor\(actor\.score, actor\.motor,/);
+  assert.match(scheduler, /predictQuadrupedMotor\(actor\.score, predictionMotor,/);
   assert.match(scheduler, /for \(const crossing of prediction\.events\)/);
   assert.match(scheduler, /scheduleStep\(/);
   assert.match(scheduler, /crossing\.offsetSeconds/);
@@ -69,6 +69,8 @@ test("animation and audio both advance from the foot-driven motor", async () => 
   assert.match(app, /stalled · add a footfall/);
   assert.match(app, /function wakeMotorAtFootfall/);
   const loop = app.match(/function animationLoop\(now\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.doesNotMatch(loop, /materializeMotor/);
+  assert.match(loop, /displayMotorSnapshots/);
   assert.match(loop, /syncGridPlayhead\(snapshot\.frame\)/);
   assert.match(loop, /updateStageReadouts\(snapshot\.frame\)/);
 });
