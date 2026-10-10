@@ -1,4 +1,5 @@
 import { restoreChaoticAmRouting } from "./helpers/chaotic-am-routing-reference.mjs";
+import { fractalDelaySiteChanges, restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
 import { restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -16,7 +17,7 @@ import { chaoticDspReferenceForId } from "../src/instruments/chaotic-dsp-referen
 test("AM additions preserve the previous shared runtime bytes and reject unrelated changes", async () => {
   for (const change of amSharedAmendments.changes) {
     // Main independently added SPARTIAL and recording after this frozen baseline.
-    let current = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+    let current = restoreFractalDelaySite(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
     if (change.file === "style.css") {
       const recorderStyle = '@import url("./src/site/output-recording-controls.css");\n';
       assert.equal(current.split(recorderStyle).length - 1, 1, "exact recording stylesheet import");
@@ -35,6 +36,22 @@ test("AM additions preserve the previous shared runtime bytes and reject unrelat
     const restored = restoreAmInstrumentAdditions(source, change.file);
     assert.equal(restoreAmInstrumentAdditions(restored, change.file, { allowRestored: true }), restored);
   }
+});
+
+test("Fractal Delay site amendments preserve genuine fresh-main bytes and reject missing or duplicate additions", async () => {
+  assert.equal(fractalDelaySiteChanges.baseCommit, '5fcfd0a543866684bd3bf45749290a07d2156f08');
+  const digest = value => createHash('sha256').update(value).digest('hex');
+  for (const change of fractalDelaySiteChanges.changes) {
+    const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
+    const restored = restoreFractalDelaySite(source, change.file);
+    assert.equal(digest(restored), change.sha256, change.file + ': reviewed main source preserved');
+    assert.notEqual(digest(restoreFractalDelaySite(source + '\n// unrelated drift\n', change.file)), change.sha256);
+    for (const replacement of change.replacements) {
+      assert.throws(() => restoreFractalDelaySite(source.replace(replacement.after, ''), change.file), /exact Fractal Delay site amendment/);
+      assert.throws(() => restoreFractalDelaySite(source + replacement.after, change.file), /exact Fractal Delay site amendment/);
+    }
+  }
+  assert.equal(restoreFractalDelaySite('untouched', 'unrelated.js'), 'untouched');
 });
 
 for (const family of ["cascading", "recursive", "chaotic"]) {

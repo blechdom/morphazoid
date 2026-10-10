@@ -1,0 +1,84 @@
+{
+  "baseCommit": "5fcfd0a543866684bd3bf45749290a07d2156f08",
+  "implementationCommits": [
+    "17d4e6cc",
+    "92231bcc"
+  ],
+  "description": "Exact owner-requested Fractal Delay route/catalogue/browser-only additions; all other source bytes remain subject to frozen historical guards.",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "d5a5d250cb6cbbd32e8b999db14667a18aa5bfcf994ab7c458a42cd5b3a16b56",
+      "amendedSha256": "a7eaea8af163e7079a8895d53489fd8dacdc920ecd20c814b4fd839c05205e93",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"fractal-delay.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "cbaa876ca5be46e9f84ace3ca8cd49204ca94504493f6d74ac3fb4940b3ac182",
+      "amendedSha256": "7513983909da0b0a007a175a38fabbae63652331d593ba42ffdd9a2dfe20f15d",
+      "replacements": [
+        {
+          "before": "",
+          "after": "    { id: \"fractal-delay\", label: \"Fractal Delay\", href: \"fractal-delay.html\", imageHref: \"assets/instrument-icons/fractal-delay.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "724b28c3a3ce51089a9cf2357e9694f3d35e0869d4676d9f8d11e573351613f0",
+      "amendedSha256": "c9b5c64af5775ee623c9e6c6b7ab85011bdb6091dd3077d32a311532c6a0b8a5",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"fractal-delay\": define(\n    \"Five fractal waveguide mappings\",\n    \"Julia inverse trees, coupled potential contours, orbit routes, numerical ray lattices and finite fractal chambers share microphone, file and recorded-sample input. Visible edge lengths set travel times in a bidirectional Rust/WebAssembly delay network.\",\n    \"Choose an input, enable Audio and explore the five mappings or twenty presets. Change the complex parameter and travel time while the source keeps playing.\",\n    [\"Mic / line\", \"Audio file\", \"Recorded samples\", \"Fractals\", \"Delay network\", \"Rust / WASM\", \"Presets\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "7885fb9b798a78e21ceff975fb00445c8715acd07ce5a232be56f32e5f75320d",
+      "amendedSha256": "07316be5276a11d4ec6b638445e71df4f4a946093954f983e381eb9c66b47c95",
+      "replacements": [
+        {
+          "before": "",
+          "after": "  \"fractal-delay\": [\"audio-effect\", \"fractal\", \"recursive\", \"delay\", \"graph\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "11c825709c703f5aa985be1c93f215c95e117a048d68f045fff8c7a26cae6916",
+      "amendedSha256": "c86a5462e75ef5c0846516d0c9844c40951db308bcb26b0345e49ab22081c48a",
+      "replacements": [
+        {
+          "before": "    \"l-system-experiments\",\n    \"graph-delay\",\n",
+          "after": "    \"l-system-experiments\",\n    \"fractal-delay\",\n    \"graph-delay\",\n"
+        },
+        {
+          "before": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"hocket-loom\",",
+          "after": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"fractal-delay\",\n  \"hocket-loom\","
+        },
+        {
+          "before": "const audioInputIds = new Set([\n  \"l-systems\",",
+          "after": "const audioInputIds = new Set([\n  \"fractal-delay\",\n  \"l-systems\","
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/wax/wax-instrument-roles.js",
+      "sha256": "7dd2350b8968bd001f774916b8932d3d871626d608c62c2df1bf1ed993a35cdd",
+      "amendedSha256": "a4f912b680467263cd27644111279b5e09ae9bd08bc243bc23c1796c2966cab0",
+      "replacements": [
+        {
+          "before": "const BROWSER_RUST_DELAY_IDS = new Set([\"micmic-rust\", \"l-system-parametric-lab\", \"l-system-experiments\"]);\n",
+          "after": "const BROWSER_RUST_DELAY_IDS = new Set([\"micmic-rust\", \"l-system-parametric-lab\", \"l-system-experiments\", \"fractal-delay\"]);\n"
+        }
+      ]
+    }
+  ]
+}

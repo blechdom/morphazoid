@@ -9,6 +9,7 @@ import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js"
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { spartialSiteChanges, restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import { restoreAmInstrumentAdditions } from "./helpers/am-instruments-reference.mjs";
+import { restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 
@@ -20,7 +21,7 @@ test("SPARTIAL metadata additions preserve the independently captured published 
   ]);
   for (const change of spartialSiteChanges.changes) {
     const source = restoreAmInstrumentAdditions(
-      await readFile(new URL(change.file, root), "utf8"), change.file,
+      restoreFractalDelaySite(await readFile(new URL(change.file, root), "utf8"), change.file), change.file,
     );
     const preserved = candidate => assert.equal(
       createHash("sha256").update(restoreSpartialSite(candidate, change.file)).digest("hex"),

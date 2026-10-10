@@ -1,0 +1,45 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import { readFile as readFileAsync } from 'node:fs/promises';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { restoreAudioInput } from './audio-input-reference.mjs';
+import { restoreBorrowedAudioContext } from './borrowed-audio-context-reference.mjs';
+import { restoreSharedInstrumentContext } from './shared-instrument-context-reference.mjs';
+import { restoreNativeDelaySite } from './native-delay-site-reference.mjs';
+import { restoreMainOutputRouting } from './main-output-routing-reference.mjs';
+import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
+import { restoreOutputRecording } from './output-recording-reference.mjs';
+
+export const fractalDelaySiteChanges = JSON.parse(readFileSync(
+  new URL('./fractal-delay-site-amendments.json', import.meta.url), 'utf8',
+));
+
+/** Undo only the exact reviewed Fractal Delay registration. Historical hashes
+ * and their original negative guards remain authoritative for all other bytes.
+ */
+export function restoreFractalDelaySite(source, file) {
+  for (const change of fractalDelaySiteChanges.changes.filter(change => change.file === file)) {
+    for (const replacement of [...change.replacements].reverse()) {
+      assert.equal(source.split(replacement.after).length - 1, 1,
+        `${file}: exact Fractal Delay site amendment`);
+      source = source.replace(replacement.after, replacement.before);
+    }
+  }
+  return source;
+}
+
+/** Peel the newest site addition before the frozen historical input chain. */
+export async function readFractalDelaySiteReference(file, encoding) {
+  let source = await readFileAsync(file, encoding);
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const relative = path.relative(root, file instanceof URL ? fileURLToPath(file) : file);
+  if (typeof source !== 'string') return source;
+  source = restoreFractalDelaySite(source, relative);
+  source = restoreBorrowedAudioContext(restoreSharedInstrumentContext(source, relative), relative);
+  if (relative !== 'nav.js') source = restoreOutputRecording(source, relative);
+  source = restoreMainOutputRouting(source, relative);
+  source = restoreLSystemLabSite(source, relative);
+  source = restoreNativeDelaySite(source, relative);
+  return restoreAudioInput(source, relative);
+}

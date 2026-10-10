@@ -228,6 +228,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "linebreaker", label: "Linebreaker", href: "linebreaker.html" },
     { id: "l-system-parametric-lab", label: "L-system Parametric Lab", href: "l-system-parametric-lab.html" },
     { id: "l-system-experiments", label: "L-system Experiments", href: "l-system-experiments.html" },
+    { id: "fractal-delay", label: "Fractal Delay", href: "fractal-delay.html", imageHref: "assets/instrument-icons/fractal-delay.webp" },
     { id: "acoustic-manifold", label: "Acoustic Manifold", href: "acoustic-manifold.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "adaptive-airway", label: "Adaptive Airway Lab", href: "adaptive-airway.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },
     { id: "birdsong-lab", label: "Strophe Lab", href: "birdsong-lab.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/lab-placeholder.webp" },

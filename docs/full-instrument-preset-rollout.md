@@ -1,5 +1,22 @@
 # Full-instrument preset rollout
 
+## October 9 — Fractal Delay shared input and five mappings
+
+The owner-requested Work in Progress instrument has twenty-eight complete musical
+parameter scenes: the original four per mapping plus eight multiport/routing
+scenes, and a bounded full-state randomizer. The
+shared preset/Next/Dice row switches Julia inverse trees, coupled contours,
+orbit routes, numerical ray lattices and finite waveguide chambers. Excitation,
+receiver distribution, optional loop/shortcut/hub links and endpoint reflection
+are musical state. Source
+selection, active file/sample playback, Audio, mic trim, output level and
+measured device policy belong to the session rather than preset recall.
+The pure model's mathematical identities, complete-graph admission, stable IDs,
+scalar continuity and preset completeness are covered by
+`tests/fractal-delay-model.test.mjs`. Browser, PCM and release verification are
+tracked separately; human listening and physical microphone/touch acceptance
+remain unperformed. See [Fractal Delay](fractal-delay.md).
+
 ## October 8 — Quadruped control rail and full scenes
 
 Quadruped has twenty-seven complete animal/gait/ensemble scenes and a bounded full

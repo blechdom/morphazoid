@@ -3,6 +3,7 @@ import { readFile } from "node:fs/promises";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { midiphoriaSiteAdditions, restoreMidiphoriaSite } from "./helpers/midiphoria-site-reference.mjs";
+import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
 
 import { TOOL_GROUPS } from "../src/site/instrument-registry.js";
 import { catalogueItemById, instrumentById } from "../src/site/instrument-catalog.js";
@@ -12,7 +13,7 @@ import { CANONICAL_PAGE_ROUTES } from "../src/pages/manifest.js";
 
 test("Midiphoria adds only its own metadata and preserves previous catalogue bytes", async () => {
   for (const change of midiphoriaSiteAdditions) {
-    const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+    const source = restoreFractalDelaySite(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
     const digest = value => createHash("sha256").update(restoreMidiphoriaSite(value, change.file)).digest("hex");
     assert.equal(digest(source), change.sha256);
     const restored = restoreMidiphoriaSite(source, change.file);

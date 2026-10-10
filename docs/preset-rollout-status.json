@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 46,
-    "fullPresets": 1933,
+    "implemented": 47,
+    "fullPresets": 1961,
     "favesImplemented": 17,
     "activeRemaining": 59,
     "regularRemaining": 127
@@ -1497,6 +1497,16 @@
       "evidence": "October 6 copied Rust/WASM delay UI and 12 complete lab scenes; schema, actual WASM audio, live-session preset recall and responsive browser checks covered by the L-system lab suites. Human listening and physical microphone/touch checks remain unperformed."
     },
     {
+      "id": "fractal-delay",
+      "label": "Fractal Delay",
+      "href": "fractal-delay.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 28,
+      "status": "implemented-verification-pending",
+      "evidence": "October 9 owner-requested Work in Progress instrument: twenty-eight complete musical states across five quadratic-fractal graph mappings, including multiport excitation/listening and optional loop, shortcut and hub connections. Pure model and PCM tests cover mathematical identities, normalized ports, endpoint reflection, complete capacity admission and preset completeness. Browser/release verification tracked separately; human listening and physical microphone/touch acceptance remain unperformed."
+    },
+    {
       "id": "acoustic-manifold",
       "label": "Acoustic Manifold",
       "href": "acoustic-manifold.html",
@@ -1853,6 +1863,7 @@
       "linebreaker",
       "l-system-parametric-lab",
       "l-system-experiments",
+      "fractal-delay",
       "acoustic-manifold",
       "adaptive-airway",
       "birdsong-lab",

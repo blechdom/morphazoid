@@ -1794,3 +1794,22 @@ copy+require	src/families/recursive/full-presets.js
 copy+require	src/families/recursive/preset-voicings.js
 copy+require	src/instruments/chaotic-am/presets.js
 copy+require	src/instruments/chaotic-am/full-presets.js
+
+# Fractal Delay: five shared-input Rust/WASM travelling-wave networks.
+require	fractal-delay.html
+copy+require	src/instruments/fractal-delay/app.js
+copy+require	src/instruments/fractal-delay/browser-engine.js
+copy+require	src/instruments/fractal-delay/performance.js
+copy+require	src/instruments/fractal-delay/model.js
+copy+require	src/instruments/fractal-delay/presets.js
+copy+require	src/instruments/fractal-delay/geometry-worker.js
+copy+require	src/instruments/fractal-delay/preflight-worker.js
+copy+require	src/instruments/fractal-delay/mandelbrot-worker.js
+copy+require	src/instruments/fractal-delay/network-worklet.js
+copy+require	src/instruments/fractal-delay/wasm-runtime.js
+copy+require	src/instruments/fractal-delay/renderer.js
+copy+require	src/instruments/fractal-delay/style.css
+copy+require	assets/wasm/fractal-delay.wasm
+copy+require	assets/wasm/fractal-delay-build.json
+copy+require	assets/instrument-icons/fractal-delay.webp
+copy+require	docs/fractal-delay.md

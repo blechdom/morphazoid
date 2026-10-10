@@ -378,6 +378,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Choose an input and enable Audio. Select a rule family, then change iterations and symbol ratio.",
     ["Microphone", "Audio file", "Recorded samples", "Context rules", "Sequences", "Tilings", "Rust / WASM"],
   ),
+  "fractal-delay": define(
+    "Five fractal waveguide mappings",
+    "Julia inverse trees, coupled potential contours, orbit routes, numerical ray lattices and finite fractal chambers share microphone, file and recorded-sample input. Visible edge lengths set travel times in a bidirectional Rust/WebAssembly delay network.",
+    "Choose an input, enable Audio and explore the five mappings or twenty presets. Change the complex parameter and travel time while the source keeps playing.",
+    ["Mic / line", "Audio file", "Recorded samples", "Fractals", "Delay network", "Rust / WASM", "Presets"],
+  ),
   "micmic-rust": define(
     "Rust/WASM audio processor",
     "Runs microphone, local-file or recorded-sample audio through recursive delay branches with independently shifted playback rates. Rust compiled to WebAssembly processes audio inside the browser and adapts voices to measured device capacity; the tree follows the audio clock.",

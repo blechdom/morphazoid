@@ -211,5 +211,6 @@ test("L-Systems lives in the Morphazoid Apps section", async () => {
   const { instrumentById } = await import("../src/site/instrument-catalog.js");
   assert.deepEqual(instrumentById("l-systems").tags.map(tag => tag.id), ["app", "fractal", "recursive", "drum-machine", "audio-effect"]);
   assert.match(midi, /sequence: Object\.freeze\(\[\s*"l-systems"/);
-  assert.match(midi, /const audioInputIds = new Set\(\[\s*"l-systems"/);
+  const { instrumentMidiCapabilityForId } = await import('../src/site/instrument-midi-capabilities.js');
+  assert.equal(instrumentMidiCapabilityForId('l-systems').audioInput, true);
 });
