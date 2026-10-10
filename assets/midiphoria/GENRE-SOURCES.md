@@ -1,4 +1,4 @@
-# Midiphoria genre MIDI sources
+# Midiophilia genre MIDI sources
 
 Retrieved 2026-10-07. These are original compositions posted by their creators, not transcriptions of commercial hit songs. All three have explicit CC0 licensing on the linked OpenGameArt submission pages. Original MIDI bytes are unchanged; filenames are shortened.
 

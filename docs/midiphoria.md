@@ -1,4 +1,4 @@
-# Midiphoria on Morphazoid
+# Midiophilia on Morphazoid
 
 Open `/midiphoria.html`. Choose a song, enable **Audio**, then **Play**.
 When a song is selected with Audio off, **Turn audio on** appears beside Play;

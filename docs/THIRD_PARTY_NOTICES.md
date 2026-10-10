@@ -1,8 +1,8 @@
 # Third-party notices
 
-## Midiphoria visual lab
+## Midiophilia visual lab
 
-The Midiphoria page is inspired by the MIDI-controlled color and brightness
+The Midiophilia page is inspired by the MIDI-controlled color and brightness
 concept in [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria),
 reviewed at commit `93b5c4f031933c3372c20b428e3c4160b9485c73` on October 7, 2026.
 That repository contains no license file or declared package license at this
@@ -669,7 +669,7 @@ Notices and exact source/model hashes are in `vendor/sinsy/`; rebuild code and
 native API forwarding changes are in `scripts/vendor/sinsy/`.
 Official source: <https://sinsy.sourceforge.net/>.
 
-## Midiphoria black MIDI and full orchestra collections
+## Midiophilia black MIDI and full orchestra collections
 
 BLEEDING EDGE MONOTONE's complete Black-MIDI-Archive (35 MIDI files, 19 works)
 and its 16 creator AUDIO editions are CC0 1.0. The nine rin-w geometric MIDI
