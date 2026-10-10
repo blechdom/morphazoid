@@ -1,0 +1,1036 @@
+//! Genuine bidirectional digital waveguides: each edge owns two travelling-wave
+//! histories; equal-impedance Kirchhoff scattering connects the actual graph.
+//! Convex reflection/scattering blending is contractive for 0 <= coupling <= 1.
+//! Geometry is an artistic resonator, not an acoustically validated fractal room.
+//! Input policy and two-window wet transposition follow L-system Delay's browser
+//! instrument, while its shared-history tap renderer is deliberately not reused.
+use serde::Deserialize;
+use std::collections::{HashMap, HashSet};
+use std::f64::consts::TAU;
+
+const MAX_EDGES: usize = 16384;
+const WAVEFORM: usize = 32;
+const METRICS: usize = 14;
+const MAX_RESERVE_MS: f64 = 2000.;
+const FADE_SECONDS: f64 = 0.064;
+
+#[derive(Clone, Deserialize)]
+struct Point {
+    id: u32,
+    x: f64,
+    y: f64,
+}
+#[derive(Clone, Deserialize)]
+struct Link {
+    id: u32,
+    a: usize,
+    b: usize,
+    length: f64,
+}
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct Scene {
+    nodes: Vec<Point>,
+    edges: Vec<Link>,
+    input_node: usize,
+    pickup_node: usize,
+    #[serde(default = "reserve_default")]
+    reserve_time_ms: f64,
+    #[serde(default = "memory_default")]
+    memory_budget_bytes: usize,
+}
+fn reserve_default() -> f64 {
+    MAX_RESERVE_MS
+}
+fn memory_default() -> usize {
+    256 * 1024 * 1024
+}
+fn ring_size(length: f64, rate: f64, reserve: f64) -> usize {
+    (length * rate * reserve * 1.25 / 1000.).ceil().max(1.) as usize + 4
+}
+fn validate(scene: &Scene, rate: f64) -> Result<usize, &'static str> {
+    if scene.nodes.is_empty()
+        || scene.nodes.len() > MAX_EDGES + 1
+        || scene.edges.is_empty()
+        || scene.edges.len() > MAX_EDGES
+        || scene.input_node >= scene.nodes.len()
+        || scene.pickup_node >= scene.nodes.len()
+        || !scene.reserve_time_ms.is_finite()
+        || !(0.05..=MAX_RESERVE_MS).contains(&scene.reserve_time_ms)
+    {
+        return Err("Invalid complete graph or delay reservation");
+    }
+    let mut ids = HashSet::new();
+    if scene
+        .nodes
+        .iter()
+        .any(|p| !p.x.is_finite() || !p.y.is_finite() || !ids.insert(p.id))
+    {
+        return Err("Invalid or duplicate node");
+    }
+    ids.clear();
+    let mut degrees = vec![0; scene.nodes.len()];
+    let mut bytes = 0usize;
+    for e in &scene.edges {
+        if e.a >= scene.nodes.len()
+            || e.b >= scene.nodes.len()
+            || e.a == e.b
+            || !e.length.is_finite()
+            || !(0.00001..=16.).contains(&e.length)
+            || !ids.insert(e.id)
+        {
+            return Err("Invalid or duplicate edge");
+        }
+        degrees[e.a] += 1;
+        degrees[e.b] += 1;
+        bytes = bytes
+            .checked_add(ring_size(e.length, rate, scene.reserve_time_ms) * 8)
+            .ok_or("Delay memory overflow")?;
+    }
+    if degrees[scene.input_node] == 0 || degrees[scene.pickup_node] == 0 {
+        return Err("Disconnected input or pickup");
+    }
+    if bytes > scene.memory_budget_bytes {
+        return Err("Complete graph exceeds reserved delay memory budget");
+    }
+    Ok(bytes)
+}
+
+#[derive(Clone)]
+struct Edge {
+    link: Link,
+    ab: Vec<f32>,
+    ba: Vec<f32>,
+    write: usize,
+    delay: f64,
+    delay_velocity: f64,
+    incoming_ab: f64,
+    incoming_ba: f64,
+    loss: f64,
+    loss_target: f64,
+    level: f32,
+}
+impl Edge {
+    fn read(buffer: &[f32], write: usize, delay: f64) -> f64 {
+        let size = buffer.len();
+        let position = (write as f64 - delay.clamp(1., (size - 2) as f64)).rem_euclid(size as f64);
+        let i = position.floor() as usize;
+        let fraction = position - i as f64;
+        f64::from(buffer[i]) * (1. - fraction) + f64::from(buffer[(i + 1) % size]) * fraction
+    }
+    fn at(&self, distance_from_a: f64) -> f64 {
+        Self::read(&self.ab, self.write, (self.delay * distance_from_a).max(1.))
+            + Self::read(
+                &self.ba,
+                self.write,
+                (self.delay * (1. - distance_from_a)).max(1.),
+            )
+    }
+}
+struct Graph {
+    nodes: Vec<Point>,
+    degrees: Vec<f64>,
+    pressure: Vec<f64>,
+    edges: Vec<Edge>,
+    input: usize,
+    pickup: usize,
+    reserve_ms: f64,
+    bytes: usize,
+}
+impl Graph {
+    fn step(
+        &mut self,
+        input: f64,
+        rate: f64,
+        time_ms: f64,
+        coupling: f64,
+        smooth: f64,
+    ) -> [f64; 2] {
+        self.pressure.fill(0.);
+        for e in &mut self.edges {
+            let target = (e.link.length * rate * time_ms / 1000.).max(1.);
+            // Moving read heads accelerate smoothly rather than teleport. This
+            // retains ordinary tape Doppler motion when travel speed changes.
+            let desired = ((target - e.delay) * smooth).clamp(-0.25, 0.25);
+            e.delay_velocity += (desired - e.delay_velocity) * smooth;
+            e.delay = (e.delay + e.delay_velocity).clamp(1., (e.ab.len() - 2) as f64);
+            e.loss += (e.loss_target - e.loss) * smooth;
+            e.incoming_ab = Self::safe(Edge::read(&e.ab, e.write, e.delay) * e.loss);
+            e.incoming_ba = Self::safe(Edge::read(&e.ba, e.write, e.delay) * e.loss);
+            self.pressure[e.link.b] += e.incoming_ab;
+            self.pressure[e.link.a] += e.incoming_ba;
+        }
+        for (p, degree) in self.pressure.iter_mut().zip(&self.degrees) {
+            *p *= 2. / degree.max(1.);
+        }
+        let input_scale = 1. / self.degrees[self.input].max(1.).sqrt();
+        // A source enters the outgoing waves at one real junction. No new
+        // external signal is injected at descendants or other mesh cells.
+        let pickup = self.pressure[self.pickup] * 0.5;
+        self.pressure[self.input] += input * input_scale;
+        for e in &mut self.edges {
+            let a = (1. - coupling) * e.incoming_ba
+                + coupling * (self.pressure[e.link.a] - e.incoming_ba);
+            let b = (1. - coupling) * e.incoming_ab
+                + coupling * (self.pressure[e.link.b] - e.incoming_ab);
+            e.ab[e.write] = Self::safe(a) as f32;
+            e.ba[e.write] = Self::safe(b) as f32;
+            let amplitude = ((a * a + b * b) * 0.5).sqrt() as f32;
+            e.level += (amplitude - e.level) * 0.012;
+            e.write += 1;
+            if e.write == e.ab.len() {
+                e.write = 0;
+            }
+        }
+        // Single coherent pickup pressure: slight lateral placement follows the
+        // pickup's real coordinate, rather than averaging every graph segment.
+        let pan = self.nodes[self.pickup].x.clamp(-1., 1.) * 0.5;
+        [pickup * (1. - pan).sqrt(), pickup * (1. + pan).sqrt()]
+    }
+    fn safe(value: f64) -> f64 {
+        if value.is_finite() {
+            value.clamp(-64., 64.)
+        } else {
+            0.
+        }
+    }
+}
+struct Preparation {
+    scene: Scene,
+    graph: Graph,
+    reuse: HashMap<u32, usize>,
+    cursor: usize,
+}
+
+#[derive(Clone, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Parameters {
+    time_ms: f64,
+    decay: f64,
+    coupling: f64,
+    pitch_offset: f64,
+    frozen: bool,
+}
+impl Default for Parameters {
+    fn default() -> Self {
+        Self {
+            time_ms: 140.,
+            decay: 0.84,
+            coupling: 0.82,
+            pitch_offset: 0.,
+            frozen: false,
+        }
+    }
+}
+#[derive(Clone, Deserialize)]
+#[serde(default, rename_all = "camelCase")]
+struct Performance {
+    input_gain: f64,
+    wet: f64,
+    dry: f64,
+    output_level: f64,
+    output_boost_db: f64,
+    hpf_hz: f64,
+    lpf_hz: f64,
+    compressor_threshold_db: f64,
+    compressor_ratio: f64,
+    compressor_attack_ms: f64,
+    compressor_release_ms: f64,
+    compressor_makeup_db: f64,
+}
+impl Default for Performance {
+    fn default() -> Self {
+        Self {
+            input_gain: 0.85,
+            wet: 0.7,
+            dry: 0.3,
+            output_level: 1.,
+            output_boost_db: 6.,
+            hpf_hz: 30.,
+            lpf_hz: 18000.,
+            compressor_threshold_db: -12.,
+            compressor_ratio: 3.,
+            compressor_attack_ms: 5.,
+            compressor_release_ms: 120.,
+            compressor_makeup_db: 0.,
+        }
+    }
+}
+#[derive(Deserialize)]
+struct Controls {
+    #[serde(default)]
+    parameters: Option<Parameters>,
+    #[serde(default)]
+    performance: Option<Performance>,
+    #[serde(default, rename = "inputMode")]
+    input_mode: Option<String>,
+}
+
+struct Engine {
+    rate: f64,
+    graph: Option<Graph>,
+    old: Option<Graph>,
+    pending: Option<Preparation>,
+    retired: Vec<Graph>,
+    revision: u32,
+    pending_revision: u32,
+    clock: u64,
+    fade: f64,
+    parameters: Parameters,
+    performance: Performance,
+    media: bool,
+    smooth: f64,
+    time: f64,
+    decay: f64,
+    coupling: f64,
+    ratio: f64,
+    mic_gain: f64,
+    wet: f64,
+    dry: f64,
+    output: f64,
+    hp_coefficient: f64,
+    lp_coefficient: f64,
+    hp_last_input: [f64; 2],
+    hp_last_output: [f64; 2],
+    lp_last: [f64; 2],
+    compressor_envelope: f64,
+    compressor_gain: f64,
+    compressor_threshold: f64,
+    compressor_attack: f64,
+    compressor_release: f64,
+    makeup: f64,
+    gain_reduction: f64,
+    pitch_left: Vec<f32>,
+    pitch_right: Vec<f32>,
+    pitch_write: usize,
+    pitch_phase: f64,
+    pitch_mix: f64,
+    metrics: [f64; METRICS],
+    levels: Vec<f32>,
+    waveforms: Vec<f32>,
+    error: String,
+}
+impl Engine {
+    fn new(rate: f64) -> Self {
+        let p = Performance::default();
+        let parameters = Parameters::default();
+        let mut e = Self {
+            rate,
+            graph: None,
+            old: None,
+            pending: None,
+            retired: Vec::with_capacity(8),
+            revision: 0,
+            pending_revision: 0,
+            clock: 0,
+            fade: 1.,
+            parameters,
+            performance: p.clone(),
+            media: false,
+            smooth: 1. - (-1. / (rate * 0.035)).exp(),
+            time: 140.,
+            decay: 0.84,
+            coupling: 0.82,
+            ratio: 1.,
+            mic_gain: p.input_gain,
+            wet: p.wet,
+            dry: p.dry,
+            output: 10f64.powf(p.output_boost_db / 20.),
+            hp_coefficient: 0.,
+            lp_coefficient: 0.,
+            hp_last_input: [0.; 2],
+            hp_last_output: [0.; 2],
+            lp_last: [0.; 2],
+            compressor_envelope: 0.,
+            compressor_gain: 1.,
+            compressor_threshold: 0.,
+            compressor_attack: 0.,
+            compressor_release: 0.,
+            makeup: 1.,
+            gain_reduction: 0.,
+            pitch_left: vec![0.; (rate * 0.4).ceil() as usize],
+            pitch_right: vec![0.; (rate * 0.4).ceil() as usize],
+            pitch_write: 0,
+            pitch_phase: 0.,
+            pitch_mix: 0.,
+            metrics: [0.; METRICS],
+            levels: Vec::new(),
+            waveforms: Vec::new(),
+            error: String::new(),
+        };
+        e.coefficients();
+        e
+    }
+    fn coefficients(&mut self) {
+        self.hp_coefficient =
+            (-TAU * self.performance.hpf_hz.min(self.rate * 0.45) / self.rate).exp();
+        self.lp_coefficient =
+            1. - (-TAU * self.performance.lpf_hz.min(self.rate * 0.45) / self.rate).exp();
+        self.compressor_threshold = 10f64.powf(self.performance.compressor_threshold_db / 20.);
+        self.compressor_attack =
+            1. - (-1. / (self.rate * self.performance.compressor_attack_ms / 1000.)).exp();
+        self.compressor_release =
+            1. - (-1. / (self.rate * self.performance.compressor_release_ms / 1000.)).exp();
+        self.makeup = 10f64.powf(self.performance.compressor_makeup_db / 20.);
+    }
+    fn controls(&mut self, controls: Controls) -> Result<(), &'static str> {
+        if let Some(p) = &controls.parameters {
+            if !p.time_ms.is_finite()
+                || !(0.05..=2000.).contains(&p.time_ms)
+                || !p.decay.is_finite()
+                || !(0.0..=1.).contains(&p.decay)
+                || !p.coupling.is_finite()
+                || !(0.0..=1.).contains(&p.coupling)
+                || !p.pitch_offset.is_finite()
+                || !(-24.0..=24.).contains(&p.pitch_offset)
+            {
+                return Err("Invalid live network parameters");
+            }
+            if self
+                .graph
+                .as_ref()
+                .is_some_and(|g| p.time_ms > g.reserve_ms)
+            {
+                return Err("Travel time exceeds graph reservation");
+            }
+        }
+        if let Some(p) = &controls.performance {
+            let values = [
+                p.input_gain,
+                p.wet,
+                p.dry,
+                p.output_level,
+                p.output_boost_db,
+                p.hpf_hz,
+                p.lpf_hz,
+                p.compressor_threshold_db,
+                p.compressor_ratio,
+                p.compressor_attack_ms,
+                p.compressor_release_ms,
+                p.compressor_makeup_db,
+            ];
+            if values.iter().any(|v| !v.is_finite())
+                || !(0.0..=4.).contains(&p.input_gain)
+                || !(0.0..=1.).contains(&p.wet)
+                || !(0.0..=1.).contains(&p.dry)
+                || !(0.0..=2.).contains(&p.output_level)
+                || !(0.0..=24.).contains(&p.output_boost_db)
+                || !(0.0..=20000.).contains(&p.hpf_hz)
+                || !(20.0..=22000.).contains(&p.lpf_hz)
+                || !(-60.0..=0.).contains(&p.compressor_threshold_db)
+                || !(1.0..=40.).contains(&p.compressor_ratio)
+                || !(0.1..=1000.).contains(&p.compressor_attack_ms)
+                || !(1.0..=5000.).contains(&p.compressor_release_ms)
+                || !(0.0..=24.).contains(&p.compressor_makeup_db)
+            {
+                return Err("Invalid mastering parameters");
+            }
+        }
+        if let Some(mode) = &controls.input_mode {
+            if mode != "media" && mode != "mic" {
+                return Err("Invalid source mode");
+            }
+        }
+        if let Some(p) = controls.parameters {
+            self.parameters = p;
+            if let Some(g) = &mut self.graph {
+                for e in &mut g.edges {
+                    e.loss_target = self.parameters.decay.powf(e.link.length);
+                }
+            }
+            if let Some(g) = &mut self.old {
+                for e in &mut g.edges {
+                    e.loss_target = self.parameters.decay.powf(e.link.length);
+                }
+            }
+        }
+        if let Some(p) = controls.performance {
+            self.performance = p;
+            self.coefficients();
+        }
+        if let Some(mode) = controls.input_mode {
+            self.media = mode == "media";
+        }
+        Ok(())
+    }
+    fn begin(&mut self, scene: Scene, revision: u32) -> Result<(), &'static str> {
+        let bytes = validate(&scene, self.rate)?;
+        if self.parameters.time_ms > scene.reserve_time_ms {
+            return Err("Graph reservation below current travel time");
+        }
+        // A pure geometry/pickup update does not allocate wave histories, replace
+        // the graph, reset its clock, or restart the source.
+        if let Some(g) = &mut self.graph {
+            if scene.edges.len() == g.edges.len()
+                && scene.nodes.len() == g.nodes.len()
+                && scene.edges.iter().zip(&g.edges).all(|(a, b)| {
+                    a.id == b.link.id
+                        && a.a == b.link.a
+                        && a.b == b.link.b
+                        && (a.length * self.rate * scene.reserve_time_ms / 1000.)
+                            .ceil()
+                            .max(1.) as usize
+                            + 4
+                            <= b.ab.len()
+                })
+            {
+                g.nodes = scene.nodes;
+                g.pickup = scene.pickup_node;
+                g.input = scene.input_node;
+                for (edge, link) in g.edges.iter_mut().zip(scene.edges) {
+                    edge.link = link;
+                    edge.loss_target = self.parameters.decay.powf(edge.link.length);
+                }
+                g.reserve_ms = scene.reserve_time_ms;
+                self.revision = revision;
+                self.pending = None;
+                return Ok(());
+            }
+        }
+        let mut degree = vec![0.; scene.nodes.len()];
+        for e in &scene.edges {
+            degree[e.a] += 1.;
+            degree[e.b] += 1.;
+        }
+        let graph = Graph {
+            nodes: scene.nodes.clone(),
+            degrees: degree,
+            pressure: vec![0.; scene.nodes.len()],
+            edges: Vec::with_capacity(scene.edges.len()),
+            input: scene.input_node,
+            pickup: scene.pickup_node,
+            reserve_ms: scene.reserve_time_ms,
+            bytes,
+        };
+        let reuse = self
+            .graph
+            .as_ref()
+            .map(|g| {
+                g.edges
+                    .iter()
+                    .enumerate()
+                    .map(|(i, e)| (e.link.id, i))
+                    .collect()
+            })
+            .unwrap_or_default();
+        self.pending = Some(Preparation {
+            scene,
+            graph,
+            reuse,
+            cursor: 0,
+        });
+        self.pending_revision = revision;
+        Ok(())
+    }
+    fn prepare(&mut self, records: usize) -> i32 {
+        let Some(p) = &mut self.pending else {
+            return 2;
+        };
+        for _ in 0..records.max(1) {
+            if p.cursor == p.scene.edges.len() {
+                break;
+            }
+            let link = p.scene.edges[p.cursor].clone();
+            let size = ring_size(link.length, self.rate, p.scene.reserve_time_ms);
+            let mut edge = Edge {
+                link,
+                ab: vec![0.; size],
+                ba: vec![0.; size],
+                write: 0,
+                delay: 1.,
+                delay_velocity: 0.,
+                incoming_ab: 0.,
+                incoming_ba: 0.,
+                loss: 1.,
+                loss_target: 1.,
+                level: 0.,
+            };
+            edge.delay = (edge.link.length * self.rate * self.time / 1000.).max(1.);
+            edge.loss = self.decay.powf(edge.link.length);
+            edge.loss_target = self.parameters.decay.powf(edge.link.length);
+            if let Some(old_index) = p.reuse.get(&edge.link.id) {
+                if let Some(old) = self.graph.as_ref().and_then(|g| g.edges.get(*old_index)) {
+                    // Copy relative to the current write head, preserving actual
+                    // recorded waves across resolution edits. New/old graphs own
+                    // independent buffers during their short coherent crossfade.
+                    let count = size.min(old.ab.len());
+                    for d in 1..count {
+                        let from = (old.write + old.ab.len() - d) % old.ab.len();
+                        edge.ab[size - d] = old.ab[from];
+                        edge.ba[size - d] = old.ba[from];
+                    }
+                    edge.delay = old.delay.min((size - 2) as f64);
+                    edge.delay_velocity = old.delay_velocity;
+                }
+            }
+            p.graph.edges.push(edge);
+            p.cursor += 1;
+        }
+        if p.cursor != p.scene.edges.len() {
+            return 1;
+        }
+        let p = self.pending.take().unwrap();
+        if let Some(previous) = self.old.take() {
+            self.retired.push(previous);
+        }
+        self.old = self.graph.replace(p.graph);
+        self.fade = if self.old.is_some() { 0. } else { 1. };
+        self.revision = self.pending_revision;
+        let count = self.graph.as_ref().map_or(0, |g| g.edges.len());
+        self.levels.resize(count, 0.);
+        self.waveforms.resize(count * WAVEFORM, 0.);
+        2
+    }
+    fn pitch(&mut self, wet: [f64; 2]) -> [f64; 2] {
+        self.pitch_left[self.pitch_write] = wet[0] as f32;
+        self.pitch_right[self.pitch_write] = wet[1] as f32;
+        let grain = self.rate * 0.11;
+        let p0 = self.pitch_phase;
+        let p1 = (p0 + 0.5).fract();
+        let target = if (self.ratio - 1.).abs() > 0.0005 && self.clock as f64 > grain * 2. {
+            1.
+        } else {
+            0.
+        };
+        self.pitch_mix += (target - self.pitch_mix) * self.smooth;
+        let window0 = 0.5 - 0.5 * (TAU * p0).cos();
+        let window1 = 1. - window0;
+        let delay0 = grain * 0.25
+            + if self.ratio >= 1. {
+                (1. - p0) * grain
+            } else {
+                p0 * grain
+            };
+        let delay1 = grain * 0.25
+            + if self.ratio >= 1. {
+                (1. - p1) * grain
+            } else {
+                p1 * grain
+            };
+        let pitched = [
+            Edge::read(&self.pitch_left, self.pitch_write, delay0) * window0
+                + Edge::read(&self.pitch_left, self.pitch_write, delay1) * window1,
+            Edge::read(&self.pitch_right, self.pitch_write, delay0) * window0
+                + Edge::read(&self.pitch_right, self.pitch_write, delay1) * window1,
+        ];
+        self.pitch_phase = (self.pitch_phase + (self.ratio - 1.).abs() / grain).fract();
+        self.pitch_write = (self.pitch_write + 1) % self.pitch_left.len();
+        std::array::from_fn(|i| wet[i] * (1. - self.pitch_mix) + pitched[i] * self.pitch_mix)
+    }
+    fn process(&mut self, left: &[f32], right: &[f32], out_l: &mut [f32], out_r: &mut [f32]) {
+        let s = self.smooth;
+        let ratio_target = 2f64.powf(self.parameters.pitch_offset / 12.);
+        let output_target =
+            self.performance.output_level * 10f64.powf(self.performance.output_boost_db / 20.);
+        self.metrics[3] = 0.;
+        self.metrics[4] = 0.;
+        self.metrics[5] = 0.;
+        for i in 0..out_l.len() {
+            self.time += (self.parameters.time_ms - self.time) * s;
+            self.decay += (self.parameters.decay - self.decay) * s;
+            self.coupling += (self.parameters.coupling - self.coupling) * s;
+            self.ratio += (ratio_target - self.ratio) * s;
+            self.mic_gain += (self.performance.input_gain - self.mic_gain) * s;
+            self.wet += (self.performance.wet - self.wet) * s;
+            self.dry += (self.performance.dry - self.dry) * s;
+            self.output += (output_target - self.output) * s;
+            let gain = if self.media { 1. } else { self.mic_gain };
+            let input = [
+                if left[i].is_finite() {
+                    f64::from(left[i]).clamp(-4., 4.) * gain
+                } else {
+                    0.
+                },
+                if right[i].is_finite() {
+                    f64::from(right[i]).clamp(-4., 4.) * gain
+                } else {
+                    0.
+                },
+            ];
+            self.metrics[3] = self.metrics[3].max(input[0].abs()).max(input[1].abs());
+            let injected = if self.parameters.frozen {
+                0.
+            } else {
+                (input[0] + input[1]) * 0.5
+            };
+            let current = self.graph.as_mut().map_or([0.; 2], |g| {
+                g.step(injected, self.rate, self.time, self.coupling, s)
+            });
+            let old = self.old.as_mut().map_or([0.; 2], |g| {
+                g.step(injected, self.rate, self.time, self.coupling, s)
+            });
+            let wet = self.pitch(std::array::from_fn(|ch| {
+                current[ch] * self.fade + old[ch] * (1. - self.fade)
+            }));
+            self.fade = (self.fade + 1. / (self.rate * FADE_SECONDS)).min(1.);
+            let mut output =
+                std::array::from_fn::<_, 2, _>(|ch| input[ch] * self.dry + wet[ch] * self.wet);
+            for ch in 0..2 {
+                let hp = if self.performance.hpf_hz == 0. {
+                    output[ch]
+                } else {
+                    self.hp_coefficient
+                        * (self.hp_last_output[ch] + output[ch] - self.hp_last_input[ch])
+                };
+                self.hp_last_input[ch] = output[ch];
+                self.hp_last_output[ch] = hp;
+                self.lp_last[ch] += (hp - self.lp_last[ch]) * self.lp_coefficient;
+                output[ch] = self.lp_last[ch];
+            }
+            let peak = output[0].abs().max(output[1].abs());
+            let coefficient = if peak > self.compressor_envelope {
+                self.compressor_attack
+            } else {
+                self.compressor_release
+            };
+            self.compressor_envelope += (peak - self.compressor_envelope) * coefficient;
+            let gain_target = if self.compressor_envelope > self.compressor_threshold {
+                (self.compressor_envelope / self.compressor_threshold)
+                    .powf(1. / self.performance.compressor_ratio - 1.)
+            } else {
+                1.
+            };
+            self.compressor_gain += (gain_target - self.compressor_gain) * coefficient;
+            for ch in 0..2 {
+                output[ch] = 0.94
+                    * (output[ch] * self.compressor_gain * self.makeup * self.output / 0.94).tanh();
+            }
+            out_l[i] = output[0] as f32;
+            out_r[i] = output[1] as f32;
+            self.metrics[4] = self.metrics[4].max(output[0].abs());
+            self.metrics[5] = self.metrics[5].max(output[1].abs());
+            self.clock += 1;
+        }
+        self.gain_reduction = -20. * self.compressor_gain.max(1e-12).log10();
+        // No Vec resize, ring allocation, JSON parsing, collection or deallocation
+        // occurs in this rendering method. Maintenance owns retired storage.
+    }
+    fn collect(&mut self, records: usize) -> usize {
+        if self.fade >= 1. {
+            if let Some(g) = self.old.take() {
+                self.retired.push(g);
+            }
+        }
+        for _ in 0..records {
+            if let Some(g) = self.retired.last_mut() {
+                if g.edges.pop().is_none() {
+                    self.retired.pop();
+                }
+            } else {
+                break;
+            }
+        }
+        self.retired.len()
+    }
+    fn snapshot(&mut self) {
+        self.metrics[0] = self.clock as f64;
+        self.metrics[1] = self.graph.as_ref().map_or(0., |g| g.edges.len() as f64);
+        self.metrics[2] = self.revision as f64;
+        self.metrics[6] = self.gain_reduction;
+        self.metrics[7] = self.time;
+        self.metrics[8] = self.parameters.time_ms;
+        self.metrics[9] = self.graph.as_ref().map_or(0., |g| g.bytes as f64);
+        self.metrics[10] = self.pending.as_ref().map_or(0., |p| p.cursor as f64);
+        self.metrics[11] = self.parameters.pitch_offset;
+        self.metrics[12] = self.rate;
+        self.metrics[13] = self.old.as_ref().map_or(0., |g| g.edges.len() as f64);
+        if let Some(g) = &self.graph {
+            for (i, e) in g.edges.iter().enumerate() {
+                self.levels[i] = e.level;
+                for j in 0..WAVEFORM {
+                    self.waveforms[i * WAVEFORM + j] =
+                        e.at(j as f64 / (WAVEFORM - 1) as f64) as f32;
+                }
+            }
+        }
+    }
+}
+
+unsafe fn engine<'a>(ptr: usize) -> &'a mut Engine {
+    &mut *(ptr as *mut Engine)
+}
+unsafe fn json<'a>(ptr: usize, len: usize) -> &'a [u8] {
+    std::slice::from_raw_parts(ptr as *const u8, len)
+}
+#[no_mangle]
+pub extern "C" fn fd_abi_version() -> u32 {
+    1
+}
+#[no_mangle]
+pub extern "C" fn fd_alloc(len: usize) -> usize {
+    let bytes = vec![0u8; len].into_boxed_slice();
+    Box::into_raw(bytes) as *mut u8 as usize
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_free(ptr: usize, len: usize) {
+    if ptr != 0 {
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(
+            ptr as *mut u8,
+            len,
+        )));
+    }
+}
+#[no_mangle]
+pub extern "C" fn fd_new(rate: f64) -> usize {
+    if !rate.is_finite() || !(8000.0..=192000.).contains(&rate) {
+        return 0;
+    }
+    Box::into_raw(Box::new(Engine::new(rate))) as usize
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_drop(ptr: usize) {
+    if ptr != 0 {
+        drop(Box::from_raw(ptr as *mut Engine));
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_scene_begin(ptr: usize, data: usize, len: usize, revision: u32) -> i32 {
+    let e = engine(ptr);
+    match serde_json::from_slice::<Scene>(json(data, len)) {
+        Ok(s) => match e.begin(s, revision) {
+            Ok(()) => 1,
+            Err(err) => {
+                e.error = err.into();
+                0
+            }
+        },
+        Err(err) => {
+            e.error = err.to_string();
+            0
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_scene_step(ptr: usize, records: usize) -> i32 {
+    engine(ptr).prepare(records)
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_scene_abort(ptr: usize) {
+    engine(ptr).pending = None;
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_controls(ptr: usize, data: usize, len: usize) -> i32 {
+    let e = engine(ptr);
+    match serde_json::from_slice::<Controls>(json(data, len)) {
+        Ok(c) => match e.controls(c) {
+            Ok(()) => 1,
+            Err(err) => {
+                e.error = err.into();
+                0
+            }
+        },
+        Err(err) => {
+            e.error = err.to_string();
+            0
+        }
+    }
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_estimated_bytes(data: usize, len: usize, rate: f64) -> f64 {
+    serde_json::from_slice::<Scene>(json(data, len))
+        .ok()
+        .and_then(|s| validate(&s, rate).ok())
+        .map_or(-1., |n| n as f64)
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_process(
+    ptr: usize,
+    left: usize,
+    right: usize,
+    out_l: usize,
+    out_r: usize,
+    frames: usize,
+) {
+    engine(ptr).process(
+        std::slice::from_raw_parts(left as *const f32, frames),
+        std::slice::from_raw_parts(right as *const f32, frames),
+        std::slice::from_raw_parts_mut(out_l as *mut f32, frames),
+        std::slice::from_raw_parts_mut(out_r as *mut f32, frames),
+    );
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_collect(ptr: usize, records: usize) -> usize {
+    engine(ptr).collect(records)
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_metrics_ptr(ptr: usize) -> usize {
+    let e = engine(ptr);
+    e.snapshot();
+    e.metrics.as_ptr() as usize
+}
+#[no_mangle]
+pub extern "C" fn fd_metrics_len() -> usize {
+    METRICS
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_edge_levels_ptr(ptr: usize) -> usize {
+    engine(ptr).levels.as_ptr() as usize
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_edge_waveforms_ptr(ptr: usize) -> usize {
+    engine(ptr).waveforms.as_ptr() as usize
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_edge_count(ptr: usize) -> usize {
+    engine(ptr).levels.len()
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_error_ptr(ptr: usize) -> usize {
+    engine(ptr).error.as_ptr() as usize
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_error_len(ptr: usize) -> usize {
+    engine(ptr).error.len()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::alloc::{GlobalAlloc, Layout, System};
+    use std::cell::Cell;
+    thread_local! { static WATCH: Cell<bool> = const { Cell::new(false) }; static ALLOCATIONS: Cell<usize> = const { Cell::new(0) }; }
+    struct CountingAllocator;
+    unsafe impl GlobalAlloc for CountingAllocator {
+        unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+            if WATCH.try_with(|value| value.get()).unwrap_or(false) {
+                let _ = ALLOCATIONS.try_with(|n| n.set(n.get() + 1));
+            }
+            System.alloc(layout)
+        }
+        unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+            System.dealloc(ptr, layout)
+        }
+        unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, size: usize) -> *mut u8 {
+            if WATCH.try_with(|value| value.get()).unwrap_or(false) {
+                let _ = ALLOCATIONS.try_with(|n| n.set(n.get() + 1));
+            }
+            System.realloc(ptr, layout, size)
+        }
+    }
+    #[global_allocator]
+    static ALLOCATOR: CountingAllocator = CountingAllocator;
+    fn scene() -> Scene {
+        Scene {
+            nodes: vec![
+                Point {
+                    id: 0,
+                    x: 0.,
+                    y: 0.,
+                },
+                Point {
+                    id: 1,
+                    x: 0.,
+                    y: 0.,
+                },
+                Point {
+                    id: 2,
+                    x: 0.,
+                    y: 0.,
+                },
+            ],
+            edges: vec![
+                Link {
+                    id: 0,
+                    a: 0,
+                    b: 1,
+                    length: 0.1,
+                },
+                Link {
+                    id: 1,
+                    a: 1,
+                    b: 2,
+                    length: 0.2,
+                },
+            ],
+            input_node: 0,
+            pickup_node: 2,
+            reserve_time_ms: 2000.,
+            memory_budget_bytes: 1024 * 1024,
+        }
+    }
+    #[test]
+    fn callback_allocates_nothing_after_preparation_including_crossfade_and_pitch() {
+        let mut e = Engine::new(48000.);
+        e.begin(scene(), 1).unwrap();
+        e.prepare(16);
+        e.parameters.pitch_offset = 12.;
+        let input = [0.02f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        let mut changed = scene();
+        changed.edges.push(Link {
+            id: 2,
+            a: 0,
+            b: 2,
+            length: 0.2,
+        });
+        e.begin(changed, 2).unwrap();
+        e.prepare(16);
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert!(left
+            .iter()
+            .all(|value| value.is_finite() && value.abs() <= 0.94));
+    }
+    #[test]
+    fn scattering_is_lossless_at_full_coupling_and_contractive_for_blended_reflection() {
+        // Verify the actual graph step at a degree-three junction, including
+        // unequal arrivals. Integer one-sample waves avoid interpolation loss.
+        for coupling in [0., 0.2, 0.82, 1.] {
+            let arrivals = [0.03, -0.1, 0.07];
+            let mut e = Engine::new(48000.);
+            let mut s = scene();
+            s.nodes.push(Point {
+                id: 3,
+                x: 0.,
+                y: 0.,
+            });
+            s.edges = vec![
+                Link {
+                    id: 0,
+                    a: 0,
+                    b: 1,
+                    length: 0.0001,
+                },
+                Link {
+                    id: 1,
+                    a: 2,
+                    b: 1,
+                    length: 0.0001,
+                },
+                Link {
+                    id: 2,
+                    a: 3,
+                    b: 1,
+                    length: 0.0001,
+                },
+            ];
+            e.begin(s, 1).unwrap();
+            e.prepare(16);
+            let g = e.graph.as_mut().unwrap();
+            for (edge, amplitude) in g.edges.iter_mut().zip(arrivals) {
+                edge.delay = 1.;
+                let last = edge.ab.len() - 1;
+                edge.ab[last] = amplitude as f32;
+                edge.loss = 1.;
+                edge.loss_target = 1.;
+            }
+            g.step(0., 48000., 0.05, coupling, 0.001);
+            let outgoing: f64 = g
+                .edges
+                .iter()
+                .map(|edge| f64::from(edge.ba[0]).powi(2))
+                .sum();
+            let incoming: f64 = arrivals.iter().map(|value| value * value).sum();
+            assert!(outgoing <= incoming + 1e-8);
+            if coupling == 0. || coupling == 1. {
+                assert!((outgoing - incoming).abs() < 1e-8);
+            }
+        }
+    }
+}

@@ -1,0 +1,36 @@
+{
+  "abi": 1,
+  "target": "wasm32-unknown-unknown",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "bytes": 175740,
+  "wasmSha256": "47e0d9471f44af2cb823e9ce6340d845286b12f3c65701fb131aefcf0d61c8ab",
+  "sourceHashes": {
+    "scripts/build-fractal-delay-wasm.mjs": "7ae69ee8e63a94eb8e415d42092659882546dadd1eb07dd541d3484d330706ae",
+    "src/instruments/fractal-delay/rust/Cargo.lock": "90457b9ecdf125bbae1850fc79530bedf7fbb1bc21e78559f85a3e13827d421e",
+    "src/instruments/fractal-delay/rust/Cargo.toml": "44225ee22a04e9743e7d96d50371e61a82e8359f3382897e463676d67a5f5774",
+    "src/instruments/fractal-delay/rust/src/lib.rs": "84c85793b3e149a5eef0f9e7da16194d3000bc6a21f6404d14e7cda51b233150"
+  },
+  "imports": [],
+  "exports": [
+    "fd_abi_version",
+    "fd_alloc",
+    "fd_collect",
+    "fd_controls",
+    "fd_drop",
+    "fd_edge_count",
+    "fd_edge_levels_ptr",
+    "fd_edge_waveforms_ptr",
+    "fd_error_len",
+    "fd_error_ptr",
+    "fd_estimated_bytes",
+    "fd_free",
+    "fd_metrics_len",
+    "fd_metrics_ptr",
+    "fd_new",
+    "fd_process",
+    "fd_scene_abort",
+    "fd_scene_begin",
+    "fd_scene_step",
+    "memory"
+  ]
+}
