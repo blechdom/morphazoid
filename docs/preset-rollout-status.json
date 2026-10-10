@@ -1502,9 +1502,9 @@
       "href": "fractal-delay.html",
       "category": "wip",
       "scope": "deferred-wip",
-      "presets": 20,
+      "presets": 28,
       "status": "implemented-verification-pending",
-      "evidence": "October 9 owner-requested Work in Progress instrument: twenty complete musical states across five quadratic-fractal graph mappings. Pure model tests cover exact inverse identities, potential contours and rays, periodic orbits, filled/thickened meshes, complete capacity admission and preset completeness. Browser/PCM/release verification tracked separately; human listening and physical microphone/touch acceptance remain unperformed."
+      "evidence": "October 9 owner-requested Work in Progress instrument: twenty-eight complete musical states across five quadratic-fractal graph mappings, including multiport excitation/listening and optional loop, shortcut and hub connections. Pure model and PCM tests cover mathematical identities, normalized ports, endpoint reflection, complete capacity admission and preset completeness. Browser/release verification tracked separately; human listening and physical microphone/touch acceptance remain unperformed."
     },
     {
       "id": "acoustic-manifold",
