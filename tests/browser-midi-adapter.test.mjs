@@ -232,6 +232,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "loopini",
   ]);
   assert.deepEqual(NO_GENERIC_NOTE_KEYBOARD_IDS, [
+    "fractal-delay",
     "hocket-loom",
     "boidzoid",
     "vector-flight",
@@ -272,6 +273,10 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("shader-synth-playground").computerKeyboardMode, "midi");
   assert.equal(instrumentMidiCapabilityForId("recursion").startsAudio, true);
   assert.equal(instrumentMidiCapabilityForId("lumber").startsAudio, false);
+  assert.deepEqual(instrumentMidiCapabilityForId("fractal-delay"), {
+    id: "fractal-delay", midiInput: true, midiInputMode: "universal-control", noteMode: "processor",
+    audioInput: true, midiOutput: false, startsAudio: false, computerKeyboardMode: "none",
+  });
   assert.equal(instrumentMidiCapabilityForId("graph-delay").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("micromorph").audioInput, true);
   assert.equal(instrumentMidiCapabilityForId("micromorph").noteMode, "processor");

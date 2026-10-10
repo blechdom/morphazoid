@@ -11,6 +11,11 @@ export const mainAdditions = [
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-spartial.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-am.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-l-system-labs.json', import.meta.url), 'utf8')).additions,
+  // October 9 owner request: five fractal delay mappings share one WIP instrument.
+  { id: 'fractal-delay', label: 'Fractal Delay', href: 'fractal-delay.html', imageHref: 'assets/instrument-icons/fractal-delay.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'audio-effect', label: 'Audio Effect' }, { id: 'fractal', label: 'Fractal' },
+      { id: 'recursive', label: 'Recursive' }, { id: 'delay', label: 'Delay' }, { id: 'graph', label: 'Graph' }] },
   { id: "blobs", label: "Blobs", href: "blobs.html", imageHref: "assets/instruments/blobs.webp", categoryId: "geometric", categoryLabel: "Geometric", tags: [{ id: "graphic-ui", label: "Graphic-UI" }, { id: "2d", label: "2D" }, { id: "synthesizer", label: "Synthesizer" }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-bifurcator.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-native-delay.json', import.meta.url), 'utf8')).additions,
