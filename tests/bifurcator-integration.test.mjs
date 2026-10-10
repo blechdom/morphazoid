@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readVectorFractalsSiteReference as readFile } from './helpers/vector-fractals-site-reference.mjs';
 import test from 'node:test';
 import { FAVE_TOOL_IDS, TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { bifurcatorSiteChanges, restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';

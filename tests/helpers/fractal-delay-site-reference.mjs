@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { readFile as readFileAsync } from 'node:fs/promises';
+import { readVectorFractalsSiteReference as readFileAsync } from './vector-fractals-site-reference.mjs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { restoreAudioInput } from './audio-input-reference.mjs';

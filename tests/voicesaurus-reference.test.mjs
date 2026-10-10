@@ -5,6 +5,7 @@ import { restoreAudioInput } from "./helpers/audio-input-reference.mjs";
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreVectorFractalsSite } from './helpers/vector-fractals-site-reference.mjs';
 import { voicesaurusAmendments, restoreVoicesaurus } from './helpers/voicesaurus-reference.mjs';
 import { restoreFabricFilter } from './helpers/fabric-filter-reference.mjs';
 import { restoreMorphazoidicalRemoval } from './helpers/morphazoidical-removal-reference.mjs';
@@ -13,7 +14,7 @@ import { restoreSynthesaurusFavesOrder } from './helpers/synthesaurus-faves-orde
 const read = file => restoreMorphazoidicalRemoval(restoreAudioInput(
   restoreSynthesaurusFavesOrder(restoreNativeDelaySite(
     restoreBifurcatorSite(restoreFractalDelaySite(
-      readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file), file), file), file), file), file);
+      restoreVectorFractalsSite(readFileSync(new URL(`../${file}`, import.meta.url), 'utf8'), file), file), file), file), file), file), file);
 
 test('Voicesaurus reversal stays scoped and preserves the independent pre-feature reference', () => {
   assert.equal(voicesaurusAmendments.schemaVersion, 1);

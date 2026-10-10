@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readVectorFractalsSiteReference as readFile } from "./helpers/vector-fractals-site-reference.mjs";
 import { TOOL_GROUPS, FAVE_TOOL_IDS } from "../src/site/instrument-registry.js";
 import { instrumentById } from "../src/site/instrument-catalog.js";
 import { instrumentMidiCapabilityForId } from "../src/site/instrument-midi-capabilities.js";

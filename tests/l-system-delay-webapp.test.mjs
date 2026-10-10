@@ -9,7 +9,7 @@ import { restoreBifurcatorSite } from './helpers/bifurcator-site-reference.mjs';
 import { restoreBlobsSite } from './helpers/blobs-site-reference.mjs';
 import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 import { restoreSynthesaurusFavesOrder } from './helpers/synthesaurus-faves-order-reference.mjs';
-import { readFile } from 'node:fs/promises';
+import { readVectorFractalsSiteReference as readFile } from './helpers/vector-fractals-site-reference.mjs';
 import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { INSTRUMENTS } from '../src/site/instrument-catalog.js';

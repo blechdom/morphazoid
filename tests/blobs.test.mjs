@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readVectorFractalsSiteReference as readFile } from './helpers/vector-fractals-site-reference.mjs';
 import { buildPath, pointAt, demoBlobs, normalizeScene, normalizeParams, phaseAt, frequencyAt, DEFAULTS, MAX_POINTS } from '../src/instruments/blobs/model.js';
 import { RANGES, CHOICES, performanceState } from '../src/instruments/blobs/parameters.js';
 import { buildPerformancePath, rotatePath, transformAnchor, inverseAnchor } from '../src/instruments/blobs/paths.js';

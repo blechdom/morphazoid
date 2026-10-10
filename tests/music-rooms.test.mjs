@@ -45,7 +45,10 @@ test("Music Rooms routes live in Works in progress without entering the instrume
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
   assert.equal(group.label, "Work in Progress");
-  assert.deepEqual(group.tools.slice(0, 4), roomTools);
+  assert.deepEqual(group.tools.slice(0, 5), [
+    { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html' },
+    ...roomTools,
+  ]);
   for (const room of roomTools) {
     assert.equal(resolveActiveTool(`${siteRoot}${room.href}`, siteRoot)?.id, room.id);
     assert.equal(INSTRUMENTS.some(({ id }) => id === room.id), false);

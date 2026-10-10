@@ -4,7 +4,7 @@ import { restoreGraphDelayRustSite } from "./helpers/graph-delay-rust-site-refer
 import { restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readVectorFractalsSiteReference as readFile } from "./helpers/vector-fractals-site-reference.mjs";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { amSharedAmendments, restoreAmInstrumentAdditions } from "./helpers/am-instruments-reference.mjs";

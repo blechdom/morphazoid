@@ -1,0 +1,83 @@
+{
+  "baseCommit": "eb39270a3af88e16fe8defc27d35ef96a2dd6dc4",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "65de4ee8c2194735afbe79a8e56672497eff59ba1056b4ed361a658d94fdf7e6",
+      "replacements": [
+        {
+          "before": "  \"vector-flight.html\",\n",
+          "after": "  \"vector-flight.html\",\n  \"vector-fractals.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "a09bedef2800f311ff5101eddf4e553d636eb07ed288fe9568eeaad1edacf765",
+      "replacements": [
+        {
+          "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"vector-fractals\", label: \"Vector Fractals\", href: \"vector-fractals.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "fee6e652041b8f0bf9ae3a6b351ed51dbd73b92277ce0e3d4912d6370d825480",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"vector-fractals\": define(\n    \"Vector fractal exploration and sound\",\n    \"Zoom into Mandelbrot contours as fresh vector detail emerges, or explore Julia vectors and bulb-driven motion. Selected paths shape a bandlimited XY oscillator.\",\n    \"Choose Contour Explorer, then scroll or pinch to zoom and drag to pan. Try Seahorse Valley, select a strand, and enable Audio and Play to hear it.\",\n    [\"Built-in synth\", \"Pointer\", \"WebGL\", \"Presets\", \"XY synthesis\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "73f211172baf0288b79aa0241d533b54947bc185486517e122b32a4dd905a8cb",
+      "replacements": [
+        {
+          "before": "  \"fractal-signals\": [\"fractal\"],\n",
+          "after": "  \"fractal-signals\": [\"fractal\"],\n  \"vector-fractals\": [\"fractal\", \"geometric\", \"synthesizer\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "c21222b6f5a5d08803fb067fc89e56cf23e0c9a7eb03888d52e40f34b5f06ccb",
+      "replacements": [
+        {
+          "before": "  sequence: Object.freeze([\n",
+          "after": "  sequence: Object.freeze([\n    \"vector-fractals\",\n"
+        },
+        {
+          "before": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n",
+          "after": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"vector-fractals\",\n"
+        },
+        {
+          "before": "const noMidiOutputIds = new Set([\n",
+          "after": "const noMidiOutputIds = new Set([\n  \"vector-fractals\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "e3d6c0480b920c4094295153e4a6c97a6cc2220b7f965fa3ed1c80bc2dfbe4d7",
+      "replacements": [
+        {
+          "before": "export const TAP_TEMPO_TARGETS = [\n",
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"vector-fractals.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"signed\": false}},\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "c0e11c4df4ad233fd1094bc7fb11c0fc2c6e9ecf100aa0995cb6859c8617fd7c",
+      "replacements": [
+        {
+          "before": "copy+require\tdocs/graph-delay-rust.md\n",
+          "after": "copy+require\tdocs/graph-delay-rust.md\n\n# Vector Fractals: three parameterized XY demos.\ncopy+require\tvector-fractals.html\ncopy+require\tdocs/vector-fractals.md\ncopy+require\tassets/instruments/vector-fractals.webp\ncopy+require\tsrc/instruments/vector-fractals/app.js\ncopy+require\tsrc/instruments/vector-fractals/contour-model.js\ncopy+require\tsrc/instruments/vector-fractals/contour-worker.js\ncopy+require\tsrc/instruments/vector-fractals/contour-renderer.js\ncopy+require\tsrc/instruments/vector-fractals/contour-navigation.js\ncopy+require\tsrc/instruments/vector-fractals/contour-audio.js\ncopy+require\tsrc/instruments/vector-fractals/audio.js\ncopy+require\tsrc/instruments/vector-fractals/dsp.js\ncopy+require\tsrc/instruments/vector-fractals/mandelbrot-coefficients.js\ncopy+require\tsrc/instruments/vector-fractals/model.js\ncopy+require\tsrc/instruments/vector-fractals/processor.js\ncopy+require\tsrc/instruments/vector-fractals/renderer.js\ncopy+require\tsrc/instruments/vector-fractals/style.css\ncopy+require\tsrc/instruments/vector-fractals/worker.js\n"
+        }
+      ]
+    }
+  ]
+}

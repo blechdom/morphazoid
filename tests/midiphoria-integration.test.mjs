@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFile } from "node:fs/promises";
+import { readVectorFractalsSiteReference as readFile } from "./helpers/vector-fractals-site-reference.mjs";
 import test from "node:test";
 import { createHash } from "node:crypto";
 import { midiphoriaSiteAdditions, restoreMidiphoriaSite } from "./helpers/midiphoria-site-reference.mjs";
