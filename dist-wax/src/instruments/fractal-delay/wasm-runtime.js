@@ -1,7 +1,7 @@
 import { encodeUtf8, decodeUtf8 } from '../micmic/native/wasm-abi.js';
 /** ABI bridge shared by the offline preflight worker and real-time worklet. */
 export const NETWORK_PARAMETERS = Object.freeze({ timeMs: 140, decay: .84, coupling: .82, boundary: 1, pitchOffset: 0, frozen: false });
-export const NETWORK_PERFORMANCE = Object.freeze({ inputGain: .85, wet: .7, dry: .3, outputLevel: 1, outputBoostDb: 6,
+export const NETWORK_PERFORMANCE = Object.freeze({ inputGain: .85, delayGainDb: 24, wet: .7, dry: .3, outputLevel: 1, outputBoostDb: 6,
   hpfHz: 30, lpfHz: 18000, compressorThresholdDb: -12, compressorRatio: 3,
   compressorAttackMs: 5, compressorReleaseMs: 120, compressorMakeupDb: 0 });
 export const NETWORK_METRICS = Object.freeze(['sampleClock', 'activeEdges', 'revision', 'inputPeak', 'outputLeftPeak',
