@@ -80,7 +80,7 @@ test('complete graph installs atomically while old graph keeps rendering',()=>{
     e.beginScene(next,12);assert.equal(e.prepareStep(1),1);assert.equal(e.status().activeEdges,1);
     const during=render(e,1);assert(energy(during)>1e-7,'oldwavesrenderduringpreparation');
     assert.equal(e.prepareStep(1),1);assert.equal(e.status().activeEdges,1);
-    assert.equal(e.prepareStep(1),2);assert.equal(e.status().activeEdges,3);assert.equal(e.status().revision,12);
+    while(e.prepareStep(1)===1){assert.equal(e.status().activeEdges,1); }assert.equal(e.status().activeEdges,3);assert.equal(e.status().revision,12);
     assert.equal(e.status().releasingEdges,1);finite(render(e,40));e.collect(20);assert.equal(e.status().releasingEdges,0);
   }finally{e.dispose();}
 });
@@ -149,11 +149,11 @@ test('real worklet runs scenes and media input, coalesces superseded preparation
     await import('../src/instruments/fractal-delay/network-worklet.js');
     const processor=new Processor({processorOptions:{module}}),out=[new Float32Array(BLOCK),new Float32Array(BLOCK)];
     assert.equal(processor.messages[0].type,'ready');
-    processor.message({type:'scene',id:21,revision:21,scene:graph([[0,1,.1],[1,2,.2]],3),parameters:{timeMs:10},performance:transparent,inputMode:'media'});
+    processor.message({type:'scene',id:21,revision:21,scene:graph([[0,1,2],[1,2,2]],3),parameters:{timeMs:10},performance:transparent,inputMode:'media'});
     processor.process([[zero]],[out]);assert.equal(processor.network.status().activeEdges,0);
     processor.message({type:'scene',id:22,revision:22,scene:graph([[0,1,.1]],2),parameters:{timeMs:10}});
     assert(processor.messages.some(message=>message.id===21&&message.superseded));
-    processor.process([[zero]],[out]);assert(processor.messages.some(message=>message.id===22&&message.installed));
+    for(let block=0;block<40&&!processor.messages.some(message=>message.id===22&&message.installed);block++)processor.process([[zero]],[out]);assert(processor.messages.some(message=>message.id===22&&message.installed));
     for(let i=0;i<240;i++)processor.process([[zero]],[out]);
     processor.process([[impulse(0)]],[out]);finite(out[0]);assert(energy(out[0])>1e-7);
     processor.message({type:'status',id:23});const status=processor.messages.find(message=>message.id===23).status;
@@ -173,9 +173,51 @@ test('long preparation keeps shared edge histories at the current audio clock, w
     // Longer than the reserved original edge history: an early snapshot would
     // otherwise commit stale waves from more than one complete ring ago.
     for(let block=0;block<640;block++){const input=signal();a.process(input);b.process(input);}
-    assert.equal(b.prepareStep(128),2);assert.equal(b.status().revision,9);
+    while(b.prepareStep(128)===1){}assert.equal(b.status().revision,9);
     let largest=0;for(let block=0;block<128;block++){const input=signal(),pa=a.process(input).left,pb=b.process(input).left;
       for(let i=0;i<BLOCK;i++)largest=Math.max(largest,Math.abs(pa[i]-pb[i]));}
     assert(largest<1e-6,`sharedwavehistorymustnotreplayanoldphase, maxPCMdifference${largest}`);
   }finally{a.dispose();b.dispose();}
+});
+
+test('prewarmed arena contains private history initialization without live memory growth',()=>{
+ const e=createWasmNetwork(module,RATE);try{const before=e.api.memory.buffer.byteLength;e.reserveMemory(64*1024*1024);
+   assert(e.api.memory.buffer.byteLength>=64*1024*1024&&e.api.memory.buffer.byteLength>before,'reservedlineararenaexistsbeforeplayback');
+   const reserved=e.api.memory.buffer.byteLength;e.prepareScene(graph([[0,1,2]],2));assert.equal(e.api.memory.buffer.byteLength,reserved);
+ }finally{e.dispose();}
+});
+test('moving pickup smooths pressure from both real junctions without resetting their histories',()=>{
+ const scene=graph([[0,1,.1],[1,2,.2]],3),a=initialize(scene),b=initialize(scene);
+ try{let frame=0;const signal=()=>Float32Array.from({length:BLOCK},()=>.07*Math.sin(2*Math.PI*173*frame++/RATE));
+   for(let n=0;n<300;n++){const input=signal();a.process(input);b.process(input);}
+   const clock=b.status().sampleClock;b.beginScene({...scene,pickupNode:1},8);assert.equal(b.prepareStep(1),2);
+   assert.equal(b.status().sampleClock,clock);assert.equal(b.status().releasingEdges,0);
+   const input=signal(),pa=a.process(input).left.slice(),pb=b.process(input).left.slice();
+   assert(Math.abs(pa[0]-pb[0])<.001,`firstreceiverchangeisasmallsmoothedstep (${Math.abs(pa[0]-pb[0])})`);
+   for(let n=0;n<240;n++){const input=signal();a.process(input);b.process(input);}
+   const last=signal(),old=a.process(last).left.slice(),moved=b.process(last).left.slice();
+   assert(old.some((value,i)=>Math.abs(value-moved[i])>.01),'newrealpickupissubstantiallyaudibleafteritsfade');finite(moved);
+ }finally{a.dispose();b.dispose();}
+});
+
+test('rapid preset changes wait for prior graph retirement and retain only the latest queued scene',async()=>{
+ const before={AudioWorkletProcessor:globalThis.AudioWorkletProcessor,sampleRate:globalThis.sampleRate,registerProcessor:globalThis.registerProcessor};
+ let Processor;globalThis.sampleRate=RATE;
+ globalThis.AudioWorkletProcessor=class{constructor(){this.messages=[];this.port={postMessage:value=>this.messages.push(value),onmessage:null};}};
+ globalThis.registerProcessor=(_,value)=>{Processor=value;};
+ try{await import('../src/instruments/fractal-delay/network-worklet.js?retirement');
+   const p=new Processor({processorOptions:{module,memoryReserveBytes:32*1024*1024}}),out=[new Float32Array(BLOCK),new Float32Array(BLOCK)];
+   const sceneFor=id=>{const scene=graph([[0,1,.1]],2);scene.edges[0].id=id;return scene;};
+   const install=id=>{p.message({type:'scene',id,revision:id,scene:sceneFor(id)});let count=0;
+     while(!p.messages.some(message=>message.id===id&&message.installed)&&count++<200)p.process([[zero]],[out]);
+     assert(count<200,`scene${id}finished`);};
+   install(101);install(102);assert.equal(p.network.retiredCount(),1,'previousgraphisstillcrossfading');
+   p.message({type:'scene',id:103,revision:103,scene:sceneFor(103)});p.process([[zero]],[out]);assert.equal(p.network.status().revision,102);
+   assert.equal(p.pending,null,'athirdgraphdoesnotallocatewhilepreviousgraphstillownsitsrings');
+   p.message({type:'scene',id:104,revision:104,scene:sceneFor(104)});assert(p.messages.some(message=>message.id===103&&message.superseded));
+   for(let n=0;n<100&&!p.messages.some(message=>message.id===104&&message.installed);n++){
+     p.process([[zero]],[out]);assert(p.network.retiredCount()<=1,'retiredgraphsneverpileup');}
+   assert(p.messages.some(message=>message.id===104&&message.installed));assert.equal(p.network.status().revision,104);
+   p.message({type:'dispose',id:105});
+ }finally{for(const [key,value]of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });

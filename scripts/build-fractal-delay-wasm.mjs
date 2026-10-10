@@ -8,7 +8,7 @@ const rust = 'src/instruments/fractal-delay/rust';
 const artifact = 'assets/wasm/fractal-delay.wasm', provenance = 'assets/wasm/fractal-delay-build.json';
 const sourceFiles = ['scripts/build-fractal-delay-wasm.mjs', `${rust}/Cargo.toml`, `${rust}/Cargo.lock`, `${rust}/src/lib.rs`].sort();
 const requiredExports = ['memory', 'fd_abi_version', 'fd_alloc', 'fd_free', 'fd_new', 'fd_drop', 'fd_scene_begin', 'fd_scene_step',
-  'fd_scene_abort', 'fd_controls', 'fd_estimated_bytes', 'fd_process', 'fd_collect', 'fd_metrics_ptr', 'fd_metrics_len',
+  'fd_scene_abort', 'fd_retired_count', 'fd_reserve_memory', 'fd_controls', 'fd_estimated_bytes', 'fd_process', 'fd_collect', 'fd_metrics_ptr', 'fd_metrics_len',
   'fd_edge_count', 'fd_edge_levels_ptr', 'fd_edge_waveforms_ptr', 'fd_error_ptr', 'fd_error_len'];
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const sources = async () => Object.fromEntries(await Promise.all(sourceFiles.map(async file => [file, hash(await readFile(path.join(root, file)))])));

@@ -7,12 +7,14 @@
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::TAU;
+use std::mem::MaybeUninit;
 
 const MAX_EDGES: usize = 16384;
 const WAVEFORM: usize = 32;
 const METRICS: usize = 14;
 const MAX_RESERVE_MS: f64 = 2000.;
 const FADE_SECONDS: f64 = 0.064;
+const PREPARE_FRAMES: usize = 8192;
 
 #[derive(Clone, Deserialize)]
 struct Point {
@@ -133,6 +135,9 @@ struct Graph {
     nodes: Vec<Point>,
     degrees: Vec<f64>,
     pressure: Vec<f64>,
+    input_weights: Vec<f64>,
+    pickup_weights: Vec<f64>,
+    pan: Vec<[f64; 2]>,
     edges: Vec<Edge>,
     input: usize,
     pickup: usize,
@@ -162,14 +167,19 @@ impl Graph {
             self.pressure[e.link.b] += e.incoming_ab;
             self.pressure[e.link.a] += e.incoming_ba;
         }
-        for (p, degree) in self.pressure.iter_mut().zip(&self.degrees) {
-            *p *= 2. / degree.max(1.);
+        let mut pickup = [0.; 2];
+        for index in 0..self.pressure.len() {
+            self.pressure[index] *= 2. / self.degrees[index].max(1.);
+            self.input_weights[index] +=
+                (f64::from(index == self.input) - self.input_weights[index]) * smooth;
+            self.pickup_weights[index] +=
+                (f64::from(index == self.pickup) - self.pickup_weights[index]) * smooth;
+            let pressure = self.pressure[index] * 0.5 * self.pickup_weights[index];
+            pickup[0] += pressure * self.pan[index][0];
+            pickup[1] += pressure * self.pan[index][1];
+            self.pressure[index] +=
+                input * self.input_weights[index] / self.degrees[index].max(1.).sqrt();
         }
-        let input_scale = 1. / self.degrees[self.input].max(1.).sqrt();
-        // A source enters the outgoing waves at one real junction. No new
-        // external signal is injected at descendants or other mesh cells.
-        let pickup = self.pressure[self.pickup] * 0.5;
-        self.pressure[self.input] += input * input_scale;
         for e in &mut self.edges {
             let a = (1. - coupling) * e.incoming_ba
                 + coupling * (self.pressure[e.link.a] - e.incoming_ba);
@@ -184,10 +194,7 @@ impl Graph {
                 e.write = 0;
             }
         }
-        // Single coherent pickup pressure: slight lateral placement follows the
-        // pickup's real coordinate, rather than averaging every graph segment.
-        let pan = self.nodes[self.pickup].x.clamp(-1., 1.) * 0.5;
-        [pickup * (1. - pan).sqrt(), pickup * (1. + pan).sqrt()]
+        pickup
     }
     fn safe(value: f64) -> f64 {
         if value.is_finite() {
@@ -197,11 +204,72 @@ impl Graph {
         }
     }
 }
+struct PartialEdge {
+    link: Link,
+    ab: Vec<MaybeUninit<f32>>,
+    ba: Vec<MaybeUninit<f32>>,
+    cursor: usize,
+    source: Option<usize>,
+    source_write: usize,
+    source_clock: u64,
+    ready: Option<Edge>,
+}
+fn uninitialized(size: usize) -> Vec<MaybeUninit<f32>> {
+    let mut values = Vec::with_capacity(size);
+    // MaybeUninit is valid without initializing the large reserved storage.
+    unsafe {
+        values.set_len(size);
+    }
+    values
+}
+unsafe fn initialized(mut values: Vec<MaybeUninit<f32>>) -> Vec<f32> {
+    let pointer = values.as_mut_ptr() as *mut f32;
+    let len = values.len();
+    let capacity = values.capacity();
+    std::mem::forget(values);
+    Vec::from_raw_parts(pointer, len, capacity)
+}
+fn synchronize(edge: &mut Edge, old: &Edge, clock: u64, maximum: usize) {
+    let backlog = (clock - edge.history_clock) as usize;
+    let capacity = old.ab.len().min(edge.ab.len());
+    if backlog > capacity {
+        let skipped = backlog - capacity;
+        edge.write = (edge.write + skipped) % edge.ab.len();
+        edge.history_clock += skipped as u64;
+    }
+    let backlog = (clock - edge.history_clock) as usize;
+    let frames = backlog.min(maximum);
+    let mut source = (old.write + old.ab.len() - backlog) % old.ab.len();
+    let mut destination = edge.write;
+    let mut remaining = frames;
+    while remaining > 0 {
+        let count = remaining
+            .min(old.ab.len() - source)
+            .min(edge.ab.len() - destination);
+        edge.ab[destination..destination + count].copy_from_slice(&old.ab[source..source + count]);
+        edge.ba[destination..destination + count].copy_from_slice(&old.ba[source..source + count]);
+        source += count;
+        destination += count;
+        remaining -= count;
+        if source == old.ab.len() {
+            source = 0;
+        }
+        if destination == edge.ab.len() {
+            destination = 0;
+        }
+    }
+    edge.write = destination;
+    edge.history_clock += frames as u64;
+    edge.delay = old.delay.min((edge.ab.len() - 2) as f64);
+    edge.delay_velocity = old.delay_velocity;
+    edge.level = old.level;
+}
 struct Preparation {
     scene: Scene,
     graph: Graph,
     reuse: HashMap<u32, usize>,
     cursor: usize,
+    partial: Option<PartialEdge>,
 }
 
 #[derive(Clone, Deserialize)]
@@ -476,6 +544,14 @@ impl Engine {
                             <= b.ab.len()
                 })
             {
+                g.pan = scene
+                    .nodes
+                    .iter()
+                    .map(|p| {
+                        let pan = p.x.clamp(-1., 1.) * 0.5;
+                        [(1. - pan).sqrt(), (1. + pan).sqrt()]
+                    })
+                    .collect();
                 g.nodes = scene.nodes;
                 g.pickup = scene.pickup_node;
                 g.input = scene.input_node;
@@ -485,7 +561,9 @@ impl Engine {
                 }
                 g.reserve_ms = scene.reserve_time_ms;
                 self.revision = revision;
-                self.pending = None;
+                if let Some(previous) = self.pending.take() {
+                    self.retired.push(previous.graph);
+                }
                 return Ok(());
             }
         }
@@ -498,6 +576,20 @@ impl Engine {
             nodes: scene.nodes.clone(),
             degrees: degree,
             pressure: vec![0.; scene.nodes.len()],
+            input_weights: (0..scene.nodes.len())
+                .map(|index| f64::from(index == scene.input_node))
+                .collect(),
+            pickup_weights: (0..scene.nodes.len())
+                .map(|index| f64::from(index == scene.pickup_node))
+                .collect(),
+            pan: scene
+                .nodes
+                .iter()
+                .map(|p| {
+                    let pan = p.x.clamp(-1., 1.) * 0.5;
+                    [(1. - pan).sqrt(), (1. + pan).sqrt()]
+                })
+                .collect(),
             edges: Vec::with_capacity(scene.edges.len()),
             input: scene.input_node,
             pickup: scene.pickup_node,
@@ -515,11 +607,15 @@ impl Engine {
                     .collect()
             })
             .unwrap_or_default();
+        if let Some(previous) = self.pending.take() {
+            self.retired.push(previous.graph);
+        }
         self.pending = Some(Preparation {
             scene,
             graph,
             reuse,
             cursor: 0,
+            partial: None,
         });
         self.pending_revision = revision;
         Ok(())
@@ -532,45 +628,92 @@ impl Engine {
             if p.cursor == p.scene.edges.len() {
                 break;
             }
-            let link = p.scene.edges[p.cursor].clone();
-            let size = ring_size(link.length, self.rate, p.scene.reserve_time_ms);
-            let mut edge = Edge {
-                link,
-                ab: vec![0.; size],
-                ba: vec![0.; size],
-                write: 0,
-                delay: 1.,
-                delay_velocity: 0.,
-                incoming_ab: 0.,
-                incoming_ba: 0.,
-                loss: 1.,
-                loss_target: 1.,
-                level: 0.,
-                history_source: None,
-                history_clock: self.clock,
-            };
-            edge.delay = (edge.link.length * self.rate * self.time / 1000.).max(1.);
-            edge.loss = self.decay.powf(edge.link.length);
-            edge.loss_target = self.parameters.decay.powf(edge.link.length);
-            if let Some(old_index) = p.reuse.get(&edge.link.id) {
-                if let Some(old) = self.graph.as_ref().and_then(|g| g.edges.get(*old_index)) {
-                    // Copy relative to the current write head, preserving actual
-                    // recorded waves across resolution edits. New/old graphs own
-                    // independent buffers during their short coherent crossfade.
-                    let count = size.min(old.ab.len());
-                    for d in 1..count {
-                        let from = (old.write + old.ab.len() - d) % old.ab.len();
-                        edge.ab[size - d] = old.ab[from];
-                        edge.ba[size - d] = old.ba[from];
-                    }
+            if p.partial.is_none() {
+                let link = p.scene.edges[p.cursor].clone();
+                let size = ring_size(link.length, self.rate, p.scene.reserve_time_ms);
+                let source = p.reuse.get(&link.id).copied();
+                let source_write = source
+                    .and_then(|index| self.graph.as_ref().and_then(|g| g.edges.get(index)))
+                    .map_or(0, |edge| edge.write);
+                p.partial = Some(PartialEdge {
+                    link,
+                    ab: uninitialized(size),
+                    ba: uninitialized(size),
+                    cursor: 0,
+                    source,
+                    source_write,
+                    source_clock: self.clock,
+                    ready: None,
+                });
+            }
+            let partial = p.partial.as_mut().unwrap();
+            if partial.ready.is_none() {
+                let size = partial.ab.len();
+                let end = (partial.cursor + PREPARE_FRAMES).min(size);
+                let old = partial
+                    .source
+                    .and_then(|index| self.graph.as_ref().and_then(|g| g.edges.get(index)));
+                for destination in partial.cursor..end {
+                    let distance = size - destination;
+                    let (ab, ba) = if let Some(edge) = old {
+                        if distance < edge.ab.len() {
+                            let source =
+                                (partial.source_write + edge.ab.len() - distance) % edge.ab.len();
+                            (edge.ab[source], edge.ba[source])
+                        } else {
+                            (0., 0.)
+                        }
+                    } else {
+                        (0., 0.)
+                    };
+                    partial.ab[destination].write(ab);
+                    partial.ba[destination].write(ba);
+                }
+                partial.cursor = end;
+                if end < size {
+                    continue;
+                }
+                // Every element has now been initialized in bounded chunks.
+                let ab = unsafe { initialized(std::mem::take(&mut partial.ab)) };
+                let ba = unsafe { initialized(std::mem::take(&mut partial.ba)) };
+                let mut edge = Edge {
+                    link: partial.link.clone(),
+                    ab,
+                    ba,
+                    write: 0,
+                    delay: (partial.link.length * self.rate * self.time / 1000.).max(1.),
+                    delay_velocity: 0.,
+                    incoming_ab: 0.,
+                    incoming_ba: 0.,
+                    loss: self.decay.powf(partial.link.length),
+                    loss_target: self.parameters.decay.powf(partial.link.length),
+                    level: 0.,
+                    history_source: partial.source,
+                    history_clock: partial.source_clock,
+                };
+                if let Some(old) = old {
                     edge.delay = old.delay.min((size - 2) as f64);
                     edge.delay_velocity = old.delay_velocity;
                     edge.loss = old.loss;
                     edge.level = old.level;
-                    edge.history_source = Some(*old_index);
+                }
+                partial.ready = Some(edge);
+                // The copying budget is already consumed by initialization.
+                if partial.source.is_some() {
+                    continue;
                 }
             }
-            p.graph.edges.push(edge);
+            let edge = partial.ready.as_mut().unwrap();
+            if let Some(index) = edge.history_source {
+                if let Some(old) = self.graph.as_ref().and_then(|g| g.edges.get(index)) {
+                    synchronize(edge, old, self.clock, PREPARE_FRAMES);
+                }
+                if edge.history_clock != self.clock {
+                    continue;
+                }
+            }
+            p.graph.edges.push(partial.ready.take().unwrap());
+            p.partial = None;
             p.cursor += 1;
         }
         if p.cursor != p.scene.edges.len() {
@@ -718,35 +861,7 @@ impl Engine {
                 let Some(index) = edge.history_source else {
                     continue;
                 };
-                let old = &current.edges[index];
-                let frames = (self.clock - edge.history_clock) as usize;
-                let frames = frames.min(old.ab.len()).min(edge.ab.len());
-                let mut source = (old.write + old.ab.len() - frames) % old.ab.len();
-                let mut destination = edge.write;
-                let mut remaining = frames;
-                while remaining > 0 {
-                    let count = remaining
-                        .min(old.ab.len() - source)
-                        .min(edge.ab.len() - destination);
-                    edge.ab[destination..destination + count]
-                        .copy_from_slice(&old.ab[source..source + count]);
-                    edge.ba[destination..destination + count]
-                        .copy_from_slice(&old.ba[source..source + count]);
-                    source += count;
-                    destination += count;
-                    remaining -= count;
-                    if source == old.ab.len() {
-                        source = 0;
-                    }
-                    if destination == edge.ab.len() {
-                        destination = 0;
-                    }
-                }
-                edge.write = destination;
-                edge.history_clock = self.clock;
-                edge.delay = old.delay.min((edge.ab.len() - 2) as f64);
-                edge.delay_velocity = old.delay_velocity;
-                edge.level = old.level;
+                synchronize(edge, &current.edges[index], self.clock, out_l.len());
             }
         }
         self.gain_reduction = -20. * self.compressor_gain.max(1e-12).log10();
@@ -854,7 +969,10 @@ pub unsafe extern "C" fn fd_scene_step(ptr: usize, records: usize) -> i32 {
 }
 #[no_mangle]
 pub unsafe extern "C" fn fd_scene_abort(ptr: usize) {
-    engine(ptr).pending = None;
+    let e = engine(ptr);
+    if let Some(p) = e.pending.take() {
+        e.retired.push(p.graph);
+    }
 }
 #[no_mangle]
 pub unsafe extern "C" fn fd_controls(ptr: usize, data: usize, len: usize) -> i32 {
@@ -1032,6 +1150,37 @@ mod tests {
             .all(|value| value.is_finite() && value.abs() <= 0.94));
     }
     #[test]
+    fn one_preparation_record_writes_only_a_bounded_float_chunk() {
+        let mut e = Engine::new(48000.);
+        let mut s = scene();
+        s.edges = vec![Link {
+            id: 0,
+            a: 0,
+            b: 2,
+            length: 4.,
+        }];
+        s.memory_budget_bytes = 32 * 1024 * 1024;
+        e.begin(s, 1).unwrap();
+        let mut steps = 0;
+        loop {
+            let before = e
+                .pending
+                .as_ref()
+                .and_then(|p| p.partial.as_ref())
+                .map_or(0, |p| p.cursor);
+            let result = e.prepare(1);
+            steps += 1;
+            if result == 2 {
+                break;
+            }
+            let partial = e.pending.as_ref().unwrap().partial.as_ref().unwrap();
+            assert!(partial.cursor - before <= PREPARE_FRAMES);
+            assert_eq!(e.graph.as_ref().map_or(0, |g| g.edges.len()), 0);
+        }
+        assert!(steps > 50);
+        assert_eq!(e.graph.as_ref().unwrap().edges.len(), 1);
+    }
+    #[test]
     fn scattering_is_lossless_at_full_coupling_and_contractive_for_blended_reflection() {
         // Verify the actual graph step at a degree-three junction, including
         // unequal arrivals. Integer one-sample waves avoid interpolation loss.
@@ -1087,4 +1236,21 @@ mod tests {
             }
         }
     }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn fd_retired_count(ptr: usize) -> usize {
+    let e = engine(ptr);
+    e.retired.len() + usize::from(e.old.is_some())
+}
+#[no_mangle]
+pub unsafe extern "C" fn fd_reserve_memory(ptr: usize, bytes: usize) -> i32 {
+    if bytes > 512 * 1024 * 1024 {
+        return 0;
+    }
+    let values = Vec::<MaybeUninit<u8>>::with_capacity(bytes);
+    std::hint::black_box(values.as_ptr());
+    drop(values);
+    let _ = engine(ptr);
+    1
 }

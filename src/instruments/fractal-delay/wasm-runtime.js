@@ -32,7 +32,7 @@ export function createWasmNetwork(module, sampleRate = 48000, blockSize = 128) {
     return new Error(length ? decodeUtf8(new Uint8Array(memory, api.fd_error_ptr(engine), length)) : fallback);
   }
   function json(value, call) {
-    const bytes = encodeUtf8(JSON.stringify(value)); const pointer = api.fd_alloc(bytes.length);
+    const bytes = value instanceof Uint8Array ? value : value instanceof ArrayBuffer ? new Uint8Array(value) : encodeUtf8(JSON.stringify(value)); const pointer = api.fd_alloc(bytes.length);
     try { new Uint8Array(api.memory.buffer, pointer, bytes.length).set(bytes); return call(pointer, bytes.length); }
     finally { api.fd_free(pointer, bytes.length); refresh(); }
   }
@@ -45,6 +45,8 @@ export function createWasmNetwork(module, sampleRate = 48000, blockSize = 128) {
     prepareStep(records = 1) { const result = api.fd_scene_step(engine, records); refresh(); return result; },
     prepareScene(scene, revision = 1) { this.beginScene(scene, revision); while (this.prepareStep(16) === 1) {} },
     abortScene() { api.fd_scene_abort(engine); refresh(); },
+    retiredCount() { return api.fd_retired_count(engine); },
+    reserveMemory(bytes) { if (!api.fd_reserve_memory(engine, bytes)) throw error('Invalid reserved audio memory'); refresh(); },
     controls(nextParameters = {}, nextPerformance = {}, nextInputMode = inputMode) {
       const nextP = { ...parameters, ...nextParameters }, nextF = { ...performance, ...nextPerformance };
       if (!json({ parameters: nextP, performance: nextF, inputMode: nextInputMode },
