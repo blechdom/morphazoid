@@ -171,6 +171,14 @@ test('uploaded WAVs produce distinct real Rust PCM without acquiring a microphon
   expect(second.worklets).toBe(first.worklets); expect(second.microphoneRequests).toBe(0);
   expect(second.metrics.elapsedSeconds).toBeGreaterThan(first.metrics.elapsedSeconds);
   expect(second.sources.some(source => source.stopped && source.released)).toBe(true);
+  await page.locator('.header-preset-picker summary').click();
+  await page.locator('button[data-preset-id="clearSteps"]').click();
+  await expect(page.locator('.header-preset-controls')).toHaveAttribute('aria-busy', 'false', { timeout: 20000 });
+  const recalled = await diagnostics(page);
+  expect(recalled.audio).toBe(true);
+  expect(recalled.inputSource).toMatchObject({ mode: 'file', fileName: 'tone-347.wav', playing: true });
+  expect(recalled.sources).toEqual(second.sources);
+  await dry(page); await live(page, 347);
   await setRange(page, 'dry', 0);
   await expect.poll(async () => (await diagnostics(page)).pcm.peak).toBeLessThan(1e-6);
   expect((await diagnostics(page)).inputSource.playing).toBe(true);
@@ -189,6 +197,12 @@ test('bundled sample, stop/restart, and real non-looping end preserve armed Audi
   const sample = await live(page);
   expect(sample.inputSource.credit).toBeTruthy(); expect(sample.microphoneRequests).toBe(0);
   await expect(page.locator('#inputSourceStatus')).not.toBeEmpty();
+  await expect(page.locator('.mz-input-toggle')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.mz-input-toggle').click();
+  await expect.poll(async () => (await diagnostics(page)).inputSource.playing).toBe(false);
+  expect((await diagnostics(page)).audio).toBe(true);
+  await page.locator('.mz-input-toggle').click();
+  expect((await live(page)).microphoneRequests).toBe(0);
   await revealPlayback(page); await page.locator('#stopInput').click();
   await expect.poll(async () => (await diagnostics(page)).inputSource.playing).toBe(false);
   await expect.poll(async () => (await diagnostics(page)).pcm.peak).toBeLessThan(1e-6);
