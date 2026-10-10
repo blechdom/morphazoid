@@ -21,11 +21,13 @@ test('capacity probes render every candidate voice with full history and leave s
   assert.equal(slow.proved, false); assert.equal(slow.voices, plan.routes, 'a failed test never invents an untested lower voice count');
 });
 
-test('muted candidate routes are reported as ineligible and cannot prove full capacity', () => {
+test('closed switches and zero gains still measure every prepared voice without mutating the plan', () => {
   const graph = generateGraph({ type: 'ring', nodeCount: 8, seed: 3 });
-  const plan = compileGraphDelayPlan(graph, {}, graph.edges.map(() => false)); let time = 0;
+  const plan = compileGraphDelayPlan(graph, { nodePass: 0, feedback: 0, inputTrim: 0, wet: 0, level: 0 }, graph.edges.map(() => false)); let time = 0;
+  const before = plan.data.slice();
   const result = measureGraphDelayCapacity(module, plan.data, 48000, { now: () => time += 9 });
-  assert.equal(result.voices, 0); assert.equal(result.eligibleRoutes, 0); assert.equal(result.proved, false);
+  assert.equal(result.voices, plan.routes); assert.equal(result.eligibleRoutes, plan.routes); assert.equal(result.proved, true);
+  assert.equal(result.fullPrepared, true); assert.deepEqual(plan.data, before);
   assert.equal(result.preparedRoutes, plan.routes);
 });
 
