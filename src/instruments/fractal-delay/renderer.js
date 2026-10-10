@@ -167,7 +167,7 @@ export function createNetworkRenderer(canvas) {
   if(!context)throw new Error('A graphics surface could not be created');
   let gpu;
   try{gpu=makeGpu();}catch{gpu=null;}
-  let network=null,status=null,colors=[],markers=[],dead=false,dpr=1,width=1,height=1,lastUpload=null,fitDirty=true;
+  let network=null,status=null,mappedRevision=null,colors=[],markers=[],dead=false,dpr=1,width=1,height=1,lastUpload=null,fitDirty=true;
   let markerSurface=null,markerContext=null,markerCacheTried=false,markersDirty=true;
   let transform={scaleX:1,scaleY:-1,offsetX:0,offsetY:0};
   function resize(){
@@ -186,7 +186,12 @@ export function createNetworkRenderer(canvas) {
     }
   }
   const point=node=>({x:node.x*transform.scaleX+transform.offsetX,y:node.y*transform.scaleY+transform.offsetY});
-  function coherentWave(){return status&&status.revision===network?.revision&&status.waveformSize===SAMPLES
+  function sameWaveLayout(before,after){return before&&after&&before.nodes.length===after.nodes.length
+    &&before.edges.length===after.edges.length
+    &&before.nodes.every((node,i)=>Number.isInteger(node.id)&&node.id===after.nodes[i].id)
+    &&before.edges.every((edge,i)=>Number.isInteger(edge.id)&&edge.id===after.edges[i].id
+      &&edge.a===after.edges[i].a&&edge.b===after.edges[i].b);}
+  function coherentWave(){return status&&mappedRevision===network?.revision&&status.waveformSize===SAMPLES
     &&status.edgeWaveforms?.length===network.edges.length*SAMPLES?status.edgeWaveforms:null;}
   function drawCanvas(wave){
     context.lineCap='round';context.lineJoin='round';
@@ -232,12 +237,23 @@ export function createNetworkRenderer(canvas) {
   return {
     get renderer(){return gpu&&!gpu.failed?'WebGL2':'Canvas2D';},
     setNetwork(next){
-      network=next;status=null;lastUpload=null;fitDirty=true;colors=next?.edges.map(edge=>colorFor(edge,next.mode))||[];
+      // A coordinate-only install can keep its last actual measured frame
+      // until the next poll, provided every waveform index still names the
+      // same oriented connection. Its measurement revision/clock stay intact.
+      if(coherentWave()&&sameWaveLayout(network,next))mappedRevision=next.revision;
+      else{status=null;mappedRevision=null;}
+      network=next;lastUpload=null;fitDirty=true;colors=next?.edges.map(edge=>colorFor(edge,next.mode))||[];
       markers=next?markersFor(next):[];markersDirty=true;
       if(gpu&&!gpu.failed&&next){try{gpu.setNetwork(next,colors,markers);}catch{gpu.dispose();gpu=null;}}
       resize();
     },
-    setStatus(next){status=next;},
+    setStatus(next){
+      if(next==null){status=null;mappedRevision=null;}
+      else if(next.revision===network?.revision||next.edgeWaveforms||next.waveformSize){
+        status=next;mappedRevision=next.revision===network?.revision?next.revision:null;
+      }
+      // An empty install placeholder is not a new wave measurement.
+    },
     resize,
     draw(){
       if(dead)return;context.clearRect(0,0,width,height);if(!network?.edges.length)return;

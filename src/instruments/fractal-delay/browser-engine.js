@@ -15,9 +15,9 @@ export function createFractalDelayEngine(options = {}) {
   let parameters = sanitizeParameters(options.parameters || DEFAULT_PARAMETERS);
   let performance = sanitizePerformance(options.performance || DEFAULT_PERFORMANCE);
   let context, node, master, releaseOutput, contextPromise, modulePromise, module;
-  let contextGeneration = 0, audioDesired = false, audio = false, disposed = false;
+  let contextGeneration = 0, audioDesired = false, audio = false, disposed = false, processorFailure = false;
   let micStream, micNode, micPending = false, micVersion = 0, audioVersion = 0;
-  let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0;
+  let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0, lastSampleClock = 0;
   let compiling = false, cpuEstimate = 0, requiredDelayBytes = 0, pollTimer, pollPending = false;
   let manual = false, budget = 16384;
   const motion = createParameterMotion(parameters);
@@ -42,7 +42,7 @@ export function createFractalDelayEngine(options = {}) {
       network, preview, revision:status.revision || network?.revision || 0,
       preparedEdges:(network || preview)?.edges.length || 0,
       requestedEdges:(network || preview)?.requestedEdges || 0,
-      activeEdges:audio ? status.activeEdges || 0 : 0, sampleClock:status.sampleClock || 0,
+      activeEdges:audio ? status.activeEdges || 0 : 0, sampleClock:status.sampleClock || lastSampleClock,
       cpuLoad:status.cpuLoad || 0, cpuEstimate, requiredDelayBytes, memoryBytes, budget, manual,
       status, sceneMemoryBytes:memoryBytes/2, sampleRate:context?.sampleRate || 48000 };
   }
@@ -103,12 +103,14 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function prepareContext() {
     if (disposed) throw new Error('Instrument has closed');
+    if (processorFailure) throw new Error('Audio processor stopped. Reload to restart.');
     if (contextPromise) return contextPromise;
     if (node && context?.state !== 'closed') return context;
     contextPromise = (async () => {
       // Create and resume synchronously inside the explicit Audio/Mic action.
       const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
       context = new AudioContextClass({latencyHint:'interactive',sampleRate:48000}); contextGeneration++;
+      lastSampleClock=0;status={};
       const ownedContext=context;
       const resumed=context.resume();
       master = context.createGain(); master.gain.value = 0;
@@ -122,12 +124,14 @@ export function createFractalDelayEngine(options = {}) {
         outputChannelCount:[2],channelCount:2,channelCountMode:'explicit',
         processorOptions:{module:wasm,memoryReserveBytes:memoryBytes+16*1024*1024}});
       node.port.onmessage = ({data}) => {
-        if (data.type === 'fatal') { audioDesired = audio = false; master.gain.value = 0; stopPulses(); stopMicrophone(); input.stop(); report(data.error); return; }
+        if(context!==ownedContext)return;
+        if (data.type === 'fatal') { failProcessor(data.error); return; }
+        if(data.status)lastSampleClock=Math.max(lastSampleClock,data.status.sampleClock||0);
         if (data.status && data.status.revision === network?.revision) { status = data.status; emit(); }
         const pending = requests.get(data.id);
         if (pending) { clearTimeout(pending.timer); requests.delete(data.id); data.error ? pending.reject(new Error(data.error)) : pending.resolve(data); }
       };
-      node.onprocessorerror = () => { audioDesired = audio = false; stopPulses(); input.stop(); stopMicrophone(); report('Audio processor stopped. Reload to restart.'); };
+      node.onprocessorerror = () => failProcessor('Audio processor stopped. Reload to restart.');
       node.connect(master); sendControls();
       await context.resume();
       if (!network || context.sampleRate !== 48000) await prepareNetwork();
@@ -152,9 +156,10 @@ export function createFractalDelayEngine(options = {}) {
   let lastPoll = 0;
   const performanceNow = () => globalThis.performance.now();
   async function setAudio(enabled) {
+    advanceMotionClock();
     const token = ++audioVersion; audioDesired=!!enabled; error=''; emit();
     if (!enabled) {
-      stopPulses(); stopMicrophone(); input.stop(); audio=false;
+      stopPulses(); stopMicrophone(); input.stop(); audio=false;advanceMotionClock();
       if (master && context?.state !== 'closed') {
         master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(0,context.currentTime,.008);
         await wait(35);
@@ -165,10 +170,19 @@ export function createFractalDelayEngine(options = {}) {
     }
     try {
       await prepareContext(); if (token !== audioVersion || !audioDesired || disposed) return false;
-      await context.resume(); sendControls(); audio=true;
+      await context.resume(); sendControls();advanceMotionClock();audio=true;advanceMotionClock();
       master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(1,context.currentTime,.012);
       if (input.snapshot().mode !== 'mic') await input.start(); emit(); return true;
-    } catch(reason) { if (token===audioVersion) audioDesired=audio=false; report(reason); throw reason; }
+    } catch(reason) { if (token===audioVersion){advanceMotionClock();audioDesired=audio=false;advanceMotionClock();} report(reason); throw reason; }
+  }
+  function failProcessor(reason) {
+    advanceMotionClock();audioDesired=audio=false;advanceMotionClock();processorFailure=true;
+    motion.setPlaying('real',false);motion.setPlaying('imag',false);stopMotionTimer();
+    if(master)master.gain.value=0;
+    stopPulses();stopMicrophone();input.stop();compiling=false;
+    const failure=new Error(String(reason?.message||reason));
+    for(const pending of requests.values()){clearTimeout(pending.timer);pending.reject(failure);}requests.clear();
+    for(const pending of builds.values())pending.resolve(false);builds.clear();report(failure);
   }
   function stopMicrophone() {
     micVersion++; micPending=false; micNode?.disconnect(); micNode=null;

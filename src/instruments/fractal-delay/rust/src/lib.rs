@@ -898,7 +898,7 @@ impl Engine {
                 || !(0.0..=1.).contains(&p.wet)
                 || !(0.0..=1.).contains(&p.dry)
                 || !(0.0..=2.).contains(&p.output_level)
-                || !(0.0..=24.).contains(&p.output_boost_db)
+                || !(-12.0..=24.).contains(&p.output_boost_db)
                 || !(0.0..=20000.).contains(&p.hpf_hz)
                 || !(20.0..=22000.).contains(&p.lpf_hz)
                 || !(-60.0..=0.).contains(&p.compressor_threshold_db)

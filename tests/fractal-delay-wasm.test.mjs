@@ -34,6 +34,20 @@ test('private histories reserve exact reported memory including live geometry he
   try { assert.equal(e.status().requiredDelayBytes,estimateSceneBytes(scene,RATE)); }
   finally{e.dispose();}
 });
+test('negative output Boost accepted by the UI attenuates actual PCM without changing propagation',()=>{
+  const scene=graph([[0,1,.1]],2);
+  const attenuated=initialize(scene,{}, {outputBoostDb:-12});
+  const equivalent=initialize(scene,{}, {outputLevel:10**(-12/20)});
+  try{
+    assert.throws(()=>attenuated.controls({}, {outputBoostDb:-12.01}), /Invalid mastering parameters/);
+    const stimulus=block=>Float32Array.from({length:BLOCK},(_,i)=>.02*Math.sin(2*Math.PI*173*(block*BLOCK+i)/RATE));
+    const a=render(attenuated,160,stimulus),b=render(equivalent,160,stimulus);
+    finite(a);assert(energy(a)>1e-5,'negative Boost must retain a real delayed signal');
+    assert(a.every((value,i)=>Math.abs(value-b[i])<1e-7),'Boost attenuation is equivalent to the same post-master output scaling');
+    assert.equal(attenuated.status().sampleClock,equivalent.status().sampleClock);
+    assert.equal(attenuated.status().preparedEdges,equivalent.status().preparedEdges);
+  }finally{attenuated.dispose();equivalent.dispose();}
+});
 test('single edge has true geometric transit and repeated two-way round-trip reflections',()=>{
   const e=initialize(graph([[0,1,.1]],2));
   try { const pcm=render(e,6,impulse);finite(pcm);
