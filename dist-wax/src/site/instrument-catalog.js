@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "vector-fractals": define(
+    "Vector fractal exploration and sound",
+    "Zoom into Mandelbrot contours as fresh vector detail emerges, or explore Julia vectors and bulb-driven motion. Selected paths shape a bandlimited XY oscillator.",
+    "Choose Contour Explorer, then scroll or pinch to zoom and drag to pan. Try Seahorse Valley, select a strand, and enable Audio and Play to hear it.",
+    ["Built-in synth", "Pointer", "WebGL", "Presets", "XY synthesis"],
+  ),
   blobs: define(
     "Drawn-path synthesizer",
     "Draw open pencil strokes, curved pen paths and straight lines, or return to the first point to close a loop. Playheads follow each path, mapping height to continuous pitch and width to stereo.",

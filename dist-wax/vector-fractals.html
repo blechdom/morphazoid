@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Vector Fractals — Morphazoid" />
+    <meta property="og:description" content="Explore Mandelbrot and Julia vector contours. Zoom into Seahorse Valley as detail emerges, select a strand, and hear its XY path." />
+    <meta property="og:url" content="https://morphazoid.com/vector-fractals.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Vector Fractals — Morphazoid" />
+    <meta name="twitter:description" content="Explore Mandelbrot and Julia vector contours. Zoom into Seahorse Valley as detail emerges, select a strand, and hear its XY path." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090b" />
+  <meta name="description" content="Explore Mandelbrot and Julia vector contours. Zoom into Seahorse Valley as detail emerges, select a strand, and hear its XY path." />
+  <title>Vector Fractals — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/vector-fractals/style.css" />
+</head>
+<body class="vector-fractals-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="vector-fractals.html" aria-current="page">Vector Fractals</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="vector-fractals.html" selected>Vector Fractals</option></select></label>
+    <div id="audioHost"></div>
+  </header>
+  <main class="vector-layout">
+    <section class="vector-surface" aria-label="Vector fractal demos">
+      <div id="demoModes" class="vector-modes" role="group" aria-label="Choose a demo"></div>
+      <div id="contourActions" class="contour-actions" hidden>
+        <output id="contourZoom" aria-label="Magnification">1×</output>
+        <span id="contourProgress" aria-live="polite">Preparing outline…</span>
+        <button id="zoomOut" type="button" aria-label="Zoom out" title="Zoom out (−)">−</button>
+        <button id="zoomIn" type="button" aria-label="Zoom in" title="Zoom in (+)">+</button>
+        <button id="wholeView" type="button" title="Return to the whole Mandelbrot outline (Home)">Whole</button>
+      </div>
+      <div class="vector-stage-wrap">
+        <h1>Vector Fractals</h1>
+        <canvas id="stage" tabindex="0" role="img" aria-label="Interactive XY contour. Drag horizontally to rotate, vertically to change clearance. Arrow keys do the same." aria-describedby="gestureHint">Mandelbrot and Julia contours, drawn as ordered vector paths.</canvas>
+        <canvas id="contourStage" tabindex="0" role="img" aria-label="Interactive Mandelbrot contour explorer. Drag or use arrow keys to pan. Scroll, pinch, or use plus and minus to zoom. Home restores the whole outline. Click a strand to hear it." aria-describedby="gestureHint" hidden>Detailed vector contours recomputed for the visible Mandelbrot region.</canvas>
+        <div class="vector-stage-footer"><span id="gestureHint">↔ rotation · ↕ clearance</span><span>trace slowed 256×</span></div>
+      </div>
+      <div id="curveLegend" class="vector-legend"><span><i></i>audible XY</span><span class="reference-key"><i></i>source contour</span><span class="vectors-key"><i></i>rotating vectors</span></div>
+      <div id="contourLegend" class="vector-legend" hidden><span><i></i>selected strand</span><span class="reference-key"><i></i>surrounding contours</span><span>click a strand · open strands scan there and back</span></div>
+      <div class="vector-monitors">
+        <div><span id="mapLabel">Julia parameter c</span><canvas id="parameterMap" aria-label="Parameter position relative to Mandelbrot's main cardioid and period-two bulb"></canvas></div>
+        <div><span>One cycle · X / Y</span><canvas id="waveforms" aria-label="The two audio waveforms sampled from the visible curve"></canvas></div>
+      </div>
+    </section>
+    <aside class="vector-panel" aria-label="Vector fractal controls" data-instrument-preset-host>
+      <div id="mainPresets"></div>
+      <div class="vector-transport">
+        <button id="playButton" class="vector-play" type="button" aria-label="Play" aria-pressed="false" data-primary-transport><svg viewBox="0 0 24 24" aria-hidden="true"><path id="playIcon" d="M8 5 19 12 8 19Z" /></svg></button>
+        <span id="transportState">Paused</span>
+        <button id="reset" type="button" data-reset-all title="Restore this demo's opening sound">Reset</button>
+      </div>
+      <p id="demoDescription" class="vector-description"></p>
+      <section class="vector-section" aria-labelledby="shapeTitle">
+        <h2 id="shapeTitle">Contour</h2>
+        <div id="explorerControls" hidden>
+          <label class="vector-select">Region<select id="contourRegion"><option value="whole">Whole outline</option><option value="seahorse">Seahorse Valley</option><option value="filigree">Seahorse filigree</option><option value="custom" disabled>Custom view</option></select></label>
+          <label class="vector-select">Refinement<select id="contourQuality"><option value="live">Live</option><option value="fine">Fine</option></select></label>
+          <button id="nextStrand" class="contour-next" type="button">Next strand</button>
+        </div>
+        <label class="vector-select" id="shapeField">Julia family<select id="shape"><option value="basilica">Basilica</option><option value="rabbit">Douady rabbit</option><option value="cardioid">Cardioid explorer</option><option value="circle">Circle</option><option value="ellipse">Ellipse</option></select></label>
+        <label class="vector-select" id="componentField" hidden>Travel inside<select id="component"><option value="1">Main cardioid</option><option value="2">Period-two bulb</option></select></label>
+        <div id="shapeKnobs" class="vector-knobs"></div>
+        <label id="traversalField" class="vector-select">Traversal<select id="traversal"><option value="angle">External angle</option><option value="distance">Constant distance</option></select></label>
+      </section>
+      <section class="vector-section sound-section" aria-labelledby="soundTitle">
+        <h2 id="soundTitle">Sound</h2><div id="soundKnobs" class="vector-knobs"></div>
+        <label class="vector-select">Readout<select id="readout"><option value="xy">Stereo · X left / Y right</option><option value="mono">Mono · rotated X projection</option></select></label>
+      </section>
+      <div class="vector-options"><label id="vectorsField"><input id="vectors" type="checkbox" checked />Vectors</label><label id="referenceField"><input id="reference" type="checkbox" checked />Source contour</label><button id="exportContour" type="button" hidden>Save SVG</button><button id="info" type="button" aria-label="How these demos work">ⓘ</button></div>
+      <p id="status" class="vector-status" role="status">Preparing contours…</p>
+    </aside>
+  </main>
+  <dialog id="helpDialog" aria-labelledby="helpTitle">
+    <button id="closeHelp" type="button" aria-label="Close information">×</button><h2 id="helpTitle">The curve is the oscillator</h2>
+    <p>Enable <b>Audio</b>, then press <b>Play</b>. The left speaker reads X; the right reads Y. The moving dot demonstrates that scan 256 times slower. Drag the plot to rotate the path and change its distance from the fractal.</p>
+    <p><b>Julia Vectors:</b> counter-rotating complex vectors form a Julia equipotential. Try the circle, ellipse, basilica and rabbit. A circle and ellipse both contain only the fundamental with angle traversal: a different-looking shape need not have more harmonics.</p>
+    <p><b>Mandelbrot Contours:</b> an inverse exterior map outlines the whole Mandelbrot set, not just its cardioid. Decrease clearance to expose its bulbs. Finite detail approximates a smooth surrounding contour, not the exact fractal boundary.</p>
+    <p><b>Bulb Voyager:</b> the small diagram shows a parameter travelling inside the main cardioid or period-two bulb. Its changing Julia contour makes a continuously changing waveform. A precomputed bank interpolates between 48 contours.</p>
+    <p><b>Contour Explorer:</b> drag to pan, scroll or pinch to zoom, or choose a region such as Seahorse Valley. New vectors are computed as you move, with a quick preview followed by finer detail. Arrow keys pan, +/− zoom, and Home restores the whole view. Edge detail moves the contour closer to the set; Fine increases the final refinement.</p>
+    <p>Click a strand or use Next strand to choose the oscillator's source. Closed paths loop; open paths scan smoothly there and back. The wave monitor shows the bandwidth-limited sound. Audio and Play stay independent of navigation. No contours in the current region means silence after refinement.</p>
+    <p>These are sampled exterior contours. Extremely thin connections may be missed, so small apparent islands are not a certified topology. Zoom is bounded by floating-point precision. Save SVG exports the current completed vectors.</p>
+    <p><b>Traversal</b> changes how fast different parts of the same path are read. <b>Pitch</b> also reduces the available detail to stay below Nyquist. The colored path shows the filtered XY waveform; the faint source retains visual detail. Both axes share one gain, and geometric translation is removed to avoid DC. In mono, the colored XY path collapses to X = Y.</p>
+    <p>Turning off Vectors or Source contour affects only the display. Presets and Reset never arm Audio or change master level. These are playable mathematical approximations, not sampled instruments.</p>
+    <p><a href="docs/vector-fractals.md">Mathematics, sources and implementation limits</a></p>
+  </dialog>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/vector-fractals/app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

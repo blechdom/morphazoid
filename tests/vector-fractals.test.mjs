@@ -8,6 +8,9 @@ import { VectorDSP } from '../src/instruments/vector-fractals/dsp.js';
 const close = (x, y, tolerance = 1e-8) => assert.ok(Math.abs(x - y) < tolerance, `${x} != ${y}`);
 const rms = x => Math.sqrt(x.reduce((sum, v) => sum + v * v, 0) / x.length);
 const multiply = ([x, y], [a, b]) => [x * a - y * b, x * b + y * a];
+// Explorer banks consume traced paths; their mathematical/audio checks live in
+// vector-contour-audio.test.mjs rather than inventing an analytic fallback.
+const analyticPresets = PRESETS.filter(p => p.snapshot.mode !== 'explorer');
 function psi(b, r, theta) {
   return Array.from(b.re).reduce(([x, y], re, n) => {
     const k = 1 - 2 * n, c = Math.cos(k * theta), s = Math.sin(k * theta), scale = r ** k;
@@ -90,7 +93,7 @@ test('identity controls change the signal, not only the drawing', () => {
 
 test('preset and randomized banks are finite, bounded, DC-free and deterministic', () => {
   const signatures = new Set();
-  for (const preset of PRESETS) {
+  for (const preset of analyticPresets) {
     const bank = createBank(preset.snapshot), f = bank.frames[0];
     signatures.add(JSON.stringify(Array.from(f.sourceX.slice(0, 10))));
     for (const frame of bank.frames) for (const t of frame.tables) {
@@ -106,7 +109,7 @@ test('preset and randomized banks are finite, bounded, DC-free and deterministic
   for (let i = 0; i < 100; i++) {
     const s = randomizeState(DEFAULT_STATE, random);
     for (const [key, value] of Object.entries(s)) seen.get(key).add(value);
-    if (i < 12) assert.ok(createFrame(s).sourceX.every(Number.isFinite));
+    if (i < 12 && s.mode !== 'explorer') assert.ok(createFrame(s).sourceX.every(Number.isFinite));
   }
   for (const [key, values] of seen) assert.ok(values.size > 1, `${key} is frozen`);
   assert.deepEqual(sanitizeState({ pitch: NaN, radius: Infinity }).pitch, DEFAULT_STATE.pitch);
@@ -121,7 +124,7 @@ test('DSP is silent until playing; all presets sound, stay bounded and release',
   const dsp = new VectorDSP(); dsp.setBank(createBank(DEFAULT_STATE)); dsp.setState(DEFAULT_STATE);
   assert.equal(rms(render(dsp).x), 0);
   dsp.playing = true;
-  for (const preset of PRESETS) {
+  for (const preset of analyticPresets) {
     dsp.setBank(createBank(preset.snapshot)); dsp.setState(preset.snapshot);
     const { x, y } = render(dsp, .6); assert.ok(rms(x) > .02); assert.ok(rms(y) > .002);
     assert.ok(x.every(Number.isFinite) && y.every(Number.isFinite)); assert.ok(Math.max(...x.map(Math.abs), ...y.map(Math.abs)) < .7);

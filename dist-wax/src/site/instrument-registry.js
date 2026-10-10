@@ -166,6 +166,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
   freezeGroup("wip", "Work in Progress", [
+    { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
     { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },
     { id: "vocal-effects-room", label: "Vocal Effects Room", href: "vocal-effects-room.html", catalogue: false },
     { id: "instrument-share-room", label: "Instrument Share Room", href: "instrument-share-room.html", catalogue: false },

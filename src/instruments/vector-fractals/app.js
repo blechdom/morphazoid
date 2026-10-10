@@ -1,5 +1,7 @@
-import { MODES, PRESETS, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
+import { MODES, PRESETS, CONTOUR_LANDMARKS, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
 import { VectorRenderer } from './renderer.js';
+import { ContourRenderer } from './contour-renderer.js';
+import { ContourNavigation } from './contour-navigation.js';
 import { VectorAudio } from './audio.js';
 import { createRangeField } from '../../ui/primitives/range-field.js';
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
@@ -12,11 +14,14 @@ let state = { ...PRESETS.find(p => p.snapshot.mode === initialMode).snapshot };
 let bank = null, playing = false, armed = false, starting = false, stopping = false, disposed = false;
 let level = .35, scanPhase = 0, voyage = 0, telemetry = null, lastTime = performance.now(), lastPaint = 0;
 let request = 0, busy = false, queued = null, buildTimer = 0, frameId = 0, activePointer = null;
+let contourRequest = 0, contourBusy = false, contourTimer = 0, contourResult = null, contourPhase = 'idle';
+let selectedPath = -1, candidates = [], navigation = null, lastContourSend = 0;
 const modeMemory = new Map(), fields = new Map(), knobs = [];
 const abort = new AbortController();
 const listen = (node, name, callback, options = {}) => node.addEventListener(name, callback, { ...options, signal: abort.signal });
 const status = message => { $('status').textContent = message; };
 const renderer = new VectorRenderer($('stage'), $('waveforms'), $('parameterMap'));
+const contourRenderer = new ContourRenderer($('contourStage'));
 const audio = new VectorAudio({ onTelemetry(data) { telemetry = data; }, onError(error) {
   armed = false; telemetry = null; strip.setAudioState('error'); status(error.message);
 } });
@@ -35,7 +40,7 @@ worker.onmessage = ({ data }) => {
     else {
       bank = data.bank; audio.send({ type: 'bank', bank });
       $('stage').dataset.ready = 'true';
-      status(armed ? (playing ? 'Playing · shared XY oscillator' : 'Audio on · press Play') : 'Ready · enable Audio, then Play');
+      status(state.mode === 'explorer' && selectedPath < 0 ? 'No contour here · pan or choose a region' : armed ? (playing ? 'Playing · shared XY oscillator' : 'Audio on · press Play') : 'Ready · enable Audio, then Play');
     }
   }
   if (queued) sendQueued();
@@ -46,9 +51,119 @@ function sendQueued() {
   busy = true; worker.postMessage(queued); queued = null;
 }
 function build() {
+  if (state.mode === 'explorer') {
+    ++request; queued = null; clearTimeout(buildTimer);
+    requestContours(true); return;
+  }
+  clearTimeout(contourTimer); contourTimer = 0; contourBusy = false; ++contourRequest;
+  contourWorker.postMessage({ type: 'cancel' });
   queued = { id: ++request, state }; $('stage').dataset.building = 'true';
   clearTimeout(buildTimer); buildTimer = setTimeout(sendQueued, 35);
 }
+
+const contourWorker = new Worker(new URL('./contour-worker.js', import.meta.url), { type: 'module' });
+function explorerView() {
+  const rect = $('contourStage').parentElement.getBoundingClientRect();
+  return { x: state.viewX, y: state.viewY, width: state.viewWidth, aspect: Math.max(.25, rect.width / Math.max(1, rect.height)) };
+}
+function wholeExplorerView() {
+  const aspect = explorerView().aspect;
+  return { x: -.5, y: 0, width: Math.min(5, Math.max(3.4, 2.35 * aspect)), aspect };
+}
+function fitOpeningView(input) {
+  if (input.mode !== 'explorer' || input.viewX !== -.5 || input.viewY !== 0 || input.viewWidth !== 3.4) return input;
+  return { ...input, viewWidth: wholeExplorerView().width };
+}
+function refreshExplorerUI() {
+  const zoom = wholeExplorerView().width / state.viewWidth;
+  $('contourZoom').textContent = `${zoom < 10 ? zoom.toFixed(1) : Math.round(zoom).toLocaleString()}×`;
+  const landmark = CONTOUR_LANDMARKS.find(p => {
+    const width = p.id === 'whole' ? wholeExplorerView().width : p.width;
+    return Math.abs(p.x - state.viewX) < width * 1e-7 && Math.abs(p.y - state.viewY) < width * 1e-7 && Math.abs(width - state.viewWidth) < width * 1e-7;
+  });
+  $('contourRegion').value = landmark?.id ?? 'custom';
+  $('zoomIn').disabled = state.viewWidth <= 1.00001e-10;
+  $('zoomOut').disabled = state.viewWidth >= 4.99999;
+}
+function requestContours(immediate = false) {
+  if (disposed || state.mode !== 'explorer') return;
+  // Invalidate the old viewport immediately, even while the next send is throttled.
+  ++contourRequest;
+  contourBusy = true;
+  $('contourStage').dataset.building = 'true'; $('exportContour').disabled = true;
+  $('contourProgress').textContent = state.viewWidth <= 1.00001e-10 ? 'Zoom limit · refining…' : 'Refining…';
+  if (immediate) { clearTimeout(contourTimer); contourTimer = 0; }
+  if (contourTimer) return;
+  const send = () => {
+    contourTimer = 0;
+    if (disposed || state.mode !== 'explorer') return;
+    const view = explorerView(), rect = $('contourStage').getBoundingClientRect();
+    const resolution = Math.round(clamp(rect.width * (state.contourQuality === 'fine' ? 1.3 : .8), 220, state.contourQuality === 'fine' ? 850 : 560));
+    const depth = clamp(12 + 12 * Math.log2(3.4 / view.width) + state.contourBias, 4, 320);
+    lastContourSend = performance.now();
+    contourWorker.postMessage({ id: contourRequest, view, depth, resolution });
+  };
+  if (immediate) send();
+  else contourTimer = setTimeout(send, Math.max(0, 100 - (performance.now() - lastContourSend)));
+}
+function updateExplorerView(view, { settled = false } = {}) {
+  if (disposed || state.mode !== 'explorer') return;
+  state = sanitizeState({ ...state, viewX: view.x, viewY: view.y, viewWidth: view.width });
+  refreshExplorerUI();
+  if (settled) presets.refresh();
+  requestContours(settled);
+}
+function queueSelectedSound() {
+  let path = null;
+  if (contourResult && selectedPath >= 0) {
+    const start = contourResult.offsets[selectedPath] * 2, end = contourResult.offsets[selectedPath + 1] * 2;
+    path = { points: contourResult.points.slice(start, end), closed: Boolean(contourResult.closed[selectedPath]) };
+  }
+  queued = { id: ++request, state, kind: 'contour', path };
+  sendQueued();
+}
+function selectStrand(index, remember = true) {
+  if (!contourResult || index < 0 || index >= contourResult.closed.length) return;
+  selectedPath = index;
+  if (remember) {
+    const vertex = Math.floor((contourResult.offsets[index] + contourResult.offsets[index + 1]) / 2) * 2;
+    state = { ...state, strandX: contourResult.view.x + contourResult.points[vertex] * contourResult.view.width,
+      strandY: contourResult.view.y + contourResult.points[vertex + 1] * contourResult.view.width };
+    presets.refresh();
+  }
+  queueSelectedSound();
+}
+contourWorker.onmessage = ({ data }) => {
+  if (disposed || state.mode !== 'explorer' || data.id !== contourRequest) return;
+  if (data.error) {
+    contourBusy = false; $('contourProgress').textContent = 'Could not refine';
+    status(`Contour could not update: ${data.error}`); return;
+  }
+  if (!data.result) return;
+  contourResult = data.result; contourPhase = data.phase;
+  candidates = Array.from({ length: contourResult.closed.length }, (_, i) => i)
+    .filter(i => contourResult.offsets[i + 1] - contourResult.offsets[i] >= 4)
+    .sort((a, b) => (contourResult.offsets[b + 1] - contourResult.offsets[b]) - (contourResult.offsets[a + 1] - contourResult.offsets[a]));
+  selectedPath = candidates[0] ?? -1;
+  // Prime buffers for picking at this result's exact world-coordinate origin.
+  contourRenderer.draw(contourResult, explorerView(), { selectedPath, scanPhase });
+  if (state.strandX != null && state.strandY != null) {
+    const picked = contourRenderer.pick({ x: state.strandX, y: state.strandY }, explorerView(), 24);
+    if (picked >= 0) selectedPath = picked;
+  }
+  $('contourStage').dataset.ready = 'true';
+  $('nextStrand').disabled = candidates.length < 2;
+  if (data.phase === 'complete') {
+    contourBusy = false; $('contourStage').dataset.building = 'false';
+    $('exportContour').disabled = Boolean(contourTimer);
+    $('contourProgress').textContent = selectedPath < 0 ? 'No contour here' : (state.viewWidth <= 1.00001e-10 ? 'Zoom limit' : '');
+    queueSelectedSound();
+  }
+};
+contourWorker.onerror = event => {
+  contourBusy = false; $('contourProgress').textContent = 'Refinement stopped';
+  status(`Contour worker stopped: ${event.message || 'reload to retry'}`);
+};
 
 for (const mode of MODES) {
   const button = document.createElement('button'); button.type = 'button'; button.textContent = mode.label; button.dataset.mode = mode.id;
@@ -61,6 +176,7 @@ const parameters = [
   ['depth', 'Excursion', 0, .96, .01, v => `${Math.round(v * 100)}%`, 'shapeKnobs'],
   ['angle', 'Position', 0, 1, .001, v => `${Math.round(v * 360)}°`, 'shapeKnobs'],
   ['speed', 'Voyage rate', .005, .4, .001, v => `${v.toFixed(3)} Hz`, 'shapeKnobs'],
+  ['contourBias', 'Edge detail', -8, 24, 1, v => `${Math.round((v + 8) / 32 * 100)}%`, 'shapeKnobs'],
   ['pitch', 'Pitch', 25, 1200, 1, v => `${v.toFixed(0)} Hz`, 'soundKnobs'],
   ['rotation', 'Rotation', -180, 180, 1, v => `${v.toFixed(0)}°`, 'soundKnobs'],
 ];
@@ -72,16 +188,31 @@ for (const [key, label, min, max, step, format, host] of parameters) {
 }
 for (const key of ['shape', 'component', 'traversal', 'readout']) listen($(key), 'change', () => update({ [key]: $(key).value }));
 for (const key of ['vectors', 'reference']) listen($(key), 'change', () => update({ [key]: $(key).checked }));
+listen($('contourQuality'), 'change', () => update({ contourQuality: $('contourQuality').value }));
+listen($('contourRegion'), 'change', () => {
+  const p = CONTOUR_LANDMARKS.find(p => p.id === $('contourRegion').value);
+  if (p) { state = { ...state, strandX: null, strandY: null }; navigation.setView(p.id === 'whole' ? wholeExplorerView() : { ...explorerView(), x: p.x, y: p.y, width: p.width }, { notify: true }); }
+});
+listen($('zoomIn'), 'click', () => navigation.zoomBy(.65));
+listen($('zoomOut'), 'click', () => navigation.zoomBy(1 / .65));
+listen($('wholeView'), 'click', () => { state = { ...state, strandX: null, strandY: null }; navigation.reset(); });
+listen($('nextStrand'), 'click', () => { if (candidates.length) selectStrand(candidates[(candidates.indexOf(selectedPath) + 1) % candidates.length]); });
 
 const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS, host: $('mainPresets'),
-  capture: () => ({ ...state }), apply: snapshot => { state = sanitizeState(snapshot); sync(); build(); audio.send({ type: 'state', state }); },
+  capture: () => ({ ...state }), apply: snapshot => { state = fitOpeningView(sanitizeState(snapshot)); sync(); build(); audio.send({ type: 'state', state }); },
   randomize: (snapshot, random) => randomizeState(snapshot, random),
 });
 
 function sync() {
   const mode = MODES.find(m => m.id === state.mode);
+  const explorer = state.mode === 'explorer';
   document.body.style.setProperty('--vector-accent', mode.color);
   $('stage').dataset.mode = state.mode;
+  $('stage').hidden = explorer; $('contourStage').hidden = !explorer;
+  for (const id of ['contourActions', 'explorerControls', 'contourLegend', 'exportContour']) $(id).hidden = !explorer;
+  for (const id of ['curveLegend', 'traversalField', 'vectorsField', 'referenceField']) $(id).hidden = explorer;
+  $('gestureHint').textContent = explorer ? 'drag to pan · scroll / pinch to zoom' : '↔ rotation · ↕ clearance';
+  $('contourQuality').value = state.contourQuality;
   for (const button of $('demoModes').children) button.setAttribute('aria-pressed', String(button.dataset.mode === state.mode));
   for (const [key, field] of fields) field.setValue(state[key]);
   for (const key of ['shape', 'component', 'traversal', 'readout']) $(key).value = state[key];
@@ -90,14 +221,19 @@ function sync() {
   const exploratory = state.mode === 'voyager' || (state.mode === 'julia' && state.shape === 'cardioid');
   fields.get('depth').hidden = !exploratory; fields.get('angle').hidden = !exploratory;
   fields.get('speed').hidden = state.mode !== 'voyager';
-  $('mapLabel').textContent = state.mode === 'mandelbrot' ? 'Cardioid + period-two bulb' : 'Julia parameter c';
+  fields.get('radius').hidden = explorer; fields.get('detail').hidden = explorer;
+  fields.get('contourBias').hidden = !explorer;
+  $('mapLabel').textContent = explorer ? 'Region in Mandelbrot' : state.mode === 'mandelbrot' ? 'Cardioid + period-two bulb' : 'Julia parameter c';
   $('demoDescription').textContent = {
     julia: 'Counter-rotating vectors make a Julia contour. The same curve is the waveform.',
     mandelbrot: 'A contour around the whole Mandelbrot set. Move closer to reveal its structure.',
     voyager: 'A moving Mandelbrot parameter continuously reshapes the Julia oscillator.',
+    explorer: 'Zoom into the outline. New detail emerges as you move; select a strand to shape the sound.',
   }[state.mode];
   history.replaceState(null, '', `#${state.mode}`);
   presets?.refresh();
+  navigation?.setActive(explorer);
+  if (explorer) { navigation?.setView(explorerView(), { notify: false }); refreshExplorerUI(); }
 }
 function update(patch) {
   state = sanitizeState({ ...state, ...patch }); sync(); audio.send({ type: 'state', state });
@@ -106,7 +242,7 @@ function update(patch) {
 function switchMode(mode) {
   if (!MODES.some(m => m.id === mode) || mode === state.mode) return;
   modeMemory.set(state.mode, { ...state });
-  state = { ...(modeMemory.get(mode) ?? PRESETS.find(p => p.snapshot.mode === mode).snapshot) };
+  state = { ...(modeMemory.get(mode) ?? fitOpeningView(PRESETS.find(p => p.snapshot.mode === mode).snapshot)) };
   sync(); audio.send({ type: 'state', state }); build();
 }
 function setPlaying(value) {
@@ -138,7 +274,7 @@ async function toggleAudio() {
 
 listen($('playButton'), 'click', () => setPlaying(!playing));
 listen($('reset'), 'click', () => {
-  state = { ...PRESETS.find(p => p.snapshot.mode === state.mode).snapshot };
+  state = { ...fitOpeningView(PRESETS.find(p => p.snapshot.mode === state.mode).snapshot) };
   scanPhase = 0; voyage = 0; telemetry = null;
   audio.send({ type: 'reset' }); audio.send({ type: 'state', state }); sync(); build();
 });
@@ -180,22 +316,57 @@ function frame(time) {
   }
   if (time - lastPaint > 1000 / 30 && !document.hidden) {
     lastPaint = time;
-    renderer.draw(bank, state, { scanPhase, voyage, frequency: armed && telemetry ? telemetry.frequency : state.pitch,
+    renderer.draw(bank, state.mode === 'explorer' ? { ...state, vectors: false, reference: false } : state, { scanPhase, voyage, frequency: armed && telemetry ? telemetry.frequency : state.pitch,
       rotation: armed && telemetry ? telemetry.rotation : state.rotation * Math.PI / 180, sampleRate: audio.context?.sampleRate ?? 48000 });
   }
+  if (state.mode === 'explorer' && !document.hidden) contourRenderer.draw(contourResult, explorerView(), { selectedPath, scanPhase });
   frameId = requestAnimationFrame(frame);
 }
 
 export function diagnosticSnapshot() {
-  return { state: { ...state }, playing, armed, starting, ready: Boolean(bank), building: busy || Boolean(queued),
+  return { state: { ...state }, playing, armed, starting, ready: Boolean(bank) && (state.mode !== 'explorer' || Boolean(contourResult)), building: busy || Boolean(queued) || (state.mode === 'explorer' && (contourBusy || Boolean(contourTimer))),
     frames: bank?.frames.length ?? 0, voyage, scanPhase, c: bank ? juliaParameter(bank.state, voyage) : null,
-    audioTime: audio.context?.currentTime ?? null, renderer: renderer.gl ? 'webgl' : 'canvas', disposed };
+    audioTime: audio.context?.currentTime ?? null, renderer: renderer.gl ? 'webgl' : 'canvas', disposed,
+    contours: { request: contourRequest, phase: contourPhase, view: contourResult?.view ?? null, depth: contourResult?.depth ?? null,
+      vertices: (contourResult?.points.length ?? 0) / 2, paths: contourResult?.closed.length ?? 0, selectedPath, stats: contourResult?.stats ?? null,
+      renderer: contourRenderer.diagnosticSnapshot(), navigation: navigation?.diagnosticSnapshot() } };
 }
 export async function dispose() {
   if (disposed) return; disposed = true; cancelAnimationFrame(frameId); clearTimeout(buildTimer); abort.abort();
+  clearTimeout(contourTimer); contourWorker.terminate(); navigation?.destroy(); contourRenderer.destroy(); resizeObserver.disconnect();
   worker.terminate(); presets.destroy(); strip.destroy(); for (const knob of knobs) knob.destroy();
   for (const field of fields.values()) field.destroy(); renderer.destroy(); await audio.destroy();
 }
 // Leave a back/forward-cache document intact; real navigation tears down resources.
 listen(window, 'pagehide', event => { if (!event.persisted) void dispose(); });
+navigation = new ContourNavigation($('contourStage'), {
+  view: explorerView(), homeView: wholeExplorerView(),
+  isActive: () => state.mode === 'explorer', onViewChange: updateExplorerView,
+  onSelect(point) { const index = contourRenderer.pick(point, explorerView()); if (index >= 0) selectStrand(index); },
+});
+const resizeObserver = new ResizeObserver(() => {
+  if (state.mode !== 'explorer' || disposed) return;
+  const view = explorerView(); navigation.homeView = wholeExplorerView(); navigation.setView(view, { notify: false }); requestContours();
+});
+resizeObserver.observe($('contourStage'));
+listen(document, 'visibilitychange', () => {
+  if (document.hidden) { clearTimeout(contourTimer); contourTimer = 0; ++contourRequest; contourWorker.postMessage({ type: 'cancel' }); contourBusy = false; }
+  else if (state.mode === 'explorer') requestContours(true);
+});
+listen($('exportContour'), 'click', () => {
+  if (!contourResult || contourPhase !== 'complete' || contourBusy || contourTimer) return;
+  const height = 1200 / contourResult.view.aspect;
+  const paths = [];
+  for (let p = 0; p < contourResult.closed.length; p++) {
+    const points = [];
+    for (let i = contourResult.offsets[p]; i < contourResult.offsets[p + 1]; i++) points.push(`${((contourResult.points[i * 2] + .5) * 1200).toFixed(4)},${(height / 2 - contourResult.points[i * 2 + 1] * 1200).toFixed(4)}`);
+    paths.push(`<path d="M${points.join(' L')}${contourResult.closed[p] ? ' Z' : ''}"/>`);
+  }
+  const meta = JSON.stringify({ view: contourResult.view, logGreen: -contourResult.depth, approximation: 'Sampled exterior contours; unresolved narrow connections may alter topology.' }).replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 ${height}"><title>Morphazoid Mandelbrot contours</title><metadata>${meta}</metadata><g fill="none" stroke="#14738b" stroke-width=".8">${paths.join('')}</g></svg>`;
+  const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
+  const a = document.createElement('a'); a.href = url; a.download = 'morphazoid-contours.svg'; a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 1000);
+});
+state = fitOpeningView(state);
 sync(); build(); frameId = requestAnimationFrame(frame);

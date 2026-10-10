@@ -7,9 +7,16 @@ export const MODES = Object.freeze([
   { id: 'julia', label: 'Julia Vectors', color: '#61e9ce' },
   { id: 'mandelbrot', label: 'Mandelbrot Contours', color: '#ffba76' },
   { id: 'voyager', label: 'Bulb Voyager', color: '#c69bff' },
+  { id: 'explorer', label: 'Contour Explorer', color: '#80d9ff' },
 ]);
 export const SHAPES = Object.freeze({ basilica: [-1, 0], rabbit: [-.122561166876653, .744861766619744], circle: [0, 0], ellipse: [-2, 0], cardioid: null });
-export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true });
+export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
+  viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null });
+export const CONTOUR_LANDMARKS = Object.freeze([
+  { id: 'whole', label: 'Whole outline', x: -.5, y: 0, width: 3.4 },
+  { id: 'seahorse', label: 'Seahorse Valley', x: -.743643887037151, y: .13182590420533, width: .015 },
+  { id: 'filigree', label: 'Seahorse filigree', x: -.743643887037151, y: .13182590420533, width: .0005 },
+]);
 export const clamp = (v, low, high, fallback = low) => Math.max(low, Math.min(high, Number.isFinite(Number(v)) ? Number(v) : fallback));
 export const wrap = v => ((v % 1) + 1) % 1;
 
@@ -27,6 +34,11 @@ export function sanitizeState(input = {}) {
     traversal: s.traversal === 'distance' ? 'distance' : 'angle',
     readout: s.readout === 'mono' ? 'mono' : 'xy',
     vectors: Boolean(s.vectors), reference: Boolean(s.reference),
+    viewX: clamp(s.viewX, -3, 3, -.5), viewY: clamp(s.viewY, -3, 3, 0),
+    viewWidth: clamp(s.viewWidth, 1e-10, 5, 3.4), contourBias: clamp(s.contourBias, -8, 24, 0),
+    contourQuality: s.contourQuality === 'fine' ? 'fine' : 'live',
+    strandX: s.strandX == null ? null : clamp(s.strandX, -3, 3),
+    strandY: s.strandY == null ? null : clamp(s.strandY, -3, 3),
   };
 }
 
@@ -98,6 +110,7 @@ function distanceSamples(x, y) {
 
 export function createFrame(input, phase = 0) {
   const s = sanitizeState(input), n = TABLE_SIZE;
+  if (s.mode === 'explorer') throw new Error('Explorer sound requires an ordered traced contour.');
   let re = new Float64Array(n), im = new Float64Array(n);
   // IFFT convention: N*a[k] gives the coefficient a[k] in sampled z(theta).
   re[1] = n * s.radius;
@@ -116,12 +129,19 @@ export function createFrame(input, phase = 0) {
   if (s.traversal === 'distance') {
     ({ re, im } = distanceSamples(x, y)); fft(re, im);
   }
+  return frameFromSpectrum(re, im, c);
+}
+
+/** Shared normalization and bandwidth bank for analytic and traced XY paths. */
+export function frameFromSpectrum(re, im, c = [0, 0]) {
+  const n = TABLE_SIZE;
+  if (re.length !== n || im.length !== n) throw new Error('Unexpected contour table size.');
   re[0] = 0; im[0] = 0;
-  x = re.slice(); y = im.slice(); fft(x, y, true);
+  const x = re.slice(), y = im.slice(); fft(x, y, true);
   let energy = 0, peak = 0;
   for (let i = 0; i < n; i++) { energy += x[i] ** 2 + y[i] ** 2; peak = Math.max(peak, Math.hypot(x[i], y[i])); }
   // Common XY gain preserves aspect ratio. Leave headroom for interpolation.
-  const gain = Math.min(.8 / Math.sqrt(energy / n), 1.5 / peak);
+  const gain = energy < 1e-24 ? 0 : Math.min(.8 / Math.sqrt(energy / n), 1.5 / peak);
   if (!Number.isFinite(gain)) throw new Error('The contour did not converge. Increase clearance.');
   for (let i = 0; i < n; i++) { re[i] *= gain; im[i] *= gain; x[i] *= gain; y[i] *= gain; }
   const tables = HARMONICS.map(limit => {
@@ -150,11 +170,16 @@ export function mipSelection(frequency, sampleRate) {
 
 export function randomizeState(_previous, random = Math.random) {
   const pick = list => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
+  const landmark = pick(CONTOUR_LANDMARKS);
   return sanitizeState({ mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
     radius: 1.03 + random() ** 2 * .65, detail: pick([32, 64, 128, 256, 512]),
     depth: random() * .96, angle: random(), component: pick([1, 2]), speed: .005 + random() ** 2 * .395,
     pitch: 30 * (1200 / 30) ** random(), rotation: random() * 360 - 180,
-    traversal: pick(['angle', 'distance']), readout: pick(['xy', 'mono']), vectors: random() > .3, reference: random() > .2 });
+    traversal: pick(['angle', 'distance']), readout: pick(['xy', 'mono']), vectors: random() > .3, reference: random() > .2,
+    viewX: landmark.x + (random() - .5) * landmark.width * .12,
+    viewY: landmark.y + (random() - .5) * landmark.width * .12,
+    viewWidth: landmark.width * (.7 + random() * .6), contourBias: -5 + random() * 25,
+    contourQuality: pick(['live', 'fine']), strandX: landmark.x, strandY: landmark.y });
 }
 
 export const PRESETS = Object.freeze([
@@ -170,4 +195,7 @@ export const PRESETS = Object.freeze([
   ['flurry', 'Voyager · Fast bloom', { mode: 'voyager', depth: .95, speed: .35, pitch: 193, radius: 1.035, traversal: 'distance' }],
   ['safe', 'Julia · Cardioid explorer', { shape: 'cardioid', depth: .95, angle: .37, radius: 1.035, pitch: 76 }],
   ['projection', 'Mandelbrot · Mono silhouette', { mode: 'mandelbrot', readout: 'mono', rotation: 70, radius: 1.04, pitch: 330 }],
+  ['explore', 'Explorer · Whole outline', { mode: 'explorer', pitch: 82, detail: 512 }],
+  ['seahorse', 'Explorer · Seahorse Valley', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 65, detail: 512 }],
+  ['filigree', 'Explorer · Seahorse filigree', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .0005, pitch: 41, detail: 512, contourQuality: 'fine' }],
 ].map(([id, label, patch]) => ({ id, label, snapshot: sanitizeState({ ...DEFAULT_STATE, ...patch }) })));

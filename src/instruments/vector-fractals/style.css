@@ -8,14 +8,26 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
 .vector-modes button[aria-pressed="true"] { color: var(--vector-accent); border-bottom-color: var(--vector-accent); background: #151e24; }
 .vector-stage-wrap { position: relative; height: clamp(280px, 60vh, 640px); background: #06090c; }
 .vector-stage-wrap h1 { position: absolute; z-index: 1; margin: 0; left: 18px; top: 15px; font: 600 clamp(20px, 2.5vw, 33px)/1.1 var(--font-ui, sans-serif); letter-spacing: -.04em; color: var(--vector-accent); pointer-events: none; }
-#stage { display: block; width: 100%; height: 100%; touch-action: none; outline-offset: -3px; }
-#stage:focus-visible { outline: 2px solid var(--vector-accent); }
+#stage, #contourStage { display: block; width: 100%; height: 100%; touch-action: none; outline-offset: -3px; }
+#stage:focus-visible, #contourStage:focus-visible { outline: 2px solid var(--vector-accent); }
+#contourStage { cursor: grab; }
+#contourStage:active { cursor: grabbing; }
+.contour-actions { display: flex; align-items: center; gap: 7px; margin: 5px 0 9px; min-height: 40px; }
+.contour-actions output { font: 12px monospace; color: var(--vector-accent); min-width: 55px; }
+#contourProgress { flex: 1; font-size: 10px; color: #93a8b1; }
+.contour-actions button, .contour-next, #exportContour { border: 1px solid #354a57; border-radius: 4px; background: #121d24; color: #c9e0e9; padding: 8px 11px; min-height: 38px; }
+.contour-actions button { min-width: 39px; }
+.contour-next { width: 100%; margin: 3px 0 9px; font-size: 12px; }
+.contour-actions button:hover, .contour-next:hover, #exportContour:hover { border-color: var(--vector-accent); }
+.contour-actions button:focus-visible, .contour-next:focus-visible { outline: 2px solid var(--vector-accent); outline-offset: 2px; }
 .vector-stage-footer { position: absolute; bottom: 10px; left: 14px; right: 14px; display: flex; justify-content: space-between; gap: 10px; pointer-events: none; font: 10px/1.3 monospace; color: #8ba0aa; }
 .vector-legend { display: flex; flex-wrap: wrap; gap: 16px; margin: 12px 4px 10px; font-size: 10px; color: #afc0c7; }
 .vector-legend span { display: flex; gap: 6px; align-items: center; }
 .vector-legend i { width: 14px; height: 2px; background: var(--vector-accent); }
 .vector-legend .reference-key i { background: #81949c; }
 .vector-legend .vectors-key i { background: #e0bdec; }
+#contourLegend i { background: #6bf5db; }
+#contourLegend .reference-key i { background: #ffba75; }
 .vector-monitors { display: grid; grid-template-columns: minmax(90px, .32fr) 1fr; gap: 20px; border-top: 1px solid #23313a; padding-top: 10px; }
 .vector-monitors > div { min-width: 0; }
 .vector-monitors span { display: block; color: #8ea2ae; font: 10px monospace; margin-bottom: 3px; }
@@ -77,4 +89,5 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
 @media (pointer: coarse) {
   .vector-fractals-page .audio-button { min-width: 48px; min-height: 48px; }
   .vector-select select { min-height: 42px; }
+  .contour-actions button, .contour-next, #exportContour { min-height: 48px; min-width: 48px; }
 }

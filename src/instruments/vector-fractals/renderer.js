@@ -1,6 +1,6 @@
 import { TABLE_SIZE, HARMONICS, TAU, mipSelection, componentPoint, juliaParameter } from './model.js';
 
-const COLORS = { julia: [0.38, .92, .81, 1], mandelbrot: [1, .73, .46, 1], voyager: [.78, .61, 1, 1] };
+const COLORS = { julia: [0.38, .92, .81, 1], mandelbrot: [1, .73, .46, 1], voyager: [.78, .61, 1, 1], explorer: [.5, .85, 1, 1] };
 export class VectorRenderer {
   constructor(canvas, waves, map) {
     this.canvas = canvas; this.waves = waves; this.map = map;
@@ -118,7 +118,7 @@ export class VectorRenderer {
     }
     const head = Math.floor(clock.scanPhase * TABLE_SIZE) % TABLE_SIZE;
     this.line([this.x[head], this.y[head]], [1, 1, 1, 1], true);
-    this.drawWaves(head, color); this.drawMap(bank.state, clock.voyage, color);
+    this.drawWaves(head, color); this.drawMap(state.mode === 'explorer' ? state : bank.state, clock.voyage, color);
   }
   drawWaves(head, color) {
     const { w, h } = this.fit(this.waves), ctx = this.waves.getContext('2d');
@@ -146,7 +146,12 @@ export class VectorRenderer {
       ctx.strokeStyle = `rgba(${color.slice(0, 3).map(v => Math.round(v * 255)).join(',')},.7)`; ctx.beginPath();
       for (let i = 0; i <= 160; i++) { const [x, y] = project(componentPoint(state.depth, i / 160, state.mode === 'voyager' ? state.component : 1)); if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke();
     }
-    if (state.mode !== 'mandelbrot') {
+    if (state.mode === 'explorer') {
+      const [x, y] = project([state.viewX, state.viewY]);
+      const s = Math.min(w / 2.6, h / 1.65), size = Math.max(4, state.viewWidth * s);
+      ctx.strokeStyle = '#80d9ff'; ctx.lineWidth = 1.5;
+      ctx.strokeRect(x - size / 2, y - size / 3, size, size * 2 / 3);
+    } else if (state.mode !== 'mandelbrot') {
       const [x, y] = project(juliaParameter(state, voyage)); ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(x, y, 4, 0, TAU); ctx.fill();
     }
   }

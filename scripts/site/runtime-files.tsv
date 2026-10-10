@@ -1836,6 +1836,11 @@ copy+require	vector-fractals.html
 copy+require	docs/vector-fractals.md
 copy+require	assets/instruments/vector-fractals.webp
 copy+require	src/instruments/vector-fractals/app.js
+copy+require	src/instruments/vector-fractals/contour-model.js
+copy+require	src/instruments/vector-fractals/contour-worker.js
+copy+require	src/instruments/vector-fractals/contour-renderer.js
+copy+require	src/instruments/vector-fractals/contour-navigation.js
+copy+require	src/instruments/vector-fractals/contour-audio.js
 copy+require	src/instruments/vector-fractals/audio.js
 copy+require	src/instruments/vector-fractals/dsp.js
 copy+require	src/instruments/vector-fractals/mandelbrot-coefficients.js

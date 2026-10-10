@@ -291,6 +291,8 @@ function* contourJob(input) {
       vertices,
       segments,
       pathCount: closed.length,
+      closedCount: closed.reduce((sum, value) => sum + value, 0),
+      openCount: closed.reduce((sum, value) => sum + (value ? 0 : 1), 0),
       limited,
       underresolved: ambiguousCells > 0 || uncertainClosedPaths > 0,
       ambiguousCells,

@@ -1,11 +1,18 @@
-# Vector Fractals — three playable research demos
+# Vector Fractals — progressive contours and XY sound
 
-Open `/vector-fractals.html#julia`, `#mandelbrot` or `#voyager`. These demos are
+Open `/vector-fractals.html#explorer`, `#julia`, `#mandelbrot` or `#voyager`. These demos are
 an independent work in progress; existing Julia and Fractal Synthesis instruments
 are unchanged. Enable **Audio**, then **Play**. Audio and transport are separate.
 
 ## What to try
 
+- **Contour Explorer:** scroll/pinch to zoom and drag to pan. Arrow keys pan,
+  +/− zoom, and Home or Whole returns to the full outline. Jump to Seahorse Valley
+  or Seahorse filigree for dense structure. A quick vector preview appears first,
+  followed by finer contours calculated for the current region. Edge detail
+  moves the sampled level closer to the set; Fine increases spatial sampling.
+  Click a strand or use Next strand to choose the sound source. Save SVG exports
+  the completed visible paths, keeping cropped paths open.
 - **Julia Vectors:** start with Pure circle, then Ellipse. Both have only the
   fundamental under external-angle traversal, despite different aspect ratios.
   Basilica and Rabbit add counter-rotating odd harmonics. Cardioid explorer
@@ -28,6 +35,35 @@ are display switches only. Preset changes, randomization and Reset preserve mast
 level and live Audio/Play state. Reset restores the current demo and voyage origin.
 
 ## Mathematical model and provenance
+
+### Progressive Contour Explorer
+
+The explorer samples the exterior Green potential of `z -> z*z+c`, starting
+with `z0=c`. After escape it evaluates
+`log G_M(c) = log(log |z_n|) - n*log(2)` and extracts a negative level with
+marching squares and refined edge crossings. The level moves closer to the set
+as the view narrows; it is recomputed, not a magnified stored SVG. The finite
+iteration limit and spatial grid make these approximations: narrow connections
+can fall between samples and appear as separate closed loops. Neither topology
+nor every filament is certified. More sampling reveals additional structure.
+
+A cancellable worker sends a coarse preview and a completed refinement. Camera
+transforms respond immediately while stale calculations are discarded. Sampling
+has a 240,000-cell cap, rendering uses view-relative coordinates, and zoom stops
+at a view width of `1e-10`. This is ordinary double-precision computation; it
+does not implement arbitrary-precision deep zoom. Refinement time depends on
+the visible region and device. An offscreen/hidden page suspends refinement.
+
+The selected sampled strand supplies the oscillator. Closed paths use uniform
+arc-length traversal. Cropped open paths use cosine-paced there-and-back traversal,
+so they never acquire a fabricated closing chord. The 2,048 samples are centered,
+transformed and bandlimited through the same mip-bank pipeline as the other modes.
+This is an artistic sound mapping of sampled geometry. The main explorer shows
+the source strand; the waveform monitor shows the filtered, rotated audio.
+Existing sound continues during refinement, then crossfades to the new strand
+without resetting the carrier. A completed empty region crossfades to silence.
+
+### Fourier contour modes
 
 The shared object is `z(theta)=sum a[k] exp(i*k*theta)`. Julia's inverse Böttcher
 map satisfies `psi(w)^2+c=psi(w^2)`, with `psi(w)=sum b[n] w^(1-2n)`:
@@ -92,7 +128,8 @@ The catalogue icon is procedurally drawn from this model; no third-party image.
   new banks crossfade for 90 ms. Repeated edits coalesce rather than queue
   unbounded work. The carrier is not reset by changing demos or presets.
 - Colored geometry shows the pitch-filtered, rotated table, not merely the
-  full-detail source. It follows audio telemetry at up to 30 fps. The scan dot
+  full-detail source in the three Fourier modes. Explorer geometry shows the
+  sampled source instead. Waveform monitors follow audio telemetry at up to 30 fps. The scan dot
   deliberately runs 256 times slower than audio to make traversal legible.
 - WebGL draws the ordered paths; Canvas 2D is a fallback and draws the small
   monitors. Geometry/FFT construction occurs only in a worker. No microphone,
@@ -107,5 +144,8 @@ equation, full-Mandelbrot escape potential, FFT and mip filtering, preset bounds
 parameter sensitivity, stereo/mono and audio release/crossfade behavior.
 `npx playwright test e2e/vector-fractals.spec.mjs` checks the three routes,
 Audio-off interaction, explicit startup, sound continuity, mobile layouts and
-resource cleanup. These are mechanical checks; human timbre/touch judgment and
+resource cleanup. `tests/vector-contour*.test.mjs` checks sampled field geometry,
+worker cancellation and contour audio; `e2e/vector-contours.spec.mjs` checks
+progressive navigation, selected-strand sound, SVG export and responsive controls.
+These are mechanical checks; human timbre/touch judgment and
 physical iPhone listening remain separate acceptance steps.
