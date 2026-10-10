@@ -44,6 +44,25 @@ export function compileGraphDelayPlan(graph, source = {}, switches = null) {
   const gates = graphEdgeSwitchMultipliers(graph, flags);
   const edges = edgeAudioParameters(graph, settings);
   const sinks = graphSinkNodeIds(graph), pans = graphNodePans(graph, sinks, settings.spread), sinkSet = new Set(sinks);
+  const parentEdge = Array(graph.nodes.length).fill(null), distance = Array(graph.nodes.length).fill(Infinity), queue = [...entries];
+  for (const id of entries) distance[id] = 0;
+  for (let head = 0; head < queue.length; head++) for (const edge of edges) {
+    if (edge.from === queue[head] && distance[edge.to] === Infinity) { distance[edge.to] = distance[edge.from] + 1; parentEdge[edge.to] = edge; queue.push(edge.to); }
+  }
+  const priority = new Map(), byTurn = new Map(routes.map(route => [`${route.source}>${route.edge}`, route]));
+  const admit = edge => {
+    const incoming = parentEdge[edge.from];
+    const source = incoming ? incoming.id : graph.edges.length + entryIndex.get(edge.from);
+    const route = byTurn.get(`${source}>${edge.id}`);
+    if (route && !priority.has(route)) priority.set(route, priority.size);
+  };
+  for (const sink of [...sinks].sort((a, b) => distance[a] - distance[b] || a - b)) {
+    const path = []; let node = sink;
+    while (parentEdge[node]) { const edge = parentEdge[node]; path.push(edge); node = edge.from; }
+    path.reverse().forEach(admit);
+  }
+  for (const edge of [...edges].sort((a, b) => distance[a.from] - distance[b.from] || a.id - b.id)) admit(edge);
+  routes.sort((a, b) => (priority.get(a) ?? Infinity) - (priority.get(b) ?? Infinity));
   const tapGain = .9 / Math.max(1, sinks.length) ** .25;
   // Header 16; node [pan,tap]; edge [from,to,delay,gain,gate,feedback];
   // entry [node,delay,gain]; route [source,edge,semitones,seed].

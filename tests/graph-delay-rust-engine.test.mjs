@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import vm from 'node:vm';
+import { createGraphCapacityController } from '../src/instruments/graph-delay-rust/graph-delay-capacity-policy.js';
 import { GraphDelayRustEngine } from '../src/instruments/graph-delay-rust/graph-delay-engine.js';
 import { compileGraphDelayPlan } from '../src/instruments/graph-delay-rust/graph-delay-plan.js';
 import { generateGraph } from '../src/instruments/graph-delay/graph-delay.js';
@@ -175,7 +176,8 @@ function worklet({ failAllocation = 0 } = {}) {
       return actual.gdr_process(...args);
     },
   };
-  vm.runInNewContext(workletSource, {
+  vm.runInNewContext(workletSource.replace(/^import .+;\n/m, ''), {
+    createGraphCapacityController,
     WebAssembly: { Instance: class { constructor() { this.exports = api; } }, RuntimeError: WebAssembly.RuntimeError },
     AudioWorkletProcessor: class { constructor() { this.port = { postMessage: message => messages.push(message) }; } },
     registerProcessor(_name, value) { Processor = value; },
@@ -235,4 +237,97 @@ test('fatal control traps release both the temporary plan and the pending Rust s
   assert.equal(processor.closed, true); assert.equal(processor.pendingId, null);
   assert.equal(f.calls.dropped.length, 1);
   assert.deepEqual([...f.calls.freed].sort(), [...f.calls.allocated].sort());
+});
+
+test('performance updates coalesce before readiness and retain explicit manual maximum', async t => {
+  const f = browser(t), engine = f.create(), node = f.nodes[0];
+  const old = engine.setPerformance({ voiceCeiling: 24, automatic: true });
+  const latest = engine.setPerformance({ voiceCeiling: 512, automatic: false });
+  node.emit({ type: 'ready' }); await tick();
+  assert.deepEqual(await old, { superseded: true });
+  const message = node.port.messages.find(item => item.type === 'performance');
+  assert.deepEqual(message.performance, { voiceCeiling: 512, automatic: false });
+  node.emit({ id: message.id }); await latest;
+  assert.equal(engine.requests.size, 0);
+});
+
+function workers(t, { failConstruction = false } = {}) {
+  const all = [], previous = Object.getOwnPropertyDescriptor(globalThis, 'Worker');
+  globalThis.Worker = class {
+    terminated = false;
+    constructor(url, options) {
+      if (failConstruction) throw new Error('Worker disabled');
+      assert.ok(url.pathname.endsWith('graph-delay-capacity-worker.js')); assert.equal(options.type, 'module'); all.push(this);
+    }
+    postMessage(data) { this.request = data; }
+    terminate() { this.terminated = true; }
+  };
+  t.after(() => previous ? Object.defineProperty(globalThis, 'Worker', previous) : delete globalThis.Worker);
+  return all;
+}
+
+test('capacity supersession and abort terminate isolated workers and ignore late results', async t => {
+  const f = browser(t), engine = f.create(), all = workers(t);
+  const first = engine.measureCapacity(graph(3));
+  const firstRejected = assert.rejects(first, { name: 'AbortError' });
+  const staleReply = all[0].onmessage;
+  const signal = new AbortController();
+  const second = engine.measureCapacity(graph(4), {}, null, { signal: signal.signal });
+  const secondRejected = assert.rejects(second, { name: 'AbortError' });
+  await firstRejected;
+  assert.equal(all[0].terminated, true);
+  assert.equal(new Float64Array(all[1].request.plan)[1], 4);
+  staleReply({ data: { result: { proved: true, voices: 999 } } });
+  assert.equal(all[1].terminated, false);
+  signal.abort(); await secondRejected;
+  assert.equal(all[1].terminated, true); assert.equal(engine.capacityTask, null);
+  assert.equal(f.nodes[0].port.messages.length, 0, 'measurement never configures or arms the playing audio');
+});
+
+test('capacity success and worker errors clean up without retiring the playing graph', async t => {
+  const f = browser(t), engine = f.create(), all = workers(t);
+  const pending = engine.measureCapacity(graph(3));
+  const result = { proved: true, voices: 2, targetLoad: .45 };
+  all[0].onmessage({ data: { result } });
+  assert.deepEqual(await pending, result); assert.equal(all[0].terminated, true);
+  for (const cause of ['error', 'message', 'timeout']) {
+    const failed = assert.rejects(engine.measureCapacity(graph(3)), /probe failed|unreadable|did not finish/);
+    const worker = all.at(-1);
+    if (cause === 'error') worker.onerror({ message: 'probe failed' });
+    else if (cause === 'message') worker.onmessageerror();
+    else f.fire(60000);
+    await failed; assert.equal(worker.terminated, true); assert.equal(engine.closed, false);
+  }
+  assert.equal(engine.capacityTask, null);
+});
+
+test('disposing cancels capacity work and constructor failure leaves no dangling test', async t => {
+  const f = browser(t), engine = f.create(), all = workers(t);
+  const failed = assert.rejects(engine.measureCapacity(graph(3)), { name: 'AbortError' });
+  await engine.dispose(); await failed;
+  assert.equal(all[0].terminated, true); assert.equal(f.timers.size, 0);
+  const next = f.create();
+  workers(t, { failConstruction: true });
+  await assert.rejects(next.measureCapacity(graph(3)), /Worker disabled/);
+  assert.equal(next.capacityTask, null);
+  const controller = new AbortController(); controller.abort();
+  await assert.rejects(next.measureCapacity(graph(3), {}, null, { signal: controller.signal }), { name: 'AbortError' });
+});
+
+test('real WASM worklet reports cap targets and releasing processing voices honestly', () => {
+  const f = worklet(), processor = f.create(), deliver = processor.port.onmessage;
+  const output = [[new Float32Array(128), new Float32Array(128)]];
+  deliver({ data: { type: 'performance', id: 1, performance: { voiceCeiling: 0, automatic: false } } });
+  deliver({ data: { type: 'configure', id: 2, plan: compileGraphDelayPlan(graph(6)).data.buffer } });
+  for (let i = 0; i < 200 && !f.messages.some(message => message.id === 2); i++) processor.process([], output);
+  deliver({ data: { type: 'performance', id: 3, performance: { voiceCeiling: 2, automatic: false } } });
+  deliver({ data: { type: 'status' } });
+  let metrics = f.messages.at(-1).metrics;
+  assert.equal(metrics.activeRoutes, 5); assert.equal(metrics.targetRoutes, 2);
+  assert.equal(metrics.liveLimit, 2); assert.equal(metrics.voiceCeiling, 2); assert.equal(metrics.automatic, false);
+  assert.equal(metrics.currentEligibleRoutes, 5); assert.equal(metrics.retiringActiveRoutes, 0);
+  for (let i = 0; i < 100; i++) processor.process([], output);
+  deliver({ data: { type: 'status' } }); metrics = f.messages.at(-1).metrics;
+  assert.equal(metrics.activeRoutes, 2); assert.equal(metrics.processingRoutes, 2);
+  deliver({ data: { type: 'dispose' } });
 });

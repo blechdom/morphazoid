@@ -12,6 +12,7 @@ const files = ['scripts/build-graph-delay-wasm.mjs', `${rust}/Cargo.toml`, `${ru
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const sourceHashes = async () => Object.fromEntries(await Promise.all(files.map(async file => [file, hash(await readFile(path.join(root, file)))])));
 const required = ['memory', 'gdr_abi_version', 'gdr_alloc', 'gdr_free', 'gdr_new', 'gdr_drop', 'gdr_plan', 'gdr_prepare',
+  'gdr_new_calibration', 'gdr_prepare_calibration_history', 'gdr_performance', 'gdr_limit', 'gdr_metrics_len',
   'gdr_enabled', 'gdr_clear', 'gdr_process', 'gdr_metrics', 'gdr_node_levels', 'gdr_edge_levels'];
 async function inspect(bytes) {
   const module = await WebAssembly.compile(bytes), imports = WebAssembly.Module.imports(module), exports = WebAssembly.Module.exports(module).map(item => item.name).sort();

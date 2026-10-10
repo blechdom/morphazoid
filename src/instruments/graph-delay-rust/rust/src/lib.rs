@@ -93,6 +93,9 @@ struct Route {
     direct: f64,
     direct_delta: f64,
     mix: f64,
+    admission: f64,
+    target_admission: f64,
+    processing_this_block: bool,
 }
 struct Network {
     nodes: Vec<Node>,
@@ -126,6 +129,8 @@ struct Network {
     ready: bool,
     age: u64,
     smoothing: f64,
+    admission_smoothing: f64,
+    voice_limit: usize,
 }
 impl Network {
     fn counts(plan: &[f64]) -> Option<[usize; 4]> {
@@ -200,6 +205,8 @@ impl Network {
             ready: false,
             age: 0,
             smoothing: 1. - (-1. / (rate * 0.025)).exp(),
+            admission_smoothing: 1. - (-1. / (rate * 0.015)).exp(),
+            voice_limit: ROUTES,
         };
         if !result.controls(plan, true) {
             return None;
@@ -318,7 +325,44 @@ impl Network {
             }
             at += 4;
         }
+        self.apply_limit(self.voice_limit, initial);
         true
+    }
+    fn apply_limit(&mut self, limit: usize, initial: bool) {
+        self.voice_limit = limit.min(ROUTES);
+        let mut admitted = 0;
+        for route in &mut self.routes {
+            let edge = &self.edges[route.edge];
+            let eligible = edge.target_gate > 0. && edge.target_gain > 0.;
+            route.target_admission = f64::from(eligible && admitted < self.voice_limit);
+            if route.target_admission > 0. {
+                admitted += 1;
+            }
+            if initial {
+                route.admission = route.target_admission;
+            }
+        }
+    }
+    fn voice_counts(&self) -> (usize, usize, usize) {
+        let eligible = self
+            .routes
+            .iter()
+            .filter(|route| {
+                let edge = &self.edges[route.edge];
+                edge.target_gate > 0. && edge.target_gain > 0.
+            })
+            .count();
+        let target = self
+            .routes
+            .iter()
+            .filter(|route| route.target_admission > 0.)
+            .count();
+        let processing = self
+            .routes
+            .iter()
+            .filter(|route| route.admission > 0. || route.target_admission > 0.)
+            .count();
+        (eligible, target, processing)
     }
     fn prepare(&mut self, samples: usize) -> bool {
         let count = samples.min(self.history_size - self.history.len());
@@ -347,6 +391,10 @@ impl Network {
         let pitch = 1. - (-(frames as f64) / (self.rate * self.pitch_slew)).exp();
         let bypass = 1. - (-(frames as f64) / (self.rate * 0.02)).exp();
         for route in &mut self.routes {
+            route.processing_this_block = route.admission > 0. || route.target_admission > 0.;
+            if !route.processing_this_block {
+                continue;
+            }
             route.semitones = smooth(route.semitones, route.target_semitones, pitch);
             let end_ratio = 2f64.powf(route.semitones / 12.);
             route.ratio_delta = (end_ratio - route.ratio) / frames as f64;
@@ -479,6 +527,9 @@ impl Network {
             }
         }
         for route in &mut self.routes {
+            if !route.processing_this_block {
+                continue;
+            }
             for frame in 0..frames {
                 let source = self.source_block[route.source * BLOCK + frame];
                 let mut value = [source[0] * route.direct, source[1] * route.direct];
@@ -519,8 +570,17 @@ impl Network {
                 route.ratio += route.ratio_delta;
                 route.direct += route.direct_delta;
                 route.shifted += route.shifted_delta;
+                route.admission = smooth(
+                    route.admission,
+                    route.target_admission,
+                    self.admission_smoothing,
+                );
+                if route.target_admission == 0. && route.admission < 0.00001 {
+                    route.admission = 0.;
+                }
                 for (channel, sample) in value.iter().enumerate() {
-                    self.send_block[route.edge * BLOCK + frame][channel] += sample;
+                    self.send_block[route.edge * BLOCK + frame][channel] +=
+                        sample * route.admission;
                 }
             }
         }
@@ -632,6 +692,9 @@ impl Network {
         }
         let next_pitch = (self.pitch_write + 1) & (self.pitch_length - 1);
         for route in &mut self.routes {
+            if !route.processing_this_block {
+                continue;
+            }
             let source = self.sources[route.source];
             let mut value = [source[0] * route.direct, source[1] * route.direct];
             if route.shifted > 0. {
@@ -669,8 +732,16 @@ impl Network {
             route.ratio += route.ratio_delta;
             route.direct += route.direct_delta;
             route.shifted += route.shifted_delta;
+            route.admission = smooth(
+                route.admission,
+                route.target_admission,
+                self.admission_smoothing,
+            );
+            if route.target_admission == 0. && route.admission < 0.00001 {
+                route.admission = 0.;
+            }
             for (channel, sample) in value.iter().enumerate() {
-                self.sends[route.edge][channel] += sample;
+                self.sends[route.edge][channel] += sample * route.admission;
             }
         }
         for (index, edge) in self.edges.iter().enumerate() {
@@ -721,7 +792,11 @@ pub struct Engine {
     target_enabled: f64,
     elapsed: u64,
     envelope: f64,
-    metrics: [f64; 16],
+    metrics: [f64; 24],
+    voice_ceiling: usize,
+    automatic: bool,
+    automatic_limit: usize,
+    calibration: bool,
     node_levels: [f32; NODES],
     edge_levels: [f32; EDGES],
 }
@@ -740,7 +815,11 @@ impl Engine {
             target_enabled: 0.,
             elapsed: 0,
             envelope: 0.,
-            metrics: [0.; 16],
+            metrics: [0.; 24],
+            voice_ceiling: 0,
+            automatic: true,
+            automatic_limit: ROUTES,
+            calibration: false,
             node_levels: [0.; NODES],
             edge_levels: [0.; EDGES],
         }
@@ -768,7 +847,52 @@ impl Engine {
             return false;
         };
         self.pending = Some(next);
+        self.apply_limit();
         true
+    }
+    fn current_limit(&self) -> usize {
+        let manual = if self.voice_ceiling == 0 {
+            ROUTES
+        } else {
+            self.voice_ceiling
+        };
+        manual.min(if self.automatic {
+            self.automatic_limit
+        } else {
+            ROUTES
+        })
+    }
+    fn apply_limit(&mut self) {
+        let limit = self.current_limit();
+        for net in [&mut self.active, &mut self.old, &mut self.pending]
+            .into_iter()
+            .flatten()
+        {
+            net.apply_limit(limit, !net.ready);
+        }
+        self.refresh_counts();
+    }
+    fn refresh_counts(&mut self) {
+        let current = self
+            .active
+            .as_ref()
+            .map_or((0, 0, 0), Network::voice_counts);
+        let retiring = self.old.as_ref().map_or((0, 0, 0), Network::voice_counts);
+        self.metrics[5] = self.active.as_ref().map_or(0, |net| net.routes.len()) as f64;
+        self.metrics[6] = (current.2 + retiring.2) as f64;
+        self.metrics[7] = (current.1 + retiring.1) as f64;
+        self.metrics[8] = (current.0 + retiring.0) as f64;
+        self.metrics[9] = current.2 as f64;
+        self.metrics[10] = retiring.2 as f64;
+        self.metrics[11] = current.1 as f64;
+        self.metrics[12] = retiring.1 as f64;
+        self.metrics[13] = current.0 as f64;
+        self.metrics[14] = retiring.0 as f64;
+        self.metrics[15] = self.current_limit() as f64;
+        self.metrics[16] = self.old.as_ref().map_or(0, |net| net.routes.len()) as f64;
+        self.metrics[17] = self.voice_ceiling as f64;
+        self.metrics[18] = f64::from(self.automatic);
+        self.metrics[19] = self.automatic_limit as f64;
     }
     fn prepare(&mut self, samples: usize) -> bool {
         self.retired = None;
@@ -871,6 +995,7 @@ impl Engine {
         if self.old.is_some() && self.fade >= 1. {
             self.retired = self.old.take();
         }
+        self.refresh_counts();
         self.elapsed += left.len() as u64;
         self.metrics[0] = self.elapsed as f64 / self.rate;
         self.metrics[1] = input_peak;
@@ -878,9 +1003,6 @@ impl Engine {
         if let Some(net) = &self.active {
             self.metrics[3] = net.nodes.len() as f64;
             self.metrics[4] = net.edges.len() as f64;
-            self.metrics[5] = net.routes.len() as f64;
-            self.metrics[6] =
-                (net.routes.len() + self.old.as_ref().map_or(0, |old| old.routes.len())) as f64;
             for i in 0..NODES {
                 self.node_levels[i] =
                     (f64::from(self.node_levels[i]) * 0.8).max(net.node_peaks[i]) as f32;
@@ -916,6 +1038,72 @@ pub extern "C" fn gdr_new(rate: f64) -> *mut Engine {
         return std::ptr::null_mut();
     }
     Box::into_raw(Box::new(Engine::new(rate)))
+}
+#[no_mangle]
+pub extern "C" fn gdr_metrics_len() -> usize {
+    24
+}
+#[no_mangle]
+pub extern "C" fn gdr_new_calibration(rate: f64) -> *mut Engine {
+    let engine = gdr_new(rate);
+    if !engine.is_null() {
+        unsafe {
+            (*engine).calibration = true;
+        }
+    }
+    engine
+}
+#[no_mangle]
+pub unsafe extern "C" fn gdr_performance(
+    engine: *mut Engine,
+    ceiling: usize,
+    automatic: u32,
+) -> u32 {
+    if engine.is_null() || ceiling > ROUTES {
+        return 0;
+    }
+    let engine = &mut *engine;
+    engine.voice_ceiling = ceiling;
+    engine.automatic = automatic != 0;
+    engine.apply_limit();
+    1
+}
+#[no_mangle]
+pub unsafe extern "C" fn gdr_limit(engine: *mut Engine, limit: usize) -> u32 {
+    if engine.is_null() || limit == 0 || limit > ROUTES {
+        return 0;
+    }
+    let engine = &mut *engine;
+    engine.automatic_limit = limit;
+    engine.apply_limit();
+    1
+}
+#[no_mangle]
+pub unsafe extern "C" fn gdr_prepare_calibration_history(engine: *mut Engine) -> u32 {
+    if engine.is_null() {
+        return 0;
+    }
+    let engine = &mut *engine;
+    if !engine.calibration || engine.pending.is_some() || engine.old.is_some() {
+        return 0;
+    }
+    let Some(net) = &mut engine.active else {
+        return 0;
+    };
+    // Only disposable calibration instances accept synthetic full history.
+    net.history.fill(0.04);
+    net.age = net.delay_length as u64;
+    for route in &mut net.routes {
+        route.admission = route.target_admission;
+        route.semitones = route.target_semitones;
+        route.ratio = 2f64.powf(route.semitones / 12.);
+        let x = ((route.semitones.abs() - 0.08) / 1.12).clamp(0., 1.);
+        route.mix = x * x * (3. - 2. * x);
+        route.direct = (route.mix * FRAC_PI_2).cos();
+        route.shifted = (route.mix * FRAC_PI_2).sin();
+    }
+    engine.refresh_counts();
+    1
 }
 #[no_mangle]
 pub unsafe extern "C" fn gdr_drop(engine: *mut Engine) {
@@ -979,6 +1167,7 @@ pub unsafe extern "C" fn gdr_process(
 }
 #[no_mangle]
 pub unsafe extern "C" fn gdr_metrics(engine: *mut Engine) -> *const f64 {
+    (*engine).refresh_counts();
     (*engine).metrics.as_ptr()
 }
 #[no_mangle]
@@ -1141,6 +1330,17 @@ mod tests {
             while !blocked.prepare(65536) {}
             let window = std::array::from_fn(|i| (PI * i as f64 / WINDOW as f64).sin().powi(2));
             for block in 0..900 {
+                if block == 100 || block == 280 || block == 450 {
+                    let limit = if block == 100 {
+                        1
+                    } else if block == 280 {
+                        2
+                    } else {
+                        3
+                    };
+                    scalar.apply_limit(limit, false);
+                    blocked.apply_limit(limit, false);
+                }
                 if block == 180 {
                     let mut edited = p.clone();
                     edited[22] = 0.037;

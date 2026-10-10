@@ -33,7 +33,7 @@ function fixture(g = graph(), options = settings, rate = RATE) {
     return result;
   };
   return { api, engine, pointers, initial, install, render,
-    metrics: () => new Float64Array(api.memory.buffer, api.gdr_metrics(engine), 16).slice(),
+    metrics: () => new Float64Array(api.memory.buffer, api.gdr_metrics(engine), api.gdr_metrics_len()).slice(),
     close() { api.gdr_drop(engine); for (const pointer of pointers) api.gdr_free(pointer, BLOCK * 4); } };
 }
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
@@ -194,4 +194,78 @@ test('multi-hop pitched recalls retain output until every granular hop has histo
     for (let at = 0; at + 2400 < output.length; at += 2400) assert.ok(peak(output.subarray(at, at + 2400)) > .003, `pitched gap at ${at / RATE}s`);
     assert.equal(f.metrics()[3], 32);
   } finally { f.close(); }
+});
+
+test('live cap releases routes smoothly, preserves history, and re-admits prepared routes', () => {
+  const geometry = graph('dag', 10), f = fixture(geometry);
+  try {
+    const routes = f.initial.routes;
+    assert.ok(routes > 2);
+    f.render(.5, () => .04);
+    const elapsed = f.metrics()[0];
+    assert.equal(f.api.gdr_performance(f.engine, 2, 0), 1);
+    let metrics = f.metrics();
+    assert.equal(metrics[6], routes, 'releasing voices still count as processing');
+    assert.equal(metrics[7], 2); assert.equal(metrics[8], routes); assert.equal(metrics[15], 2);
+    const output = f.render(.22, () => .04)[0];
+    assert.ok(output.every(Number.isFinite));
+    metrics = f.metrics(); assert.equal(metrics[6], 2); assert.ok(metrics[0] > elapsed);
+    assert.ok(peak(output.subarray(-1024)) > .001, 'path-priority preserves an audible wet path at a low cap');
+    assert.equal(f.api.gdr_performance(f.engine, 0, 0), 1);
+    assert.equal(f.metrics()[7], routes); f.render(.2, () => .04);
+    assert.equal(f.metrics()[6], routes); assert.equal(f.metrics()[15], 512);
+    assert.equal(f.api.gdr_performance(f.engine, 513, 0), 0);
+    assert.equal(f.api.gdr_limit(f.engine, 0), 0);
+  } finally { f.close(); }
+});
+
+test('gated routes become ineligible and stop processing after smooth release', () => {
+  const geometry = graph('ring', 6), f = fixture(geometry);
+  try {
+    f.render(.1, () => .05);
+    f.install(geometry, settings, geometry.edges.map(() => false));
+    assert.equal(f.metrics()[8], 0); assert.equal(f.metrics()[7], 0); assert.ok(f.metrics()[6] > 0);
+    f.render(.2); assert.equal(f.metrics()[6], 0);
+    f.install(geometry, settings); f.render(.2, () => .05);
+    assert.equal(f.metrics()[6], f.initial.routes);
+  } finally { f.close(); }
+});
+
+test('the cap applies per graph while transition processing and targets report both scenes', () => {
+  const f = fixture(graph('ring', 8));
+  try {
+    f.api.gdr_performance(f.engine, 3, 0); f.render(.25, () => .04);
+    f.install(graph('ring', 10));
+    let metrics = f.metrics();
+    assert.equal(metrics[9], 3); assert.equal(metrics[10], 3);
+    assert.equal(metrics[6], 6); assert.equal(metrics[7], 6);
+    assert.equal(metrics[13], 11); assert.equal(metrics[14], 9); assert.equal(metrics[8], 20);
+    f.render(.7, () => .04); metrics = f.metrics();
+    assert.equal(metrics[10], 0); assert.equal(metrics[6], 3);
+  } finally { f.close(); }
+});
+
+test('automatic admission never overrides the manual ceiling and disabling protection restores it', () => {
+  const f = fixture(graph('dag', 12));
+  try {
+    f.api.gdr_performance(f.engine, 6, 1); f.api.gdr_limit(f.engine, 2);
+    assert.equal(f.metrics()[7], 2); assert.equal(f.metrics()[15], 2);
+    f.api.gdr_performance(f.engine, 6, 0);
+    assert.equal(f.metrics()[7], 6); assert.equal(f.metrics()[15], 6);
+    f.api.gdr_performance(f.engine, 0, 0);
+    assert.equal(f.metrics()[7], f.initial.routes);
+    assert.equal(f.api.gdr_prepare_calibration_history(f.engine), 0, 'synthetic history cannot touch a playing renderer');
+  } finally { f.close(); }
+});
+
+test('route priority remains stable through geometry, pitch, input and gate updates', () => {
+  const geometry = graph('dag', 12), initial = compileGraphDelayPlan(geometry, settings);
+  const changed = structuredClone(geometry);
+  changed.nodes.forEach((node, index) => { node.x = 1 - node.x; node.y = index % 2 ? .9 : .1; });
+  const next = compileGraphDelayPlan(changed, { ...settings, inputX: .9, pitchScale: 2, timeScale: 700 }, geometry.edges.map((_, i) => i % 2 === 0));
+  const start = 16 + initial.nodes * 2 + initial.edges * 6 + initial.data[3] * 3;
+  for (let i = 0; i < initial.routes; i++) {
+    assert.equal(initial.data[start + i * 4], next.data[start + i * 4]);
+    assert.equal(initial.data[start + i * 4 + 1], next.data[start + i * 4 + 1]);
+  }
 });
