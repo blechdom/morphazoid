@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { generateTextMidi, normalizeTextMidi, MAX_TEXT_MIDI_GLYPHS }
+import { generateTextMidi, generateGridMidi, normalizeTextMidi, MAX_TEXT_MIDI_GLYPHS }
   from '../src/instruments/midiphoria/midiphoria-text-midi.js';
 
 // Independent SMF reader for the exported file, including event matching and
@@ -39,7 +39,7 @@ function readScore(buffer) {
       if (kind === 0x51) {
         assert.equal(length, 3); assert.equal(tick, 0);
         tempo = data[0] * 65536 + data[1] * 256 + data[2];
-      } else if (kind === 0x03) title = String.fromCharCode(...data);
+      } else if (kind === 0x03) title = new TextDecoder().decode(data);
       else if (kind === 0x2f) {
         assert.equal(length, 0); assert.equal(offset, bytes.length); endTick = tick;
       }
@@ -182,7 +182,7 @@ test('a silent final channel event preserves the exact score duration in SpessaS
 test('case, accents, compatibility characters and punctuation normalize deterministically', () => {
   assert.equal(normalizeTextMidi('  Héllo\tｗｏｒｌｄ… 123 — “yes”! '), 'HELLO WORLD... 123 - "YES"!');
   assert.equal(normalizeTextMidi('straße'), 'STRASSE');
-  assert.equal(normalizeTextMidi('AB🙂☃️CD'), 'AB CD');
+  assert.equal(normalizeTextMidi('AB🙂☃️CD'), 'AB🙂 CD');
   assert.equal(normalizeTextMidi('A\u0000\u0001B'), 'A B');
   assert.equal(normalizeTextMidi('a\n\n b'), 'A B');
   const plain = generateTextMidi('CAFE!');
@@ -192,7 +192,7 @@ test('case, accents, compatibility characters and punctuation normalize determin
 });
 
 test('empty, unsupported-only and non-string input cannot create a silent or coerced song', () => {
-  for (const input of ['', ' \n\t ', '🙂☃️', null, undefined, 123, {}, { toString() { throw new Error('must not call'); } }]) {
+  for (const input of ['', ' \n\t ', '🦄☃️', null, undefined, 123, {}, { toString() { throw new Error('must not call'); } }]) {
     assert.equal(normalizeTextMidi(input), '');
     assert.throws(() => generateTextMidi(input), /Type letters, numbers or punctuation/);
   }
@@ -208,7 +208,7 @@ test('large and hostile inputs stay inside the text, duration, event and file bu
     'A B C D E F G H I J K L M N O P Q R S T',
   ]) {
     const normalized = normalizeTextMidi(text);
-    assert.ok(normalized.length <= MAX_TEXT_MIDI_GLYPHS);
+    assert.ok([...normalized].length <= MAX_TEXT_MIDI_GLYPHS);
     if (!normalized) { assert.throws(() => generateTextMidi(text)); continue; }
     const score = generateTextMidi(text), parsed = readScore(score.buffer);
     assert.ok(score.columns <= 47);
@@ -245,4 +245,58 @@ test('all supported lettering produces finite, distinct, exactly aligned MIDI sh
     shapes.add(rasterize(score).join('/'));
   }
   assert.equal(shapes.size, characters.length, 'letter, number and punctuation shapes remain distinguishable');
+});
+
+
+test('curated emoji glyphs have distinct sounding shapes and unsupported symbols are reported', () => {
+  const seen = new Set();
+  for (const symbol of ['🙂', '😀', '⭐', '❤️', '◆']) {
+    const score = generateTextMidi(symbol), parsed = readScore(score.buffer);
+    assert.deepEqual(parsed.notes, score.notes);
+    assert.equal(parsed.title, `Text: ${score.text}`);
+    assert.deepEqual(score.unsupported, []);
+    seen.add(rasterize(score).join('/'));
+  }
+  assert.equal(seen.size, 5);
+  const mixed = generateTextMidi('HI 🦄 ⭐');
+  assert.deepEqual(mixed.unsupported, ['🦄']);
+  assert.equal(mixed.text, 'HI ⭐');
+});
+
+test('letter mode sounds each complete upright glyph in chronological order', () => {
+  const score = generateTextMidi('FR🙂', { mode: 'letter' });
+  assert.equal(score.columns, 5);
+  assert.equal(score.rows, 24);
+  assert.equal(score.duration, 6);
+  assert.deepEqual(score.phrases, ['F', 'R', '🙂']);
+  assert.deepEqual(readScore(score.buffer).notes, score.notes);
+  score.phrases.forEach((character, index) => assert.deepEqual(rasterize(score, index), rasterize(generateTextMidi(character))));
+  const maximum = generateTextMidi('⭐'.repeat(10000), { mode: 'letter' });
+  assert.equal(maximum.rows, 256);
+  assert.equal(maximum.duration, 64);
+  assert.ok(readScore(maximum.buffer).maxPolyphony <= 5);
+});
+
+test('drawing MIDI contains exactly the upright painted cells including sustained vertical runs', () => {
+  const pixels = [[0, 1, 0], [1, 1, 0], [0, 1, 1], [0, 0, 1]];
+  const score = generateGridMidi(pixels, { secondsPerRow: .125 });
+  const decoded = readScore(score.buffer);
+  assert.deepEqual(decoded.notes, score.notes);
+  const restored = pixels.map(row => row.map(() => 0));
+  for (const note of decoded.notes) for (let row = note.start / .125; row < (note.start + note.duration) / .125; row++) {
+    restored[pixels.length - 1 - row][note.note - score.lowestNote] = 1;
+  }
+  assert.deepEqual(restored, pixels);
+  assert.equal(decoded.duration, .5);
+  assert.equal(decoded.notes.length, 3);
+  assert.equal(decoded.maxPolyphony, 2);
+});
+
+test('drawing encoder rejects empty, ragged and unbounded score geometry', () => {
+  for (const pixels of [[], [[0]], [[1], [1, 0]], [Array(49).fill(1)], Array(257).fill([1])]) {
+    assert.throws(() => generateGridMidi(pixels));
+  }
+  for (const options of [{ secondsPerRow: NaN }, { secondsPerRow: 0 }, { lowestNote: 127 }]) {
+    assert.throws(() => generateGridMidi([[1, 1]], options));
+  }
 });

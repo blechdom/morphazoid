@@ -53,34 +53,53 @@ Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
 capture a hardware mapping.
 
-## Text MIDI
+## Draw, words and symbols
 
-Type up to 32 characters in **Text MIDI**, then choose **Make MIDI**. Original
-5×7 block glyphs map horizontal position to MIDI pitch and vertical position to
-time. A horizontal playhead climbs from bottom to top, keeping the letters
-upright. Vertical strokes sustain notes; gaps create rests. Letters read left
-to right in phrases of up to eight characters, with longer text continuing in
-the next phrase above. Letters, numbers and punctuation are supported,
-lowercase becomes uppercase, and unsupported characters become spaces.
-The generated MIDI appears in the session song menu. When Audio is already on,
-**Make MIDI** immediately auditions the new score, including when playback was
-paused or the previous score had ended. With Audio off, generation stays muted;
-enable Audio and press Play to hear it through the existing SoundFont player.
-Regenerating text while playing keeps playback active.
+**Draw a MIDI** switches the same stage to a 48-column × 32-row pixel score.
+Pitch increases left to right; playback travels from the bottom to the top.
+Drag to draw, or enable **Eraser**. Fast drags fill the crossed cells, and
+**Undo** reverses one complete stroke, stamp or Clear action. Keyboard users
+can move with arrow keys, paint with Space/Enter, erase with Delete/Backspace,
+and undo with Ctrl/Cmd+Z. A cancelled pointer finishes its current stroke
+without leaving painting active. History retains the last 32 edits.
 
-**Letter score** shows the actual MIDI pitches and durations, following the
-file's audio clock. Long scores scroll vertically through a readable window;
-seek, speed and Loop use the same player. Every phrase ends with one silent
-row. Turn Letter score off to watch the normal light graphics, or choose a
-visual preset. **Download MIDI** exports the exact Standard MIDI File played
-in the browser, for a DAW or another player. Text and generated files stay in
-this browser session.
+Smile, star, heart, diamond, spiral, wave and zigzag stamps replace the drawing
+with an editable pattern. These are original pixel/geometry patterns; no
+platform emoji font is rasterized. Each filled column is a chromatic pitch,
+and adjacent vertical cells sustain the same note. A drawing lasts four seconds
+at 1×: 0.125 seconds per row, MIDI notes 48–95, at most 48 simultaneous pitches.
+There is no automatic scale or pentatonic snapping.
 
-The generator is bounded to eight seconds at 1×, 40 simultaneous pitches and
-640 note runs. It uses a General MIDI sawtooth lead at 120 BPM and chromatic
-pitches within 48–94, with no scale quantization. Each time row lasts 0.25 s;
-a one-phrase score lasts two seconds. The score renderer never schedules
-audio; notes are played by the existing AudioWorklet.
+In **Words & symbols**, type up to 32 characters and choose **Make MIDI**.
+Original 5×7 block glyphs map horizontal position to MIDI pitch and vertical
+position to time. A horizontal playhead climbs from bottom to top, keeping
+letters upright. **Whole word** places up to eight characters next to one
+another, with longer text continuing in the next phrase above. **One letter at
+a time** puts each character in its own two-second window. Letters, numbers,
+punctuation and the curated symbols 🙂 😀 ⭐ ❤ ◆ are supported. Lowercase
+becomes uppercase; unsupported symbols become spaces and are listed beside
+the text controls. Heart variation selectors are accepted.
+
+The generated MIDI appears in the session song list. When Audio is already on,
+**Make MIDI** auditions the new score, including after the previous score ends.
+With Audio off, generation stays muted; enable Audio and press Play to hear it
+through the existing SoundFont player. Drawing and stamping retain the current
+song until Make MIDI replaces it; replacing a score keeps active playback.
+
+**Pattern score** shows the actual pitches and durations from the generated
+MIDI, following the file's audio clock. Long scores scroll vertically; seek,
+speed and Loop use the same player. Every text phrase ends with one silent row.
+Turn Pattern score off to watch the light graphics, or choose a visual preset.
+**Download MIDI** exports the exact Standard MIDI File played in the browser.
+Drawings, text and generated files stay in this browser session.
+
+Whole-word text lasts at most eight seconds at 1×, with 40 simultaneous pitches
+and 640 note runs. One-letter mode lasts at most 64 seconds with five simultaneous
+pitches. Text uses 0.25-second rows and notes 48–94. Both generators use a General
+MIDI sawtooth lead at 120 BPM. The score renderer never schedules audio; the
+existing AudioWorklet plays the exported notes. Normal note trails use square
+ends and square held-note markers; radial, orbital and ribbon paths retain
+their curves.
 
 ## Collection and arrangement quality
 

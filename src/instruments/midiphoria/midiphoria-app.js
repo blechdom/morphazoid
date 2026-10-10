@@ -3,6 +3,7 @@ import { MidiphoriaModel, DEFAULT_VISUALS } from './midiphoria-model.js';
 import { MidiphoriaRenderer } from './midiphoria-renderer.js';
 import { MidiphoriaPlayer } from './midiphoria-player.js';
 import { generateTextMidi } from './midiphoria-text-midi.js';
+import { mountMidiDrawing } from './midiphoria-drawing.js';
 import { drawTextMidiScore } from './midiphoria-text-score.js';
 import { mountMidiphoriaEnvelope } from './midiphoria-envelope.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -55,7 +56,24 @@ function mountMidiphoria() {
   let currentSongId = '';
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false;
-  let textScore = null, textDownloadUrl = null;
+  let textScore = null, textDownloadUrl = null, drawingVisible = false;
+  const drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
+    undoButton: $('drawingUndo'), clearButton: $('drawingClear'), eraseButton: $('drawingErase'),
+    onChange: state => { $('generateDrawingMidi').disabled = !state.count; } });
+  function setDrawingView(visible) {
+    drawingVisible = visible;
+    $('drawingTools').hidden = !visible; $('drawingCanvas').hidden = !visible;
+    $('visualCanvas').hidden = visible;
+    $('drawingModeButton').setAttribute('aria-pressed', String(visible));
+    $('visualModeButton').setAttribute('aria-pressed', String(!visible));
+    if (visible) drawing.render(); else renderer.resize();
+  }
+  setDrawingView(false);
+  on($('drawingModeButton'), 'click', () => setDrawingView(true));
+  on($('visualModeButton'), 'click', () => setDrawingView(false));
+  for (const button of document.querySelectorAll('[data-drawing-stamp]')) {
+    on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
+  }
   let voiceSignature = '';
   const voiceButtons = new Map();
   const songRows = new Map();
@@ -93,7 +111,7 @@ function mountMidiphoria() {
       if (button.dataset.active !== active) button.dataset.active = active;
       if (button.style.getPropertyValue('--voice-color') !== voice.color) button.style.setProperty('--voice-color', voice.color);
     }
-    $('voiceControls').hidden = !voices.length || Boolean(textScore && $('showTextScore').checked);
+    $('voiceControls').hidden = drawingVisible || !voices.length || Boolean(textScore && $('showTextScore').checked);
   }
   on($('voiceFocus'), 'change', () => { renderer.focusVoice($('voiceFocus').value || null); reflectVoices(); });
   on($('voiceLegend'), 'click', event => {
@@ -129,7 +147,7 @@ function mountMidiphoria() {
     const scoreVisible = Boolean(textScore && $('showTextScore').checked);
     $('visualCanvas').dataset.display = scoreVisible ? 'letters' : 'lights';
     $('visualCanvas').setAttribute('aria-label', scoreVisible
-      ? `MIDI letter score: ${textScore.text}. Notes highlight during playback.` : 'Live MIDI color field and note trails');
+      ? `MIDI pattern score: ${textScore.text}. Time rises from bottom to top. Notes highlight during playback.` : 'Live MIDI color field and note trails');
   }
 
   function showSongCredit(song) {
@@ -375,22 +393,33 @@ function mountMidiphoria() {
   });
   on($('loopSong'), 'change', () => { player.setLoop($('loopSong').checked); });
   on($('showTextScore'), 'change', reflectPlayer);
+  async function useGeneratedScore(score, { id, collection: group, filename, attribution }) {
+    const pending = addSessionSong({ id, title: score.text, buffer: score.buffer,
+      collection: group, textScore: score, attribution }, { audition: true });
+    $('textMidiStatus').textContent = score.unsupported?.length
+      ? `Skipped unsupported characters: ${score.unsupported.join(' ')}. Try 🙂 😀 ⭐ ❤ ◆.` : '';
+    if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
+    textDownloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));
+    $('downloadTextMidi').href = textDownloadUrl;
+    $('downloadTextMidi').download = filename;
+    $('downloadTextMidi').hidden = false;
+    setDrawingView(false);
+    await pending;
+  }
   on($('textMidiForm'), 'submit', async event => {
     event.preventDefault();
     try {
-      const score = generateTextMidi($('textMidiInput').value);
-      const pending = addSessionSong({ id: 'text-midi', title: score.text, buffer: score.buffer,
-        collection: 'Text MIDI', textScore: score, attribution: 'Generated from your text in this browser.' }, { audition: true });
-      $('textMidiStatus').textContent = '';
-      if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
-      textDownloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));
-      $('downloadTextMidi').href = textDownloadUrl;
-      $('downloadTextMidi').download = `text-${score.text.replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'score'}.mid`;
-      $('downloadTextMidi').hidden = false;
-      await pending;
-    } catch (error) {
-      $('textMidiStatus').textContent = error.message || 'Could not create this MIDI.';
-    }
+      const score = generateTextMidi($('textMidiInput').value, { mode: $('textMidiMode').value });
+      await useGeneratedScore(score, { id: 'text-midi', collection: 'Text MIDI',
+        filename: `text-${score.text.replace(/[^A-Z0-9]+/g, '-').replace(/^-|-$/g, '') || 'score'}.mid`,
+        attribution: 'Generated from your text in this browser.' });
+    } catch (error) { $('textMidiStatus').textContent = error.message || 'Could not create this MIDI.'; }
+  });
+  on($('generateDrawingMidi'), 'click', async () => {
+    try {
+      await useGeneratedScore(drawing.model.score(), { id: 'drawing-midi', collection: 'Drawn MIDI',
+        filename: 'drawn-score.mid', attribution: 'Drawn by you in this browser.' });
+    } catch (error) { $('textMidiStatus').textContent = error.message || 'Could not create this MIDI.'; }
   });
 
   const reflectControls = () => {
@@ -551,6 +580,7 @@ function mountMidiphoria() {
   }
   on($('padVelocity'), 'input', () => { $('padVelocityOut').value = $('padVelocity').value; });
   on($('resetButton'), 'click', () => {
+    setDrawingView(false);
     $('showTextScore').checked = false;
     resumeAfterSelection = false; pendingPresetSong = false; player.stop(); player.setPlaybackRate(1); player.setLoop(false);
     $('playbackRate').value = '1'; $('playbackRateOut').value = '1.00×'; $('loopSong').checked = false;
@@ -614,7 +644,8 @@ function mountMidiphoria() {
     frame = null;
     if (disposed || document.hidden) return;
     const now = clock(), sample = model.sample(now);
-    if (textScore && $('showTextScore').checked) {
+    if (drawingVisible) renderer.capture(sample, now);
+    else if (textScore && $('showTextScore').checked) {
       renderer.capture(sample, now);
       drawTextMidiScore(renderer.context, renderer.width, renderer.height, textScore, player.state, renderer.options, settings);
     } else renderer.draw(sample, now, settings);
@@ -643,11 +674,12 @@ function mountMidiphoria() {
     disposed = true; clear(); songRequest?.abort(); void player.dispose();
     if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
     if (frame !== null) cancelAnimationFrame(frame);
-    resize.disconnect(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
+    resize.disconnect(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
   presetController = registerHeaderPresets({ id: 'midiphoria', presets: MIDIPHORIA_PRESETS,
     capture: () => captureMidiphoriaPreset(settings, renderer.options),
     apply: snapshot => {
+      setDrawingView(false);
       $('showTextScore').checked = false;
       applyMidiphoriaPreset(model, renderer, snapshot, clock());
       settings = { ...model.options }; reflectControls(); choosePresetSong();

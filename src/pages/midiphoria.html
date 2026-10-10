@@ -13,8 +13,8 @@
   <body class="midiphoria-page">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
-      <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">gesticules</a><a class="tab active" href="midiphoria.html" aria-current="page">midiophilia</a></nav>
-      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">gesticules</option><option value="midiphoria.html" selected>midiophilia</option></select></label>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">gesticules</a><a class="tab active" href="midiphoria.html" aria-current="page">midiophilia</a><a class="tab" href="midi-mixer.html">MIDI Mixer</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">gesticules</option><option value="midiphoria.html" selected>midiophilia</option><option value="midi-mixer.html">MIDI Mixer</option></select></label>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">≈</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
         <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">50%</output></span><input id="outputLevel" aria-label="Midiophilia output level" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
@@ -23,8 +23,33 @@
     <main class="midiphoria-shell" id="midiphoria">
       <section class="midiphoria-stage" aria-label="MIDI visualization">
         <div class="midiphoria-stage-heading"><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a><h1>Midiophilia</h1></div>
+        <div class="midiphoria-stage-modes" role="group" aria-label="Stage view">
+          <button id="visualModeButton" type="button" aria-pressed="true">Visualize</button>
+          <button id="drawingModeButton" type="button" aria-pressed="false">Draw a MIDI</button>
+        </div>
+        <div class="midiphoria-drawing-tools" id="drawingTools" hidden>
+          <div class="midiphoria-drawing-actions">
+            <button id="drawingErase" type="button" aria-pressed="false">Eraser</button>
+            <button id="drawingUndo" type="button" disabled>Undo</button>
+            <button id="drawingClear" type="button" disabled>Clear</button>
+            <button id="generateDrawingMidi" type="button" disabled>Make MIDI</button>
+            <output id="drawingStatus" aria-live="polite">0 pixels · 4 seconds</output>
+          </div>
+          <div class="midiphoria-drawing-stamps" role="group" aria-label="Drawing stamps">
+            <span>Stamps</span>
+            <button type="button" data-drawing-stamp="🙂" aria-label="Smile stamp">🙂</button>
+            <button type="button" data-drawing-stamp="⭐" aria-label="Star stamp">⭐</button>
+            <button type="button" data-drawing-stamp="❤" aria-label="Heart stamp">♥</button>
+            <button type="button" data-drawing-stamp="◆" aria-label="Diamond stamp">◇</button>
+            <button type="button" data-drawing-stamp="spiral">Spiral</button>
+            <button type="button" data-drawing-stamp="wave">Wave</button>
+            <button type="button" data-drawing-stamp="zigzag">Zigzag</button>
+          </div>
+          <p id="drawingHelp" class="midiphoria-help">Draw notes, then Make MIDI. Arrows move · Space paints · Delete erases.</p>
+        </div>
         <div class="midiphoria-viewport" id="visualViewport">
           <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
+          <canvas id="drawingCanvas" hidden tabindex="0" data-space-key-owner role="application" aria-label="Draw a MIDI score" aria-describedby="drawingHelp">Pitch increases to the right. Time plays from bottom to top.</canvas>
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
         </div>
         <div class="midiphoria-readout"><output id="noteReadout" aria-live="off">Waiting for a note</output><output id="levelReadout" aria-live="off">0% light</output></div>
@@ -64,14 +89,16 @@
           <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>
         </section>
         <section class="midiphoria-section" aria-labelledby="textMidiHeading">
-          <h2 id="textMidiHeading">Text MIDI</h2>
+          <h2 id="textMidiHeading">Words &amp; symbols</h2>
           <form id="textMidiForm" class="midiphoria-text-form">
             <label class="sr-only" for="textMidiInput">Letters for MIDI</label>
-            <input id="textMidiInput" type="text" maxlength="32" placeholder="Type a word…" autocomplete="off" spellcheck="false" />
+            <input id="textMidiInput" type="text" maxlength="64" placeholder="Words, 🙂 ⭐ ❤️ …" autocomplete="off" spellcheck="false" />
             <button id="generateTextMidi" class="mini-action" type="submit">Make MIDI</button>
           </form>
+          <label class="control" for="textMidiMode"><span><b>Write upward</b></span><select id="textMidiMode"><option value="word">Whole word</option><option value="letter">One letter at a time</option></select></label>
+          <p class="midiphoria-help">Letters, numbers, 🙂 😀 ⭐ ❤ ◆ · up to 32 characters</p>
           <div class="midiphoria-text-actions">
-            <label id="textScoreView" hidden><input id="showTextScore" type="checkbox" /> Letter score</label>
+            <label id="textScoreView" hidden><input id="showTextScore" type="checkbox" /> Pattern score</label>
             <a id="downloadTextMidi" hidden download>Download MIDI</a>
           </div>
           <p id="textMidiStatus" class="midiphoria-help" role="status"></p>

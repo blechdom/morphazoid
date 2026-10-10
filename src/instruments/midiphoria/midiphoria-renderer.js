@@ -353,7 +353,8 @@ export class MidiphoriaRenderer {
     const options = this.options;
     const floor = Math.max(8, h - (h > 90 ? 36 : 5)), span = Math.max(1, w - 32);
     const xFor = note => 16 + (note + 0.5) / 128 * span;
-    ctx.lineCap = 'round';
+    ctx.lineCap = 'butt';
+    ctx.lineJoin = 'miter';
     for (const trail of trails) {
       const end = trail.end ?? now;
       const fade = clamp(1 - (now - end) / options.trailSeconds) ** options.fadeCurve;
@@ -496,7 +497,7 @@ export class MidiphoriaRenderer {
         if (!heads.length) heads.push([headX, headY]);
         for (const [x, y] of heads) {
           if (this._denseRendering) ctx.fillRect(x - 1, y - 1, 2, 2);
-          else { ctx.beginPath(); ctx.arc(x, y, Math.min(10, Math.max(1.5, thickness + strength * 2)), 0, TAU); ctx.fill(); }
+          else { const size = Math.min(14, Math.max(3, thickness + strength * 3)); ctx.fillRect(x - size / 2, y - size / 2, size, size); }
         }
       }
     }
