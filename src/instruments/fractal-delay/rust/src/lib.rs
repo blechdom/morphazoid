@@ -413,6 +413,7 @@ impl Default for Parameters {
 #[serde(default, rename_all = "camelCase")]
 struct Performance {
     input_gain: f64,
+    input_drive_db: f64,
     delay_gain_db: f64,
     wet: f64,
     dry: f64,
@@ -430,9 +431,10 @@ impl Default for Performance {
     fn default() -> Self {
         Self {
             input_gain: 0.85,
+            input_drive_db: 12.,
             delay_gain_db: 24.,
             wet: 0.7,
-            dry: 0.3,
+            dry: 0.,
             output_level: 1.,
             output_boost_db: 6.,
             hpf_hz: 30.,
@@ -475,6 +477,7 @@ struct Engine {
     boundary: f64,
     ratio: f64,
     mic_gain: f64,
+    input_drive: f64,
     delay_gain: f64,
     wet: f64,
     dry: f64,
@@ -525,6 +528,7 @@ impl Engine {
             boundary: 1.,
             ratio: 1.,
             mic_gain: p.input_gain,
+            input_drive: 10f64.powf(p.input_drive_db / 20.),
             delay_gain: 10f64.powf(p.delay_gain_db / 20.),
             wet: p.wet,
             dry: p.dry,
@@ -592,6 +596,7 @@ impl Engine {
         if let Some(p) = &controls.performance {
             let values = [
                 p.input_gain,
+                p.input_drive_db,
                 p.delay_gain_db,
                 p.wet,
                 p.dry,
@@ -607,6 +612,7 @@ impl Engine {
             ];
             if values.iter().any(|v| !v.is_finite())
                 || !(0.0..=4.).contains(&p.input_gain)
+                || !(-12.0..=24.).contains(&p.input_drive_db)
                 || !(-12.0..=48.).contains(&p.delay_gain_db)
                 || !(0.0..=1.).contains(&p.wet)
                 || !(0.0..=1.).contains(&p.dry)
@@ -917,6 +923,7 @@ impl Engine {
         let output_target =
             self.performance.output_level * 10f64.powf(self.performance.output_boost_db / 20.);
         let delay_gain_target = 10f64.powf(self.performance.delay_gain_db / 20.);
+        let input_drive_target = 10f64.powf(self.performance.input_drive_db / 20.);
         self.metrics[3] = 0.;
         self.metrics[4] = 0.;
         self.metrics[5] = 0.;
@@ -927,6 +934,7 @@ impl Engine {
             follow(&mut self.boundary, self.parameters.boundary, s);
             follow(&mut self.ratio, ratio_target, s);
             follow(&mut self.mic_gain, self.performance.input_gain, s);
+            follow(&mut self.input_drive, input_drive_target, s);
             follow(&mut self.delay_gain, delay_gain_target, s);
             follow(&mut self.wet, self.performance.wet, s);
             follow(&mut self.dry, self.performance.dry, s);
@@ -948,7 +956,9 @@ impl Engine {
             let injected = if self.parameters.frozen {
                 0.
             } else {
-                (input[0] + input[1]) * 0.5
+                // Drive only new excitation. Returning travelling waves and
+                // direct stereo playback retain their existing gain structure.
+                (input[0] + input[1]) * 0.5 * self.input_drive
             };
             let current = self.graph.as_mut().map_or([0.; 2], |g| {
                 g.step(
@@ -1693,6 +1703,7 @@ mod tests {
                 ..Parameters::default()
             }),
             performance: Some(Performance {
+                input_drive_db: 0.,
                 delay_gain_db: db,
                 wet,
                 dry,
@@ -1834,6 +1845,203 @@ mod tests {
                 })
                 .is_err());
             assert_eq!(e.performance.delay_gain_db, 0.);
+            assert_eq!(e.clock, clock);
+        }
+    }
+    fn input_drive_engine(db: f64, wet: f64, dry: f64) -> Engine {
+        let mut e = delay_gain_engine(0., wet, dry);
+        let mut p = e.performance.clone();
+        p.input_drive_db = db;
+        e.controls(Controls {
+            parameters: None,
+            performance: Some(p),
+            input_mode: None,
+        })
+        .unwrap();
+        let zero = [0f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        for _ in 0..400 {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        e
+    }
+    #[test]
+    fn input_drive_changes_real_wave_pressure_and_delay_pcm_by_the_decibel_law() {
+        let mut baseline = input_drive_engine(0., 1., 0.);
+        let mut impulse = [0f32; 512];
+        impulse[0] = 0.0001;
+        let mut original = [0f32; 512];
+        let mut right = [0f32; 512];
+        let write = baseline.graph.as_ref().unwrap().edges[0].write;
+        baseline.process(&impulse, &impulse, &mut original, &mut right);
+        let wave = baseline.graph.as_ref().unwrap().edges[0].ab[write];
+        let onset = original.iter().position(|v| v.abs() > 1e-6).unwrap();
+        assert_eq!(onset, 144);
+        for db in [-12., 12., 24.] {
+            let mut e = input_drive_engine(db, 1., 0.);
+            let write = e.graph.as_ref().unwrap().edges[0].write;
+            let mut pcm = [0f32; 512];
+            e.process(&impulse, &impulse, &mut pcm, &mut right);
+            let ratio = 10f64.powf(db / 20.);
+            assert!(
+                (f64::from(e.graph.as_ref().unwrap().edges[0].ab[write]) / f64::from(wave) - ratio)
+                    .abs()
+                    < 1e-5
+            );
+            let pressure = 0.94 * (f64::from(pcm[onset]) / 0.94).atanh();
+            let reference = 0.94 * (f64::from(original[onset]) / 0.94).atanh();
+            assert!((pressure / reference - ratio).abs() < 1e-5);
+            assert_eq!(
+                e.metrics[3], baseline.metrics[3],
+                "source metering is before network-only drive"
+            );
+            assert_eq!(pcm.iter().position(|v| v.abs() > 1e-6).unwrap(), onset);
+        }
+    }
+    #[test]
+    fn input_drive_preserves_direct_stereo_media_pcm_and_source_metering() {
+        let mut quiet = input_drive_engine(-12., 0., 1.);
+        let mut loud = input_drive_engine(24., 0., 1.);
+        let mut a_left = [0f32; 128];
+        let mut a_right = [0f32; 128];
+        let mut b_left = [0f32; 128];
+        let mut b_right = [0f32; 128];
+        for block in 0..100 {
+            let left = std::array::from_fn::<_, 128, _>(|i| {
+                (0.03 * (TAU * 173. * (block * 128 + i) as f64 / 48000.).sin()) as f32
+            });
+            let right = std::array::from_fn::<_, 128, _>(|i| {
+                (0.02 * (TAU * 271. * (block * 128 + i) as f64 / 48000.).cos()) as f32
+            });
+            quiet.process(&left, &right, &mut a_left, &mut a_right);
+            loud.process(&left, &right, &mut b_left, &mut b_right);
+            assert_eq!(a_left, b_left);
+            assert_eq!(a_right, b_right);
+            assert_eq!(quiet.metrics[3], loud.metrics[3]);
+        }
+        assert_ne!(a_left, a_right);
+    }
+    #[test]
+    fn drive_edits_do_not_amplify_existing_feedback_waves_when_excitation_stops() {
+        let mut baseline = input_drive_engine(0., 1., 0.);
+        let mut changed = input_drive_engine(0., 1., 0.);
+        for e in [&mut baseline, &mut changed] {
+            e.parameters.boundary = 1.;
+            e.boundary = 1.;
+        }
+        let mut impulse = [0f32; 128];
+        impulse[0] = 0.01;
+        let zero = [0f32; 128];
+        let mut a = [0f32; 128];
+        let mut b = [0f32; 128];
+        let mut right = [0f32; 128];
+        baseline.process(&impulse, &impulse, &mut a, &mut right);
+        changed.process(&impulse, &impulse, &mut b, &mut right);
+        let mut p = changed.performance.clone();
+        p.input_drive_db = 24.;
+        changed
+            .controls(Controls {
+                parameters: None,
+                performance: Some(p),
+                input_mode: None,
+            })
+            .unwrap();
+        let mut tail_energy = 0.;
+        for _ in 0..100 {
+            baseline.process(&zero, &zero, &mut a, &mut right);
+            changed.process(&zero, &zero, &mut b, &mut right);
+            assert_eq!(a, b);
+            tail_energy += a.iter().map(|v| f64::from(*v).powi(2)).sum::<f64>();
+        }
+        assert!(tail_energy > 0.001);
+        for (a, b) in baseline
+            .graph
+            .as_ref()
+            .unwrap()
+            .edges
+            .iter()
+            .zip(&changed.graph.as_ref().unwrap().edges)
+        {
+            assert_eq!(a.ab, b.ab);
+            assert_eq!(a.ba, b.ba);
+            assert_eq!(a.write, b.write);
+        }
+    }
+    #[test]
+    fn live_drive_is_smoothed_bounded_and_allocation_free_without_rebuilding_histories() {
+        let mut e = input_drive_engine(0., 1., 0.);
+        let input = [4f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        e.parameters.pitch_offset = 12.;
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        let clock = e.clock;
+        let phase = e.pitch_phase;
+        let pointer = e.graph.as_ref().unwrap().edges[0].ab.as_ptr();
+        let capacity = e.graph.as_ref().unwrap().edges[0].ab.capacity();
+        let write = e.graph.as_ref().unwrap().edges[0].write;
+        let before = e.input_drive;
+        let mut p = e.performance.clone();
+        p.input_drive_db = 24.;
+        p.delay_gain_db = 48.;
+        e.controls(Controls {
+            parameters: None,
+            performance: Some(p),
+            input_mode: None,
+        })
+        .unwrap();
+        assert_eq!(e.clock, clock);
+        assert_eq!(e.pitch_phase, phase);
+        assert_eq!(e.input_drive, before);
+        assert_eq!(e.graph.as_ref().unwrap().edges[0].write, write);
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        e.process(&input[..1], &input[..1], &mut left[..1], &mut right[..1]);
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(
+            e.input_drive,
+            before + (10f64.powf(24. / 20.) - before) * e.smooth
+        );
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..400 {
+            e.process(&input, &input, &mut left, &mut right);
+            assert!(left
+                .iter()
+                .chain(&right)
+                .all(|v| v.is_finite() && v.abs() <= 0.94));
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        let edge = &e.graph.as_ref().unwrap().edges[0];
+        assert_eq!(edge.ab.as_ptr(), pointer);
+        assert_eq!(edge.ab.capacity(), capacity);
+        assert_eq!(e.clock, clock + 1 + 400 * 128);
+        assert_eq!(e.revision, 1);
+        assert!(e.pending.is_none() && e.old.is_none());
+    }
+    #[test]
+    fn legacy_drive_defaults_to_twelve_db_and_direct_output_defaults_off() {
+        let legacy: Performance =
+            serde_json::from_str(r#"{"inputGain":0.85,"wet":0.7,"delayGainDb":24}"#).unwrap();
+        assert_eq!(legacy.input_drive_db, 12.);
+        assert_eq!(legacy.dry, 0.);
+        assert_eq!(Performance::default().dry, 0.);
+        let mut e = input_drive_engine(0., 1., 0.);
+        for db in [-12.1, 24.1, f64::NAN, f64::INFINITY] {
+            let mut p = e.performance.clone();
+            p.input_drive_db = db;
+            let clock = e.clock;
+            assert!(e
+                .controls(Controls {
+                    parameters: None,
+                    performance: Some(p),
+                    input_mode: None
+                })
+                .is_err());
+            assert_eq!(e.performance.input_drive_db, 0.);
             assert_eq!(e.clock, clock);
         }
     }
