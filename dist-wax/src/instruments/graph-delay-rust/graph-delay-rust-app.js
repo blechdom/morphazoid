@@ -4,6 +4,7 @@ import { GRAPH_DELAY_INITIAL_STATE as INITIAL_STATE } from "../../families/graph
 import { GRAPH_DELAY_RUST_PRESETS as GRAPH_DELAY_FULL_PRESETS, captureGraphDelayRustPreset as captureGraphDelayPreset, validateGraphDelayRustPreset as validateGraphDelayPreset, randomizeGraphDelayRustPreset as randomizeGraphDelayPreset } from "./graph-delay-presets.js";
 import { GraphDelayRustEngine } from "./graph-delay-engine.js";
 import { MAX_RUST_GRAPH_NODES, DEFAULT_RUST_GRAPH_TURN_ROUTES, generateGraphWithinRustBudget } from "./graph-delay-topology.js";
+import { randomizeGraphPositions, createRandomGraph } from "./graph-delay-interactions.js";
 import { createGraphDelayRenderer } from "./graph-delay-renderer.js";
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from "../micmic/native/input-source.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
@@ -113,7 +114,9 @@ let capacityTesting = false;
 let capacityMessage = "Choose a budget, then test this graph. Audio keeps playing during the test.";
 let capacityMeasurement = null;
 let visualCostMs = 0, visualFps = 0, lastVisualPaint = 0, lastMonitorPaint = -Infinity;
-const performanceKnobs = new Map();
+const rangeKnobs = new Map();
+let pendingRandomGraph = false;
+let pendingLayoutAction = null;
 let graphRebuildTimer = null;
 let graphRebuildQueued = false;
 let activeDensityLimit = null;
@@ -708,6 +711,8 @@ async function testCapacity() {
 function panic(message = "Panic stop. Input and every feedback tail are off.") {
   lifecycle += 1;
   pendingPresetEdits = null;
+  pendingRandomGraph = false;
+  pendingLayoutAction = null;
   recordedInput?.stop();
   audioGraph?.cancelCapacityMeasurement();
   if (capacityTesting) capacityMessage = "Capacity test cancelled.";
@@ -1233,6 +1238,7 @@ function updateMeter(now) {
 
 // Motion updates use a separate control cadence. Rendering never schedules audio.
 function motionTick() {
+  flushGraphInteractions();
   if (disposed || document.hidden || graphRebuildQueued || capacityTesting) { lastMotionClock = null; return; }
   const clock = audioContext?.state === "running" ? audioContext.currentTime : performance.now() / 1000;
   const delta = lastMotionClock === null ? 0 : Math.max(0, Math.min(.1, clock - lastMotionClock));
@@ -1305,6 +1311,7 @@ function syncControlsFromState() {
   $("micMotionMode").value = state.micMotionMode;
   for (const id of STATE_CONTROL_IDS) {
     if ($(id)) $(id).value = String(state[id]);
+    rangeKnobs.get(id)?.update();
   }
 }
 
@@ -1411,22 +1418,22 @@ function updateUi() {
   $("micMotionSizeOut").textContent = percent(state.micMotionSize);
   $("micMotionPlayButton").setAttribute("aria-pressed", String(state.micMoving));
   $("micMotionPlayButton").setAttribute("aria-label", state.micMoving ? "Pause input motion" : "Play input motion");
-  $("timeScaleOut").textContent = `+${state.timeScale} ms longest edge`;
+  $("timeScaleOut").textContent = `+${state.timeScale} ms`;
   $("timeCurveOut").textContent = Math.abs(state.timeCurve - 1) < 0.005
     ? "linear"
     : state.timeCurve < 1
       ? `${state.timeCurve.toFixed(2)} · broad`
-      : `${state.timeCurve.toFixed(2)} · long-edge bias`;
+      : `${state.timeCurve.toFixed(2)} · biased`;
   $("nodePassOut").textContent = `${percent(state.nodePass)} per node`;
-  $("pitchScaleOut").textContent = `${Math.round(state.pitchScale * 100)}% octave / 180°`;
+  $("pitchScaleOut").textContent = `${(state.pitchScale * 12).toFixed(1)} st / 180°`;
   $("pitchAsymmetryOut").textContent = Math.abs(state.pitchAsymmetry) < 0.005
     ? "even"
     : `${state.pitchAsymmetry < 0 ? "left" : "right"} ${Math.round(Math.abs(state.pitchAsymmetry) * 100)}% wider`;
   $("pitchCurveOut").textContent = Math.abs(state.pitchCurve - 1) < 0.005
     ? "linear"
     : state.pitchCurve < 1
-      ? `${state.pitchCurve.toFixed(2)} · quicker small turns`
-      : `${state.pitchCurve.toFixed(2)} · gentler small turns`;
+      ? `${state.pitchCurve.toFixed(2)} · quick`
+      : `${state.pitchCurve.toFixed(2)} · gentle`;
   $("pitchSlewOut").textContent = `${Math.round(state.pitchSlew)} ms`;
   $("selectedNodeOut").textContent = nodeTurnReadout(selectedNodeId, geometry);
   $("selectedTimeOut").textContent = selectedTimes.length
@@ -1438,6 +1445,10 @@ function updateUi() {
   $("dryOut").textContent = percent(state.dry);
   $("spreadOut").textContent = percent(state.spread);
   syncControlsFromState();
+  for (const id of STATE_CONTROL_IDS) {
+    const readout = $(`${id}Out`);
+    if (readout) $(id)?.setAttribute("aria-valuetext", readout.textContent);
+  }
   paintInput();
 }
 
@@ -1461,6 +1472,67 @@ function bindRange(id, property, {
     updateUi();
   });
   if (graph) control.addEventListener("change", flushGraphRebuild);
+}
+
+function graphInteractionBusy() {
+  return graphRebuildQueued || graphRebuildTimer !== null || capacityTesting
+    || document.querySelector(".header-preset-controls")?.getAttribute("aria-busy") === "true";
+}
+
+function applyGraphLayout(action) {
+  if (disposed) return;
+  if (graphInteractionBusy()) {
+    pendingLayoutAction = action;
+    $("liveStatus").textContent = `${action === "random" ? "Random positions" : "Arrange"} queued for the graph being prepared.`;
+    return;
+  }
+  const layout = action === "random" ? randomizeGraphPositions(model)
+    : generateGraph({ ...committedCaptureState(), type: model.type, maxNodes: MAX_RUST_GRAPH_NODES });
+  for (const node of model.nodes) {
+    node.x = layout.nodes[node.id].x;
+    node.y = layout.nodes[node.id].y;
+  }
+  if (action === "arrange") state.nodeMoving = false;
+  resetNodeWalkState();
+  state.graphPatch = "custom";
+  applyAudioParameters();
+  updateUi();
+  presetController.refresh();
+  $("liveStatus").textContent = action === "random"
+    ? "Node positions randomized; connections, switches and delay histories retained."
+    : "Graph arranged; node motion paused, connections and delay histories retained.";
+}
+
+async function randomGraph() {
+  if (disposed) return;
+  if (graphInteractionBusy()) {
+    pendingRandomGraph = true;
+    $("liveStatus").textContent = "Random graph queued after the current graph is ready.";
+    return;
+  }
+  try {
+    const { parameters, admission } = createRandomGraph(state, performanceState.preparationBudget);
+    const session = lifecycle;
+    Object.assign(state, parameters);
+    resetEdgeSwitchesForNextGraph();
+    updateUi();
+    if (await rebuildModel({ admission }) && session === lifecycle) {
+      presetController.refresh();
+      $("liveStatus").textContent = `Random ${GRAPH_PRESETS[model.type].label} · ${model.nodes.length} nodes. Pitch, timing, mix and input retained.`;
+    }
+  } catch (error) { reportAudioError(error); }
+}
+
+function flushGraphInteractions() {
+  if (disposed || document.hidden || (!pendingRandomGraph && !pendingLayoutAction) || graphInteractionBusy()) return;
+  if (pendingRandomGraph) {
+    pendingRandomGraph = false;
+    void randomGraph();
+    return;
+  }
+  const action = pendingLayoutAction;
+  pendingLayoutAction = null;
+  applyGraphLayout(action);
 }
 
 function canvasPointer(event) {
@@ -1649,6 +1721,9 @@ $("topology").addEventListener("change", (event) => {
   scheduleGraphRebuild(120);
   updateUi();
 });
+$("randomGraphButton").addEventListener("click", () => void randomGraph());
+$("randomizeNodePositionsButton").addEventListener("click", () => applyGraphLayout("random"));
+$("restoreNodePositionsButton").addEventListener("click", () => applyGraphLayout("arrange"));
 $("newGraphButton").addEventListener("click", () => {
   state.seed = state.seed >= 99 ? 1 : state.seed + 1;
   state.graphPatch = "custom";
@@ -1716,6 +1791,8 @@ $("resetViewButton").addEventListener("click", () => {
   $("liveStatus").textContent = "Node motion stopped and input position reset.";
 });
 $("graphResetButton").addEventListener("click", () => {
+  pendingRandomGraph = false;
+  pendingLayoutAction = null;
   const liveState = { mic: state.mic, starting: state.starting, level: state.level, inputTrim: state.inputTrim };
   Object.assign(state, INITIAL_STATE, liveState);
   resetEdgeSwitchesForNextGraph();
@@ -1803,7 +1880,7 @@ $("stopInput").addEventListener("click", () => recordedInput.stop());
 
 for (const id of ["voiceCeiling", "capacityBudget"]) {
   const control = $(id), exact = $(`${id}Exact`);
-  performanceKnobs.set(id, enhanceRangeKnob(control, { scale: "log" }));
+  rangeKnobs.set(id, enhanceRangeKnob(control, { scale: "log" }));
   control.addEventListener("input", () => {
     exact.value = control.value;
     if (id === "voiceCeiling") {
@@ -1817,13 +1894,16 @@ for (const id of ["voiceCeiling", "capacityBudget"]) {
     if (!Number.isFinite(value)) { exact.value = control.value; return; }
     control.value = String(Math.round(Math.max(Number(control.min), Math.min(Number(control.max), value))));
     control.dispatchEvent(new Event("input", { bubbles: true }));
-    performanceKnobs.get(id).update();
+    rangeKnobs.get(id).update();
   };
   exact.addEventListener("change", commit);
   exact.addEventListener("keydown", event => {
     if (event.key === "Enter") { event.preventDefault(); commit(); exact.blur(); }
     if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); exact.value = control.value; exact.blur(); }
   });
+}
+for (const id of STATE_CONTROL_IDS.filter(id => id !== "level" && id !== "inputTrim")) {
+  rangeKnobs.set(id, enhanceRangeKnob($(id)));
 }
 $("automatic").addEventListener("change", event => {
   performanceState.automatic = event.currentTarget.checked;
@@ -1860,7 +1940,7 @@ function teardown() {
   resizeObserver.disconnect();
   renderer?.dispose();
   recordedInput.dispose();
-  for (const knob of performanceKnobs.values()) knob.destroy();
+  for (const knob of rangeKnobs.values()) knob.destroy();
   audioInputControl?.destroy?.();
   presetController?.destroy();
 }
@@ -1898,6 +1978,8 @@ const presetController = registerHeaderPresets({
   async apply(snapshot) {
     validateGraphDelayPreset(snapshot);
     pendingPresetEdits = null;
+    pendingRandomGraph = false;
+    pendingLayoutAction = null;
     const gateRevision = switchRevision;
     const phase = state.nodeMotionPhase;
     cancelScheduledGraphRebuild();

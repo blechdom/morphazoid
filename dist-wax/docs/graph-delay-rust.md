@@ -5,6 +5,56 @@ Delay. It preserves the directed graph model, signed incoming-to-outgoing turn
 pitch, edge switches, geometry-dependent delays, sink-only output and real
 feedback cycles. The original Graph Delay remains available.
 
+## Comparison with the other graph instruments
+
+| Capability | Graph Synth | Graph Delay | Graph Delay Rust |
+| --- | --- | --- | --- |
+| Sound source | Triggered synthesized notes | Live microphone / line input | Microphone / line, local files, built-in samples |
+| Graph shapes, node dragging and node motion | Yes | Yes | Yes |
+| Random graph / Random positions / Arrange | Yes | No dedicated actions | Yes |
+| Draggable input terminal and input motion | No; seed-note controls | Yes | Yes |
+| Clickable and keyboard-operated connection gates | Yes | Yes | Yes |
+| Signed turn-dependent pitch, edge/distance delay, feedback, wet/dry | Note pitch and propagation controls | Yes | Yes |
+| Pulse/tempo, MIDI/QWERTY notes, synth envelopes and tuning | Yes | Continuous audio effect | Continuous audio effect |
+| Network limits | 32 nodes; internal note scheduling/voice limits | 24 nodes / 192 turn routes | 64 nodes / 512 prepared turn voices maximum; initial budget 384 |
+| Live voice cap, audio protection and capacity probe | Internal note protection; no live cap or probe | No | Yes |
+| Drawing and audio engine | Canvas / note synthesis | Canvas / Web Audio node graph | WebGL2 with Canvas fallback / Rust WASM AudioWorklet |
+
+The Rust instrument retains the original Graph Delay's graph interactions and
+musical controls. Random graph, Random positions and Arrange add the graph
+performance shortcuts from Graph Synth. Synth-specific note generation remains
+specific to Graph Synth; Graph Delay processes incoming audio continuously.
+
+The comparison follows the [Graph Synth page](../src/pages/graph-synth.html)
+and [shared graph instrument](../src/families/graph/graph-instrument-app.js),
+the [original Graph Delay page](../src/pages/graph-delay.html), and the
+[Rust instrument controller](../src/instruments/graph-delay-rust/graph-delay-rust-app.js).
+
+## Live graph controls
+
+Play is the first open section, with Random graph, Random positions, graph shape,
+six sound knobs and independent node/input motion toggles. Pitch shift displays
+semitones per 180-degree turn. Edge time, feedback, distance time, wet and dry
+sit alongside it. Live cap remains visible immediately below Play. Live data,
+input selection, topology generation, detailed pitch/time controls and motion
+settings expand separately. All musical sliders use the shared drag knobs;
+native arrow-key controls and preset synchronization remain available.
+
+- **Random positions** moves the existing nodes and retains every connection,
+  gate and delay history. With node motion running, the new layout keeps moving.
+- **Arrange**, under Topology, restores the generated layout for the current
+  shape, seed and node count, keeping connections and gates. It pauses node
+  motion so the restored layout stays in place; input motion continues.
+- **Random graph** chooses a shape and randomized size, density, seed
+  and positions within the preparation budget. It retains pitch, timing, mix,
+  source playback, motion clocks and live cap. The existing graph transition
+  handles the structural change. The preset dice remains the separate action
+  for randomizing the complete musical scene.
+
+Graph actions arriving during an asynchronous graph preparation or capacity test
+wait for it to finish. Repeated layout actions retain the latest choice. These
+controls never arm Audio.
+
 ## Audio and drawing
 
 A single AudioWorklet runs a graph-specific Rust WebAssembly kernel. It applies

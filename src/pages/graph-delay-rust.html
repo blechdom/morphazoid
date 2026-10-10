@@ -119,10 +119,10 @@
             </label>
             <p class="sr-only" id="topologyDescription">Several forward-only paths cross between ordered layers.</p>
             <div class="native-knob-grid graph-live-knobs" role="group" aria-label="Live sound controls">
-              <label class="control native-knob-control" for="pitchScale" title="Signed graph turns set pitch; this amount controls the octave span at 180 degrees."><span><b>Pitch shift</b><output id="pitchScaleOut" for="pitchScale">26% octave / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
+              <label class="control native-knob-control" for="pitchScale" title="Pitch shift in semitones for a 180-degree turn. Turn direction and asymmetry set the sign and balance."><span><b>Pitch shift</b><output id="pitchScaleOut" for="pitchScale">3.1 st / 180°</output></span><input id="pitchScale" type="range" min="0" max="2" step="0.01" value="0.26" /></label>
               <label class="control native-knob-control" for="baseDelay"><span><b>Edge time</b><output id="baseDelayOut" for="baseDelay">62 ms</output></span><input id="baseDelay" type="range" min="20" max="600" step="1" value="62" /></label>
               <label class="control native-knob-control" for="feedback"><span><b>Feedback</b><output id="feedbackOut" for="feedback">72%</output></span><input id="feedback" type="range" min="0" max="0.92" step="0.01" value="0.72" /></label>
-              <label class="control native-knob-control" for="timeScale"><span><b>Distance time</b><output id="timeScaleOut" for="timeScale">+58 ms longest edge</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
+              <label class="control native-knob-control" for="timeScale" title="Additional delay for the longest edge; shorter edges receive less, shaped by the time curve."><span><b>Distance time</b><output id="timeScaleOut" for="timeScale">+58 ms</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
               <label class="control native-knob-control" for="wet"><span><b>Wet</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
               <label class="control native-knob-control" for="dry"><span><b>Dry</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
             </div>
@@ -229,7 +229,7 @@
               </div>
               <div class="graph-secondary-actions">
                 <button class="mini-action" id="newGraphButton" type="button">New seeded graph</button>
-                <button class="mini-action" id="restoreNodePositionsButton" type="button">Restore layout</button>
+                <button class="mini-action" id="restoreNodePositionsButton" type="button" title="Restore the generated node layout and pause node motion">Arrange</button>
                 <button class="mini-action" id="openAllSwitchesButton" type="button" disabled>Open all graph switches</button>
               </div>
             </section>

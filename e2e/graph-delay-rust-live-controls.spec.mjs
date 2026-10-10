@@ -13,6 +13,9 @@ async function open(page) {
   page.on('console', message => { if (message.type() === 'error') errors.push(message.text()); });
   await installAudioInputFixture(page);
   await page.addInitScript(() => {
+    // Keep structural transition length reproducible; pure tests cover the
+    // full random topology/size range, including small preparation budgets.
+    Math.random = () => .02;
     const qa = globalThis.__graphLiveQa = { worklets: 0, plans: 0, plan: null, sources: [] };
     const Worklet = AudioWorkletNode;
     globalThis.AudioWorkletNode = new Proxy(Worklet, { construct(Target, args) {

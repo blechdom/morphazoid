@@ -23,17 +23,51 @@
 /* Routing counts already live in Graph details; keep the playing surface clear. */
 .graph-delay-rust-page .stage-meta { display: none; }
 
+.graph-delay-rust-page .native-knob-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  align-items: start;
+  gap: 4px 6px;
+}
+.graph-delay-rust-page .graph-live-section > .group-body { padding-block: 8px 10px; }
+.graph-delay-rust-page .graph-live-section .select-control { margin-block: 10px 6px; }
+.graph-delay-rust-page .graph-live-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+}
+.graph-delay-rust-page .graph-live-actions > button {
+  width: 100%;
+  min-width: 0;
+  min-height: 36px;
+  margin: 0;
+  padding: 6px 8px;
+  font-size: 10px;
+  line-height: 1.3;
+}
+.graph-delay-rust-page .graph-live-motion { margin-top: 6px; }
+.graph-delay-rust-page .graph-live-motion > button { display: flex; align-items: center; justify-content: center; gap: 7px; }
+.graph-delay-rust-page .graph-live-motion > button svg { flex: 0 0 15px; width: 15px; height: 15px; }
+.graph-delay-rust-page .graph-live-motion > button span { font: inherit; }
+.graph-delay-rust-page .graph-secondary-actions { display: flex; flex-wrap: wrap; gap: 6px; }
+.graph-delay-rust-page .graph-secondary-actions > button { flex: 1 1 120px; margin: 0; }
+.graph-delay-rust-page #motionSection .mic-motion-row { display: block; }
+.graph-delay-rust-page #motionSection .select-control { margin-bottom: 4px; }
+.graph-delay-rust-page .native-knob-grid > .mz-tap-tempo-field { grid-column: span 2; width: 100%; justify-content: center; gap: 6px; }
+.graph-delay-rust-page .native-knob-grid > .mz-tap-tempo-field > .native-knob-control { flex: 0 1 100px; }
+.graph-delay-rust-page .native-knob-grid .mz-tap-tempo { align-self: start; margin-top: 22px; }
+
 /* Match the L-system Rust input and performance controls. */
 #inputSection { --accent: #b79bff; --accent-soft: color-mix(in oklab, #b79bff 55%, transparent); --accent-glow: color-mix(in oklab, #b79bff 20%, transparent); }
 .native-input-controls { display: grid; gap: 12px; }
 .micmic-page [hidden] { display: none !important; }
 /* Keep native focus and scrolling below the sticky preset/input row. */
 .micmic-page .panel { scroll-padding-top: 76px; }
-.native-performance-panel { --native-live-cap-height: 96px; position: relative; padding: 12px 14px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
-.native-live-disclosure > summary { min-height: var(--native-live-cap-height); box-sizing: border-box; padding-right: 108px; color: var(--accent); font-size: 11px; line-height: var(--native-live-cap-height); cursor: pointer; }
+.native-performance-panel { --native-live-cap-height: 64px; position: relative; padding: 8px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.native-live-disclosure > summary { min-height: var(--native-live-cap-height); box-sizing: border-box; padding-right: 170px; color: var(--accent); font-size: 11px; line-height: var(--native-live-cap-height); cursor: pointer; }
 .native-live-disclosure > summary::marker { color: var(--accent); }
 .native-live-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
-.native-live-cap { position: absolute; top: 12px; right: 14px; width: 94px; }
+.native-live-cap { position: absolute; top: 8px; right: 12px; width: 156px; }
 .native-performance-heading, .native-performance-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .native-performance-heading { margin-bottom: 10px; }
 .native-performance-heading > span { color: var(--muted); font-size: 9px; }
@@ -61,12 +95,16 @@
 .native-voice-value:hover { border-bottom-color: var(--line-strong); }
 .native-voice-value:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .native-live-cap-hint { color: var(--muted); font: 8px/1.5 ui-monospace, monospace; text-align: center; }
+.graph-delay-rust-page .native-live-cap { grid-template-columns: 80px minmax(0, 1fr); align-items: center; column-gap: 8px; }
+.graph-delay-rust-page .native-live-cap > .native-knob-control.mz-range-knob { grid-row: 1 / 3; --native-knob-top: 18px; }
+.graph-delay-rust-page .native-live-cap > .native-voice-value { grid-column: 2; align-self: end; height: 28px; }
+.graph-delay-rust-page .native-live-cap > .native-live-cap-hint { grid-column: 2; align-self: start; white-space: nowrap; }
 .native-capacity-actions button { min-height: 36px; padding-inline: 8px; }
 .native-performance-foot { margin: 10px 0 7px; flex-wrap: wrap; }
 .native-performance-foot .mini-action { padding: 5px 7px; font-size: 8px; }
 .native-performance-panel[data-pressure="high"] #performanceAudioLoad { color: var(--fracta-coral); }
 @media (pointer: coarse) {
-  .native-performance-panel { --native-live-cap-height: 128px; }
+  .native-performance-panel { --native-live-cap-height: 72px; }
   .native-voice-value { padding-block: 0 28px; }
   .native-capacity-actions button, .native-voice-value, .native-performance-foot .native-check, .native-performance-foot .mini-action, .native-capacity-disclosure > summary { min-height: 48px; box-sizing: border-box; }
 }
@@ -97,7 +135,7 @@
 .micmic-page .native-knob-control.mz-range-knob {
   --native-knob-target: 44px;
   --native-knob-dial: 28px;
-  --native-knob-top: 28px;
+  --native-knob-top: 20px;
   position: relative;
   display: block;
   width: 100%;
@@ -116,7 +154,7 @@
   inset: 0 0 auto;
   display: flex;
   width: auto;
-  height: 26px;
+  height: 18px;
   overflow: visible;
   clip-path: none;
   align-items: end;
@@ -138,6 +176,7 @@
   font: 9px/1.2 ui-monospace, monospace;
   text-align: center;
   white-space: normal;
+  overflow-wrap: anywhere;
 }
 .micmic-page .native-knob-control.mz-range-knob > input[type="range"] {
   inset: var(--native-knob-top) auto auto 50%;
@@ -152,8 +191,21 @@
   width: var(--native-knob-dial);
   height: var(--native-knob-dial);
 }
+.graph-delay-rust-page .native-knob-control.signed-form-range.mz-range-knob { height: calc(var(--native-knob-top) + var(--native-knob-target) + 42px); }
+.graph-delay-rust-page .native-knob-control.mz-range-knob > .form-range-poles {
+  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 24px) 0 auto;
+  display: flex;
+  justify-content: space-between;
+  gap: 3px;
+  font-size: 7px;
+  line-height: 1.2;
+  text-transform: none;
+}
+.graph-delay-rust-page .native-knob-control .form-range-poles > span { text-align: center; }
 
 @media (pointer: coarse) {
   .native-input-actions .mini-action, .native-input-file input::file-selector-button, #source, #inputSample, .native-check { min-height: 48px; }
   .micmic-page .native-knob-control.mz-range-knob { --native-knob-target: 48px; }
+  .graph-delay-rust-page .graph-live-actions > button, .graph-delay-rust-page .graph-secondary-actions > button { min-height: 48px; }
+  .graph-delay-rust-page .native-live-cap > .native-voice-value { min-height: 48px; padding: 0; }
 }

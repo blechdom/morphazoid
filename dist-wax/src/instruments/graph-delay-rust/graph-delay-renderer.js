@@ -113,6 +113,9 @@ const validPoint = point => point && Number.isFinite(point.x) && Number.isFinite
  */
 export function createGraphDelayRenderer(canvas, { force = false, onInvalidate = () => {}, now = () => performance.now() } = {}) {
   if (!canvas?.getContext) return null;
+  // Rejected/lost software contexts can composite an opaque surface on resize.
+  // Reveal this layer only after a successful draw, including initial setup.
+  canvas.hidden = true;
   let gl;
   try {
     gl = canvas.getContext('webgl2', { alpha: true, depth: false, stencil: false,
@@ -294,7 +297,6 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
   }
   try { initialize(); }
   catch { release(); retireContext(); return null; }
-  canvas.hidden = true;
   canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
   function getStats() {
     return { ...counters, capacity, dpr, maximumRoutes: MAX_ROUTES,

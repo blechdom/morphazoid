@@ -125,14 +125,19 @@ test('context loss requests Canvas fallback and restores current data without ch
 });
 
 test('unsupported, software, and failed shader backends cleanly retain Canvas rendering', () => {
-  assert.equal(createGraphDelayRenderer({ getContext: () => null }), null);
-  assert.equal(createGraphDelayRenderer({ getContext() { throw new Error('disabled'); } }), null);
+  for (const getContext of [() => null, () => { throw new Error('disabled'); }]) {
+    const canvas = { hidden: false, getContext };
+    assert.equal(createGraphDelayRenderer(canvas), null);
+    assert.equal(canvas.hidden, true, 'unavailable GPU layer cannot obscure the Canvas fallback');
+  }
   const software = fixture({ backend: 'ANGLE SwiftShader' });
   assert.equal(createGraphDelayRenderer(software.canvas), null); assert.equal(software.calls.loss, 1);
+  assert.equal(software.canvas.hidden, true, 'retired software GPU layer must stay hidden on resize');
   const forced = createGraphDelayRenderer(software.canvas, { force: true });
   assert.equal(forced.available, true); forced.dispose();
   const failure = fixture({ compile: false });
   assert.equal(createGraphDelayRenderer(failure.canvas), null);
+  assert.equal(failure.canvas.hidden, true);
   assert.ok(failure.deleted.length >= 5); assert.equal(failure.calls.loss, 1);
 });
 
