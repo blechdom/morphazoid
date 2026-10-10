@@ -20,10 +20,10 @@ const sharedFields = QUADRUPED_SHARED_FIELDS.filter(key => key !== "outputLevel"
 
 function assertComplete(snapshot) {
   assert.doesNotThrow(() => presetStateKey(snapshot));
-  assert.deepEqual(Object.keys(snapshot).sort(), ["actors", "groupMode", "groupSeed", "selectedActor", "soundSkinId", "version", "visualSkinId", "world"]);
-  assert.equal(snapshot.version, 2);
+  assert.deepEqual(Object.keys(snapshot).sort(), ["actors", "groupMode", "groupSeed", "selectedActor", "soundSkinId", "version", "world"]);
+  assert.equal(snapshot.version, 3);
   assert.ok(["ground", "tendon", "porcelain", "voltage", "breath"].includes(snapshot.soundSkinId));
-  assert.ok(["animal", "skeleton", "constellation", "collage", "motion-card"].includes(snapshot.visualSkinId));
+  assert.ok(!Object.hasOwn(snapshot, "visualSkinId"), "appearance stays outside musical state");
   assert.ok(QUADRUPED_GROUP_MODES.includes(snapshot.groupMode));
   assert.ok(snapshot.actors.length >= 1 && snapshot.actors.length <= 3);
   assert.ok(snapshot.selectedActor >= 0 && snapshot.selectedActor < snapshot.actors.length);
@@ -58,7 +58,6 @@ test("complete scenes retain the original bank and expand every animal, group, t
   }
   const snapshots = QUADRUPED_FULL_PRESETS.map(preset => preset.snapshot);
   assert.equal(new Set(snapshots.map(scene => scene.soundSkinId)).size, 5);
-  assert.equal(new Set(snapshots.map(scene => scene.visualSkinId)).size, 5);
   assert.deepEqual(new Set(snapshots.map(scene => scene.actors[0].animalId)), new Set(QUADRUPED_ANIMALS.map(item => item.id)));
   assert.deepEqual(new Set(snapshots.map(scene => scene.groupMode)), new Set(QUADRUPED_GROUP_MODES));
   assert.deepEqual(new Set(snapshots.map(scene => scene.actors[0].surfaceId)), new Set(QUADRUPED_TERRAINS.map(item => item.id)));
@@ -191,18 +190,20 @@ test("dice endpoints stay finite and invalid random sources fail explicitly", ()
 });
 
 
-test("full snapshots recall each independent skin and repair unsupported IDs", () => {
-  const scene = normalizeQuadrupedPreset({ soundSkinId: "breath", visualSkinId: "skeleton" });
-  assert.equal(scene.soundSkinId, "breath");
-  assert.equal(scene.visualSkinId, "skeleton");
-  assert.deepEqual(captureQuadrupedPreset(scene), scene);
-  const oldScene = normalizeQuadrupedPreset({ soundSkinId: "missing", visualSkinId: "missing" });
-  assert.equal(oldScene.soundSkinId, "ground");
-  assert.equal(oldScene.visualSkinId, "constellation");
-  assert.equal(normalizeQuadrupedPreset().visualSkinId, "constellation");
-  assert.equal(normalizeQuadrupedPreset({ visualSkinId: "animal" }).visualSkinId, "animal");
+test("musical snapshots retain sound skins and ignore legacy animal appearance", () => {
+  for (const version of [1, 2, 3]) for (const visualSkinId of ["animal", "skeleton", "constellation", "collage", "motion-card", "missing"]) {
+    const source = { ...clone(QUADRUPED_FULL_PRESETS[6].snapshot), version, soundSkinId: "breath", visualSkinId };
+    const before = clone(source);
+    const normalized = normalizeQuadrupedPreset(source);
+    assertComplete(normalized);
+    assert.equal(normalized.soundSkinId, "breath");
+    assert.deepEqual(normalized, { ...QUADRUPED_FULL_PRESETS[6].snapshot, soundSkinId: "breath" });
+    assert.deepEqual(captureQuadrupedPreset(source), normalized);
+    assert.deepEqual(source, before, "legacy migration never edits the saved source");
+    assert.deepEqual(randomizeQuadrupedPreset(source, quadrupedRandom(91)), randomizeQuadrupedPreset(null, quadrupedRandom(91)));
+  }
+  assert.equal(normalizeQuadrupedPreset({ soundSkinId: "missing" }).soundSkinId, "ground");
 });
-
 
 test("version-one scenes migrate expressive controls neutrally without changing saved music", () => {
   const source = clone(QUADRUPED_FULL_PRESETS[6].snapshot);
@@ -218,7 +219,7 @@ test("version-one scenes migrate expressive controls neutrally without changing 
   const migrated = normalizeQuadrupedPreset(source);
   assertComplete(migrated);
   assert.deepEqual(source, before, "migration must be detached and transactional");
-  assert.equal(migrated.visualSkinId, "animal", "a saved cartoon skin keeps its stable ID");
+  assert.ok(!Object.hasOwn(migrated, "visualSkinId"), "legacy appearance is ignored without changing the music");
   for (let index = 0; index < source.actors.length; index += 1) {
     const { version, pitchSemitones, lopsided, spring, ...music } = migrated.actors[index];
     const { version: oldVersion, ...oldMusic } = source.actors[index];

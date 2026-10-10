@@ -128,6 +128,14 @@
         </section>
 
         <aside class="quadruped-console" data-instrument-preset-host aria-label="Quadruped performance controls">
+          <section class="quadruped-skin-card" aria-label="Animal appearance">
+            <div class="quadruped-control quadruped-skin-control">
+              <label for="visualSkinSelect"><b>Animal skin</b></label>
+              <div class="quadruped-select-row"><span class="select-shell"><select id="visualSkinSelect"></select></span>
+                <button type="button" data-next-select="visualSkinSelect" aria-label="Next animal skin" title="Next animal skin">›</button>
+              </div>
+            </div>
+          </section>
           <section class="quadruped-transport-card" aria-label="Transport and body audition">
             <button id="playButton" class="quadruped-play" type="button" aria-pressed="false" data-primary-transport>
               <span class="quadruped-play-glyph" aria-hidden="true"></span>
@@ -203,12 +211,6 @@
                 <label for="soundSkinSelect"><span><b>Sound skin</b></span></label>
                 <div class="quadruped-select-row"><span class="select-shell"><select id="soundSkinSelect"></select></span>
                   <button type="button" data-next-select="soundSkinSelect" aria-label="Next sound skin" title="Next sound skin">›</button>
-                </div>
-              </div>
-            <div class="quadruped-control quadruped-choice">
-                <label for="visualSkinSelect"><span><b>Animal skin</b></span></label>
-                <div class="quadruped-select-row"><span class="select-shell"><select id="visualSkinSelect"></select></span>
-                  <button type="button" data-next-select="visualSkinSelect" aria-label="Next animal skin" title="Next animal skin">›</button>
                 </div>
               </div>
             <p id="animalDescription" class="sr-only"></p>

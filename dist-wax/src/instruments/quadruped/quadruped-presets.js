@@ -9,7 +9,6 @@ import {
 } from "./quadruped-world.js";
 import { emptyQuadrupedCalls } from "./quadruped-voices.js";
 import { QUADRUPED_SOUND_SKINS } from "./quadruped-sound-skins.js";
-import { QUADRUPED_VISUAL_SKINS } from "./quadruped-visual-skins.js";
 import { presetRandom } from "../../site/preset-random.js";
 
 const skinId = (skins, value, fallback = skins[0].id) => skins.find(skin => skin.id === value)?.id ?? fallback;
@@ -29,7 +28,8 @@ const scoreSnapshot = value => {
   return score;
 };
 
-/** Musical scene only: master output, Audio, transport, motors and clocks stay live. */
+/** Musical scene only: appearance, master output, Audio, transport, motors and clocks stay live.
+ * Version three drops legacy visualSkinId so recalling older scenes cannot change appearance. */
 export function normalizeQuadrupedPreset(value = {}) {
   const source = value && typeof value === "object" ? value : {};
   const groupMode = QUADRUPED_GROUP_MODES.includes(source.groupMode) ? source.groupMode : "solo";
@@ -52,9 +52,8 @@ export function normalizeQuadrupedPreset(value = {}) {
     });
   }
   return {
-    version: 2, actors, groupMode, selectedActor, groupSeed: seed(source.groupSeed),
+    version: 3, actors, groupMode, selectedActor, groupSeed: seed(source.groupSeed),
     soundSkinId: skinId(QUADRUPED_SOUND_SKINS, source.soundSkinId),
-    visualSkinId: skinId(QUADRUPED_VISUAL_SKINS, source.visualSkinId, "constellation"),
     world: { ...sanitizeQuadrupedWorld(source.world && typeof source.world === "object" ? source.world : {}) },
   };
 }
@@ -82,8 +81,6 @@ const scenes = [
   ["glass-pond", "Glass pond", "frog", "bound", "solo", "crystal", "level", 88, 0.46, 0.5],
 ];
 
-const originalVisualSkins = ["animal", "skeleton", "constellation", "collage", "motion-card"];
-
 function createOriginalPresets() {
   return scenes.map(([id, label, animalId, behaviorId, groupMode, surfaceId, groundProfileId, tempoBpm, grain, cavern], index) => {
     const leader = sanitizeQuadrupedState({
@@ -102,7 +99,6 @@ function createOriginalPresets() {
       snapshot: normalizeQuadrupedPreset({
         actors, groupMode, selectedActor: 0, groupSeed: 1 + index * 97,
         soundSkinId: QUADRUPED_SOUND_SKINS[index % 5].id,
-        visualSkinId: originalVisualSkins[index % originalVisualSkins.length],
         world: { seed: 0x71750000 + index * 173, grain, cavern },
       }),
     };
@@ -120,7 +116,7 @@ const expandedScenes = [
   },
   {
     id: "deep-time", label: "Slow motion · Deep time", description: "Subterranean triceratops; almost-still, heavy impacts.",
-    animalId: "dinosaur", behaviorId: "charge", soundSkinId: "ground", visualSkinId: "skeleton",
+    animalId: "dinosaur", behaviorId: "charge", soundSkinId: "ground",
     controls: { tempoBpm: 10, stride: 0.22, momentum: 0.12, gravity: 2.8, pitchSemitones: -36, lopsided: 0.1, spring: 0.25, surfaceId: "stone", groundResonance: 0.9 },
     world: { grain: 0.28, cavern: 0.96 }, calls: [[0, 0, 0.82]],
   },
@@ -132,7 +128,7 @@ const expandedScenes = [
   },
   {
     id: "crooked-parade", label: "Lopsided · Crooked parade", description: "Three stretched strides pull in opposing directions.",
-    animalId: "camel", behaviorId: "pace", groupMode: "trio", soundSkinId: "tendon", visualSkinId: "collage",
+    animalId: "camel", behaviorId: "pace", groupMode: "trio", soundSkinId: "tendon",
     controls: { tempoBpm: 82, stride: 1.75, momentum: 1.4, gravity: 0.6, pitchSemitones: -7.3, lopsided: -0.92, spring: 1.5, surfaceId: "wood", groundResonance: 0.66 },
     world: { grain: 0.84, cavern: 0.22 }, calls: [[1, 5, 0.58]],
   },
@@ -144,7 +140,7 @@ const expandedScenes = [
   },
   {
     id: "stilt-shuffle", label: "Lopsided · Stilt shuffle", description: "Tiny goat steps, heavy gravity, and a stubborn sideways lean.",
-    animalId: "goat", behaviorId: "tiptoe", soundSkinId: "tendon", visualSkinId: "motion-card",
+    animalId: "goat", behaviorId: "tiptoe", soundSkinId: "tendon",
     controls: { tempoBpm: 63, stride: 0.3, momentum: 2.3, gravity: 2.4, pitchSemitones: -14.2, lopsided: -0.78, spring: 0.16, surfaceId: "wood", groundProfileId: "stairs-up", groundResonance: 0.42 },
     world: { grain: 0.72, cavern: 0.14 }, calls: [[0, 6, 0.66], [1, 14, 0.44]],
   },
@@ -162,7 +158,7 @@ const expandedScenes = [
   },
   {
     id: "thunder-charge", label: "Superhero · Thunder charge", description: "A low, fast armored herd drives massive grounded steps.",
-    animalId: "dinosaur", behaviorId: "charge", groupMode: "herd", soundSkinId: "ground", visualSkinId: "animal",
+    animalId: "dinosaur", behaviorId: "charge", groupMode: "herd", soundSkinId: "ground",
     controls: { tempoBpm: 220, stride: 2.2, momentum: 2.8, gravity: 3, pitchSemitones: -30, lopsided: 0, spring: 0.25, surfaceId: "stone", groundResonance: 0.96 },
     world: { grain: 0.48, cavern: 0.4 }, calls: [[0, 0, 0.74]],
   },
@@ -174,13 +170,13 @@ const expandedScenes = [
   },
   {
     id: "rubber-storm", label: "Extreme · Rubber storm", description: "A fast frog trio bounces and buckles in opposing elastic gaits.",
-    animalId: "frog", behaviorId: "bound", groupMode: "trio", soundSkinId: "tendon", visualSkinId: "collage",
+    animalId: "frog", behaviorId: "bound", groupMode: "trio", soundSkinId: "tendon",
     controls: { tempoBpm: 560, stride: 2.3, momentum: 1.8, gravity: 0.18, pitchSemitones: -18.6, lopsided: -1, spring: 2.5, suspensionBeats: 0.7, surfaceId: "water", groundResonance: 0.78 },
     world: { grain: 0.98, cavern: 0.28 }, calls: [[0, 3, 0.56], [1, 10, 0.4]],
   },
   {
     id: "needle-rain", label: "Extreme · Needle rain", description: "High porcelain clicks over short, stiff, off-balance steps.",
-    animalId: "lizard", behaviorId: "lizard-scuttle", soundSkinId: "porcelain", visualSkinId: "motion-card",
+    animalId: "lizard", behaviorId: "lizard-scuttle", soundSkinId: "porcelain",
     controls: { tempoBpm: 720, stride: 0.24, momentum: 0.2, gravity: 2.7, pitchSemitones: 30.8, lopsided: 0.76, spring: 0, surfaceId: "crystal", groundProfileId: "stairs-down", groundResonance: 0.28 },
     world: { grain: 0.64, cavern: 0.12 }, calls: [[1, 8, 0.36]],
   },
@@ -203,7 +199,7 @@ function createExpandedPreset(scene, index) {
     id, label, description,
     snapshot: normalizeQuadrupedPreset({
       actors, groupMode, selectedActor: 0, groupSeed: 0x1150 + index * 97,
-      soundSkinId: scene.soundSkinId, visualSkinId: scene.visualSkinId ?? "constellation",
+      soundSkinId: scene.soundSkinId,
       world: { seed: 0x78750000 + index * 173, ...scene.world },
     }),
   };
@@ -276,7 +272,7 @@ export function randomizeQuadrupedPreset(current, random = Math.random) {
   });
   return normalizeQuadrupedPreset({
     actors, groupMode, selectedActor: rng.integer(0, count - 1), groupSeed: rng.integer(1, 0xffffffff),
-    soundSkinId: rng.pick(QUADRUPED_SOUND_SKINS).id, visualSkinId: rng.pick(QUADRUPED_VISUAL_SKINS).id,
+    soundSkinId: rng.pick(QUADRUPED_SOUND_SKINS).id,
     world: { seed: rng.integer(1, 0xffffffff), grain: rng.unit(), cavern: rng.unit() },
   });
 }

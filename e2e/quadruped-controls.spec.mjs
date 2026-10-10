@@ -5,7 +5,11 @@ const nextFields = { animalSelect: 'animalId', behaviorSelect: 'behaviorId', sou
 const capture = page => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
 const audioStatus = page => page.evaluate(async () => (await import('/src/audio-output-manager.js')).getSharedAudioOutputManager().getStatus());
 const valueIn = (snapshot, id) => ['grain', 'cavern'].includes(id) ? snapshot.world[id] : snapshot.actors[snapshot.selectedActor][id === 'tempo' ? 'tempoBpm' : id];
-const choiceIn = (snapshot, field) => field.endsWith('SkinId') ? snapshot[field] : snapshot.actors[snapshot.selectedActor][field];
+const choiceIn = async (page, field) => {
+  if (field === 'visualSkinId') return page.locator('#stage').getAttribute('data-visual-skin');
+  const snapshot = await capture(page);
+  return field === 'soundSkinId' ? snapshot[field] : snapshot.actors[snapshot.selectedActor][field];
+};
 
 async function openInstrument(page) {
   const errors = [];
@@ -57,12 +61,12 @@ test('six Next controls wrap through native change events and retain Audio and P
     const values = await select.locator('option').evaluateAll(options => options.filter(option => !option.disabled && !option.hidden).map(option => option.value));
     expect(values.length).toBeGreaterThan(1);
     await select.selectOption(values.at(-1));
-    expect(choiceIn(await capture(page), field)).toBe(values.at(-1));
+    expect(await choiceIn(page, field)).toBe(values.at(-1));
     await page.evaluate(() => { globalThis.__nextChanges = []; });
     for (const value of values.slice(0, 2)) {
       await page.locator(`[data-next-select="${id}"]`).click();
       await expect(select).toHaveValue(value);
-      expect(choiceIn(await capture(page), field)).toBe(value);
+      expect(await choiceIn(page, field)).toBe(value);
       await expectLiveState(page);
     }
     expect(await page.evaluate(() => globalThis.__nextChanges)).toEqual(values.slice(0, 2).map(value => ({ id, value })));
@@ -268,6 +272,8 @@ test('Reset all restores the complete startup scene and zero clock from edited T
     await expect(page.locator('#level')).toHaveValue('0.23');
     expect((await audioStatus(page)).connectionCount).toBe(connections);
     expect(await capture(page)).toEqual(startup);
+    await expect(page.locator('#visualSkinSelect')).toHaveValue('constellation');
+    await expect(page.locator('#stage')).toHaveAttribute('data-visual-skin', 'constellation');
     expect(await page.evaluate(() => globalThis.__resetDocumentIdentity)).toBe('same-document');
     if (playing) {
       await expect.poll(async () => (await page.evaluate(() => globalThis.__quadrupedResetProbe())).position).toBeGreaterThan(1);

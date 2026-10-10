@@ -103,7 +103,8 @@ test("every skin paints all herd and trio lanes while preserving sound and score
           expect(call.propCount).toBeGreaterThanOrEqual(0);
           expect(call.propCount).toBeLessThanOrEqual(2);
         }
-        expect(await capture(page)).toEqual({ ...before, visualSkinId: skin });
+        expect(await capture(page)).toEqual(before);
+        await expect(page.locator("#stage")).toHaveAttribute("data-visual-skin", skin);
         await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
         await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
         expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);

@@ -13,7 +13,7 @@ test("independent skins preserve the score and the full tempo range stays live",
   await expect(page.locator("#visualSkinSelect option")).toHaveCount(5);
   const capture = () => page.evaluate(async () => (await import("./src/site/header-presets.js")).captureHeaderPresetState().snapshot);
   const before = await capture();
-  expect(before.visualSkinId).toBe("constellation");
+  expect(before).not.toHaveProperty("visualSkinId");
   await expect(page.locator('#visualSkinSelect')).toHaveValue("constellation");
   await expect(page.locator('#visualSkinSelect option[value="animal"]')).toHaveText("Cartoon");
   for (const [sound, visual] of [["ground", "animal"], ["tendon", "skeleton"], ["porcelain", "constellation"], ["voltage", "collage"], ["breath", "motion-card"]]) {
@@ -21,7 +21,7 @@ test("independent skins preserve the score and the full tempo range stays live",
     await page.locator("#visualSkinSelect").selectOption(visual);
     await expect(page.locator("#stage")).toHaveAttribute("data-visual-skin", visual);
     const after = await capture();
-    expect(after).toEqual({ ...before, soundSkinId: sound, visualSkinId: visual });
+    expect(after).toEqual({ ...before, soundSkinId: sound });
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
     await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "false");
   }

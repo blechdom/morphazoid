@@ -236,7 +236,7 @@ function cancelPerformances() {
 
 function capturePreset() {
   saveSelectedActor();
-  return captureQuadrupedPreset({ actors, groupMode, selectedActor, groupSeed, world, soundSkinId, visualSkinId });
+  return captureQuadrupedPreset({ actors, groupMode, selectedActor, groupSeed, world, soundSkinId });
 }
 
 function applyPreset(snapshot) {
@@ -262,7 +262,6 @@ function applyPreset(snapshot) {
   selectedActor = next.selectedActor;
   world = next.world;
   soundSkinId = next.soundSkinId;
-  visualSkinId = next.visualSkinId;
   state = actors[selectedActor].score;
   motor = actors[selectedActor].motor;
   motorPerformance = now;
@@ -3639,6 +3638,7 @@ function bindControls() {
     cancelPerformances();
     silenceFlightVoice();
     releaseAllSources();
+    visualSkinId = "constellation";
     applyPreset(normalizeQuadrupedPreset());
     restartTransport();
     presetController?.refresh();

@@ -5,11 +5,12 @@
 Quadruped has twenty-seven complete animal/gait/ensemble scenes and a bounded full
 parameter randomizer in the shared preset/Next/Dice row. Recall retains Audio
 and master level; the owner-requested exception starts Play after successful
-recall while startup stays paused. Both skins are included in full snapshots;
-independent Animal and Gait menus remain. The October 9 expansion adds broad
+recall while startup stays paused. Sound skin is included in musical snapshots;
+animal appearance stays independent from presets, Next and Dice. Its menu sits
+immediately below the preset row. Independent Animal and Gait menus remain. The October 9 expansion adds broad
 motion/pitch ranges and twelve Slow motion, Lopsided, Superhero and Extreme
 scenes; new sessions default to Constellation, with Cartoon retaining the
-original saved skin ID.
+original selector ID.
 Focused coverage lives in `tests/quadruped-presets.test.mjs` and
 `e2e/quadruped-presets.spec.mjs`; human listening and physical touch remain
 unperformed. See [Quadruped interface and output](QUADRUPED_RESEARCH.md#interface-and-output).

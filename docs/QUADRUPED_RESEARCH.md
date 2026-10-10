@@ -48,7 +48,7 @@ screens. Air / slide rest uses an inline knob only on compatible gaits. Redundan
 four-foot audition boxes are removed; the score and keyboard 1–4 still edit feet.
 
 Twenty-seven complete scenes recall animal scores, foot/call patterns, gait, tempo,
-pace, rests, group composition, surface, course, grain, cavern and both skins.
+pace, rests, group composition, surface, course, grain, cavern and sound skin.
 Random creates a bounded new complete scene. Successful preset, Next and Random
 recall starts Play, as requested by the owner; startup remains stopped. Audio
 arming and master output are preserved. Turn **Audio** on to hear a playing scene.
@@ -56,15 +56,18 @@ Tempo spans 10–1,000 BPM, including immediate retiming at 3× pace (800 frames
 on average before extra rests). The logarithmic tempo knob keeps slow speeds
 accessible; Shift-drag gives fine adjustment. Constellation is the startup and
 global-reset skin. The original filled animal rendering is labelled Cartoon;
-its saved `animal` ID is unchanged.
+its `animal` selector ID is unchanged. The independent Animal skin menu sits
+directly below the main presets. Recall, Next and Random preserve the chosen
+animal skin, so new users stay in Constellation until they change it explicitly.
 
 ### Expanded motion and pitch
 
 These are expressive, fictional extensions of the gait model. The same clock
 and contacts drive movement and sound; presets retain explicit Audio arming,
 master level and transport phase. New controls belong to the selected animal,
-including independently editable Trio performers. Version 2 scene snapshots
-add neutral controls to older snapshots without replacing saved skins or scores.
+including independently editable Trio performers. Version 3 scene snapshots
+add neutral expressive controls to older snapshots and ignore their legacy
+visual skin field while preserving the saved music and sound skin.
 
 | Control | Range | Visible and audible relationship |
 | --- | --- | --- |
@@ -119,7 +122,9 @@ Skeleton, Constellation (open Shapes-like connections and joint stars), Cutout
 collage (photographic Hiccup Head atlas pieces), and Motion cards (sepia study
 contours). Collage loads the existing project-owned assets only when selected;
 see `assets/hiccup-head/skins/README.md` for provenance. Skin changes preserve
-scores, clock, Audio and Play. Full presets recall both skins independently.
+scores, clock, Audio and Play. Musical presets recall sound skin while animal
+appearance stays independent; switching appearance also preserves the selected
+main preset name.
 
 Each visual skin also owns its environment. Constellation uses outlined sky
 checks and a perspective ground grid, with laser structures and wireframe objects;

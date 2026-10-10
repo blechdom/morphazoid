@@ -543,7 +543,7 @@
       "scope": "regular",
       "presets": 27,
       "status": "implemented-verification-pending",
-      "evidence": "Twenty-seven full scenes and bounded dice recall both skins, animal/gait/ensemble and scores. Owner-requested successful recall starts Play; Audio/master stay live. Pure and browser coverage includes quadruped-presets and quadruped-skins. Human listening and physical-device acceptance remain separate."
+      "evidence": "Twenty-seven full scenes and bounded dice recall sound skin, animal/gait/ensemble and scores while preserving independently selected animal appearance. Constellation is the startup and global-reset appearance. Owner-requested successful recall starts Play; Audio/master stay live. Pure and browser coverage includes quadruped-presets and quadruped-skins. Human listening and physical-device acceptance remain separate."
     },
     {
       "id": "roach-synth",
