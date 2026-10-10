@@ -89,20 +89,23 @@ test("the compact score makes touchdown strength and continuing support independ
   assert.match(css, /data-level="none"/);
 });
 
-test("the centered animal uses stair footprints and one fixed three-segment limb chain in cards and stage", async () => {
+test("the centered animal and constellation cards share fixed-segment limbs and stair contacts", async () => {
   const app = await read("src/instruments/quadruped/quadruped-app.js");
+  const skins = await read("src/instruments/quadruped/quadruped-visual-skins.js");
   assert.match(app, /const centerX = width \* 0\.5/);
   assert.match(app, /lastFootprintHits/);
   assert.match(app, /quadrupedGroundHeightAtWorldX\(state\.groundProfileId/);
   assert.match(app, /solveQuadrupedLimbChain/g);
-  assert.equal((app.match(/solveQuadrupedLimbChain\(/g) ?? []).length, 2);
+  assert.equal((app.match(/solveQuadrupedLimbChain\(/g) ?? []).length, 1);
+  assert.match(skins, /solveQuadrupedLimbChain\(/);
+  assert.match(app, /drawQuadrupedConstellationRig\(context, rig\)/);
   assert.match(app, /context\.lineTo\(chain\.kneeX, chain\.kneeY\)/);
   assert.match(app, /context\.lineTo\(chain\.ankleX, chain\.ankleY\)/);
   assert.match(app, /context\.lineTo\(chain\.footX, chain\.footY\)/);
   assert.match(app, /morphology\.family !== "rabbit"/);
   assert.match(app, /morphology\.haunch/);
   assert.match(app, /morphology\.shoulder/);
-  assert.match(app, /const miniTailRoot = bodyPoint/);
+  assert.match(skins, /const tailRoot = bodyPoint/);
   assert.match(app, /state\.animalId === "giraffe"/);
   assert.ok((app.match(/morphology\.family === "camel"/g) ?? []).length >= 3);
   assert.match(app, /pose\.forwardRoll \* Math\.PI \* 2/);

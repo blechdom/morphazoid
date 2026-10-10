@@ -258,7 +258,8 @@ function drawSkeleton(context, rig) {
   dot(context, rig.mouth.hinge, Math.max(0.9, s * m.headScale * 0.05), shade);
 }
 
-function drawConstellation(context, rig) {
+// Prepared rigs let the stage and sequencer studies share the same anatomy.
+export function drawQuadrupedConstellationRig(context, rig) {
   const s = rig.scale, gold = "#e8c46b", lilac = "#cb8fff", white = "#fff5dc";
   const mesh = (points, color, hub = null) => {
     stroke(context, points, color, Math.max(0.8, s * 0.009), true);
@@ -406,7 +407,7 @@ function drawMotionCard(context, rig) {
 }
 
 const SKIN_RENDERERS = new Map([
-  ["skeleton", drawSkeleton], ["constellation", drawConstellation],
+  ["skeleton", drawSkeleton], ["constellation", drawQuadrupedConstellationRig],
   ["collage", drawCollage], ["motion-card", drawMotionCard],
 ]);
 

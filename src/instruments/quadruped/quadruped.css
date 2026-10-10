@@ -235,11 +235,10 @@ body.quadruped-page {
   min-height: 58px;
   padding: 2px;
   overflow: hidden;
-  border: 3px double rgba(91, 59, 34, 0.72);
-  border-radius: 3px;
-  color: #402f22;
-  background: #e6d4ad;
-  box-shadow: inset 0 0 0 1px rgba(255, 248, 221, 0.72), 0 4px 10px rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(123, 167, 215, 0.35);
+  border-radius: 0;
+  color: #fff5dc;
+  background: #071120;
   cursor: pointer;
   transition: transform 100ms ease, filter 100ms ease, box-shadow 100ms ease;
 }
@@ -255,8 +254,8 @@ body.quadruped-page {
   top: 3px;
   left: 4px;
   padding: 1px 3px;
-  color: #402f22;
-  background: rgba(239, 224, 188, 0.78);
+  color: #fff5dc;
+  background: rgba(7, 17, 32, 0.84);
   font: 800 0.43rem ui-monospace, monospace;
 }
 
@@ -264,7 +263,7 @@ body.quadruped-page {
   position: absolute;
   right: 5px;
   bottom: 4px;
-  color: rgba(64, 47, 34, 0.72);
+  color: #b1c6e0;
   font: 900 0.42rem ui-monospace, monospace;
   letter-spacing: 0.08em;
   content: "AIR";

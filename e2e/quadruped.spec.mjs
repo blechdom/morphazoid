@@ -2,6 +2,59 @@ import { test, expect } from "@playwright/test";
 import { QUADRUPED_ANIMALS, QUADRUPED_BEHAVIORS } from "../src/instruments/quadruped/quadruped.js";
 
 test.describe("Quadruped", () => {
+  test("constellation cards fit the full gait and stay independent of the stage skin", async ({ page }) => {
+    const errors = [];
+    page.on("pageerror", error => errors.push(error.message));
+    await page.route("**/src/instruments/quadruped/quadruped-app.js", async route => {
+      const response = await route.fetch();
+      await route.fulfill({ response, body: `${await response.text()}\nglobalThis.quadrupedCardTest = { study: createCabinetStudy, apply: applyPreset };` });
+    });
+    await page.goto("/quadruped.html");
+    const report = await page.evaluate(async () => {
+      const { QUADRUPED_FULL_PRESETS, normalizeQuadrupedPreset } = await import("./src/instruments/quadruped/quadruped-presets.js");
+      const { QUADRUPED_ANIMALS, createQuadrupedState } = await import("./src/instruments/quadruped/quadruped.js");
+      const scenes = [
+        ...QUADRUPED_ANIMALS.map(animal => normalizeQuadrupedPreset({ actors: [createQuadrupedState(animal.id, "cartwheel")] })),
+        ...QUADRUPED_FULL_PRESETS.map(preset => preset.snapshot),
+      ];
+      return scenes.map(scene => {
+        globalThis.quadrupedCardTest.apply(scene);
+        const study = globalThis.quadrupedCardTest.study();
+        const points = study.frames.flatMap(({ rig }) => [
+          ...rig.body, ...rig.neck, ...rig.tail, ...rig.upperSkull, ...rig.mouth.jaw,
+          ...rig.mouth.opening, ...rig.humps.flat(), ...rig.features.flatMap(feature => feature.points),
+          ...rig.legs.flatMap(leg => leg.points),
+        ]).map(point => ({ x: study.x + point.x * study.scale, y: study.y + point.y * study.scale }));
+        const cards = [...document.querySelectorAll(".quadruped-cabinet-frame canvas")];
+        const picture = cards[0].getContext("2d").getImageData(0, 0, cards[0].width, cards[0].height).data;
+        let brightPixels = 0;
+        for (let index = 0; index < picture.length; index += 4) if (picture[index] > 150 && picture[index + 1] > 130) brightPixels++;
+        return {
+          count: cards.length, skin: study.frames.map(frame => frame.rig.skinId),
+          fits: points.every(point => Number.isFinite(point.x) && Number.isFinite(point.y)
+            && point.x >= 5 && point.x <= study.width - 5 && point.y >= 13 && point.y <= study.height - 16),
+          background: [...picture.slice(0, 3)], brightPixels,
+        };
+      });
+    });
+    for (const scene of report) {
+      expect(scene.count).toBe(16);
+      expect(scene.skin.every(skin => skin === "constellation")).toBe(true);
+      expect(scene.fits).toBe(true);
+      expect(scene.background).toEqual([7, 17, 32]);
+      expect(scene.brightPixels).toBeGreaterThan(15);
+    }
+    const captureCards = () => page.locator(".quadruped-cabinet-frame canvas").evaluateAll(cards => cards.map(card => card.toDataURL()));
+    const before = await captureCards();
+    await page.locator("#visualSkinSelect").selectOption("motion-card");
+    expect(await captureCards()).toEqual(before);
+    await page.locator("#animalSelect").selectOption("giraffe");
+    expect(await captureCards()).not.toEqual(before);
+    await page.locator("#sequenceGrid").scrollIntoViewIfNeeded();
+    await page.locator(".quadruped-cabinet-row").screenshot({ path: test.info().outputPath("constellation-cards.png") });
+    expect(errors).toEqual([]);
+  });
+
   test("edits four touchdown lanes while transport remains independent of Audio", async ({ page }) => {
     const pageErrors = [];
     page.on("pageerror", (error) => pageErrors.push(error.message));

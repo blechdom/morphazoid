@@ -43,7 +43,7 @@ import {
   QUADRUPED_MOTOR_LIMITS,
 } from "./quadruped-motor.js";
 import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
-import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedFootprint, deriveQuadrupedVisualRig } from "./quadruped-visual-skins.js";
+import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedConstellationRig, drawQuadrupedFootprint, deriveQuadrupedVisualRig } from "./quadruped-visual-skins.js";
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
 import { createQuadrupedGestureCall, quadrupedGestureCallPerformance } from "./quadruped-gesture-voices.js";
@@ -1615,263 +1615,70 @@ function createGridButton(row, step, label) {
   return button;
 }
 
-function drawCabinetPose(canvasElement, step) {
-  const context = canvasElement.getContext("2d");
-  const width = canvasElement.width;
-  const height = canvasElement.height;
-  const pose = deriveQuadrupedPose(state, step + 0.0001);
-  const animal = quadrupedAnimal(state.animalId);
-  const morphology = animal.morphology;
-  const ink = "#402f22";
-  const fadedInk = "rgba(64, 47, 34, 0.48)";
+function createCabinetStudy(width = 112, height = 82) {
   const groundY = height - 17;
-  const bodyY = groundY - lerp(31 * morphology.clearance + pose.bodyLift * 7, 9 * morphology.bodyHeight, pose.bodySlide);
-  const bodyWidth = 20 * morphology.bodyWidth;
-  const bodyHeight = 18 * morphology.bodyHeight;
-  const miniRotation = pose.bodyPitch + pose.bodyRoll * 0.22 - pose.rearBalance * 0.58
-    + pose.forwardRoll * Math.PI * 2 + pose.cartwheel * Math.PI * 2;
-  const bodyPoint = (localX, localY) => ({
-    x: 52 + localX * Math.cos(miniRotation) - localY * Math.sin(miniRotation),
-    y: bodyY + localX * Math.sin(miniRotation) + localY * Math.cos(miniRotation),
+  const score = { ...state, visualSkinId: "constellation" };
+  const frames = Array.from({ length: QUADRUPED_STEP_COUNT }, (_, step) => {
+    const pose = deriveQuadrupedPose(score, step + 0.0001);
+    return { pose, rig: deriveQuadrupedVisualRig(pose, width, height, groundY, score) };
   });
-
-  context.clearRect(0, 0, width, height);
-  context.fillStyle = "#e6d4ad";
-  context.fillRect(0, 0, width, height);
-  context.fillStyle = "rgba(85, 56, 32, 0.07)";
-  for (let mark = 0; mark < 12; mark += 1) {
-    const x = mod(step * 19 + mark * 37, width);
-    const y = mod(step * 11 + mark * 23, height);
-    context.fillRect(x, y, mark % 3 === 0 ? 2 : 1, 1);
-  }
-  context.strokeStyle = "rgba(64, 47, 34, 0.52)";
-  context.lineWidth = 1;
-  context.beginPath();
-  for (let x = 6; x <= width - 6; x += 2) {
-    const worldX = pose.event.step / QUADRUPED_STEP_COUNT * state.stride + (x - 52) / 31;
-    const worldY = quadrupedGroundHeightAtWorldX(state.groundProfileId, worldX);
-    const screenY = groundY - (worldY - pose.bodyGroundHeight) * 31;
-    if (x === 6) context.moveTo(x, screenY);
-    else context.lineTo(x, screenY);
-  }
-  context.stroke();
-
-  const hips = Object.freeze({
-    "rear-left": bodyPoint(-bodyWidth * 0.43, bodyHeight * 0.22 * morphology.haunch),
-    "rear-right": bodyPoint(-bodyWidth * 0.37, bodyHeight * 0.24 * morphology.haunch),
-    "front-left": bodyPoint(bodyWidth * 0.37, bodyHeight * 0.2 * morphology.shoulder),
-    "front-right": bodyPoint(bodyWidth * 0.43, bodyHeight * 0.22 * morphology.shoulder),
-  });
-  const drawMiniLeg = (laneId, far) => {
-    if (pose.bodySlide > 0.85) return;
-    const leg = pose.legs[laneId];
-    const hipX = hips[laneId].x;
-    const hipY = hips[laneId].y;
-    const isFront = laneId.startsWith("front");
-    const groundHoofX = 52 + leg.footX * 31;
-    const groundHoofY = groundY - (leg.footWorldY - pose.bodyGroundHeight) * 31 - leg.lift * 17;
-    const farSpread = laneId.endsWith("left") ? -2.5 : 2.5;
-    let hoofX = lerp(groundHoofX, hipX + (isFront ? -5 : 5) + farSpread, pose.rollTuck);
-    let hoofY = lerp(groundHoofY, hipY + 7 + farSpread, pose.rollTuck);
-    const upper = 31 * (isFront ? morphology.frontUpper : morphology.hindUpper);
-    const lower = 31 * (isFront ? morphology.frontLower : morphology.hindLower);
-    const distal = 31 * morphology.distal;
-    if (pose.cartwheel > 0 && !leg.grounded) {
-      const angle = pose.cartwheel * Math.PI * 2 + (isFront ? -0.7 : 0.7) + (far ? -0.28 : 0.28);
-      hoofX = hipX - Math.sin(angle) * (upper + lower) * 0.9;
-      hoofY = hipY + Math.cos(angle) * (upper + lower) * 0.9;
-    }
-    const digitigrade = ["feline", "canid", "rabbit"].includes(morphology.family);
-    const bend = isFront ? morphology.foreBend : morphology.hindBend;
-    const chain = solveQuadrupedLimbChain(
-      hipX,
-      hipY,
-      hoofX,
-      hoofY,
-      upper,
-      lower,
-      distal,
-      bend,
-      morphology.family === "amphibian" && !isFront ? -1 : isFront ? -0.025 : digitigrade ? 0.09 : 0.035,
-      morphology.family === "amphibian" && !isFront ? -0.12 : -1,
-    );
-    context.save();
-    context.globalAlpha = (far ? 0.48 : 1) * (1 - pose.bodySlide);
-    context.strokeStyle = ink;
-    context.lineWidth = Math.max(2, 31 * morphology.legWidth);
-    context.lineCap = "round";
-    context.lineJoin = "round";
-    context.beginPath();
-    context.moveTo(hipX, hipY);
-    context.lineTo(chain.kneeX, chain.kneeY);
-    context.lineTo(chain.ankleX, chain.ankleY);
-    context.lineTo(chain.footX, chain.footY);
-    context.stroke();
-    context.strokeStyle = laneById.get(laneId).color;
-    context.lineWidth = Math.max(2.4, 31 * morphology.footWidth * 0.8);
-    context.beginPath();
-    context.moveTo(chain.footX - 2, chain.footY);
-    context.lineTo(chain.footX + 2.5, chain.footY);
-    context.stroke();
-    context.restore();
+  // One camera for the entire gait preserves relative jump height and body motion.
+  // Include every species feature and its ground stamps before reserving labels.
+  const points = frames.flatMap(({ rig }) => [
+    ...rig.body, ...rig.skull, ...rig.upperSkull, ...rig.neck, ...rig.tail,
+    ...rig.mouth.jaw, ...rig.mouth.opening, ...rig.humps.flat(),
+    ...rig.features.flatMap(feature => feature.points),
+    ...rig.legs.flatMap(leg => [...leg.points,
+      { x: leg.points[3].x - Math.max(3, rig.scale * 0.36), y: leg.contactY - 2 },
+      { x: leg.points[3].x + Math.max(3, rig.scale * 0.36), y: leg.contactY + 4 },
+    ]),
+  ]);
+  const left = Math.min(...points.map(point => point.x)) - 3;
+  const right = Math.max(...points.map(point => point.x)) + 3;
+  const top = Math.min(...points.map(point => point.y)) - 3;
+  const bottom = Math.max(groundY, ...points.map(point => point.y)) + 3;
+  const scale = Math.min((width - 10) / (right - left), (height - 29) / (bottom - top));
+  return { frames, width, height, groundY, scale,
+    x: width / 2 - (left + right) / 2 * scale,
+    y: 13 + (height - 29 - (bottom - top) * scale) / 2 - top * scale,
+    durations: quadrupedScoreTiming(state).durations,
   };
-  drawMiniLeg("rear-left", true);
-  drawMiniLeg("front-left", true);
+}
 
-  context.fillStyle = "rgba(64, 47, 34, 0.13)";
-  context.strokeStyle = ink;
-  context.lineWidth = 2;
-  context.save();
-  context.translate(52, bodyY);
-  context.rotate(miniRotation);
+function drawCabinetPose(canvasElement, step, study) {
+  const context = canvasElement.getContext("2d");
+  const { width, height, groundY, scale, x: offsetX, y: offsetY } = study;
+  const { pose, rig } = study.frames[step];
+  const ink = "#fff5dc";
+  const fadedInk = "rgba(169, 188, 209, 0.32)";
+  context.clearRect(0, 0, width, height);
+  context.fillStyle = "#071120";
+  context.fillRect(0, 0, width, height);
+  context.strokeStyle = "rgba(123, 167, 215, 0.12)";
+  context.lineWidth = 0.7;
   context.beginPath();
-  context.moveTo(-bodyWidth * 0.53, 0);
-  context.bezierCurveTo(-bodyWidth * 0.46, -bodyHeight * 0.56, bodyWidth * 0.22, -bodyHeight * 0.56, bodyWidth * 0.53, 0);
-  context.bezierCurveTo(bodyWidth * 0.48, bodyHeight * 0.52, -bodyWidth * 0.38, bodyHeight * 0.54, -bodyWidth * 0.53, 0);
-  context.closePath();
-  context.fill();
+  for (let x = 14; x < width; x += 28) { context.moveTo(x, 0); context.lineTo(x, height - 14); }
+  for (let y = 14; y < height - 14; y += 20) { context.moveTo(0, y); context.lineTo(width, y); }
   context.stroke();
-  if (morphology.family === "camel") {
-    context.beginPath();
-    context.moveTo(-bodyWidth * 0.43, -bodyHeight * 0.4);
-    context.bezierCurveTo(-bodyWidth * 0.38, -bodyHeight * 1.03, -bodyWidth * 0.14, -bodyHeight * 1.03, -bodyWidth * 0.04, -bodyHeight * 0.4);
-    context.bezierCurveTo(bodyWidth * 0.06, -bodyHeight * 1, bodyWidth * 0.31, -bodyHeight * 0.98, bodyWidth * 0.42, -bodyHeight * 0.36);
-    context.closePath();
-    context.fill();
-    context.stroke();
-  }
-  if (morphology.family === "giraffe") {
-    context.fillStyle = ink;
-    context.globalAlpha = 0.66;
-    for (const [spotX, spotY, radiusX, radiusY] of [
-      [-0.34, -0.18, 0.09, 0.13], [-0.12, 0.14, 0.08, 0.1],
-      [0.08, -0.2, 0.1, 0.11], [0.31, 0.12, 0.08, 0.13],
-    ]) {
-      context.beginPath();
-      context.ellipse(bodyWidth * spotX, bodyHeight * spotY, bodyWidth * radiusX, bodyHeight * radiusY, spotX, 0, Math.PI * 2);
-      context.fill();
-    }
-    context.globalAlpha = 1;
-  }
-  context.restore();
-  if (state.animalId === "cheetah") {
-    context.fillStyle = ink;
-    for (let spot = 0; spot < 5; spot += 1) {
-      context.beginPath();
-      context.arc(39 + spot * 7, bodyY + (spot % 2 ? 2 : -2), 1, 0, Math.PI * 2);
-      context.fill();
-    }
-  }
-  context.strokeStyle = ink;
-  context.lineWidth = morphology.family === "elephant" ? 3.5 : 2;
-  const miniTailRoot = bodyPoint(-bodyWidth * 0.52, -bodyHeight * 0.12);
-  context.beginPath();
-  context.moveTo(miniTailRoot.x, miniTailRoot.y);
-  context.quadraticCurveTo(miniTailRoot.x - 13 * morphology.tailLength, miniTailRoot.y + pose.tailAngle * 5, miniTailRoot.x - 22 * morphology.tailLength, miniTailRoot.y + 7 + pose.tailAngle * 7);
-  if (morphology.tailLength > 0) context.stroke();
 
-  drawMiniLeg("rear-right", false);
-  drawMiniLeg("front-right", false);
-  const miniHeadAnchor = bodyPoint(42 * morphology.headForward, -18 * morphology.headRise);
-  const headX = miniHeadAnchor.x;
-  const headY = miniHeadAnchor.y - pose.headLift * 2;
-  if (morphology.neckLength > 0.25) {
-    const miniNeckStart = bodyPoint(bodyWidth * 0.38, -bodyHeight * 0.2);
-    context.strokeStyle = ink;
-    context.lineWidth = morphology.family === "giraffe" ? 5 : 3.5;
-    context.beginPath();
-    context.moveTo(miniNeckStart.x, miniNeckStart.y);
-    context.quadraticCurveTo(headX - 9 * morphology.neckLength, bodyY - 9 * morphology.headRise, headX - 2, headY + 5);
-    context.stroke();
-    if (morphology.family === "giraffe") {
-      context.fillStyle = ink;
-      for (const amount of [0.28, 0.5, 0.72]) {
-        context.beginPath();
-        context.arc(
-          lerp(miniNeckStart.x, headX - 2, amount) - 2,
-          lerp(miniNeckStart.y, headY + 5, amount),
-          1.35,
-          0,
-          Math.PI * 2,
-        );
-        context.fill();
-      }
-    }
-  }
   context.save();
-  context.translate(headX, headY);
-  context.rotate((pose.forwardRoll + pose.cartwheel) * Math.PI * 2);
-  context.translate(-headX, -headY);
-  context.fillStyle = "rgba(64, 47, 34, 0.1)";
-  context.strokeStyle = ink;
-  context.lineWidth = 2;
+  context.beginPath(); context.rect(4, 13, width - 8, height - 27); context.clip();
+  context.translate(offsetX, offsetY); context.scale(scale, scale);
+  context.lineCap = "round"; context.lineJoin = "round";
+  context.strokeStyle = "rgba(123, 167, 215, 0.52)";
+  context.lineWidth = 0.7 / scale;
   context.beginPath();
-  context.ellipse(headX, headY, 15 * morphology.headScale, 18 * morphology.headScale, -0.28, 0, Math.PI * 2);
-  context.fill();
-  context.stroke();
-  const miniHead = 18 * morphology.headScale;
-  if (morphology.family === "amphibian") {
-    for (const offset of [-0.3, 0.3]) {
-      context.beginPath(); context.arc(headX + miniHead * offset, headY - miniHead * 0.5, miniHead * 0.27, 0, Math.PI * 2); context.stroke();
-    }
-  } else if (morphology.family === "elephant") {
-    context.lineWidth = 4;
-    context.lineCap = "round";
-    context.beginPath();
-    context.moveTo(headX + miniHead * 0.45, headY + miniHead * 0.25);
-    context.quadraticCurveTo(headX + miniHead * 1.2, headY + miniHead, headX + miniHead * 0.9, headY + miniHead * 1.65);
-    context.stroke();
-  } else if (morphology.family === "equid") {
-    context.beginPath();
-    context.ellipse(headX + miniHead * 0.55, headY + miniHead * 0.25, miniHead * 0.62, miniHead * 0.36, -0.12, 0, Math.PI * 2);
-    context.stroke();
-    if (state.animalId === "unicorn") {
-      context.beginPath();
-      context.moveTo(headX - miniHead * 0.12, headY - miniHead * 0.72);
-      context.lineTo(headX + miniHead * 0.48, headY - miniHead * 1.9);
-      context.stroke();
-    }
-  } else if (["bovid", "goat"].includes(morphology.family)) {
-    context.beginPath();
-    context.moveTo(headX - miniHead * 0.25, headY - miniHead * 0.68);
-    context.quadraticCurveTo(headX - miniHead * 0.78, headY - miniHead * 1.45, headX - miniHead * 0.44, headY - miniHead * 1.95);
-    context.moveTo(headX + miniHead * 0.12, headY - miniHead * 0.7);
-    context.quadraticCurveTo(headX + miniHead * 0.72, headY - miniHead * 1.4, headX + miniHead * 0.42, headY - miniHead * 1.92);
-    context.stroke();
-  } else if (["feline", "canid", "rabbit"].includes(morphology.family)) {
-    context.fillStyle = ink;
-    const earHeight = morphology.family === "rabbit" ? miniHead * 1.65 : miniHead * 0.8;
-    context.beginPath();
-    context.moveTo(headX - miniHead * 0.35, headY - miniHead * 0.48);
-    context.lineTo(headX - miniHead * 0.28, headY - miniHead * 0.48 - earHeight);
-    context.lineTo(headX, headY - miniHead * 0.55);
-    context.moveTo(headX + miniHead * 0.1, headY - miniHead * 0.55);
-    context.lineTo(headX + miniHead * 0.38, headY - miniHead * 0.48 - earHeight);
-    context.lineTo(headX + miniHead * 0.48, headY - miniHead * 0.36);
-    context.fill();
-  } else if (morphology.family === "giraffe") {
-    context.beginPath();
-    context.moveTo(headX - miniHead * 0.18, headY - miniHead * 0.65);
-    context.lineTo(headX - miniHead * 0.22, headY - miniHead * 1.05);
-    context.moveTo(headX + miniHead * 0.2, headY - miniHead * 0.65);
-    context.lineTo(headX + miniHead * 0.34, headY - miniHead * 1.02);
-    context.stroke();
-  } else if (morphology.family === "lizard") {
-    context.beginPath();
-    context.moveTo(headX + miniHead * 0.25, headY);
-    context.lineTo(headX + miniHead * 1.55, headY + miniHead * 0.12);
-    context.stroke();
-  } else if (["rodent", "ceratopsian"].includes(morphology.family)) {
-    drawNewSpeciesHead(context, headX, headY, miniHead, morphology.family, [ink, ink, "#bd987e", ink, "#e6d4ad"]);
-  } else if (morphology.family === "camel") {
-    context.beginPath();
-    context.ellipse(headX + miniHead * 0.65, headY + miniHead * 0.24, miniHead * 0.7, miniHead * 0.32, -0.05, 0, Math.PI * 2);
-    context.stroke();
+  const groundScale = rig.scale * 0.74;
+  const worldX = quadrupedWorldAtPosition(state, pose.position);
+  for (let x = 4; x <= width - 4; x += 2) {
+    const rigX = (x - offsetX) / scale;
+    const worldY = quadrupedGroundHeightAtWorldX(state.groundProfileId, worldX + (rigX - width / 2) / groundScale);
+    const rigY = groundY - (worldY - pose.bodyGroundHeight) * groundScale;
+    if (x === 4) context.moveTo(rigX, rigY);
+    else context.lineTo(rigX, rigY);
   }
-  context.fillStyle = ink;
-  context.beginPath();
-  context.arc(headX + miniHead * 0.18, headY - miniHead * 0.18, 1.2, 0, Math.PI * 2);
-  context.fill();
+  context.stroke();
+  drawQuadrupedConstellationRig(context, rig);
   context.restore();
 
   ["front-left", "front-right", "rear-left", "rear-right"].forEach((laneId, index) => {
@@ -1889,12 +1696,12 @@ function drawCabinetPose(canvasElement, step) {
     }
   });
   canvasElement.parentElement.dataset.air = String(pose.airborne);
-  const duration = quadrupedScoreTiming(state).durations[step] / 16;
+  const duration = study.durations[step] / 16;
   if (duration > 0.13) {
     context.fillStyle = ink;
     context.font = "bold 9px monospace";
-    context.textAlign = "left";
-    context.fillText(`${Number(duration.toFixed(2))}b`, 5, 10);
+    context.textAlign = "right";
+    context.fillText(`${Number(duration.toFixed(2))}b`, width - 4, 10);
   }
 }
 
@@ -2059,6 +1866,7 @@ function contactLevelName(value) {
 }
 
 function renderGridState() {
+  const study = createCabinetStudy();
   quadrupedCalls(state.animalId).forEach((call, row) => {
     const label = laneLabelElements.get(`call-${row}`);
     if (label) label.textContent = call.label;
@@ -2071,9 +1879,9 @@ function renderGridState() {
     const selected = control.step === selectedStep;
     control.button.dataset.selected = String(selected);
     if (control.frame) {
-      drawCabinetPose(control.canvas, control.step);
-      const pose = deriveQuadrupedPose(state, control.step + 0.0001);
-      const duration = Number((quadrupedScoreTiming(state).durations[control.step] / 16).toFixed(3));
+      drawCabinetPose(control.canvas, control.step, study);
+      const { pose } = study.frames[control.step];
+      const duration = Number((study.durations[control.step] / 16).toFixed(3));
       const supportLabel = pose.bodySlide > 0.85 ? "body sliding" : pose.airborne ? "airborne" : `${pose.groundSupportCount} feet supporting`;
       control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${supportLabel}, ${duration} beats.`);
       continue;

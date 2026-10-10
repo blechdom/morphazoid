@@ -46,6 +46,11 @@ instructions; the graphic keeps the animal and its contact feedback. Solo/Herd/T
 pace row, with the numbered animal editor buttons alongside or wrapped on narrow
 screens. Air / slide rest uses an inline knob only on compatible gaits. Redundant
 four-foot audition boxes are removed; the score and keyboard 1–4 still edit feet.
+The sixteen sequencer cards use the same Constellation animal rig as the stage,
+with dark outlined backgrounds. A shared camera fits the whole gait so relative
+jump height, rolling, and limb motion remain visible. Cards keep this style
+independently of the selected stage skin and retain frame selection, support,
+touchdown strengths, and duration indicators.
 
 Twenty-seven complete scenes recall animal scores, foot/call patterns, gait, tempo,
 pace, rests, group composition, surface, course, grain, cavern and sound skin.
