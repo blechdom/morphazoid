@@ -61,8 +61,20 @@
 <label id="domainField" class="select-field" for="domain">Domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
 <label class="select-field" for="routing">Connections<select id="routing"><option value="geometry">Geometry routes</option><option value="loop">Loop joins</option><option value="shortcuts">Small-world shortcuts</option><option value="hub">Hub spokes</option></select></label>
 <p id="modeDescription" class="control-note">Both square-root predecessors form a Julia vector tree.</p>
-<div class="knob-grid" id="networkKnobs"><label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.001" value="-0.745" aria-label="Real c" /></label>
+<div class="motion-row" role="group" aria-label="Real c motion">
+<label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.001" value="-0.745" aria-label="Real c" /></label>
+<label class="knob-field" for="realMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Real tempo</b><output for="realMotionTempo">6 BPM</output></span><input id="realMotionTempo" type="range" min="0.25" max="60" step="0.05" value="6" aria-label="Real c motion tempo" /></label>
+<label class="knob-field" for="realMotionDepth" title="Sweep distance on each side of the starting Real c value."><span><b>Real sweep</b><output for="realMotionDepth">±0.035</output></span><input id="realMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Real c motion depth" /></label>
+<button id="realMotionPlay" class="motion-play" type="button" aria-pressed="false" aria-label="Play Real c motion">Play</button>
+</div>
+<div class="motion-row" role="group" aria-label="Imaginary c motion">
 <label class="knob-field" for="cImag"><span><b>Imaginary c</b><output for="cImag">0.113</output></span><input id="cImag" type="range" min="-1.5" max="1.5" step="0.001" value="0.113" aria-label="Imaginary c" /></label>
+<label class="knob-field" for="imagMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Imag tempo</b><output for="imagMotionTempo">4.5 BPM</output></span><input id="imagMotionTempo" type="range" min="0.25" max="60" step="0.05" value="4.5" aria-label="Imaginary c motion tempo" /></label>
+<label class="knob-field" for="imagMotionDepth" title="Sweep distance on each side of the starting Imaginary c value."><span><b>Imag sweep</b><output for="imagMotionDepth">±0.035</output></span><input id="imagMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Imaginary c motion depth" /></label>
+<button id="imagMotionPlay" class="motion-play" type="button" aria-pressed="false" aria-label="Play Imaginary c motion">Play</button>
+</div>
+<p class="control-note">Play either axis for a smooth back-and-forth sweep. Tempo sets a full round trip; Sweep sets its reach. Move c to choose a new center.</p>
+<div class="knob-grid" id="networkKnobs">
 <label class="knob-field" for="detail"><span><b>Detail</b><output for="detail">6</output></span><input id="detail" type="range" min="2" max="12" step="1" value="6" aria-label="Detail" /></label>
 <label class="knob-field" for="timeMs"><span><b>Travel time</b><output for="timeMs">140</output></span><input id="timeMs" type="range" min="0.05" max="2000" step="0.05" value="140" aria-label="Travel time" /></label>
 <label class="knob-field" for="pitchOffset"><span><b>Pitch</b><output for="pitchOffset">0</output></span><input id="pitchOffset" type="range" min="-24" max="24" step="0.1" value="0" aria-label="Pitch" /></label>

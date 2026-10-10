@@ -7,6 +7,8 @@
  * Definitions: https://pi.math.cornell.edu/~klindsey/presentations/MandelbrotPresentation.pdf
  * Waveguide interpretation: https://ccrma.stanford.edu/~jos/pasp/Digital_Waveguide_Mesh.html
  */
+import { MOTION_DEFAULTS, MOTION_LIMITS } from './parameter-motion.js';
+
 export const MODES = Object.freeze([
   Object.freeze({ id: 'inverse', label: 'Inverse tree', description: 'Both square-root predecessors form a Julia vector tree.' }),
   Object.freeze({ id: 'contours', label: 'Contour loops', description: 'Numerical escape-potential contours connect at nearby spatial bridges.' }),
@@ -38,12 +40,15 @@ export const ROUTING_MODES = Object.freeze([
   Object.freeze({ id: 'hub', label: 'Hub', description: 'Connect selected graph nodes to an existing central junction.' }),
 ]);
 export const DEFAULT_PARAMETERS = Object.freeze({ mode: 'inverse', domain: 'julia', propagation: 'paths', cReal: -.745, cImag: .113,
+  ...MOTION_DEFAULTS,
   detail: 6, timeMs: 140, coupling: .82, decay: .84, pitchOffset: 0, pickup: .7,
   geometryPitch: 8, tapCoverage: .65, turnTone: .3,
   inputMode: 'point', inputPosition: 0, inputCount: 4, inputSpread: .5,
   pickupMode: 'point', pickupCount: 4, pickupSpread: .5, boundary: 1,
   routing: 'geometry', linkDensity: .25 });
 export const PARAMETER_LIMITS = Object.freeze({ cReal: Object.freeze([-2, 1]), cImag: Object.freeze([-1.5, 1.5]),
+  realMotionTempo: MOTION_LIMITS.tempo, imagMotionTempo: MOTION_LIMITS.tempo,
+  realMotionDepth: MOTION_LIMITS.depth, imagMotionDepth: MOTION_LIMITS.depth,
   detail: Object.freeze([2, 12]), timeMs: Object.freeze([.05, 2000]), coupling: Object.freeze([0, 1]),
   decay: Object.freeze([0, .98]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]),
   geometryPitch: Object.freeze([0, 24]), tapCoverage: Object.freeze([0, 1]), turnTone: Object.freeze([0, 1]),
@@ -82,6 +87,8 @@ export function randomizeParameters(candidate = DEFAULT_PARAMETERS, random = Mat
   return sanitizeParameters({ mode: MODE_IDS[Math.floor(unit() * MODE_IDS.length)], domain: unit() < .7 ? 'julia' : 'mandelbrot',
     propagation: PROPAGATION_MODES[Math.floor(unit() * PROPAGATION_MODES.length)].id,
     cReal: -2 + 3 * unit(), cImag: -1.5 + 3 * unit(), detail: 2 + Math.floor(11 * unit()),
+    realMotionTempo: .25 * 240 ** unit(), imagMotionTempo: .25 * 240 ** unit(),
+    realMotionDepth: 1.5 * unit(), imagMotionDepth: 1.5 * unit(),
     timeMs: .05 * (2000 / .05) ** unit(), coupling: .3 + .7 * unit(), decay: .35 + .63 * unit(),
     pitchOffset: -24 + 48 * unit(), pickup: unit(),
     geometryPitch: 24 * unit(), tapCoverage: unit(), turnTone: unit(),

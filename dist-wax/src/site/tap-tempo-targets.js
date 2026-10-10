@@ -28,6 +28,8 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "euclid.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "falling-forms.html", "selector": "#physics-timeScale", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "fourier-epicycles.html", "selector": "#fourierRate", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "fractal-delay.html", "selector": "#realMotionTempo", "mapping": {"unit": "bpm"}, "title": "Tap Real c tempo (one complete back-and-forth sweep per beat)"},
+  {"route": "fractal-delay.html", "selector": "#imagMotionTempo", "mapping": {"unit": "bpm"}, "title": "Tap Imaginary c tempo (one complete back-and-forth sweep per beat)"},
   {"route": "fractal-synthesis.html", "selector": "#motionAngleTempo", "mapping": {"unit": "bpm", "signed": true}},
   {"route": "fractal-synthesis.html", "selector": "#motionBranchTempo", "mapping": {"unit": "bpm", "signed": true}},
   {"route": "fractal-synthesis.html", "selector": "#motionIndexTempo", "mapping": {"unit": "bpm", "signed": true}},

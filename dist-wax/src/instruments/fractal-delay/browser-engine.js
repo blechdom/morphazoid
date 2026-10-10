@@ -1,4 +1,5 @@
 import { DEFAULT_PARAMETERS, sanitizeParameters } from './model.js';
+import { createParameterMotion } from './parameter-motion.js';
 import { DEFAULT_PERFORMANCE, sanitizePerformance } from './performance.js';
 import { createInputSource } from '../micmic/native/input-source.js';
 import { audioInputConstraints, configureAudioInputNode, audioInputDescription } from '../../audio-input-settings.js';
@@ -14,11 +15,13 @@ export function createFractalDelayEngine(options = {}) {
   let parameters = sanitizeParameters(options.parameters || DEFAULT_PARAMETERS);
   let performance = sanitizePerformance(options.performance || DEFAULT_PERFORMANCE);
   let context, node, master, releaseOutput, contextPromise, modulePromise, module;
-  let contextGeneration = 0, audioDesired = false, audio = false, disposed = false;
+  let contextGeneration = 0, audioDesired = false, audio = false, disposed = false, processorFailure = false;
   let micStream, micNode, micPending = false, micVersion = 0, audioVersion = 0;
-  let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0;
+  let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0, lastSampleClock = 0;
   let compiling = false, cpuEstimate = 0, requiredDelayBytes = 0, pollTimer, pollPending = false;
   let manual = false, budget = 16384;
+  const motion = createParameterMotion(parameters);
+  let motionTimer, motionClock, motionBusy = false, lastMotionDispatch = -Infinity;
   const memoryBytes = (navigator.deviceMemory >= 8 ? 192 : navigator.deviceMemory <= 2 ? 48 : 96) * 1024 * 1024;
   const requests = new Map(), builds = new Map(), listeners = new Set();
   const pulseNodes = new Set();
@@ -32,14 +35,14 @@ export function createFractalDelayEngine(options = {}) {
     onChange: emit, onError: report,
   });
   function getDiagnostics() {
-    return { parameters:{...parameters}, performance:{...performance}, audioDesired, audio,
+    return { parameters:{...parameters}, performance:{...performance}, motion:motion.snapshot(), audioDesired, audio,
       contextState:context?.state || 'uninitialized', contextGeneration, input:input.snapshot(),
       microphone:!!micStream, microphonePending:micPending, inputDescription:audioInputDescription(micStream),
       sourceCount:Number(!!micStream)+Number(input.snapshot().playing), error, compiling,
       network, preview, revision:status.revision || network?.revision || 0,
       preparedEdges:(network || preview)?.edges.length || 0,
       requestedEdges:(network || preview)?.requestedEdges || 0,
-      activeEdges:audio ? status.activeEdges || 0 : 0, sampleClock:status.sampleClock || 0,
+      activeEdges:audio ? status.activeEdges || 0 : 0, sampleClock:status.sampleClock || lastSampleClock,
       cpuLoad:status.cpuLoad || 0, cpuEstimate, requiredDelayBytes, memoryBytes, budget, manual,
       status, sceneMemoryBytes:memoryBytes/2, sampleRate:context?.sampleRate || 48000 };
   }
@@ -100,12 +103,14 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function prepareContext() {
     if (disposed) throw new Error('Instrument has closed');
+    if (processorFailure) throw new Error('Audio processor stopped. Reload to restart.');
     if (contextPromise) return contextPromise;
     if (node && context?.state !== 'closed') return context;
     contextPromise = (async () => {
       // Create and resume synchronously inside the explicit Audio/Mic action.
       const AudioContextClass = globalThis.AudioContext || globalThis.webkitAudioContext;
       context = new AudioContextClass({latencyHint:'interactive',sampleRate:48000}); contextGeneration++;
+      lastSampleClock=0;status={};
       const ownedContext=context;
       const resumed=context.resume();
       master = context.createGain(); master.gain.value = 0;
@@ -119,12 +124,14 @@ export function createFractalDelayEngine(options = {}) {
         outputChannelCount:[2],channelCount:2,channelCountMode:'explicit',
         processorOptions:{module:wasm,memoryReserveBytes:memoryBytes+16*1024*1024}});
       node.port.onmessage = ({data}) => {
-        if (data.type === 'fatal') { audioDesired = audio = false; master.gain.value = 0; stopPulses(); stopMicrophone(); input.stop(); report(data.error); return; }
+        if(context!==ownedContext)return;
+        if (data.type === 'fatal') { failProcessor(data.error); return; }
+        if(data.status)lastSampleClock=Math.max(lastSampleClock,data.status.sampleClock||0);
         if (data.status && data.status.revision === network?.revision) { status = data.status; emit(); }
         const pending = requests.get(data.id);
         if (pending) { clearTimeout(pending.timer); requests.delete(data.id); data.error ? pending.reject(new Error(data.error)) : pending.resolve(data); }
       };
-      node.onprocessorerror = () => { audioDesired = audio = false; stopPulses(); input.stop(); stopMicrophone(); report('Audio processor stopped. Reload to restart.'); };
+      node.onprocessorerror = () => failProcessor('Audio processor stopped. Reload to restart.');
       node.connect(master); sendControls();
       await context.resume();
       if (!network || context.sampleRate !== 48000) await prepareNetwork();
@@ -149,9 +156,10 @@ export function createFractalDelayEngine(options = {}) {
   let lastPoll = 0;
   const performanceNow = () => globalThis.performance.now();
   async function setAudio(enabled) {
+    advanceMotionClock();
     const token = ++audioVersion; audioDesired=!!enabled; error=''; emit();
     if (!enabled) {
-      stopPulses(); stopMicrophone(); input.stop(); audio=false;
+      stopPulses(); stopMicrophone(); input.stop(); audio=false;advanceMotionClock();
       if (master && context?.state !== 'closed') {
         master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(0,context.currentTime,.008);
         await wait(35);
@@ -162,10 +170,21 @@ export function createFractalDelayEngine(options = {}) {
     }
     try {
       await prepareContext(); if (token !== audioVersion || !audioDesired || disposed) return false;
-      await context.resume(); sendControls(); audio=true;
+      await context.resume(); sendControls();advanceMotionClock();audio=true;advanceMotionClock();
       master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(1,context.currentTime,.012);
       if (input.snapshot().mode !== 'mic') await input.start(); emit(); return true;
-    } catch(reason) { if (token===audioVersion) audioDesired=audio=false; report(reason); throw reason; }
+    } catch(reason) { if (token===audioVersion){advanceMotionClock();audioDesired=audio=false;advanceMotionClock();} report(reason); throw reason; }
+  }
+  function failProcessor(reason) {
+    advanceMotionClock();audioDesired=audio=false;advanceMotionClock();processorFailure=true;
+    motion.setPlaying('real',false);motion.setPlaying('imag',false);stopMotionTimer();
+    if(master)master.gain.value=0;
+    stopPulses();stopMicrophone();input.stop();compiling=false;
+    const failure=new Error(String(reason?.message||reason));
+    for(const pending of requests.values()){clearTimeout(pending.timer);pending.reject(failure);}requests.clear();
+    for(const pending of builds.values())pending.resolve(false);builds.clear();
+    if(context?.state==='running')void context.suspend().catch(report);
+    report(failure);
   }
   function stopMicrophone() {
     micVersion++; micPending=false; micNode?.disconnect(); micNode=null;
@@ -204,10 +223,59 @@ export function createFractalDelayEngine(options = {}) {
   async function loadFile(file) {
     stopMicrophone(); input.selectMode('file'); sendControls(); await input.loadFile(file); emit();
   }
-  async function setParameters(next) {
+  function advanceMotionClock() {
+    // Motion uses the audio clock while sound runs. Rendering and UI stalls do
+    // not change its tempo; switching clock domains rebases the epoch only.
+    const kind=audio && context?.state==='running' ? 'audio' : 'visual';
+    const time=kind==='audio' ? context.currentTime : performanceNow()/1000;
+    if(motionClock?.kind===kind)motion.advance(time-motionClock.time);
+    motionClock={kind,time};
+  }
+  function motionPlaying() {const state=motion.snapshot();return state.real.playing||state.imag.playing;}
+  function motionPose() {const state=motion.snapshot();return {cReal:state.real.value,cImag:state.imag.value};}
+  function motionDirty(pose=motionPose()) {
+    return Math.abs(pose.cReal-parameters.cReal)>1e-10 || Math.abs(pose.cImag-parameters.cImag)>1e-10;
+  }
+  async function applyParameters(next) {
     const before=parameters; parameters=sanitizeParameters({...parameters,...next}); sendControls(); emit();
     if(GEOMETRY_KEYS.some(key=>before[key]!==parameters[key]))return prepareNetwork();
     return true;
+  }
+  async function setParameters(next) {
+    advanceMotionClock();
+    const candidate={...next},recenter=[];
+    for(const [axis,coordinate]of [['real','cReal'],['imag','cImag']]) {
+      if(Object.hasOwn(candidate,coordinate)||Object.hasOwn(candidate,`${axis}MotionDepth`)) {
+        recenter.push(axis);
+        // Changing a span starts from the current pose rather than the last
+        // prepared graph. Tempo-only edits retain the running phase.
+        if(!Object.hasOwn(candidate,coordinate))candidate[coordinate]=motion.snapshot()[axis].value;
+      }
+    }
+    motion.sync(sanitizeParameters({...parameters,...candidate}),{recenter});
+    return applyParameters(candidate);
+  }
+  function stopMotionTimer() {clearInterval(motionTimer);motionTimer=undefined;}
+  function pumpMotion() {
+    if(disposed)return;
+    advanceMotionClock();
+    const pose=motionPose(),dirty=motionDirty(pose);
+    if(!motionPlaying()&&!dirty&&!motionBusy){stopMotionTimer();return;}
+    // One latest target, one preparation through its installed Rust ACK. Both
+    // coordinates share this pump so they cannot cancel each other's scenes.
+    if(motionBusy||compiling||contextPromise||performanceNow()-lastMotionDispatch<100||(!dirty&&network))return;
+    motionBusy=true;lastMotionDispatch=performanceNow();
+    const prepare=dirty?applyParameters(pose):prepareNetwork();
+    Promise.resolve(prepare).catch(reason=>{
+      motion.setPlaying('real',false);motion.setPlaying('imag',false);stopMotionTimer();report(reason);
+    }).finally(()=>{motionBusy=false;if(!disposed&&!motionPlaying()&&!motionDirty())stopMotionTimer();});
+  }
+  function setMotionPlaying(axis,playing) {
+    if(disposed||processorFailure)return false;
+    advanceMotionClock();
+    if(!motion.setPlaying(axis,playing))return false;
+    if(!motionTimer)motionTimer=setInterval(pumpMotion,50);
+    emit();pumpMotion();return true;
   }
   function setPerformance(next) {performance=sanitizePerformance({...performance,...next});sendControls();emit();return Promise.resolve(true);}
   function stopPulses() {
@@ -233,13 +301,13 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function dispose() {
     if(disposed)return; audioDesired=false; audio=false; stopPulses(); stopMicrophone();input.dispose();disposed=true;
-    clearInterval(pollTimer);worker.terminate();
+    clearInterval(pollTimer);stopMotionTimer();motion.setPlaying('real',false);motion.setPlaying('imag',false);worker.terminate();
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.resolve({superseded:true});}requests.clear();
     for(const pending of builds.values())pending.resolve(false);builds.clear();
     node?.port.postMessage({type:'dispose'});node?.disconnect();master?.disconnect();releaseOutput?.();
     if(context?.state!=='closed')await context?.close();listeners.clear();
   }
-  const engine={getDiagnostics,setParameters,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
+  const engine={getDiagnostics,setParameters,setMotionPlaying,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
     setInputLoop:loop=>input.setLoop(loop),restartInput:()=>input.restart(),stopInput:()=>{stopPulses();stopMicrophone();input.stop();},
     setVoiceBudget:async(value,override=false)=>{budget=Math.max(2,Math.min(16384,Math.floor(Number(value)||16384)));manual=!!override;return prepareNetwork();},
     subscribe(listener){listeners.add(listener);listener(getDiagnostics());return()=>listeners.delete(listener);},

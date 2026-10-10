@@ -17,7 +17,9 @@ export function estimateSceneBytes(scene, sampleRate = 48000, maxTimeMs = 2000) 
 }
 
 export function createWasmNetwork(module, sampleRate = 48000, blockSize = 128) {
-  const api = new WebAssembly.Instance(module, {}).exports;
+  // The offline worker can reuse an instance's allocator while each benchmark
+  // still owns a fresh Rust engine. Audio always owns its separate instance.
+  const api = (module instanceof WebAssembly.Instance ? module : new WebAssembly.Instance(module, {})).exports;
   if (api.fd_abi_version() !== 1) throw new Error('Unsupported fractal delay ABI');
   const engine = api.fd_new(sampleRate);
   if (!engine) throw new Error('Unsupported audio sample rate');

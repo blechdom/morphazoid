@@ -10,6 +10,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { mountAudioInputControl } from '../../audio-input-control.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { initializeOutputRecording } from '../../site/output-recording-controls.js';
+import { initializeTapTempoControls } from '../../site/tap-tempo-controls.js';
 
 const $=id=>document.getElementById(id);
 const engine=createFractalDelayEngine({parameters:DEFAULT_PRESET.parameters});
@@ -39,11 +40,15 @@ headerObserver.observe(document.querySelector('.masthead'));
 const knobs=new Map();
 for(const input of document.querySelectorAll('.knob-field input')){
   const id=input.id;
-  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz','inputCount','pickupCount'].includes(id)?'log':'linear'}));
+  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz','inputCount','pickupCount','realMotionTempo','imagMotionTempo'].includes(id)?'log':'linear'}));
   input.addEventListener('input',()=>run(id in PARAMETER_LIMITS?
     engine.setParameters({[id]:Number(input.value)}):engine.setPerformance({[id]:Number(input.value)})));
 }
+// Rust/WASM pages own their bootstrap; nav.js leaves this lifecycle to us.
+const tapTempo=initializeTapTempoControls(document,globalThis);
 const format=(key,value)=>{
+  if(key.endsWith('MotionTempo'))return `${Number(value.toFixed(2))} BPM`;
+  if(key.endsWith('MotionDepth'))return `±${Number(value.toFixed(3))}`;
   if(['timeMs','compressorAttackMs','compressorReleaseMs'].includes(key))return `${Number(value.toFixed(value<10?2:0))} ms`;
   if(['hpfHz','lpfHz'].includes(key))return value>=1000?`${(value/1000).toFixed(1)} kHz`:`${Math.round(value)} Hz`;
   if(['pitchOffset'].includes(key))return `${value>0?'+':''}${Number(value.toFixed(1))} st`;
@@ -83,12 +88,14 @@ $('inputLoop').addEventListener('change',()=>engine.setInputLoop($('inputLoop').
 $('restartInput').addEventListener('click',()=>run(engine.restartInput()));
 $('stopInput').addEventListener('click',()=>engine.stopInput());
 $('sendPulse').addEventListener('click',()=>run(engine.sendPulse()));
+for(const axis of ['real','imag'])$(`${axis}MotionPlay`).addEventListener('click',()=>
+  run(engine.setMotionPlaying(axis,!state.motion[axis].playing)));
 $('masteringPreset').addEventListener('change',()=>{
   const preset=MASTERING_PRESETS.find(item=>item.id===$('masteringPreset').value);if(preset)run(engine.setPerformance(preset.mix));
 });
 for(const id of ['voiceBudget','manualBudget'])$(id).addEventListener('change',()=>run(engine.setVoiceBudget($('voiceBudget').value,$('manualBudget').checked)));
 $('captureSound').addEventListener('click',async()=>{
-  const text=JSON.stringify({instrument:'fractal-delay',version:2,...capture(),liveLevels:{inputGain:state.performance.inputGain,
+  const text=JSON.stringify({instrument:'fractal-delay',version:3,...capture(),liveLevels:{inputGain:state.performance.inputGain,
     inputDriveDb:state.performance.inputDriveDb,delayGainDb:state.performance.delayGainDb,dry:state.performance.dry,
     outputLevel:state.performance.outputLevel,outputBoostDb:state.performance.outputBoostDb}},null,2);
   $('capturedSound').value=text;$('capturedSound').hidden=false;
@@ -135,11 +142,16 @@ const release=engine.subscribe(next=>{state=next;
   if(next.status!==lastStatus||next.audio!==lastAudio){lastStatus=next.status;lastAudio=next.audio;renderer.setStatus(next.audio?next.status:null);}
 });
 function syncControls(){
-  const key=JSON.stringify([state.parameters,state.performance,state.input.mode,state.input.sampleId]);
+  const key=JSON.stringify([state.parameters,state.performance,state.input.mode,state.input.sampleId,state.motion.real.playing,state.motion.imag.playing]);
   if(key===lastStateKey)return;lastStateKey=key;
   for(const [id,value]of Object.entries({...state.parameters,...state.performance})){
-    const input=$(id);if(!input)continue;input.value=String(value);
-    if(knobs.has(id)){knobs.get(id).update();const output=document.querySelector(`output[for="${id}"]`);if(output)output.textContent=format(id,value);}
+    const input=$(id);if(!input)continue;
+    const changed=input.value!==String(value);if(changed)input.value=String(value);
+    if(knobs.has(id)){
+      const output=document.querySelector(`output[for="${id}"]`),text=format(id,value);
+      if(changed||output?.textContent!==text)knobs.get(id).update();
+      if(output&&output.textContent!==text)output.textContent=text;
+    }
   }
   audioStrip.setLevel(state.performance.outputLevel);inputControl.root.setGain(state.performance.inputGain);
   $('sourceMode').value=state.input.mode;$('sampleSelect').value=state.input.sampleId;
@@ -154,6 +166,11 @@ function syncControls(){
   $('modeDescription').textContent=MODES.find(mode=>mode.id===state.parameters.mode).description;
   $('routingDescription').textContent=ROUTING_MODES.find(mode=>mode.id===state.parameters.routing)?.description||'';
   const paths=state.parameters.propagation==='paths';
+  for(const [axis,name]of [['real','Real'],['imag','Imaginary']]){
+    const playing=state.motion[axis].playing,button=$(`${axis}MotionPlay`);
+    button.textContent=playing?'Pause':'Play';button.setAttribute('aria-pressed',String(playing));
+    button.setAttribute('aria-label',`${playing?'Pause':'Play'} ${name} c motion`);
+  }
   for(const id of ['geometryPitch','tapCoverage','turnTone'])$(id).disabled=!paths;
   $('propagationDescription').textContent=paths?'Length → travel time · direction → pitch · bends → tone.':'Wave scattering and reflections. Path controls are retained for Path echoes.';
   $('masteringPreset').value=MASTERING_PRESETS.find(preset=>Object.entries(preset.mix).every(([key,value])=>Math.abs(state.performance[key]-value)<.001))?.id||'';
@@ -198,6 +215,6 @@ frame=requestAnimationFrame(animate);
 run(engine.ready());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)run(engine.setAudio(false));});
 globalThis.addEventListener('pagehide',()=>{
-  closed=true;cancelAnimationFrame(frame);release();presets.destroy();inputControl.destroy();audioStrip.destroy();
+  closed=true;cancelAnimationFrame(frame);release();presets.destroy();tapTempo?.destroy();inputControl.destroy();audioStrip.destroy();
   for(const knob of knobs.values())knob.destroy();headerObserver.disconnect();mapWorker.terminate();renderer.dispose();void engine.dispose();
 },{once:true});

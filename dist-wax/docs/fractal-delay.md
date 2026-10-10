@@ -80,7 +80,9 @@ property prescribed by the quadratic iteration.
 Angle pitch, Path taps and Bend tone are retained but inactive in Resonance.
 Short-delay factory resonators keep this interpretation; longer echo presets
 use Path echoes. Saved snapshots from before these controls restore Resonance
-with zero new mappings. New parameter captures use version 2.
+with zero new mappings. New parameter captures use version 3 and include the
+four sweep settings. The captured c values become the new starting center;
+live Play/Pause states remain separate transport state.
 
 Short travel times make interference and resonance prominent; longer times
 make individual routes and returns easier to follow. Pitch offset changes the
@@ -162,10 +164,44 @@ The complex parameter spans real −2…1 and imaginary −1.5…1.5. Detail spa
 2…12; higher requested detail requires more graph edges or grid resolution.
 Travel time spans 0.05…2,000 ms per normalized geometric unit. Coupling spans
 0…1, Decay 0…0.98, Pitch offset −24…24 semitones, and Pickup 0…1 along the
-indexed graph. Twenty-eight complete musical presets retain the original four
-starting points per mapping and add eight multiport/routing scenes. Random
+indexed graph. Forty complete musical presets retain the original four
+starting points per mapping, eight multiport/routing scenes and twelve bolder
+journeys. Rabbit Slingshot, Two-Step Thunder and Four-Way Carousel use longer
+returns; Orbit Torrent follows a long open route. The newer paths use stronger
+continuous angle pitch, broader listening coverage and lighter bend damping,
+with sparse excitation so successive arrivals can be heard. Root Cloud starts
+with a stronger path interpretation. Random
 changes every musical field within its bounds, while retaining
 the live source, levels and device state.
+
+Each c axis has independent **Play/Pause**, **Tempo** and **Sweep** controls.
+Motion starts paused and never enables Audio or microphone capture. Tempo is
+0.25–60 BPM: one beat is one complete back-and-forth round trip (6 BPM takes
+10 seconds). Shared Tap sets that same physical rate. Sweep is the distance
+on either side of the starting c value, from zero to ±1.5, clipped to the
+coordinate bounds. The motion follows a continuous sine with no jump at
+startup or pause/resume; tempo edits retain phase. Moving c or changing Sweep
+chooses a new center at the current pose. A preset restores its c and four
+motion settings while retaining each axis's live playing state.
+
+Sounding motion uses `AudioContext.currentTime`; visual-only exploration uses
+a monotonic performance clock. One shared 50 ms timer advances both phases
+independently of rendering. At most ten new geometry requests per second are
+sent, with only one motion scene outstanding through its installed Rust
+acknowledgement. A busy worker skips intermediate poses and next prepares the
+current pose; it does not accumulate old targets. The renderer adopts that
+same installed graph. Dense numerical contours/chambers can therefore update
+more slowly than simple orbits, while the sweep clock keeps its tempo.
+For Mandelbrot contours/rays/chambers, motion moves the excitation selection
+through the fixed parameter-plane graph rather than deforming it.
+
+Motion geometry is still admitted against its measured cost and real delay
+storage. The worker's exact-geometry cost cache holds at most 32 entries. Its
+offline benchmarks reuse one WASM allocator with a fresh Rust engine per
+trial, so prior histories/crossfades do not contaminate measurements. Allocated
+WASM pages retain their high-water mark; this is separate from the live audio
+instance. Source playback, live gains and the audio context stay in place
+through motion and preset changes.
 
 Travel time, Coupling, Decay and Pitch offset are live scalar changes; they do
 not regenerate topology. End return is also a live scalar. Port selection
