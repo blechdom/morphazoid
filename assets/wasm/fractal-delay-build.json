@@ -2,13 +2,13 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 202505,
-  "wasmSha256": "5f191315e26866e7c4e59b6940fc8c93723bbcc1ba10bd0b01d08bec515d8b1c",
+  "bytes": 203214,
+  "wasmSha256": "4097a373db592a19c4ce4152551e16148ea33719fbb2a25197a96c8e677a08c4",
   "sourceHashes": {
     "scripts/build-fractal-delay-wasm.mjs": "c4d97adb6c2f3b7b59e75884d9ae16431bac2fce81707f40851f0b0e7b71ce2a",
     "src/instruments/fractal-delay/rust/Cargo.lock": "90457b9ecdf125bbae1850fc79530bedf7fbb1bc21e78559f85a3e13827d421e",
     "src/instruments/fractal-delay/rust/Cargo.toml": "44225ee22a04e9743e7d96d50371e61a82e8359f3382897e463676d67a5f5774",
-    "src/instruments/fractal-delay/rust/src/lib.rs": "1336c9c98632fe5867ccc66afe4748f5bfcdb610992a549087dccbbb1c1671d4"
+    "src/instruments/fractal-delay/rust/src/lib.rs": "890292babe880ccdd2c23dcad5de42e698398de6a3803d39d3a3caac5b317c38"
   },
   "imports": [],
   "exports": [

@@ -229,12 +229,10 @@ impl Direction {
             return Edge::read(history, write, delay);
         }
         let other = (self.phase + 0.5).fract();
-        let first = if self.ratio >= 1. {
-            1. - self.phase
-        } else {
-            self.phase
-        };
-        let second = if self.ratio >= 1. { 1. - other } else { other };
+        // One orientation for both directions of transposition: crossing unity
+        // never flips either read head to another location in the history.
+        let first = 1. - self.phase;
+        let second = 1. - other;
         let weight = Self::window(window, self.phase);
         // Every grain lies BEHIND the geometric arrival, never ahead of it.
         // The adaptive span uses existing 25% reserved history headroom.
@@ -255,7 +253,8 @@ impl Direction {
         };
         follow(&mut self.mix, target, smooth);
         if grain >= 1. && self.mix > 0. {
-            self.phase = (self.phase + (self.ratio - 1.).abs() / grain).fract();
+            let phase = self.phase + (self.ratio - 1.) / grain;
+            self.phase = phase - phase.floor();
         }
     }
     fn color(&mut self, value: f64, path_mix: f64, smooth: f64) -> f64 {
@@ -347,6 +346,7 @@ struct Graph {
     direction_sums: Vec<[f64; 2]>,
     connected_scale: f64,
     target_cursor: usize,
+    targets_remaining: usize,
     pan: Vec<[f64; 2]>,
     edges: Vec<Edge>,
     reserve_ms: f64,
@@ -365,7 +365,7 @@ impl Graph {
         for index in 0..self.edges.len() {
             self.cache_turn(index);
         }
-        self.target_cursor = 0;
+        self.mark_controls();
         // Retargeting is bounded inside process(), even for dense live edits.
     }
     fn cache_turn(&mut self, index: usize) {
@@ -404,12 +404,21 @@ impl Graph {
                 };
         }
     }
+    fn mark_controls(&mut self) {
+        // Continuous gestures must not keep restarting at edge zero. Retain the
+        // rolling position and dirty one complete sweep of the latest controls.
+        self.targets_remaining = self.edges.len();
+    }
     fn update_control_targets(&mut self, rate: f64, parameters: &Parameters, records: usize) {
-        let end = (self.target_cursor + records).min(self.edges.len());
-        for edge in &mut self.edges[self.target_cursor..end] {
-            Self::control_target(edge, rate, parameters);
+        let count = records.min(self.targets_remaining);
+        for _ in 0..count {
+            Self::control_target(&mut self.edges[self.target_cursor], rate, parameters);
+            self.target_cursor += 1;
+            if self.target_cursor == self.edges.len() {
+                self.target_cursor = 0;
+            }
         }
-        self.target_cursor = end;
+        self.targets_remaining -= count;
     }
     fn step(
         &mut self,
@@ -624,6 +633,8 @@ struct Preparation {
     reuse: HashMap<u32, usize>,
     cursor: usize,
     partial: Option<PartialEdge>,
+    coefficients_prepared: usize,
+    coefficients_dirty: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Deserialize)]
@@ -912,13 +923,16 @@ impl Engine {
             self.parameters = p;
             if retarget {
                 if let Some(g) = &mut self.graph {
-                    g.target_cursor = 0;
+                    g.mark_controls();
                 }
                 if let Some(g) = &mut self.old {
-                    g.target_cursor = 0;
+                    g.mark_controls();
                 }
                 if let Some(p) = &mut self.pending {
-                    p.graph.target_cursor = 0;
+                    // Complete initial preparation without restarting it under
+                    // a gesture, then fairly refresh any coefficients prepared
+                    // before the latest controls after atomic installation.
+                    p.coefficients_dirty |= p.coefficients_prepared > 0;
                 }
             }
         }
@@ -1009,6 +1023,7 @@ impl Engine {
             direction_sums: vec![[0.; 2]; scene.nodes.len()],
             connected_scale,
             target_cursor: 0,
+            targets_remaining: 0,
             pressure: vec![0.; scene.nodes.len()],
             input_weights: input_targets.clone(),
             pickup_weights: pickup_targets.clone(),
@@ -1046,6 +1061,8 @@ impl Engine {
             reuse,
             cursor: 0,
             partial: None,
+            coefficients_prepared: 0,
+            coefficients_dirty: false,
         });
         self.pending_revision = revision;
         Ok(())
@@ -1164,16 +1181,19 @@ impl Engine {
         }
         // Turn and coefficient preparation is also incremental; activating the
         // complete graph never ends with a graph-wide exponential/pow burst.
-        let target_end = (p.graph.target_cursor + records).min(p.graph.edges.len());
-        for index in p.graph.target_cursor..target_end {
+        let target_end = (p.coefficients_prepared + records).min(p.graph.edges.len());
+        for index in p.coefficients_prepared..target_end {
             p.graph.cache_turn(index);
+            Graph::control_target(&mut p.graph.edges[index], self.rate, &self.parameters);
         }
-        p.graph
-            .update_control_targets(self.rate, &self.parameters, records);
-        if p.graph.target_cursor < p.graph.edges.len() {
+        p.coefficients_prepared = target_end;
+        if p.coefficients_prepared < p.graph.edges.len() {
             return 1;
         }
-        let p = self.pending.take().unwrap();
+        let mut p = self.pending.take().unwrap();
+        if p.coefficients_dirty {
+            p.graph.mark_controls();
+        }
         if let Some(previous) = self.old.take() {
             self.retired.push(previous);
         }
@@ -2765,7 +2785,7 @@ mod tests {
             .iter()
             .chain(&right)
             .all(|v| v.is_finite() && v.abs() <= 0.94));
-        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 1);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
     }
     #[test]
     fn legacy_propagation_defaults_and_path_control_validation_are_transactional() {
@@ -2823,25 +2843,8 @@ mod tests {
     }
     #[test]
     fn expensive_live_targets_are_prepared_in_bounded_batches_and_scalar_edits_skip_them() {
-        let mut s = scene();
-        s.nodes = (0..74)
-            .map(|index| Point {
-                id: index,
-                x: 0.,
-                y: index as f64 * 0.002,
-            })
-            .collect();
-        s.edges = (0..73)
-            .map(|index| Link {
-                id: index as u32,
-                a: index,
-                b: index + 1,
-                length: 0.002,
-            })
-            .collect();
-        s.pickup_node = 73;
-        let mut e = path_engine(s, 100., 8., 0.3);
-        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 73);
+        let mut e = path_engine(vertical_chain(73), 100., 8., 0.3);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
         let previous = e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target;
         let mut parameters = e.parameters.clone();
         parameters.geometry_pitch = 16.;
@@ -2856,6 +2859,7 @@ mod tests {
         WATCH.with(|flag| flag.set(false));
         assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
         assert_eq!(e.graph.as_ref().unwrap().target_cursor, 0);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 73);
         assert_eq!(
             e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target,
             previous
@@ -2870,7 +2874,8 @@ mod tests {
             previous
         );
         e.process(&zero, &zero, &mut left, &mut right);
-        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 73);
+        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 0);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
         assert_ne!(
             e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target,
             previous
@@ -2886,10 +2891,203 @@ mod tests {
         })
         .unwrap();
         assert_eq!(
-            e.graph.as_ref().unwrap().target_cursor,
-            73,
+            e.graph.as_ref().unwrap().targets_remaining,
+            0,
             "timing, coverage and coupling do not recalculate per-edge pitch/filter coefficients"
         );
+    }
+    fn vertical_chain(count: usize) -> Scene {
+        let mut s = scene();
+        s.nodes = (0..=count)
+            .map(|index| Point {
+                id: index as u32,
+                x: 0.,
+                y: index as f64 * 0.002,
+            })
+            .collect();
+        s.edges = (0..count)
+            .map(|index| Link {
+                id: index as u32,
+                a: index,
+                b: index + 1,
+                length: 0.002,
+            })
+            .collect();
+        s.pickup_node = count;
+        s.memory_budget_bytes = 64 * 1024 * 1024;
+        s
+    }
+    #[test]
+    fn continuous_dense_control_edits_visit_late_edges_without_starving_or_allocating() {
+        const EDGES: usize = 1025; // More than 384 targets fit between 60 Hz edits.
+        let mut e = path_engine(vertical_chain(EDGES), 100., 8., 0.3);
+        let zero = [0.; 128];
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        let mut late_updates = 0;
+        let mut previous_late = e.graph.as_ref().unwrap().edges[EDGES - 1].travel[0].ratio_target;
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for edit in 0..12 {
+            let mut parameters = e.parameters.clone();
+            parameters.geometry_pitch = 2. + edit as f64 * 1.3;
+            parameters.decay = 0.7 + edit as f64 * 0.01;
+            parameters.turn_tone = 0.25 + edit as f64 * 0.03;
+            let cursor = e.graph.as_ref().unwrap().target_cursor;
+            e.controls(Controls {
+                parameters: Some(parameters),
+                performance: None,
+                input_mode: None,
+            })
+            .unwrap();
+            assert_eq!(e.graph.as_ref().unwrap().target_cursor, cursor);
+            assert_eq!(e.graph.as_ref().unwrap().targets_remaining, EDGES);
+            // Six 128-frame blocks at 48 kHz = 16 ms: a continuous ~60 Hz drag.
+            for _ in 0..6 {
+                let graph = e.graph.as_ref().unwrap();
+                let cursor = graph.target_cursor;
+                let remaining = graph.targets_remaining;
+                e.process(&zero, &zero, &mut left, &mut right);
+                let graph = e.graph.as_ref().unwrap();
+                let changed = remaining.min(64);
+                assert_eq!(graph.target_cursor, (cursor + changed) % EDGES);
+                assert_eq!(graph.targets_remaining, remaining - changed);
+                let late = graph.edges[EDGES - 1].travel[0].ratio_target;
+                if late != previous_late {
+                    late_updates += 1;
+                    assert!((late - 2f64.powf(e.parameters.geometry_pitch / 12.)).abs() < 1e-12);
+                    previous_late = late;
+                }
+            }
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert!(
+            late_updates >= 4,
+            "the final edge must follow the ongoing gesture"
+        );
+        let mut blocks = 0;
+        while e.graph.as_ref().unwrap().targets_remaining > 0 {
+            let remaining = e.graph.as_ref().unwrap().targets_remaining;
+            e.process(&zero, &zero, &mut left, &mut right);
+            assert_eq!(
+                e.graph.as_ref().unwrap().targets_remaining,
+                remaining - remaining.min(64)
+            );
+            blocks += 1;
+            assert!(blocks <= EDGES.div_ceil(64));
+        }
+        let ratio = 2f64.powf(e.parameters.geometry_pitch / 12.);
+        let loss = e.parameters.decay.powf(0.002);
+        for edge in &e.graph.as_ref().unwrap().edges {
+            assert!((edge.travel[0].ratio_target - ratio).abs() < 1e-12);
+            assert!((edge.travel[1].ratio_target - 1. / ratio).abs() < 1e-12);
+            assert!((edge.loss_target - loss).abs() < 1e-12);
+        }
+    }
+    #[test]
+    fn continuous_control_edits_do_not_restart_atomic_coefficient_preparation() {
+        const EDGES: usize = 1025;
+        let mut e = path_engine(scene(), 100., 8., 0.3);
+        e.begin(vertical_chain(EDGES), 2).unwrap();
+        let zero = [0.; 128];
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        let mut previous_prepared = 0;
+        let maximum_steps = 2 * EDGES.div_ceil(16) + 2;
+        let mut installed = false;
+        for edit in 0..maximum_steps {
+            let mut parameters = e.parameters.clone();
+            parameters.geometry_pitch = 2. + (edit % 20) as f64;
+            parameters.decay = 0.7 + (edit % 20) as f64 * 0.01;
+            e.controls(Controls {
+                parameters: Some(parameters),
+                performance: None,
+                input_mode: None,
+            })
+            .unwrap();
+            assert_eq!(
+                e.pending.as_ref().unwrap().coefficients_prepared,
+                previous_prepared
+            );
+            e.process(&zero, &zero, &mut left, &mut right);
+            if e.prepare(16) == 2 {
+                installed = true;
+                break;
+            }
+            let prepared = e.pending.as_ref().unwrap().coefficients_prepared;
+            assert!(prepared >= previous_prepared);
+            assert!(prepared - previous_prepared <= 16);
+            previous_prepared = prepared;
+        }
+        assert!(
+            installed,
+            "one complete graph must install during an ongoing gesture"
+        );
+        assert_eq!(e.revision, 2);
+        assert_eq!(e.graph.as_ref().unwrap().edges.len(), EDGES);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, EDGES);
+        for _ in 0..EDGES.div_ceil(64) {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        let graph = e.graph.as_ref().unwrap();
+        assert_eq!(graph.targets_remaining, 0);
+        let ratio = 2f64.powf(e.parameters.geometry_pitch / 12.);
+        assert!(graph
+            .edges
+            .iter()
+            .all(|edge| (edge.travel[0].ratio_target - ratio).abs() < 1e-12));
+        assert!(left.iter().chain(&right).all(|value| value.is_finite()));
+    }
+    #[test]
+    fn geometry_pitch_crossing_unity_preserves_read_heads_and_actual_pcm() {
+        let window =
+            std::array::from_fn(|i| 0.5 - 0.5 * (TAU * i as f64 / PITCH_WINDOW as f64).cos());
+        let history: Vec<f32> = (0..8192).map(|index| index as f32 / 8192.).collect();
+        let mut direction = Direction::new(0.37);
+        direction.mix = 1.;
+        direction.ratio = 1. - 1e-6;
+        let before = direction.sample(&history, 6000, 2400., 480., &window);
+        direction.ratio = 1. + 1e-6;
+        let after = direction.sample(&history, 6000, 2400., 480., &window);
+        assert_eq!(
+            before, after,
+            "changing pitch direction must not relocate the read heads"
+        );
+        // A real live crossing has a target farther beyond unity while the
+        // current smoothed ratio passes through it; keep the pitch mix active.
+        let smoothing = 1. - (-1f64 / (48000. * 0.035)).exp();
+        direction.ratio = 1. - 1e-6;
+        direction.ratio_target = direction.ratio + 2e-6 / smoothing;
+        let phase = direction.phase;
+        direction.advance(1., 480., smoothing);
+        assert!((direction.ratio - (1. + 1e-6)).abs() < 1e-12);
+        assert!((direction.phase - phase - 1e-6 / 480.).abs() < 1e-15);
+        let next = direction.sample(&history, 6000, 2400., 480., &window);
+        assert!(
+            (next - after).abs() < 1e-9,
+            "only the continuous read motion changes PCM"
+        );
+    }
+    #[test]
+    fn signed_grain_motion_retains_forward_and_reverse_pitch_rate_and_causal_lookback() {
+        for ratio in [0.25, 0.5, 0.999, 1.001, 2., 4.] {
+            let mut direction = Direction::new(0.37);
+            direction.mix = 1.;
+            direction.ratio = ratio;
+            direction.ratio_target = ratio;
+            let grain = 480.;
+            let base = 2400.;
+            let previous_delay = base + grain * (0.25 + 1. - direction.phase);
+            direction.advance(1., grain, 1.);
+            let next_delay = base + grain * (0.25 + 1. - direction.phase);
+            let read_rate = 1. - (next_delay - previous_delay);
+            assert!(
+                (read_rate - ratio).abs() < 1e-10,
+                "one sample of write motion must produce the declared fractional read rate"
+            );
+            assert!(next_delay >= base && next_delay <= base + grain * 1.25);
+        }
     }
 }
 
