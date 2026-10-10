@@ -413,6 +413,7 @@ impl Default for Parameters {
 #[serde(default, rename_all = "camelCase")]
 struct Performance {
     input_gain: f64,
+    delay_gain_db: f64,
     wet: f64,
     dry: f64,
     output_level: f64,
@@ -429,6 +430,7 @@ impl Default for Performance {
     fn default() -> Self {
         Self {
             input_gain: 0.85,
+            delay_gain_db: 24.,
             wet: 0.7,
             dry: 0.3,
             output_level: 1.,
@@ -473,6 +475,7 @@ struct Engine {
     boundary: f64,
     ratio: f64,
     mic_gain: f64,
+    delay_gain: f64,
     wet: f64,
     dry: f64,
     output: f64,
@@ -522,6 +525,7 @@ impl Engine {
             boundary: 1.,
             ratio: 1.,
             mic_gain: p.input_gain,
+            delay_gain: 10f64.powf(p.delay_gain_db / 20.),
             wet: p.wet,
             dry: p.dry,
             output: 10f64.powf(p.output_boost_db / 20.),
@@ -588,6 +592,7 @@ impl Engine {
         if let Some(p) = &controls.performance {
             let values = [
                 p.input_gain,
+                p.delay_gain_db,
                 p.wet,
                 p.dry,
                 p.output_level,
@@ -602,6 +607,7 @@ impl Engine {
             ];
             if values.iter().any(|v| !v.is_finite())
                 || !(0.0..=4.).contains(&p.input_gain)
+                || !(-12.0..=48.).contains(&p.delay_gain_db)
                 || !(0.0..=1.).contains(&p.wet)
                 || !(0.0..=1.).contains(&p.dry)
                 || !(0.0..=2.).contains(&p.output_level)
@@ -910,6 +916,7 @@ impl Engine {
         let ratio_target = 2f64.powf(self.parameters.pitch_offset / 12.);
         let output_target =
             self.performance.output_level * 10f64.powf(self.performance.output_boost_db / 20.);
+        let delay_gain_target = 10f64.powf(self.performance.delay_gain_db / 20.);
         self.metrics[3] = 0.;
         self.metrics[4] = 0.;
         self.metrics[5] = 0.;
@@ -920,6 +927,7 @@ impl Engine {
             follow(&mut self.boundary, self.parameters.boundary, s);
             follow(&mut self.ratio, ratio_target, s);
             follow(&mut self.mic_gain, self.performance.input_gain, s);
+            follow(&mut self.delay_gain, delay_gain_target, s);
             follow(&mut self.wet, self.performance.wet, s);
             follow(&mut self.dry, self.performance.dry, s);
             follow(&mut self.output, output_target, s);
@@ -963,7 +971,10 @@ impl Engine {
                 )
             });
             let wet = self.pitch(std::array::from_fn(|ch| {
-                current[ch] * self.fade + old[ch] * (1. - self.fade)
+                // Receiver gain is outside the bidirectional feedback network.
+                // It changes wet audibility before pitch and mixing while dry
+                // unity, wave histories and their telemetry remain unchanged.
+                (current[ch] * self.fade + old[ch] * (1. - self.fade)) * self.delay_gain
             }));
             self.fade = (self.fade + 1. / (self.rate * FADE_SECONDS)).min(1.);
             let mut output =
@@ -1670,6 +1681,161 @@ mod tests {
         let mut current = FOLLOW_EPSILON * 0.5;
         follow(&mut current, 0., coefficient);
         assert_eq!(current, 0.);
+    }
+    fn delay_gain_engine(db: f64, wet: f64, dry: f64) -> Engine {
+        let mut e = Engine::new(48000.);
+        e.controls(Controls {
+            parameters: Some(Parameters {
+                time_ms: 10.,
+                decay: 1.,
+                coupling: 1.,
+                boundary: 0.,
+                ..Parameters::default()
+            }),
+            performance: Some(Performance {
+                delay_gain_db: db,
+                wet,
+                dry,
+                hpf_hz: 0.,
+                lpf_hz: 22000.,
+                compressor_ratio: 1.,
+                output_boost_db: 0.,
+                output_level: 1.,
+                ..Performance::default()
+            }),
+            input_mode: Some("media".into()),
+        })
+        .unwrap();
+        let zero = [0f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        for _ in 0..400 {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        e.begin(scene(), 1).unwrap();
+        while e.prepare(16) == 1 {}
+        e
+    }
+    #[test]
+    fn receiver_gain_obeys_decibel_law_on_real_delayed_pressure() {
+        let mut reference = delay_gain_engine(0., 1., 0.);
+        let mut impulse = [0f32; 512];
+        impulse[0] = 0.0001;
+        let mut baseline = [0f32; 512];
+        let mut right = [0f32; 512];
+        reference.process(&impulse, &impulse, &mut baseline, &mut right);
+        let onset = baseline.iter().position(|v| v.abs() > 1e-6).unwrap();
+        assert_eq!(onset, 144);
+        for db in [-12., 12., 24.] {
+            let mut e = delay_gain_engine(db, 1., 0.);
+            let mut pcm = [0f32; 512];
+            e.process(&impulse, &impulse, &mut pcm, &mut right);
+            assert_eq!(pcm.iter().position(|v| v.abs() > 1e-6).unwrap(), onset);
+            // Undo only the shared final safety ceiling to inspect linear gain.
+            let pressure = 0.94 * (f64::from(pcm[onset]) / 0.94).atanh();
+            let original = 0.94 * (f64::from(baseline[onset]) / 0.94).atanh();
+            assert!((pressure / original - 10f64.powf(db / 20.)).abs() < 1e-5);
+        }
+    }
+    #[test]
+    fn receiver_gain_leaves_dry_pcm_and_feedback_histories_identical() {
+        let mut quiet = delay_gain_engine(-12., 0., 1.);
+        let mut loud = delay_gain_engine(48., 0., 1.);
+        let mut a = [0f32; 128];
+        let mut b = [0f32; 128];
+        let mut right = [0f32; 128];
+        for block in 0..100 {
+            let input: [f32; 128] = std::array::from_fn(|i| {
+                (0.03 * (TAU * 173. * (block * 128 + i) as f64 / 48000.).sin()) as f32
+            });
+            quiet.process(&input, &input, &mut a, &mut right);
+            loud.process(&input, &input, &mut b, &mut right);
+            assert_eq!(a, b);
+        }
+        assert_eq!(quiet.clock, loud.clock);
+        for (a, b) in quiet
+            .graph
+            .as_ref()
+            .unwrap()
+            .edges
+            .iter()
+            .zip(&loud.graph.as_ref().unwrap().edges)
+        {
+            assert_eq!(a.ab, b.ab);
+            assert_eq!(a.ba, b.ba);
+            assert_eq!(a.write, b.write);
+        }
+    }
+    #[test]
+    fn live_receiver_gain_is_smoothed_bounded_and_allocation_free_without_resetting_state() {
+        let mut e = delay_gain_engine(0., 1., 0.);
+        e.parameters.pitch_offset = 12.;
+        let input = [0.2f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        let clock = e.clock;
+        let phase = e.pitch_phase;
+        let pointer = e.graph.as_ref().unwrap().edges[0].ab.as_ptr();
+        let write = e.graph.as_ref().unwrap().edges[0].write;
+        let before = e.delay_gain;
+        let mut p = e.performance.clone();
+        p.delay_gain_db = 48.;
+        e.controls(Controls {
+            parameters: None,
+            performance: Some(p),
+            input_mode: None,
+        })
+        .unwrap();
+        assert_eq!(e.clock, clock);
+        assert_eq!(e.pitch_phase, phase);
+        assert_eq!(e.delay_gain, before);
+        assert_eq!(e.graph.as_ref().unwrap().edges[0].write, write);
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        e.process(&input[..1], &input[..1], &mut left[..1], &mut right[..1]);
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(
+            e.delay_gain,
+            before + (10f64.powf(48. / 20.) - before) * e.smooth
+        );
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..400 {
+            e.process(&input, &input, &mut left, &mut right);
+            assert!(left
+                .iter()
+                .chain(&right)
+                .all(|v| v.is_finite() && v.abs() <= 0.94));
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(e.graph.as_ref().unwrap().edges[0].ab.as_ptr(), pointer);
+        assert_eq!(e.clock, clock + 1 + 400 * 128);
+        assert_eq!(e.revision, 1);
+        assert!(e.pending.is_none() && e.old.is_none());
+    }
+    #[test]
+    fn legacy_performance_defaults_receiver_gain_and_invalid_edits_are_transactional() {
+        let legacy: Performance =
+            serde_json::from_str(r#"{"inputGain":0.85,"wet":0.7,"dry":0.3}"#).unwrap();
+        assert_eq!(legacy.delay_gain_db, 24.);
+        let mut e = delay_gain_engine(0., 1., 0.);
+        for db in [-12.1, 48.1, f64::NAN, f64::INFINITY] {
+            let mut p = e.performance.clone();
+            p.delay_gain_db = db;
+            let clock = e.clock;
+            assert!(e
+                .controls(Controls {
+                    parameters: None,
+                    performance: Some(p),
+                    input_mode: None
+                })
+                .is_err());
+            assert_eq!(e.performance.delay_gain_db, 0.);
+            assert_eq!(e.clock, clock);
+        }
     }
 }
 
