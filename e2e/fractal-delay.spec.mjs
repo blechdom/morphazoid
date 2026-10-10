@@ -27,7 +27,7 @@ async function fixture(page) {
   page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
     const NativeContext = AudioContext, NativeNode = AudioWorkletNode;
-    const qa = window.__fractalPcmWitness = { contexts: [], sources: [], nodes: [], packets: [], statuses: [],
+    const qa = window.__fractalPcmWitness = { contexts: [], sources: [], nodes: [], packets: [], statuses: [], allStatuses: [],
       streams: [], microphoneRequests: 0, pendingMicrophones: [], holdMicrophone: false, recording: false };
     window.AudioContext = class extends NativeContext {
       constructor(...args) { super(...args); qa.contexts.push(this); }
@@ -47,7 +47,11 @@ async function fixture(page) {
         if (args[1] !== 'fractal-delay-network') return;
         qa.nodes.push(this);
         this.port.addEventListener('message', ({ data }) => {
-          if (qa.recording && data.status) qa.statuses.push(structuredClone(data.status));
+          if (!data.status) return;
+          qa.allStatuses.push({ revision: data.status.revision, sampleClock: data.status.sampleClock,
+            activeEdges: data.status.activeEdges, outputLeftPeak: data.status.outputLeftPeak,
+            outputRightPeak: data.status.outputRightPeak });
+          if (qa.recording) qa.statuses.push(structuredClone(data.status));
         });
         qa.probeReady = (async () => {
           const script = `registerProcessor('fractal-pcm-witness', class extends AudioWorkletProcessor {
@@ -130,6 +134,7 @@ async function diagnostics(page) {
       contexts: qa.contexts.length, nodes: qa.nodes.length, sources: qa.sources.map(row => ({ ...row })),
       microphoneRequests: qa.microphoneRequests, pendingMicrophones: qa.pendingMicrophones.length,
       liveTracks: qa.streams.flatMap(stream => stream.getTracks()).filter(track => track.readyState !== 'ended').length,
+      statuses: qa.allStatuses,
     } };
   }, ENGINE);
 }
@@ -239,6 +244,11 @@ test('all five mathematical networks play real finite PCM without restarting the
     // of factory scenes whose long travel time intentionally delays an onset.
     await parameters(page, { timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0, pickup: .3 });
     await expect.poll(async () => (await diagnostics(page)).parameters.mode).toBe(mode);
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.compiling && d.status.revision === d.network?.revision
+        && d.activeEdges === d.preparedEdges && Math.max(d.status.outputLeftPeak, d.status.outputRightPeak) > .000001;
+    }, { timeout: 30000 }).toBe(true);
     await page.waitForTimeout(250);
     await beginCapture(page); const pcm = await capture(page);
     boundedPcm(pcm);
@@ -247,6 +257,12 @@ test('all five mathematical networks play real finite PCM without restarting the
     expect(d.witness.sources, mode).toEqual(baseline.witness.sources);
     expect(d.sampleClock, mode).toBeGreaterThan(baseline.sampleClock);
     expect(d.activeEdges, mode).toBeGreaterThan(0);
+    expect(d.activeEdges, mode).toBe(d.preparedEdges);
+    expect(d.network.mode, mode).toBe(mode);
+    expect(d.network.metadata.completeGraph, mode).toBe(true);
+    const revisionFrames = d.witness.statuses.filter(frame => frame.revision === d.network.revision);
+    expect(revisionFrames.length, mode).toBeGreaterThan(0);
+    expect(revisionFrames.map(frame => frame.activeEdges), mode).toEqual(revisionFrames.map(() => d.preparedEdges));
     expect(d.error, mode).toBeFalsy();
     evidence[mode] = { ...pcm, revision: d.revision, activeEdges: d.activeEdges };
   }
@@ -315,6 +331,15 @@ test('file and sample input stay at unity independently of retained mic gain', a
       await beginCapture(page); const pcm = await capture(page); boundedPcm(pcm); values.push(pcm);
     }
     expect(values[1].rms / values[0].rms, mode).toBeCloseTo(1, 1); evidence[mode] = values;
+    if (mode === 'samples') {
+      const nextId = await page.locator('#sampleSelect').evaluate(select =>
+        [...select.options].find(option => option.value && option.value !== select.value)?.value);
+      expect(nextId).toBeTruthy(); await choose(page, 'sampleSelect', nextId);
+      await expect.poll(async () => {
+        const d = await diagnostics(page); return d.input.playing && d.input.sampleId === nextId;
+      }, { timeout: 15000 }).toBe(true);
+      await beginCapture(page); boundedPcm(await capture(page));
+    }
   }
   await choose(page, 'sourceMode', 'mic');
   await page.evaluate(async module => (await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true), ENGINE);
@@ -374,10 +399,18 @@ for (const viewport of SIZES) {
     await page.setViewportSize(viewport);
     const errors = await fixture(page); await ready(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
-    for (const id of ['sourceMode', 'sampleSelect', 'fileInput', 'mode', 'cReal', 'cImag', 'detail',
-      'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'audioButton', 'presetSelect']) {
+    for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
+      'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
+      'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
+      'compressorAttackMs', 'compressorReleaseMs', 'compressorMakeupDb', 'masteringPreset', 'inputTrim', 'outputLevel',
+      'voiceBudget', 'manualBudget', 'captureSound', 'audioButton', 'presetSelect']) {
       if (id === 'sampleSelect') await choose(page, 'sourceMode', 'samples');
       if (id === 'fileInput') await choose(page, 'sourceMode', 'file');
+      if (id === 'domain') await choose(page, 'mode', 'contours');
+      await page.locator(`#${id}`).evaluate(node => {
+        for (let parent = node.parentElement; parent; parent = parent.parentElement)
+          if (parent.tagName === 'DETAILS' && !parent.matches('[data-select-id], .instrument-preset-controls')) parent.open = true;
+      });
       let control = page.locator(`#${id}`);
       if (!(await control.isVisible()) && id === 'presetSelect') control = page.locator('.instrument-preset-controls summary');
       else if (!(await control.isVisible()) && await page.locator(`[data-select-id="${id}"]`).count())
