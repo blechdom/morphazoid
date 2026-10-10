@@ -5,7 +5,10 @@ import { audioInputConstraints, configureAudioInputNode, audioInputDescription }
 import { connectAudioOutput } from '../../audio-output-manager.js';
 
 let singleton;
-const GEOMETRY_KEYS = ['mode','domain','cReal','cImag','detail','pickup'];
+// Port edits share the atomic revision acknowledgement; the worker reuses the
+// admitted geometry and Rust retargets ports without replacing its histories.
+const GEOMETRY_KEYS = ['mode','domain','cReal','cImag','detail','routing','linkDensity',
+  'inputMode','inputPosition','inputCount','inputSpread','pickup','pickupMode','pickupCount','pickupSpread'];
 const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function createFractalDelayEngine(options = {}) {
   let parameters = sanitizeParameters(options.parameters || DEFAULT_PARAMETERS);

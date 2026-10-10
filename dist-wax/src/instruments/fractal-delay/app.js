@@ -1,5 +1,5 @@
 import { createFractalDelayEngine } from './browser-engine.js';
-import { MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, randomizeParameters } from './model.js';
+import { MODES, ROUTING_MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, randomizeParameters } from './model.js';
 import { PRESETS, DEFAULT_PRESET } from './presets.js';
 import { DEFAULT_PERFORMANCE, PERFORMANCE_LIMITS, musicalMix, recallMix, MASTERING_PRESETS } from './performance.js';
 import { SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
@@ -14,7 +14,7 @@ import { initializeOutputRecording } from '../../site/output-recording-controls.
 const $=id=>document.getElementById(id);
 const engine=createFractalDelayEngine({parameters:DEFAULT_PRESET.parameters});
 const renderer=createNetworkRenderer($('stage'));
-let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastCredit='',lastUi=-Infinity,frame,closed=false;
+let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastCredit='',lastUi=-Infinity,lastRoutingLinks=0,frame,closed=false;
 const run=promise=>Promise.resolve(promise).catch(reason=>{
   $('liveStatus').textContent=reason.message||String(reason);$('liveStatus').classList.add('is-error');
 });
@@ -39,7 +39,7 @@ headerObserver.observe(document.querySelector('.masthead'));
 const knobs=new Map();
 for(const input of document.querySelectorAll('.knob-field input')){
   const id=input.id;
-  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz'].includes(id)?'log':'linear'}));
+  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz','inputCount','pickupCount'].includes(id)?'log':'linear'}));
   input.addEventListener('input',()=>run(id in PARAMETER_LIMITS?
     engine.setParameters({[id]:Number(input.value)}):engine.setPerformance({[id]:Number(input.value)})));
 }
@@ -49,7 +49,7 @@ const format=(key,value)=>{
   if(['pitchOffset'].includes(key))return `${value>0?'+':''}${Number(value.toFixed(1))} st`;
   if(key.endsWith('Db'))return `${Number(value.toFixed(1))} dB`;
   if(key==='compressorRatio')return `${Number(value.toFixed(1))}:1`;
-  if(['coupling','decay','pickup','wet','dry'].includes(key))return `${Math.round(value*100)}%`;
+  if(['coupling','decay','boundary','linkDensity','inputPosition','inputSpread','pickup','pickupSpread','wet','dry'].includes(key))return `${Math.round(value*100)}%`;
   return Number(value.toFixed(3)).toString();
 };
 const presetMix=preset=>musicalMix({...DEFAULT_PERFORMANCE,
@@ -74,6 +74,7 @@ $('sampleNext').addEventListener('click',()=>nextOption($('sampleSelect')));
 $('modeNext').addEventListener('click',()=>nextOption($('mode')));
 $('mode').addEventListener('change',()=>run(engine.setParameters({mode:$('mode').value})));
 $('domain').addEventListener('change',()=>run(engine.setParameters({domain:$('domain').value})));
+for(const id of ['routing','inputMode','pickupMode'])$(id).addEventListener('change',()=>run(engine.setParameters({[id]:$(id).value})));
 $('sourceMode').addEventListener('change',()=>run(engine.setInputMode($('sourceMode').value)));
 $('sampleSelect').addEventListener('change',()=>run(engine.setSample($('sampleSelect').value)));
 $('fileInput').addEventListener('change',()=>{const file=$('fileInput').files[0];if(file)run(engine.loadFile(file));});
@@ -126,7 +127,8 @@ $('parameterMap').addEventListener('pointerdown',event=>{
   run(engine.setParameters({cReal:-2+3*(event.clientX-rect.left)/rect.width,cImag:1.5-3*(event.clientY-rect.top)/rect.height}));
 });
 const release=engine.subscribe(next=>{state=next;
-  if(next.network&&next.network.revision!==lastRevision){lastRevision=next.network.revision;renderer.setNetwork(next.network);}
+  if(next.network&&next.network.revision!==lastRevision){lastRevision=next.network.revision;
+    lastRoutingLinks=next.network.edges.filter(edge=>edge.routingLink).length;renderer.setNetwork(next.network);}
   if(next.status!==lastStatus||next.audio!==lastAudio){lastStatus=next.status;lastAudio=next.audio;renderer.setStatus(next.audio?next.status:null);}
 });
 function syncControls(){
@@ -147,6 +149,7 @@ function syncControls(){
     document.querySelector(`label[for="${id}"] b`).textContent=title;$(id).setAttribute('aria-label',title);
   }
   $('modeDescription').textContent=MODES.find(mode=>mode.id===state.parameters.mode).description;
+  $('routingDescription').textContent=ROUTING_MODES.find(mode=>mode.id===state.parameters.routing)?.description||'';
   $('masteringPreset').value=MASTERING_PRESETS.find(preset=>Object.entries(preset.mix).every(([key,value])=>Math.abs(state.performance[key]-value)<.001))?.id||'';
   const detailTitle={inverse:'Generations',contours:'Contour detail',orbits:'Orbit steps',rays:'Ray detail',membrane:'Mesh detail'}[state.parameters.mode];
   document.querySelector('label[for="detail"] b').textContent=detailTitle;$('detail').setAttribute('aria-label',detailTitle);
@@ -163,6 +166,10 @@ function paintUi(now){
   if(creditKey!==lastCredit){lastCredit=creditKey;$('inputCredit').hidden=!state.input.credit;$('inputCredit').replaceChildren();
     if(state.input.credit){const a=document.createElement('a');a.textContent=state.input.credit;a.href=state.input.creditUrl||'#';a.rel='noopener';a.target='_blank';$('inputCredit').append(a);}}
   const n=state.network;
+  const inputs=n?.inputPorts?.length||(n?1:0),pickups=n?.pickupPorts?.length||(n?1:0);
+  const links=lastRoutingLinks;
+  $('portReadout').textContent=`${inputs} excitation ${inputs===1?'point':'points'} · ${pickups} ${pickups===1?'pickup':'pickups'}${state.compiling?' · updating…':''}`;
+  $('portsReadout').textContent=`${inputs} / ${pickups}`;$('linksReadout').textContent=String(links);
   $('edgeCount').textContent=`${state.preparedEdges.toLocaleString()} connections`;
   $('stageReadout').textContent=n?`${MODES.find(mode=>mode.id===n.mode).label.toUpperCase()} · ${n.edges.length.toLocaleString()} connections${state.compiling?' · preparing change':''}`:'Preparing complete network…';
   $('capacityReadout').textContent=`${state.requestedEdges.toLocaleString()} / ${state.preparedEdges.toLocaleString()}`;
@@ -174,7 +181,7 @@ function paintUi(now){
   $('liveStatus').textContent=state.error|| (state.audio?`${state.input.playing||state.microphone?'Input playing':'Audio on · waiting for input'} · ${Math.round(state.sampleRate)} Hz`:'Audio off · geometry ready to explore.');
   $('liveStatus').classList.toggle('is-error',!!state.error);
   // Visible geometry represents admitted audio connections, including quiet ones.
-  $('stage').setAttribute('aria-label',`${MODES.find(mode=>mode.id===(n?.mode||state.parameters.mode)).label}. ${state.preparedEdges} prepared connections. ${usesParameterPlane()?'Drag to move the excitation point.':'Drag to change real and imaginary c.'}`);
+  $('stage').setAttribute('aria-label',`${MODES.find(mode=>mode.id===(n?.mode||state.parameters.mode)).label}. ${state.preparedEdges} prepared connections, ${inputs} excitation points and ${pickups} pickups. ${usesParameterPlane()?'Drag to move the excitation position.':'Drag to change real and imaginary c.'}`);
   lastUi=now;
 }
 let lastDraw=-Infinity;

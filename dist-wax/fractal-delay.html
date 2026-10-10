@@ -34,7 +34,7 @@
 <main class="fractal-shell">
 <section class="fractal-stage" aria-label="Live fractal delay network">
 <div class="stage-wrap"><h1>Fractal Delay</h1><canvas id="stage" tabindex="0" aria-label="Fractal delay network. Drag to change the real and imaginary parameter." aria-describedby="canvasInstructions">Prepared delay connections and their measured travelling waves.</canvas>
-<div class="stage-caption"><span id="stageReadout">Preparing complete network…</span><span>● input <i>● pickup</i></span></div></div>
+<div class="stage-caption"><span id="stageReadout">Preparing complete network…</span><span>● inputs <i>● pickups</i></span></div></div>
 <p id="canvasInstructions" class="stage-help">Drag: real / imaginary c · Shift: fine · Arrow keys: adjust c</p>
 <div class="parameter-map"><canvas id="parameterMap" width="240" height="120" tabindex="0" aria-label="Mandelbrot parameter map. Click to select c or the excitation position." aria-describedby="mapInstructions"></canvas><p id="mapInstructions">Mandelbrot map selects c.<br /><span id="coordinateReadout">−0.745 + 0.113i</span></p></div>
 </section>
@@ -52,6 +52,7 @@
 <section class="control-section" aria-label="Network">
 <label class="select-field" for="mode">Geometry<span class="select-next"><select id="mode"><option value="inverse">Inverse tree</option><option value="contours">Contour loops</option><option value="orbits">Orbit routes</option><option value="rays">Ray lattice</option><option value="membrane">Fractal chamber</option></select><button id="modeNext" type="button" aria-label="Next geometry">›</button></span></label>
 <label id="domainField" class="select-field" for="domain">Domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
+<label class="select-field" for="routing">Connections<select id="routing"><option value="geometry">Geometry routes</option><option value="loop">Loop joins</option><option value="shortcuts">Small-world shortcuts</option><option value="hub">Hub spokes</option></select></label>
 <p id="modeDescription" class="control-note">Both square-root predecessors form a Julia vector tree.</p>
 <div class="knob-grid" id="networkKnobs"><label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.001" value="-0.745" aria-label="Real c" /></label>
 <label class="knob-field" for="cImag"><span><b>Imaginary c</b><output for="cImag">0.113</output></span><input id="cImag" type="range" min="-1.5" max="1.5" step="0.001" value="0.113" aria-label="Imaginary c" /></label>
@@ -60,9 +61,25 @@
 <label class="knob-field" for="pitchOffset"><span><b>Pitch</b><output for="pitchOffset">0</output></span><input id="pitchOffset" type="range" min="-24" max="24" step="0.1" value="0" aria-label="Pitch" /></label>
 <label class="knob-field" for="coupling"><span><b>Coupling</b><output for="coupling">0.82</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0.82" aria-label="Coupling" /></label>
 <label class="knob-field" for="decay"><span><b>Sustain</b><output for="decay">0.84</output></span><input id="decay" type="range" min="0" max="0.98" step="0.01" value="0.84" aria-label="Sustain" /></label>
-<label class="knob-field" for="pickup"><span><b>Pickup</b><output for="pickup">0.7</output></span><input id="pickup" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Pickup" /></label></div>
+<label class="knob-field" for="boundary"><span><b>End return</b><output for="boundary">100%</output></span><input id="boundary" type="range" min="0" max="1" step="0.01" value="1" aria-label="Endpoint reflection" /></label>
+<label class="knob-field" for="linkDensity"><span><b>Link density</b><output for="linkDensity">25%</output></span><input id="linkDensity" type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Extra connection density" /></label></div>
+<p id="routingDescription" class="control-note">Geometry routes follow the selected fractal construction.</p>
 </section>
-<details class="control-section" id="liveData"><summary>Live data <span id="edgeCount">— connections</span></summary><dl class="live-data"><div><dt>Requested / prepared</dt><dd id="capacityReadout">—</dd></div><div><dt>Processing</dt><dd id="processingReadout">Audio off</dd></div><div><dt>Audio load / peak</dt><dd id="cpuReadout">—</dd></div><div><dt>Worker estimate</dt><dd id="estimateReadout">—</dd></div><div><dt>Delay history</dt><dd id="memoryReadout">—</dd></div><div><dt>Missed deadlines</dt><dd id="deadlineReadout">0</dd></div><div><dt>Renderer</dt><dd id="rendererReadout">—</dd></div></dl>
+<section class="control-section" aria-label="Excitation and pickups">
+<label class="select-field" for="inputMode">Excitation<select id="inputMode"><option value="point">Single point</option><option value="cluster">Local cluster</option><option value="distributed">Distributed points</option><option value="boundary">Boundary points</option><option value="all">Whole shape</option></select></label>
+<label class="select-field" for="pickupMode">Listening<select id="pickupMode"><option value="point">Single pickup</option><option value="cluster">Local cluster</option><option value="distributed">Distributed pickups</option><option value="all">Whole shape</option></select></label>
+<div class="knob-grid">
+<label class="knob-field" for="inputPosition"><span><b>Input pos.</b><output for="inputPosition">0%</output></span><input id="inputPosition" type="range" min="0" max="1" step="0.001" value="0" aria-label="Input position" /></label>
+<label class="knob-field" for="inputCount"><span><b>Inputs</b><output for="inputCount">4</output></span><input id="inputCount" type="range" min="1" max="256" step="1" value="4" aria-label="Number of excitation points" /></label>
+<label class="knob-field" for="inputSpread"><span><b>Input spread</b><output for="inputSpread">50%</output></span><input id="inputSpread" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Excitation spread" /></label>
+<label class="knob-field" for="pickup"><span><b>Pickup pos.</b><output for="pickup">70%</output></span><input id="pickup" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Pickup position" /></label>
+<label class="knob-field" for="pickupCount"><span><b>Pickups</b><output for="pickupCount">4</output></span><input id="pickupCount" type="range" min="1" max="256" step="1" value="4" aria-label="Number of pickups" /></label>
+<label class="knob-field" for="pickupSpread"><span><b>Listen spread</b><output for="pickupSpread">50%</output></span><input id="pickupSpread" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Pickup spread" /></label>
+</div>
+<p id="portReadout" class="control-note" role="status">One excitation point · one pickup.</p>
+<p class="control-note">Count and spread shape grouped modes. Whole shape uses every prepared node. End return controls endpoint reflections; Sustain controls loss along each path.</p>
+</section>
+<details class="control-section" id="liveData"><summary>Live data <span id="edgeCount">— connections</span></summary><dl class="live-data"><div><dt>Requested / prepared</dt><dd id="capacityReadout">—</dd></div><div><dt>Processing</dt><dd id="processingReadout">Audio off</dd></div><div><dt>Excitation / pickups</dt><dd id="portsReadout">—</dd></div><div><dt>Added routes</dt><dd id="linksReadout">—</dd></div><div><dt>Audio load / peak</dt><dd id="cpuReadout">—</dd></div><div><dt>Worker estimate</dt><dd id="estimateReadout">—</dd></div><div><dt>Delay history</dt><dd id="memoryReadout">—</dd></div><div><dt>Missed deadlines</dt><dd id="deadlineReadout">0</dd></div><div><dt>Renderer</dt><dd id="rendererReadout">—</dd></div></dl>
 <label class="select-field" for="voiceBudget">Connection budget<input id="voiceBudget" type="number" min="2" max="16384" step="1" value="16384" /></label>
 <label class="check-field" for="manualBudget"><input id="manualBudget" type="checkbox" /> Test budget beyond measured CPU target</label><p class="control-note">Two travelling waves per connection. Memory remains bounded. Capacity stays fixed until you change geometry or the budget.</p>
 </details>

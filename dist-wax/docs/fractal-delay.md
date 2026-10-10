@@ -25,10 +25,11 @@ provide a native backend or a WAX track-audio connection.
 At a junction, equal-impedance scattering distributes arriving waves. Coupling
 continuously blends this redistribution with reflection. At zero coupling,
 incident waves reflect; at full coupling, a two-edge junction transmits and a
-branch scatters. The blend is energy bounded. Boundary nodes reflect, while
-Decay supplies a per-traversal multiplier of `decay^length`, so a finite graph
-can produce echoes and resonances. At zero coupling the closed ports also
-prevent new input from entering the wet network; Dry remains independent.
+branch scatters. The blend is energy bounded. Source injection is independent
+of Coupling. End return sets reflection at degree-one endpoints: zero absorbs,
+one reflects. Decay (the Sustain knob) supplies a per-traversal multiplier of
+`decay^length`, so a finite graph can produce echoes and resonances. Circulation
+already exists in the bidirectional paths and loops.
 The sound propagation law is our acoustic interpretation of the graph, not a
 property prescribed by the quadratic iteration.
 
@@ -36,8 +37,8 @@ Short travel times make interference and resonance prominent; longer times
 make individual routes and returns easier to follow. Pitch offset changes the
 wet pickup continuously, without imposing a musical scale or retuning edge
 travel times. It is a two-window time-domain transposition after the network,
-rather than FFT pitch shifting. Pickup selects an
-actual receiver node. The input and receiver are visible on the same graph.
+rather than FFT pitch shifting. Inputs and receivers occupy actual graph nodes,
+shown by green source markers and orange pickup markers.
 
 ## Five mappings
 
@@ -56,19 +57,53 @@ Mandelbrot instead uses the parameter-plane potential or filled silhouette.
 Changing `c` in those Mandelbrot mappings moves the excitation selection rather
 than deforming the Mandelbrot set itself.
 
+## Excitation, listening and optional connections
+
+One mic, file or sample source can excite a single point, a local cluster,
+distributed points, boundary points, or the whole admitted shape. Input position
+moves the anchor through stable construction order from the original source.
+Input count selects up to 256 points in grouped modes, bounded by the prepared
+nodes; Whole shape uses every prepared node. Input spread controls the spatial
+selection of grouped excitation. Distributed mode chooses coverage with
+farthest-point sampling. Boundary mode uses base terminals, mesh perimeter or
+outer hull, as appropriate to the mapping. It does not claim an exact analytic
+Julia boundary.
+
+Input weights have unit L2 norm, with each node's injection divided among its
+incident edges by the square root of degree. This keeps adding ports from
+simply multiplying injected power. Listening likewise supports single, local,
+distributed or whole-shape pickups, with position, count and spread. Pickup
+weights have unit L1 norm; they form a weighted receiver average. Cancellation
+and reinforcement depend on the actual travelling wave phases. An orange ring
+indicates a receiver sharing a green source node.
+
+The [Graph Delay instrument](../graph-delay.html) supplies routing inspiration:
+multiple entry/exit nodes, rings, small-world shortcuts and hubs. Connections
+can retain the original fractal routes or add loop joins, sparse long shortcuts,
+or hub spokes through existing nodes. Link density controls added connections.
+These are visible acoustic connections drawn in cyan, with their actual
+geometric lengths setting their delays. They are artistic network extensions,
+not additional mathematical Julia or Mandelbrot edges. Admission counts and
+delay-history memory include every added connection; the model reduces a
+complete structure when needed.
+
 ## Controls, presets and continuity
 
 The complex parameter spans real −2…1 and imaginary −1.5…1.5. Detail spans
 2…12; higher requested detail requires more graph edges or grid resolution.
 Travel time spans 0.05…2,000 ms per normalized geometric unit. Coupling spans
 0…1, Decay 0…0.98, Pitch offset −24…24 semitones, and Pickup 0…1 along the
-indexed graph. Twenty complete musical presets cover four starting points per
-mapping. Random changes every musical field within its bounds, while retaining
+indexed graph. Twenty-eight complete musical presets retain the original four
+starting points per mapping and add eight multiport/routing scenes. Random
+changes every musical field within its bounds, while retaining
 the live source, levels and device state.
 
 Travel time, Coupling, Decay and Pitch offset are live scalar changes; they do
-not regenerate topology. Geometry preparation runs in a separate worker with
-latest-revision guards. The complete new playable graph is admitted at once;
+not regenerate topology. End return is also a live scalar. Port selection
+reuses the admitted geometry in the worker, then retargets source and receiver
+weights in Rust over 35 ms without replacing histories or resetting the clock.
+Geometry preparation runs in a separate worker with latest-revision guards.
+The complete new playable graph is admitted at once;
 preparation is not an animation of generations progressively becoming active.
 Fractional delay readers have a one-sample minimum. Travel changes use a 35 ms
 smoothing response and bounded read-head velocity; the resulting tape-like

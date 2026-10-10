@@ -1,6 +1,6 @@
 import { encodeUtf8, decodeUtf8 } from '../micmic/native/wasm-abi.js';
 /** ABI bridge shared by the offline preflight worker and real-time worklet. */
-export const NETWORK_PARAMETERS = Object.freeze({ timeMs: 140, decay: .84, coupling: .82, pitchOffset: 0, frozen: false });
+export const NETWORK_PARAMETERS = Object.freeze({ timeMs: 140, decay: .84, coupling: .82, boundary: 1, pitchOffset: 0, frozen: false });
 export const NETWORK_PERFORMANCE = Object.freeze({ inputGain: .85, wet: .7, dry: .3, outputLevel: 1, outputBoostDb: 6,
   hpfHz: 30, lpfHz: 18000, compressorThresholdDb: -12, compressorRatio: 3,
   compressorAttackMs: 5, compressorReleaseMs: 120, compressorMakeupDb: 0 });
@@ -39,6 +39,9 @@ export function createWasmNetwork(module, sampleRate = 48000, blockSize = 128) {
   refresh();
   return {
     api, engine, sampleRate, blockSize,
+    // Optional inputPorts/pickupPorts [{node, weight}] are preserved verbatim in
+    // both object and preencoded-byte scenes. Rust validates L2/L1 normalization
+    // and smooths compatible port moves without rebuilding waveguide histories.
     beginScene(scene, revision = 1) {
       if (!json(scene, (pointer, length) => api.fd_scene_begin(engine, pointer, length, revision))) throw error('The graph could not be prepared');
     },
