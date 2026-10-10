@@ -14,7 +14,7 @@ or phase modulation. Their sine operators vary one another’s levels through
 bounded amplitude modulation while retaining an audible carrier. Audio starts off.
 [AM mapping and controls](docs/am-instruments.md).
 
-**[Midiphoria](midiphoria.html)** visualizes live MIDI as luminous note trails, ribbons
+**[Midiophilia](midiphoria.html)** visualizes live MIDI as luminous note trails, ribbons
 and spinning geometry. Enable MIDI in Settings or play the on-screen pads.
 Note/CC learn, channel filtering, velocity, sustain pedal and a light ADSR
 shape the picture. A searchable MIDI song collection and local file imports play through a

@@ -1,4 +1,4 @@
-# Midiphoria collection sources
+# Midiophilia collection sources
 
 The library contains 100 selections: 55 complete popular web arrangements,
 16 complete creator black-MIDI AUDIO editions, all 9 geometric patterns from

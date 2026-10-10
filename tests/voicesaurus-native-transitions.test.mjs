@@ -93,7 +93,10 @@ const musical=await createNativeMusicalRenderer();
 for(const engine of ['singer','stk-voicform']){
  const phone=engine==='singer'?'ahh':'aaa';
  const make=(phone,extra={})=>({input:{phone},values:{...nativeMusicalDefaults(engine,{phone}),duration:.6,release:.04,pitch:330,vibrato:0,jitter:0,attack:.005,...extra}});
- test(`${engine}: disabled ports are bit-identical; pitch and vowel controls independently change native PCM`,()=>{
+ test(`${engine}: disabled ports are bit-identical; pitch and vowel controls independently change native PCM`,t=>{
+  // STK seeds constructor state from time before the wrapper resets its noise.
+  // Keep these PCM comparisons on one seed; test cleanup restores the clock.
+  if(engine==='stk-voicform')t.mock.method(Date,'now',()=>1_600_000_000_000);
   const current=make(phone),previous=make('eee',{pitch:110}),baseline=musical(engine,current.input,current.values),off=musical(engine,current.input,current.values,{previous,pitchPortamento:0,vowelPortamento:0});
   assert.equal(sha(baseline.samples),sha(off.samples));
   const pitch=musical(engine,current.input,current.values,{previous,pitchPortamento:.3}),vowel=musical(engine,current.input,current.values,{previous,vowelPortamento:.3}),both=musical(engine,current.input,current.values,{previous,pitchPortamento:.3,vowelPortamento:.3});

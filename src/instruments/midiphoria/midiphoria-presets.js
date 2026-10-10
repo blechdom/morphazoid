@@ -73,7 +73,7 @@ export function isValidMidiphoriaPreset(snapshot) {
 }
 
 export function applyMidiphoriaPreset(model, renderer, snapshot, now) {
-  if (!isValidMidiphoriaPreset(snapshot)) throw new TypeError('Invalid Midiphoria visual preset.');
+  if (!isValidMidiphoriaPreset(snapshot)) throw new TypeError('Invalid Midiophilia visual preset.');
   const next = sanitizeMidiphoriaPreset(snapshot);
   const previous = captureMidiphoriaPreset(model.options, renderer.options);
   try {

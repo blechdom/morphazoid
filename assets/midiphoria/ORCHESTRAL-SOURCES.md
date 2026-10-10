@@ -1,4 +1,4 @@
-# Midiphoria orchestral MIDI sources
+# Midiophilia orchestral MIDI sources
 
 Retrieved 2026-10-08. Nine complete orchestral score MIDIs were downloaded from the source archives below. These are full ensemble arrangements, not solo-piano reductions or preview clips. Beethoven's Eroica and Dvořák's Seventh each include all four movements. The original MIDI bytes are unchanged; only local filenames differ. Score-derived MIDI playback through the bundled General MIDI soundfont is not a live orchestra recording.
 

@@ -211,7 +211,7 @@ reuses the same control conversion helpers while adding host routing and PPQ.
 
 ## Current instrument clients
 
-- Midiphoria: notes, velocity and CC drive color, masks and note trails. Its
+- Midiophilia: notes, velocity and CC drive color, masks and note trails. Its
   visual envelopes use the shared MIDI input and computer keys without starting
   Web Audio or advertising a WAX instrument or MIDI output. Its independent MIDI
   file player and on-screen piano pads start SoundFont audio only after the

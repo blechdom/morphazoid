@@ -3,7 +3,7 @@
     "file": "src/site/instrument-registry.js",
     "sha256": "7a58407bd839d7aa4d74c911c14f1768600150a90c075337a969f4b2a508d8a9",
     "additions": [
-      "    { id: \"midiphoria\", label: \"Midiphoria\", href: \"midiphoria.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/midiphoria.webp\" },\n"
+      "    { id: \"midiphoria\", label: \"Midiophilia\", href: \"midiphoria.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/midiphoria.webp\" },\n"
     ]
   },
   {

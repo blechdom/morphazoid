@@ -30,7 +30,7 @@ test("Midiphoria is a browseable visual lab with one native MIDI client and opti
   const group = TOOL_GROUPS.find(({ tools }) => tools.some(({ id }) => id === "midiphoria"));
   assert.equal(group.id, "graphic-ui");
   const item = catalogueItemById("midiphoria");
-  assert.equal(item.label, "Midiphoria");
+  assert.equal(item.label, "Midiophilia");
   assert.equal(item.entryType, "lab");
   assert.equal(item.href, "midiphoria.html");
   assert.equal(item.imageHref, "assets/instruments/midiphoria.webp");

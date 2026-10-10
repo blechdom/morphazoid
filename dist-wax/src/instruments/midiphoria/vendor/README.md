@@ -1,4 +1,4 @@
-# Midiphoria browser MIDI player dependencies
+# Midiophilia browser MIDI player dependencies
 
 Retrieved from the official npm registry on October 7, 2026.
 
