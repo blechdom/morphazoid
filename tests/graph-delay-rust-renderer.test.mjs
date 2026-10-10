@@ -32,6 +32,28 @@ function fixture({ backend = 'GPU', compile = true } = {}) {
   return { gl, canvas, listeners, draws, uniforms, buffers, calls, deleted };
 }
 
+function timingFixture() {
+  const f = fixture(), extension = { TIME_ELAPSED_EXT: 100, GPU_DISJOINT_EXT: 101 };
+  const getExtension = f.gl.getExtension, getParameter = f.gl.getParameter, draw = f.gl.drawArraysInstanced;
+  const timing = { now: 0, disjoint: false, failBegin: false, queries: [], deleted: [], events: [], resultReads: 0 };
+  Object.assign(f.gl, {
+    QUERY_RESULT_AVAILABLE: 102, QUERY_RESULT: 103,
+    getExtension(name) { return name === 'EXT_disjoint_timer_query_webgl2' ? extension : getExtension.call(this, name); },
+    getParameter(name) { return name === extension.GPU_DISJOINT_EXT ? timing.disjoint : getParameter.call(this, name); },
+    createQuery() { const query = { available: false, nanoseconds: 3500000 }; timing.queries.push(query); return query; },
+    beginQuery() { timing.events.push('begin'); if (timing.failBegin) throw new Error('timer unavailable'); },
+    endQuery() { timing.events.push('end'); },
+    deleteQuery(query) { timing.deleted.push(query); },
+    getQueryParameter(query, name) {
+      if (name === this.QUERY_RESULT_AVAILABLE) return query.available;
+      assert.equal(query.available, true, 'never read an unfinished query result');
+      timing.resultReads++; return query.nanoseconds;
+    },
+    drawArraysInstanced(...args) { timing.events.push('draw'); draw.apply(this, args); },
+  });
+  return { ...f, timing, now: () => timing.now };
+}
+
 const frame = () => ({
   points: [{ x: 80, y: 100 }, { x: 200, y: 100 }, { x: 300, y: 240 }],
   edges: [{ id: 0, from: 0, to: 1 }, { id: 1, from: 1, to: 2, feedbackEdge: true }],
@@ -130,4 +152,95 @@ test('pixel area, routes, detail and malformed points are bounded independently 
   assert.equal(renderer.stats.routes, 0);
   assert.ok([...f.buffers.values()].every(buffer => buffer.every(Number.isFinite)));
   renderer.dispose();
+});
+
+test('optional GPU metrics report unavailable timing without inventing measurements', () => {
+  const f = fixture(), renderer = createGraphDelayRenderer(f.canvas);
+  assert.equal(renderer.draw(frame()), true);
+  assert.equal(renderer.getStats().gpuTimingSupported, false);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+  assert.equal(renderer.getStats().gpuTimeSampledAt, null);
+  assert.equal(renderer.getStats().gpuTimingSamples, 0);
+  assert.deepEqual(renderer.getStats(), renderer.stats, 'preserve the existing statistics getter');
+  renderer.dispose();
+});
+
+test('GPU metrics time draw passes asynchronously at a bounded rate and expire old samples', () => {
+  const f = timingFixture(), renderer = createGraphDelayRenderer(f.canvas, { now: f.now }), scene = frame();
+  assert.equal(renderer.getStats().gpuTimingSupported, true);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+  renderer.draw(scene);
+  assert.deepEqual(f.timing.events, ['begin', 'draw', 'draw', 'end']);
+  f.timing.now = 125; renderer.draw(scene);
+  assert.equal(f.timing.queries.length, 1, 'sample no more than four frames per second');
+  f.timing.now = 250; renderer.draw(scene);
+  f.timing.now = 500; renderer.draw(scene);
+  assert.equal(f.timing.queries.length, 2, 'at most two GPU queries can be pending');
+  assert.equal(f.timing.resultReads, 0, 'an unavailable result cannot stall rendering');
+  f.timing.queries[0].available = true;
+  f.timing.now = 750; renderer.draw(scene);
+  const stats = renderer.getStats();
+  assert.equal(stats.gpuTimeMs, 3.5);
+  assert.equal(stats.gpuTimeSampledAt, 0);
+  assert.equal(stats.gpuTimingSamples, 1);
+  assert.equal(f.timing.resultReads, 1);
+  assert.equal(f.timing.queries.length - f.timing.deleted.length, 2);
+  f.timing.now = 2000;
+  assert.equal(renderer.getStats().gpuTimeMs, null, 'idle panels must not retain stale GPU timings');
+  assert.equal(renderer.getStats().gpuTimeSampledAt, null);
+  renderer.dispose();
+  assert.equal(f.timing.deleted.length, f.timing.queries.length);
+});
+
+test('GPU timing retires stuck queries and deletes each pending handle on disposal', () => {
+  const f = timingFixture(), renderer = createGraphDelayRenderer(f.canvas, { now: f.now });
+  for (const time of [0, 250, 500, 2000, 2250]) { f.timing.now = time; renderer.draw(frame()); }
+  assert.equal(f.timing.queries.length, 4);
+  assert.deepEqual(f.timing.deleted, f.timing.queries.slice(0, 2), 'two-second-old unfinished queries are retired');
+  assert.equal(f.timing.resultReads, 0);
+  renderer.dispose(); renderer.dispose();
+  assert.equal(f.timing.deleted.length, 4);
+  assert.equal(new Set(f.timing.deleted).size, 4);
+  assert.equal(renderer.getStats().gpuTimingSupported, false);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+});
+
+test('disjoint GPU clocks and optional timer failures clear measurements while drawing continues', () => {
+  const f = timingFixture(), renderer = createGraphDelayRenderer(f.canvas, { now: f.now });
+  renderer.draw(frame()); f.timing.queries[0].available = true;
+  f.timing.now = 250; renderer.draw(frame());
+  assert.equal(renderer.getStats().gpuTimeMs, 3.5);
+  f.timing.disjoint = true; f.timing.now = 500;
+  assert.equal(renderer.draw(frame()), true);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+  assert.equal(renderer.getStats().gpuTimingSupported, true);
+  assert.deepEqual(f.timing.deleted, f.timing.queries);
+  f.timing.disjoint = false; f.timing.now = 750; renderer.draw(frame());
+  f.timing.failBegin = true; f.timing.now = 1000;
+  assert.equal(renderer.draw(frame()), true);
+  assert.equal(renderer.available, true);
+  assert.equal(renderer.getStats().gpuTimingSupported, false);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+  assert.equal(new Set(f.timing.deleted).size, f.timing.queries.length);
+  renderer.dispose();
+});
+
+test('GPU timing resets on context restoration and cleans active queries after a draw failure', () => {
+  const f = timingFixture(), renderer = createGraphDelayRenderer(f.canvas, { now: f.now });
+  renderer.draw(frame());
+  f.listeners.get('webglcontextlost')({ preventDefault() {} });
+  assert.equal(renderer.getStats().gpuTimingSupported, false);
+  assert.equal(f.timing.deleted.length, 0, 'lost contexts own the invalid query handles');
+  f.listeners.get('webglcontextrestored')();
+  assert.equal(renderer.getStats().gpuTimingSupported, true);
+  assert.equal(renderer.getStats().gpuTimeMs, null);
+  f.timing.now = 1000;
+  f.gl.drawArraysInstanced = () => { throw new Error('draw failed'); };
+  assert.equal(renderer.draw(frame()), false);
+  assert.equal(renderer.fallbackReason, 'draw-failed');
+  assert.equal(renderer.getStats().gpuTimingSupported, false);
+  assert.deepEqual(f.timing.deleted, [f.timing.queries[1]]);
+  assert.equal(f.timing.events.at(-1), 'end', 'active timer ends before renderer cleanup');
+  renderer.dispose();
+  assert.equal(f.timing.deleted.length, 1);
 });
