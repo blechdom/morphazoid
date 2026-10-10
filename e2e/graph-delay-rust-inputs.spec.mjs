@@ -265,5 +265,16 @@ test('source changes and Panic discard late decoding without reviving obsolete p
   await upload(page, 281, { name: 'fresh.wav' });
   expect((await diagnostics(page)).audio).toBe(false);
   await page.locator('#audioButton').click(); await live(page, 281);
+  await heldUpload('stale-before-error.wav');
+  await page.locator('#inputFile').setInputFiles({ name: 'invalid.wav', mimeType: 'audio/wav', buffer: Buffer.from('not an audio file') });
+  await expect(page.locator('#audioError')).toHaveJSProperty('hidden', false);
+  await expect(page.locator('#audioError')).toContainText(/decode/i);
+  await page.evaluate(async () => {
+    __graphInputsQa.pendingDecodes.splice(0).forEach(release => release());
+    // Drain the cancelled decode's promise chain before checking the newer error.
+    await new Promise(resolve => setTimeout(resolve, 0));
+  });
+  await expect(page.locator('#audioError')).toHaveJSProperty('hidden', false);
+  await expect(page.locator('#audioError')).toContainText(/decode/i);
   await page.locator('#panicButton').click(); expect(errors).toEqual([]);
 });
