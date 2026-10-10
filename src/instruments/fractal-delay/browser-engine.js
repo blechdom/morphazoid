@@ -1,4 +1,5 @@
 import { DEFAULT_PARAMETERS, sanitizeParameters } from './model.js';
+import { createParameterMotion } from './parameter-motion.js';
 import { DEFAULT_PERFORMANCE, sanitizePerformance } from './performance.js';
 import { createInputSource } from '../micmic/native/input-source.js';
 import { audioInputConstraints, configureAudioInputNode, audioInputDescription } from '../../audio-input-settings.js';
@@ -19,6 +20,8 @@ export function createFractalDelayEngine(options = {}) {
   let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0;
   let compiling = false, cpuEstimate = 0, requiredDelayBytes = 0, pollTimer, pollPending = false;
   let manual = false, budget = 16384;
+  const motion = createParameterMotion(parameters);
+  let motionTimer, motionClock, motionBusy = false, lastMotionDispatch = -Infinity;
   const memoryBytes = (navigator.deviceMemory >= 8 ? 192 : navigator.deviceMemory <= 2 ? 48 : 96) * 1024 * 1024;
   const requests = new Map(), builds = new Map(), listeners = new Set();
   const pulseNodes = new Set();
@@ -32,7 +35,7 @@ export function createFractalDelayEngine(options = {}) {
     onChange: emit, onError: report,
   });
   function getDiagnostics() {
-    return { parameters:{...parameters}, performance:{...performance}, audioDesired, audio,
+    return { parameters:{...parameters}, performance:{...performance}, motion:motion.snapshot(), audioDesired, audio,
       contextState:context?.state || 'uninitialized', contextGeneration, input:input.snapshot(),
       microphone:!!micStream, microphonePending:micPending, inputDescription:audioInputDescription(micStream),
       sourceCount:Number(!!micStream)+Number(input.snapshot().playing), error, compiling,
@@ -204,10 +207,59 @@ export function createFractalDelayEngine(options = {}) {
   async function loadFile(file) {
     stopMicrophone(); input.selectMode('file'); sendControls(); await input.loadFile(file); emit();
   }
-  async function setParameters(next) {
+  function advanceMotionClock() {
+    // Motion uses the audio clock while sound runs. Rendering and UI stalls do
+    // not change its tempo; switching clock domains rebases the epoch only.
+    const kind=audio && context?.state==='running' ? 'audio' : 'visual';
+    const time=kind==='audio' ? context.currentTime : performanceNow()/1000;
+    if(motionClock?.kind===kind)motion.advance(time-motionClock.time);
+    motionClock={kind,time};
+  }
+  function motionPlaying() {const state=motion.snapshot();return state.real.playing||state.imag.playing;}
+  function motionPose() {const state=motion.snapshot();return {cReal:state.real.value,cImag:state.imag.value};}
+  function motionDirty(pose=motionPose()) {
+    return Math.abs(pose.cReal-parameters.cReal)>1e-10 || Math.abs(pose.cImag-parameters.cImag)>1e-10;
+  }
+  async function applyParameters(next) {
     const before=parameters; parameters=sanitizeParameters({...parameters,...next}); sendControls(); emit();
     if(GEOMETRY_KEYS.some(key=>before[key]!==parameters[key]))return prepareNetwork();
     return true;
+  }
+  async function setParameters(next) {
+    advanceMotionClock();
+    const candidate={...next},recenter=[];
+    for(const [axis,coordinate]of [['real','cReal'],['imag','cImag']]) {
+      if(Object.hasOwn(candidate,coordinate)||Object.hasOwn(candidate,`${axis}MotionDepth`)) {
+        recenter.push(axis);
+        // Changing a span starts from the current pose rather than the last
+        // prepared graph. Tempo-only edits retain the running phase.
+        if(!Object.hasOwn(candidate,coordinate))candidate[coordinate]=motion.snapshot()[axis].value;
+      }
+    }
+    motion.sync(sanitizeParameters({...parameters,...candidate}),{recenter});
+    return applyParameters(candidate);
+  }
+  function stopMotionTimer() {clearInterval(motionTimer);motionTimer=undefined;}
+  function pumpMotion() {
+    if(disposed)return;
+    advanceMotionClock();
+    const pose=motionPose(),dirty=motionDirty(pose);
+    if(!motionPlaying()&&!dirty&&!motionBusy){stopMotionTimer();return;}
+    // One latest target, one preparation through its installed Rust ACK. Both
+    // coordinates share this pump so they cannot cancel each other's scenes.
+    if(motionBusy||compiling||contextPromise||performanceNow()-lastMotionDispatch<100||(!dirty&&network))return;
+    motionBusy=true;lastMotionDispatch=performanceNow();
+    const prepare=dirty?applyParameters(pose):prepareNetwork();
+    Promise.resolve(prepare).catch(reason=>{
+      motion.setPlaying('real',false);motion.setPlaying('imag',false);stopMotionTimer();report(reason);
+    }).finally(()=>{motionBusy=false;if(!disposed&&!motionPlaying()&&!motionDirty())stopMotionTimer();});
+  }
+  function setMotionPlaying(axis,playing) {
+    if(disposed)return false;
+    advanceMotionClock();
+    if(!motion.setPlaying(axis,playing))return false;
+    if(!motionTimer)motionTimer=setInterval(pumpMotion,50);
+    emit();pumpMotion();return true;
   }
   function setPerformance(next) {performance=sanitizePerformance({...performance,...next});sendControls();emit();return Promise.resolve(true);}
   function stopPulses() {
@@ -233,13 +285,13 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function dispose() {
     if(disposed)return; audioDesired=false; audio=false; stopPulses(); stopMicrophone();input.dispose();disposed=true;
-    clearInterval(pollTimer);worker.terminate();
+    clearInterval(pollTimer);stopMotionTimer();motion.setPlaying('real',false);motion.setPlaying('imag',false);worker.terminate();
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.resolve({superseded:true});}requests.clear();
     for(const pending of builds.values())pending.resolve(false);builds.clear();
     node?.port.postMessage({type:'dispose'});node?.disconnect();master?.disconnect();releaseOutput?.();
     if(context?.state!=='closed')await context?.close();listeners.clear();
   }
-  const engine={getDiagnostics,setParameters,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
+  const engine={getDiagnostics,setParameters,setMotionPlaying,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
     setInputLoop:loop=>input.setLoop(loop),restartInput:()=>input.restart(),stopInput:()=>{stopPulses();stopMicrophone();input.stop();},
     setVoiceBudget:async(value,override=false)=>{budget=Math.max(2,Math.min(16384,Math.floor(Number(value)||16384)));manual=!!override;return prepareNetwork();},
     subscribe(listener){listeners.add(listener);listener(getDiagnostics());return()=>listeners.delete(listener);},

@@ -265,8 +265,8 @@ test('whole-graph memory admission reports requested versus actual geometric len
   assert.equal(impossible.metadata.admissionUnsupported, true, 'never claims an impossible fixed-length route fits memory');
 });
 
-test('all 28 complete presets are bounded and retain the first 20 original mathematical scenes', () => {
-  assert.equal(PRESETS.length, 28); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 28);
+test('all 40 complete presets are bounded and retain the first 20 original mathematical scenes', () => {
+  assert.equal(PRESETS.length, 40); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 40);
   for (const mode of MODES) assert.equal(PRESETS.slice(0, 20).filter(preset => preset.parameters.mode === mode.id).length, 4);
   for (const { parameters } of PRESETS.slice(0, 20)) {
     assert.equal(parameters.inputMode, 'point'); assert.equal(parameters.inputPosition, 0);
@@ -279,7 +279,7 @@ test('all 28 complete presets are bounded and retain the first 20 original mathe
     signatures.add(JSON.stringify(preset.parameters));
     validateGraph(buildNetwork(preset.parameters, 1024), 1024);
   }
-  assert.equal(signatures.size, 28);
+  assert.equal(signatures.size, 40);
 });
 
 test('multiport and routing controls are complete, bounded and reject invalid modes', () => {

@@ -1,6 +1,12 @@
 import { buildNetwork, networkPorts, sanitizeParameters } from './model.js';
 import { createWasmNetwork, estimateSceneBytes } from './wasm-runtime.js';
 const cachedCosts=new Map();
+const COST_CACHE_LIMIT=32;
+let calibrationInstance;
+function rememberCost(key,measurement){
+ cachedCosts.delete(key);cachedCosts.set(key,measurement);
+ while(cachedCosts.size>COST_CACHE_LIMIT)cachedCosts.delete(cachedCosts.keys().next().value);
+}
 let cachedGeometry;
 let latest=0, pending=null, busy=false;
 self.onmessage=({data})=>{latest=data.revision;pending=data;if(!busy)void run();};
@@ -29,8 +35,12 @@ async function run(){busy=true;while(pending){const job=pending;pending=null;
    // Scalar edits then keep the complete admitted shape and its histories.
    const key=`paths-v1:${geometryKey}:${network.nodes.length}:${network.edges.length}`;
    measurement=cachedCosts.get(key);
+   if(measurement)rememberCost(key,measurement);
    if(!measurement){
-    const engine=createWasmNetwork(job.module,rate);const zero=new Float32Array(128);
+    // Reuse WASM pages, not graph histories. A fresh fd_new/fd_drop per trial
+    // preserves exact isolated measurements without growing c-sweep instances.
+    calibrationInstance ||= new WebAssembly.Instance(job.module,{});
+    const engine=createWasmNetwork(calibrationInstance,rate);const zero=new Float32Array(128);
     try{
      engine.prepareScene(network,1);engine.controls({...parameters,
       timeMs:2000,propagation:'paths',geometryPitch:24,tapCoverage:1,turnTone:1},job.performance,'media');
@@ -40,7 +50,7 @@ async function run(){busy=true;while(pending){const job=pending;pending=null;
      for(let block=0;block<warmupBlocks;block++)engine.process(zero,zero);
      const samples=[];
      for(let batch=0;batch<7;batch++){const start=performance.now();for(let block=0;block<16;block++)engine.process(zero,zero);samples.push((performance.now()-start)/1000/(16*128/rate));}
-     samples.sort((a,b)=>a-b);measurement={cpuLoad:samples[3],sampleRate:rate,edges:network.edges.length};cachedCosts.set(key,measurement);
+     samples.sort((a,b)=>a-b);measurement={cpuLoad:samples[3],sampleRate:rate,edges:network.edges.length};rememberCost(key,measurement);
     }finally{engine.dispose();}
    }
    if(job.manual||measurement.cpuLoad<=.42||network.edges.length<=4)break;
