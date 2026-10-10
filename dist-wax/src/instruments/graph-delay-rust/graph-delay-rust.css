@@ -45,10 +45,13 @@
   font-size: 10px;
   line-height: 1.3;
 }
-.graph-delay-rust-page .graph-live-motion { margin-top: 6px; }
-.graph-delay-rust-page .graph-live-motion > button { display: flex; align-items: center; justify-content: center; gap: 7px; }
-.graph-delay-rust-page .graph-live-motion > button svg { flex: 0 0 15px; width: 15px; height: 15px; }
-.graph-delay-rust-page .graph-live-motion > button span { font: inherit; }
+.graph-delay-rust-page .graph-live-motion { display: grid; gap: 2px; margin-top: 6px; }
+.graph-delay-rust-page .graph-motion-transport { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: 8px; }
+.graph-delay-rust-page .graph-motion-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.graph-delay-rust-page .graph-motion-toggle > button { flex: 0 0 auto; }
+.graph-delay-rust-page .graph-motion-toggle > span { color: var(--ink); font-size: 10px; line-height: 1.3; }
+.graph-delay-rust-page .graph-motion-transport > .mz-tap-tempo-field { width: 100%; }
+.graph-delay-rust-page .graph-motion-transport .mz-tap-tempo-field > .native-knob-control { flex: 1 1 0; min-width: 0; }
 .graph-delay-rust-page .graph-secondary-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .graph-delay-rust-page .graph-secondary-actions > button { flex: 1 1 120px; margin: 0; }
 .graph-delay-rust-page #motionSection .mic-motion-row { display: block; }

@@ -17,7 +17,7 @@ const ranges = Object.freeze({
   nodeCount: [3, GRAPH_DELAY_RUST_MAX_NODES], density: [0, 1], seed: [1, 0xffffffff],
   baseDelay: [20, 600], timeScale: [0, 800], timeCurve: [0.25, 3], nodePass: [0, 1],
   pitchScale: [0, 2], pitchAsymmetry: [-0.8, 0.8], pitchCurve: [0.5, 2], pitchSlew: [10, 500],
-  nodeMotionSpeed: [0.01, 0.5], nodeMotionAmount: [0.01, 0.3], micMotionSpeed: [0.01, 0.4], micMotionSize: [0.05, 0.46],
+  nodeMotionSpeed: [0.01, 4], nodeMotionAmount: [0.01, 0.3], micMotionSpeed: [0.01, 4], micMotionSize: [0.05, 0.46],
   inputX: [0.01, 0.99], inputY: [0.02, 0.98], feedback: [0, 0.92], damping: [500, 12000],
   wet: [0, 1.5], dry: [0, 1], spread: [0, 1],
 });
@@ -108,6 +108,7 @@ export function randomizeGraphDelayRustPreset(current, random = Math.random) {
   const rng = presetRandom(random);
   const snapshot = createSnapshot({ ...current.parameters,
     ...randomParameterValues({ ...ranges, baseDelay: [25, 130], timeScale: [0, 220], nodePass: [0.55, 0.98],
+      nodeMotionSpeed: [0.01, 0.5], micMotionSpeed: [0.01, 0.4],
       pitchScale: [0.2, 1.5], feedback: [0.2, 0.78], wet: [0.8, 1.4], dry: [0, 0.15], damping: [1200, 8500] }, rng),
     nodeCount: rng.integer(4, GRAPH_DELAY_RUST_MAX_NODES), seed: rng.integer(1, 99),
     topology: rng.pick(Object.keys(GRAPH_PRESETS)), graphPatch: "custom",

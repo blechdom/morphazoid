@@ -26,7 +26,7 @@ test("Rust graph presets retain every original patch and add larger complete sce
 });
 
 test("complete capture preserves geometry and switches without owning live gains or clocks", () => {
-  const state = { ...GRAPH_DELAY_INITIAL_STATE, nodeCount: 64, topology: "tree", inputTrim: 0.3, level: 0.2, nodeMotionPhase: 17, micMotionPhase: 21 };
+  const state = { ...GRAPH_DELAY_INITIAL_STATE, nodeCount: 64, topology: "tree", inputTrim: 0.3, level: 0.2, nodeMotionPhase: 17, micMotionPhase: 21, nodeMotionSpeed: 4, micMotionSpeed: 2 };
   const { graph } = generateGraphWithinTurnBudget({ ...state, maxNodes: 64 }, 512);
   graph.nodes[3].x = 0.63;
   const switches = new Map(graph.edges.map(edge => [`${edge.from}>${edge.to}`, edge.id !== 3]));
@@ -34,6 +34,7 @@ test("complete capture preserves geometry and switches without owning live gains
   const recalled = { ...state, ...snapshot.parameters };
   assert.equal(recalled.inputTrim, 0.3); assert.equal(recalled.level, 0.2);
   assert.equal(recalled.nodeMotionPhase, 17); assert.equal(recalled.micMotionPhase, 21);
+  assert.equal(recalled.nodeMotionSpeed, 4); assert.equal(recalled.micMotionSpeed, 2);
   assert.equal(snapshot.graph.nodes[3].x, 0.63); assert.equal(snapshot.edgeSwitches["1>4"], false);
   snapshot.graph.nodes[3].x = 0.2;
   assert.equal(graph.nodes[3].x, 0.63, "captured state is detached");
@@ -44,6 +45,7 @@ test("import validation rejects corrupt routing, budgets, levels and incomplete 
   const edits = [
     s => { s.parameters.level = 0.5; }, s => { s.parameters.nodeCount = 65; },
     s => { s.parameters.seed = 1.5; }, s => { s.parameters.feedback = 1; },
+    s => { s.parameters.nodeMotionSpeed = 4.01; }, s => { s.parameters.micMotionSpeed = 4.01; },
     s => { s.graph.nodes[0].x = NaN; }, s => { s.graph.nodes[0].x = 1.1; },
     s => { s.graph.edges[0].to = 900; }, s => { s.graph.edges[0].id = 2; },
     s => { s.graph.edges[0].feedbackEdge = !s.graph.edges[0].feedbackEdge; },

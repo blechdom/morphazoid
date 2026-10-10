@@ -1432,12 +1432,12 @@ function updateUi() {
   $("seedOut").textContent = String(state.seed);
   $("baseDelayOut").textContent = `${state.baseDelay} ms`;
   $("nodeMotionMode").value = state.nodeMotionMode;
-  $("nodeMotionSpeedOut").textContent = `${state.nodeMotionSpeed.toFixed(2)} cyc/s`;
+  $("nodeMotionSpeedOut").textContent = `${Number((state.nodeMotionSpeed * 60).toFixed(1))} BPM`;
   $("nodeMotionAmountOut").textContent = percent(state.nodeMotionAmount);
   $("nodeMotionPlayButton").setAttribute("aria-pressed", String(state.nodeMoving));
   $("nodeMotionPlayButton").setAttribute("aria-label", state.nodeMoving ? "Pause node motion" : "Play node motion");
   $("micMotionMode").value = state.micMotionMode;
-  $("micMotionSpeedOut").textContent = `${state.micMotionSpeed.toFixed(2)} cyc/s`;
+  $("micMotionSpeedOut").textContent = `${Number((state.micMotionSpeed * 60).toFixed(1))} BPM`;
   $("micMotionSizeOut").textContent = percent(state.micMotionSize);
   $("micMotionPlayButton").setAttribute("aria-pressed", String(state.micMoving));
   $("micMotionPlayButton").setAttribute("aria-label", state.micMoving ? "Pause input motion" : "Play input motion");
