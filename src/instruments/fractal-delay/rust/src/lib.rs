@@ -15,6 +15,25 @@ const METRICS: usize = 14;
 const MAX_RESERVE_MS: f64 = 2000.;
 const FADE_SECONDS: f64 = 0.064;
 const PREPARE_FRAMES: usize = 8192;
+// These floors are far below useful modulation precision or audible pressure.
+// They bound follower release and prevent silent histories retaining denormals.
+const FOLLOW_EPSILON: f64 = 1e-12;
+const WAVE_FLOOR: f64 = 1e-20;
+fn follow(current: &mut f64, target: f64, coefficient: f64) {
+    let difference = target - *current;
+    if difference.abs() <= FOLLOW_EPSILON {
+        *current = target;
+    } else {
+        *current += difference * coefficient;
+    }
+}
+fn flush_small(value: f64) -> f64 {
+    if value.abs() < WAVE_FLOOR {
+        0.
+    } else {
+        value
+    }
+}
 
 #[derive(Clone, Deserialize)]
 struct Point {
@@ -226,9 +245,14 @@ impl Graph {
             // Moving read heads accelerate smoothly rather than teleport. This
             // retains ordinary tape Doppler motion when travel speed changes.
             let desired = ((target - e.delay) * smooth).clamp(-0.25, 0.25);
-            e.delay_velocity += (desired - e.delay_velocity) * smooth;
-            e.delay = (e.delay + e.delay_velocity).clamp(1., (e.ab.len() - 2) as f64);
-            e.loss += (e.loss_target - e.loss) * smooth;
+            follow(&mut e.delay_velocity, desired, smooth);
+            if (target - e.delay).abs() <= FOLLOW_EPSILON {
+                e.delay = target.clamp(1., (e.ab.len() - 2) as f64);
+                e.delay_velocity = 0.;
+            } else {
+                e.delay = (e.delay + e.delay_velocity).clamp(1., (e.ab.len() - 2) as f64);
+            }
+            follow(&mut e.loss, e.loss_target, smooth);
             e.incoming_ab = Self::safe(Edge::read(&e.ab, e.write, e.delay) * e.loss);
             e.incoming_ba = Self::safe(Edge::read(&e.ba, e.write, e.delay) * e.loss);
             self.pressure[e.link.b] += e.incoming_ab;
@@ -237,10 +261,16 @@ impl Graph {
         let mut pickup = [0.; 2];
         for index in 0..self.pressure.len() {
             self.pressure[index] *= 2. / self.degrees[index].max(1.);
-            self.input_weights[index] +=
-                (self.input_targets[index] - self.input_weights[index]) * smooth;
-            self.pickup_weights[index] +=
-                (self.pickup_targets[index] - self.pickup_weights[index]) * smooth;
+            follow(
+                &mut self.input_weights[index],
+                self.input_targets[index],
+                smooth,
+            );
+            follow(
+                &mut self.pickup_weights[index],
+                self.pickup_targets[index],
+                smooth,
+            );
             let pressure = self.pressure[index] * 0.5 * self.pickup_weights[index];
             pickup[0] += pressure * self.pan[index][0];
             pickup[1] += pressure * self.pan[index][1];
@@ -271,6 +301,9 @@ impl Graph {
             e.ba[e.write] = Self::safe(b) as f32;
             let amplitude = ((a * a + b * b) * 0.5).sqrt() as f32;
             e.level += (amplitude - e.level) * 0.012;
+            if e.level.abs() < WAVE_FLOOR as f32 {
+                e.level = 0.;
+            }
             e.write += 1;
             if e.write == e.ab.len() {
                 e.write = 0;
@@ -280,7 +313,7 @@ impl Graph {
     }
     fn safe(value: f64) -> f64 {
         if value.is_finite() {
-            value.clamp(-64., 64.)
+            flush_small(value.clamp(-64., 64.))
         } else {
             0.
         }
@@ -837,8 +870,8 @@ impl Engine {
         2
     }
     fn pitch(&mut self, wet: [f64; 2]) -> [f64; 2] {
-        self.pitch_left[self.pitch_write] = wet[0] as f32;
-        self.pitch_right[self.pitch_write] = wet[1] as f32;
+        self.pitch_left[self.pitch_write] = flush_small(wet[0]) as f32;
+        self.pitch_right[self.pitch_write] = flush_small(wet[1]) as f32;
         let grain = self.rate * 0.11;
         let p0 = self.pitch_phase;
         let p1 = (p0 + 0.5).fract();
@@ -847,7 +880,7 @@ impl Engine {
         } else {
             0.
         };
-        self.pitch_mix += (target - self.pitch_mix) * self.smooth;
+        follow(&mut self.pitch_mix, target, self.smooth);
         let window0 = 0.5 - 0.5 * (TAU * p0).cos();
         let window1 = 1. - window0;
         let delay0 = grain * 0.25
@@ -881,15 +914,15 @@ impl Engine {
         self.metrics[4] = 0.;
         self.metrics[5] = 0.;
         for i in 0..out_l.len() {
-            self.time += (self.parameters.time_ms - self.time) * s;
-            self.decay += (self.parameters.decay - self.decay) * s;
-            self.coupling += (self.parameters.coupling - self.coupling) * s;
-            self.boundary += (self.parameters.boundary - self.boundary) * s;
-            self.ratio += (ratio_target - self.ratio) * s;
-            self.mic_gain += (self.performance.input_gain - self.mic_gain) * s;
-            self.wet += (self.performance.wet - self.wet) * s;
-            self.dry += (self.performance.dry - self.dry) * s;
-            self.output += (output_target - self.output) * s;
+            follow(&mut self.time, self.parameters.time_ms, s);
+            follow(&mut self.decay, self.parameters.decay, s);
+            follow(&mut self.coupling, self.parameters.coupling, s);
+            follow(&mut self.boundary, self.parameters.boundary, s);
+            follow(&mut self.ratio, ratio_target, s);
+            follow(&mut self.mic_gain, self.performance.input_gain, s);
+            follow(&mut self.wet, self.performance.wet, s);
+            follow(&mut self.dry, self.performance.dry, s);
+            follow(&mut self.output, output_target, s);
             let gain = if self.media { 1. } else { self.mic_gain };
             let input = [
                 if left[i].is_finite() {
@@ -942,9 +975,10 @@ impl Engine {
                     self.hp_coefficient
                         * (self.hp_last_output[ch] + output[ch] - self.hp_last_input[ch])
                 };
-                self.hp_last_input[ch] = output[ch];
-                self.hp_last_output[ch] = hp;
+                self.hp_last_input[ch] = flush_small(output[ch]);
+                self.hp_last_output[ch] = flush_small(hp);
                 self.lp_last[ch] += (hp - self.lp_last[ch]) * self.lp_coefficient;
+                self.lp_last[ch] = flush_small(self.lp_last[ch]);
                 output[ch] = self.lp_last[ch];
             }
             let peak = output[0].abs().max(output[1].abs());
@@ -954,13 +988,14 @@ impl Engine {
                 self.compressor_release
             };
             self.compressor_envelope += (peak - self.compressor_envelope) * coefficient;
+            self.compressor_envelope = flush_small(self.compressor_envelope);
             let gain_target = if self.compressor_envelope > self.compressor_threshold {
                 (self.compressor_envelope / self.compressor_threshold)
                     .powf(1. / self.performance.compressor_ratio - 1.)
             } else {
                 1.
             };
-            self.compressor_gain += (gain_target - self.compressor_gain) * coefficient;
+            follow(&mut self.compressor_gain, gain_target, coefficient);
             for ch in 0..2 {
                 output[ch] = 0.94
                     * (output[ch] * self.compressor_gain * self.makeup * self.output / 0.94).tanh();
@@ -1503,6 +1538,138 @@ mod tests {
             assert!((f64::from(g.edges[1].ab[0]) - 0.1).abs() < 1e-8);
             assert!(g.edges[0].ba[0].abs() < 1e-8);
         }
+    }
+    #[test]
+    fn released_many_ports_converge_exactly_without_callback_allocation() {
+        const PORTS: usize = 1024;
+        let make_scene = |spread| Scene {
+            nodes: (0..=PORTS)
+                .map(|id| Point {
+                    id: id as u32,
+                    x: 0.,
+                    y: 0.,
+                })
+                .collect(),
+            edges: (1..=PORTS)
+                .map(|node| Link {
+                    id: node as u32,
+                    a: 0,
+                    b: node,
+                    length: 0.0001,
+                })
+                .collect(),
+            input_node: 1,
+            pickup_node: 1,
+            input_ports: if spread {
+                Some(
+                    (1..=PORTS)
+                        .map(|node| Port {
+                            node,
+                            weight: 1. / (PORTS as f64).sqrt(),
+                        })
+                        .collect(),
+                )
+            } else {
+                None
+            },
+            pickup_ports: if spread {
+                Some(
+                    (1..=PORTS)
+                        .map(|node| Port {
+                            node,
+                            weight: 1. / PORTS as f64,
+                        })
+                        .collect(),
+                )
+            } else {
+                None
+            },
+            reserve_time_ms: 0.05,
+            memory_budget_bytes: 1024 * 1024,
+        };
+        let mut e = Engine::new(48000.);
+        e.parameters.time_ms = 0.05;
+        e.time = 0.05;
+        e.begin(make_scene(true), 1).unwrap();
+        while e.prepare(16) == 1 {}
+        e.begin(make_scene(false), 2).unwrap();
+        let zero = [0f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..400 {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        WATCH.with(|flag| flag.set(false));
+        let g = e.graph.as_ref().unwrap();
+        assert_eq!(g.input_weights, g.input_targets);
+        assert_eq!(g.pickup_weights, g.pickup_targets);
+        assert!(g.input_weights[2..].iter().all(|value| *value == 0.));
+        assert!(g.pickup_weights[2..].iter().all(|value| *value == 0.));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(e.clock, 400 * 128);
+    }
+    #[test]
+    fn silent_waveguide_and_pitch_histories_flush_denormals_without_resetting_clock() {
+        let mut e = Engine::new(48000.);
+        let mut s = scene();
+        s.edges[0].length = 0.0001;
+        s.edges[1].length = 0.0001;
+        s.reserve_time_ms = 0.05;
+        e.parameters.time_ms = 0.05;
+        e.time = 0.05;
+        e.begin(s, 1).unwrap();
+        while e.prepare(16) == 1 {}
+        for edge in &mut e.graph.as_mut().unwrap().edges {
+            edge.ab.fill(1e-40);
+            edge.ba.fill(-1e-40);
+            edge.level = 1e-40;
+        }
+        e.pitch_left.fill(1e-40);
+        e.pitch_right.fill(-1e-40);
+        e.hp_last_output = [1e-310; 2];
+        e.lp_last = [1e-310; 2];
+        e.compressor_envelope = 1e-310;
+        let zero = [0f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        for _ in 0..160 {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        for edge in &e.graph.as_ref().unwrap().edges {
+            assert!(edge.ab.iter().chain(&edge.ba).all(|value| *value == 0.));
+            assert_eq!(edge.level, 0.);
+        }
+        assert!(e
+            .pitch_left
+            .iter()
+            .chain(&e.pitch_right)
+            .all(|value| *value == 0.));
+        assert_eq!(e.hp_last_output, [0.; 2]);
+        assert_eq!(e.lp_last, [0.; 2]);
+        assert_eq!(e.compressor_envelope, 0.);
+        assert!(left.iter().chain(&right).all(|value| *value == 0.));
+        assert_eq!(e.clock, 160 * 128);
+    }
+    #[test]
+    fn cleanup_preserves_follower_arithmetic_and_wave_samples_above_inaudible_thresholds() {
+        let coefficient = 1. - (-1. / (48000. * 0.035f64)).exp();
+        let mut actual = 0.8;
+        let mut original = actual;
+        for _ in 0..10000 {
+            original += (0.1 - original) * coefficient;
+            follow(&mut actual, 0.1, coefficient);
+            assert_eq!(actual, original);
+        }
+        for value in [-0.7, -WAVE_FLOOR, WAVE_FLOOR, 0.7] {
+            assert_eq!(Graph::safe(value), value);
+        }
+        assert_eq!(Graph::safe(WAVE_FLOOR * 0.5), 0.);
+        assert_eq!(Graph::safe(-WAVE_FLOOR * 0.5), 0.);
+        let mut current = FOLLOW_EPSILON * 0.5;
+        follow(&mut current, 0., coefficient);
+        assert_eq!(current, 0.);
     }
 }
 
