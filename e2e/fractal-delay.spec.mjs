@@ -379,11 +379,27 @@ test('file and sample input stay at unity independently of retained mic gain', a
     await beginCapture(page); const pcm = await capture(page); boundedPcm(pcm); mic.push(pcm);
   }
   expect(mic[1].rms / mic[0].rms).toBeCloseTo(2, 1);
-  await range(page, 'inputTrim', 0); await page.waitForTimeout(250);
+  await range(page, 'inputTrim', 0);
+  await expect.poll(async () => (await diagnostics(page)).performance.inputGain).toBe(0);
+  const muteRequested = await diagnostics(page);
+  // Rust smooths gain with a 35 ms time constant. Begin with a fresh DSP
+  // status, then let twelve time constants render before measuring silence;
+  // wall time alone does not prove that the audio thread has settled.
+  await expect.poll(async () => (await diagnostics(page)).sampleClock, {
+    timeout: 5000, intervals: [25, 50, 100],
+  }).toBeGreaterThan(muteRequested.sampleClock);
+  const muteStarted = await diagnostics(page);
+  const settlingFrames = Math.ceil(muteStarted.sampleRate * .035 * 12);
+  await expect.poll(async () => (await diagnostics(page)).sampleClock - muteStarted.sampleClock, {
+    timeout: 5000, intervals: [25, 50, 100],
+  }).toBeGreaterThanOrEqual(settlingFrames);
+  const muteSettled = await diagnostics(page);
   await beginCapture(page); const silent = await capture(page);
   expect(silent.peak).toBeLessThan(.00001); expect(silent.nonFinite).toBe(0);
   expect(errors).toEqual([]);
-  await testInfo.attach('input-policy-pcm.json', { body: JSON.stringify({ ...evidence, mic, silent }, null, 2), contentType: 'application/json' });
+  await testInfo.attach('input-policy-pcm.json', { body: JSON.stringify({ ...evidence, mic, silent,
+    muteSettling: { startClock: muteStarted.sampleClock, endClock: muteSettled.sampleClock,
+      rate: muteStarted.sampleRate, requiredFrames: settlingFrames } }, null, 2), contentType: 'application/json' });
 });
 
 test('late microphone permission is cancelled and Audio off releases captured devices', async ({ page }) => {
