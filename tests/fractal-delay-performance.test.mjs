@@ -15,21 +15,42 @@ test('delay receiver gain has matching defaults and finite bounds for old and ne
   assert.equal(sanitizePerformance({ delayGainDb: 31.5 }).delayGainDb, 31.5);
 });
 
+test('network drive defaults feed the delay with direct input muted and sanitize older sessions', () => {
+  assert.equal(DEFAULT_PERFORMANCE.inputDriveDb, 12);
+  assert.equal(DEFAULT_PERFORMANCE.dry, 0);
+  assert.equal(NETWORK_PERFORMANCE.inputDriveDb, DEFAULT_PERFORMANCE.inputDriveDb);
+  assert.equal(NETWORK_PERFORMANCE.dry, DEFAULT_PERFORMANCE.dry);
+  assert.equal(sanitizePerformance({ wet: 1 }).inputDriveDb, 12);
+  assert.equal(sanitizePerformance({ wet: 1 }).dry, 0);
+  for (const inputDriveDb of [NaN, Infinity]) assert.equal(sanitizePerformance({ inputDriveDb }).inputDriveDb, 12);
+  assert.equal(sanitizePerformance({ inputDriveDb: -90 }).inputDriveDb, -12);
+  assert.equal(sanitizePerformance({ inputDriveDb: 90 }).inputDriveDb, 24);
+  assert.equal(sanitizePerformance({ inputDriveDb: 7.5 }).inputDriveDb, 7.5);
+  const legacy = recallMix({ inputDriveDb: 24, dry: 1, wet: .9 },
+    { inputGain: .4, delayGainDb: 31, outputLevel: .7, outputBoostDb: 2 });
+  assert.equal(legacy.inputDriveDb, 12, 'old sessions acquire the default live network drive');
+  assert.equal(legacy.dry, 0, 'old sessions without a direct level start muted');
+  assert.equal(legacy.inputGain, .4); assert.equal(legacy.delayGainDb, 31);
+  assert.equal(legacy.outputLevel, .7); assert.equal(legacy.wet, .9);
+});
+
 test('musical recall and mastering retain independently chosen delay and source levels', () => {
   const current = sanitizePerformance({ ...DEFAULT_PERFORMANCE, inputGain: .42,
-    delayGainDb: 37.5, outputLevel: .73, outputBoostDb: 2.5 });
+    inputDriveDb: 9.5, dry: .11, delayGainDb: 37.5, outputLevel: .73, outputBoostDb: 2.5 });
   const scene = musicalMix({ ...DEFAULT_PERFORMANCE, wet: .95, dry: .05 });
-  assert(!Object.hasOwn(scene, 'delayGainDb'), 'the preset does not own the live delay level');
-  const recalled = recallMix({ ...scene, delayGainDb: -12, inputGain: 4 }, current);
+  for (const key of ['delayGainDb', 'inputDriveDb', 'dry'])
+    assert(!Object.hasOwn(scene, key), `the preset does not own the live ${key} level`);
+  const recalled = recallMix({ ...scene, delayGainDb: -12, inputDriveDb: 24, dry: 1, inputGain: 4 }, current);
   assert.equal(recalled.delayGainDb, 37.5);
   assert.equal(recalled.inputGain, .42);
   assert.equal(recalled.outputLevel, .73);
   assert.equal(recalled.outputBoostDb, 2.5);
   assert.equal(recalled.wet, .95);
-  assert.equal(recalled.dry, .05);
+  assert.equal(recalled.dry, .11); assert.equal(recalled.inputDriveDb, 9.5);
   for (const preset of MASTERING_PRESETS) {
     const mastered = sanitizePerformance({ ...current, ...preset.mix });
     assert.equal(mastered.delayGainDb, 37.5);
+    assert.equal(mastered.inputDriveDb, 9.5); assert.equal(mastered.dry, .11);
     assert.equal(mastered.inputGain, .42);
     assert.equal(mastered.outputLevel, .73);
   }
