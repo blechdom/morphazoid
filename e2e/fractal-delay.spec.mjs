@@ -321,8 +321,9 @@ test('file and sample input stay at unity independently of retained mic gain', a
   for (const mode of ['file', 'samples']) {
     await choose(page, 'sourceMode', mode);
     if (mode === 'samples') {
-      const id = await page.locator('#sampleSelect').evaluate(select => [...select.options].find(option => option.value)?.value);
-      expect(id).toBeTruthy(); await choose(page, 'sampleSelect', id);
+      // The drum source is an arrangement with intentional gaps. A continuous
+      // decoded loop makes gain independence measurable at arbitrary phases.
+      await choose(page, 'sampleSelect', 'music-keys');
     }
     await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 15000 }).toBe(true);
     const values = [];
@@ -332,9 +333,7 @@ test('file and sample input stay at unity independently of retained mic gain', a
     }
     expect(values[1].rms / values[0].rms, mode).toBeCloseTo(1, 1); evidence[mode] = values;
     if (mode === 'samples') {
-      const nextId = await page.locator('#sampleSelect').evaluate(select =>
-        [...select.options].find(option => option.value && option.value !== select.value)?.value);
-      expect(nextId).toBeTruthy(); await choose(page, 'sampleSelect', nextId);
+      const nextId = 'music-bass'; await choose(page, 'sampleSelect', nextId);
       await expect.poll(async () => {
         const d = await diagnostics(page); return d.input.playing && d.input.sampleId === nextId;
       }, { timeout: 15000 }).toBe(true);
