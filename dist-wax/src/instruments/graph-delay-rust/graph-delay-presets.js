@@ -5,6 +5,7 @@ import {
 import { GRAPH_DELAY_INITIAL_STATE } from "../../families/graph-presets/initial-state.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
+import { graphOutputPaths } from './graph-delay-interactions.js';
 
 import { MAX_RUST_GRAPH_NODES as GRAPH_DELAY_RUST_MAX_NODES,
   MAX_RUST_GRAPH_TURN_ROUTES as GRAPH_DELAY_RUST_MAX_TURN_ROUTES, MAX_RUST_GRAPH_EDGES,
@@ -88,9 +89,9 @@ function createSnapshot(state) {
 }
 
 const expandedPatches = {
-  wideCanopy: { ...GRAPH_DELAY_PATCHES.branchChoir, label: "Wide Canopy", topology: "tree", nodeCount: 63, baseDelay: 42, timeScale: 65, pitchScale: 0.32, wet: 1.1 },
-  wovenGlass: { ...GRAPH_DELAY_PATCHES.layeredGlass, label: "Woven Glass", nodeCount: 48, density: 0.8, baseDelay: 24, timeScale: 32, pitchScale: 0.14, nodePass: 0.97 },
-  islandConstellation: { ...GRAPH_DELAY_PATCHES.islandSignals, label: "Island Constellation", nodeCount: 36, density: 0.4, baseDelay: 28, timeScale: 48, pitchScale: 0.12, feedback: 0.72 },
+  wideCanopy: { ...GRAPH_DELAY_PATCHES.branchChoir, label: "Wide Canopy", topology: "tree", nodeCount: 63, baseDelay: 42, timeScale: 65, pitchScale: 0.8, pitchCurve: 0.9, pitchAsymmetry: 0.3, wet: 1.1, dry: 0.08 },
+  wovenGlass: { ...GRAPH_DELAY_PATCHES.layeredGlass, label: "Woven Glass", nodeCount: 48, density: 0.8, baseDelay: 24, timeScale: 32, pitchScale: 0.8, pitchCurve: 0.9, pitchAsymmetry: 0.15, nodePass: 1, wet: 1.4, dry: 0.03 },
+  islandConstellation: { ...GRAPH_DELAY_PATCHES.islandSignals, label: "Island Constellation", nodeCount: 36, density: 0.4, baseDelay: 28, timeScale: 48, pitchScale: 0.4, pitchCurve: 1.1, pitchAsymmetry: 0, feedback: 0.72, dry: 0.08 },
 };
 
 export const GRAPH_DELAY_RUST_PRESETS = Object.freeze(Object.entries({ ...GRAPH_DELAY_PATCHES, ...expandedPatches }).map(([id, patch], index) => Object.freeze({
@@ -107,13 +108,21 @@ export function randomizeGraphDelayRustPreset(current, random = Math.random) {
   const rng = presetRandom(random);
   const snapshot = createSnapshot({ ...current.parameters,
     ...randomParameterValues({ ...ranges, baseDelay: [25, 130], timeScale: [0, 220], nodePass: [0.55, 0.98],
-      pitchScale: [0, 0.65], feedback: [0.2, 0.78], wet: [0.5, 1.2], dry: [0, 0.3], damping: [1200, 8500] }, rng),
+      pitchScale: [0.2, 1.5], feedback: [0.2, 0.78], wet: [0.8, 1.4], dry: [0, 0.15], damping: [1200, 8500] }, rng),
     nodeCount: rng.integer(4, GRAPH_DELAY_RUST_MAX_NODES), seed: rng.integer(1, 99),
     topology: rng.pick(Object.keys(GRAPH_PRESETS)), graphPatch: "custom",
     nodeMoving: rng.pick([true, false]), micMoving: rng.pick([true, false]),
     nodeMotionMode: rng.pick(nodeModes), micMotionMode: rng.pick(micModes),
   });
   for (const node of snapshot.graph.nodes) { node.x = rng.between(0.08, 0.92); node.y = rng.between(0.08, 0.92); }
-  Object.keys(snapshot.edgeSwitches).forEach((key, index) => { snapshot.edgeSwitches[key] = index === 0 || rng.unit() > 0.18; });
+  const { paths } = graphOutputPaths(snapshot.graph);
+  const backbone = new Set(paths.flatMap(path => path.edges));
+  for (const edge of snapshot.graph.edges) {
+    snapshot.edgeSwitches[`${edge.from}>${edge.to}`] = backbone.has(edge.id) || rng.unit() > 0.18;
+  }
+  // Sample the pass of a complete path, not its per-hop gain: .55^35 is
+  // effectively silence even when every processor in that graph is running.
+  const depth = Math.max(1, ...paths.map(path => path.edges.length));
+  snapshot.parameters.nodePass = snapshot.parameters.nodePass ** (1 / depth);
   return validateGraphDelayRustPreset(snapshot);
 }

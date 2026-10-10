@@ -1,12 +1,25 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { generateGraph, graphTurnRouteCount, GRAPH_PRESETS } from '../src/instruments/graph-delay/graph-delay.js';
-import { randomizeGraphPositions, createRandomGraph } from '../src/instruments/graph-delay-rust/graph-delay-interactions.js';
+import { randomizeGraphPositions, createRandomGraph, graphOutputPaths } from '../src/instruments/graph-delay-rust/graph-delay-interactions.js';
 import { compileGraphDelayPlan } from '../src/instruments/graph-delay-rust/graph-delay-plan.js';
 
 const graph = (count = 12) => generateGraph({ type: 'ring', nodeCount: count, maxNodes: 64, seed: 17 });
 const minimumSeparation = nodes => Math.min(...nodes.flatMap((node, index) => nodes.slice(index + 1).map(other => Math.hypot(node.x - other.x, node.y - other.y))));
 const freeze = value => { if (value && typeof value === 'object') { Object.freeze(value); Object.values(value).forEach(freeze); } return value; };
+
+test('output path requirement distinguishes processing turns from a complete audible path', () => {
+  const chain = generateGraph({ type: 'chain', nodeCount: 36, maxNodes: 64 });
+  assert.equal(graphOutputPaths(chain).minimumTurns, 35);
+  const switches = new Map(chain.edges.map(edge => [`${edge.from}>${edge.to}`, edge.id !== 12]));
+  assert.equal(graphOutputPaths(chain, { switches }).minimumTurns, null);
+  assert.equal(graphOutputPaths(chain, { nodePass: 0 }).minimumTurns, null);
+  const tree = generateGraph({ type: 'tree', nodeCount: 7 });
+  const paths = graphOutputPaths(tree);
+  assert.equal(paths.minimumTurns, 2);
+  assert.equal(paths.paths.length, 4);
+  assert.ok(paths.paths.every(path => path.edges.length === 2));
+});
 
 test('random positions preserve detached graph structure, route identities and all metadata', () => {
   const original = graph(), before = structuredClone(original); freeze(original);

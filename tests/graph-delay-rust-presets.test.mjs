@@ -5,6 +5,7 @@ import { GRAPH_DELAY_PATCHES, generateGraphWithinTurnBudget, graphTurnRouteCount
 import { GRAPH_DELAY_RUST_PRESETS, captureGraphDelayRustPreset, validateGraphDelayRustPreset,
   randomizeGraphDelayRustPreset } from "../src/instruments/graph-delay-rust/graph-delay-presets.js";
 import { validateFullPresetBank } from "../src/site/header-presets.js";
+import { graphOutputPaths } from '../src/instruments/graph-delay-rust/graph-delay-interactions.js';
 
 const clone = value => structuredClone(value);
 function seeded(seed) { return () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32); }
@@ -72,6 +73,19 @@ test("randomization is deterministic, bounded, independent and varies all musica
   }
   assert.ok(results.some(s => s.graph.nodes.length > 24));
   assert.ok(results.some(s => Object.values(s.edgeSwitches).includes(false)));
+});
+
+test("dice keeps complete output paths and bounds pass attenuation across long graphs", () => {
+  for (let seed = 1; seed <= 2000; seed++) {
+    const snapshot = randomizeGraphDelayRustPreset(GRAPH_DELAY_RUST_PRESETS[0].snapshot, seeded(seed));
+    const expected = graphOutputPaths(snapshot.graph);
+    const actual = graphOutputPaths(snapshot.graph, { switches: snapshot.edgeSwitches, ...snapshot.parameters });
+    assert.deepEqual(actual.paths.map(path => path.sink), expected.paths.map(path => path.sink), `lost output at seed ${seed}`);
+    assert.ok(actual.minimumTurns !== null, `no wet path at seed ${seed}`);
+    for (const path of actual.paths) {
+      assert.ok(snapshot.parameters.nodePass ** path.edges.length >= .55 - 1e-12, `inaudible per-hop pass at seed ${seed}`);
+    }
+  }
 });
 
 

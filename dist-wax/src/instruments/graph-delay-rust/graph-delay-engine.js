@@ -33,6 +33,8 @@ export class GraphDelayRustEngine {
   constructor(context, module, { onError = () => {}, onMetrics = () => {} } = {}) {
     this.context = context; this.module = module; this.capacityTask = null; this.performanceRevision = 0; this.performance = sanitizeGraphDelayPerformance(); this.onError = onError; this.onMetrics = onMetrics;
     this.closed = false; this.sequence = 0; this.revision = 0; this.requests = new Map();
+    this.controlsRevision = 0;
+    this.currentScene = null; this.retiringScene = null; this.pendingScene = null;
     this.input = null; this.releaseOutput = null; this.readyTimer = null; this.statusTimer = null;
     this.closeError = null;
     this.metrics = { nodes: 0, edges: 0, routes: 0, activeRoutes: 0, inputPeak: 0, outputPeak: 0,
@@ -89,10 +91,42 @@ export class GraphDelayRustEngine {
   async update(graph, settings = {}, switches = null) {
     if (this.closed) throw this.closeError;
     const revision = ++this.revision, plan = compileGraphDelayPlan(graph, settings, switches);
+    const scene = { signature: plan.signature, graph: structuredClone(graph), switches: structuredClone(switches) };
     await this.ready;
     if (this.closed) throw this.closeError;
     if (revision !== this.revision) return { superseded: true };
-    return this.request('configure', { plan: plan.data.buffer }, [plan.data.buffer]);
+    this.pendingScene = scene;
+    try {
+      const result = await this.request('configure', { plan: plan.data.buffer }, [plan.data.buffer]);
+      if (!result.superseded && !this.closed) {
+        if (this.currentScene?.signature !== scene.signature) this.retiringScene = this.currentScene;
+        this.currentScene = scene;
+      }
+      return result;
+    } finally { if (this.pendingScene === scene) this.pendingScene = null; }
+  }
+  /** Retune all potentially sounding scenes without replacing a graph that is
+   * still preparing. Geometry and gates belong to their own topology; musical
+   * settings follow the live controls even while the previous scene is heard. */
+  async updateParameters(graph, settings = {}, switches = null) {
+    if (this.closed) throw this.closeError;
+    const revision = ++this.controlsRevision;
+    const supplied = compileGraphDelayPlan(graph, settings, switches);
+    const geometry = structuredClone(graph), gates = structuredClone(switches);
+    const parameters = { ...settings };
+    await this.ready;
+    if (this.closed) throw this.closeError;
+    if (revision !== this.controlsRevision) return { superseded: true };
+    const scenes = new Map();
+    for (const scene of [this.retiringScene, this.currentScene, this.pendingScene]) {
+      if (!scene) continue;
+      if (scene.signature === supplied.signature) { scene.graph = geometry; scene.switches = gates; }
+      scenes.set(scene.signature, scene);
+    }
+    const plans = [...scenes.values()].map(scene => scene.signature === supplied.signature ? supplied.data.buffer
+      : compileGraphDelayPlan(scene.graph, parameters, scene.switches).data.buffer);
+    if (!plans.length) return { applied: 0 };
+    return this.request('controls', { plans }, plans);
   }
   async setPerformance(source = {}) {
     if (this.closed) throw this.closeError;
@@ -136,7 +170,8 @@ export class GraphDelayRustEngine {
   clear() { this.send({ type: 'clear' }); }
   close(error) {
     if (this.closed) return;
-    this.closed = true; this.closeError = error; this.revision++; this.performanceRevision++;
+    this.closed = true; this.closeError = error; this.revision++; this.controlsRevision++; this.performanceRevision++;
+    this.currentScene = this.retiringScene = this.pendingScene = null;
     this.cancelCapacityMeasurement();
     clearInterval(this.statusTimer); clearTimeout(this.readyTimer);
     this.rejectReady(error);

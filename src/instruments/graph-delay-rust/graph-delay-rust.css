@@ -68,6 +68,8 @@
 .native-live-disclosure > summary::marker { color: var(--accent); }
 .native-live-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .native-live-cap { position: absolute; top: 8px; right: 12px; width: 156px; }
+.native-live-status { display: block; padding-top: 3px; color: var(--muted); font: 10px/1.5 ui-monospace, monospace; overflow-wrap: anywhere; }
+.native-live-warning { color: var(--fracta-coral); }
 .native-performance-heading, .native-performance-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .native-performance-heading { margin-bottom: 10px; }
 .native-performance-heading > span { color: var(--muted); font-size: 9px; }

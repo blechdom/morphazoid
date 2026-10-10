@@ -2,19 +2,20 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 92059,
-  "wasmSha256": "c89bbd3aec35e9c0206e72cd9e7b34c61398037ded0d30181f60a703a447097f",
+  "bytes": 92977,
+  "wasmSha256": "699d5772b1859be1ef779abe061fc80c8f36489986d8307f5a617ac63548d030",
   "sourceHashes": {
-    "scripts/build-graph-delay-wasm.mjs": "a3a8f708ca4ccfb34d549369dab28084826c19b761f216bcba9307e301aee3e6",
+    "scripts/build-graph-delay-wasm.mjs": "59ffe689325b97dcdf0fb4c488aa159c98127b624a5ee81949183047efc79275",
     "src/instruments/graph-delay-rust/rust/Cargo.lock": "9dc9d3daacec5ba5f004e19eaea3e7a379bc37bcb31633e24578f635ffcda555",
     "src/instruments/graph-delay-rust/rust/Cargo.toml": "09e609f38ceb015133066a78aa07c6a60fa0cb601ec1046291838d1970b60f79",
-    "src/instruments/graph-delay-rust/rust/src/lib.rs": "1032ef105c05141daaaadc831d08742a36c50d28995ea2b1c75332c3f508235c"
+    "src/instruments/graph-delay-rust/rust/src/lib.rs": "499ffe5b9098c40b7960c274276ca97e422086051ffaa832f6106fad704707d6"
   },
   "imports": [],
   "exports": [
     "gdr_abi_version",
     "gdr_alloc",
     "gdr_clear",
+    "gdr_controls",
     "gdr_drop",
     "gdr_edge_levels",
     "gdr_enabled",

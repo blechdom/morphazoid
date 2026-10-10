@@ -4,7 +4,7 @@ import { GRAPH_DELAY_INITIAL_STATE as INITIAL_STATE } from "../../families/graph
 import { GRAPH_DELAY_RUST_PRESETS as GRAPH_DELAY_FULL_PRESETS, captureGraphDelayRustPreset as captureGraphDelayPreset, validateGraphDelayRustPreset as validateGraphDelayPreset, randomizeGraphDelayRustPreset as randomizeGraphDelayPreset } from "./graph-delay-presets.js";
 import { GraphDelayRustEngine } from "./graph-delay-engine.js";
 import { MAX_RUST_GRAPH_NODES, DEFAULT_RUST_GRAPH_TURN_ROUTES, generateGraphWithinRustBudget } from "./graph-delay-topology.js";
-import { randomizeGraphPositions, createRandomGraph } from "./graph-delay-interactions.js";
+import { randomizeGraphPositions, createRandomGraph, graphOutputPaths } from "./graph-delay-interactions.js";
 import { createGraphDelayRenderer } from "./graph-delay-renderer.js";
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from "../micmic/native/input-source.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
@@ -412,12 +412,14 @@ function edgeSwitchEnabledFlags(graph, { forceOpen = false } = {}) {
 }
 
 function applyAudioParameters() {
-  if (graphRebuildTimer !== null || graphRebuildQueued) return;
-  if (!audioGraph) { lastAppliedConfiguration = graphConfigurationSnapshot(); return; }
+  if (!audioGraph) {
+    if (graphRebuildTimer === null && !graphRebuildQueued) lastAppliedConfiguration = graphConfigurationSnapshot();
+    return;
+  }
   audioGraph.setOutputEnabled(audioOutputEnabled);
   const engine = audioGraph, configuration = graphConfigurationSnapshot(), revision = graphRevision;
-  engine.update(geometryModel(), state, edgeSwitchEnabledFlags(model)).then(() => {
-    if (audioGraph === engine && revision === graphRevision) lastAppliedConfiguration = configuration;
+  engine.updateParameters(geometryModel(), state, edgeSwitchEnabledFlags(model)).then(() => {
+    if (audioGraph === engine && revision === graphRevision && graphRebuildTimer === null && !graphRebuildQueued) lastAppliedConfiguration = configuration;
   }).catch(error => { if (audioGraph === engine && revision === graphRevision) reportAudioError(error); });
 }
 
@@ -654,6 +656,27 @@ function paintPerformance() {
   write("performanceEligible", metrics?.currentEligibleRoutes ?? "—");
   write("performanceProcessing", metrics?.activeRoutes ?? 0);
   write("performanceLimit", metrics?.liveLimit ?? (performanceState.voiceCeiling || "All"));
+  const prepared = metrics?.preparedRoutes ?? graphTurnRouteCount(model);
+  const protectedLimit = Boolean(metrics?.automatic && metrics.automaticLimit < Math.min(
+    metrics.currentEligibleRoutes, performanceState.voiceCeiling || 512));
+  write("liveVoiceStatus", metrics
+    ? `${metrics.currentActiveRoutes ?? 0}/${prepared} turns processing${protectedLimit ? " · Protect" : performanceState.voiceCeiling ? " · capped" : ""}`
+    : `Audio off · ${prepared} turns prepared`);
+  const geometry = geometryModel();
+  const { minimumTurns } = graphOutputPaths(geometry, { switches: edgeSwitchStates, ...state });
+  const taps = graphSinkNodeIds(geometry).length;
+  const turns = graphTurnRoutings(geometry, turnRoutingOptions()).flatMap(routing => routing.turns);
+  const shifted = turns.filter(turn => Math.abs(turn.semitones) >= 1.2).length;
+  write("performancePitchRoutes", `${shifted}/${turns.length} fully shifted`);
+  write("performanceOutputs", `${taps} · ${minimumTurns === null ? "no open path" : `minimum ${minimumTurns} turns`}`);
+  let graphStatus = "";
+  if (minimumTurns === null) graphStatus = "No open path to an output";
+  else if (metrics?.preparedRoutes > 0 && metrics.currentTargetRoutes < minimumTurns) graphStatus = `Needs ${minimumTurns} turns to reach output; ${protectedLimit ? "Protect" : "cap"} allows ${metrics.currentTargetRoutes}`;
+  else if (metrics?.warmRemainingSeconds > 0) graphStatus = `Previous graph audible · new graph in ${metrics.warmRemainingSeconds.toFixed(1)} s`;
+  else if (metrics?.retiringActiveRoutes) graphStatus = "Crossfading graphs";
+  else if (metrics?.preparing || graphRebuildQueued) graphStatus = "Preparing next graph · current audio continues";
+  write("liveGraphStatus", graphStatus);
+  $("liveGraphStatus").hidden = !graphStatus;
   write("performanceMeasured", capacityMeasurement ? `${capacityMeasurement.voices} · ${percent(capacityMeasurement.load)}` : "Untested");
   write("performanceTransition", metrics?.retiringActiveRoutes ? `${metrics.retiringActiveRoutes} previous-graph voices retained · cap applies per graph`
     : metrics?.preparing ? "Preparing next graph · current audio continues" : "No graph transition");
@@ -1260,7 +1283,7 @@ function frame(now) {
     if (lastVisualPaint) visualFps += (1000 / Math.max(1, now - lastVisualPaint) - visualFps) * .15;
     lastVisualPaint = now;
     const metrics = audioGraph?.metrics;
-    $("engineReadout").textContent = metrics ? `${metrics.routes} pitch routes · ${Math.round((metrics.cpuLoad ?? 0) * 100)}% audio load · ${metrics.deadlineMisses ?? 0} late blocks` : "Audio off";
+    $("engineReadout").textContent = metrics ? `${metrics.currentActiveRoutes}/${metrics.preparedRoutes} turns processing · ${Math.round((metrics.cpuLoad ?? 0) * 100)}% audio load · ${metrics.deadlineMisses ?? 0} late blocks` : "Audio off";
     $("rendererReadout").textContent = renderer?.available ? "WebGL2" : "Canvas fallback";
     if (now - lastMonitorPaint >= 100) { paintPerformance(); lastMonitorPaint = now; }
   }

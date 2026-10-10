@@ -27,6 +27,12 @@ async function open(page) {
           if (message.type === 'configure') {
             qa.plans++; qa.plan = Array.from(new Float64Array(message.plan));
           }
+          if (message.type === 'controls') {
+            // The last plan is the latest accepted/dispatched scene; preceding
+            // plans retune the graph still sounding during transition warmup.
+            const latest = message.plans.at(-1);
+            if (latest) qa.plan = Array.from(new Float64Array(latest));
+          }
           return post(message, ...rest);
         };
       }

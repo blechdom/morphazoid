@@ -49,7 +49,11 @@ native arrow-key controls and preset synchronization remain available.
   and positions within the preparation budget. It retains pitch, timing, mix,
   source playback, motion clocks and live cap. The existing graph transition
   handles the structural change. The preset dice remains the separate action
-  for randomizing the complete musical scene.
+for randomizing the complete musical scene.
+
+Preset dice keeps an open backbone to each reachable output. Its node-pass
+range is sampled across a complete path, so a long chain does not accidentally
+multiply a moderate gain into near-silence. Other gates remain randomized.
 
 Graph actions arriving during an asynchronous graph preparation or capacity test
 wait for it to finish. Repeated layout actions retain the latest choice. These
@@ -78,8 +82,13 @@ release/re-admission that retains delay histories. Admission favors complete ope
 paths to the output. Zero removes the manual cap.
 The cap applies per graph; an old and new graph can overlap during transitions.
 Protect audio additionally lowers admission when actual audio callback load
-approaches its deadline, then restores voices slowly when headroom returns.
-Turning it off leaves the manual cap in control. Drawing first reduces its
+approaches its deadline. It restores known capacity after transient overloads,
+then probes higher admission in bounded steps when headroom returns. Routine
+callback overhead does not block recovery. New topologies receive a fresh,
+bounded admission decision; changing a sound knob does not reset protection.
+The retiring graph retains its previous automatic ceiling, so fresh admission
+does not reactivate a large outgoing graph during the new graph's warmup.
+Turning Protect audio off leaves the manual cap in control. Drawing first reduces its
 cadence and detail when reported audio load rises.
 
 Live data separates requested, prepared, eligible (open-gate), processing and
@@ -89,6 +98,22 @@ relative to the block deadline, with average/peak and observed late callbacks.
 GPU time uses timer queries when supported; otherwise it says Unavailable.
 Graphics reports main-thread drawing time and actual frame rate. Neither timing
 readout claims whole-device CPU/GPU utilization or physical sound-device dropouts.
+
+The visible count describes processing turns, not distinct audible notes. Each
+input-to-output path can cross several turns, and their signed pitch shifts can
+cancel. Live data separately shows fully shifted turns (at least 1.2 semitones
+locally); smaller shifts blend with the near-unison path. Graph output still
+comes only from sink nodes. A cap below the shortest complete output path can
+therefore silence the wet signal: Island Constellation needs at least 35 turns.
+The cap readout warns about that condition and about closed output paths. It
+also identifies protection reductions and the old graph playing during warmup.
+
+Wide Canopy, Woven Glass and Island Constellation use stronger pitch mappings
+and less dry signal than their initial Rust versions. The original 14 patches
+retain their settings. Input energy is still normalized at junctions, so adding
+routes does not imply more loudness. Both feedback sends and the summed output
+reject DC at 10 Hz before limiting; repeated downward shifts can otherwise
+accumulate subsonic energy and consume the audible signal's headroom.
 
 Capacity tests use a disposable worker and the same Rust kernel, preserving
 current playback. Select a preparation budget and test the generated candidate.
@@ -134,7 +159,10 @@ motion clocks. Structural replacement prepares a new network, keeps the old
 scene audible through the new path's delay and pitch-history warmup, and then
 crossfades for 300 ms. Very long chains can retain the old scene for up to
 140 seconds before fading; another topology edit queues behind that transition.
-Parameter and gate changes update the existing histories.
+Parameter and gate changes update the existing histories. Live pitch, timing
+and mix controls also reach the previous sounding graph and queued graph while
+the incoming graph warms up, without cancelling the structural transition.
+Geometry and gates remain associated with their own topology.
 Panic clears audio and releases input. Leaving or hiding the page releases
 capture; returning does not silently arm output. The browser engine does not
 claim WAX audio-bus support.
@@ -156,3 +184,11 @@ validation without installing Rust. Rebuilding needs the
 `wasm32-unknown-unknown` Rust target. GPU drawing, PCM behavior, admission,
 resource cleanup and layout can be tested automatically. Musical quality,
 real microphone feedback and touch feel still require listening and devices.
+
+The audibility regression checks include real WASM PCM during long transitions,
+Protect recovery with nonzero callback overhead, DC rejection under strong
+downward feedback, and 2,000 seeded random scenes retaining open output paths.
+The large-preset pitch mappings were characterized with 173, 233 and 440 Hz
+inputs, including 40-second feedback renders. These measurements establish
+signal behavior, not subjective sound quality; a human listening pass remains
+necessary.

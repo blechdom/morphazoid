@@ -148,6 +148,8 @@
             <div title="Prepared turn voices available to the current graph, before the live cap."><dt>Eligible</dt><dd id="performanceEligible">—</dd></div>
             <div title="Actual processing turn voices, including the previous graph during a transition and fading routes."><dt>Processing</dt><dd id="performanceProcessing">—</dd></div>
             <div title="Current graph limit after Protect audio and Live cap. Transition voices are reported separately below."><dt>Live limit</dt><dd><output id="performanceLimit">—</output></dd></div>
+            <div title="Planned turns before gate and cap limits. Turns with at least 1.2 semitones of local shift use fully pitched processing. Smaller turns blend with the unshifted signal; cumulative shifts may cancel before an output."><dt>Planned shifts</dt><dd id="performancePitchRoutes">—</dd></div>
+            <div title="Only sink nodes reach the speakers. A cap below the shortest open entry-to-output path cannot produce wet sound."><dt>Outputs</dt><dd id="performanceOutputs">—</dd></div>
             <div title="Most recent warmed graph tested in a separate worker. A workload measurement, not a permanent device maximum."><dt>Last test</dt><dd id="performanceMeasured">—</dd></div>
           </dl>
           <output class="native-input-note" id="performanceTransition">No graph transition</output>
@@ -173,6 +175,8 @@
             <input class="native-voice-value" id="voiceCeilingExact" type="number" inputmode="numeric" min="0" max="512" step="1" value="0" aria-labelledby="voiceCeilingLabel" aria-describedby="liveCapHint" />
             <span class="native-live-cap-hint" id="liveCapHint" title="0 removes the manual cap for each graph. Protect audio can still lower the live limit.">0 = All</span>
           </div>
+          <output class="native-live-status" id="liveVoiceStatus" title="Current processing turns / prepared turns. Turn processors combine before the graph outputs; this is not a count of distinct audible pitches.">Audio off</output>
+          <output class="native-live-status native-live-warning" id="liveGraphStatus" hidden></output>
         </section>
         <details class="group control-section" id="inputSection" data-section="input">
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>

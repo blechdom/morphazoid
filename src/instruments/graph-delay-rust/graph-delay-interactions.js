@@ -1,6 +1,32 @@
-import { GRAPH_PRESETS } from '../graph-delay/graph-delay.js';
+import { GRAPH_PRESETS, graphSinkNodeIds } from '../graph-delay/graph-delay.js';
 import { DEFAULT_RUST_GRAPH_TURN_ROUTES, MAX_RUST_GRAPH_NODES, MAX_RUST_GRAPH_TURN_ROUTES,
   generateGraphWithinRustBudget } from './graph-delay-topology.js';
+
+/** Complete open entry-to-output paths. A turn consumes one voice per edge;
+ * processing fewer turns than the shortest path cannot produce wet output. */
+export function graphOutputPaths(graph, { switches = null, nodePass = 1, feedback = 1 } = {}) {
+  const entries = graph.entries?.length ? graph.entries : [0];
+  const distance = Array(graph.nodes.length).fill(Infinity), parent = Array(graph.nodes.length).fill(null);
+  const queue = [...entries];
+  for (const id of entries) distance[id] = 0;
+  for (let head = 0; head < queue.length; head++) {
+    for (const edge of graph.edges) {
+      const enabled = switches instanceof Map ? switches.get(`${edge.from}>${edge.to}`)
+        : Array.isArray(switches) ? switches[edge.id] : switches?.[`${edge.from}>${edge.to}`];
+      if (edge.from !== queue[head] || enabled === false || nodePass <= 0
+        || (edge.feedbackEdge && feedback <= 0) || distance[edge.to] !== Infinity) continue;
+      distance[edge.to] = distance[edge.from] + 1;
+      parent[edge.to] = edge;
+      queue.push(edge.to);
+    }
+  }
+  const paths = graphSinkNodeIds(graph).filter(id => Number.isFinite(distance[id])).map(sink => {
+    const edges = []; let node = sink;
+    while (parent[node]) { const edge = parent[node]; edges.push(edge.id); node = edge.from; }
+    return { sink, edges: edges.reverse() };
+  });
+  return { paths, minimumTurns: paths.length ? Math.min(...paths.map(path => path.edges.length)) : null };
+}
 
 // As in GraphSynth, use a local seeded placement stream so every random source
 // produces separated nodes, including deterministic or constant test sources.
