@@ -22,7 +22,52 @@ to WebAssembly runs the travelling-wave network inside an AudioWorklet in the
 browser; a local Rust service is not required. This implementation does not
 provide a native backend or a WAX track-audio connection.
 
-At a junction, equal-impedance scattering distributes arriving waves. Coupling
+**Path echoes** is the default Sound interpretation. Each arrival continues
+into the other connections at its junction, splitting into branches without
+the sign-inverting reflections of the resonant model. Coupling blends this
+forward travel with immediate return along the incoming connection. A leaf
+returns through End return; Sustain still applies `decay^length` on traversal.
+All admitted connections participate, including the visible loop/shortcut/hub
+routes. Crossings that merely overlap on screen are not additional junctions.
+
+Three compact controls make the visible geometry consequential:
+
+- **Angle pitch** gives each directed connection a continuous shift of
+  `Angle pitch × sin(heading)` semitones. Upward travel raises pitch, downward
+  lowers it, horizontal travel adds no shift, and reverse travel reverses the
+  shift. A journey accumulates these local shifts; **Pitch** remains a separate
+  transposition of the combined wet output. Neither mapping quantizes notes.
+- **Path taps** blends the selected Listening ports with delayed arrivals
+  throughout the complete prepared network. At zero only the selected pickups
+  are heard; at 100% every connected node is monitored. The whole-network
+  coefficient vector has unit L2 norm across incoming directions, rather than
+  dividing each distant tap by the full node count. Monitoring does not change
+  feedback or inject an undelayed source into the output. The default 65%
+  retains a 35% contribution from your selected listening points.
+- **Bend tone** darkens sharp turns and endpoint returns. At a junction with
+  several routes, it uses their mean continuation direction, excluding the
+  connection being returned through. A straight continuation stays open;
+  zero disables this additional filtering. New external excitation bypasses
+  bend filtering, so Network drive still feeds the requested source level.
+
+Direction pitch is a two-window time-domain read inside each travelling delay,
+not FFT processing. Its adaptive grain fits the existing 25% reserved history
+headroom, so it adds no per-edge delay memory. With Angle pitch zero the first
+arrival follows the geometric travel time. With pitch active, grain lookback
+can smear an arrival by up to 25% of that connection's nominal time (also bounded
+by a 110 ms grain span). Extremely short paths cannot support a meaningful
+independent pitch window and instead behave as short-delay coloration. The
+graphics sample the actual processing histories and arrival readheads; there
+is no separate animation clock for these journeys.
+
+**Send pulse** schedules one shaped 8 ms noise burst through the current input
+points. Audio must already be enabled. It keeps the chosen microphone, file or
+sample and its playback position; it uses the current input/drive staging and
+adds no direct path beyond the existing Direct input setting. Use it with
+Rabbit Cycle and a longer Travel time to follow successive arrivals and returns.
+
+**Resonance** retains the original sound interpretation. At a junction,
+equal-impedance scattering distributes arriving waves. Coupling
 continuously blends this redistribution with reflection. At zero coupling,
 incident waves reflect; at full coupling, a two-edge junction transmits and a
 branch scatters. The blend is energy bounded. Source injection is independent
@@ -32,6 +77,10 @@ one reflects. Decay (the Sustain knob) supplies a per-traversal multiplier of
 already exists in the bidirectional paths and loops.
 The sound propagation law is our acoustic interpretation of the graph, not a
 property prescribed by the quadratic iteration.
+Angle pitch, Path taps and Bend tone are retained but inactive in Resonance.
+Short-delay factory resonators keep this interpretation; longer echo presets
+use Path echoes. Saved snapshots from before these controls restore Resonance
+with zero new mappings. New parameter captures use version 2.
 
 Short travel times make interference and resonance prominent; longer times
 make individual routes and returns easier to follow. Pitch offset changes the

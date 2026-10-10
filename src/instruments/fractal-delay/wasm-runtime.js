@@ -1,7 +1,9 @@
 import { encodeUtf8, decodeUtf8 } from '../micmic/native/wasm-abi.js';
 /** ABI bridge shared by the offline preflight worker and real-time worklet. */
+// Low-level callers keep the legacy default. The instrument passes its complete
+// model state, including the new Path echoes defaults, before playing input.
 export const NETWORK_PARAMETERS = Object.freeze({ timeMs: 140, decay: .84, coupling: .82, boundary: 1, pitchOffset: 0,
-  propagation: 'paths', geometryPitch: 8, tapCoverage: .65, turnTone: .3, frozen: false });
+  propagation: 'resonance', geometryPitch: 0, tapCoverage: 0, turnTone: 0, frozen: false });
 export const NETWORK_PERFORMANCE = Object.freeze({ inputGain: .85, inputDriveDb: 12, delayGainDb: 24, wet: .7, dry: 0, outputLevel: 1, outputBoostDb: 6,
   hpfHz: 30, lpfHz: 18000, compressorThresholdDb: -12, compressorRatio: 3,
   compressorAttackMs: 5, compressorReleaseMs: 120, compressorMakeupDb: 0 });

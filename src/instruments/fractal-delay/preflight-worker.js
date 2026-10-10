@@ -33,7 +33,10 @@ async function run(){busy=true;while(pending){const job=pending;pending=null;
     try{
      engine.prepareScene(network,1);engine.controls({...parameters,
       propagation:'paths',geometryPitch:24,tapCoverage:1,turnTone:1},job.performance,'media');
-     for(let block=0;block<24;block++)engine.process(zero,zero);
+     // Coefficients retarget in chunks of 64 edges; let every edge reach the
+     // expensive mapping and allow five 35 ms smoothing constants to settle.
+     const warmupBlocks=Math.max(24,Math.ceil(network.edges.length/64)+Math.ceil(rate*.035*5/128));
+     for(let block=0;block<warmupBlocks;block++)engine.process(zero,zero);
      const samples=[];
      for(let batch=0;batch<7;batch++){const start=performance.now();for(let block=0;block<16;block++)engine.process(zero,zero);samples.push((performance.now()-start)/1000/(16*128/rate));}
      samples.sort((a,b)=>a-b);measurement={cpuLoad:samples[3],sampleRate:rate,edges:network.edges.length};cachedCosts.set(key,measurement);
