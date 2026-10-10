@@ -1813,3 +1813,20 @@ copy+require	assets/wasm/fractal-delay.wasm
 copy+require	assets/wasm/fractal-delay-build.json
 copy+require	assets/instrument-icons/fractal-delay.webp
 copy+require	docs/fractal-delay.md
+
+# Graph Delay Rust
+copy+require	src/instruments/graph-delay-rust/graph-delay-rust-app.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-rust.css
+copy+require	src/instruments/graph-delay-rust/graph-delay-engine.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-worklet.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-plan.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-renderer.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-presets.js
+copy+require	assets/wasm/graph-delay.wasm
+copy+require	assets/wasm/graph-delay-build.json
+copy+require	src/instruments/graph-delay-rust/graph-delay-topology.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-interactions.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-policy.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-worker.js
+copy+require	docs/graph-delay-rust.md

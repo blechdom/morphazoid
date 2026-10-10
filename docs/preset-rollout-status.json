@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 47,
-    "fullPresets": 1961,
+    "implemented": 48,
+    "fullPresets": 1978,
     "favesImplemented": 17,
     "activeRemaining": 59,
     "regularRemaining": 127
@@ -656,6 +656,16 @@
       "scope": "fave",
       "presets": 14,
       "status": "implemented-verification-pending"
+    },
+    {
+      "id": "graph-delay-rust",
+      "label": "Graph Delay Rust",
+      "href": "graph-delay-rust.html",
+      "category": "audio-effect",
+      "scope": "regular",
+      "presets": 17,
+      "status": "implemented-verification-pending",
+      "evidence": "October 9: 14 preserved graph patches and three larger Rust graph scenes, with bounded complete-state capture, validated routing metadata and full musical randomization. Input/output gains and motion clocks remain live; browser and human listening verification pending."
     },
     {
       "id": "shepard-risset",

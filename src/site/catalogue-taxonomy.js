@@ -403,6 +403,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "graph-delay": [
     "graph"
   ],
+  "graph-delay-rust": ["graph", "delay"],
   "micromorph": [],
   "shepard-risset": [
     "synthesizer",

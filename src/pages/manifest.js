@@ -62,6 +62,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "gesturama.html",
   "graph-3d.html",
   "graph-delay.html",
+  "graph-delay-rust.html",
   "graph-drum-machine.html",
   "graph-synth.html",
   "graphs.html",

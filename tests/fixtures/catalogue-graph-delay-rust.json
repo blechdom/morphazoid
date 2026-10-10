@@ -1,0 +1,22 @@
+{
+  "additions": [
+    {
+      "id": "graph-delay-rust",
+      "label": "Graph Delay Rust",
+      "href": "graph-delay-rust.html",
+      "categoryId": "audio-effect",
+      "categoryLabel": "Audio Effect",
+      "imageHref": "assets/instruments/graph-delay.webp",
+      "tags": [
+        {
+          "id": "graph",
+          "label": "Graph"
+        },
+        {
+          "id": "delay",
+          "label": "Delay"
+        }
+      ]
+    }
+  ]
+}

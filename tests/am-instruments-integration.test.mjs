@@ -1,5 +1,6 @@
 import { restoreChaoticAmRouting } from "./helpers/chaotic-am-routing-reference.mjs";
 import { fractalDelaySiteChanges, restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
+import { restoreGraphDelayRustSite } from "./helpers/graph-delay-rust-site-reference.mjs";
 import { restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -42,7 +43,9 @@ test("Fractal Delay site amendments preserve genuine fresh-main bytes and reject
   assert.equal(fractalDelaySiteChanges.baseCommit, '5fcfd0a543866684bd3bf45749290a07d2156f08');
   const digest = value => createHash('sha256').update(value).digest('hex');
   for (const change of fractalDelaySiteChanges.changes) {
-    const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
+    const source = restoreGraphDelayRustSite(
+      await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file, { allowRestored: true },
+    );
     const restored = restoreFractalDelaySite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file + ': reviewed main source preserved');
     assert.notEqual(digest(restoreFractalDelaySite(source + '\n// unrelated drift\n', change.file)), change.sha256);

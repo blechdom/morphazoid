@@ -35,7 +35,7 @@ export const WAX_ROLE_DEFINITIONS = Object.freeze({
   }),
 });
 
-const BROWSER_RUST_DELAY_IDS = new Set(["micmic-rust", "l-system-parametric-lab", "l-system-experiments", "fractal-delay"]);
+const BROWSER_RUST_DELAY_IDS = new Set(["micmic-rust", "l-system-parametric-lab", "l-system-experiments", "fractal-delay", "graph-delay-rust"]);
 
 const AUDIO_FX_IDS = new Set(
   INSTRUMENT_MIDI_CAPABILITIES

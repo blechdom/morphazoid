@@ -122,6 +122,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "micmic", label: "L-system Delay", href: "l-mic.html" },
     { id: "micmic-rust", label: "L-system Delay Rust", href: "l-mic-rust.html", imageHref: "assets/instruments/micmic.webp" },
     { id: "graph-delay", label: "Graph Delay", href: "graph-delay.html" },
+    { id: "graph-delay-rust", label: "Graph Delay Rust", href: "graph-delay-rust.html", imageHref: "assets/instruments/graph-delay.webp" },
   ]),
   freezeGroup("infinite-illusion", "Infinite Illusion", [
     { id: "shepard-risset", label: "Shepard–Risset", href: "shepard-risset.html" },

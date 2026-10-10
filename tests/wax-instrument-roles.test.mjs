@@ -26,7 +26,7 @@ test("every catalog instrument has exactly one complete WAX support record", () 
   for (const support of WAX_INSTRUMENT_SUPPORT) {
     assert.equal(waxSupportForId(support.id), support);
     if (support.available === false) {
-      assert.ok(["micmic-rust", "l-system-parametric-lab", "l-system-experiments", "fractal-delay"].includes(support.id));
+      assert.ok(["micmic-rust", "l-system-parametric-lab", "l-system-experiments", "fractal-delay", "graph-delay-rust"].includes(support.id));
       assert.equal(support.recommended, null);
       assert.deepEqual(support.roles, []);
       assert.equal(support.audioInput, false);
@@ -127,7 +127,7 @@ test("input processors are conservative previews and musical generators expose u
 
 test("the role catalog search and role filters use the central support records", () => {
   const graphMatches = filterWaxSupport({ query: "Graph Delay" });
-  assert.deepEqual(graphMatches.map(({ id }) => id), ["graph-delay"]);
+  assert.deepEqual(graphMatches.map(({ id }) => id), ["graph-delay", "graph-delay-rust"]);
 
   const midiMatches = filterWaxSupport({ role: WAX_ROLE_IDS.midiFx });
   assert.ok(midiMatches.length > 20);

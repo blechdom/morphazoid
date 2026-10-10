@@ -42,6 +42,8 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "graph-3d.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "graph-delay.html", "selector": "#micMotionSpeed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "graph-delay.html", "selector": "#nodeMotionSpeed", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "graph-delay-rust.html", "selector": "#micMotionSpeed", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "graph-delay-rust.html", "selector": "#nodeMotionSpeed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "graph-drum-machine.html", "selector": "#nodeMotionSpeed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "graph-drum-machine.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "graph-synth.html", "selector": "#nodeMotionSpeed", "mapping": {"unit": "hz", "signed": false}},

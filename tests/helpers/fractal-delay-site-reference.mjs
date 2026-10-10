@@ -10,15 +10,17 @@ import { restoreNativeDelaySite } from './native-delay-site-reference.mjs';
 import { restoreMainOutputRouting } from './main-output-routing-reference.mjs';
 import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
 import { restoreOutputRecording } from './output-recording-reference.mjs';
+import { restoreGraphDelayRustSite } from './graph-delay-rust-site-reference.mjs';
 
 export const fractalDelaySiteChanges = JSON.parse(readFileSync(
   new URL('./fractal-delay-site-amendments.json', import.meta.url), 'utf8',
 ));
 
-/** Undo only the exact reviewed Fractal Delay registration. Historical hashes
+/** Peel the later Graph Delay Rust merge, then the exact Fractal registration. Historical hashes
  * and their original negative guards remain authoritative for all other bytes.
  */
 export function restoreFractalDelaySite(source, file) {
+  source = restoreGraphDelayRustSite(source, file, { allowRestored: true });
   for (const change of fractalDelaySiteChanges.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1,
