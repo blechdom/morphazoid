@@ -12,6 +12,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "l-system-parametric-lab",
     "l-system-experiments",
     "graph-delay",
+    "graph-delay-rust",
     "micromorph",
     "slippery-resynthesis",
     "simd-resonator",
@@ -201,6 +202,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "graph-delay-rust",
   "synthesis",
   "domino-run",
   "fractal-signals",
@@ -299,6 +301,7 @@ const audioInputIds = new Set([
   "l-system-parametric-lab",
   "l-system-experiments",
   "graph-delay",
+  "graph-delay-rust",
   "micromorph",
   "slippery-resynthesis",
   "simd-resonator",

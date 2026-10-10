@@ -1,0 +1,67 @@
+[
+  {
+    "file": "src/site/instrument-registry.js",
+    "replacements": [
+      {
+        "before": "    { id: \"graph-delay\", label: \"Graph Delay\", href: \"graph-delay.html\" },\n",
+        "after": "    { id: \"graph-delay\", label: \"Graph Delay\", href: \"graph-delay.html\" },\n    { id: \"graph-delay-rust\", label: \"Graph Delay Rust\", href: \"graph-delay-rust.html\", imageHref: \"assets/instruments/graph-delay.webp\" },\n",
+        "count": 1
+      }
+    ],
+    "sha256": "cbaa876ca5be46e9f84ace3ca8cd49204ca94504493f6d74ac3fb4940b3ac182"
+  },
+  {
+    "file": "src/site/instrument-catalog.js",
+    "replacements": [
+      {
+        "before": "  micromorph: define(\n",
+        "after": "  \"graph-delay-rust\": define(\n    \"Rust/WASM graph delay processor\",\n    \"Routes live input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs while preserving the original geometry controls.\",\n    \"Enable Audio and microphone input, choose a graph preset, then drag nodes and switch routes to reshape delay and pitch.\",\n    [\"Mic input\", \"Rust / WASM\", \"WebGL\", \"Graph routing\"],\n  ),\n  micromorph: define(\n",
+        "count": 1
+      }
+    ],
+    "sha256": "724b28c3a3ce51089a9cf2357e9694f3d35e0869d4676d9f8d11e573351613f0"
+  },
+  {
+    "file": "src/site/catalogue-taxonomy.js",
+    "replacements": [
+      {
+        "before": "  \"micromorph\": [],\n",
+        "after": "  \"graph-delay-rust\": [\"graph\", \"delay\"],\n  \"micromorph\": [],\n",
+        "count": 1
+      }
+    ],
+    "sha256": "7885fb9b798a78e21ceff975fb00445c8715acd07ce5a232be56f32e5f75320d"
+  },
+  {
+    "file": "src/site/instrument-midi-capabilities.js",
+    "replacements": [
+      {
+        "before": "    \"graph-delay\",\n",
+        "after": "    \"graph-delay\",\n    \"graph-delay-rust\",\n",
+        "count": 1
+      },
+      {
+        "before": "\n  \"graph-delay\",\n",
+        "after": "\n  \"graph-delay\",\n  \"graph-delay-rust\",\n",
+        "count": 1
+      },
+      {
+        "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
+        "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"graph-delay-rust\",\n",
+        "count": 1
+      }
+    ],
+    "sha256": "11c825709c703f5aa985be1c93f215c95e117a048d68f045fff8c7a26cae6916"
+  },
+  {
+    "file": "src/instruments/wax/wax-instrument-roles.js",
+    "replacements": [
+      {
+        "before": "const BROWSER_RUST_DELAY_IDS = new Set([\"micmic-rust\", \"l-system-parametric-lab\", \"l-system-experiments\"]);",
+        "after": "const BROWSER_RUST_DELAY_IDS = new Set([\"micmic-rust\", \"l-system-parametric-lab\", \"l-system-experiments\", \"graph-delay-rust\"]);",
+        "count": 1
+      }
+    ],
+    "sha256": "7dd2350b8968bd001f774916b8932d3d871626d608c62c2df1bf1ed993a35cdd"
+  }
+]

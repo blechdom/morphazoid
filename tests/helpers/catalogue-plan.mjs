@@ -8,6 +8,7 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL("../fixtures/catalogue-graph-delay-rust.json", import.meta.url), "utf8")).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-spartial.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-am.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-l-system-labs.json', import.meta.url), 'utf8')).additions,
