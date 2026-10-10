@@ -50,7 +50,9 @@ and audible arrivals throughout the prepared shape; Resonance retains the
 original scattering sound. Send pulse lets a single burst travel those routes
 while the selected source keeps playing. Single, grouped or whole-shape excitation and listening,
 endpoint returns, and optional loop/shortcut/hub connections extend those routes.
-Twenty-eight complete presets cover echoes and short-delay resonances.
+Independent Real c and Imaginary c Play/Pause, tempo, Tap and sweep controls
+cycle the actual sounding geometry back and forth. Forty complete presets
+cover delicate resonances and longer, stronger journeys through loops and branches.
 Audio starts off. Find it in Work in Progress.
 [Controls, mathematics and approximation limits](docs/fractal-delay.md).
 

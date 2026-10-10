@@ -10,6 +10,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { mountAudioInputControl } from '../../audio-input-control.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { initializeOutputRecording } from '../../site/output-recording-controls.js';
+import { initializeTapTempoControls } from '../../site/tap-tempo-controls.js';
 
 const $=id=>document.getElementById(id);
 const engine=createFractalDelayEngine({parameters:DEFAULT_PRESET.parameters});
@@ -43,6 +44,8 @@ for(const input of document.querySelectorAll('.knob-field input')){
   input.addEventListener('input',()=>run(id in PARAMETER_LIMITS?
     engine.setParameters({[id]:Number(input.value)}):engine.setPerformance({[id]:Number(input.value)})));
 }
+// Rust/WASM pages own their bootstrap; nav.js leaves this lifecycle to us.
+const tapTempo=initializeTapTempoControls(document,globalThis);
 const format=(key,value)=>{
   if(key.endsWith('MotionTempo'))return `${Number(value.toFixed(2))} BPM`;
   if(key.endsWith('MotionDepth'))return `±${Number(value.toFixed(3))}`;
@@ -142,8 +145,13 @@ function syncControls(){
   const key=JSON.stringify([state.parameters,state.performance,state.input.mode,state.input.sampleId,state.motion.real.playing,state.motion.imag.playing]);
   if(key===lastStateKey)return;lastStateKey=key;
   for(const [id,value]of Object.entries({...state.parameters,...state.performance})){
-    const input=$(id);if(!input)continue;input.value=String(value);
-    if(knobs.has(id)){knobs.get(id).update();const output=document.querySelector(`output[for="${id}"]`);if(output)output.textContent=format(id,value);}
+    const input=$(id);if(!input)continue;
+    const changed=input.value!==String(value);if(changed)input.value=String(value);
+    if(knobs.has(id)){
+      const output=document.querySelector(`output[for="${id}"]`),text=format(id,value);
+      if(changed||output?.textContent!==text)knobs.get(id).update();
+      if(output&&output.textContent!==text)output.textContent=text;
+    }
   }
   audioStrip.setLevel(state.performance.outputLevel);inputControl.root.setGain(state.performance.inputGain);
   $('sourceMode').value=state.input.mode;$('sampleSelect').value=state.input.sampleId;
@@ -207,6 +215,6 @@ frame=requestAnimationFrame(animate);
 run(engine.ready());
 document.addEventListener('visibilitychange',()=>{if(document.hidden)run(engine.setAudio(false));});
 globalThis.addEventListener('pagehide',()=>{
-  closed=true;cancelAnimationFrame(frame);release();presets.destroy();inputControl.destroy();audioStrip.destroy();
+  closed=true;cancelAnimationFrame(frame);release();presets.destroy();tapTempo?.destroy();inputControl.destroy();audioStrip.destroy();
   for(const knob of knobs.values())knob.destroy();headerObserver.disconnect();mapWorker.terminate();renderer.dispose();void engine.dispose();
 },{once:true});

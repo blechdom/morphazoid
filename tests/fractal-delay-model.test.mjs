@@ -414,7 +414,7 @@ test('port and boundary edits do not allocate different waveguide geometry', () 
 });
 
 test('eight new complete scenes explore all port modes and all added route types', () => {
-  const additions = PRESETS.slice(20);
+  const additions = PRESETS.slice(20, 28);
   assert.equal(additions.length, 8);
   assert.deepEqual(new Set(additions.map(({ parameters }) => parameters.routing)), new Set(ROUTING_MODES.map(({ id }) => id)));
   for (const inputMode of ['cluster', 'distributed', 'boundary', 'all']) assert.ok(additions.some(({ parameters }) => parameters.inputMode === inputMode));
