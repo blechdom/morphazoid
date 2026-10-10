@@ -21,6 +21,8 @@ export function createFractalDelayEngine(options = {}) {
   let manual = false, budget = 16384;
   const memoryBytes = (navigator.deviceMemory >= 8 ? 192 : navigator.deviceMemory <= 2 ? 48 : 96) * 1024 * 1024;
   const requests = new Map(), builds = new Map(), listeners = new Set();
+  const pulseNodes = new Set();
+  let pulseBuffer;
   const worker = new Worker(new URL('./preflight-worker.js', import.meta.url), { type:'module' });
   const emit = () => { if (!disposed) for (const listener of listeners) listener(getDiagnostics()); };
   const report = reason => { error = String(reason?.message || reason); emit(); };
@@ -117,12 +119,12 @@ export function createFractalDelayEngine(options = {}) {
         outputChannelCount:[2],channelCount:2,channelCountMode:'explicit',
         processorOptions:{module:wasm,memoryReserveBytes:memoryBytes+16*1024*1024}});
       node.port.onmessage = ({data}) => {
-        if (data.type === 'fatal') { audioDesired = audio = false; master.gain.value = 0; stopMicrophone(); input.stop(); report(data.error); return; }
+        if (data.type === 'fatal') { audioDesired = audio = false; master.gain.value = 0; stopPulses(); stopMicrophone(); input.stop(); report(data.error); return; }
         if (data.status && data.status.revision === network?.revision) { status = data.status; emit(); }
         const pending = requests.get(data.id);
         if (pending) { clearTimeout(pending.timer); requests.delete(data.id); data.error ? pending.reject(new Error(data.error)) : pending.resolve(data); }
       };
-      node.onprocessorerror = () => { audioDesired = audio = false; input.stop(); stopMicrophone(); report('Audio processor stopped. Reload to restart.'); };
+      node.onprocessorerror = () => { audioDesired = audio = false; stopPulses(); input.stop(); stopMicrophone(); report('Audio processor stopped. Reload to restart.'); };
       node.connect(master); sendControls();
       await context.resume();
       if (!network || context.sampleRate !== 48000) await prepareNetwork();
@@ -149,7 +151,7 @@ export function createFractalDelayEngine(options = {}) {
   async function setAudio(enabled) {
     const token = ++audioVersion; audioDesired=!!enabled; error=''; emit();
     if (!enabled) {
-      stopMicrophone(); input.stop(); audio=false;
+      stopPulses(); stopMicrophone(); input.stop(); audio=false;
       if (master && context?.state !== 'closed') {
         master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(0,context.currentTime,.008);
         await wait(35);
@@ -208,16 +210,37 @@ export function createFractalDelayEngine(options = {}) {
     return true;
   }
   function setPerformance(next) {performance=sanitizePerformance({...performance,...next});sendControls();emit();return Promise.resolve(true);}
+  function stopPulses() {
+    for (const source of pulseNodes) { source.onended=null; source.stop(); source.disconnect(); }
+    pulseNodes.clear();
+  }
+  function sendPulse() {
+    // A performed input gesture, never an implicit Audio arm or source change.
+    if (!audioDesired || !audio || disposed || !node || context?.state!=='running' || pulseNodes.size>=4) return false;
+    if (!pulseBuffer) {
+      pulseBuffer=context.createBuffer(1,Math.ceil(context.sampleRate*.008),context.sampleRate);
+      const values=pulseBuffer.getChannelData(0); let seed=0x125f84, filtered=0;
+      for(let i=0;i<values.length;i++) {
+        seed^=seed<<13; seed^=seed>>>17; seed^=seed<<5;
+        filtered+=(((seed>>>0)/4294967296*2-1)-filtered)*.45;
+        values[i]=filtered*Math.sin(Math.PI*i/(values.length-1))**2*.3;
+      }
+    }
+    const source=context.createBufferSource(); source.buffer=pulseBuffer;
+    source.connect(node); pulseNodes.add(source);
+    source.onended=()=>{source.disconnect();pulseNodes.delete(source);};
+    source.start(context.currentTime+.003); return true;
+  }
   async function dispose() {
-    if(disposed)return; audioDesired=false; audio=false; stopMicrophone();input.dispose();disposed=true;
+    if(disposed)return; audioDesired=false; audio=false; stopPulses(); stopMicrophone();input.dispose();disposed=true;
     clearInterval(pollTimer);worker.terminate();
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.resolve({superseded:true});}requests.clear();
     for(const pending of builds.values())pending.resolve(false);builds.clear();
     node?.port.postMessage({type:'dispose'});node?.disconnect();master?.disconnect();releaseOutput?.();
     if(context?.state!=='closed')await context?.close();listeners.clear();
   }
-  const engine={getDiagnostics,setParameters,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,
-    setInputLoop:loop=>input.setLoop(loop),restartInput:()=>input.restart(),stopInput:()=>{stopMicrophone();input.stop();},
+  const engine={getDiagnostics,setParameters,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
+    setInputLoop:loop=>input.setLoop(loop),restartInput:()=>input.restart(),stopInput:()=>{stopPulses();stopMicrophone();input.stop();},
     setVoiceBudget:async(value,override=false)=>{budget=Math.max(2,Math.min(16384,Math.floor(Number(value)||16384)));manual=!!override;return prepareNetwork();},
     subscribe(listener){listeners.add(listener);listener(getDiagnostics());return()=>listeners.delete(listener);},
     ready:()=>prepareNetwork(),dispose};

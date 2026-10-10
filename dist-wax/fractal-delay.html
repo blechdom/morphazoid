@@ -52,9 +52,11 @@
 <label class="knob-field" for="dry" title="Unprocessed input sent directly to the speakers. Zero keeps the source feeding the network without direct playback."><span><b>Direct input</b><output for="dry">0%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0" aria-label="Direct input" /></label>
 </div>
 <p class="control-note">Network drive feeds the effect. Direct input at zero lets you hear only the effect.</p>
+<div class="media-transport"><button id="sendPulse" type="button" disabled title="Enable Audio, then send a short pulse through the selected input points.">Send pulse</button></div>
 <a class="settings-link" href="settings.html#audio-input">Audio settings</a>
 </section>
 <section class="control-section" aria-label="Network">
+<label class="select-field" for="propagation">Sound<select id="propagation"><option value="paths">Path echoes</option><option value="resonance">Resonance</option></select></label>
 <label class="select-field" for="mode">Geometry<span class="select-next"><select id="mode"><option value="inverse">Inverse tree</option><option value="contours">Contour loops</option><option value="orbits">Orbit routes</option><option value="rays">Ray lattice</option><option value="membrane">Fractal chamber</option></select><button id="modeNext" type="button" aria-label="Next geometry">›</button></span></label>
 <label id="domainField" class="select-field" for="domain">Domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
 <label class="select-field" for="routing">Connections<select id="routing"><option value="geometry">Geometry routes</option><option value="loop">Loop joins</option><option value="shortcuts">Small-world shortcuts</option><option value="hub">Hub spokes</option></select></label>
@@ -64,11 +66,15 @@
 <label class="knob-field" for="detail"><span><b>Detail</b><output for="detail">6</output></span><input id="detail" type="range" min="2" max="12" step="1" value="6" aria-label="Detail" /></label>
 <label class="knob-field" for="timeMs"><span><b>Travel time</b><output for="timeMs">140</output></span><input id="timeMs" type="range" min="0.05" max="2000" step="0.05" value="140" aria-label="Travel time" /></label>
 <label class="knob-field" for="pitchOffset"><span><b>Pitch</b><output for="pitchOffset">0</output></span><input id="pitchOffset" type="range" min="-24" max="24" step="0.1" value="0" aria-label="Pitch" /></label>
+<label class="knob-field" for="geometryPitch" title="Pitch changes along each line: upward raises it, downward lowers it, and reverse travel reverses the shift."><span><b>Angle pitch</b><output for="geometryPitch">±8 st</output></span><input id="geometryPitch" type="range" min="0" max="24" step="0.1" value="8" aria-label="Angle pitch" /></label>
+<label class="knob-field" for="tapCoverage" title="Blend the selected listening points with arrivals throughout the complete prepared network."><span><b>Path taps</b><output for="tapCoverage">65%</output></span><input id="tapCoverage" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Path taps" /></label>
+<label class="knob-field" for="turnTone" title="Darken echoes at sharper bends. Straight continuation stays open."><span><b>Bend tone</b><output for="turnTone">30%</output></span><input id="turnTone" type="range" min="0" max="1" step="0.01" value="0.3" aria-label="Bend tone" /></label>
 <label class="knob-field" for="coupling"><span><b>Coupling</b><output for="coupling">0.82</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0.82" aria-label="Coupling" /></label>
 <label class="knob-field" for="decay"><span><b>Sustain</b><output for="decay">0.84</output></span><input id="decay" type="range" min="0" max="0.98" step="0.01" value="0.84" aria-label="Sustain" /></label>
 <label class="knob-field" for="boundary"><span><b>End return</b><output for="boundary">100%</output></span><input id="boundary" type="range" min="0" max="1" step="0.01" value="1" aria-label="Endpoint reflection" /></label>
 <label class="knob-field" for="linkDensity"><span><b>Link density</b><output for="linkDensity">25%</output></span><input id="linkDensity" type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Extra connection density" /></label></div>
 <p id="routingDescription" class="control-note">Geometry routes follow the selected fractal construction.</p>
+<p id="propagationDescription" class="control-note">Length → travel time · direction → pitch · bends → tone.</p>
 </section>
 <section class="control-section" aria-label="Excitation and pickups">
 <label class="select-field" for="inputMode">Excitation<select id="inputMode"><option value="point">Single point</option><option value="cluster">Local cluster</option><option value="distributed">Distributed points</option><option value="boundary">Boundary points</option><option value="all">Whole shape</option></select></label>

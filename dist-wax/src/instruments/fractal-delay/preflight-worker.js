@@ -24,13 +24,19 @@ async function run(){busy=true;while(pending){const job=pending;pending=null;
    network.reserveTimeMs=2000;network.memoryBudgetBytes=memoryBudgetBytes;
    requiredDelayBytes=estimateSceneBytes(network,rate,2000);
    if(requiredDelayBytes>memoryBudgetBytes){budget=Math.max(1,Math.floor(network.edges.length*.75));continue;}
-   const key=`${rate}:${network.mode}:${parameters.routing}:${network.nodes.length}:${network.edges.length}`;
+   // Reserve the cost of live path-pitch/tone edits before activating the graph.
+   // Scalar edits then keep the complete admitted shape and its histories.
+   const key=`paths-v1:${geometryKey}:${network.nodes.length}:${network.edges.length}`;
    measurement=cachedCosts.get(key);
    if(!measurement){
     const engine=createWasmNetwork(job.module,rate);const zero=new Float32Array(128);
     try{
-     engine.prepareScene(network,1);engine.controls(parameters,job.performance,'media');
-     for(let block=0;block<24;block++)engine.process(zero,zero);
+     engine.prepareScene(network,1);engine.controls({...parameters,
+      propagation:'paths',geometryPitch:24,tapCoverage:1,turnTone:1},job.performance,'media');
+     // Coefficients retarget in chunks of 64 edges; let every edge reach the
+     // expensive mapping and allow five 35 ms smoothing constants to settle.
+     const warmupBlocks=Math.max(24,Math.ceil(network.edges.length/64)+Math.ceil(rate*.035*5/128));
+     for(let block=0;block<warmupBlocks;block++)engine.process(zero,zero);
      const samples=[];
      for(let batch=0;batch<7;batch++){const start=performance.now();for(let block=0;block<16;block++)engine.process(zero,zero);samples.push((performance.now()-start)/1000/(16*128/rate));}
      samples.sort((a,b)=>a-b);measurement={cpuLoad:samples[3],sampleRate:rate,edges:network.edges.length};cachedCosts.set(key,measurement);
