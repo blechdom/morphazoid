@@ -29,6 +29,11 @@ struct Link {
     b: usize,
     length: f64,
 }
+#[derive(Clone, Deserialize)]
+struct Port {
+    node: usize,
+    weight: f64,
+}
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct Scene {
@@ -36,6 +41,10 @@ struct Scene {
     edges: Vec<Link>,
     input_node: usize,
     pickup_node: usize,
+    #[serde(default)]
+    input_ports: Option<Vec<Port>>,
+    #[serde(default)]
+    pickup_ports: Option<Vec<Port>>,
     #[serde(default = "reserve_default")]
     reserve_time_ms: f64,
     #[serde(default = "memory_default")]
@@ -49,6 +58,53 @@ fn memory_default() -> usize {
 }
 fn ring_size(length: f64, rate: f64, reserve: f64) -> usize {
     (length * rate * reserve * 1.25 / 1000.).ceil().max(1.) as usize + 4
+}
+fn validate_ports(
+    ports: Option<&[Port]>,
+    legacy: usize,
+    degrees: &[usize],
+    input: bool,
+) -> Result<(), &'static str> {
+    let Some(ports) = ports else {
+        return if degrees[legacy] > 0 {
+            Ok(())
+        } else {
+            Err("Disconnected input or pickup")
+        };
+    };
+    if ports.is_empty() {
+        return Err("Input and pickup ports must be nonempty");
+    }
+    let mut nodes = HashSet::new();
+    let mut norm = 0.;
+    for port in ports {
+        if port.node >= degrees.len()
+            || degrees[port.node] == 0
+            || !port.weight.is_finite()
+            || !nodes.insert(port.node)
+        {
+            return Err("Invalid, disconnected or duplicate input/pickup port");
+        }
+        norm += if input {
+            port.weight * port.weight
+        } else {
+            port.weight.abs()
+        };
+    }
+    if !norm.is_finite() || norm <= 0. || norm > 1. + 1e-6 {
+        return Err("Input ports exceed L2 or pickup ports exceed L1 normalization");
+    }
+    Ok(())
+}
+fn set_port_targets(targets: &mut [f64], ports: Option<&[Port]>, legacy: usize) {
+    targets.fill(0.);
+    if let Some(ports) = ports {
+        for port in ports {
+            targets[port.node] = port.weight;
+        }
+    } else {
+        targets[legacy] = 1.;
+    }
 }
 fn validate(scene: &Scene, rate: f64) -> Result<usize, &'static str> {
     if scene.nodes.is_empty()
@@ -89,9 +145,18 @@ fn validate(scene: &Scene, rate: f64) -> Result<usize, &'static str> {
             .checked_add(ring_size(e.length, rate, scene.reserve_time_ms) * 8)
             .ok_or("Delay memory overflow")?;
     }
-    if degrees[scene.input_node] == 0 || degrees[scene.pickup_node] == 0 {
-        return Err("Disconnected input or pickup");
-    }
+    validate_ports(
+        scene.input_ports.as_deref(),
+        scene.input_node,
+        &degrees,
+        true,
+    )?;
+    validate_ports(
+        scene.pickup_ports.as_deref(),
+        scene.pickup_node,
+        &degrees,
+        false,
+    )?;
     if bytes > scene.memory_budget_bytes {
         return Err("Complete graph exceeds reserved delay memory budget");
     }
@@ -137,10 +202,11 @@ struct Graph {
     pressure: Vec<f64>,
     input_weights: Vec<f64>,
     pickup_weights: Vec<f64>,
+    input_targets: Vec<f64>,
+    pickup_targets: Vec<f64>,
+    input_scale: Vec<f64>,
     pan: Vec<[f64; 2]>,
     edges: Vec<Edge>,
-    input: usize,
-    pickup: usize,
     reserve_ms: f64,
     bytes: usize,
 }
@@ -151,6 +217,7 @@ impl Graph {
         rate: f64,
         time_ms: f64,
         coupling: f64,
+        boundary: f64,
         smooth: f64,
     ) -> [f64; 2] {
         self.pressure.fill(0.);
@@ -171,20 +238,35 @@ impl Graph {
         for index in 0..self.pressure.len() {
             self.pressure[index] *= 2. / self.degrees[index].max(1.);
             self.input_weights[index] +=
-                (f64::from(index == self.input) - self.input_weights[index]) * smooth;
+                (self.input_targets[index] - self.input_weights[index]) * smooth;
             self.pickup_weights[index] +=
-                (f64::from(index == self.pickup) - self.pickup_weights[index]) * smooth;
+                (self.pickup_targets[index] - self.pickup_weights[index]) * smooth;
             let pressure = self.pressure[index] * 0.5 * self.pickup_weights[index];
             pickup[0] += pressure * self.pan[index][0];
             pickup[1] += pressure * self.pan[index][1];
-            self.pressure[index] +=
-                input * self.input_weights[index] / self.degrees[index].max(1.).sqrt();
         }
         for e in &mut self.edges {
-            let a = (1. - coupling) * e.incoming_ba
+            let reflected_a = (1. - coupling) * e.incoming_ba
                 + coupling * (self.pressure[e.link.a] - e.incoming_ba);
-            let b = (1. - coupling) * e.incoming_ab
+            let reflected_b = (1. - coupling) * e.incoming_ab
                 + coupling * (self.pressure[e.link.b] - e.incoming_ab);
+            // A leaf may absorb incoming energy without attenuating the external
+            // excitation. Per-node 1/sqrt(degree) injection makes a unit-L2 port
+            // vector inject at most one source's energy across all directions.
+            let a = reflected_a
+                * if self.degrees[e.link.a] == 1. {
+                    boundary
+                } else {
+                    1.
+                }
+                + input * self.input_weights[e.link.a] * self.input_scale[e.link.a];
+            let b = reflected_b
+                * if self.degrees[e.link.b] == 1. {
+                    boundary
+                } else {
+                    1.
+                }
+                + input * self.input_weights[e.link.b] * self.input_scale[e.link.b];
             e.ab[e.write] = Self::safe(a) as f32;
             e.ba[e.write] = Self::safe(b) as f32;
             let amplitude = ((a * a + b * b) * 0.5).sqrt() as f32;
@@ -278,6 +360,7 @@ struct Parameters {
     time_ms: f64,
     decay: f64,
     coupling: f64,
+    boundary: f64,
     pitch_offset: f64,
     frozen: bool,
 }
@@ -287,6 +370,7 @@ impl Default for Parameters {
             time_ms: 140.,
             decay: 0.84,
             coupling: 0.82,
+            boundary: 1.,
             pitch_offset: 0.,
             frozen: false,
         }
@@ -353,6 +437,7 @@ struct Engine {
     time: f64,
     decay: f64,
     coupling: f64,
+    boundary: f64,
     ratio: f64,
     mic_gain: f64,
     wet: f64,
@@ -401,6 +486,7 @@ impl Engine {
             time: 140.,
             decay: 0.84,
             coupling: 0.82,
+            boundary: 1.,
             ratio: 1.,
             mic_gain: p.input_gain,
             wet: p.wet,
@@ -451,6 +537,8 @@ impl Engine {
                 || !(0.0..=1.).contains(&p.decay)
                 || !p.coupling.is_finite()
                 || !(0.0..=1.).contains(&p.coupling)
+                || !p.boundary.is_finite()
+                || !(0.0..=1.).contains(&p.boundary)
                 || !p.pitch_offset.is_finite()
                 || !(-24.0..=24.).contains(&p.pitch_offset)
             {
@@ -553,8 +641,16 @@ impl Engine {
                     })
                     .collect();
                 g.nodes = scene.nodes;
-                g.pickup = scene.pickup_node;
-                g.input = scene.input_node;
+                set_port_targets(
+                    &mut g.input_targets,
+                    scene.input_ports.as_deref(),
+                    scene.input_node,
+                );
+                set_port_targets(
+                    &mut g.pickup_targets,
+                    scene.pickup_ports.as_deref(),
+                    scene.pickup_node,
+                );
                 for (edge, link) in g.edges.iter_mut().zip(scene.edges) {
                     edge.link = link;
                     edge.loss_target = self.parameters.decay.powf(edge.link.length);
@@ -572,16 +668,27 @@ impl Engine {
             degree[e.a] += 1.;
             degree[e.b] += 1.;
         }
+        let mut input_targets = vec![0.; scene.nodes.len()];
+        let mut pickup_targets = vec![0.; scene.nodes.len()];
+        set_port_targets(
+            &mut input_targets,
+            scene.input_ports.as_deref(),
+            scene.input_node,
+        );
+        set_port_targets(
+            &mut pickup_targets,
+            scene.pickup_ports.as_deref(),
+            scene.pickup_node,
+        );
         let graph = Graph {
             nodes: scene.nodes.clone(),
+            input_scale: degree.iter().map(|n: &f64| 1. / n.max(1.).sqrt()).collect(),
             degrees: degree,
             pressure: vec![0.; scene.nodes.len()],
-            input_weights: (0..scene.nodes.len())
-                .map(|index| f64::from(index == scene.input_node))
-                .collect(),
-            pickup_weights: (0..scene.nodes.len())
-                .map(|index| f64::from(index == scene.pickup_node))
-                .collect(),
+            input_weights: input_targets.clone(),
+            pickup_weights: pickup_targets.clone(),
+            input_targets,
+            pickup_targets,
             pan: scene
                 .nodes
                 .iter()
@@ -591,8 +698,6 @@ impl Engine {
                 })
                 .collect(),
             edges: Vec::with_capacity(scene.edges.len()),
-            input: scene.input_node,
-            pickup: scene.pickup_node,
             reserve_ms: scene.reserve_time_ms,
             bytes,
         };
@@ -779,6 +884,7 @@ impl Engine {
             self.time += (self.parameters.time_ms - self.time) * s;
             self.decay += (self.parameters.decay - self.decay) * s;
             self.coupling += (self.parameters.coupling - self.coupling) * s;
+            self.boundary += (self.parameters.boundary - self.boundary) * s;
             self.ratio += (ratio_target - self.ratio) * s;
             self.mic_gain += (self.performance.input_gain - self.mic_gain) * s;
             self.wet += (self.performance.wet - self.wet) * s;
@@ -804,10 +910,24 @@ impl Engine {
                 (input[0] + input[1]) * 0.5
             };
             let current = self.graph.as_mut().map_or([0.; 2], |g| {
-                g.step(injected, self.rate, self.time, self.coupling, s)
+                g.step(
+                    injected,
+                    self.rate,
+                    self.time,
+                    self.coupling,
+                    self.boundary,
+                    s,
+                )
             });
             let old = self.old.as_mut().map_or([0.; 2], |g| {
-                g.step(injected, self.rate, self.time, self.coupling, s)
+                g.step(
+                    injected,
+                    self.rate,
+                    self.time,
+                    self.coupling,
+                    self.boundary,
+                    s,
+                )
             });
             let wet = self.pitch(std::array::from_fn(|ch| {
                 current[ch] * self.fade + old[ch] * (1. - self.fade)
@@ -1110,6 +1230,8 @@ mod tests {
             ],
             input_node: 0,
             pickup_node: 2,
+            input_ports: None,
+            pickup_ports: None,
             reserve_time_ms: 2000.,
             memory_budget_bytes: 1024 * 1024,
         }
@@ -1223,7 +1345,7 @@ mod tests {
                 edge.loss = 1.;
                 edge.loss_target = 1.;
             }
-            g.step(0., 48000., 0.05, coupling, 0.001);
+            g.step(0., 48000., 0.05, coupling, 1., 0.001);
             let outgoing: f64 = g
                 .edges
                 .iter()
@@ -1234,6 +1356,152 @@ mod tests {
             if coupling == 0. || coupling == 1. {
                 assert!((outgoing - incoming).abs() < 1e-8);
             }
+        }
+    }
+    #[test]
+    fn normalized_multiport_excitation_injects_one_sources_energy_at_any_coupling_or_boundary() {
+        for coupling in [0., 0.3, 1.] {
+            for boundary in [0., 0.5, 1.] {
+                let mut e = Engine::new(48000.);
+                let mut s = scene();
+                s.edges[1].a = 0;
+                s.input_ports = Some(vec![
+                    Port {
+                        node: 0,
+                        weight: 0.6,
+                    },
+                    Port {
+                        node: 1,
+                        weight: 0.8,
+                    },
+                ]);
+                e.begin(s, 1).unwrap();
+                while e.prepare(16) == 1 {}
+                let g = e.graph.as_mut().unwrap();
+                g.step(0.1, 48000., 10., coupling, boundary, e.smooth);
+                let injected: f64 = g
+                    .edges
+                    .iter()
+                    .map(|edge| f64::from(edge.ab[0]).powi(2) + f64::from(edge.ba[0]).powi(2))
+                    .sum();
+                assert!((injected - 0.01).abs() < 1e-8);
+                assert!((f64::from(g.edges[0].ab[0]) - 0.06 / 2f64.sqrt()).abs() < 1e-8);
+                assert!((f64::from(g.edges[0].ba[0]) - 0.08).abs() < 1e-8);
+            }
+        }
+    }
+    #[test]
+    fn compatible_port_moves_keep_instantaneous_state_and_callback_allocation_free() {
+        let mut e = Engine::new(48000.);
+        e.begin(scene(), 1).unwrap();
+        while e.prepare(16) == 1 {}
+        let input = [0.02f32; 128];
+        let mut left = [0f32; 128];
+        let mut right = [0f32; 128];
+        e.parameters.pitch_offset = 12.;
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        let ring_pointers: Vec<_> = e
+            .graph
+            .as_ref()
+            .unwrap()
+            .edges
+            .iter()
+            .map(|edge| (edge.ab.as_ptr(), edge.ba.as_ptr()))
+            .collect();
+        let first_clock = e.clock;
+        ALLOCATIONS.with(|n| n.set(0));
+        for revision in 2..102 {
+            let mut changed = scene();
+            changed.input_ports = Some(vec![
+                Port {
+                    node: if revision % 2 == 0 { 0 } else { 1 },
+                    weight: 1. / 2f64.sqrt(),
+                },
+                Port {
+                    node: 2,
+                    weight: 1. / 2f64.sqrt(),
+                },
+            ]);
+            changed.pickup_ports = Some(vec![
+                Port {
+                    node: 0,
+                    weight: 0.25,
+                },
+                Port {
+                    node: 1,
+                    weight: 0.75,
+                },
+            ]);
+            let clock = e.clock;
+            let phase = e.pitch_phase;
+            let weights = e.graph.as_ref().unwrap().input_weights.clone();
+            let write: Vec<_> = e
+                .graph
+                .as_ref()
+                .unwrap()
+                .edges
+                .iter()
+                .map(|edge| edge.write)
+                .collect();
+            e.begin(changed, revision).unwrap();
+            assert_eq!(e.clock, clock);
+            assert_eq!(e.pitch_phase, phase);
+            let g = e.graph.as_ref().unwrap();
+            assert_eq!(g.input_weights, weights);
+            for (index, edge) in g.edges.iter().enumerate() {
+                assert_eq!((edge.ab.as_ptr(), edge.ba.as_ptr()), ring_pointers[index]);
+                assert_eq!(edge.write, write[index]);
+            }
+            assert!(e.old.is_none() && e.pending.is_none());
+            WATCH.with(|flag| flag.set(true));
+            e.process(&input, &input, &mut left, &mut right);
+            WATCH.with(|flag| flag.set(false));
+            let g = e.graph.as_ref().unwrap();
+            assert!(
+                g.input_weights
+                    .iter()
+                    .map(|weight| weight * weight)
+                    .sum::<f64>()
+                    <= 1. + 1e-9
+            );
+            assert!(
+                g.pickup_weights
+                    .iter()
+                    .map(|weight| weight.abs())
+                    .sum::<f64>()
+                    <= 1. + 1e-9
+            );
+        }
+        assert_eq!(e.clock, first_clock + 100 * 128);
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert!(left
+            .iter()
+            .all(|value| value.is_finite() && value.abs() <= 0.94));
+    }
+    #[test]
+    fn boundary_absorbs_only_leaf_reflections_and_leaves_junction_scattering_unchanged() {
+        for boundary in [0., 0.3, 1.] {
+            let mut e = Engine::new(48000.);
+            let mut s = scene();
+            s.edges[0].length = 0.0001;
+            s.edges[1].length = 0.0001;
+            e.begin(s, 1).unwrap();
+            while e.prepare(16) == 1 {}
+            let g = e.graph.as_mut().unwrap();
+            for edge in &mut g.edges {
+                edge.delay = 1.;
+                edge.loss = 1.;
+                edge.loss_target = 1.;
+            }
+            let last = g.edges[0].ab.len() - 1;
+            g.edges[0].ab[last] = 0.1;
+            g.edges[0].ba[last] = 0.2;
+            g.step(0., 48000., 0.05, 1., boundary, 0.001);
+            assert!((f64::from(g.edges[0].ab[0]) - 0.2 * boundary).abs() < 1e-8);
+            assert!((f64::from(g.edges[1].ab[0]) - 0.1).abs() < 1e-8);
+            assert!(g.edges[0].ba[0].abs() < 1e-8);
         }
     }
 }

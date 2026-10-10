@@ -88,7 +88,7 @@ test('live travel/coupling/decay/pitch controls leave clock and prepared graph i
   const e=initialize(graph([[0,1,.1],[1,2,.15]],3),{decay:.96});
   try {render(e,240,block=>Float32Array.from({length:BLOCK},(_,i)=>.04*Math.sin(2*Math.PI*173*(block*BLOCK+i)/RATE)));
     const before=e.status(), allocation=e.api.memory.buffer.byteLength;
-    e.controls({timeMs:.05,coupling:.65,decay:.9,pitchOffset:12});
+    e.controls({timeMs:.05,coupling:.65,boundary:.3,decay:.9,pitchOffset:12});
     assert.equal(e.status().sampleClock,before.sampleClock);const pcm=render(e,240);finite(pcm);
     assert(energy(pcm)>1e-9,'liveeditpreservesexistingreverberation');
     const after=e.status();assert.equal(after.revision,before.revision);assert.equal(after.activeEdges,before.activeEdges);
@@ -239,4 +239,119 @@ test('an overloaded current graph can still switch to a lighter queued scene',as
    assert(p.messages.some(value=>value.id===302&&value.installed),'queuedrecoverydoesnotwaitforeverforidleCPU');
    assert.equal(p.network.status().revision,302);p.message({type:'dispose',id:303});
  }finally{Object.defineProperty(globalThis,'performance',clockDescriptor);for(const [key,value]of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
+});
+
+test('simultaneous source ports produce independent arrivals through their actual routes',()=>{
+  const scene=graph([[0,1,.1],[0,2,.2],[0,3,.3]],4,0);
+  const sourceA=initialize({...scene,inputNode:1},{boundary:0});
+  const sourceB=initialize({...scene,inputNode:2},{boundary:0});
+  const together=initialize({...scene,inputPorts:[{node:1,weight:Math.SQRT1_2},{node:2,weight:Math.SQRT1_2}]},{boundary:0});
+  const raw=value=>.94*Math.atanh(value/.94);
+  try {
+    const a=render(sourceA,8,impulse),b=render(sourceB,8,impulse),both=render(together,8,impulse);
+    assert(Math.abs(a.findIndex(value=>Math.abs(value)>1e-4)-48)<=1);
+    assert(Math.abs(b.findIndex(value=>Math.abs(value)>1e-4)-96)<=1);
+    assert(both.slice(47,51).some(value=>Math.abs(value)>.01),'first source arrives along the shorter route');
+    assert(both.slice(95,99).some(value=>Math.abs(value)>.01),'second source independently arrives along the longer route');
+    let error=0;
+    for(let i=0;i<both.length;i++)error=Math.max(error,Math.abs(raw(both[i])-(raw(a[i])+raw(b[i]))*Math.SQRT1_2));
+    assert(error<1e-7,`the normalized multiport pressure superposes actual waves, error ${error}`);
+    finite(both);
+  } finally {sourceA.dispose();sourceB.dispose();together.dispose();}
+});
+
+test('multiple pickups are weighted averages of actual node pressure',()=>{
+  const scene=graph([[0,1,.1],[0,2,.2]],3);
+  const a=initialize({...scene,pickupNode:1},{boundary:0});
+  const b=initialize({...scene,pickupNode:2},{boundary:0});
+  const average=initialize({...scene,pickupPorts:[{node:1,weight:.25},{node:2,weight:.75}]},{boundary:0});
+  const raw=value=>.94*Math.atanh(value/.94);
+  try {
+    const pa=render(a,8,impulse),pb=render(b,8,impulse),pc=render(average,8,impulse);
+    let error=0;
+    for(let i=0;i<pc.length;i++)error=Math.max(error,Math.abs(raw(pc[i])-raw(pa[i])*.25-raw(pb[i])*.75));
+    assert(error<1e-7,`pickup pressure matches the specified weighted average, error ${error}`);
+    assert(energy(pc)>1e-5);finite(pc);
+  } finally {a.dispose();b.dispose();average.dispose();}
+});
+
+test('port validation rejects unsafe scenes transactionally and accepts safe signed weights',()=>{
+  const scene=graph([[0,1,.1],[1,2,.1]],4,2),e=initialize(scene);
+  try {
+    const before=e.status(),cases=[
+      {inputPorts:[]},{pickupPorts:[]},
+      {inputPorts:[{node:0,weight:0}]},{pickupPorts:[{node:2,weight:0}]},
+      {inputPorts:[{node:0,weight:1},{node:0,weight:.1}]},
+      {pickupPorts:[{node:2,weight:.5},{node:2,weight:.5}]},
+      {inputPorts:[{node:4,weight:1}]},{pickupPorts:[{node:-1,weight:1}]},
+      {inputPorts:[{node:3,weight:1}]},{pickupPorts:[{node:3,weight:1}]},
+      {inputPorts:[{node:0,weight:Infinity}]},{pickupPorts:[{node:2,weight:NaN}]},
+      {inputPorts:[{node:0,weight:.8},{node:1,weight:.8}]},
+      {pickupPorts:[{node:0,weight:.8},{node:1,weight:.3}]},
+      {pickupPorts:[{node:0,weight:-.8},{node:1,weight:.3}]}
+    ];
+    for(const changes of cases){
+      assert.throws(()=>e.beginScene({...scene,...changes},8),`reject ${JSON.stringify(changes)}`);
+      assert.equal(e.status().sampleClock,before.sampleClock);assert.equal(e.status().revision,before.revision);
+      assert.equal(e.status().activeEdges,before.activeEdges);
+    }
+    e.beginScene({...scene,inputPorts:[{node:0,weight:.6},{node:1,weight:-.8}],pickupPorts:[{node:1,weight:-.4},{node:2,weight:.6}]},9);
+    assert.equal(e.prepareStep(),2);assert.equal(e.status().revision,9);
+    finite(render(e,100,impulse));
+    assert.throws(()=>e.controls({boundary:-.1}),/Invalid/);
+    assert.throws(()=>e.controls({boundary:1.1}),/Invalid/);
+    assert.throws(()=>e.controls({boundary:Infinity}));
+  } finally {e.dispose();}
+});
+
+test('boundary absorption removes round trips without changing the initial source transit',()=>{
+  const scene=graph([[0,1,.1]],2),open=initialize(scene,{boundary:0}),closed=initialize(scene,{boundary:1});
+  try {
+    const a=render(open,8,impulse),b=render(closed,8,impulse);
+    assert.equal(a.findIndex(value=>Math.abs(value)>1e-4),b.findIndex(value=>Math.abs(value)>1e-4));
+    assert(Math.abs(a[48]-b[48])<1e-7,'boundary changes reflected waves, not the external injection');
+    assert(energy(b.slice(130))>1e-3,'closed endpoints retain genuine feedback round trips');
+    assert(energy(a.slice(130))<1e-10,'absorbing endpoints do not reflect the old impulse');
+    finite(a);finite(b);
+  } finally {open.dispose();closed.dispose();}
+});
+
+test('zero coupling retains excitation and boundary defaults remain compatible with legacy controls',()=>{
+  const e=initialize(graph([[0,1,.1]],2),{coupling:0});
+  try {
+    const pcm=render(e,6,impulse);assert(Math.abs(pcm.findIndex(value=>Math.abs(value)>1e-4)-48)<=1);
+    assert(pcm.slice(140,148).some(value=>Math.abs(value)>.04),'omitted boundary still reflects at degree-one endpoints');
+    e.controls({boundary:0});render(e,240);
+    const encoded=new TextEncoder().encode(JSON.stringify({parameters:{timeMs:10,decay:1,coupling:0,pitchOffset:0,frozen:false}}));
+    const pointer=e.api.fd_alloc(encoded.length);
+    try {new Uint8Array(e.api.memory.buffer,pointer,encoded.length).set(encoded);assert.equal(e.api.fd_controls(e.engine,pointer,encoded.length),1);}
+    finally {e.api.fd_free(pointer,encoded.length);}
+    render(e,240);const restored=render(e,6,impulse);
+    assert(restored.slice(140,148).some(value=>Math.abs(value)>.04),'legacy control payload restores the default reflecting boundary');finite(pcm);finite(restored);
+  } finally {e.dispose();}
+});
+
+test('preencoded scene bytes retain multiport definitions and smooth rapid live changes without restarting',()=>{
+  const scene=graph([[0,1,.1],[1,2,.2]],3),baseline=initialize(scene),changed=initialize(scene);
+  let sample=0;
+  const signal=()=>Float32Array.from({length:BLOCK},()=>.02*Math.sin(2*Math.PI*173*sample++/RATE));
+  try {
+    for(let n=0;n<200;n++){const input=signal();baseline.process(input);changed.process(input);}
+    const before=changed.status(),memory=changed.api.memory.buffer.byteLength;
+    const next={...scene,inputPorts:[{node:0,weight:Math.SQRT1_2},{node:2,weight:Math.SQRT1_2}],pickupPorts:[{node:0,weight:.5},{node:1,weight:.5}]};
+    changed.beginScene(new TextEncoder().encode(JSON.stringify(next)),71);assert.equal(changed.prepareStep(),2);
+    assert.equal(changed.status().sampleClock,before.sampleClock);
+    assert.equal(changed.status().releasingEdges,0);assert.equal(changed.status().requiredDelayBytes,before.requiredDelayBytes);
+    const input=signal(),old=baseline.process(input).left.slice(),moved=changed.process(input).left.slice();
+    assert(Math.abs(old[0]-moved[0])<.0001,'the first sample follows a smooth port fade');
+    for(let n=0;n<120;n++){
+      const source=n%2?[{node:0,weight:.6},{node:1,weight:-.8}]:next.inputPorts;
+      changed.beginScene({...next,inputPorts:source},72+n);assert.equal(changed.prepareStep(),2);
+      const clock=changed.status().sampleClock;finite(changed.process(signal()).left);
+      assert.equal(changed.status().sampleClock,clock+BLOCK);assert.equal(changed.status().releasingEdges,0);
+      assert.equal(changed.api.memory.buffer.byteLength,memory,'port changes reuse reserved histories');
+    }
+    assert.equal(changed.status().activeEdges,scene.edges.length);
+    assert(changed.status().edgeLevels.some(value=>value>.0001),'the existing travelling histories remain active');
+  } finally {baseline.dispose();changed.dispose();}
 });
