@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import AxeBuilder from '@axe-core/playwright';
 
 const ENGINE = '/src/instruments/fractal-delay/browser-engine.js';
 const MODES = ['inverse', 'contours', 'orbits', 'rays', 'membrane'];
@@ -137,8 +138,29 @@ async function ready(page) {
   await page.goto('/fractal-delay.html');
   await expect(page.locator('#audioButton')).toBeEnabled();
   await expect(page.locator('#mode option')).toHaveCount(5);
-  await expect.poll(async () => (await diagnostics(page)).activeEdges, { timeout: 30000 }).toBeGreaterThan(0);
+  await expect.poll(async () => {
+    const d = await diagnostics(page); return d.preparedEdges ?? d.activeEdges;
+  }, { timeout: 30000 }).toBeGreaterThan(0);
   expect((await diagnostics(page)).audioDesired).toBe(false);
+}
+
+async function choose(page, id, value) {
+  const select = page.locator(`#${id}`);
+  if (await select.isVisible()) await select.selectOption(value);
+  else {
+    const index = await select.evaluate((node, value) => [...node.options].findIndex(option => option.value === value), value);
+    expect(index, `#${id} option ${value}`).toBeGreaterThanOrEqual(0);
+    const picker = page.locator(`[data-select-id="${id}"]`);
+    if (await picker.getAttribute('open') === null) await picker.locator('summary').click();
+    await picker.locator(`button[data-option-index="${index}"]`).click();
+  }
+  await expect(select).toHaveValue(value);
+}
+
+async function parameters(page, values) {
+  await page.evaluate(async ({ module, values }) => {
+    await (await import(module)).getFractalDelayEngine().setParameters(values);
+  }, { module: ENGINE, values });
 }
 
 async function range(page, id, value) {
@@ -206,13 +228,16 @@ function boundedPcm(pcm) {
 test('all five mathematical networks play real finite PCM without restarting their source', async ({ page }, testInfo) => {
   test.setTimeout(120000);
   const errors = await fixture(page); await ready(page);
-  await page.locator('#sourceMode').selectOption('file'); await upload(page);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 30000 }).toBe(true);
   await performanceState(page, { wet: 1, dry: 0 });
   const baseline = await diagnostics(page), evidence = {};
   for (const mode of MODES) {
-    await page.locator('#mode').selectOption(mode);
+    await choose(page, 'mode', mode);
+    // A short common edge-time keeps this transfer-function test independent
+    // of factory scenes whose long travel time intentionally delays an onset.
+    await parameters(page, { timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0, pickup: .3 });
     await expect.poll(async () => (await diagnostics(page)).parameters.mode).toBe(mode);
     await page.waitForTimeout(250);
     await beginCapture(page); const pcm = await capture(page);
@@ -240,14 +265,18 @@ test('all five mathematical networks play real finite PCM without restarting the
 test('presets, continuous controls and a blocked UI preserve the audio clock and one media source', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
-  await page.locator('#sourceMode').selectOption('file'); await upload(page);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 30000 }).toBe(true);
   await performanceState(page, { wet: .7, dry: .3 });
   const before = await diagnostics(page); await beginCapture(page);
   const presets = await page.locator('#presetSelect').evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
   expect(presets.length).toBeGreaterThanOrEqual(5);
-  for (const id of presets.slice(0, 5)) await page.locator('#presetSelect').selectOption(id);
+  for (const id of presets.slice(0, 5)) {
+    await page.locator('.instrument-preset-controls summary').click();
+    await page.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id);
+  }
   for (const value of [15, 90, 25, 160, 35, 70]) await range(page, 'timeMs', value);
   await page.locator('#stage').focus();
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowUp');
@@ -268,16 +297,16 @@ test('presets, continuous controls and a blocked UI preserve the audio clock and
 test('file and sample input stay at unity independently of retained mic gain', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
-  await page.locator('#sourceMode').selectOption('file'); await upload(page);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 30000 }).toBe(true);
   await performanceState(page, { wet: 0, dry: 1, outputLevel: .5, outputBoostDb: 0 });
   const evidence = {};
   for (const mode of ['file', 'samples']) {
-    await page.locator('#sourceMode').selectOption(mode);
+    await choose(page, 'sourceMode', mode);
     if (mode === 'samples') {
       const id = await page.locator('#sampleSelect').evaluate(select => [...select.options].find(option => option.value)?.value);
-      expect(id).toBeTruthy(); await page.locator('#sampleSelect').selectOption(id);
+      expect(id).toBeTruthy(); await choose(page, 'sampleSelect', id);
     }
     await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 15000 }).toBe(true);
     const values = [];
@@ -287,7 +316,7 @@ test('file and sample input stay at unity independently of retained mic gain', a
     }
     expect(values[1].rms / values[0].rms, mode).toBeCloseTo(1, 1); evidence[mode] = values;
   }
-  await page.locator('#sourceMode').selectOption('mic');
+  await choose(page, 'sourceMode', 'mic');
   await page.evaluate(async module => (await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true), ENGINE);
   const mic = [];
   for (const gain of [.5, 1]) {
@@ -311,7 +340,7 @@ test('late microphone permission is cancelled and Audio off releases captured de
     void import(module).then(({ getFractalDelayEngine }) => getFractalDelayEngine().setMicrophoneEnabled(true));
   }, ENGINE);
   await expect.poll(async () => (await diagnostics(page)).witness.pendingMicrophones, { timeout: 15000 }).toBe(1);
-  await page.locator('#sourceMode').selectOption('file'); await upload(page);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.evaluate(() => {
     const qa = __fractalPcmWitness; qa.holdMicrophone = false;
     qa.pendingMicrophones.splice(0).forEach(pending => pending.resolve());
@@ -319,7 +348,7 @@ test('late microphone permission is cancelled and Audio off releases captured de
   await expect.poll(async () => {
     const d = await diagnostics(page); return d.input.mode === 'file' && d.input.playing && d.witness.liveTracks === 0;
   }, { timeout: 15000 }).toBe(true);
-  await page.locator('#sourceMode').selectOption('mic');
+  await choose(page, 'sourceMode', 'mic');
   await page.evaluate(async module => (await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true), ENGINE);
   await expect.poll(async () => (await diagnostics(page)).witness.liveTracks).toBe(1);
   await page.locator('#audioButton').click();
@@ -327,6 +356,16 @@ test('late microphone permission is cancelled and Audio off releases captured de
     const d = await diagnostics(page); return !d.audioDesired && !d.input.playing && d.witness.liveTracks === 0;
   }).toBe(true);
   expect(errors).toEqual([]);
+});
+
+test('Fractal Delay has no critical or serious accessible-control violations', async ({ page }, testInfo) => {
+  test.setTimeout(60000);
+  await fixture(page); await ready(page);
+  const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
+  await testInfo.attach('fractal-delay-accessibility.json', {
+    body: JSON.stringify({ violations: result.violations, incomplete: result.incomplete }, null, 2), contentType: 'application/json',
+  });
+  expect(result.violations.filter(row => ['critical', 'serious'].includes(row.impact))).toEqual([]);
 });
 
 for (const viewport of SIZES) {
@@ -337,9 +376,12 @@ for (const viewport of SIZES) {
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'fileInput', 'mode', 'cReal', 'cImag', 'detail',
       'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'audioButton', 'presetSelect']) {
-      if (id === 'sampleSelect') await page.locator('#sourceMode').selectOption('samples');
-      if (id === 'fileInput') await page.locator('#sourceMode').selectOption('file');
-      const control = page.locator(`#${id}`);
+      if (id === 'sampleSelect') await choose(page, 'sourceMode', 'samples');
+      if (id === 'fileInput') await choose(page, 'sourceMode', 'file');
+      let control = page.locator(`#${id}`);
+      if (!(await control.isVisible()) && id === 'presetSelect') control = page.locator('.instrument-preset-controls summary');
+      else if (!(await control.isVisible()) && await page.locator(`[data-select-id="${id}"]`).count())
+        control = page.locator(`[data-select-id="${id}"] > summary`);
       await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
       const box = await control.boundingBox();
       expect(box.x, id).toBeGreaterThanOrEqual(-1);
