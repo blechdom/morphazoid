@@ -872,6 +872,8 @@ impl Engine {
             self.metrics[3] = net.nodes.len() as f64;
             self.metrics[4] = net.edges.len() as f64;
             self.metrics[5] = net.routes.len() as f64;
+            self.metrics[6] =
+                (net.routes.len() + self.old.as_ref().map_or(0, |old| old.routes.len())) as f64;
             for i in 0..NODES {
                 self.node_levels[i] =
                     (f64::from(self.node_levels[i]) * 0.8).max(net.node_peaks[i]) as f32;
@@ -1144,5 +1146,33 @@ mod tests {
                 }
             }
         }
+    }
+    #[test]
+    fn transition_counts_both_scenes_and_retires_without_callback_deallocation() {
+        let mut engine = engine();
+        let mut next = vec![
+            1., 2., 2., 1., 3., 1., 1., 0., 0.5, 4800., 0.03, 0.144, 0., 0., 0., 0.,
+        ];
+        next.extend([0., 0., 0., 0.9]);
+        next.extend([0., 1., 0.02, 0.7, 1., 0., 1., 0., 0.027, 0.5, 1., 1.]);
+        next.extend([0., 0.004, 1.]);
+        next.extend([2., 0., 12., 17., 1., 0., -7., 33., 0., 1., 4., 55.]);
+        assert!(engine.plan(&next));
+        while !engine.prepare(65536) {}
+        let mut a = [0.; BLOCK];
+        let mut b = [0.; BLOCK];
+        engine.process(&[0.01; BLOCK], &[0.; BLOCK], &mut a, &mut b);
+        assert_eq!(engine.metrics[5], 3.);
+        assert_eq!(engine.metrics[6], 4.);
+        OPERATIONS.with(|count| count.set(0));
+        TRACK.with(|track| track.set(true));
+        for _ in 0..220 {
+            engine.process(&[0.01; BLOCK], &[0.; BLOCK], &mut a, &mut b);
+        }
+        TRACK.with(|track| track.set(false));
+        assert_eq!(OPERATIONS.with(Cell::get), 0);
+        assert_eq!(engine.metrics[6], 3.);
+        assert!(engine.old.is_none());
+        assert!(engine.retired.is_some());
     }
 }
