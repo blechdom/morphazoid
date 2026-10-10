@@ -503,6 +503,126 @@ test('multiport excitation, pickups and routing show the installed scene without
   await testInfo.attach('multiport-routing-pcm.json', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' });
 });
 
+test('Path controls and version-two recall preserve the admitted graph and mobile media playback', async ({ browser, baseURL }, testInfo) => {
+  test.setTimeout(120000);
+  const context = await browser.newContext({ baseURL, viewport: SIZES[1], isMobile: true, hasTouch: true });
+  try {
+    const page = await context.newPage(), errors = await fixture(page); await ready(page);
+    await expect(page.locator('#propagation')).toHaveValue('paths');
+    const defaults = await diagnostics(page);
+    expect(defaults.parameters.geometryPitch).toBe(8);
+    expect(defaults.parameters.tapCoverage).toBe(.65); expect(defaults.parameters.turnTone).toBe(.3);
+    for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeEnabled();
+    await choose(page, 'sourceMode', 'file'); await upload(page);
+    await parameters(page, { mode: 'orbits', cReal: -.12256116687665362, cImag: .7448617666197442,
+      detail: 8, timeMs: 40, coupling: .97, decay: .8, pitchOffset: 0 });
+    await performanceState(page, { wet: .7, dry: .15 });
+    await page.locator('#audioButton').click();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return d.input.playing && !d.compiling && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
+    }, { timeout: 30000 }).toBe(true);
+    const before = await diagnostics(page); await beginCapture(page);
+    for (const [id, values] of Object.entries({ geometryPitch: [0, 24, 7.5], tapCoverage: [0, 1, .72], turnTone: [0, 1, .44] })) {
+      for (const value of values) await range(page, id, value);
+      await expect.poll(async () => (await diagnostics(page)).parameters[id]).toBe(values.at(-1));
+    }
+    await choose(page, 'propagation', 'resonance');
+    for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeDisabled();
+    await expect(page.locator('#propagationDescription')).toContainText('retained');
+    const retained = await diagnostics(page);
+    expect(retained.parameters.geometryPitch).toBe(7.5);
+    expect(retained.parameters.tapCoverage).toBe(.72); expect(retained.parameters.turnTone).toBe(.44);
+    await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: testInfo.outputPath('resonance-touch-390.png'), fullPage: true });
+    await choose(page, 'propagation', 'paths');
+    for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeEnabled();
+    const pcm = await capture(page, 1.2); boundedPcm(pcm); expect(pcm.longestZeroSeconds).toBeLessThan(.04);
+    const afterControls = await diagnostics(page);
+    expect(afterControls.network.revision).toBe(before.network.revision);
+    expect(afterControls.preparedEdges).toBe(before.preparedEdges);
+    expect(afterControls.requiredDelayBytes).toBe(before.requiredDelayBytes);
+    expect(afterControls.contextGeneration).toBe(before.contextGeneration);
+    expect(afterControls.witness.sources).toEqual(before.witness.sources);
+    expect(afterControls.sampleClock).toBeGreaterThan(before.sampleClock); expect(afterControls.input.playing).toBe(true);
+
+    await page.locator('#captureSound').evaluate(button => { button.closest('details').open = true; });
+    await page.locator('#captureSound').click();
+    const captured = JSON.parse(await page.locator('#capturedSound').inputValue());
+    expect(captured.version).toBe(2); expect(captured.instrument).toBe('fractal-delay');
+    expect(captured.parameters).toEqual(afterControls.parameters);
+    expect(captured.liveLevels.dry).toBe(.15); expect(captured.liveLevels.inputDriveDb).toBe(afterControls.performance.inputDriveDb);
+    await parameters(page, { propagation: 'resonance', geometryPitch: 0, tapCoverage: 0, turnTone: 0 });
+    // Use the instrument's public recall normalizer, also used by its preset
+    // adapter; an old capture must retain Resonance rather than silently change.
+    const recalled = await page.evaluate(async snapshot => {
+      const { recallParameters } = await import('/src/instruments/fractal-delay/presets.js');
+      const { getFractalDelayEngine } = await import('/src/instruments/fractal-delay/browser-engine.js');
+      const engine = getFractalDelayEngine(); await engine.setParameters(recallParameters(snapshot.parameters));
+      const { propagation, geometryPitch, tapCoverage, turnTone, ...legacy } = snapshot.parameters;
+      return { legacy: recallParameters(legacy) };
+    }, captured);
+    expect(recalled.legacy.propagation).toBe('resonance');
+    expect(recalled.legacy.geometryPitch).toBe(0); expect(recalled.legacy.tapCoverage).toBe(0); expect(recalled.legacy.turnTone).toBe(0);
+    await expect.poll(async () => (await diagnostics(page)).parameters).toEqual(captured.parameters);
+    for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toHaveValue(String(captured.parameters[id]));
+    const afterRecall = await diagnostics(page);
+    expect(afterRecall.network.revision).toBe(before.network.revision);
+    expect(afterRecall.contextGeneration).toBe(before.contextGeneration);
+    expect(afterRecall.witness.sources).toEqual(before.witness.sources); expect(afterRecall.sampleClock).toBeGreaterThan(afterControls.sampleClock);
+    expect(afterRecall.audioDesired).toBe(true); expect(afterRecall.input.playing).toBe(true); expect(afterRecall.error).toBeFalsy();
+    await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: testInfo.outputPath('paths-touch-390.png'), fullPage: true });
+    expect(errors).toEqual([]);
+    await testInfo.attach('path-control-mobile-continuity.json', { body: JSON.stringify({ captured, pcm,
+      revision: afterRecall.network.revision, admitted: afterRecall.activeEdges,
+      clockBefore: before.sampleClock, clockAfter: afterRecall.sampleClock }, null, 2), contentType: 'application/json' });
+  } finally { await context.close(); }
+});
+
+test('Send pulse never arms Audio and excites real paths without replacing a playing input', async ({ page }, testInfo) => {
+  test.setTimeout(90000);
+  const errors = await fixture(page); await ready(page);
+  await expect(page.locator('#sendPulse')).toBeDisabled();
+  expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(false);
+  const off = await diagnostics(page);
+  expect(off.audioDesired).toBe(false); expect(off.contextState).toBe('uninitialized'); expect(off.sourceCount).toBe(0);
+  await parameters(page, { mode: 'orbits', cReal: -.12256116687665362, cImag: .7448617666197442,
+    detail: 8, timeMs: 40, coupling: 1, decay: .7, pitchOffset: 0 });
+  await performanceState(page, { inputDriveDb: 0, delayGainDb: 0, wet: 1, dry: 0, outputLevel: .6,
+    outputBoostDb: 0, hpfHz: 5, lpfHz: 22000, compressorRatio: 1, compressorMakeupDb: 0 });
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return !d.compiling && d.audio && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
+  }, { timeout: 30000 }).toBe(true);
+  await expect(page.locator('#sendPulse')).toBeEnabled();
+  const prepared = await diagnostics(page); await beginCapture(page); await page.locator('#sendPulse').click();
+  const isolated = await capture(page); boundedPcm(isolated);
+  await expect.poll(async () => (await diagnostics(page)).witness.sources.at(-1).ended).toBe(true);
+  const afterPulse = await diagnostics(page);
+  expect(afterPulse.sourceCount).toBe(0); expect(afterPulse.witness.sources).toHaveLength(1);
+  expect(afterPulse.witness.sources[0].starts).toBe(1); expect(afterPulse.network.revision).toBe(prepared.network.revision);
+  expect(afterPulse.contextGeneration).toBe(prepared.contextGeneration); expect(afterPulse.sampleClock).toBeGreaterThan(prepared.sampleClock);
+
+  await choose(page, 'sourceMode', 'file'); await upload(page);
+  await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 15000 }).toBe(true);
+  const playing = await diagnostics(page); await beginCapture(page); await page.locator('#sendPulse').click();
+  const mixed = await capture(page); boundedPcm(mixed);
+  await expect.poll(async () => (await diagnostics(page)).witness.sources.at(-1).ended).toBe(true);
+  const after = await diagnostics(page);
+  expect(after.witness.sources.slice(0, playing.witness.sources.length)).toEqual(playing.witness.sources);
+  expect(after.witness.sources).toHaveLength(playing.witness.sources.length + 1);
+  expect(after.input).toEqual(playing.input); expect(after.sourceCount).toBe(1);
+  expect(after.network.revision).toBe(playing.network.revision); expect(after.contextGeneration).toBe(playing.contextGeneration);
+  expect(after.sampleClock).toBeGreaterThan(playing.sampleClock); expect(after.error).toBeFalsy();
+  await page.locator('#audioButton').click(); await expect(page.locator('#sendPulse')).toBeDisabled();
+  expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(false);
+  expect((await diagnostics(page)).audioDesired).toBe(false); expect(errors).toEqual([]);
+  await testInfo.attach('performed-pulse-pcm.json', { body: JSON.stringify({ isolated, mixed,
+    revision: after.network.revision, clockBefore: prepared.sampleClock, clockAfter: after.sampleClock }, null, 2), contentType: 'application/json' });
+});
+
 test('Network drive feeds real wet audio with direct input muted and cannot amplify direct playback', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
@@ -795,7 +915,8 @@ for (const viewport of SIZES) {
     expect(graphic.width, 'the graphic must retain a usable width').toBeGreaterThan(200);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
-      'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
+      'mode', 'modeNext', 'domain', 'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'sendPulse',
+      'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
       'inputMode', 'inputPosition', 'inputCount', 'inputSpread', 'pickupMode', 'pickupCount', 'pickupSpread', 'boundary', 'routing', 'linkDensity',
       'inputDriveDb', 'delayGainDb',
       'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
@@ -826,17 +947,32 @@ for (const viewport of SIZES) {
     }).toBe(true);
     expect((await diagnostics(page)).audioDesired).toBe(false);
     expect(errors).toEqual([]);
+    await page.locator('#propagation').evaluate(node => node.scrollIntoView({ block: 'center' }));
+    await page.screenshot({ path: testInfo.outputPath(`fractal-delay-${viewport.width}-sound.png`), fullPage: true });
+    await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
     await page.screenshot({ path: testInfo.outputPath(`fractal-delay-${viewport.width}.png`), fullPage: true });
   });
 }
 
 for (const viewport of SIZES.slice(1)) {
-  test(`coarse-pointer Audio remains at least 48 pixels at ${viewport.width}×${viewport.height}`, async ({ browser, baseURL }) => {
+  test(`coarse-pointer Audio and Pulse remain at least 48 pixels at ${viewport.width}×${viewport.height}`, async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, viewport, isMobile: true, hasTouch: true });
     try {
       const page = await context.newPage(); await fixture(page); await ready(page);
       const audio = await page.locator('#audioButton').boundingBox();
       expect(audio.width).toBeGreaterThanOrEqual(48); expect(audio.height).toBeGreaterThanOrEqual(48);
+      await page.locator('#sendPulse').scrollIntoViewIfNeeded();
+      const pulse = await page.locator('#sendPulse').boundingBox();
+      expect(pulse.width).toBeGreaterThanOrEqual(48); expect(pulse.height).toBeGreaterThanOrEqual(48);
+      await expect(page.locator('#sendPulse')).toBeDisabled();
+      await choose(page, 'propagation', 'resonance');
+      for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeDisabled();
+      await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
+      await page.screenshot({ path: testInfo.outputPath(`resonance-touch-${viewport.width}.png`), fullPage: true });
+      await choose(page, 'propagation', 'paths');
+      for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeEnabled();
+      await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
+      await page.screenshot({ path: testInfo.outputPath(`paths-touch-${viewport.width}.png`), fullPage: true });
     } finally { await context.close(); }
   });
 }
