@@ -176,7 +176,7 @@ test('uploaded WAVs produce distinct real Rust PCM without acquiring a microphon
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('aria-busy', 'false', { timeout: 20000 });
   const recalled = await diagnostics(page);
   expect(recalled.audio).toBe(true);
-  expect(recalled.inputSource).toMatchObject({ mode: 'file', fileName: 'tone-347.wav', playing: true });
+  expect(recalled.inputSource).toMatchObject({ mode: 'file', fileName: second.inputSource.fileName, playing: true });
   expect(recalled.sources).toEqual(second.sources);
   await dry(page); await live(page, 347);
   await setRange(page, 'dry', 0);
