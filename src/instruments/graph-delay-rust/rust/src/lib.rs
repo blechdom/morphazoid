@@ -1008,6 +1008,22 @@ impl Engine {
             ROUTES
         })
     }
+    fn controls(&mut self, plan: &[f64]) -> u32 {
+        let mut matched = 0;
+        let mut active_changed = false;
+        if let Some(active) = &mut self.active {
+            active_changed = active.controls(plan, false);
+            matched += u32::from(active_changed);
+        }
+        for net in [&mut self.old, &mut self.pending].into_iter().flatten() {
+            matched += u32::from(net.controls(plan, false));
+        }
+        if active_changed {
+            self.extend_warm();
+        }
+        self.refresh_counts();
+        matched
+    }
     fn apply_limit(&mut self) {
         let limit = self.current_limit();
         for net in [&mut self.active, &mut self.old, &mut self.pending]
@@ -1056,6 +1072,12 @@ impl Engine {
         self.metrics[17] = self.voice_ceiling as f64;
         self.metrics[18] = f64::from(self.automatic);
         self.metrics[19] = self.automatic_limit as f64;
+        self.metrics[20] = if self.old.is_some() {
+            self.warm as f64 / self.rate
+        } else {
+            0.
+        };
+        self.metrics[21] = if self.old.is_some() { self.fade } else { 1. };
     }
     fn prepare(&mut self, samples: usize) -> bool {
         self.retired = None;
@@ -1282,6 +1304,15 @@ pub unsafe extern "C" fn gdr_plan(engine: *mut Engine, plan: *const f64, count: 
     }
     u32::from((*engine).plan(slice::from_raw_parts(plan, count)))
 }
+/// Apply coefficients only to matching retained scenes. Zero means the scene
+/// has already retired (or the plan is invalid); it never installs a topology.
+#[no_mangle]
+pub unsafe extern "C" fn gdr_controls(engine: *mut Engine, plan: *const f64, count: usize) -> u32 {
+    if engine.is_null() || plan.is_null() || count > 8192 {
+        return 0;
+    }
+    (*engine).controls(slice::from_raw_parts(plan, count))
+}
 #[no_mangle]
 pub unsafe extern "C" fn gdr_prepare(engine: *mut Engine, samples: usize) -> u32 {
     u32::from((*engine).prepare(samples.min(65536)))
@@ -1470,6 +1501,62 @@ mod tests {
         invalid = plan();
         invalid[5] = f64::NAN;
         assert!(!engine.plan(&invalid));
+    }
+    #[test]
+    fn live_controls_update_matching_retained_scenes_without_allocation_or_pending_cancellation() {
+        let mut processor = engine();
+        processor.old = engine().active;
+        processor.pending = Some(Network::new(&plan(), 48000.).unwrap());
+        let active_history = processor.active.as_ref().unwrap().history.as_ptr();
+        let old_history = processor.old.as_ref().unwrap().history.as_ptr();
+        let pending_history = processor.pending.as_ref().unwrap().history.as_ptr();
+        processor.warm = 4800;
+        processor.fade = 0.;
+        let mut updated = plan();
+        updated[6] = 0.4;
+        updated[10] = 0.04;
+        let at = updated.len() - 2;
+        updated[at] = -9.;
+        OPERATIONS.with(|count| count.set(0));
+        TRACK.with(|track| track.set(true));
+        let matched = processor.controls(&updated);
+        TRACK.with(|track| track.set(false));
+        assert_eq!(matched, 3);
+        assert_eq!(OPERATIONS.with(Cell::get), 0);
+        assert_eq!(
+            processor.active.as_ref().unwrap().history.as_ptr(),
+            active_history
+        );
+        assert_eq!(
+            processor.old.as_ref().unwrap().history.as_ptr(),
+            old_history
+        );
+        assert_eq!(
+            processor.pending.as_ref().unwrap().history.as_ptr(),
+            pending_history
+        );
+        for scene in [&processor.active, &processor.old, &processor.pending]
+            .into_iter()
+            .flatten()
+        {
+            assert_eq!(scene.target_mix[1], 0.4);
+            assert_eq!(scene.routes[0].target_semitones, -9.);
+        }
+        let mut left = [0.; BLOCK];
+        let mut right = [0.; BLOCK];
+        processor.process(&[0.01; BLOCK], &[0.01; BLOCK], &mut left, &mut right);
+        let warm = processor.warm;
+        assert_eq!(processor.controls(&updated), 3);
+        assert_eq!(
+            processor.warm, warm,
+            "identical control packets do not restart warmup"
+        );
+        assert_eq!(processor.metrics[20], warm as f64 / processor.rate);
+        assert_eq!(processor.metrics[21], 0.);
+        assert_eq!(processor.elapsed, BLOCK as u64);
+        updated[20] = 99.;
+        assert_eq!(processor.controls(&updated), 0);
+        assert!(processor.pending.is_some());
     }
     #[test]
     fn preparer_never_initializes_more_than_its_allowance() {

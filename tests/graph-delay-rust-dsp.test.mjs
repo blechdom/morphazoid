@@ -20,6 +20,13 @@ function fixture(g = graph(), options = settings, rate = RATE) {
     return plan;
   };
   const initial = install(); api.gdr_enabled(engine, 1);
+  const controls = (nextGraph, nextSettings, switches = null) => {
+    const plan = compileGraphDelayPlan(nextGraph, nextSettings, switches), pointer = api.gdr_alloc(plan.data.byteLength);
+    new Float64Array(api.memory.buffer, pointer, plan.data.length).set(plan.data);
+    const matched = api.gdr_controls(engine, pointer, plan.data.length);
+    api.gdr_free(pointer, plan.data.byteLength);
+    return matched;
+  };
   let frame = 0;
   const render = (seconds, signal = () => 0, rightSignal = signal) => {
     const result = [new Float32Array(Math.ceil(seconds * rate / BLOCK) * BLOCK), new Float32Array(Math.ceil(seconds * rate / BLOCK) * BLOCK)];
@@ -32,7 +39,7 @@ function fixture(g = graph(), options = settings, rate = RATE) {
     }
     return result;
   };
-  return { api, engine, pointers, initial, install, render,
+  return { api, engine, pointers, initial, install, controls, render,
     metrics: () => new Float64Array(api.memory.buffer, api.gdr_metrics(engine), api.gdr_metrics_len()).slice(),
     close() { api.gdr_drop(engine); for (const pointer of pointers) api.gdr_free(pointer, BLOCK * 4); } };
 }
@@ -113,6 +120,45 @@ test('distinct per-turn pitch settings change the wet spectrum', () => {
   const crossings = values => values.reduce((sum, value, index) => sum + Number(index > 0 && value > 0 && values[index - 1] <= 0), 0);
   assert.ok(peak(captures[1]) > .001);
   assert.ok(Math.abs(crossings(captures[0]) - crossings(captures[1])) > 15);
+});
+
+test('live pitch and mix reach the audible old scene while a long incoming graph warms and another waits', () => {
+  const old = graph('chain', 3);
+  old.nodes.forEach((node, i) => { node.x = [.1, .4, .7][i]; node.y = [.5, .2, .5][i]; });
+  const incoming = graph('chain', 24), queued = graph('chain', 5);
+  const options = { ...settings, baseDelay: 300, pitchCurve: 1, pitchSlew: 10, inputX: .02, inputY: .5 };
+  const f = fixture(old, options);
+  const signal = (_frame, time) => .025 * Math.sin(2 * Math.PI * 233 * time);
+  const crossings = values => values.reduce((sum, value, i) => sum + Number(i > 0 && value > 0 && values[i - 1] <= 0), 0);
+  try {
+    const before = f.render(1.6, signal)[0].subarray(-Math.round(.4 * RATE));
+    const clock = f.metrics()[0];
+    f.install(incoming, options);
+    f.install(queued, options, null, false);
+    const pitched = { ...options, pitchScale: 2 };
+    assert.equal(f.controls(old, pitched), 1);
+    assert.equal(f.controls(incoming, pitched), 1);
+    assert.equal(f.controls(queued, pitched), 1);
+    const changed = f.render(1.5, signal)[0];
+    const after = changed.subarray(-before.length);
+    assert.ok(Math.abs(crossings(after) - crossings(before)) > 20, 'old scene pitch changes before new wet arrival');
+    assert.equal(f.metrics()[3], incoming.nodes.length);
+    assert.ok(f.metrics()[20] > 5, 'long graph is still warming');
+    assert.equal(f.metrics()[21], 0, 'only the old graph is audible');
+    assert.ok(f.metrics()[0] > clock);
+    const quieter = { ...pitched, wet: .25 };
+    for (const g of [old, incoming, queued]) assert.equal(f.controls(g, quieter), 1);
+    const reduced = f.render(.4, signal)[0].subarray(-Math.round(.2 * RATE));
+    assert.ok(energy(reduced) / reduced.length < energy(after) / after.length * .12, 'wet change affects audible old scene promptly');
+    assert.ok(peak(reduced) > .0001, 'live controls preserve the populated wet history');
+    const continuation = f.render(11, signal)[0];
+    assert.equal(f.metrics()[3], queued.nodes.length, 'controls never cancel the queued topology');
+    assert.equal(f.metrics()[10], 0, 'both structural transitions finish');
+    assert.equal(f.metrics()[20], 0); assert.equal(f.metrics()[21], 1);
+    for (let at = 0; at + 2400 < continuation.length; at += 2400) {
+      assert.ok(peak(continuation.subarray(at, at + 2400)) > .00005, `continuous source remains audible at ${at / RATE}s`);
+    }
+  } finally { f.close(); }
 });
 
 test('live geometry and mix updates retain sample clock and feedback history', () => {

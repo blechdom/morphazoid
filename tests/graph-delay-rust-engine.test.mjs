@@ -154,6 +154,74 @@ test('updates coalesce before readiness and resolve worklet supersession without
   assert.equal(f.errors.length, 0);
 });
 
+test('live controls retain audible and pending scene topology, geometry and unrelated gates', async t => {
+  const f = browser(t), engine = f.create(), node = f.nodes[0];
+  node.emit({ type: 'ready' }); await engine.ready;
+  const a = graph(3), b = graph(5), c = graph(7);
+  const gatesA = [true, false];
+  for (const [g, gates] of [[a, gatesA], [b, null]]) {
+    const edit = engine.update(g, { pitchScale: 0 }, gates); await tick();
+    node.emit({ id: engine.sequence }); await edit;
+  }
+  const pending = engine.update(c, { pitchScale: 0 }); await tick();
+  const pendingId = engine.sequence;
+  const moved = structuredClone(b); moved.nodes[1].x += .06;
+  const settings = { pitchScale: 1.4, wet: .6, dry: .1, inputTrim: .4, inputX: .24 };
+  const update = engine.updateParameters(moved, settings, [false, true, true, true]); await tick();
+  const controls = node.port.messages.at(-1);
+  assert.equal(controls.type, 'controls'); assert.equal(controls.plans.length, 3);
+  const actual = controls.plans.map(buffer => [...new Float64Array(buffer)]);
+  assert.deepEqual(actual, [
+    [...compileGraphDelayPlan(a, settings, gatesA).data],
+    [...compileGraphDelayPlan(moved, settings, [false, true, true, true]).data],
+    [...compileGraphDelayPlan(c, settings).data],
+  ]);
+  assert.ok(engine.requests.has(pendingId), 'live edit leaves pending configure ownership intact');
+  node.emit({ id: controls.id }); await update;
+  assert.ok(engine.requests.has(pendingId));
+  node.emit({ id: pendingId }); await pending;
+  assert.equal(engine.currentScene.graph.nodes.length, 7);
+  assert.deepEqual(engine.retiringScene.graph, moved);
+  assert.equal(engine.pendingScene, null);
+});
+
+test('superseded and rejected configure replies cannot replace scene ownership used by live controls', async t => {
+  const f = browser(t), engine = f.create(), node = f.nodes[0];
+  node.emit({ type: 'ready' }); await engine.ready;
+  const initial = engine.update(graph(3)); await tick(); node.emit({ id: engine.sequence }); await initial;
+  const a = engine.update(graph(4)); await tick(); const previous = engine.sequence;
+  const b = engine.update(graph(5)); await tick(); const latest = engine.sequence;
+  node.emit({ id: previous, superseded: true }); await a;
+  node.emit({ id: previous });
+  assert.equal(engine.currentScene.graph.nodes.length, 3);
+  assert.equal(engine.pendingScene.graph.nodes.length, 5);
+  const rejected = assert.rejects(b, /invalid/);
+  node.emit({ id: latest, error: 'invalid scene' }); await rejected;
+  const controls = engine.updateParameters(graph(3), { pitchScale: 1 }); await tick();
+  const message = node.port.messages.at(-1);
+  assert.equal(message.plans.length, 1);
+  assert.equal(new Float64Array(message.plans[0])[1], 3);
+  node.emit({ id: message.id }); await controls;
+  await engine.dispose();
+  assert.equal(engine.currentScene, null); assert.equal(engine.retiringScene, null); assert.equal(engine.pendingScene, null);
+});
+
+test('controls coalesce independently without superseding a configure waiting for readiness', async t => {
+  const f = browser(t), engine = f.create(), node = f.nodes[0];
+  const topology = graph(3);
+  const configure = engine.update(topology);
+  const earlier = engine.updateParameters(topology, { wet: .1 });
+  const latest = engine.updateParameters(topology, { wet: .7 });
+  node.emit({ type: 'ready' }); await tick();
+  assert.deepEqual(await earlier, { superseded: true });
+  const messages = node.port.messages;
+  assert.deepEqual(messages.map(message => message.type), ['configure', 'controls']);
+  assert.equal(new Float64Array(messages[1].plans[0])[6], .7);
+  node.emit({ id: messages[1].id }); await latest;
+  node.emit({ id: messages[0].id }); await configure;
+  assert.equal(engine.currentScene.graph.nodes.length, 3);
+});
+
 const workletSource = await readFile(new URL('../src/instruments/graph-delay-rust/graph-delay-worklet.js', import.meta.url), 'utf8');
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/graph-delay.wasm', import.meta.url)));
 function worklet({ failAllocation = 0, clock = performance } = {}) {
