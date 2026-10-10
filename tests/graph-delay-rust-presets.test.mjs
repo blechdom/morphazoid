@@ -85,3 +85,20 @@ test("dense 64-node bipartite scenes respect history memory as well as turn capa
     assert.equal(admitted.limited, true);
   }
 });
+
+
+test("manual Rust preparation budgets admit complete larger graphs and reject impossible minima", async () => {
+  const { generateGraphWithinRustBudget } = await import("../src/instruments/graph-delay-rust/graph-delay-topology.js");
+  const options = { type: "dag", topology: "dag", nodeCount: 64, density: 1, seed: 17 };
+  const initial = generateGraphWithinRustBudget(options);
+  const larger = generateGraphWithinRustBudget(options, 512);
+  assert.ok(larger.turnRouteCount > 384 && larger.turnRouteCount <= 512);
+  assert.ok(larger.turnRouteCount > initial.turnRouteCount);
+  assert.equal(graphTurnRouteCount(larger.graph), larger.turnRouteCount);
+  assert.equal(larger.graph.nodes.length, 64);
+  const switches = new Map(larger.graph.edges.map(edge => [`${edge.from}>${edge.to}`, true]));
+  const captured = captureGraphDelayRustPreset({ ...GRAPH_DELAY_INITIAL_STATE, ...options, density: larger.density }, larger.graph, switches);
+  assert.equal(validateGraphDelayRustPreset(captured), captured);
+  assert.throws(() => generateGraphWithinRustBudget(options, 1), /cannot fit/);
+  for (const invalid of [0, 513, NaN, 1.5]) assert.throws(() => generateGraphWithinRustBudget(options, invalid), RangeError);
+});

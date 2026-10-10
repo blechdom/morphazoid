@@ -1,3 +1,5 @@
+import { createGraphCapacityController } from './graph-delay-capacity-policy.js';
+
 const BLOCK = 128;
 const fineClock = typeof globalThis.performance?.now === 'function';
 const now = fineClock ? () => globalThis.performance.now() : () => Date.now();
@@ -6,7 +8,7 @@ const now = fineClock ? () => globalThis.performance.now() : () => Date.now();
 class GraphDelayRustProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
-    this.engine = 0; this.pointers = [];
+    this.engine = 0; this.pointers = []; this.capacity = createGraphCapacityController(); this.controlMs = 0;
     this.closed = false; this.pendingId = null; this.frames = 0; this.timingFrames = 0; this.timingMs = 0;
     this.cpuLoad = 0; this.peakLoad = 0; this.deadlineMisses = 0; this.lastAudioTime = 0;
     try {
@@ -21,6 +23,7 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
       this.refresh();
     } catch (error) { this.release(); throw error; }
     this.port.onmessage = ({ data }) => {
+      const started = now();
       try {
         if (this.closed) return;
         if (data.type === 'configure') {
@@ -41,6 +44,12 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
           // Commit an in-place coefficient edit immediately; a structural scene
           // waits for bounded history preparation in spare callback time.
           if (this.api.gdr_prepare(this.engine, 0)) this.complete();
+        } else if (data.type === 'performance') {
+          this.capacity.configure(data.performance);
+          const settings = this.capacity.settings;
+          if (!this.api.gdr_performance(this.engine, settings.voiceCeiling, Number(settings.automatic))
+            || !this.api.gdr_limit(this.engine, this.capacity.limit)) throw new Error('The Rust graph could not apply its voice ceiling.');
+          this.reply({ id: data.id });
         } else if (data.type === 'enabled') {
           this.api.gdr_enabled(this.engine, Number(data.enabled));
         } else if (data.type === 'clear') {
@@ -52,14 +61,14 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
       } catch (error) {
         this.reply({ id: data.id, error: String(error.message || error) });
         if (error instanceof WebAssembly.RuntimeError) this.failure(error);
-      }
+      } finally { this.controlMs += Math.max(0, now() - started); }
     };
     this.reply({ type: 'ready' });
   }
   refresh() {
     this.memory = this.api.memory.buffer;
     [this.left, this.right, this.outLeft, this.outRight] = this.pointers.map(pointer => new Float32Array(this.memory, pointer, BLOCK));
-    this.values = new Float64Array(this.memory, this.api.gdr_metrics(this.engine), 16);
+    this.values = new Float64Array(this.memory, this.api.gdr_metrics(this.engine), this.api.gdr_metrics_len());
     this.nodeLevels = new Float32Array(this.memory, this.api.gdr_node_levels(this.engine), 64);
     this.edgeLevels = new Float32Array(this.memory, this.api.gdr_edge_levels(this.engine), 256);
   }
@@ -92,11 +101,19 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
   }
   status() {
     if (this.memory !== this.api.memory.buffer) this.refresh();
+    this.api.gdr_metrics(this.engine);
     const nodeLevels = this.nodeLevels.slice(0, this.values[3]), edgeLevels = this.edgeLevels.slice(0, this.values[4]);
     this.reply({ type: 'metrics', metrics: {
       elapsedSeconds: this.values[0], audioTimeSeconds: this.lastAudioTime,
       inputPeak: this.values[1], outputPeak: this.values[2], nodes: this.values[3], edges: this.values[4],
-      routes: this.values[5], activeRoutes: this.values[6], nodeLevels, edgeLevels,
+      routes: this.values[5], preparedRoutes: this.values[5], activeRoutes: this.values[6], processingRoutes: this.values[6],
+      targetRoutes: this.values[7], eligibleRoutes: this.values[8],
+      currentActiveRoutes: this.values[9], retiringActiveRoutes: this.values[10],
+      currentTargetRoutes: this.values[11], retiringTargetRoutes: this.values[12],
+      currentEligibleRoutes: this.values[13], retiringEligibleRoutes: this.values[14],
+      liveLimit: this.values[15], retiringPreparedRoutes: this.values[16],
+      voiceCeiling: this.values[17], automatic: Boolean(this.values[18]), automaticLimit: this.values[19],
+      nodeLevels, edgeLevels,
       cpuLoad: this.cpuLoad, peakLoad: this.peakLoad, deadlineMisses: this.deadlineMisses,
       preparing: this.pendingId !== null, timing: fineClock ? 'high-resolution' : 'coarse-averaged',
     } }, [nodeLevels.buffer, edgeLevels.buffer]);
@@ -118,16 +135,24 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
       const renderMs = Math.max(0, now() - started);
       // Only preparation/retirement performs heap maintenance. Bound writes to
       // 256 KiB per quantum and leave margin for the current real DSP load.
-      const spare = duration * .8 - renderMs;
+      const spare = duration * .8 - renderMs - this.controlMs;
       const records = spare > .25 ? 65536 : spare > .1 ? 16384 : 0;
       if (this.api.gdr_prepare(this.engine, records)) this.complete();
-      const elapsed = Math.max(0, now() - started);
+      const elapsed = Math.max(0, now() - started) + this.controlMs; this.controlMs = 0;
       this.timingMs += elapsed; this.timingFrames += frames;
       if (fineClock || this.timingFrames >= BLOCK * 32) {
         const load = this.timingMs / (this.timingFrames / sampleRate * 1000);
         this.cpuLoad += (load - this.cpuLoad) * .2;
         this.peakLoad = Math.max(load, this.peakLoad * .97);
         if (load > 1) this.deadlineMisses++;
+        const admissionStarted = now();
+        const previousLimit = this.capacity.limit;
+        const limit = this.capacity.observe({ load, seconds: this.timingFrames / sampleRate,
+          eligible: this.values[13], retiringEligible: this.values[14], processing: this.values[6], target: this.values[7], preparing: this.pendingId !== null });
+        if (limit !== previousLimit) this.api.gdr_limit(this.engine, limit);
+        // Charge bounded admission work to the next timing window, just like
+        // control messages delivered between callbacks.
+        this.controlMs += Math.max(0, now() - admissionStarted);
         this.timingMs = this.timingFrames = 0;
       } else if (renderMs > duration + 1) this.deadlineMisses++;
       this.frames += frames; this.lastAudioTime = currentTime + frames / sampleRate;

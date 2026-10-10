@@ -89,7 +89,7 @@
           <h1 class="graph-rust-title">Graph Delay Rust</h1>
           <canvas id="graphGpuStage" aria-hidden="true"></canvas>
           <canvas id="stage" tabindex="0" role="application" aria-roledescription="interactive audio graph" aria-label="Layered directed acyclic delay graph. Microphone off." aria-describedby="graphDescription canvasInstructions liveStatus">
-            A generated directed graph whose nodes and edges form a live microphone delay network.
+            A directed graph processing microphone, local audio files or recorded samples through delayed feedback.
           </canvas>
           <div class="fracta-seed-control graph-seed-control" id="seedControl">
             <button id="seedMicButton" type="button" aria-pressed="false" aria-label="Start microphone input">
@@ -109,6 +109,73 @@
       </section>
 
       <aside class="panel" data-instrument-preset-host aria-label="graph delay controls">
+        <section class="native-performance-panel" id="performancePanel" aria-labelledby="performanceTitle">
+          <details class="native-live-disclosure" id="liveData" open>
+            <summary id="performanceTitle">Live data</summary>
+            <div class="native-live-data-body">
+          <div class="native-performance-heading"><span>Renderer</span><output id="performanceRenderer">WebGL2</output></div>
+          <div class="native-performance-meters">
+            <div title="Audio callback processing time divided by its sample-time deadline. This is not total device CPU usage."><span>Audio load</span><output id="performanceAudioLoad">—</output><meter id="performanceAudioMeter" min="0" max="1" low="0.55" high="0.85" optimum="0.4" value="0" aria-label="Audio processing budget usage"></meter></div>
+            <div title="Measured graph drawing time on the GPU, when the browser supports timer queries. This is not total GPU utilization."><span>GPU time</span><output id="performanceGpuTime">Unavailable</output></div>
+            <div title="Main-thread graphics frame time, including CPU submission and canvas annotations; FPS counts actual drawn frames."><span>Graphics</span><output id="performanceFrameTime">—</output></div>
+          </div>
+          <dl class="native-performance-counts">
+            <div title="Turn voices requested by the graph before density fitting."><dt>Requested</dt><dd id="performanceRequested">—</dd></div>
+            <div title="Independent incoming-to-outgoing turn voices prepared for the current graph."><dt>Prepared</dt><dd id="performancePrepared">—</dd></div>
+            <div title="Prepared turn voices available to the current graph, before the live cap."><dt>Eligible</dt><dd id="performanceEligible">—</dd></div>
+            <div title="Actual processing turn voices, including the previous graph during a transition and fading routes."><dt>Processing</dt><dd id="performanceProcessing">—</dd></div>
+            <div title="Current graph limit after Protect audio and Live cap. Transition voices are reported separately below."><dt>Live limit</dt><dd><output id="performanceLimit">—</output></dd></div>
+            <div title="Most recent warmed graph tested in a separate worker. A workload measurement, not a permanent device maximum."><dt>Last test</dt><dd id="performanceMeasured">—</dd></div>
+          </dl>
+          <output class="native-input-note" id="performanceTransition">No graph transition</output>
+          <div class="native-performance-foot"><output id="performanceMisses" title="Measured callback deadline misses, not physical sound-device dropout counts.">0 deadlines missed</output></div>
+          <details class="native-capacity-disclosure" id="capacityTests">
+            <summary>Capacity tests</summary>
+            <div class="native-capacity-test-body">
+              <div class="native-capacity-controls">
+                <div class="native-voice-control" role="group" aria-labelledby="capacityBudgetLabel">
+                  <label class="control native-knob-control" for="capacityBudget"><span><b id="capacityBudgetLabel">Voice budget</b><output id="capacityBudgetOut" for="capacityBudget" hidden>—</output></span><input id="capacityBudget" type="range" min="1" max="512" step="1" value="384" /></label>
+                  <input class="native-voice-value" id="capacityBudgetExact" type="number" inputmode="numeric" min="1" max="512" step="1" value="384" aria-labelledby="capacityBudgetLabel" />
+                </div>
+                <div class="native-capacity-actions"><button class="mini-action" id="testCapacity" type="button" disabled>Test capacity</button></div>
+              </div>
+              <div class="native-performance-foot"><label class="native-check" title="Keeps automatic audio deadline protection active. Turn off for a manual overload trial."><input id="automatic" type="checkbox" checked /> Protect audio</label></div>
+              <p class="native-input-note" id="performanceCapacityStatus" role="status">Choose a budget, then test this graph. Audio keeps playing during the test.</p>
+            </div>
+          </details>
+            </div>
+          </details>
+          <div class="native-voice-control native-live-cap" role="group" aria-labelledby="voiceCeilingLabel">
+            <label class="control native-knob-control" for="voiceCeiling"><span><b id="voiceCeilingLabel">Live cap</b><output id="voiceCeilingOut" for="voiceCeiling" hidden>All available</output></span><input id="voiceCeiling" type="range" min="0" max="512" step="1" value="0" aria-describedby="liveCapHint" /></label>
+            <input class="native-voice-value" id="voiceCeilingExact" type="number" inputmode="numeric" min="0" max="512" step="1" value="0" aria-labelledby="voiceCeilingLabel" aria-describedby="liveCapHint" />
+            <span class="native-live-cap-hint" id="liveCapHint" title="0 removes the manual cap. Protect audio can still lower the live limit.">0 = All · per graph</span>
+          </div>
+        </section>
+        <details class="group control-section" id="inputSection" data-section="input" open>
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
+          <div class="group-body native-input-controls">
+            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
+            <div class="select-control" id="inputSampleControl" hidden>
+              <label class="field-label" for="inputSample">Sample</label>
+              <div class="native-choice-row">
+                <span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span>
+                <button class="instrument-picker-next" id="nextInputSample" type="button" title="Next sample" aria-label="Next sample" disabled><span aria-hidden="true">▶</span></button>
+              </div>
+            </div>
+            <div id="inputFileControl" class="native-input-file" hidden>
+              <label for="inputFile"><span class="field-label">Choose local audio</span><input id="inputFile" type="file" accept="audio/*" aria-describedby="inputFileHint" /></label>
+              <p class="native-input-note" id="inputFileHint">Local files · up to 64 MiB · first 2 minutes</p>
+            </div>
+            <div class="native-input-playback" id="inputPlaybackControls" hidden>
+              <label class="native-check"><input id="inputLoop" type="checkbox" checked /> Loop input</label>
+              <div class="native-input-actions"><button class="mini-action" id="restartInput" type="button" disabled>Restart input</button><button class="mini-action" id="stopInput" type="button" disabled>Stop input</button></div>
+            </div>
+            <output class="native-input-status" id="inputSourceStatus" role="status">Mic / line ready · use Mic to start input</output>
+            <small class="native-input-credit" id="inputSourceCredit" hidden></small>
+            <p class="native-input-note" id="inputMicHelp"><strong>Use headphones.</strong> <a href="settings.html">Mic / line setup →</a> Choose your input device and mono/stereo there.</p>
+          </div>
+        </details>
+
         <details class="group control-section" id="topologySection" data-section="topology">
           <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
           <div class="group-body">
@@ -218,7 +285,7 @@
           <summary class="group-summary"><h2 class="group-title">Mix</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
           <div class="group-body">
             <label class="control" for="wet"><span><b>Graph presence</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
-            <label class="control" for="dry"><span><b>Direct microphone</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
+            <label class="control" for="dry"><span><b>Direct input</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
             <label class="control" for="spread"><span><b>Stereo spread</b><output id="spreadOut" for="spread">82%</output></span><input id="spread" type="range" min="0" max="1" step="0.01" value="0.82" /></label>
           </div>
         </details>
@@ -245,9 +312,9 @@
             <label class="control" for="nodeMotionSpeed"><span><b>Node speed</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">0.12 cyc/s</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="0.5" step="0.01" value="0.12" /></label>
             <label class="control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
             <div class="motion-divider" aria-hidden="true"></div>
-            <span class="field-label">Microphone path</span>
+            <span class="field-label">Input path</span>
             <div class="mic-motion-row">
-              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play microphone motion">
+              <button class="play-button motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play input motion">
                 <svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg>
                 <svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg>
               </button>
@@ -264,9 +331,9 @@
                 </span>
               </label>
             </div>
-            <label class="control" for="micMotionSpeed"><span><b>Mic speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
+            <label class="control" for="micMotionSpeed"><span><b>Input speed</b><output id="micMotionSpeedOut" for="micMotionSpeed">0.08 cyc/s</output></span><input id="micMotionSpeed" type="range" min="0.01" max="0.4" step="0.01" value="0.08" /></label>
             <label class="control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
-            <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset mic</button>
+            <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset input</button>
           </div>
         </details>
 

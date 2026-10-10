@@ -22,3 +22,138 @@
 }
 /* Routing counts already live in Graph details; keep the playing surface clear. */
 .graph-delay-rust-page .stage-meta { display: none; }
+
+/* Match the L-system Rust input and performance controls. */
+#inputSection { --accent: #b79bff; --accent-soft: color-mix(in oklab, #b79bff 55%, transparent); --accent-glow: color-mix(in oklab, #b79bff 20%, transparent); }
+.native-input-controls { display: grid; gap: 12px; }
+.micmic-page [hidden] { display: none !important; }
+/* Keep native focus and scrolling below the sticky preset/input row. */
+.micmic-page .panel { scroll-padding-top: 76px; }
+.native-performance-panel { --native-live-cap-height: 96px; position: relative; padding: 12px 14px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.native-live-disclosure > summary { min-height: var(--native-live-cap-height); box-sizing: border-box; padding-right: 108px; color: var(--accent); font-size: 11px; line-height: var(--native-live-cap-height); cursor: pointer; }
+.native-live-disclosure > summary::marker { color: var(--accent); }
+.native-live-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.native-live-cap { position: absolute; top: 12px; right: 14px; width: 94px; }
+.native-performance-heading, .native-performance-foot { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+.native-performance-heading { margin-bottom: 10px; }
+.native-performance-heading > span { color: var(--muted); font-size: 9px; }
+.native-performance-heading > output, .native-performance-foot > output { color: var(--muted); font-size: 9px; }
+.native-performance-meters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+.native-performance-meters > div { display: grid; align-content: start; gap: 4px; min-width: 0; }
+.native-performance-meters span, .native-performance-counts dt { color: var(--muted); font-size: 9px; }
+.native-performance-meters output, .native-performance-counts dd { margin: 0; color: var(--ink); font-size: 11px; overflow-wrap: anywhere; }
+.native-performance-meters meter { width: 100%; height: 6px; accent-color: #5fe8c4; }
+.native-performance-counts { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 9px 8px; margin: 12px 0; }
+.native-performance-counts > div { display: grid; align-content: start; gap: 3px; min-width: 0; }
+.native-capacity-disclosure > summary { padding-block: 8px; color: var(--accent); font-size: 10px; cursor: pointer; }
+.native-capacity-disclosure > summary::marker { color: var(--accent); }
+.native-capacity-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.native-capacity-test-body { padding-top: 8px; }
+.native-capacity-controls { display: grid; grid-template-columns: 94px minmax(0, 1fr); gap: 12px; align-items: center; }
+.native-capacity-controls .native-knob-control { margin: 0; }
+.native-capacity-actions { display: flex; align-items: center; gap: 8px; }
+.native-voice-control { display: grid; gap: 0; min-width: 0; }
+.native-performance-counts dd > output { display: block; }
+.micmic-page .native-voice-control > .native-knob-control.mz-range-knob { --native-knob-top: 20px; height: calc(var(--native-knob-top) + var(--native-knob-target)); }
+.micmic-page .native-voice-control > .native-knob-control.mz-range-knob > span:first-child > b { height: 18px; }
+.native-voice-value { width: 100%; min-width: 0; height: 20px; box-sizing: border-box; padding: 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; color: var(--accent); font: 10px/1.2 ui-monospace, monospace; text-align: center; appearance: textfield; }
+.native-voice-value::-webkit-inner-spin-button, .native-voice-value::-webkit-outer-spin-button { margin: 0; appearance: none; }
+.native-voice-value:hover { border-bottom-color: var(--line-strong); }
+.native-voice-value:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.native-live-cap-hint { color: var(--muted); font: 8px/1.5 ui-monospace, monospace; text-align: center; }
+.native-capacity-actions button { min-height: 36px; padding-inline: 8px; }
+.native-performance-foot { margin: 10px 0 7px; flex-wrap: wrap; }
+.native-performance-foot .mini-action { padding: 5px 7px; font-size: 8px; }
+.native-performance-panel[data-pressure="high"] #performanceAudioLoad { color: var(--fracta-coral); }
+@media (pointer: coarse) {
+  .native-performance-panel { --native-live-cap-height: 128px; }
+  .native-voice-value { padding-block: 0 28px; }
+  .native-capacity-actions button, .native-voice-value, .native-performance-foot .native-check, .native-performance-foot .mini-action, .native-capacity-disclosure > summary { min-height: 48px; box-sizing: border-box; }
+}
+.native-input-choice { display: block; min-width: 0; }
+.native-choice-row { display: flex; min-width: 0; align-items: center; gap: 4px; }
+.native-choice-row > .native-input-choice { flex: 1 1 0; }
+.native-choice-row > .select-shell:has(> select[hidden])::after { display: none; }
+.native-choice-row > .instrument-picker-next:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+/* Scrolling source choices stay below the sticky preset row. Their open
+   panels still use the shared chooser's top layer and viewport anchoring. */
+.micmic-page .native-input-choice .instrument-picker { width: 100%; z-index: 0; }
+.native-input-choice .instrument-picker-trigger { width: 100%; min-height: 36px; }
+.native-input-choice .instrument-picker-current { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; text-transform: none; }
+.native-input-file label { display: grid; gap: 8px; }
+.native-input-file input { width: 100%; min-width: 0; color: var(--muted); font: 10px/1.5 ui-monospace, monospace; }
+.native-input-file input::file-selector-button { margin-right: 8px; padding: 8px 10px; border: 1px solid var(--line-strong); border-radius: 3px; background: var(--panel-high); color: var(--ink); font: inherit; cursor: pointer; }
+.native-input-note, .native-input-credit { margin: 0; color: var(--muted); font-size: 9px; line-height: 1.5; overflow-wrap: anywhere; }
+.native-input-file .native-input-note { margin-top: 6px; }
+.native-input-note strong { color: var(--ink); font-weight: 500; }
+.native-input-note a, .native-input-credit a { color: var(--accent); }
+.native-input-status { color: var(--ink); font-size: 10px; line-height: 1.5; overflow-wrap: anywhere; }
+.native-input-playback { display: grid; gap: 10px; }
+.native-input-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.native-input-actions .mini-action { flex: 1 1 100px; }
+.native-check { display: flex; align-items: center; gap: 8px; color: var(--ink); font-size: 10px; }
+.native-check input { accent-color: var(--accent); }
+
+.micmic-page .native-knob-control.mz-range-knob {
+  --native-knob-target: 44px;
+  --native-knob-dial: 28px;
+  --native-knob-top: 28px;
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 0;
+  height: calc(var(--native-knob-top) + var(--native-knob-target) + 24px);
+  margin: 0;
+}
+.micmic-page .native-knob-control.mz-range-knob > span:first-child {
+  position: static;
+  display: block;
+  margin: 0;
+  text-align: center;
+}
+.micmic-page .native-knob-control.mz-range-knob > span:first-child > b {
+  position: absolute;
+  inset: 0 0 auto;
+  display: flex;
+  width: auto;
+  height: 26px;
+  overflow: visible;
+  clip-path: none;
+  align-items: end;
+  justify-content: center;
+  color: var(--ink);
+  font-size: 10px;
+  font-weight: 500;
+  line-height: 1.2;
+  letter-spacing: 0;
+  text-wrap: balance;
+  white-space: normal;
+}
+.micmic-page .native-knob-control.mz-range-knob output {
+  position: absolute;
+  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 2px) 0 auto;
+  display: block;
+  overflow: visible;
+  color: var(--accent);
+  font: 9px/1.2 ui-monospace, monospace;
+  text-align: center;
+  white-space: normal;
+}
+.micmic-page .native-knob-control.mz-range-knob > input[type="range"] {
+  inset: var(--native-knob-top) auto auto 50%;
+  width: var(--native-knob-target);
+  height: var(--native-knob-target);
+  min-height: 0;
+  margin: 0;
+  transform: translateX(-50%);
+}
+.micmic-page .native-knob-control.mz-range-knob > .mz-range-knob__dial {
+  top: calc(var(--native-knob-top) + (var(--native-knob-target) - var(--native-knob-dial)) / 2);
+  width: var(--native-knob-dial);
+  height: var(--native-knob-dial);
+}
+
+@media (pointer: coarse) {
+  .native-input-actions .mini-action, .native-input-file input::file-selector-button, #source, #inputSample, .native-check { min-height: 48px; }
+  .micmic-page .native-knob-control.mz-range-knob { --native-knob-target: 48px; }
+}

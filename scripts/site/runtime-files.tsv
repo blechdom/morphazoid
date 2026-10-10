@@ -1805,4 +1805,7 @@ copy+require	src/instruments/graph-delay-rust/graph-delay-presets.js
 copy+require	assets/wasm/graph-delay.wasm
 copy+require	assets/wasm/graph-delay-build.json
 copy+require	src/instruments/graph-delay-rust/graph-delay-topology.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-policy.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-worker.js
 copy+require	docs/graph-delay-rust.md

@@ -1,3 +1,5 @@
+import { createGpuFrameTimer } from '../micmic/native/gpu-renderer.js';
+
 /** Instanced, directed graph ribbons. Audio supplies all signal activity. */
 const MAX_ROUTES = 16384;
 const MAX_PIXELS = 4 * 1024 * 1024;
@@ -109,7 +111,7 @@ const validPoint = point => point && Number.isFinite(point.x) && Number.isFinite
  * edgeLevels/nodeLevels: measured 0..1 arrays or Maps keyed by edge/node id.
  * Missing measurements mean silence; no input envelope is imputed to an edge.
  */
-export function createGraphDelayRenderer(canvas, { force = false, onInvalidate = () => {} } = {}) {
+export function createGraphDelayRenderer(canvas, { force = false, onInvalidate = () => {}, now = () => performance.now() } = {}) {
   if (!canvas?.getContext) return null;
   let gl;
   try {
@@ -129,7 +131,7 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
     retireContext(); return null;
   }
 
-  let resources = null, ready = false, disposed = false, fallbackReason = '';
+  let resources = null, gpuTimer = null, ready = false, disposed = false, fallbackReason = '';
   let width = 1, height = 1, requestedDpr = 1, dpr = 1, maximumSize = 4096;
   let capacity = 0, geometry = new Float32Array(), meters = new Float32Array();
   let gpuCapacity = -1, previousCount = -1, count = 0, geometryDirty = true;
@@ -137,6 +139,7 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
     meterUploads: 0, bufferAllocations: 0, drawCalls: 0 };
 
   function release() {
+    gpuTimer?.dispose(); gpuTimer = null;
     if (!resources) return;
     gl.deleteBuffer(resources.geometry); gl.deleteBuffer(resources.meters);
     gl.deleteVertexArray(resources.vao); gl.deleteProgram(resources.program);
@@ -176,6 +179,7 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
       gl.useProgram(resources.program); gl.uniform3fv(resources.uniforms['uPalette[0]'], COLORS);
       gl.enable(gl.BLEND); gl.blendFunc(gl.ONE, gl.ONE_MINUS_SRC_ALPHA);
       gl.disable(gl.DEPTH_TEST); gl.disable(gl.CULL_FACE); gl.clearColor(0, 0, 0, 0);
+      gpuTimer = createGpuFrameTimer(gl, { now });
       ready = true; fallbackReason = ''; geometryDirty = true; previousCount = -1; gpuCapacity = -1;
       resize(width, height, requestedDpr);
     } finally {
@@ -251,6 +255,9 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
         gl.bindBuffer(gl.ARRAY_BUFFER, resources.meters); gl.bufferSubData(gl.ARRAY_BUFFER, 0, meters, 0, count);
         counters.meterUploads++;
       }
+      // Optional asynchronous timing covers this graph's clear and draw passes.
+      // It does not estimate whole-device GPU utilization or block for results.
+      gpuTimer?.begin();
       gl.viewport(0, 0, canvas.width, canvas.height); gl.clear(gl.COLOR_BUFFER_BIT);
       if (count) {
         const uniforms = resources.uniforms, steps = Math.max(5, Math.min(14, Math.floor(finite(frame.detailSteps, 12))));
@@ -261,6 +268,7 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
         gl.uniform1i(uniforms.uArrow, true); gl.drawArraysInstanced(gl.TRIANGLES, 0, 3, count);
         counters.drawCalls += 2;
       }
+      gpuTimer?.end();
       canvas.hidden = false; return true;
     } catch {
       ready = false; fallbackReason = 'draw-failed'; canvas.hidden = true; release(); onInvalidate(); return false;
@@ -268,6 +276,7 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
   }
   function contextLost(event) {
     event.preventDefault(); ready = false; fallbackReason = 'context-lost'; canvas.hidden = true;
+    gpuTimer?.dispose({ contextLost: true }); gpuTimer = null;
     resources = null;
     if (!disposed) onInvalidate();
   }
@@ -287,7 +296,11 @@ export function createGraphDelayRenderer(canvas, { force = false, onInvalidate =
   catch { release(); retireContext(); return null; }
   canvas.hidden = true;
   canvas.addEventListener('webglcontextlost', contextLost); canvas.addEventListener('webglcontextrestored', contextRestored);
-  return { resize, draw, dispose, get available() { return ready && !disposed; },
+  function getStats() {
+    return { ...counters, capacity, dpr, maximumRoutes: MAX_ROUTES,
+      ...(gpuTimer?.stats ?? { gpuTimingSupported: false, gpuTimeMs: null, gpuTimeSampledAt: null, gpuTimingSamples: 0 }) };
+  }
+  return { resize, draw, dispose, getStats, get available() { return ready && !disposed; },
     get fallbackReason() { return fallbackReason; },
-    get stats() { return { ...counters, capacity, dpr, maximumRoutes: MAX_ROUTES }; } };
+    get stats() { return getStats(); } };
 }

@@ -392,9 +392,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "graph-delay-rust": define(
     "Rust/WASM graph delay processor",
-    "Routes live input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs while preserving the original geometry controls.",
-    "Enable Audio and microphone input, choose a graph preset, then drag nodes and switch routes to reshape delay and pitch.",
-    ["Mic input", "Rust / WASM", "WebGL", "Graph routing"],
+    "Routes mic, file or sample input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs, with a live voice cap and audio-load monitoring.",
+    "Choose Mic / line, Audio file or Built-in samples, enable Audio, then drag nodes and switch routes to reshape delay and pitch. Use Live data and Live cap to explore larger graphs.",
+    ["Mic / file / samples", "Rust / WASM", "WebGL", "Live voice cap"],
   ),
   micromorph: define(
     "Realtime generative mic effect",

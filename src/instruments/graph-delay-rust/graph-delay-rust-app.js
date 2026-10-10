@@ -5,12 +5,15 @@ import { GRAPH_DELAY_RUST_PRESETS as GRAPH_DELAY_FULL_PRESETS, captureGraphDelay
 import { GraphDelayRustEngine } from "./graph-delay-engine.js";
 import { MAX_RUST_GRAPH_NODES, DEFAULT_RUST_GRAPH_TURN_ROUTES, generateGraphWithinRustBudget } from "./graph-delay-topology.js";
 import { createGraphDelayRenderer } from "./graph-delay-renderer.js";
+import { createInputSource, SAMPLE_INPUT_OPTIONS } from "../micmic/native/input-source.js";
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import {
   GRAPH_DELAY_PATCHES,
   GRAPH_PRESETS,
   edgeAudioParameters,
   generateGraph,
   graphSinkNodeIds,
+  graphTurnRouteCount,
   graphTurnRoutings,
   nodeTurnRouting,
 } from "../graph-delay/graph-delay.js";
@@ -28,7 +31,6 @@ const EDGE_COLORS = [
   "#ff826f",
   "#e8c46b",
 ];
-const MAX_LIVE_TURN_ROUTES = DEFAULT_RUST_GRAPH_TURN_ROUTES;
 const EDGE_SWITCH_HIT_RADIUS = 13;
 const NODE_RADIUS = 9;
 const NODE_HIT_RADIUS = 23;
@@ -83,6 +85,7 @@ let audioGraph = null;
 let mediaStream = null;
 let microphoneSource = null;
 let inputAnalyser = null;
+let recordedInput = null;
 let microphoneStartToken = 0;
 let inputWave = new Float32Array(512);
 let inputPeak = 0;
@@ -104,6 +107,13 @@ let lastMotionClock = null;
 let switchRevision = 0;
 const switchEdits = new Map();
 let pendingPresetEdits = null;
+const performanceState = { voiceCeiling: 0, automatic: true, preparationBudget: DEFAULT_RUST_GRAPH_TURN_ROUTES };
+let requestedTurnCount = graphTurnRouteCount(model);
+let capacityTesting = false;
+let capacityMessage = "Choose a budget, then test this graph. Audio keeps playing during the test.";
+let capacityMeasurement = null;
+let visualCostMs = 0, visualFps = 0, lastVisualPaint = 0, lastMonitorPaint = -Infinity;
+const performanceKnobs = new Map();
 let graphRebuildTimer = null;
 let graphRebuildQueued = false;
 let activeDensityLimit = null;
@@ -361,11 +371,17 @@ async function ensureEngine() {
       if (session !== lifecycle || disposed || audio !== audioContext) throw new DOMException("Audio start cancelled", "AbortError");
       await engine.update(geometryModel(), state, edgeSwitchEnabledFlags(model));
       if (session !== lifecycle || disposed || audio !== audioContext) throw new DOMException("Audio start cancelled", "AbortError");
-      audioGraph = engine;
+      await engine.setPerformance(performanceState);
       // Controls may have moved while the first installation was prepared.
       await engine.update(geometryModel(), state, edgeSwitchEnabledFlags(model));
       if (session !== lifecycle || disposed || audio !== audioContext) throw new DOMException("Audio start cancelled", "AbortError");
+      await engine.setPerformance(performanceState);
+      if (session !== lifecycle || disposed || audio !== audioContext) throw new DOMException("Audio start cancelled", "AbortError");
+      audioGraph = engine;
       engine.setOutputEnabled(audioOutputEnabled);
+      inputAnalyser = audio.createAnalyser();
+      inputAnalyser.fftSize = 512;
+      inputAnalyser.connect(engine.input);
       return engine;
     } catch (error) {
       await engine?.dispose();
@@ -429,12 +445,6 @@ function resetEdgeSwitchesForNextGraph() {
   resetEdgeSwitchesOnNextCommit = true;
 }
 
-function connectMicrophoneToGraph() {
-  if (!inputAnalyser || !audioGraph) return;
-  configureAudioInputNode(inputAnalyser);
-  inputAnalyser.connect(audioGraph.input);
-}
-
 function requestedStructure() {
   return {
     topology: state.topology,
@@ -474,17 +484,18 @@ function announceGraphUpdate(densityLimit) {
   }
 }
 
-async function rebuildModel({ modelOverride = null, switchesOverride = null } = {}) {
+async function rebuildModel({ modelOverride = null, switchesOverride = null, admission = null } = {}) {
   const revision = ++graphRevision;
   const session = lifecycle;
   const gateRevision = switchRevision;
-  const safe = modelOverride ? { graph: modelOverride, limited: false } : generateGraphWithinRustBudget({ ...state, type: state.topology });
-  const candidate = safe.graph;
-  const densityLimit = safe.limited ? { requested: safe.requestedDensity, applied: safe.density } : null;
-  const flags = candidate.edges.map(edge => switchesOverride?.[edgeSwitchKey(edge)] ?? (resetEdgeSwitchesOnNextCommit ? true : edgeSwitchStates.get(edgeSwitchKey(edge)) ?? true));
-  const structure = requestedStructure();
   graphRebuildQueued = true;
   try {
+    const safe = admission ?? (modelOverride ? { graph: modelOverride, limited: false } : generateGraphWithinRustBudget({ ...state, type: state.topology }, performanceState.preparationBudget));
+    const requested = graphTurnRouteCount(modelOverride ?? generateGraph({ ...state, density: safe.requestedDensity ?? state.density, type: state.topology, maxNodes: MAX_RUST_GRAPH_NODES }));
+    const candidate = safe.graph;
+    const densityLimit = safe.limited ? { requested: safe.requestedDensity, applied: safe.density } : null;
+    const flags = candidate.edges.map(edge => switchesOverride?.[edgeSwitchKey(edge)] ?? (resetEdgeSwitchesOnNextCommit ? true : edgeSwitchStates.get(edgeSwitchKey(edge)) ?? true));
+    const structure = requestedStructure();
     if (audioGraph) await audioGraph.update(candidate, state, flags);
     if (revision !== graphRevision || session !== lifecycle || disposed) return false;
     if (densityLimit) { state.density = structure.density = safe.density; state.graphPatch = "custom"; }
@@ -493,6 +504,7 @@ async function rebuildModel({ modelOverride = null, switchesOverride = null } = 
       if ((switchEdits.get(key) ?? 0) > gateRevision) flags[index] = edgeSwitchStates.get(key) ?? flags[index];
     });
     commitModel(candidate, structure, densityLimit);
+    requestedTurnCount = requested;
     edgeSwitchStates = new Map(candidate.edges.map((edge, index) => [edgeSwitchKey(edge), flags[index]]));
     lastAppliedConfiguration = graphConfigurationSnapshot();
     $("audioError").hidden = true;
@@ -529,6 +541,7 @@ function cancelScheduledGraphRebuild() {
 
 async function startMicrophone() {
   if (state.starting || state.mic || disposed) return;
+  recordedInput?.selectMode("mic");
   const token = ++microphoneStartToken;
   state.starting = true;
   updateUi();
@@ -543,10 +556,8 @@ async function startMicrophone() {
     }
     mediaStream = requestedStream;
     microphoneSource = audioContext.createMediaStreamSource(mediaStream);
-    inputAnalyser = audioContext.createAnalyser();
-    inputAnalyser.fftSize = 512;
+    configureAudioInputNode(microphoneSource);
     microphoneSource.connect(inputAnalyser);
-    connectMicrophoneToGraph();
     state.mic = true;
     for (const track of mediaStream.getTracks()) {
       const stream = mediaStream;
@@ -564,17 +575,143 @@ async function startMicrophone() {
 function stopMicrophone() {
   microphoneStartToken += 1;
   try { microphoneSource?.disconnect(); } catch { /* already detached */ }
-  try { inputAnalyser?.disconnect(); } catch { /* already detached */ }
   for (const track of mediaStream?.getTracks?.() ?? []) track.stop();
-  mediaStream = microphoneSource = inputAnalyser = null;
+  mediaStream = microphoneSource = null;
   state.mic = state.starting = false;
   currentLevel = 0;
   updateUi();
 }
 
+function inputIsLive() { return state.mic || Boolean(recordedInput?.snapshot().playing); }
+
+function paintInput() {
+  if (!recordedInput) return;
+  const input = recordedInput.snapshot(), mic = input.mode === "mic", file = input.mode === "file";
+  const playing = mic ? state.mic : input.playing, pending = mic ? state.starting : input.pending;
+  $("source").value = input.mode;
+  $("inputSample").value = input.sampleId;
+  $("inputSampleControl").hidden = input.mode !== "samples";
+  $("inputFileControl").hidden = !file;
+  $("inputPlaybackControls").hidden = mic;
+  $("inputMicHelp").hidden = !mic;
+  $("inputLoop").checked = input.loop;
+  $("nextInputSample").disabled = input.mode !== "samples";
+  $("restartInput").disabled = !audioOutputEnabled || pending || file && !input.hasFile;
+  $("restartInput").textContent = file ? "Restart file" : "Restart sample";
+  $("stopInput").disabled = !pending && !playing;
+  const label = mic ? "Mic / line" : file ? input.fileName || "Audio file" : input.label;
+  $("inputSummary").textContent = `${mic ? label : file ? "Audio file" : "Built-in samples"} · ${pending ? "loading" : playing ? "live" : input.ended ? "finished" : "ready"}`;
+  $("inputSourceStatus").textContent = pending ? `Loading ${label}…`
+    : mic ? `${label} ${state.mic ? "live" : "ready · use Mic to start input"}`
+      : file && !input.hasFile ? "Choose a local audio file"
+        : playing ? `${label} · ${input.loop ? "looping" : "playing"}`
+          : input.ended ? `${label} · finished · Restart to play again`
+            : `${label} · ${audioOutputEnabled ? "stopped · Restart to play" : "ready · enable Audio to play"}`;
+  const credit = $("inputSourceCredit");
+  const key = `${input.credit}\n${input.creditUrl}`;
+  if (credit.dataset.credit !== key) {
+    credit.dataset.credit = key; credit.replaceChildren();
+    if (input.credit && /^https?:\/\//.test(input.creditUrl)) {
+      const link = document.createElement("a"); link.href = input.creditUrl; link.textContent = input.credit; credit.append(link);
+    } else credit.textContent = input.credit;
+  }
+  credit.hidden = !input.credit;
+}
+
+async function changeInput(action, { start = false } = {}) {
+  const session = lifecycle;
+  $("audioError").hidden = true;
+  try {
+    await action();
+    if (session !== lifecycle || disposed) return;
+    if (start && audioOutputEnabled) await recordedInput.start();
+  } catch (error) { if (session === lifecycle) reportAudioError(error); }
+  finally { if (!disposed) updateUi(); }
+}
+
+async function applyPerformance() {
+  const engine = audioGraph;
+  try { await engine?.setPerformance(performanceState); }
+  catch (error) { if (audioGraph === engine) reportAudioError(error); }
+  paintPerformance();
+}
+
+function paintPerformance() {
+  const metrics = audioGraph?.metrics, graphics = renderer?.getStats(), now = performance.now();
+  const write = (id, value) => { const node = $(id), text = String(value); if (node.textContent !== text) node.textContent = text; };
+  const load = metrics?.cpuLoad ?? 0, peak = metrics?.peakLoad ?? 0;
+  write("performanceRenderer", renderer?.available ? "WebGL2" : "Canvas");
+  write("performanceAudioLoad", metrics ? `${percent(load)} · ${percent(peak)} peak` : "Audio off");
+  $("performanceAudioMeter").value = Math.min(1, Math.max(0, load));
+  write("performanceGpuTime", !graphics?.gpuTimingSupported ? "Unavailable"
+    : Number.isFinite(graphics.gpuTimeMs) && now - graphics.gpuTimeSampledAt < 2000 ? `${graphics.gpuTimeMs.toFixed(2)} ms` : "Measuring…");
+  write("performanceFrameTime", `${visualCostMs.toFixed(1)} ms · ${Math.round(visualFps)} fps`);
+  write("performanceRequested", requestedTurnCount);
+  write("performancePrepared", metrics?.preparedRoutes ?? graphTurnRouteCount(model));
+  write("performanceEligible", metrics?.currentEligibleRoutes ?? "—");
+  write("performanceProcessing", metrics?.activeRoutes ?? 0);
+  write("performanceLimit", metrics?.liveLimit ?? (performanceState.voiceCeiling || "All"));
+  write("performanceMeasured", capacityMeasurement ? `${capacityMeasurement.voices} · ${percent(capacityMeasurement.load)}` : "Untested");
+  write("performanceTransition", metrics?.retiringActiveRoutes ? `${metrics.retiringActiveRoutes} previous-graph voices retained · cap applies per graph`
+    : metrics?.preparing ? "Preparing next graph · current audio continues" : "No graph transition");
+  write("performanceMisses", `${metrics?.deadlineMisses ?? 0} deadlines missed`);
+  write("performanceCapacityStatus", capacityMessage);
+  write("voiceCeilingOut", performanceState.voiceCeiling || "All prepared");
+  write("capacityBudgetOut", $("capacityBudget").value);
+  $("voiceCeiling").setAttribute("aria-valuetext", performanceState.voiceCeiling ? `${performanceState.voiceCeiling} voices per graph` : "No manual voice cap");
+  $("testCapacity").disabled = !audioGraph || capacityTesting || graphRebuildQueued || graphRebuildTimer !== null;
+  $("testCapacity").textContent = capacityTesting ? "Testing…" : "Test capacity";
+  $("capacityBudget").disabled = $("capacityBudgetExact").disabled = capacityTesting;
+  $("automatic").checked = performanceState.automatic;
+}
+
+function capacitySceneKey() {
+  return JSON.stringify([graphRevision, graphConfigurationSnapshot(), state.inputX, state.inputY,
+    geometryModel().nodes, [...edgeSwitchStates]]);
+}
+
+async function testCapacity() {
+  const engine = audioGraph;
+  if (!engine || capacityTesting || graphRebuildQueued || graphRebuildTimer !== null) return;
+  const session = lifecycle, sceneKey = capacitySceneKey();
+  const budget = Number($("capacityBudget").value);
+  capacityTesting = true;
+  capacityMessage = "Testing a warmed graph in a separate worker… Motion pauses during measurement.";
+  paintPerformance();
+  try {
+    const safe = generateGraphWithinRustBudget({ ...state, density: activeDensityLimit?.requested ?? state.density, type: state.topology }, budget);
+    // Keep the geometry the performer shaped while allowing additional edges.
+    const positions = new Map(model.nodes.map(node => [node.id, node]));
+    for (const node of safe.graph.nodes) {
+      const current = positions.get(node.id);
+      if (current) { node.x = current.x; node.y = current.y; }
+    }
+    const result = await engine.measureCapacity(safe.graph, { ...state }, edgeSwitchEnabledFlags(safe.graph));
+    if (session !== lifecycle || engine !== audioGraph || disposed) return;
+    if (sceneKey !== capacitySceneKey()) { capacityMessage = "Graph changed during the test. Test the new graph to apply its budget."; return; }
+    capacityMeasurement = result;
+    if (result.proved || !performanceState.automatic) {
+      const previousBudget = performanceState.preparationBudget;
+      performanceState.preparationBudget = budget;
+      const applied = await rebuildModel({ admission: safe });
+      if (session !== lifecycle || engine !== audioGraph || disposed) return;
+      if (!applied) { performanceState.preparationBudget = previousBudget; capacityMessage = "Graph could not be installed; previous budget retained."; return; }
+      capacityMessage = `${result.voices} voices tested at ${percent(result.load)} audio load. ${result.proved ? "Within the 45% test target" : "Manual trial · 45% test target not proved"}. ${budget}-voice preparation budget applied.`;
+    } else capacityMessage = `${result.voices} voices tested at ${percent(result.load)} audio load; the 45% target was not proved. Previous graph retained. Lower the budget and test again.`;
+  } catch (error) {
+    if (session === lifecycle && !disposed) capacityMessage = error.name === "AbortError" ? "Capacity test cancelled." : `Capacity test: ${error.message}`;
+  } finally {
+    if (session === lifecycle) { capacityTesting = false; lastMotionClock = null; paintPerformance(); }
+  }
+}
+
 function panic(message = "Panic stop. Input and every feedback tail are off.") {
   lifecycle += 1;
   pendingPresetEdits = null;
+  recordedInput?.stop();
+  audioGraph?.cancelCapacityMeasurement();
+  if (capacityTesting) capacityMessage = "Capacity test cancelled.";
+  capacityTesting = false;
   audioStarting = false;
   audioOutputEnabled = false;
   cancelScheduledGraphRebuild();
@@ -582,6 +719,8 @@ function panic(message = "Panic stop. Input and every feedback tail are off.") {
   const engine = audioGraph;
   const audio = audioContext;
   audioGraph = audioContext = enginePromise = null;
+  try { inputAnalyser?.disconnect(); } catch { /* already detached */ }
+  inputAnalyser = null;
   engine?.setOutputEnabled(false);
   engine?.clear();
   void engine?.dispose();
@@ -854,7 +993,7 @@ function drawTerminalRoute(from, to, color, timestamp, delaySeconds, startDelay 
   for (let index = 0; index <= 12; index += 1) {
     const progress = index / 12;
     const travelDelay = startDelay + delaySeconds * progress;
-    const energy = state.mic
+    const energy = inputIsLive()
       ? Math.min(1, envelopeAt(now - travelDelay) * 9)
       : 0;
     peak = Math.max(peak, energy);
@@ -921,7 +1060,7 @@ function drawTerminal(position, kind) {
   context.strokeStyle = color;
   context.lineWidth = draggingTerminal === kind ? 3 : 2;
   context.shadowColor = color;
-  context.shadowBlur = state.mic ? 12 : 5;
+  context.shadowBlur = inputIsLive() ? 12 : 5;
   context.stroke();
   context.shadowBlur = 0;
   context.strokeStyle = color;
@@ -955,7 +1094,8 @@ function drawTerminal(position, kind) {
   context.font = "600 8px ui-monospace, monospace";
   context.textAlign = "center";
   context.textBaseline = "top";
-  context.fillText(input ? "MIC IN" : "SPEAKERS OUT", position.x, position.y + 22);
+  const inputLabel = recordedInput?.snapshot().mode === "file" ? "FILE IN" : recordedInput?.snapshot().mode === "samples" ? "SAMPLE IN" : "MIC IN";
+  context.fillText(input ? inputLabel : "SPEAKERS OUT", position.x, position.y + 22);
   context.restore();
 }
 
@@ -1075,7 +1215,7 @@ function draw(now) {
 function updateMeter(now) {
   const delta = Math.min(0.1, (now - lastFrame) / 1000);
   lastFrame = now;
-  if (inputAnalyser && state.mic) {
+  if (inputAnalyser && inputIsLive()) {
     inputAnalyser.getFloatTimeDomainData(inputWave);
     let sum = 0;
     for (const sample of inputWave) sum += sample * sample;
@@ -1093,7 +1233,7 @@ function updateMeter(now) {
 
 // Motion updates use a separate control cadence. Rendering never schedules audio.
 function motionTick() {
-  if (disposed || document.hidden || graphRebuildQueued) { lastMotionClock = null; return; }
+  if (disposed || document.hidden || graphRebuildQueued || capacityTesting) { lastMotionClock = null; return; }
   const clock = audioContext?.state === "running" ? audioContext.currentTime : performance.now() / 1000;
   const delta = lastMotionClock === null ? 0 : Math.max(0, Math.min(.1, clock - lastMotionClock));
   lastMotionClock = clock;
@@ -1105,13 +1245,18 @@ function frame(now) {
   if (disposed) return;
   const interval = (audioGraph?.metrics?.cpuLoad ?? 0) > .65 ? 66 : 33;
   if (!document.hidden && now - lastDraw >= interval) {
+    const drawingStarted = performance.now();
     lastDraw = now;
     updateMeter(now);
     recordEnvelope(now / 1000, currentLevel);
     draw(now);
+    visualCostMs += (performance.now() - drawingStarted - visualCostMs) * .2;
+    if (lastVisualPaint) visualFps += (1000 / Math.max(1, now - lastVisualPaint) - visualFps) * .15;
+    lastVisualPaint = now;
     const metrics = audioGraph?.metrics;
     $("engineReadout").textContent = metrics ? `${metrics.routes} pitch routes · ${Math.round((metrics.cpuLoad ?? 0) * 100)}% audio load · ${metrics.deadlineMisses ?? 0} late blocks` : "Audio off";
     $("rendererReadout").textContent = renderer?.available ? "WebGL2" : "Canvas fallback";
+    if (now - lastMonitorPaint >= 100) { paintPerformance(); lastMonitorPaint = now; }
   }
   animationFrame = requestAnimationFrame(frame);
 }
@@ -1203,13 +1348,13 @@ function updateUi() {
   $("audioState").textContent = audioLabel;
   $("audioButton").setAttribute("aria-pressed", String(audioOutputEnabled));
   $("audioState").textContent = audioOutputEnabled ? "on" : "off";
-  $("micButton").setAttribute("aria-pressed", String(state.mic));
+  $("micButton").setAttribute("aria-pressed", String(inputIsLive()));
   $("seedMicButton").setAttribute("aria-pressed", String(state.mic));
   $("audioButton").disabled = audioStarting;
   $("micButton").disabled = false;
   $("seedMicButton").disabled = state.starting;
-  $("stopButton").disabled = !audioGraph && !audioStarting && !state.mic && !state.starting;
-  $("panicButton").disabled = !audioGraph && !audioStarting && !state.mic && !state.starting;
+  $("stopButton").disabled = !audioGraph && !audioStarting && !state.mic && !state.starting && !recordedInput?.snapshot().pending;
+  $("panicButton").disabled = !audioGraph && !audioStarting && !state.mic && !state.starting && !recordedInput?.snapshot().pending;
   $("micButtonLabel").textContent = state.mic ? "Input live" : state.starting ? "Starting…" : "Start input";
   $("micButtonHint").textContent = state.mic ? audioInputDescription(mediaStream) : "mic / line input · choose in I/O setup";
   $("listenSummary").textContent = `audio input ${audioLabel}`;
@@ -1219,12 +1364,12 @@ function updateUi() {
   $("topologySummary").textContent = graphPending
     ? `${patch?.label ?? "Custom"} · updating…`
     : `${patch?.label ?? "Custom"} · ${activePreset.label} · ${model.cyclic ? "cyclic" : "acyclic"}${activeDensityLimit ? ` · auto-safe ${percent(activeDensityLimit.applied)}` : ""}`;
-  $("motionSummary").textContent = `nodes ${state.nodeMoving ? `${state.nodeMotionMode} playing` : "paused"} · mic ${state.micMoving ? `${state.micMotionMode} playing` : "paused"}`;
+  $("motionSummary").textContent = `nodes ${state.nodeMoving ? `${state.nodeMotionMode} playing` : "paused"} · input ${state.micMoving ? `${state.micMotionMode} playing` : "paused"}`;
   $("delaySummary").textContent = `${state.baseDelay}–${state.baseDelay + state.timeScale} ms · angle → ${Math.round(state.pitchScale * 100)}% octave`;
   $("mixSummary").textContent = `${percent(state.wet)} graph · ${percent(state.dry)} direct`;
-  const routeLoad = turnRouteCount > MAX_LIVE_TURN_ROUTES
+  const routeLoad = turnRouteCount > performanceState.preparationBudget
     ? " · over live limit"
-    : turnRouteCount > MAX_LIVE_TURN_ROUTES * .8 ? " · dense" : "";
+    : turnRouteCount > performanceState.preparationBudget * .8 ? " · dense" : "";
   const densitySafety = activeDensityLimit
     ? ` · density auto-limited from ${percent(activeDensityLimit.requested)}`
     : "";
@@ -1242,14 +1387,14 @@ function updateUi() {
       ? `${firstTap} ms first-pass`
       : `${firstTap}–${lastTap} ms first-pass`;
   $("cycleReadout").textContent = model.cyclic ? `${cycleEdges} cycle-closing edges · bounded` : "none · finite tail";
-  $("stageReadout").textContent = `MIC IN → ${activePreset.label.toUpperCase()} → SPEAKERS OUT · ${openSwitchCount}/${model.edges.length} ROUTES OPEN · ${sinkTapLabel.toUpperCase()}`;
+  $("stageReadout").textContent = `INPUT → ${activePreset.label.toUpperCase()} → SPEAKERS OUT · ${openSwitchCount}/${model.edges.length} ROUTES OPEN · ${sinkTapLabel.toUpperCase()}`;
   $("feedback").disabled = !model.cyclic;
   $("damping").disabled = !model.cyclic;
   $("openAllSwitchesButton").disabled = closedSwitchCount === 0;
   $("feedbackSafetyNote").textContent = model.cyclic
     ? `cyclic · returns bounded to ${percent(state.feedback)} + damped`
     : "acyclic · feedback dormant";
-  canvas.setAttribute("aria-label", `${activePreset.label}, ${model.nodes.length} nodes, ${openSwitchCount} of ${model.edges.length} directed routes open, ${closedSwitchCount} closed, and ${sinkTapLabel}. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} Microphone ${audioLabel}.`);
+  canvas.setAttribute("aria-label", `${activePreset.label}, ${model.nodes.length} nodes, ${openSwitchCount} of ${model.edges.length} directed routes open, ${closedSwitchCount} closed, and ${sinkTapLabel}. ${model.cyclic ? "Bounded cyclic feedback." : "Acyclic."} ${recordedInput?.snapshot().label ?? "Microphone"} ${inputIsLive() ? "live" : "off"}.`);
   $("levelOut").textContent = percent(state.level);
   $("inputTrimOut").textContent = percent(state.inputTrim);
   $("nodeCountOut").textContent = String(state.nodeCount);
@@ -1265,7 +1410,7 @@ function updateUi() {
   $("micMotionSpeedOut").textContent = `${state.micMotionSpeed.toFixed(2)} cyc/s`;
   $("micMotionSizeOut").textContent = percent(state.micMotionSize);
   $("micMotionPlayButton").setAttribute("aria-pressed", String(state.micMoving));
-  $("micMotionPlayButton").setAttribute("aria-label", state.micMoving ? "Pause microphone motion" : "Play microphone motion");
+  $("micMotionPlayButton").setAttribute("aria-label", state.micMoving ? "Pause input motion" : "Play input motion");
   $("timeScaleOut").textContent = `+${state.timeScale} ms longest edge`;
   $("timeCurveOut").textContent = Math.abs(state.timeCurve - 1) < 0.005
     ? "linear"
@@ -1293,6 +1438,7 @@ function updateUi() {
   $("dryOut").textContent = percent(state.dry);
   $("spreadOut").textContent = percent(state.spread);
   syncControlsFromState();
+  paintInput();
 }
 
 function bindRange(id, property, {
@@ -1447,7 +1593,7 @@ function finishNodeDrag(event) {
   draggingTerminal = null;
   canvas.classList.remove("is-dragging");
   $("liveStatus").textContent = terminalMoved
-    ? "Microphone input moved; entry route time and first turn updated."
+    ? "Input moved; entry route time and first turn updated."
     : `Node ${selectedNodeId + 1} moved; relative turn pitches and connected edge times updated.`;
 }
 
@@ -1567,7 +1713,7 @@ $("resetViewButton").addEventListener("click", () => {
   state.inputY = 0.5;
   applyAudioParameters();
   updateUi();
-  $("liveStatus").textContent = "Node motion stopped and microphone input position reset.";
+  $("liveStatus").textContent = "Node motion stopped and input position reset.";
 });
 $("graphResetButton").addEventListener("click", () => {
   const liveState = { mic: state.mic, starting: state.starting, level: state.level, inputTrim: state.inputTrim };
@@ -1604,6 +1750,7 @@ $("audioButton").addEventListener("click", async () => {
   if (audioStarting) return;
   if (audioOutputEnabled) {
     audioOutputEnabled = false;
+    recordedInput.stop();
     stopMicrophone();
     audioGraph?.setOutputEnabled(false);
     audioGraph?.clear();
@@ -1612,30 +1759,94 @@ $("audioButton").addEventListener("click", async () => {
   }
   const session = lifecycle;
   audioStarting = true;
+  $("audioError").hidden = true;
   updateUi();
   try {
     const engine = await ensureEngine();
     if (session !== lifecycle || disposed) return;
     audioOutputEnabled = true;
     engine.setOutputEnabled(true);
-    $("audioError").hidden = true;
+    await recordedInput.start();
   } catch (error) { if (session === lifecycle) reportAudioError(error); }
   finally { if (session === lifecycle) { audioStarting = false; updateUi(); } }
 });
+
+recordedInput = createInputSource({
+  prepare: ensureEngine, getContext: () => audioContext, getTarget: () => inputAnalyser,
+  canPlay: () => audioOutputEnabled && !disposed,
+  onChange: () => { if (!disposed) updateUi(); }, onError: reportAudioError,
+});
+$("inputSample").replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample · /, ""), option.id)));
+$("source").addEventListener("change", event => {
+  const mode = event.currentTarget.value;
+  stopMicrophone();
+  void changeInput(() => recordedInput.selectMode(mode), { start: true });
+});
+$("inputSample").addEventListener("change", event => {
+  const id = event.currentTarget.value;
+  void changeInput(() => recordedInput.selectSample(id), { start: true });
+});
+$("nextInputSample").addEventListener("click", () => {
+  const index = SAMPLE_INPUT_OPTIONS.findIndex(option => option.id === recordedInput.snapshot().sampleId);
+  void changeInput(() => recordedInput.selectSample(SAMPLE_INPUT_OPTIONS[(index + 1) % SAMPLE_INPUT_OPTIONS.length].id), { start: true });
+});
+$("inputFile").addEventListener("change", event => {
+  const file = event.currentTarget.files?.[0];
+  if (!file) return;
+  stopMicrophone();
+  void changeInput(() => recordedInput.loadFile(file));
+  event.currentTarget.value = "";
+});
+$("inputLoop").addEventListener("change", event => recordedInput.setLoop(event.currentTarget.checked));
+$("restartInput").addEventListener("click", () => void changeInput(() => recordedInput.restart()));
+$("stopInput").addEventListener("click", () => recordedInput.stop());
+
+for (const id of ["voiceCeiling", "capacityBudget"]) {
+  const control = $(id), exact = $(`${id}Exact`);
+  performanceKnobs.set(id, enhanceRangeKnob(control, { scale: "log" }));
+  control.addEventListener("input", () => {
+    exact.value = control.value;
+    if (id === "voiceCeiling") {
+      performanceState.voiceCeiling = Number(control.value);
+      void applyPerformance();
+    }
+    paintPerformance();
+  });
+  const commit = () => {
+    const value = exact.valueAsNumber;
+    if (!Number.isFinite(value)) { exact.value = control.value; return; }
+    control.value = String(Math.round(Math.max(Number(control.min), Math.min(Number(control.max), value))));
+    control.dispatchEvent(new Event("input", { bubbles: true }));
+    performanceKnobs.get(id).update();
+  };
+  exact.addEventListener("change", commit);
+  exact.addEventListener("keydown", event => {
+    if (event.key === "Enter") { event.preventDefault(); commit(); exact.blur(); }
+    if (event.key === "Escape") { event.preventDefault(); event.stopPropagation(); exact.value = control.value; exact.blur(); }
+  });
+}
+$("automatic").addEventListener("change", event => {
+  performanceState.automatic = event.currentTarget.checked;
+  void applyPerformance();
+});
+$("testCapacity").addEventListener("click", () => void testCapacity());
 
 const audioInputControl = mountAudioInputControl({
   container: $("listenSection").parentElement, before: $("listenSection"),
   button: $("micButton"), gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
   onGainInput: (value) => { state.inputTrim = value; applyAudioParameters(); },
-  onStart: startMicrophone, onStop: stopMicrophone,
-  getState: () => ({ active: state.mic, pending: state.starting, error: $("audioError").hidden ? "" : $("audioError").textContent }),
-  getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),
+  onStart: () => recordedInput.snapshot().mode === "mic" ? startMicrophone() : changeInput(() => recordedInput.start()),
+  onStop: () => recordedInput.snapshot().mode === "mic" ? stopMicrophone() : recordedInput.stop(),
+  getState: () => ({ active: inputIsLive(), pending: state.starting || recordedInput.snapshot().pending,
+    source: recordedInput.snapshot().mode === "mic" ? "mic" : "file",
+    error: $("audioError").hidden ? "" : $("audioError").textContent }),
+  getSignal: () => ({ node: inputAnalyser, stream: mediaStream, channels: state.mic ? undefined : 2, multiplier: state.inputTrim }),
   hide: [$("listenSection"), $("seedMicButton")],
 });
 $("stopButton").addEventListener("click", () => panic());
 $("panicButton").addEventListener("click", () => panic());
 globalThis.addEventListener("keydown", (event) => {
-  if (event.key === "Escape" && (audioGraph || audioStarting || state.mic || state.starting)) panic();
+  if (event.key === "Escape" && (audioGraph || audioStarting || state.mic || state.starting || recordedInput?.snapshot().pending)) panic();
 });
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) { lastMotionClock = null; panic("Audio stopped because Graph Delay Rust moved to the background."); }
@@ -1648,6 +1859,8 @@ function teardown() {
   cancelAnimationFrame(animationFrame);
   resizeObserver.disconnect();
   renderer?.dispose();
+  recordedInput.dispose();
+  for (const knob of performanceKnobs.values()) knob.destroy();
   audioInputControl?.destroy?.();
   presetController?.destroy();
 }
@@ -1671,7 +1884,10 @@ function committedCaptureState() {
 globalThis.__graphDelayRust = Object.freeze({
   snapshot: () => ({ ...captureGraphDelayPreset(committedCaptureState(), geometryModel(), edgeSwitchStates),
     audio: audioOutputEnabled, microphone: state.mic, starting: audioStarting,
-    renderer: renderer?.available ? "webgl2" : "canvas", metrics: audioGraph?.metrics ?? null }),
+    renderer: renderer?.available ? "webgl2" : "canvas", metrics: audioGraph?.metrics ?? null,
+    inputSource: recordedInput.snapshot(), performance: { ...performanceState },
+    capacity: { testing: capacityTesting, measurement: capacityMeasurement, message: capacityMessage },
+    graphics: renderer?.getStats() ?? null }),
 });
 
 

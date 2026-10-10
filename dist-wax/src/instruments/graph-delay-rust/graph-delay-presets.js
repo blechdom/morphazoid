@@ -7,7 +7,7 @@ import { clonePresetData, presetRandom, randomParameterValues } from "../../site
 import { presetStateKey } from "../../site/header-presets.js";
 
 import { MAX_RUST_GRAPH_NODES as GRAPH_DELAY_RUST_MAX_NODES,
-  DEFAULT_RUST_GRAPH_TURN_ROUTES as GRAPH_DELAY_RUST_MAX_TURN_ROUTES, MAX_RUST_GRAPH_EDGES,
+  MAX_RUST_GRAPH_TURN_ROUTES as GRAPH_DELAY_RUST_MAX_TURN_ROUTES, MAX_RUST_GRAPH_EDGES,
   generateGraphWithinRustBudget } from './graph-delay-topology.js';
 export { GRAPH_DELAY_RUST_MAX_NODES, GRAPH_DELAY_RUST_MAX_TURN_ROUTES };
 const liveKeys = new Set(["mic", "starting", "nodeMotionPhase", "micMotionPhase", "inputTrim", "level"]);

@@ -145,10 +145,14 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
         this.cpuLoad += (load - this.cpuLoad) * .2;
         this.peakLoad = Math.max(load, this.peakLoad * .97);
         if (load > 1) this.deadlineMisses++;
+        const admissionStarted = now();
         const previousLimit = this.capacity.limit;
         const limit = this.capacity.observe({ load, seconds: this.timingFrames / sampleRate,
           eligible: this.values[13], retiringEligible: this.values[14], processing: this.values[6], target: this.values[7], preparing: this.pendingId !== null });
         if (limit !== previousLimit) this.api.gdr_limit(this.engine, limit);
+        // Charge bounded admission work to the next timing window, just like
+        // control messages delivered between callbacks.
+        this.controlMs += Math.max(0, now() - admissionStarted);
         this.timingMs = this.timingFrames = 0;
       } else if (renderMs > duration + 1) this.deadlineMisses++;
       this.frames += frames; this.lastAudioTime = currentTime + frames / sampleRate;

@@ -15,7 +15,7 @@
     "replacements": [
       {
         "before": "  micromorph: define(\n",
-        "after": "  \"graph-delay-rust\": define(\n    \"Rust/WASM graph delay processor\",\n    \"Routes live input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs while preserving the original geometry controls.\",\n    \"Enable Audio and microphone input, choose a graph preset, then drag nodes and switch routes to reshape delay and pitch.\",\n    [\"Mic input\", \"Rust / WASM\", \"WebGL\", \"Graph routing\"],\n  ),\n  micromorph: define(\n",
+        "after": "  \"graph-delay-rust\": define(\n    \"Rust/WASM graph delay processor\",\n    \"Routes mic, file or sample input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs, with a live voice cap and audio-load monitoring.\",\n    \"Choose Mic / line, Audio file or Built-in samples, enable Audio, then drag nodes and switch routes to reshape delay and pitch. Use Live data and Live cap to explore larger graphs.\",\n    [\"Mic / file / samples\", \"Rust / WASM\", \"WebGL\", \"Live voice cap\"],\n  ),\n  micromorph: define(\n",
         "count": 1
       }
     ],
