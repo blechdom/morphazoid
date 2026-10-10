@@ -14,7 +14,7 @@ import { initializeOutputRecording } from '../../site/output-recording-controls.
 const $=id=>document.getElementById(id);
 const engine=createFractalDelayEngine({parameters:DEFAULT_PRESET.parameters});
 const renderer=createNetworkRenderer($('stage'));
-let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastUi=-Infinity,frame,closed=false;
+let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastCredit='',lastUi=-Infinity,frame,closed=false;
 const run=promise=>Promise.resolve(promise).catch(reason=>{
   $('liveStatus').textContent=reason.message||String(reason);$('liveStatus').classList.add('is-error');
 });
@@ -159,8 +159,9 @@ function paintUi(now){
   $('inputNote').textContent=state.input.pending?'Loading input…':state.input.mode==='mic'?
     (state.microphone?state.inputDescription:'Enable Mic for capture. Mic / line gain is separate from file and sample playback.'):
     `${state.input.label || 'Choose a file'} · unity input gain${state.input.playing?' · playing':''}`;
-  $('inputCredit').hidden=!state.input.credit;$('inputCredit').replaceChildren();
-  if(state.input.credit){const a=document.createElement('a');a.textContent=state.input.credit;a.href=state.input.creditUrl||'#';a.rel='noopener';a.target='_blank';$('inputCredit').append(a);}
+  const creditKey=`${state.input.credit}|${state.input.creditUrl}`;
+  if(creditKey!==lastCredit){lastCredit=creditKey;$('inputCredit').hidden=!state.input.credit;$('inputCredit').replaceChildren();
+    if(state.input.credit){const a=document.createElement('a');a.textContent=state.input.credit;a.href=state.input.creditUrl||'#';a.rel='noopener';a.target='_blank';$('inputCredit').append(a);}}
   const n=state.network;
   $('edgeCount').textContent=`${state.preparedEdges.toLocaleString()} connections`;
   $('stageReadout').textContent=n?`${MODES.find(mode=>mode.id===n.mode).label.toUpperCase()} · ${n.edges.length.toLocaleString()} connections${state.compiling?' · preparing change':''}`:'Preparing complete network…';
