@@ -89,6 +89,30 @@
       </section>
 
       <aside class="panel" data-instrument-preset-host aria-label="graph delay controls">
+        <details class="group control-section" id="inputSection" data-section="input">
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
+          <div class="group-body native-input-controls">
+            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
+            <div class="select-control" id="inputSampleControl" hidden>
+              <label class="field-label" for="inputSample">Sample</label>
+              <div class="native-choice-row">
+                <span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span>
+                <button class="instrument-picker-next" id="nextInputSample" type="button" title="Next sample" aria-label="Next sample" disabled><span aria-hidden="true">▶</span></button>
+              </div>
+            </div>
+            <div id="inputFileControl" class="native-input-file" hidden>
+              <label for="inputFile"><span class="field-label">Choose local audio</span><input id="inputFile" type="file" accept="audio/*" aria-describedby="inputFileHint" /></label>
+              <p class="native-input-note" id="inputFileHint">Local files · up to 64 MiB · first 2 minutes</p>
+            </div>
+            <div class="native-input-playback" id="inputPlaybackControls" hidden>
+              <label class="native-check"><input id="inputLoop" type="checkbox" checked /> Loop input</label>
+              <div class="native-input-actions"><button class="mini-action" id="restartInput" type="button" disabled>Restart input</button><button class="mini-action" id="stopInput" type="button" disabled>Stop input</button></div>
+            </div>
+            <output class="native-input-status" id="inputSourceStatus" role="status">Mic / line ready · use Mic to start input</output>
+            <small class="native-input-credit" id="inputSourceCredit" hidden></small>
+            <p class="native-input-note" id="inputMicHelp"><strong>Use headphones.</strong> <a href="settings.html">Mic / line setup →</a> Choose your input device and mono/stereo there.</p>
+          </div>
+        </details>
         <details class="group control-section graph-live-section" id="playSection" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="mixSummary">116% graph · 20% direct</span></summary>
           <div class="group-body">
@@ -125,22 +149,6 @@
               <label class="control native-knob-control" for="timeScale" title="Additional delay for the longest edge; shorter edges receive less, shaped by the time curve."><span><b>Distance time</b><output id="timeScaleOut" for="timeScale">+58 ms</output></span><input id="timeScale" type="range" min="0" max="800" step="1" value="58" /></label>
               <label class="control native-knob-control" for="wet"><span><b>Wet</b><output id="wetOut" for="wet">116%</output></span><input id="wet" type="range" min="0" max="1.5" step="0.01" value="1.16" /></label>
               <label class="control native-knob-control" for="dry"><span><b>Dry</b><output id="dryOut" for="dry">20%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.2" /></label>
-            </div>
-            <div class="graph-live-motion" role="group" aria-label="Graph motion">
-              <div class="graph-motion-transport" role="group" aria-labelledby="nodeMotionLabel">
-                <div class="graph-motion-toggle">
-                  <button class="play-button mz-button--play motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
-                  <span id="nodeMotionLabel">Node motion</span>
-                </div>
-                <label class="control native-knob-control" for="nodeMotionSpeed" title="One motion cycle per beat. Random walks use the tempo as drift speed."><span><b>Tempo</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">7.2 BPM</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="4" step="0.01" value="0.12" aria-label="Node motion tempo" /></label>
-              </div>
-              <div class="graph-motion-transport" role="group" aria-labelledby="micMotionLabel">
-                <div class="graph-motion-toggle">
-                  <button class="play-button mz-button--play motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play input motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
-                  <span id="micMotionLabel">Input motion</span>
-                </div>
-                <label class="control native-knob-control" for="micMotionSpeed" title="One path cycle per beat. Random walks use the tempo as drift speed."><span><b>Tempo</b><output id="micMotionSpeedOut" for="micMotionSpeed">4.8 BPM</output></span><input id="micMotionSpeed" type="range" min="0.01" max="4" step="0.01" value="0.08" aria-label="Input motion tempo" /></label>
-              </div>
             </div>
           </div>
         </details>
@@ -190,30 +198,6 @@
           <output class="native-live-status" id="liveVoiceStatus" title="Current processing turns / prepared turns. Turn processors combine before the graph outputs; this is not a count of distinct audible pitches.">Audio off</output>
           <output class="native-live-status native-live-warning" id="liveGraphStatus" hidden></output>
         </section>
-        <details class="group control-section" id="inputSection" data-section="input">
-          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Mic / line · ready</span></summary>
-          <div class="group-body native-input-controls">
-            <label class="select-control" for="source"><span class="field-label">Input source</span><span class="native-input-choice"><select id="source"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></span></label>
-            <div class="select-control" id="inputSampleControl" hidden>
-              <label class="field-label" for="inputSample">Sample</label>
-              <div class="native-choice-row">
-                <span class="native-input-choice"><select id="inputSample"><option value="sample-drums">Drum break</option></select></span>
-                <button class="instrument-picker-next" id="nextInputSample" type="button" title="Next sample" aria-label="Next sample" disabled><span aria-hidden="true">▶</span></button>
-              </div>
-            </div>
-            <div id="inputFileControl" class="native-input-file" hidden>
-              <label for="inputFile"><span class="field-label">Choose local audio</span><input id="inputFile" type="file" accept="audio/*" aria-describedby="inputFileHint" /></label>
-              <p class="native-input-note" id="inputFileHint">Local files · up to 64 MiB · first 2 minutes</p>
-            </div>
-            <div class="native-input-playback" id="inputPlaybackControls" hidden>
-              <label class="native-check"><input id="inputLoop" type="checkbox" checked /> Loop input</label>
-              <div class="native-input-actions"><button class="mini-action" id="restartInput" type="button" disabled>Restart input</button><button class="mini-action" id="stopInput" type="button" disabled>Stop input</button></div>
-            </div>
-            <output class="native-input-status" id="inputSourceStatus" role="status">Mic / line ready · use Mic to start input</output>
-            <small class="native-input-credit" id="inputSourceCredit" hidden></small>
-            <p class="native-input-note" id="inputMicHelp"><strong>Use headphones.</strong> <a href="settings.html">Mic / line setup →</a> Choose your input device and mono/stereo there.</p>
-          </div>
-        </details>
 
         <details class="group control-section" id="topologySection" data-section="topology">
           <summary class="group-summary"><h2 class="group-title">Topology</h2><span class="section-state" id="topologySummary">Layered Glass · Layered DAG</span></summary>
@@ -291,41 +275,49 @@
         </details>
 
         <details class="group control-section" id="motionSection" data-section="motion">
-          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · mic paused</span></summary>
+          <summary class="group-summary"><h2 class="group-title">Motion</h2><span class="section-state" id="motionSummary">nodes paused · input paused</span></summary>
           <div class="group-body">
-            <span class="field-label">Node motion</span>
-            <div class="mic-motion-row">
-              <label class="select-control mic-motion-select" for="nodeMotionMode">
-                <span class="select-shell">
-                  <select id="nodeMotionMode">
-                    <option value="wiggle" selected>Independent wiggle</option>
-                    <option value="orbit">Circular walks</option>
-                    <option value="random">Random walks</option>
+            <div class="graph-motion-group" role="group" aria-labelledby="nodeMotionLabel">
+              <span class="field-label" id="nodeMotionLabel">Node motion</span>
+              <div class="graph-motion-transport">
+                <button class="play-button mz-button--play motion-play-button" id="nodeMotionPlayButton" type="button" aria-pressed="false" aria-label="Play node motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+                <label class="select-control mic-motion-select" for="nodeMotionMode">
+                  <span class="select-shell">
+                  <select id="nodeMotionMode" aria-label="Node motion path">
+                  <option value="wiggle" selected>Independent wiggle</option>
+                  <option value="orbit">Circular walks</option>
+                  <option value="random">Random walks</option>
                   </select>
-                </span>
-              </label>
-            </div>
-            <div class="native-knob-grid graph-motion-knobs">
-              <label class="control native-knob-control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+                  </span>
+                </label>
+              </div>
+              <div class="native-knob-grid graph-motion-knobs">
+                <label class="control native-knob-control" for="nodeMotionSpeed" title="One motion cycle per beat. Random walks use the tempo as drift speed."><span><b>Tempo</b><output id="nodeMotionSpeedOut" for="nodeMotionSpeed">7.2 BPM</output></span><input id="nodeMotionSpeed" type="range" min="0.01" max="4" step="0.01" value="0.12" aria-label="Node motion tempo" /></label>
+                <label class="control native-knob-control" for="nodeMotionAmount"><span><b>Node travel</b><output id="nodeMotionAmountOut" for="nodeMotionAmount">7%</output></span><input id="nodeMotionAmount" type="range" min="0.01" max="0.3" step="0.01" value="0.07" /></label>
+              </div>
             </div>
             <div class="motion-divider" aria-hidden="true"></div>
-            <span class="field-label">Input path</span>
-            <div class="mic-motion-row">
-              <label class="select-control mic-motion-select" for="micMotionMode">
-                <span class="select-shell">
-                  <select id="micMotionMode">
-                    <option value="circle" selected>Circle</option>
-                    <option value="ellipse">Ellipse</option>
-                    <option value="triangle">Triangle</option>
-                    <option value="square">Square</option>
-                    <option value="figure8">Figure eight</option>
-                    <option value="random">Random walk</option>
+            <div class="graph-motion-group" role="group" aria-labelledby="micMotionLabel">
+              <span class="field-label" id="micMotionLabel">Input motion</span>
+              <div class="graph-motion-transport">
+                <button class="play-button mz-button--play motion-play-button" id="micMotionPlayButton" type="button" aria-pressed="false" aria-label="Play input motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+                <label class="select-control mic-motion-select" for="micMotionMode">
+                  <span class="select-shell">
+                  <select id="micMotionMode" aria-label="Input motion path">
+                  <option value="circle" selected>Circle</option>
+                  <option value="ellipse">Ellipse</option>
+                  <option value="triangle">Triangle</option>
+                  <option value="square">Square</option>
+                  <option value="figure8">Figure eight</option>
+                  <option value="random">Random walk</option>
                   </select>
-                </span>
-              </label>
-            </div>
-            <div class="native-knob-grid graph-motion-knobs">
-              <label class="control native-knob-control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+                  </span>
+                </label>
+              </div>
+              <div class="native-knob-grid graph-motion-knobs">
+                <label class="control native-knob-control" for="micMotionSpeed" title="One path cycle per beat. Random walks use the tempo as drift speed."><span><b>Tempo</b><output id="micMotionSpeedOut" for="micMotionSpeed">4.8 BPM</output></span><input id="micMotionSpeed" type="range" min="0.01" max="4" step="0.01" value="0.08" aria-label="Input motion tempo" /></label>
+                <label class="control native-knob-control" for="micMotionSize"><span><b>Path size</b><output id="micMotionSizeOut" for="micMotionSize">42%</output></span><input id="micMotionSize" type="range" min="0.05" max="0.46" step="0.01" value="0.42" /></label>
+              </div>
             </div>
             <button class="mini-action" id="resetViewButton" type="button">Stop motion + reset input</button>
           </div>

@@ -32,16 +32,18 @@ the [original Graph Delay page](../src/pages/graph-delay.html), and the
 
 ## Live graph controls
 
-Play is the first open section, with Random graph, Random positions, graph shape,
-six sound knobs and independent circular node/input Play/Pause buttons. Each
-motion button has its own tempo knob and Tap alongside it. Motion tempo is
+Input sits directly below the presets, followed by the open Play section with
+Random graph, Random positions, graph shape and six compact sound knobs.
+The lower Motion section groups each circular node/input Play/Pause button
+beside its path selector, with tempo, Tap and travel controls directly below.
+Motion tempo is
 shown in BPM (0.6–240), with one path cycle per beat; random walks use that rate
 as drift speed rather than a repeating beat. Existing presets retain their
 original motion speeds. Pitch shift displays
 semitones per 180-degree turn. Edge time, feedback, distance time, wet and dry
 sit alongside it. Live cap remains visible immediately below Play. Live data,
 input selection, topology generation, detailed pitch/time controls and motion
-settings expand separately. All musical sliders use the shared drag knobs;
+settings expand separately. All musical sliders use compact shared drag knobs;
 native arrow-key controls and preset synchronization remain available.
 
 - **Random positions** moves the existing nodes and retains every connection,

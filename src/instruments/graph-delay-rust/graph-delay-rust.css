@@ -27,9 +27,10 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   align-items: start;
-  gap: 4px 6px;
+  gap: 0 6px;
 }
-.graph-delay-rust-page .graph-live-section > .group-body { padding-block: 8px 10px; }
+.graph-delay-rust-page .group-body { padding-block: 8px; }
+.graph-delay-rust-page .graph-live-section > .group-body { padding-block: 6px; }
 .graph-delay-rust-page .graph-live-section .select-control { margin-block: 10px 6px; }
 .graph-delay-rust-page .graph-live-actions {
   display: grid;
@@ -45,28 +46,24 @@
   font-size: 10px;
   line-height: 1.3;
 }
-.graph-delay-rust-page .graph-live-motion { display: grid; gap: 2px; margin-top: 6px; }
-.graph-delay-rust-page .graph-motion-transport { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.2fr); align-items: center; gap: 8px; }
-.graph-delay-rust-page .graph-motion-toggle { display: flex; align-items: center; gap: 8px; min-width: 0; }
-.graph-delay-rust-page .graph-motion-toggle > button { flex: 0 0 auto; }
-.graph-delay-rust-page .graph-motion-toggle > span { color: var(--ink); font-size: 10px; line-height: 1.3; }
-.graph-delay-rust-page .graph-motion-transport > .mz-tap-tempo-field { width: 100%; }
-.graph-delay-rust-page .graph-motion-transport .mz-tap-tempo-field > .native-knob-control { flex: 1 1 0; min-width: 0; }
+.graph-delay-rust-page .graph-motion-group { display: grid; gap: 6px; }
+.graph-delay-rust-page .graph-motion-transport { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px; }
+.graph-delay-rust-page #motionSection .graph-motion-transport .select-control { margin: 0; }
+.graph-delay-rust-page .graph-motion-transport select { min-height: var(--mz-control-height); }
+.graph-delay-rust-page .motion-divider { margin: 8px 0 12px; }
 .graph-delay-rust-page .graph-secondary-actions { display: flex; flex-wrap: wrap; gap: 6px; }
 .graph-delay-rust-page .graph-secondary-actions > button { flex: 1 1 120px; margin: 0; }
-.graph-delay-rust-page #motionSection .mic-motion-row { display: block; }
-.graph-delay-rust-page #motionSection .select-control { margin-bottom: 4px; }
 .graph-delay-rust-page .native-knob-grid > .mz-tap-tempo-field { grid-column: span 2; width: 100%; justify-content: center; gap: 6px; }
 .graph-delay-rust-page .native-knob-grid > .mz-tap-tempo-field > .native-knob-control { flex: 0 1 100px; }
-.graph-delay-rust-page .native-knob-grid .mz-tap-tempo { align-self: start; margin-top: 22px; }
+.graph-delay-rust-page .native-knob-grid .mz-tap-tempo { align-self: start; margin-top: 14px; }
 
 /* Match the L-system Rust input and performance controls. */
 #inputSection { --accent: #b79bff; --accent-soft: color-mix(in oklab, #b79bff 55%, transparent); --accent-glow: color-mix(in oklab, #b79bff 20%, transparent); }
-.native-input-controls { display: grid; gap: 12px; }
+.native-input-controls { display: grid; gap: 8px; }
 .micmic-page [hidden] { display: none !important; }
 /* Keep native focus and scrolling below the sticky preset/input row. */
 .micmic-page .panel { scroll-padding-top: 76px; }
-.native-performance-panel { --native-live-cap-height: 64px; position: relative; padding: 8px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.native-performance-panel { --native-live-cap-height: 56px; position: relative; padding: 8px 12px; border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
 .native-live-disclosure > summary { min-height: var(--native-live-cap-height); box-sizing: border-box; padding-right: 170px; color: var(--accent); font-size: 11px; line-height: var(--native-live-cap-height); cursor: pointer; }
 .native-live-disclosure > summary::marker { color: var(--accent); }
 .native-live-disclosure > summary:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
@@ -93,15 +90,15 @@
 .native-capacity-actions { display: flex; align-items: center; gap: 8px; }
 .native-voice-control { display: grid; gap: 0; min-width: 0; }
 .native-performance-counts dd > output { display: block; }
-.micmic-page .native-voice-control > .native-knob-control.mz-range-knob { --native-knob-top: 20px; height: calc(var(--native-knob-top) + var(--native-knob-target)); }
-.micmic-page .native-voice-control > .native-knob-control.mz-range-knob > span:first-child > b { height: 18px; }
+.micmic-page .native-voice-control > .native-knob-control.mz-range-knob { --native-knob-top: 14px; height: calc(var(--native-knob-top) + var(--native-knob-target)); }
+.micmic-page .native-voice-control > .native-knob-control.mz-range-knob > span:first-child > b { height: 14px; }
 .native-voice-value { width: 100%; min-width: 0; height: 20px; box-sizing: border-box; padding: 0; border: 0; border-bottom: 1px solid transparent; border-radius: 0; background: transparent; color: var(--accent); font: 10px/1.2 ui-monospace, monospace; text-align: center; appearance: textfield; }
 .native-voice-value::-webkit-inner-spin-button, .native-voice-value::-webkit-outer-spin-button { margin: 0; appearance: none; }
 .native-voice-value:hover { border-bottom-color: var(--line-strong); }
 .native-voice-value:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
 .native-live-cap-hint { color: var(--muted); font: 8px/1.5 ui-monospace, monospace; text-align: center; }
 .graph-delay-rust-page .native-live-cap { grid-template-columns: 80px minmax(0, 1fr); align-items: center; column-gap: 8px; }
-.graph-delay-rust-page .native-live-cap > .native-knob-control.mz-range-knob { grid-row: 1 / 3; --native-knob-top: 18px; }
+.graph-delay-rust-page .native-live-cap > .native-knob-control.mz-range-knob { grid-row: 1 / 3; --native-knob-top: 14px; }
 .graph-delay-rust-page .native-live-cap > .native-voice-value { grid-column: 2; align-self: end; height: 28px; }
 .graph-delay-rust-page .native-live-cap > .native-live-cap-hint { grid-column: 2; align-self: start; white-space: nowrap; }
 .native-capacity-actions button { min-height: 36px; padding-inline: 8px; }
@@ -109,7 +106,7 @@
 .native-performance-foot .mini-action { padding: 5px 7px; font-size: 8px; }
 .native-performance-panel[data-pressure="high"] #performanceAudioLoad { color: var(--fracta-coral); }
 @media (pointer: coarse) {
-  .native-performance-panel { --native-live-cap-height: 72px; }
+  .native-performance-panel { --native-live-cap-height: 64px; }
   .native-voice-value { padding-block: 0 28px; }
   .native-capacity-actions button, .native-voice-value, .native-performance-foot .native-check, .native-performance-foot .mini-action, .native-capacity-disclosure > summary { min-height: 48px; box-sizing: border-box; }
 }
@@ -138,14 +135,14 @@
 .native-check input { accent-color: var(--accent); }
 
 .micmic-page .native-knob-control.mz-range-knob {
-  --native-knob-target: 44px;
-  --native-knob-dial: 28px;
-  --native-knob-top: 20px;
+  --native-knob-target: 36px;
+  --native-knob-dial: 24px;
+  --native-knob-top: 14px;
   position: relative;
   display: block;
   width: 100%;
   min-width: 0;
-  height: calc(var(--native-knob-top) + var(--native-knob-target) + 24px);
+  height: calc(var(--native-knob-top) + var(--native-knob-target) + 22px);
   margin: 0;
 }
 .micmic-page .native-knob-control.mz-range-knob > span:first-child {
@@ -159,7 +156,7 @@
   inset: 0 0 auto;
   display: flex;
   width: auto;
-  height: 18px;
+  height: var(--native-knob-top);
   overflow: visible;
   clip-path: none;
   align-items: end;
@@ -174,7 +171,7 @@
 }
 .micmic-page .native-knob-control.mz-range-knob output {
   position: absolute;
-  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 2px) 0 auto;
+  inset: calc(var(--native-knob-top) + var(--native-knob-target)) 0 auto;
   display: block;
   overflow: visible;
   color: var(--accent);
@@ -196,9 +193,9 @@
   width: var(--native-knob-dial);
   height: var(--native-knob-dial);
 }
-.graph-delay-rust-page .native-knob-control.signed-form-range.mz-range-knob { height: calc(var(--native-knob-top) + var(--native-knob-target) + 42px); }
+.graph-delay-rust-page .native-knob-control.signed-form-range.mz-range-knob { height: calc(var(--native-knob-top) + var(--native-knob-target) + 38px); }
 .graph-delay-rust-page .native-knob-control.mz-range-knob > .form-range-poles {
-  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 24px) 0 auto;
+  inset: calc(var(--native-knob-top) + var(--native-knob-target) + 22px) 0 auto;
   display: flex;
   justify-content: space-between;
   gap: 3px;

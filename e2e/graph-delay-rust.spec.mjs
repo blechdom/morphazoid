@@ -31,6 +31,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.keyboard.press(']');
     await page.keyboard.press('Enter');
     expect(Object.values((await snapshot(page)).edgeSwitches).includes(false)).toBe(true);
+    await page.locator('#motionSection > summary').click();
     await page.locator('#nodeMotionPlayButton').click();
     await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
     expect(await page.evaluate(() => __familyInput.requests)).toBe(0);

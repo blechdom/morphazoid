@@ -2,8 +2,8 @@ import { expect, test } from '@playwright/test';
 import { installAudioInputFixture } from './helpers/audio-input-fixture.mjs';
 
 const motions = [
-  { name: 'node', play: 'nodeMotionPlayButton', speed: 'nodeMotionSpeed', moving: 'nodeMoving' },
-  { name: 'input', play: 'micMotionPlayButton', speed: 'micMotionSpeed', moving: 'micMoving' },
+  { name: 'node', play: 'nodeMotionPlayButton', mode: 'nodeMotionMode', speed: 'nodeMotionSpeed', size: 'nodeMotionAmount', moving: 'nodeMoving' },
+  { name: 'input', play: 'micMotionPlayButton', mode: 'micMotionMode', speed: 'micMotionSpeed', size: 'micMotionSize', moving: 'micMoving' },
 ];
 const snapshot = page => page.evaluate(() => __graphDelayRust.snapshot());
 const tapButton = (page, id) => page.locator(`.mz-tap-tempo[data-tap-control="#${id}"]`);
@@ -18,6 +18,11 @@ async function open(page) {
   for (const { speed } of motions) await expect(tapButton(page, speed)).toHaveCount(1);
   await expect(page.locator('#motionSection')).toHaveJSProperty('open', false);
   return errors;
+}
+
+async function revealMotion(page) {
+  await page.locator('#motionSection > summary').click();
+  await expect(page.locator('#motionSection')).toHaveJSProperty('open', true);
 }
 
 async function setRange(page, id, value) {
@@ -51,14 +56,17 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   test.describe(`Graph Rust motion ${viewport.width}×${viewport.height}`, () => {
     const coarse = viewport.width !== 1440;
     test.use({ viewport, hasTouch: coarse, isMobile: coarse });
-    test('circular Play, tempo knob and Tap remain together in the live controls', async ({ page }, info) => {
+    test('circular Play stays beside its path, tempo, Tap and travel controls', async ({ page }, info) => {
       const errors = await open(page);
-      for (const { name, play, speed } of motions) {
+      await revealMotion(page);
+      for (const { name, play, mode, speed, size } of motions) {
         const button = page.locator(`#${play}`);
-        const group = button.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " graph-motion-transport ")][1]');
+        const group = button.locator('xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "), " graph-motion-group ")][1]');
         await expect(group).toHaveCount(1);
-        expect(await group.evaluate(node => Boolean(node.closest('#playSection')))).toBe(true);
+        expect(await group.evaluate(node => Boolean(node.closest('#motionSection')))).toBe(true);
+        await expect(group.locator(`#${mode}`)).toHaveCount(1);
         await expect(group.locator(`#${speed}`)).toHaveCount(1);
+        await expect(group.locator(`#${size}`)).toHaveCount(1);
         await expect(group.locator('.mz-tap-tempo')).toHaveCount(1);
         await group.scrollIntoViewIfNeeded();
         await expect(button).toBeVisible();
@@ -67,6 +75,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         const box = await button.boundingBox();
         expect(Math.abs(box.width - box.height)).toBeLessThan(1);
         for (const target of [button, page.locator(`#${speed}`), tapButton(page, speed)]) {
+          await target.scrollIntoViewIfNeeded();
           const rect = await target.boundingBox();
           expect(rect.x).toBeGreaterThanOrEqual(-1);
           expect(rect.y).toBeGreaterThanOrEqual(-1);
@@ -88,7 +97,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         await button.click();
         await expect(button).toHaveAttribute('aria-pressed', 'false');
       }
-      await expect(page.locator('#motionSection')).toHaveJSProperty('open', false);
+      await expect(page.locator('#motionSection')).toHaveJSProperty('open', true);
       await expectSilent(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       expect(await page.locator('.panel').evaluate(node => node.scrollWidth - node.clientWidth)).toBeLessThanOrEqual(1);
@@ -103,6 +112,7 @@ test('motion tempo taps act independently, preserve keyboard transport, and reta
   await page.locator('.header-preset-picker summary').click();
   await page.locator('button[data-preset-id="clearSteps"]').click();
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', 'clearSteps');
+  await revealMotion(page);
   const initial = await snapshot(page);
   await tap(page, 'nodeMotionSpeed');
   expect((await snapshot(page)).parameters).toMatchObject({
@@ -134,7 +144,7 @@ test('motion tempo taps act independently, preserve keyboard transport, and reta
     .GRAPH_DELAY_RUST_PRESETS.find(preset => preset.id === 'clearSteps').snapshot);
   expect((await capture(page)).snapshot).toEqual(factory);
   for (const { speed } of motions) await expect(page.locator(`#${speed}`)).toHaveValue(String(factory.parameters[speed]));
-  await expect(page.locator('#motionSection')).toHaveJSProperty('open', false);
+  await expect(page.locator('#motionSection')).toHaveJSProperty('open', true);
   await expectSilent(page);
   expect(errors).toEqual([]);
 });
@@ -144,6 +154,7 @@ test('doubling tapped tempo doubles periodic node and input motion without resta
   // wall-clock scheduling tolerances while measuring the public graph geometry.
   await page.clock.install({ time: new Date('2026-10-10T12:00:00Z') });
   const errors = await open(page);
+  await revealMotion(page);
   await page.clock.pauseAt(new Date('2026-10-10T12:01:00Z'));
   await setRange(page, 'nodeMotionAmount', .03);
   await page.locator('#nodeMotionMode').evaluate(select => {

@@ -223,13 +223,13 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
   test.describe(`Graph Rust live controls ${viewport.width}×${viewport.height}`, () => {
     const touch = viewport.width !== 1440;
     test.use({ viewport, hasTouch: touch, isMobile: touch });
-    test('live controls lead the panel, keep readable outputs and remain reachable', async ({ page }, info) => {
+    test('Input leads the compact live controls and motion stays with its parameters', async ({ page }, info) => {
       const errors = await open(page);
       await expect(page.locator('#playSection')).toHaveJSProperty('open', true);
-      expect(await page.locator('.panel > details.control-section').first().getAttribute('id')).toBe('playSection');
+      expect(await page.locator('.panel > details.control-section').evaluateAll(nodes => nodes.slice(0, 2).map(node => node.id))).toEqual(['inputSection', 'playSection']);
       expect(await page.locator('.panel > details.control-section:not(#playSection)').evaluateAll(nodes => nodes.every(node => !node.open))).toBe(true);
       expect(await page.locator('.panel input[type="range"]:not(#inputTrim)').evaluateAll(nodes => nodes.every(node => node.parentElement.classList.contains('mz-range-knob')))).toBe(true);
-      for (const id of [...LIVE, 'nodeMotionPlayButton', 'micMotionPlayButton', 'randomGraphButton', 'randomizeNodePositionsButton']) {
+      for (const id of [...LIVE, 'randomGraphButton', 'randomizeNodePositionsButton']) {
         const control = page.locator(`#${id}`);
         expect(await control.evaluate(node => Boolean(node.closest('#playSection'))), `${id} stays in the live section`).toBe(true);
         await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
@@ -250,6 +250,22 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         expect(output.right, `${id} readout right`).toBeLessThanOrEqual(field.right + 1);
         expect(output.bottom, `${id} readout fits its control`).toBeLessThanOrEqual(field.bottom + 1);
         expect(output.y, `${id} readout clears its dial`).toBeGreaterThanOrEqual(dial.bottom - 1);
+      }
+      await reveal(page, 'nodeMotionPlayButton');
+      for (const [play, mode, speed, size] of [
+        ['nodeMotionPlayButton', 'nodeMotionMode', 'nodeMotionSpeed', 'nodeMotionAmount'],
+        ['micMotionPlayButton', 'micMotionMode', 'micMotionSpeed', 'micMotionSize'],
+      ]) {
+        const control = page.locator(`#${play}`);
+        expect(await control.evaluate((node, ids) => {
+          const group = node.closest('.graph-motion-group');
+          return Boolean(group?.closest('#motionSection')) && ids.every(id => group.querySelector(`#${id}`));
+        }, [mode, speed, size]), `${play} stays with its motion parameters`).toBe(true);
+        await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
+        const box = await control.boundingBox();
+        expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+        expect(box.y).toBeGreaterThanOrEqual(-1); expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+        if (touch) { expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48); }
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
       expect(await page.locator('.panel').evaluate(panel => panel.scrollWidth - panel.clientWidth)).toBeLessThanOrEqual(1);
