@@ -1,4 +1,5 @@
 import { restoreOutputRecording } from "./helpers/output-recording-reference.mjs";
+import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
 import '../src/instruments/micmic/native/branch-travel.test.mjs';
 import assert from 'node:assert/strict';
 import test from 'node:test';
@@ -100,7 +101,7 @@ test('native proxy routing and origin rejection pass without native devices', ()
 
 test('native site additions reverse exactly without rewriting earlier layout evidence', async () => {
   for (const change of nativeDelaySiteChanges.changes) {
-    const source = restoreBifurcatorSite(restoreOutputRecording(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file), change.file);
+    const source = restoreBifurcatorSite(restoreOutputRecording(restoreFractalDelaySite(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file), change.file), change.file);
     const restored = restoreSynthesaurusFavesOrder(restoreNativeDelaySite(source, change.file), change.file);
     assert.equal(createHash('sha256').update(restored).digest('hex'), change.sha256, change.file);
     for (const file of change.regressionTests) await readFile(new URL('../' + file, import.meta.url));
@@ -115,7 +116,7 @@ test('recorded input catalogue copy restores the reviewed published entry withou
   assert.equal(recordedInputSiteChanges.baseCommit, 'aac0427bbff4b5e7610abd2d9527e192843625a3');
   assert.deepEqual(recordedInputSiteChanges.changes.map(change => change.file), ['src/site/instrument-catalog.js']);
   for (const change of recordedInputSiteChanges.changes) {
-    const source = restoreBlobsSite(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file);
+    const source = restoreBlobsSite(restoreFractalDelaySite(await readFile(new URL('../' + change.file, import.meta.url), 'utf8'), change.file), change.file);
     const preserved = value => assert.equal(createHash('sha256').update(
       restoreLSystemRecordedInputSite(value, change.file),
     ).digest('hex'), change.sha256, 'pre-recorded-input source preserved');
