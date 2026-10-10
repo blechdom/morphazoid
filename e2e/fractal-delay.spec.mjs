@@ -178,11 +178,16 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
               this.capacity = Math.ceil(sampleRate * .05 / 128) * 128;
               this.raw = new Float32Array(this.capacity * 2); this.frames = this.total = this.nonFinite = 0;
               this.zeroRun = this.longestZeroRun = this.discontinuities = 0; this.previousEnd = undefined;
+              this.callbackGaps = [];
             }
             process(inputs, outputs) {
               for (const output of outputs) for (const channel of output) channel.fill(0);
               const count = outputs[0][0].length, input = inputs[0] || [];
-              if (this.previousEnd !== undefined && this.previousEnd !== currentFrame) this.discontinuities++;
+              if (this.previousEnd !== undefined && this.previousEnd !== currentFrame) {
+                this.discontinuities++;
+                if (this.callbackGaps.length < 16) this.callbackGaps.push({ expectedFrame: this.previousEnd,
+                  actualFrame: currentFrame, gapFrames: currentFrame - this.previousEnd, capturedFrame: this.total });
+              }
               this.previousEnd = currentFrame + count;
               for (let i = 0; i < count; i++) {
                 const l = input[0]?.[i] ?? 0, r = input[1]?.[i] ?? l;
@@ -194,7 +199,8 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
                 if (this.frames === this.capacity) {
                   this.port.postMessage({ raw: this.raw, frames: this.frames, rate: sampleRate,
                     total: this.total, endFrame: currentFrame + i + 1, nonFinite: this.nonFinite,
-                    discontinuities: this.discontinuities, longestZeroRun: this.longestZeroRun }, [this.raw.buffer]);
+                    discontinuities: this.discontinuities, callbackGaps: this.callbackGaps,
+                    longestZeroRun: this.longestZeroRun }, [this.raw.buffer]);
                   this.raw = new Float32Array(this.capacity * 2); this.frames = 0;
                 }
               }
@@ -400,6 +406,7 @@ async function capture(page, seconds = .65) {
     return { frames, rate: last.rate, duration: frames / last.rate, rms: Math.sqrt(energy / frames), peak,
       bands: bands.map(band => Math.hypot(band.real, band.imaginary) / frames),
       nonFinite: last.nonFinite, discontinuities: last.discontinuities, longestZeroSeconds: last.longestZeroRun / last.rate,
+      callbackGaps: last.callbackGaps,
       statuses: qa.statuses };
   });
 }
@@ -648,7 +655,9 @@ test('Send pulse never arms Audio and excites real paths without replacing a pla
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 15000 }).toBe(true);
   const playing = await diagnostics(page); await beginCapture(page); await page.locator('#sendPulse').click();
-  const mixed = await capture(page); boundedPcm(mixed);
+  const mixed = await capture(page);
+  await testInfo.attach('pulse-mixed-callback-audit.json', { body: JSON.stringify(mixed, null, 2), contentType: 'application/json' });
+  boundedPcm(mixed);
   await expect.poll(async () => (await diagnostics(page)).witness.sources.at(-1).ended).toBe(true);
   const after = await diagnostics(page);
   expect(after.witness.sources.slice(0, playing.witness.sources.length)).toEqual(playing.witness.sources);
@@ -716,12 +725,19 @@ test('two moving coordinates preserve production audio through presets, pause, U
   await parameters(page, { mode: 'orbits', cReal: -.12256116687665362, cImag: .7448617666197442,
     detail: 8, timeMs: 35, realMotionTempo: 24, imagMotionTempo: 18, realMotionDepth: .012, imagMotionDepth: .009 });
   await performanceState(page, { wet: .7, dry: .15 });
+  const beforeVisual = await diagnostics(page);
+  await page.locator('#realMotionPlay').click(); await page.waitForTimeout(150);
+  const visuallyPlaying = await diagnostics(page);
+  expect(visuallyPlaying.motion.real.playing).toBe(true); expect(visuallyPlaying.audioDesired).toBe(false);
+  expect(visuallyPlaying.contextGeneration).toBe(beforeVisual.contextGeneration);
+  expect(visuallyPlaying.witness.contexts).toBe(beforeVisual.witness.contexts);
   await page.locator('#audioButton').click();
   await expect.poll(async () => {
     const d = await diagnostics(page); return d.input.playing && !d.compiling && d.status.revision === d.network?.revision;
   }, { timeout: 30000 }).toBe(true);
   const before = await diagnostics(page); await beginCapture(page);
-  await page.locator('#realMotionPlay').click(); await page.locator('#imagMotionPlay').click();
+  expect(before.motion.real.playing).toBe(true);
+  await page.locator('#imagMotionPlay').click();
   await expect.poll(async () => {
     const d = await diagnostics(page);
     return d.motion.real.playing && d.motion.imag.playing && d.network.revision > before.network.revision;
@@ -739,6 +755,7 @@ test('two moving coordinates preserve production audio through presets, pause, U
     expect(previous, 'a new moving pose waits for the prior actual Rust scene ACK').toBeTruthy();
     expect(motionJobs[i].at).toBeGreaterThanOrEqual(previous.installedAt);
   }
+  await range(page, 'outputBoostDb', -6);
   await range(page, 'realMotionTempo', 30); await range(page, 'imagMotionDepth', .006);
   // The audio clock continues during a main-thread stall; the next pose uses
   // current time rather than replaying obsolete queued animation frames.
@@ -749,6 +766,7 @@ test('two moving coordinates preserve production audio through presets, pause, U
   expect(held.motion.real.value).toBe(stopped.motion.real.value); expect(held.motion.imag.value).toBe(stopped.motion.imag.value);
   expect(held.parameters.cReal).toBe(paused.parameters.cReal); expect(held.parameters.cImag).toBe(paused.parameters.cImag);
   expect(held.motion.real.playing).toBe(false); expect(held.motion.imag.playing).toBe(false);
+  expect(held.performance.outputBoostDb).toBe(-6); expect(held.error).toBeFalsy();
   const scalarPcm = await capture(page, 1.2); boundedPcm(scalarPcm); expect(scalarPcm.longestZeroSeconds).toBeLessThan(.04);
   await page.locator('#realMotionPlay').click(); await page.locator('#imagMotionPlay').click();
   const transitions = [];
@@ -817,6 +835,7 @@ test('Network drive feeds real wet audio with direct input muted and cannot ampl
   await expect(page.locator('#dry')).toHaveValue('0');
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await parameters(page, { mode: 'inverse', detail: 2, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0,
+    propagation: 'paths', geometryPitch: 0, tapCoverage: 0, turnTone: 0,
     inputMode: 'all', pickupMode: 'all', boundary: 0, routing: 'geometry' });
   await performanceState(page, { inputDriveDb: 0, delayGainDb: 0, wet: 1, outputLevel: .4, outputBoostDb: 0,
     hpfHz: 5, lpfHz: 22000, compressorThresholdDb: 0, compressorRatio: 1, compressorMakeupDb: 0 });
@@ -867,6 +886,7 @@ test('Delay gain amplifies wet audio independently and survives presets without 
   expect((await diagnostics(page)).performance.delayGainDb).toBe(24);
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await parameters(page, { mode: 'inverse', detail: 2, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0,
+    propagation: 'paths', geometryPitch: 0, tapCoverage: 0, turnTone: 0,
     inputMode: 'all', pickupMode: 'all', boundary: 0, routing: 'geometry' });
   await performanceState(page, { inputDriveDb: 0, wet: 1, dry: 0, outputLevel: .4, outputBoostDb: 0, hpfHz: 5, lpfHz: 22000,
     compressorThresholdDb: 0, compressorRatio: 1, compressorMakeupDb: 0 });
