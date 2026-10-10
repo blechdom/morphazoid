@@ -14,7 +14,7 @@ export const PRESETS = Object.freeze([
   preset('metal-orbits', 'Metal Orbits', { mode: 'contours', cReal: -.52, cImag: .56, detail: 7, timeMs: .7, coupling: .91, decay: .96, pitchOffset: 1.3, pickup: .79 }),
   preset('mandelbrot-moat', 'Mandelbrot Moat', { mode: 'contours', domain: 'mandelbrot', cReal: -.75, cImag: 0, detail: 9, timeMs: 250, coupling: .88, decay: .91, pitchOffset: -2.4, pickup: .53 }),
   preset('two-step', 'Two Step', { mode: 'orbits', cReal: -1, cImag: 0, detail: 4, timeMs: 430, coupling: 1, decay: .9, pickup: 1 }),
-  preset('rabbit-cycle', 'Rabbit Cycle', { mode: 'orbits', cReal: -.122561, cImag: .744862, detail: 8, timeMs: 280, coupling: .97, decay: .92, pitchOffset: 4.2, pickup: .6 }),
+  preset('rabbit-cycle', 'Rabbit Cycle', { mode: 'orbits', cReal: -.12256116687665362, cImag: .7448617666197442, detail: 8, timeMs: 280, coupling: .97, decay: .92, pitchOffset: 4.2, pickup: .6 }),
   preset('four-way-return', 'Four-Way Return', { mode: 'orbits', cReal: -1.310702, cImag: 0, detail: 8, timeMs: 170, coupling: .96, decay: .88, pitchOffset: -3.6, pickup: .75 }),
   preset('chaotic-walk', 'Chaotic Walk', { mode: 'orbits', cReal: -.745, cImag: .113, detail: 10, timeMs: 58, coupling: .91, decay: .79, pitchOffset: 6.1, pickup: .9 }),
   preset('ray-garden', 'Ray Garden', { mode: 'rays', cReal: -.4, cImag: .6, detail: 6, timeMs: 175, coupling: .96, decay: .88, pickup: .68 }),
@@ -58,3 +58,11 @@ export const PRESETS = Object.freeze([
     inputMode: 'all', pickupMode: 'all', pickup: .8 }),
 ]);
 export const DEFAULT_PRESET = PRESETS[0];
+
+// Saved sounds from before Path echoes used the original scattering law.
+// New factory scenes already carry their complete propagation controls.
+export function recallParameters(parameters = {}) {
+  return sanitizeParameters({ ...parameters, ...(!Object.hasOwn(parameters, 'propagation') ? {
+    propagation: 'resonance', geometryPitch: 0, tapCoverage: 0, turnTone: 0,
+  } : {}) });
+}
