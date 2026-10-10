@@ -14,11 +14,36 @@ export const MODES = Object.freeze([
   Object.freeze({ id: 'rays', label: 'Ray lattice', description: 'Numerical potential-gradient rays join surrounding equipotential loops.' }),
   Object.freeze({ id: 'membrane', label: 'Fractal chamber', description: 'A finite filled silhouette bounds a connected waveguide mesh.' }),
 ]);
+export const INPUT_MODES = Object.freeze([
+  Object.freeze({ id: 'point', label: 'Point', description: 'Inject at one position in the admitted graph.' }),
+  Object.freeze({ id: 'cluster', label: 'Cluster', description: 'Inject into a local group around the input position.' }),
+  Object.freeze({ id: 'distributed', label: 'Distributed', description: 'Spread independent injection ports across the graph.' }),
+  Object.freeze({ id: 'boundary', label: 'Boundary', description: 'Excite terminal branches or sampled chamber boundary nodes.' }),
+  Object.freeze({ id: 'all', label: 'All nodes', description: 'Inject into every admitted node with a shared energy budget.' }),
+]);
+export const PICKUP_MODES = Object.freeze([
+  Object.freeze({ id: 'point', label: 'Point', description: 'Listen at one position in the admitted graph.' }),
+  Object.freeze({ id: 'cluster', label: 'Cluster', description: 'Average a local group around the pickup position.' }),
+  Object.freeze({ id: 'distributed', label: 'Distributed', description: 'Average receivers spread across the graph.' }),
+  Object.freeze({ id: 'all', label: 'All nodes', description: 'Average the pressure at every admitted node.' }),
+]);
+export const ROUTING_MODES = Object.freeze([
+  Object.freeze({ id: 'geometry', label: 'Geometry', description: 'Use the mathematical construction and its original spatial bridges.' }),
+  Object.freeze({ id: 'loop', label: 'Return loop', description: 'Connect selected outer or terminal nodes into an additional return route.' }),
+  Object.freeze({ id: 'shortcuts', label: 'Shortcuts', description: 'Add visible long-range connections between existing graph nodes.' }),
+  Object.freeze({ id: 'hub', label: 'Hub', description: 'Connect selected graph nodes to an existing central junction.' }),
+]);
 export const DEFAULT_PARAMETERS = Object.freeze({ mode: 'inverse', domain: 'julia', cReal: -.745, cImag: .113,
-  detail: 6, timeMs: 140, coupling: .82, decay: .84, pitchOffset: 0, pickup: .7 });
+  detail: 6, timeMs: 140, coupling: .82, decay: .84, pitchOffset: 0, pickup: .7,
+  inputMode: 'point', inputPosition: 0, inputCount: 4, inputSpread: .5,
+  pickupMode: 'point', pickupCount: 4, pickupSpread: .5, boundary: 1,
+  routing: 'geometry', linkDensity: .25 });
 export const PARAMETER_LIMITS = Object.freeze({ cReal: Object.freeze([-2, 1]), cImag: Object.freeze([-1.5, 1.5]),
   detail: Object.freeze([2, 12]), timeMs: Object.freeze([.05, 2000]), coupling: Object.freeze([0, 1]),
-  decay: Object.freeze([0, .98]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]) });
+  decay: Object.freeze([0, .98]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]),
+  inputPosition: Object.freeze([0, 1]), inputCount: Object.freeze([1, 256]), inputSpread: Object.freeze([0, 1]),
+  pickupCount: Object.freeze([1, 256]), pickupSpread: Object.freeze([0, 1]), boundary: Object.freeze([0, 1]),
+  linkDensity: Object.freeze([0, 1]) });
 export const MAX_NETWORK_EDGES = 16384;
 export const COMPLEX_COORDINATE_SCALE = 2.5;
 const MAX_ITERATIONS = 96;
@@ -32,8 +57,13 @@ export function sanitizeParameters(candidate = {}) {
   const source = candidate && typeof candidate === 'object' ? candidate : {};
   const result = { mode: MODE_IDS.includes(source.mode) ? source.mode : DEFAULT_PARAMETERS.mode,
     domain: source.domain === 'mandelbrot' ? 'mandelbrot' : 'julia' };
+  for (const [key, values] of [['inputMode', INPUT_MODES], ['pickupMode', PICKUP_MODES], ['routing', ROUTING_MODES]]) {
+    result[key] = values.some(({ id }) => id === source[key]) ? source[key] : DEFAULT_PARAMETERS[key];
+  }
   for (const [key, [low, high]] of Object.entries(PARAMETER_LIMITS)) result[key] = clamp(numberOr(source[key], DEFAULT_PARAMETERS[key]), low, high);
   result.detail = Math.round(result.detail);
+  result.inputCount = Math.round(result.inputCount);
+  result.pickupCount = Math.round(result.pickupCount);
   return result;
 }
 
@@ -45,7 +75,12 @@ export function randomizeParameters(candidate = DEFAULT_PARAMETERS, random = Mat
   return sanitizeParameters({ mode: MODE_IDS[Math.floor(unit() * MODE_IDS.length)], domain: unit() < .7 ? 'julia' : 'mandelbrot',
     cReal: -2 + 3 * unit(), cImag: -1.5 + 3 * unit(), detail: 2 + Math.floor(11 * unit()),
     timeMs: .05 * (2000 / .05) ** unit(), coupling: .3 + .7 * unit(), decay: .35 + .63 * unit(),
-    pitchOffset: -24 + 48 * unit(), pickup: unit() });
+    pitchOffset: -24 + 48 * unit(), pickup: unit(),
+    inputMode: INPUT_MODES[Math.floor(unit() * INPUT_MODES.length)].id, inputPosition: unit(),
+    inputCount: 1 + Math.floor(256 * unit()), inputSpread: unit(),
+    pickupMode: PICKUP_MODES[Math.floor(unit() * PICKUP_MODES.length)].id,
+    pickupCount: 1 + Math.floor(256 * unit()), pickupSpread: unit(), boundary: unit(),
+    routing: ROUTING_MODES[Math.floor(unit() * ROUTING_MODES.length)].id, linkDensity: unit() });
 }
 
 /** Robust principal complex square root, including the negative real axis. */
@@ -396,6 +431,138 @@ function meshGraph(p, detail) {
 }
 
 const BUILDERS = { inverse: inverseGraph, contours: contourLoops, orbits: orbitGraph, rays: rayGraph, membrane: meshGraph };
+function nodeDegrees(graph) {
+  const degrees = new Uint32Array(graph.nodes.length);
+  for (const { a, b, routingLink } of graph.edges) if (!routingLink) { degrees[a]++; degrees[b]++; }
+  return degrees;
+}
+function hullNodes(nodes) {
+  const ordered = nodes.map((_, index) => index).sort((a, b) => nodes[a].x - nodes[b].x || nodes[a].y - nodes[b].y || nodes[a].id - nodes[b].id);
+  if (ordered.length <= 2) return ordered;
+  const turn = (a, b, c) => (nodes[b].x - nodes[a].x) * (nodes[c].y - nodes[a].y) - (nodes[b].y - nodes[a].y) * (nodes[c].x - nodes[a].x);
+  const half = order => {
+    const result = [];
+    for (const index of order) { while (result.length >= 2 && turn(result.at(-2), result.at(-1), index) <= 0) result.pop(); result.push(index); }
+    return result.slice(0, -1);
+  };
+  return [...new Set([...half(ordered), ...half([...ordered].reverse())])];
+}
+function boundaryNodes(graph) {
+  const degrees = nodeDegrees(graph), terminals = graph.nodes.map((_, index) => index).filter(index => degrees[index] === 1);
+  if (terminals.length >= 2) return terminals;
+  if (graph.nodes.some(node => Number.isInteger(node.row))) {
+    const perimeter = graph.nodes.map((_, index) => index).filter(index => degrees[index] < 4);
+    if (perimeter.length) return perimeter;
+  }
+  return hullNodes(graph.nodes);
+}
+const pairKey = (a, b) => a < b ? `${a}:${b}` : `${b}:${a}`;
+
+/** Optional acoustic routes are visible added edges, not fractal boundaries.
+ * Candidate selection is deterministic; IDs follow the actual endpoint IDs.
+ * The complete base + added graph is evaluated together by admission below.
+ */
+function addRouting(parameters, graph) {
+  const baseEdges = graph.edges.length;
+  if (parameters.routing === 'geometry' || parameters.linkDensity === 0 || graph.nodes.length < 3) {
+    graph.metadata = { ...graph.metadata, routing: parameters.routing, routingEdges: 0 };
+    return graph;
+  }
+  const nodes = graph.nodes, pairs = new Set(graph.edges.map(({ a, b }) => pairKey(a, b))), candidates = [];
+  const candidate = (a, b) => {
+    if (a === b || pairs.has(pairKey(a, b))) return;
+    pairs.add(pairKey(a, b)); candidates.push({ a, b });
+  };
+  if (parameters.routing === 'loop') {
+    const boundary = boundaryNodes(graph);
+    const center = boundary.reduce((sum, index) => ({ x: sum.x + nodes[index].x / boundary.length, y: sum.y + nodes[index].y / boundary.length }), { x: 0, y: 0 });
+    boundary.sort((a, b) => Math.atan2(nodes[a].y - center.y, nodes[a].x - center.x) - Math.atan2(nodes[b].y - center.y, nodes[b].x - center.x) || nodes[a].id - nodes[b].id);
+    // Skip adjacent perimeter vertices: a contour already has those routes.
+    // Every added chord closes a real return cycle through the connected base.
+    // Fix the candidate set independently of density so raising density never
+    // removes an existing connection on the same underlying geometry.
+    const gcd = (a, b) => b ? gcd(b, a % b) : a;
+    let stride = boundary.length < 4 ? 1 : Math.max(2, Math.floor(boundary.length * .38196601125));
+    while (stride > 2 && gcd(stride, boundary.length) !== 1) stride--;
+    for (let index = 0; index < boundary.length; index++) candidate(boundary[index], boundary[(index + stride) % boundary.length]);
+  } else if (parameters.routing === 'hub') {
+    const center = nodes.reduce((sum, node) => ({ x: sum.x + node.x / nodes.length, y: sum.y + node.y / nodes.length }), { x: 0, y: 0 });
+    let hub = 0;
+    for (let index = 1; index < nodes.length; index++) if (squaredDistance(nodes[index], center) < squaredDistance(nodes[hub], center)) hub = index;
+    for (let index = 0; index < nodes.length; index++) candidate(hub, index);
+  } else {
+    const order = nodes.map((_, index) => index).sort((a, b) => nodes[a].id - nodes[b].id);
+    const stride = Math.max(2, Math.floor(order.length * .38196601125));
+    for (let index = 0; index < order.length; index++) candidate(order[index], order[(index + stride) % order.length]);
+  }
+  candidates.sort((a, b) => {
+    const key = pair => `${Math.min(nodes[pair.a].id, nodes[pair.b].id)}:${Math.max(nodes[pair.a].id, nodes[pair.b].id)}`;
+    return hashId(key(a)) - hashId(key(b)) || a.a - b.a || a.b - b.b;
+  });
+  const count = Math.ceil(candidates.length * parameters.linkDensity);
+  const edgeIds = new Set(graph.edges.map(({ id }) => id));
+  for (const { a, b } of candidates.slice(0, count)) {
+    const endpoints = nodes[a].id < nodes[b].id ? `${nodes[a].id}:${nodes[b].id}` : `${nodes[b].id}:${nodes[a].id}`;
+    let id = hashId(`${parameters.mode}:routing:${parameters.routing}:${endpoints}`);
+    while (edgeIds.has(id)) id = (id + 1) >>> 0;
+    edgeIds.add(id);
+    graph.edges.push({ id, a, b, length: Math.max(MIN_LENGTH, Math.sqrt(squaredDistance(nodes[a], nodes[b]))),
+      routingLink: true, routingType: parameters.routing });
+  }
+  graph.metadata = { ...graph.metadata, routing: parameters.routing, routingEdges: graph.edges.length - baseEdges,
+    routingInterpretation: 'additional geometric acoustic connections; not claimed fractal boundary' };
+  return graph;
+}
+
+function selectPorts(graph, mode, anchor, count, spread) {
+  const nodes = graph.nodes;
+  if (mode === 'point') return [anchor];
+  let eligible = mode === 'boundary' ? boundaryNodes(graph) : nodes.map((_, index) => index);
+  eligible.sort((a, b) => squaredDistance(nodes[a], nodes[anchor]) - squaredDistance(nodes[b], nodes[anchor]) || (b === anchor) - (a === anchor) || nodes[a].id - nodes[b].id);
+  if (mode === 'all') return eligible;
+  count = Math.min(count, eligible.length);
+  const poolSize = Math.min(eligible.length, count + Math.round((eligible.length - count) * spread ** 2));
+  eligible = eligible.slice(0, poolSize);
+  if (mode === 'cluster' || count < 2) {
+    return Array.from({ length: count }, (_, index) => eligible[count === 1 ? 0 : Math.round(index * (poolSize - 1) / (count - 1))]);
+  }
+  // Greedy farthest-point coverage avoids taking merely the first N generation
+  // indices. Radius/spread restricts the candidate area; the anchor stays first.
+  const selected = [eligible[0]], chosen = new Set(selected);
+  const distance = eligible.map(index => squaredDistance(nodes[index], nodes[selected[0]]));
+  while (selected.length < count) {
+    let best = -1;
+    for (let index = 0; index < eligible.length; index++) {
+      if (!chosen.has(eligible[index]) && (best < 0 || distance[index] > distance[best])) best = index;
+    }
+    if (best < 0) break;
+    const next = eligible[best]; selected.push(next); chosen.add(next);
+    for (let index = 0; index < eligible.length; index++) distance[index] = Math.min(distance[index], squaredDistance(nodes[eligible[index]], nodes[next]));
+  }
+  return selected;
+}
+
+/** Ports address admitted nodes only. DSP injects weight/sqrt(node degree) into
+ * each outgoing waveguide, so L2 source weights keep aggregate injection energy
+ * at one rather than growing with node count. Receiver weights form a L1 mean.
+ */
+export function networkPorts(graph, candidate = graph.parameters ?? DEFAULT_PARAMETERS) {
+  const parameters = sanitizeParameters(candidate), nodes = graph.nodes;
+  let origin = 0;
+  if (!['inverse', 'orbits'].includes(parameters.mode)) {
+    const target = { x: parameters.cReal / COMPLEX_COORDINATE_SCALE, y: parameters.cImag / COMPLEX_COORDINATE_SCALE };
+    for (let index = 1; index < nodes.length; index++) if (squaredDistance(nodes[index], target) < squaredDistance(nodes[origin], target)) origin = index;
+  }
+  // Position zero preserves the original root/c excitation. Follow the stable
+  // construction order cyclically from that origin across the remaining range.
+  const inputAnchor = (origin + Math.round(parameters.inputPosition * Math.max(0, nodes.length - 1))) % nodes.length;
+  const pickupAnchor = Math.round(parameters.pickup * Math.max(0, nodes.length - 1));
+  const input = selectPorts(graph, parameters.inputMode, inputAnchor, parameters.inputCount, parameters.inputSpread);
+  const pickup = selectPorts(graph, parameters.pickupMode, pickupAnchor, parameters.pickupCount, parameters.pickupSpread);
+  return { inputNode: input[0], pickupNode: pickup[0],
+    inputPorts: input.map(node => ({ node, weight: 1 / Math.sqrt(input.length) })),
+    pickupPorts: pickup.map(node => ({ node, weight: 1 / pickup.length })) };
+}
 function boundsOf(nodes) {
   let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
   for (const node of nodes) { minX = Math.min(minX, node.x); maxX = Math.max(maxX, node.x); minY = Math.min(minY, node.y); maxY = Math.max(maxY, node.y); }
@@ -422,24 +589,21 @@ export function buildNetwork(candidate = DEFAULT_PARAMETERS, budget = 512, optio
   const parameters = sanitizeParameters(candidate), limit = Math.floor(clamp(numberOr(budget, 512), 1, MAX_NETWORK_EDGES));
   const maxTotalLength = Math.max(MIN_LENGTH, numberOr(options?.maxTotalLength, Infinity));
   const builder = BUILDERS[parameters.mode];
-  let detail = parameters.detail, graph = builder(parameters, detail);
+  let detail = parameters.detail, graph = addRouting(parameters, builder(parameters, detail));
   const requestedEdges = graph.edges.length;
+  const requestedRoutingEdges = graph.metadata.routingEdges;
   const requestedTotalLength = graph.edges.reduce((sum, edge) => sum + edge.length, 0);
   const fits = graph => graph.edges.length <= limit && graph.edges.reduce((sum, edge) => sum + edge.length, 0) <= maxTotalLength;
-  while (!fits(graph) && detail > 1) { detail--; graph = builder(parameters, detail); }
+  while (!fits(graph) && detail > 1) { detail--; graph = addRouting(parameters, builder(parameters, detail)); }
   if (!fits(graph) || !graph.edges.length) graph = minimumRoute(parameters, graph);
   const nodes = graph.nodes, edges = graph.edges;
-  // Root for inverse/orbit; closest selected complex parameter for a chamber.
-  let inputNode = 0;
-  if (!['inverse', 'orbits'].includes(parameters.mode)) {
-    const target = { x: parameters.cReal / COMPLEX_COORDINATE_SCALE, y: parameters.cImag / COMPLEX_COORDINATE_SCALE };
-    let nearest = Infinity;
-    for (let index = 0; index < nodes.length; index++) { const distance = squaredDistance(nodes[index], target); if (distance < nearest) { nearest = distance; inputNode = index; } }
-  }
-  const pickupNode = Math.round(parameters.pickup * Math.max(0, nodes.length - 1));
+  const ports = networkPorts(graph, parameters);
   const totalLength = edges.reduce((sum, edge) => sum + edge.length, 0);
-  return { mode: parameters.mode, domain: parameters.domain, parameters, nodes, edges, inputNode, pickupNode, requestedEdges,
+  return { mode: parameters.mode, domain: parameters.domain, parameters, nodes, edges, ...ports, requestedEdges,
     bounds: boundsOf(nodes), metadata: { ...graph.metadata, requestedDetail: parameters.detail, preparedDetail: detail,
+      requestedRoutingEdges, routingEdges: edges.filter(edge => edge.routingLink).length,
+      inputMode: parameters.inputMode, pickupMode: parameters.pickupMode, inputPortCount: ports.inputPorts.length,
+      pickupPortCount: ports.pickupPorts.length, inputNormalization: 'L2 weights with DSP degree-normalized injection', pickupNormalization: 'L1 weighted pressure mean',
       requestedTotalLength, totalLength, budget: limit, budgetAdjusted: edges.length < requestedEdges,
       memoryAdjusted: requestedTotalLength > maxTotalLength, admissionUnsupported: totalLength > maxTotalLength, minimumLength: MIN_LENGTH,
       coordinateScale: COMPLEX_COORDINATE_SCALE, completeGraph: true } };

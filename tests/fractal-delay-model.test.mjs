@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildNetwork, MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, sanitizeParameters, randomizeParameters,
+import { buildNetwork, networkPorts, MODES, INPUT_MODES, PICKUP_MODES, ROUTING_MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, sanitizeParameters, randomizeParameters,
   escapePotential, complexSquareRoot, COMPLEX_COORDINATE_SCALE } from '../src/instruments/fractal-delay/model.js';
 import { PRESETS } from '../src/instruments/fractal-delay/presets.js';
 
@@ -27,6 +27,15 @@ function validateGraph(network, budget) {
   while (pending.length) for (const neighbor of neighbors[pending.pop()]) if (!seen.has(neighbor)) { seen.add(neighbor); pending.push(neighbor); }
   assert.equal(seen.size, network.nodes.length, 'every visible route belongs to the same playable graph');
   assert.ok(Number.isInteger(network.pickupNode) && network.pickupNode >= 0 && network.pickupNode < network.nodes.length);
+  for (const [key, exponent] of [['inputPorts', 2], ['pickupPorts', 1]]) {
+    const ports = network[key];
+    assert.ok(ports.length > 0);
+    assert.equal(new Set(ports.map(({ node }) => node)).size, ports.length);
+    assert.ok(ports.every(({ node, weight }) => Number.isInteger(node) && node >= 0 && node < network.nodes.length && Number.isFinite(weight) && weight > 0));
+    assert.ok(Math.abs(ports.reduce((sum, { weight }) => sum + weight ** exponent, 0) - 1) < 1e-10);
+  }
+  assert.equal(network.inputNode, network.inputPorts[0].node);
+  assert.equal(network.pickupNode, network.pickupPorts[0].node);
   assert.equal(network.metadata.completeGraph, true);
   assert.ok(network.requestedEdges >= network.edges.length || network.metadata.unsupportedInteriorFallback);
   assert.ok(network.nodes.every(node => node.x >= network.bounds.minX && node.x <= network.bounds.maxX && node.y >= network.bounds.minY && node.y <= network.bounds.maxY));
@@ -204,9 +213,13 @@ test('whole-graph memory admission reports requested versus actual geometric len
   assert.equal(impossible.metadata.admissionUnsupported, true, 'never claims an impossible fixed-length route fits memory');
 });
 
-test('all 20 complete presets are bounded, deterministic and distinguish each mode four ways', () => {
-  assert.equal(PRESETS.length, 20); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 20);
-  for (const mode of MODES) assert.equal(PRESETS.filter(preset => preset.parameters.mode === mode.id).length, 4);
+test('all 28 complete presets are bounded and retain the first 20 original mathematical scenes', () => {
+  assert.equal(PRESETS.length, 28); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 28);
+  for (const mode of MODES) assert.equal(PRESETS.slice(0, 20).filter(preset => preset.parameters.mode === mode.id).length, 4);
+  for (const { parameters } of PRESETS.slice(0, 20)) {
+    assert.equal(parameters.inputMode, 'point'); assert.equal(parameters.inputPosition, 0);
+    assert.equal(parameters.pickupMode, 'point'); assert.equal(parameters.routing, 'geometry'); assert.equal(parameters.boundary, 1);
+  }
   const signatures = new Set();
   for (const preset of PRESETS) {
     assert.deepEqual(sanitizeParameters(preset.parameters), preset.parameters);
@@ -214,7 +227,152 @@ test('all 20 complete presets are bounded, deterministic and distinguish each mo
     signatures.add(JSON.stringify(preset.parameters));
     validateGraph(buildNetwork(preset.parameters, 1024), 1024);
   }
-  assert.equal(signatures.size, 20);
+  assert.equal(signatures.size, 28);
+});
+
+test('multiport and routing controls are complete, bounded and reject invalid modes', () => {
+  const p = sanitizeParameters({ inputMode: 'fake', pickupMode: 'boundary', routing: 'fake', inputCount: 4.8,
+    pickupCount: 0, inputSpread: Infinity, pickupSpread: 3, boundary: -1, inputPosition: 2, linkDensity: -1 });
+  assert.equal(p.inputMode, 'point'); assert.equal(p.pickupMode, 'point'); assert.equal(p.routing, 'geometry');
+  assert.equal(p.inputCount, 5); assert.equal(p.pickupCount, 1); assert.equal(p.inputSpread, .5);
+  assert.equal(p.pickupSpread, 1); assert.equal(p.boundary, 0); assert.equal(p.inputPosition, 1); assert.equal(p.linkDensity, 0);
+});
+
+test('all port layouts address only admitted nodes and preserve energy through node-degree injection', () => {
+  for (const inputMode of INPUT_MODES) for (const pickupMode of PICKUP_MODES) {
+    const network = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 8, inputMode: inputMode.id, pickupMode: pickupMode.id,
+      inputCount: 256, pickupCount: 256, inputPosition: .37, inputSpread: .9, pickupSpread: .8 }, 64);
+    validateGraph(network, 64);
+    const degree = network.nodes.map((_, index) => network.edges.reduce((sum, edge) => sum + Number(edge.a === index) + Number(edge.b === index), 0));
+    const injectedEnergy = network.inputPorts.reduce((sum, { node, weight }) => sum + degree[node] * (weight / Math.sqrt(degree[node])) ** 2, 0);
+    assert.ok(Math.abs(injectedEnergy - 1) < 1e-12);
+    assert.equal(network.inputPorts.length, inputMode.id === 'point' ? 1 : inputMode.id === 'boundary' ? 32 : network.nodes.length);
+    assert.equal(network.pickupPorts.length, pickupMode.id === 'point' ? 1 : network.nodes.length);
+  }
+});
+
+test('all-node input is constrained by actual preparation instead of the count knob ceiling', () => {
+  const network = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 10, inputMode: 'all', pickupMode: 'all', inputCount: 1, pickupCount: 1 }, 8190);
+  validateGraph(network, 8190);
+  assert.equal(network.inputPorts.length, network.nodes.length);
+  assert.equal(network.pickupPorts.length, network.nodes.length);
+  assert.ok(network.inputPorts.length > 256);
+});
+
+test('positions and spatial spread update real port locations while geometry and lengths stay intact', () => {
+  const graph = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 7 }, 1024);
+  assert.deepEqual(networkPorts(graph), { inputNode: graph.inputNode, pickupNode: graph.pickupNode,
+    inputPorts: graph.inputPorts, pickupPorts: graph.pickupPorts });
+  const start = networkPorts(graph, { ...DEFAULT_PARAMETERS, pickup: 0 });
+  const end = networkPorts(graph, { ...DEFAULT_PARAMETERS, inputPosition: 1, pickup: 1 });
+  assert.equal(start.inputNode, 0); assert.equal(start.pickupNode, 0);
+  assert.equal(end.inputNode, graph.nodes.length - 1); assert.equal(end.pickupNode, graph.nodes.length - 1);
+  const nearby = networkPorts(graph, { ...DEFAULT_PARAMETERS, inputMode: 'cluster', inputCount: 6, inputSpread: 0 });
+  const broad = networkPorts(graph, { ...DEFAULT_PARAMETERS, inputMode: 'cluster', inputCount: 6, inputSpread: 1 });
+  const coverage = networkPorts(graph, { ...DEFAULT_PARAMETERS, inputMode: 'distributed', inputCount: 6, inputSpread: 1 });
+  assert.equal(nearby.inputPorts.length, 6); assert.equal(broad.inputPorts.length, 6); assert.equal(coverage.inputPorts.length, 6);
+  assert.notDeepEqual(broad.inputPorts, nearby.inputPorts); assert.notDeepEqual(coverage.inputPorts, broad.inputPorts);
+  assert.deepEqual(networkPorts(graph, { ...DEFAULT_PARAMETERS, inputMode: 'distributed', inputCount: 6, inputSpread: 1 }), coverage);
+});
+
+test('boundary input selects base-tree terminals and actual mesh perimeter even after adding return links', () => {
+  const tree = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 6, inputMode: 'boundary', inputCount: 256, routing: 'loop', linkDensity: 1 }, 1024);
+  const degrees = tree.nodes.map((_, index) => tree.edges.filter(edge => !edge.routingLink && (edge.a === index || edge.b === index)).length);
+  assert.equal(tree.inputPorts.length, 64);
+  assert.ok(tree.inputPorts.every(({ node }) => degrees[node] === 1));
+  const mesh = buildNetwork({ ...DEFAULT_PARAMETERS, mode: 'membrane', cReal: 0, cImag: 0, detail: 10,
+    inputMode: 'boundary', inputCount: 256, routing: 'hub', linkDensity: .6 }, 1024);
+  assert.ok(mesh.inputPorts.every(({ node }) => mesh.edges.filter(edge => !edge.routingLink && (edge.a === node || edge.b === node)).length < 4));
+  validateGraph(mesh, 1024);
+});
+
+for (const routing of ROUTING_MODES.filter(({ id }) => id !== 'geometry')) {
+  test(`${routing.label} adds visible real routes and admits the complete graph including memory`, () => {
+    const parameters = { ...DEFAULT_PARAMETERS, detail: 8, routing: routing.id, linkDensity: .6 };
+    const full = buildNetwork(parameters, 16384);
+    const base = buildNetwork({ ...parameters, routing: 'geometry' }, 16384);
+    validateGraph(full, 16384);
+    assert.deepEqual(full.nodes, base.nodes);
+    assert.deepEqual(full.edges.filter(edge => !edge.routingLink), base.edges);
+    assert.ok(full.edges.some(edge => edge.routingLink));
+    assert.equal(full.metadata.routingEdges, full.edges.length - base.edges.length);
+    assert.equal(full.requestedEdges, full.edges.length);
+    assert.equal(new Set(full.edges.map(({ a, b }) => a < b ? `${a}:${b}` : `${b}:${a}`)).size, full.edges.length);
+    for (const budget of [1, 6, 64, 256]) {
+      const admitted = buildNetwork(parameters, budget, { maxTotalLength: 80 });
+      validateGraph(admitted, budget);
+      assert.equal(admitted.requestedEdges, full.edges.length);
+      assert.equal(admitted.metadata.requestedRoutingEdges, full.metadata.routingEdges);
+      assert.ok(admitted.metadata.totalLength <= 80);
+      const structural = admitted.edges.filter(edge => !edge.routingLink).length;
+      assert.equal(structural, admitted.metadata.coarseSingleRoute ? 1 : 2 ** (admitted.metadata.inverseDepth + 1) - 2);
+    }
+    const memory = buildNetwork(parameters, 16384, { maxTotalLength: full.metadata.totalLength / 3 });
+    validateGraph(memory, 16384);
+    assert.ok(memory.metadata.totalLength <= full.metadata.totalLength / 3);
+    assert.ok(memory.metadata.requestedTotalLength > memory.metadata.totalLength);
+    assert.equal(memory.metadata.memoryAdjusted, true);
+  });
+}
+
+test('routing identities survive coordinate and density edits when endpoints stay the same', () => {
+  for (const routing of ['hub', 'shortcuts', 'loop']) {
+    const first = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 6, routing, linkDensity: .3 }, 1024);
+    const second = buildNetwork({ ...DEFAULT_PARAMETERS, detail: 6, routing, linkDensity: .8, cReal: -.74 }, 1024);
+    const key = (network, edge) => [network.nodes[edge.a].id, network.nodes[edge.b].id].sort((a, b) => a - b).join(':');
+    const firstIds = new Map(first.edges.filter(edge => edge.routingLink).map(edge => [key(first, edge), edge.id]));
+    let retained = 0;
+    for (const edge of second.edges.filter(edge => edge.routingLink)) if (firstIds.has(key(second, edge))) {
+      retained++; assert.equal(edge.id, firstIds.get(key(second, edge)));
+    }
+    assert.ok(retained > 0, `${routing} retains actual existing connections`);
+  }
+});
+
+test('raising route density preserves existing links, including already circular contour geometry', () => {
+  for (const routing of ['loop', 'shortcuts', 'hub']) {
+    const parameters = { ...DEFAULT_PARAMETERS, mode: 'contours', cReal: 0, cImag: 0, detail: 6, routing };
+    const low = buildNetwork({ ...parameters, linkDensity: .2 }, 16384);
+    const high = buildNetwork({ ...parameters, linkDensity: 1 }, 16384);
+    const ids = new Set(high.edges.filter(edge => edge.routingLink).map(edge => edge.id));
+    assert.ok(low.metadata.routingEdges > 0);
+    assert.ok(high.metadata.routingEdges > low.metadata.routingEdges);
+    assert.ok(low.edges.filter(edge => edge.routingLink).every(({ id }) => ids.has(id)));
+  }
+});
+
+test('routing works across all five base constructions without replacing mathematical edges', () => {
+  for (const { id: mode } of MODES) for (const routing of ['loop', 'shortcuts', 'hub']) {
+    const parameters = { ...DEFAULT_PARAMETERS, mode, detail: 8, routing, linkDensity: 1,
+      inputMode: 'distributed', pickupMode: 'cluster', inputCount: 12, pickupCount: 6 };
+    const full = buildNetwork(parameters, 16384), base = buildNetwork({ ...parameters, routing: 'geometry' }, 16384);
+    assert.deepEqual(full.nodes, base.nodes);
+    assert.deepEqual(full.edges.filter(edge => !edge.routingLink), base.edges);
+    for (const budget of [1, 32, 512]) validateGraph(buildNetwork(parameters, budget), budget);
+  }
+});
+
+test('port and boundary edits do not allocate different waveguide geometry', () => {
+  const first = buildNetwork(DEFAULT_PARAMETERS, 1024);
+  const second = buildNetwork({ ...DEFAULT_PARAMETERS, inputMode: 'all', pickupMode: 'distributed', inputPosition: .9,
+    inputCount: 16, pickupCount: 24, inputSpread: .1, pickupSpread: 1, pickup: .2, boundary: 0 }, 1024);
+  assert.deepEqual(second.nodes, first.nodes); assert.deepEqual(second.edges, first.edges);
+  const untouched = buildNetwork({ ...DEFAULT_PARAMETERS, routing: 'shortcuts', linkDensity: 0 }, 1024);
+  assert.deepEqual(untouched.nodes, first.nodes); assert.deepEqual(untouched.edges, first.edges);
+});
+
+test('eight new complete scenes explore all port modes and all added route types', () => {
+  const additions = PRESETS.slice(20);
+  assert.equal(additions.length, 8);
+  assert.deepEqual(new Set(additions.map(({ parameters }) => parameters.routing)), new Set(ROUTING_MODES.map(({ id }) => id)));
+  for (const inputMode of ['cluster', 'distributed', 'boundary', 'all']) assert.ok(additions.some(({ parameters }) => parameters.inputMode === inputMode));
+  for (const { parameters } of additions) {
+    const network = buildNetwork(parameters, 1024);
+    validateGraph(network, 1024);
+    assert.ok(network.inputPorts.length > 1);
+    assert.ok(network.pickupPorts.length > 1);
+    if (parameters.routing !== 'geometry') assert.ok(network.metadata.routingEdges > 0);
+  }
 });
 
 test('randomization varies every complete musical parameter without adding gain or transport', () => {
