@@ -109,6 +109,8 @@ struct Edge {
     loss: f64,
     loss_target: f64,
     level: f32,
+    history_source: Option<usize>,
+    history_clock: u64,
 }
 impl Edge {
     fn read(buffer: &[f32], write: usize, delay: f64) -> f64 {
@@ -544,6 +546,8 @@ impl Engine {
                 loss: 1.,
                 loss_target: 1.,
                 level: 0.,
+                history_source: None,
+                history_clock: self.clock,
             };
             edge.delay = (edge.link.length * self.rate * self.time / 1000.).max(1.);
             edge.loss = self.decay.powf(edge.link.length);
@@ -561,6 +565,9 @@ impl Engine {
                     }
                     edge.delay = old.delay.min((size - 2) as f64);
                     edge.delay_velocity = old.delay_velocity;
+                    edge.loss = old.loss;
+                    edge.level = old.level;
+                    edge.history_source = Some(*old_index);
                 }
             }
             p.graph.edges.push(edge);
@@ -700,6 +707,47 @@ impl Engine {
             self.metrics[4] = self.metrics[4].max(output[0].abs());
             self.metrics[5] = self.metrics[5].max(output[1].abs());
             self.clock += 1;
+        }
+        // Preparation may span many blocks. Keep already-copied common edge
+        // histories synchronized to THIS sample clock, instead of committing
+        // old snapshots from progressively different preparation times. Copy
+        // only the newly written samples in contiguous circular-buffer chunks.
+        // This adds no allocation and performs no extra scattering graph.
+        if let (Some(pending), Some(current)) = (&mut self.pending, &self.graph) {
+            for edge in &mut pending.graph.edges {
+                let Some(index) = edge.history_source else {
+                    continue;
+                };
+                let old = &current.edges[index];
+                let frames = (self.clock - edge.history_clock) as usize;
+                let frames = frames.min(old.ab.len()).min(edge.ab.len());
+                let mut source = (old.write + old.ab.len() - frames) % old.ab.len();
+                let mut destination = edge.write;
+                let mut remaining = frames;
+                while remaining > 0 {
+                    let count = remaining
+                        .min(old.ab.len() - source)
+                        .min(edge.ab.len() - destination);
+                    edge.ab[destination..destination + count]
+                        .copy_from_slice(&old.ab[source..source + count]);
+                    edge.ba[destination..destination + count]
+                        .copy_from_slice(&old.ba[source..source + count]);
+                    source += count;
+                    destination += count;
+                    remaining -= count;
+                    if source == old.ab.len() {
+                        source = 0;
+                    }
+                    if destination == edge.ab.len() {
+                        destination = 0;
+                    }
+                }
+                edge.write = destination;
+                edge.history_clock = self.clock;
+                edge.delay = old.delay.min((edge.ab.len() - 2) as f64);
+                edge.delay_velocity = old.delay_velocity;
+                edge.level = old.level;
+            }
         }
         self.gain_reduction = -20. * self.compressor_gain.max(1e-12).log10();
         // No Vec resize, ring allocation, JSON parsing, collection or deallocation
@@ -965,8 +1013,14 @@ mod tests {
             length: 0.2,
         });
         e.begin(changed, 2).unwrap();
-        e.prepare(16);
+        e.prepare(1);
         ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        WATCH.with(|flag| flag.set(false));
+        e.prepare(16);
         WATCH.with(|flag| flag.set(true));
         for _ in 0..100 {
             e.process(&input, &input, &mut left, &mut right);

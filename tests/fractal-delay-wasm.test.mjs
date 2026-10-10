@@ -162,3 +162,20 @@ test('real worklet runs scenes and media input, coalesces superseded preparation
     processor.message({type:'dispose',id:24});assert.equal(processor.process([[zero]],[out]),false);assert(out[0].every(value=>value===0));
   }finally{for(const [key,value] of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });
+
+test('long preparation keeps shared edge histories at the current audio clock, with no stale replay at commit',()=>{
+  const scene=graph([[0,1,.1]],2),a=initialize(scene),b=initialize(scene);
+  try{let frame=0;const signal=()=>Float32Array.from({length:BLOCK},()=>.04*Math.sin(2*Math.PI*173*frame++/RATE));
+    for(let block=0;block<240;block++){const input=signal();a.process(input);b.process(input);}
+    const next={nodes:[...scene.nodes],edges:[...scene.edges],inputNode:0,pickupNode:1};
+    for(let i=0;i<64;i++){const n=next.nodes.length;next.nodes.push({id:n,x:0,y:0},{id:n+1,x:0,y:0});next.edges.push({id:100+i,a:n,b:n+1,length:.1});}
+    b.beginScene(next,9);assert.equal(b.prepareStep(1),1);
+    // Longer than the reserved original edge history: an early snapshot would
+    // otherwise commit stale waves from more than one complete ring ago.
+    for(let block=0;block<640;block++){const input=signal();a.process(input);b.process(input);}
+    assert.equal(b.prepareStep(128),2);assert.equal(b.status().revision,9);
+    let largest=0;for(let block=0;block<128;block++){const input=signal(),pa=a.process(input).left,pb=b.process(input).left;
+      for(let i=0;i<BLOCK;i++)largest=Math.max(largest,Math.abs(pa[i]-pb[i]));}
+    assert(largest<1e-6,`sharedwavehistorymustnotreplayanoldphase, maxPCMdifference${largest}`);
+  }finally{a.dispose();b.dispose();}
+});
