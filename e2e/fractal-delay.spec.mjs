@@ -22,13 +22,31 @@ function wav({ duration = 4, amplitude = .035, frequencies = [173, 311, 659] } =
   return bytes;
 }
 
-async function fixture(page) {
+async function fixture(page, { holdContext = false } = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(() => {
+  await page.addInitScript(({ holdContext }) => {
     const NativeContext = AudioContext, NativeNode = AudioWorkletNode;
     const qa = window.__fractalPcmWitness = { contexts: [], sources: [], nodes: [], packets: [], statuses: [], allStatuses: [],
       streams: [], microphoneRequests: 0, pendingMicrophones: [], holdMicrophone: false, recording: false };
+    qa.holdContext = holdContext; qa.pendingInitializers = [];
+    const addModule = AudioWorklet.prototype.addModule;
+    AudioWorklet.prototype.addModule = async function (url, ...args) {
+      if (qa.holdContext && String(url).split('?')[0].endsWith('/network-worklet.js'))
+        await new Promise(resolve => qa.pendingInitializers.push(resolve));
+      return addModule.call(this, url, ...args);
+    };
+    const connect = AudioNode.prototype.connect;
+    AudioNode.prototype.connect = function (destination, ...args) {
+      const result = connect.call(this, destination, ...args);
+      if (qa.nodes.includes(this) && destination instanceof GainNode) {
+        const analyser = destination.context.createAnalyser(), mute = destination.context.createGain();
+        analyser.fftSize = 4096; mute.gain.value = 0;
+        connect.call(destination, analyser); connect.call(analyser, mute); connect.call(mute, destination.context.destination);
+        qa.mainMonitor = { analyser, samples: new Float32Array(analyser.fftSize) };
+      }
+      return result;
+    };
     window.AudioContext = class extends NativeContext {
       constructor(...args) { super(...args); qa.contexts.push(this); }
     };
@@ -120,7 +138,7 @@ async function fixture(page) {
         } }));
       return destination.stream;
     };
-  });
+  }, { holdContext });
   await page.route('**/assets/synthesis/loops/*.wav', route => route.fulfill({
     status: 200, contentType: 'audio/wav', body: wav(),
   }));
@@ -130,11 +148,20 @@ async function fixture(page) {
 async function diagnostics(page) {
   return page.evaluate(async module => {
     const d = (await import(module)).getFractalDelayEngine().getDiagnostics(), qa = __fractalPcmWitness;
+    let audiblePeak = 0, audibleNonFinite = 0;
+    if (qa.mainMonitor) {
+      qa.mainMonitor.analyser.getFloatTimeDomainData(qa.mainMonitor.samples);
+      for (const sample of qa.mainMonitor.samples) {
+        if (!Number.isFinite(sample)) audibleNonFinite++;
+        else audiblePeak = Math.max(audiblePeak, Math.abs(sample));
+      }
+    }
     return { ...d, witness: {
       contexts: qa.contexts.length, nodes: qa.nodes.length, sources: qa.sources.map(row => ({ ...row })),
       microphoneRequests: qa.microphoneRequests, pendingMicrophones: qa.pendingMicrophones.length,
       liveTracks: qa.streams.flatMap(stream => stream.getTracks()).filter(track => track.readyState !== 'ended').length,
       statuses: qa.allStatuses,
+      pendingInitializers: qa.pendingInitializers.length, audiblePeak, audibleNonFinite,
     } };
   }, ENGINE);
 }
@@ -151,11 +178,14 @@ async function ready(page) {
 
 async function choose(page, id, value) {
   const select = page.locator(`#${id}`);
+  const picker = page.locator(`[data-select-id="${id}"]`);
+  // Source state changes immediately; its dependent UI paints at a lower
+  // priority. Wait for the actual owner before deciding which UI to operate.
+  await expect.poll(async () => await select.isVisible() || await picker.isVisible()).toBe(true);
   if (await select.isVisible()) await select.selectOption(value);
   else {
     const index = await select.evaluate((node, value) => [...node.options].findIndex(option => option.value === value), value);
     expect(index, `#${id} option ${value}`).toBeGreaterThanOrEqual(0);
-    const picker = page.locator(`[data-select-id="${id}"]`);
     if (await picker.getAttribute('open') === null) await picker.locator('summary').click();
     await picker.locator(`button[data-option-index="${index}"]`).click();
   }
@@ -341,7 +371,8 @@ test('file and sample input stay at unity independently of retained mic gain', a
     }
   }
   await choose(page, 'sourceMode', 'mic');
-  await page.evaluate(async module => (await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true), ENGINE);
+  await page.locator('#micButton').click();
+  await expect.poll(async () => (await diagnostics(page)).witness.liveTracks, { timeout: 15000 }).toBe(1);
   const mic = [];
   for (const gain of [.5, 1]) {
     await range(page, 'inputTrim', gain); await page.waitForTimeout(250);
@@ -360,9 +391,7 @@ test('late microphone permission is cancelled and Audio off releases captured de
   const errors = await fixture(page); await ready(page);
   await page.locator('#audioButton').click();
   await page.evaluate(() => { __fractalPcmWitness.holdMicrophone = true; });
-  await page.evaluate(module => {
-    void import(module).then(({ getFractalDelayEngine }) => getFractalDelayEngine().setMicrophoneEnabled(true));
-  }, ENGINE);
+  await page.locator('#micButton').click();
   await expect.poll(async () => (await diagnostics(page)).witness.pendingMicrophones, { timeout: 15000 }).toBe(1);
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.evaluate(() => {
@@ -373,12 +402,56 @@ test('late microphone permission is cancelled and Audio off releases captured de
     const d = await diagnostics(page); return d.input.mode === 'file' && d.input.playing && d.witness.liveTracks === 0;
   }, { timeout: 15000 }).toBe(true);
   await choose(page, 'sourceMode', 'mic');
-  await page.evaluate(async module => (await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true), ENGINE);
+  await page.locator('#micButton').click();
   await expect.poll(async () => (await diagnostics(page)).witness.liveTracks).toBe(1);
   await page.locator('#audioButton').click();
   await expect.poll(async () => {
     const d = await diagnostics(page); return !d.audioDesired && !d.input.playing && d.witness.liveTracks === 0;
   }).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('microphone capture with Audio off stays muted until the explicit Audio action', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = await fixture(page); await ready(page);
+  await page.locator('#micButton').click();
+  await expect.poll(async () => (await diagnostics(page)).witness.liveTracks, { timeout: 15000 }).toBe(1);
+  await page.waitForTimeout(150);
+  const muted = await diagnostics(page);
+  expect(muted.audioDesired).toBe(false); expect(muted.audio).toBe(false);
+  expect(muted.witness.audibleNonFinite).toBe(0); expect(muted.witness.audiblePeak).toBeLessThan(.000001);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).witness.audiblePeak).toBeGreaterThan(.00001);
+  const armed = await diagnostics(page);
+  expect(armed.contextGeneration).toBe(muted.contextGeneration);
+  expect(armed.witness.microphoneRequests).toBe(1);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page); return !d.audioDesired && !d.microphone && d.witness.liveTracks === 0 && d.contextState === 'suspended';
+  }, { timeout: 15000 }).toBe(true);
+  expect(errors).toEqual([]);
+});
+
+test('turning Audio off during cold preparation cannot start a late source', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = await fixture(page, { holdContext: true }); await ready(page);
+  await choose(page, 'sourceMode', 'samples');
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).witness.pendingInitializers).toBe(1);
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await diagnostics(page)).audioDesired).toBe(false);
+  await page.evaluate(() => {
+    const qa = __fractalPcmWitness; qa.holdContext = false;
+    qa.pendingInitializers.splice(0).forEach(resolve => resolve());
+  });
+  await expect.poll(async () => (await diagnostics(page)).contextState, { timeout: 15000 }).toBe('suspended');
+  const d = await diagnostics(page);
+  expect(d.audioDesired).toBe(false); expect(d.audio).toBe(false); expect(d.input.playing).toBe(false);
+  expect(d.witness.sources.every(source => source.starts === 0)).toBe(true);
+  expect(d.sourceCount).toBe(0); expect(d.error).toBeFalsy();
+  await page.evaluate(async module => (await import(module)).getFractalDelayEngine().dispose(), ENGINE);
+  expect((await diagnostics(page)).contextState).toBe('closed');
   expect(errors).toEqual([]);
 });
 
