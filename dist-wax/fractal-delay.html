@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Fractal Delay — Morphazoid" />
+    <meta property="og:description" content="Five vector interpretations of Julia and Mandelbrot geometry share a live Rust audio delay network." />
+    <meta property="og:url" content="https://morphazoid.com/fractal-delay.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Fractal Delay — Morphazoid" />
+    <meta name="twitter:description" content="Five vector interpretations of Julia and Mandelbrot geometry share a live Rust audio delay network." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end --><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#07090b" /><meta name="description" content="Five vector interpretations of Julia and Mandelbrot geometry share a live Rust audio delay network." />
+<title>Fractal Delay — Morphazoid</title><link rel="canonical" href="fractal-delay.html" /><link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" /><link rel="stylesheet" href="src/ui/index.css" /><link rel="stylesheet" href="src/instruments/fractal-delay/style.css" />
+</head><body class="fractal-delay-page" data-audio-backend="rust-wasm">
+<header class="masthead has-performance-header">
+<a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+<nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab" href="l-mic-rust.html">L-system Delay Rust</a><a class="tab active" href="fractal-delay.html" aria-current="page">Fractal Delay</a></nav>
+<div class="header-io-controls" id="headerControls" role="group" aria-label="Audio controls">
+<div id="headerAudio"><label for="outputLevel">Output<input id="outputLevel" type="range" min="0" max="1" step=".01" value="1" /></label><button id="audioButton" type="button" aria-pressed="false">Audio</button></div>
+</div></header>
+<main class="fractal-shell">
+<section class="fractal-stage" aria-label="Live fractal delay network">
+<div class="stage-wrap"><h1>Fractal Delay</h1><canvas id="stage" tabindex="0" aria-label="Fractal delay network. Drag to change the real and imaginary parameter." aria-describedby="canvasInstructions">Prepared delay connections and their measured travelling waves.</canvas>
+<div class="stage-caption"><span id="stageReadout">Preparing complete network…</span><span>● input <i>● pickup</i></span></div></div>
+<p id="canvasInstructions" class="stage-help">Drag: real / imaginary c · Shift: fine · Arrow keys: adjust c</p>
+<div class="parameter-map"><canvas id="parameterMap" width="240" height="120" tabindex="0" aria-label="Mandelbrot parameter map. Click to select c or the excitation position." aria-describedby="mapInstructions"></canvas><p id="mapInstructions">Mandelbrot map selects c.<br /><span id="coordinateReadout">−0.745 + 0.113i</span></p></div>
+</section>
+<aside class="fractal-controls" aria-label="Fractal Delay controls" data-instrument-preset-host>
+<label id="fallbackPresets" for="presetSelect">Sound preset<select id="presetSelect"><option value="root-cloud">Root Cloud</option></select></label>
+<section class="control-section input-section" aria-label="Input source">
+<label class="select-field" for="sourceMode">Input<select id="sourceMode"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></label>
+<div id="sampleControls" hidden><label class="select-field" for="sampleSelect">Sample<span class="select-next"><select id="sampleSelect"><option value="sample-drums">Drum loop</option></select><button id="sampleNext" type="button" aria-label="Next sample">›</button></span></label></div>
+<label id="fileControls" class="file-field" for="fileInput" hidden>Choose audio file<input id="fileInput" type="file" accept="audio/*" /></label>
+<div id="mediaTransport" class="media-transport" hidden><button id="restartInput" type="button">Restart</button><button id="stopInput" type="button">Stop input</button><label for="inputLoop"><input id="inputLoop" type="checkbox" checked /> Loop</label></div>
+<div id="legacyMic" hidden><button id="micButton" type="button">Mic</button><input id="inputTrim" type="range" min="0" max="4" step=".01" value=".85" aria-label="Mic / line gain" /></div>
+<p class="input-note" id="inputNote">Enable Mic for capture. Files and samples play at unity input gain.</p><p id="inputCredit" class="input-credit" hidden></p>
+<a class="settings-link" href="settings.html#audio-input">Audio settings</a>
+</section>
+<section class="control-section" aria-label="Network">
+<label class="select-field" for="mode">Geometry<span class="select-next"><select id="mode"><option value="inverse">Inverse tree</option><option value="contours">Contour loops</option><option value="orbits">Orbit routes</option><option value="rays">Ray lattice</option><option value="membrane">Fractal chamber</option></select><button id="modeNext" type="button" aria-label="Next geometry">›</button></span></label>
+<label id="domainField" class="select-field" for="domain">Domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
+<p id="modeDescription" class="control-note">Both square-root predecessors form a Julia vector tree.</p>
+<div class="knob-grid" id="networkKnobs"><label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.001" value="-0.745" aria-label="Real c" /></label>
+<label class="knob-field" for="cImag"><span><b>Imaginary c</b><output for="cImag">0.113</output></span><input id="cImag" type="range" min="-1.5" max="1.5" step="0.001" value="0.113" aria-label="Imaginary c" /></label>
+<label class="knob-field" for="detail"><span><b>Detail</b><output for="detail">6</output></span><input id="detail" type="range" min="2" max="12" step="1" value="6" aria-label="Detail" /></label>
+<label class="knob-field" for="timeMs"><span><b>Travel time</b><output for="timeMs">140</output></span><input id="timeMs" type="range" min="0.05" max="2000" step="0.05" value="140" aria-label="Travel time" /></label>
+<label class="knob-field" for="pitchOffset"><span><b>Pitch</b><output for="pitchOffset">0</output></span><input id="pitchOffset" type="range" min="-24" max="24" step="0.1" value="0" aria-label="Pitch" /></label>
+<label class="knob-field" for="coupling"><span><b>Coupling</b><output for="coupling">0.82</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0.82" aria-label="Coupling" /></label>
+<label class="knob-field" for="decay"><span><b>Sustain</b><output for="decay">0.84</output></span><input id="decay" type="range" min="0" max="0.98" step="0.01" value="0.84" aria-label="Sustain" /></label>
+<label class="knob-field" for="pickup"><span><b>Pickup</b><output for="pickup">0.7</output></span><input id="pickup" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Pickup" /></label></div>
+</section>
+<details class="control-section" id="liveData"><summary>Live data <span id="edgeCount">— connections</span></summary><dl class="live-data"><div><dt>Requested / prepared</dt><dd id="capacityReadout">—</dd></div><div><dt>Processing</dt><dd id="processingReadout">Audio off</dd></div><div><dt>Audio load / peak</dt><dd id="cpuReadout">—</dd></div><div><dt>Worker estimate</dt><dd id="estimateReadout">—</dd></div><div><dt>Delay history</dt><dd id="memoryReadout">—</dd></div><div><dt>Missed deadlines</dt><dd id="deadlineReadout">0</dd></div><div><dt>Renderer</dt><dd id="rendererReadout">—</dd></div></dl>
+<label class="select-field" for="voiceBudget">Connection budget<input id="voiceBudget" type="number" min="2" max="16384" step="1" value="16384" /></label>
+<label class="check-field" for="manualBudget"><input id="manualBudget" type="checkbox" /> Test budget beyond measured CPU target</label><p class="control-note">Two travelling waves per connection. Memory remains bounded. Capacity stays fixed until you change geometry or the budget.</p>
+</details>
+<details class="control-section" id="mixControls" open><summary>Mix &amp; mastering</summary><label class="select-field" for="masteringPreset">Mastering<select id="masteringPreset"><option value="">Custom</option><option value="open">Open / gentle</option><option value="clear">Clear / controlled</option><option value="warm">Warm / close</option><option value="dense">Dense / restrained</option></select></label><div class="knob-grid"><label class="knob-field" for="wet"><span><b>Wet</b><output for="wet">0.7</output></span><input id="wet" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Wet" /></label>
+<label class="knob-field" for="dry"><span><b>Dry</b><output for="dry">0.3</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0.3" aria-label="Dry" /></label>
+<label class="knob-field" for="outputBoostDb"><span><b>Boost</b><output for="outputBoostDb">6</output></span><input id="outputBoostDb" type="range" min="-12" max="18" step="0.1" value="6" aria-label="Boost" /></label>
+<label class="knob-field" for="hpfHz"><span><b>High pass</b><output for="hpfHz">30</output></span><input id="hpfHz" type="range" min="5" max="2000" step="1" value="30" aria-label="High pass" /></label>
+<label class="knob-field" for="lpfHz"><span><b>Low pass</b><output for="lpfHz">18000</output></span><input id="lpfHz" type="range" min="400" max="22000" step="1" value="18000" aria-label="Low pass" /></label>
+<label class="knob-field" for="compressorThresholdDb"><span><b>Threshold</b><output for="compressorThresholdDb">-12</output></span><input id="compressorThresholdDb" type="range" min="-48" max="0" step="0.1" value="-12" aria-label="Threshold" /></label>
+<label class="knob-field" for="compressorRatio"><span><b>Ratio</b><output for="compressorRatio">3</output></span><input id="compressorRatio" type="range" min="1" max="20" step="0.1" value="3" aria-label="Ratio" /></label>
+<label class="knob-field" for="compressorAttackMs"><span><b>Attack</b><output for="compressorAttackMs">5</output></span><input id="compressorAttackMs" type="range" min="0.1" max="100" step="0.1" value="5" aria-label="Attack" /></label>
+<label class="knob-field" for="compressorReleaseMs"><span><b>Release</b><output for="compressorReleaseMs">120</output></span><input id="compressorReleaseMs" type="range" min="10" max="1000" step="1" value="120" aria-label="Release" /></label>
+<label class="knob-field" for="compressorMakeupDb"><span><b>Makeup</b><output for="compressorMakeupDb">0</output></span><input id="compressorMakeupDb" type="range" min="0" max="18" step="0.1" value="0" aria-label="Makeup" /></label></div></details>
+<details class="control-section"><summary>Capture a sound</summary><button id="captureSound" type="button">Copy parameters</button><textarea id="capturedSound" rows="5" readonly aria-label="Captured Fractal Delay parameters" hidden></textarea><p id="captureStatus" class="control-note" role="status">Paste captured parameters into chat to save a preset.</p></details>
+<p id="liveStatus" class="live-status" role="status">Audio off.</p>
+</aside></main>
+<script type="module" src="nav.js"></script><script type="module" src="src/instruments/fractal-delay/app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body></html>
