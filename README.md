@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Vector Fractals](vector-fractals.html)** is a three-demo work in progress: Julia Vectors, Mandelbrot Contours and Bulb Voyager turn the same ordered complex paths into WebGL geometry and bandlimited XY sound. Audio starts off. [Mathematics, controls and limits](docs/vector-fractals.md).
+
 **Main output recording** captures stereo 24-bit WAV from the red Record button
 beside the output meters. Stop to name and save a take, or choose **Record to
 file** in Settings for longer recordings in supporting browsers.

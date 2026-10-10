@@ -1830,3 +1830,17 @@ copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-policy.js
 copy+require	src/instruments/graph-delay-rust/graph-delay-capacity.js
 copy+require	src/instruments/graph-delay-rust/graph-delay-capacity-worker.js
 copy+require	docs/graph-delay-rust.md
+
+# Vector Fractals: three parameterized XY demos.
+copy+require	vector-fractals.html
+copy+require	docs/vector-fractals.md
+copy+require	assets/instruments/vector-fractals.webp
+copy+require	src/instruments/vector-fractals/app.js
+copy+require	src/instruments/vector-fractals/audio.js
+copy+require	src/instruments/vector-fractals/dsp.js
+copy+require	src/instruments/vector-fractals/mandelbrot-coefficients.js
+copy+require	src/instruments/vector-fractals/model.js
+copy+require	src/instruments/vector-fractals/processor.js
+copy+require	src/instruments/vector-fractals/renderer.js
+copy+require	src/instruments/vector-fractals/style.css
+copy+require	src/instruments/vector-fractals/worker.js

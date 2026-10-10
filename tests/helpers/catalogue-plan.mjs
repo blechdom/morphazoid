@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 10 owner request: three complex-vector/audio research demos.
+  { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html', imageHref: 'assets/instruments/vector-fractals.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'fractal', label: 'Fractal' }, { id: 'geometric', label: 'Geometric' }, { id: 'synthesizer', label: 'Synthesizer' }] },
   ...JSON.parse(readFileSync(new URL("../fixtures/catalogue-graph-delay-rust.json", import.meta.url), "utf8")).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-spartial.json', import.meta.url), 'utf8')).additions,
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-am.json', import.meta.url), 'utf8')).additions,

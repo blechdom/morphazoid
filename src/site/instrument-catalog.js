@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "vector-fractals": define(
+    "Three complex-path sound demos",
+    "Julia equipotentials, full-Mandelbrot exterior contours and bulb-driven Julia motion share ordered vector paths with a bandlimited XY oscillator.",
+    "Choose a demo, enable Audio and Play. Drag to rotate and change clearance; compare angle and distance traversal, or explore the presets.",
+    ["Built-in synth", "Pointer", "WebGL", "Presets", "XY synthesis"],
+  ),
   blobs: define(
     "Drawn-path synthesizer",
     "Draw open pencil strokes, curved pen paths and straight lines, or return to the first point to close a loop. Playheads follow each path, mapping height to continuous pitch and width to stereo.",
