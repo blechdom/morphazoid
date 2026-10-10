@@ -263,7 +263,7 @@ impl Network {
         let omega = 2. * PI * self.damping / self.rate;
         let cos = omega.cos();
         let alpha = omega.sin() / 0.9;
-        self.startup_seconds = plan[11].clamp(0., 40.);
+        self.startup_seconds = plan[11].clamp(0., 140.);
         self.target_filter = [
             (1. - cos) * 0.5 / (1. + alpha),
             (1. - cos) / (1. + alpha),
@@ -748,6 +748,13 @@ impl Engine {
     fn plan(&mut self, plan: &[f64]) -> bool {
         if let Some(active) = &mut self.active {
             if active.controls(plan, false) {
+                if self.old.is_some() && self.fade == 0. {
+                    // A live delay/pitch edit can lengthen the new wet path.
+                    // Count from its existing age so repeated motion updates
+                    // cannot restart the same warmup forever.
+                    let arrival = (self.rate * active.startup_seconds).ceil() as u64;
+                    self.warm = self.warm.max(arrival.saturating_sub(active.age) as usize);
+                }
                 self.pending = None;
                 return true;
             }
@@ -1079,6 +1086,25 @@ mod tests {
         assert_eq!(engine.active.as_ref().unwrap().history.as_ptr(), pointer);
         assert_eq!(engine.elapsed, 128);
         assert!(engine.pending.is_none());
+    }
+    #[test]
+    fn live_delay_extension_retains_old_scene_without_restarting_unchanged_warmup() {
+        let mut processor = engine();
+        processor.old = engine().active;
+        processor.fade = 0.;
+        processor.warm = 10;
+        processor.active.as_mut().unwrap().age = 48000;
+        let mut longer = plan();
+        longer[11] = 100.;
+        assert!(processor.plan(&longer));
+        assert_eq!(processor.warm, 99 * 48000);
+        let mut a = [0.; BLOCK];
+        let mut b = [0.; BLOCK];
+        processor.process(&[0.; BLOCK], &[0.; BLOCK], &mut a, &mut b);
+        let remaining = processor.warm;
+        assert!(processor.plan(&longer));
+        assert_eq!(processor.warm, remaining);
+        assert!(processor.old.is_some());
     }
     #[test]
     fn rejected_controls_leave_the_playing_scene_intact() {

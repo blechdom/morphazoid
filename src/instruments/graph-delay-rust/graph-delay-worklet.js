@@ -96,7 +96,7 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
     this.reply({ type: 'metrics', metrics: {
       elapsedSeconds: this.values[0], audioTimeSeconds: this.lastAudioTime,
       inputPeak: this.values[1], outputPeak: this.values[2], nodes: this.values[3], edges: this.values[4],
-      routes: this.values[5], activeRoutes: this.values[5], nodeLevels, edgeLevels,
+      routes: this.values[5], activeRoutes: this.values[6], nodeLevels, edgeLevels,
       cpuLoad: this.cpuLoad, peakLoad: this.peakLoad, deadlineMisses: this.deadlineMisses,
       preparing: this.pendingId !== null, timing: fineClock ? 'high-resolution' : 'coarse-averaged',
     } }, [nodeLevels.buffer, edgeLevels.buffer]);

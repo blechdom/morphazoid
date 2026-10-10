@@ -1793,3 +1793,16 @@ copy+require	src/families/recursive/full-presets.js
 copy+require	src/families/recursive/preset-voicings.js
 copy+require	src/instruments/chaotic-am/presets.js
 copy+require	src/instruments/chaotic-am/full-presets.js
+
+# Graph Delay Rust
+copy+require	src/instruments/graph-delay-rust/graph-delay-rust-app.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-rust.css
+copy+require	src/instruments/graph-delay-rust/graph-delay-engine.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-worklet.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-plan.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-renderer.js
+copy+require	src/instruments/graph-delay-rust/graph-delay-presets.js
+copy+require	assets/wasm/graph-delay.wasm
+copy+require	assets/wasm/graph-delay-build.json
+copy+require	src/instruments/graph-delay-rust/graph-delay-topology.js
+copy+require	docs/graph-delay-rust.md

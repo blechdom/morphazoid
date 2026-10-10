@@ -109,10 +109,25 @@ test('startup and command timeouts retire the session before a late command can 
   node.emit({ type: 'ready' }); await second.ready;
   const oldMessage = node.port.onmessage;
   const rejectedCommand = assert.rejects(second.request('configure', {}), /did not respond/);
-  f.fire(30000); await rejectedCommand;
+  f.fire(160000); await rejectedCommand;
   oldMessage({ data: { id: second.sequence } });
   assert.equal(second.closed, true); assert.equal(second.requests.size, 0); assert.equal(f.timers.size, 0);
   assert.equal(f.errors.length, 2);
+});
+
+test('a queued scene watchdog allows the longest healthy graph warmup to finish', async t => {
+  const f = browser(t), engine = f.create(), node = f.nodes[0];
+  node.emit({ type: 'ready' }); await engine.ready;
+  const longPath = compileGraphDelayPlan(graph(64), { baseDelay: 600, timeScale: 800, pitchScale: 2 });
+  const pending = engine.update(graph(3));
+  await tick();
+  const commandTimers = [...f.timers.values()].filter(timer => !timer.interval);
+  assert.equal(commandTimers.length, 1);
+  assert.ok(commandTimers[0].delay > longPath.data[11] * 1000 + 5000,
+    'reserve the wet arrival, 300 ms fade and incremental allocation time');
+  node.emit({ id: engine.sequence });
+  await pending;
+  assert.equal(engine.closed, false); assert.equal(f.errors.length, 0);
 });
 
 test('updates coalesce before readiness and resolve worklet supersession without consuming newer acknowledgements', async t => {

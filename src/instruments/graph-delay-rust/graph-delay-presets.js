@@ -1,13 +1,15 @@
 import {
   GRAPH_DELAY_PATCHES, GRAPH_PRESETS, annotateCycles,
-  generateGraphWithinTurnBudget, graphTurnRouteCount,
+  graphTurnRouteCount,
 } from "../graph-delay/graph-delay.js";
 import { GRAPH_DELAY_INITIAL_STATE } from "../../families/graph-presets/initial-state.js";
 import { clonePresetData, presetRandom, randomParameterValues } from "../../site/preset-random.js";
 import { presetStateKey } from "../../site/header-presets.js";
 
-export const GRAPH_DELAY_RUST_MAX_NODES = 64;
-export const GRAPH_DELAY_RUST_MAX_TURN_ROUTES = 512;
+import { MAX_RUST_GRAPH_NODES as GRAPH_DELAY_RUST_MAX_NODES,
+  DEFAULT_RUST_GRAPH_TURN_ROUTES as GRAPH_DELAY_RUST_MAX_TURN_ROUTES, MAX_RUST_GRAPH_EDGES,
+  generateGraphWithinRustBudget } from './graph-delay-topology.js';
+export { GRAPH_DELAY_RUST_MAX_NODES, GRAPH_DELAY_RUST_MAX_TURN_ROUTES };
 const liveKeys = new Set(["mic", "starting", "nodeMotionPhase", "micMotionPhase", "inputTrim", "level"]);
 const parameterKeys = Object.keys(GRAPH_DELAY_INITIAL_STATE).filter(key => !liveKeys.has(key));
 const ranges = Object.freeze({
@@ -29,7 +31,7 @@ export function validateGraphDelayRustPreset(snapshot) {
   const p = snapshot?.parameters, graph = snapshot?.graph;
   if (!p || !graph || !Array.isArray(graph.nodes) || !Array.isArray(graph.edges)) fail("missing graph");
   if (graph.nodes.length < 3 || graph.nodes.length > GRAPH_DELAY_RUST_MAX_NODES
-    || graph.edges.length < 1 || graph.edges.length > GRAPH_DELAY_RUST_MAX_TURN_ROUTES) fail("graph size");
+    || graph.edges.length < 1 || graph.edges.length > MAX_RUST_GRAPH_EDGES) fail("graph size");
   presetStateKey(snapshot);
   if (!same(Object.keys(snapshot).sort(), ["edgeSwitches", "graph", "parameters"])) fail("snapshot fields");
   if (!same(Object.keys(p).sort(), [...parameterKeys].sort())) fail("parameter fields");
@@ -78,7 +80,7 @@ export function captureGraphDelayRustPreset(state, graph, switchMap) {
 }
 
 function createSnapshot(state) {
-  const safe = generateGraphWithinTurnBudget({ ...state, type: state.topology, maxNodes: GRAPH_DELAY_RUST_MAX_NODES }, GRAPH_DELAY_RUST_MAX_TURN_ROUTES);
+  const safe = generateGraphWithinRustBudget({ ...state, type: state.topology });
   return validateGraphDelayRustPreset({
     parameters: parametersOf({ ...state, density: safe.density }), graph: safe.graph,
     edgeSwitches: Object.fromEntries(safe.graph.edges.map(edge => [`${edge.from}>${edge.to}`, true])),

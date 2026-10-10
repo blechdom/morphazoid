@@ -70,6 +70,19 @@ test('Rust graph remains cold-silent and starts wet sound only after the directe
   } finally { f.close(); }
 });
 
+test('extreme 64-node recalls retain the old wet scene beyond forty seconds', () => {
+  const f = fixture(graph(), settings, 8000);
+  try {
+    f.render(.2, () => .05);
+    const longPath = graph('chain', 64);
+    longPath.nodes.forEach((node, index) => { node.x = node.y = index % 2 ? .98 : .02; });
+    const installed = f.install(longPath, { ...settings, baseDelay: 600, timeScale: 800, pitchScale: 2 });
+    assert.ok(installed.data[11] > 86, 'geometry needs more than 86 seconds before its first wet arrival');
+    const output = f.render(41, () => .05)[0];
+    assert.ok(peak(output.subarray(-1600)) > .003, 'old wet signal must still be audible at 41 seconds');
+  } finally { f.close(); }
+});
+
 test('feedback is a real recirculating network and its decay control changes later returns', () => {
   const captures = [];
   for (const feedback of [0, .8]) {

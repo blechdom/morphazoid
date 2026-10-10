@@ -1,0 +1,24 @@
+.graph-delay-rust-page #graphGpuStage {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+.graph-delay-rust-page #stage { position: relative; background: transparent; }
+.graph-rust-title {
+  position: absolute;
+  top: 16px;
+  left: 20px;
+  z-index: 2;
+  margin: 0;
+  color: var(--text-primary, #fff3d6);
+  font: 600 clamp(16px, 2vw, 24px) var(--font-display, sans-serif);
+  pointer-events: none;
+}
+@media (max-width: 600px) {
+  .graph-rust-title { top: 12px; left: 12px; font-size: 16px; }
+  .graph-delay-rust-page .graph-key { display: none; }
+}
+/* Routing counts already live in Graph details; keep the playing surface clear. */
+.graph-delay-rust-page .stage-meta { display: none; }

@@ -15,7 +15,7 @@ test("Rust graph presets retain every original patch and add larger complete sce
   for (const id of Object.keys(GRAPH_DELAY_PATCHES)) assert.ok(GRAPH_DELAY_RUST_PRESETS.some(p => p.id === id));
   for (const preset of GRAPH_DELAY_RUST_PRESETS) {
     assert.equal(validateGraphDelayRustPreset(preset.snapshot), preset.snapshot);
-    assert.ok(graphTurnRouteCount(preset.snapshot.graph) <= 512);
+    assert.ok(graphTurnRouteCount(preset.snapshot.graph) <= 384);
     for (const key of ["inputTrim", "level", "nodeMotionPhase", "micMotionPhase", "mic", "starting"]) {
       assert.equal(Object.hasOwn(preset.snapshot.parameters, key), false, key);
     }
@@ -72,4 +72,16 @@ test("randomization is deterministic, bounded, independent and varies all musica
   }
   assert.ok(results.some(s => s.graph.nodes.length > 24));
   assert.ok(results.some(s => Object.values(s.edgeSwitches).includes(false)));
+});
+
+
+test("dense 64-node bipartite scenes respect history memory as well as turn capacity", async () => {
+  const { generateGraphWithinRustBudget } = await import("../src/instruments/graph-delay-rust/graph-delay-topology.js");
+  for (const seed of [1, 17, 61]) {
+    const admitted = generateGraphWithinRustBudget({ type: "bipartite", nodeCount: 64, density: 1, seed });
+    assert.equal(admitted.graph.nodes.length, 64);
+    assert.ok(admitted.graph.edges.length <= 256);
+    assert.ok(admitted.turnRouteCount <= 384);
+    assert.equal(admitted.limited, true);
+  }
 });

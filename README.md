@@ -392,6 +392,8 @@ See [voice mechanisms and port status](docs/voicesaurus.md).
 
 [Synthesaurus](synthesis.html) explores 53 synthesis methods and 17 stereo processors through 560 sound presets and 148 guided studies. Its 62 original arpeggiator and sequencer studies have mechanism-specific views, including editable gesture scores, voltage stages and Euclidean pulse rings. The top Input menu selects a synthesizer with an optional processor, microphone/audio in, a local file, sample loops or test signals. Arpeggiator notes and tuning maps drive the synthesizer; they are not implicitly applied to external audio. Whole-instrument presets recall sound, sequence, tuning and routing; dice randomize musical settings without arming Audio or opening devices. Native amplitude controls are distinguished from the added note envelope. Compact sticky scope/spectrum displays follow the audio-clock engine. The Rust DSP runs in a browser AudioWorklet through WebAssembly and is shared with the CPAL player and CLAP plugin. See the [collected historical reference](synthesaurus-reference.html), [method notes](docs/synthesis-methods.md), [model provenance](docs/synthesis-neural-models.md), and [native build instructions](docs/synthesis-native.md).
 
+**Graph Delay Rust** is a separate Rust/WASM version of Graph Delay with WebGL2 connections, true cyclic feedback, and bounded 64-node / 384-turn networks. See [the implementation and build notes](docs/graph-delay-rust.md).
+
 ## Development
 
 ```sh

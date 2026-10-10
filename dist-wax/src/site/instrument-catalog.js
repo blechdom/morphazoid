@@ -390,6 +390,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Allow microphone access, choose a graph preset, then start input and open or close routes.",
     ["Mic input"],
   ),
+  "graph-delay-rust": define(
+    "Rust/WASM graph delay processor",
+    "Routes live input through directed delay networks with independent pitch shifts at each turn, switchable paths and controlled feedback. Rust WebAssembly audio and WebGL graphics support larger graphs while preserving the original geometry controls.",
+    "Enable Audio and microphone input, choose a graph preset, then drag nodes and switch routes to reshape delay and pitch.",
+    ["Mic input", "Rust / WASM", "WebGL", "Graph routing"],
+  ),
   micromorph: define(
     "Realtime generative mic effect",
     "Streams microphone audio and sample-clocked performance controls to an optional local diffusion model, while five visible membranes expose the path from source to imaginary descendant.",

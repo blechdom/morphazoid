@@ -3,6 +3,8 @@ import { edgeAudioParameters, graphEdgeSwitchMultipliers, graphNodePans, graphSi
 export const MAX_RUST_GRAPH_NODES = 64;
 export const MAX_RUST_GRAPH_TURN_ROUTES = 512;
 export const MAX_RUST_GRAPH_EDGES = 256;
+// A shortest path visits at most 63 edges, each <= 2 s plus pitch history.
+export const MAX_RUST_GRAPH_WARMUP_SECONDS = 140;
 const clamp = (value, low, high, fallback) => Math.max(low, Math.min(high, Number.isFinite(Number(value)) ? Number(value) : fallback));
 
 /** Numeric graph control plan. Every turn retains its own pitch and phase; a
@@ -70,7 +72,7 @@ export function compileGraphDelayPlan(graph, source = {}, switches = null) {
     for (const edge of edges) if (edge.from === nearest && gates[edge.id] > 0) arrivals[edge.to] = Math.min(arrivals[edge.to], arrivals[nearest] + edge.delaySeconds + (pitchedEdges.has(edge.id) ? .12 : 0));
   }
   const firstArrival = Math.min(...sinks.map(id => arrivals[id]));
-  data[11] = Number.isFinite(firstArrival) ? Math.min(40, firstArrival + .02) : .15;
+  data[11] = Number.isFinite(firstArrival) ? Math.min(MAX_RUST_GRAPH_WARMUP_SECONDS, firstArrival + .02) : .15;
   for (const route of routes) { data.set([route.source, route.edge, route.semitones, route.seed], at); at += 4; }
   const signature = [graph.nodes.length, ...edges.flatMap(edge => [edge.from, edge.to, Number(Boolean(edge.feedbackEdge))]), 'entries', ...entries].join(':');
   return { data, signature, nodes: graph.nodes.length, edges: edges.length, routes: routes.length, settings };

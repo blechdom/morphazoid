@@ -1,5 +1,5 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { compileGraphDelayPlan } from './graph-delay-plan.js';
+import { compileGraphDelayPlan, MAX_RUST_GRAPH_WARMUP_SECONDS } from './graph-delay-plan.js';
 
 const MODULE_URL = new URL('../../../assets/wasm/graph-delay.wasm', import.meta.url);
 const WORKLET_URL = new URL('./graph-delay-worklet.js', import.meta.url);
@@ -77,7 +77,9 @@ export class GraphDelayRustEngine {
     return new Promise((resolve, reject) => {
       // A timed-out structural command must not commit later into a UI which
       // already rolled back. Retire the session and reject every pending edit.
-      const timer = setTimeout(() => this.fail(new Error('The Rust graph audio thread did not respond.')), 30000);
+      // A queued scene may wait for the current scene's maximum
+      // warmup, its fade, and incremental history preparation to finish.
+      const timer = setTimeout(() => this.fail(new Error('The Rust graph audio thread did not respond.')), (MAX_RUST_GRAPH_WARMUP_SECONDS + 20) * 1000);
       this.requests.set(id, { resolve, reject, timer });
       this.send({ id, type, ...values }, transfer);
     });
