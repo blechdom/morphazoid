@@ -9,6 +9,7 @@ import { waxSupportForId } from "../src/instruments/wax/wax-instrument-roles.js"
 import { CANONICAL_PAGE_ROUTES } from "../src/pages/manifest.js";
 import { graphDelayRustSiteAdditions, restoreGraphDelayRustSite } from "./helpers/graph-delay-rust-site-reference.mjs";
 import { restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
+import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
 
 test("Graph Delay Rust is a separate processor beside Graph Delay with truthful browser capabilities", () => {
   const tools = TOOL_GROUPS.find(group => group.id === "audio-effect").tools;
@@ -34,9 +35,11 @@ test("Graph Delay Rust is a separate processor beside Graph Delay with truthful 
 
 test("Graph Delay Rust metadata additions reverse exactly and preserve historical source", async () => {
   for (const change of graphDelayRustSiteAdditions) {
-    const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+    const source = restoreMidiophiliaRename(
+      await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file,
+    );
     const restored = restoreGraphDelayRustSite(source, change.file);
-    // Main independently added Fractal Delay after this frozen reference.
+    // Main independently added Fractal Delay and renamed Midiophilia after this frozen reference.
     const historical = restoreFractalDelaySite(restored, change.file);
     assert.equal(createHash("sha256").update(historical).digest("hex"), change.sha256, change.file);
     assert.equal(restoreGraphDelayRustSite(restored, change.file, { allowRestored: true }), restored);

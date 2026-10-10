@@ -2,6 +2,7 @@ import { restoreChaoticAmRouting } from "./helpers/chaotic-am-routing-reference.
 import { fractalDelaySiteChanges, restoreFractalDelaySite } from "./helpers/fractal-delay-site-reference.mjs";
 import { restoreGraphDelayRustSite } from "./helpers/graph-delay-rust-site-reference.mjs";
 import { restoreSpartialSite } from "./helpers/spartial-site-reference.mjs";
+import { restoreMidiophiliaRename } from "./helpers/midiophilia-rename-reference.mjs";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
@@ -18,7 +19,8 @@ import { chaoticDspReferenceForId } from "../src/instruments/chaotic-dsp-referen
 test("AM additions preserve the previous shared runtime bytes and reject unrelated changes", async () => {
   for (const change of amSharedAmendments.changes) {
     // Main independently added SPARTIAL and recording after this frozen baseline.
-    let current = restoreFractalDelaySite(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
+    const beforeRename = restoreMidiophiliaRename(await readFile(new URL(`../${change.file}`, import.meta.url), "utf8"), change.file);
+    let current = restoreFractalDelaySite(beforeRename, change.file);
     if (change.file === "style.css") {
       const recorderStyle = '@import url("./src/site/output-recording-controls.css");\n';
       assert.equal(current.split(recorderStyle).length - 1, 1, "exact recording stylesheet import");
@@ -43,9 +45,9 @@ test("Fractal Delay site amendments preserve genuine fresh-main bytes and reject
   assert.equal(fractalDelaySiteChanges.baseCommit, '5fcfd0a543866684bd3bf45749290a07d2156f08');
   const digest = value => createHash('sha256').update(value).digest('hex');
   for (const change of fractalDelaySiteChanges.changes) {
-    const source = restoreGraphDelayRustSite(
+    const source = restoreMidiophiliaRename(restoreGraphDelayRustSite(
       await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file, { allowRestored: true },
-    );
+    ), change.file);
     const restored = restoreFractalDelaySite(source, change.file);
     assert.equal(digest(restored), change.sha256, change.file + ': reviewed main source preserved');
     assert.notEqual(digest(restoreFractalDelaySite(source + '\n// unrelated drift\n', change.file)), change.sha256);
@@ -55,6 +57,20 @@ test("Fractal Delay site amendments preserve genuine fresh-main bytes and reject
     }
   }
   assert.equal(restoreFractalDelaySite('untouched', 'unrelated.js'), 'untouched');
+});
+
+test("historical references undo only the exact approved Midiophilia display name", async () => {
+  const file = "src/site/instrument-registry.js";
+  const source = await readFile(new URL(`../${file}`, import.meta.url), "utf8");
+  const record = source.split("\n").find(line => line.includes('id: "midiphoria"')) + "\n";
+  const restored = restoreMidiophiliaRename(source, file);
+  assert.equal(restored.replace('label: "Midiphoria"', 'label: "Midiophilia"'), source);
+  assert.throws(() => restoreMidiophiliaRename(source.replace(record, ""), file), /exact Midiophilia rename/);
+  assert.throws(() => restoreMidiophiliaRename(source + record, file), /exact Midiophilia rename/);
+  assert.throws(() => restoreMidiophiliaRename(restored, file), /exact Midiophilia rename/);
+  assert.throws(() => restoreMidiophiliaRename(source.replace('label: "Midiophilia"', 'label: "Another name"'), file), /exact Midiophilia rename/);
+  assert.equal(restoreMidiophiliaRename(source + "\n// unrelated drift\n", file), restored + "\n// unrelated drift\n");
+  assert.equal(restoreMidiophiliaRename(source, "unrelated.js"), source);
 });
 
 for (const family of ["cascading", "recursive", "chaotic"]) {
