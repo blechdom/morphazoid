@@ -26,7 +26,7 @@ test("every catalog instrument has exactly one complete WAX support record", () 
   for (const support of WAX_INSTRUMENT_SUPPORT) {
     assert.equal(waxSupportForId(support.id), support);
     if (support.available === false) {
-      assert.ok(["micmic-rust", "l-system-parametric-lab", "l-system-experiments"].includes(support.id));
+      assert.ok(["micmic-rust", "l-system-parametric-lab", "l-system-experiments", "fractal-delay"].includes(support.id));
       assert.equal(support.recommended, null);
       assert.deepEqual(support.roles, []);
       assert.equal(support.audioInput, false);

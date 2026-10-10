@@ -471,6 +471,9 @@ for (const viewport of SIZES) {
     test.setTimeout(60000);
     await page.setViewportSize(viewport);
     const errors = await fixture(page); await ready(page);
+    const graphic = await page.locator('#stage').boundingBox();
+    expect(graphic.height, 'the graphic must retain a usable height').toBeGreaterThan(120);
+    expect(graphic.width, 'the graphic must retain a usable width').toBeGreaterThan(200);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
       'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',

@@ -3,7 +3,8 @@
 [Open the instrument](../fractal-delay.html). Its five mappings share one
 mic/line, local audio-file and recorded-sample input system based on L-system
 Delay Rust. Audio starts off; choose a source and explicitly enable Audio.
-Microphone capture has its own permission and on/off control. Mic trim applies
+Microphone capture has its own permission and on/off control; it can meter
+silently and never arms Audio. Mic trim applies
 to mic/line; file and sample playback enter at unity. Source, playback and live
 levels survive musical preset recall. The reused sample bank retains its
 existing credits in [processing input samples](processing-input-samples.md).
@@ -80,6 +81,13 @@ arrival can still occur later on longer new routes.
 
 Capacity depends on both graph workload and the total edge length that needs
 two-way delay storage. A voice count alone cannot describe waveguide memory.
+The device memory envelope is 48, 96 or 192 MiB based on the browser's device
+memory hint (96 MiB when unavailable). Half is available to each scene so
+current and replacement networks can coexist. These are application budgets,
+not a claim to have measured all available system memory. A worker benchmarks
+the actual Rust graph to select a steady processing target with room for a
+transition. The test budget can bypass that CPU target while retaining memory
+and finite model bounds. It never changes automatically as sound gets louder.
 Admission reduces whole inverse depths, coherent contour/ray resolution or
 whole mesh resolution. The graphic displays the admitted network; it does not
 append a larger decorative graph that the audio engine cannot process.
