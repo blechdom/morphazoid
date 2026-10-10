@@ -7,7 +7,7 @@ import { buildNetwork, DEFAULT_PARAMETERS, MODES } from '../src/instruments/frac
 const bytes = await readFile(new URL('../assets/wasm/fractal-delay.wasm', import.meta.url));
 const module = await WebAssembly.compile(bytes);
 const RATE = 48000, BLOCK = 128, zero = new Float32Array(BLOCK);
-const transparent = { dry: 0, wet: 1, hpfHz: 0, lpfHz: 22000, compressorRatio: 1, outputBoostDb: 0, outputLevel: 1 };
+const transparent = { delayGainDb: 0, dry: 0, wet: 1, hpfHz: 0, lpfHz: 22000, compressorRatio: 1, outputBoostDb: 0, outputLevel: 1 };
 function graph(edges, nodeCount, pickupNode = nodeCount-1) {
   return { nodes: Array.from({length:nodeCount},(_,id)=>({id,x:0,y:0})), edges: edges.map(([a,b,length],id)=>({id,a,b,length})),inputNode:0,pickupNode };
 }
@@ -18,8 +18,8 @@ function render(e, blocks, signal = null) {
 }
 function energy(pcm) { return pcm.reduce((sum,value)=>sum+value*value,0); }
 function finite(pcm) { assert(pcm.every(value=>Number.isFinite(value)&&Math.abs(value)<=.940001)); }
-function initialize(scene, parameters = {}) {
-  const e=createWasmNetwork(module,RATE);e.controls({timeMs:10,coupling:1,decay:1,...parameters},transparent,'media');
+function initialize(scene, parameters = {}, performance = {}) {
+  const e=createWasmNetwork(module,RATE);e.controls({timeMs:10,coupling:1,decay:1,...parameters},{...transparent,...performance},'media');
   render(e,240);e.prepareScene(scene); return e;
 }
 const impulse = block => { if(block)return zero; const sample=zero.slice();sample[0]=.1;return sample; };
@@ -111,6 +111,61 @@ test('media unity is immediate and independent of mic trim, while microphone tri
     a.controls({}, {},'mic');b.controls({}, {},'mic');render(a,240);render(b,240);
     const mute=a.process(wave).left.slice(),loud=b.process(wave).left.slice();assert(energy(loud)>energy(mute)*1e8);
   }finally{a.dispose();b.dispose();}
+});
+
+test('receiver gain scales wet pressure in dB while the dry source remains exactly independent',()=>{
+  const scene=graph([[0,1,.1]],2),gains=[-12,0,12];
+  const wet=gains.map(delayGainDb=>initialize(scene,{boundary:0,decay:.7},{delayGainDb}));
+  const dry=[-12,48].map(delayGainDb=>initialize(scene,{boundary:0,decay:.7},{delayGainDb,wet:0,dry:1}));
+  const quietImpulse=block=>{const input=zero.slice();if(!block)input[0]=.001;return input;};
+  try {
+    const responses=wet.map(engine=>render(engine,8,quietImpulse)),reference=energy(responses[1]);
+    assert(reference>1e-10,'reference wet signal is genuinely nonzero');
+    responses.forEach((pcm,i)=>{
+      finite(pcm);
+      const measured=Math.sqrt(energy(pcm)/reference),expected=10**(gains[i]/20);
+      assert(Math.abs(measured/expected-1)<.001,`${gains[i]} dB receiver gain expected ${expected}, measured ${measured}`);
+      assert.equal(pcm.findIndex(value=>Math.abs(value)>1e-6),responses[1].findIndex(value=>Math.abs(value)>1e-6),'gain preserves geometric onset');
+    });
+    // Give the wet follower enough silent audio frames to reach exact zero,
+    // then compare identical real media input across the full gain range.
+    dry.forEach(engine=>render(engine,480));
+    const source=block=>Float32Array.from({length:BLOCK},(_,i)=>.03*Math.sin(2*Math.PI*173*(block*BLOCK+i)/RATE));
+    const a=render(dry[0],24,source),b=render(dry[1],24,source);
+    assert(energy(a)>1e-6);assert.deepEqual(a,b,'Delay gain never amplifies or otherwise changes the dry path');finite(a);finite(b);
+  } finally {[...wet,...dry].forEach(engine=>engine.dispose());}
+});
+
+test('live receiver gain ramps without rebuilding histories, changing feedback or resetting the sample clock',()=>{
+  const scene=graph([[0,1,.1],[1,2,.2]],3),reference=initialize(scene,{decay:.85}),changed=initialize(scene,{decay:.85});
+  const source=new Float32Array(BLOCK).fill(.001);
+  try {
+    for(let n=0;n<240;n++){reference.process(source);changed.process(source);}
+    const before=changed.status(),allocation=changed.api.memory.buffer.byteLength;
+    changed.controls({}, {delayGainDb:12});
+    assert.equal(changed.status().sampleClock,before.sampleClock);assert.equal(changed.status().revision,before.revision);
+    const old=reference.process(source).left.slice(),first=changed.process(source).left.slice();finite(first);
+    assert(Math.abs(first[0]/old[0]-1)<.01,'the first sample follows the 35 ms gain ramp instead of jumping by 12 dB');
+    for(let n=0;n<360;n++){reference.process(source);changed.process(source);}
+    const a=reference.process(source).left.slice(),b=changed.process(source).left.slice();
+    const measured=Math.sqrt(energy(b)/energy(a));assert(Math.abs(measured/(10**(.6))-1)<.01,'live gain settles to the requested receiver amplification');
+    const after=changed.status(),control=reference.status();
+    assert.equal(after.sampleClock,before.sampleClock+362*BLOCK);assert.equal(after.sampleClock,control.sampleClock);
+    assert.equal(after.revision,before.revision);assert.equal(after.activeEdges,before.activeEdges);
+    assert.equal(after.requiredDelayBytes,before.requiredDelayBytes);assert.equal(after.releasingEdges,0);
+    assert.equal(changed.api.memory.buffer.byteLength,allocation);
+    assert.deepEqual(after.edgeLevels,control.edgeLevels,'receiver amplification does not feed into graph energy');
+    assert.deepEqual(after.edgeWaveforms,control.edgeWaveforms,'raw travelling waves remain unchanged');
+    changed.controls({}, {delayGainDb:48});
+    const hot=new Float32Array(BLOCK).fill(.2);let peak=0;
+    for(let n=0;n<240;n++){
+      const output=changed.process(hot);finite(output.left);finite(output.right);
+      peak=Math.max(peak,...output.left.map(Math.abs),...output.right.map(Math.abs));
+    }
+    assert(peak>.8,'extreme receiver amplification reaches the real output limiter');
+    assert.equal(changed.status().revision,before.revision);assert.equal(changed.status().activeEdges,before.activeEdges);
+    for(const delayGainDb of [-12.1,48.1,NaN,Infinity])assert.throws(()=>changed.controls({}, {delayGainDb}),/Invalid|invalid|controls/);
+  } finally {reference.dispose();changed.dispose();}
 });
 test('invalid complete graph or controls reject transaction without damaging current audio',()=>{
   const e=initialize(graph([[0,1,.1]],2));

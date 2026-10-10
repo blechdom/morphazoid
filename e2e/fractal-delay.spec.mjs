@@ -312,6 +312,15 @@ async function performanceState(page, values) {
   }, { module: ENGINE, values });
 }
 
+async function settledDelayGain(page, value) {
+  await range(page, 'delayGainDb', value);
+  await expect.poll(async () => (await diagnostics(page)).performance.delayGainDb).toBe(value);
+  const requested = await diagnostics(page);
+  await expect.poll(async () => (await diagnostics(page)).sampleClock, { timeout: 5000 }).toBeGreaterThan(requested.sampleClock);
+  const started = await diagnostics(page), frames = Math.ceil(started.sampleRate * .035 * 12);
+  await expect.poll(async () => (await diagnostics(page)).sampleClock - started.sampleClock, { timeout: 5000 }).toBeGreaterThanOrEqual(frames);
+}
+
 async function upload(page) {
   await page.locator('#fileInput').setInputFiles({ name: 'fractal-known-tones.wav', mimeType: 'audio/wav', buffer: wav() });
   await expect.poll(async () => {
@@ -493,6 +502,68 @@ test('multiport excitation, pickups and routing show the installed scene without
   await testInfo.attach('multiport-routing-pcm.json', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' });
 });
 
+test('Delay gain amplifies wet audio independently and survives presets without restarting playback', async ({ page }, testInfo) => {
+  test.setTimeout(120000);
+  const errors = await fixture(page); await ready(page);
+  await expect(page.locator('#delayGainDb')).toHaveAttribute('min', '-12');
+  await expect(page.locator('#delayGainDb')).toHaveAttribute('max', '48');
+  expect((await diagnostics(page)).performance.delayGainDb).toBe(24);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
+  await parameters(page, { mode: 'inverse', detail: 2, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0,
+    inputMode: 'all', pickupMode: 'all', boundary: 0, routing: 'geometry' });
+  await performanceState(page, { wet: 1, dry: 0, outputLevel: .4, outputBoostDb: 0, hpfHz: 5, lpfHz: 22000,
+    compressorThresholdDb: 0, compressorRatio: 1, compressorMakeupDb: 0 });
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.input.playing && !d.compiling && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
+  }, { timeout: 30000 }).toBe(true);
+  const before = await diagnostics(page), evidence = {};
+  for (const gain of [0, 12]) {
+    await settledDelayGain(page, gain); await beginCapture(page);
+    evidence[`wet${gain}`] = await capture(page); boundedPcm(evidence[`wet${gain}`]);
+  }
+  const wetRatio = evidence.wet12.rms / evidence.wet0.rms;
+  expect(Math.abs(wetRatio / (10 ** (12 / 20)) - 1)).toBeLessThan(.02);
+  await performanceState(page, { wet: 0, dry: 1 });
+  for (const gain of [0, 48]) {
+    await settledDelayGain(page, gain); await beginCapture(page);
+    evidence[`dry${gain}`] = await capture(page); boundedPcm(evidence[`dry${gain}`]);
+  }
+  expect(Math.abs(evidence.dry48.rms / evidence.dry0.rms - 1)).toBeLessThan(.015);
+  await performanceState(page, { wet: .7, dry: .3 }); await settledDelayGain(page, 48);
+  await beginCapture(page); evidence.maximumGain = await capture(page); boundedPcm(evidence.maximumGain);
+  const afterGains = await diagnostics(page);
+  expect(afterGains.network.revision).toBe(before.network.revision);
+  expect(afterGains.preparedEdges).toBe(before.preparedEdges); expect(afterGains.requiredDelayBytes).toBe(before.requiredDelayBytes);
+  expect(afterGains.contextGeneration).toBe(before.contextGeneration); expect(afterGains.witness.sources).toEqual(before.witness.sources);
+  expect(afterGains.sampleClock).toBeGreaterThan(before.sampleClock); expect(afterGains.error).toBeFalsy();
+
+  await settledDelayGain(page, 17);
+  const presets = await page.locator('#presetSelect').evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
+  for (const id of presets.slice(0, 2)) {
+    await page.locator('.instrument-preset-controls summary').click();
+    await page.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id);
+    expect((await diagnostics(page)).performance.delayGainDb).toBe(17);
+    await expect(page.locator('#delayGainDb')).toHaveValue('17');
+  }
+  await choose(page, 'masteringPreset', 'warm');
+  expect((await diagnostics(page)).performance.delayGainDb).toBe(17);
+  await page.locator('#captureSound').evaluate(button => { button.closest('details').open = true; });
+  await page.locator('#captureSound').click();
+  const captured = JSON.parse(await page.locator('#capturedSound').inputValue());
+  expect(captured.liveLevels.delayGainDb).toBe(17);
+  const afterPresets = await diagnostics(page);
+  expect(afterPresets.contextGeneration).toBe(before.contextGeneration); expect(afterPresets.witness.sources).toEqual(before.witness.sources);
+  expect(afterPresets.sampleClock).toBeGreaterThan(afterGains.sampleClock); expect(afterPresets.input.playing).toBe(true);
+  expect(afterPresets.audioDesired).toBe(true); expect(afterPresets.error).toBeFalsy(); expect(errors).toEqual([]);
+  await testInfo.attach('receiver-gain-pcm.json', { body: JSON.stringify({ ...evidence, wetRatio,
+    revisionBefore: before.network.revision, revisionAfterGain: afterGains.network.revision,
+    clockBefore: before.sampleClock, clockAfterGain: afterGains.sampleClock, retainedGain: afterPresets.performance.delayGainDb }, null, 2),
+    contentType: 'application/json' });
+});
+
 test('file and sample input stay at unity independently of retained mic gain', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
@@ -647,6 +718,7 @@ for (const viewport of SIZES) {
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
       'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
       'inputMode', 'inputPosition', 'inputCount', 'inputSpread', 'pickupMode', 'pickupCount', 'pickupSpread', 'boundary', 'routing', 'linkDensity',
+      'delayGainDb',
       'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
       'compressorAttackMs', 'compressorReleaseMs', 'compressorMakeupDb', 'masteringPreset', 'inputTrim', 'outputLevel',
       'voiceBudget', 'manualBudget', 'captureSound', 'audioButton', 'presetSelect']) {
