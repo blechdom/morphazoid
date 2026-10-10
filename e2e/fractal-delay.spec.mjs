@@ -541,11 +541,26 @@ test('Delay gain amplifies wet audio independently and survives presets without 
 
   await settledDelayGain(page, 17);
   const presets = await page.locator('#presetSelect').evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
+  evidence.presetTransitions = [];
   for (const id of presets.slice(0, 2)) {
+    const beforePreset = await diagnostics(page);
     await page.locator('.instrument-preset-controls summary').click();
     await page.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
-    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id);
-    expect((await diagnostics(page)).performance.delayGainDb).toBe(17);
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id, { timeout: 30000 });
+    await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('aria-busy', 'false', { timeout: 30000 });
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.compiling && d.network?.revision > beforePreset.network.revision &&
+        d.status.revision === d.network.revision && d.activeEdges === d.preparedEdges;
+    }, { timeout: 30000 }).toBe(true);
+    const installed = await diagnostics(page);
+    expect(installed.contextGeneration).toBe(beforePreset.contextGeneration);
+    expect(installed.witness.sources).toEqual(beforePreset.witness.sources);
+    expect(installed.sampleClock).toBeGreaterThan(beforePreset.sampleClock);
+    expect(installed.input.playing).toBe(true); expect(installed.audioDesired).toBe(true);
+    expect(installed.error).toBeFalsy(); expect(installed.performance.delayGainDb).toBe(17);
+    evidence.presetTransitions.push({ id, revision: installed.network.revision, activeEdges: installed.activeEdges,
+      preparedEdges: installed.preparedEdges, clockBefore: beforePreset.sampleClock, clockAfter: installed.sampleClock });
     await expect(page.locator('#delayGainDb')).toHaveValue('17');
   }
   await choose(page, 'masteringPreset', 'warm');
