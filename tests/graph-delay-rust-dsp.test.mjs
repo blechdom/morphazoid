@@ -344,6 +344,66 @@ test('automatic admission never overrides the manual ceiling and disabling prote
   } finally { f.close(); }
 });
 
+test('a new scene can recover admission without reviving the retiring graph overload', () => {
+  const woven = GRAPH_DELAY_RUST_PRESETS.find(item => item.id === 'wovenGlass').snapshot.graph;
+  const island = GRAPH_DELAY_RUST_PRESETS.find(item => item.id === 'islandConstellation').snapshot.graph;
+  const options = { ...settings, baseDelay: 300 };
+  const f = fixture(woven, options, 8000);
+  try {
+    assert.equal(f.initial.routes, 381);
+    f.api.gdr_limit(f.engine, 34);
+    f.render(.25, tone(.04));
+    assert.equal(f.metrics()[9], 34);
+    assert.equal(f.install(island, options).routes, 41);
+
+    // The worklet re-admits a structurally new scene after preparation.
+    // Woven must keep its known limit while Island receives its full budget.
+    f.api.gdr_limit(f.engine, 512);
+    let metrics = f.metrics();
+    assert.equal(metrics[11], 41); assert.equal(metrics[12], 34);
+    f.render(.25, tone(.04));
+    metrics = f.metrics();
+    assert.equal(metrics[9], 41); assert.equal(metrics[10], 34);
+    assert.ok(metrics[20] > 5, 'the old scene is still audible during warmup');
+
+    // A later protection cut can lower either scene, but its recovery only
+    // re-admits the current scene, including after live coefficient updates.
+    f.api.gdr_limit(f.engine, 20);
+    f.render(.25, tone(.04));
+    f.api.gdr_limit(f.engine, 512);
+    assert.equal(f.controls(woven, { ...options, pitchScale: .5 }), 1);
+    metrics = f.metrics();
+    assert.equal(metrics[11], 41); assert.equal(metrics[12], 20);
+    assert.equal(metrics[10], 20);
+
+    f.api.gdr_performance(f.engine, 60, 0);
+    assert.equal(f.metrics()[12], 60, 'Protect off restores retiring turns up to the manual cap');
+    f.api.gdr_performance(f.engine, 0, 0);
+    assert.equal(f.metrics()[12], 381, 'Protect off permits every prepared retiring turn');
+    f.api.gdr_performance(f.engine, 0, 1);
+    assert.equal(f.metrics()[12], 20, 'Protect on retains the known retiring protection limit');
+  } finally { f.close(); }
+});
+
+test('retiring protection remembers automatic limits without capturing the manual cap', () => {
+  const woven = GRAPH_DELAY_RUST_PRESETS.find(item => item.id === 'wovenGlass').snapshot.graph;
+  const island = GRAPH_DELAY_RUST_PRESETS.find(item => item.id === 'islandConstellation').snapshot.graph;
+  const options = { ...settings, baseDelay: 300 };
+  const f = fixture(woven, options, 8000);
+  try {
+    f.api.gdr_limit(f.engine, 34);
+    f.api.gdr_performance(f.engine, 16, 1);
+    f.render(.25, tone(.04));
+    f.install(island, options);
+    f.api.gdr_limit(f.engine, 512);
+    assert.equal(f.metrics()[11], 16); assert.equal(f.metrics()[12], 16);
+    f.api.gdr_performance(f.engine, 32, 1);
+    assert.equal(f.metrics()[11], 32); assert.equal(f.metrics()[12], 32);
+    f.api.gdr_performance(f.engine, 0, 1);
+    assert.equal(f.metrics()[11], 41); assert.equal(f.metrics()[12], 34);
+  } finally { f.close(); }
+});
+
 test('route priority remains stable through geometry, pitch, input and gate updates', () => {
   const geometry = graph('dag', 12), initial = compileGraphDelayPlan(geometry, settings);
   const changed = structuredClone(geometry);

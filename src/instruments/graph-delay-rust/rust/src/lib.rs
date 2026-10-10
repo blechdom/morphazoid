@@ -968,6 +968,7 @@ pub struct Engine {
     voice_ceiling: usize,
     automatic: bool,
     automatic_limit: usize,
+    old_automatic_limit: usize,
     calibration: bool,
     node_levels: [f32; NODES],
     edge_levels: [f32; EDGES],
@@ -993,6 +994,7 @@ impl Engine {
             voice_ceiling: 0,
             automatic: true,
             automatic_limit: ROUTES,
+            old_automatic_limit: ROUTES,
             calibration: false,
             node_levels: [0.; NODES],
             edge_levels: [0.; EDGES],
@@ -1048,11 +1050,23 @@ impl Engine {
     }
     fn apply_limit(&mut self) {
         let limit = self.current_limit();
-        for net in [&mut self.active, &mut self.old, &mut self.pending]
+        for net in [&mut self.active, &mut self.pending]
             .into_iter()
             .flatten()
         {
             net.apply_limit(limit, !net.ready);
+        }
+        if let Some(old) = &mut self.old {
+            // A new scene may re-admit more work, but must not resurrect the
+            // retiring scene's overload. Manual caps are deliberately absent
+            // from this memory, and disabling Protect bypasses it entirely.
+            let old_limit = if self.automatic {
+                self.old_automatic_limit = self.old_automatic_limit.min(self.automatic_limit);
+                limit.min(self.old_automatic_limit)
+            } else {
+                limit
+            };
+            old.apply_limit(old_limit, !old.ready);
         }
         self.extend_warm();
         self.refresh_counts();
@@ -1114,6 +1128,11 @@ impl Engine {
             return false;
         }
         self.old = self.active.take();
+        self.old_automatic_limit = if self.automatic {
+            self.automatic_limit
+        } else {
+            ROUTES
+        };
         self.active = self.pending.take();
         self.fade = if self.old.is_some() { 0. } else { 1. };
         self.warm = if self.old.is_some() {
