@@ -16,7 +16,7 @@ test('Fractal Delay is one canonical instrument with all five playable mappings'
   const values = [...mode.matchAll(/<option\b[^>]*value=["']([^"']+)["']/g)].map(match => match[1]);
   assert.deepEqual(values.sort(), ['inverse', 'contours', 'orbits', 'rays', 'membrane'].sort());
   for (const id of ['audioButton', 'sourceMode', 'sampleSelect', 'fileInput', 'mode', 'cReal', 'cImag',
-    'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'delayGainDb', 'stage', 'presetSelect']) {
+    'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'inputDriveDb', 'dry', 'delayGainDb', 'stage', 'presetSelect']) {
     assert.equal([...html.matchAll(new RegExp(`id=["']${id}["']`, 'g'))].length, 1, `#${id} needs one authoritative control`);
   }
   const stage = html.match(/<canvas\b[^>]*id=["']stage["'][^>]*>/)?.[0];

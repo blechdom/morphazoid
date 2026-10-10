@@ -312,14 +312,15 @@ async function performanceState(page, values) {
   }, { module: ENGINE, values });
 }
 
-async function settledDelayGain(page, value) {
-  await range(page, 'delayGainDb', value);
-  await expect.poll(async () => (await diagnostics(page)).performance.delayGainDb).toBe(value);
+async function settledPerformanceRange(page, id, value) {
+  await range(page, id, value);
+  await expect.poll(async () => (await diagnostics(page)).performance[id]).toBe(value);
   const requested = await diagnostics(page);
   await expect.poll(async () => (await diagnostics(page)).sampleClock, { timeout: 5000 }).toBeGreaterThan(requested.sampleClock);
   const started = await diagnostics(page), frames = Math.ceil(started.sampleRate * .035 * 12);
   await expect.poll(async () => (await diagnostics(page)).sampleClock - started.sampleClock, { timeout: 5000 }).toBeGreaterThanOrEqual(frames);
 }
+const settledDelayGain = (page, value) => settledPerformanceRange(page, 'delayGainDb', value);
 
 async function upload(page) {
   await page.locator('#fileInput').setInputFiles({ name: 'fractal-known-tones.wav', mimeType: 'audio/wav', buffer: wav() });
@@ -502,6 +503,60 @@ test('multiport excitation, pickups and routing show the installed scene without
   await testInfo.attach('multiport-routing-pcm.json', { body: JSON.stringify(evidence, null, 2), contentType: 'application/json' });
 });
 
+test('Network drive feeds real wet audio with direct input muted and cannot amplify direct playback', async ({ page }, testInfo) => {
+  test.setTimeout(90000);
+  const errors = await fixture(page); await ready(page);
+  const initial = await diagnostics(page);
+  expect(initial.performance.inputDriveDb).toBe(12); expect(initial.performance.dry).toBe(0);
+  await expect(page.locator('#inputDriveDb')).toHaveAttribute('min', '-12');
+  await expect(page.locator('#inputDriveDb')).toHaveAttribute('max', '24');
+  await expect(page.locator('.input-section #inputDriveDb')).toHaveAttribute('aria-label', 'Network drive');
+  await expect(page.locator('.input-section #dry')).toHaveAttribute('aria-label', 'Direct input');
+  await expect(page.locator('#dry')).toHaveValue('0');
+  await choose(page, 'sourceMode', 'file'); await upload(page);
+  await parameters(page, { mode: 'inverse', detail: 2, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0,
+    inputMode: 'all', pickupMode: 'all', boundary: 0, routing: 'geometry' });
+  await performanceState(page, { inputDriveDb: 0, delayGainDb: 0, wet: 1, outputLevel: .4, outputBoostDb: 0,
+    hpfHz: 5, lpfHz: 22000, compressorThresholdDb: 0, compressorRatio: 1, compressorMakeupDb: 0 });
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => {
+    const d = await diagnostics(page);
+    return d.input.playing && !d.compiling && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
+  }, { timeout: 30000 }).toBe(true);
+  const before = await diagnostics(page), evidence = {};
+  for (const drive of [0, 12]) {
+    await settledPerformanceRange(page, 'inputDriveDb', drive); await beginCapture(page);
+    const pcm = await capture(page); boundedPcm(pcm);
+    const d = await diagnostics(page);
+    expect(d.performance.dry).toBe(0);
+    evidence[`wet${drive}`] = { ...pcm, edgePeak: Math.max(...d.status.edgeLevels) };
+  }
+  const wetRatio = evidence.wet12.rms / evidence.wet0.rms;
+  expect(Math.abs(wetRatio / (10 ** (12 / 20)) - 1)).toBeLessThan(.02);
+  expect(evidence.wet12.edgePeak).toBeGreaterThan(evidence.wet0.edgePeak * 3);
+  await settledPerformanceRange(page, 'wet', 0); await beginCapture(page);
+  evidence.mutedMix = await capture(page);
+  expect(evidence.mutedMix.peak).toBeLessThan(.00001); expect(evidence.mutedMix.nonFinite).toBe(0);
+  const stillFed = await diagnostics(page);
+  expect(stillFed.input.playing).toBe(true); expect(stillFed.status.inputPeak).toBeGreaterThan(.00001);
+  expect(Math.max(...stillFed.status.edgeLevels)).toBeGreaterThan(.00001);
+  await settledPerformanceRange(page, 'dry', 1);
+  for (const drive of [-12, 24]) {
+    await settledPerformanceRange(page, 'inputDriveDb', drive); await beginCapture(page);
+    evidence[`direct${drive}`] = await capture(page); boundedPcm(evidence[`direct${drive}`]);
+  }
+  expect(Math.abs(evidence.direct24.rms / evidence['direct-12'].rms - 1)).toBeLessThan(.015);
+  const after = await diagnostics(page);
+  expect(after.network.revision).toBe(before.network.revision); expect(after.preparedEdges).toBe(before.preparedEdges);
+  expect(after.requiredDelayBytes).toBe(before.requiredDelayBytes); expect(after.contextGeneration).toBe(before.contextGeneration);
+  expect(after.witness.sources).toEqual(before.witness.sources); expect(after.sampleClock).toBeGreaterThan(before.sampleClock);
+  expect(after.input.playing).toBe(true); expect(after.audioDesired).toBe(true);
+  expect(after.error).toBeFalsy(); expect(errors).toEqual([]);
+  await testInfo.attach('network-drive-pcm.json', { body: JSON.stringify({ ...evidence, wetRatio,
+    revision: after.network.revision, clockBefore: before.sampleClock, clockAfter: after.sampleClock }, null, 2),
+    contentType: 'application/json' });
+});
+
 test('Delay gain amplifies wet audio independently and survives presets without restarting playback', async ({ page }, testInfo) => {
   test.setTimeout(120000);
   const errors = await fixture(page); await ready(page);
@@ -511,7 +566,7 @@ test('Delay gain amplifies wet audio independently and survives presets without 
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await parameters(page, { mode: 'inverse', detail: 2, timeMs: 12, coupling: 1, decay: .7, pitchOffset: 0,
     inputMode: 'all', pickupMode: 'all', boundary: 0, routing: 'geometry' });
-  await performanceState(page, { wet: 1, dry: 0, outputLevel: .4, outputBoostDb: 0, hpfHz: 5, lpfHz: 22000,
+  await performanceState(page, { inputDriveDb: 0, wet: 1, dry: 0, outputLevel: .4, outputBoostDb: 0, hpfHz: 5, lpfHz: 22000,
     compressorThresholdDb: 0, compressorRatio: 1, compressorMakeupDb: 0 });
   await page.locator('#audioButton').click();
   await expect.poll(async () => {
@@ -540,6 +595,8 @@ test('Delay gain amplifies wet audio independently and survives presets without 
   expect(afterGains.sampleClock).toBeGreaterThan(before.sampleClock); expect(afterGains.error).toBeFalsy();
 
   await settledDelayGain(page, 17);
+  await settledPerformanceRange(page, 'inputDriveDb', 9);
+  await settledPerformanceRange(page, 'dry', .08);
   const presets = await page.locator('#presetSelect').evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
   evidence.presetTransitions = [];
   for (const id of presets.slice(0, 2)) {
@@ -559,16 +616,23 @@ test('Delay gain amplifies wet audio independently and survives presets without 
     expect(installed.sampleClock).toBeGreaterThan(beforePreset.sampleClock);
     expect(installed.input.playing).toBe(true); expect(installed.audioDesired).toBe(true);
     expect(installed.error).toBeFalsy(); expect(installed.performance.delayGainDb).toBe(17);
+    expect(installed.performance.inputDriveDb).toBe(9); expect(installed.performance.dry).toBe(.08);
     evidence.presetTransitions.push({ id, revision: installed.network.revision, activeEdges: installed.activeEdges,
       preparedEdges: installed.preparedEdges, clockBefore: beforePreset.sampleClock, clockAfter: installed.sampleClock });
     await expect(page.locator('#delayGainDb')).toHaveValue('17');
+    await expect(page.locator('#inputDriveDb')).toHaveValue('9'); await expect(page.locator('#dry')).toHaveValue('0.08');
   }
   await choose(page, 'masteringPreset', 'warm');
   expect((await diagnostics(page)).performance.delayGainDb).toBe(17);
+  expect((await diagnostics(page)).performance.inputDriveDb).toBe(9);
+  expect((await diagnostics(page)).performance.dry).toBe(.08);
   await page.locator('#captureSound').evaluate(button => { button.closest('details').open = true; });
   await page.locator('#captureSound').click();
   const captured = JSON.parse(await page.locator('#capturedSound').inputValue());
   expect(captured.liveLevels.delayGainDb).toBe(17);
+  expect(captured.liveLevels.inputDriveDb).toBe(9); expect(captured.liveLevels.dry).toBe(.08);
+  expect(Object.hasOwn(captured.performance, 'inputDriveDb')).toBe(false);
+  expect(Object.hasOwn(captured.performance, 'dry')).toBe(false);
   const afterPresets = await diagnostics(page);
   expect(afterPresets.contextGeneration).toBe(before.contextGeneration); expect(afterPresets.witness.sources).toEqual(before.witness.sources);
   expect(afterPresets.sampleClock).toBeGreaterThan(afterGains.sampleClock); expect(afterPresets.input.playing).toBe(true);
@@ -733,7 +797,7 @@ for (const viewport of SIZES) {
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
       'mode', 'modeNext', 'domain', 'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
       'inputMode', 'inputPosition', 'inputCount', 'inputSpread', 'pickupMode', 'pickupCount', 'pickupSpread', 'boundary', 'routing', 'linkDensity',
-      'delayGainDb',
+      'inputDriveDb', 'delayGainDb',
       'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
       'compressorAttackMs', 'compressorReleaseMs', 'compressorMakeupDb', 'masteringPreset', 'inputTrim', 'outputLevel',
       'voiceBudget', 'manualBudget', 'captureSound', 'audioButton', 'presetSelect']) {

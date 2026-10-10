@@ -7,7 +7,7 @@ import { buildNetwork, DEFAULT_PARAMETERS, MODES } from '../src/instruments/frac
 const bytes = await readFile(new URL('../assets/wasm/fractal-delay.wasm', import.meta.url));
 const module = await WebAssembly.compile(bytes);
 const RATE = 48000, BLOCK = 128, zero = new Float32Array(BLOCK);
-const transparent = { delayGainDb: 0, dry: 0, wet: 1, hpfHz: 0, lpfHz: 22000, compressorRatio: 1, outputBoostDb: 0, outputLevel: 1 };
+const transparent = { inputDriveDb: 0, delayGainDb: 0, dry: 0, wet: 1, hpfHz: 0, lpfHz: 22000, compressorRatio: 1, outputBoostDb: 0, outputLevel: 1 };
 function graph(edges, nodeCount, pickupNode = nodeCount-1) {
   return { nodes: Array.from({length:nodeCount},(_,id)=>({id,x:0,y:0})), edges: edges.map(([a,b,length],id)=>({id,a,b,length})),inputNode:0,pickupNode };
 }
@@ -111,6 +111,77 @@ test('media unity is immediate and independent of mic trim, while microphone tri
     a.controls({}, {},'mic');b.controls({}, {},'mic');render(a,240);render(b,240);
     const mute=a.process(wave).left.slice(),loud=b.process(wave).left.slice();assert(energy(loud)>energy(mute)*1e8);
   }finally{a.dispose();b.dispose();}
+});
+
+test('network drive raises actual travelling pressure in dB while direct stereo remains independent',()=>{
+  const scene=graph([[0,1,.1]],2),gains=[-12,0,12,24];
+  const wet=gains.map(inputDriveDb=>initialize(scene,{boundary:0,decay:.7},{inputDriveDb}));
+  const direct=[-12,24].map(inputDriveDb=>initialize(scene,{boundary:0,decay:.7},{inputDriveDb,wet:0,dry:1}));
+  const source=new Float32Array(BLOCK).fill(.001);
+  try {
+    const responses=wet.map(engine=>render(engine,8,()=>source)),reference=energy(responses[1]);
+    assert(reference>1e-8,'the unamplified network really carries the source');
+    const levels=wet.map(engine=>engine.status().edgeLevels[0]);
+    assert(levels[1]>0,'pressure telemetry comes from the actual delay history');
+    responses.forEach((pcm,i)=>{
+      finite(pcm);
+      const expected=10**(gains[i]/20),measured=Math.sqrt(energy(pcm)/reference);
+      assert(Math.abs(measured/expected-1)<.001,`${gains[i]} dB excitation expected ${expected}, measured ${measured}`);
+      assert(Math.abs(levels[i]/levels[1]/expected-1)<.00001,'drive amplifies travelling pressure, not just the final wet mix');
+      assert.equal(pcm.findIndex(value=>Math.abs(value)>1e-6),responses[1].findIndex(value=>Math.abs(value)>1e-6),'network drive retains geometric onset');
+      assert.equal(wet[i].status().inputPeak,wet[1].status().inputPeak,'source metering remains before network amplification');
+    });
+    direct.forEach(engine=>render(engine,480));
+    for(let block=0;block<24;block++){
+      const left=Float32Array.from({length:BLOCK},(_,i)=>.03*Math.sin(2*Math.PI*173*(block*BLOCK+i)/RATE));
+      const right=Float32Array.from({length:BLOCK},(_,i)=>.02*Math.sin(2*Math.PI*311*(block*BLOCK+i)/RATE));
+      const a=direct[0].process(left,right),b=direct[1].process(left,right);
+      assert.deepEqual(a.left,b.left,'network drive does not amplify direct left playback');
+      assert.deepEqual(a.right,b.right,'network drive does not amplify direct right playback');
+      assert(energy(a.left)>1e-6);finite(a.left);finite(a.right);
+    }
+    assert(direct[1].status().edgeLevels[0]>direct[0].status().edgeLevels[0]*50,'direct unity is independent even when network pressure is much greater');
+  } finally {[...wet,...direct].forEach(engine=>engine.dispose());}
+});
+
+test('live network drive preserves old tails and smoothly changes new injection without reallocating or resetting',()=>{
+  const scene=graph([[0,1,.1],[1,2,.2]],3),reference=initialize(scene,{decay:.85}),changed=initialize(scene,{decay:.85});
+  const source=new Float32Array(BLOCK).fill(.001);
+  try {
+    for(let n=0;n<240;n++){reference.process(source);changed.process(source);}
+    const before=changed.status(),allocation=changed.api.memory.buffer.byteLength;
+    changed.controls({}, {inputDriveDb:24});
+    assert.equal(changed.status().sampleClock,before.sampleClock);assert.equal(changed.status().revision,before.revision);
+    const oldTail=render(reference,120),editedTail=render(changed,120);
+    assert(energy(oldTail)>1e-6,'a real feedback tail remains after the external source stops');
+    assert.deepEqual(editedTail,oldTail,'network drive does not repeatedly amplify or erase returning waves');
+    assert.deepEqual(changed.status().edgeWaveforms,reference.status().edgeWaveforms);
+    changed.controls({}, {inputDriveDb:0});render(reference,480);render(changed,480);
+    for(let n=0;n<240;n++){reference.process(source);changed.process(source);}
+    const rampBefore=changed.status();changed.controls({}, {inputDriveDb:12});
+    assert.equal(changed.status().sampleClock,rampBefore.sampleClock);
+    const old=reference.process(source).left.slice(),first=changed.process(source).left.slice();finite(first);
+    assert(Math.abs(first[0]-old[0])<1e-8,'drive changes cannot jump directly into the existing receiver waveform');
+    for(let n=0;n<360;n++){reference.process(source);changed.process(source);}
+    const a=reference.process(source).left.slice(),b=changed.process(source).left.slice();
+    const measured=Math.sqrt(energy(b)/energy(a));
+    assert(Math.abs(measured/(10**(.6))-1)<.01,'smoothed new excitation settles to the requested drive');
+    const after=changed.status();
+    assert.equal(after.sampleClock,rampBefore.sampleClock+362*BLOCK);
+    assert.equal(after.sampleClock,reference.status().sampleClock);assert.equal(after.revision,before.revision);
+    assert.equal(after.activeEdges,before.activeEdges);assert.equal(after.requiredDelayBytes,before.requiredDelayBytes);
+    assert.equal(after.releasingEdges,0);assert.equal(changed.api.memory.buffer.byteLength,allocation);
+    changed.controls({}, {inputDriveDb:24,delayGainDb:48});
+    const hot=new Float32Array(BLOCK).fill(.2);let peak=0;
+    for(let n=0;n<240;n++){
+      const output=changed.process(hot);finite(output.left);finite(output.right);
+      peak=Math.max(peak,...output.left.map(Math.abs),...output.right.map(Math.abs));
+    }
+    assert(peak>.8,'maximum drive and receiver amplification reach the real output limiter');
+    for(const inputDriveDb of [-12.1,24.1,NaN,Infinity])
+      assert.throws(()=>changed.controls({}, {inputDriveDb}),/Invalid|invalid|controls/);
+    assert.equal(changed.status().revision,before.revision);assert.equal(changed.status().activeEdges,before.activeEdges);
+  } finally {reference.dispose();changed.dispose();}
 });
 
 test('receiver gain scales wet pressure in dB while the dry source remains exactly independent',()=>{

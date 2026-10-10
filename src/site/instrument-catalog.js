@@ -381,7 +381,7 @@ const CATALOG_DETAILS = Object.freeze({
   "fractal-delay": define(
     "Five fractal waveguide mappings",
     "Julia inverse trees, coupled potential contours, orbit routes, numerical ray lattices and finite fractal chambers share microphone, file and recorded-sample input. Visible edge lengths set travel times in a bidirectional Rust/WebAssembly delay network.",
-    "Choose an input, enable Audio and explore the five mappings or twenty presets. Change the complex parameter and travel time while the source keeps playing.",
+    "Choose an input, enable Audio and explore the five mappings or 28 presets. Change the complex parameter and travel time while the source keeps playing.",
     ["Mic / line", "Audio file", "Recorded samples", "Fractals", "Delay network", "Rust / WASM", "Presets"],
   ),
   "micmic-rust": define(
