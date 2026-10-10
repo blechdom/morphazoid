@@ -2,13 +2,13 @@
   "abi": 1,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 88589,
-  "wasmSha256": "a18e6cf3be1ff15af5459b9c664d7ac109edf75acda60b82d298e8fdb4b9169a",
+  "bytes": 92059,
+  "wasmSha256": "c89bbd3aec35e9c0206e72cd9e7b34c61398037ded0d30181f60a703a447097f",
   "sourceHashes": {
     "scripts/build-graph-delay-wasm.mjs": "a3a8f708ca4ccfb34d549369dab28084826c19b761f216bcba9307e301aee3e6",
     "src/instruments/graph-delay-rust/rust/Cargo.lock": "9dc9d3daacec5ba5f004e19eaea3e7a379bc37bcb31633e24578f635ffcda555",
     "src/instruments/graph-delay-rust/rust/Cargo.toml": "09e609f38ceb015133066a78aa07c6a60fa0cb601ec1046291838d1970b60f79",
-    "src/instruments/graph-delay-rust/rust/src/lib.rs": "65d9ae508fa2075c0f69390fbcfd1f9d9bcf993938e993a75b75b978e39fbca2"
+    "src/instruments/graph-delay-rust/rust/src/lib.rs": "1032ef105c05141daaaadc831d08742a36c50d28995ea2b1c75332c3f508235c"
   },
   "imports": [],
   "exports": [

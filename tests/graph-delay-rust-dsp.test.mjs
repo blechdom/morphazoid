@@ -269,3 +269,56 @@ test('route priority remains stable through geometry, pitch, input and gate upda
     assert.equal(initial.data[start + i * 4 + 1], next.data[start + i * 4 + 1]);
   }
 });
+
+const diamond = () => ({ type: 'dag', nodes: [
+  { id: 0, x: .1, y: .5 }, { id: 1, x: .5, y: .3 }, { id: 2, x: .5, y: .7 }, { id: 3, x: .9, y: .5 },
+], edges: [{ id: 0, from: 0, to: 1 }, { id: 1, from: 1, to: 3 }, { id: 2, from: 0, to: 2 }, { id: 3, from: 2, to: 3 }],
+entries: [0], indegree: [0, 1, 1, 2], outdegree: [2, 1, 1, 0] });
+for (const closedEdge of [0, 1]) test(`a two-voice cap follows the remaining complete path after diamond edge ${closedEdge} closes`, () => {
+  const geometry = diamond(), f = fixture(geometry, { ...settings, feedback: 0 });
+  try {
+    f.api.gdr_performance(f.engine, 2, 0); f.render(.2, () => .04);
+    const gates = geometry.edges.map(edge => edge.id !== closedEdge);
+    f.install(geometry, { ...settings, feedback: 0 }, gates);
+    assert.equal(f.metrics()[7], 2); assert.equal(f.metrics()[8], 3);
+    const output = f.render(.7, () => .04)[0];
+    assert.ok(peak(output.subarray(-4800)) > .01, 'the intact lower path remains audible');
+    assert.equal(f.metrics()[6], 2, 'retired old-path routes release before leaving processing count');
+    assert.equal(f.metrics()[3], 4); assert.equal(f.metrics()[4], 4);
+  } finally { f.close(); }
+});
+
+test('all-prepared mode retains delayed downstream history after an incoming edge closes', () => {
+  const geometry = diamond(), f = fixture(geometry, { ...settings, baseDelay: 250, feedback: 0 });
+  try {
+    f.render(1, () => .04);
+    // The other branch is also closed; only already-delayed upper-branch
+    // history can produce this output after the source input stops.
+    f.install(geometry, { ...settings, baseDelay: 250, feedback: 0 }, [false, true, false, false]);
+    assert.equal(f.metrics()[7], 1);
+    const output = f.render(.4)[0];
+    assert.ok(peak(output.subarray(.25 * RATE, .35 * RATE)) > .003,
+      'reachability must not mute downstream tails which still have room under the ceiling');
+    assert.equal(f.metrics()[6], 1);
+  } finally { f.close(); }
+});
+
+for (const capAt of [0, .1, .3]) test(`structural warmup follows the admitted slow branch when cap changes at ${capAt}s`, () => {
+  const geometry = diamond(); geometry.nodes[1].x = geometry.nodes[1].y = .98;
+  geometry.nodes[2].x = .15; geometry.nodes[2].y = .5; geometry.nodes[3].x = .2;
+  const options = { ...settings, baseDelay: 20, timeScale: 1600, timeCurve: 1, pitchScale: capAt === .1 ? 1 : 0, feedback: 0, inputX: .1, inputY: .5 };
+  const f = fixture(graph(), { ...settings, feedback: 0 });
+  try {
+    f.render(.3, () => .04);
+    if (!capAt) f.api.gdr_performance(f.engine, 2, 0);
+    const plan = f.install(geometry, options);
+    assert.ok(plan.data[11] < .5, 'uncapped graph has a much faster excluded path');
+    if (capAt) { f.render(capAt, () => .04); f.api.gdr_performance(f.engine, 2, 0); }
+    const output = f.render(3, () => .04)[0];
+    const window = Math.floor(.05 * RATE);
+    for (let at = 0; at + window < output.length; at += window) {
+      assert.ok(peak(output.subarray(at, at + window)) > .003, `wet continuity at ${at / RATE}s`);
+    }
+    assert.equal(f.metrics()[10], 0, 'previous graph retires after the admitted path arrives');
+  } finally { f.close(); }
+});

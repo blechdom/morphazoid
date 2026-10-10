@@ -126,6 +126,8 @@ struct Network {
     filter: [f64; 5],
     target_filter: [f64; 5],
     startup_seconds: f64,
+    planned_startup_seconds: f64,
+    admission_extended: bool,
     ready: bool,
     age: u64,
     smoothing: f64,
@@ -202,6 +204,8 @@ impl Network {
             filter: [0.; 5],
             target_filter: [0.; 5],
             startup_seconds: 0.15,
+            planned_startup_seconds: 0.15,
+            admission_extended: false,
             ready: false,
             age: 0,
             smoothing: 1. - (-1. / (rate * 0.025)).exp(),
@@ -270,7 +274,7 @@ impl Network {
         let omega = 2. * PI * self.damping / self.rate;
         let cos = omega.cos();
         let alpha = omega.sin() / 0.9;
-        self.startup_seconds = plan[11].clamp(0., 140.);
+        self.planned_startup_seconds = plan[11].clamp(0., 140.);
         self.target_filter = [
             (1. - cos) * 0.5 / (1. + alpha),
             (1. - cos) / (1. + alpha),
@@ -330,14 +334,162 @@ impl Network {
     }
     fn apply_limit(&mut self, limit: usize, initial: bool) {
         self.voice_limit = limit.min(ROUTES);
-        let mut admitted = 0;
-        for route in &mut self.routes {
+        let mut eligible = [false; ROUTES];
+        let mut eligible_count = 0;
+        for (index, route) in self.routes.iter().enumerate() {
             let edge = &self.edges[route.edge];
-            let eligible = edge.target_gate > 0. && edge.target_gain > 0.;
-            route.target_admission = f64::from(eligible && admitted < self.voice_limit);
-            if route.target_admission > 0. {
-                admitted += 1;
+            eligible[index] = edge.target_gate > 0. && edge.target_gain > 0.;
+            eligible_count += usize::from(eligible[index]);
+        }
+        let mut targets = [false; ROUTES];
+        self.startup_seconds = self.planned_startup_seconds;
+        if eligible_count <= self.voice_limit {
+            // All-prepared mode retains downstream delayed tails even after an
+            // upstream gate closes. Reachability changes priority, not eligibility.
+            targets = eligible;
+        } else {
+            // Recompute playable path priority when gates change, without
+            // reordering route state or allocating in the audio thread.
+            let absent = usize::MAX;
+            let mut distance = [absent; NODES];
+            let mut parent = [absent; NODES];
+            let mut entry_source = [absent; NODES];
+            let mut queue = [0; NODES];
+            let mut tail = 0;
+            for (index, entry) in self.entries.iter().enumerate() {
+                if entry.gain > 0. && distance[entry.node] == absent {
+                    distance[entry.node] = 0;
+                    entry_source[entry.node] = self.edges.len() + index;
+                    queue[tail] = entry.node;
+                    tail += 1;
+                }
             }
+            let mut head = 0;
+            while head < tail {
+                let node = queue[head];
+                head += 1;
+                for (index, edge) in self.edges.iter().enumerate() {
+                    if edge.from == node
+                        && edge.target_gate > 0.
+                        && edge.target_gain > 0.
+                        && distance[edge.to] == absent
+                    {
+                        distance[edge.to] = distance[node] + 1;
+                        parent[edge.to] = index;
+                        queue[tail] = edge.to;
+                        tail += 1;
+                    }
+                }
+            }
+            let mut primary = [absent; EDGES];
+            for (index, route) in self.routes.iter().enumerate() {
+                let from = self.edges[route.edge].from;
+                let source = if parent[from] != absent {
+                    parent[from]
+                } else {
+                    entry_source[from]
+                };
+                if eligible[index] && route.source == source {
+                    primary[route.edge] = index;
+                }
+            }
+            let mut admitted = 0;
+            let mut first_arrival = f64::INFINITY;
+            for entry in &self.entries {
+                if entry.gain > 0. && self.nodes[entry.node].target_tap > 0. {
+                    first_arrival =
+                        first_arrival.min(entry.delay.max(entry.target_delay) / self.rate);
+                }
+            }
+            let mut path = [0; NODES];
+            // Complete shortest sink paths get slots before redundant turns or
+            // dead ends. Shared prefixes consume only one slot per real route.
+            for depth in 1..self.nodes.len() {
+                for sink in 0..self.nodes.len() {
+                    if distance[sink] != depth || self.nodes[sink].target_tap <= 0. {
+                        continue;
+                    }
+                    let mut node = sink;
+                    let mut length = 0;
+                    let mut missing = 0;
+                    while parent[node] != absent {
+                        let edge = parent[node];
+                        let route = primary[edge];
+                        if route == absent {
+                            length = 0;
+                            break;
+                        }
+                        path[length] = route;
+                        length += 1;
+                        missing += usize::from(!targets[route]);
+                        node = self.edges[edge].from;
+                    }
+                    if missing > self.voice_limit - admitted {
+                        continue;
+                    }
+                    if length > 0 {
+                        let mut arrival = self.entries[entry_source[node] - self.edges.len()]
+                            .delay
+                            .max(self.entries[entry_source[node] - self.edges.len()].target_delay)
+                            / self.rate;
+                        for &route in &path[..length] {
+                            let turn = &self.routes[route];
+                            let edge = &self.edges[turn.edge];
+                            arrival += edge.delay.max(edge.target_delay) / self.rate
+                                + if turn.target_semitones.abs() > 0.08 {
+                                    0.12
+                                } else {
+                                    0.
+                                };
+                        }
+                        first_arrival = first_arrival.min(arrival);
+                    }
+                    for &route in path[..length].iter().rev() {
+                        if !targets[route] {
+                            targets[route] = true;
+                            admitted += 1;
+                        }
+                    }
+                }
+            }
+            if first_arrival.is_finite() {
+                // The fastest all-route path may have been excluded by Cap.
+                // Hold the old scene until an actually admitted path can sound.
+                self.startup_seconds = self
+                    .planned_startup_seconds
+                    .max(first_arrival + 0.02)
+                    .min(140.);
+            }
+            // Preserve the remaining topology, including real feedback cycles.
+            // Unreachable delayed tails may use spare slots but cannot displace
+            // a complete currently open input-to-output path.
+            for reachable_pass in [true, false] {
+                for (index, route) in self.routes.iter().enumerate() {
+                    if admitted == self.voice_limit {
+                        break;
+                    }
+                    if !eligible[index] || targets[index] {
+                        continue;
+                    }
+                    let reachable = if route.source < self.edges.len() {
+                        let source = &self.edges[route.source];
+                        source.target_gate > 0.
+                            && source.target_gain > 0.
+                            && distance[source.from] != absent
+                    } else {
+                        self.entries[route.source - self.edges.len()].gain > 0.
+                    };
+                    if reachable == reachable_pass {
+                        targets[index] = true;
+                        admitted += 1;
+                    }
+                }
+            }
+        }
+        self.admission_extended = false;
+        for (index, route) in self.routes.iter_mut().enumerate() {
+            self.admission_extended |= self.ready && route.target_admission == 0. && targets[index];
+            route.target_admission = f64::from(targets[index]);
             if initial {
                 route.admission = route.target_admission;
             }
@@ -827,13 +979,7 @@ impl Engine {
     fn plan(&mut self, plan: &[f64]) -> bool {
         if let Some(active) = &mut self.active {
             if active.controls(plan, false) {
-                if self.old.is_some() && self.fade == 0. {
-                    // A live delay/pitch edit can lengthen the new wet path.
-                    // Count from its existing age so repeated motion updates
-                    // cannot restart the same warmup forever.
-                    let arrival = (self.rate * active.startup_seconds).ceil() as u64;
-                    self.warm = self.warm.max(arrival.saturating_sub(active.age) as usize);
-                }
+                self.extend_warm();
                 self.pending = None;
                 return true;
             }
@@ -870,7 +1016,24 @@ impl Engine {
         {
             net.apply_limit(limit, !net.ready);
         }
+        self.extend_warm();
         self.refresh_counts();
+    }
+    fn extend_warm(&mut self) {
+        if self.old.is_none() {
+            return;
+        }
+        if let Some(active) = &self.active {
+            let arrival = (self.rate * active.startup_seconds).ceil() as u64;
+            // Newly admitted turns have not populated their downstream delay
+            // path yet. Identical motion updates never restart this hold.
+            let age = if active.admission_extended {
+                0
+            } else {
+                active.age
+            };
+            self.warm = self.warm.max(arrival.saturating_sub(age) as usize);
+        }
     }
     fn refresh_counts(&mut self) {
         let current = self
@@ -963,6 +1126,7 @@ impl Engine {
                 }
                 if self.warm > 0 {
                     self.warm -= 1;
+                    self.fade = (self.fade - 1. / (self.rate * 0.025)).max(0.);
                 } else {
                     self.fade = (self.fade + 1. / (self.rate * 0.3)).min(1.);
                 }
@@ -1242,6 +1406,7 @@ mod tests {
         OPERATIONS.with(|count| count.set(0));
         TRACK.with(|track| track.set(true));
         for _ in 0..64 {
+            engine.apply_limit();
             engine.process(&left, &right, &mut a, &mut b);
         }
         unsafe {
@@ -1338,8 +1503,12 @@ mod tests {
                     } else {
                         3
                     };
+                    OPERATIONS.with(|count| count.set(0));
+                    TRACK.with(|track| track.set(true));
                     scalar.apply_limit(limit, false);
                     blocked.apply_limit(limit, false);
+                    TRACK.with(|track| track.set(false));
+                    assert_eq!(OPERATIONS.with(Cell::get), 0);
                 }
                 if block == 180 {
                     let mut edited = p.clone();
