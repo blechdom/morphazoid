@@ -7,6 +7,7 @@ import { bifurcatorSiteChanges, restoreBifurcatorSite } from './helpers/bifurcat
 import { restoreSynthesaurusIcon } from './helpers/synthesaurus-icon-reference.mjs';
 import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 import { restoreAmInstrumentAdditions } from './helpers/am-instruments-reference.mjs';
+import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
 
 test('Bifurcator metadata preserves genuine remote-main source and rejects unrelated amendments', async () => {
   assert.equal(bifurcatorSiteChanges.baseCommit, '1c8cd0d98e4144450308c04511f57bb75d9a2313');
@@ -15,7 +16,7 @@ test('Bifurcator metadata preserves genuine remote-main source and rejects unrel
     'src/site/catalogue-taxonomy.js', 'src/site/instrument-midi-capabilities.js',
   ]);
   for (const change of bifurcatorSiteChanges.changes) {
-    const source = restoreAmInstrumentAdditions(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
+    const source = restoreAmInstrumentAdditions(restoreFractalDelaySite(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file), change.file);
     assert.notEqual(restoreBifurcatorSite(source, change.file), source);
     const preserved = value => assert.equal(createHash('sha256').update(restoreLSystemRecordedInputSite(
       restoreBifurcatorSite(restoreSynthesaurusIcon(value, change.file), change.file), change.file,

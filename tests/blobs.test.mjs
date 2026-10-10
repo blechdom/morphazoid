@@ -8,6 +8,7 @@ import { buildPerformancePath, rotatePath, transformAnchor, inverseAnchor } from
 import { BLOB_PRESETS, randomizeBlobs } from '../src/instruments/blobs/presets.js';
 import { createShapeReaderModel } from '../src/families/geometry-presets/shape-readers.js';
 import { blobsSiteChanges, restoreBlobsSite } from './helpers/blobs-site-reference.mjs';
+import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
 import { recordedInputSiteChanges, restoreLSystemRecordedInputSite } from './helpers/l-system-recorded-input-site-reference.mjs';
 
 const square = { tool: 'line', points: [{ x: .2, y: .2 }, { x: .8, y: .2 }, { x: .8, y: .8 }, { x: .2, y: .8 }] };
@@ -122,7 +123,7 @@ test('whole-scene randomization varies every musical field within valid recall b
 });
 test('Blobs registration preserves all pre-existing catalogue source bytes', async () => {
   for (const { file, addition, sha256 } of blobsSiteChanges) {
-    const source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+    const source = restoreFractalDelaySite(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
     const preserved = value => assert.equal(createHash('sha256').update(
       restoreLSystemRecordedInputSite(restoreBlobsSite(value, file), file),
     ).digest('hex'), sha256, 'pre-Blobs source preserved');
