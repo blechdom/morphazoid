@@ -9,7 +9,7 @@ class FractalDelayNetworkProcessor extends AudioWorkletProcessor {
     // Reserve virtual WASM/allocator space once, before input is connected.
     // Live maintenance fills this storage in small, measured chunks.
     this.network.reserveMemory(options.processorOptions.memoryReserveBytes || 256 * 1024 * 1024);
-    this.queued = null; this.latestParameters = {}; this.latestPerformance = {}; this.latestInputMode = 'mic';
+    this.queued = null; this.queuedBlocked = 0; this.latestParameters = {}; this.latestPerformance = {}; this.latestInputMode = 'mic';
     this.pending = null; this.dead = false; this.failed = false; this.load = 0; this.peakLoad = 0;
     this.misses = 0; this.blocks = 0; this.controlSeconds = 0; this.lastStatusClock = -Infinity; this.preparationBlocked = 0; this.chunkSeconds = 0;
     this.port.onmessage = ({ data }) => {
@@ -74,7 +74,10 @@ class FractalDelayNetworkProcessor extends AudioWorkletProcessor {
       // One small float-count chunk bounds history initialization and copying.
       // Never defer graph preparation forever after one noisy timing sample.
       this.network.collect(4);
-      if (renderSeconds + this.controlSeconds < duration * .55) this.startQueued();
+      if (this.queued) this.queuedBlocked += duration;
+      if (renderSeconds + this.controlSeconds < duration * .55 || this.queuedBlocked > .1) {
+        this.startQueued(); if (!this.queued) this.queuedBlocked = 0;
+      }
       if (this.pending) {
         this.preparationBlocked += duration;
         const forced = this.preparationBlocked > .05;

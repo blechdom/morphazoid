@@ -221,3 +221,22 @@ test('rapid preset changes wait for prior graph retirement and retain only the l
    p.message({type:'dispose',id:105});
  }finally{for(const [key,value]of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
 });
+
+test('an overloaded current graph can still switch to a lighter queued scene',async()=>{
+ const before={AudioWorkletProcessor:globalThis.AudioWorkletProcessor,sampleRate:globalThis.sampleRate,registerProcessor:globalThis.registerProcessor};
+ const clockDescriptor=Object.getOwnPropertyDescriptor(globalThis,'performance');let Processor,tick=0,increment=.01;
+ Object.defineProperty(globalThis,'performance',{configurable:true,value:{now:()=>tick+=increment}});
+ globalThis.sampleRate=RATE;globalThis.AudioWorkletProcessor=class{constructor(){this.messages=[];this.port={postMessage:value=>this.messages.push(value),onmessage:null};}};
+ globalThis.registerProcessor=(_,value)=>{Processor=value;};
+ try{await import('../src/instruments/fractal-delay/network-worklet.js?overload-recovery');
+   const p=new Processor({processorOptions:{module,memoryReserveBytes:8*1024*1024}}),out=[new Float32Array(BLOCK),new Float32Array(BLOCK)];
+   p.message({type:'scene',id:301,revision:301,scene:graph([[0,1,.1]],2)});
+   for(let n=0;n<40&&!p.messages.some(value=>value.id===301&&value.installed);n++)p.process([[zero]],[out]);
+   assert(p.messages.some(value=>value.id===301&&value.installed));
+   increment=2;const next=graph([[0,1,.1]],2);next.edges[0].id=99;
+   p.message({type:'scene',id:302,revision:302,scene:next});
+   for(let n=0;n<240&&!p.messages.some(value=>value.id===302&&value.installed);n++)p.process([[zero]],[out]);
+   assert(p.messages.some(value=>value.id===302&&value.installed),'queuedrecoverydoesnotwaitforeverforidleCPU');
+   assert.equal(p.network.status().revision,302);p.message({type:'dispose',id:303});
+ }finally{Object.defineProperty(globalThis,'performance',clockDescriptor);for(const [key,value]of Object.entries(before)){if(value===undefined)delete globalThis[key];else globalThis[key]=value;}}
+});
