@@ -1,0 +1,30 @@
+{
+  "abi": 1,
+  "target": "wasm32-unknown-unknown",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "bytes": 77298,
+  "wasmSha256": "f2ff33384ff594e7f06ea825d214bdfc2a463b84c87fca12f674cfc34bae01dc",
+  "sourceHashes": {
+    "scripts/build-graph-delay-wasm.mjs": "63d2264f941021bb7032b5f9b4a1f94cabe57c6030f4d3090d6167b6c68a82d8",
+    "src/instruments/graph-delay-rust/rust/Cargo.lock": "9dc9d3daacec5ba5f004e19eaea3e7a379bc37bcb31633e24578f635ffcda555",
+    "src/instruments/graph-delay-rust/rust/Cargo.toml": "09e609f38ceb015133066a78aa07c6a60fa0cb601ec1046291838d1970b60f79",
+    "src/instruments/graph-delay-rust/rust/src/lib.rs": "1eb66415ba7abc2929b0919714511186de6aad63bb26607fcbc5efe7cd7147d4"
+  },
+  "imports": [],
+  "exports": [
+    "gdr_abi_version",
+    "gdr_alloc",
+    "gdr_clear",
+    "gdr_drop",
+    "gdr_edge_levels",
+    "gdr_enabled",
+    "gdr_free",
+    "gdr_metrics",
+    "gdr_new",
+    "gdr_node_levels",
+    "gdr_plan",
+    "gdr_prepare",
+    "gdr_process",
+    "memory"
+  ]
+}
