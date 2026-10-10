@@ -431,3 +431,24 @@ test('worklet distinguishes callback maintenance from recurring DSP load', () =>
   assert.equal(observations[1].maintenanceLoad, 0, 'previous maintenance is charged once');
   processor.port.onmessage({ data: { type: 'dispose' } });
 });
+
+test('worklet recovers admission with nonzero timing and preparer overhead every callback', () => {
+  let time = 0;
+  const f = worklet({ clock: { now: () => time += .002 } }), processor = f.create(), deliver = processor.port.onmessage;
+  const output = [[new Float32Array(128), new Float32Array(128)]];
+  deliver({ data: { id: 1, type: 'configure', plan: compileGraphDelayPlan(graph(6)).data.buffer } });
+  for (let i = 0; i < 200 && !f.messages.some(message => message.id === 1); i++) processor.process([], output);
+  assert.ok(f.messages.some(message => message.id === 1));
+  const cut = processor.capacity.observe({ load: 1.3, seconds: 128 / 48000, eligible: 5, processing: 5, target: 5 });
+  processor.api.gdr_limit(processor.engine, cut); assert.equal(cut, 2);
+  const observe = processor.capacity.observe.bind(processor.capacity);
+  let minimumMaintenance = Infinity;
+  processor.capacity.observe = values => {
+    minimumMaintenance = Math.min(minimumMaintenance, values.maintenanceLoad);
+    return observe(values);
+  };
+  for (let i = 0; i < 2000; i++) processor.process([], output);
+  assert.ok(minimumMaintenance > 0, 'the realistic clock never reports a free maintenance callback');
+  assert.equal(processor.capacity.limit, 5, 'healthy full graph membership returns within six audio seconds');
+  deliver({ data: { type: 'dispose' } });
+});

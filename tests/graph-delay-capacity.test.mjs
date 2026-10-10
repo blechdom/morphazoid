@@ -86,6 +86,17 @@ test('sustained headroom recovers a tiny limit in seconds instead of four minute
   assert.ok(controller.limit >= 384);
 });
 
+test('recurring callback overhead allows recovery only when total work has headroom', () => {
+  const controller = createGraphCapacityController();
+  observeFor(controller, 1, { eligible: 4, processing: 4, target: 4 });
+  controller.observe({ load: 1.3, seconds: quantum, eligible: 4, processing: 4, target: 4 });
+  assert.equal(controller.limit, 2);
+  observeFor(controller, 12, { load: .8, maintenanceLoad: .7 });
+  assert.equal(controller.limit, 2, 'cheap DSP alone cannot justify recovery while other callback work consumes the deadline');
+  observeFor(controller, 12, { load: .1, maintenanceLoad: .002 });
+  assert.ok(controller.limit >= 384, 'small permanent timing and preparer overhead must not prevent recovery');
+});
+
 test('maintenance overload releases work then promptly restores known recurring capacity', () => {
   const controller = createGraphCapacityController();
   observeFor(controller, 1, { eligible: 128, processing: 128, target: 128, load: .25 });

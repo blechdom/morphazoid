@@ -40,7 +40,10 @@ export function createGraphCapacityController() {
       const ceiling = settings.voiceCeiling || MAXIMUM;
       const demand = Math.max(eligible, retiringEligible), actual = Math.min(this.limit, ceiling, demand);
       const releasing = processing > target;
-      const clean = !preparing && !retiringEligible && !releasing && maintenance === 0;
+      // Even an idle callback pays for timing, admission and the bounded
+      // preparer check. Require real total headroom rather than exactly zero
+      // maintenance, which a high-resolution clock almost never observes.
+      const clean = !preparing && !retiringEligible && !releasing && load < .65;
       if (!settings.automatic) {
         if (clean && mean < .65 && peak < .85) measuredLimit = Math.max(measuredLimit, actual);
         stable = 0; return this.limit;
