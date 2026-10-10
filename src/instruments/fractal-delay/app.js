@@ -47,13 +47,13 @@ const format=(key,value)=>{
   if(['timeMs','compressorAttackMs','compressorReleaseMs'].includes(key))return `${Number(value.toFixed(value<10?2:0))} ms`;
   if(['hpfHz','lpfHz'].includes(key))return value>=1000?`${(value/1000).toFixed(1)} kHz`:`${Math.round(value)} Hz`;
   if(['pitchOffset'].includes(key))return `${value>0?'+':''}${Number(value.toFixed(1))} st`;
-  if(key.endsWith('Db'))return `${key==='delayGainDb'&&value>0?'+':''}${Number(value.toFixed(1))} dB`;
+  if(key.endsWith('Db'))return `${['inputDriveDb','delayGainDb'].includes(key)&&value>0?'+':''}${Number(value.toFixed(1))} dB`;
   if(key==='compressorRatio')return `${Number(value.toFixed(1))}:1`;
   if(['coupling','decay','boundary','linkDensity','inputPosition','inputSpread','pickup','pickupSpread','wet','dry'].includes(key))return `${Math.round(value*100)}%`;
   return Number(value.toFixed(3)).toString();
 };
 const presetMix=preset=>musicalMix({...DEFAULT_PERFORMANCE,
-  wet:preset.parameters.mode==='membrane'?.85:.7,dry:preset.parameters.mode==='membrane'?.15:.3});
+  wet:preset.parameters.mode==='membrane'?.85:.7});
 const bank=PRESETS.map(preset=>({id:preset.id,label:preset.label,snapshot:{parameters:preset.parameters,performance:presetMix(preset)}}));
 $('presetSelect').replaceChildren(...PRESETS.map(preset=>new Option(preset.label,preset.id)));
 const capture=()=>({parameters:{...state.parameters},performance:musicalMix(state.performance)});
@@ -87,7 +87,8 @@ $('masteringPreset').addEventListener('change',()=>{
 for(const id of ['voiceBudget','manualBudget'])$(id).addEventListener('change',()=>run(engine.setVoiceBudget($('voiceBudget').value,$('manualBudget').checked)));
 $('captureSound').addEventListener('click',async()=>{
   const text=JSON.stringify({instrument:'fractal-delay',version:1,...capture(),liveLevels:{inputGain:state.performance.inputGain,
-    delayGainDb:state.performance.delayGainDb,outputLevel:state.performance.outputLevel,outputBoostDb:state.performance.outputBoostDb}},null,2);
+    inputDriveDb:state.performance.inputDriveDb,delayGainDb:state.performance.delayGainDb,dry:state.performance.dry,
+    outputLevel:state.performance.outputLevel,outputBoostDb:state.performance.outputBoostDb}},null,2);
   $('capturedSound').value=text;$('capturedSound').hidden=false;
   try{await navigator.clipboard.writeText(text);$('captureStatus').textContent='Copied. Paste into chat to save a preset.';}
   catch{$('capturedSound').select();$('captureStatus').textContent='Select and copy the captured parameters.';}

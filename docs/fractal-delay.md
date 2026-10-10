@@ -77,8 +77,19 @@ weights have unit L1 norm; they form a weighted receiver average. Cancellation
 and reinforcement depend on the actual travelling wave phases. An orange ring
 indicates a receiver sharing a green source node.
 
+Network drive boosts the external source entering those excitation points,
+after mic/line gain or unity file/sample playback. It ranges from −12 to +24 dB
+and starts at +12 dB (about four times the source amplitude). It does not multiply
+reflections or feedback. Actual graph pressure and the travelling-wave display
+respond to this stronger excitation. Direct input independently sends the
+unprocessed source to the speakers; it starts at zero, so playback initially
+contains only the effect. Increasing Network drive does not increase this direct
+signal. Both controls sit beside the input source, smooth live edits over 35 ms,
+retain their values across musical and mastering presets, and appear in captured
+live levels.
+
 Delay gain amplifies that collected receiver signal before pitch processing,
-Wet/Dry summing and mastering. It ranges from −12 to +48 dB and starts at
+effect/direct summing and mastering. It ranges from −12 to +48 dB and starts at
 +24 dB (about 16 times the receiver amplitude), so the normalized delay return
 can be substantially louder than the direct input. The gain follows live edits
 over 35 ms and sits outside the feedback network: it changes listening level
