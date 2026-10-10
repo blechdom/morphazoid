@@ -416,6 +416,7 @@ test('microphone capture with Audio off stays muted until the explicit Audio act
   const errors = await fixture(page); await ready(page);
   await page.locator('#micButton').click();
   await expect.poll(async () => (await diagnostics(page)).witness.liveTracks, { timeout: 15000 }).toBe(1);
+  await expect.poll(async () => (await diagnostics(page)).status.inputPeak, { timeout: 15000 }).toBeGreaterThan(.00001);
   await page.waitForTimeout(150);
   const muted = await diagnostics(page);
   expect(muted.audioDesired).toBe(false); expect(muted.audio).toBe(false);
