@@ -25,6 +25,7 @@ html:has(>body.fractal-delay-page){height:auto;min-height:100%;overflow:auto}
 .media-transport{display:flex;align-items:center;gap:7px}.media-transport label,.check-field{font-size:10px;line-height:1.6}.settings-link{font-size:10px;color:#abdec5}
 .knob-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 3px;margin-top:12px;align-items:start}
 .motion-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 3px;margin-top:12px;align-items:start}
+.motion-row>.mz-tap-tempo-field{width:100%;flex-direction:column;align-items:center;gap:4px}
 .fractal-controls .motion-play{min-width:48px;min-height:48px;align-self:start;justify-self:center;margin-top:3px;padding:6px}
 .fractal-controls .motion-play[aria-pressed=true]{color:#c5ffe0;border-color:#89f6be;background:#1a4031}
 .knob-field{display:flex;flex-direction:column;align-items:center;min-width:0;font-size:10px;color:#c1d0ce;gap:3px;text-align:center}
