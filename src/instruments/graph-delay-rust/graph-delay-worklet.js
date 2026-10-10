@@ -1,6 +1,16 @@
 import { createGraphCapacityController } from './graph-delay-capacity-policy.js';
 
 const BLOCK = 128;
+// Coefficients and positions never reset protection. Only an accepted change
+// to connections, injected entries or turn identities starts a new scene.
+function topologySignature(plan) {
+  const parts = Array.from(plan.subarray(0, 5));
+  let at = 16 + plan[1] * 2;
+  for (let index = 0; index < plan[2]; index++, at += 6) parts.push(plan[at], plan[at + 1], plan[at + 5]);
+  for (let index = 0; index < plan[3]; index++, at += 3) parts.push(plan[at]);
+  for (let index = 0; index < plan[4]; index++, at += 4) parts.push(plan[at], plan[at + 1]);
+  return parts.join(':');
+}
 const fineClock = typeof globalThis.performance?.now === 'function';
 const now = fineClock ? () => globalThis.performance.now() : () => Date.now();
 
@@ -9,7 +19,8 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super();
     this.engine = 0; this.pointers = []; this.capacity = createGraphCapacityController(); this.controlMs = 0;
-    this.closed = false; this.pendingId = null; this.frames = 0; this.timingFrames = 0; this.timingMs = 0;
+    this.closed = false; this.pendingId = null; this.frames = 0; this.timingFrames = 0; this.timingMs = 0; this.maintenanceMs = 0;
+    this.sceneSignature = null; this.pendingSignature = null;
     this.cpuLoad = 0; this.peakLoad = 0; this.deadlineMisses = 0; this.lastAudioTime = 0;
     try {
       this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
@@ -40,10 +51,28 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
           if (!accepted) throw new Error('The Rust graph exceeds its route or device memory limits.');
           if (this.pendingId !== null) this.reply({ id: this.pendingId, superseded: true });
           if (this.closed) return;
-          this.pendingId = data.id;
+          this.pendingId = data.id; this.pendingSignature = topologySignature(plan);
           // Commit an in-place coefficient edit immediately; a structural scene
           // waits for bounded history preparation in spare callback time.
           if (this.api.gdr_prepare(this.engine, 0)) this.complete();
+        } else if (data.type === 'controls') {
+          if (!Array.isArray(data.plans) || data.plans.length > 3) throw new Error('The Rust graph control update is invalid.');
+          for (const buffer of data.plans) {
+            const plan = new Float64Array(buffer);
+            if (plan.length < 16 || plan.length > 8192) throw new Error('The Rust graph control plan is invalid.');
+            const pointer = this.api.gdr_alloc(plan.byteLength);
+            if (!pointer) throw new Error('The Rust graph control buffer could not be allocated.');
+            try {
+              new Float64Array(this.api.memory.buffer, pointer, plan.length).set(plan);
+              // Zero matches means the previous scene finished retiring before
+              // these controls arrived. It must not revive or cancel a scene.
+              this.api.gdr_controls(this.engine, pointer, plan.length);
+            } finally {
+              this.api.gdr_free(pointer, plan.byteLength);
+              if (this.memory !== this.api.memory.buffer) this.refresh();
+            }
+          }
+          this.reply({ id: data.id });
         } else if (data.type === 'performance') {
           this.capacity.configure(data.performance);
           const settings = this.capacity.settings;
@@ -74,7 +103,16 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
   }
   complete() {
     if (this.pendingId === null) return;
-    const id = this.pendingId; this.pendingId = null; this.reply({ id });
+    const id = this.pendingId; this.pendingId = null;
+    if (this.pendingSignature !== this.sceneSignature) {
+      this.sceneSignature = this.pendingSignature;
+      // A partial coarse-clock window belongs to the previous topology. The
+      // current callback and its maintenance are charged below as usual.
+      this.timingMs = this.timingFrames = this.maintenanceMs = 0;
+      this.api.gdr_limit(this.engine, this.capacity.beginScene());
+    }
+    this.pendingSignature = null;
+    this.reply({ id });
   }
   reply(message, transfer = []) {
     try { this.port.postMessage(message, transfer); }
@@ -113,6 +151,7 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
       currentEligibleRoutes: this.values[13], retiringEligibleRoutes: this.values[14],
       liveLimit: this.values[15], retiringPreparedRoutes: this.values[16],
       voiceCeiling: this.values[17], automatic: Boolean(this.values[18]), automaticLimit: this.values[19],
+      warmRemainingSeconds: this.values[20], transitionMix: this.values[21],
       nodeLevels, edgeLevels,
       cpuLoad: this.cpuLoad, peakLoad: this.peakLoad, deadlineMisses: this.deadlineMisses,
       preparing: this.pendingId !== null, timing: fineClock ? 'high-resolution' : 'coarse-averaged',
@@ -139,7 +178,7 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
       const records = spare > .25 ? 65536 : spare > .1 ? 16384 : 0;
       if (this.api.gdr_prepare(this.engine, records)) this.complete();
       const elapsed = Math.max(0, now() - started) + this.controlMs; this.controlMs = 0;
-      this.timingMs += elapsed; this.timingFrames += frames;
+      this.timingMs += elapsed; this.maintenanceMs += Math.max(0, elapsed - renderMs); this.timingFrames += frames;
       if (fineClock || this.timingFrames >= BLOCK * 32) {
         const load = this.timingMs / (this.timingFrames / sampleRate * 1000);
         this.cpuLoad += (load - this.cpuLoad) * .2;
@@ -147,13 +186,13 @@ class GraphDelayRustProcessor extends AudioWorkletProcessor {
         if (load > 1) this.deadlineMisses++;
         const admissionStarted = now();
         const previousLimit = this.capacity.limit;
-        const limit = this.capacity.observe({ load, seconds: this.timingFrames / sampleRate,
+        const limit = this.capacity.observe({ load, maintenanceLoad: this.maintenanceMs / (this.timingFrames / sampleRate * 1000), seconds: this.timingFrames / sampleRate,
           eligible: this.values[13], retiringEligible: this.values[14], processing: this.values[6], target: this.values[7], preparing: this.pendingId !== null });
         if (limit !== previousLimit) this.api.gdr_limit(this.engine, limit);
         // Charge bounded admission work to the next timing window, just like
         // control messages delivered between callbacks.
         this.controlMs += Math.max(0, now() - admissionStarted);
-        this.timingMs = this.timingFrames = 0;
+        this.timingMs = this.timingFrames = this.maintenanceMs = 0;
       } else if (renderMs > duration + 1) this.deadlineMisses++;
       this.frames += frames; this.lastAudioTime = currentTime + frames / sampleRate;
       return true;

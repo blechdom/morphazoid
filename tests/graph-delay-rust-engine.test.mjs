@@ -156,9 +156,9 @@ test('updates coalesce before readiness and resolve worklet supersession without
 
 const workletSource = await readFile(new URL('../src/instruments/graph-delay-rust/graph-delay-worklet.js', import.meta.url), 'utf8');
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/graph-delay.wasm', import.meta.url)));
-function worklet({ failAllocation = 0 } = {}) {
+function worklet({ failAllocation = 0, clock = performance } = {}) {
   const actual = new WebAssembly.Instance(module).exports;
-  const calls = { allocated: [], freed: [], dropped: [], processFailure: false, configureFailure: false }, messages = [];
+  const calls = { allocated: [], freed: [], dropped: [], processFailure: false, configureFailure: false, controls: [] }, messages = [];
   let allocations = 0, Processor;
   const api = { ...actual,
     gdr_alloc(bytes) {
@@ -171,6 +171,7 @@ function worklet({ failAllocation = 0 } = {}) {
       if (calls.configureFailure) throw new WebAssembly.RuntimeError('injected control trap');
       return actual.gdr_plan(...args);
     },
+    gdr_controls(...args) { calls.controls.push(args); return actual.gdr_controls?.(...args) ?? 0; },
     gdr_process(...args) {
       if (calls.processFailure) throw new WebAssembly.RuntimeError('injected trap');
       return actual.gdr_process(...args);
@@ -181,7 +182,7 @@ function worklet({ failAllocation = 0 } = {}) {
     WebAssembly: { Instance: class { constructor() { this.exports = api; } }, RuntimeError: WebAssembly.RuntimeError },
     AudioWorkletProcessor: class { constructor() { this.port = { postMessage: message => messages.push(message) }; } },
     registerProcessor(_name, value) { Processor = value; },
-    sampleRate: 48000, currentTime: 0, performance,
+    sampleRate: 48000, currentTime: 0, performance: clock,
   });
   return { calls, messages, create: () => new Processor({ processorOptions: { module } }) };
 }
@@ -330,4 +331,35 @@ test('real WASM worklet reports cap targets and releasing processing voices hone
   deliver({ data: { type: 'status' } }); metrics = f.messages.at(-1).metrics;
   assert.equal(metrics.activeRoutes, 2); assert.equal(metrics.processingRoutes, 2);
   deliver({ data: { type: 'dispose' } });
+});
+
+test('only a committed structural scene resets protection, not coefficient or controls messages', () => {
+  const f = worklet({ clock: { now: () => 0 } }), processor = f.create(), deliver = processor.port.onmessage;
+  const output = [[new Float32Array(128), new Float32Array(128)]];
+  const configure = (id, nodes, settings = {}) => deliver({ data: { type: 'configure', id, plan: compileGraphDelayPlan(graph(nodes), settings).data.buffer } });
+  const finish = id => { for (let i = 0; i < 1000 && !f.messages.some(message => message.id === id); i++) processor.process([], output); assert.ok(f.messages.some(message => message.id === id)); };
+  configure(1, 5); finish(1);
+  const reduced = processor.capacity.observe({ load: 1.3, seconds: .01, eligible: 4, processing: 4, target: 4 });
+  processor.api.gdr_limit(processor.engine, reduced); assert.equal(reduced, 2);
+  configure(2, 5, { pitchScale: 1 }); finish(2);
+  assert.equal(processor.capacity.limit, reduced);
+  configure(3, 6);
+  const pending = processor.pendingId;
+  deliver({ data: { type: 'controls', id: 4, plans: [compileGraphDelayPlan(graph(5), { wet: .3 }).data.buffer] } });
+  assert.equal(processor.pendingId, pending); assert.equal(processor.capacity.limit, reduced);
+  assert.ok(f.messages.some(message => message.id === 4)); assert.equal(f.calls.controls.length, 1);
+  finish(3); assert.equal(processor.capacity.limit, 512);
+  deliver({ data: { type: 'dispose' } });
+});
+
+test('worklet distinguishes callback maintenance from recurring DSP load', () => {
+  const f = worklet({ clock: { now: () => 0 } }), processor = f.create();
+  const observations = [];
+  processor.capacity.observe = values => { observations.push(values); return processor.capacity.limit; };
+  processor.controlMs = 8;
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  assert.equal(observations.length, 1); assert.equal(observations[0].load, 3); assert.equal(observations[0].maintenanceLoad, 3);
+  processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
+  assert.equal(observations[1].maintenanceLoad, 0, 'previous maintenance is charged once');
+  processor.port.onmessage({ data: { type: 'dispose' } });
 });
