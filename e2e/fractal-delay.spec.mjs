@@ -351,6 +351,22 @@ async function range(page, id, value) {
   }, value);
 }
 
+async function motionCaptionsDoNotOverlapTap(page, axis) {
+  const tap = page.locator(`.mz-tap-tempo[data-tap-control="#${axis}MotionTempo"]`);
+  await tap.scrollIntoViewIfNeeded(); await expect(tap).toBeVisible();
+  const overlaps = await tap.evaluate(button => {
+    const tap = button.getBoundingClientRect();
+    return [...button.closest('.motion-row').querySelectorAll('.knob-field b, .knob-field output')]
+      .filter(node => node.textContent.trim()).flatMap(node => {
+        const caption = node.getBoundingClientRect();
+        const width = Math.max(0, Math.min(tap.right, caption.right) - Math.max(tap.left, caption.left));
+        const height = Math.max(0, Math.min(tap.bottom, caption.bottom) - Math.max(tap.top, caption.top));
+        return width * height > 0 ? [{ caption: node.textContent.trim(), overlapWidth: width, overlapHeight: height }] : [];
+      });
+  });
+  expect(overlaps, `${axis} Tap must leave knob labels and values readable`).toEqual([]);
+}
+
 async function performanceState(page, values) {
   await page.evaluate(async ({ module, values }) => {
     await (await import(module)).getFractalDelayEngine().setPerformance(values);
@@ -1142,6 +1158,7 @@ for (const viewport of SIZES) {
       expect(box.x + box.width, id).toBeLessThanOrEqual(viewport.width + 1);
     }
     const before = await diagnostics(page);
+    for (const axis of ['real', 'imag']) await motionCaptionsDoNotOverlapTap(page, axis);
     await page.locator('#stage').scrollIntoViewIfNeeded(); await page.locator('#stage').focus();
     await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowUp');
     await expect.poll(async () => {
@@ -1175,6 +1192,7 @@ for (const viewport of SIZES.slice(1)) {
           const box = await control.boundingBox();
           expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
         }
+        await motionCaptionsDoNotOverlapTap(page, axis);
         await play.click(); await expect(play).toHaveAttribute('aria-pressed', 'true');
         expect((await diagnostics(page)).audioDesired).toBe(false);
         expect((await diagnostics(page)).contextState).toBe('uninitialized');
