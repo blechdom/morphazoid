@@ -95,6 +95,12 @@ async function preset(page, id) {
   await page.locator(`button[data-preset-id="${id}"]`).click();
 }
 
+async function reveal(page, id) {
+  await page.locator(`#${id}`).evaluate(node => {
+    for (let parent = node.parentElement; parent; parent = parent.parentElement) if (parent.tagName === 'DETAILS') parent.open = true;
+  });
+}
+
 function expectContinuous(before, after, { parameters = true } = {}) {
   expect(after.audio).toBe(true);
   expect(after.inputSource).toEqual(before.inputSource);
@@ -118,7 +124,7 @@ test('focused graph actions preserve live source, sound, gates, cap and Rust clo
   const moved = await settled(page);
   expectContinuous(before, moved);
   expect(moved.graph.edges).toEqual(before.graph.edges); expect(moved.edgeSwitches).toEqual(before.edgeSwitches);
-  await page.locator('#restoreNodePositionsButton').click();
+  await reveal(page, 'restoreNodePositionsButton'); await page.locator('#restoreNodePositionsButton').click();
   await expect.poll(async () => coordinates((await snapshot(page)).graph)).toEqual(positions);
   await expect.poll(async () => (await snapshot(page)).metrics.elapsedSeconds).toBeGreaterThan(moved.metrics.elapsedSeconds);
   const arranged = await settled(page);
@@ -161,7 +167,7 @@ test('the latest geometry action queued during a preset edits the accepted graph
   await page.waitForFunction(() => __graphLiveQa.recallReady);
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('aria-busy', 'true');
   await page.locator('#stage').focus(); await page.keyboard.press(']'); await page.keyboard.press('Enter');
-  await page.locator('#restoreNodePositionsButton').click();
+  await reveal(page, 'restoreNodePositionsButton'); await page.locator('#restoreNodePositionsButton').click();
   await page.locator('#randomizeNodePositionsButton').click();
   await page.evaluate(() => __graphLiveQa.releaseRecall());
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('aria-busy', 'false', { timeout: 15000 });
@@ -214,7 +220,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       expect(await page.locator('.panel > details.control-section').first().getAttribute('id')).toBe('playSection');
       expect(await page.locator('.panel > details.control-section:not(#playSection)').evaluateAll(nodes => nodes.every(node => !node.open))).toBe(true);
       expect(await page.locator('.panel input[type="range"]:not(#inputTrim)').evaluateAll(nodes => nodes.every(node => node.parentElement.classList.contains('mz-range-knob')))).toBe(true);
-      for (const id of [...LIVE, 'nodeMotionPlayButton', 'micMotionPlayButton', 'randomGraphButton', 'randomizeNodePositionsButton', 'restoreNodePositionsButton']) {
+      for (const id of [...LIVE, 'nodeMotionPlayButton', 'micMotionPlayButton', 'randomGraphButton', 'randomizeNodePositionsButton']) {
         const control = page.locator(`#${id}`);
         expect(await control.evaluate(node => Boolean(node.closest('#playSection'))), `${id} stays in the live section`).toBe(true);
         await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
