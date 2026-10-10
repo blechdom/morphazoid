@@ -77,6 +77,15 @@ weights have unit L1 norm; they form a weighted receiver average. Cancellation
 and reinforcement depend on the actual travelling wave phases. An orange ring
 indicates a receiver sharing a green source node.
 
+Delay gain amplifies that collected receiver signal before pitch processing,
+Wet/Dry summing and mastering. It ranges from −12 to +48 dB and starts at
++24 dB (about 16 times the receiver amplitude), so the normalized delay return
+can be substantially louder than the direct input. The gain follows live edits
+over 35 ms and sits outside the feedback network: it changes listening level
+without increasing excitation or the circulating wave energy. The shared final
+compressor and output ceiling still apply. Delay gain is a live level retained
+across musical and mastering presets, and is included in captured live levels.
+
 The [Graph Delay instrument](../graph-delay.html) supplies routing inspiration:
 multiple entry/exit nodes, rings, small-world shortcuts and hubs. Connections
 can retain the original fractal routes or add loop joins, sparse long shortcuts,

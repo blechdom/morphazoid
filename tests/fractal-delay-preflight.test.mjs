@@ -7,7 +7,7 @@ const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/
 const RATE = 48000, BLOCK = 128, zero = new Float32Array(BLOCK), signal = new Float32Array(BLOCK).fill(.04);
 const parameters = { mode: 'inverse', detail: 2, timeMs: 100, coupling: 1, decay: .7, pitchOffset: 0,
   inputMode: 'point', inputPosition: 0, pickupMode: 'point', pickup: .7, boundary: 1, routing: 'geometry' };
-const performance = { inputGain: 1, wet: 1, dry: 0, outputLevel: 1, outputBoostDb: 0,
+const performance = { inputGain: 1, delayGainDb: 0, wet: 1, dry: 0, outputLevel: 1, outputBoostDb: 0,
   hpfHz: 0, lpfHz: 22000, compressorRatio: 1, compressorMakeupDb: 0 };
 
 function peakBlock(engine) {
