@@ -1,5 +1,10 @@
 # Morphazoid
 
+**[Sound Fonts](sound-fonts.html)** collects free downloadable banks, imported SF2s,
+and source links, with favorites, notes, preset previews, and browser-local storage.
+Its workshop turns synthesized sounds or uploaded audio samples into downloadable
+SF2s. Audio starts off. [Controls, sources and limits](docs/sound-fonts.md).
+
 **[Trackazoid](trackazoid.html)** is a desktop browser DJ workspace inside Morphazoid.
 Drop local audio onto two decks or open a music folder, then mix with waveforms,
 automatic BPM and beat grids, persistent Sync, key lock, four hot cues per deck, beat loops,

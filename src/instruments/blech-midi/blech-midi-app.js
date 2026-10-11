@@ -1,3 +1,4 @@
+import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from '../midi-mixer/midi-mixer-engine.js';
 import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
@@ -12,7 +13,7 @@ function mountBlechMidi() {
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
-  let engine, performanceView, drawing, knobs, synthEffectEditor;
+  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor;
   let fontSerial = 0, fontRequest = null, fontBusy = false, effectsSignature = '';
   let view = retainedView ?? (location.hash === '#automata' ? 'automata' : 'draw');
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
@@ -56,6 +57,7 @@ function mountBlechMidi() {
       $('mixerEchoOut').value = `${Math.round(effects.delayMix * 100)}%`; $('mixerFeedbackOut').value = `${Math.round(effects.feedback * 100)}%`;
       synthEffectEditor?.refresh();
     }
+    noteEffectEditor?.refresh();
     if (state.error) field($('creativeStatus'), state.error);
   }
   drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
@@ -72,7 +74,10 @@ function mountBlechMidi() {
   engine.setTempo(Number($('creativeTempo').value));
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
-    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools') });
+    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost') });
+  const noteEffectHost = document.createElement('div'); $('creativeControlsHost').append(noteEffectHost);
+  noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'blechNoteFx',
+    getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
   $('creativeControlsHost').append($('mixerEffects'));
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
@@ -84,7 +89,7 @@ function mountBlechMidi() {
   $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
   $('creativeFlowControls').prepend($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleSync').parentElement.title = 'Follow the tempo knob. Turn off to use each source’s original timing.';
-  $('mixerSampleLoop').parentElement.title = 'Repeat active patterns. Turn off to finish the current cycle.';
+  $('mixerSampleLoop').parentElement.title = 'Looping pads: tap to start, tap again to stop. Turn off for one shots and to finish running loops.';
   const ruleButton = $('automataMidiGenerate');
   ruleButton.textContent = 'Send rule ↑';
   knobs = mountMixerKnobs($('blechMidi'));
@@ -182,7 +187,7 @@ function mountBlechMidi() {
     // The shared Loop/Sync row was relocated outside the module's section.
     // Remove that owner too before a possible back/forward-cache remount.
     $('creativeFlowControls').querySelector('.mixer-stamp-switches')?.remove();
-    performanceView.dispose(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   setView(view); performanceView.setActive(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);

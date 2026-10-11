@@ -1,0 +1,30 @@
+{
+  "baseCommit": "cedaf28dca962b0af0a885b7d301dc7211517ecd",
+  "changes": [
+    {
+      "file": "README.md",
+      "sha256": "de9da7f0e68f067a4a8d28c8aba9478c0ca75dc131091824bb1324ef5dfda5c0",
+      "addition": "\n**[Sound Fonts](sound-fonts.html)** collects free downloadable banks, imported SF2s,\nand source links, with favorites, notes, preset previews, and browser-local storage.\nIts workshop turns synthesized sounds or uploaded audio samples into downloadable\nSF2s. Audio starts off. [Controls, sources and limits](docs/sound-fonts.md).\n"
+    },
+    {
+      "file": "docs/THIRD_PARTY_NOTICES.md",
+      "sha256": "f9a5b4510f22186df09ddd245cdba458a30c2643776fe4aa565b083dc753370b",
+      "addition": "\n## Sound Fonts collection\n\nThe Kalimba, Ocarina, Jaw Harp and Lately Bass banks are unmodified FreePats\nreleases under CC0 1.0. Their original README files and the full CC0 legal text\naccompany each SF2 in `assets/sound-fonts/`. Kalimba and Ocarina credit Xavimart\n(Javier), Gonzalo and Roberto; Jaw Harp credits Eugene Vlaskin, Michail Chayka,\nN. K. Chayka and Roberto; Lately Bass credits Yingchun Soul and FreePats.\nExact source/download URLs, versions and hashes are recorded in\n[`assets/sound-fonts/provenance.json`](../assets/sound-fonts/provenance.json).\n\nThe Sound Fonts page also exposes the existing TimGM6mb bank, copyright Tim\nBrechbill and David Bolton, under GPL version 2. Its source record, copyright\nnotice and complete GPL text remain in `assets/midiphoria/soundfont/`.\nThese asset licenses are separate from Morphazoid's application license.\n"
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "1de9c711137f33b06a50e049bb246b0721e4e357dda18cd1c7eec4286c3e3eb1",
+      "addition": "\n# Sound Fonts collection, workshop and redistributable banks.\ncopy+require\tsrc/site/sound-fonts/app.js\ncopy+require\tsrc/site/sound-fonts/library.js\ncopy+require\tsrc/site/sound-fonts/soundfont.js\ncopy+require\tsrc/site/sound-fonts/preview-audio.js\ncopy+require\tsrc/site/sound-fonts/sound-fonts.css\ncopy+require\tdocs/sound-fonts.md\ncopy+require\tassets/sound-fonts/catalog.json\ncopy+require\tassets/sound-fonts/provenance.json\ncopy+require\tassets/sound-fonts/kalimba/Kalimba-20190723.sf2\ncopy+require\tassets/sound-fonts/kalimba/README.txt\ncopy+require\tassets/sound-fonts/kalimba/LICENSE.txt\ncopy+require\tassets/sound-fonts/ocarina/Ocarina 20241002.sf2\ncopy+require\tassets/sound-fonts/ocarina/README.txt\ncopy+require\tassets/sound-fonts/ocarina/LICENSE.txt\ncopy+require\tassets/sound-fonts/jaw-harp/JawHarp-20200606.sf2\ncopy+require\tassets/sound-fonts/jaw-harp/README.txt\ncopy+require\tassets/sound-fonts/jaw-harp/LICENSE.txt\ncopy+require\tassets/sound-fonts/lately-bass/LatelyBass 20240409.sf2\ncopy+require\tassets/sound-fonts/lately-bass/README.txt\ncopy+require\tassets/sound-fonts/lately-bass/LICENSE.txt\n"
+    },
+    {
+      "file": "src/pages/index.html",
+      "sha256": "bcf9e9d628d2e2ec668176ed24d85e6f5d93a6b4ec472d74de0a4affdf830f52",
+      "addition": "        <section class=\"manual-section catalogue-manual-section catalogue-links-section\" aria-label=\"Sound fonts collection and workshop\">\n          <div class=\"manual-section-heading\">\n            <h2><a class=\"catalogue-guide-link\" href=\"sound-fonts.html\">Sound Fonts <span aria-hidden=\"true\">\u2192</span></a></h2>\n          </div>\n        </section>\n\n"
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "ba044061ca3fa74e8592a8bb5a1b1e53217804c49cf39af14582fa797f76c857",
+      "addition": "  \"sound-fonts.html\",\n"
+    }
+  ]
+}

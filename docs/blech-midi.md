@@ -20,24 +20,43 @@ One captured freehand stroke is one undo action.
 
 The stamp bank contains the existing generated textures plus the bundled black
 MIDI and geometric file stamps. Its single filter searches names and collections.
-Selecting a stamp sends it immediately. **Paint flow** places the selected stamp
-by pitch directly on the live output; Enter on that output sends it once. Messages
-also send immediately. The preparation canvas remains separate from these live
-actions.
+With **Loop** on, tap a pad to start it and tap again to stop only that pad.
+With Loop off, a tap plays once; another tap retriggers that pad from the start
+without stopping other pads. Green means playing; the dashed outline means the
+shape selected for editing or painting. A loading file says **Loading · tap to
+cancel** and does not count as playing. Selecting another file cancels the old
+download; it does not stop already-playing pads.
+
+Each Send creates a thumbnail in **Your pads** below the live output. Drawings,
+rules, messages and painted copies retain their exact sent MIDI, independent of
+the preparation canvas. Tap a looping saved pad to stop or restart it; its own
+**Loop** switch changes only that pad. Turning this switch off finishes the
+current pass. **Remove** stops and removes just that saved pad. Stop all leaves
+the bank available to replay. The bank holds eight sends for this page session;
+a ninth replaces the oldest stopped pad. Navigation/reload clears it.
+
+**Paint flow** places separate copies of the selected stamp by pitch directly on
+the live output, each with its own saved pad. Enter on that output triggers the
+selected stamp pad. Messages also send immediately. The preparation canvas
+remains separate from these live actions.
 
 ## Timing and sound
 
-**Loop** repeats active drawings, stamps, messages and rules. Turning it off lets
-each current cycle finish. **Sync to tempo** follows the 30–300 BPM tempo control;
+The main **Loop** switch sets the pad launch mode and the Loop switches for saved
+pads, and updates running patterns. Turning it off lets each current cycle finish.
+Each playing pad has an independent position and can be stopped immediately by
+tapping it while looping, without interrupting another pad. **Sync to tempo** follows the 30–300 BPM tempo control;
 turn it off for each source's original timing. The tempo has the shared Tap
 control, and source-specific row length and clip length remain available.
 
-**Stop** removes the active patterns and releases their notes. **Audio off** also
+**Stop all** removes the active patterns and releases their notes. **Audio off** also
 stops active patterns; preparing and sending silent previews remains possible.
-There is no queued conveyor or position-preserving pause in this move. Sending
-another score layers it with the currently playing scores. Up to four clips play
-at once; another send replaces the oldest. Enabling Audio during a silent preview
-joins its current position.
+There is no queued conveyor or position-preserving pause. Sending another score
+layers it with the currently playing scores. Up to four clips play at once;
+another send replaces the oldest playing clip and its pad returns to idle.
+Its saved snapshot remains available. Enabling Audio during a silent preview
+joins its current position. Stopping a pad cancels its pending MIDI-effect echoes
+as well as its source notes; other pads and deck transport are unchanged.
 
 Generated drawings, patterns and rules default to piano; file stamps can retain
 their original instruments. The Black MIDI volume controls the shared stamp
@@ -55,23 +74,55 @@ parameters update the same engine used by drawings, stamps, messages and rules.
 Tab changes preserve these settings. **Reset effects** restores their defaults
 without stopping the patterns or changing Audio, output level or the SoundFont.
 
-Automatapoeia contains all 256 elementary and 64 radius-2 totalistic rules, with
-the same seed, boundary, transform, pitch, articulation and generation controls
-as its previous Midiophilia tab. Its MIDI generator is distinct from the
+Automatapoeia uses the original instrument's rule-picker layout: a current
+thumbnail inside the closed pulldown and thumbnail tiles inside the opened
+pulldown. Search decimal or binary codes, show all rules, show symmetry
+representatives, or show the selected rule's equivalence family. All 256
+elementary rules and 64 radius-2 totalistic codes remain available. Previous,
+Next, the rule knob, and the dropdown keep the same selected rule.
+
+Seed density, exact Seed, **Restart**, **Reseed**, family, rule, boundary,
+post-step transform and Columns / width are directly visible. Width supports
+8–128 pitches, bounded by MIDI's complete 0–127 note range. Restart prepares
+the same current seed again; Reseed advances to a reproducible new seed.
+Neither action sends MIDI or changes already-playing layers. At zero density,
+the seed is one centered cell, so different seed numbers retain the same picture.
+
+**Generation rate** uses 1–8 rows per beat and shares the existing
+**Beats per generation** value in MIDI pattern settings. They are reciprocal
+views of one value; 4 rows/beat is ¼ beat/generation. The existing 480-tick
+encoder rounds to actual MIDI timing. With Sync on, changing the master tempo
+changes real-time speed; with Sync off, generated scores use their original
+120 BPM. Generations, lowest note, articulation and velocity remain MIDI
+settings. Source edits change the next Send, while the active score is retained.
+
+The same original Automatapoeia catalogue, thumbnail raster, evolution, edge
+and post-step-transform functions are reused. The original instrument's
+oscillator voices, spectral/contour mappings and audio ADSR are synthesis
+controls, not cellular generation controls; Blech MIDI instead uses its
+SoundFont, Stamp MIDI and live-effects controls for those sound changes.
+The MIDI generator remains distinct from the
 [standalone Automatapoeia instrument](../automatapoeia.html).
 
 ## Pattern mapping and source details
 
 The 30 generated pictures include Heart, Square, Zigzag, Polka dots, Plaid,
 Stripes, Drips, Glob, Glooob, Noise, Scatter and Explode. Their thumbnails show
-actual pitch/time cells. Density changes stroke thickness or particle count;
-Pitch span covers 12–128 chromatic notes and Length spans 4–32 beats. Variation
+actual pitch/time cells, positioned across the full MIDI pitch range. Density
+changes stroke thickness or particle count; **Width →** covers 12–128 chromatic
+notes and **Height ↑** spans ¼–64 beats. Height stretches the picture in time;
+it does not change the tempo. The **Offset ↔** slider moves the whole picture
+left/right in pitch, stopping at MIDI's edges without folding or losing notes.
+At full width there is no room to move it farther sideways. Width, height and
+offset also apply to the next drawing Send; they leave saved snapshots intact.
+The advanced drawing-row length is another view of the same height setting.
+Variation
 changes a reproducible seed for irregular textures. Fixed icons retain their
 geometry when only that seed changes.
 
 The palette also retains 28 bundled file stamps: 16 Black MIDI arrangements,
 nine geometric patterns and three studies. Short geometric files play whole,
-fitted to Length. Longer arrangements use a dense excerpt; Next slice moves
+fitted to Height. Longer arrangements use a dense excerpt; Next slice moves
 through the source. File window offers automatic, densest, manual-start and
 whole-file selection. Status reports the source beat range and note count.
 The 35-file downloadable archive includes larger decorative scores that the
@@ -153,3 +204,29 @@ The browser mappings above are Morphazoid design choices, not ports of these
 applications or claims of their full feature sets. No code from these tools
 was imported for this stamp bank. Generated textures are original bounded
 pitch/time patterns; they do not claim to recreate any named composition.
+
+## MIDI note effects
+
+Open **MIDI effects**, turn the layer on, then shape new notes with transpose
+(±24 semitones), velocity, single/octave/fifth/major/minor chords, note delay,
+a gate limit, and up to four echoes with their own spacing and velocity decay.
+Drum pitches stay unchanged unless **Transpose & harmonize drums too** is on.
+Pitches outside MIDI 0–127 are omitted rather than folded onto the endpoints.
+
+Timing is in beats: the file player follows the file's current tempo and speed;
+Mixer and Blech MIDI use the shared tempo. A gate limit shortens key holds;
+source sustain pedals still apply. Edits and bypass affect new attacks, while
+held notes and pending echoes finish with their captured settings. Stop, seek,
+source replacement cancel the affected pending notes. Audio off releases pads
+and stamps; song transports keep moving.
+
+The layer runs before synthesis on the audio thread, and the visualizer receives
+the resulting notes. Playing, Audio permission, source MIDI bytes and download
+files remain independent. Mixer scenes include the layer; visualizer presets
+continue to own appearance only. These are MIDI note effects, separate from
+SoundFont reverb/chorus and the audio filter/delay controls.
+
+The shared scheduler bounds each engine to 512 source-note families and 4,096
+reserved events. Under extreme black-MIDI load it removes added voices before
+stealing the oldest family; each sounded child retains a matched release.
+Existing native synthesis and display polyphony limits still apply.

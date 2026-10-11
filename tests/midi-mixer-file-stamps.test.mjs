@@ -81,6 +81,21 @@ test('whole pictures trim empty margins and uniformly fit notes and controllers 
   assert.equal(stamp.analysis.channels[0].program, 81);
 });
 
+test('explicit excerpt height fits short final slices without changing their source range or tempo values', () => {
+  const source = midi([tempo(0, 120), tempo(12.5, 60), ...notes(12, [48], 2), ...notes(13, [60], 1), [13.5, 0xb0, 10, 96]], 16);
+  const original = createMidiFileStamp(source, { startBeat: 12, beats: 8 });
+  assert.equal(original.durationBeats, 2, 'omitted fit keeps the original excerpt duration');
+  for (const height of [.25, 2.75, 64]) {
+    const stamp = createMidiFileStamp(source, { startBeat: 12, beats: 8, fitBeats: height });
+    assert.equal(stamp.sourceStartBeat, 12); assert.equal(stamp.sourceEndBeat, 14);
+    assert.equal(stamp.nextStartBeat, 0); assert.equal(stamp.shortened, false);
+    assert.equal(stamp.durationBeats, height); assert.equal(stamp.requestedBeats, height);
+    assert.deepEqual(stamp.analysis.notes.map(note => [note.beat, note.duration]), [[0, height], [height / 2, height / 2]]);
+    assert.deepEqual(tempos(stamp.analysis), [[0, 120], [height / 4, 60]]);
+    assert.ok(messages(stamp.analysis).some(([beat, kind, cc, value]) => beat === height * .75 && kind === 11 && cc === 10 && value === 96));
+  }
+});
+
 test('next slices skip empty passages and compressed final attacks remain inside the output boundary', () => {
   const source = midi([...notes(0, [60], 1), ...notes(40, [64], 1)], 44);
   const stamp = createMidiFileStamp(source, { startBeat: 4, beats: 4 });
@@ -135,6 +150,20 @@ test('transpose shifts the entire melodic range by one legal interval and leaves
   assert.equal(down.effectiveTranspose, -4); assert.deepEqual(down.analysis.notes.filter(note => note.channel === 0).map(note => note.note), [0, 116]);
 });
 
+test('horizontal offsets span the full MIDI range without clipping intervals or transposing drums', () => {
+  const source = parseMidi(midi([...notes(0, [48, 55], 1), ...notes(0, [36, 42], 1, 9), [0.5, 0xa0, 48, 85]]));
+  const before = structuredClone(source);
+  for (const [transpose, expected, pitches] of [[48, 48, [96, 103]], [127, 72, [120, 127]], [-127, -48, [0, 7]]]) {
+    const stamp = createMidiFileStamp(source, { whole: true, transpose });
+    assert.equal(stamp.requestedTranspose, transpose); assert.equal(stamp.effectiveTranspose, expected);
+    assert.deepEqual(stamp.analysis.notes.filter(note => note.channel === 0).map(note => note.note), pitches);
+    assert.deepEqual(stamp.analysis.notes.filter(note => note.channel === 9).map(note => note.note), [36, 42]);
+    assert.equal(stamp.analysis.events.find(event => event.kind === 10).a, 48 + expected);
+    assert.equal(stamp.warnings.some(warning => /Pitch shift limited/.test(warning)), expected !== transpose);
+  }
+  assert.deepEqual(source, before, 'offsetting a stamp leaves its source arrangement unchanged');
+});
+
 test('sample bounds shorten time windows without silently thinning notes and reject impossible instants', () => {
   const events = [];
   for (let beat = 0; beat < 40; beat++) for (let index = 0; index < 1000; index++) events.push(...notes(beat, [index % 128], 0.25));
@@ -142,6 +171,12 @@ test('sample bounds shorten time windows without silently thinning notes and rej
   assert.equal(stamp.shortened, true); assert.ok(stamp.warnings.some(warning => /shortened/.test(warning)));
   assert.equal(stamp.noteCount, score.notes.filter(note => note.beat < stamp.sourceEndBeat).length);
   assert.equal(stamp.noteCount, stamp.analysis.noteCount); assert.ok(stamp.noteCount <= MIDI_SAMPLE_LIMITS.notes);
+  const fitted = createMidiFileStamp(score, { startBeat: 0, beats: 40, fitBeats: .25 });
+  assert.equal(fitted.shortened, true); assert.equal(fitted.sourceEndBeat, stamp.sourceEndBeat);
+  assert.equal(fitted.durationBeats, .25); assert.equal(fitted.noteCount, stamp.noteCount);
+  assert.equal(fitted.analysis.noteCount, fitted.noteCount);
+  assert.ok(fitted.analysis.notes.every(note => note.duration > 0 && note.beat + note.duration <= .25));
+  assert.ok(fitted.warnings.some(warning => /shortened/.test(warning)));
   const impossible = midi(Array.from({ length: 32769 }, (_, index) => notes(0, [index % 128], 1)).flat(), 1);
   assert.throws(() => createMidiFileStamp(impossible, { whole: true }), /too dense.*no notes were removed/);
 });
@@ -158,7 +193,7 @@ test('dense tempo automation counts toward the stamp event budget and shortens t
   assert.equal(stamp.analysis.tempoMap.length, source.tempoMap.filter(item => item.beat < stamp.sourceEndBeat).length);
 });
 
-test('all 28 bundled black/geometric files produce playable excerpts; all nine patterns retain every note at 4/8/32 beats', async () => {
+test('all 28 bundled black/geometric files fit .25–64 beat heights; whole patterns retain every note', async () => {
   const collection = JSON.parse(await readFile(new URL('../assets/midiphoria/collection.json', import.meta.url), 'utf8'));
   const files = collection.filter(file => /Black MIDI|Geometric/.test(file.collection));
   assert.equal(files.length, 28);
@@ -168,12 +203,14 @@ test('all 28 bundled black/geometric files produce playable excerpts; all nine p
     for (const file of files) {
       const score = parseMidi(await readFile(new URL(`../assets/midiphoria/${file.file}`, import.meta.url)));
       const whole = file.collection === 'Geometric patterns'; if (whole) patterns++;
-      for (const beats of whole ? [4, 8, 32] : [4, 8, 16]) {
-        const stamp = createMidiFileStamp(score, { whole, fitBeats: whole ? beats : undefined, beats, name: file.title });
-        assert.equal(stamp.shortened, false, file.id); assert.equal(stamp.noteCount, stamp.analysis.noteCount, file.id);
+      for (const beats of [.25, 2.75, 8, 64]) {
+        const stamp = createMidiFileStamp(score, { whole, fitBeats: beats, beats, name: file.title });
+        assert.equal(stamp.noteCount, stamp.analysis.noteCount, file.id);
+        assert.equal(stamp.durationBeats, beats, file.id);
         assert.ok(stamp.buffer.byteLength <= MIDI_SAMPLE_LIMITS.fileBytes); assert.ok(stamp.channelCount <= 16);
         assert.ok(stamp.analysis.notes.every(note => note.beat + note.duration <= stamp.durationBeats + 1e-8), file.id);
-        if (whole) { assert.equal(stamp.noteCount, score.noteCount, file.id); assert.equal(stamp.durationBeats, beats, file.id); }
+        if (whole) { assert.equal(stamp.shortened, false, file.id); assert.equal(stamp.noteCount, score.noteCount, file.id); }
+        else if (stamp.shortened) assert.ok(stamp.warnings.some(warning => /shortened/.test(warning)), file.id);
         const playing = engine.triggerSample(stamp.buffer, { program: null }); assert.equal(playing.program, null); assert.equal(playing.analysis.noteCount, stamp.noteCount);
       }
     }

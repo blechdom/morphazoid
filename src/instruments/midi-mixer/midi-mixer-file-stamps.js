@@ -195,7 +195,8 @@ function excerpt(analysis, prepared, start, end, outputBeats, transpose) {
 }
 
 /** Create a self-contained one-shot without dropping individual source notes.
- * `whole` trims empty margins; `fitBeats` scales that entire picture uniformly.
+ * `whole` trims empty margins; `fitBeats` uniformly scales the retained picture
+ * or excerpt, including a shorter final slice, to the requested output height.
  * Long files use a dense bar-aligned window, then adjoining slices via variant.
  * If a window exceeds sample bounds, only its end moves; metadata discloses it.
  */
@@ -204,8 +205,8 @@ export function createMidiFileStamp(input, options = {}) {
   const prepared = prepare(analysis), whole = Boolean(options.whole);
   const meter = analysis.meterMap[0], bar = meter.numerator * 4 / meter.denominator;
   const requestedBeats = clamp(options.beats ?? clamp(options.bars ?? 1, 1, 4) * bar, 1 / 32, MIDI_SAMPLE_LIMITS.beats, bar);
-  const fitBeats = whole && options.fitBeats != null ? clamp(options.fitBeats, 1 / 32, MIDI_SAMPLE_LIMITS.beats, requestedBeats) : null;
-  const requestedTranspose = Math.round(clamp(options.transpose ?? 0, -36, 36));
+  const fitBeats = options.fitBeats != null ? clamp(options.fitBeats, 1 / 32, MIDI_SAMPLE_LIMITS.beats, requestedBeats) : null;
+  const requestedTranspose = Math.round(clamp(options.transpose ?? 0, -127, 127));
   const variant = Math.floor(clamp(options.variant ?? 0, 0, 1000000));
   let start = whole ? prepared.firstBeat : options.startBeat == null
     ? modulo(denseStart(prepared.notes, requestedBeats, bar, prepared.lastBeat) + variant * requestedBeats, prepared.lastBeat)

@@ -63,6 +63,18 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 .partial-sliders { display: grid; grid-template-columns: repeat(16,minmax(0,1fr)); gap: 5px; padding: 20px 0 16px; }
 .partial-bar { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 7px; color: var(--partial-color); font: 9px var(--mono); }
 .partial-bar input { appearance: auto; writing-mode: vertical-lr; direction: rtl; width: 24px; height: 82px; padding: 0; accent-color: var(--partial-color); }
+.organ-preset-row { margin-bottom: 18px; }
+.spartial-drawbars { display: grid; grid-template-columns: repeat(9, minmax(0, 1fr)); gap: 3px; margin: 18px 0; }
+.organ-drawbar { display: flex; min-width: 0; flex-direction: column; align-items: center; gap: 9px; color: var(--muted); font: 10px var(--mono); }
+.organ-drawbar > span { white-space: nowrap; }
+.organ-drawbar output { font-variant-numeric: tabular-nums; }
+.spartial-controls .organ-drawbar input[type="range"] { appearance: auto; writing-mode: vertical-lr; direction: rtl; width: 100%; max-width: 34px; height: 120px; margin: 0; padding: 0; accent-color: var(--accent); cursor: ns-resize; touch-action: none; }
+.organ-drawbar input[type="range"]::-webkit-slider-runnable-track { all: revert; }
+.organ-drawbar input[type="range"]::-webkit-slider-thumb { all: revert; }
+.organ-drawbar input[type="range"]::-moz-range-track { all: revert; }
+.organ-drawbar input[type="range"]::-moz-range-thumb { all: revert; }
+.spartial-modulation-monitor { display: grid; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); align-items: center; gap: 3px; height: 48px; margin: 0 0 10px; overflow: hidden; }
+.spartial-modulation-monitor > span { display: block; height: 7px; background: var(--partial-color, var(--accent)); opacity: calc(.35 + var(--mod-amount, 0) * .65); transform: translateY(calc(var(--movement, 0) * -17px)); }
 .spectrum-controls { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 24px; margin-top: 4px; }
 .spectrum-controls input { width: 100%; }
 .speaker-patch { display: grid; grid-template-columns: repeat(4,minmax(0,1fr)); gap: 5px; margin-bottom: 12px; }
@@ -108,9 +120,9 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 .grain-freeze[aria-pressed="true"] { background: #e7bd81; color: #131815; border-color: #e7bd81; }
 #grainFileStatus { overflow-wrap: anywhere; }
 #grainStatus { min-height: 32px; }
-.grain-detail { margin: 14px 0; }
-.grain-detail > summary { cursor: pointer; color: var(--muted); font-size: 11px; padding: 8px 0; }
-.grain-detail > div { padding-top: 16px; }
+.grain-detail, .organ-detail { margin: 14px 0; }
+.grain-detail > summary, .organ-detail > summary { cursor: pointer; color: var(--muted); font-size: 11px; padding: 8px 0; }
+.grain-detail > div, .organ-detail > div { padding-top: 16px; }
 @media (pointer: coarse) { .grain-source-actions button, .grain-freeze { min-height: 48px; } }
 
 .spartial-recording { padding: 16px 18px 0; }

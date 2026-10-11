@@ -16,12 +16,15 @@
     "src/tap-tempo.js",
     "src/output-recorder.js",
     "src/output-recorder-processor.js",
-    "src/media-element-output.js"
+    "src/media-element-output.js",
+    "src/midi-note-effects.js",
+    "src/midi-note-effects-controls.js"
   ],
   "boundaries": [
     "Move site metadata beside its registry and controllers; change only resource paths.",
     "Preserve every public HTML route, catalogue field, preset, storage key and MIDI identity.",
     "Keep shared audio/MIDI runtime utilities and the WASM engine/toolchain in their existing directories.",
+    "Retain the shared MIDI note-effects scheduler and its editor at src/: Midiophilia, MIDI Mixer and Blech MIDI use them, while each instrument owns its audio and transport adapters.",
     "Regenerate dist-wax from source; do not edit generated files.",
     "The earlier source-module-layout map remains a historical preservation layer; compose this follow-up when resolving its retained modules."
   ]

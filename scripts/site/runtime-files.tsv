@@ -865,6 +865,7 @@ copy+require	spartial.html
 copy+require	src/instruments/spartial/spartial-app.js
 copy+require	src/instruments/spartial/spartial.js
 copy+require	src/instruments/spartial/spartial-granular.js
+copy+require	src/instruments/spartial/spartial-organ.js
 copy+require	src/instruments/spartial/spartial-audio.js
 copy+require	src/instruments/spartial/spartial-processor.js
 copy+require	src/instruments/spartial/spartial-recording.js
@@ -872,6 +873,7 @@ copy+require	src/instruments/spartial/spartial-recording-export.js
 copy+require	src/instruments/spartial/spartial.css
 copy+require	assets/instruments/spartial.webp
 copy+require	docs/spartial.md
+copy+require	docs/spartial-organ-research.md
 copy	surround-field.html
 copy+require	src/instruments/surround-field/surround-field.css
 copy+require	src/instruments/surround-field/surround-field-app.js
@@ -1906,3 +1908,30 @@ copy+require	src/instruments/blech-midi/blech-midi.css
 copy+require	src/instruments/midi-mixer/midi-mixer-monitor.js
 copy+require	assets/instruments/blech-midi.webp
 copy+require	docs/blech-midi.md
+
+# Sound Fonts collection, workshop and redistributable banks.
+copy+require	src/site/sound-fonts/app.js
+copy+require	src/site/sound-fonts/library.js
+copy+require	src/site/sound-fonts/soundfont.js
+copy+require	src/site/sound-fonts/preview-audio.js
+copy+require	src/site/sound-fonts/sound-fonts.css
+copy+require	docs/sound-fonts.md
+copy+require	assets/sound-fonts/catalog.json
+copy+require	assets/sound-fonts/provenance.json
+copy+require	assets/sound-fonts/kalimba/Kalimba-20190723.sf2
+copy+require	assets/sound-fonts/kalimba/README.txt
+copy+require	assets/sound-fonts/kalimba/LICENSE.txt
+copy+require	assets/sound-fonts/ocarina/Ocarina 20241002.sf2
+copy+require	assets/sound-fonts/ocarina/README.txt
+copy+require	assets/sound-fonts/ocarina/LICENSE.txt
+copy+require	assets/sound-fonts/jaw-harp/JawHarp-20200606.sf2
+copy+require	assets/sound-fonts/jaw-harp/README.txt
+copy+require	assets/sound-fonts/jaw-harp/LICENSE.txt
+copy+require	assets/sound-fonts/lately-bass/LatelyBass 20240409.sf2
+copy+require	assets/sound-fonts/lately-bass/README.txt
+copy+require	assets/sound-fonts/lately-bass/LICENSE.txt
+
+# Shared MIDI note effects and Midiophilia worklet scheduling.
+copy+require	src/midi-note-effects.js
+copy+require	src/midi-note-effects-controls.js
+copy+require	src/instruments/midiphoria/midiphoria-processor.js

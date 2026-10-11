@@ -27,6 +27,7 @@ test('randomizer varies all musical fields, retains source settings and produces
   for (let i = 0; i < 250; i++) {
     const scene = randomizeMixerPreset(engine.state, random); applyMixerPreset(engine, scene);
     for (const [key, value] of Object.entries(scene.effects)) { if (key === 'synth') { for (const number of Object.values(value)) assert.ok(Number.isFinite(number)); } else assert.ok(Number.isFinite(value)); remember(key, value); }
+    for (const [key, value] of Object.entries(scene.noteEffects)) if (key !== 'tempo') remember(`noteEffects.${key}`, value);
     for (const [key, value] of Object.entries(scene.weave)) remember(`weave.${key}`, value);
     assert.match(scene.weave.pattern, /^[AB]{1,16}$/);
     for (const [index, deck] of scene.decks.entries()) {
@@ -132,4 +133,15 @@ test('a failed reverse rewrite rolls back scene changes and retains the active W
   assert.deepEqual(engine.state.decks.map(deck => deck.positionBeats), transport.decks.map(deck => deck.positionBeats));
   assert.equal(engine.state.playing, true); assert.equal(engine.context, null);
   await engine.dispose();
+});
+
+test('MIDI effects recall with mixer scenes, while legacy scenes bypass without stopping transport', async () => {
+  const engine = new MidiMixerEngine();
+  engine.setNoteEffects({ enabled: true, transpose: 7, chord: 'minor', echoCount: 3, gateBeats: .25 });
+  const saved = captureMixerPreset(engine.state);
+  engine.setNoteEffects({ enabled: false }); applyMixerPreset(engine, saved);
+  assert.deepEqual(engine.state.noteEffects, saved.noteEffects);
+  const legacy = { ...saved }; delete legacy.noteEffects;
+  applyMixerPreset(engine, legacy); assert.equal(engine.state.noteEffects.enabled, false);
+  assert.equal(engine.context, null); await engine.dispose();
 });

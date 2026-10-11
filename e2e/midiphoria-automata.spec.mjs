@@ -107,11 +107,54 @@ test('the rule atlas filters the active family and previews without selecting MI
   await page.locator(`#${prefix}RuleSearch`).fill('101010'); await expect(rules).toHaveCount(1);
   await expect(rules).toHaveAttribute('data-automata-rule', '42');
   await page.locator(`#${prefix}RuleSearch`).fill('90'); await expect(rules).toHaveCount(0);
-  await page.locator(`#${prefix}RuleSearch`).fill(''); await page.locator(`#${prefix}Representatives`).check();
+  await page.locator(`#${prefix}RuleSearch`).fill(''); await page.locator(`#${prefix}RuleFilter`).selectOption('representatives');
   expect(await rules.count()).toBeGreaterThan(0); expect(await rules.count()).toBeLessThan(64);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
   expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);
+});
+
+test('the original-style dropdown contains the current thumbnail and symmetry-family previews', async ({ page }) => {
+  const prefix = await open(page), picker = page.locator(`#${prefix}RulePicker`);
+  await expect(picker.locator(`:scope > summary #${prefix}RuleCurrentPreview`)).toBeVisible();
+  const initialThumbnail = await picker.locator(`#${prefix}RuleCurrentPreview path`).getAttribute('d');
+  expect(initialThumbnail.length).toBeGreaterThan(50);
+  await expand(picker); await page.locator(`#${prefix}RuleFilter`).selectOption('family');
+  expect(await picker.locator('[data-automata-rule]:visible').evaluateAll(nodes => nodes.map(node => Number(node.dataset.automataRule)))).toEqual([30, 86, 135, 149]);
+  await picker.locator('[data-automata-rule="86"]').click();
+  await expect(picker).not.toHaveAttribute('open');
+  await expect(page.locator(`#${prefix}Rule`)).toHaveValue('86');
+  expect(await picker.locator(`#${prefix}RuleCurrentPreview path`).getAttribute('d')).not.toEqual(initialThumbnail);
+  await page.locator(`#${prefix}Family`).selectOption('totalistic-r2');
+  await expect(page.locator(`#${prefix}Rule`)).toHaveAttribute('max', '63');
+  await expect(page.locator(`#${prefix}RuleLabel`)).toHaveText('Totalistic R2 · Code 20');
+  await expect(page.locator(`#${prefix}RuleNeighborhoods`)).toHaveText('5  4  3  2  1  0');
+  await page.locator(`#${prefix}Family`).selectOption('elementary'); await expect(page.locator(`#${prefix}Rule`)).toHaveValue('86');
+  expect(await launches(page)).toEqual([]); expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
+});
+
+test('seed, restart, width and reciprocal generation rate prepare exact MIDI without changing a sent layer', async ({ page }) => {
+  const prefix = await open(page); await expand(page.locator(`#${prefix}Parameters`));
+  await input(page, `${prefix}Density`, .45); await input(page, `${prefix}Seed`, 123);
+  await input(page, `${prefix}Columns`, 64); await input(page, `${prefix}Rows`, 16); await input(page, `${prefix}Rate`, 8);
+  await expect(page.locator(`#${prefix}RowBeats`)).toHaveValue('0.125');
+  await expect(page.locator(`#${prefix}Preview`)).toHaveAttribute('viewBox', '0 0 64 16');
+  const original = await download(page, prefix); const parsed = parseMidi(original);
+  expect(parsed.durationBeats).toBe(2); expect(parsed.notes.every(note => Number.isInteger(note.beat * 8))).toBe(true);
+  await page.locator('#mixerSampleLoop').check(); const first = await launch(page, () => page.locator(`#${prefix}Generate`).click());
+  await page.locator(`#${prefix}NextSeed`).click(); await expect(page.locator(`#${prefix}Seed`)).toHaveValue('124');
+  const reseeded = await download(page, prefix); expect(reseeded).not.toEqual(original);
+  await page.locator(`#${prefix}Restart`).click(); expect(await download(page, prefix)).toEqual(reseeded);
+  await input(page, `${prefix}Columns`, 128); await input(page, `${prefix}RowBeats`, .5);
+  await expect(page.locator(`#${prefix}RateOut`)).toHaveText('2 rows/beat');
+  await expect(page.locator(`#${prefix}LowestNote`)).toHaveValue('0');
+  await expect(page.locator(`#${prefix}Preview`)).toHaveAttribute('viewBox', '0 0 128 16');
+  expect((await launches(page)).length).toBe(1);
+  expect(await page.evaluate(id => __automataQA.engine.state.samples.some(sample => sample.id === id), first.id)).toBe(true);
+  expect((await launches(page))[0].bytes).toEqual(Array.from(original));
+  expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
+  const duplicateIds = await page.locator('[id]').evaluateAll(nodes => nodes.map(node => node.id).filter((id, index, ids) => ids.indexOf(id) !== index));
+  expect(duplicateIds).toEqual([]);
 });
 
 test('export and native stamp receive the exact selected rule, dimensions, pitch, timing and velocity', async ({ page }) => {
@@ -204,7 +247,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       for (const [prefix, host] of [['automataMidi', 'automataMidiTools']]) {
         await expand(page.locator(`#${prefix}Parameters`)); await expand(page.locator(`#${prefix}RulePicker`));
         await page.locator(`#${prefix}RuleSearch`).fill('90');
-        for (const suffix of ['Family', 'RuleSearch', 'Columns', 'Rows', 'RowBeats', 'LowestNote', 'Articulation', 'Velocity', 'Generate', 'Download']) {
+        for (const suffix of ['Family', 'RuleSearch', 'RuleFilter', 'Rule', 'Rate', 'Density', 'Seed', 'Restart', 'NextSeed', 'Columns', 'Rows', 'RowBeats', 'LowestNote', 'Articulation', 'Velocity', 'Generate', 'Download']) {
           const control = page.locator(`#${prefix}${suffix}`); await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
           const bounds = await control.boundingBox(); expect(bounds.x).toBeGreaterThanOrEqual(-1); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
           if (viewport.width < 1000) {

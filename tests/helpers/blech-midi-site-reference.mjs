@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { restoreSpartialOrganRuntime } from './spartial-organ-runtime-reference.mjs';
 
 export const blechMidiSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/blech-midi-site-amendments.json', import.meta.url), 'utf8',
@@ -12,6 +13,7 @@ export const blechMidiSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed standalone-page registration, packaging and moved tempo. */
 export function restoreBlechMidiSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreSpartialOrganRuntime(source, file, { allowRestored: true });
   for (const change of blechMidiSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {
       const count = source.split(after).length - 1;
