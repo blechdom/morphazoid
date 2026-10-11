@@ -19,7 +19,8 @@ are unchanged. Enable **Audio**, then **Play**. Audio and transport are separate
   moves the sampled level closer to the set; Fine increases spatial sampling.
   Click a strand or use Next strand to choose the sound source. Save SVG exports
   the completed visible paths, keeping cropped paths open. **Trace** plays Broad,
-  Curl and Fine contour levels together. **Radar** sweeps a shared ray, and
+  Curl and Fine contour levels together. **Traveler** maps the signed turns of
+  each border to pitch; try the **Border traveler** preset. **Radar** sweeps a shared ray, and
   **Scan** sweeps a line out and back. Each level has independent Tone and Drum
   switches and voice choices, plus a whole-layer mute. Open Contour mappings,
   Drum beads and Shepard motion to adjust their behavior; zero mapping amounts
@@ -105,6 +106,45 @@ This is an artistic sound mapping of sampled geometry. The main explorer shows
 the source strand; the waveform monitor shows the filtered, rotated audio.
 Existing sound continues during refinement, then crossfades to the new strand
 without resetting the carrier. A completed empty region crossfades to silence.
+
+### Traveler: marching-squares border turns
+
+Choose **Reader → Traveler · turn → pitch**, or the complete **Border traveler**
+preset. A directional arrow follows each selected contour at the independent
+Cycle rate. Left turns lower pitch and right turns raise it. Each layer starts
+at its own top unless you select a starting point by clicking a strand.
+**Closed path direction** reverses the traversal of closed borders.
+
+**Turn → pitch** sets 0–4 octaves per 360° (default 1). Changes affect future
+turns without replaying earlier laps; zero holds the current pitch. Feature size
+smooths corner turns over a geometric arc-length window, so subdividing the same
+polyline does not add notes or change the mapping. Pitch is continuous and is not
+quantized to a musical scale. The angle readout counts right turns as positive.
+
+A simple closed planar polygon has net signed turning ±360° per lap. Concave
+bends can reverse pitch locally even during a net rising lap. This is accumulated
+relative turning, not horizontal position or a wrapped compass heading. We sum
+`atan2(cross(incoming, outgoing), dot(incoming, outgoing))` on the original
+nonzero segments, retain the actual winding, and extend the smoothed signal
+across the seam. The renderer and audio consume the same 2,048-sample control
+profile. Fine geometry may still exceed that temporal sampling resolution.
+Cropped open paths retrace without a synthetic endpoint corner or closing edge;
+their turn signal unwinds to zero over the round trip. Closed-path direction
+does not change an open path's deterministic starting endpoint.
+
+Shepard voices use each layer's own accumulated octave motion, including local
+reversals. Their partials recycle in both directions, supporting endless travel
+through repeated laps. Ordinary Sine/Reed/Glass voices hold at ±4 octaves from
+the reference and retain the engine's final frequency bounds. Switching to
+Shepard makes continued turning audible after an ordinary voice reaches its
+limit. Geometry refinement and direction changes align replacement turn profiles
+at the current sounding pitch. Edits and Audio off/on preserve musical flow.
+
+Traveler replaces Height → pitch for sustained voices. Pan, bend/fold timbre,
+layer mutes, Tone/Drum switches, voice selection, and drum spacing remain active.
+Traveler drums use Drum pitch with the layer's low/middle/high register; no hidden
+height mapping affects them. Shepard's time-based rise/fall and travel-per-cycle
+controls are hidden in Traveler; Octave spread still shapes the Shepard sound.
 
 ### Shapes-inspired layered readers
 
@@ -283,5 +323,8 @@ identities, coefficient provenance, valid disconnected paths and parameter bound
 `e2e/vector-julia-presets.spec.mjs` exercises all ten named coefficients, each
 reader, live shape changes, custom coefficients, Whole/zoom, SVG metadata and
 portrait/landscape controls.
+`tests/vector-traveler-*.test.mjs` and `e2e/vector-traveler.spec.mjs` check signed
+turning, subdivision invariance, open/closed seams, pitch direction and continuity,
+Shepard bounds, transport and responsive controls.
 These are mechanical checks; human timbre/touch judgment and
 physical iPhone listening remain separate acceptance steps.
