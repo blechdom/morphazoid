@@ -112,3 +112,18 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 .grain-detail > summary { cursor: pointer; color: var(--muted); font-size: 11px; padding: 8px 0; }
 .grain-detail > div { padding-top: 16px; }
 @media (pointer: coarse) { .grain-source-actions button, .grain-freeze { min-height: 48px; } }
+
+.spartial-recording { padding: 16px 18px 0; }
+.spartial-recording > div { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.spartial-recording button { min-height: 48px; color: #ff8593; }
+.spartial-recording button::before { content: ""; display: inline-block; width: 9px; height: 9px; margin-right: 8px; border-radius: 50%; background: currentColor; }
+.spartial-recording button[aria-pressed="true"]::before { border-radius: 0; }
+.spartial-recording button[aria-pressed="true"] { background: #ff596d; color: #180b0f; border-color: #ff596d; }
+.spartial-recording output { font-variant-numeric: tabular-nums; }
+.spartial-recording .control-note { margin-bottom: 0; }
+.spartial-recording-dialog { width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; box-sizing: border-box; border: 1px solid var(--line-strong); padding: 22px; color: var(--ink); background: var(--panel-high); font: 12px/1.6 var(--mono); }
+.spartial-recording-dialog::backdrop { background: #0009; }
+.spartial-recording-dialog h2 { margin: 0 0 12px; font-size: 16px; font-weight: 500; }
+.spartial-recording-dialog p { overflow-wrap: anywhere; }
+.spartial-recording-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 20px; }
+.spartial-recording-actions button { min-height: 48px; white-space: normal; text-align: left; }

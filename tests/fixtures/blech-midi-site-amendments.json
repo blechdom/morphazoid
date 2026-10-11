@@ -1,0 +1,73 @@
+{
+  "baseCommit": "25d3ed91",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "5e3d0a635eb413d8e4750dfe9fb0ecc8f2a3159ca11d34cfc618398aeb2e6c1f",
+      "replacements": [
+        {
+          "before": "  \"blobs.html\",",
+          "after": "  \"blech-midi.html\",\n  \"blobs.html\","
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "c11e369932bebbf89474a09dc1eb9a803dd47682b2182cca9f9d9448a824aa2b",
+      "replacements": [
+        {
+          "before": "    { id: \"midiphoria\", label: \"Midiophilia\", href: \"midiphoria.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/midiphoria.webp\" },\n",
+          "after": "    { id: \"midiphoria\", label: \"Midiophilia\", href: \"midiphoria.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/midiphoria.webp\" },\n    { id: \"blech-midi\", label: \"Blech MIDI\", href: \"blech-midi.html\", catalogue: false, browse: true, entryType: \"lab\", imageHref: \"assets/instruments/blech-midi.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "3a7bea3129833ca21b291f2867e45b469bce2992b4d637c7bbe9be94f6d01e29",
+      "replacements": [
+        {
+          "before": "  \"midiphoria\": [\"2d\"],\n",
+          "after": "  \"midiphoria\": [\"2d\"],\n  \"blech-midi\": [\"2d\", \"sequencer\", \"algorithmic\"],\n"
+        },
+        {
+          "before": "export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({\n",
+          "after": "export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({\n  \"blech-midi\": {\n    \"kind\": \"Drawn and generated MIDI\",\n    \"description\": \"Draw playable MIDI, launch black MIDI and geometric stamps, or turn cellular automata and messages into SoundFont audio and moving note trails.\",\n    \"start\": \"Turn Audio on, draw or choose a stamp, then play it. Use Loop and Sync to tempo to keep patterns moving; switch to Automatapoeia for rule-generated MIDI.\",\n    \"features\": [\"SoundFont playback\", \"Drawing\", \"Black MIDI stamps\", \"Cellular automata\", \"MIDI file export\"],\n    \"pluginHref\": null\n  },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "b9e926e833842700bd9806a23d19484c09232dba7cc4f86d83340d3626ab0416",
+      "replacements": [
+        {
+          "before": "export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(\n  Object.entries(NOTE_MODE_IDS).flatMap",
+          "after": "export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze([\n  ...Object.entries(NOTE_MODE_IDS).flatMap"
+        },
+        {
+          "before": "  }))),\n);\n",
+          "after": "  }))),\n  // Generates MIDI files and internal SoundFont notes; no live MIDI port or piano-key mapping.\n  Object.freeze({\n    id: \"blech-midi\",\n    midiInput: false,\n    midiInputMode: \"none\",\n    noteMode: \"sequence\",\n    audioInput: false,\n    midiOutput: false,\n    startsAudio: true,\n    computerKeyboardMode: \"none\",\n  }),\n]);\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "97befdbfd23f9a9dbbf6e3e73015f9f8ebb5d28cb17d3093ed56272d20e15c69",
+      "replacements": [
+        {
+          "before": "  {\"route\": \"midiphoria.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+          "after": "  {\"route\": \"blech-midi.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "75966b6647d7e565e5d527416e20d921d39fb7d7549eb23b19a5a11bd091321b",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n",
+          "after": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n# Standalone Blech MIDI drawing, stamps and automata.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-app.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi.css\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-monitor.js\ncopy+require\tassets/instruments/blech-midi.webp\ncopy+require\tdocs/blech-midi.md\n"
+        }
+      ]
+    }
+  ]
+}

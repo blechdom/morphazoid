@@ -139,3 +139,38 @@ mix. This is ordinary source routing, without a bass-management or subwoofer
 filter. The option is disabled for layouts without LFE. Presets and dice
 preserve this output setting, and toggling it retains the selected physical
 speaker when that speaker remains available.
+
+## Multitrack recording
+
+Turn Audio on, then use **Record multitrack** above the instrument preset menu.
+Stop opens the export window. The same take supports both:
+
+- **Save tracks to folder** in browsers with folder access, or **Download tracks
+  ZIP** everywhere recording is supported. The ZIP contains a named take folder
+  with one numbered, labelled mono WAV per physical output and `channel-map.txt`.
+- **Download multichannel WAV** for a single file with all output channels in
+  numbered patch order. Import it as discrete channels in your DAW.
+
+All files use 24-bit PCM at the instrument's audio sample rate. Every channel
+starts on the same sample and has exactly the same length. Both additive and
+granular layers are captured after their mixer and Volume control, before
+stereo monitoring. Headphones still record the complete selected speaker layout.
+Omitted LFE remains a silent numbered channel; the other tracks never shift.
+The 7:4:1 patch keeps LS/RS at 5–6 and LRS/RRS at 7–8.
+
+The speaker layout and Omit LFE controls are fixed during a take; notes, presets,
+rotation, layer mix and volume remain playable. The separate masthead Record
+button continues to capture the stereo monitoring mix.
+
+The available time appears beside the multitrack control. Capture uses a bounded
+128 MiB buffer: at 48 kHz, approximately 3:53 for four channels, 1:56 for eight,
+1:17 for twelve, or 0:58 for sixteen. At the limit, capture stops and preserves
+the take for export. Audio off or an interrupted audio context also finalizes
+the captured portion. Save cancellation or failure keeps the original take;
+**Discard take** frees it for a new recording. Export before closing the page.
+
+The multichannel WAV uses WAVEFORMATEXTENSIBLE with an unspecified speaker mask
+because SPARTIAL supports custom patches. Its channel order is the numbered
+speaker patch, not a DAW's automatic surround order; the separate-track export
+includes the exact map. Recording controls are browser-only and hidden in the
+WAX artifact, where the DAW owns recording.

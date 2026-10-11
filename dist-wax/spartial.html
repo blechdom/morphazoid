@@ -59,6 +59,10 @@
         </div>
       </section>
     <aside class="panel spartial-panel" data-instrument-preset-host aria-label="SPARTIAL controls">
+      <div class="spartial-recording" id="multitrackControls" aria-label="Multitrack recording">
+        <div><button id="multitrackRecord" class="mini-action" type="button" aria-pressed="false" disabled>Record multitrack</button><output id="multitrackTime" aria-label="Recording duration">00:00</output></div>
+        <p id="multitrackHint" class="control-note">Turn Audio on to record all speaker channels.</p>
+      </div>
       <div class="preset-row full-preset-row"><label class="sr-only" for="preset">Instrument preset</label><select id="preset"></select><button id="nextPreset" class="mini-action" type="button" aria-label="Next instrument preset" title="Next instrument preset">▶</button><button id="randomPreset" class="mini-action dice-button" type="button" aria-label="Randomize instrument" title="Randomize instrument"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div>
       <section class="spartial-mixer" aria-label="Additive and granular mixer">
         <label class="control" for="granularMix"><span><b>Layer mix</b><output id="granularMixOut" for="granularMix">100% / 0%</output></span><input id="granularMix" type="range" min="0" max="1" step="0.01" value="0" aria-label="Additive to granular mix" /></label>
@@ -152,6 +156,21 @@
   </main>
   <script type="module" src="nav.js"></script>
   <script type="module" src="src/instruments/spartial/spartial-app.js"></script>
+  <dialog id="multitrackDialog" class="spartial-recording-dialog" aria-labelledby="multitrackTitle">
+    <h2 id="multitrackTitle">Multitrack recording</h2>
+    <p id="multitrackSummary"></p>
+    <p id="multitrackMessage" role="status"></p>
+    <details><summary>Channel order</summary><p id="multitrackChannelMap"></p></details>
+    <div class="spartial-recording-actions">
+      <button id="multitrackFolder" class="mini-action" type="button">Save tracks to folder</button>
+      <button id="multitrackZip" class="mini-action" type="button">Download tracks ZIP</button>
+      <button id="multitrackWav" class="mini-action" type="button">Download multichannel WAV</button>
+    </div>
+    <div class="spartial-recording-actions">
+      <button id="multitrackDiscard" class="mini-action" type="button">Discard take</button>
+      <button id="multitrackClose" class="mini-action" type="button">Close</button>
+    </div>
+  </dialog>
   <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>
 </html>

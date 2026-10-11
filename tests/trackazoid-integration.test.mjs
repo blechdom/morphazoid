@@ -9,7 +9,13 @@ import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { restoreTrackazoidSite, trackazoidSiteChanges } from './helpers/trackazoid-site-reference.mjs';
 
+import { restoreBlechMidiSite } from './helpers/blech-midi-site-reference.mjs';
+import { restoreSpartialRecordingRuntime } from './helpers/spartial-recording-runtime-reference.mjs';
+
 const digest = source => createHash('sha256').update(source).digest('hex');
+const restoreConcurrent = (source, file) => restoreSpartialRecordingRuntime(
+  restoreBlechMidiSite(source, file, { allowRestored: true }), file, { allowRestored: true },
+);
 
 test('Trackazoid is a visible local-audio app with conservative MIDI and explicit Audio arm', () => {
   const item = instrumentById('trackazoid');
@@ -35,7 +41,7 @@ test('Trackazoid amendments preserve prior evidence and reject missing, duplicat
   for (const change of trackazoidSiteChanges.changes) {
     const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
     const restored = restoreTrackazoidSite(source, change.file);
-    assert.equal(digest(restored), change.sha256, change.file);
+    assert.equal(digest(restoreConcurrent(restored, change.file)), change.sha256, change.file);
     assert.equal(restoreTrackazoidSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreTrackazoidSite(restored, change.file), /exact Trackazoid/);
     for (const { before, after } of change.replacements) {
@@ -45,7 +51,7 @@ test('Trackazoid amendments preserve prior evidence and reject missing, duplicat
     }
     const drift = '\n// unrelated drift\n';
     assert.ok(restoreTrackazoidSite(source + drift, change.file).endsWith(drift));
-    assert.notEqual(digest(restoreTrackazoidSite(source + drift, change.file)), change.sha256);
+    assert.notEqual(digest(restoreConcurrent(restoreTrackazoidSite(source + drift, change.file), change.file)), change.sha256);
   }
   const binary = Buffer.from('raw bytes');
   assert.equal(restoreTrackazoidSite(binary, 'src/pages/manifest.js'), binary);

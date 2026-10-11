@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { setImmediate } from "node:timers/promises";
 import {
-  OutputRecorder, wavHeader, MAX_MEMORY_BYTES, MAX_FILE_BYTES,
+  OutputRecorder, wavHeader, wavHeaderBytes, MAX_MEMORY_BYTES, MAX_FILE_BYTES,
   WAV_HEADER_BYTES, BYTES_PER_FRAME,
 } from "../src/output-recorder.js";
 
@@ -39,9 +39,11 @@ function pcm24(buffer) {
   }
   return values;
 }
-function processBlock(processor, { left = 0.25, right = -0.5, frames = 128, channels = 2 } = {}) {
-  const input = channels ? [new Float32Array(frames).fill(left)] : [];
-  if (channels > 1) input.push(new Float32Array(frames).fill(right));
+function processBlock(processor, { left = 0.25, right = -0.5, frames = 128, channels = 2, samples } = {}) {
+  const input = samples
+    ? samples.map((value) => new Float32Array(frames).fill(value))
+    : channels ? [new Float32Array(frames).fill(left)] : [];
+  if (!samples && channels > 1) input.push(new Float32Array(frames).fill(right));
   const output = [new Float32Array(frames).fill(1), new Float32Array(frames).fill(1)];
   const active = processor.process([input], [output]);
   assert.ok(output.every((channel) => channel.every((sample) => sample === 0)), "recorder output must remain silent");
@@ -209,6 +211,162 @@ test("WAV header describes actual-rate stereo PCM24 and enforces RIFF's size cei
   assert.throws(() => wavHeader({ sampleRate: 48_000, frames: maximumFrames + 1 }), /limit/);
   assert.throws(() => wavHeader({ sampleRate: 0, frames: 1 }), /sample rate/);
   assert.throws(() => wavHeader({ sampleRate: 48_000, frames: 0.5 }), /limit/);
+});
+
+test("mono and multichannel WAV headers preserve PCM24, unspecified speaker order, and odd-data padding", () => {
+  const mono = new DataView(wavHeader({ sampleRate: 96_000, frames: 3, channelCount: 1 }).buffer);
+  assert.equal(wavHeaderBytes(1), 44);
+  assert.equal(mono.getUint16(20, true), 1);
+  assert.equal(mono.getUint16(22, true), 1);
+  assert.equal(mono.getUint16(32, true), 3);
+  assert.equal(mono.getUint32(28, true), 288_000);
+  assert.equal(mono.getUint32(40, true), 9, "data length excludes padding");
+  assert.equal(mono.getUint32(4, true), 46, "RIFF length includes the trailing pad");
+  for (const channelCount of [3, 4, 12, 16, 32]) {
+    const header = wavHeader({ sampleRate: 96_000, frames: 3, channelCount });
+    const view = new DataView(header.buffer);
+    assert.equal(wavHeaderBytes(channelCount), 68);
+    assert.equal(view.getUint32(16, true), 40);
+    assert.equal(view.getUint16(20, true), 0xfffe);
+    assert.equal(view.getUint16(22, true), channelCount);
+    assert.equal(view.getUint32(28, true), 96_000 * channelCount * 3);
+    assert.equal(view.getUint16(32, true), channelCount * 3);
+    assert.equal(view.getUint16(34, true), 24);
+    assert.equal(view.getUint16(36, true), 22);
+    assert.equal(view.getUint16(38, true), 24);
+    assert.equal(view.getUint32(40, true), 0);
+    assert.equal(Buffer.from(header.slice(44, 60)).toString("hex"), "0100000000001000800000aa00389b71");
+    assert.equal(new TextDecoder().decode(header.slice(60, 64)), "data");
+    const dataBytes = 9 * channelCount;
+    assert.equal(view.getUint32(64, true), dataBytes);
+    assert.equal(view.getUint32(4, true), 60 + dataBytes + dataBytes % 2);
+    let maxFrames = Math.floor((0xffff_ffff - 60) / (channelCount * 3));
+    if (60 + maxFrames * channelCount * 3 + (maxFrames * channelCount * 3) % 2 > 0xffff_ffff) maxFrames -= 1;
+    assert.doesNotThrow(() => wavHeader({ sampleRate: 48_000, frames: maxFrames, channelCount }));
+    assert.throws(() => wavHeader({ sampleRate: 48_000, frames: maxFrames + 1, channelCount }), /limit/);
+  }
+});
+
+test("recorder and encoders reject invalid channel counts instead of silently changing the patch", () => {
+  for (const channelCount of [0, -1, 1.5, 33, NaN, Infinity, "8", null]) {
+    assert.throws(() => new OutputRecorder({ channelCount }), /channel count/);
+    assert.throws(() => wavHeader({ sampleRate: 48_000, frames: 1, channelCount }), /channel count/);
+    assert.throws(() => processor({ channelCount }), /channel count/);
+  }
+});
+
+test("multichannel processor captures aligned discrete frames without duplicating missing channels", () => {
+  for (const channelCount of [1, 3, 4, 12, 16, 32]) {
+    const capture = processor({ channelCount, maxFrames: 130 });
+    const samples = Array.from({ length: channelCount }, (_, channel) => (channel + 1) / 64);
+    processBlock(capture, { samples });
+    processBlock(capture, { samples: [0.25], frames: 128 });
+    const chunks = chunkPosts(capture);
+    assert.deepEqual(chunks.map(({ message }) => message.frames), [128, 2]);
+    const first = pcm24(chunks[0].message.buffer);
+    const expected = samples.map((sample) => Math.round(sample * 8_388_607));
+    for (let frame = 0; frame < 128; frame += 1) {
+      assert.deepEqual(first.slice(frame * channelCount, (frame + 1) * channelCount), expected);
+    }
+    const lastFrame = [2_097_152, ...Array(channelCount - 1).fill(0)];
+    assert.deepEqual(pcm24(chunks[1].message.buffer), [...lastFrame, ...lastFrame]);
+    assert.equal(capture.port.posts.at(-1).message.frames, 130);
+    assert.equal(capture.port.posts.at(-1).message.reason, "limit");
+  }
+});
+
+test("multichannel backpressure stops all channels at the same bounded prefix", () => {
+  const capture = processor({ channelCount: 16, credits: 2 });
+  for (let index = 0; index < 3; index += 1) processBlock(capture, { samples: Array(16).fill(0.125) });
+  const chunks = chunkPosts(capture);
+  assert.equal(chunks.length, 2);
+  assert.ok(chunks.every(({ message }) => message.buffer.byteLength === 128 * 16 * 3));
+  assert.deepEqual(capture.port.posts.at(-1).message, { type: "complete", frames: 256, reason: "backpressure" });
+});
+
+test("mono and odd-channel memory takes include padding within their exact byte budget", async () => {
+  for (const channelCount of [1, 3, 16]) {
+    const headerBytes = wavHeaderBytes(channelCount);
+    const dataBytes = 3 * channelCount * 3;
+    const padBytes = dataBytes % 2;
+    const graph = fixture({ recorder: { channelCount, maxMemoryBytes: headerBytes + dataBytes + padBytes } });
+    await graph.recorder.start();
+    assert.equal(graph.nodes[0].options.channelCount, channelCount);
+    assert.equal(graph.nodes[0].options.channelInterpretation, "discrete");
+    graph.render({ samples: Array(channelCount).fill(0.25) });
+    await tick();
+    const ready = graph.recorder.getStatus();
+    assert.equal(ready.state, "ready");
+    assert.equal(ready.reason, "buffer-limit");
+    assert.equal(ready.frames, 3);
+    assert.equal(ready.channelCount, channelCount);
+    assert.equal(ready.headerBytes, headerBytes);
+    assert.equal(ready.dataBytes, dataBytes);
+    assert.equal(ready.padBytes, padBytes);
+    assert.equal(ready.maxSeconds, 3 / 48_000);
+    assert.equal(ready.bytes, headerBytes + dataBytes + padBytes);
+    const bytes = await ready.blob.arrayBuffer();
+    assert.equal(bytes.byteLength, ready.bytes);
+    assert.equal(new DataView(bytes).getUint32(headerBytes - 4, true), dataBytes);
+    assert.ok(pcm24(bytes.slice(headerBytes, headerBytes + dataBytes)).every((value) => value === 2_097_152));
+    if (padBytes) assert.equal(new Uint8Array(bytes).at(-1), 0);
+    await graph.recorder.destroy();
+  }
+  const graph = fixture({ recorder: { channelCount: 1, maxMemoryBytes: 44 + 3 * 3 } });
+  await graph.recorder.start();
+  graph.render();
+  await tick();
+  assert.equal(graph.recorder.getStatus().frames, 2, "third frame cannot consume an unbudgeted padding byte");
+  assert.ok(graph.recorder.getStatus().bytes <= 53);
+  await graph.recorder.destroy();
+});
+
+test("writable multichannel takes finalize extensible headers and trailing padding in place", async () => {
+  for (const channelCount of [1, 3, 12]) {
+    const headerBytes = wavHeaderBytes(channelCount);
+    const dataBytes = 5 * channelCount * 3;
+    const writable = fileWriter();
+    const graph = fixture({ recorder: { channelCount, maxFileBytes: headerBytes + dataBytes + dataBytes % 2 } });
+    await graph.recorder.start({ writable });
+    assert.equal(writable.bytes.length, headerBytes);
+    graph.render({ samples: Array.from({ length: channelCount }, (_, channel) => (channel + 1) / 16) });
+    await tick();
+    const ready = graph.recorder.getStatus();
+    assert.equal(ready.reason, "file-limit");
+    assert.equal(ready.frames, 5);
+    assert.equal(ready.saved, true);
+    assert.equal(writable.closed, true);
+    assert.equal(writable.bytes.length, headerBytes + dataBytes + dataBytes % 2);
+    const view = new DataView(writable.bytes.buffer);
+    assert.equal(view.getUint32(4, true), writable.bytes.length - 8);
+    assert.equal(view.getUint32(headerBytes - 4, true), dataBytes);
+    assert.deepEqual(pcm24(writable.bytes.buffer.slice(headerBytes, headerBytes + channelCount * 3)),
+      Array.from({ length: channelCount }, (_, channel) => Math.round((channel + 1) / 16 * 8_388_607)));
+    if (dataBytes % 2) assert.equal(writable.bytes.at(-1), 0);
+    assert.equal(writable.maxConcurrent, 1);
+    await graph.recorder.destroy();
+  }
+});
+
+test("multichannel processor failure preserves every channel's delivered prefix and rejects stereo-sized chunks", async () => {
+  const graph = fixture({ recorder: { channelCount: 12 } });
+  await graph.recorder.start();
+  const frames = graph.nodes[0].options.processorOptions.chunkFrames;
+  graph.render({ frames, samples: Array.from({ length: 12 }, (_, channel) => channel / 16) });
+  await tick();
+  graph.nodes[0].port.onmessage({ data: { type: "chunk", frames: 1, buffer: new ArrayBuffer(6) } });
+  await tick();
+  const ready = graph.recorder.getStatus();
+  assert.equal(ready.state, "ready");
+  assert.equal(ready.reason, "processor-error");
+  assert.match(ready.error, /invalid audio chunk/);
+  assert.equal(ready.frames, frames);
+  assert.equal(ready.blob.size, 68 + frames * 36);
+  assert.equal(graph.manager.releases, 1);
+  assert.equal(graph.contexts[0].state, "running");
+  const bytes = await ready.blob.arrayBuffer();
+  assert.deepEqual(pcm24(bytes.slice(68, 68 + 36)), Array.from({ length: 12 }, (_, channel) => Math.round(channel / 16 * 8_388_607)));
+  await graph.recorder.destroy();
 });
 
 test("processor interleaves independent channels, clips PCM24, sanitizes non-finite input, and transfers the final chunk", () => {

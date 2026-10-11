@@ -1,18 +1,14 @@
-import { MidiphoriaModel, DEFAULT_VISUALS } from '../midiphoria/midiphoria-model.js';
-import { MidiphoriaRenderer } from '../midiphoria/midiphoria-renderer.js';
+import { mountMidiPerformanceMonitor } from './midi-mixer-monitor.js';
 import { mountAutomataMidiControls } from '../midiphoria/midiphoria-automata-controls.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 import { GM_PROGRAM_NAMES, parseMidi } from './midi-mixer-model.js';
 import { createMidiFileStamp } from './midi-mixer-file-stamps.js';
 import { transformMidiStamp } from './midi-mixer-score-transform.js';
-import { mergeMidiParameters, transformMidiNote } from './midi-mixer-parameters.js';
 import { mountMidiParameterEditor } from './midi-mixer-midi-editor.js';
-import { MIXER_SAMPLE_STAMPS, mixerStampScore, nextMixerStampVariation, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
-  indexPerformanceNotes, queryPerformanceNotes } from './midi-mixer-performance-score.js';
+import { MIXER_SAMPLE_STAMPS, mixerStampScore, nextMixerStampVariation, mixerMessageScore, mixerPerformanceScore } from './midi-mixer-performance-score.js';
 
 const clock = () => performance.now() / 1000;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
-const MAX_ACTIVE = 4096;
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
 export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton } = {}) {
@@ -82,10 +78,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   if (automataHost) automataHost.append(automataTools);
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
-  const renderer = new MidiphoriaRenderer(canvas), model = new MidiphoriaModel();
-  renderer.configure({ colorSource: 'voice', view: 'trails', motion: 0, width: .65, glow: .12, reflection: 'none', trailSeconds: 6 });
-  const activeNotes = new Map(), preview = new Map(), indexes = new WeakMap();
-  let active = false, disposed = false, frame = null, lastFrame = -Infinity, audioWasEnabled = null, serial = 0;
+  let active = false, disposed = false;
+  const monitor = mountMidiPerformanceMonitor(canvas, { engine,
+    onFrame: state => { $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample; } });
+  const renderer = monitor.renderer;
   const stamps = new Map(), buttons = new Map(), fileCache = new Map();
   let automataSelected = false, viewMode = 'draw';
   let selected = 'heart', seed = 1, request = null, requestTicket = 0, loadingSample = false, previewFrame = null;
@@ -109,111 +105,6 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       return false;
     },
   });
-
-  function noteMessage(event) {
-    return { type: event.type, sourceId: `${event.sourceId}:channel:${event.channel}`, channel: event.channel % 16,
-      note: event.note, velocity: event.velocity ?? 0 };
-  }
-  function release(id, now) {
-    const held = activeNotes.get(id); if (!held) return;
-    activeNotes.delete(id);
-    model.handleMessage({ ...noteMessage(held.event), type: 'noteOff', velocity: 0 }, now);
-    renderer.captureEvent({ ...held.event, id, type: 'noteOff', time: now,
-      channel: mixerPerformanceChannel(held.event.sourceId, held.event.channel) });
-  }
-  function attack(event, at, duration) {
-    const id = String(event.id);
-    if (activeNotes.has(id) || activeNotes.size >= MAX_ACTIVE || !Number.isInteger(event.note) || event.note < 0 || event.note > 127 || !(event.velocity > 0) || event.gain <= 0) return;
-    const seconds = Number.isFinite(duration) ? clamp(duration, .001, 120) : .25;
-    activeNotes.set(id, { event, end: at + seconds });
-    model.handleMessage(noteMessage(event), at);
-    renderer.captureEvent({ ...event, id, type: 'noteOn', time: at,
-      channel: mixerPerformanceChannel(event.sourceId, event.channel) });
-  }
-  function clear() { activeNotes.clear(); preview.clear(); model.panic(clock()); renderer.clear(); }
-  const unsubscribe = engine.subscribeNotes(batch => {
-    if (!active || disposed || !engine.state.audioEnabled) return;
-    if (audioWasEnabled !== true) { clear(); audioWasEnabled = true; }
-    const now = clock(), audioTime = engine.context?.currentTime ?? 0;
-    for (const item of batch) {
-      const at = Math.min(now, now + (Number.isFinite(item.at) ? item.at - audioTime : 0));
-      const event = { ...item, id: `live:${item.id}`, channel: Number(item.channel) || 0 };
-      if (event.type === 'noteOff') release(String(event.id), at);
-      else attack(event, at, (item.duration ?? .25) + .25);
-    }
-  });
-
-  function previewSource(source, now) {
-    const { key, analysis, position, rate = 1, tempo = engine.state.tempo, cycle = 0, gain = 1, transpose = 0, channels = [], midi = {}, end = Infinity } = source;
-    if (!analysis || !Number.isFinite(position)) return;
-    let indexed = indexes.get(analysis);
-    if (!indexed) { indexed = indexPerformanceNotes(analysis.notes); indexes.set(analysis, indexed); }
-    const signature = JSON.stringify([cycle, rate, transpose, gain, midi, channels.map(channel => [channel.channel, channel.mute, channel.solo, channel.midi])]);
-    let prior = preview.get(key);
-    if (!prior || prior.signature !== signature || prior.analysis !== analysis || position < prior.position || position - prior.position > 2 * rate) {
-      for (const [id, held] of activeNotes) if (held.event.sourceId === key) release(id, now);
-      prior = { analysis, signature, position: Math.max(0, position - .001), generation: ++serial, seen: new Set() };
-      preview.set(key, prior);
-    }
-    if (gain <= .0001) return;
-    const secondsPerBeat = 60 / Math.max(1, tempo) / rate;
-    const settings = new Map(channels.map(channel => [channel.channel, channel])), solo = channels.some(channel => channel.solo);
-    for (const { index, note } of queryPerformanceNotes(indexed, prior.position, position, 1024)) {
-      const setting = settings.get(note.channel);
-      if (setting?.mute || (solo && !setting?.solo)) continue;
-      const id = `preview:${key}:${prior.generation}:${index}`;
-      if (prior.seen.has(index)) continue;
-      prior.seen.add(index);
-      const parameters = mergeMidiParameters(midi, setting?.midi);
-      const previewGain = gain * (parameters.gain ?? 1);
-      if (previewGain <= .0001 || parameters.controllers?.[7] === 0 || parameters.controllers?.[11] === 0) continue;
-      const transformed = transformMidiNote({ ...note, note: note.note + (note.channel % 16 === 9 ? 0 : transpose) }, parameters);
-      const noteEnd = Math.min(end, note.beat + note.duration);
-      const at = now - Math.max(0, position - note.beat) * secondsPerBeat;
-      attack({ id, type: 'noteOn', sourceId: key, channel: note.channel, note: transformed.note, velocity: transformed.velocity, gain: previewGain }, at, (noteEnd - note.beat) * secondsPerBeat);
-    }
-    // Index ownership is reset at every loop; cap display bookkeeping on long files.
-    if (prior.seen.size > 8192) prior.seen = new Set([...prior.seen].slice(-4096));
-    prior.position = position;
-  }
-
-  function draw() {
-    frame = null; if (!active || disposed || document.hidden) return;
-    const now = clock();
-    if (now - lastFrame >= 1 / 30) {
-      lastFrame = now;
-      const state = engine.state;
-      if (audioWasEnabled !== state.audioEnabled) { clear(); audioWasEnabled = state.audioEnabled; }
-      if (!state.audioEnabled) {
-        const sources = new Set();
-        if (state.playing) state.decks.forEach((deck, index) => {
-          const key = `deck:${index}`;
-          const fade = index === 0 ? Math.cos((state.crossfade + 1) * Math.PI / 4) : Math.sin((state.crossfade + 1) * Math.PI / 4);
-          const gain = deck.config.mute ? 0 : (deck.config.gain ?? 1) * fade;
-          if (gain <= .0001 || deck.weaveActive === false) return;
-          sources.add(key);
-          previewSource({ key, analysis: deck.analysis, position: deck.positionBeats, rate: deck.config.rate ?? 1,
-            gain, transpose: deck.config.transpose, channels: deck.channels, midi: deck.config.midi, end: deck.loopEndBeats }, now);
-        });
-        for (const sample of state.samples ?? []) {
-          if (sample.pending) continue;
-          const key = `sample:${sample.id}`; sources.add(key);
-          previewSource({ key, analysis: sample.analysis, position: sample.positionBeats, tempo: sample.tempo, cycle: sample.cycle,
-            gain: sample.gain, midi: sample.midi, end: sample.analysis.durationBeats }, now);
-        }
-        for (const [id, held] of activeNotes) if (!sources.has(held.event.sourceId)) release(id, now);
-        for (const key of preview.keys()) if (!sources.has(key)) preview.delete(key);
-      }
-      for (const [id, held] of activeNotes) if (held.end <= now) release(id, held.end);
-      renderer.draw(model.sample(now), now, DEFAULT_VISUALS);
-      canvas.dataset.activeNotes = String(activeNotes.size);
-      canvas.dataset.capturedNotes = String(renderer.capturedNotes);
-      canvas.dataset.sources = JSON.stringify([...new Set([...activeNotes.values()].map(held => held.event.sourceId))].sort());
-      canvas.dataset.historySources = JSON.stringify([...new Set(renderer.trails.map(note => note.sourceId))].slice(0, 64).sort());
-      $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample;
-    }
-    frame = requestAnimationFrame(draw);
-  }
 
   function editScore(score) {
     const gateScale = Number($('mixerStampGate').value);
@@ -447,7 +338,6 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   on(drawingButton ?? $('mixerSendDrawing'), 'click', () => safely(playDrawing));
   on($('mixerStopSamples'), 'click', stopSamples);
   on($('mixerPerformanceView'), 'change', () => renderer.configure({ view: $('mixerPerformanceView').value }));
-  const resize = new ResizeObserver(() => { if (active) renderer.resize(); }); resize.observe(canvas);
   const stampOnly = [section.querySelector('.mixer-stamp-palette'), section.querySelector('.mixer-stamp-shape-controls'),
     section.querySelector('.mixer-sample-message'), ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
@@ -477,9 +367,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       const next = Boolean(value) && !disposed;
       if (active === next) return;
       active = next;
-      if (!active) { cancelPending(); if (frame !== null) cancelAnimationFrame(frame); frame = null; clear(); return; }
-      midiEditor.refresh(); renderer.resize(); if (frame === null) draw();
+      monitor.setActive(active);
+      if (!active) { cancelPending(); return; }
+      midiEditor.refresh();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (previewFrame !== null) cancelAnimationFrame(previewFrame); monitor.dispose(); engine.stopSamples(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); section.remove(); },
   };
 }

@@ -1,4 +1,5 @@
 import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
+import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -15,6 +16,7 @@ export const vectorFractalsSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the exact reviewed Vector Fractals registration and runtime rows. */
 export function restoreVectorFractalsSite(source, file) {
   source = restoreTrackazoidSite(source, file, { allowRestored: true });
+  source = restoreBlechMidiSite(source, file, { allowRestored: true });
   source = restoreFractalDelayFaves(source, file, { allowRestored: true });
   source = restoreSpartialGranularSite(source, file, { allowRestored: true });
   source = restoreMidiMixerRuntime(source, file, { allowRestored: true });

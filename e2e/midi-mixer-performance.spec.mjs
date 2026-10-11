@@ -106,8 +106,9 @@ async function input(page, id, value, type = 'input') {
     node.value = String(value); node.dispatchEvent(new Event(type, { bubbles: true }));
   }, { value, type });
 }
-async function open(page) {
-  await observe(page); await page.goto('/midiphoria.html');
+async function open(page, { blech = false } = {}) {
+  await observe(page);
+  if (blech) { await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58'); return; } await page.goto('/midiphoria.html');
   await input(page, 'playbackRate', 8); await page.locator('#loopSong').check();
   await page.locator('#mixerModeButton').click();
   await expect(page.locator('#tempoFromB')).toBeEnabled();
@@ -135,8 +136,8 @@ async function silent(page) {
 const state = page => page.evaluate(() => {
   const { legacy, mixer, contexts, events, plays } = globalThis.__performanceQA;
   const mix = mixer.state;
-  return { legacy: legacy.state, contexts: contexts.map(context => context.state), events, plays,
-    originalBytes: legacy._file ? Array.from(new Uint8Array(legacy._file.buffer)) : null,
+  return { legacy: legacy?.state, contexts: contexts.map(context => context.state), events, plays,
+    originalBytes: legacy?._file ? Array.from(new Uint8Array(legacy._file.buffer)) : null,
     mixer: { playing: mix.playing, beat: mix.beat, audioEnabled: mix.audioEnabled,
       tempo: mix.tempo, crossfade: mix.crossfade, effects: mix.effects,
       decks: mix.decks.map(deck => ({ config: deck.config, channels: deck.channels, name: deck.name })),
@@ -240,7 +241,7 @@ test('returning to Mixer during original Audio initialization prevents a late or
   await audible(page);
 });
 
-test('combined canvas follows both audible decks and samples overlay the running mix', async ({ page }, testInfo) => {
+test('combined canvas follows both audible decks and reflects live pitch and mute changes', async ({ page }, testInfo) => {
   test.setTimeout(60000);
   await open(page); await arm(page); await page.locator('#mixerPlay').click();
   await expect.poll(() => sourceIds(page)).toEqual(expect.arrayContaining(['deck:0', 'deck:1']));
@@ -252,8 +253,12 @@ test('combined canvas follows both audible decks and samples overlay the running
   await expect.poll(() => page.evaluate(() => globalThis.__performanceQA.notes.some(note => note.type === 'noteOn' && note.sourceId === 'deck:0' && note.channel === 0 && note.note >= 72))).toBe(true);
   await page.locator('#deckMute0').check(); await page.locator('#deckMute1').check(); await silent(page);
   await expect.poll(() => sourceIds(page)).toEqual([]);
-  const before = (await state(page)).mixer.beat;
-  await page.locator('#drawingModeButton').click();
+  await expect(page.locator('[data-mixer-sample], #drawingModeButton, #automataModeButton')).toHaveCount(0);
+  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
+});
+
+test('Blech MIDI generated shapes and messages sound in the shared native monitor', async ({ page }, testInfo) => {
+  await open(page, { blech: true }); await arm(page);
   await page.locator('#mixerSampleProgram').selectOption('80'); await input(page, 'mixerSampleLevel', .31);
   await page.locator('[data-mixer-sample="heart"]').click();
   await expect.poll(() => sourceIds(page)).toEqual(expect.arrayContaining([expect.stringMatching(/^sample:/)]));
@@ -261,22 +266,21 @@ test('combined canvas follows both audible decks and samples overlay the running
   const heart = await audible(page);
   await page.locator('#mixerSampleMessage').fill('HI ⭐'); await page.locator('#mixerSendMessage').click();
   await expect(page.locator('#mixerPerformanceCanvas')).toHaveAttribute('data-message', /HI/);
-  await audible(page); await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => (await state(page)).mixer.beat).toBeGreaterThan(before + 1);
+  await audible(page); expect((await state(page)).mixer.playing).toBe(false);
   await page.locator('#mixerStopSamples').click(); await silent(page);
   expect((await state(page)).mixer.samples).toEqual([]);
-  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
+  expect((await state(page)).mixer.playing).toBe(false);
   await testInfo.attach('sample-native-audio', { body: JSON.stringify(heart), contentType: 'application/json' });
 });
 
 test('sample buttons and text are silent previews before Audio and never revive canceled gestures', async ({ page }) => {
-  await open(page); await page.locator('#drawingModeButton').click();
+  await open(page, { blech: true });
   await page.locator('[data-mixer-sample="square"]').click();
   await expect(page.locator('#mixerSampleStatus')).toContainText(/silent preview/i);
   await page.locator('#mixerSampleMessage').fill('HEY'); await page.locator('#mixerSendMessage').click();
   await expect(page.locator('#mixerPerformanceCanvas')).toHaveAttribute('data-message', /HEY/);
   expect((await state(page)).contexts).toEqual([]);
-  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
+  expect((await state(page)).mixer.playing).toBe(false);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#mixerStopSamples').click(); await arm(page); await silent(page);
   expect((await state(page)).mixer.samples).toEqual([]);
@@ -289,7 +293,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     test('combined performance controls remain reachable', async ({ page }, testInfo) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-      // Mixer keeps its compact monitor; stamp actions belong to Draw.
+      // Midiophilia keeps its compact read-only monitor; creation has a separate route.
       const canvas = page.locator('#mixerVisualizerHost #mixerPerformanceCanvas');
       await canvas.scrollIntoViewIfNeeded();
       const floor = await canvas.boundingBox();
@@ -300,7 +304,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       for (const selector of ['#deckOriginal0', '#deckOriginal1']) {
         await page.locator(selector).scrollIntoViewIfNeeded(); await expect(page.locator(selector)).toBeVisible();
       }
-      await page.locator('#drawingModeButton').click();
+      await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
       await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
       for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#generateDrawingMidi', '#mixerStopSamples']) {
         const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();

@@ -48,10 +48,9 @@ async function observe(page) {
 }
 
 async function open(page) {
-  await observe(page); await page.goto('/midiphoria.html');
-  await expect(page.locator('#notePads button')).toHaveCount(24);
+  await observe(page); await page.goto('/blech-midi.html');
   await page.locator('#automataModeButton').click();
-  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
+  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'automata');
   await expect(page.locator('#automataMidiPreview')).toBeVisible();
   return 'automataMidi';
 }
@@ -135,8 +134,8 @@ test('export and native stamp receive the exact selected rule, dimensions, pitch
   expect(displayed).toEqual(pixels);
   const played = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(played.bytes).toEqual(Array.from(bytes)); expect(played.notes).toEqual(notes);
-  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
-  await expect(page.locator(`#${prefix}Generate`)).toHaveText('Play rule');
+  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'automata');
+  await expect(page.locator(`#${prefix}Generate`)).toHaveText('Send rule ↑');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
   expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);
@@ -152,7 +151,7 @@ test('native automata playback stays in its tab, keeps existing sound during pre
   expect(await page.evaluate(id => __automataQA.engine.state.samples.some(sample => sample.id === id), first.id)).toBe(true);
   const next = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(next.notes).not.toEqual(first.notes);
-  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
+  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'automata');
   await audible(page, testInfo, 'automata-regenerated-native');
   await page.locator('#audioButton').click();
   await chooseRule(page, prefix, 110); await launch(page, () => page.locator(`#${prefix}Generate`).click());

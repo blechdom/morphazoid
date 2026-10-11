@@ -1,0 +1,11 @@
+{
+  "baseCommit": "25d3ed91024a64dc5803337c993d1133a79f890f",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "75966b6647d7e565e5d527416e20d921d39fb7d7549eb23b19a5a11bd091321b",
+  "before": "copy+require\tsrc/instruments/spartial/spartial-processor.js\n",
+  "after": "copy+require\tsrc/instruments/spartial/spartial-processor.js\ncopy+require\tsrc/instruments/spartial/spartial-recording.js\ncopy+require\tsrc/instruments/spartial/spartial-recording-export.js\n",
+  "additions": [
+    "copy+require\tsrc/instruments/spartial/spartial-recording.js\n",
+    "copy+require\tsrc/instruments/spartial/spartial-recording-export.js\n"
+  ]
+}

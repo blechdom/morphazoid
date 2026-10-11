@@ -19,9 +19,9 @@ async function open(page, mode = 'draw') {
         notes:sample.analysis.notes.map(({note,beat,duration})=>({note,beat,duration})),
         programs:sample.analysis.events.filter(event=>event.kind===12).map(event=>event.a)});return sample;};` });
   });
-  await page.goto('/midiphoria.html'); await page.locator(mode === 'mixer' ? '#mixerModeButton' : '#drawingModeButton').click();
-  if (mode === 'mixer') await expect(page.locator('#tempoFromB')).toBeEnabled();
-  await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
+  await page.goto(mode === 'mixer' ? '/midiphoria.html' : '/blech-midi.html');
+  if (mode === 'mixer') { await page.locator('#mixerModeButton').click(); await expect(page.locator('#tempoFromB')).toBeEnabled(); }
+  else await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
   return errors;
 }
 async function set(page, id, value) { await page.locator(`#${id}`).evaluate((input, value) => { input.value=String(value); input.dispatchEvent(new Event('input', {bubbles:true})); }, value); }
@@ -90,25 +90,33 @@ async function stereo(page){return page.evaluate(()=>{
   return Object.fromEntries(Object.entries(qa.stereo).map(([name,meter])=>{const data=new Float32Array(2048);meter.getFloatTimeDomainData(data);return[name,Math.sqrt(data.reduce((sum,value)=>sum+value*value,0)/data.length)];}));
 });}
 
-test('three source volume knobs independently control native decks and live and subsequent Black MIDI stamps',async({page},testInfo)=>{
+test('A and B volume knobs independently control native deck output',async({page},testInfo)=>{
   test.setTimeout(60000); const errors=await open(page,'mixer');
   for(const [index,note,pan]of[[0,60,0],[1,72,127]]){await page.locator(`#deckFile${index}`).setInputFiles({name:`Level ${index}.mid`,mimeType:'audio/midi',buffer:held(note,pan)});await expect(page.locator(`#deckSong${index} option:checked`)).toHaveText(`Level ${index}.mid`);}
-  await set(page,'deckGain0',1);await set(page,'deckGain1',0);await set(page,'mixerSampleLevel',0);
+  await set(page,'deckGain0',1);await set(page,'deckGain1',0);
   await page.locator('#audioButton').click();await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:20000});await page.locator('#mixerPlay').click();await sounding(page);
   await expect.poll(async()=>{const value=await stereo(page);return value.left/Math.max(1e-6,value.right);}).toBeGreaterThan(3);const onlyA=await stereo(page);
   await set(page,'deckGain0',0);await silent(page);await set(page,'deckGain1',1);await sounding(page);
   await expect.poll(async()=>{const value=await stereo(page);return value.right/Math.max(1e-6,value.left);}).toBeGreaterThan(3);const onlyB=await stereo(page);
-  await set(page,'deckGain1',0);await silent(page);await page.locator('#drawingModeButton').click();await set(page,'mixerSampleLevel',.7);await set(page,'mixerStampBeats',32);await page.locator('#mixerSampleProgram').selectOption('16');
+  await set(page,'deckGain1',0); await silent(page);
+  await testInfo.attach('independent-deck-levels',{body:JSON.stringify({onlyA,onlyB,state:await state(page)}),contentType:'application/json'});
+  await page.locator('#mixerStop').click(); expect(errors).toEqual([]);
+});
+
+test('Black MIDI volume controls live and subsequent stamps independently of master output',async({page},testInfo)=>{
+  test.setTimeout(60000); const errors=await open(page); const master=await page.locator('#outputLevel').inputValue();
+  await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:20000});
+  await set(page,'mixerSampleLevel',.7);await set(page,'mixerStampBeats',32);await page.locator('#mixerSampleProgram').selectOption('16');
   const shot=await launch(page,()=>stamp(page,'square').click());await sounding(page);await set(page,'mixerSampleLevel',0);await silent(page);
-  expect((await state(page)).gains).toEqual([0,0]);await set(page,'mixerSampleLevel',.6);await sounding(page);
+  await expect(page.locator('#outputLevel')).toHaveValue(master);await set(page,'mixerSampleLevel',.6);await sounding(page);
   expect((await state(page)).samples.find(sample=>sample.id===shot.id)?.gain).toBe(.6);
   await page.locator('#mixerStopSamples').click();await set(page,'mixerSampleLevel',0);
   const quiet=await launch(page,()=>page.locator('#mixerStampAgain').click());expect(quiet.gain).toBe(0);await silent(page);
   await set(page,'mixerSampleLevel',.4);await sounding(page);await page.locator('#mixerStopSamples').click();
   const next=await launch(page,()=>page.locator('#mixerStampAgain').click());expect(next.gain).toBe(.4);await sounding(page);
-  const audio=await readAudioStatus(page);expect(audio.peak).toBeLessThanOrEqual(.981);expect((await state(page)).playing).toBe(true);
-  await testInfo.attach('independent-source-levels',{body:JSON.stringify({onlyA,onlyB,audio,state:await state(page)}),contentType:'application/json'});
-  await page.locator('#mixerModeButton').click();await page.locator('#mixerStop').click();await silent(page);expect(errors).toEqual([]);
+  const audio=await readAudioStatus(page);expect(audio.peak).toBeLessThanOrEqual(.981);expect((await state(page)).playing).toBe(false);
+  await testInfo.attach('independent-stamp-level',{body:JSON.stringify({audio,state:await state(page)}),contentType:'application/json'});
+  await page.locator('#creativeStop').click();await silent(page);expect(errors).toEqual([]);
 });
 
 for(const viewport of[{width:1440,height:900},{width:390,height:844},{width:844,height:390}]){
@@ -126,7 +134,7 @@ for(const viewport of[{width:1440,height:900},{width:390,height:844},{width:844,
       expect(geometry.group).toBeLessThan(geometry.decks);expect(geometry.overflow).toBe(false);expect((await state(page)).gains).toEqual([.3,.8]);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');expect(await page.evaluate(()=>__levelsQA.contexts.length)).toBe(0);expect(errors).toEqual([]);
       await group.scrollIntoViewIfNeeded();await page.screenshot({path:testInfo.outputPath(`deck-levels-${viewport.width}.png`)});
-      await page.locator('#drawingModeButton').click();
+      await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
       const black=page.getByRole('slider',{name:'Black MIDI volume',exact:true});await expect(black).toBeVisible();
       await expect(page.locator('#mixerSampleLevel')).toHaveCount(1);await black.scrollIntoViewIfNeeded();const b=await black.boundingBox();
       expect(b.x).toBeGreaterThanOrEqual(0);expect(b.x+b.width).toBeLessThanOrEqual(viewport.width+1);

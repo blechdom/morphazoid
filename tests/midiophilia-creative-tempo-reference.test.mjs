@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readTrackazoidSiteReference as readFile } from './helpers/trackazoid-site-reference.mjs';
+import { readBlechMidiSiteReference as readFile } from './helpers/blech-midi-site-reference.mjs';
 import test from 'node:test';
 import { creativeTempoRuntimeChanges, restoreMidiophiliaCreativeTempo } from './helpers/midiophilia-creative-tempo-reference.mjs';
 import { fractalMotionRuntimeChanges, restoreFractalMotionRuntime } from './helpers/fractal-delay-motion-runtime-reference.mjs';

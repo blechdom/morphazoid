@@ -21,8 +21,7 @@ async function open(page) {
       MidiMixerEngine.prototype.triggerSample=function(buffer,...args){const sample=qaTrigger.call(this,buffer,...args);
         if(sample)__drawingQA.launches.push({id:sample.id,bytes:Array.from(new Uint8Array(buffer))});return sample;};` });
   });
-  await page.goto('/midiphoria.html');
-  await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  await page.goto('/blech-midi.html');
   await page.locator('#drawingModeButton').click();
   await expect(page.locator('#drawingCanvas')).toBeVisible();
 }
@@ -73,12 +72,12 @@ test('fast freehand and eraser drags interpolate, cancel safely, and undo one wh
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('Play drawing stays in Draw and downloads exactly the played notes without enabling Audio', async ({ page }) => {
+test('Send retains its draft and downloads exactly the played notes without enabling Audio', async ({ page }) => {
   await open(page); await stamp(page);
-  await expect(page.locator('#generateDrawingMidi')).toHaveText('Play drawing');
+  await expect(page.locator('#generateDrawingMidi')).toHaveText('Send ↑');
   await page.locator('#generateDrawingMidi').click();
   await expect.poll(() => page.evaluate(() => __drawingQA.launches.length)).toBe(1);
-  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'draw');
+  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'draw');
   await expect(page.locator('#drawingCanvas')).toBeVisible();
   await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
   const waiting = page.waitForEvent('download'); await page.locator('#downloadDrawingMidi').click();
@@ -90,7 +89,7 @@ test('Play drawing stays in Draw and downloads exactly the played notes without 
   const score = generateGridMidi([...expected.pixels].reverse(), { title: 'Drawn score', secondsPerRow: .125 });
   expect(bytes).toEqual(Buffer.from(score.buffer));
   expect(Array.from(bytes)).toEqual(await page.evaluate(() => __drawingQA.launches.at(-1).bytes));
-  expect(download.suggestedFilename()).toBe('drawn-score.mid');
+  expect(download.suggestedFilename()).toBe('blech-drawing.mid');
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', String(expected.count));
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => window.__drawingContexts.length)).toBe(0);
@@ -102,12 +101,14 @@ test('a drawn score sounds in Draw and further edits preserve the active loop', 
   await page.locator('#audioButton').click(); await expect(page.locator('#audioState')).toHaveText('on', { timeout: 20000 });
   await page.locator('#generateDrawingMidi').click();
   await expect.poll(() => page.evaluate(() => __drawingQA.engine.state.samples.length)).toBe(1);
-  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'draw');
+  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'draw');
   await expect.poll(() => page.evaluate(() => __drawingQA.engine.state.samples[0]?.positionBeats)).toBeGreaterThan(.3);
   const signal = await sampleAudioEnvelope(page, { durationMs: 600 });
   expect(signal.summary.finite).toBe(true); expect(signal.summary.maxRms).toBeGreaterThan(.002); expect(signal.summary.clippedSamples).toBe(0);
   const id = await page.evaluate(() => __drawingQA.engine.state.samples[0].id);
+  const sent = await page.evaluate(() => JSON.stringify(__drawingQA.engine.state.samples[0].analysis.notes));
   await stamp(page, 'spiral');
+  expect(await page.evaluate(() => JSON.stringify(__drawingQA.engine.state.samples[0].analysis.notes))).toBe(sent);
   expect(await page.evaluate(id => __drawingQA.engine.state.samples.some(sample => sample.id === id), id)).toBe(true);
   await page.locator('#generateDrawingMidi').click();
   await expect.poll(() => page.evaluate(() => __drawingQA.launches.length)).toBe(2);
@@ -132,6 +133,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
         if (viewport.width < 1000) { expect(bounds.width).toBeGreaterThanOrEqual(48); expect(bounds.height).toBeGreaterThanOrEqual(48); }
       }
+      const order = await page.evaluate(() => {
+        const live = document.getElementById('creativeVisualizerHost').getBoundingClientRect();
+        const draft = document.getElementById('drawingEditor').getBoundingClientRect();
+        return { liveBottom: live.bottom, draftTop: draft.top };
+      });
+      expect(order.draftTop).toBeGreaterThanOrEqual(order.liveBottom);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       expect(await page.locator('#drawingCanvas').evaluate(node => getComputedStyle(node).borderRadius)).toBe('0px');
       await page.locator('#drawingModeButton').scrollIntoViewIfNeeded();
