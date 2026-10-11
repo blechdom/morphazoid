@@ -2,9 +2,8 @@
 
 Open [Midiophilia](../midiphoria.html) and select its **MIDI Mixer** view. Choose a MIDI file in
 each deck's song menu, enable **Audio**, then **Play**. The left and right
-decks share one beat clock, so changing the master tempo keeps their beat
-positions aligned. Rectangular previews show each score; the combined view
-shows the parts that contribute to the mix. A zoomed-out map shows the note
+decks share one beat clock, so changing the master tempo keeps their timing
+locked even when the decks use different speed ratios. A zoomed-out map shows the note
 density of each voice across the whole arrangement, with muted voices in grey.
 
 ## Combine arrangements
@@ -13,6 +12,9 @@ density of each voice across the whole arrangement, with muted voices in grey.
   Local files stay in this browser session and are not uploaded.
 - **Master tempo** spans 30–300 BPM. Take either file's source tempo with its
   tempo button, adjust the master directly, or use the shared **Tap** control.
+- **Tempo ratio** runs either deck at ¼×, ½×, 1×, 2× or 4× the shared tempo.
+  For example, double-time drums from A stay synchronized with half-time guitar
+  from B. Changing a ratio keeps the current source position and changes its speed.
 - Use each channel's **Mute** and **Solo** to select parts. For example, solo
   drums in A and mute drums in B to hear A's rhythm with B's other instruments.
 - Change an individual channel's General MIDI patch to replace its sound.
@@ -25,11 +27,14 @@ density of each voice across the whole arrangement, with muted voices in grey.
 - Deck gain and the crossfader balance the selected parts. Looping repeats
   arrangements; the default loop rounds up to the next initial-meter bar.
   Set a separate loop region in either deck to keep a chosen phrase repeating.
-- Scrub a deck's map to find a section. Muting a voice greys its map row while
+- Click a deck's map to jump to a section; drag to set its loop. Position controls
+  and arrow keys also seek through the score. Muting a voice greys its map row while
   keeping its original density visible for comparison.
 - Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
   instrument sounds. Shared filter and delay controls shape the mixed output
-  without creating another audio context.
+  without creating another audio context. The import applies to both mixer decks;
+  it does not replace the visualizer/drawing SoundFont. This version offers
+  MIDI seeking, not reverse-audio vinyl scratching.
 
 Audio and Play are separate. Starting playback, loading a file, changing a
 preset or tapping tempo does not arm Audio. Turning Audio off leaves the
@@ -80,7 +85,7 @@ SoundFont synthesis shares a maximum of 192 voices across both decks. An
 overload guard permits up to 8,192 events per deck per 128-frame audio quantum;
 events beyond that bound are skipped and held voices are released to prevent
 stuck notes. The engine reports skipped events. Analysis retains every accepted
-note for the density map, while live note-event graphics are bounded to 256
+note for the density map, while live note-event telemetry are bounded to 256
 events per 30 Hz report. Those display limits do not remove notes from the
 source analysis.
 

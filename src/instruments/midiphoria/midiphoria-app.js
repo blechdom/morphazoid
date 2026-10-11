@@ -101,7 +101,7 @@ function mountMidiphoria() {
         if (disposed || activeEngine() !== target) void armEngine(target, false);
         return;
       }
-      if (pendingPlayIntent && target.state.ready) target.play();
+      if (pendingPlayIntent && (target === mixer || target.state.ready)) target.play();
     } catch (error) {
       if (!disposed && version === modeVersion) $('modeStatus').textContent = error.message || 'Could not start this view.';
     } finally {

@@ -206,9 +206,11 @@ test('local SoundFont selection stays silent, and mix presets and reset provide 
   await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => globalThis.__mixerQAContexts.length)).toBe(0);
   await page.locator('#mixerPlay').click();
-  await page.locator('#mixerPreset').selectOption('a-rhythm');
+  await page.locator('#mixerPresetHost .header-preset-picker > summary').click();
+  await page.locator('#mixerPresetHost button[data-preset-id="a-rhythm"]').click();
   await expect(row(page, 0, 0)).toHaveClass(/is-muted/); await expect(row(page, 1, 9)).toHaveClass(/is-muted/);
-  await page.locator('#mixerPreset').selectOption('octave-room');
+  await page.locator('#mixerPresetHost .header-preset-picker > summary').click();
+  await page.locator('#mixerPresetHost button[data-preset-id="octave-room"]').click();
   await expect(page.locator('#deckPitch0')).toHaveValue('-12'); await expect(page.locator('#deckPitch1')).toHaveValue('12');
   await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
   await page.locator('#mixerReset').click();
