@@ -22,6 +22,7 @@ test('MIDI Mixer is an embedded Midiophilia view, preserving one route and MIDI 
   assert.deepEqual(TAP_TEMPO_TARGETS.filter(({ route }) => route === 'midiphoria.html'), [
     { route: 'midiphoria.html', selector: '#playbackRate', mapping: { unit: 'multiplier', referenceBpm: 120 }, title: 'Tap speed (120 BPM = normal 1×)' },
     { route: 'midiphoria.html', selector: '#masterTempo', mapping: { unit: 'bpm' } },
+    { route: 'midiphoria.html', selector: '#creativeTempo', mapping: { unit: 'bpm' } },
   ]);
 });
 

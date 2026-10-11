@@ -94,13 +94,17 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       const errors = await open(page, 12); await page.evaluate(() => scrollTo(0, 0));
       const bounds = await page.evaluate(() => {
         const box = selector => { const b = document.querySelector(selector).getBoundingClientRect(); return { x: b.x, y: b.y, width: b.width, height: b.height, right: b.right, bottom: b.bottom }; };
-        return { preset: box('#mixerPresetHost'), picture: box('#mixerPerformanceCanvas'), top: box('.mixer-main-row'), decks: box('#mixerDeckHost'), stamps: box('#mixerPerformanceHost'), tempo: box('#masterTempo'), source: box('#tempoFromA') };
+        return { tabs: box('.midiphoria-stage-modes'), firstTab: box('#visualModeButton'), preset: box('#mixerPresetHost'), picture: box('#mixerPerformanceCanvas'), top: box('.mixer-main-row'), decks: box('#mixerDeckHost'), tempo: box('#masterTempo'), source: box('#tempoFromA') };
       });
       expect(bounds.picture.y).toBeGreaterThanOrEqual(bounds.preset.bottom);
       expect(bounds.picture.width).toBeLessThanOrEqual(360); expect(bounds.picture.height).toBeLessThanOrEqual(viewport.width === 390 ? 110 : 150);
-      expect(bounds.decks.y).toBeLessThan(bounds.stamps.y); expect(bounds.decks.y - bounds.top.bottom).toBeLessThan(30);
+      await expect(page.locator('#creativeControlsHost')).toBeHidden();
+      expect(bounds.decks.y - bounds.top.bottom).toBeLessThan(30);
       expect(Math.abs(bounds.source.x - bounds.tempo.x)).toBeLessThan(180);
-      expect(bounds.decks.y).toBeLessThan(viewport.width === 390 ? 900 : 560);
+      // Preserve the existing content-height limit after accounting for the
+      // actual extra row occupied by the fourth stage tab on narrow phones.
+      const extraTabRows = Math.max(0, bounds.tabs.height - bounds.firstTab.height);
+      expect(bounds.decks.y - extraTabRows).toBeLessThan(viewport.width === 390 ? 900 : 560);
       if (viewport.width === 1440) expect(bounds.source.height).toBeLessThan(40);
       for (const selector of ['#masterTempo', '#mixerCrossfade', '#tempoFromA', '#tempoFromB', '.mixer-deck[data-deck="0"] .mixer-voice-button']) {
         for (const node of await page.locator(selector).all()) {

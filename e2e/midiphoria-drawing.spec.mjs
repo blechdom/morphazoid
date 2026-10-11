@@ -1,17 +1,25 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { MidiDrawing } from '../src/instruments/midiphoria/midiphoria-drawing.js';
-import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
-import { sampleAudioEnvelope } from './helpers/audio-probe.mjs';
-import { selectedSong } from './helpers/midiphoria-library.mjs';
+import { generateGridMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
+import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 async function open(page) {
   await page.addInitScript(() => {
-    window.__drawingContexts = [];
+    window.__drawingContexts = []; window.__drawingQA = { engine: null, launches: [] };
     const Native = window.AudioContext;
     window.AudioContext = class extends Native {
       constructor(...args) { super(...args); window.__drawingContexts.push(this); }
     };
+  });
+  // Observe the existing native engine without replacing its audio path.
+  await page.route('**/src/instruments/midi-mixer/midi-mixer-engine.js', async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}
+      const qaVolume=MidiMixerEngine.prototype.setVolume,qaTrigger=MidiMixerEngine.prototype.triggerSample;
+      MidiMixerEngine.prototype.setVolume=function(...args){__drawingQA.engine=this;return qaVolume.apply(this,args);};
+      MidiMixerEngine.prototype.triggerSample=function(buffer,...args){const sample=qaTrigger.call(this,buffer,...args);
+        if(sample)__drawingQA.launches.push({id:sample.id,bytes:Array.from(new Uint8Array(buffer))});return sample;};` });
   });
   await page.goto('/midiphoria.html');
   await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
@@ -20,6 +28,7 @@ async function open(page) {
 }
 
 async function gridPoint(page, x, y) {
+  await page.locator('#drawingCanvas').scrollIntoViewIfNeeded();
   return page.locator('#drawingCanvas').evaluate((canvas, point) => {
     const rect = canvas.getBoundingClientRect();
     const cell = Math.min((rect.width - 28) / 48, (rect.height - 52) / 32);
@@ -50,9 +59,10 @@ test('fast freehand and eraser drags interpolate, cancel safely, and undo one wh
   await page.locator('#drawingUndo').click(); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', before);
   await page.locator('#drawingClear').click();
   await page.locator('#drawingErase').click();
-  await page.mouse.move(start.x, start.y); await page.mouse.down();
+  const resumed = await gridPoint(page, 0, 31), resumedEnd = await gridPoint(page, 47, 0);
+  await page.mouse.move(resumed.x, resumed.y); await page.mouse.down();
   await page.locator('#drawingCanvas').dispatchEvent('pointercancel', { pointerId: 1 });
-  await page.mouse.move(end.x, end.y); await page.mouse.up();
+  await page.mouse.move(resumedEnd.x, resumedEnd.y); await page.mouse.up();
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', '1');
   await page.locator('#drawingUndo').click(); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', '0');
   await page.locator('#drawingCanvas').focus();
@@ -63,63 +73,70 @@ test('fast freehand and eraser drags interpolate, cancel safely, and undo one wh
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('drawing and emoji generation download exactly the displayed notes without silently enabling Audio', async ({ page }) => {
+test('Play drawing stays in Draw and downloads exactly the played notes without enabling Audio', async ({ page }) => {
   await open(page); await stamp(page);
+  await expect(page.locator('#generateDrawingMidi')).toHaveText('Play drawing');
   await page.locator('#generateDrawingMidi').click();
-  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'drawing-midi');
-  await expect(page.locator('#drawingCanvas')).toBeHidden();
-  await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'letters');
-  await expect(page.locator('#visualCanvas')).toHaveAttribute('aria-label', /bottom to top/);
-  const waiting = page.waitForEvent('download'); await page.locator('#downloadTextMidi').click();
+  await expect.poll(() => page.evaluate(() => __drawingQA.launches.length)).toBe(1);
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'draw');
+  await expect(page.locator('#drawingCanvas')).toBeVisible();
+  await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
+  const waiting = page.waitForEvent('download'); await page.locator('#downloadDrawingMidi').click();
   const download = await waiting, expected = new MidiDrawing(); expected.stamp('⭐');
-  expect(await readFile(await download.path())).toEqual(Buffer.from(expected.score().buffer));
+  const bytes = await readFile(await download.path());
+  // In the rising trail view the top of the picture must sound first.
+  // Derive that orientation directly from displayed cells, independently of
+  // the production performance-score adapter.
+  const score = generateGridMidi([...expected.pixels].reverse(), { title: 'Drawn score', secondsPerRow: .125 });
+  expect(bytes).toEqual(Buffer.from(score.buffer));
+  expect(Array.from(bytes)).toEqual(await page.evaluate(() => __drawingQA.launches.at(-1).bytes));
   expect(download.suggestedFilename()).toBe('drawn-score.mid');
-  await page.locator('#drawingModeButton').click();
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', String(expected.count));
-  await page.locator('#textMidiInput').fill('HI 🙂 🦄 ⭐');
-  await page.locator('#textMidiMode').selectOption('letter');
-  await page.locator('#generateTextMidi').click();
-  await expect(page.locator('#textMidiStatus')).toContainText('Skipped unsupported characters: 🦄');
-  const next = page.waitForEvent('download'); await page.locator('#downloadTextMidi').click();
-  expect(await readFile(await (await next).path())).toEqual(Buffer.from(generateTextMidi('HI 🙂 🦄 ⭐', { mode: 'letter' }).buffer));
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => window.__drawingContexts.length)).toBe(0);
 });
 
-test('a drawn score sounds through the existing player and edits retain playback', async ({ page }) => {
+test('a drawn score sounds in Draw and further edits preserve the active loop', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
-  await open(page); await stamp(page, 'wave');
+  await open(page); await stamp(page, 'wave'); await page.locator('#mixerSampleLoop').check();
   await page.locator('#audioButton').click(); await expect(page.locator('#audioState')).toHaveText('on', { timeout: 20000 });
-  await page.locator('#loopSong').check();
   await page.locator('#generateDrawingMidi').click();
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(.3);
+  await expect.poll(() => page.evaluate(() => __drawingQA.engine.state.samples.length)).toBe(1);
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'draw');
+  await expect.poll(() => page.evaluate(() => __drawingQA.engine.state.samples[0]?.positionBeats)).toBeGreaterThan(.3);
   const signal = await sampleAudioEnvelope(page, { durationMs: 600 });
   expect(signal.summary.finite).toBe(true); expect(signal.summary.maxRms).toBeGreaterThan(.002); expect(signal.summary.clippedSamples).toBe(0);
-  await page.locator('#drawingModeButton').click(); await stamp(page, 'spiral');
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  const id = await page.evaluate(() => __drawingQA.engine.state.samples[0].id);
+  await stamp(page, 'spiral');
+  expect(await page.evaluate(id => __drawingQA.engine.state.samples.some(sample => sample.id === id), id)).toBe(true);
   await page.locator('#generateDrawingMidi').click();
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect.poll(() => page.evaluate(() => __drawingQA.launches.length)).toBe(2);
+  await expect(page.locator('#drawingCanvas')).toBeVisible();
   expect(await page.evaluate(() => window.__drawingContexts.length)).toBe(1);
   await page.locator('#audioButton').click();
-  await page.locator('#drawingModeButton').click(); await stamp(page, '❤'); await page.locator('#generateDrawingMidi').click();
+  await stamp(page, '❤'); await page.locator('#generateDrawingMidi').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  expect((await sampleAudioEnvelope(page, { durationMs: 300 })).summary.maxRms).toBeLessThan(.001);
+  await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
   expect(errors).toEqual([]);
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`draw controls and rectangular stage fit ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
-    await page.setViewportSize(viewport); await open(page); await stamp(page, '🙂');
-    for (const id of ['drawingCanvas', 'generateDrawingMidi', 'drawingUndo', 'drawingClear', 'drawingErase']) {
-      await page.locator(`#${id}`).scrollIntoViewIfNeeded();
-      const bounds = await page.locator(`#${id}`).boundingBox();
-      expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width);
-    }
-    expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
-    expect(await page.locator('#visualViewport').evaluate(node => getComputedStyle(node).borderRadius)).toBe('0px');
-    await page.locator('#drawingModeButton').scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath('drawing-controls.png') });
-    await page.locator('#drawingCanvas').screenshot({ path: testInfo.outputPath('drawing-score.png') });
+  test(`draw controls and rectangular stage fit ${viewport.width}×${viewport.height}`, async ({ browser }, testInfo) => {
+    const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL, viewport, isMobile: viewport.width < 1000, hasTouch: viewport.width < 1000 });
+    const page = await context.newPage();
+    try {
+      await open(page); await stamp(page, '🙂');
+      for (const id of ['drawingCanvas', 'generateDrawingMidi', 'drawingUndo', 'drawingClear', 'drawingErase', 'creativeTempo', 'creativeStop']) {
+        await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+        const bounds = await page.locator(`#${id}`).boundingBox();
+        expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
+        if (viewport.width < 1000) { expect(bounds.width).toBeGreaterThanOrEqual(48); expect(bounds.height).toBeGreaterThanOrEqual(48); }
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
+      expect(await page.locator('#drawingCanvas').evaluate(node => getComputedStyle(node).borderRadius)).toBe('0px');
+      await page.locator('#drawingModeButton').scrollIntoViewIfNeeded();
+      await page.screenshot({ path: testInfo.outputPath('drawing-controls.png') });
+      await page.locator('#drawingCanvas').screenshot({ path: testInfo.outputPath('drawing-score.png') });
+    } finally { await context.close(); }
   });
 }

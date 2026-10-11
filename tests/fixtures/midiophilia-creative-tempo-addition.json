@@ -1,0 +1,11 @@
+{
+  "baseCommit": "3c1ff07a1672112882574057d29a9739c02844e5",
+  "description": "Exact reviewed Midiophilia creative-tab tempo target; retain all existing shared runtime bytes and historical fixture hashes.",
+  "changes": [
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "31287813f230bf4276880235a3bcff3c3fd77ea0576fd6ae9a6f52b9c127b50c",
+      "addition": "  {\"route\": \"midiphoria.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n"
+    }
+  ]
+}
