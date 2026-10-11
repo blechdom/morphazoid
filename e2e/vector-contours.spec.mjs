@@ -53,6 +53,7 @@ test('zoom recomputes detail, follows the pointer, and retains the latest view',
 test('selected strands produce bounded audio through refinement and empty regions become silent', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   await page.goto('vector-fractals.html#explorer'); await ready(page);
+  await page.locator('#contourReader').selectOption('xy');
   await page.locator('#audioButton').click(); await expect.poll(async () => (await snapshot(page)).armed).toBe(true);
   await page.locator('#playButton').click();
   const sounding = await sampleAudioEnvelope(page, { durationMs: 350, intervalMs: 50 });
@@ -85,6 +86,7 @@ test('selected strands produce bounded audio through refinement and empty region
 
 test('SVG exports completed vectors and preserves cropped open strands', async ({ page }) => {
   await page.goto('vector-fractals.html#explorer'); await ready(page);
+  await page.locator('#contourReader').selectOption('xy');
   await page.locator('#contourRegion').selectOption('seahorse'); await ready(page);
   const s = await snapshot(page); expect(s.contours.stats.openCount).toBeGreaterThan(0);
   const pending = page.waitForEvent('download'); await page.locator('#exportContour').click();

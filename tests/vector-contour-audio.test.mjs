@@ -45,15 +45,17 @@ test('empty and degenerate regions produce silence instead of unrelated geometry
 test('explorer presets trace different regions and keep running through sound replacement', async () => {
   const { computeContours } = await import('../src/instruments/vector-fractals/contour-model.js');
   const banks = [];
-  for (const preset of PRESETS.filter(p => p.snapshot.mode === 'explorer')) {
+  const explorerPresets = PRESETS.filter(p => p.snapshot.mode === 'explorer');
+  for (const preset of explorerPresets) {
     const s = preset.snapshot;
     const result = computeContours({ view: { x: s.viewX, y: s.viewY, width: s.viewWidth, aspect: 1.5 }, depth: 12 + 12 * Math.log2(3.4 / s.viewWidth), resolution: 150 });
     let p = -1;
     for (let i = 0; i < result.closed.length; i++) if (p < 0 || result.offsets[i + 1] - result.offsets[i] > result.offsets[p + 1] - result.offsets[p]) p = i;
     assert.ok(p >= 0, preset.id);
-    banks.push(createContourBank(s, { points: result.points.slice(result.offsets[p] * 2, result.offsets[p + 1] * 2), closed: Boolean(result.closed[p]) }));
+    banks.push(createContourBank({ ...s, contourReader: 'xy' }, { points: result.points.slice(result.offsets[p] * 2, result.offsets[p + 1] * 2), closed: Boolean(result.closed[p]) }));
   }
-  assert.equal(banks.length, 3);
+  assert.equal(banks.length, explorerPresets.length);
+  assert.ok(explorerPresets.some(p => p.id === 'explore') && explorerPresets.some(p => p.id === 'seahorse') && explorerPresets.some(p => p.id === 'filigree'));
   const rms = x => Math.sqrt(x.reduce((sum, v) => sum + v * v, 0) / x.length);
   assert.ok(rms(banks[0].frames[0].sourceX.map((v, i) => v - banks[1].frames[0].sourceX[i])) > .02);
   const dsp = new VectorDSP(); dsp.playing = true;

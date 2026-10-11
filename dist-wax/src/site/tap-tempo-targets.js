@@ -2,6 +2,7 @@
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
   {"route": "vector-fractals.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},
+  {"route": "vector-fractals.html", "selector": "#traceRate", "mapping": {"unit": "hz", "signed": false}, "resetAfter": 110000, "title": "Tap a complete Trace cycle"},
   {"route": "acoustic-manifold.html", "selector": "#gesture-speed", "mapping": {"unit": "exponentialMultiplier", "base": 2, "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "algorithmic-mazes.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "algorithmic-sequencers.html", "selector": "#tempo", "mapping": {"unit": "hz", "signed": false}},

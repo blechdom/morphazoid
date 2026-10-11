@@ -1,4 +1,4 @@
-# Vector Fractals — progressive contours and XY sound
+# Vector Fractals — layered Trace and XY sound
 
 Open `/vector-fractals.html#explorer`, `#julia`, `#mandelbrot` or `#voyager`. These demos are
 an independent work in progress; existing Julia and Fractal Synthesis instruments
@@ -12,7 +12,10 @@ are unchanged. Enable **Audio**, then **Play**. Audio and transport are separate
   followed by finer contours calculated for the current region. Edge detail
   moves the sampled level closer to the set; Fine increases spatial sampling.
   Click a strand or use Next strand to choose the sound source. Save SVG exports
-  the completed visible paths, keeping cropped paths open.
+  the completed visible paths, keeping cropped paths open. **Trace** plays Broad,
+  Curl and Fine contour levels together, with a separate voice and mute per level.
+  Set Cycle rate independently of Pitch. Choose **XY oscillator** to read one
+  strand as a periodic waveform instead.
 - **Julia Vectors:** start with Pure circle, then Ellipse. Both have only the
   fundamental under external-angle traversal, despite different aspect ratios.
   Basilica and Rabbit add counter-rotating odd harmonics. Cardioid explorer
@@ -62,6 +65,56 @@ This is an artistic sound mapping of sampled geometry. The main explorer shows
 the source strand; the waveform monitor shows the filtered, rotated audio.
 Existing sound continues during refinement, then crossfades to the new strand
 without resetting the carrier. A completed empty region crossfades to silence.
+
+### Shapes-inspired layered Trace
+
+Trace treats the contours as slow musical paths. Three sampled Green-potential
+levels are visible together, colored amber (Broad), violet (Curl) and cyan (Fine).
+These are detail levels in Mandelbrot parameter space, not discrete recursive
+Julia generations. Refinement still has finite spatial resolution; increasing
+depth cannot recover filaments smaller than the sampling grid.
+
+Each layer selects a strand near the chosen fine strand. The heads share one
+sample-clock traversal phase, but their arc lengths differ: they finish a cycle
+together, without claiming spatial correspondence between every curl. Closed
+paths have consistent orientation and aligned start anchors; cropped paths
+travel there and back without a closing chord. A layer with no contour in the
+region is silent and its row says “outside view.”
+
+| Visible quantity / control | Sound mapping |
+| --- | --- |
+| Height | Continuous exponential pitch about the reference Pitch; no scale quantization |
+| Horizontal position | Stereo pan using the same view coordinates for every layer |
+| Bending over Feature size | Harmonic brightness of the selected Sine, Reed or Glass voice |
+| Cycle rate | 0.01–1 Hz (100–1 seconds per shared cycle), default 0.1 Hz |
+| Feature size | 0.2–8% of path arc length, default 1.5%; small follows tiny bends, large measures broader turns |
+| Per-layer checkbox | Smooth mute without restarting that layer's cycle |
+| Per-layer voice | Independent timbre choice; Broad/Curl/Fine use low/middle/high registers |
+
+This adapts the semantics of Shapes' `shape-readers.js` and `shape-sound.js`:
+constant-distance Trace, geometric pitch/pan and curvature-driven timbre. It
+does not treat every adaptive vertex as a percussion event. Subdividing a
+straight segment therefore does not manufacture extra notes. The voice names
+describe synthetic colors, not sampled or validated acoustic instruments.
+
+The worklet samples three bounded 2,048-point position/bend tables with separate
+continuous carrier phases. The canvas interpolates the same positions using
+audio telemetry. Geometry and voice edits preserve the cycle, banks and mutes
+fade smoothly, and Play pauses motion and releases sound. Reset restores the
+current demo and resets motion; presets and randomization preserve Audio, Play
+and output level. Audio-off Play remains a silent visual preview. During
+refinement, heads continue to show the last completed audible paths until the
+new tables are ready. The waveform monitor is reserved for XY playback.
+On a completed bank replacement the drawing shows the destination path while
+the audio glides between the two parameter trajectories over 90 ms. A rapid
+second replacement may wait for the current fade (up to another 90 ms); the
+shared traversal phase remains continuous during that brief transition.
+
+Broad outlines, Seahorse Valley and Seahorse filigree are the primary acceptance
+scenes, along with each voice alone, all-muted, an empty region, reader changes,
+pause/resume, rapid zoom, and a stalled main thread. Automated measurements
+cover clock/geometry agreement, bounded output and control sensitivity; they
+do not establish listening quality or physical touchscreen feel.
 
 ### Fourier contour modes
 
@@ -124,15 +177,17 @@ The catalogue icon is procedurally drawn from this model; no third-party image.
 - Voyager precomputes 48 shape frames and interpolates their paired tables
   cyclically in an AudioWorklet. Intermediate blends need not be exact Julia
   equipotentials. Its motion and carrier keep running through UI/render stalls.
-- The two channels share one carrier phase. Pitch/rotation/level are smoothed;
+- In XY mode the two channels share one carrier phase. Pitch/rotation/level are smoothed;
   new banks crossfade for 90 ms. Repeated edits coalesce rather than queue
   unbounded work. The carrier is not reset by changing demos or presets.
 - Colored geometry shows the pitch-filtered, rotated table, not merely the
   full-detail source in the three Fourier modes. Explorer geometry shows the
   sampled source instead. Waveform monitors follow audio telemetry at up to 30 fps. The scan dot
-  deliberately runs 256 times slower than audio to make traversal legible.
+  deliberately runs 256 times slower than audio to make traversal legible in XY mode.
+  Trace heads run at the actual independent musical traversal rate.
 - WebGL draws the ordered paths; Canvas 2D is a fallback and draws the small
-  monitors. Geometry/FFT construction occurs only in a worker. No microphone,
+  monitors. Contour extraction/FFT construction occurs in workers; bounded Trace
+  resampling occurs when a completed path or Feature size changes. No microphone,
   uploaded files, network DSP or audio samples are used.
 - Universal MIDI control/preset/transport surfaces remain available; there is
   no pitched QWERTY mapping or claimed native MIDI-note/output engine.
@@ -147,5 +202,8 @@ Audio-off interaction, explicit startup, sound continuity, mobile layouts and
 resource cleanup. `tests/vector-contour*.test.mjs` checks sampled field geometry,
 worker cancellation and contour audio; `e2e/vector-contours.spec.mjs` checks
 progressive navigation, selected-strand sound, SVG export and responsive controls.
+`tests/vector-trace-*.test.mjs` and `e2e/vector-trace.spec.mjs` cover layered
+geometry, density-independent curvature, independent musical/carrier clocks,
+voice/mute continuity, empty-region silence and colored SVG export.
 These are mechanical checks; human timbre/touch judgment and
 physical iPhone listening remain separate acceptance steps.

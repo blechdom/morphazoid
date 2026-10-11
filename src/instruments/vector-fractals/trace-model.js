@@ -94,7 +94,7 @@ function traceLayer(path, result, anchor, featureSize) {
   const seam = path.closed ? nearest(path, anchor).distance : 0;
   // Neighbours are specified in geometric arc length, never a number of source
   // vertices. Subdividing the exact same polyline therefore cannot add strikes.
-  const radius = Math.min(featureSize / 2, path.total / 8);
+  const radius = Math.min(featureSize * path.total / 2, path.total / 8);
   for (let i = 0; i < TRACE_TABLE_SIZE; i++) {
     const phase = i / TRACE_TABLE_SIZE;
     const distance = seam + path.total * (path.closed ? phase : .5 - .5 * Math.cos(TAU * phase));

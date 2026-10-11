@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"vector-fractals\": define(\n    \"Vector fractal exploration and sound\",\n    \"Zoom into Mandelbrot contours as fresh vector detail emerges, or explore Julia vectors and bulb-driven motion. Selected paths shape a bandlimited XY oscillator.\",\n    \"Choose Contour Explorer, then scroll or pinch to zoom and drag to pan. Try Seahorse Valley, select a strand, and enable Audio and Play to hear it.\",\n    [\"Built-in synth\", \"Pointer\", \"WebGL\", \"Presets\", \"XY synthesis\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"vector-fractals\": define(\n    \"Vector fractal exploration and sound\",\n    \"Zoom into Mandelbrot contours and play three synchronized detail layers with separate voices, or explore Julia vectors and the original XY oscillator.\",\n    \"Choose Contour Explorer, then scroll or pinch to zoom and drag to pan. Try Seahorse Valley, select a strand, and enable Audio and Play to hear it.\",\n    [\"Built-in synth\", \"Pointer\", \"WebGL\", \"Presets\", \"XY synthesis\"],\n  ),\n"
         }
       ]
     },
@@ -65,7 +65,7 @@
       "replacements": [
         {
           "before": "export const TAP_TEMPO_TARGETS = [\n",
-          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"vector-fractals.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"signed\": false}},\n"
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"vector-fractals.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"signed\": false}},\n  {\"route\": \"vector-fractals.html\", \"selector\": \"#traceRate\", \"mapping\": {\"unit\": \"hz\", \"signed\": false}, \"resetAfter\": 110000, \"title\": \"Tap a complete Trace cycle\"},\n"
         }
       ]
     },
@@ -75,7 +75,7 @@
       "replacements": [
         {
           "before": "copy+require\tdocs/graph-delay-rust.md\n",
-          "after": "copy+require\tdocs/graph-delay-rust.md\n\n# Vector Fractals: three parameterized XY demos.\ncopy+require\tvector-fractals.html\ncopy+require\tdocs/vector-fractals.md\ncopy+require\tassets/instruments/vector-fractals.webp\ncopy+require\tsrc/instruments/vector-fractals/app.js\ncopy+require\tsrc/instruments/vector-fractals/contour-model.js\ncopy+require\tsrc/instruments/vector-fractals/contour-worker.js\ncopy+require\tsrc/instruments/vector-fractals/contour-renderer.js\ncopy+require\tsrc/instruments/vector-fractals/contour-navigation.js\ncopy+require\tsrc/instruments/vector-fractals/contour-audio.js\ncopy+require\tsrc/instruments/vector-fractals/audio.js\ncopy+require\tsrc/instruments/vector-fractals/dsp.js\ncopy+require\tsrc/instruments/vector-fractals/mandelbrot-coefficients.js\ncopy+require\tsrc/instruments/vector-fractals/model.js\ncopy+require\tsrc/instruments/vector-fractals/processor.js\ncopy+require\tsrc/instruments/vector-fractals/renderer.js\ncopy+require\tsrc/instruments/vector-fractals/style.css\ncopy+require\tsrc/instruments/vector-fractals/worker.js\n"
+          "after": "copy+require\tdocs/graph-delay-rust.md\n\n# Vector Fractals: three parameterized XY demos.\ncopy+require\tvector-fractals.html\ncopy+require\tdocs/vector-fractals.md\ncopy+require\tassets/instruments/vector-fractals.webp\ncopy+require\tsrc/instruments/vector-fractals/app.js\ncopy+require\tsrc/instruments/vector-fractals/contour-model.js\ncopy+require\tsrc/instruments/vector-fractals/contour-worker.js\ncopy+require\tsrc/instruments/vector-fractals/contour-renderer.js\ncopy+require\tsrc/instruments/vector-fractals/contour-navigation.js\ncopy+require\tsrc/instruments/vector-fractals/contour-audio.js\ncopy+require\tsrc/instruments/vector-fractals/trace-model.js\ncopy+require\tsrc/instruments/vector-fractals/trace-dsp.js\ncopy+require\tsrc/instruments/vector-fractals/audio.js\ncopy+require\tsrc/instruments/vector-fractals/dsp.js\ncopy+require\tsrc/instruments/vector-fractals/mandelbrot-coefficients.js\ncopy+require\tsrc/instruments/vector-fractals/model.js\ncopy+require\tsrc/instruments/vector-fractals/processor.js\ncopy+require\tsrc/instruments/vector-fractals/renderer.js\ncopy+require\tsrc/instruments/vector-fractals/style.css\ncopy+require\tsrc/instruments/vector-fractals/worker.js\n"
         }
       ]
     }

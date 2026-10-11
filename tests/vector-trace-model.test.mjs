@@ -84,6 +84,15 @@ test('fine selection uses arc length and other levels select the closest actual 
   }
 });
 
+test('Feature size is a fraction of path length, so a scaled copy keeps the same bend signal', () => {
+  const outline = [[-.3, -.2], [.2, -.2], [.2, .05], [.4, .05], [.4, .3], [-.3, .3]];
+  const source = geometry([{ points: outline, closed: true }]);
+  const scaled = geometry([{ points: outline.map(([x, y]) => [x / 4, y / 4]), closed: true }]);
+  const a = createTraceBank([source, source, source], { featureSize: .04 }).layers[0];
+  const b = createTraceBank([scaled, scaled, scaled], { featureSize: .04 }).layers[0];
+  for (let i = 0; i < a.bend.length; i++) assert.ok(Math.abs(a.bend[i] - b.bend[i]) < 1e-6);
+});
+
 test('empty levels stay empty and different source views retain one shared normalization', () => {
   const fine = geometry([{ points: square, closed: true }]);
   const wideView = { ...view, width: view.width * 2 };

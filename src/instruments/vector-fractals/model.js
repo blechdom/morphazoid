@@ -10,8 +10,11 @@ export const MODES = Object.freeze([
   { id: 'explorer', label: 'Contour Explorer', color: '#80d9ff' },
 ]);
 export const SHAPES = Object.freeze({ basilica: [-1, 0], rabbit: [-.122561166876653, .744861766619744], circle: [0, 0], ellipse: [-2, 0], cardioid: null });
+export const TRACE_VOICES = Object.freeze(['sine', 'reed', 'glass']);
 export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
-  viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null });
+  viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null,
+  contourReader: 'trace', traceRate: .1, featureSize: .015,
+  layerVoices: TRACE_VOICES, layerEnabled: Object.freeze([true, true, true]) });
 export const CONTOUR_LANDMARKS = Object.freeze([
   { id: 'whole', label: 'Whole outline', x: -.5, y: 0, width: 3.4 },
   { id: 'seahorse', label: 'Seahorse Valley', x: -.743643887037151, y: .13182590420533, width: .015 },
@@ -39,6 +42,10 @@ export function sanitizeState(input = {}) {
     contourQuality: s.contourQuality === 'fine' ? 'fine' : 'live',
     strandX: s.strandX == null ? null : clamp(s.strandX, -3, 3),
     strandY: s.strandY == null ? null : clamp(s.strandY, -3, 3),
+    contourReader: s.contourReader === 'xy' ? 'xy' : 'trace',
+    traceRate: clamp(s.traceRate, .01, 1, .1), featureSize: clamp(s.featureSize, .002, .08, .015),
+    layerVoices: TRACE_VOICES.map((voice, i) => TRACE_VOICES.includes(s.layerVoices?.[i]) ? s.layerVoices[i] : voice),
+    layerEnabled: TRACE_VOICES.map((_, i) => s.layerEnabled?.[i] !== false),
   };
 }
 
@@ -171,6 +178,8 @@ export function mipSelection(frequency, sampleRate) {
 export function randomizeState(_previous, random = Math.random) {
   const pick = list => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
   const landmark = pick(CONTOUR_LANDMARKS);
+  const layerEnabled = TRACE_VOICES.map(() => random() > .25);
+  if (!layerEnabled.some(Boolean)) layerEnabled[Math.floor(random() * 3) % 3] = true;
   return sanitizeState({ mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
     radius: 1.03 + random() ** 2 * .65, detail: pick([32, 64, 128, 256, 512]),
     depth: random() * .96, angle: random(), component: pick([1, 2]), speed: .005 + random() ** 2 * .395,
@@ -179,7 +188,10 @@ export function randomizeState(_previous, random = Math.random) {
     viewX: landmark.x + (random() - .5) * landmark.width * .12,
     viewY: landmark.y + (random() - .5) * landmark.width * .12,
     viewWidth: landmark.width * (.7 + random() * .6), contourBias: -5 + random() * 25,
-    contourQuality: pick(['live', 'fine']), strandX: landmark.x, strandY: landmark.y });
+    contourQuality: pick(['live', 'fine']), strandX: landmark.x, strandY: landmark.y,
+    contourReader: pick(['trace', 'xy']), traceRate: .02 * 30 ** random(), featureSize: .002 * 40 ** random(),
+    layerVoices: TRACE_VOICES.map(() => pick(TRACE_VOICES)),
+    layerEnabled });
 }
 
 export const PRESETS = Object.freeze([
@@ -198,4 +210,6 @@ export const PRESETS = Object.freeze([
   ['explore', 'Explorer · Whole outline', { mode: 'explorer', pitch: 82, detail: 512 }],
   ['seahorse', 'Explorer · Seahorse Valley', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 65, detail: 512 }],
   ['filigree', 'Explorer · Seahorse filigree', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .0005, pitch: 41, detail: 512, contourQuality: 'fine' }],
+  ['trace-glass', 'Explorer · Glass curls', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 164, traceRate: .16, featureSize: .005, layerVoices: ['reed', 'glass', 'sine'] }],
+  ['explore-xy', 'Explorer · XY waveform', { mode: 'explorer', pitch: 82, contourReader: 'xy' }],
 ].map(([id, label, patch]) => ({ id, label, snapshot: sanitizeState({ ...DEFAULT_STATE, ...patch }) })));

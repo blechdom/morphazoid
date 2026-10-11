@@ -17,7 +17,7 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   "vector-fractals": define(
     "Vector fractal exploration and sound",
-    "Zoom into Mandelbrot contours as fresh vector detail emerges, or explore Julia vectors and bulb-driven motion. Selected paths shape a bandlimited XY oscillator.",
+    "Zoom into Mandelbrot contours and play three synchronized detail layers with separate voices, or explore Julia vectors and the original XY oscillator.",
     "Choose Contour Explorer, then scroll or pinch to zoom and drag to pan. Try Seahorse Valley, select a strand, and enable Audio and Play to hear it.",
     ["Built-in synth", "Pointer", "WebGL", "Presets", "XY synthesis"],
   ),
