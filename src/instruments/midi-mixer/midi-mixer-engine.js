@@ -1,11 +1,11 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition } from './midi-mixer-model.js';
+import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
+export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
 const SOUNDFONT_URL = new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url);
 const safeCall = (callback, value) => { try { callback?.(value); } catch { /* Display callbacks cannot break audio. */ } };
 const emptyDeck = () => ({ name: '', analysis: null, config: defaultDeckConfig(), channels: [], token: 0, loaded: false });
-export const MIDI_SAMPLE_LIMITS = Object.freeze({ clips: 4, fileBytes: 2 * 1024 * 1024, notes: 32768, events: 131072, channels: 16, beats: 512 });
 /** Compact channel histories support seeks without replaying past attacks. */
 export function compileDeck(analysis) {
   const histories = new Map();
