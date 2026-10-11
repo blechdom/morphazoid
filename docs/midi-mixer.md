@@ -27,9 +27,9 @@ density of each voice across the whole arrangement, with muted voices in grey.
   Set a separate loop region in either deck to keep a chosen phrase repeating.
 - Scrub a deck's map to find a section. Muting a voice greys its map row while
   keeping its original density visible for comparison.
-- Choose a local SoundFont to change the available instrument sounds. Shared
-  filter and delay controls shape the mixed output without creating another
-  audio context.
+- Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
+  instrument sounds. Shared filter and delay controls shape the mixed output
+  without creating another audio context.
 
 Audio and Play are separate. Starting playback, loading a file, changing a
 preset or tapping tempo does not arm Audio. Turning Audio off leaves the
