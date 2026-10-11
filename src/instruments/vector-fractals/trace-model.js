@@ -15,7 +15,7 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
 const wrap = value => ((value % 1) + 1) % 1;
 
-function pathsFrom(result, view) {
+function pathsFrom(result, view, travelerDirection = null) {
   if (!result?.points || !result.offsets || !result.closed || !result.view) return [];
   const { points, offsets, closed } = result;
   const vertexCount = Math.floor(points.length / 2), paths = [];
@@ -29,18 +29,23 @@ function pathsFrom(result, view) {
     for (let i = begin; i < end; i++) {
       const x = dx + points[2 * i] * ratio, y = dy + points[2 * i + 1] * ratio;
       if (!Number.isFinite(x) || !Number.isFinite(y)) { valid = false; break; }
-      vertices.push({ x, y });
+      const previous = vertices.at(-1);
+      if (!travelerDirection || !previous || previous.x !== x || previous.y !== y) vertices.push({ x, y });
     }
     if (!valid) continue;
+    const isClosed = Boolean(closed[pathIndex]);
+    if (travelerDirection && isClosed && vertices.length > 1
+      && vertices[0].x === vertices.at(-1).x && vertices[0].y === vertices.at(-1).y) vertices.pop();
+    if (vertices.length < 2) continue;
     for (let i = 0; i < vertices.length; i++) {
       const a = vertices[i], b = vertices[(i + 1) % vertices.length];
       area += a.x * b.y - a.y * b.x;
     }
-    const isClosed = Boolean(closed[pathIndex]);
     const first = vertices[0], last = vertices.at(-1);
-    // All closed contours run counterclockwise; open contours start at the
-    // lexicographically smaller endpoint, regardless of marching-grid ordering.
-    if (isClosed ? area < 0 : first.x > last.x || (first.x === last.x && first.y > last.y)) vertices.reverse();
+    // Trace retains its counterclockwise direction. Traveler may reverse closed
+    // paths; open crops have no clockwise direction and retain a stable endpoint.
+    if (isClosed ? travelerDirection === 'clockwise' ? area > 0 : area < 0
+      : first.x > last.x || (first.x === last.x && first.y > last.y)) vertices.reverse();
     const segmentCount = vertices.length - (isClosed ? 0 : 1);
     const lengths = new Float64Array(segmentCount + 1);
     for (let i = 0; i < segmentCount; i++) {
@@ -86,10 +91,52 @@ function longest(paths) {
   return paths.reduce((best, path) => !best || path.total > best.total ? path : best, null);
 }
 
-function canonicalAnchor(path) {
+function canonicalAnchor(path, top = false) {
   if (!path) return { x: 0, y: 0 };
   if (!path.closed) return atDistance(path, path.total / 2);
+  if (top) return path.vertices.reduce((best, vertex) => vertex.y > best.y || (vertex.y === best.y && vertex.x > best.x) ? vertex : best);
   return path.vertices.reduce((best, vertex) => vertex.x > best.x || (vertex.x === best.x && vertex.y > best.y) ? vertex : best);
+}
+
+function turningSignal(path, featureSize) {
+  // Accumulate turns on the original source segments before making the bounded
+  // control table. Resampling headings first can lose complete tiny curls.
+  const { vertices, lengths, segmentCount, total, closed } = path;
+  const headings = new Float64Array(segmentCount), integral = new Float64Array(segmentCount + 1);
+  let firstX = 0, firstY = 0, previousX = 0, previousY = 0;
+  for (let i = 0; i < segmentCount; i++) {
+    const a = vertices[i], b = vertices[(i + 1) % vertices.length];
+    const length = lengths[i + 1] - lengths[i];
+    const segmentLength = Math.hypot(b.x - a.x, b.y - a.y);
+    const x = (b.x - a.x) / segmentLength, y = (b.y - a.y) / segmentLength;
+    if (i === 0) { firstX = x; firstY = y; }
+    else headings[i] = headings[i - 1] + Math.atan2(previousX * y - previousY * x, previousX * x + previousY * y);
+    integral[i + 1] = integral[i] + headings[i] * length;
+    previousX = x; previousY = y;
+  }
+  // The actual winding is retained, including non-simple paths. Open paths
+  // retrace their turns without inventing a 180-degree turn at either crop edge.
+  const turnPerLap = closed ? headings[segmentCount - 1]
+    + Math.atan2(previousX * firstY - previousY * firstX, previousX * firstX + previousY * firstY) : 0;
+  const primitive = distance => {
+    if (!closed && distance <= 0) return 0;
+    if (!closed && distance >= total) return integral[segmentCount] + (distance - total) * headings[segmentCount - 1];
+    const lap = closed ? Math.floor(distance / total) : 0;
+    const position = distance - lap * total;
+    let low = 0, high = segmentCount - 1;
+    while (low < high) {
+      const middle = (low + high) >>> 1;
+      if (lengths[middle + 1] < position) low = middle + 1;
+      else high = middle;
+    }
+    const partial = integral[low] + (position - lengths[low]) * headings[low];
+    // A winding-aware extension makes smoothing and interpolation continuous at
+    // the seam. Averaging wrapped atan2 values would erase a full revolution.
+    return partial + lap * integral[segmentCount]
+      + turnPerLap * (total * lap * (lap - 1) / 2 + lap * position);
+  };
+  const radius = Math.min(featureSize * total / 2, total / 8);
+  return { turnPerLap, at: distance => (primitive(distance + radius) - primitive(distance - radius)) / (2 * radius) };
 }
 
 function featuresAt(path, distance, featureSize) {
@@ -111,17 +158,20 @@ function featuresAt(path, distance, featureSize) {
   return { ...point, bend, fold };
 }
 
-function traceLayer(path, result, anchor, featureSize) {
-  if (!path) return { x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), fold: new Float32Array(0), pathIndex: -1, closed: false, depth: result?.depth ?? 0 };
+function traceLayer(path, result, anchor, featureSize, traveler = false) {
+  if (!path) return { x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), fold: new Float32Array(0),
+    ...(traveler ? { turn: new Float32Array(0), turnPerLap: 0 } : {}), pathIndex: -1, closed: false, depth: result?.depth ?? 0 };
   const x = new Float32Array(TRACE_TABLE_SIZE), y = new Float32Array(TRACE_TABLE_SIZE), bend = new Float32Array(TRACE_TABLE_SIZE), fold = new Float32Array(TRACE_TABLE_SIZE);
   const seam = path.closed ? nearest(path, anchor).distance : 0;
+  const turn = traveler ? new Float32Array(TRACE_TABLE_SIZE) : null, initialTurn = path.turning?.at(seam) ?? 0;
   for (let i = 0; i < TRACE_TABLE_SIZE; i++) {
     const phase = i / TRACE_TABLE_SIZE;
     const distance = seam + path.total * (path.closed ? phase : .5 - .5 * Math.cos(TAU * phase));
     const point = featuresAt(path, distance, featureSize);
     x[i] = point.x; y[i] = point.y; bend[i] = point.bend; fold[i] = point.fold;
+    if (turn) turn[i] = path.turning.at(distance) - initialTurn;
   }
-  return { x, y, bend, fold, pathIndex: path.pathIndex, closed: path.closed, depth: result.depth };
+  return { x, y, bend, fold, ...(turn ? { turn, turnPerLap: path.turning.turnPerLap } : {}), pathIndex: path.pathIndex, closed: path.closed, depth: result.depth };
 }
 
 /**
@@ -129,7 +179,7 @@ function traceLayer(path, result, anchor, featureSize) {
  * `anchor`, when provided, is an absolute complex-plane point (Y upwards).
  * Missing levels stay empty; we never duplicate a finer contour to fill them.
  */
-export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015, contourReader = 'trace', drumSpacing = .04, radarX = 0, radarY = 0, scanAngle = 0 } = {}) {
+export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015, contourReader = 'trace', travelerDirection = 'clockwise', drumSpacing = .04, radarX = 0, radarY = 0, scanAngle = 0 } = {}) {
   const sources = Array.isArray(results) ? results.slice(0, 3) : [null, null, results];
   while (sources.length < 3) sources.push(null);
   const sourceView = sources[2]?.view || sources.find(result => result?.view)?.view;
@@ -137,31 +187,37 @@ export function createTraceBank(results, { finePath = -1, anchor = null, feature
     x: finite(sourceView?.x, 0), y: finite(sourceView?.y, 0),
     width: Math.max(1e-10, finite(sourceView?.width, 3.4)), aspect: Math.max(.01, finite(sourceView?.aspect, 1)),
   };
-  const paths = sources.map(result => pathsFrom(result, view));
+  const reader = ['traveler', 'radar', 'scan'].includes(contourReader) ? contourReader : 'trace';
+  const traveler = reader === 'traveler', direction = travelerDirection === 'counterclockwise' ? 'counterclockwise' : 'clockwise';
+  const paths = sources.map(result => pathsFrom(result, view, traveler ? direction : null));
   const fine = paths[2].find(path => path.pathIndex === finePath) || longest(paths[2]);
   const reference = fine || longest(paths[1]) || longest(paths[0]);
-  const target = Number.isFinite(anchor?.x) && Number.isFinite(anchor?.y)
-    ? { x: (anchor.x - view.x) / view.width, y: (anchor.y - view.y) / view.width } : canonicalAnchor(reference);
+  const explicitAnchor = Number.isFinite(anchor?.x) && Number.isFinite(anchor?.y);
+  const target = explicitAnchor
+    ? { x: (anchor.x - view.x) / view.width, y: (anchor.y - view.y) / view.width } : canonicalAnchor(reference, traveler);
   const selected = paths.map((candidates, index) => index === 2 ? fine : candidates.reduce((best, candidate) => {
     const proximity = nearest(candidate, target).distanceSquared;
     return !best || proximity < best.proximity ? { path: candidate, proximity } : best;
   }, null)?.path);
   const size = clamp(finite(featureSize, .015), .00005, 1);
-  const reader = ['radar', 'scan'].includes(contourReader) ? contourReader : 'trace';
   const angle = clamp(finite(scanAngle, 0), -180, 180), radians = angle * Math.PI / 180;
   const extent = (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)) / view.aspect) / 2;
   const bank = {
-    view, reader, radarX: clamp(finite(radarX, 0), -.5, .5), radarY: clamp(finite(radarY, 0), -.5, .5),
+    view, reader, ...(traveler ? { travelerDirection: direction } : {}), radarX: clamp(finite(radarX, 0), -.5, .5), radarY: clamp(finite(radarY, 0), -.5, .5),
     scanAngle: angle, scanMin: -extent, scanMax: extent, layers: [],
   };
   bank.layers = sources.map((result, index) => {
-    const layer = traceLayer(selected[index], result, target, size);
-    const activePaths = reader === 'trace' ? selected[index] ? [selected[index]] : [] : boundedPaths(paths[index]);
+    const path = selected[index], layerAnchor = traveler && !explicitAnchor ? canonicalAnchor(path, true) : target;
+    if (traveler && path) path.turning = turningSignal(path, size);
+    const layer = traceLayer(path, result, layerAnchor, size, traveler);
+    const followsPath = reader === 'trace' || traveler;
+    const activePaths = followsPath ? path ? [path] : [] : boundedPaths(paths[index]);
     layer.readerSegmentCount = activePaths.reduce((sum, path) => sum + path.segmentCount, 0);
-    layer.contacts = reader === 'trace'
-      ? layer.x.length ? [{ x: layer.x, y: layer.y, bend: layer.bend, fold: layer.fold, presence: new Float32Array(TRACE_TABLE_SIZE).fill(1) }] : []
+    layer.contacts = followsPath
+      ? layer.x.length ? [{ x: layer.x, y: layer.y, bend: layer.bend, fold: layer.fold,
+        ...(traveler ? { turn: layer.turn, turnPerLap: layer.turnPerLap } : {}), presence: new Float32Array(TRACE_TABLE_SIZE).fill(1) }] : []
       : projectedContacts(activePaths, bank, size);
-    const percussion = percussionFor(activePaths, bank, target, size, clamp(finite(drumSpacing, .04), .006, .2));
+    const percussion = percussionFor(activePaths, bank, layerAnchor, size, clamp(finite(drumSpacing, .04), .006, .2));
     layer.beads = percussion.beads; layer.events = percussion.events;
     layer.beadSpacing = percussion.spacing;
     return layer;
@@ -169,16 +225,21 @@ export function createTraceBank(results, { finePath = -1, anchor = null, feature
   return bank;
 }
 
-/** The renderer and audio reader use this same cyclic, linear interpolation. */
+/** Positions wrap; Traveler's accumulated turn preserves its winding per lap. */
 export function sampleTraceLayer(layer, phase = 0) {
   const count = Math.min(layer?.x?.length ?? 0, layer?.y?.length ?? 0, layer?.bend?.length ?? 0);
   if (!count) return null;
-  const position = wrap(finite(phase, 0)) * count, index = Math.floor(position), next = (index + 1) % count, mix = position - index;
+  const travel = finite(phase, 0), position = wrap(travel) * count, index = Math.floor(position), next = (index + 1) % count, mix = position - index;
+  const turnPerLap = finite(layer.turnPerLap, 0);
+  const turn = layer.turn?.length === count ? layer.turn[index]
+    + (layer.turn[next] + (next === 0 ? turnPerLap : 0) - layer.turn[index]) * mix
+    + Math.floor(travel) * turnPerLap : 0;
   return {
     x: layer.x[index] + (layer.x[next] - layer.x[index]) * mix,
     y: layer.y[index] + (layer.y[next] - layer.y[index]) * mix,
     bend: layer.bend[index] + (layer.bend[next] - layer.bend[index]) * mix,
     fold: layer.fold?.length === count ? layer.fold[index] + (layer.fold[next] - layer.fold[index]) * mix : 0,
+    turn,
   };
 }
 
@@ -217,9 +278,11 @@ function percussionFor(paths, bank, anchor, featureSize, requestedSpacing) {
   const beads = [], events = [];
   originals.forEach((path, pathIndex) => {
     const count = counts[pathIndex], seam = path.closed ? nearest(path, anchor).distance : 0;
+    const initialTurn = path.turning?.at(seam) ?? 0;
     for (let i = 0; i < count; i++) {
       const distance = seam + path.total * i / (path.closed ? count : count - 1);
       const point = featuresAt(path, distance, featureSize);
+      if (path.turning) point.turn = path.turning.at(distance) - initialTurn;
       const phases = eventPhases(point, bank, path.closed, i / (path.closed ? count : count - 1));
       const id = beads.length, bead = { id, ...point, pathIndex: path.pathIndex, phases };
       beads.push(bead);
@@ -254,7 +317,7 @@ function eventPhases(point, bank, closed, arcFraction) {
 
 /** Guide geometry in bank.view-relative width units; Y points upwards. */
 export function readerGuide(bank, phase = 0) {
-  if (!bank || bank.reader === 'trace') return null;
+  if (!bank || bank.reader === 'trace' || bank.reader === 'traveler') return null;
   const position = wrap(finite(phase, 0));
   const reach = Math.hypot(1, 1 / bank.view.aspect) + 1;
   if (bank.reader === 'radar') {
