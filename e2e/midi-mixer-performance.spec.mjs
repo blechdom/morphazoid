@@ -282,16 +282,37 @@ test('sample buttons and text are silent previews before Audio and never revive 
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`combined performance controls remain reachable at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
-    await page.setViewportSize(viewport); await open(page);
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#mixerStopSamples', '#deckOriginal0', '#deckOriginal1']) {
-      const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();
-      const box = await target.boundingBox(); expect(box.width).toBeGreaterThan(20);
-      expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-    }
-    await page.locator('#mixerPerformanceCanvas').scrollIntoViewIfNeeded();
-    await testInfo.attach('performance-layout', { body: await page.screenshot(), contentType: 'image/png' });
-    expect((await state(page)).contexts).toEqual([]);
+  test.describe(`performance viewport ${viewport.width}×${viewport.height}`, () => {
+    const touch = viewport.width < 1000;
+    test.use({ viewport, hasTouch: touch });
+    test('combined performance controls remain reachable', async ({ page }, testInfo) => {
+      await open(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#mixerSendDrawing', '#mixerStopSamples', '#deckOriginal0', '#deckOriginal1']) {
+        const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();
+        const box = await target.boundingBox(); expect(box.width).toBeGreaterThan(20);
+        expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+      }
+      if (touch) {
+        expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
+        const buttons = page.locator('.mixer-performance button, #deckOriginal0, #deckOriginal1, #audioButton, #mixerPlay');
+        const dimensions = [];
+        for (const button of await buttons.all()) {
+          await button.scrollIntoViewIfNeeded(); await expect(button).toBeVisible();
+          const box = await button.boundingBox(), name = await button.getAttribute('aria-label') || await button.innerText();
+          expect(box.width, `${name}: touch width`).toBeGreaterThanOrEqual(48);
+          expect(box.height, `${name}: touch height`).toBeGreaterThanOrEqual(48);
+          dimensions.push({ name, width: box.width, height: box.height });
+        }
+        await testInfo.attach('touch-targets', { body: JSON.stringify(dimensions, null, 2), contentType: 'application/json' });
+        await page.locator('[data-mixer-sample="heart"]').tap();
+        await expect(page.locator('#mixerPerformanceCanvas')).toHaveAttribute('data-message', 'Heart');
+        await expect(page.locator('#mixerSampleStatus')).toContainText(/silent preview/i);
+        await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+      }
+      await page.locator('#mixerPerformanceCanvas').scrollIntoViewIfNeeded();
+      await testInfo.attach('performance-layout', { body: await page.screenshot(), contentType: 'image/png' });
+      expect((await state(page)).contexts).toEqual([]);
+    });
   });
 }

@@ -3,12 +3,13 @@ import { GM_PROGRAM_NAMES } from './midi-mixer-model.js';
 import { MidiMixerRenderer, mixerVoiceColor } from './midi-mixer-renderer.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { MIDI_MIXER_PRESETS, captureMixerPreset, applyMixerPreset, randomizeMixerPreset } from './midi-mixer-presets.js';
+import { mountMixerPerformance } from './midi-mixer-performance.js';
 
 const asset = path => new URL(`../../../assets/midiphoria/${path}`, import.meta.url).href;
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const noteName = note => note === null ? '—' : `${['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'][note % 12]}${Math.floor(note / 12) - 1}`;
 const labelFor = song => `${song.artist || song.composer || ''}${song.artist || song.composer ? ' · ' : ''}${song.title}`;
-export function mountMidiMixer(host, { onState = () => {} } = {}) {
+export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawing } = {}) {
   host.classList.add('mixer-shell');
   host.innerHTML = `<div class="mixer-main-row">
     <div class="mixer-transport">
@@ -21,6 +22,7 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
   <div class="mixer-mix-row"><button id="tempoFromA" class="mini-action" type="button" disabled>Use A tempo</button><label class="control mixer-crossfade"><span><b><span class="deck-a-ink">A</span> · Balance · <span class="deck-b-ink">B</span></b><output id="crossfadeOut" for="mixerCrossfade">A + B</output></span><input id="mixerCrossfade" name="balance" type="range" min="-1" max="1" step=".01" value="0"></label><button id="tempoFromB" class="mini-action" type="button" disabled>Use B tempo</button></div>
   <div class="mixer-readout"><output id="mixerPosition">Beat 1</output><span id="mixerFontName">TimGM6mb</span><button id="mixerReset" class="mini-action" type="button">Reset mix</button></div>
   <p class="mixer-status" id="mixerStatus" role="status"></p>
+  <div id="mixerPerformanceHost"></div>
   <div id="mixerDeckHost" class="mixer-decks"></div>
   <details class="mixer-effects"><summary>SoundFont & live effects</summary><div class="mixer-effects-controls">
     <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open mixer SoundFont"></label><button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
@@ -32,11 +34,11 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
   <details class="mixer-guide"><summary>Mixing & file details</summary><p>Each map spans the entire arrangement. Taller marks mean more note attacks, not higher pitches. Click to jump; drag a region to loop it. Arrow keys move one beat, Shift + arrows four beats. Choose Drums on one deck and Melody on the other, then use Solo to keep a particular voice. Grey rows are muted. Voices with no notes are listed in the inspector.</p><p>Both decks follow one beat clock. Tempo ratio lets A run at double time while B runs at half time. Slip advances or delays a score without moving that clock; pitch shifts leave General MIDI drums unchanged. Bar slips use each file’s initial time signature. SoundFonts stay in this browser. This is MIDI seeking and looping, rather than vinyl-style reversed audio scratching.</p><p><a href="docs/midi-mixer.md" target="_blank" rel="noopener">Mixer details ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI collection & SoundFont credits ↗</a></p></details>`;
   host.insertBefore(host.querySelector('.mixer-effects'), host.querySelector('#mixerDeckHost'));
   const $ = id => host.querySelector(`#${id}`);
-  const events = new AbortController(), requests = [null, null], serial = [0, 0], selectedIds = ['', ''];
+  const events = new AbortController(), requests = [null, null], serial = [0, 0], selectedIds = ['', ''], originals = [null, null];
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
   let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, initialized = false;
   const deckUIs = [], renderers = [];
-  let engine, presetController, fontSerial = 0, fontRequest = null;
+  let engine, performanceView, presetController, fontSerial = 0, fontRequest = null, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
@@ -46,7 +48,7 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
     section.className = 'mixer-deck'; section.dataset.deck = String(index); section.setAttribute('aria-label', `MIDI deck ${letter}`);
     section.innerHTML = `<div class="deck-heading"><h2>Deck ${letter}</h2><output id="deckPosition${index}">—</output></div>
       <div class="deck-song"><select id="deckSong${index}" aria-label="Deck ${letter} MIDI file"><option value="">Choose a MIDI file</option></select><button id="deckRandom${index}" class="mini-action" type="button" aria-label="Random MIDI for deck ${letter}"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" aria-hidden="true"><path d="M3 3h18v18H3Z"/><path d="M7 7h1v1H7ZM16 7h1v1h-1ZM11.5 11.5h1v1h-1ZM7 16h1v1H7ZM16 16h1v1h-1Z"/></svg></button><button id="deckNext${index}" class="mini-action" type="button" aria-label="Next MIDI for deck ${letter}">→</button></div>
-      <label class="deck-file">Open MIDI<input id="deckFile${index}" type="file" accept=".mid,.midi" aria-label="Open MIDI on deck ${letter}"></label><p id="deckCredit${index}" class="deck-credit"></p>
+      <div class="deck-source-actions"><label class="deck-file">Open MIDI<input id="deckFile${index}" type="file" accept=".mid,.midi" aria-label="Open MIDI on deck ${letter}"></label><button id="deckOriginal${index}" class="mini-action deck-original" type="button" aria-label="Play deck ${letter} original MIDI" title="Play this file alone with its original timing and instruments" disabled>Play original</button></div><p id="deckCredit${index}" class="deck-credit"></p>
       <dl id="deckInfo${index}" class="deck-info"></dl>
       <div class="mixer-deck-map"><canvas id="deckMap${index}" tabindex="0" role="slider" aria-label="Deck ${letter} voice activity map" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0" ></canvas></div>
       <p class="deck-map-help">Click to jump · drag to loop · grey = muted</p>
@@ -78,10 +80,18 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
         if (file.size > 10 * 1024 * 1024) throw new Error('MIDI files must be 10 MB or smaller.');
         const buffer = await file.arrayBuffer(); if (disposed || ticket !== serial[index]) return;
         await engine.loadDeck(index, buffer, file.name); selectedIds[index] = 'local';
+        originals[index] = { buffer, title: file.name, attribution: 'Your MIDI · kept in this browser.' };
         $(`deckSong${index}`).querySelector('[value="local"]')?.remove(); $(`deckSong${index}`).append(new Option(file.name, 'local')); $(`deckSong${index}`).value = 'local';
         $(`deckCredit${index}`).textContent = 'Local MIDI · kept in this browser.';
       } catch (cause) { if (ticket === serial[index]) { $(`deckSong${index}`).value = selectedIds[index]; fail(cause); } }
       finally { if (ticket === serial[index] && !disposed) { loading[index] = false; resumePending(); reflect(); } }
+    });
+    on($(`deckOriginal${index}`), 'click', async () => {
+      if (!onOriginal || !originals[index] || loading[index] || originalBusy) return;
+      originalBusy = true; error = ''; reflect();
+      try { await onOriginal({ ...originals[index], buffer: originals[index].buffer.slice(0), index }); }
+      catch (cause) { fail(cause); }
+      finally { originalBusy = false; if (!disposed) reflect(); }
     });
     for (const [id, key] of [['Gain', 'gain'], ['Pitch', 'transpose'], ['Offset', 'offsetBeats']]) on($(`deck${id}${index}`), 'input', event => { custom(); engine.configureDeck(index, { [key]: Number(event.target.value) }); });
     on($(`deckRate${index}`), 'change', event => { custom(); engine.configureDeck(index, { rate: Number(event.target.value) }); });
@@ -159,6 +169,7 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
       $('mixerFilterOut').value = effects.filterHz >= 19000 ? 'Open' : `${Math.round(effects.filterHz)} Hz`; $('mixerEchoOut').value = `${Math.round(effects.delayMix * 100)}%`; $('mixerFeedbackOut').value = `${Math.round(effects.feedback * 100)}%`;
     }
     state.decks.forEach((deck, index) => {
+      $(`deckOriginal${index}`).disabled = !onOriginal || !originals[index] || loading[index] || originalBusy;
       const ui = deckUIs[index]; if (ui.analysis !== deck.analysis) makeInfo(index, deck.analysis);
       const config = deck.config; field($(`deckRate${index}`), config.rate ?? 1); $(`deckRateOut${index}`).value = `${(state.tempo * (config.rate ?? 1)).toFixed(1)} BPM`; field($(`deckGain${index}`), config.gain); field($(`deckPitch${index}`), config.transpose); field($(`deckOffset${index}`), config.offsetBeats);
       field($(`deckLoopStart${index}`), config.loopStartBeats || 0); field($(`deckLoopEnd${index}`), deck.loopEndBeats ?? deck.loopBeats);
@@ -177,6 +188,7 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
     onState({ ...state, ready: state.decks.some(deck => deck.analysis) });
   }
   engine = new MidiMixerEngine({ onState: reflect });
+  performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing });
   async function choose(index, id) {
     const song = collection.find(song => song.id === id); if (!song) return;
     const ticket = ++serial[index]; requests[index]?.abort(); const request = new AbortController(); requests[index] = request;
@@ -185,6 +197,7 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
       const response = await fetch(asset(song.file), { signal: request.signal }); if (!response.ok) throw new Error(`Could not load MIDI (${response.status}).`);
       const buffer = await response.arrayBuffer(); if (disposed || ticket !== serial[index]) return;
       await engine.loadDeck(index, buffer, labelFor(song)); $(`deckSong${index}`).value = song.id; selectedIds[index] = song.id;
+      originals[index] = { ...song, buffer, title: labelFor(song) };
       const credit = $(`deckCredit${index}`); credit.textContent = song.attribution || labelFor(song);
       if (song.sourceUrl?.startsWith('https://')) { const a = document.createElement('a'); a.href = song.sourceUrl; a.target = '_blank'; a.rel = 'noopener noreferrer'; a.textContent = ' Source ↗'; credit.append(a); }
     } catch (cause) { if (ticket === serial[index]) { $(`deckSong${index}`).value = selectedIds[index]; fail(cause); } }
@@ -256,10 +269,10 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
     get state() { const state = engine.state; return { ...state, ready: state.decks.some(deck => deck.analysis), playing: state.playing || pendingPlay }; },
     setActive(value) { const next = Boolean(value); if (next !== active) {
       if (next) mountPresets(); else { presetController?.destroy(); presetController = null; }
-    } active = next; if (active) { if (engine.context?.state === 'suspended') void engine.context.resume().catch(fail); void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
+    } active = next; performanceView.setActive(active); if (active) { if (engine.context?.state === 'suspended') void engine.context.resume().catch(fail); void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
     async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); return engine.setAudioEnabled(false); },
     setVolume(value) { engine.setVolume(value); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => ui.channelEvents.abort()); void engine.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => ui.channelEvents.abort()); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }

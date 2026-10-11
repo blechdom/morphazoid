@@ -70,7 +70,7 @@
 .mixer-guide { border-top: 1px solid #273c35; padding-top: 12px; margin-top: 28px; }
 @media (max-width: 900px) { .mixer-shell { padding: 20px; } .mixer-decks { gap: 18px; } .mixer-main-row { grid-template-columns: 1fr 230px; gap: 20px; } .channel-row { grid-template-columns: minmax(55px, .7fr) minmax(80px, 2fr) 36px 36px; gap: 5px; } }
 @media (max-width: 680px) { .mixer-shell { padding: 20px 16px; } .mixer-main-row { display: flex; flex-direction: column-reverse; align-items: stretch; gap: 16px; } .mixer-decks { grid-template-columns: 1fr; gap: 28px; } .mixer-mix-row { gap: 10px; } .mixer-mix-row .mini-action { max-width: 80px; } .mixer-readout { gap: 8px; } .mixer-readout > label { margin-left: 0; } }
-@media (pointer: coarse) { .mixer-shell button, .mixer-shell select, .mixer-shell input[type="number"] { min-height: 48px; } .channel-row { grid-template-columns: minmax(58px, .8fr) minmax(80px, 2fr) 48px 48px; min-height: 62px; } .channel-row button { width: 48px; } .mixer-shell input::file-selector-button { min-height: 48px; } }
+@media (pointer: coarse) { .mixer-shell button, .mixer-shell .mini-action, .mixer-shell select, .mixer-shell input[type="number"] { min-height: 48px; } .channel-row { grid-template-columns: minmax(58px, .8fr) minmax(80px, 2fr) 48px 48px; min-height: 62px; } .channel-row button { width: 48px; } .mixer-shell input::file-selector-button { min-height: 48px; } }
 
 .mixer-shell[hidden] { display: none; }
 .mixer-scenes { min-width: 0; }

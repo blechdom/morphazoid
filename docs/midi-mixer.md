@@ -10,8 +10,8 @@ density of each voice across the whole arrangement, with muted voices in grey.
 
 The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
 deck B and the sample buttons feed the same graphic, with distinct voice
-colors. Muted parts disappear from the live graphic while their full-file
-activity maps remain available below. Graphics follow note events; rendering
+colors. Muted parts stop adding new notes to the live graphic while their
+full-file activity maps remain available below. Graphics follow note events; rendering
 does not schedule the sound.
 
 Heart, Square, Star and the other sample buttons play short MIDI drawings over

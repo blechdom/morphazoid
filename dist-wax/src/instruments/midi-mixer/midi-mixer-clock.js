@@ -24,12 +24,57 @@ export function heldNotesAt(held, beat, limit = 192) {
     if (held.start[middle] < beat - 1e-9) {
       if (held.end[middle] > beat) {
         const info = held.info[middle];
-        result.push({ beat, kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127 });
+        result.push({ beat, kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127, noteId: held.ids?.[middle] ?? middle, durationBeats: held.end[middle] - beat });
       }
       stack.push([middle + 1, high]);
     }
   }
   return result;
+}
+
+/** Four one-shots use the same rendered frames and tempo as the decks, but
+ * continue while their transport is paused. No UI timer schedules MIDI. */
+export const MAX_SAMPLE_EVENTS_PER_BLOCK = 2048;
+export class MidiSampleClock {
+  constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {} } = {}) {
+    this.emit = emit; this.release = release; this.restore = restore; this.configure = configure;
+    this.beat = 0; this.samples = [null, null, null, null]; this.skippedEvents = 0;
+  }
+  load(slot, sample) {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= this.samples.length) return false;
+    this.stop(slot);
+    const position = Math.max(0, this.beat - sample.startBeat);
+    if (position >= sample.data.durationBeats) return false;
+    this.samples[slot] = { ...sample, cursor: lowerBound(sample.data.events, position) };
+    this.restore(slot + 2, sample.data.controllers, position);
+    this.configure(slot + 2, sample.config, sample.channels);
+    for (const event of heldNotesAt(sample.data.held, position)) this.emit(slot + 2, event, 0);
+    return true;
+  }
+  stop(slot) { if (this.samples[slot]) this.release(slot + 2); this.samples[slot] = null; }
+  stopAll() { for (let slot = 0; slot < this.samples.length; slot++) this.stop(slot); }
+  process(frames, sampleRate, tempo) {
+    const increment = tempo / (60 * sampleRate), end = this.beat + frames * increment;
+    let budget = MAX_SAMPLE_EVENTS_PER_BLOCK;
+    for (let slot = 0; slot < this.samples.length; slot++) {
+      const sample = this.samples[slot]; if (!sample) continue;
+      const finish = Math.min(sample.data.durationBeats, end - sample.startBeat);
+      const endIndex = lowerBound(sample.data.events, finish - 1e-10);
+      const available = Math.max(0, endIndex - sample.cursor), count = Math.min(available, budget);
+      for (let index = 0; index < count; index++) {
+        const event = sample.data.events[sample.cursor++];
+        const frame = Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + event.beat - this.beat) / increment)));
+        this.emit(slot + 2, event, frame);
+      }
+      budget -= count;
+      if (available > count) { this.skippedEvents += available - count; sample.cursor = endIndex; this.release(slot + 2, frames - 1); }
+      if (end >= sample.startBeat + sample.data.durationBeats) {
+        const frame = Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + sample.data.durationBeats - this.beat) / increment)));
+        this.release(slot + 2, frame); this.samples[slot] = null;
+      }
+    }
+    this.beat = end;
+  }
 }
 export const MAX_EVENTS_PER_BLOCK = 8192;
 export class MidiMixerClock {
