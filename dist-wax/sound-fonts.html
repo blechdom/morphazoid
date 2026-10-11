@@ -39,7 +39,7 @@
     </header>
     <main class="sf-shell">
       <header class="sf-intro">
-        <div><p class="sf-eyebrow">THE MORPHAZOID SOUND LIBRARY</p><h1>Sound Fonts<span class="sf-title-dot" aria-hidden="true">.</span></h1><p class="sf-lede">A home for sounds you find. A workshop for sounds you make.</p></div>
+        <div><h1>Sound Fonts<span class="sf-title-dot" aria-hidden="true">.</span></h1></div>
         <div class="sf-actions"><button id="importButton" class="sf-button" type="button">↓ Import SF2</button><button id="createButton" class="sf-button sf-primary" type="button">＋ Make a font</button></div>
         <input id="fontFiles" class="sr-only" type="file" accept=".sf2" multiple tabindex="-1" aria-label="Import SoundFont files" />
       </header>
@@ -67,7 +67,7 @@
               <div class="sf-inspector-top"><span id="selectedKind" class="sf-eyebrow"></span><button id="favoriteButton" class="sf-icon-button" type="button" aria-label="Add to favorites" aria-pressed="false">☆</button></div>
               <h2 id="selectedName"></h2><p id="selectedAuthor" class="sf-muted"></p>
               <canvas id="waveform" width="600" height="150" aria-label="Waveform of the selected sound sample"></canvas>
-              <div id="playableDetails"><label class="sf-field">Preset<select id="presetSelect"></select></label><div class="sf-preview-actions"><button id="auditionButton" type="button" class="sf-button sf-primary">▶ Preview sound</button><button id="stopButton" type="button" class="sf-button">Stop</button></div><p class="sf-muted sf-small">Turn Audio on, then play. Sample preview; advanced bank effects may differ.</p></div>
+              <div id="playableDetails"><label class="sf-field">Preset<select id="presetSelect"></select></label><div class="sf-preview-actions"><button id="auditionButton" type="button" class="sf-button sf-primary">▶ Preview sound</button><button id="stopButton" type="button" class="sf-button">Stop</button></div></div>
               <p id="linkOnlyNotice" class="sf-muted" hidden>Saved source link. Download an SF2 from its maker, then import it to play here.</p>
               <dl class="sf-details"><div><dt>Contents</dt><dd id="selectedStats"></dd></div><div><dt>License</dt><dd id="selectedLicense"></dd></div></dl>
               <p id="selectedNotes" class="sf-muted"></p><p id="fontWarnings" class="sf-muted sf-small"></p>

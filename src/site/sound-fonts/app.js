@@ -396,7 +396,7 @@ async function initialize() {
   }
   await refresh(); await select(entries[0]?.id || null); updateDraft();
   void loadBundledCatalog();
-  status(`${entries.length} sounds in your library. Import a font or make your own.`);
+  status('');
   if(storageError) showError(storageError);
 }
 window.addEventListener('pagehide',()=>{ disposed=true; for(const controller of bankLoads.values()) controller.abort(); stop(); cancelAnimationFrame(drawingFrame); void audio.dispose(); library?.close(); audioStrip.destroy(); });
