@@ -158,3 +158,47 @@ test('invalid events are ignored and rewound timestamps cannot reverse the emitt
   fx.noteOn(4095, 127, 127, 10); fx.noteOff(4095, 127, 1);
   assert.deepEqual(events.map(event => event.time), [10, 10]); balanced(events);
 });
+
+test('late FIFO offs from overloaded families cannot shorten a newer same-pitch family', () => {
+  for (const options of [{ maxGroups: 1 }, { maxEvents: 2 }]) {
+    const { fx, events } = fixture(options);
+    fx.noteOn(0, 60, 100, 0); fx.noteOn(0, 60, 110, .1);
+    assert.equal(offs(events).length, 1); assert.equal(fx.noteOff(0, 60, .2), true);
+    assert.equal(offs(events).length, 1); assert.equal(fx.stats.active, 1);
+    fx.noteOff(0, 60, .3); assert.equal(offs(events).at(-1).time, .3); balanced(events);
+    assert.equal(fx.noteOff(0, 60, .4), false);
+  }
+});
+
+test('scoped clear discards matching stolen FIFO releases while preserving other source debt', () => {
+  const { fx, events } = fixture({ maxGroups: 2 });
+  fx.noteOn(0, 60, 100, 0, { source: 'A' }); fx.noteOn(1, 60, 100, .1, { source: 'B' });
+  fx.noteOn(0, 60, 110, .2, { source: 'A' }); fx.noteOn(1, 60, 110, .3, { source: 'B' });
+  fx.clear(.4, meta => meta.source === 'A');
+  fx.noteOn(0, 60, 120, .5, { source: 'A' }); fx.noteOff(0, 60, .6);
+  assert.equal(offs(events).at(-1).time, .6); assert.equal(offs(events).at(-1).channel, 0);
+  const count = offs(events).length; fx.noteOff(1, 60, .7);
+  assert.equal(offs(events).length, count); assert.deepEqual(fx.activePitches(1, 60), [60]);
+  fx.noteOff(1, 60, .8); balanced(events);
+  fx.noteOn(0, 60, 100, 1); fx.noteOn(0, 60, 100, 2); fx.noteOn(0, 60, 100, 3);
+  fx.clear(4); fx.noteOn(0, 60, 100, 5); fx.noteOff(0, 60, 6);
+  assert.equal(fx.stats.active, 0); balanced(events);
+});
+
+test('overload cancels a stolen delayed family and its echoes without disturbing replacement release order', () => {
+  const { fx, events } = fixture({ maxGroups: 1 });
+  fx.configure({ enabled: true, delayBeats: .5, echoCount: 1, echoBeats: .5 });
+  fx.noteOn(0, 60, 100, 0); fx.noteOn(0, 60, 110, .1); fx.noteOff(0, 60, .15);
+  assert.equal(events.length, 0); fx.advance(.4); fx.noteOff(0, 60, .45); fx.advance(2);
+  assert.deepEqual(compact(events), [['noteOn', 60, 110, .35], ['noteOn', 60, 55, .6], ['noteOff', 60, 0, .7], ['noteOff', 60, 0, .95]]);
+  balanced(events); assert.equal(fx.stats.groups, 0); assert.equal(fx.nextTime, Infinity);
+});
+
+test('stealing released echo tails and explicit keyed families does not create FIFO release debt', () => {
+  const { fx, events } = fixture({ maxGroups: 1 }); fx.configure({ enabled: true, echoCount: 1, echoBeats: 1 });
+  fx.noteOn(0, 60, 100, 0); fx.noteOff(0, 60, .1); fx.noteOn(0, 60, 110, .2);
+  fx.noteOff(0, 60, .3); fx.advance(1); balanced(events);
+  fx.configure({ enabled: false }); fx.noteOn(0, 60, 100, 2, { key: 'unique:A' }); fx.noteOn(0, 60, 110, 3);
+  assert.equal(fx.noteOff(0, 60, 4, { key: 'unique:A' }), false);
+  fx.noteOff(0, 60, 5); balanced(events); assert.equal(fx.stats.active, 0);
+});

@@ -83,6 +83,10 @@ export class MidiNoteEffects {
     this._config = sanitizeMidiNoteEffects(); this._queue = new EventQueue();
     this._groups = new Map(); this._children = new Map(); this._optional = new Map();
     this._keys = new Map(); this._fifo = new Map();
+    // Overload may steal a family before its source release arrives. Keep its
+    // FIFO place without retaining voices/events: 128 counters per used channel,
+    // at most 4096 channels (2 MiB). Counters saturate rather than wrap around.
+    this._fifoDebt = new Map();
     this._time = 0; this._serial = 0; this._active = 0; this._dropped = 0; this._steals = 0;
   }
   get config() { return { ...this._config }; }
@@ -117,7 +121,23 @@ export class MidiNoteEffects {
     this._children.delete(child.id); this._optional.delete(child.id); child.group.children.delete(child);
     if (child.group.released && !child.group.children.size) this._forget(child.group);
   }
-  _remove(group, time) {
+  _rememberOff(group) {
+    if (group.released || group.meta.key !== undefined) return;
+    let debt = this._fifoDebt.get(group.channel);
+    if (!debt) { debt = { counts: new Uint32Array(128), total: 0, meta: group.meta }; this._fifoDebt.set(group.channel, debt); }
+    debt.meta = group.meta;
+    if (debt.counts[group.note] < 0xffffffff) { debt.counts[group.note]++; debt.total++; }
+  }
+  _consumeOff(channel, note, meta) {
+    if (meta?.key !== undefined) return false;
+    const debt = this._fifoDebt.get(channel);
+    if (!debt?.counts[note]) return false;
+    debt.counts[note]--; debt.total--;
+    if (!debt.total) this._fifoDebt.delete(channel);
+    return true;
+  }
+  _remove(group, time, remember = false) {
+    if (remember) this._rememberOff(group);
     group.released = true;
     for (const child of [...group.children]) this._finish(child, time);
     this._forget(group);
@@ -126,7 +146,7 @@ export class MidiNoteEffects {
     while (this._children.size * 2 + 2 > this.maxEvents) {
       const optional = this._optional.values().next().value;
       if (optional) { this._dropped++; this._finish(optional, time); }
-      else { const oldest = this._groups.values().next().value; if (!oldest) break; this._steals++; this._remove(oldest, time); }
+      else { const oldest = this._groups.values().next().value; if (!oldest) break; this._steals++; this._remove(oldest, time, true); }
     }
   }
   noteOn(channel, note, velocity, time, meta = {}) {
@@ -134,7 +154,7 @@ export class MidiNoteEffects {
     if (velocity <= 0) { this.noteOff(channel, note, time, meta); return null; }
     const at = this._at(time); if (at === null) return null; this.advance(at);
     const expanded = midiNoteEffectChildren(this._config, note, velocity, { drums: typeof meta?.drums === 'boolean' ? meta.drums : channel % 16 === 9 });
-    while (this._groups.size >= this.maxGroups) { this._steals++; this._remove(this._groups.values().next().value, at); }
+    while (this._groups.size >= this.maxGroups) { this._steals++; this._remove(this._groups.values().next().value, at, true); }
     if (expanded.length) this._room(at);
     const [matchMap, matchKey] = this._matching(channel, note, meta), matches = matchMap.get(matchKey) ?? [];
     const group = { id: ++this._serial, channel, note, time: at, meta: { ...meta }, children: new Set(), released: false, matchMap, matchKey, matches };
@@ -151,6 +171,7 @@ export class MidiNoteEffects {
   noteOff(channel, note, time, meta = {}) {
     if (!this._input(channel, note)) return false;
     const at = this._at(time); if (at === null) return false; this.advance(at);
+    if (this._consumeOff(channel, note, meta)) return true;
     const [map, key] = this._matching(channel, note, meta), group = map.get(key)?.find(item => !item.released);
     if (!group) return false;
     group.released = true;
@@ -177,6 +198,7 @@ export class MidiNoteEffects {
   clear(time, predicate = () => true) {
     const at = this._at(time); if (at === null) return;
     for (const group of [...this._groups.values()]) if (predicate(group.meta)) this._remove(group, at);
+    for (const [channel, debt] of this._fifoDebt) if (predicate(debt.meta)) this._fifoDebt.delete(channel);
     this.advance(at);
   }
 }
