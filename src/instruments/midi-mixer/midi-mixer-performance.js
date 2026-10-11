@@ -128,16 +128,17 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
 
   function previewSource(source, now) {
     const { key, analysis, position, rate = 1, gain = 1, transpose = 0, channels = [], midi = {}, end = Infinity } = source;
-    if (!analysis || gain <= .0001 || !Number.isFinite(position)) return;
+    if (!analysis || !Number.isFinite(position)) return;
     let indexed = indexes.get(analysis);
     if (!indexed) { indexed = indexPerformanceNotes(analysis.notes); indexes.set(analysis, indexed); }
-    const signature = JSON.stringify([rate, transpose, midi, channels.map(channel => [channel.channel, channel.mute, channel.solo, channel.midi])]);
+    const signature = JSON.stringify([rate, transpose, gain, midi, channels.map(channel => [channel.channel, channel.mute, channel.solo, channel.midi])]);
     let prior = preview.get(key);
     if (!prior || prior.signature !== signature || prior.analysis !== analysis || position < prior.position || position - prior.position > 2 * rate) {
       for (const [id, held] of activeNotes) if (held.event.sourceId === key) release(id, now);
       prior = { analysis, signature, position: Math.max(0, position - .001), generation: ++serial, seen: new Set() };
       preview.set(key, prior);
     }
+    if (gain <= .0001) return;
     const secondsPerBeat = 60 / Math.max(30, engine.state.tempo) / rate;
     const settings = new Map(channels.map(channel => [channel.channel, channel])), solo = channels.some(channel => channel.solo);
     for (const { index, note } of queryPerformanceNotes(indexed, prior.position, position, 1024)) {
@@ -147,11 +148,12 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
       if (prior.seen.has(index)) continue;
       prior.seen.add(index);
       const parameters = mergeMidiParameters(midi, setting?.midi);
-      if (parameters.controllers?.[7] === 0 || parameters.controllers?.[11] === 0) continue;
+      const previewGain = gain * (parameters.gain ?? 1);
+      if (previewGain <= .0001 || parameters.controllers?.[7] === 0 || parameters.controllers?.[11] === 0) continue;
       const transformed = transformMidiNote({ ...note, note: note.note + (note.channel % 16 === 9 ? 0 : transpose) }, parameters);
       const noteEnd = Math.min(end, note.beat + note.duration);
       const at = now - Math.max(0, position - note.beat) * secondsPerBeat;
-      attack({ id, type: 'noteOn', sourceId: key, channel: note.channel, note: transformed.note, velocity: transformed.velocity, gain }, at, (noteEnd - note.beat) * secondsPerBeat);
+      attack({ id, type: 'noteOn', sourceId: key, channel: note.channel, note: transformed.note, velocity: transformed.velocity, gain: previewGain }, at, (noteEnd - note.beat) * secondsPerBeat);
     }
     // Index ownership is reset at every loop; cap display bookkeeping on long files.
     if (prior.seen.size > 8192) prior.seen = new Set([...prior.seen].slice(-4096));

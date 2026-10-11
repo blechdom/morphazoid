@@ -89,6 +89,22 @@ test('stamp source gate, explicit seed and complete source reset change only the
   expect((await summary(page)).edits).toEqual([]); expect((await summary(page)).playing).toBe(true); expect((await summary(page)).stops).toBe(0); expect(errors).toEqual([]);
 });
 
+test('silent stamp previews release and rejoin notes when MIDI gain or sample level changes', async ({ page }) => {
+  const errors = await open(page);
+  await launch(page, () => page.locator('[data-mixer-sample="square"]').click());
+  const active = () => page.locator('#mixerPerformanceCanvas').getAttribute('data-active-notes').then(Number);
+  await expect.poll(active).toBeGreaterThan(0);
+  await sourcePanel(page);
+  const mix = page.locator('.mixer-stamp-live-midi .midi-edit-group').filter({ has: page.locator('summary', { hasText: /^Mix$/ }) });
+  await mix.locator('summary').click();
+  const gain = page.getByRole('slider', { name: 'Stamp sound: Voice gain', exact: true });
+  await gain.fill('0'); await expect.poll(active).toBe(0);
+  await gain.fill('1'); await expect.poll(active).toBeGreaterThan(0);
+  await page.locator('#mixerSampleLevel').fill('0'); await expect.poll(active).toBe(0);
+  await page.locator('#mixerSampleLevel').fill('0.7'); await expect.poll(active).toBeGreaterThan(0);
+  expect((await summary(page)).playing).toBe(true); expect((await summary(page)).stops).toBe(0); expect(errors).toEqual([]);
+});
+
 test('file windows, letter messages and drawing geometry expose their source controls', async ({ page }) => {
   const errors = await open(page); await sourcePanel(page);
   await launch(page, () => page.locator('[data-mixer-sample="black-bleed-chasing-wind"]').click());
