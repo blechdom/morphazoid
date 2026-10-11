@@ -106,15 +106,17 @@ function variableLength(value) {
 
 /** One bounded pixel score owns both the visual notes and the exported MIDI.
  * Input pixels are upright, top row first; time always travels bottom to top.
- * Adjacent vertical pixels sustain a chromatic note; there is no scale snapping.
+ * Adjacent vertical pixels sustain a chromatic note unless retrigger is enabled;
+ * there is no scale snapping.
  */
-export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .25, lowestNote = 48 } = {}) {
+export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .25, lowestNote = 48, retrigger = false, velocity = VELOCITY } = {}) {
   if (!Array.isArray(pixels) || !pixels.length || pixels.length > 256) throw new Error('Use 1–256 rows.');
   const columns = pixels[0]?.length, rows = pixels.length;
-  if (!Number.isInteger(columns) || columns < 1 || columns > 48
-    || pixels.some(row => row?.length !== columns)) throw new Error('Use a rectangular grid with 1–48 columns.');
+  if (!Number.isInteger(columns) || columns < 1 || columns > 128
+    || pixels.some(row => row?.length !== columns)) throw new Error('Use a rectangular grid with 1–128 columns.');
   if (!Number.isFinite(secondsPerRow) || secondsPerRow < .0625 || secondsPerRow > .5
     || !Number.isInteger(lowestNote) || lowestNote < 0 || lowestNote + columns > 128) throw new Error('Invalid score timing or pitch range.');
+  if (typeof retrigger !== 'boolean' || !Number.isInteger(velocity) || velocity < 1 || velocity > 127) throw new Error('Invalid note articulation or velocity.');
   secondsPerRow = Math.round(secondsPerRow * 960) / 960;
   const filled = value => value === 1 || value === true || value === '1';
   const notes = [];
@@ -122,9 +124,9 @@ export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .2
     for (let row = 0; row < rows;) {
       if (!filled(pixels[rows - 1 - row][column])) { row++; continue; }
       const from = row;
-      while (row < rows && filled(pixels[rows - 1 - row][column])) row++;
+      do { row++; } while (!retrigger && row < rows && filled(pixels[rows - 1 - row][column]));
       notes.push({ note: lowestNote + column, start: from * secondsPerRow,
-        duration: (row - from) * secondsPerRow, velocity: VELOCITY });
+        duration: (row - from) * secondsPerRow, velocity });
     }
   }
   if (!notes.length) throw new Error('Draw some notes or choose a stamp first.');

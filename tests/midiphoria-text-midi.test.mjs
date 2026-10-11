@@ -293,10 +293,30 @@ test('drawing MIDI contains exactly the upright painted cells including sustaine
 });
 
 test('drawing encoder rejects empty, ragged and unbounded score geometry', () => {
-  for (const pixels of [[], [[0]], [[1], [1, 0]], [Array(49).fill(1)], Array(257).fill([1])]) {
+  for (const pixels of [[], [[0]], [[1], [1, 0]], [Array(129).fill(1)], Array(257).fill([1])]) {
     assert.throws(() => generateGridMidi(pixels));
   }
-  for (const options of [{ secondsPerRow: NaN }, { secondsPerRow: 0 }, { lowestNote: 127 }]) {
+  for (const options of [{ secondsPerRow: NaN }, { secondsPerRow: 0 }, { lowestNote: 127 },
+    { retrigger: 'yes' }, { velocity: 0 }, { velocity: 128 }, { velocity: 1.5 }, { velocity: NaN }]) {
     assert.throws(() => generateGridMidi([[1, 1]], options));
   }
+});
+
+test('grid MIDI supports every MIDI pitch and releases each cell before its next retrigger', () => {
+  const pixels = [Array(128).fill(1), Array(128).fill(1)];
+  const score = generateGridMidi(pixels, { lowestNote: 0, secondsPerRow: .0625, retrigger: true, velocity: 127 });
+  const decoded = readScore(score.buffer);
+  assert.deepEqual(decoded.notes, score.notes);
+  assert.equal(decoded.notes.length, 256); assert.equal(decoded.maxPolyphony, 128);
+  assert.ok(decoded.notes.every(note => note.duration === .0625 && note.velocity === 127));
+  assert.equal(score.lowestNote, 0); assert.equal(score.highestNote, 127);
+});
+
+test('new grid articulation options preserve default held notes and their existing velocity', () => {
+  const pixels = [[1, 1], [1, 0], [1, 1]];
+  const original = generateGridMidi(pixels);
+  const explicit = generateGridMidi(pixels, { retrigger: false, velocity: 88 });
+  assert.deepEqual(original.buffer, explicit.buffer);
+  assert.ok(readScore(original.buffer).notes.every(note => note.velocity === 88));
+  assert.equal(original.notes.find(note => note.note === 48).duration, .75);
 });
