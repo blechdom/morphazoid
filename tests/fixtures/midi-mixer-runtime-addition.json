@@ -1,0 +1,15 @@
+{
+  "baseCommit": "4b2653bc",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "65d20ad407d06350e2c900c654acf29c20177940f8a42229bf9f98dc0ad283f5",
+      "addition": "\n# Midiophilia MIDI Mixer view: two decks on one audio-clock timeline.\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-app.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer.css\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-renderer.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-presets.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-model.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-engine.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-clock.js\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-processor.js\ncopy+require\tsrc/instruments/midi-mixer/vendor/spessasynth-core.js\ncopy+require\tsrc/instruments/midi-mixer/vendor/LICENSE.txt\ncopy+require\tsrc/instruments/midi-mixer/vendor/README.md\ncopy+require\tdocs/midi-mixer.md\ncopy+require\tsrc/instruments/midiphoria/midiphoria-drawing.js\n"
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "816e74151179ce9d603373e45685405949f2adbecb17d8a83e55eacdf9e33a46",
+      "addition": "  {\"route\": \"midiphoria.html\", \"selector\": \"#masterTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n"
+    }
+  ]
+}

@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { restoreMidiMixerRuntime } from './midi-mixer-runtime-reference.mjs';
 
 export const vectorFractalsSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/vector-fractals-site-amendments.json', import.meta.url), 'utf8',
@@ -10,6 +11,7 @@ export const vectorFractalsSiteChanges = JSON.parse(readFileSync(
 
 /** Reverse only the exact reviewed Vector Fractals registration and runtime rows. */
 export function restoreVectorFractalsSite(source, file) {
+  source = restoreMidiMixerRuntime(source, file, { allowRestored: true });
   for (const change of vectorFractalsSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {
       assert.equal(source.split(after).length - 1, 1, `${file}: exact Vector Fractals site amendment`);

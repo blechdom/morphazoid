@@ -1849,3 +1849,18 @@ copy+require	src/instruments/vector-fractals/processor.js
 copy+require	src/instruments/vector-fractals/renderer.js
 copy+require	src/instruments/vector-fractals/style.css
 copy+require	src/instruments/vector-fractals/worker.js
+
+# Midiophilia MIDI Mixer view: two decks on one audio-clock timeline.
+copy+require	src/instruments/midi-mixer/midi-mixer-app.js
+copy+require	src/instruments/midi-mixer/midi-mixer.css
+copy+require	src/instruments/midi-mixer/midi-mixer-renderer.js
+copy+require	src/instruments/midi-mixer/midi-mixer-presets.js
+copy+require	src/instruments/midi-mixer/midi-mixer-model.js
+copy+require	src/instruments/midi-mixer/midi-mixer-engine.js
+copy+require	src/instruments/midi-mixer/midi-mixer-clock.js
+copy+require	src/instruments/midi-mixer/midi-mixer-processor.js
+copy+require	src/instruments/midi-mixer/vendor/spessasynth-core.js
+copy+require	src/instruments/midi-mixer/vendor/LICENSE.txt
+copy+require	src/instruments/midi-mixer/vendor/README.md
+copy+require	docs/midi-mixer.md
+copy+require	src/instruments/midiphoria/midiphoria-drawing.js
