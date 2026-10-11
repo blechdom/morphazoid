@@ -3,10 +3,11 @@ import { MidiMixerEngine } from '../midi-mixer/midi-mixer-engine.js';
 import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 import { mountMidiSynthEffectEditor } from '../midi-mixer/midi-mixer-midi-editor.js';
-import { mountMidiDrawing } from '../midiphoria/midiphoria-drawing.js';
+import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/midiphoria-drawing.js';
+import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
 
 const $ = id => document.getElementById(id);
-let retainedDraft = null, retainedView = null;
+let retainedDraft = null;
 
 function mountBlechMidi() {
   const events = new AbortController();
@@ -15,7 +16,7 @@ function mountBlechMidi() {
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor;
   let fontSerial = 0, fontRequest = null, fontBusy = false, effectsSignature = '';
-  let view = retainedView ?? (location.hash === '#automata' ? 'automata' : 'draw');
+  let seedPicking = false;
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
   const value = (node, next) => {
     if (document.activeElement !== node && node.value !== String(next)) { node.value = String(next); knobs?.update(node); }
@@ -33,11 +34,9 @@ function mountBlechMidi() {
     $('creativeAudioStart').hidden = enabled;
     $('creativeAudioStart').disabled = starting;
     field($('creativeAudioStart'), starting ? 'Starting audio…' : state.error ? 'Retry audio' : 'Turn audio on');
-    const rule = $('automataMidiGenerate');
-    $('playButton').disabled = view === 'draw' ? !drawing?.model.count : !rule || rule.disabled;
-    $('playButton').setAttribute('aria-label', view === 'draw' ? 'Send prepared drawing' : 'Send Automatapoeia rule');
-    field($('playButton'), view === 'draw' ? 'Send ↑' : 'Send rule ↑');
-    field($('creativePlaybackStatus'), state.samples.length ? `${state.samples.length} playing${enabled ? '' : ' · silent preview'}` : 'Ready');
+    $('playButton').disabled = !drawing?.model.count;
+    const playing = state.samples.length;
+    field($('creativePlaybackStatus'), `${playing} pad${playing === 1 ? '' : 's'}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
     $('blechMidi').dataset.samples = String(state.samples.length);
     field($('mixerFontName'), state.soundfontName || 'TimGM6mb');
@@ -62,7 +61,8 @@ function mountBlechMidi() {
   }
   drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
     undoButton: $('drawingUndo'), clearButton: $('drawingClear'), eraseButton: $('drawingErase'),
-    onChange: model => { $('generateDrawingMidi').disabled = !model.count; revokeDownload(); reflect(); } });
+    onChange: model => { performanceView?.cancelEdit(); $('generateDrawingMidi').disabled = !model.count; refreshSeedBridge(model); revokeDownload(); reflect(); },
+    onSeedRow: row => { $('drawingSeedRow').value = String(row + 1); refreshSeedBridge(drawing?.model); } });
   if (retainedDraft) {
     drawing.model.pixels = retainedDraft.map(row => [...row]);
     $('generateDrawingMidi').disabled = !drawing.model.count; $('drawingClear').disabled = !drawing.model.count;
@@ -74,7 +74,16 @@ function mountBlechMidi() {
   engine.setTempo(Number($('creativeTempo').value));
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
-    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost') });
+    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
+    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: $('drawingMessageHost'), onEditDrawing: loadDrawingCopy });
+  const sound = $('automataSound'); sound.replaceChildren();
+  GM_PROGRAM_NAMES.forEach((name, program) => sound.add(new Option(`${program + 1}. ${name}`, String(program))));
+  sound.value = '0';
+  engine.configureAutomata({ program: 0, gain: Number($('automataVolume').value) });
+  on(sound, 'change', () => engine.configureAutomata({ program: Number(sound.value) }));
+  on($('automataVolume'), 'input', () => { engine.configureAutomata({ gain: Number($('automataVolume').value) }); $('automataVolumeOut').value = `${Math.round(Number($('automataVolume').value) * 100)}%`; });
+  // Keep source sound beside that source while its controls remain independently owned.
+  $('automataMidiTools').append($('automataMidiTools').querySelector('.blech-automata-sound'));
   const noteEffectHost = document.createElement('div'); $('creativeControlsHost').append(noteEffectHost);
   noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'blechNoteFx',
     getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
@@ -87,24 +96,50 @@ function mountBlechMidi() {
   canvas.setAttribute('aria-label', 'Live Blech MIDI output: pitch runs left to right and notes rise from bottom to top');
   canvas.textContent = 'Sent drawings, stamps, messages and rules appear together, colored by voice.';
   $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
-  $('creativeFlowControls').prepend($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
-  $('mixerSampleSync').parentElement.title = 'Follow the tempo knob. Turn off to use each source’s original timing.';
-  $('mixerSampleLoop').parentElement.title = 'Looping pads: tap to start, tap again to stop. Turn off for one shots and to finish running loops.';
-  const ruleButton = $('automataMidiGenerate');
-  ruleButton.textContent = 'Send rule ↑';
+  $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
+  $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
   knobs = mountMixerKnobs($('blechMidi'));
-
-  function setView(next) {
-    if (disposed) return;
-    view = next === 'automata' ? 'automata' : 'draw';
-    $('blechMidi').dataset.view = view;
-    $('drawingEditor').hidden = view !== 'draw'; $('automataMidiTools').hidden = view !== 'automata';
-    $('drawingModeButton').setAttribute('aria-pressed', String(view === 'draw'));
-    $('automataModeButton').setAttribute('aria-pressed', String(view === 'automata'));
-    performanceView.setView(view, $('creativeVisualizerHost'));
-    if (view === 'draw') drawing.render();
-    reflect();
+  function refreshSeedBridge(model = drawing?.model) {
+    const row = Number($('drawingSeedRow').value) - 1;
+    $('drawingSeedRowOut').value = String(row + 1);
+    const count = model?.pixels[row]?.reduce((sum, value) => sum + Number(Boolean(value)), 0) ?? 0;
+    $('drawingUseSeed').disabled = !count;
+    $('drawingSeedStatus').value = count ? `${count} painted cells in the seed row` : 'Choose a row with painted cells';
   }
+  function loadDrawingCopy(score, name) {
+    const analysis = score.analysis ?? parseMidi(score.buffer);
+    const pitches = analysis.notes.map(note => note.note);
+    if (!pitches.length) return;
+    const low = Math.min(...pitches), high = Math.max(...pitches), span = Math.max(12, high - low + 1), base = Math.max(0, Math.min(low, 128 - span));
+    const duration = Math.max(.25, analysis.durationBeats);
+    const pixels = Array.from({ length: DRAWING_ROWS }, () => Array(DRAWING_COLUMNS).fill(0));
+    for (const note of analysis.notes) {
+      const x = Math.min(DRAWING_COLUMNS - 1, Math.floor((note.note - base + .5) * DRAWING_COLUMNS / span));
+      const start = Math.max(0, Math.floor(note.beat / duration * DRAWING_ROWS)), end = Math.min(DRAWING_ROWS, Math.ceil((note.beat + note.duration) / duration * DRAWING_ROWS));
+      for (let y = start; y < Math.max(start + 1, end) && y < DRAWING_ROWS; y++) pixels[y][x] = 1;
+    }
+    for (const [id, value] of [['mixerStampSpan', span], ['mixerStampDrawBase', base], ['mixerStampOffset', 0], ['mixerStampBeats', Math.min(64, duration)]]) {
+      $(id).value = String(value); $(id).dispatchEvent(new Event('input', { bubbles: true }));
+    }
+    drawing.loadPixels(pixels);
+    field($('creativeStatus'), `${name} copied into the 48 × 32 drawing grid. Send creates a new pad.`);
+    $('drawingEditor').scrollIntoView({ block: 'start', behavior: 'smooth' });
+  }
+  on($('drawingSeedMode'), 'click', () => {
+    seedPicking = !seedPicking; $('drawingSeedMode').setAttribute('aria-pressed', String(seedPicking));
+    drawing.setSeedSelection(Number($('drawingSeedRow').value) - 1, seedPicking);
+  });
+  on($('drawingSeedRow'), 'input', () => { drawing.setSeedSelection(Number($('drawingSeedRow').value) - 1, seedPicking); refreshSeedBridge(); });
+  on($('drawingUseSeed'), 'click', () => {
+    try {
+      const score = performanceView.getDrawingScore(), row = score.pixels[Number($('drawingSeedRow').value) - 1];
+      const pitches = Array(128).fill(0);
+      row.forEach((cell, column) => { if (cell) pitches[score.lowestNote + column] = 1; });
+      const result = performanceView.setAutomataSeed(pitches);
+      $('drawingSeedStatus').value = result.message;
+    } catch (error) { field($('creativeStatus'), error.message); }
+  });
+  drawing.setSeedSelection(Number($('drawingSeedRow').value) - 1, false); refreshSeedBridge();
   function sendDrawing() {
     if (disposed || !drawing.model.count) return;
     try {
@@ -116,10 +151,8 @@ function mountBlechMidi() {
     } catch (error) { field($('creativeStatus'), error.message || 'Could not send this drawing.'); }
   }
   on($('generateDrawingMidi'), 'click', sendDrawing);
-  on($('playButton'), 'click', () => { if (view === 'draw') sendDrawing(); else ruleButton.click(); });
-  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); reflect(); });
-  on($('drawingModeButton'), 'click', () => setView('draw'));
-  on($('automataModeButton'), 'click', () => setView('automata'));
+  on($('playButton'), 'click', sendDrawing);
+  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
   on($('creativeTempo'), 'input', () => {
     const tempo = engine.setTempo(Number($('creativeTempo').value));
@@ -181,15 +214,14 @@ function mountBlechMidi() {
   });
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
-    retainedDraft = drawing.model.pixels.map(row => [...row]); retainedView = view;
+    retainedDraft = drawing.model.pixels.map(row => [...row]);
     disposed = true; audioIntent = false; fontSerial++; fontRequest?.abort(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
-    // The shared Loop/Sync row was relocated outside the module's section.
-    // Remove that owner too before a possible back/forward-cache remount.
-    $('creativeFlowControls').querySelector('.mixer-stamp-switches')?.remove();
+    $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
     performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
-  setView(view); performanceView.setActive(!document.hidden); reflect();
+  performanceView.setView('draw', $('creativeVisualizerHost')); performanceView.setActive(!document.hidden); reflect();
+  if (location.hash === '#automata') $('automataMidiTools').scrollIntoView({ block: 'start' });
   if (!document.hidden) frame = requestAnimationFrame(tick);
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('File stamps could not load. Drawings and generated patterns are ready.'); return response.json(); })

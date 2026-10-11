@@ -94,7 +94,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   const liveTransport = el('div', 'automata-midi-live-transport'), playPause = button('PlayPause', '▶');
   playPause.className = 'automata-midi-play-pause'; playPause.setAttribute('aria-label', 'Play live automata'); playPause.setAttribute('aria-pressed', 'false');
   const liveStatus = id(el('output', 'automata-midi-live-status', 'Paused · generation 0'), 'LiveStatus'); liveStatus.setAttribute('aria-live', 'off');
-  liveTransport.append(playPause, liveStatus); liveTransport.hidden = !liveMode;
+  liveTransport.append(el('h2', '', 'Automatapoeia'), playPause, liveStatus); liveTransport.hidden = !liveMode;
   if (liveMode) main.prepend(liveTransport);
   const seedFigure = el('figure', 'automata-midi-seed'), seedStrip = id(document.createElementNS(SVG, 'svg'), 'SeedStrip');
   seedStrip.setAttribute('role', 'img'); seedStrip.setAttribute('preserveAspectRatio', 'none'); seedStrip.setAttribute('viewBox', '0 0 48 1');
@@ -111,6 +111,10 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   field(ruleSettings, 'Transform', 'Post-step transform', 'transform', 'select', AUTOMATAPOEIA_TRANSFORMS.map(({ id, label }) => [id, label]));
   const columns = field(ruleSettings, 'Columns', 'Columns / width', 'columns', 'range', { min: 8, max: 128, step: 1 });
   const columnsOutput = id(el('output'), 'ColumnsOut'); columns.parentElement.insertBefore(columnsOutput, columns);
+  if (liveMode) {
+    const advanced = el('details', 'automata-midi-rule-details'); advanced.append(el('summary', '', 'Rule settings'));
+    ruleSettings.previousElementSibling.remove(); ruleSettings.before(advanced); advanced.append(ruleSettings);
+  }
 
   const figure = el('figure', 'automata-midi-figure'), preview = id(document.createElementNS(SVG, 'svg'), 'Preview');
   preview.setAttribute('class', 'automata-midi-preview'); preview.setAttribute('role', 'img'); preview.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -138,6 +142,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   for (const beats of [1, 2, 4, 8, 16]) captureLength.add(new Option(`Last ${beats} ${beats === 1 ? 'beat' : 'beats'}`, String(beats)));
   captureLength.value = '4';
   if (liveMode) { root.open = true; generate.hidden = true; actions.prepend(captureLength, capture); }
+  if (liveMode) { liveTransport.after(figure); figure.after(actions); }
 
   function settingsCopy() { return { ...settings, seedRow: settings.seedRow?.slice() ?? null }; }
   function report(error) { if (!disposed) status.textContent = error?.message || 'Could not update live automata.'; }
@@ -149,7 +154,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   function restartLive() { try { const result = onRestart?.(); result?.catch(report); } catch (error) { report(error); } }
   function refreshSeed() {
     const row = automataMidiSeedRow(settings), count = row.reduce((total, value) => total + value, 0);
-    seedStrip.setAttribute('viewBox', `0 0 ${settings.columns} 1`); seedPath.setAttribute('d', automatapoeiaRowsPath([row]));
+    seedStrip.setAttribute('viewBox', `0 0 128 1`); seedPath.setAttribute('d', automatapoeiaRowsPath([Array.from({ length: 128 }, (_, note) => row[note - settings.lowestNote] ?? 0)]));
     seedStrip.setAttribute('aria-label', `Chosen seed: ${count} notes, MIDI pitches ${settings.lowestNote}–${settings.lowestNote + settings.columns - 1}`);
     seedCaption.textContent = `${settings.seedRow ? 'Chosen row' : 'Random / centered seed'} · ${count} notes · pitches ${settings.lowestNote}–${settings.lowestNote + settings.columns - 1}`;
   }
@@ -161,8 +166,14 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     playPause.setAttribute('aria-label', playing ? 'Pause live automata' : 'Play live automata');
     liveStatus.value = `${playing ? 'Playing' : 'Paused'} · generation ${generation}`;
     const history = Array.isArray(liveState.history) ? liveState.history.slice(-64) : [];
-    const rows = history.map(item => Array.isArray(item) ? item : item?.row).filter(row => Array.isArray(row) && row.length).map(row => row.slice(0, 128));
-    if (!rows.length) rows.push(Array.isArray(liveState.row) && liveState.row.length ? liveState.row : automataMidiSeedRow(settings));
+    const rows = history.filter(item => Array.isArray(item) || Array.isArray(item?.row)).map(item => {
+      const row = Array.isArray(item) ? item : item.row, base = item.lowestNote ?? settings.lowestNote;
+      return Array.from({ length: 128 }, (_, note) => row[note - base] ?? 0);
+    });
+    if (!rows.length) {
+      const row = Array.isArray(liveState.row) && liveState.row.length ? liveState.row : automataMidiSeedRow(settings);
+      rows.push(Array.from({ length: 128 }, (_, note) => row[note - (liveState.rowSettings?.lowestNote ?? settings.lowestNote)] ?? 0));
+    }
     const width = Math.max(1, ...rows.map(row => row.length)), rasterKey = rows.map(row => row.join('')).join('|');
     if (rasterKey !== liveRasterKey) {
       liveRasterKey = rasterKey; preview.setAttribute('viewBox', `0 0 ${width} ${rows.length}`); previewPath.setAttribute('d', automatapoeiaRowsPath(rows));

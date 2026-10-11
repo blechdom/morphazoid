@@ -45,7 +45,54 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-midi-effect-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
 .blech-midi-effect-controls input[type="number"], .blech-midi-effect-controls select { width: 100%; min-width: 0; margin-top: 6px; }
 .blech-midi-effects #mixerFontStatus:empty { display: none; }
-@media (max-width: 1050px) { .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; padding-inline: 16px; } }
+.blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr) 270px; }
+.blech-midi-workbenches { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: start; }
+.blech-midi-workbenches > section { min-width: 0; scroll-margin-top: 90px; }
+.blech-midi-modes a { margin-left: 0; min-height: 32px; display: inline-flex; align-items: center; }
+.blech-midi-modes a:last-child { margin-left: auto; }
+.blech-midi-workspace #creativePadsHost .mixer-sample-bank { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; max-height: 170px; margin-bottom: 20px; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pads-inline,
+.blech-midi-workspace #creativePadsHost .mixer-saved-bank { display: contents; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pad[data-playing="true"] { order: -1; }
+.blech-midi-workspace #creativePadsHost .mixer-sample-bank .mixer-saved-pad > button { min-height: 104px; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pad-actions button { min-height: 32px; display: inline-flex; flex-direction: row; justify-content: center; align-items: center; border: 0; background: transparent; padding: 3px 5px; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pad-actions label { margin-right: auto; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pad-actions { gap: 2px; }
+.blech-drawing-playback { margin-bottom: 10px; }
+.blech-seed-bridge { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+.blech-seed-bridge > label { flex: 1; min-width: 100px; font-size: 11px; }
+.blech-seed-bridge input { width: 100%; display: block; accent-color: #f5ce6b; }
+.blech-seed-bridge button { min-height: 36px; font-size: 11px; }
+.blech-seed-bridge button[aria-pressed="true"] { color: #f5ce6b; border-color: #f5ce6b; }
+#drawingSeedStatus { display: block; margin: 6px 0 16px; min-height: 1.5em; }
+#drawingShapeControls .mixer-stamp-shape-controls { gap: 12px; }
+#drawingMessageHost { margin-top: 16px; }
+.blech-midi-workspace #automataMidiTools .midiphoria-automata { margin: 0; padding: 0; border: 0; }
+.blech-midi-workspace #automataMidiTools .midiphoria-automata > summary { display: none; }
+.blech-midi-workspace .automata-midi-body { display: flex; flex-direction: column; gap: 12px; margin: 0; }
+.blech-midi-workspace .automata-midi-main, .blech-midi-workspace .automata-midi-figure { width: 100%; min-width: 0; margin: 0; }
+.blech-midi-workspace .automata-midi-live-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.blech-midi-workspace .automata-midi-play-pause { width: 40px; height: 40px; padding: 7px; flex: 0 0 auto; border-radius: 50%; color: #96f4cc; border: 1px solid #96f4cc; background: transparent; }
+.blech-midi-workspace .automata-midi-play-pause[aria-pressed="true"] { background: #174333; }
+.blech-midi-workspace.mixer-shell .automata-midi-play-pause { border-radius: 50%; }
+.automata-midi-live-transport h2 { margin: 0 auto 0 0; font-size: 14px; font-weight: 400; }
+.automata-midi-live-status { font-size: 10px; color: #a1b4ae; }
+.blech-midi-workspace .automata-midi-rule-details summary { cursor: pointer; min-height: 36px; align-content: center; font-size: 12px; }
+.blech-midi-workspace .automata-midi-rule-details .automata-midi-rule-settings { margin-top: 12px; }
+.blech-midi-workspace .automata-midi-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-block: 6px; }
+.blech-midi-workspace .automata-midi-actions select { flex: 1; min-width: 100px; width: auto; }
+.blech-midi-workspace .automata-midi-seed { margin: 4px 0; }
+.blech-midi-workspace .automata-midi-seed { min-width: 0; width: 100%; }
+.blech-midi-workspace #automataMidiSeedStrip { display: block; width: 100%; height: 26px; background: #111916; }
+.blech-midi-workspace .automata-midi-preview { height: 160px; max-height: 160px; }
+.blech-midi-workspace .automata-midi-rule-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.blech-automata-sound { display: flex; align-items: start; flex-wrap: wrap; gap: 16px; margin-top: 14px; }
+.blech-automata-sound > label:first-child { display: grid; gap: 8px; flex: 1; min-width: 130px; font-size: 11px; }
+.blech-automata-sound select { width: 100%; min-width: 0; }
+.blech-automata-sound .control { width: 110px; }
+.blech-automata-sound .control > span:first-child { display: grid; gap: 4px; font-size: 11px; }
+.blech-midi-workspace #creativeControlsHost > .mixer-performance > .mixer-sample-controls { display: flex; flex-wrap: wrap; }
+@media (max-width: 1200px) { .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-inline: 16px; } .blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; } }
 @media (max-width: 800px) {
   .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }
   .blech-midi-modes a { margin-left: 0; }
@@ -54,6 +101,12 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
   .blech-midi-workspace .midiphoria-drawing-viewport { height: 280px; }
   .blech-midi-workspace .automata-midi-rule-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
+@media (max-width: 650px) {
+  .blech-midi-workbenches { grid-template-columns: minmax(0, 1fr); gap: 28px; }
+  .blech-midi-workspace #creativePadsHost .mixer-sample-bank { grid-template-columns: repeat(2, minmax(0, 1fr)); max-height: 190px; }
+  .blech-midi-workspace #creativeControlsHost { display: block; }
+  .blech-midi-workspace #creativeControlsHost > * { margin-bottom: 20px; }
+}
 @media (pointer: coarse) {
   .blech-midi-transport #playButton, .blech-midi-preparation-heading #generateDrawingMidi { min-height: 48px; }
   .blech-midi-effects > summary { min-height: 48px; align-content: center; }
@@ -61,4 +114,7 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
   .blech-midi-workspace .blech-midi-preparation-heading button, .blech-midi-workspace .midiphoria-drawing-tools button { min-height: 48px; min-width: 48px; }
   .blech-midi-workspace :is(.midiphoria-drawing-actions a, .blech-midi-modes a, .blech-midi-notes summary) { min-height: 48px; display: inline-flex; align-items: center; }
   .blech-midi-workspace .midiphoria-automata :is(input[type="number"], input[type="search"]) { min-height: 48px; }
+  .blech-midi-workspace #creativePadsHost .mixer-saved-pad-actions :is(button, label), .blech-seed-bridge button { min-height: 48px; min-width: 48px; }
+  .blech-seed-bridge input { min-height: 48px; }
+  .blech-midi-workspace .automata-midi-play-pause { width: 48px; height: 48px; }
 }

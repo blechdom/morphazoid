@@ -66,12 +66,13 @@ export class MidiDrawing {
 }
 
 /** No audio ownership: the app sends score().buffer through the shared stamp player. */
-export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eraseButton, onChange }) {
+export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eraseButton, onChange, onSeedRow }) {
   const model = new MidiDrawing(), context = canvas.getContext('2d');
   const events = new AbortController();
   const on = (node, type, handler) => node.addEventListener(type, handler, { signal: events.signal });
   eraseButton.setAttribute('aria-pressed', 'false');
   let pointer = null, erase = false, cursor = { x: 23, y: 31 }, focus = false;
+  let seedRow = null, selectingSeed = false;
   let geometry = { cell: 1, left: 0, top: 0, width: 1, height: 1 };
   function render() {
     const bounds = canvas.getBoundingClientRect();
@@ -95,6 +96,12 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
       context.fillStyle = `hsl(${145 + x * 3} 75% 65%)`;
       context.fillRect(left + x * cell + .5, top + y * cell + .5, Math.max(1, cell - 1), Math.max(1, cell - 1));
     }));
+    if (seedRow !== null) {
+      context.fillStyle = '#f5ce6b22'; context.fillRect(left, top + seedRow * cell, DRAWING_COLUMNS * cell, cell);
+      context.strokeStyle = '#f5ce6b'; context.lineWidth = 1.5;
+      context.strokeRect(left, top + seedRow * cell, DRAWING_COLUMNS * cell, cell);
+      canvas.dataset.seedRow = String(seedRow);
+    }
     if (focus) {
       context.strokeStyle = '#fff'; context.lineWidth = 2;
       context.strokeRect(left + cursor.x * cell, top + cursor.y * cell, cell, cell);
@@ -125,9 +132,10 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
     if (event.button !== 0 || pointer !== null) return;
     event.preventDefault(); canvas.focus({ preventScroll: true });
     pointer = event.pointerId; canvas.setPointerCapture(pointer); cursor = point(event);
+    if (selectingSeed) { seedRow = cursor.y; onSeedRow?.(seedRow); render(); return; }
     model.begin(cursor, erase); reflect();
   });
-  on(canvas, 'pointermove', event => { if (event.pointerId === pointer) { cursor = point(event); model.move(cursor); reflect(); } });
+  on(canvas, 'pointermove', event => { if (event.pointerId === pointer) { cursor = point(event); if (selectingSeed) { seedRow = cursor.y; onSeedRow?.(seedRow); render(); } else { model.move(cursor); reflect(); } } });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) on(canvas, type, end);
   on(canvas, 'keydown', event => {
     if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'z') { event.preventDefault(); event.stopPropagation(); model.undo(); reflect(); return; }
@@ -135,9 +143,11 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
     if (arrows[event.key]) {
       event.preventDefault(); event.stopPropagation(); const [dx, dy] = arrows[event.key];
       cursor = { x: clamp(cursor.x + dx, 0, DRAWING_COLUMNS - 1), y: clamp(cursor.y + dy, 0, DRAWING_ROWS - 1) }; render();
+      if (selectingSeed) { seedRow = cursor.y; onSeedRow?.(seedRow); render(); }
     } else if ([' ', 'Enter', 'Backspace', 'Delete'].includes(event.key)) {
       event.preventDefault(); event.stopPropagation(); if (event.repeat) return;
-      model.begin(cursor, erase || ['Backspace', 'Delete'].includes(event.key)); model.end(); reflect();
+      if (selectingSeed) { seedRow = cursor.y; onSeedRow?.(seedRow); render(); }
+      else { model.begin(cursor, erase || ['Backspace', 'Delete'].includes(event.key)); model.end(); reflect(); }
     }
   });
   on(canvas, 'focus', () => { focus = true; render(); });
@@ -147,5 +157,8 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
   on(clearButton, 'click', () => { model.clear(); reflect(); });
   const resize = new ResizeObserver(render); resize.observe(canvas);
   reflect();
-  return { model, render, stamp(kind) { model.stamp(kind); reflect(); }, destroy() { end(); resize.disconnect(); events.abort(); } };
+  return { model, render, stamp(kind) { model.stamp(kind); reflect(); },
+    setSeedSelection(row, enabled = selectingSeed) { end(); seedRow = row == null ? null : clamp(Math.round(row), 0, DRAWING_ROWS - 1); selectingSeed = Boolean(enabled); if (seedRow !== null) cursor.y = seedRow; render(); },
+    loadPixels(pixels) { model.end(); model.checkpoint(); model.pixels = Array.from({ length: DRAWING_ROWS }, (_, y) => Array.from({ length: DRAWING_COLUMNS }, (_, x) => Number(Boolean(pixels?.[y]?.[x])))); reflect(); },
+    destroy() { end(); resize.disconnect(); events.abort(); } };
 }

@@ -14,6 +14,8 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
   renderer.configure({ colorSource: 'voice', view: 'trails', motion: 0, width: .65, glow: .12, reflection: 'none', trailSeconds: 6 });
   const activeNotes = new Map(), scheduledNotes = new Map(), preview = new Map(), indexes = new WeakMap();
   let active = false, disposed = false, frame = null, lastFrame = -Infinity, audioWasEnabled = null, serial = 0;
+  let automataGeneration = -1, automataBeat = -1;
+  let automataHeld = new Set();
   function noteMessage(event) {
     return { type: event.type, sourceId: `${event.sourceId}:channel:${event.channel}`, channel: event.channel % 16,
       note: event.note, velocity: event.velocity ?? 0 };
@@ -28,13 +30,13 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
   function attack(event, at, duration) {
     const id = String(event.id);
     if (activeNotes.has(id) || activeNotes.size >= MAX_ACTIVE || !Number.isInteger(event.note) || event.note < 0 || event.note > 127 || !(event.velocity > 0) || event.gain <= 0) return;
-    const seconds = Number.isFinite(duration) ? clamp(duration, .001, 120) : .25;
+    const seconds = duration === Infinity ? Infinity : Number.isFinite(duration) ? clamp(duration, .001, 120) : .25;
     activeNotes.set(id, { event, end: at + seconds });
     model.handleMessage(noteMessage(event), at);
     renderer.captureEvent({ ...event, id, type: 'noteOn', time: at,
       channel: mixerPerformanceChannel(event.sourceId, event.channel) });
   }
-  function clear() { activeNotes.clear(); scheduledNotes.clear(); preview.clear(); model.panic(clock()); renderer.clear(); }
+  function clear() { activeNotes.clear(); scheduledNotes.clear(); preview.clear(); automataGeneration = -1; automataBeat = -1; automataHeld.clear(); model.panic(clock()); renderer.clear(); }
   const unsubscribe = engine.subscribeNotes(batch => {
     if (!active || disposed || !engine.state.audioEnabled) return;
     if (audioWasEnabled !== true) { clear(); audioWasEnabled = true; }
@@ -43,7 +45,7 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
       const at = Math.min(now, now + (Number.isFinite(item.at) ? item.at - audioTime : 0));
       const event = { ...item, id: `live:${item.id}`, channel: Number(item.channel) || 0 };
       if (event.type === 'noteOff') release(String(event.id), at);
-      else attack(event, at, (item.duration ?? .25) + .25);
+      else attack(event, at, item.sourceId === 'automata' ? Infinity : (item.duration ?? .25) + .25);
     }
   });
 
@@ -100,6 +102,42 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
       if (audioWasEnabled !== state.audioEnabled) { clear(); audioWasEnabled = state.audioEnabled; }
       if (!state.audioEnabled) {
         const sources = new Set();
+        const automata = state.automata;
+        if (automata?.playing && automata.generation >= 0) {
+          sources.add('automata');
+          if (automata.beat < automataBeat) {
+            automataGeneration = -1; automataHeld.clear();
+            for (const [id, held] of activeNotes) if (held.event.sourceId === 'automata') release(id, now);
+            for (const [id, held] of scheduledNotes) if (held.event.sourceId === 'automata') scheduledNotes.delete(id);
+          }
+          if (automata.generation !== automataGeneration) {
+            automataGeneration = automata.generation;
+            const settings = automata.rowSettings ?? automata.settings;
+            const holding = settings.articulation === 'hold';
+            const wanted = new Set(automata.row.flatMap((cell, column) => cell ? [settings.lowestNote + column] : []));
+            for (const [id, held] of activeNotes) if (held.event.sourceId === 'automata') {
+              if (!holding || !wanted.has(held.event.sourcePitch)) release(id, now);
+              else if (held.event.naturalGate) held.end = Infinity;
+            }
+            const seconds = 60 / state.tempo, rowLength = automata.rowLength ?? settings.rowBeats;
+            const at = now - Math.max(0, automata.beat - automata.rowStart) * seconds;
+            const generation = ++serial;
+            automata.row.forEach((cell, column) => {
+              if (!cell) return;
+              const note = settings.lowestNote + column;
+              if (holding && automataHeld.has(note)) return;
+              midiNoteEffectChildren({ ...state.noteEffects, tempo: state.tempo }, note, settings.velocity, { drums: false }).forEach((child, index) => {
+                if (activeNotes.size + scheduledNotes.size >= MAX_ACTIVE) return;
+                const event = { id: `preview:automata:${generation}:${column}:${index}`, type: 'noteOn', sourceId: 'automata', sourcePitch: note, naturalGate: child.gateSeconds === Infinity, channel: 0, note: child.note, velocity: child.velocity, gain: settings.gain ?? .55 };
+                const start = at + child.delaySeconds, duration = Math.min(holding ? Infinity : rowLength * seconds, child.gateSeconds);
+                if (start > now) scheduledNotes.set(event.id, { event, at: start, duration });
+                else if (start + duration > now) attack(event, start, duration);
+              });
+            });
+            automataHeld = wanted;
+          }
+          automataBeat = automata.beat;
+        } else { automataGeneration = -1; automataBeat = -1; automataHeld.clear(); }
         if (state.playing) state.decks.forEach((deck, index) => {
           const key = `deck:${index}`;
           const fade = index === 0 ? Math.cos((state.crossfade + 1) * Math.PI / 4) : Math.sin((state.crossfade + 1) * Math.PI / 4);

@@ -27,9 +27,9 @@
         <div class="blech-midi-heading">
           <a class="blech-midi-credit" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Visuals inspired by Nicholas C. Stanley’s Midiphoria ↗</a>
           <h1 id="blechMidiTitle">Blech MIDI</h1>
-          <div class="blech-midi-modes" role="group" aria-label="MIDI source">
-            <button id="drawingModeButton" type="button" aria-pressed="true">Drawing &amp; stamps</button>
-            <button id="automataModeButton" type="button" aria-pressed="false">Automatapoeia</button>
+          <div class="blech-midi-modes" aria-label="On this page">
+            <a id="drawingModeButton" href="#drawingEditor">Draw</a>
+            <a id="automataModeButton" href="#automataMidiTools">Automatapoeia</a>
             <a href="midiphoria.html">Midiophilia ↗</a>
           </div>
         </div>
@@ -44,8 +44,10 @@
         <div class="blech-midi-flow-controls" id="creativeFlowControls"><output id="creativePlaybackStatus" aria-live="off">Ready</output></div>
         <p id="creativeStatus" class="midiphoria-help" role="status"></p>
         <div id="creativePadsHost"></div>
+        <div class="blech-midi-workbenches">
         <section id="drawingEditor" aria-labelledby="drawingHeading">
           <div class="blech-midi-preparation-heading"><h2 id="drawingHeading">Prepare a drawing</h2><button id="generateDrawingMidi" type="button" class="mini-action" disabled>Send ↑</button></div>
+          <div id="drawingPlaybackOptions" class="blech-drawing-playback"></div>
           <div class="midiphoria-drawing-tools" id="drawingTools">
             <div class="midiphoria-drawing-actions">
               <button id="drawingErase" type="button" aria-pressed="false">Eraser</button>
@@ -66,11 +68,25 @@
             </div>
           </div>
           <div class="midiphoria-drawing-viewport"><canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="Blech MIDI preparation canvas" aria-describedby="drawingHelp">Pitch increases to the right. Send your drawing to hear it and see it move upward in the live output.</canvas></div>
-          <p id="drawingHelp" class="midiphoria-help">Send ↑ saves a playable pad. Tap a looping pad to stop it; prepare the next drawing below. Width → · height ↑ · offset ↔. Arrows move · Space paints · Delete erases.</p>
+          <div class="blech-seed-bridge">
+            <button id="drawingSeedMode" type="button" aria-pressed="false">Pick seed row</button>
+            <label for="drawingSeedRow">Row <output id="drawingSeedRowOut">16</output><input id="drawingSeedRow" type="range" min="1" max="32" step="1" value="16" data-keep-slider aria-label="Drawing seed row" /></label>
+            <button id="drawingUseSeed" type="button" disabled>Use row as seed →</button>
+          </div>
+          <output id="drawingSeedStatus" class="midiphoria-help"></output>
+          <div id="drawingShapeControls"></div>
+          <div id="drawingMessageHost"></div>
+          <p id="drawingHelp" class="midiphoria-help">Send ↑ plays a copy and saves a pad. Edits prepare the next drawing. Pick a row to seed Automatapoeia. Arrows move · Space paints · Delete erases.</p>
         </section>
-        <section id="automataMidiTools" aria-label="Prepare Automatapoeia MIDI" hidden></section>
+        <section id="automataMidiTools" aria-label="Live Automatapoeia MIDI">
+          <div class="blech-automata-sound">
+            <label for="automataSound">Sound<select id="automataSound" aria-label="Automatapoeia instrument"></select></label>
+            <label class="control" for="automataVolume"><span><b>Automatapoeia</b><output id="automataVolumeOut">55%</output></span><input id="automataVolume" type="range" min="0" max="1" step=".01" value=".55" aria-label="Automatapoeia volume" /></label>
+          </div>
+        </section>
+        </div>
       </section>
-      <aside id="creativeControlsHost" aria-label="Black MIDI, geometric stamps and sound controls">
+      <aside id="creativeControlsHost" aria-label="Pad sound and shared MIDI effects">
         <details id="mixerEffects" class="mixer-effects blech-midi-effects"><summary>SoundFont &amp; live effects</summary>
           <div class="blech-midi-font-controls">
             <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open Blech MIDI SoundFont" /></label>
@@ -88,7 +104,7 @@
           <button id="mixerEffectsReset" class="mini-action" type="button">Reset effects</button>
         </details>
       </aside>
-      <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>Turn Audio on to hear your MIDI through the piano SoundFont. With Loop on, tap a stamp to start it and tap again to stop just that stamp. With Loop off, stamps play once; another tap retriggers. Send copies your prepared drawing into a reusable pad below the output. Each saved pad has its own Loop switch. Later edits leave its snapshot playing. Height sets time in beats; width and horizontal offset place notes across the pitch range.</p><p>Your pads keeps the last eight sends until you leave the page, replacing the oldest stopped pad when full. Stop all and Audio off stop playback but keep those pads ready to relaunch. Up to four patterns play together; a fifth replaces the oldest playing pattern. Sync to tempo follows the tempo knob. Turning the main Loop switch off lets running loops finish their current pass. Space outside controls sends the prepared drawing or selected rule.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
+      <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>All pads and Automatapoeia share the tempo knob. Each pad has its own Loop switch: tap to start or stop a loop; one-shots retrigger on each tap. Loop drawing applies only to your next Send. Playing pads stay visible when you filter the bank.</p><p>Draw below the live output, then Send ↑ to play an independent copy and save its pad. Edit opens a copy in the preparation canvas. MIDI files and captures are rasterized into the 48 × 32 drawing grid for editing; the original pad stays intact. Width, Height and Offset affect your next drawing or stamp.</p><p>Automatapoeia evolves continuously, one row from the previous row. Its Play/Pause preserves the current generation and stops only its own sound. Restart returns to the seed. Capture saves the recent 1–16 beats as a stopped pad. Rule and rate changes affect the next generation. Pick a drawing row, then Use row as seed to restart evolution from those pitches without changing its Play/Pause state.</p><p>Up to four pads play alongside the live generator. A fifth pad replaces the oldest playing pad. The last eight saved sends remain until you leave the page; the oldest stopped saved pad is replaced when full. Stop all stops pads and pauses Automatapoeia. Audio is armed separately.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
     </main>
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/instruments/blech-midi/blech-midi-app.js"></script>
