@@ -893,6 +893,15 @@
       "evidence": "Complete visual-state presets and bounded parameter randomization cover six views, five palettes, pitch/channel/velocity coloring, axis reflections, inward/outward travel, trails, fade, spin, radial copies, glow and light envelopes; audio, song, transport and MIDI routing stay live. Browser and unit checks recorded in docs/midiphoria.md."
     },
     {
+      "id": "blech-midi",
+      "label": "Blech MIDI",
+      "href": "blech-midi.html",
+      "category": "graphic-ui",
+      "scope": "deferred-lab",
+      "presets": null,
+      "status": "deferred"
+    },
+    {
       "id": "surround-field",
       "label": "Surround for Safety",
       "href": "surround-field.html",
@@ -1820,6 +1829,7 @@
     "deferred": [
       "crickets",
       "midiphoria",
+      "blech-midi",
       "vector-fractals",
       "room-lobby",
       "vocal-effects-room",
