@@ -127,7 +127,7 @@ test("audio uses one material resonator, stance accents, and an exact no-support
   assert.match(scheduler, /transition\.type === "load" \|\| transition\.type === "push"/);
   assert.match(scheduler, /scheduleStanceAccent/);
   assert.match(scheduler, /scheduleToeOff/);
-  const step = app.match(/function scheduleStep\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  const step = app.match(/function scheduleStepSounds\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(step, /for \(const contact of contacts\)/);
   assert.match(step, /scheduleFoot\(/);
   assert.doesNotMatch(step, /scheduleHead|scheduleTail/);

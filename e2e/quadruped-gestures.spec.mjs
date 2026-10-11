@@ -177,6 +177,19 @@ test("phone blank-stage swipes scroll while tiny animal gestures stay captured",
     }
     await touch("touchEnd");
     await expect.poll(() => shell.evaluate(node => node.scrollTop)).toBeGreaterThan(20);
+    // Finish the preceding swipe's inertia before measuring animal capture.
+    await shell.evaluate(node => new Promise((resolve, reject) => {
+      const deadline = performance.now() + 2_500;
+      let previous = node.scrollTop, unchangedSince = performance.now();
+      const settle = () => {
+        const now = performance.now();
+        if (node.scrollTop !== previous) { previous = node.scrollTop; unchangedSince = now; }
+        if (now - unchangedSince >= 150) return resolve();
+        if (now > deadline) return reject(new Error("Blank-stage swipe scrolling did not settle"));
+        requestAnimationFrame(settle);
+      };
+      requestAnimationFrame(settle);
+    }));
 
     await page.locator("#animalSelect").selectOption("mouse");
     await shell.evaluate(node => { node.scrollTop = 0; });

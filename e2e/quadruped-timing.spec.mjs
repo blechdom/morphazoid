@@ -12,8 +12,8 @@ async function installTimingProbe(page) {
       AudioBufferSourceNode.prototype.start = function(when, offset = 0, ...rest) {
         latestBufferStart = { when, offset }; return originalStart.call(this, when, offset, ...rest);
       };
-      const originalFlush = flushContactSounds;
-      flushContactSounds = events => {
+      const originalFlush = flushContactCohort;
+      flushContactCohort = events => {
         latestBufferStart = null;
         const result = originalFlush(events);
         if (latestBufferStart && events.length) timingBatches.push({ ...latestBufferStart, earliest: Math.min(...events.map(e => e.when)) });
@@ -30,10 +30,10 @@ async function installTimingProbe(page) {
         suspend: () => graph.context.suspend(), resume: () => graph.context.resume(),
         lateBatch: () => {
           const now = graph.context.currentTime;
-          const samples = new Float32Array(480); samples[0] = 0.05;
-          const voice = { samples, sampleRate: 24000, duration: 0.02, playbackRate: 1 };
+          const samples = new Float32Array(4800); samples[0] = 0.05;
+          const voice = { samples, sampleRate: 24000, duration: 0.2, playbackRate: 1 };
           flushContactSounds([{ voice, when: now-0.05, pan: 0, gain: 1 }, { voice, when: now+0.08, pan: 0, gain: 1 }]);
-          return timingBatches.at(-1);
+          return timingBatches.slice(-2);
         },
       };` });
   });
@@ -103,8 +103,10 @@ test('a late mixed batch trims elapsed audio without delaying its future contact
   await installTimingProbe(page);
   await page.goto('/quadruped.html');
   await page.locator('#audioButton').click();
-  const batch = await page.evaluate(() => quadrupedTiming.lateBatch());
-  expect(batch.offset).toBeGreaterThan(0.05);
-  expect(batch.offset).toBeLessThan(0.13);
-  expect(Math.abs(batch.when-batch.offset-batch.earliest)).toBeLessThan(1e-8);
+  const batches = await page.evaluate(() => quadrupedTiming.lateBatch());
+  expect(batches).toHaveLength(2);
+  expect(batches[0].offset).toBeGreaterThanOrEqual(0.05);
+  expect(batches[0].offset).toBeLessThan(0.2);
+  expect(batches[1].offset).toBeLessThan(0.001);
+  for (const batch of batches) expect(Math.abs(batch.when-batch.offset-batch.earliest)).toBeLessThan(1e-8);
 });
