@@ -48,9 +48,9 @@ test('rolling capture retains actual gates, pitch shifts, program changes and te
   const score = captureAutomataMidi(clock.snapshot(true), 1.5);
   assert.equal(score.sourceStartBeat, .5); assert.equal(score.sourceEndBeat, 2); assert.equal(score.durationBeats, 1.5);
   assert.deepEqual(score.analysis.tempoMap.map(({ beat, bpm }) => [beat, bpm]), [[0, 120], [.25, 240]]);
-  assert.deepEqual(score.analysis.notes.map(({ beat, duration, note }) => [beat, duration, note]), [[0, .25, 64], [.25, .25, 64], [.5, .25, 64], [.75, .25, 64], [1, .25, 64], [1.25, .25, 64]]);
+  assert.deepEqual(score.analysis.notes.map(({ beat, duration, note }) => [beat, duration, note]), [[0, .25, 64], [.25, .25, 64], [.5, .25, 65], [.75, .25, 65], [1, .25, 65], [1.25, .25, 65]]);
   assert.equal(score.analysis.events.find(event => event.kind === 12 && event.beat === .5).a, 80);
-  assert.equal(score.lowestNote, 64); assert.equal(score.columns, 1);
+  assert.equal(score.lowestNote, 64); assert.equal(score.columns, 2);
   assert.equal(clock.playing, true); assert.equal(clock.generation, 5);
   assert.deepEqual(parseMidi(score.buffer).notes, score.analysis.notes);
 });

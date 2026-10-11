@@ -61,8 +61,10 @@ export class MidiAutomataClock {
     const config = this.settings;
     if (this.generation < 0) this.row = automataMidiSeedRow(config);
     else {
-      // Preserve existing cells by absolute MIDI pitch when width/offset change.
-      const row = Array.from({ length: config.columns }, (_, column) => this.row[column + config.lowestNote - this.rowSettings.lowestNote] ?? 0);
+      // Width edits retain the existing center; pitch-window edits move those
+      // same cells to new pitches, just as the finite MIDI generator does.
+      const offset = Math.floor((this.row.length - config.columns) / 2);
+      const row = Array.from({ length: config.columns }, (_, column) => this.row[column + offset] ?? 0);
       this.row = automatapoeiaTransformRow(automatapoeiaNextRow(row, config.rule, config.boundary, config.family), config.transform, config.boundary);
     }
     this.generation++; this.rowStart = this.beat; this.rowLength = config.rowBeats; this.rowSettings = { ...config };
