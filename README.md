@@ -7,7 +7,7 @@ beside the output meters. Stop to name and save a take, or choose **Record to
 file** in Settings for longer recordings in supporting browsers.
 [Saving, limits and interruptions](docs/main-output-recording.md).
 
-**[SPARTIAL](spartial.html)** sends individual additive partials around a surround array. Edit up to thirty-two harmonic or inharmonic partials, squeeze their spatial spread, or gather them at one speaker. Hold sustains a note or chord; keyboard and MIDI notes have independent gates. Rotation Play/Pause and its tempo knob control movement separately. Presets, fingerprint banks, optional tempo-driven rotation and exact millisecond cascades support drones and articulated playing. On mobile the graphic stays fixed while the controls scroll. Audio and motion start off. [Controls and output limits](docs/spartial.md).
+**[SPARTIAL](spartial.html)** mixes additive partials with multichannel grains. Edit up to thirty-two harmonic or inharmonic partials, then scatter short pieces of their sound—or a local audio file—across the speaker array. The Additive ↔ Granular mixer, grain size, density, pitch, reverse and Freeze controls shape the texture. Hold sustains notes or chords; Rotation Play/Pause and its tempo knob move both layers independently. Presets, fingerprint banks and exact millisecond cascades remain available. On mobile the graphic stays fixed while controls scroll. Audio and motion start off. [Controls, crusher-X research and output limits](docs/spartial.md).
 
 **[Cascading AM](cascading-am.html)**, **[Recursive AM](recursive-am.html)** and
 **[Chaotic AM](chaotic-am.html)** preserve their FM/PM siblings’ operator layouts,

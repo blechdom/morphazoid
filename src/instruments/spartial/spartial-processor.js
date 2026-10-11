@@ -16,6 +16,8 @@ class SpartialProcessor extends AudioWorkletProcessor {
       else if (data.type === "noteOn") this.engine.noteOn(data.id, data.note, data.velocity ?? 1);
       else if (data.type === "retrigger") this.engine.retrigger(data.id, data.note, data.velocity ?? 1);
       else if (data.type === "noteOff") this.engine.noteOff(data.id);
+      else if (data.type === "grainFile") this.engine.adoptGrainSource(data.samples, data.sampleRate);
+      else if (data.type === "clearGrainFile") this.engine.clearGrainSource();
       else if (data.type === "panic") this.engine.panic();
     };
   }

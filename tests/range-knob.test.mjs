@@ -65,6 +65,23 @@ test("fine adjustment, minimum-relative stepping and clamps retain the native ra
   f.knob.destroy();
 });
 
+test("touch takes hold without invoking the native absolute slider and teardown restores it", () => {
+  const f = fixture();
+  const touch = () => {
+    const event = new Event("touchstart", { cancelable: true });
+    f.input.dispatchEvent(event);
+    return event;
+  };
+  assert.equal(touch().defaultPrevented, true);
+  assert.equal(f.input.value, "0.56");
+  assert.deepEqual(f.events, []);
+  f.input.disabled = true;
+  assert.equal(touch().defaultPrevented, false);
+  f.input.disabled = false;
+  f.knob.destroy();
+  assert.equal(touch().defaultPrevented, false);
+});
+
 test("secondary pointers, disabled controls and no-movement holds do not emit value changes", () => {
   const f = fixture();
   f.pointer("pointerdown", { button: 2 }); f.pointer("pointermove", { clientY: 10 });

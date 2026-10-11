@@ -214,10 +214,10 @@ const CATALOG_DETAILS = Object.freeze({
     ["Pointer", "Built-in synth", "Spatial audio"],
   ),
   spartial: define(
-    "Surround additive synthesizer",
-    "Distributes up to thirty-two harmonic or inharmonic sine partials across surround speakers, with editable fingerprints, millisecond cascades, optional speaker rotation and one-speaker focus.",
-    "Enable Audio, then play a note or chord. Edit the fingerprint, squeeze or spread its spatial turns, or click a destination in One speaker mode. Speaker motion starts off.",
-    ["Pointer", "Built-in synth", "Spatial audio", "Discrete output"],
+    "Surround additive and granular synthesizer",
+    "Mixes up to thirty-two harmonic or inharmonic additive partials with independent surround grains from live synth capture or local audio files, with editable fingerprints, millisecond cascades, freeze and optional speaker rotation.",
+    "Enable Audio, then play a note or chord or use Hold to sustain it. Blend Additive and Granular, choose live synth capture or load an audio file, and Freeze the source to keep its grains playing. Rotation starts off.",
+    ["Pointer", "Built-in synth", "Audio file", "Spatial audio", "Discrete output"],
   ),
   "surround-field": define(
     "Multichannel spatial instrument",

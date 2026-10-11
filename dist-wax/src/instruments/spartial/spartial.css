@@ -35,6 +35,9 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
 .spartial-controls .tempo-field > input[type="range"] { touch-action: none; }
 .paired-controls { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; min-width: 0; }
 .paired-controls select { padding-left: 5px; padding-right: 24px; font-size: 10px; }
+.chord-control { margin-bottom: 14px; }
+.spartial-panel .chord-control .control { margin-bottom: 0; }
+.chord-notes:not([hidden]) { display: block; margin: 6px 0 0; }
 .keyboard-heading { display: flex; justify-content: space-between; align-items: center; gap: 5px; margin: 4px 0 10px; font-size: 9px; color: var(--muted); }
 .keyboard-heading > div { display: flex; gap: 4px; }
 .keyboard-heading button { font-size: 9px; min-height: 28px; }
@@ -93,3 +96,19 @@ html:has(.spartial-page) { height: auto; min-height: 100%; overflow: auto; }
   .spartial-stage { border-bottom: 0; }
 }
 @media (pointer: coarse) { .preset-row { grid-template-columns: minmax(0,1fr) 48px 48px; } .preset-row button { min-height: 48px; } }
+
+.spartial-mixer { padding: 17px 18px 12px; border-bottom: 1px solid var(--line); }
+.spartial-mixer .control { margin-bottom: 4px; }
+.mixer-labels { display: flex; justify-content: space-between; color: var(--muted); font-size: 10px; }
+.mixer-labels span:last-child, .granular-section output { color: #e7bd81; }
+.grain-preset-row { margin-bottom: 18px; }
+.grain-source-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.grain-source-actions button, .grain-freeze { min-height: 40px; font-size: 10px; }
+.grain-freeze { min-width: 120px; }
+.grain-freeze[aria-pressed="true"] { background: #e7bd81; color: #131815; border-color: #e7bd81; }
+#grainFileStatus { overflow-wrap: anywhere; }
+#grainStatus { min-height: 32px; }
+.grain-detail { margin: 14px 0; }
+.grain-detail > summary { cursor: pointer; color: var(--muted); font-size: 11px; padding: 8px 0; }
+.grain-detail > div { padding-top: 16px; }
+@media (pointer: coarse) { .grain-source-actions button, .grain-freeze { min-height: 48px; } }

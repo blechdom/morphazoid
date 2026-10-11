@@ -1,11 +1,10 @@
-import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
+import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, SPARTIAL_CHORDS, spartialChordIntervals, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
 import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audio.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
 const KEYS = ["a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k"];
-const CHORDS = { minor: [0,3,7], major: [0,4,7], sus: [0,5,7], fifth: [0,7], minor7: [0,3,7,10], major7: [0,4,7,11] };
 const NOTE_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
 const PRESETS = [
   { id: "still", name: "Still harmonics", spectrum: "full", mode: "single", motion: "off" },
@@ -21,11 +20,26 @@ const PRESETS = [
   { id: "soft", name: "Soft minor seven", spectrum: "soft", mode: "chord", chord: "minor7", motion: "off", attack: .65, release: 3, cascade: .01 },
   { id: "shimmer", name: "Expanded shimmer", spectrum: "bright", mode: "single", motion: "cw", beatsPerTurn: 64, stretch: 1.28, inharmonicity: .18, attack: .3, partials: 24 },
 ];
+const GRAIN_PRESETS = [
+  { id: "cloud", name: "Soft cloud", grainSize: 180, grainDensity: 24, grainScatter: 160 },
+  { id: "rain", name: "Grain rain", grainSize: 24, grainDensity: 12, grainJitter: .45, grainScatter: 420, grainPattern: "scatter" },
+  { id: "glass", name: "Glass dust", grainSize: 55, grainDensity: 32, grainPitch: 12, grainScatter: 250, grainPattern: "alternate" },
+  { id: "reverse", name: "Reverse tide", grainSize: 360, grainDensity: 10, grainReverse: 1, grainLookback: 700, grainSpread: .7 },
+  { id: "flutter", name: "Close flutter", grainSize: 70, grainDensity: 48, grainJitter: .65, grainReverse: .35, grainSpread: .18 },
+];
+const GRAIN_TEXTURE_KEYS = ["grainSize", "grainDensity", "grainLookback", "grainPosition", "grainScatter", "grainJitter", "grainPitch", "grainReverse", "grainSpread", "grainPattern"];
+PRESETS.push(
+  { id: "grain-cloud", name: "Surround grain cloud", spectrum: "soft", mode: "single", motion: "off", granularMix: .65, grainSize: 220, grainDensity: 32, grainScatter: 240, attack: .12 },
+  { id: "grain-rain", name: "Scattered grain rain", spectrum: "bright", mode: "single", motion: "off", granularMix: 1, grainSize: 25, grainDensity: 15, grainJitter: .5, grainScatter: 600, grainPattern: "scatter", cascade: 0 },
+  { id: "grain-reverse", name: "Reverse grain tide", spectrum: "full", mode: "chord", chord: "fifth", motion: "off", granularMix: .85, grainSize: 400, grainDensity: 12, grainReverse: 1, grainLookback: 900, grainScatter: 300, attack: .2 },
+  { id: "grain-shimmer", name: "Grain shimmer", spectrum: "bell", mode: "single", motion: "off", granularMix: .5, grainSize: 90, grainDensity: 36, grainPitch: 12, grainPattern: "alternate", grainScatter: 180 },
+);
 const state = {
   settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: "single", root: 48,
-  chord: "minor", keyboardBase: 48, layout: "8-circle", forcePreview: false,
+  chord: "minor", chordIntervals: spartialChordIntervals("minor"), chordSeed: 419,
+  keyboardBase: 48, layout: "8-circle", forcePreview: false,
   audioOn: false, playing: false, holding: false, phase: 0, motion: "off", tempo: 90, beatsPerTurn: 16,
-  routingMode: "spread", presetIndex: 0, spectrumIndex: 0, randomSeed: 173,
+  routingMode: "spread", presetIndex: 0, spectrumIndex: 0, grainPresetIndex: 0, randomSeed: 173,
 };
 const held = new Map();
 const downKeys = new Set();
@@ -36,11 +50,12 @@ let previousFrameTime = performance.now();
 let drag = null;
 let geometry = null;
 let routeInfo = null;
+let grainSourceRevision = 0;
 const canvas = $("stage");
 const context = canvas.getContext("2d");
 const tempoKnob = enhanceRangeKnob($("tempo"));
 const audio = new SpartialAudio(
-  next => { snapshot = next; state.phase = next.phase; },
+  next => { snapshot = next; state.phase = next.phase; updateGrainStatus(); },
   route => { routeInfo = route; updateRouteStatus(); },
   error => { state.audioOn = false; updateAudioButton(); announce(error, true); },
 );
@@ -58,6 +73,11 @@ const formats = {
   cycles: value => `${value.toFixed(2)} ${value === 1 ? "turn" : "turns"}`,
   stretch: value => value === 1 ? "1.00 · harmonic" : `${value.toFixed(2)} · ${value < 1 ? "compressed" : "expanded"}`,
   inharmonicity: percent,
+  granularMix: value => `${percent(1 - value)} / ${percent(value)}`,
+  grainSize: value => `${Math.round(value)} ms`, grainDensity: value => `${Math.round(value)} grains/s`,
+  grainLookback: value => `${Math.round(value)} ms`, grainScatter: value => `${Math.round(value)} ms`,
+  grainPitch: value => `${value > 0 ? "+" : ""}${Number(value.toFixed(1))} st`,
+  grainJitter: percent, grainReverse: percent, grainSpread: percent, grainPosition: percent,
 };
 function announce(message, visible = false) {
   $("liveStatus").textContent = message;
@@ -88,14 +108,21 @@ function updatePerformance() {
   $("holdButton").setAttribute("aria-label", `${state.holding ? "Release" : "Hold"} selected ${sound}`);
   $("holdButton").textContent = `${state.holding ? "Release" : "Hold"} ${sound}`;
   $("chord").disabled = state.mode !== "chord";
+  $("nextChord").disabled = state.mode !== "chord";
+  $("randomChord").disabled = state.mode !== "chord";
+  $("chordNotes").hidden = state.mode !== "chord";
+  const chordNotes = state.chordIntervals.map(interval => noteName(state.root + interval)).join(" · ");
+  if ($("chordNotes").textContent !== chordNotes) $("chordNotes").textContent = chordNotes;
+  const randomSize = state.chord === "random3" ? "3" : state.chord === "random4" ? "4" : "3 or 4";
+  $("randomChord").title = `New ${randomSize} notes within one octave`;
   $("spreadControls").hidden = state.routingMode === "focus";
   $("targetControl").hidden = state.routingMode !== "focus";
   $("motion").disabled = state.routingMode === "focus";
   $("beatsPerTurn").disabled = state.motion === "off" || state.routingMode === "focus";
   $("restartCascade").disabled = !state.holding;
   $("stageInstructions").textContent = state.routingMode === "focus"
-    ? "Click a speaker to send all partials there. Drag around the ring to change speakers."
-    : "Drag to turn the partials. Click a speaker to start there.";
+    ? "Click a speaker to send both layers there. Drag around the ring to change speakers."
+    : "Drag to turn both layers. Colored dots are partials; amber dots are grains.";
   for (const button of $("notePads").children) {
     const index = Number(button.dataset.pad);
     button.setAttribute("aria-pressed", String(held.has(`pad:${index}`) || held.has(`key:${index}`)));
@@ -108,7 +135,7 @@ function syncControls() {
     if (millisecondSettings.has(id) && document.activeElement !== $(`${id}Ms`)) $(`${id}Ms`).value = value;
     $(`${id}Out`).textContent = format(state.settings[id]);
   }
-  for (const id of ["pattern", "cascadeOrder"]) $(id).value = state.settings[id];
+  for (const id of ["pattern", "cascadeOrder", "grainPattern", "granularSource"]) $(id).value = state.settings[id];
   for (const id of ["mode", "root", "chord", "layout", "motion", "tempo", "beatsPerTurn", "routingMode"]) $(id).value = state[id];
   $("tempoOut").textContent = `${state.tempo} BPM`;
   $("tempo").setAttribute("aria-valuetext", `${state.tempo} BPM`);
@@ -118,8 +145,44 @@ function syncControls() {
   for (const [index, bar] of [...$("partialSliders").children].entries()) {
     bar.title = `Partial ${index + 1}: ${partialFrequencyRatio(index, state.settings).toFixed(3)} × the played note`;
   }
+  $("grainLivePosition").hidden = state.settings.granularSource === "file";
+  $("grainFilePosition").hidden = state.settings.granularSource !== "file";
+  $("granularSource").querySelector('[value="file"]').disabled = !audio.grainFile;
+  $("granularSource").querySelector('[value="file"]').textContent = audio.grainFile ? "Audio file" : "Audio file · load one below";
+  $("clearGrainFile").disabled = !audio.grainFile;
+  $("grainFreeze").setAttribute("aria-pressed", String(state.settings.grainFreeze));
+  $("grainFreeze").textContent = state.settings.grainFreeze ? "Unfreeze buffer" : "Freeze buffer";
+  $("granularMix").setAttribute("aria-valuetext", `${percent(1 - state.settings.granularMix)} additive, ${percent(state.settings.granularMix)} granular`);
+  updateGrainStatus();
   updateCascadeTiming();
   updatePerformance();
+}
+function updateGrainStatus() {
+  const file = state.settings.granularSource === "file";
+  const ready = file ? Boolean(audio.grainFile) : Boolean(snapshot?.grainBufferReady);
+  $("grainFreeze").disabled = file || (!ready && !state.settings.grainFreeze);
+  $("grainFreeze").title = file ? "An audio file is already a fixed source" : "Hold the recorded additive sound while grains continue";
+  let message = file ? "Play a note or Hold. C4 = original file pitch." : !ready
+    ? "Play a note or use Hold to fill the grain buffer." : state.settings.grainFreeze
+      ? "Buffer frozen · new notes reuse this sound. Silence stops the cloud."
+      : "Live additive sound feeds the grains, even at 100% granular.";
+  if (state.settings.granularMix === 0) message += " Raise Granular in the mixer to hear it.";
+  if ($("grainStatus").textContent !== message) $("grainStatus").textContent = message;
+}
+function grainAvailability() {
+  return { ...state, hasGrainFile: Boolean(audio.grainFile), grainBufferReady: Boolean(snapshot?.grainBufferReady) };
+}
+function applyGrainPreset(index) {
+  state.grainPresetIndex = (index + GRAIN_PRESETS.length) % GRAIN_PRESETS.length;
+  const preset = GRAIN_PRESETS[state.grainPresetIndex];
+  patchSettings(Object.fromEntries(GRAIN_TEXTURE_KEYS.map(key => [key, preset[key] ?? SPARTIAL_DEFAULTS[key]])));
+  customPreset(); $("grainPreset").value = preset.id;
+}
+function randomGrains() {
+  state.randomSeed += 101;
+  const random = randomSpartialInstrument(grainAvailability(), state.randomSeed).settings;
+  patchSettings(Object.fromEntries(GRAIN_TEXTURE_KEYS.map(key => [key, random[key]])));
+  customPreset(); $("grainPreset").value = "custom";
 }
 function updateCascadeTiming() {
   const times = spartialCascadeTimes(state.settings);
@@ -182,13 +245,33 @@ function releaseGroup(id) {
 }
 function playGroup(id, note, velocity = .8, exactNote = false) {
   releaseGroup(id);
-  const notes = !exactNote && state.mode === "chord" ? CHORDS[state.chord].map(interval => note + interval) : [note];
+  const notes = !exactNote && state.mode === "chord" ? state.chordIntervals.map(interval => note + interval) : [note];
   held.set(id, { notes, velocity });
   notes.forEach((pitch, i) => audio.noteOn(`${id}:${i}`, pitch, velocity));
   updatePerformance();
   if (!state.audioOn) announce("Audio is off — turn it on to hear playback", true);
 }
 function refreshLatch() { if (state.holding) playGroup("latch", state.root); }
+function selectChord(id) {
+  state.chord = id;
+  state.chordIntervals = spartialChordIntervals(id, ++state.chordSeed);
+  refreshLatch(); syncControls(); customPreset();
+}
+function randomChord() {
+  // A named voicing rolls either size; an explicit random size stays selected.
+  const id = ["random3", "random4"].includes(state.chord) ? state.chord
+    : Math.random() < .5 ? "random3" : "random4";
+  const previous = state.chordIntervals.join(",");
+  // Never leave the dice apparently unchanged on consecutive rolls.
+  const notes = spartialChordIntervals(id, ++state.chordSeed);
+  if (notes.join(",") === previous) {
+    const unused = Array.from({ length: 11 }, (_, index) => index + 1).find(note => !notes.includes(note));
+    notes[notes.length - 1] = unused;
+    notes.sort((a, b) => a - b);
+  }
+  state.chord = id; state.chordIntervals = notes;
+  refreshLatch(); syncControls(); customPreset();
+}
 function restartCascade() {
   if (!state.holding) return;
   const record = held.get("latch");
@@ -252,15 +335,18 @@ function buildPads() {
 }
 function spectralPreset(id) { return SPARTIAL_SPECTRAL_PRESETS.find(preset => preset.id === id) ?? SPARTIAL_SPECTRAL_PRESETS[0]; }
 function applyPreset(index) {
+  grainSourceRevision += 1;
   state.presetIndex = (index + PRESETS.length) % PRESETS.length;
   const preset = PRESETS[state.presetIndex];
   const level = state.settings.level;
   state.mode = preset.mode; state.chord = preset.chord ?? "minor";
+  state.chordIntervals = spartialChordIntervals(state.chord);
   state.motion = preset.motion; state.beatsPerTurn = preset.beatsPerTurn ?? 16;
   state.routingMode = "spread";
   state.settings = sanitizeSpartialSettings({ ...SPARTIAL_DEFAULTS, ...spectralPreset(preset.spectrum).settings, ...preset, level, speakerCount: speakers().length });
   patchSettings({}); buildSpectrum(); refreshLatch();
   $("preset").value = preset.id;
+  $("grainPreset").value = "custom";
   state.spectrumIndex = SPARTIAL_SPECTRAL_PRESETS.findIndex(item => item.id === preset.spectrum);
   $("spectrumPreset").value = preset.spectrum;
 }
@@ -274,24 +360,33 @@ function randomSpectrum() {
   buildSpectrum(); customPreset(true);
 }
 function randomInstrument() {
+  grainSourceRevision += 1;
   state.randomSeed += 101;
-  Object.assign(state, randomSpartialInstrument(state, state.randomSeed));
+  const randomized = randomSpartialInstrument(grainAvailability(), state.randomSeed);
+  state.settings = randomized.settings;
+  for (const key of ["mode", "chord", "chordIntervals", "motion", "beatsPerTurn", "routingMode"]) state[key] = randomized[key];
+  $("grainPreset").value = "custom";
   patchSettings({});
   buildSpectrum(); refreshLatch(); customPreset(true);
 }
-function populateSelect(element, items) {
+function populateSelect(element, items, withCustom = true) {
   element.replaceChildren(...items.map(({ id, name }) => {
     const option = document.createElement("option"); option.value = id; option.textContent = name; return option;
   }));
-  const custom = document.createElement("option"); custom.value = "custom"; custom.textContent = "Custom"; custom.disabled = true; element.append(custom);
+  if (withCustom) {
+    const custom = document.createElement("option"); custom.value = "custom"; custom.textContent = "Custom"; custom.disabled = true; element.append(custom);
+  }
 }
 populateSelect($("preset"), PRESETS); populateSelect($("spectrumPreset"), SPARTIAL_SPECTRAL_PRESETS);
+populateSelect($("grainPreset"), GRAIN_PRESETS); $("grainPreset").value = "custom";
+populateSelect($("chord"), SPARTIAL_CHORDS, false);
 for (let note = 24; note <= 84; note += 1) {
   const option = document.createElement("option"); option.value = note; option.textContent = noteName(note); $("root").append(option);
 }
 for (const id of Object.keys(formats)) $(id).addEventListener("input", () => {
   patchSettings({ [id]: Number($(id).value) / (millisecondSettings.has(id) ? 1000 : 1) });
   if (id !== "level") customPreset(["stretch","inharmonicity","rolloff"].includes(id));
+  if (GRAIN_TEXTURE_KEYS.includes(id)) $("grainPreset").value = "custom";
 });
 for (const id of millisecondSettings) {
   const input = $(`${id}Ms`);
@@ -306,7 +401,36 @@ for (const id of millisecondSettings) {
     patchSettings({ [id]: Number(input.value) / 1000 }); customPreset();
   });
 }
-for (const id of ["pattern", "cascadeOrder"]) $(id).addEventListener("change", () => { patchSettings({ [id]: $(id).value }); customPreset(); });
+for (const id of ["pattern", "cascadeOrder", "grainPattern"]) $(id).addEventListener("change", () => { patchSettings({ [id]: $(id).value }); customPreset(); if (id === "grainPattern") $("grainPreset").value = "custom"; });
+$("grainPreset").addEventListener("change", () => applyGrainPreset(GRAIN_PRESETS.findIndex(preset => preset.id === $("grainPreset").value)));
+$("nextGrainPreset").addEventListener("click", () => applyGrainPreset(state.grainPresetIndex + 1));
+$("randomGrainPreset").addEventListener("click", randomGrains);
+$("grainFreeze").addEventListener("click", () => { patchSettings({ grainFreeze: !state.settings.grainFreeze }); customPreset(); });
+$("granularSource").addEventListener("change", () => {
+  grainSourceRevision += 1;
+  patchSettings({ granularSource: $("granularSource").value === "file" && audio.grainFile ? "file" : "additive", grainFreeze: false }); customPreset();
+});
+$("loadGrainFile").addEventListener("click", () => $("grainFile").click());
+$("grainFile").addEventListener("change", async () => {
+  const file = $("grainFile").files?.[0]; if (!file) return;
+  const sourceRevision = ++grainSourceRevision;
+  $("grainFile").value = ""; $("loadGrainFile").disabled = true;
+  $("grainFileStatus").textContent = "Loading audio file…";
+  try {
+    const loaded = await audio.loadGrainFile(file);
+    if (!loaded || disposed) return;
+    $("grainFileStatus").textContent = `${loaded.name} · ${loaded.duration.toFixed(1)} s${loaded.trimmed ? " · first 20 seconds" : ""}`;
+    if (sourceRevision === grainSourceRevision) { patchSettings({ granularSource: "file", grainFreeze: false }); customPreset(); }
+    else syncControls();
+  } catch (error) {
+    if (!disposed) $("grainFileStatus").textContent = `Could not load file: ${error.message}`;
+  } finally { if (!disposed) $("loadGrainFile").disabled = false; }
+});
+$("clearGrainFile").addEventListener("click", () => {
+  grainSourceRevision += 1;
+  audio.clearGrainFile(); patchSettings({ granularSource: "additive", grainFreeze: false }); customPreset();
+  $("grainFileStatus").textContent = "Local file · first 20 seconds · up to 20 MB.";
+});
 $("tempo").addEventListener("input", () => {
   state.tempo = Math.max(30, Math.min(240, Math.round(Number($("tempo").value) || 90)));
   patchSettings({});
@@ -315,7 +439,13 @@ for (const id of ["beatsPerTurn", "motion"]) $(id).addEventListener("change", ()
   state[id] = id === "motion" ? $(id).value : Math.max(4, Math.min(64, Number($(id).value) || 16));
   patchSettings({}); customPreset();
 });
-for (const id of ["mode", "root", "chord"]) $(id).addEventListener("change", () => {
+$("chord").addEventListener("change", () => selectChord($("chord").value));
+$("nextChord").addEventListener("click", () => {
+  const index = SPARTIAL_CHORDS.findIndex(chord => chord.id === state.chord);
+  selectChord(SPARTIAL_CHORDS[(index + 1) % SPARTIAL_CHORDS.length].id);
+});
+$("randomChord").addEventListener("click", randomChord);
+for (const id of ["mode", "root"]) $(id).addEventListener("change", () => {
   state[id] = id === "root" ? Number($(id).value) : $(id).value;
   releaseManualNotes();
   if (id === "root") { state.keyboardBase = Math.min(72, Math.floor(state.root / 12) * 12); buildPads(); }
@@ -378,6 +508,8 @@ window.addEventListener("morphazoid:midi-input", event => {
   if (message.type === "noteOn" || message.type === "noteOff") {
     event.preventDefault(); const id = `midi:${message.sourceId ?? "default"}:${message.channel ?? 0}:${message.note}`;
     if (message.type === "noteOn" && message.velocity > 0) playGroup(id, message.note, message.velocity / 127, true); else releaseGroup(id);
+  } else if (message.type === "programChange") {
+    event.preventDefault(); applyPreset(message.program);
   } else if (message.type === "controlChange" && [120,123].includes(message.controller)) {
     event.preventDefault();
     const prefix = message.synthetic && message.sourceId === "web-midi:manager" ? "midi:" : `midi:${message.sourceId ?? "default"}:${message.synthetic ? "" : `${message.channel ?? 0}:`}`;
@@ -441,6 +573,17 @@ function draw(now) {
     context.globalAlpha = state.settings.gains[index] > 0 ? energy > .00001 ? .95 : .45 : .1;
     context.fillStyle = color(index); context.beginPath(); context.arc(x,y,3.5 + Math.min(3, energy * 35),0,TAU); context.fill();
     if (state.settings.partials <= 16) { context.font = "9px monospace"; context.textAlign = "center"; context.fillText(index + 1, cx + Math.sin(angle) * (r - 15), cy - Math.cos(angle) * (r - 15) + 3); }
+  }
+  if (state.audioOn && snapshot) {
+    for (let speaker = 0; speaker < list.length; speaker += 1) levels[speaker] += snapshot.grainEnergy?.[speaker] ?? 0;
+    if (state.routingMode !== "focus") for (const grain of snapshot.grains ?? []) {
+      if (!Number.isFinite(grain.position) || !Number.isFinite(grain.envelope)) continue;
+      const angle = grain.position / list.length * TAU;
+      const r = radius * (.48 + .1 * (grain.envelope ?? 0));
+      context.globalAlpha = Math.min(1, Math.max(0, grain.envelope));
+      context.fillStyle = "#e7bd81";
+      context.beginPath(); context.arc(cx + Math.sin(angle) * r, cy - Math.cos(angle) * r, 2.5 + grain.envelope * 3, 0, TAU); context.fill();
+    }
   }
   context.globalAlpha = 1;
   points.forEach(({x,y,speaker},index) => {

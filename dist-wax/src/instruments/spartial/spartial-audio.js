@@ -27,6 +27,8 @@ export class SpartialAudio {
     this.disposed = false;
     this.startPromise = null;
     this.routeTimer = null;
+    this.grainFile = null;
+    this.grainFileToken = 0;
     this.handleSinkChange = () => this.scheduleRouteChange();
   }
 
@@ -47,6 +49,7 @@ export class SpartialAudio {
           numberOfInputs: 0, numberOfOutputs: 1, outputChannelCount: [16],
           channelInterpretation: "discrete", processorOptions: { settings, phase },
         });
+        this.sendGrainFile();
         this.node.port.onmessage = ({ data }) => {
           if (data?.type === "snapshot") this.onSnapshot?.(data);
         };
@@ -78,6 +81,45 @@ export class SpartialAudio {
       if (!this.node) { await this.context?.close().catch(() => {}); this.context = null; }
       throw error;
     } finally { this.startPromise = null; }
+  }
+
+  // Decoding in an offline context never arms the physical output.
+  async loadGrainFile(file) {
+    const token = ++this.grainFileToken;
+    if (!file || file.size > 20 * 1024 * 1024) throw new Error("Choose an audio file smaller than 20 MB.");
+    const Offline = globalThis.OfflineAudioContext ?? globalThis.webkitOfflineAudioContext;
+    if (!Offline) throw new Error("Audio file decoding is unavailable in this browser.");
+    const decoder = new Offline(1, 1, 48000);
+    let decoded;
+    try { decoded = await decoder.decodeAudioData(await file.arrayBuffer()); }
+    catch (error) {
+      if (this.disposed || token !== this.grainFileToken) return null;
+      throw error;
+    }
+    if (this.disposed || token !== this.grainFileToken) return null;
+    const length = Math.min(decoded.length, Math.round(decoded.sampleRate * 20));
+    if (length < 2) throw new Error("The audio file is empty.");
+    const samples = new Float32Array(length);
+    for (let channel = 0; channel < decoded.numberOfChannels; channel += 1) {
+      const data = decoded.getChannelData(channel);
+      for (let index = 0; index < length; index += 1) {
+        if (Number.isFinite(data[index])) samples[index] += data[index] / decoded.numberOfChannels;
+      }
+    }
+    for (let index = 0; index < length; index += 1) samples[index] = Math.max(-1, Math.min(1, samples[index]));
+    this.grainFile = { samples, sampleRate: decoded.sampleRate, name: file.name, duration: length / decoded.sampleRate, trimmed: decoded.length > length };
+    this.sendGrainFile();
+    return this.grainFile;
+  }
+  sendGrainFile() {
+    if (!this.node || !this.grainFile) return;
+    const samples = this.grainFile.samples.slice();
+    this.node.port.postMessage({ type: "grainFile", samples, sampleRate: this.grainFile.sampleRate }, [samples.buffer]);
+  }
+  clearGrainFile() {
+    this.grainFileToken += 1;
+    this.grainFile = null;
+    this.node?.port.postMessage({ type: "clearGrainFile" });
   }
 
   rebuildRoutes() {
@@ -160,6 +202,7 @@ export class SpartialAudio {
   dispose() {
     if (this.disposed) return;
     this.disposed = true;
+    this.grainFileToken += 1; this.grainFile = null;
     clearTimeout(this.routeTimer);
     this.releaseOutput?.();
     this.node?.port.close();

@@ -424,16 +424,17 @@ test("restarting a latch preserves an unrelated MIDI note queued behind its old 
   for (let index = 0; index < 6; index += 1) engine.noteOn(`other-${index}`, 127);
   engine.noteOn("short", 127);
   render(engine, 0.01);
-  engine.noteOff("short");
-  render(engine, 0.003);
+  // Fill every gate when MIDI arrives so it must queue behind the old latch.
+  // Releasing "short" first would now correctly reuse that tail instead.
   engine.noteOn("midi", 57);
-  render(engine, 0.004);
+  engine.noteOff("short");
+  render(engine, 0.005);
   const oldTail = engine.voices.find((voice) => voice.id === "latch");
   assert.equal(oldTail.pending.id, "midi");
   assert.ok(engine.voices.some((voice) => !voice.active), "the short release frees another restart slot");
   const remainingFrames = oldTail.releaseFrames;
   const steps = oldTail.releaseSteps.slice();
-  assert.equal(remainingFrames, Math.round(0.002 * RATE));
+  assert.equal(remainingFrames, Math.round(0.001 * RATE));
   assert.equal(engine.retrigger("latch", 127), true);
   assert.equal(oldTail.releaseFrames, remainingFrames, "restarting the latch must not delay the unrelated MIDI entrance");
   assert.deepEqual(oldTail.releaseSteps, steps, "the existing tail keeps its original envelope slope");

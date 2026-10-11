@@ -31,6 +31,8 @@ test("instrument dice are pure, reproducible and retain performer state", () => 
 
 test("instrument dice cover every independently editable musical field", () => {
   const current = currentState();
+  current.hasGrainFile = true;
+  current.grainBufferReady = true;
   const scenes = Array.from({ length: 256 }, (_, index) => randomSpartialInstrument(current, 173 + 101 * index));
   for (const key of ["mode", "chord", "motion", "beatsPerTurn", "routingMode"]) {
     assert.ok(new Set(scenes.map(scene => scene[key])).size > 1, `${key} must not be frozen`);
@@ -40,6 +42,23 @@ test("instrument dice cover every independently editable musical field", () => {
   }
   for (let partial = 0; partial < 32; partial += 1) {
     assert.ok(new Set(scenes.map(scene => scene.settings.gains[partial])).size > 1, `partial ${partial + 1} must vary`);
+  }
+  for (const key of ["granularMix", "grainSize", "grainDensity", "grainLookback", "grainScatter", "grainJitter", "grainPitch", "grainReverse", "grainSpread", "grainPattern", "grainFreeze", "granularSource", "grainPosition"]) {
+    assert.ok(new Set(scenes.map(scene => scene.settings[key])).size > 1, `${key} must not be frozen when its source is available`);
+  }
+});
+
+test("granular dice respect loaded-file and captured-buffer availability", () => {
+  for (const hasGrainFile of [false, true]) for (const grainBufferReady of [false, true]) {
+    const current = { ...currentState(), hasGrainFile, grainBufferReady };
+    for (let seed = 1; seed <= 100; seed += 1) {
+      const next = randomSpartialInstrument(current, seed);
+      if (!hasGrainFile) assert.equal(next.settings.granularSource, "additive");
+      if (!grainBufferReady || next.settings.granularSource === "file") assert.equal(next.settings.grainFreeze, false);
+      assert.equal(next.settings.level, current.settings.level);
+      assert.equal(next.hasGrainFile, hasGrainFile);
+      assert.equal(next.grainBufferReady, grainBufferReady);
+    }
   }
 });
 

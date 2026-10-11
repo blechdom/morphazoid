@@ -1,0 +1,27 @@
+{
+  "schemaVersion": 1,
+  "baseCommit": "0a06d58e3b5d844e429343109f2c2c1489100e7f",
+  "description": "Owner-requested SPARTIAL additive/granular mixer, local-file source catalogue copy and grain engine packaging; previous catalogue baselines remain unchanged.",
+  "changes": [
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "fc84d57ec864651cce2e709554e6978112801597de879dffc3e6b4e0e94419c4",
+      "replacements": [
+        {
+          "before": "  spartial: define(\n    \"Surround additive synthesizer\",\n    \"Distributes up to thirty-two harmonic or inharmonic sine partials across surround speakers, with editable fingerprints, millisecond cascades, optional speaker rotation and one-speaker focus.\",\n    \"Enable Audio, then play a note or chord. Edit the fingerprint, squeeze or spread its spatial turns, or click a destination in One speaker mode. Speaker motion starts off.\",\n    [\"Pointer\", \"Built-in synth\", \"Spatial audio\", \"Discrete output\"],\n  ),\n",
+          "after": "  spartial: define(\n    \"Surround additive and granular synthesizer\",\n    \"Mixes up to thirty-two harmonic or inharmonic additive partials with independent surround grains from live synth capture or local audio files, with editable fingerprints, millisecond cascades, freeze and optional speaker rotation.\",\n    \"Enable Audio, then play a note or chord or use Hold to sustain it. Blend Additive and Granular, choose live synth capture or load an audio file, and Freeze the source to keep its grains playing. Rotation starts off.\",\n    [\"Pointer\", \"Built-in synth\", \"Audio file\", \"Spatial audio\", \"Discrete output\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "ad561bf61dc33d242481e07a5115b2551c1e6f35dc455a48ed226e99e653316a",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/spartial/spartial.js\n",
+          "after": "copy+require\tsrc/instruments/spartial/spartial.js\ncopy+require\tsrc/instruments/spartial/spartial-granular.js\n"
+        }
+      ]
+    }
+  ]
+}

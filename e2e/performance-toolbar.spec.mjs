@@ -95,6 +95,42 @@ for (const route of ["shapes.html", "rubix.html", "karplus-strong.html"]) test(`
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
 });
 
+test.describe("touch volume knobs", () => {
+  test.use({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+  for (const route of ["spartial.html", "shapes.html"]) test(`${route}: touch taps preserve volume and vertical drags adjust it`, async ({ page }) => {
+    await page.goto(route); await settlePage(page);
+    const input = page.locator(".header-io-controls .mz-range-knob input");
+    await input.evaluate(node => {
+      globalThis.__touchLevelEvents = [];
+      for (const type of ["input", "change"]) node.addEventListener(type, () => __touchLevelEvents.push([type, node.value]));
+    });
+    const original = await input.inputValue(), box = await input.boundingBox();
+    const y = box.y + box.height / 2;
+    for (const fraction of [.05, .5, .95]) {
+      await page.touchscreen.tap(box.x + box.width * fraction, y);
+      await expect(input, "taking hold must not invoke the hidden native slider").toHaveValue(original);
+    }
+    expect(await page.evaluate(() => __touchLevelEvents)).toEqual([]);
+    const session = await page.context().newCDPSession(page);
+    const x = box.x + box.width / 2;
+    try {
+      await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y }] });
+      await expect(input).toHaveValue(original);
+      await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + 12 }] });
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      const bounds = await input.evaluate(node => ({ min: Number(node.min), max: Number(node.max), step: Number(node.step) }));
+      const expected = bounds.min + Math.round((Number(original) - (bounds.max - bounds.min) / 10 - bounds.min) / bounds.step) * bounds.step;
+      expect(Number(await input.inputValue())).toBeCloseTo(expected, 8);
+      const changed = await input.inputValue();
+      await page.touchscreen.tap(box.x + 2, y);
+      await expect(input).toHaveValue(changed);
+      await input.press("Home"); await expect(input).toHaveValue(String(bounds.min));
+      await input.press("End"); await expect(input).toHaveValue(String(bounds.max));
+      await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+    } finally { await session.detach(); }
+  });
+});
+
 test("Settings owns the same MIDI connection and CC volume still updates the knob", async ({ page }) => {
   await installFakeMidi(page); await page.goto("graph-synth.html"); await settlePage(page);
   await expect(page.locator(".midi-toggle")).not.toBeVisible();
@@ -104,6 +140,9 @@ test("Settings owns the same MIDI connection and CC volume still updates the kno
   await sendMidi(page, MIDI_BYTES.controlChange(7, 127));
   await expect(page.locator("#output")).toHaveValue("0.9");
   await expect(page.locator(".mz-range-knob__dial i")).toHaveAttribute("style", "transform: rotate(135deg)");
+  await sendMidi(page, MIDI_BYTES.controlChange(7, 0));
+  await expect(page.locator("#output")).toHaveValue("0");
+  await expect(page.locator(".mz-range-knob__dial i")).toHaveAttribute("style", "transform: rotate(-135deg)");
   await page.locator("#sharedMidiToggle").click();
   await expect(page.locator("#sharedMidiToggle")).toHaveAttribute("aria-pressed", "false");
 });

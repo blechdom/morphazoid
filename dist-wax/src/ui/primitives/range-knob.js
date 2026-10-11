@@ -77,6 +77,11 @@ export function enhanceRangeKnob(input, { runtime = input.ownerDocument?.default
     if (logarithmic) { const { min, max } = limits(); drag.fraction = fractionFromValue(raw, min, max); }
     input.setPointerCapture?.(event.pointerId);
   });
+  // Touch browsers can still run the range's absolute slider gesture after a
+  // canceled pointerdown. Keep touch on the same relative rotary path as mouse.
+  listen(input, "touchstart", event => {
+    if (!input.disabled) event.preventDefault();
+  }, { passive: false });
   listen(input, "pointermove", event => {
     if (!drag || drag.id !== event.pointerId) return;
     if (input.disabled) { end(event); return; }

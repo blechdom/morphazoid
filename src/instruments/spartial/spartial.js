@@ -1,4 +1,6 @@
-// SPARTIAL's browser-free additive engine. All timing advances on the sample
+import { SpartialGranularEngine } from "./spartial-granular.js";
+
+// SPARTIAL's browser-free additive/granular engine. Timing advances on the sample
 // clock; the application only supplies note gates and displays snapshots.
 export const SPARTIAL_MAX_PARTIALS = 32;
 export const SPARTIAL_MAX_VOICES = 8;
@@ -26,6 +28,19 @@ export const SPARTIAL_DEFAULTS = Object.freeze({
   level: 0.65,
   counterRotate: false,
   seed: 17,
+  granularMix: 0,
+  grainSize: 100,
+  grainDensity: 18,
+  grainLookback: 150,
+  grainScatter: 100,
+  grainJitter: 0,
+  grainPitch: 0,
+  grainReverse: 0,
+  grainSpread: 1,
+  grainPattern: "wrap",
+  grainFreeze: false,
+  granularSource: "additive",
+  grainPosition: 0.25,
   gains: Object.freeze(Array(SPARTIAL_MAX_PARTIALS).fill(1)),
 });
 
@@ -79,6 +94,50 @@ export const SPARTIAL_SPECTRAL_PRESETS = Object.freeze([
   spectralPreset("cluster", "Close cluster", 0.45, (harmonic) => harmonic < 10 ? 1 : 0.1, 0.6, 0.2),
 ]);
 
+/** Semitone voicings above the selected root, all within one octave. */
+export const SPARTIAL_CHORDS = Object.freeze([
+  ["minor", "Minor", [0, 3, 7]],
+  ["major", "Major", [0, 4, 7]],
+  ["sus", "Suspended 4", [0, 5, 7]],
+  ["sus2", "Suspended 2", [0, 2, 7]],
+  ["fifth", "Open fifth", [0, 7]],
+  ["augmented", "Augmented", [0, 4, 8]],
+  ["diminished", "Diminished triad", [0, 3, 6]],
+  ["minor7", "Minor 7", [0, 3, 7, 10]],
+  ["major7", "Major 7", [0, 4, 7, 11]],
+  ["dominant7", "Dominant 7", [0, 4, 7, 10]],
+  ["diminished7", "Fully diminished 7", [0, 3, 6, 9]],
+  ["halfDiminished", "Half diminished 7", [0, 3, 6, 10]],
+  ["minorMajor7", "Minor / major 7", [0, 3, 7, 11]],
+  ["major6", "Major 6", [0, 4, 7, 9]],
+  ["minor6", "Minor 6", [0, 3, 7, 9]],
+  ["add9", "Add 9 · close", [0, 2, 4, 7]],
+  ["minorAdd9", "Minor add 9 · close", [0, 2, 3, 7]],
+  ["quartal", "Stacked fourths", [0, 5, 10]],
+  ["wholeTone3", "Whole tone · 3 notes", [0, 2, 4]],
+  ["wholeTone4", "Whole tone · 4 notes", [0, 2, 4, 6]],
+  ["wholeTone", "Whole tone · 6 notes", [0, 2, 4, 6, 8, 10]],
+  ["chromatic3", "Chromatic · 3 notes", [0, 1, 2]],
+  ["chromatic4", "Chromatic · 4 notes", [0, 1, 2, 3]],
+  ["random3", "Random 3 notes", null, 3],
+  ["random4", "Random 4 notes", null, 4],
+].map(([id, name, intervals, noteCount]) => Object.freeze({
+  id, name, intervals: intervals && Object.freeze(intervals), noteCount: noteCount ?? intervals.length,
+})));
+
+/** Root plus distinct pitches from the remaining eleven semitones; seed recalls a voicing. */
+export function spartialChordIntervals(id = "minor", seed = 17) {
+  const chord = SPARTIAL_CHORDS.find(item => item.id === id) ?? SPARTIAL_CHORDS[0];
+  if (chord.intervals) return [...chord.intervals];
+  const random = seededRandom(Math.imul(finite(seed, 17), 0x9e3779b1) ^ 0x43484f52);
+  const pool = Array.from({ length: 11 }, (_, index) => index + 1);
+  const notes = [0];
+  for (let index = 1; index < chord.noteCount; index += 1) {
+    notes.push(pool.splice(Math.floor(random() * pool.length), 1)[0]);
+  }
+  return notes.sort((a, b) => a - b);
+}
+
 /** A reproducible, bounded fingerprint, always keeping the fundamental. */
 export function randomSpartialSpectrum(seed = 17) {
   const random = seededRandom(finite(seed, 17));
@@ -98,7 +157,7 @@ export function randomSpartialInstrument(current, seed = 17) {
   const between = (low, high, step) => low + Math.round(random() * (high - low) / step) * step;
   const previous = sanitizeSpartialSettings(current.settings);
   const mode = pick(["single", "chord"]);
-  const chord = pick(["minor", "major", "sus", "fifth", "minor7", "major7"]);
+  const chord = pick(SPARTIAL_CHORDS).id;
   const motion = pick(["off", "cw", "ccw", "counter"]);
   const beatsPerTurn = pick([4, 8, 16, 32, 64]);
   const routingMode = pick(["spread", "spread", "spread", "focus"]);
@@ -106,9 +165,10 @@ export function randomSpartialInstrument(current, seed = 17) {
   const spectrum = randomSpartialSpectrum(settingsSeed);
   spectrum.gains[0] = between(0.65, 1, 0.01);
   const running = current.playing && motion !== "off" && routingMode !== "focus";
+  const granularSource = current.hasGrainFile ? pick(["additive", "file"]) : "additive";
   return {
     ...current,
-    mode, chord, motion, beatsPerTurn, routingMode,
+    mode, chord, chordIntervals: spartialChordIntervals(chord, settingsSeed), motion, beatsPerTurn, routingMode,
     settings: sanitizeSpartialSettings({
       ...spectrum,
       partials: pick([4, 8, 12, 16, 24, 32]),
@@ -131,6 +191,19 @@ export function randomSpartialInstrument(current, seed = 17) {
       counterRotate: motion === "counter",
       level: previous.level,
       speakerCount: previous.speakerCount,
+      granularMix: between(0, 1, 0.01),
+      grainSize: between(15, 350, 1),
+      grainDensity: between(3, 60, 1),
+      grainLookback: between(0, 2500, 1),
+      grainScatter: between(0, 700, 1),
+      grainJitter: between(0, 1, 0.01),
+      grainPitch: between(-24, 24, 0.1),
+      grainReverse: between(0, 1, 0.01),
+      grainSpread: between(0, 1, 0.01),
+      grainPattern: pick(["wrap", "reverse", "alternate", "scatter"]),
+      grainFreeze: granularSource === "additive" && current.grainBufferReady === true && random() < 0.3,
+      granularSource,
+      grainPosition: between(0, 1, 0.01),
     }),
   };
 }
@@ -187,6 +260,19 @@ export function sanitizeSpartialSettings(input = {}, previous = SPARTIAL_DEFAULT
     counterRotate: typeof patch.counterRotate === "boolean" ? patch.counterRotate
       : base.counterRotate === true,
     seed: Math.round(number("seed", 0, 0x7fffffff)),
+    granularMix: number("granularMix", 0, 1),
+    grainSize: number("grainSize", 5, 500),
+    grainDensity: number("grainDensity", 1, 80),
+    grainLookback: number("grainLookback", 0, 3000),
+    grainScatter: number("grainScatter", 0, 1000),
+    grainJitter: number("grainJitter", 0, 1),
+    grainPitch: number("grainPitch", -24, 24),
+    grainReverse: number("grainReverse", 0, 1),
+    grainSpread: number("grainSpread", 0, 1),
+    grainPattern: choice("grainPattern", ["wrap", "reverse", "alternate", "scatter"]),
+    grainFreeze: typeof patch.grainFreeze === "boolean" ? patch.grainFreeze : base.grainFreeze === true,
+    granularSource: choice("granularSource", ["additive", "file"]),
+    grainPosition: number("grainPosition", 0, 1),
     gains: Array.from({ length: SPARTIAL_MAX_PARTIALS }, (_, index) => clamp(
       finite(rawGains?.[index], finite(base.gains?.[index], 1)), 0, 1,
     )),
@@ -317,6 +403,7 @@ export class SpartialEngine {
   constructor({ sampleRate = 48000, settings = {}, phase = 0 } = {}) {
     this.sampleRate = clamp(finite(sampleRate, 48000), 8000, 192000);
     this.settings = sanitizeSpartialSettings(settings);
+    this.granular = new SpartialGranularEngine(this.sampleRate, this.settings);
     this.voices = Array.from({ length: SPARTIAL_MAX_VOICES }, makeVoice);
     this.phase = wrap(finite(phase, 0));
     this.frame = 0;
@@ -346,6 +433,7 @@ export class SpartialEngine {
 
   setSettings(patch) {
     this.settings = sanitizeSpartialSettings(patch, this.settings);
+    this.granular.updateSettings(this.settings);
     this.pattern = speakerPattern(this.settings);
     this.updateWeights();
     this.updateSpectralRatios();
@@ -353,6 +441,19 @@ export class SpartialEngine {
     for (const voice of this.voices) {
       if (voice.active) this.updateVoiceFrequencies(voice);
     }
+  }
+
+  setGrainSource(samples, sourceSampleRate = this.sampleRate) {
+    return this.granular.setSource(samples, sourceSampleRate);
+  }
+
+  adoptGrainSource(samples, sourceSampleRate) {
+    return this.granular.adoptSource(samples, sourceSampleRate);
+  }
+
+  clearGrainSource() {
+    this.granular.clearSource();
+    if (this.settings.granularSource === "file") this.setSettings({ granularSource: "additive" });
   }
 
   /** Reset spatial phase without restarting voices or stepping speaker gains. */
@@ -483,15 +584,19 @@ export class SpartialEngine {
     if (voice) {
       this.startVoice(voice, id, safeNote, safeVelocity);
     } else {
-      voice = this.voices.reduce((oldest, candidate) => (
-        candidate.serial < oldest.serial ? candidate : oldest
-      ));
+      // Chord edits release the old latch first. Reuse its tails before taking
+      // a still-held keyboard/MIDI note, and keep queued replacements intact.
+      for (const candidate of this.voices) {
+        if (!candidate.gate && !candidate.pending && (!voice || candidate.serial < voice.serial)) voice = candidate;
+      }
+      voice ??= this.voices.reduce((oldest, candidate) => candidate.serial < oldest.serial ? candidate : oldest);
       voice.pending = { id, note: safeNote, velocity: safeVelocity };
       // Give a pending replacement its own age so dense chords rotate through
       // all eight slots rather than repeatedly overwriting the same slot.
       voice.serial = ++this.serial;
       this.releaseVoice(voice, 0.006);
     }
+    this.granular.noteOn(safeNote, safeVelocity);
     return true;
   }
 
@@ -535,6 +640,7 @@ export class SpartialEngine {
     const delayFrames = Math.max(0, fadeFrames - destination.releaseFrames);
     destination.pending = { id, note: safeNote, velocity: safeVelocity, delayFrames };
     destination.serial = ++this.serial;
+    this.granular.noteOn(safeNote, safeVelocity);
     return true;
   }
 
@@ -556,6 +662,7 @@ export class SpartialEngine {
   }
 
   panic() {
+    this.granular.panic();
     for (const voice of this.voices) {
       voice.pending = null;
       if (voice.active) {
@@ -581,8 +688,10 @@ export class SpartialEngine {
       this.phase = wrap(this.phase + this.rotation / this.sampleRate);
       this.partialSignals.fill(0);
       let envelopeSum = 0;
+      let gated = false;
       for (const voice of this.voices) {
         if (!voice.active) continue;
+        if (voice.gate) gated = true;
         let peakEnvelope = 0;
         const voiceGain = voice.velocity * voice.panicGain;
         for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
@@ -628,15 +737,27 @@ export class SpartialEngine {
       // or release. Sum of weights <=1, route gains <=1, envelopes <=1, so even
       // eight phase-aligned notes gathered into one speaker stay <=0.72.
       const gain = OUTPUT_CEILING * this.level / Math.max(1, envelopeSum);
+      let capture = 0;
       for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
         this.weights[partial] += (this.targetWeights[partial] - this.weights[partial]) * this.approach;
-        const signal = this.partialSignals[partial] * this.weights[partial] * gain;
+        capture += this.partialSignals[partial] * this.weights[partial] / Math.max(1, envelopeSum);
+      }
+      this.granular.capture(capture, this.frame);
+      const grainOutput = this.granular.tick(this.frame, this.phase, gated, this.level);
+      const mix = this.granular.mix;
+      for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
+        const signal = this.partialSignals[partial] * this.weights[partial] * gain * (1 - mix);
         this.partialEnergy[partial] = this.partialEnergy[partial] * energyDecay
           + Math.abs(signal) * (1 - energyDecay);
         for (let speaker = 0; speaker < SPARTIAL_MAX_SPEAKERS; speaker += 1) {
           const index = partial * SPARTIAL_MAX_SPEAKERS + speaker;
           this.routes[index] += this.routeSteps[index];
           if (speaker < outputCount) channels[speaker][frame] += signal * this.routes[index];
+        }
+      }
+      if (mix > 0) {
+        for (let speaker = 0; speaker < outputCount; speaker += 1) {
+          channels[speaker][frame] += grainOutput[speaker] * OUTPUT_CEILING * this.level * mix;
         }
       }
       this.frame += 1;
@@ -649,6 +770,7 @@ export class SpartialEngine {
       voices: this.voices.filter((voice) => voice.active).length,
       positions: Array.from(this.positions.slice(0, this.settings.partials)),
       partialEnergy: Array.from(this.partialEnergy.slice(0, this.settings.partials)),
+      ...this.granular.snapshot(this.level),
     };
   }
 }

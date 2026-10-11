@@ -864,6 +864,7 @@ copy	assets/instruments/vector-flight.webp
 copy+require	spartial.html
 copy+require	src/instruments/spartial/spartial-app.js
 copy+require	src/instruments/spartial/spartial.js
+copy+require	src/instruments/spartial/spartial-granular.js
 copy+require	src/instruments/spartial/spartial-audio.js
 copy+require	src/instruments/spartial/spartial-processor.js
 copy+require	src/instruments/spartial/spartial.css
