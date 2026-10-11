@@ -40,52 +40,125 @@ export function heldNotesAt(held, beat, limit = 192) {
   return result;
 }
 
-/** Four one-shots use the same rendered frames and tempo as the decks, but
- * continue while their transport is paused. No UI timer schedules MIDI. */
+/** Source-time lookup is logarithmic even for files with many tempo changes. */
+export function compileSampleTempoMap(tempos = [{ beat: 0, bpm: 120 }]) {
+  let seconds = 0, previous = 0, bpm = 120;
+  return tempos.map(tempo => { seconds += (tempo.beat - previous) * 60 / bpm; previous = tempo.beat; bpm = tempo.bpm; return { beat: previous, bpm, seconds }; });
+}
+function tempoSegment(data, value, key = 'beat') {
+  const map = data.tempoMap ?? [{ beat: 0, bpm: 120, seconds: 0 }];
+  let low = 0, high = map.length;
+  while (low < high) { const middle = (low + high) >>> 1; if (map[middle][key] <= value) low = middle + 1; else high = middle; }
+  return map[Math.max(0, low - 1)];
+}
+export const sampleSecondsAt = (data, beat) => { const point = tempoSegment(data, beat); return point.seconds + (beat - point.beat) * 60 / point.bpm; };
+export const sampleBeatAt = (data, seconds) => { const point = tempoSegment(data, seconds, 'seconds'); return point.beat + (seconds - point.seconds) * point.bpm / 60; };
+export const sampleTempoAt = (data, beat) => tempoSegment(data, beat).bpm;
+export function advanceSampleTiming(timing, data, options, beats, seconds) {
+  const next = { ...timing }, delay = Math.min(next.pendingBeats, Math.max(0, beats));
+  next.pendingBeats = Math.max(0, next.pendingBeats - delay);
+  const elapsed = options.sync !== false ? Math.max(0, beats - delay) : Math.max(0, seconds) * (beats > 0 ? 1 - delay / beats : 1);
+  const length = options.sync !== false ? data.durationBeats : sampleSecondsAt(data, data.durationBeats);
+  const position = (options.sync !== false ? next.positionBeats : sampleSecondsAt(data, next.positionBeats)) + elapsed;
+  const epsilon = Math.min(1e-10, length * 1e-9);
+  const cycles = options.loop ? Math.floor((position + epsilon) / length) : 0;
+  let coordinate = options.loop ? Math.max(0, position - cycles * length) : Math.min(length, position);
+  if (options.loop && coordinate <= epsilon) coordinate = 0;
+  next.positionBeats = options.sync !== false ? coordinate : sampleBeatAt(data, coordinate);
+  next.cycle += cycles; next.ended = !options.loop && position >= length - epsilon;
+  return next;
+}
+
+/** Four clips share rendered frames with the decks; source tempo can run free. */
 export const MAX_SAMPLE_EVENTS_PER_BLOCK = 2048;
+export const MAX_SAMPLE_LOOPS_PER_BLOCK = 16;
+// Each complete chase is separately bounded to 4,096 messages at compilation.
+export const MAX_SAMPLE_RESTORES_PER_BLOCK = 4;
 export class MidiSampleClock {
   constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {}, rehydrate } = {}) {
     this.emit = emit; this.release = release; this.restore = restore; this.configure = configure; this.rehydrate = rehydrate ?? ((deck, events, frame) => { for (const event of events) this.emit(deck, event, frame); });
-    this.beat = 0; this.samples = [null, null, null, null]; this.skippedEvents = 0;
+    this.beat = 0; this.seconds = 0; this.completed = []; this.samples = [null, null, null, null]; this.skippedEvents = 0;
   }
   load(slot, sample) {
     if (!Number.isInteger(slot) || slot < 0 || slot >= this.samples.length) return false;
     this.stop(slot);
-    const position = Math.max(0, this.beat - sample.startBeat);
-    if (position >= sample.data.durationBeats) return false;
-    this.samples[slot] = { ...sample, cursor: lowerBound(sample.data.events, position) };
-    this.restore(slot + 2, sample.data.stateHistories ?? sample.data.controllers, position);
-    this.configure(slot + 2, sample.config, sample.channels);
-    const notes = heldNotesAt(sample.data.held, position);
-    this.samples[slot].rejoinedReleases = notes.filter(event => event.keyReleased && event.sostenutoHeld).map(event => ({ ...event, kind: 8, b: 0, beat: event.beat + event.durationBeats }));
-    this.rehydrate(slot + 2, notes, 0);
+    const timing = sample.timing ?? { positionBeats: Math.max(0, this.beat - sample.startBeat), pendingBeats: Math.max(0, sample.startBeat - this.beat), cycle: 0, ended: false };
+    if (timing.ended || !sample.loop && timing.positionBeats >= sample.data.durationBeats) return false;
+    this.samples[slot] = { ...sample, sync: sample.sync !== false, loop: Boolean(sample.loop), timing: { ...timing }, cursor: lowerBound(sample.data.events, timing.positionBeats) };
+    this.resync(slot);
     return true;
+  }
+  resync(slot, frame = 0) {
+    const sample = this.samples[slot]; if (!sample) return;
+    const position = sample.timing.positionBeats;
+    this.restore(slot + 2, sample.data.stateHistories ?? sample.data.controllers, position, frame);
+    this.configure(slot + 2, sample.config, sample.channels, frame);
+    const notes = sample.timing.pendingBeats > 0 ? [] : heldNotesAt(sample.data.held, position);
+    sample.rejoinedReleases = notes.filter(event => event.keyReleased && event.sostenutoHeld).map(event => ({ ...event, kind: 8, b: 0, beat: event.beat + event.durationBeats }));
+    this.rehydrate(slot + 2, notes, frame);
+  }
+  setOptions(slot, { loop, sync, revision } = {}) {
+    const sample = this.samples[slot]; if (!sample) return;
+    if (loop !== undefined) sample.loop = Boolean(loop);
+    if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
+    if (revision !== undefined) sample.revision = revision;
   }
   stop(slot) { if (this.samples[slot]) this.release(slot + 2); this.samples[slot] = null; }
   stopAll() { for (let slot = 0; slot < this.samples.length; slot++) this.stop(slot); }
+  snapshot() { return [...this.samples.flatMap(sample => sample ? [{ id: sample.id, revision: sample.revision, ...sample.timing }] : []), ...this.completed.splice(0)]; }
   process(frames, sampleRate, tempo) {
-    const increment = tempo / (60 * sampleRate), end = this.beat + frames * increment;
-    let budget = MAX_SAMPLE_EVENTS_PER_BLOCK;
+    const beatIncrement = tempo / (60 * sampleRate), beatDelta = frames * beatIncrement;
+    let budget = MAX_SAMPLE_EVENTS_PER_BLOCK, restores = MAX_SAMPLE_RESTORES_PER_BLOCK;
     for (let slot = 0; slot < this.samples.length; slot++) {
       const sample = this.samples[slot]; if (!sample) continue;
-      const finish = Math.min(sample.data.durationBeats, end - sample.startBeat);
-      const endIndex = lowerBound(sample.data.events, finish - 1e-10);
-      const available = Math.max(0, endIndex - sample.cursor), count = Math.min(available, budget);
-      for (let index = 0; index < count; index++) {
-        const event = sample.data.events[sample.cursor++];
-        const frame = Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + event.beat - this.beat) / increment)));
-        this.emit(slot + 2, event, frame);
+      const initial = sample.timing, final = advanceSampleTiming(initial, sample.data, sample, beatDelta, frames / sampleRate);
+      const skipRemainder = frame => {
+        this.skippedEvents += sample.data.events.length * Math.max(1, final.cycle - initial.cycle);
+        this.release(slot + 2, frame); sample.cursor = lowerBound(sample.data.events, final.positionBeats);
+        sample.timing = final; sample.needsResync = true;
+      };
+      if (sample.wrapPending || sample.needsResync) {
+        if (!restores) { skipRemainder(0); continue; }
+        restores--; this.release(slot + 2, 0); sample.cursor = lowerBound(sample.data.events, sample.timing.positionBeats);
+        this.resync(slot, 0); sample.wrapPending = sample.needsResync = false;
       }
-      for (const event of sample.rejoinedReleases ?? []) if (event.beat < finish) this.emit(slot + 2, event, Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + event.beat - this.beat) / increment))));
-      sample.rejoinedReleases = sample.rejoinedReleases?.filter(event => event.beat >= finish);
-      budget -= count;
-      if (available > count) { this.skippedEvents += available - count; sample.cursor = endIndex; this.release(slot + 2, frames - 1); }
-      if (end >= sample.startBeat + sample.data.durationBeats) {
-        const frame = Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + sample.data.durationBeats - this.beat) / increment)));
-        this.release(slot + 2, frame); this.samples[slot] = null;
+      let frameStart = initial.pendingBeats / beatIncrement;
+      if (frameStart >= frames - 1e-9) { sample.timing = final; continue; }
+      const coordinate = beat => sample.sync ? beat : sampleSecondsAt(sample.data, beat);
+      const toBeat = value => sample.sync ? value : sampleBeatAt(sample.data, value);
+      const increment = sample.sync ? beatIncrement : 1 / sampleRate, length = coordinate(sample.data.durationBeats);
+      let position = coordinate(initial.positionBeats), crossings = 0;
+      const frameAt = value => Math.max(0, Math.min(frames - 1, Math.round(value)));
+      while (frameStart < frames - 1e-9) {
+        const finish = Math.min(length, position + (frames - frameStart) * increment);
+        const endIndex = lowerBound(sample.data.events, toBeat(finish) - 1e-10);
+        const available = Math.max(0, endIndex - sample.cursor), count = Math.min(available, budget);
+        for (let index = 0; index < count; index++) {
+          const event = sample.data.events[sample.cursor++];
+          const duration = sample.sync ? (event.durationBeats ?? 0) * 60 / tempo : sampleSecondsAt(sample.data, Math.min(sample.data.durationBeats, event.beat + (event.durationBeats ?? 0))) - sampleSecondsAt(sample.data, event.beat);
+          this.emit(slot + 2, { ...event, durationSeconds: duration }, frameAt(frameStart + (coordinate(event.beat) - position) / increment));
+        }
+        for (const event of sample.rejoinedReleases ?? []) if (coordinate(event.beat) < finish) this.emit(slot + 2, event, frameAt(frameStart + (coordinate(event.beat) - position) / increment));
+        sample.rejoinedReleases = sample.rejoinedReleases?.filter(event => coordinate(event.beat) >= finish);
+        budget -= count;
+        if (available > count) { this.skippedEvents += available - count; sample.cursor = endIndex; this.release(slot + 2, frameAt(frameStart + (finish - position) / increment)); }
+        frameStart += (finish - position) / increment;
+        if (finish < length - Math.min(1e-10, length * 1e-9)) break;
+        if (!sample.loop) { this.release(slot + 2, frameAt(frameStart)); if (this.completed.length >= 4) this.completed.shift(); this.completed.push({ id: sample.id, revision: sample.revision, ended: true }); this.samples[slot] = null; break; }
+        // At a block edge defer the new cycle to frame zero of the next block.
+        if (frameStart >= frames - 1e-9) { sample.wrapPending = true; break; }
+        if (!restores) { skipRemainder(frameAt(frameStart)); break; }
+        restores--; this.release(slot + 2, frameAt(frameStart)); sample.cursor = 0;
+        sample.timing = { ...final, positionBeats: 0, pendingBeats: 0 };
+        this.resync(slot, frameAt(frameStart)); position = 0;
+        if (++crossings >= MAX_SAMPLE_LOOPS_PER_BLOCK) {
+          this.skippedEvents += sample.data.events.length * Math.max(1, final.cycle - initial.cycle - crossings);
+          this.release(slot + 2, frames - 1); sample.cursor = lowerBound(sample.data.events, final.positionBeats); sample.needsResync = true; break;
+        }
       }
+      sample.timing = final;
     }
-    this.beat = end;
+    this.beat += beatDelta; this.seconds += frames / sampleRate;
   }
 }
 export const MAX_EVENTS_PER_BLOCK = 8192;
