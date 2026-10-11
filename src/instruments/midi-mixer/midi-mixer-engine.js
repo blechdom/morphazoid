@@ -130,16 +130,17 @@ export class MidiMixerEngine {
       this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
     }
   }
-  async loadDeck(index, buffer, name = 'MIDI file') {
+  async loadDeck(index, buffer, name = 'MIDI file', { reverse } = {}) {
     this._checkIndex(index); if (this._disposed) return false;
     let analysis;
     try { analysis = parseMidi(buffer); } catch (error) { this._error = error.message; this._publish(); throw error; }
     const previous = this._decks[index];
+    const config = sanitizeDeckConfig({ ...(reverse === undefined ? {} : { reverse }), ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, previous.config);
     const bytes = buffer instanceof ArrayBuffer ? buffer.slice(0) : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
     const sourceAnalysis = analysis, source = { buffer: bytes, analysis, cache: new Map() };
-    if (previous.config.reverse !== 'off') analysis = this._effectiveSource(index, previous.config.reverse, source).analysis;
+    if (config.reverse !== 'off') analysis = this._effectiveSource(index, config.reverse, source).analysis;
     const compiled = compileDeck(analysis);
-    const deck = { name: String(name).slice(0, 256), analysis, sourceAnalysis, config: { ...previous.config, ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, midi: {}, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
+    const deck = { name: String(name).slice(0, 256), analysis, sourceAnalysis, config, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, midi: {}, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
     this._sources[index] = source; this._decks[index] = deck; this._compiled[index] = compiled; this._error = null;
     this._sendDeck(index); this._publish(); return this.state.decks[index];
   }

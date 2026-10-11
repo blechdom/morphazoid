@@ -74,6 +74,22 @@ test('engine reverse is source-preserving, maps a playing cursor, honors explici
   engine.stop(); assert.equal(engine.state.weaveStep, 0); assert.equal(engine.state.audioEnabled, false); await engine.dispose();
 });
 
+test('explicit forward loading bypasses inherited reverse without changing other deck settings or original bytes', async () => {
+  const engine = new MidiMixerEngine(); await engine.loadDeck(0, held(60));
+  engine.configureDeck(0, { reverse: 'controllers', rate: 2, gain: .7 }); engine.play();
+  const original = midi([[[0, 144, 60, 100], [1, 128, 60, 0], [5, 144, 67, 100], [7, 128, 67, 0]]]);
+  const deck = await engine.loadDeck(0, original, 'Edit source', { reverse: 'off' });
+  assert.equal(deck.config.reverse, 'off'); assert.equal(deck.analysis, deck.sourceAnalysis);
+  assert.deepEqual(deck.analysis.notes.map(note => note.note), [60, 67]);
+  assert.equal(deck.config.rate, 2); assert.equal(deck.config.gain, .7); assert.equal(engine.state.playing, true);
+  assert.deepEqual(new Uint8Array(engine.getDeckMidi(0)), new Uint8Array(original));
+  await assert.rejects(engine.loadDeck(0, new Uint8Array([0]), 'invalid', { reverse: 'notes' }));
+  assert.equal(engine.state.decks[0].config.reverse, 'off'); assert.equal(engine.state.decks[0].analysis, deck.analysis);
+  engine.configureDeck(0, { reverse: 'notes' });
+  assert.equal((await engine.loadDeck(0, original)).config.reverse, 'notes', 'ordinary song changes retain direction');
+  await engine.dispose();
+});
+
 test('excessive controller history rejects atomically without replacing the playing source or export', async () => {
   const engine = new MidiMixerEngine(); const original = held(60);
   await engine.loadDeck(0, original, 'original'); engine.configureDeck(0, { reverse: 'controllers' }); engine.play();
