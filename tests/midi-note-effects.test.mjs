@@ -42,15 +42,40 @@ test('disabled effects preserve MIDI identity and FIFO note ownership, including
   assert.equal(fx.stats.groups, 0); assert.equal(fx.nextTime, Infinity);
 });
 
-test('pure expansion and scheduled attacks agree exactly, including clipping and bounded echo velocity', () => {
+test('pure expansion and scheduled attacks agree exactly, excluding out-of-range pitches with bounded echo velocity', () => {
   const config = { enabled: true, transpose: 12, chord: 'major', delayBeats: .5, echoCount: 4, echoBeats: .25, echoDecay: .5, velocity: 2, tempo: 120 };
   const children = midiNoteEffectChildren(config, 60, 90); assert.equal(children.length, 15);
   assert.deepEqual(children.slice(0, 3).map(({ note, velocity, delaySeconds, gateSeconds }) => [note, velocity, delaySeconds, gateSeconds]), [[72, 127, .25, Infinity], [76, 127, .25, Infinity], [79, 127, .25, Infinity]]);
   const { fx, events } = fixture(); fx.configure(config); fx.noteOn(1, 60, 90, 10); fx.advance(12);
   assert.deepEqual(ons(events).map(event => [event.note, event.velocity, event.time - 10]), children.map(child => [child.note, child.velocity, child.delaySeconds]));
   fx.noteOff(1, 60, 12); fx.advance(15); balanced(events);
-  const clipped = midiNoteEffectChildren(config, 127, 127); assert.equal(clipped.length, 5); assert.ok(clipped.every(child => child.note === 127));
+  assert.deepEqual(midiNoteEffectChildren(config, 127, 127), []);
+  assert.deepEqual(midiNoteEffectChildren({ enabled: true, chord: 'major' }, 123, 127).map(child => child.note), [123, 127]);
+  assert.deepEqual(midiNoteEffectChildren({ enabled: true, transpose: -7, chord: 'fifth' }, 0, 127).map(child => child.note), [0]);
   assert.deepEqual(midiNoteEffectChildren(config, NaN, 90), []);
+});
+
+test('out-of-range attacks retain bounded source ownership without replacing audible originals', () => {
+  const { fx, events } = fixture({ maxGroups: 3, maxEvents: 2 });
+  fx.noteOn(0, 60, 100, 0); fx.configure({ enabled: true, transpose: 24 });
+  fx.noteOn(0, 127, 100, .1); assert.equal(fx.stats.groups, 2); assert.equal(fx.stats.active, 1);
+  assert.equal(fx.noteOff(0, 127, .2), true); assert.equal(fx.stats.groups, 1); assert.equal(events.length, 1);
+  fx.noteOff(0, 60, .3); balanced(events);
+  for (let index = 0; index < 100; index++) fx.noteOn(0, 127, 100, 1 + index);
+  assert.equal(fx.stats.groups, 3); assert.equal(fx.stats.reservedEvents, 0);
+  fx.clear(200); assert.equal(fx.nextTime, Infinity); assert.equal(fx.stats.groups, 0);
+});
+
+test('activePitches retargets source pressure to sounding captured children only, deduplicating echoes', () => {
+  const { fx, events } = fixture(); fx.configure({ enabled: true, transpose: 12, chord: 'major', delayBeats: .5, echoCount: 1 });
+  fx.noteOn(0, 60, 100, 0); fx.noteOn(1, 60, 100, 0);
+  assert.deepEqual(fx.activePitches(0, 60), []); fx.advance(.25);
+  assert.deepEqual(fx.activePitches(0, 60), [72, 76, 79]); assert.deepEqual(fx.activePitches(0, 72), []);
+  fx.configure({ transpose: -12, chord: 'single', delayBeats: 0, echoCount: 0 }); fx.noteOn(0, 60, 100, .3);
+  fx.advance(.5); assert.deepEqual(fx.activePitches(0, 60), [72, 76, 79, 48]);
+  fx.noteOff(0, 60, .6); fx.advance(1.1); assert.deepEqual(fx.activePitches(0, 60), [48]);
+  assert.deepEqual(fx.activePitches(1, 60), [72, 76, 79]);
+  fx.clear(2); assert.deepEqual(fx.activePitches(0, 60), []); balanced(events);
 });
 
 test('held and delayed children retain their original pitch, echo offsets and tempo after live edits and bypass', () => {

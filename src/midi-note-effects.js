@@ -36,8 +36,8 @@ export function midiNoteEffectChildren(config, note, velocity, { drums = false }
   if (![note, velocity].every(Number.isFinite) || velocity <= 0) return [];
   const settings = sanitizeMidiNoteEffects(config), enabled = settings.enabled;
   const pitched = enabled && (!drums || settings.drums), seconds = 60 / settings.tempo;
-  const root = Math.round(clamp(note + (pitched ? settings.transpose : 0), 0, 127, 60));
-  const pitches = [...new Set((pitched ? MIDI_NOTE_CHORDS[settings.chord] : [0]).map(interval => Math.min(127, root + interval)))];
+  const root = Math.round(note + (pitched ? settings.transpose : 0));
+  const pitches = (pitched ? MIDI_NOTE_CHORDS[settings.chord] : [0]).map(interval => root + interval).filter(pitch => pitch >= 0 && pitch <= 127);
   const result = [];
   for (let echo = 0; echo <= (enabled ? settings.echoCount : 0); echo++) {
     const strength = Math.round(clamp(velocity * (enabled ? settings.velocity * settings.echoDecay ** echo : 1), 1, 127, 1));
@@ -90,6 +90,13 @@ export class MidiNoteEffects {
   get stats() { return { groups: this._groups.size, active: this._active, queued: this._queue.items.length,
     reservedEvents: this._children.size * 2, droppedAdditions: this._dropped, steals: this._steals }; }
   configure(config) { this._config = sanitizeMidiNoteEffects(config, this._config); return this.config; }
+  activePitches(channel, sourceNote) {
+    const pitches = new Set();
+    for (const group of this._groups.values()) if (group.channel === channel && group.note === sourceNote) {
+      for (const child of group.children) if (child.active) pitches.add(child.note);
+    }
+    return [...pitches];
+  }
   _at(time) { return Number.isFinite(time) ? Math.max(0, this._time, time) : null; }
   _input(channel, note) { return Number.isInteger(channel) && channel >= 0 && channel <= 4095 && Number.isInteger(note) && note >= 0 && note <= 127; }
   _matching(channel, note, meta) { return meta?.key === undefined ? [this._fifo, `${channel}:${note}`] : [this._keys, meta.key]; }
@@ -126,12 +133,12 @@ export class MidiNoteEffects {
     if (!this._input(channel, note) || !Number.isFinite(velocity)) return null;
     if (velocity <= 0) { this.noteOff(channel, note, time, meta); return null; }
     const at = this._at(time); if (at === null) return null; this.advance(at);
+    const expanded = midiNoteEffectChildren(this._config, note, velocity, { drums: typeof meta?.drums === 'boolean' ? meta.drums : channel % 16 === 9 });
     while (this._groups.size >= this.maxGroups) { this._steals++; this._remove(this._groups.values().next().value, at); }
-    this._room(at);
+    if (expanded.length) this._room(at);
     const [matchMap, matchKey] = this._matching(channel, note, meta), matches = matchMap.get(matchKey) ?? [];
     const group = { id: ++this._serial, channel, note, time: at, meta: { ...meta }, children: new Set(), released: false, matchMap, matchKey, matches };
     matches.push(group); matchMap.set(matchKey, matches); this._groups.set(group.id, group);
-    const expanded = midiNoteEffectChildren(this._config, note, velocity, { drums: typeof meta?.drums === 'boolean' ? meta.drums : channel % 16 === 9 });
     for (const [index, event] of expanded.entries()) {
       if (this._children.size * 2 + 2 > this.maxEvents) { this._dropped++; continue; }
       const child = { ...event, id: ++this._serial, group, active: false, on: null, off: null };
