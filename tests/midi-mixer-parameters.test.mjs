@@ -69,7 +69,7 @@ test('native controller, patch, pressure and pitch overrides survive source auto
     assert.equal(channel.midiParameters.pitchWheelRange,12);
     await edit({});
     assert.equal(channel.midiControllers[7]>>7,90);assert.equal(channel.midiControllers[1],(9<<7)|88);assert.equal(channel.patch.program,16);assert.equal(channel.midiParameters.pitchWheel,10240);assert.equal(channel.midiParameters.pitchWheelRange,5.5);assert.equal(channel.midiParameters.pressure,22);
-    assert.equal(p.synth.midiChannels[64].midiControllers[7]>>7,100,'other deck remains independent');assert.equal(p.synth.midiChannels.length,192,'shadow state never allocates audio channels');
+    assert.equal(p.synth.midiChannels[64].midiControllers[7]>>7,100,'other deck remains independent');assert.equal(p.synth.midiChannels.length,193,'shadow state never adds channels beyond the six file sources and independent automata channel');
     await edit({controllers:{1:40,33:77}});assert.equal(channel.midiControllers[1],(40<<7)|77);
     await edit({controllers:{1:40,33:99}});assert.equal(channel.midiControllers[1],(40<<7)|99);
     await p.command({type:'crossfade',value:-1});await p.command({type:'transport',playing:true,beat:1});render();
