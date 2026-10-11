@@ -51,10 +51,11 @@ import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGestur
 import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { createQuadrupedClock, readQuadrupedClock } from "./quadruped-clock.js";
+import { QUADRUPED_AUDIO_COHORT_SECONDS, quadrupedAudioBucket, quadrupedAudioCutover, quadrupedAudioHorizon, groupQuadrupedContactOnsets } from "./quadruped-audio-queue.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls, quadrupedPitchRatio } from "./quadruped-voices.js";
 import { unlockAudioContext } from "../../audio.js";
-import { createQuadrupedGroup, shareQuadrupedWorld, quadrupedGroupOffsets, quadrupedStairSound, sanitizeQuadrupedWorld } from "./quadruped-world.js";
+import { createQuadrupedGroup, shareQuadrupedWorld, QUADRUPED_SHARED_FIELDS, quadrupedGroupOffsets, quadrupedStairSound, sanitizeQuadrupedWorld } from "./quadruped-world.js";
 
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
@@ -85,6 +86,11 @@ let stoppedPosition = 0;
 let motor = createQuadrupedMotorState(state);
 let motorClock = createQuadrupedClock(performance.now());
 const audioPredictions = new WeakMap();
+const audioStepTimes = new WeakMap();
+let audioScheduleFrom = 0;
+let sourceQueueTime = null;
+let gridRenderPending = false;
+let cabinetCache = null;
 let lastSchedulerTime = 0;
 let visualFrameInterval = 1_000 / 60;
 let lastMotorPresentation = "";
@@ -93,6 +99,7 @@ let schedulerTimer = 0;
 const scheduledToeOffs = new Map();
 let graph = null;
 let pendingContactSounds = null;
+let unflushedContacts = [];
 let audioStarting = null;
 let pageActive = true;
 let stageVisible = true;
@@ -166,7 +173,6 @@ function endActorMotion(index) {
     ? changeQuadrupedTravel(performance.travel, { position, direction: 1, stride: next.stride, feet })
     : rebaseQuadrupedTravel(performance.travel, { previousPosition: position, position, direction: 1, stride: next.stride });
   actor.motor = createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position });
-  actor.nextOrdinal = null; actor.transitions.clear();
   if (index === selectedActor) {
     motor = actor.motor; stoppedPosition = motor.position;
     selectedStep = mod(Math.floor(motor.position), 16);
@@ -226,16 +232,20 @@ function performedPose(index, pose) {
     headPerformance: manual.active ? manual : pose.headPerformance };
 }
 
-function cancelPerformances() {
+function cancelPerformances({ reschedule = false } = {}) {
+  const active = activeGesture || gestureKey || actors.some((_, index) => {
+    const performance = performanceFor(index);
+    return performance.motion || performance.call;
+  });
+  if (!active) return;
   materializeMotor();
   const captured = activeGesture;
   activeGesture = null; gestureKey = null;
   if (captured?.element?.hasPointerCapture?.(captured.pointerId)) captured.element.releasePointerCapture(captured.pointerId);
   actors.forEach((_, index) => { endActorMotion(index); releaseGestureCall(index); });
   for (const record of activeSources) if (record.gestureOwner) cancelAudioSource(record);
-  cancelFutureSources();
-  if (!transportPlaying) { stopAudioScheduler(); silenceFlightVoice(); }
-  else resetAudioSchedule();
+  if (!transportPlaying) { cancelFutureSources(); stopAudioScheduler(); silenceFlightVoice(); }
+  else if (reschedule) resetAudioSchedule();
 }
 
 function capturePreset() {
@@ -292,7 +302,9 @@ function shareGroupControls() {
   for (let index = 0; index < actors.length; index += 1) {
     if (index === selectedActor) continue;
     const actor = actors[index], previous = scoreForActor(index), performance = performanceFor(index);
-    actor.score = shareQuadrupedWorld(actor.score, state);
+    if (QUADRUPED_SHARED_FIELDS.some(key => actor.score[key] !== state[key])) {
+      actor.score = shareQuadrupedWorld(actor.score, state);
+    }
     if (groupMode === "herd" && actor.score.animalId !== state.animalId) actor.score = applyQuadrupedAnimal(actor.score, state.animalId);
     if (performance.travel) {
       const position = actor.motor.position;
@@ -329,8 +341,8 @@ function selectActor(index) {
 }
 
 function setGroupMode(mode) {
-  cancelPerformances();
   if (!["solo", "herd", "trio"].includes(mode) || mode === groupMode) return;
+  cancelPerformances();
   materializeMotor();
   saveSelectedActor();
   const leader = state;
@@ -362,6 +374,8 @@ function scatterGroup() {
   const clock = quadrupedClockAtPosition(actors[0].score, actors[0].motor.position) - actors[0].offset * 16;
   actors.forEach((actor, index) => {
     actor.offset = offsets[index];
+    audioStepTimes.delete(actor);
+    actor.transitions.clear();
     const position = quadrupedPositionAtClock(actor.score, clock + offsets[index] * 16);
     const performance = performanceFor(index);
     if (performance.travel) performance.travel = rebaseQuadrupedTravel(performance.travel, { previousPosition: actor.motor.position, position, stride: actor.score.stride });
@@ -460,7 +474,6 @@ function materializeMotor(now = performance.now()) {
   stoppedPosition = motor.position;
   if (ended) {
     cancelFutureSources();
-    for (const actor of actors) { audioPredictions.delete(actor); actor.nextOrdinal = null; actor.transitions.clear(); }
     if (!anyActorRunning()) { stopAudioScheduler(); silenceFlightVoice(); }
   }
   return quadrupedMotorSnapshot(scoreForActor(selectedActor), motor);
@@ -851,6 +864,9 @@ function evictAudioSource(predicate) {
 }
 
 function registerAudioSource(source, nodes, gain, startTime, endTime, role = "body") {
+  for (const record of activeSources) {
+    if (record.endTime <= source.context.currentTime) removeAudioSource(record);
+  }
   if (role.startsWith("head")) {
     while ([...activeSources].filter((record) => record.role?.startsWith("head")).length >= QUADRUPED_LIMITS.maxHeadVoices) {
       if (!evictAudioSource((record) => record.role === "head-ornament")
@@ -869,6 +885,7 @@ function registerAudioSource(source, nodes, gain, startTime, endTime, role = "bo
     gain,
     startTime,
     endTime,
+    queueTime: sourceQueueTime ?? startTime,
     role,
     context: source.context ?? graph?.context ?? null,
     gestureOwner: sourceGestureOwner,
@@ -878,12 +895,43 @@ function registerAudioSource(source, nodes, gain, startTime, endTime, role = "bo
   return record;
 }
 
-function cancelFutureSources() {
-  if (!graph) return;
-  const boundary = graph.context.currentTime + 0.012;
-  for (const record of [...activeSources]) {
-    if (!record.gestureOwner && (record.role === "body-contact-batch" || record.startTime > boundary)) cancelAudioSource(record, 0.004);
+function invalidateAudioPredictions(boundary) {
+  for (const actor of actors) {
+    audioPredictions.delete(actor);
+    for (const [eventId, scheduled] of actor.transitions) {
+      if (quadrupedAudioBucket(scheduled.when) >= boundary) actor.transitions.delete(eventId);
+    }
+    for (const [ordinal, when] of audioStepTimes.get(actor) ?? []) {
+      if (quadrupedAudioBucket(when) >= boundary) audioStepTimes.get(actor).delete(ordinal);
+    }
+    const committed = [...(audioStepTimes.get(actor)?.keys() ?? [])];
+    actor.nextOrdinal = committed.length ? Math.max(...committed) + 1 : null;
   }
+}
+
+function cancelFutureSources({ preserveQueued = false } = {}) {
+  if (!graph) { invalidateAudioPredictions(0); return; }
+  const now = graph.context.currentTime;
+  let boundary = quadrupedAudioCutover(now);
+  if (preserveQueued) {
+    // Keep prepared footfalls during continuous edits. Rebuilding their whole
+    // lookahead on each pointer event can exhaust it while synthesizing new
+    // timbres. Only the newly uncovered end needs the latest control values.
+    for (const record of activeSources) {
+      if (!record.gestureOwner && record.role === "body-contact-batch") {
+        boundary = Math.max(boundary, record.queueTime + QUADRUPED_AUDIO_COHORT_SECONDS);
+      }
+    }
+  }
+  audioScheduleFrom = boundary;
+  unflushedContacts = unflushedContacts.filter(event => quadrupedAudioBucket(event.when) < boundary);
+  for (const record of [...activeSources]) {
+    if (record.gestureOwner || quadrupedAudioBucket(record.queueTime) < boundary) continue;
+    // These onsets have not started. A release ramp could leak a canceled
+    // attack; remove them now while earlier cohorts finish their full tails.
+    try { record.source.stop(now); } finally { removeAudioSource(record); }
+  }
+  invalidateAudioPredictions(boundary);
 }
 
 function releaseAllSources() {
@@ -1172,6 +1220,10 @@ function scheduleContactSound(phase, contact, terrain, when, normalization, posi
 
 function flushContactSounds(events) {
   if (!graph || !events.length) return;
+  for (const cohort of groupQuadrupedContactOnsets(events)) flushContactCohort(cohort);
+}
+
+function flushContactCohort(events) {
   const { context } = graph;
   const earliest = Math.min(...events.map(event => event.when));
   const mixed = mixQuadrupedContacts(events.map(event => ({ ...event, offset: event.when - earliest })), 24_000, graph.contactResamples);
@@ -1185,7 +1237,8 @@ function flushContactSounds(events) {
   const offset = start - earliest;
   const end = earliest + mixed.duration;
   if (offset >= mixed.duration) { source.disconnect(); gain.disconnect(); return; }
-  registerAudioSource(source, [gain], gain, start, end, "body-contact-batch");
+  const record = registerAudioSource(source, [gain], gain, start, end, "body-contact-batch");
+  record.queueTime = quadrupedAudioBucket(earliest);
   // A late batch skips elapsed samples instead of moving future footfalls.
   source.start(start, offset); source.stop(end + 0.005);
 }
@@ -1294,6 +1347,16 @@ function scheduleCall(call, when, actorIndex = selectedActor) {
 }
 
 function scheduleStep(absoluteStep, when, motorEvent = null, score = state, actorIndex = selectedActor) {
+  const actor = actors[actorIndex];
+  if (!audioStepTimes.has(actor)) audioStepTimes.set(actor, new Map());
+  audioStepTimes.get(actor).set(absoluteStep, when);
+  const previousQueueTime = sourceQueueTime;
+  sourceQueueTime = when;
+  try { scheduleStepSounds(absoluteStep, when, motorEvent, score, actorIndex); }
+  finally { sourceQueueTime = previousQueueTime; }
+}
+
+function scheduleStepSounds(absoluteStep, when, motorEvent, score, actorIndex) {
   for (const call of quadrupedCallEvents(score, absoluteStep)) scheduleCall(call, when, actorIndex);
   const scoreEvent = quadrupedSequenceEvent(score, absoluteStep);
   const contacts = Array.isArray(motorEvent?.contacts) ? motorEvent.contacts : scoreEvent.contacts;
@@ -1329,11 +1392,11 @@ function scheduleBodySlide(actor, actorIndex, snapshot, audioNow, horizon) {
     const eventId = `slide:${spacing}:${ordinal}`;
     if (actor.transitions.has(eventId)) continue;
     const when = audioNow + (clock - from) / clockRate;
-    if (when < graph.context.currentTime + 0.002) continue;
+    if (when + 1e-9 < Math.max(graph.context.currentTime + 0.002, audioScheduleFrom)) continue;
     scheduleContactSound(ordinal % 5 === 0 ? "touchdown" : "push",
       { id: ordinal % 2 ? "rear-left" : "rear-right", intensity: pressure * (0.38 + variation * 0.5) },
       quadrupedTerrain(actor.score.surfaceId), when, 0.85, position, actor.score, actorIndex, snapshot.velocity);
-    actor.transitions.set(eventId, when);
+    actor.transitions.set(eventId, { when, position });
   }
 }
 
@@ -1344,6 +1407,10 @@ function scheduleAudioWindow() {
   if (!graph || graph.context.state !== "running") return;
   // Use precisely the audio instant that owns the committed motor state.
   const audioNow = motorClock.audioTime;
+  // Finish complete onset buckets; the next pump owns the following bucket.
+  const through = quadrupedAudioHorizon(audioNow, QUADRUPED_LIMITS.schedulerLookaheadSeconds);
+  const earliestOnset = Math.max(audioNow + 0.002, audioScheduleFrom);
+  let completedThrough = through;
   syncCavernBus();
   const active = activeActorIndices().filter(actorIsRunning);
   pendingContactSounds = [];
@@ -1358,29 +1425,38 @@ function scheduleAudioWindow() {
     syncFlightVoice(snapshot, actor.score, index);
     let cursor = audioPredictions.get(actors[index]);
     if (!cursor || cursor.score !== actor.score || cursor.time < audioNow + 0.006) {
-      cursor = { score: actor.score, motor: actor.motor, time: audioNow };
+      const committedSeconds = Math.max(0, audioScheduleFrom - audioNow);
+      // The committed interval needs state integration, but no replacement
+      // event objects or sound preparation. Begin collecting at its end.
+      const committedMotor = committedSeconds > 0
+        ? advanceQuadrupedMotorState(actor.score, actor.motor, committedSeconds) : actor.motor;
+      cursor = { score: actor.score, motor: committedMotor, time: audioNow + committedSeconds };
     }
     // Predict only the new end of the window. Anchor on the last complete
     // integration tick so fractional ticks never quantize event deadlines.
     const from = cursor.time - cursor.motor.remainderSeconds;
     const predictionMotor = { ...cursor.motor, elapsedSeconds: cursor.motor.simulatedSeconds, remainderSeconds: 0 };
-    const horizon = Math.max(0, audioNow + QUADRUPED_LIMITS.schedulerLookaheadSeconds - from);
+    const horizon = Math.max(0, through - from);
     const prediction = predictQuadrupedMotor(actor.score, predictionMotor, horizon);
+    completedThrough = Math.min(completedThrough, from + horizon - prediction.motor.remainderSeconds);
     audioPredictions.set(actors[index], { score: actor.score, motor: prediction.motor, time: from + horizon });
     scheduleBodySlide(actor, index, quadrupedMotorSnapshot(actor.score, predictionMotor), from, horizon);
-    for (const [eventId, scheduledTime] of actor.transitions) {
-      if (scheduledTime < audioNow - 0.1) actor.transitions.delete(eventId);
+    for (const [ordinal, when] of audioStepTimes.get(actors[index]) ?? []) {
+      if (when < audioNow - 0.1 && ordinal < snapshot.position) audioStepTimes.get(actors[index]).delete(ordinal);
+    }
+    for (const [eventId, scheduled] of actor.transitions) {
+      if (scheduled.when < audioNow - 0.1 && scheduled.position < snapshot.position) actor.transitions.delete(eventId);
     }
     for (const transition of prediction.transitions) {
       if (!transition.eventId || actor.transitions.has(transition.eventId)
         || transition.position >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
       const when = from + transition.offsetSeconds;
-      if (when < audioNow + 0.002) continue;
+      if (when + 1e-9 < earliestOnset) continue;
       const terrain = quadrupedTerrain(actor.score.surfaceId);
       if (transition.type === "toe-off") scheduleToeOff(transition, terrain, when, actor.score, index);
       else if (transition.type === "load" || transition.type === "push") scheduleStanceAccent(transition, terrain, when, actor.score, index);
       else continue;
-      actor.transitions.set(transition.eventId, when);
+      actor.transitions.set(transition.eventId, { when, position: transition.position });
     }
     if (!Number.isFinite(actor.nextOrdinal) || actor.nextOrdinal < snapshot.position - 0.02) actor.nextOrdinal = Math.floor(snapshot.position + 0.0001) + 1;
     let scheduled = 0;
@@ -1388,7 +1464,7 @@ function scheduleAudioWindow() {
       if (crossing.ordinal < actor.nextOrdinal || crossing.ordinal >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
       if (scheduled >= QUADRUPED_MOTOR_LIMITS.maxCrossingEvents) break;
       const when = from + crossing.offsetSeconds;
-      if (when < audioNow + 0.002) continue;
+      if (when + 1e-9 < earliestOnset) continue;
       scheduleStep(crossing.ordinal, when, crossing, actor.score, index);
       actor.nextOrdinal = crossing.ordinal + 1;
       actors[index].nextOrdinal = actor.nextOrdinal;
@@ -1397,7 +1473,13 @@ function scheduleAudioWindow() {
   }
   const contacts = pendingContactSounds;
   pendingContactSounds = null;
-  flushContactSounds(contacts);
+  unflushedContacts.push(...contacts);
+  // A crossing exactly on the prediction boundary belongs to the following
+  // bucket. Hold it until that bucket is complete instead of splitting it.
+  const complete = event => quadrupedAudioBucket(event.when) + QUADRUPED_AUDIO_COHORT_SECONDS <= completedThrough + 1e-9;
+  const ready = unflushedContacts.filter(complete);
+  unflushedContacts = unflushedContacts.filter(event => !complete(event));
+  flushContactSounds(ready);
 }
 
 function startAudioScheduler() {
@@ -1409,31 +1491,34 @@ function startAudioScheduler() {
 function stopAudioScheduler() {
   if (schedulerTimer) globalThis.clearInterval(schedulerTimer);
   schedulerTimer = 0;
+  unflushedContacts = [];
   nextScheduledOrdinal = null;
   scheduledToeOffs.clear();
   for (const actor of actors) {
     audioPredictions.delete(actor);
+    audioStepTimes.delete(actor);
     actor.nextOrdinal = null;
     actor.transitions.clear();
   }
 }
 
-function resetAudioSchedule({ includeCurrentBoundary = false } = {}) {
+function resetAudioSchedule({ includeCurrentBoundary = false, preserveQueued = false } = {}) {
   actors.forEach((_, index) => { performanceFor(index).cache = null; });
-  stopAudioScheduler();
-  cancelFutureSources();
+  cancelFutureSources({ preserveQueued });
   saveSelectedActor();
-  if (!anyActorRunning()) return;
+  if (!anyActorRunning()) { stopAudioScheduler(); return; }
   materializeMotor();
   for (const index of activeActorIndices().filter(actorIsRunning)) {
     const actor = actors[index];
     const position = actor.motor.position;
     const nearestBoundary = Math.round(position);
     const startsOnBoundary = includeCurrentBoundary && Math.abs(position - nearestBoundary) < 0.05;
-    actor.nextOrdinal = startsOnBoundary ? nearestBoundary : Math.ceil(position + 0.015);
-    if (startsOnBoundary && graph) {
+    const committedOrdinals = [...(audioStepTimes.get(actor)?.keys() ?? [])];
+    actor.nextOrdinal = Math.max(startsOnBoundary ? nearestBoundary : Math.ceil(position + 0.015),
+      committedOrdinals.length ? Math.max(...committedOrdinals) + 1 : 0);
+    if (startsOnBoundary && actor.nextOrdinal === nearestBoundary && graph) {
       const snapshot = quadrupedMotorSnapshot(scoreForActor(index), actor.motor);
-      scheduleStep(nearestBoundary, graph.context.currentTime + 0.008, snapshot, scoreForActor(index), index);
+      scheduleStep(nearestBoundary, Math.max(graph.context.currentTime + 0.008, audioScheduleFrom), snapshot, scoreForActor(index), index);
       actor.nextOrdinal = nearestBoundary + 1;
     }
   }
@@ -1499,7 +1584,7 @@ function toggleTransport() {
 
 function restartTransport() {
   cancelPerformances();
-  actors.forEach(actor => performances.delete(actor));
+  actors.forEach(actor => { performances.delete(actor); audioStepTimes.delete(actor); actor.transitions.clear(); });
   courseOriginX = 0;
   retimeTransport(0);
   for (const index of activeActorIndices()) {
@@ -1551,6 +1636,17 @@ function switchBehavior(behaviorId) {
 }
 
 function updateStateValue(key, value) {
+  if (key === "outputLevel") {
+    // Output gain is not part of the motor or its predictive score. Preserve
+    // score identity so the next pump also keeps its rolling cursor.
+    state.outputLevel = clamp(value, ...QUADRUPED_LIMITS.outputLevel);
+    for (const actor of actors) actor.score.outputLevel = state.outputLevel;
+    if (graph) graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
+    $("level").value = String(state.outputLevel);
+    setOutput($("levelOut"), `${Math.round(state.outputLevel * 100)}%`);
+    controlKnobs.forEach(knob => knob.update());
+    return;
+  }
   cancelPerformances();
   const now = performance.now();
   const position = currentPosition(now);
@@ -1565,17 +1661,13 @@ function updateStateValue(key, value) {
     stoppedPosition = motor.position;
   }
   shareGroupControls();
-  if (key === "outputLevel" && graph) {
-    graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
-  } else if (["tempoBpm", "paceRatio", "suspensionBeats", "stride", "momentum", "gravity", "pitchSemitones", "lopsided", "spring"].includes(key)) {
-    resetAudioSchedule();
-  }
-  syncAllControls({ grid: ["paceRatio", "suspensionBeats", "stride", "momentum", "gravity", "lopsided", "spring"].includes(key) });
+  resetAudioSchedule({ preserveQueued: transportPlaying && !["tempoBpm", "paceRatio", "suspensionBeats", "lopsided"].includes(key) });
+  syncAllControls({ grid: ["paceRatio", "suspensionBeats", "stride", "momentum", "gravity", "lopsided", "spring"].includes(key), deferGrid: true });
 }
 
 function setSelectedStep(step, { announceStep = false, focus = false } = {}) {
   selectedStep = mod(Math.trunc(Number(step) || 0), QUADRUPED_STEP_COUNT);
-  renderGridState();
+  for (const control of gridControls) control.button.dataset.selected = String(control.step === selectedStep);
   updateStageReadouts(selectedStep, true);
   if (focus) gridControls.find((control) => control.row === 0 && control.step === selectedStep)?.button.focus();
   if (announceStep) announce(describeQuadrupedStep(state, selectedStep));
@@ -1921,7 +2013,11 @@ function contactLevelName(value) {
 }
 
 function renderGridState() {
-  const study = createCabinetStudy();
+  gridRenderPending = false;
+  const key = JSON.stringify(state);
+  const repaint = cabinetCache?.key !== key;
+  if (repaint) cabinetCache = { key, study: createCabinetStudy() };
+  const study = cabinetCache.study;
   quadrupedCalls(state.animalId).forEach((call, row) => {
     const label = laneLabelElements.get(`call-${row}`);
     if (label) label.textContent = call.label;
@@ -1934,7 +2030,7 @@ function renderGridState() {
     const selected = control.step === selectedStep;
     control.button.dataset.selected = String(selected);
     if (control.frame) {
-      drawCabinetPose(control.canvas, control.step, study);
+      if (repaint) drawCabinetPose(control.canvas, control.step, study);
       const { pose } = study.frames[control.step];
       const duration = Number((study.durations[control.step] / 16).toFixed(3));
       const supportLabel = pose.bodySlide > 0.85 ? "body sliding" : pose.airborne ? "airborne" : `${pose.groundSupportCount} feet supporting`;
@@ -2016,7 +2112,7 @@ function syncEnsembleControls() {
   }
 }
 
-function syncAllControls({ grid = true } = {}) {
+function syncAllControls({ grid = true, deferGrid = false } = {}) {
   shareGroupControls();
   syncEnsembleControls();
   if (graph && graph.materialBus.surfaceId !== state.surfaceId) {
@@ -2063,7 +2159,8 @@ function syncAllControls({ grid = true } = {}) {
   setOutput($("motionSummary"), `${Math.round(state.tempoBpm)} BPM · ${quadrupedTerrain(state.surfaceId).shortLabel} · ${quadrupedGroundProfile(state.groundProfileId).shortLabel}`);
   setOutput($("animalReadout"), animal.label);
   if (graph) graph.masterGain.gain.setTargetAtTime(state.outputLevel, graph.context.currentTime, 0.025);
-  if (grid) renderGridState();
+  if (grid && deferGrid) gridRenderPending = true;
+  else if (grid) renderGridState();
   syncTransportPresentation();
   updateStageReadouts(transportPlaying ? mod(Math.floor(currentPosition()), QUADRUPED_STEP_COUNT) : selectedStep, true);
 }
@@ -3224,6 +3321,14 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
 
 function animationLoop(now) {
   if (!pageActive) return;
+  animationFrame = requestAnimationFrame(animationLoop);
+  const frameInterval = Math.max(visualFrameInterval, compactMedia?.matches || reducedMotion ? 1_000 / 30 : 1_000 / 60);
+  // Gate projection, thumbnails and DOM readouts as well as the actual paint.
+  const audioDue = graph && schedulerTimer && performance.now() - lastSchedulerTime > 30;
+  if (document.hidden || audioDue || now - lastPaintTime < frameInterval - 1) return;
+  lastPaintTime = now;
+  const started = performance.now();
+  if (gridRenderPending) renderGridState();
   const snapshots = displayMotorSnapshots();
   const snapshot = snapshots[selectedActor];
   canvas.dataset.frame = String(snapshot.frame);
@@ -3244,18 +3349,10 @@ function animationLoop(now) {
     syncGridPlayhead(snapshot.frame);
     updateStageReadouts(snapshot.frame);
   }
-  const frameInterval = Math.max(visualFrameInterval, compactMedia?.matches || reducedMotion ? 1_000 / 30 : 1_000 / 60);
-  // Let an overdue audio pump refill before spending another frame on scenery.
-  const audioDue = graph && schedulerTimer && performance.now() - lastSchedulerTime > 30;
-  if (stageVisible && !document.hidden && !audioDue && now - lastPaintTime >= frameInterval - 1) {
-    lastPaintTime = now;
-    const started = performance.now();
-    drawScene(now, snapshots);
-    const cost = performance.now() - started;
-    visualFrameInterval = cost > 10 ? Math.min(1_000 / 20, Math.max(visualFrameInterval, cost * 2))
-      : Math.max(1_000 / 60, visualFrameInterval * 0.98);
-  }
-  animationFrame = requestAnimationFrame(animationLoop);
+  if (stageVisible) drawScene(now, snapshots);
+  const cost = performance.now() - started;
+  visualFrameInterval = cost > 10 ? Math.min(1_000 / 20, Math.max(visualFrameInterval, cost * 2))
+    : Math.max(1_000 / 60, visualFrameInterval * 0.98);
 }
 
 function resizeCanvas() {
@@ -3269,7 +3366,7 @@ function resizeCanvas() {
   const pixelWidth = Math.max(1, Math.round(width * dpr));
   const pixelHeight = Math.max(1, Math.round(height * dpr));
   if (canvas.width !== pixelWidth || canvas.height !== pixelHeight) {
-    cancelPerformances();
+    cancelPerformances({ reschedule: true });
     canvas.width = pixelWidth;
     canvas.height = pixelHeight;
   }
@@ -3368,8 +3465,7 @@ function handleGestureKeyup(event) {
 }
 
 function handleGestureBlur() {
-  materializeMotor(); cancelPerformances(); cancelFutureSources();
-  if (transportPlaying) resetAudioSchedule();
+  cancelPerformances({ reschedule: true });
 }
 
 function handleCanvasPointerDown(event) {
@@ -3523,7 +3619,6 @@ function bindControls() {
   $("behaviorSelect").addEventListener("change", () => switchBehavior($("behaviorSelect").value));
   $("soundSkinSelect").addEventListener("change", () => {
     soundSkinId = $("soundSkinSelect").value;
-    releaseAllSources();
     resetAudioSchedule();
   });
   $("visualSkinSelect").addEventListener("change", () => {
