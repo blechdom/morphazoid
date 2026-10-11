@@ -258,7 +258,7 @@ test("unknown uploads find their own beat grids and Sync before Play follows the
   expect((await snapshot(page)).decks.b.sync).toBe(false);
   await page.locator("#bSync").click();
   expect((await snapshot(page)).decks.b.sync).toBe(true);
-  await page.locator("#bNudgeForward").click();
+  await corrections(page, "b"); await page.locator("#bNudgeForward").click();
   expect((await snapshot(page)).decks.b.sync).toBe(false);
   await audioOff(page);
   await expect(page.locator("#errorMessage")).toBeHidden();
@@ -393,6 +393,33 @@ test("analysis worker failure leaves playable audio and a visible manual/retry r
   expect((await snapshot(page)).decks.a.metadata.gridSource).toBe("manual");
   await page.locator("#aPlay").click();
   await expect(page.locator("#aPlay")).toHaveAttribute("aria-pressed", "true");
+  await audioOff(page);
+});
+
+test("manual edits win over in-flight analysis on both decks holding the same file", async ({ page }) => {
+  await holdAnalysisResults(page); await ready(page);
+  await upload(page, [{ name: "Shared groove.wav", mimeType: "audio/wav", buffer: rhythmWave(114, 0.137) }]);
+  await load(page, "Shared groove.wav", "a"); await load(page, "Shared groove.wav", "b");
+  await expect.poll(() => page.evaluate(() => window.__analysisDelivery.messages.length), { timeout: 20_000 }).toBe(2);
+  await page.locator("#aPlay").click();
+  await expect.poll(async () => (await snapshot(page)).decks.a.position).toBeGreaterThan(0.1);
+  expect((await snapshot(page)).decks.a.analyzing).toBe(true);
+  await audioOff(page); await page.locator("#aPlay").click();
+  await corrections(page, "a"); await page.locator("#aBpm").fill("132");
+  await page.locator("#aGrid").click();
+  const manual = (await snapshot(page)).decks.a.metadata;
+  await page.evaluate(() => {
+    window.__analysisDelivery.hold = false;
+    window.__analysisDelivery.release(0); window.__analysisDelivery.release(0);
+  });
+  await analyzed(page, "a"); await analyzed(page, "b");
+  const { decks } = await snapshot(page);
+  expect(decks.a.entry).toBe(decks.b.entry);
+  for (const deck of [decks.a, decks.b]) {
+    expect(deck.metadata.gridSource).toBe("manual");
+    expect(deck.metadata.bpm).toBe(132); expect(deck.metadata.beatOffset).toBe(manual.beatOffset);
+    expect(Math.abs(deck.metadata.analysis.bpm - 114)).toBeLessThan(0.5);
+  }
   await audioOff(page);
 });
 
