@@ -15,7 +15,7 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const MAX_ACTIVE = 4096;
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -34,12 +34,12 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     <label>Pitch span <output id="mixerStampSpanOut">48 notes</output><input id="mixerStampSpan" type="range" min="12" max="128" step="1" value="48" /></label>
     <label>Length <output id="mixerStampBeatsOut">8 beats</output><input id="mixerStampBeats" type="range" min="4" max="32" step="4" value="8" /></label>
     <div class="mixer-stamp-actions"><button id="mixerStampAgain" type="button">Stamp again</button><button id="mixerStampVariation" type="button">Variation</button><button id="mixerStampNextSlice" type="button" hidden>Next slice</button></div>
-    <div class="mixer-stamp-switches" role="group" aria-label="Stamp playback">
-      <label title="Repeat stamps until stopped. Turn off to finish the current cycle."><input id="mixerSampleLoop" type="checkbox" />Loop</label>
-      <label title="Follow the master tempo and launch on the next beat while the mix is playing. Turn off to use source timing."><input id="mixerSampleSync" type="checkbox" checked />Sync to tempo</label>
-      <label class="mixer-stamp-paint"><input id="mixerStampPaint" type="checkbox" checked />Paint flow</label>
-    </div>
+    <label class="mixer-stamp-paint"><input id="mixerStampPaint" type="checkbox" checked />Paint flow</label>
     <span id="mixerStampHint">Tap a stamp, or drag across the flow to place it by pitch.</span>
+  </div>
+  <div class="mixer-stamp-switches" role="group" aria-label="Stamp playback">
+    <label title="Repeat stamps until stopped. Turn off to finish the current cycle."><input id="mixerSampleLoop" type="checkbox" />Loop</label>
+    <label title="Follow the master tempo and launch on the next beat while the mix is playing. Turn off to use source timing."><input id="mixerSampleSync" type="checkbox" checked />Sync to tempo</label>
   </div>
   <div class="mixer-sample-controls">
     <label>Sample sound <select id="mixerSampleProgram"></select></label>
@@ -71,12 +71,15 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   <p id="mixerSampleStatus" class="midiphoria-help" role="status"></p>
   <a id="mixerStampCredit" class="mixer-stamp-credit" target="_blank" rel="noopener" hidden></a>`;
   host.append(section);
+  // These nodes may live in separate view hosts; retain the single instances.
+  const nodes = new Map([...section.querySelectorAll('[id]')].map(node => [node.id, node]));
+  const $ = id => nodes.get(id), canvas = $('mixerPerformanceCanvas'), automataTools = $('mixerAutomataTools');
   const visualizer = document.createElement('div'); visualizer.className = 'mixer-performance-visualizer';
-  visualizer.append(section.querySelector('.mixer-performance-toolbar'), section.querySelector('#mixerPerformanceCanvas'));
+  visualizer.append(section.querySelector('.mixer-performance-toolbar'), canvas);
   if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer);
-  const volume = section.querySelector('#mixerSampleLevel').closest('label');
+  const volume = $('mixerSampleLevel').closest('label');
   if (volumeHost) volumeHost.append(volume);
-  const $ = id => section.querySelector(`#${id}`) ?? visualizer.querySelector(`#${id}`) ?? volume.querySelector(`#${id}`), canvas = $('mixerPerformanceCanvas');
+  if (automataHost) automataHost.append(automataTools);
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   const renderer = new MidiphoriaRenderer(canvas), model = new MidiphoriaModel();
@@ -84,13 +87,14 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const activeNotes = new Map(), preview = new Map(), indexes = new WeakMap();
   let active = false, disposed = false, frame = null, lastFrame = -Infinity, audioWasEnabled = null, serial = 0;
   const stamps = new Map(), buttons = new Map(), fileCache = new Map();
-  let automataSelected = false;
+  let automataSelected = false, viewMode = 'draw';
   let selected = 'heart', seed = 1, request = null, requestTicket = 0, loadingSample = false, previewFrame = null;
   let patternProgram = '0', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
   $('mixerSampleProgram').add(new Option('Original file instruments', 'original'));
   GM_PROGRAM_NAMES.forEach((name, program) => $('mixerSampleProgram').add(new Option(`${program + 1}. ${name}`, String(program))));
   $('mixerSampleProgram').value = '0';
-  $('mixerSendDrawing').hidden = typeof getDrawing !== 'function';
+  const internalDrawing = typeof getDrawing === 'function' && !automataHost && !drawingButton;
+  $('mixerSendDrawing').hidden = !internalDrawing;
   const midiEditor = mountMidiParameterEditor(section.querySelector('.mixer-stamp-live-midi'), {
     label: 'Stamp sound', getValue: () => engine.state.sampleMidi ?? {},
     excludeFields: ['program'],
@@ -269,25 +273,32 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     }
     $('mixerStampCount').value = `${count} / ${stamps.size}`; queuePreviews();
   }
-  const automata = mountAutomataMidiControls($('mixerAutomataTools'), {
-    idPrefix: 'mixerAutomata', actionLabel: 'Stamp rule',
+  function selectAutomata() {
+    // Choosing a view changes the next source, never the samples already playing.
+    if (!automataSelected) {
+      if (stamps.get(selected)?.file) fileProgram = $('mixerSampleProgram').value;
+      else patternProgram = $('mixerSampleProgram').value;
+    }
+    automataSelected = true;
+    $('mixerSampleProgram').value = patternProgram;
+    for (const button of buttons.values()) button.setAttribute('aria-pressed', 'false');
+    for (const name of ['mixerStampDensity', 'mixerStampSpan', 'mixerStampBeats', 'mixerStampSeed', 'mixerStampVariation']) $(name).disabled = true;
+    $('mixerStampNextSlice').hidden = true;
+    section.querySelector('.mixer-stamp-file-controls').hidden = true;
+    $('mixerStampCredit').hidden = true;
+    $('mixerStampHint').textContent = 'Drag across the flow to place the selected Automatapoeia rule by pitch.';
+    canvas.dataset.stamp = 'automata';
+  }
+  const automata = mountAutomataMidiControls(automataTools, {
+    idPrefix: automataHost ? 'automataMidi' : 'mixerAutomata', actionLabel: automataHost ? 'Play rule' : 'Stamp rule',
     onGenerate: score => {
       if (!active || disposed) return;
       cancelPending();
-      // Keep the rule selected for Stamp again and pitch placement on the flow.
-      if (stamps.get(selected)?.file && !automataSelected) fileProgram = $('mixerSampleProgram').value;
-      automataSelected = true;
-      $('mixerSampleProgram').value = patternProgram;
-      for (const button of buttons.values()) button.setAttribute('aria-pressed', 'false');
-      for (const name of ['mixerStampDensity', 'mixerStampSpan', 'mixerStampBeats', 'mixerStampSeed', 'mixerStampVariation']) $(name).disabled = true;
-      $('mixerStampNextSlice').hidden = true;
-      section.querySelector('.mixer-stamp-file-controls').hidden = true;
-      $('mixerStampCredit').hidden = true;
-      $('mixerStampHint').textContent = 'Automatapoeia selected · Stamp again, or drag the flow to place this rule by pitch.';
-      canvas.dataset.stamp = 'automata';
-      playScore(score, score.text);
+      selectAutomata();
+      return playScore(score, score.text);
     },
   });
+  if (automataHost) automataTools.querySelector('.midiphoria-automata').open = true;
   function selectStamp(id) {
     const previous = stamps.get(selected), stamp = stamps.get(id); if (!stamp) return;
     if (previous?.file && !automataSelected) fileProgram = $('mixerSampleProgram').value; else patternProgram = $('mixerSampleProgram').value;
@@ -400,42 +411,73 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     safely(() => stampSelected(transpose));
   }
   on(canvas, 'pointerdown', event => {
-    if (!$('mixerStampPaint').checked || !event.isPrimary || event.button !== 0) return;
+    if (viewMode === 'mixer' || !active || !$('mixerStampPaint').checked || !event.isPrimary || event.button !== 0) return;
     event.preventDefault(); canvas.setPointerCapture(event.pointerId); paint(event);
     pointer = { id: event.pointerId, x: event.clientX, at: clock() };
   });
   on(canvas, 'pointermove', event => {
-    if (pointer?.id !== event.pointerId || Math.abs(event.clientX - pointer.x) < 12 || clock() - pointer.at < Math.max(.12, 30 / engine.state.tempo)) return;
+    if (viewMode === 'mixer' || !active || pointer?.id !== event.pointerId || Math.abs(event.clientX - pointer.x) < 12 || clock() - pointer.at < Math.max(.12, 30 / engine.state.tempo)) return;
     paint(event); pointer = { id: event.pointerId, x: event.clientX, at: clock() };
   });
   for (const type of ['pointerup', 'pointercancel', 'lostpointercapture']) on(canvas, type, () => { pointer = null; });
-  on(canvas, 'keydown', event => { if (event.key === 'Enter') { event.preventDefault(); safely(() => stampSelected()); } });
-  const paintMode = () => { canvas.style.touchAction = $('mixerStampPaint').checked ? 'none' : 'pan-y'; canvas.classList.toggle('mixer-painting', $('mixerStampPaint').checked); };
+  on(canvas, 'keydown', event => { if (viewMode !== 'mixer' && active && event.key === 'Enter') { event.preventDefault(); safely(() => stampSelected()); } });
+  const paintMode = () => {
+    const painting = viewMode !== 'mixer' && $('mixerStampPaint').checked;
+    canvas.style.touchAction = painting ? 'none' : 'pan-y'; canvas.classList.toggle('mixer-painting', painting);
+  };
   on($('mixerStampPaint'), 'change', paintMode); paintMode();
   on(section.querySelector('.mixer-sample-message'), 'submit', event => {
     event.preventDefault(); cancelPending(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value, { mode: $('mixerStampTextMode').value }); playScore(score, score.text); });
   });
-  on($('mixerSendDrawing'), 'click', () => {
-    cancelPending(); drawingPitchRange(); safely(() => playScore(mixerPerformanceScore(getDrawing?.(), {
+  function playDrawing() {
+    if (disposed) return null;
+    cancelPending(); drawingPitchRange();
+    return playScore(mixerPerformanceScore(getDrawing?.(), {
       secondsPerRow: numberInput('mixerStampDrawRow', .125, 1, .25) / 2,
       span: numberInput('mixerStampSpan', 12, 128, 48, true),
       lowestNote: Number($('mixerStampDrawBase').value),
-    }), 'Your drawing'));
-  });
-  on($('mixerStopSamples'), 'click', () => { cancelPending(); engine.stopSamples(); $('mixerSampleStatus').textContent = 'Samples stopped'; });
+    }), 'Your drawing');
+  }
+  function stopSamples() {
+    if (disposed) return;
+    cancelPending(); engine.stopSamples(); $('mixerSampleStatus').textContent = 'Samples stopped';
+  }
+  on(drawingButton ?? $('mixerSendDrawing'), 'click', () => safely(playDrawing));
+  on($('mixerStopSamples'), 'click', stopSamples);
   on($('mixerPerformanceView'), 'change', () => renderer.configure({ view: $('mixerPerformanceView').value }));
   const resize = new ResizeObserver(() => { if (active) renderer.resize(); }); resize.observe(canvas);
+  const stampOnly = [section.querySelector('.mixer-stamp-palette'), section.querySelector('.mixer-stamp-shape-controls'),
+    section.querySelector('.mixer-sample-message'), ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
+    $('mixerStampResetSource')];
   return {
-    cancelPending,
+    cancelPending, playDrawing, stopSamples,
+    setView(mode, nextVisualizerHost) {
+      if (disposed) return;
+      const next = ['draw', 'automata', 'mixer'].includes(mode) ? mode : 'mixer';
+      if (nextVisualizerHost && visualizer.parentElement !== nextVisualizerHost) nextVisualizerHost.append(visualizer);
+      if (next !== viewMode) {
+        pointer = null;
+        if (next === 'automata') selectAutomata();
+        else if (next === 'draw' && automataSelected) selectStamp(selected);
+      }
+      viewMode = next; section.dataset.view = next; visualizer.dataset.view = next;
+      for (const node of stampOnly) node.hidden = next === 'automata';
+      $('mixerSendDrawing').hidden = !internalDrawing || next === 'automata';
+      if (next === 'mixer') { canvas.removeAttribute('tabindex'); canvas.removeAttribute('aria-describedby'); }
+      else { canvas.tabIndex = 0; canvas.setAttribute('aria-describedby', 'mixerStampHint'); }
+      paintMode(); if (active) renderer.resize();
+    },
     setCollection(collection) {
       for (const song of collection) if (song.file && /black midi|geometric/i.test(song.collection || '')) addStamp({ ...song, label: song.title, group: song.collection });
       filterStamps();
     },
     setActive(value) {
-      active = Boolean(value) && !disposed;
+      const next = Boolean(value) && !disposed;
+      if (active === next) return;
+      active = next;
       if (!active) { cancelPending(); if (frame !== null) cancelAnimationFrame(frame); frame = null; clear(); return; }
       midiEditor.refresh(); renderer.resize(); if (frame === null) draw();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); section.remove(); },
   };
 }
