@@ -145,7 +145,7 @@ test.describe("Quadruped", () => {
     })).toBe(true);
 
     await page.locator("#clearButton").click();
-    await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
+    await expect(page.locator("#stageState")).toHaveAttribute("data-state", "stalled", { timeout: 15_000 });
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 15_000 }).toBe(0);
     const stalledFrame = await canvas.getAttribute("data-frame");
     await page.waitForTimeout(350);
@@ -155,15 +155,15 @@ test.describe("Quadruped", () => {
     const newPush = page.getByRole("button", { name: /^Left front foot, frame 1: no new touchdown/ });
     await newPush.click();
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
-    await expect(page.locator("#playState")).not.toContainText("stalled");
+    await expect(page.locator("#stageState")).toHaveAttribute("data-state", "running");
 
     await page.locator("#clearButton").click();
-    await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
+    await expect(page.locator("#stageState")).toHaveAttribute("data-state", "stalled", { timeout: 15_000 });
     await page.locator('#animalSelect').selectOption('gazelle');
-    await expect(page.locator("#playState")).toContainText("stalled");
+    await expect(page.locator("#stageState")).toHaveAttribute("data-state", "stalled");
     await page.locator('#behaviorSelect').selectOption('trot');
     await expect.poll(async () => Number(await canvas.getAttribute("data-motor-velocity")), { timeout: 3_000 }).toBeGreaterThan(0.1);
-    await expect(page.locator("#playState")).not.toContainText("stalled");
+    await expect(page.locator("#stageState")).toHaveAttribute("data-state", "running");
   });
 
   test("global BPM changes the running score immediately and survives animal and gait changes", async ({ page }) => {

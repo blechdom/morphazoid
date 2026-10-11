@@ -161,8 +161,6 @@
               <span class="quadruped-play-glyph" aria-hidden="true"></span>
               <span class="sr-only"><b id="playLabel">Start</b></span>
             </button>
-            <span id="playState" class="quadruped-play-state">sequence stopped</span>
-            <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
             <p id="transportHint" class="quadruped-transport-hint" role="status" hidden>
               Audio is off — turn it on to hear playback
             </p>
@@ -170,6 +168,7 @@
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
               <input id="tempo" name="tempo" type="range" min="10" max="1000" step="1" value="96" data-knob-scale="log" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests. Hold Shift while dragging for fine adjustment." />
             </label>
+            <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
             <div class="quadruped-action-row" role="group" aria-label="Animal actions">
               <button type="button" data-motion-action="jump" title="Jump once with the selected animal">Jump</button>
               <button type="button" data-motion-action="roll" title="Roll once with the selected animal">Roll</button>

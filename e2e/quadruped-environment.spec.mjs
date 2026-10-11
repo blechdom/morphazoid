@@ -119,7 +119,7 @@ test("decorative scenery stops when an empty score stalls even with Play enabled
   const errors = await observeEnvironment(page);
   await page.locator("#playButton").click();
   await page.locator("#clearButton").click();
-  await expect(page.locator("#playState")).toContainText("stalled", { timeout: 15_000 });
+  await expect(page.locator("#stageState")).toHaveAttribute("data-state", "stalled", { timeout: 15_000 });
   for (const skin of ["constellation", "collage"]) {
     await page.locator("#visualSkinSelect").selectOption(skin);
     if (skin === "collage") await expect.poll(async () => (await rendered(page)).collageReady).toBe(true);

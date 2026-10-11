@@ -66,7 +66,7 @@ test("animation samples the foot-driven motor and audio owns progression", async
   assert.match(scheduler, /scheduleStep\(/);
   assert.match(scheduler, /crossing\.offsetSeconds/);
   assert.doesNotMatch(app, /transportAnchorPosition|transportAnchorPerformance|quadrupedStepDurationSeconds/);
-  assert.match(app, /stalled · add a footfall/);
+  assert.match(app, /snapshot\.stalled \? "stalled" : "running"/);
   assert.match(app, /function wakeMotorAtFootfall/);
   const loop = app.match(/function animationLoop\(now\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.doesNotMatch(loop, /materializeMotor/);
@@ -114,15 +114,15 @@ test("the centered animal and constellation cards share fixed-segment limbs and 
   assert.match(app, /pose\.rollTuck/);
 });
 
-test("audio uses one material resonator, stance accents, and an exact no-support flight voice", async () => {
+test("audio uses one material resonator, stance accents, and clock-scheduled body motion", async () => {
   const app = await read("src/instruments/quadruped/quadruped-app.js");
   assert.match(app, /mixBus\.gain\.value = 1\.45/);
   assert.equal((app.match(/const materialBus = createMaterialBus\(/g) ?? []).length, 1);
-  assert.match(app, /const flightVoices = Array\.from\(\{ length: 3 \}/);
   assert.match(app, /applyMaterialProfile\(graph\.materialBus, quadrupedTerrain\(state\.surfaceId\)/);
-  const flight = app.match(/function syncFlightVoice\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
-  assert.match(flight, /snapshot\.supportCount === 0/);
-  assert.match(flight, /unsupported \? 0\.075/);
+  const motion = app.match(/function scheduleBodyMotion\([^)]*\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
+  assert.match(motion, /motionFlightTrajectory\(actor\.score, position\)/);
+  assert.match(motion, /scheduleContactSound\(phase/);
+  assert.doesNotMatch(app, /createFlightVoice|syncFlightVoice/);
   const scheduler = app.match(/function scheduleAudioWindow\(\) \{([\s\S]*?)\n\}/)?.[1] ?? "";
   assert.match(scheduler, /transition\.type === "load" \|\| transition\.type === "push"/);
   assert.match(scheduler, /scheduleStanceAccent/);
@@ -186,5 +186,61 @@ test("the release builder carries the Quadruped motor into static and WAX output
   for (const file of ["src/instruments/quadruped/quadruped-motor.js", "src/instruments/quadruped/quadruped-voices.js", "src/instruments/quadruped/quadruped-world.js"]) {
     assert.ok(inventory.worktreeFiles.includes(file), `${file} has pre-commit copy permission`);
     assert.ok(inventory.requiredFiles.includes(file), `${file} is required in the artifact`);
+  }
+});
+
+test('short-flight recovery deduplicates floating-point spellings of the same predicted lift-off', async () => {
+  const app = await read('src/instruments/quadruped/quadruped-app.js');
+  const model = await import('../src/instruments/quadruped/quadruped.js');
+  const motor = await import('../src/instruments/quadruped/quadruped-motor.js');
+  // Execute the actual browser scheduling functions with an observed queue.
+  // The real model and motor supply flight boundaries and recovery snapshots.
+  const source = ['motionFlightTrajectory', 'scheduleShortFlight', 'scheduleBodyMotion']
+    .map(name => {
+      const body = app.match(new RegExp(`function ${name}\\([^]*?\\n\\}`))?.[0];
+      assert.ok(body, `${name} is available for the integration harness`);
+      return body;
+    }).join('\n');
+  for (const behavior of ['rabbit-gallop', 'jump']) {
+    const score = { ...model.createQuadrupedState('rabbit', behavior), tempoBpm: 1000 };
+    const actor = { score, transitions: new Map() };
+    const contacts = [];
+    const dependencies = {
+      ...model,
+      BODY_MOTION_SPACING_SECONDS: Number(app.match(/const BODY_MOTION_SPACING_SECONDS = ([\d.]+)/)[1]),
+      SHORT_FLIGHT_SECONDS: Number(app.match(/const SHORT_FLIGHT_SECONDS = ([\d.]+)/)[1]),
+      motionContactSamplers: new WeakMap(),
+      graph: { context: { currentTime: 0 } },
+      audioScheduleFrom: 0,
+      world: { seed: 7 },
+      performanceFor: () => ({ motion: null }),
+      clamp: (value, min = 0, max = 1) => Math.max(min, Math.min(max, value)),
+      scheduleContactSound: (...args) => contacts.push(args),
+    };
+    const api = new Function(...Object.keys(dependencies), `${source}\nreturn { motionFlightTrajectory, scheduleShortFlight, scheduleBodyMotion };`)(...Object.values(dependencies));
+    const prediction = motor.predictQuadrupedMotor(score,
+      motor.kickQuadrupedMotor(score, motor.createQuadrupedMotorState(score), 1), .2);
+    const lifts = prediction.transitions.filter(event => event.type === 'lift-off');
+    assert.ok(lifts.length > 1);
+    const first = lifts[0];
+    const liftTime = 1 + first.offsetSeconds;
+    api.scheduleShortFlight(actor, 0, first.position, first.predictedFlightSeconds, liftTime, first.velocity);
+    assert.equal(contacts.length, 1);
+    const contactPosition = contacts[0][5];
+    const starts = new Set([String(first.position)]);
+    const clockRate = score.tempoBpm * 16 / 60;
+    for (let position = first.position + .0001; position < contactPosition; position += .00097) {
+      const flight = api.motionFlightTrajectory(score, position);
+      if (!flight || starts.has(String(flight.start))) continue;
+      starts.add(String(flight.start));
+      const clockPosition = model.quadrupedClockAtPosition(score, position);
+      const audioNow = liftTime + (clockPosition - model.quadrupedClockAtPosition(score, first.position)) / clockRate;
+      api.scheduleBodyMotion(actor, 0, { position, clockPosition, velocity: first.velocity }, audioNow, 0);
+    }
+    assert.ok(starts.size > 1, `${behavior}: the real sampler supplies distinct raw spellings of one boundary`);
+    assert.equal(contacts.length, 1, `${behavior}: prediction recovery must not double the queued flight`);
+    const second = lifts[1];
+    api.scheduleShortFlight(actor, 0, second.position, second.predictedFlightSeconds, 1 + second.offsetSeconds, second.velocity);
+    assert.equal(contacts.length, 2, `${behavior}: the next genuine flight remains audible`);
   }
 });
