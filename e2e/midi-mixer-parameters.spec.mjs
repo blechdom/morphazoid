@@ -40,8 +40,9 @@ async function observe(page) {
 async function input(page, id, value, event = 'input') {
   await page.locator(`#${id}`).evaluate((node, detail) => { node.value = String(detail.value); node.dispatchEvent(new Event(detail.event, { bubbles: true })); }, { value, event });
 }
-async function open(page, { mixer = true } = {}) {
-  await observe(page); await page.goto('/midiphoria.html'); await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+async function open(page, { mixer = true, blech = false } = {}) {
+  await observe(page);
+  if (blech) { await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58'); return; } await page.goto('/midiphoria.html'); await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
   if (!mixer) return;
   await page.locator('#mixerModeButton').click(); await expect(page.locator('#tempoFromB')).toBeEnabled();
   await page.locator('#deckFile0').setInputFiles({ name: 'Controller automation.mid', mimeType: 'audio/midi', buffer: fixture() });
@@ -140,7 +141,7 @@ test('controller and generator overrides survive source automation, seeks and lo
 });
 
 test('live stamp MIDI changes affect active notes while deck, voice and effect presets restore deeply', async ({ page }, testInfo) => {
-  test.setTimeout(60000); await open(page); await arm(page); await attachProbe(page); await page.locator('#drawingModeButton').click(); await input(page, 'mixerStampBeats', 32);
+  test.setTimeout(60000); await open(page, { blech: true }); await arm(page); await attachProbe(page); await input(page, 'mixerStampBeats', 32);
   await page.evaluate(() => __parameterQA.engine.configureSamples({ midi: { controllers: { 91: 0, 93: 0, 94: 0 } } }));
   await page.locator('[data-mixer-sample="heart"]').click(); await sounding(page);
   const detail = page.locator('.mixer-stamp-midi'); await detail.locator(':scope > summary').click(); const editor = detail.locator('.midi-parameter-editor');
@@ -199,7 +200,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     try {
       await open(page); const editor = await voice(page); await expand(editor, 'Mix'); await expand(editor, 'Expression & pedals'); await cc(editor, 74);
       await page.locator('[data-deck="0"] .deck-midi-editor > summary').click(); const deck = page.locator('#deckMidi0'); await expand(deck, 'Instrument');
-      await checkEditorLayout(page, coarse); await page.locator('#drawingModeButton').click();
+      await checkEditorLayout(page, coarse); await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
       await page.locator('.mixer-stamp-midi > summary').click(); const sample = page.locator('.mixer-stamp-midi .midi-parameter-editor'); await expand(sample, 'Pitch'); await generator(sample, 34);
       const input = sample.getByRole('slider', { name: /Fine tuning$/, exact: false }); await input.focus();
       await page.evaluate(() => { for (let index = 0; index < 20; index++) __parameterQA.engine.configureSamples({ midi: { fineTune: index } }); }); await expect(input).toBeFocused();

@@ -45,7 +45,7 @@ async function open(page) {
           notes:sample.analysis.notes.map(({note,beat,duration})=>({note,beat,duration}))});return sample;
       };` });
   });
-  await page.goto('/midiphoria.html'); await page.locator('#drawingModeButton').click();
+  await page.goto('/blech-midi.html');
   await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
   return errors;
 }
@@ -65,9 +65,13 @@ const snapshot = page => page.evaluate(() => {
 });
 const attacks = (page, id, pitch = 60) => page.evaluate(({ id, pitch }) => __stampLoopQA.notes.filter(note => note.type === 'noteOn' && note.sampleId === id && note.note === pitch), { id, pitch });
 async function transport(page) {
-  await page.locator('#mixerModeButton').click();
-  await expect(page.locator('#mixerPlay')).toBeEnabled(); await page.locator('#mixerPlay').click();
-  await page.locator('#drawingModeButton').click();
+  // The standalone UI has no deck transport. Exercise the shared engine's
+  // quantized-running-clock path with a muted original test fixture.
+  await page.evaluate(async bytes => {
+    const engine = __stampLoopQA.engine;
+    if (!engine.state.decks[0].analysis) { await engine.loadDeck(0, new Uint8Array(bytes).buffer, 'Clock fixture'); engine.configureDeck(0, { gain: 0 }); }
+    engine.state.playing ? engine.pause() : engine.play();
+  }, Array.from(tempoFixture()));
 }
 async function arm(page) { await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 }); }
 async function audible(page) { await expect.poll(async () => (await readAudioStatus(page)).rms, { timeout: 8000, intervals: [25, 50, 100] }).toBeGreaterThan(.001); }
@@ -81,7 +85,6 @@ async function fixtureSource(page) {
   const details = page.locator('.mixer-stamp-midi'); await details.locator(':scope > summary').click();
   await page.locator('#mixerStampSourceMode').selectOption('manual'); await page.locator('#mixerStampStart').fill('0');
   await details.locator(':scope > summary').click(); await page.locator('#mixerStopSamples').click();
-  await input(page, 'deckGain0', 0); await input(page, 'deckGain1', 0);
 }
 async function assertPeriod(page, sampleId, seconds, { after = -Infinity, count = 4 } = {}) {
   // An immediate launch may rejoin its first held note a fraction into the
@@ -196,7 +199,7 @@ test('native free stamps preserve source tempo changes and live Sync preserves p
   await testInfo.attach('native-free-tempo-and-sync', { body: JSON.stringify({ free, sequence, continuity, released }), contentType: 'application/json' }); expect(errors).toEqual([]);
 });
 
-test('native looping stamps stop on Pause, Stop samples and Audio off, and can launch immediately while transport is paused', async ({ page }) => {
+test('native looping stamps stop on shared-engine Pause, Stop samples and Audio off, and can launch immediately while transport is paused', async ({ page }) => {
   test.setTimeout(60000); const errors = await open(page); await fixtureSource(page); await page.locator('#mixerSampleLoop').check(); await arm(page);
   const paused = await launch(page, () => page.locator('#mixerStampAgain').click());
   expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).samples.find(sample => sample.id === paused.id)?.pending).toBe(false); await audible(page);
@@ -207,7 +210,7 @@ test('native looping stamps stop on Pause, Stop samples and Audio off, and can l
   await noSamples(page); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#mixerSampleSync').uncheck(); await page.locator('#mixerSampleSync').check(); await page.locator('#mixerSampleLoop').uncheck(); await page.locator('#mixerSampleLoop').check();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); await arm(page); await silent(page); await noSamples(page);
-  await launch(page, () => page.locator('#mixerStampAgain').click()); await audible(page); await page.locator('#mixerModeButton').click(); await page.locator('#mixerStop').click(); await page.locator('#drawingModeButton').click(); await noSamples(page); await silent(page);
+  await launch(page, () => page.locator('#mixerStampAgain').click()); await audible(page); await page.locator('#creativeStop').click(); await noSamples(page); await silent(page);
   expect(errors).toEqual([]);
 });
 

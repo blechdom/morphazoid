@@ -67,8 +67,8 @@ test('Mixer is one page view and shared Space routes only to its transport witho
   expect((await states(page)).mixer.playing).toBe(false);
   expect((await states(page)).legacy.playing).toBe(false);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('#drawingModeButton').click();
-  await expect(page.locator('#drawingCanvas')).toBeVisible();
+  await page.locator('#visualModeButton').click();
+  await expect(page.locator('#midiphoriaLegacyView')).toBeVisible();
   await expect(page.locator('#midiMixerView')).toBeHidden();
   await page.locator('#mixerModeButton').click();
   await page.locator('#resetButton').evaluate(button => button.click());
@@ -90,7 +90,7 @@ test('Audio, volume and playing intent transfer between engines while the inacti
   await page.locator('#outputLevel').evaluate(input => { input.value = '.27'; input.dispatchEvent(new Event('input', { bubbles: true })); });
   expect((await states(page)).legacy.volume).toBeCloseTo(.27);
   expect((await states(page)).mixer.volume).toBeCloseTo(.27);
-  await page.locator('#drawingModeButton').click();
+  await page.locator('#visualModeButton').click();
   await expect(page.locator('#audioState')).toHaveText('on');
   expect((await states(page)).legacy.playing).toBe(true);
   expect((await states(page)).legacy.time).toBeGreaterThan(.2);
@@ -141,13 +141,13 @@ test('Mixer suppresses the inactive piano input and returning releases stale hel
 });
 
 
-test('an empty Visualize or Draw view retains Play intent; explicit Pause and Reset cancel it', async ({ page }) => {
+test('an empty Visualize view retains Play intent; explicit Pause and Reset cancel it', async ({ page }) => {
   await open(page); await page.locator('#mixerModeButton').click();
   await page.locator('#fixtureMixerPlay').click();
   await page.locator('#visualModeButton').click();
   expect((await states(page)).legacy.ready).toBe(false);
   expect((await states(page)).legacy.playing).toBe(false);
-  await page.locator('#drawingModeButton').click();
+  await page.locator('#visualModeButton').click();
   await page.locator('#mixerModeButton').click();
   expect((await states(page)).mixer.playing).toBe(true);
   await page.locator('#fixtureMixerPlay').click();
