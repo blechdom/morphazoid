@@ -61,7 +61,7 @@ test('source switches, mappings and both mix levels may intentionally silence a 
 });
 
 test('reader, drum and Shepard settings reject malformed values and remain bounded', () => {
-  for (const reader of ['trace', 'radar', 'scan', 'xy']) assert.equal(sanitizeState({ contourReader: reader }).contourReader, reader);
+  for (const reader of ['trace', 'traveler', 'radar', 'scan', 'xy']) assert.equal(sanitizeState({ contourReader: reader }).contourReader, reader);
   const state = sanitizeState({ contourReader: 'unknown', shepardDirection: 'sideways', layerDrumVoices: ['invalid', 'metal'],
     drumSpacing: 0, drumDecay: 10, drumPitch: Infinity, radarX: -10, radarY: 10, scanAngle: 720,
     shepardCycles: 0, shepardWidth: 10, bendTimbre: NaN, foldTimbre: 3, pitchDepth: -1, panWidth: 8 });
@@ -93,7 +93,7 @@ test('randomization explores each reader, voice, source switch and mapping witho
   const random = () => (seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 2 ** 32;
   const layerKeys = ['layerVoices', 'layerDrumVoices', 'layerEnabled', 'layerSustain', 'layerDrums'];
   const seen = Object.fromEntries(layerKeys.map(key => [key, [new Set(), new Set(), new Set()]]));
-  const fieldKeys = ['contourReader', 'toneLevel', 'drumLevel', 'drumSpacing', 'drumDecay', 'drumPitch', 'bendTimbre', 'foldTimbre', 'pitchDepth', 'panWidth', 'radarX', 'radarY', 'scanAngle', 'shepardDirection', 'shepardCycles', 'shepardWidth'];
+  const fieldKeys = ['contourReader', 'toneLevel', 'drumLevel', 'drumSpacing', 'drumDecay', 'drumPitch', 'bendTimbre', 'foldTimbre', 'pitchDepth', 'panWidth', 'radarX', 'radarY', 'scanAngle', 'shepardDirection', 'shepardCycles', 'shepardWidth', 'travelerDirection', 'travelerOctaves'];
   const fields = Object.fromEntries(fieldKeys.map(key => [key, new Set()]));
   for (let i = 0; i < 300; i++) {
     const state = randomizeState(DEFAULT_STATE, random);
@@ -110,11 +110,25 @@ test('randomization explores each reader, voice, source switch and mapping witho
     assert.deepEqual([...seen.layerDrumVoices[i]].sort(), [...DRUM_VOICES].sort());
     for (const key of ['layerEnabled', 'layerSustain', 'layerDrums']) assert.equal(seen[key][i].size, 2, `${key}[${i}] varies`);
   }
-  assert.deepEqual([...fields.contourReader].sort(), ['radar', 'scan', 'trace', 'xy']);
+  assert.deepEqual([...fields.contourReader].sort(), ['radar', 'scan', 'trace', 'traveler', 'xy']);
   assert.deepEqual([...fields.shepardDirection].sort(), ['fall', 'rise']);
   for (const key of fieldKeys) assert.ok(fields[key].size > 1, `${key} varies`);
   for (const constant of [0, .5, 1]) {
     const state = randomizeState(DEFAULT_STATE, () => constant);
     assert.ok(state.layerEnabled.some((enabled, i) => enabled && (state.layerSustain[i] || state.layerDrums[i])));
   }
+});
+
+
+test('Traveler retains complete presets, bounded pitch spans, and reversible direction', () => {
+  assert.equal(sanitizeState({ travelerOctaves: Infinity }).travelerOctaves, 1);
+  assert.equal(sanitizeState({ travelerOctaves: 9 }).travelerOctaves, 4);
+  assert.equal(sanitizeState({ travelerOctaves: 0 }).travelerOctaves, 0);
+  assert.equal(sanitizeState({ travelerDirection: 'invalid' }).travelerDirection, 'clockwise');
+  const state = sanitizeState({ contourReader: 'traveler', travelerDirection: 'counterclockwise', travelerOctaves: .75 });
+  assert.deepEqual(sanitizeState(JSON.parse(JSON.stringify(state))), state);
+  const preset = PRESETS.find(p => p.id === 'traveler').snapshot;
+  assert.equal(preset.contourReader, 'traveler');
+  assert.ok(preset.layerVoices.every(v => v === 'shepard'));
+  assert.equal(preset.travelerOctaves, 1);
 });

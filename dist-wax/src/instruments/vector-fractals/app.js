@@ -1,4 +1,5 @@
 import { MODES, PRESETS, CONTOUR_LANDMARKS, EXPLORER_JULIA_PRESETS, TRACE_VOICES, DRUM_VOICES, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
+import { sampleReaderLayer } from './trace-model.js';
 import { VectorRenderer } from './renderer.js';
 import { ContourRenderer } from './contour-renderer.js';
 import { ContourNavigation } from './contour-navigation.js';
@@ -18,7 +19,7 @@ let contourRequest = 0, contourBusy = false, contourTimer = 0, contourResult = n
 let selectedPath = -1, candidates = [], navigation = null, lastContourSend = 0;
 let contourLayers = null, traceLayers = null, traceBank = null, tracePhase = 0;
 let readerRequest = 0, readerInFlight = null, readerQueued = null, readerTimer = 0;
-let traceTravel = 0, shepardTravel = 0, drumHits = [];
+let traceTravel = 0, shepardTravel = 0, travelerState = null, drumHits = [];
 const isTrace = () => state.mode === 'explorer' && state.contourReader !== 'xy';
 const playbackLabel = () => isTrace() ? 'Playing · synced detail layers' : 'Playing · shared XY oscillator';
 const noContour = () => isTrace() ? !traceBank?.layers.some(layer => layer.x.length) : selectedPath < 0;
@@ -30,6 +31,7 @@ const renderer = new VectorRenderer($('stage'), $('waveforms'), $('parameterMap'
 const contourRenderer = new ContourRenderer($('contourStage'));
 const audio = new VectorAudio({ onTelemetry(data) {
   telemetry = data;
+  if (data.travelerState) travelerState = data.travelerState;
   if (data.recentDrumHits?.length) drumHits = [...drumHits, ...data.recentDrumHits].slice(-128);
 }, onError(error) {
   armed = false; telemetry = null; strip.setAudioState('error'); status(error.message);
@@ -166,7 +168,7 @@ function queueSelectedSound() {
 function updateTraceBank() {
   if (!contourLayers || contourPhase !== 'complete') return;
   readerQueued = { id: ++readerRequest, layers: contourLayers, options: {
-    finePath: selectedPath, featureSize: state.featureSize, contourReader: state.contourReader,
+    finePath: selectedPath, featureSize: state.featureSize, contourReader: state.contourReader, travelerDirection: state.travelerDirection,
     drumSpacing: state.drumSpacing, radarX: state.radarX, radarY: state.radarY, scanAngle: state.scanAngle,
     anchor: state.strandX == null ? null : { x: state.strandX, y: state.strandY },
   } };
@@ -186,14 +188,19 @@ function drawContours() {
     toneEnabled: state.layerSustain, drumEnabled: state.layerDrums,
     moving: playing, traceRate: telemetry?.traceRate ?? state.traceRate,
     traceTravel, drumHits: armed ? drumHits : null });
+  if (state.contourReader === 'traveler' && traceBank?.reader === 'traveler') {
+    const index = [2, 1, 0].find(i => state.layerEnabled[i] && traceBank.layers[i]?.x.length);
+    const point = index == null ? null : sampleReaderLayer(traceBank.layers[index], tracePhase)[0];
+    $('travelerReadout').textContent = point ? `${['Broad', 'Curl', 'Fine'][index]} turn this lap ${Math.round(-point.turn * 180 / Math.PI)}°${traceBank.layers[index].closed ? '' : ' · retracing'}` : 'No border in view';
+  }
 }
-function selectStrand(index, remember = true) {
+function selectStrand(index, remember = true, anchor = null) {
   if (contourBusy || contourTimer || contourPhase !== 'complete' || !contourResult || index < 0 || index >= contourResult.closed.length) return;
   selectedPath = index;
   if (remember) {
     const vertex = Math.floor((contourResult.offsets[index] + contourResult.offsets[index + 1]) / 2) * 2;
-    state = { ...state, strandX: contourResult.view.x + contourResult.points[vertex] * contourResult.view.width,
-      strandY: contourResult.view.y + contourResult.points[vertex + 1] * contourResult.view.width };
+    state = { ...state, strandX: anchor?.x ?? contourResult.view.x + contourResult.points[vertex] * contourResult.view.width,
+      strandY: anchor?.y ?? contourResult.view.y + contourResult.points[vertex + 1] * contourResult.view.width };
     presets.refresh();
   }
   queueSelectedSound();
@@ -245,6 +252,7 @@ const parameters = [
   ['pitch', 'Pitch', 25, 1200, 1, v => `${v.toFixed(0)} Hz`, 'soundKnobs'],
   ['rotation', 'Rotation', -180, 180, 1, v => `${v.toFixed(0)}°`, 'soundKnobs'],
   ['traceRate', 'Cycle rate', .01, 1, .001, v => `${(1 / v).toFixed(1)} s / cycle`, 'soundKnobs'],
+  ['travelerOctaves', 'Turn → pitch', 0, 4, .05, v => v === 0 ? 'Hold' : `${v.toFixed(2)} oct / 360°`, 'travelerKnobs'],
   ['featureSize', 'Feature size', .002, .08, .001, v => `${(v * 100).toFixed(1)}% of path`, 'mappingKnobs'],
   ['radarX', 'Radar X', -.5, .5, .005, v => `${Math.round(v * 100)}%`, 'readerKnobs'],
   ['radarY', 'Radar Y', -.5, .5, .005, v => `${Math.round(v * 100)}%`, 'readerKnobs'],
@@ -268,6 +276,7 @@ for (const [key, label, min, max, step, format, host] of parameters) {
   $(host).append(field); knobs.push(enhanceRangeKnob(field.input, { scale: ['pitch', 'traceRate', 'featureSize', 'drumSpacing', 'drumDecay', 'drumPitch'].includes(key) ? 'log' : 'linear' })); fields.set(key, field);
 }
 listen($('contourReader'), 'change', () => update({ contourReader: $('contourReader').value }));
+listen($('travelerDirection'), 'change', () => update({ travelerDirection: $('travelerDirection').value }));
 listen($('shepardDirection'), 'change', () => update({ shepardDirection: $('shepardDirection').value }));
 for (let i = 0; i < 3; i++) {
   for (const voice of TRACE_VOICES) {
@@ -323,8 +332,10 @@ listen($('zoomOut'), 'click', () => navigation.zoomBy(1 / .65));
 listen($('wholeView'), 'click', () => { state = { ...state, strandX: null, strandY: null }; navigation.reset(); });
 listen($('nextStrand'), 'click', () => { if (candidates.length) selectStrand(candidates[(candidates.indexOf(selectedPath) + 1) % candidates.length]); });
 
-const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS, host: $('mainPresets'),
-  capture: () => ({ ...state }), apply: snapshot => { state = fitOpeningView(sanitizeState(snapshot)); sync(); build(); audio.send({ type: 'state', state }); },
+// Resolve responsive whole-view framing before registration so recall remains
+// an exact complete-state transaction instead of changing the requested preset.
+const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS.map(preset => ({ ...preset, snapshot: fitOpeningView(preset.snapshot) })), host: $('mainPresets'),
+  capture: () => ({ ...state }), apply: snapshot => { state = sanitizeState(snapshot); sync(); build(); audio.send({ type: 'state', state }); },
   randomize: (snapshot, random) => randomizeState(snapshot, random),
 });
 
@@ -332,6 +343,7 @@ function sync() {
   const mode = MODES.find(m => m.id === state.mode);
   const explorer = state.mode === 'explorer';
   const trace = isTrace();
+  const traveler = trace && state.contourReader === 'traveler';
   document.body.style.setProperty('--vector-accent', mode.color);
   $('stage').dataset.mode = state.mode;
   $('stage').hidden = explorer; $('contourStage').hidden = !explorer;
@@ -340,8 +352,12 @@ function sync() {
   $('traceControls').hidden = !trace; $('readerField').hidden = !explorer;
   $('xyReadoutField').hidden = trace; $('waveformMonitor').hidden = trace;
   $('traceLegend').hidden = !trace; $('contourLegend').hidden = !explorer || trace;
-  $('scanHint').textContent = trace ? 'one shared cycle · three layers' : 'trace slowed 256×';
-  $('traceLegend').lastElementChild.textContent = state.contourReader === 'trace'
+  $('travelerControls').hidden = !traveler; $('travelerReadout').hidden = !traveler;
+  $('travelerDirection').value = state.travelerDirection;
+  $('shepardDirectionField').hidden = traveler; fields.get('shepardCycles').hidden = traveler;
+  fields.get('pitchDepth').hidden = traveler;
+  $('scanHint').textContent = traveler ? 'left turn ↓ pitch · right turn ↑ pitch' : trace ? 'one shared cycle · three layers' : 'trace slowed 256×';
+  $('traceLegend').lastElementChild.textContent = ['trace', 'traveler'].includes(state.contourReader)
     ? 'click a fine strand to follow its neighborhood' : 'contacts sustain · beads strike on crossing';
   $('nextStrand').hidden = ['radar', 'scan'].includes(state.contourReader);
   $('contourReader').value = state.contourReader;
@@ -398,7 +414,7 @@ function sync() {
 function update(patch) {
   state = sanitizeState({ ...state, ...patch }); sync(); audio.send({ type: 'state', state });
   const keys = Object.keys(patch);
-  if (keys.some(key => ['featureSize', 'contourReader', 'drumSpacing', 'radarX', 'radarY', 'scanAngle'].includes(key))) updateTraceBank();
+  if (keys.some(key => ['featureSize', 'contourReader', 'travelerDirection', 'drumSpacing', 'radarX', 'radarY', 'scanAngle'].includes(key))) updateTraceBank();
   if (keys.some(key => ['mode', 'shape', 'component', 'radius', 'detail', 'depth', 'angle', 'traversal',
     'viewX', 'viewY', 'viewWidth', 'contourBias', 'contourQuality', 'contourDomain', 'cReal', 'cImag'].includes(key))) build();
 }
@@ -425,7 +441,7 @@ async function toggleAudio() {
   }
   starting = true; strip.setAudioState('starting');
   try {
-    await audio.start({ state, bank, traceBank, level, playing, scanPhase, tracePhase, traceTravel, shepardTravel, voyage });
+    await audio.start({ state, bank, traceBank, level, playing, scanPhase, tracePhase, traceTravel, shepardTravel, travelerState, voyage });
     if (disposed) return;
     // Edits and Play while loading must win over the initial snapshot.
     audio.send({ type: 'state', state }); audio.send({ type: 'bank', bank });
@@ -500,8 +516,8 @@ export function diagnosticSnapshot() {
     frames: bank?.frames.length ?? 0, voyage, scanPhase, tracePhase, c: bank ? juliaParameter(state.mode === 'explorer' ? state : bank.state, voyage) : null,
     trace: { ready: Boolean(traceBank), phase: tracePhase, travel: traceTravel, rate: telemetry?.traceRate ?? state.traceRate,
       reader: traceBank?.reader, bankId: traceBank?.id, drumTriggerCounts: telemetry?.drumTriggerCounts ?? [0, 0, 0],
-      shepardTravel,
-      layers: traceBank?.layers.map((layer, i) => ({ pathIndex: layer.pathIndex, depth: layer.depth, samples: layer.x.length,
+      shepardTravel, travelerState,
+      layers: traceBank?.layers.map((layer, i) => ({ pathIndex: layer.pathIndex, depth: layer.depth, samples: layer.x.length, closed: layer.closed, turnPerLap: layer.turnPerLap ?? 0,
         contacts: layer.contacts?.length ?? 1, beads: layer.beads?.length ?? 0, events: layer.events?.length ?? 0,
         enabled: state.layerEnabled[i], sustain: state.layerSustain[i], drums: state.layerDrums[i], voice: state.layerVoices[i] })) ?? [] },
     audioTime: audio.context?.currentTime ?? null, renderer: renderer.gl ? 'webgl' : 'canvas', disposed,
@@ -522,7 +538,7 @@ listen(window, 'pagehide', event => { if (!event.persisted) void dispose(); });
 navigation = new ContourNavigation($('contourStage'), {
   view: explorerView(), homeView: wholeExplorerView(),
   isActive: () => state.mode === 'explorer', onViewChange: updateExplorerView,
-  onSelect(point) { if (contourBusy || contourTimer || contourPhase !== 'complete') return; const index = contourRenderer.pick(point, explorerView()); if (index >= 0) selectStrand(index); },
+  onSelect(point) { if (contourBusy || contourTimer || contourPhase !== 'complete') return; const index = contourRenderer.pick(point, explorerView()); if (index >= 0) selectStrand(index, true, point); },
 });
 const resizeObserver = new ResizeObserver(() => {
   if (state.mode !== 'explorer' || disposed) return;

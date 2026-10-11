@@ -115,3 +115,5 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
   .vector-select select { min-height: 42px; }
   .contour-actions button, .contour-next, #exportContour { min-height: 48px; min-width: 48px; }
 }
+
+.traveler-readout { display: block; margin: 2px 4px 12px; color: #80d9ff; font: 11px/1.4 monospace; font-variant-numeric: tabular-nums; }
