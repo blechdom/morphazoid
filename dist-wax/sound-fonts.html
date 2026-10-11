@@ -31,7 +31,7 @@
     <link rel="stylesheet" href="src/site/sound-fonts/sound-fonts.css" />
   </head>
   <body class="sound-fonts-page">
-    <header class="masthead">
+    <header class="masthead" data-audio-output-meter>
       <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
       <nav class="tabs" aria-label="Morphazoid main menu"><a href="./">Instruments</a></nav>
       <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="">choose</option></select></label>
@@ -44,7 +44,8 @@
         <input id="fontFiles" class="sr-only" type="file" accept=".sf2" multiple tabindex="-1" aria-label="Import SoundFont files" />
       </header>
       <div class="sf-nav" role="group" aria-label="Sound font sections">
-        <button type="button" data-view="collection" aria-pressed="true">Collection <span id="fontCount">0</span></button>
+        <button type="button" data-view="explore" aria-pressed="true">Explore <span id="presetCount">0</span></button>
+        <button type="button" data-view="collection" aria-pressed="false">Collection <span id="fontCount">0</span></button>
         <button type="button" data-view="workshop" aria-pressed="false">Workshop</button>
         <button type="button" data-view="sources" aria-pressed="false">Find sounds</button>
       </div>
@@ -54,11 +55,18 @@
       <section id="collectionView" aria-label="Sound font collection">
         <div class="sf-library-layout">
           <div class="sf-library">
+            <div id="exploreBrowser">
+              <div class="sf-explore-tools"><label class="sf-search"><span class="sr-only">Search presets</span><input id="presetSearch" type="search" placeholder="Search piano, bass, strings, drums…" /></label><label class="sf-field">Family<select id="familySelect"><option value="">All families</option></select></label></div>
+              <div id="presetList" class="sf-preset-list" aria-label="Preset instruments"></div>
+              <p id="presetEmpty" class="sf-muted" hidden>No matching presets.</p>
+            </div>
+            <div id="collectionBrowser" hidden>
             <div class="sf-library-tools"><label class="sf-search"><span class="sr-only">Search collection</span><input id="search" type="search" placeholder="Search sounds, makers, or notes…" /></label><button id="addLinkButton" class="sf-button sf-quiet" type="button">＋ Save a link</button></div>
             <div id="filters" class="sf-filters" role="group" aria-label="Filter collection"><button type="button" data-filter="all" aria-pressed="true">All sounds</button><button type="button" data-filter="favorite" aria-pressed="false">★ Favorites</button><button type="button" data-filter="imported" aria-pressed="false">Imported</button><button type="button" data-filter="created" aria-pressed="false">Made here</button><button type="button" data-filter="link" aria-pressed="false">Links</button></div>
             <div class="sf-list-heading"><span>SOUND / INSTRUMENT</span><span>FORMAT</span></div>
             <div id="fontList" class="sf-font-list" aria-label="Saved sound fonts"></div>
             <div id="emptyState" class="sf-empty" hidden><h2>No sounds here yet.</h2><p>Import an SF2, save a source link, or make something new in the workshop.</p><button type="button" class="sf-button" id="emptyCreate">Open workshop →</button></div>
+            </div>
         <section class="sf-keyboard-section" aria-label="Play selected sound font"><div class="sf-keyboard-heading"><h2>Try a few notes</h2><span id="keyboardHint">Audio off · click keys or use your computer keyboard</span></div><div id="keyboard" class="sf-keyboard"></div></section>
           </div>
           <aside class="sf-inspector" aria-label="Selected sound font">
@@ -67,7 +75,7 @@
               <div class="sf-inspector-top"><span id="selectedKind" class="sf-eyebrow"></span><button id="favoriteButton" class="sf-icon-button" type="button" aria-label="Add to favorites" aria-pressed="false">☆</button></div>
               <h2 id="selectedName"></h2><p id="selectedAuthor" class="sf-muted"></p>
               <canvas id="waveform" width="600" height="150" aria-label="Waveform of the selected sound sample"></canvas>
-              <div id="playableDetails"><label class="sf-field">Preset<select id="presetSelect"></select></label><div class="sf-preview-actions"><button id="auditionButton" type="button" class="sf-button sf-primary">▶ Preview sound</button><button id="stopButton" type="button" class="sf-button">Stop</button></div></div>
+              <div id="playableDetails"><div class="sf-preset-picker"><label class="sf-field">Preset<select id="presetSelect"></select></label><button id="nextPreset" class="sf-button" type="button" aria-label="Next preset">→</button></div><div class="sf-preview-actions"><button id="enableAudio" type="button" class="sf-button sf-primary">Enable audio</button><button id="auditionButton" type="button" class="sf-button sf-primary">▶ Preview sound</button><button id="stopButton" type="button" class="sf-button">Stop</button></div><p id="playbackStatus" class="sf-muted sf-small" role="status">Audio off</p></div>
               <p id="linkOnlyNotice" class="sf-muted" hidden>Saved source link. Download an SF2 from its maker, then import it to play here.</p>
               <dl class="sf-details"><div><dt>Contents</dt><dd id="selectedStats"></dd></div><div><dt>License</dt><dd id="selectedLicense"></dd></div></dl>
               <p id="selectedNotes" class="sf-muted"></p><p id="fontWarnings" class="sf-muted sf-small"></p>
@@ -106,7 +114,6 @@
     </main>
     <dialog id="linkDialog" class="sf-dialog"><form id="linkForm"><p id="linkError" class="sf-error" role="alert" hidden></p><div class="sf-dialog-heading"><h2>Save a sound font link</h2><button id="closeLink" type="button" class="sf-icon-button" aria-label="Close">×</button></div><label class="sf-field">Name<input id="linkName" required maxlength="100" /></label><label class="sf-field">Source URL<input id="linkUrl" type="url" required placeholder="https://" maxlength="2000" /></label><label class="sf-field">Notes<textarea id="linkNotes" maxlength="2000" rows="3"></textarea></label><button type="submit" class="sf-button sf-primary">Add to collection</button></form></dialog>
     <dialog id="deleteDialog" class="sf-dialog"><form method="dialog"><h2>Remove this sound?</h2><p id="deleteMessage"></p><div class="sf-actions"><button class="sf-button" value="cancel">Keep it</button><button class="sf-button sf-danger" value="remove">Remove</button></div></form></dialog>
-    <script type="module" src="nav.js"></script>
     <script type="module" src="src/site/sound-fonts/app.js"></script>
     <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
 </body>

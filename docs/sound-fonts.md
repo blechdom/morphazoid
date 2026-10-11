@@ -6,6 +6,12 @@ server, account, cloud library, or a new catalogue instrument.
 
 ## Collect and play
 
+**Explore** opens with 143 searchable presets: 140 from the five bundled banks
+and three Morphazoid originals. Filter by instrument family or search for an
+instrument. Selecting a preset downloads its bank once and saves it to the
+collection. Presets are identified by bank/program, independent of their SF2
+storage order. **Next preset** steps through the filtered results.
+
 **Find sounds** includes five free banks: TimGM6mb (136 General MIDI presets),
 FreePats Kalimba, Ocarina, Jaw Harp, and Lately Bass. **Add to collection** loads
 the original SF2 into browser storage; subsequent clicks open that saved entry.
@@ -19,10 +25,15 @@ notes; filter imports, creations, links, and favorites. Edit descriptive
 metadata beside the selected font. Metadata edits preserve the original
 download bytes, including their embedded name and credits.
 
-Audio starts off. Enable it in the masthead, choose a preset, and preview it or
-use the two-row computer keyboard. The visible keys also accept pointer and
+Audio starts off. Use **Enable audio** beside Preview or the masthead speaker,
+then select a preset to hear it, press **Preview sound**, or use the two-row
+computer keyboard. The shared Faves toolbar provides stereo output meters,
+the master volume knob, Audio, and Settings. The visible keys also accept pointer and
 keyboard activation. Stop and Escape release previews; leaving or hiding the
 page stops active notes. No microphone permission is requested.
+The keyboard follows each bundled preset's playable register, including drum
+keys and the ocarina's higher range. Unmapped notes are disabled. Preview notes
+are validated against both key and velocity ranges.
 
 The player previews PCM sample zones with key and velocity ranges, pitch,
 panning, loop points, attack, and release. It is not a complete SoundFont synth:
@@ -59,6 +70,8 @@ Audio is limited to 16 simultaneous sample sources, including release tails,
 with a 15-second maximum note and a bounded PCM buffer cache. Oversized or
 malformed SF2 data is rejected before unsafe indexing. Preview audio is
 scheduled on the audio clock and does not depend on waveform drawing.
+Single notes use a practical playback level; a compressor and a 0.98 peak guard
+bound combined voices before the master volume.
 
 ## Sources and validation
 

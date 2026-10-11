@@ -12,7 +12,1233 @@
     "licenseFile": "assets/midiphoria/soundfont/GPL-2.0.txt",
     "bytes": 5969788,
     "sha256": "c5378b62028c920cb11e4803327983fee2f2cdff5dc89c708e39da417e51c854",
-    "presetCount": 136
+    "presetCount": 136,
+    "presets": [
+      {
+        "name": "Piano 1",
+        "displayName": "Acoustic Grand Piano",
+        "bank": 0,
+        "program": 0,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Piano 2",
+        "displayName": "Bright Acoustic Piano",
+        "bank": 0,
+        "program": 1,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Piano 3",
+        "displayName": "Electric Grand Piano",
+        "bank": 0,
+        "program": 2,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Honky Tonk",
+        "displayName": "Honky-tonk Piano",
+        "bank": 0,
+        "program": 3,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "E.Piano 1",
+        "displayName": "Electric Piano 1",
+        "bank": 0,
+        "program": 4,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "E.Piano 2",
+        "displayName": "Electric Piano 2",
+        "bank": 0,
+        "program": 5,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Harpsichord",
+        "displayName": "Harpsichord",
+        "bank": 0,
+        "program": 6,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Clavinet",
+        "displayName": "Clavinet",
+        "bank": 0,
+        "program": 7,
+        "family": "Pianos",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Celesta",
+        "displayName": "Celesta",
+        "bank": 0,
+        "program": 8,
+        "family": "Chromatic percussion",
+        "keyboardBase": 60,
+        "previewNote": 60
+      },
+      {
+        "name": "Glockenspiel",
+        "displayName": "Glockenspiel",
+        "bank": 0,
+        "program": 9,
+        "family": "Chromatic percussion",
+        "keyboardBase": 60,
+        "previewNote": 60
+      },
+      {
+        "name": "MusicBox",
+        "displayName": "Music Box",
+        "bank": 0,
+        "program": 10,
+        "family": "Chromatic percussion",
+        "keyboardBase": 60,
+        "previewNote": 60
+      },
+      {
+        "name": "Vibraphone",
+        "displayName": "Vibraphone",
+        "bank": 0,
+        "program": 11,
+        "family": "Chromatic percussion",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Marimba",
+        "displayName": "Marimba",
+        "bank": 0,
+        "program": 12,
+        "family": "Chromatic percussion",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Xylophone",
+        "displayName": "Xylophone",
+        "bank": 0,
+        "program": 13,
+        "family": "Chromatic percussion",
+        "keyboardBase": 60,
+        "previewNote": 60
+      },
+      {
+        "name": "Tubular Bells",
+        "displayName": "Tubular Bells",
+        "bank": 0,
+        "program": 14,
+        "family": "Chromatic percussion",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Dulcimer",
+        "displayName": "Dulcimer",
+        "bank": 0,
+        "program": 15,
+        "family": "Chromatic percussion",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Organ 1",
+        "displayName": "Drawbar Organ",
+        "bank": 0,
+        "program": 16,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Organ 2",
+        "displayName": "Percussive Organ",
+        "bank": 0,
+        "program": 17,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Organ 3",
+        "displayName": "Rock Organ",
+        "bank": 0,
+        "program": 18,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Church Organ",
+        "displayName": "Church Organ",
+        "bank": 0,
+        "program": 19,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Reed Organ",
+        "displayName": "Reed Organ",
+        "bank": 0,
+        "program": 20,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Accordion",
+        "displayName": "Accordion",
+        "bank": 0,
+        "program": 21,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Harmonica",
+        "displayName": "Harmonica",
+        "bank": 0,
+        "program": 22,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Bandoneon",
+        "displayName": "Tango Accordion",
+        "bank": 0,
+        "program": 23,
+        "family": "Organs",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Nylon Guitar",
+        "displayName": "Acoustic Guitar (nylon)",
+        "bank": 0,
+        "program": 24,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Steel Guitar",
+        "displayName": "Acoustic Guitar (steel)",
+        "bank": 0,
+        "program": 25,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Jazz Guitar",
+        "displayName": "Electric Guitar (jazz)",
+        "bank": 0,
+        "program": 26,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Clean Guitar",
+        "displayName": "Electric Guitar (clean)",
+        "bank": 0,
+        "program": 27,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Guitar Mutes",
+        "displayName": "Electric Guitar (muted)",
+        "bank": 0,
+        "program": 28,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Overdrive Guitar",
+        "displayName": "Overdriven Guitar",
+        "bank": 0,
+        "program": 29,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "DistortionGuitar",
+        "displayName": "Distortion Guitar",
+        "bank": 0,
+        "program": 30,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Guitar Harmonics",
+        "displayName": "Guitar Harmonics",
+        "bank": 0,
+        "program": 31,
+        "family": "Guitars",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Acoustic Bass",
+        "displayName": "Acoustic Bass",
+        "bank": 0,
+        "program": 32,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Fingered Bass",
+        "displayName": "Electric Bass (finger)",
+        "bank": 0,
+        "program": 33,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Picked Bass",
+        "displayName": "Electric Bass (pick)",
+        "bank": 0,
+        "program": 34,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Fretless Bass",
+        "displayName": "Fretless Bass",
+        "bank": 0,
+        "program": 35,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Slap Bass 1",
+        "displayName": "Slap Bass 1",
+        "bank": 0,
+        "program": 36,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Slap Bass 2",
+        "displayName": "Slap Bass 2",
+        "bank": 0,
+        "program": 37,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Synth Bass 1",
+        "displayName": "Synth Bass 1",
+        "bank": 0,
+        "program": 38,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Synth Bass 2",
+        "displayName": "Synth Bass 2",
+        "bank": 0,
+        "program": 39,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Violin",
+        "displayName": "Violin",
+        "bank": 0,
+        "program": 40,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Viola",
+        "displayName": "Viola",
+        "bank": 0,
+        "program": 41,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Cello",
+        "displayName": "Cello",
+        "bank": 0,
+        "program": 42,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Contrabass",
+        "displayName": "Contrabass",
+        "bank": 0,
+        "program": 43,
+        "family": "Strings",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Strings (Tremelo)",
+        "displayName": "Tremolo Strings",
+        "bank": 0,
+        "program": 44,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Pizzicato",
+        "displayName": "Pizzicato Strings",
+        "bank": 0,
+        "program": 45,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Harp LP",
+        "displayName": "Orchestral Harp",
+        "bank": 0,
+        "program": 46,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Timpani",
+        "displayName": "Timpani",
+        "bank": 0,
+        "program": 47,
+        "family": "Strings",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Strings CLP",
+        "displayName": "String Ensemble 1",
+        "bank": 0,
+        "program": 48,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Slow Strings LP",
+        "displayName": "String Ensemble 2",
+        "bank": 0,
+        "program": 49,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Strings 1",
+        "displayName": "Synth Strings 1",
+        "bank": 0,
+        "program": 50,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Strings 2",
+        "displayName": "Synth Strings 2",
+        "bank": 0,
+        "program": 51,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Choir Aahs",
+        "displayName": "Choir Aahs",
+        "bank": 0,
+        "program": 52,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Voice Oohs",
+        "displayName": "Voice Oohs",
+        "bank": 0,
+        "program": 53,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Vox",
+        "displayName": "Synth Voice",
+        "bank": 0,
+        "program": 54,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Orchestra Hit",
+        "displayName": "Orchestra Hit",
+        "bank": 0,
+        "program": 55,
+        "family": "Ensembles",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "SoloTrumpet",
+        "displayName": "Trumpet",
+        "bank": 0,
+        "program": 56,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Trombone",
+        "displayName": "Trombone",
+        "bank": 0,
+        "program": 57,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Tuba",
+        "displayName": "Tuba",
+        "bank": 0,
+        "program": 58,
+        "family": "Brass",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Mute Trumpet",
+        "displayName": "Muted Trumpet",
+        "bank": 0,
+        "program": 59,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "French Horns",
+        "displayName": "French Horn",
+        "bank": 0,
+        "program": 60,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Brass",
+        "displayName": "Brass Section",
+        "bank": 0,
+        "program": 61,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Brass 1",
+        "displayName": "Synth Brass 1",
+        "bank": 0,
+        "program": 62,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Brass 2",
+        "displayName": "Synth Brass 2",
+        "bank": 0,
+        "program": 63,
+        "family": "Brass",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "SopSax (TB) v2.3",
+        "displayName": "Soprano Sax",
+        "bank": 0,
+        "program": 64,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "AltoSax (TB) v2.3",
+        "displayName": "Alto Sax",
+        "bank": 0,
+        "program": 65,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Tenor Sax (TB) v2.3",
+        "displayName": "Tenor Sax",
+        "bank": 0,
+        "program": 66,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "BariSax (TB) v2.3",
+        "displayName": "Baritone Sax",
+        "bank": 0,
+        "program": 67,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Oboe (Orch)",
+        "displayName": "Oboe",
+        "bank": 0,
+        "program": 68,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "English Horn",
+        "displayName": "English Horn",
+        "bank": 0,
+        "program": 69,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Bassoon",
+        "displayName": "Bassoon",
+        "bank": 0,
+        "program": 70,
+        "family": "Reeds",
+        "keyboardBase": 36,
+        "previewNote": 43
+      },
+      {
+        "name": "Clarinet",
+        "displayName": "Clarinet",
+        "bank": 0,
+        "program": 71,
+        "family": "Reeds",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Piccolo",
+        "displayName": "Piccolo",
+        "bank": 0,
+        "program": 72,
+        "family": "Flutes & pipes",
+        "keyboardBase": 60,
+        "previewNote": 60
+      },
+      {
+        "name": "Flute TB",
+        "displayName": "Flute",
+        "bank": 0,
+        "program": 73,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Recorder",
+        "displayName": "Recorder",
+        "bank": 0,
+        "program": 74,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Pan Flute",
+        "displayName": "Pan Flute",
+        "bank": 0,
+        "program": 75,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Bottle Chiff",
+        "displayName": "Blown Bottle",
+        "bank": 0,
+        "program": 76,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Shakuhachi",
+        "displayName": "Shakuhachi",
+        "bank": 0,
+        "program": 77,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Whistle",
+        "displayName": "Whistle",
+        "bank": 0,
+        "program": 78,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Ocarina",
+        "displayName": "Ocarina",
+        "bank": 0,
+        "program": 79,
+        "family": "Flutes & pipes",
+        "keyboardBase": 48,
+        "previewNote": 67
+      },
+      {
+        "name": "Square Wave",
+        "displayName": "Lead 1 (square)",
+        "bank": 0,
+        "program": 80,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Saw Wave",
+        "displayName": "Lead 2 (sawtooth)",
+        "bank": 0,
+        "program": 81,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Calliope",
+        "displayName": "Lead 3 (calliope)",
+        "bank": 0,
+        "program": 82,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Chiffer Lead",
+        "displayName": "Lead 4 (chiff)",
+        "bank": 0,
+        "program": 83,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Charang",
+        "displayName": "Lead 5 (charang)",
+        "bank": 0,
+        "program": 84,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Solo Vox",
+        "displayName": "Lead 6 (voice)",
+        "bank": 0,
+        "program": 85,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "5th Saw Wave",
+        "displayName": "Lead 7 (fifths)",
+        "bank": 0,
+        "program": 86,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Bass & Lead",
+        "displayName": "Lead 8 (bass + lead)",
+        "bank": 0,
+        "program": 87,
+        "family": "Synth leads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Fantasia",
+        "displayName": "Pad 1 (new age)",
+        "bank": 0,
+        "program": 88,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Warm Pad",
+        "displayName": "Pad 2 (warm)",
+        "bank": 0,
+        "program": 89,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Poly Synth",
+        "displayName": "Pad 3 (polysynth)",
+        "bank": 0,
+        "program": 90,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Space Voice",
+        "displayName": "Pad 4 (choir)",
+        "bank": 0,
+        "program": 91,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Bowed Glass",
+        "displayName": "Pad 5 (bowed)",
+        "bank": 0,
+        "program": 92,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Metal Pad",
+        "displayName": "Pad 6 (metallic)",
+        "bank": 0,
+        "program": 93,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Halo Pad",
+        "displayName": "Pad 7 (halo)",
+        "bank": 0,
+        "program": 94,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Sweep Pad",
+        "displayName": "Pad 8 (sweep)",
+        "bank": 0,
+        "program": 95,
+        "family": "Synth pads",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "IceRain",
+        "displayName": "FX 1 (rain)",
+        "bank": 0,
+        "program": 96,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Soundtrack",
+        "displayName": "FX 2 (soundtrack)",
+        "bank": 0,
+        "program": 97,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Crystal",
+        "displayName": "FX 3 (crystal)",
+        "bank": 0,
+        "program": 98,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Atmosphere",
+        "displayName": "FX 4 (atmosphere)",
+        "bank": 0,
+        "program": 99,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Brightness",
+        "displayName": "FX 5 (brightness)",
+        "bank": 0,
+        "program": 100,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Goblin",
+        "displayName": "FX 6 (goblins)",
+        "bank": 0,
+        "program": 101,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Echo Drops",
+        "displayName": "FX 7 (echoes)",
+        "bank": 0,
+        "program": 102,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Star Theme",
+        "displayName": "FX 8 (sci-fi)",
+        "bank": 0,
+        "program": 103,
+        "family": "Synth effects",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Sitar",
+        "displayName": "Sitar",
+        "bank": 0,
+        "program": 104,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Banjo",
+        "displayName": "Banjo",
+        "bank": 0,
+        "program": 105,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Shamisen",
+        "displayName": "Shamisen",
+        "bank": 0,
+        "program": 106,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Koto",
+        "displayName": "Koto",
+        "bank": 0,
+        "program": 107,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Kalimba",
+        "displayName": "Kalimba",
+        "bank": 0,
+        "program": 108,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Bagpipe",
+        "displayName": "Bagpipe",
+        "bank": 0,
+        "program": 109,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Fiddle",
+        "displayName": "Fiddle",
+        "bank": 0,
+        "program": 110,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Shenai",
+        "displayName": "Shanai",
+        "bank": 0,
+        "program": 111,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Tinker Bell",
+        "displayName": "Tinkle Bell",
+        "bank": 0,
+        "program": 112,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Agogo",
+        "displayName": "Agogo",
+        "bank": 0,
+        "program": 113,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Steel Drum",
+        "displayName": "Steel Drums",
+        "bank": 0,
+        "program": 114,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Wood Block",
+        "displayName": "Woodblock",
+        "bank": 0,
+        "program": 115,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Taiko Drum",
+        "displayName": "Taiko Drum",
+        "bank": 0,
+        "program": 116,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Melodic Tom",
+        "displayName": "Melodic Tom",
+        "bank": 0,
+        "program": 117,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Synth Drum",
+        "displayName": "Synth Drum",
+        "bank": 0,
+        "program": 118,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Reverse Cymbal",
+        "displayName": "Reverse Cymbal",
+        "bank": 0,
+        "program": 119,
+        "family": "Percussive instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      },
+      {
+        "name": "Fret Noise",
+        "displayName": "Guitar Fret Noise",
+        "bank": 0,
+        "program": 120,
+        "family": "Sound effects",
+        "keyboardBase": 66,
+        "previewNote": 78
+      },
+      {
+        "name": "Breath Noise",
+        "displayName": "Breath Noise",
+        "bank": 0,
+        "program": 121,
+        "family": "Sound effects",
+        "keyboardBase": 37,
+        "previewNote": 65
+      },
+      {
+        "name": "Seashore",
+        "displayName": "Seashore",
+        "bank": 0,
+        "program": 122,
+        "family": "Sound effects",
+        "keyboardBase": 58,
+        "previewNote": 78
+      },
+      {
+        "name": "Bird",
+        "displayName": "Bird Tweet",
+        "bank": 0,
+        "program": 123,
+        "family": "Sound effects",
+        "keyboardBase": 21,
+        "previewNote": 41
+      },
+      {
+        "name": "Telephone",
+        "displayName": "Telephone Ring",
+        "bank": 0,
+        "program": 124,
+        "family": "Sound effects",
+        "keyboardBase": 76,
+        "previewNote": 88
+      },
+      {
+        "name": "Helicopter",
+        "displayName": "Helicopter",
+        "bank": 0,
+        "program": 125,
+        "family": "Sound effects",
+        "keyboardBase": 80,
+        "previewNote": 108
+      },
+      {
+        "name": "Applause",
+        "displayName": "Applause",
+        "bank": 0,
+        "program": 126,
+        "family": "Sound effects",
+        "keyboardBase": 80,
+        "previewNote": 108
+      },
+      {
+        "name": "Gun Shot",
+        "displayName": "Gunshot",
+        "bank": 0,
+        "program": 127,
+        "family": "Sound effects",
+        "keyboardBase": 80,
+        "previewNote": 106
+      },
+      {
+        "name": "Standard",
+        "displayName": "Standard Kit",
+        "bank": 128,
+        "program": 0,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Room",
+        "displayName": "Room Kit",
+        "bank": 128,
+        "program": 8,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Power",
+        "displayName": "Power Kit",
+        "bank": 128,
+        "program": 16,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Electronic",
+        "displayName": "Electronic Kit",
+        "bank": 128,
+        "program": 24,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "TR 808",
+        "displayName": "TR 808 Kit",
+        "bank": 128,
+        "program": 25,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Jazz",
+        "displayName": "Jazz Kit",
+        "bank": 128,
+        "program": 32,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Brush",
+        "displayName": "Brush Kit",
+        "bank": 128,
+        "program": 40,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      },
+      {
+        "name": "Orchestra",
+        "displayName": "Orchestra Kit",
+        "bank": 128,
+        "program": 48,
+        "family": "Drum kits",
+        "keyboardBase": 36,
+        "previewNote": 36
+      }
+    ]
   },
   {
     "id": "freepats-kalimba",
@@ -27,7 +1253,18 @@
     "licenseFile": "assets/sound-fonts/kalimba/LICENSE.txt",
     "bytes": 9889978,
     "sha256": "8232588e69ca4554f52bd9336099c45d2ca18bd8bc01b2efde8016bfee2db978",
-    "presetCount": 1
+    "presetCount": 1,
+    "presets": [
+      {
+        "name": "Instrument",
+        "displayName": "Kalimba",
+        "bank": 0,
+        "program": 0,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      }
+    ]
   },
   {
     "id": "freepats-ocarina",
@@ -42,7 +1279,18 @@
     "licenseFile": "assets/sound-fonts/ocarina/LICENSE.txt",
     "bytes": 3226512,
     "sha256": "e92c42a68cb738663748ce512dfbc7f18c3c3ea38d12df9ce165b249e6da6bc6",
-    "presetCount": 1
+    "presetCount": 1,
+    "presets": [
+      {
+        "name": "Ocarina",
+        "displayName": "Ocarina",
+        "bank": 0,
+        "program": 0,
+        "family": "Flutes & pipes",
+        "keyboardBase": 60,
+        "previewNote": 72
+      }
+    ]
   },
   {
     "id": "freepats-jaw-harp",
@@ -57,7 +1305,18 @@
     "licenseFile": "assets/sound-fonts/jaw-harp/LICENSE.txt",
     "bytes": 3526490,
     "sha256": "d1b45d2fb1d439a4e0be610a032cfefd68f033b8d3d73094b86031ee49961884",
-    "presetCount": 1
+    "presetCount": 1,
+    "presets": [
+      {
+        "name": "Jaw Harp",
+        "displayName": "Jaw Harp",
+        "bank": 0,
+        "program": 0,
+        "family": "World instruments",
+        "keyboardBase": 48,
+        "previewNote": 60
+      }
+    ]
   },
   {
     "id": "freepats-lately-bass",
@@ -72,6 +1331,17 @@
     "licenseFile": "assets/sound-fonts/lately-bass/LICENSE.txt",
     "bytes": 3993772,
     "sha256": "466897ab10136f9745d35fffd385f8e0fde41ca4df3a89fb482333038f825028",
-    "presetCount": 1
+    "presetCount": 1,
+    "presets": [
+      {
+        "name": "Lately Bass",
+        "displayName": "Lately Bass",
+        "bank": 0,
+        "program": 0,
+        "family": "Basses",
+        "keyboardBase": 36,
+        "previewNote": 43
+      }
+    ]
   }
 ]
