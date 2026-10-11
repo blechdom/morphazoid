@@ -865,6 +865,7 @@ copy+require	spartial.html
 copy+require	src/instruments/spartial/spartial-app.js
 copy+require	src/instruments/spartial/spartial.js
 copy+require	src/instruments/spartial/spartial-granular.js
+copy+require	src/instruments/spartial/spartial-organ.js
 copy+require	src/instruments/spartial/spartial-audio.js
 copy+require	src/instruments/spartial/spartial-processor.js
 copy+require	src/instruments/spartial/spartial-recording.js
@@ -872,6 +873,7 @@ copy+require	src/instruments/spartial/spartial-recording-export.js
 copy+require	src/instruments/spartial/spartial.css
 copy+require	assets/instruments/spartial.webp
 copy+require	docs/spartial.md
+copy+require	docs/spartial-organ-research.md
 copy	surround-field.html
 copy+require	src/instruments/surround-field/surround-field.css
 copy+require	src/instruments/surround-field/surround-field-app.js

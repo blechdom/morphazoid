@@ -1,0 +1,17 @@
+{
+  "baseCommit": "a7c885bfb45f24014523220c546fe76c03c39ca5",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "7fc6a512ac7392aec8ffad2163022eac8179799151150a9fb9b33121349a5aa8",
+  "replacements": [
+    {
+      "before": "copy+require\tsrc/instruments/spartial/spartial-granular.js\n",
+      "after": "copy+require\tsrc/instruments/spartial/spartial-granular.js\ncopy+require\tsrc/instruments/spartial/spartial-organ.js\n",
+      "addition": "copy+require\tsrc/instruments/spartial/spartial-organ.js\n"
+    },
+    {
+      "before": "copy+require\tdocs/spartial.md\n",
+      "after": "copy+require\tdocs/spartial.md\ncopy+require\tdocs/spartial-organ-research.md\n",
+      "addition": "copy+require\tdocs/spartial-organ-research.md\n"
+    }
+  ]
+}
