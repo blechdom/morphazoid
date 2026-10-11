@@ -369,7 +369,11 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   });
   on($('mixerSampleLevel'), 'input', () => engine.configureSamples({ gain: Number($('mixerSampleLevel').value) }));
   function paint(event) {
-    const rect = canvas.getBoundingClientRect(), transpose = Math.round(clamp((event.clientX - rect.left) / rect.width * 128 - 72, -36, 36));
+    const rect = canvas.getBoundingClientRect(), pitch = (event.clientX - rect.left) / rect.width * 128;
+    const settings = automataSelected ? automata.getSettings() : null;
+    const transpose = settings
+      ? Math.round(pitch - settings.columns / 2) - settings.lowestNote
+      : Math.round(clamp(pitch - 72, -36, 36));
     safely(() => stampSelected(transpose));
   }
   on(canvas, 'pointerdown', event => {

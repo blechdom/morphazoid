@@ -79,7 +79,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   field(fields, 'Rows', 'Generations', 'rows', 'number', { min: 8, max: 128, step: 1 });
   field(fields, 'RowBeats', 'Beats per generation', 'rowBeats', 'number', { min: .125, max: 1, step: .001 });
   field(fields, 'LowestNote', 'Lowest MIDI note', 'lowestNote', 'number', { min: 0, max: 80, step: 1 });
-  field(fields, 'Articulation', 'Articulation', 'articulation', 'select', [['retrigger', 'Retrigger each live cell'], ['hold', 'Hold connected cells']]);
+  field(fields, 'Articulation', 'Articulation', 'articulation', 'select', [['retrigger', 'Retrigger cells'], ['hold', 'Hold notes']]);
   field(fields, 'Velocity', 'Note velocity', 'velocity', 'number', { min: 1, max: 127, step: 1 });
   const parameterActions = el('div', 'automata-midi-actions'), reroll = button('NextSeed', 'Next seed'), reset = button('Reset', 'Reset rules');
   parameterActions.append(reroll, reset); parameters.append(parameterActions);

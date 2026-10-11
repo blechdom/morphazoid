@@ -53,6 +53,37 @@ Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
 capture a hardware mapping.
 
+## Automatapoeia rules as MIDI
+
+Open **Automatapoeia rules** beneath the MIDI library. The rule picker contains
+all 256 elementary rules and all 64 radius-2 totalistic rules from the same
+engine as [Automatapoeia](../automatapoeia.html). Choose a rule, then **Make MIDI**
+to load it into the ordinary player, or download its full `.mid` file. **Edit MIDI**
+opens it on mixer deck A for looping, voice edits, effects and speed ratios up to 8×.
+With Audio already enabled, Make MIDI auditions the result; with Audio off it
+stays muted. Preview edits alone do not replace or interrupt the playing file.
+
+Columns map directly to chromatic MIDI pitches. The centered or seeded random
+row plays first, followed by each generated row. **Retrigger** produces a new
+attack for every active cell; **Hold** joins consecutive active cells at the
+same pitch. Both preserve every cell without scale snapping or note thinning.
+The selected preview uses the actual seed, boundary and transform settings;
+rule-menu thumbnails use Automatapoeia's fixed random preview with wraparound.
+
+Pattern controls expose 8–128 pitches, 8–128 generations, ⅛–1 beat per row,
+lowest note, velocity, seed density, reproducible seed, fixed/wrap boundaries,
+and post-step shifts, reflection or inversion. Pitch ranges stay within MIDI
+0–127. The bounded generator produces at most 16,384 notes and 128 beats per
+pattern. Dense scores still share the player's finite synthesis and rendering
+budgets. These are MIDI cell patterns, not Automatapoeia's separate synthesis modes.
+
+In **MIDI Mixer**, the same rule picker sits beside the stamp bank. **Stamp rule**
+adds the pattern to the shared audio-clock flow without replacing either deck.
+It also selects that rule for **Stamp again** and pitch placement on the canvas.
+Sample sound, level, key gate and the deep **Stamp MIDI** controls apply. Source
+settings affect the next stamp; an already launched pattern keeps its notes.
+The player and mixer keep separate rule settings during the current session.
+
 ## Draw, words and symbols
 
 **Draw a MIDI** switches the same stage to a 48-column × 32-row pixel score.

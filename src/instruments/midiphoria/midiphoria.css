@@ -206,7 +206,7 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-automata :focus-visible { outline: 2px solid #c5acd3; outline-offset: 2px; }
 .automata-midi-main { display: grid; gap: 10px; min-width: 0; }
 .automata-midi-rule-picker { min-width: 0; }
-.automata-midi-rule-picker > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.automata-midi-rule-picker > summary { display: list-item; list-style-position: inside; }
 .automata-midi-rule-picker > summary svg { width: 62px; height: 36px; fill: currentColor; }
 .automata-midi-rule-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 3px; margin: 8px 0; max-height: 280px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #806289 #0b1515; }
 .midiphoria-automata .automata-midi-rule-list button { display: flex; flex-direction: column; align-items: center; min-width: 0; gap: 4px; padding: 5px; font-size: 11px; }
@@ -221,4 +221,16 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 @media (pointer: coarse) {
   .midiphoria-automata summary, .midiphoria-automata input, .midiphoria-automata select, .midiphoria-automata button, .automata-midi-actions a { min-height: 48px; }
   .midiphoria-automata summary, .automata-midi-actions a { box-sizing: border-box; align-content: center; }
+}
+.automata-midi-rule-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.automata-midi-rule-navigation .automata-midi-rule-picker { grid-column: 1 / -1; grid-row: 1; }
+.automata-midi-rule-filters { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; font-size: 11px; margin-top: 8px; }
+.midiphoria-automata .automata-midi-rule-filters label { flex-direction: row; align-items: center; min-height: 36px; }
+.midiphoria-automata input[type="checkbox"] { width: 18px; height: 18px; min-height: 18px; flex: 0 0 18px; padding: 0; }
+.automata-midi-figure { margin: 10px 0; }
+.automata-midi-caption { font-size: 10px; line-height: 1.5; color: #9bb5ab; margin: 6px 0; }
+@media (pointer: coarse) { .midiphoria-automata .automata-midi-rule-filters label { min-height: 48px; } }
+@media (pointer: coarse) {
+  .midiphoria-page .midiphoria-automata input[type="number"],
+  .midiphoria-page .midiphoria-automata input[type="search"] { min-height: 48px; }
 }

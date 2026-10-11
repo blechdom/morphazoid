@@ -66,6 +66,15 @@ behind. Randomization reaches the added sound controls within bounded musical
 ranges; custom controller entries are randomized as part of their scene.
 Stamp sound/source settings remain separate live performance settings.
 
+## Automatapoeia rule stamps
+
+The **Automatapoeia rules** pulldown beside the stamp bank generates MIDI from
+all 256 elementary and 64 totalistic rules. **Stamp rule** launches the selected
+pattern and selects it for **Stamp again** and pitch placement on the flow.
+Its seed, dimensions, articulation, timing and boundary controls affect the next
+shot. Existing deck playback keeps going; sample sound, level, key gate and
+**Stamp MIDI** edits work on rule stamps too. See the [rule mapping and limits](midiphoria.md#automatapoeia-rules-as-midi).
+
 ## Visualize and play one-shots
 
 The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
