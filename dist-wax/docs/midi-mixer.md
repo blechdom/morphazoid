@@ -59,12 +59,80 @@ The controller names follow the [MIDI Association reference](https://midi.org/mi
 DSP capabilities are verified against the bundled
 [SpessaSynth core](https://github.com/spessasus/spessasynth_core).
 
-Mix presets now save version 2 with deep copies of deck/channel MIDI overrides
-and shared effects; version 1 scenes migrate to file-following defaults.
+Mix presets save version 3 with deep copies of deck/channel MIDI overrides,
+shared effects, reverse modes and Weave settings. Version 1 and 2 scenes
+migrate with reverse and Weave off; version 1 also gains file-following sound defaults.
 Recalling a scene replaces its overrides rather than leaving old controllers
 behind. Randomization reaches the added sound controls within bounded musical
 ranges; custom controller entries are randomized as part of their scene.
 Stamp sound/source settings remain separate live performance settings.
+
+## Reverse either deck
+
+Choose **Reverse notes** or **Reverse + CC**, then press that deck's **Reverse**
+button. Press again to restore forward playback. The button preserves Play and
+Audio state. **Download reversed MIDI** saves the rewritten score; **Play original**
+always uses the untouched source file.
+
+- **Reverse notes** reflects each note's start and key-release interval across
+  the file's actual duration. A note at beat 2 with length 1 in an eight-beat
+  file starts at beat 5. Each channel keeps its opening instrument and controller
+  setup; later automation is omitted.
+- **Reverse + CC** also reverses controller states. It begins with the state at
+  the original end and returns to the previous value when it crosses each
+  reflected boundary. This covers bank/program changes, ordinary CC, pitch bend,
+  pressure and supported RPN/NRPN parameter transactions. Simply reversing the
+  order of controller messages would apply the wrong values between changes.
+
+Sustain and sostenuto in **Reverse + CC** become audible note lengths, with
+those hold pedals released in the rewritten file. This avoids hanging notes
+when a pedal-up/pedal-down pair changes direction. Repeated overlapping notes
+on one MIDI channel can have ambiguous release ordering; warnings appear in
+**Inspect MIDI** when that limits the rewritten gates. Device-specific parameter
+defaults and SysEx can also limit faithful reconstruction. Unknown controller baselines use the first explicit
+value with a warning; unknown NRPN increments and unsupported device modes
+are omitted with a warning. Reversal operates on
+MIDI events; each reversed note still starts its SoundFont instrument normally.
+
+The map and inspector show the rewritten score. Reverse + CC reflects tempo,
+meter and key maps too; Reverse notes retains the original metadata maps. Mixer playback still follows the shared master tempo.
+Switching direction while playing reflects the current position and an explicit
+loop region across the source duration. At the paused initial position, Reverse
+starts at the beginning of the reversed score. Switching between the two reverse
+modes keeps the current reversed position. Source bytes remain preserved, and
+accepted notes are not thinned to make a reversal fit the file limits.
+
+Controller handling follows the MIDI Association’s [CC reference](https://midi.org/midi-1-0-control-change-messages),
+[reset-controller guidance](https://midi.org/response-to-reset-all-controllers)
+and [data increment/decrement guidance](https://midi.org/response-to-data-increment-decrement-controllers).
+
+## Weave the two songs
+
+Turn on **Weave** to alternate decks according to its A/B pattern. Open
+**Pattern & timing** to choose how long each letter lasts. With `AB` and one bar,
+you hear A for a bar, then B for a bar, repeating. With three beats, each turn
+lasts three shared quarter-note beats. Quick buttons offer **1 beat**, **3 beats**,
+**1 bar** and **3 bars**; exact lengths range from ⅛ to 16 beats or bars per letter.
+
+Enter up to 16 A/B letters, or choose a pattern such as `ABBA`, `AAAB` or `AABB`.
+Repeated letters keep the same deck sounding across that boundary. The active
+letter is underlined, and the waiting deck's voice activity turns grey. Muting,
+soloing, crossfade, instrument choices and deck ratios continue to apply.
+
+**Advance during turns** resumes each song where its previous turn ended:
+A bar 1, B bar 1, A bar 2, B bar 2. **Keep both running** lets both source
+positions advance and alternates which deck is heard. Rate ratios act within
+that source time, so 2× drums can weave with a ½× guitar. Each deck retains its
+own loop and slip settings. Changing the pattern or timing keeps playback
+running and starts the new pattern at its first letter from the current positions.
+
+A Weave bar defaults to four quarter-note beats. **Use A meter** / **Use B meter**
+takes the initial meter of that deck; the exact **Beats per bar** field supports
+other groupings. Meter changes inside a source do not alter Weave's shared grid.
+Notes release when a deck's turn ends, and held notes/controllers rejoin at the
+next active source position. One-shot stamps and messages play over the weave
+without being chopped by the A/B pattern. Turning Weave off resumes both decks
+from their current positions; Stop returns the pattern to its beginning.
 
 ## Automatapoeia rule stamps
 
@@ -201,8 +269,7 @@ Audio activation; Stop or Reset cancels that pending play request.
 - Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
   instrument sounds. Shared filter and delay controls shape the mixed output
   without creating another audio context. The import applies to both mixer decks;
-  it does not replace the visualizer/drawing SoundFont. This version offers
-  MIDI seeking, not reverse-audio vinyl scratching.
+  it does not replace the visualizer/drawing SoundFont.
 
 Audio and Play are separate. Starting playback, loading a file, changing a
 preset or tapping tempo does not arm Audio. Turning Audio off leaves the
@@ -212,8 +279,8 @@ Record button in the masthead.
 ## Inspect the MIDI
 
 The inspector separates source information from the live remix controls.
-Tempo and meter maps describe the original file even when both decks follow
-the chosen master tempo. Channel rows identify the instruments and note
+Tempo and meter maps describe the effective score (forward or reversed) even
+when both decks follow the chosen master tempo. Channel rows identify the instruments and note
 activity rather than treating every track as a separate instrument.
 
 Embedded key signatures are shown when present. A key inferred from note
@@ -224,7 +291,10 @@ describe every modulation in a complex score.
 General MIDI patches, channel controllers, bank changes, pitch bend and
 sustain are retained. File SysEx is not replayed into the shared mixer: a
 source cannot reset the other deck's synthesizer state. As a result,
-source-specific GS/XG SysEx effects do not transfer into the remix.
+source-specific GS/XG SysEx effects do not transfer into the remix. The bundled
+synth supports sustain (CC64), but continuous forward playback does not implement
+sostenuto capture (CC66). Reverse + CC bakes those holds into note gates; Weave
+re-entry also reconstructs already-held gates at its boundary.
 
 ## Scope and timing
 
@@ -239,7 +309,7 @@ SoundFont playback. See [Midiophilia's drawing and text controls](midiphoria.md)
 
 Both decks are scheduled in one AudioWorklet using the same audio-frame beat
 clock. Canvas rendering follows that clock and does not schedule the notes.
-The original tempo maps remain available for inspection, while playback locks
+The effective score’s tempo maps remain available for inspection, while playback locks
 the score events to the master beat grid. Loops and bar slips use the initial
 time signature; later meter changes are displayed in the source inspector.
 
@@ -247,7 +317,10 @@ The mixer accepts Standard MIDI Files in format 0 or 1 with ticks per quarter
 note. Format 2 (independent timelines) and SMPTE-time files must be converted
 before mixing. Each file is limited to 10 MB, 1,024 tracks, 1.2 million events,
 600,000 notes and 64 distinct MIDI channels across ports. Oversized files are
-rejected with an error rather than silently truncated.
+rejected with an error rather than silently truncated. A compiled source must
+also fit 4,096 controller-restoration messages, including complete RPN/NRPN
+transactions. This bounds the work at seeks and Weave handoffs; a source over
+that limit is rejected while the previously loaded deck remains intact.
 
 SoundFont synthesis shares a maximum of 192 voices across both decks and all
 four sample slots. One-shots are bounded to 2 MB, 32,768 notes, 131,072 events,

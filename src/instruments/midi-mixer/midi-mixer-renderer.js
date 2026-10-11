@@ -71,7 +71,7 @@ export class MidiMixerRenderer {
     const configs = new Map(deck.channels.map(channel => [channel.channel, channel]));
     const solo = deck.channels.some(channel => channel.solo);
     rows.forEach((row, index) => {
-      const config = configs.get(row.channel), muted = deck.config.mute || config?.mute || (solo && !config?.solo);
+      const config = configs.get(row.channel), muted = deck.weaveActive === false || deck.config.mute || config?.mute || (solo && !config?.solo);
       const y = index * rowHeight;
       ctx.fillStyle = index % 2 ? '#0a1317' : '#071014'; ctx.fillRect(left, y, span, rowHeight - 1);
       const color = muted ? '#46514f' : mixerVoiceColor(this.deckIndex, row.channel);

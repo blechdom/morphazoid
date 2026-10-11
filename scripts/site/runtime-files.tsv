@@ -1866,6 +1866,7 @@ copy+require	src/instruments/midi-mixer/midi-mixer.css
 copy+require	src/instruments/midi-mixer/midi-mixer-renderer.js
 copy+require	src/instruments/midi-mixer/midi-mixer-presets.js
 copy+require	src/instruments/midi-mixer/midi-mixer-model.js
+copy+require	src/instruments/midi-mixer/midi-mixer-reverse.js
 copy+require	src/instruments/midi-mixer/midi-mixer-engine.js
 copy+require	src/instruments/midi-mixer/midi-mixer-clock.js
 copy+require	src/instruments/midi-mixer/midi-mixer-processor.js

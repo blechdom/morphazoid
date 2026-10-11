@@ -1,4 +1,5 @@
 import { midiParametersNeedResync } from './midi-mixer-parameters.js';
+import { defaultWeaveConfig, sanitizeWeaveConfig, weavePosition } from './midi-mixer-model.js';
 /** Two decks advance from the same audio-frame counter. No wall-clock timers. */
 const mod = (value, size) => ((value % size) + size) % size;
 export function lowerBound(events, beat) {
@@ -24,8 +25,14 @@ export function heldNotesAt(held, beat, limit = 192) {
     stack.push([low, middle]);
     if (held.start[middle] < beat - 1e-9) {
       if (held.end[middle] > beat) {
-        const info = held.info[middle];
-        result.push({ beat, sourceBeat: held.start[middle], kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127, noteId: held.ids?.[middle] ?? middle, durationBeats: held.end[middle] - beat });
+        const info = held.info[middle], channel = info >>> 14;
+        const pedal = held.stateHistories?.channels.find(item => item.channel === channel)?.lanes.find(lane => lane.kind === 'cc' && lane.number === 66);
+        let lowChange = 0, highChange = pedal?.changes.length ?? 0;
+        while (lowChange < highChange) { const middleChange = (lowChange + highChange) >>> 1; if (pedal.changes[middleChange].tick / held.stateHistories.ppq < beat - 1e-9) lowChange = middleChange + 1; else highChange = middleChange; }
+        const change = pedal?.changes[lowChange - 1], rise = (change?.rise ?? -Infinity) / (held.stateHistories?.ppq ?? 1);
+        const afterAttack = rise > held.start[middle] || rise === held.start[middle] && change.riseOrder >= (held.ids?.[middle] ?? middle);
+        const beforeRelease = rise < held.keyEnd?.[middle] || rise === held.keyEnd?.[middle] && change.riseOrder < held.keyEndOrder[middle];
+        result.push({ keyReleased: (held.keyEnd?.[middle] ?? held.end[middle]) < beat - 1e-9, sostenutoHeld: change?.value >= 64 && afterAttack && beforeRelease, beat, sourceBeat: held.start[middle], kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127, noteId: held.ids?.[middle] ?? middle, durationBeats: held.end[middle] - beat });
       }
       stack.push([middle + 1, high]);
     }
@@ -37,8 +44,8 @@ export function heldNotesAt(held, beat, limit = 192) {
  * continue while their transport is paused. No UI timer schedules MIDI. */
 export const MAX_SAMPLE_EVENTS_PER_BLOCK = 2048;
 export class MidiSampleClock {
-  constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {} } = {}) {
-    this.emit = emit; this.release = release; this.restore = restore; this.configure = configure;
+  constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {}, rehydrate } = {}) {
+    this.emit = emit; this.release = release; this.restore = restore; this.configure = configure; this.rehydrate = rehydrate ?? ((deck, events, frame) => { for (const event of events) this.emit(deck, event, frame); });
     this.beat = 0; this.samples = [null, null, null, null]; this.skippedEvents = 0;
   }
   load(slot, sample) {
@@ -47,9 +54,11 @@ export class MidiSampleClock {
     const position = Math.max(0, this.beat - sample.startBeat);
     if (position >= sample.data.durationBeats) return false;
     this.samples[slot] = { ...sample, cursor: lowerBound(sample.data.events, position) };
-    this.restore(slot + 2, sample.data.controllers, position);
+    this.restore(slot + 2, sample.data.stateHistories ?? sample.data.controllers, position);
     this.configure(slot + 2, sample.config, sample.channels);
-    for (const event of heldNotesAt(sample.data.held, position)) this.emit(slot + 2, event, 0);
+    const notes = heldNotesAt(sample.data.held, position);
+    this.samples[slot].rejoinedReleases = notes.filter(event => event.keyReleased && event.sostenutoHeld).map(event => ({ ...event, kind: 8, b: 0, beat: event.beat + event.durationBeats }));
+    this.rehydrate(slot + 2, notes, 0);
     return true;
   }
   stop(slot) { if (this.samples[slot]) this.release(slot + 2); this.samples[slot] = null; }
@@ -67,6 +76,8 @@ export class MidiSampleClock {
         const frame = Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + event.beat - this.beat) / increment)));
         this.emit(slot + 2, event, frame);
       }
+      for (const event of sample.rejoinedReleases ?? []) if (event.beat < finish) this.emit(slot + 2, event, Math.max(0, Math.min(frames - 1, Math.round((sample.startBeat + event.beat - this.beat) / increment))));
+      sample.rejoinedReleases = sample.rejoinedReleases?.filter(event => event.beat >= finish);
       budget -= count;
       if (available > count) { this.skippedEvents += available - count; sample.cursor = endIndex; this.release(slot + 2, frames - 1); }
       if (end >= sample.startBeat + sample.data.durationBeats) {
@@ -79,27 +90,39 @@ export class MidiSampleClock {
 }
 export const MAX_EVENTS_PER_BLOCK = 8192;
 export class MidiMixerClock {
-  constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {} } = {}) {
-    this.emit = emit; this.release = release; this.restore = restore; this.configure = configure;
+  constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {}, rehydrate } = {}) {
+    this.emit = emit; this.release = release; this.restore = restore; this.configure = configure; this.rehydrate = rehydrate ?? ((deck, events, frame) => { for (const event of events) this.emit(deck, event, frame); });
     this.beat = 0; this.tempo = 120; this.playing = false; this.decks = [null, null]; this.skippedEvents = 0;
+    this.weave = defaultWeaveConfig(); this.weavePhase = { startBeat: 0, deckBeats: [0, 0] };
   }
   load(index, data, config, channels) {
     this.release(index);
     this.decks[index] = { ...data, config: { ...config }, channelConfig: channels, cursor: 0, cycle: null };
     this.resync(index);
   }
-  resync(index) {
+  setWeave(config, phase) {
+    this.weave = sanitizeWeaveConfig(config);
+    this.weavePhase = { startBeat: phase.startBeat, deckBeats: [...phase.deckBeats] };
+    for (let index = 0; index < 2; index++) this.resync(index, { hard: true });
+  }
+  rejoin(index, notes, frame) {
+    this.decks[index].rejoinedReleases = notes.filter(event => event.keyReleased && event.sostenutoHeld).map(event => ({ ...event, kind: 8, b: 0, beat: event.beat + event.durationBeats }));
+    this.rehydrate(index, notes, frame);
+  }
+  resync(index, { beat = this.beat, frame = 0, hard = false } = {}) {
     const deck = this.decks[index]; if (!deck) return;
-    this.release(index);
-    const absolute = this.beat * (deck.config.rate ?? 1) + deck.config.offsetBeats;
+    this.release(index, frame, hard); deck.rejoinedReleases = [];
+    const weave = weavePosition(beat, this.weave, this.weavePhase);
+    const absolute = weave.deckBeats[index] * (deck.config.rate ?? 1) + deck.config.offsetBeats;
     const bounds = mixerLoopBounds(deck), position = bounds.start + (deck.config.loop ? mod(absolute, bounds.length) : absolute);
     deck.cursor = lowerBound(deck.events, Math.max(bounds.start, position)); deck.ended = false;
     deck.cycle = deck.config.loop ? Math.floor(absolute / bounds.length) : 0;
     // Controller-only history is separate: seeking never triggers overdue attacks.
-    this.restore(index, deck.controllers, Math.max(bounds.start, position));
-    this.configure(index, deck.config, deck.channelConfig);
-    if (this.playing && position >= bounds.start && position < bounds.end) {
-      for (const event of heldNotesAt(deck.held, position)) this.emit(index, event, 0);
+    this.restore(index, deck.stateHistories ?? deck.controllers, Math.max(bounds.start, position), frame);
+    this.configure(index, deck.config, deck.channelConfig, frame);
+    deck.weaveActive = weave.active[index];
+    if (this.playing && deck.weaveActive && position >= bounds.start && position < bounds.end) {
+      this.rejoin(index, heldNotesAt(deck.held, position), frame);
     }
   }
   setDeck(index, config, channels) {
@@ -118,52 +141,74 @@ export class MidiMixerClock {
   process(frames, sampleRate) {
     if (!this.playing) return;
     const increment = this.tempo / (60 * sampleRate), end = this.beat + frames * increment;
-    for (let index = 0; index < 2; index++) {
-      const deck = this.decks[index]; if (!deck) continue;
-      const bounds = mixerLoopBounds(deck), sourceIncrement = increment * (deck.config.rate ?? 1);
-      const start = this.beat * (deck.config.rate ?? 1) + deck.config.offsetBeats, finish = end * (deck.config.rate ?? 1) + deck.config.offsetBeats;
-      if (!deck.config.loop && deck.ended) continue;
-      if (!deck.config.loop && start < 0 && finish >= 0) {
-        const frame = Math.max(0, Math.min(frames - 1, Math.round(-start / sourceIncrement)));
-        for (const event of heldNotesAt(deck.held, bounds.start)) this.emit(index, event, frame);
+    const budgets = [MAX_EVENTS_PER_BLOCK, MAX_EVENTS_PER_BLOCK];
+    let cursor = this.beat;
+    while (cursor < end - 1e-12) {
+      const weave = weavePosition(cursor, this.weave, this.weavePhase), segmentEnd = Math.min(end, weave.nextBeat);
+      const finish = weavePosition(segmentEnd, this.weave, this.weavePhase);
+      const frame = Math.max(0, Math.min(frames - 1, Math.round((cursor - this.beat) / increment)));
+      for (let index = 0; index < 2; index++) {
+        const deck = this.decks[index];
+        if (deck?.weaveActive && !weave.active[index]) { this.release(index, frame, true); deck.weaveActive = false; }
       }
-      let cursorBeat = start, budget = MAX_EVENTS_PER_BLOCK;
-      // Minimum loop length is >= 1/32 quarter; at 300 BPM even the slowest supported
-      // browser sample rate crosses at most a few boundaries in one render quantum.
-      while (cursorBeat < finish - 1e-12) {
-        const cycle = deck.config.loop ? Math.floor((cursorBeat + 1e-10) / bounds.length) : 0;
-        const base = (deck.config.loop ? cycle * bounds.length : 0) - bounds.start;
-        if (deck.cycle !== cycle) {
-          this.release(index, Math.max(0, Math.round((cursorBeat - start) / sourceIncrement)));
-          deck.cycle = cycle; deck.cursor = lowerBound(deck.events, bounds.start);
-          this.restore(index, deck.controllers, bounds.start); this.configure(index, deck.config, deck.channelConfig);
-          const frame = Math.max(0, Math.round((cursorBeat - start) / sourceIncrement));
-          for (const event of heldNotesAt(deck.held, bounds.start)) this.emit(index, event, frame);
+      for (let index = 0; index < 2; index++) {
+        const deck = this.decks[index]; if (!deck) continue;
+        if (deck.weaveActive !== weave.active[index]) {
+          if (weave.active[index]) this.resync(index, { beat: cursor, frame });
+          else { this.release(index, frame, true); deck.weaveActive = false; }
         }
-        const segmentEnd = deck.config.loop ? Math.min(finish, base + bounds.end) : finish;
-        const endIndex = lowerBound(deck.events, Math.min(bounds.end, segmentEnd - base) - 1e-10);
-        const available = Math.max(0, endIndex - deck.cursor), count = Math.min(available, budget);
-        for (let n = 0; n < count; n++) {
-          const event = deck.events[deck.cursor++];
-          const frame = Math.max(0, Math.min(frames - 1, Math.round((event.beat + base - start) / sourceIncrement)));
-          this.emit(index, event, frame);
-        }
-        budget -= count;
-        if (available > count) {
-          this.skippedEvents += available - count; deck.cursor = endIndex;
-          // Dense overload must never leave an unmatched note or pedal held.
-          this.release(index, frames - 1);
-        }
-        cursorBeat = segmentEnd;
-        if (!deck.config.loop) {
-          if (finish >= bounds.length) {
-            this.release(index, Math.max(0, Math.min(frames - 1, Math.round((bounds.length - start) / sourceIncrement))));
-            deck.ended = true;
-          }
-          break;
-        }
+        if (weave.active[index]) this.processDeck(index, weave.deckBeats[index], finish.deckBeats[index], cursor, increment, frames, budgets);
       }
+      cursor = segmentEnd;
     }
     this.beat = end;
+  }
+  processDeck(index, from, to, masterStart, increment, frames, budgets) {
+    const deck = this.decks[index];
+    const bounds = mixerLoopBounds(deck), sourceIncrement = increment * (deck.config.rate ?? 1);
+    const start = from * (deck.config.rate ?? 1) + deck.config.offsetBeats, finish = to * (deck.config.rate ?? 1) + deck.config.offsetBeats;
+    const frameAt = value => Math.max(0, Math.min(frames - 1, Math.round((masterStart - this.beat) / increment + (value - start) / sourceIncrement)));
+    if (!deck.config.loop && deck.ended) return;
+    if (!deck.config.loop && start < 0 && finish >= 0) {
+      const frame = frameAt(0);
+      this.rejoin(index, heldNotesAt(deck.held, bounds.start), frame);
+    }
+    let cursorBeat = start;
+    // Minimum loop and weave lengths bound crossings even at 8× and 8 kHz.
+    while (cursorBeat < finish - 1e-12) {
+      const cycle = deck.config.loop ? Math.floor((cursorBeat + 1e-10) / bounds.length) : 0;
+      const base = (deck.config.loop ? cycle * bounds.length : 0) - bounds.start;
+      if (deck.cycle !== cycle) {
+        const frame = frameAt(cursorBeat);
+        this.release(index, frame);
+        deck.cycle = cycle; deck.cursor = lowerBound(deck.events, bounds.start);
+        this.restore(index, deck.stateHistories ?? deck.controllers, bounds.start, frame); this.configure(index, deck.config, deck.channelConfig, frame);
+        this.rejoin(index, heldNotesAt(deck.held, bounds.start), frame);
+      }
+      const segmentEnd = deck.config.loop ? Math.min(finish, base + bounds.end) : finish;
+      const endIndex = lowerBound(deck.events, Math.min(bounds.end, segmentEnd - base) - 1e-10);
+      const available = Math.max(0, endIndex - deck.cursor), count = Math.min(available, budgets[index]);
+      for (let n = 0; n < count; n++) {
+        const event = deck.events[deck.cursor++];
+        const frame = frameAt(event.beat + base);
+        this.emit(index, event, frame);
+      }
+      for (const event of deck.rejoinedReleases ?? []) if (event.beat < segmentEnd - base) this.emit(index, event, frameAt(event.beat + base));
+      deck.rejoinedReleases = deck.rejoinedReleases?.filter(event => event.beat >= segmentEnd - base);
+      budgets[index] -= count;
+      if (available > count) {
+        this.skippedEvents += available - count; deck.cursor = endIndex;
+        // Dense overload must never leave an unmatched note or pedal held.
+        this.release(index, frames - 1);
+      }
+      cursorBeat = segmentEnd;
+      if (!deck.config.loop) {
+        if (finish >= bounds.length) {
+          this.release(index, frameAt(bounds.length));
+          deck.ended = true;
+        }
+        break;
+      }
+    }
   }
 }

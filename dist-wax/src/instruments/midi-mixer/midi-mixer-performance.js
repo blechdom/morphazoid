@@ -177,7 +177,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
           const key = `deck:${index}`;
           const fade = index === 0 ? Math.cos((state.crossfade + 1) * Math.PI / 4) : Math.sin((state.crossfade + 1) * Math.PI / 4);
           const gain = deck.config.mute ? 0 : (deck.config.gain ?? 1) * fade;
-          if (gain <= .0001) return;
+          if (gain <= .0001 || deck.weaveActive === false) return;
           sources.add(key);
           previewSource({ key, analysis: deck.analysis, position: deck.positionBeats, rate: deck.config.rate ?? 1,
             gain, transpose: deck.config.transpose, channels: deck.channels, midi: deck.config.midi, end: deck.loopEndBeats }, now);
