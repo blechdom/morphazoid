@@ -16,7 +16,16 @@ async function openInstrument(page) {
       let allProbeResets = 0;
       const originalAllReset = resetAudioSchedule;
       resetAudioSchedule = (...args) => { allProbeResets++; return originalAllReset(...args); };
+      const allJumpSamples = [];
+      const originalAllPose = performedPose;
+      performedPose = (...args) => {
+        const next = originalAllPose(...args);
+        if (performanceFor(args[0]).motion?.kind === 'jump') allJumpSamples.push({
+          actorIndex: args[0], addedLift: (next.bodyLift - args[1].bodyLift) * .38 });
+        return next;
+      };
       globalThis.__quadrupedAllProbe = { read: () => ({
+        jumps: allJumpSamples.slice(),
         resets: allProbeResets, audioTime: graph?.context.currentTime ?? null,
         actors: displayMotorSnapshots().map(snapshot => ({ position: snapshot.position, elapsed: snapshot.elapsedSeconds })),
       }) };
@@ -207,6 +216,8 @@ test('All actions schedule once for the trio while a direct body gesture stays l
   expect((await probe(page)).resets - observed.resets).toBe(1);
   expect(await capture(page)).toEqual(before);
   await expect(page.locator('.quadruped-animal-handle[data-action="idle"]')).toHaveCount(3);
+  const groupJumps = (await probe(page)).jumps;
+  for (const index of [0, 1, 2]) expect(groupJumps.some(sample => sample.actorIndex === index && sample.addedLift > .1)).toBe(true);
   const point = await handle(page, 1).evaluate(node => {
     const stage = document.querySelector('#stage').getBoundingClientRect();
     return { x: stage.x + Number(node.dataset.bodyX), y: stage.y + Number(node.dataset.bodyY) };
