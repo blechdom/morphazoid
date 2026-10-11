@@ -116,6 +116,13 @@ export class TrackazoidAudio {
     return matchingRate(deck.grid.bpm, master.grid.bpm, master.transport.snapshot(time).rate);
   }
 
+  _nextBeatTime(master, time) {
+    const reference = master.transport.snapshot(time);
+    const phase = beatPhase(reference.position, master.grid);
+    return phase !== null && phase > 1e-6 && 1 - phase > 1e-6
+      ? time + (1 - phase) * 60 / (master.grid.bpm * reference.rate) : time;
+  }
+
   _beatLoop(deck, time) {
     const loop = deck.transport.intent(time).loop;
     if (!loop) return true;
@@ -132,7 +139,6 @@ export class TrackazoidAudio {
   _follow(when, { align = true } = {}) {
     const now = this._now(); this.masterId = this._masterAt(now);
     const master = this.decks[this.masterId]; if (!master) return;
-    const reference = master.transport.snapshot(when);
     for (const deck of Object.values(this.decks)) {
       if (!deck.sync || deck === master) continue;
       if (!this._beatLoop(master, now) || !this._beatLoop(deck, now)) {
@@ -146,11 +152,15 @@ export class TrackazoidAudio {
         continue;
       }
       deck.syncError = null;
-      const current = deck.transport.snapshot(when), intent = deck.transport.intent(now);
+      const intent = deck.transport.intent(now);
+      const pendingLaunch = intent.playing && !deck.transport.snapshot(now).playing;
+      const boundary = pendingLaunch ? this._nextBeatTime(master, when) : when;
+      const current = deck.transport.snapshot(boundary);
       const changes = { rate };
-      if (align && intent.playing) changes.position = alignedPosition(current.position, deck.grid,
-        beatPhase(reference.position, master.grid), current.duration, current.loop);
-      this._commit(deck, changes, when, now);
+      if (align && intent.playing) changes.position = alignedPosition(
+        pendingLaunch ? deck.transport.pendingChanges?.position ?? current.position : current.position,
+        deck.grid, beatPhase(master.transport.snapshot(boundary).position, master.grid), current.duration, current.loop);
+      this._commit(deck, changes, boundary, now);
     }
   }
 
@@ -458,7 +468,9 @@ export class TrackazoidAudio {
   setBeatGrid(id, { bpm = null, beatOffset = 0 } = {}) {
     const deck = this._deck(id);
     const known = Number.isFinite(bpm) && bpm >= 40 && bpm <= 240;
-    deck.grid = { bpm: known ? bpm : null, beatOffset: clamp(beatOffset, 0, deck.buffer?.duration ?? 24 * 60 * 60) };
+    const grid = { bpm: known ? bpm : null, beatOffset: clamp(beatOffset, 0, deck.buffer?.duration ?? 24 * 60 * 60) };
+    if (grid.bpm === deck.grid.bpm && grid.beatOffset === deck.grid.beatOffset) return this.snapshot(id);
+    deck.grid = grid;
     if (!known && deck.sync) this._syncFailure(deck, "Set a BPM before enabling Sync.", false);
     this._follow(this._when()); this._notify(); return this.snapshot(id);
   }
@@ -494,10 +506,8 @@ export class TrackazoidAudio {
         this._syncFailure(deck, "Sync cannot match this master within ±16%. Adjust the BPM or disable Sync.", false);
         this._notify(); throw new Error(deck.syncError);
       }
-      const reference = master.transport.snapshot(when);
-      const phase = beatPhase(reference.position, master.grid);
       // Launch on the next master beat, after enough lead for both render modes.
-      if (phase > 1e-6 && 1 - phase > 1e-6) when += (1 - phase) * 60 / (master.grid.bpm * reference.rate);
+      when = this._nextBeatTime(master, when);
       changes.position = alignedPosition(position, deck.grid, beatPhase(master.transport.snapshot(when).position, master.grid), state.duration, state.loop);
       changes.rate = rate;
     }

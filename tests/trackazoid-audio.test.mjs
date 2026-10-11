@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { TrackazoidAudio } from "../src/instruments/trackazoid/audio.js";
+import { beatPhase } from "../src/instruments/trackazoid/transport.js";
 
 const flush = () => new Promise(resolve => setImmediate(resolve));
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
@@ -236,6 +237,8 @@ test("Trackazoid Sync before Play launches with the master, and tempo follows wi
   context.currentTime += 30;
   near(engine.snapshot("b").phaseError, 0);
   assert.equal(h.sources.at(-1), initialB, "no rendering-frame correction or restart");
+  engine.setBeatGrid("b", { bpm: 126, beatOffset: 0.2 });
+  assert.equal(h.sources.at(-1), initialB, "re-saving the same grid cannot restart the follower");
   engine.setRate("a", 1.03);
   near(engine.snapshot("b").effectiveBpm, 114 * 1.03);
   const voices = [engine.decks.a.source, engine.decks.b.source];
@@ -311,6 +314,21 @@ test("Trackazoid mixed key-lock/native followers share the exact future edit bou
   near(command.output, engine.decks.b.source.startTime);
   near(command.output, 8.092);
   context.currentTime = 9; near(engine.snapshot("b").phaseError, 0);
+  await engine.dispose();
+});
+
+test("Trackazoid a master edit before a queued follower launch keeps that launch on a beat", async () => {
+  const h = await beatmatchingHarness(); const { engine, context } = h;
+  engine.setBeatGrid("a", { bpm: 120 }); engine.setBeatGrid("b", { bpm: 120 });
+  await engine.setAudio(true); engine.play("a"); context.currentTime = 5.2;
+  engine.setSync("b", true); engine.play("b");
+  near(engine.decks.b.source.startTime, 5.512);
+  context.currentTime = 5.25; engine.setRate("a", 1.02);
+  const launch = engine.decks.b.source.startTime;
+  const phase = beatPhase(engine.decks.a.transport.snapshot(launch).position, engine.decks.a.grid);
+  assert.ok(Math.min(phase, 1 - phase) < 1e-8, `queued launch must remain on beat, got ${phase}`);
+  assert.ok(launch > 5.49 && launch < 5.52);
+  context.currentTime = launch + 1; near(engine.snapshot("b").phaseError, 0);
   await engine.dispose();
 });
 
