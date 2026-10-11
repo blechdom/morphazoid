@@ -222,10 +222,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     return { ...score, ...edited, pixels: undefined, durationBeats: edited.analysis.durationBeats,
       warnings: [...(score.warnings ?? []), ...edited.warnings] };
   }
-  function playScore(rawScore, label, detail = '') {
+  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value) {
     const score = editScore(rawScore);
     if (!score?.buffer) throw new Error('Draw a score first in Draw a MIDI.');
-    const program = $('mixerSampleProgram').value;
     engine.triggerSample(score.buffer, { name: label, program: null, gain: Number($('mixerSampleLevel').value),
       loop: $('mixerSampleLoop').checked, sync: $('mixerSampleSync').checked,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });
@@ -329,6 +328,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     }
     const ticket = requestTicket, stamp = stamps.get(selected); if (!stamp) return;
     if (!stamp.file) { thumbnail(buttons.get(stamp.id), playScore(mixerStampScore(stamp.id, options(transpose)), stamp.label)); return; }
+    // Switching creative views can select a different source family while this
+    // file loads. Keep the sound chosen for this launch without touching others.
+    const program = $('mixerSampleProgram').value;
     loadingSample = true; $('mixerSampleStatus').textContent = `Loading ${stamp.label}…`;
     try {
       let analysis = fileCache.get(stamp.id);
@@ -347,7 +349,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       lastFileStamp = score;
       if (mode === 'manual') $('mixerStampStart').value = String(score.sourceStartBeat);
       const range = `${whole && !score.shortened ? stamp.collection === 'Geometric patterns' ? 'whole pattern' : 'whole file' : 'excerpt'} · source beats ${score.sourceStartBeat.toFixed(1)}–${score.sourceEndBeat.toFixed(1)} · ${score.noteCount.toLocaleString()} notes`;
-      thumbnail(buttons.get(stamp.id), playScore(score, stamp.label, `${range}${score.shortened ? ' · shorter dense slice' : ''}`));
+      thumbnail(buttons.get(stamp.id), playScore(score, stamp.label, `${range}${score.shortened ? ' · shorter dense slice' : ''}`, program));
     } catch (error) { if (ticket === requestTicket) fail(error); }
     finally { if (ticket === requestTicket) { loadingSample = false; request = null; } }
   }

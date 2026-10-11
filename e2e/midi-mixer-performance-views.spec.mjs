@@ -20,6 +20,7 @@ test('external creative views share one visualizer, source controls and sample l
       sendSampleController(){return false},sendSampleParameter(){return false},
       stopSamples(){state.samples=[];qa.stops++}};
     const drawing=generateGridMidi(Array.from({length:8},()=>[1,0,0,1]),{lowestNote:48,secondsPerRow:.125});
+    qa.drawingBuffer=drawing.buffer;
     qa.view=mountMixerPerformance(document.querySelector('#controls'),{engine,getDrawing:()=>drawing,
       automataHost:document.querySelector('#rules'),visualizerHost:document.querySelector('#draw'),
       drawingButton:document.querySelector('#drawingAction')});
@@ -37,7 +38,20 @@ test('external creative views share one visualizer, source controls and sample l
   await page.locator('#mixerSampleLoop').check();
   await page.locator('#mixerSampleSync').uncheck();
   await page.locator('#mixerSampleProgram').selectOption('19');
+  const fileBytes = Buffer.from(await page.evaluate(() => [...new Uint8Array(__performanceViews.drawingBuffer)]));
+  let releaseFile, fileRequested;
+  const fileReady = new Promise(resolve => { fileRequested = resolve; });
+  const fileResponse = new Promise(resolve => { releaseFile = resolve; });
+  await page.route('**/assets/midiphoria/pending-view-test.mid', async route => {
+    fileRequested(); await fileResponse; await route.fulfill({ contentType: 'audio/midi', body: fileBytes });
+  });
+  await page.evaluate(() => __performanceViews.view.setCollection([{id:'pending-view-test', title:'Pending file', file:'pending-view-test.mid', collection:'Black MIDI'}]));
+  await page.locator('[data-mixer-sample="pending-view-test"]').click();
+  await fileReady;
   await page.evaluate(() => __performanceViews.change('automata'));
+  releaseFile();
+  await expect.poll(() => page.evaluate(() => __performanceViews.launches.length)).toBe(2);
+  expect(await page.evaluate(() => __performanceViews.launches.at(-1).midi.program)).toBeNull();
   await expect(page.locator('#automata #mixerPerformanceCanvas')).toHaveCount(1);
   await expect(page.locator('.mixer-stamp-palette')).toBeHidden();
   await expect(page.locator('.mixer-stamp-shape-controls')).toBeHidden();
@@ -49,6 +63,9 @@ test('external creative views share one visualizer, source controls and sample l
   await expect(page.locator('#mixerStampSeed')).toBeHidden();
   await expect(page.locator('#mixerStampDrawBase')).toBeHidden();
   await expect(page.locator('#mixerStampGate')).toBeVisible();
+  // The page puts its primary rule action in a shared toolbar; moving the same
+  // button must preserve the handler, then abort it during component disposal.
+  await page.evaluate(() => document.body.prepend(document.querySelector('#automataMidiGenerate')));
   await page.locator('#automataMidiGenerate').click();
   expect(await page.evaluate(() => __performanceViews.launches.at(-1).loop)).toBe(true);
   expect(await page.evaluate(() => __performanceViews.launches.at(-1).sync)).toBe(false);
@@ -63,7 +80,9 @@ test('external creative views share one visualizer, source controls and sample l
   await page.evaluate(() => __performanceViews.change('draw'));
   await expect(page.locator('#draw #mixerPerformanceCanvas')).toHaveAttribute('tabindex', '0');
   await expect(page.locator('#mixerStampDrawBase')).toBeVisible();
-  await expect(page.locator('#mixerStampSeed')).toBeEnabled();
+  await expect(page.locator('#mixerStampSeed')).toBeDisabled();
+  await expect(page.locator('[data-mixer-sample="pending-view-test"]')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#mixerSampleProgram')).toHaveValue('original');
   expect(await page.evaluate(() => __performanceViews.stops)).toBe(0);
   expect(await page.evaluate(() => __performanceViews.state.playing)).toBe(true);
   await page.locator('#mixerStampGate').fill('0.25');
@@ -79,6 +98,7 @@ test('external creative views share one visualizer, source controls and sample l
   await expect(page.locator('.mixer-performance')).toHaveCount(0);
   expect(await page.evaluate(() => __performanceViews.unsubscribed)).toBe(1);
   await page.locator('#drawingAction').click();
+  await page.locator('#automataMidiGenerate').click();
   expect(await page.evaluate(() => __performanceViews.launches.length)).toBe(count + 1);
   expect(errors).toEqual([]);
 });
