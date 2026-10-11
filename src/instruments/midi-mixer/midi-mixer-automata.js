@@ -88,7 +88,8 @@ export class MidiAutomataClock {
     }
     this.beat = end;
     if (this.history.length) this.history.at(-1).endBeat = end;
-    this._prune();
+    // Prune once per generation, not once per audio quantum: dense source
+    // history must not allocate a large filtered array 375 times a second.
   }
   process(frames, sampleRate, tempo) {
     const increment = tempo / (60 * sampleRate);

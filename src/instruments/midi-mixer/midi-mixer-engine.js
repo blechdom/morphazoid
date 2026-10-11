@@ -66,7 +66,7 @@ export class MidiMixerEngine {
     this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._sources = [null, null]; this._weave = defaultWeaveConfig(); this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
     this._noteEffects = sanitizeMidiNoteEffects();
-    this._automata = new MidiAutomataClock(); this._automataAnchor = this._now(); this._automataRevision = 0; this._automataWaits = new Map();
+    this._automata = new MidiAutomataClock(); this._automataAnchor = this._now(); this._automataRevision = 0; this._automataWaits = new Map(); this._automataSkippedSilentBeats = 0;
     this._onPageHide = () => { void this.dispose(); }; this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
   _now() { return (this.runtime.performance?.now?.() ?? Date.now()) / 1000; }
@@ -84,7 +84,7 @@ export class MidiMixerEngine {
     }
     const weave = weavePosition(beat, this._weave, this._weavePhase);
     return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
-      tempo: this._tempo, beat, sampleBeat, sampleTime, automata: this._automata.snapshot(), samples: this._samples.flatMap(sample => {
+      tempo: this._tempo, beat, sampleBeat, sampleTime, automata: { ...this._automata.snapshot(), skippedSilentBeats: this._automataSkippedSilentBeats }, samples: this._samples.flatMap(sample => {
         const timing = this._sampleTiming(sample, sampleBeat, sampleTime);
         if (timing.ended) return [];
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, ...visible } = sample;
@@ -97,7 +97,14 @@ export class MidiMixerEngine {
   _publishNotes(notes) { if (!notes.length) return; safeCall(this.onNotes, notes); for (const callback of this._noteSubscribers) safeCall(callback, notes); }
   _advanceAutomata() {
     const now = this._now();
-    if (!this._ready && !this._disposed) this._automata.advance(Math.max(0, now - this._automataAnchor) * this._tempo / 60, this._tempo);
+    if (!this._ready && !this._disposed && this._automata.playing) {
+      // A hidden silent tab may return hours later. Evolve only its retained
+      // 16-beat window; discard older idle time instead of replaying a backlog
+      // or fabricating descendants. Audio rendering never takes this path.
+      const beats = Math.max(0, now - this._automataAnchor) * this._tempo / 60;
+      this._automataSkippedSilentBeats += Math.max(0, beats - 16);
+      this._automata.advance(Math.min(beats, 16), this._tempo);
+    }
     this._automataAnchor = now;
   }
   configureAutomata(settings = {}) {

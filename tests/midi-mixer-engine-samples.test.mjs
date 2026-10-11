@@ -102,7 +102,7 @@ test('real SoundFont samples overlay running decks, remain audible past crossfad
     const trigger = async (slot, id) => processor.command({ type: 'sample', slot, id, data: sampleData, startBeat: processor.sampleClock.beat, gain: 0.7, program: 16 });
     for (let slot = 0; slot < 4; slot++) await trigger(slot, slot + 1);
     assert.equal(processor.clock.beat, deckBeat); assert.ok(render(100) > 0.001);
-    assert.equal(processor.synth.midiChannels.length, 192); assert.ok(processor.synth.voiceCount <= 192);
+    assert.equal(processor.synth.midiChannels.length, 193, 'six file sources plus one independent live-automata channel'); assert.ok(processor.synth.voiceCount <= 192);
     for (let index = 0; index < 2; index++) await processor.command({ type: 'deck', index, config: { ...defaultDeckConfig(), mute: true }, channels });
     await processor.command({ type: 'crossfade', value: 1 });
     render(80); const sampleRms = render(80); assert.ok(sampleRms > 0.001, `${sampleRms}: samples are audible with both decks muted and crossfader fully right`);

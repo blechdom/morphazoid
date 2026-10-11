@@ -68,7 +68,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       synth.setSystemParameter('autoAllocateVoices', false);
       while (synth.midiChannels.length < 193) synth.createMIDIChannel();
       this.deckChannels[AUTOMATA_SOURCE] = new Map([[0, 192]]);
-      synth.midiChannels[192].setDrums(false); this.prepareSourceChannels(AUTOMATA_SOURCE, [{ channel: 0, drums: false }]);
+      // Newly allocated channels start with zero CC volume until reset/chase.
+      synth.midiChannels[192].reset(false); synth.midiChannels[192].setDrums(false);
+      this.prepareSourceChannels(AUTOMATA_SOURCE, [{ channel: 0, drums: false }]);
       this.captureEffectDefaults();
       this.ready = true; this.port.postMessage({ type: 'ready' }); return;
     }
@@ -232,7 +234,8 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
   }
   queueVisual(note) {
-    if (this.noteEvents.length >= 384) {
+    const limit = this.automata.playing || this.activeVisualNotes[AUTOMATA_SOURCE].size ? 384 : 256;
+    if (this.noteEvents.length >= limit) {
       const sample = note.sampleId !== null || note.sourceId === 'automata';
       let replace = this.noteEvents.findIndex(event => event.sampleId === null && event.sourceId !== 'automata' && event.type === 'noteOn');
       if (!sample && note.type === 'noteOn') replace = -1;
