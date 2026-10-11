@@ -1888,9 +1888,42 @@ copy+require	docs/midi-mixer.md
 copy+require	src/instruments/midiphoria/midiphoria-drawing.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-midi.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-controls.js
+
+# Trackazoid: local two-deck DJ workspace.
+copy+require	src/instruments/trackazoid/app.js
+copy+require	src/instruments/trackazoid/style.css
+copy+require	src/instruments/trackazoid/audio.js
+copy+require	src/instruments/trackazoid/transport.js
+copy+require	src/instruments/trackazoid/library.js
+copy+require	src/instruments/trackazoid/library-model.js
+copy+require	src/instruments/trackazoid/waveform.js
+copy+require	assets/instruments/trackazoid.webp
+copy+require	docs/trackazoid.md
 # Standalone Blech MIDI drawing, stamps and automata.
 copy+require	src/instruments/blech-midi/blech-midi-app.js
 copy+require	src/instruments/blech-midi/blech-midi.css
 copy+require	src/instruments/midi-mixer/midi-mixer-monitor.js
 copy+require	assets/instruments/blech-midi.webp
 copy+require	docs/blech-midi.md
+
+# Sound Fonts collection, workshop and redistributable banks.
+copy+require	src/site/sound-fonts/app.js
+copy+require	src/site/sound-fonts/library.js
+copy+require	src/site/sound-fonts/soundfont.js
+copy+require	src/site/sound-fonts/preview-audio.js
+copy+require	src/site/sound-fonts/sound-fonts.css
+copy+require	docs/sound-fonts.md
+copy+require	assets/sound-fonts/catalog.json
+copy+require	assets/sound-fonts/provenance.json
+copy+require	assets/sound-fonts/kalimba/Kalimba-20190723.sf2
+copy+require	assets/sound-fonts/kalimba/README.txt
+copy+require	assets/sound-fonts/kalimba/LICENSE.txt
+copy+require	assets/sound-fonts/ocarina/Ocarina 20241002.sf2
+copy+require	assets/sound-fonts/ocarina/README.txt
+copy+require	assets/sound-fonts/ocarina/LICENSE.txt
+copy+require	assets/sound-fonts/jaw-harp/JawHarp-20200606.sf2
+copy+require	assets/sound-fonts/jaw-harp/README.txt
+copy+require	assets/sound-fonts/jaw-harp/LICENSE.txt
+copy+require	assets/sound-fonts/lately-bass/LatelyBass 20240409.sf2
+copy+require	assets/sound-fonts/lately-bass/README.txt
+copy+require	assets/sound-fonts/lately-bass/LICENSE.txt

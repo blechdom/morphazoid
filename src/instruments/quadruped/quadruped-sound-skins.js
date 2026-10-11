@@ -82,6 +82,7 @@ const PHASES = Object.freeze({
   push: Object.freeze({ duration: 0.38, level: 0.30, pitch: 1.15 }),
   "toe-off": Object.freeze({ duration: 0.25, level: 0.20, pitch: 1.55 }),
   slide: Object.freeze({ duration: 1, level: 0.48, pitch: 0.82 }),
+  flight: Object.freeze({ duration: 1, level: 0.38, pitch: 1 }),
 });
 const ROOTS = Object.freeze({ ground: 0.86, tendon: 2.15, porcelain: 3.45, voltage: 1.28, breath: 1.65,
   ...Object.fromEntries(EXTENDED_SKINS.map(skin => [skin.id, skin.root])) });
@@ -122,6 +123,8 @@ function requestView(options = {}) {
     resonance: clamp(options.resonance, 0, 1, 0.55),
     scrape: clamp(options.scrape, 0, 1, 0.45),
     spring: clamp(options.spring, ...QUADRUPED_LIMITS.spring, 1),
+    slideStage: Math.min(3, Math.floor(clamp(options.slideProgress, 0, 1, .5) * 4)),
+    flightStage: Math.min(3, Math.floor(clamp(options.flightProgress, 0, 1, .5) * 4)),
     limbId: String(contact.id ?? contact.laneId ?? "front-left"),
     intensity: clamp(contact.intensity, 0, 1, 1),
     velocity: clamp(options.velocity, 0, MAX_VELOCITY, 24),
@@ -254,10 +257,10 @@ function renderSiblingVoice(view, skin, frames, frequency, random) {
   return samples;
 }
 
-// A finite friction gesture: irregular grains retain the selected sound's
-// body, while Spider's bowed delay and a moving filter add catch/release and
-// an opening/closing timbre. Prepared once per seeded bank entry, never per
-// animation frame; there is no held noise loop or Web Audio node per grain.
+// Each cached slide block is one color stage of a longer physical skid.
+// Short edge ramps join overlapping textures; the scheduler owns the gesture's
+// attack and release. Four color stages replace the existing four seed slots,
+// so advancing a skid cannot create a continuously growing synthesis cache.
 function renderSlideUnit(view) {
   const source = renderUnit({ ...view, phase: "touchdown" }).samples;
   const random = seededRandom(`slide:${view.seed}:${view.limbId}`);
@@ -267,10 +270,10 @@ function renderSlideUnit(view) {
   const grains = new Float32Array(frames), pressure = new Float32Array(frames);
   const texture = .2 + view.roughness * .35 + view.scrape * .45;
   for (let start = 0; start < frames;) {
-    const length = Math.ceil(rate * (.009 + random() * (.02 + texture * .035)));
+    const length = Math.ceil(rate * (.012 + random() * (.02 + texture * .035)));
     const offset = Math.floor(random() ** 2 * source.length * .55);
-    const increment = .65 + random() * .7;
-    const amount = .25 + random() * .75;
+    const increment = .94 + random() * .12;
+    const amount = .4 + random() * .6;
     for (let index = 0; index < length && start + index < frames; index++) {
       const window = Math.sin(Math.PI * index / length) ** 2 * amount;
       const position = offset + index * increment, left = Math.floor(position), fraction = position - left;
@@ -281,31 +284,75 @@ function renderSlideUnit(view) {
   }
   const samples = new Float32Array(frames);
   const frequency = contactFrequency(view) * view.synthesisRatio;
+  const opening = 1 - view.slideStage / 3;
+  const cutoff = clamp(frequency * (.65 + view.brightness * 1.25 + opening * (12 + view.hardness * 20)), 35, rate * .42);
+  const color = 1 - Math.exp(-TAU * cutoff / rate);
   const bow = new SpiderFrictionString(rate);
-  let low = 0, noiseLow = 0, color = 0;
+  bow.tune(frequency * (.75 + opening * .3), .15 + view.spring * .15);
+  // Begin this finite fragment at its target period, instead of restarting the
+  // same glide from the helper's constructor tuning at every scheduler onset.
+  bow.period = bow.targetPeriod;
+  let low = 0, settled = 0, noiseLow = 0;
   for (let index = 0; index < frames; index++) {
-    const progress = index / Math.max(1, frames - 1);
-    const swell = Math.sin(Math.PI * progress);
-    const opening = Math.sin(Math.PI * progress) ** 1.4;
-    if (index % 32 === 0) {
-      const cutoff = clamp(frequency * (1.4 + view.brightness * 4 + opening * (12 + view.hardness * 24)), 35, rate * .42);
-      color = 1 - Math.exp(-TAU * cutoff / rate);
-      bow.tune(frequency * (.6 + opening * .8), .15 + view.spring * .15);
-    }
+    const edge = Math.min(1, index / (rate * .012), (frames - 1 - index) / (rate * .028));
     const white = random() * 2 - 1;
     noiseLow += (white - noiseLow) * .06;
-    const drive = (.2 + Math.min(1.8, pressure[index]) * .5) * swell;
-    const friction = bow.sample(drive, texture, white);
-    const grit = (white - noiseLow) * pressure[index] * (.012 + view.scrape * .026);
-    const value = grains[index] * .85 + friction * 3 + grit;
+    const grainPressure = Math.min(1.8, pressure[index]);
+    const friction = bow.sample(.28 + grainPressure * .35, texture, white);
+    const grit = (white - noiseLow) * grainPressure * (.007 + view.scrape * .018) * (.6 + opening * 1.4);
+    const body = grains[index] / Math.sqrt(Math.max(1, pressure[index]));
+    const value = body + friction * .9 + grit;
     low += (value - low) * color;
-    samples[index] = low * swell * Math.min(1, (frames - 1 - index) / (rate * .012));
+    settled += (low - settled) * color;
+    samples[index] = (low * .5 + settled * .5) * edge;
+  }
+  return finishContactUnit(view, samples, frequency);
+}
+
+// Airborne motion stretches the selected contact instrument into a gesture.
+// Its only excitation is that instrument's PCM: no unrelated wind/noise layer.
+// Four steady colors open toward the early apex, then close during descent;
+// the audio-clock scheduler applies the amplitude envelope over the flight.
+function renderFlightUnit(view) {
+  const source = renderUnit({ ...view, phase: "touchdown" }).samples;
+  const random = seededRandom(`flight:${view.seed}:${view.limbId}`);
+  const rate = view.sampleRate;
+  const duration = Math.min(QUADRUPED_SOUND_LIMITS.maxDuration, .18 + view.resonance * .1 + view.spring * .035);
+  const frames = Math.ceil(duration * rate);
+  const grains = new Float32Array(frames), pressure = new Float32Array(frames);
+  for (let start = 0; start < frames;) {
+    const offset = Math.floor(random() ** 2 * source.length * .58);
+    const increment = .97 + random() * .06;
+    const length = Math.max(2, Math.min(Math.ceil(rate * (.022 + random() * .034)),
+      Math.floor((source.length - 1 - offset) / increment)));
+    const amount = .55 + random() * .45;
+    for (let index = 0; index < length && start + index < frames; index++) {
+      const window = Math.sin(Math.PI * index / Math.max(1, length - 1)) ** 2 * amount;
+      const position = offset + index * increment, left = Math.floor(position), fraction = position - left;
+      grains[start + index] += ((source[left] ?? 0) * (1 - fraction) + (source[left + 1] ?? 0) * fraction) * window;
+      pressure[start + index] += window;
+    }
+    start += Math.max(1, Math.ceil(rate * (.007 + random() ** 2 * .018)));
+  }
+  const frequency = contactFrequency(view) * view.synthesisRatio;
+  const opening = [.07, 1, .32, 0][view.flightStage];
+  const cutoff = clamp(frequency * (.65 + view.brightness + opening * (12 + view.hardness * 20)), 25, rate * .42);
+  const color = 1 - Math.exp(-TAU * cutoff / rate);
+  const samples = new Float32Array(frames);
+  let low = 0, settled = 0;
+  for (let index = 0; index < frames; index++) {
+    const body = grains[index] / Math.sqrt(Math.max(1, pressure[index]));
+    low += (body - low) * color;
+    settled += (low - settled) * color;
+    const edge = Math.min(1, index / (rate * .012), (frames - 1 - index) / (rate * .028));
+    samples[index] = (low * .5 + settled * .5) * edge;
   }
   return finishContactUnit(view, samples, frequency);
 }
 
 function renderUnit(view) {
   if (view.phase === "slide") return renderSlideUnit(view);
+  if (view.phase === "flight") return renderFlightUnit(view);
   const phase = PHASES[view.phase];
   const random = seededRandom(`${view.seed}:${view.limbId}:${view.phase}`);
   const frequency = contactFrequency(view) * view.synthesisRatio;
@@ -449,12 +496,16 @@ export function createQuadrupedSoundBank({ sampleRate = QUADRUPED_SOUND_LIMITS.s
     clear() { entries.clear(); },
     get(options = {}) {
       const view = requestView({ ...options, sampleRate });
-      const variant = hash(view.seed) % 4;
+      // New grain changes the stable texture seed; advancing the gesture only
+      // selects among four prepared colors, independent of per-event seeds.
+      const motionStage = view.phase === "slide" ? view.slideStage : view.phase === "flight" ? view.flightStage : null;
+      const textureSeed = options.motionTextureSeed ?? options.slideTextureSeed;
+      const variant = motionStage === null ? hash(view.seed) % 4 : `${hash(textureSeed)}:${motionStage}`;
       const key = [view.skinId, view.phase, view.limbId, view.mass, view.compliance, view.power,
         view.hardness, view.damping, view.roughness, view.brightness, view.resonance, view.scrape, view.spring, view.register, variant].join(":");
       let result = entries.get(key);
       if (result) entries.delete(key);
-      else result = renderUnit({ ...view, seed: variant });
+      else result = renderUnit({ ...view, seed: view.phase === "flight" ? hash(textureSeed) : variant });
       entries.set(key, result);
       if (entries.size > limit) entries.delete(entries.keys().next().value);
       return { ...result, gain: motionGain(view), playbackRate: motionPitch(view) };

@@ -1,3 +1,4 @@
+import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ export const creativeTempoRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only the reviewed creative-tab target before historical runtime guards. */
 export function restoreMidiophiliaCreativeTempo(source, file, { allowRestored = false } = {}) {
+  source = restoreTrackazoidSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   for (const { addition } of creativeTempoRuntimeChanges.changes.filter(change => change.file === file)) {

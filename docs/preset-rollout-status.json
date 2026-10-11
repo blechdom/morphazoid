@@ -7,8 +7,8 @@
     "implemented": 48,
     "fullPresets": 1978,
     "favesImplemented": 17,
-    "activeRemaining": 59,
-    "regularRemaining": 128
+    "activeRemaining": 60,
+    "regularRemaining": 129
   },
   "verification": {
     "browser": "Fresh-main 9a45aa0 combined gate: 402 passed across 13 Chromium suites, including all 209 public HTML routes, all 451 existing full-state preset recalls, Shapes' 106-scene audio sweep, Faves/UI/gesture checks, I/O setup and incoming Loopini regressions. Human/device acceptance remains separate; see docs/presets-continuation-20260922.md",
@@ -140,6 +140,15 @@
       "id": "tesselation",
       "label": "Tesselation",
       "href": "tesselation.html",
+      "category": "app",
+      "scope": "regular",
+      "presets": null,
+      "status": "unmigrated"
+    },
+    {
+      "id": "trackazoid",
+      "label": "Trackazoid",
+      "href": "trackazoid.html",
       "category": "app",
       "scope": "regular",
       "presets": null,
@@ -1774,6 +1783,7 @@
       "rubixoids",
       "graphs",
       "tesselation",
+      "trackazoid",
       "spiral",
       "lattice-drum-machine",
       "spiral-drum-machine",

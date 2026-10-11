@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readTrackazoidSiteReference as readFile } from './helpers/trackazoid-site-reference.mjs';
 import test from 'node:test';
 import { TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { catalogueItemById, instrumentById } from '../src/site/instrument-catalog.js';

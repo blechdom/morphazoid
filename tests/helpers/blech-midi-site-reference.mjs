@@ -1,3 +1,4 @@
+import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -28,5 +29,5 @@ export async function readBlechMidiSiteReference(file, encoding) {
   const source = await readFile(file, encoding);
   const root = fileURLToPath(new URL('../../', import.meta.url));
   const relative = path.relative(root, file instanceof URL ? fileURLToPath(file) : file);
-  return restoreBlechMidiSite(source, relative, { allowRestored: true });
+  return restoreBlechMidiSite(restoreTrackazoidSite(source, relative, { allowRestored: true }), relative, { allowRestored: true });
 }

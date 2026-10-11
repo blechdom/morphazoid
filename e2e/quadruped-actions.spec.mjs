@@ -28,7 +28,7 @@ async function installActionProbe(page) {
         const [phase, , , when, , position, score, actorIndex] = args;
         const motion = performances.get(actors[actorIndex])?.motion;
         if (motion) actionContacts.push({ phase, when, position, actorIndex,
-          kind: motion.kind, untilPosition: motion.untilPosition, behaviorId: score.behaviorId });
+          kind: motion.kind, untilPosition: motion.untilPosition, behaviorId: score.behaviorId, slideProgress: args[9] });
         return originalActionContact(...args);
       };
       globalThis.__quadrupedActionProbe = {
@@ -202,7 +202,12 @@ for (const viewport of [
       await expect(group.locator('[data-motion-action]')).toHaveCount(3);
       await page.locator('#playButton').click();
       await expect(page.locator('#tempoOut')).toHaveText('96 BPM · global');
-      await expect(page.locator('#playState')).not.toContainText('BPM');
+      await expect(page.locator('#playState')).toHaveCount(0);
+      const play = await page.locator('#playButton').boundingBox();
+      const tempo = await page.locator('.quadruped-transport-card > .mz-tap-tempo-field').boundingBox();
+      expect(tempo.x - play.x - play.width).toBeGreaterThanOrEqual(0);
+      expect(tempo.x - play.x - play.width).toBeLessThanOrEqual(12);
+      await expect(page.locator('.quadruped-transport-card')).not.toContainText(/Press Start|step \d/i);
       await expect(page.locator('#motionSummary')).not.toContainText('BPM');
       for (const action of ['jump', 'roll', 'slide']) {
         const button = actionButton(page, action);
@@ -302,5 +307,28 @@ test('short actions finish on the clock when no animation frames are painted', a
   await page.evaluate(() => globalThis.__quadrupedActionProbe.resumeFrames());
   await expectActionFinished(page);
   await expectLiveState(page, false, true);
+  expect(errors).toEqual([]);
+});
+
+
+test('a slow slide keeps a connected texture and progresses through one whole scrape', async ({ page }) => {
+  const errors = await openInstrument(page, { observed: true });
+  await page.locator('#tempo').fill('10');
+  const before = await capture(page);
+  await page.locator('#audioButton').click();
+  await actionButton(page, 'slide').click();
+  await expect.poll(async () => (await probe(page)).contacts.filter(contact => contact.phase === 'slide').at(-1)?.slideProgress,
+    { timeout: 8000 }).toBeGreaterThan(.9);
+  const contacts = (await probe(page)).contacts.filter(contact => contact.phase === 'slide');
+  const interior = contacts.filter(contact => contact.slideProgress > .1 && contact.slideProgress < .9);
+  expect(interior.length).toBeGreaterThan(40);
+  for (let index = 1; index < interior.length; index++) {
+    expect(interior[index].when - interior[index - 1].when).toBeGreaterThan(.05);
+    expect(interior[index].when - interior[index - 1].when).toBeLessThan(.07);
+    expect(interior[index].slideProgress).toBeGreaterThan(interior[index - 1].slideProgress);
+  }
+  await expectActionFinished(page);
+  await expect.poll(async () => (await audioStatus(page)).peak).toBeLessThan(.00001);
+  expect(await capture(page)).toEqual(before);
   expect(errors).toEqual([]);
 });
