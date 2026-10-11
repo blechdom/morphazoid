@@ -41,11 +41,11 @@ test('randomizer varies all musical fields, retains source settings and produces
 });
 test('version two scenes deeply capture and replace MIDI overrides, including additional ports', () => {
   const engine = new MidiMixerEngine();
-  engine.configureDeck(0, { gain: 1.6, midi: { pan: -.6, controllers: { 7: 93, 64: 127 }, generators: { 8: 7500 } } });
+  engine.configureDeck(0, { gain: 1.6, rate: 8, midi: { pan: -.6, controllers: { 7: 93, 64: 127 }, generators: { 8: 7500 } } });
   engine.configureChannel(0, 34, { midi: { fineTune: 31, controllers: { 10: 20 } } });
   engine.configureEffects({ synth: { 'reverb.time': 80, 'chorus.depth': 30 } });
   const snapshot = captureMixerPreset(engine.state);
-  assert.equal(snapshot.version, 2); assert.equal(snapshot.decks[0].config.gain, 1.6);
+  assert.equal(snapshot.version, 2); assert.equal(snapshot.decks[0].config.gain, 1.6); assert.equal(snapshot.decks[0].config.rate, 8);
   assert.equal(snapshot.decks[0].channels.find(item => item.channel === 34).midi.fineTune, 31);
   engine.configureDeck(0, { midi: { controllers: { 7: 20, 91: 100 }, generators: { 9: 120 } } });
   engine.configureEffects({ synth: { 'delay.level': 100 } });

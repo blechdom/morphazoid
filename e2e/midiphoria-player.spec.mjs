@@ -99,7 +99,7 @@ test('local MIDI library, loop, seek and rate work without uploads or stuck note
   await expect(page.locator('#songList button[data-song-id^="local-"]')).toHaveCount(2);
   await expect(page.locator('#songCredit')).toContainText('Local MIDI');
   await arm(page);
-  await page.locator('#loopSong').check(); await range(page, 'playbackRate', 4);
+  await page.locator('#loopSong').check(); await range(page, 'playbackRate', 8);
   await page.locator('#playButton').click();
   await page.waitForTimeout(1800);
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
@@ -110,7 +110,7 @@ test('local MIDI library, loop, seek and rate work without uploads or stuck note
   await expect(page.locator('#levelReadout')).toHaveText('0% light');
   await selectSong(page, 'local-2');
   await expect(page.locator('#songPosition')).toHaveValue('0');
-  await expect(page.locator('#playbackRate')).toHaveValue('4');
+  await expect(page.locator('#playbackRate')).toHaveValue('8');
 });
 
 test('fresh Play skips a silent MIDI lead-in while pause, Stop and manual seeks retain their positions', async ({ page }) => {
@@ -245,7 +245,7 @@ test('collection words combine with title filtering and imports clear the search
   await expect(songButtons(page)).toHaveCount(26);
 });
 
-test('black MIDI peak passages at 4× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {
+test('black MIDI peak passages at 8× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {
   test.setTimeout(60000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page); await arm(page);
@@ -257,8 +257,8 @@ test('black MIDI peak passages at 4× stay audible and controllable with maximum
   await range(page, 'symmetry', 8); await range(page, 'outputLevel', 1);
   await page.locator('#reflection').selectOption('all');
   await page.locator('#flow').selectOption('inward');
-  await range(page, 'playbackRate', 4);
-  await expect(page.locator('#playbackRateOut')).toHaveText('4.00×');
+  await range(page, 'playbackRate', 8);
+  await expect(page.locator('#playbackRateOut')).toHaveText('8.00×');
   for (const song of dense) {
     await selectSong(page, song.id);
     await expect(page.locator('#playButton')).toBeEnabled();

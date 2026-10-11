@@ -160,7 +160,7 @@ test('real SoundFont samples overlay running decks, remain audible past crossfad
     // four literal 48-column shapes. Checker rows change every cell at once.
     for (const [index, file, start] of [[0, 'black-bleed-lightstorm.mid', 312], [1, 'black-bleed-seven-red-suns.mid', 120]]) {
       const bytes = await readFile(new URL(`../assets/midiphoria/midi/${file}`, import.meta.url)), score = parseMidi(bytes);
-      await processor.command({ type: 'load', index, data: compileDeck(score), config: { ...defaultDeckConfig(), rate: 4, loopStartBeats: start, loopEndBeats: start + 16 }, channels: channelConfig(score) });
+      await processor.command({ type: 'load', index, data: compileDeck(score), config: { ...defaultDeckConfig(), rate: 8, loopStartBeats: start, loopEndBeats: start + 16 }, channels: channelConfig(score) });
     }
     await processor.command({ type: 'crossfade', value: 0 }); await processor.command({ type: 'tempo', tempo: 120 });
     await processor.command({ type: 'transport', playing: true, beat: 0 }); telemetry.length = 0;

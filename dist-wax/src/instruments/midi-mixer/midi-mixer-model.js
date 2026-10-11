@@ -151,7 +151,7 @@ export function parseMidi(input) {
 }
 export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null, midi: {} });
 export function sanitizeDeckConfig(input = {}, previous = defaultDeckConfig()) {
-  return { midi: sanitizeMidiParameters(input.midi, previous.midi), rate: clamp(input.rate ?? previous.rate ?? 1, 0.25, 4, previous.rate ?? 1), gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -4000000, 4000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
+  return { midi: sanitizeMidiParameters(input.midi, previous.midi), rate: clamp(input.rate ?? previous.rate ?? 1, 0.25, 8, previous.rate ?? 1), gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -4000000, 4000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
     loopStartBeats: input.loopStartBeats === undefined ? previous.loopStartBeats : input.loopStartBeats === null ? null : clamp(input.loopStartBeats, 0, MIDI_MIXER_LIMITS.beats),
     loopEndBeats: input.loopEndBeats === undefined ? previous.loopEndBeats : input.loopEndBeats === null ? null : clamp(input.loopEndBeats, 0, MIDI_MIXER_LIMITS.beats) };
 }

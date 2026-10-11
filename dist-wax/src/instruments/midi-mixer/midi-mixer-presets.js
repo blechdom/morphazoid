@@ -11,7 +11,7 @@ export function captureMixerPreset(state) {
       delayBeats: clamp(state.effects?.delayBeats, .125, 4, .5), feedback: clamp(state.effects?.feedback, 0, .8, .3), synth: sanitizeMidiSynthEffects(state.effects?.synth) },
     decks: [0, 1].map(index => {
       const value = state.decks?.[index], config = value?.config ?? {};
-      const result = deck({ rate: clamp(config.rate, .25, 4, 1), gain: clamp(config.gain, 0, 2, 1), transpose: Math.round(clamp(config.transpose, -24, 24, 0)), midi: config.midi,
+      const result = deck({ rate: clamp(config.rate, .25, 8, 1), gain: clamp(config.gain, 0, 2, 1), transpose: Math.round(clamp(config.transpose, -24, 24, 0)), midi: config.midi,
         offsetBeats: clamp(config.offsetBeats, -4000000, 4000000, 0), loop: config.loop !== false, mute: Boolean(config.mute),
         loopStartBeats: clamp(config.loopStartBeats, 0, 1000000, 0),
         loopEndBeats: config.loopEndBeats == null ? null : Math.max(clamp(config.loopStartBeats, 0, 1000000, 0) + 1 / 32, clamp(config.loopEndBeats, 0, 1000000, 1)) },
@@ -126,7 +126,7 @@ export function randomizeMixerPreset(current, random = Math.random) {
   snapshot.decks.forEach((value, index) => {
     const analysis = current.decks?.[index]?.analysis, duration = analysis?.durationBeats || 16;
     const region = unit() < .3, length = Math.min(duration, pick([2, 4, 8, 16])), start = region ? Math.floor(unit() * Math.max(0, duration - length)) : 0;
-    value.config = { rate: pick([.25, .5, 1, 2, 4]), gain: .45 + unit() * .55, transpose: pick([-24, -12, -7, -5, 0, 3, 5, 7, 12, 24]),
+    value.config = { rate: pick([.25, .5, 1, 2, 4, 8]), gain: .45 + unit() * .55, transpose: pick([-24, -12, -7, -5, 0, 3, 5, 7, 12, 24]),
       offsetBeats: pick([-8, -4, -2, -1, -.5, 0, .25, .5, 1, 2, 4, 8]), loop: unit() > .08, mute: unit() < .08,
       loopStartBeats: start, loopEndBeats: region ? start + length : null, midi: randomizedMidi(value.config.midi, unit) };
     const sounding = analysis?.channels.filter(item => item.noteCount > 0).map(item => item.channel) ?? Array.from({ length: 16 }, (_, id) => id);

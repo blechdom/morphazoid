@@ -218,7 +218,7 @@ export class MidiphoriaPlayer {
   }
 
   setPlaybackRate(value) {
-    this._rate = clamp(value, 0.5, 4, this._rate);
+    this._rate = clamp(value, 0.5, 8, this._rate);
     if (this._sequencer) this._sequencer.playbackRate = this._rate;
     this._publish(); return this._rate;
   }

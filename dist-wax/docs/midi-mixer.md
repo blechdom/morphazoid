@@ -24,7 +24,7 @@ The mixer uses its shared tempo; source tempo changes remain in the inspector.
 | MIDI controllers | Search every CC 0–119 by number/name; ordinary controllers can be held as overrides |
 | SoundFont synthesis | Supported volume/modulation envelopes, filter cutoff/resonance, LFO frequencies/delays/destinations, tuning, key tracking, attenuation and effect sends |
 | Shared SoundFont effects | Reverb character/time/level/predelay/filter, chorus rate/depth/delay/feedback/routing, and stereo delay timing/levels/feedback/routing |
-| Exact timing and level | Continuous deck ratio from ¼× to 4×, deck level up to 200%, fractional loop/slip positions, exact filter Hz and echo beats |
+| Exact timing and level | Continuous deck ratio from ¼× to 8×, deck level up to 200%, fractional loop/slip positions, exact filter Hz and echo beats |
 
 Changes remain live while the transport runs. Velocity changes affect later
 attacks; SoundFont envelope changes apply to new notes. Removing a generator
@@ -171,7 +171,7 @@ Audio activation; Stop or Reset cancels that pending play request.
   Local files stay in this browser session and are not uploaded.
 - **Master tempo** spans 30–300 BPM. Take either file's source tempo with its
   tempo button, adjust the master directly, or use the shared **Tap** control.
-- **Tempo ratio** runs either deck at ¼×, ½×, 1×, 2× or 4× the shared tempo.
+- **Tempo ratio** runs either deck at ¼×, ½×, 1×, 2×, 4× or 8× the shared tempo.
   For example, double-time drums from A stay synchronized with half-time guitar
   from B. Changing a ratio keeps the current source position and changes its speed.
 - Use each channel's **Mute** and **Solo** to select parts. For example, solo

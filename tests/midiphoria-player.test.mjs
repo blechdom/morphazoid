@@ -400,7 +400,7 @@ test('processor failure stops and clears the failed engine and the next Audio ac
 test('rate, loop, volume and seeks clamp finite values without creating audio', async () => {
   const h = harness();
   assert.equal(h.player.setVolume(NaN), 0.5); assert.equal(h.player.setVolume(9), 1);
-  assert.equal(h.player.setPlaybackRate(99), 4); assert.equal(h.player.setPlaybackRate(-10), 0.5);
+  assert.equal(h.player.setPlaybackRate(99), 8); assert.equal(h.player.setPlaybackRate(-10), 0.5);
   assert.equal(h.player.setLoop(true), true); assert.equal(h.contexts.length, 0);
   const seq = await ready(h);
   assert.equal(seq.loopCount, Infinity); assert.equal(seq.options.initialPlaybackRate, 0.5);

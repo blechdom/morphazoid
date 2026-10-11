@@ -93,7 +93,7 @@ test('shared worklet keeps sounding through a UI stall, live ratios, loops, filt
   expect(await page.evaluate(() => __qaMixer._delay.delayTime.value)).toBeCloseTo(2, 2);
   const phase = await page.evaluate(() => {
     const before = __qaMixer.state.decks[0].positionBeats, beforeTime = __qaMixer.context.currentTime;
-    __qaMixer.configureDeck(0, { rate: 2 }); __qaMixer.configureDeck(1, { rate: 0.5 });
+    __qaMixer.configureDeck(0, { rate: 8 }); __qaMixer.configureDeck(1, { rate: 0.5 });
     const after = __qaMixer.state.decks[0].positionBeats, elapsed = __qaMixer.context.currentTime - beforeTime;
     __qaMixer.configureDeck(0, { loopStartBeats: 8, loopEndBeats: 12 }); __qaMixer.seekDeck(0, 10);
     return { before, after, elapsed, source: __qaMixer.state.decks[0].positionBeats };
@@ -101,7 +101,7 @@ test('shared worklet keeps sounding through a UI stall, live ratios, loops, filt
   // Native audio advances during these synchronous UI calls; the pure-clock
   // tests prove exact phase algebra, while this bound includes elapsed audio.
   expect(phase.after - phase.before).toBeGreaterThanOrEqual(-0.01);
-  expect(phase.after - phase.before).toBeLessThan(phase.elapsed * 2 + 0.02);
+  expect(phase.after - phase.before).toBeLessThan(phase.elapsed * 8 + 0.02);
   expect(Math.abs(phase.source - 10)).toBeLessThan(0.03);
   await expect.poll(async () => (await measure(page)).rms).toBeGreaterThan(0.002);
   const fontResult = await page.evaluate(async () => {

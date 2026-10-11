@@ -118,21 +118,23 @@ test('scrubbing keeps global tempo phase, effect bounds stay finite, and SoundFo
   assert.equal(engine.state.soundfontName, 'Imported bank'); assert.equal(engine.context, null); assert.equal(engine.state.audioEnabled, false);
   await assert.rejects(engine.loadSoundFont(new ArrayBuffer(12)), /not an SF2/); await engine.dispose();
 });
-test('half-speed and double-speed files share exact master-beat alignment across independent loops', () => {
-  const attacks = [[], []]; let absoluteFrame = 0;
-  const clock = new MidiMixerClock({ emit: (deck, event, frame) => { if (event.kind === 9) attacks[deck].push(absoluteFrame + frame); } });
-  clock.load(0, data(1), { ...defaultDeckConfig(), rate: 2 }, []);
-  clock.load(1, data(1), { ...defaultDeckConfig(), rate: 0.5 }, []); clock.setTransport(true);
-  for (let index = 0; index < 3000; index++) { clock.process(128, 48000); absoluteFrame += 128; }
-  assert.equal(attacks[0].length, attacks[1].length * 4);
-  assert.deepEqual(attacks[1], attacks[0].filter((_, index) => index % 4 === 0));
+test('half-speed and up to eight-times-speed files share exact master-beat alignment across independent loops', () => {
+  for (const rate of [2, 8]) {
+    const attacks = [[], []]; let absoluteFrame = 0;
+    const clock = new MidiMixerClock({ emit: (deck, event, frame) => { if (event.kind === 9) attacks[deck].push(absoluteFrame + frame); } });
+    clock.load(0, data(1), { ...defaultDeckConfig(), rate }, []);
+    clock.load(1, data(1), { ...defaultDeckConfig(), rate: 0.5 }, []); clock.setTransport(true);
+    for (let index = 0; index < 3000; index++) { clock.process(128, 48000); absoluteFrame += 128; }
+    assert.equal(attacks[0].length, attacks[1].length * rate * 2);
+    assert.deepEqual(attacks[1], attacks[0].filter((_, index) => index % (rate * 2) === 0));
+  }
 });
 test('changing a deck ratio preserves source position and scrub follows that ratio', async () => {
   let now = 0; const engine = new MidiMixerEngine({ runtime: { performance: { now: () => now } } });
   await engine.loadDeck(0, generateTextMidi('ABCDEFGHIJK').buffer); engine.play(); now = 1700;
-  const before = engine.state.decks[0].positionBeats; engine.configureDeck(0, { rate: 2 });
-  assert.equal(engine.state.decks[0].positionBeats, before);
-  now += 100; assert.ok(Math.abs(engine.state.decks[0].positionBeats - before - 0.4) < 1e-7);
+  const before = engine.state.decks[0].positionBeats; engine.configureDeck(0, { rate: 8 });
+  assert.ok(Math.abs(engine.state.decks[0].positionBeats - before) < 1e-12);
+  now += 100; assert.ok(Math.abs(engine.state.decks[0].positionBeats - before - 1.6) < 1e-7);
   engine.seekDeck(0, 2); assert.equal(engine.state.decks[0].positionBeats, 2); await engine.dispose();
 });
 test('resume restores currently held notes with a bounded interval query without retriggering finished attacks', async () => {

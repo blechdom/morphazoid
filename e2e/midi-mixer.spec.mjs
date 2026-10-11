@@ -180,6 +180,10 @@ test('independent half and double time retain the shared tempo and produce match
   const [a, b] = await positions();
   const difference = Math.abs(a - (4 * b % 16));
   expect(Math.min(difference, 16 - difference)).toBeLessThanOrEqual(.3);
+  await page.locator('#deckRate0').selectOption('8');
+  await expect(page.locator('#deckRateOut0')).toHaveText('960.0 BPM');
+  await expect(page.locator('#deckExactRate0')).toHaveValue('8');
+  await expect(page.locator('#deckExactRate0')).toHaveAttribute('max', '8');
   await page.locator('#mixerReset').click();
   await expect(page.locator('#deckRate0')).toHaveValue('1'); await expect(page.locator('#deckRate1')).toHaveValue('1');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');

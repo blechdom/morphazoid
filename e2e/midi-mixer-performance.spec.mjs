@@ -108,7 +108,7 @@ async function input(page, id, value, type = 'input') {
 }
 async function open(page) {
   await observe(page); await page.goto('/midiphoria.html');
-  await input(page, 'playbackRate', 4); await page.locator('#loopSong').check();
+  await input(page, 'playbackRate', 8); await page.locator('#loopSong').check();
   await page.locator('#mixerModeButton').click();
   await expect(page.locator('#tempoFromB')).toBeEnabled();
   for (const index of [0, 1]) {
