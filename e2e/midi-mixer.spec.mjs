@@ -253,6 +253,7 @@ test('armed view changes move playback between the real players and return to an
   await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
   await expect(page.locator('#deckPitch0')).toHaveValue('7');
   await expect(page.locator('#deckOffset1')).toHaveValue('2');
+  await expect.poll(() => page.evaluate(() => globalThis.__mixerQAContexts.filter(context => context.state === 'running').length)).toBe(1);
   await audible(page);
   // The legacy Play DOM control mirrors the active transport for Space. Prove
   // that its actual synth was silenced by muting both active mixer decks.

@@ -1,5 +1,17 @@
 # Full-instrument preset rollout
 
+## October 10 — Midiophilia mixer view
+
+The owner-requested mixer remains a view of Midiophilia. It has twelve complete
+mix scenes in the shared preset/Next/Dice chooser, plus bounded full-state
+randomization. Tempo, deck ratios, pitch, slip, loops, channel patches and
+mute/solo, deck balance, filter and echo are musical state. Selected files,
+SoundFont, Audio, Play, current beat and master output remain session state.
+The visualizer restores its own preset chooser when returning to that view.
+Model and native-browser audio/layout checks are covered by the MIDI mixer
+unit and browser suites; physical listening/touch acceptance remains separate.
+See [MIDI Mixer](midi-mixer.md).
+
 ## October 9 — Fractal Delay shared input and five mappings
 
 The owner-requested Work in Progress instrument has twenty-eight complete musical

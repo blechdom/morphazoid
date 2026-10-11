@@ -92,13 +92,19 @@ function mountMidiphoria() {
     pendingAudioIntent = wantedAudio; pendingPlayIntent = wantedPlay; retainedPlayIntent = wantedPlay;
     resumeAfterSelection = false; clear();
     previous.pause(); void armEngine(previous, false);
+    // Only the visible instrument owns a running audio clock; inactive contexts
+    // would otherwise make the shared recorder see two unrelated clocks.
+    const idleAudio = previous === player ? player.context?.suspend().catch(() => {}) : mixer.suspendAudio?.();
     if (isMixer) { presetController?.destroy(); presetController = null; }
     stageMode = next; reflectMode();
     if (!isMixer) registerVisualPresets();
     const target = activeEngine();
     audioStarting = wantedAudio; $('modeStatus').textContent = ''; reflectPlayer();
     try {
+      await idleAudio;
+      if (disposed || version !== modeVersion) return;
       if (wantedAudio) await armEngine(target, true);
+      else if (target === player && player.context?.state === 'suspended') await player.context.resume();
       if (disposed || version !== modeVersion) {
         if (disposed || activeEngine() !== target) void armEngine(target, false);
         return;

@@ -256,9 +256,10 @@ export function mountMidiMixer(host, { onState = () => {} } = {}) {
     get state() { const state = engine.state; return { ...state, ready: state.decks.some(deck => deck.analysis), playing: state.playing || pendingPlay }; },
     setActive(value) { const next = Boolean(value); if (next !== active) {
       if (next) mountPresets(); else { presetController?.destroy(); presetController = null; }
-    } active = next; if (active) { void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
+    } active = next; if (active) { if (engine.context?.state === 'suspended') void engine.context.resume().catch(fail); void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
     async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); return engine.setAudioEnabled(false); },
-    setVolume(value) { engine.setVolume(value); }, play, pause, reset,
+    setVolume(value) { engine.setVolume(value); },
+    suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset,
     dispose() { if (disposed) return; disposed = true; pendingPlay = false; presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => ui.channelEvents.abort()); void engine.dispose(); host.replaceChildren(); },
   };
 }

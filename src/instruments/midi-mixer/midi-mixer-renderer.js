@@ -1,3 +1,4 @@
+import { GM_PROGRAM_NAMES } from './midi-mixer-model.js';
 // Full-score density maps: horizontal time, one row per MIDI voice. No pitch lanes.
 export const mixerVoiceColor = (deck, channel) => `hsl(${(deck ? 287 : 143) + channel * 4} 65% 69%)`;
 const bounded = (n, low, high) => Math.max(low, Math.min(high, n));
@@ -75,7 +76,7 @@ export class MidiMixerRenderer {
       ctx.fillStyle = index % 2 ? '#0a1317' : '#071014'; ctx.fillRect(left, y, span, rowHeight - 1);
       const color = muted ? '#46514f' : mixerVoiceColor(this.deckIndex, row.channel);
       ctx.fillStyle = color; ctx.save(); ctx.beginPath(); ctx.rect(0, y, left - 5, rowHeight); ctx.clip();
-      ctx.fillText(`${row.channel + 1} ${row.drums ? 'Drums' : row.instrument}`, 5, y + rowHeight / 2); ctx.restore();
+      ctx.fillText(`${row.channel + 1} ${row.drums ? 'Drums' : config?.program != null ? GM_PROGRAM_NAMES[config.program] : row.instrument}`, 5, y + rowHeight / 2); ctx.restore();
       const cellWidth = span / this.cache.bins;
       for (let b = 0; b < row.bins.length; b++) {
         if (!row.bins[b]) continue;
