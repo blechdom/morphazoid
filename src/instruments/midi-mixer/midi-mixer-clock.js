@@ -52,7 +52,9 @@ export class MidiMixerClock {
     // Controller-only history is separate: seeking never triggers overdue attacks.
     this.restore(index, deck.controllers, Math.max(bounds.start, position));
     this.configure(index, deck.config, deck.channelConfig);
-    if (this.playing) for (const event of heldNotesAt(deck.held, Math.max(bounds.start, position))) this.emit(index, event, 0);
+    if (this.playing && position >= bounds.start && position < bounds.end) {
+      for (const event of heldNotesAt(deck.held, position)) this.emit(index, event, 0);
+    }
   }
   setDeck(index, config, channels) {
     const deck = this.decks[index]; if (!deck) return;
@@ -75,6 +77,10 @@ export class MidiMixerClock {
       const bounds = mixerLoopBounds(deck), sourceIncrement = increment * (deck.config.rate ?? 1);
       const start = this.beat * (deck.config.rate ?? 1) + deck.config.offsetBeats, finish = end * (deck.config.rate ?? 1) + deck.config.offsetBeats;
       if (!deck.config.loop && deck.ended) continue;
+      if (!deck.config.loop && start < 0 && finish >= 0) {
+        const frame = Math.max(0, Math.min(frames - 1, Math.round(-start / sourceIncrement)));
+        for (const event of heldNotesAt(deck.held, bounds.start)) this.emit(index, event, frame);
+      }
       let cursorBeat = start, budget = MAX_EVENTS_PER_BLOCK;
       // Minimum loop length is >= 1/32 quarter; at 300 BPM even the slowest supported
       // browser sample rate crosses at most a few boundaries in one render quantum.

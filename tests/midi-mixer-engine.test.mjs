@@ -147,3 +147,20 @@ test('resume restores currently held notes with a bounded interval query without
   assert.equal(emitted.length, 1); assert.equal(emitted[0].a, 0);
   clock.setTransport(false); assert.equal(emitted.length, 1, 'pause never attacks notes');
 });
+test('held notes crossing a nonloop region start remain silent until a negative offset reaches it', () => {
+  const analysis = { events: [], channels: [{ channel: 0 }], meterMap: [{ numerator: 4, denominator: 4 }], durationBeats: 100,
+    notes: [{ beat: 0, duration: 90, channel: 0, note: 60, velocity: 100 }] };
+  const emitted = [], clock = new MidiMixerClock({ emit: (_deck, event, frame) => emitted.push({ event, at: clock.beat + frame / 24000 }) });
+  clock.load(0, compileDeck(analysis), { ...defaultDeckConfig(), loop: false, loopStartBeats: 8, loopEndBeats: 12, offsetBeats: -2 }, []);
+  clock.setTransport(true, 0); assert.equal(emitted.length, 0, 'no early held-note attack on resume');
+  for (let i = 0; i < 500; i++) clock.process(128, 48000);
+  assert.equal(emitted.length, 1); assert.ok(Math.abs(emitted[0].at - 2) < 0.0001);
+  clock.setTransport(true, 20); assert.equal(emitted.length, 1, 'no held note restored after the region ends');
+});
+test('long imported timelines can seek beyond two thousand beats', async () => {
+  const engine = new MidiMixerEngine(); await engine.loadDeck(0, generateTextMidi('A').buffer);
+  engine._decks[0].analysis.durationBeats = 1000000;
+  engine.seekDeck(0, 750000); assert.equal(engine.state.decks[0].positionBeats, 750000);
+  engine.configureDeck(0, { offsetBeats: 3500000 }); assert.equal(engine.state.decks[0].config.offsetBeats, 3500000);
+  await engine.dispose();
+});
