@@ -141,6 +141,16 @@ test('message phrases keep reading order and their silent separators while scrol
   assert.equal(pixels[15].reduce((a, b) => a + b), 0);
 });
 
+test('message layout exposes sequential letters while preserving upright glyphs and every note', () => {
+  const word = mixerMessageScore('FL'), letters = mixerMessageScore('FL', { mode: 'letter' });
+  assert.equal(word.mode, 'word'); assert.equal(letters.mode, 'letter');
+  assert.deepEqual(letters.phrases, ['F', 'L']); assert.equal(letters.columns, 5); assert.equal(letters.rows, 16);
+  const pixels = pixelsFor(letters);
+  assert.equal(pixels[0].join(''), '11111'); assert.equal(pixels[6].join(''), '10000');
+  assert.equal(pixels[8].join(''), '10000'); assert.equal(pixels[14].join(''), '11111');
+  assert.equal(parseMidi(letters.buffer).noteCount, parseMidi(word.buffer).noteCount);
+});
+
 test('current drawings become upright sounding trails without mutating the editor score', () => {
   const pixels = [[0, 0, 0], [1, 1, 1], [1, 0, 0], [0, 0, 0]];
   const drawing = generateGridMidi(pixels), originalNotes = structuredClone(drawing.notes);
@@ -152,6 +162,18 @@ test('current drawings become upright sounding trails without mutating the edito
   for (const score of [null, {}, { ...drawing, rows: 10000 }, { ...drawing, notes: [{ note: 129, start: 0, duration: 1 }] }]) {
     assert.throws(() => mixerPerformanceScore(score));
   }
+});
+
+test('drawing row length and lowest note resize timing and pitch without altering the drawing', () => {
+  const drawing = generateGridMidi([[0, 1, 0], [1, 1, 0], [1, 0, 1], [0, 0, 0]], { secondsPerRow: .125 });
+  const before = drawing.buffer.slice(0), normal = mixerPerformanceScore(drawing);
+  const moved = mixerPerformanceScore(drawing, { secondsPerRow: .5, lowestNote: 12 });
+  assert.equal(moved.duration, normal.duration * 4); assert.equal(moved.lowestNote, 12);
+  assert.deepEqual(pixelsFor(moved), pixelsFor(normal));
+  assert.deepEqual(parseMidi(moved.buffer).notes.map(note => note.note), parseMidi(normal.buffer).notes.map(note => note.note - 36));
+  assert.deepEqual(drawing.buffer, before);
+  assert.throws(() => mixerPerformanceScore(drawing, { secondsPerRow: 0 }));
+  assert.throws(() => mixerPerformanceScore(drawing, { lowestNote: 127 }));
 });
 
 test('deck A, deck B and sample voices use stable independent hues at identical pitch/channel', () => {
