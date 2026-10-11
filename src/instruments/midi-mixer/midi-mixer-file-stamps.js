@@ -146,18 +146,21 @@ function excerpt(analysis, prepared, start, end, outputBeats, transpose) {
   const effectiveTranspose = pitched ? clamp(transpose, -low, 127 - high) : 0;
   const shift = (note, channel) => channel % 16 === 9 ? note : clamp(note + effectiveTranspose, 0, 127);
   const scale = outputBeats / (end - start), events = historyAt(analysis, start, used);
+  const ppq = Math.max(960, analysis.ppq), endTick = Math.max(1, Math.round(outputBeats * ppq));
   for (const event of events) if (event.kind === 10) event.a = shift(event.a, event.channel);
   let restoredNoteCount = 0, sustainedNoteCount = 0;
   for (const [index, note] of selected.entries()) {
     const restored = note.beat < start;
     if (restored) restoredNoteCount++;
     if (note.keyEnd < start) sustainedNoteCount++;
-    const on = Math.max(0, note.beat - start) * scale;
+    const onTick = Math.min(endTick - 1, Math.round(Math.max(0, note.beat - start) * scale * ppq));
+    const on = onTick / ppq;
     // Restored attacks follow state restoration and precede in-range controls.
     const onOrder = restored ? -0.9 + index / (selected.length + 1) * 0.4 : note.id;
     const off = Math.max(0, Math.max(note.beat, Math.min(end, note.keyEnd)) - start) * scale;
+    const offTick = restored && note.keyEnd <= start ? 0 : Math.min(endTick, Math.max(onTick + 1, Math.round(off * ppq)));
     events.push({ beat: on, order: onOrder, channel: note.channel, kind: 9, a: shift(note.note, note.channel), b: note.velocity });
-    events.push({ beat: Math.min(outputBeats, Math.max(0, off)), order: restored && note.keyEnd <= start ? onOrder + 0.0000001 : note.offOrder, channel: note.channel, kind: 8, a: shift(note.note, note.channel), b: 0 });
+    events.push({ beat: offTick / ppq, order: restored && note.keyEnd <= start ? onOrder + 0.0000001 : note.offOrder, channel: note.channel, kind: 8, a: shift(note.note, note.channel), b: 0 });
   }
   for (const event of analysis.events) {
     if (event.beat >= end) break;
@@ -170,7 +173,7 @@ function excerpt(analysis, prepared, start, end, outputBeats, transpose) {
   }
   if (events.length > MIDI_SAMPLE_LIMITS.events) return null;
   const meter = analysis.meterMap.findLast(item => item.beat <= start) ?? analysis.meterMap[0];
-  const buffer = encode(events, Math.max(960, analysis.ppq), outputBeats, meter);
+  const buffer = encode(events, ppq, outputBeats, meter);
   if (buffer.byteLength > MIDI_SAMPLE_LIMITS.fileBytes) return null;
   return { buffer, noteCount: selected.length, channelCount: used.size, restoredNoteCount, sustainedNoteCount, effectiveTranspose, scale };
 }
@@ -192,6 +195,12 @@ export function createMidiFileStamp(input, options = {}) {
     ? modulo(denseStart(prepared.notes, requestedBeats, bar, prepared.lastBeat) + variant * requestedBeats, prepared.lastBeat)
     : clamp(options.startBeat, 0, Math.max(0, prepared.lastBeat - 1 / analysis.ppq));
   start = Math.floor(start * analysis.ppq + 1e-7) / analysis.ppq;
+  let skippedRest = false;
+  if (!whole && !prepared.notes.some(note => note.beat < start + requestedBeats && note.soundingEnd > start)) {
+    // Next Slice must advance across a silent interlude instead of retrying it.
+    start = (prepared.notes.find(note => note.beat >= start + requestedBeats) ?? prepared.notes[0]).beat;
+    skippedRest = true;
+  }
   const requestedEnd = whole ? prepared.lastBeat : Math.min(prepared.lastBeat, start + requestedBeats);
   let end = requestedEnd, result, shortened = false;
   // Temporal reduction is explicit; even a single simultaneous group is never thinned.
@@ -206,6 +215,7 @@ export function createMidiFileStamp(input, options = {}) {
   }
   if (!result) throw new Error('This instant is too dense for a complete MIDI stamp. Choose a different start; no notes were removed.');
   const stampAnalysis = parseMidi(result.buffer), warnings = [...(analysis.warnings ?? [])];
+  if (skippedRest) warnings.push('Skipped an empty passage to the next note. The source range shows the actual excerpt.');
   if (shortened) warnings.push('The excerpt was shortened to fit one-shot limits; every note in the retained time window is preserved.');
   if (result.effectiveTranspose !== requestedTranspose) warnings.push(`Pitch shift limited to ${result.effectiveTranspose} semitones to preserve the complete note range.`);
   const name = String(options.name ?? 'MIDI file').slice(0, 128);

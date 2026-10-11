@@ -40,6 +40,16 @@ test('whole pictures trim empty margins and uniformly fit notes and controllers 
   assert.equal(stamp.analysis.channels[0].program, 81);
 });
 
+test('next slices skip empty passages and compressed final attacks remain inside the output boundary', () => {
+  const source = midi([...notes(0, [60], 1), ...notes(40, [64], 1)], 44);
+  const stamp = createMidiFileStamp(source, { startBeat: 4, beats: 4 });
+  assert.equal(stamp.sourceStartBeat, 40); assert.equal(stamp.noteCount, 1);
+  assert.ok(stamp.warnings.some(warning => /empty passage/.test(warning))); assert.equal(stamp.nextStartBeat, 0);
+  const compressed = createMidiFileStamp(midi([...notes(0, [60], 1), ...notes(15.999, [64], 1 / 960)], 16), { whole: true, fitBeats: 1 / 32 });
+  assert.equal(compressed.durationBeats, 1 / 32); assert.equal(compressed.analysis.noteCount, 2);
+  assert.ok(compressed.analysis.notes.every(note => note.beat + note.duration <= compressed.durationBeats));
+});
+
 test('sustain-held keys released before a cut are reconstructed under the original pedal state', () => {
   const source = midi([[0, 0xc0, 16], [0, 0xb0, 64, 127], ...notes(1, [60], 1), ...notes(3, [64], 4), [6, 0xb0, 64, 0]], 8);
   const stamp = createMidiFileStamp(source, { startBeat: 4, beats: 4 });
