@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { MidiMixerEngine } from '../src/instruments/midi-mixer/midi-mixer-engine.js';
 import { MIDI_MIXER_PRESETS, captureMixerPreset, applyMixerPreset, randomizeMixerPreset } from '../src/instruments/midi-mixer/midi-mixer-presets.js';
 import { buildVoiceMap } from '../src/instruments/midi-mixer/midi-mixer-renderer.js';
+import { MIDI_PARAMETER_FIELDS, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS } from '../src/instruments/midi-mixer/midi-mixer-parameters.js';
 
 test('all mix scenes recall independently and preserve files, clock, output and audio intent', () => {
   const engine = new MidiMixerEngine(); engine.setVolume(.37); engine.configureChannel(0, 34, { mute: true, solo: true, program: 97 });
@@ -25,7 +26,7 @@ test('randomizer varies all musical fields, retains source settings and produces
   const remember = (key, value) => { if (!seen.has(key)) seen.set(key, new Set()); seen.get(key).add(JSON.stringify(value)); };
   for (let i = 0; i < 250; i++) {
     const scene = randomizeMixerPreset(engine.state, random); applyMixerPreset(engine, scene);
-    for (const [key, value] of Object.entries(scene.effects)) { assert.ok(Number.isFinite(value)); remember(key, value); }
+    for (const [key, value] of Object.entries(scene.effects)) { if (key === 'synth') { for (const number of Object.values(value)) assert.ok(Number.isFinite(number)); } else assert.ok(Number.isFinite(value)); remember(key, value); }
     for (const [index, deck] of scene.decks.entries()) {
       for (const [key, value] of Object.entries(deck.config)) remember(`${index}.${key}`, value);
       remember(`${index}.program`, deck.channels[0].program); remember(`${index}.channelMute`, deck.channels[0].mute); remember(`${index}.channelSolo`, deck.channels[0].solo);
@@ -37,6 +38,43 @@ test('randomizer varies all musical fields, retains source settings and produces
   }
   for (const [key, values] of seen) assert.ok(values.size > 1, `frozen ${key}`);
   assert.equal(engine.context, null); void engine.dispose();
+});
+test('version two scenes deeply capture and replace MIDI overrides, including additional ports', () => {
+  const engine = new MidiMixerEngine();
+  engine.configureDeck(0, { gain: 1.6, midi: { pan: -.6, controllers: { 7: 93, 64: 127 }, generators: { 8: 7500 } } });
+  engine.configureChannel(0, 34, { midi: { fineTune: 31, controllers: { 10: 20 } } });
+  engine.configureEffects({ synth: { 'reverb.time': 80, 'chorus.depth': 30 } });
+  const snapshot = captureMixerPreset(engine.state);
+  assert.equal(snapshot.version, 2); assert.equal(snapshot.decks[0].config.gain, 1.6);
+  assert.equal(snapshot.decks[0].channels.find(item => item.channel === 34).midi.fineTune, 31);
+  engine.configureDeck(0, { midi: { controllers: { 7: 20, 91: 100 }, generators: { 9: 120 } } });
+  engine.configureEffects({ synth: { 'delay.level': 100 } });
+  assert.equal(snapshot.decks[0].config.midi.controllers[7], 93);
+  applyMixerPreset(engine, snapshot);
+  assert.deepEqual(captureMixerPreset(engine.state), snapshot);
+  const original = structuredClone(MIDI_MIXER_PRESETS[0].snapshot); original.version = 1;
+  delete original.decks[0].config.midi; delete original.effects.synth;
+  applyMixerPreset(engine, original);
+  assert.deepEqual(engine.state.decks[0].config.midi, {});
+  assert.deepEqual(engine.state.decks[0].channels.find(item => item.channel === 34).midi, {});
+  assert.deepEqual(engine.state.effects.synth, {});
+  assert.equal(engine.state.playing, false); assert.equal(engine.context, null); void engine.dispose();
+});
+test('random scenes reach every described musical override without mutating the current scene', () => {
+  let seed = 51424; const random = () => ((seed = (1664525 * seed + 1013904223) >>> 0) / 2 ** 32);
+  const engine = new MidiMixerEngine(), current = engine.state, before = captureMixerPreset(current), seen = new Set();
+  for (let n = 0; n < 120; n++) {
+    const scene = randomizeMixerPreset(current, random);
+    for (const key of Object.keys(scene.effects.synth)) seen.add(`effect:${key}`);
+    for (const deck of scene.decks) for (const midi of [deck.config.midi, ...deck.channels.map(channel => channel.midi)]) {
+      for (const key of Object.keys(midi)) seen.add(`field:${key}`);
+      for (const key of Object.keys(midi.generators || {})) seen.add(`generator:${key}`);
+    }
+  }
+  for (const descriptor of MIDI_PARAMETER_FIELDS) assert.ok(seen.has(`field:${descriptor.id}`), descriptor.id);
+  for (const descriptor of MIDI_GENERATOR_PARAMETERS) assert.ok(seen.has(`generator:${descriptor.id}`), descriptor.label);
+  for (const descriptor of MIDI_SYNTH_EFFECT_PARAMETERS) assert.ok(seen.has(`effect:${descriptor.id}`), descriptor.label);
+  assert.deepEqual(captureMixerPreset(current), before); void engine.dispose();
 });
 test('full-song voice maps account for every note, isolate silent metadata channels, and preserve long silent sections', () => {
   const analysis = { durationBeats: 100, channels: [{ channel: 0, noteCount: 3 }, { channel: 9, noteCount: 2 }, { channel: 15, noteCount: 0 }], notes: [

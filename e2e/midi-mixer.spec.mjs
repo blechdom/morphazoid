@@ -134,7 +134,10 @@ test('source inspection, tempo takeover, voice mute/solo, original patches and p
   await page.locator('#deckAll0').click();
   await page.locator('#deckProgram0_0').selectOption('80'); await expect(page.locator('#deckProgram0_0')).toHaveValue('80');
   await page.locator('#deckProgram0_0').selectOption(''); await expect(page.locator('#deckProgram0_0')).toHaveValue('');
-  await expect(page.locator('#deckProgram0_9')).toBeDisabled();
+  await expect(page.locator('#deckProgram0_9')).toBeEnabled();
+  await expect(page.locator('#deckProgram0_9 option')).toHaveCount(129);
+  await page.locator('#deckProgram0_9').selectOption('8'); await expect(page.locator('#deckProgram0_9')).toHaveValue('8');
+  await page.locator('#deckProgram0_9').selectOption(''); await expect(page.locator('#deckProgram0_9')).toHaveValue('');
   await input(page, 'deckPitch0', -12); await expect(page.locator('#deckPitchOut0')).toHaveText('-12 st');
   await page.locator('#deckForward0').click(); await expect(page.locator('#deckOffset0')).toHaveValue('4');
   await page.locator('#deckBack0').click(); await expect(page.locator('#deckOffset0')).toHaveValue('0');
@@ -199,7 +202,7 @@ test('file changes keep playing and invalid MIDI preserves the previous arrangem
 
 test('local SoundFont selection stays silent, and mix presets and reset provide recovery', async ({ page }) => {
   await open(page);
-  await page.locator('.mixer-effects summary').click();
+  await page.locator('.mixer-effects > summary').click();
   await page.locator('#mixerSoundFont').setInputFiles(fileURLToPath(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url)));
   await expect(page.locator('#mixerFontName')).toHaveText('TimGM6mb.sf2');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
@@ -266,7 +269,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth }));
     expect(overflow.scroll).toBeLessThanOrEqual(overflow.width + 1);
     for (const id of ['mixerPlay', 'masterTempo', 'deckSong0', 'deckMap0', 'deckSong1', 'deckMap1', 'mixerSoundFont']) {
-      if (id === 'mixerSoundFont') await page.locator('.mixer-effects summary').click();
+      if (id === 'mixerSoundFont') await page.locator('.mixer-effects > summary').click();
       const control = page.locator(`#${id}`); await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
       const box = await control.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
     }

@@ -38,7 +38,7 @@ async function observe(page) {
       const trigger = MidiMixerEngine.prototype.triggerSample;
       MidiMixerEngine.prototype.triggerSample = function (...args) {
         const result = trigger.apply(this, args);
-        if (result) qa.launches.push({ id: result.id, name: result.name, program: result.program, gain: result.gain,
+        if (result) qa.launches.push({ id: result.id, name: result.name, program: result.midi?.program ?? result.program, gain: result.gain,
           duration: result.analysis.durationBeats,
           notes: result.analysis.notes.map(({ note, beat, duration, velocity, channel }) => ({ note, beat, duration, velocity, channel })),
           controls: result.analysis.events.filter(event => event.kind !== 8 && event.kind !== 9) });

@@ -140,7 +140,7 @@ const state = page => page.evaluate(() => {
     mixer: { playing: mix.playing, beat: mix.beat, audioEnabled: mix.audioEnabled,
       tempo: mix.tempo, crossfade: mix.crossfade, effects: mix.effects,
       decks: mix.decks.map(deck => ({ config: deck.config, channels: deck.channels, name: deck.name })),
-      samples: (mix.samples ?? []).map(sample => ({ id: sample.id, name: sample.name, program: sample.program, gain: sample.gain })) } };
+      samples: (mix.samples ?? []).map(sample => ({ id: sample.id, name: sample.name, program: sample.midi?.program ?? sample.program, gain: sample.gain })) } };
 });
 const mixSettings = value => ({ tempo: value.tempo, crossfade: value.crossfade, effects: value.effects, decks: value.decks });
 const sourceIds = page => page.locator('#mixerPerformanceCanvas').getAttribute('data-sources').then(value => JSON.parse(value || '[]'));
@@ -150,7 +150,7 @@ async function busyMix(page) {
   await page.locator('#deckProgram0_0').selectOption('80');
   await page.locator('#deckChannels0 [data-channel="1"] button').first().click();
   await input(page, 'deckLoopStart0', 3, 'change'); await input(page, 'deckLoopEnd0', 7, 'change');
-  await page.locator('.mixer-effects summary').click();
+  await page.locator('.mixer-effects > summary').click();
   await input(page, 'mixerFilter', 2.6); await input(page, 'mixerEcho', .5); await input(page, 'mixerFeedback', .6);
 }
 

@@ -6,6 +6,66 @@ decks share one beat clock, so changing the master tempo keeps their timing
 locked even when the decks use different speed ratios. A zoomed-out map shows the note
 density of each voice across the whole arrangement, with muted voices in grey.
 
+## Edit the MIDI sound
+
+Open **MIDI · all voices** on a deck, **Edit voice** under a channel, or
+**Stamp MIDI** beside the stamp bank. Editors start collapsed and build their
+controls when opened. The ordinary file player also has **Edit MIDI**: it
+copies the selected library, uploaded or generated MIDI into deck A, keeps
+the current source position and Audio/Play intent, and brings A to the front.
+The mixer uses its shared tempo; source tempo changes remain in the inspector.
+**Play original** still opens the preserved, unmodified source.
+
+| Area | Editable controls |
+| --- | --- |
+| Voice mix and notes | Gain, pan, transpose, fine tuning, velocity multiplier/offset, mono/poly mode |
+| Instruments | All 128 programs, bank MSB/LSB, drum/melodic mode; per-voice drum kit numbers depend on the SoundFont |
+| Expression | 14-bit pitch wheel, bend range, channel pressure, polyphonic pressure override and modulation depth |
+| MIDI controllers | Search every CC 0–119 by number/name; ordinary controllers can be held as overrides |
+| SoundFont synthesis | Supported volume/modulation envelopes, filter cutoff/resonance, LFO frequencies/delays/destinations, tuning, key tracking, attenuation and effect sends |
+| Shared SoundFont effects | Reverb character/time/level/predelay/filter, chorus rate/depth/delay/feedback/routing, and stereo delay timing/levels/feedback/routing |
+| Exact timing and level | Continuous deck ratio from ¼× to 4×, deck level up to 200%, fractional loop/slip positions, exact filter Hz and echo beats |
+
+Changes remain live while the transport runs. Velocity changes affect later
+attacks; SoundFont envelope changes apply to new notes. Removing a generator
+override may rejoin held voices to recover their original preset generators.
+Pitch shifts outside MIDI notes 0–127 are silent. Zero velocity or gain is an
+intentional mute. The graphic uses the same transformed note pitch/velocity
+as the sounding events.
+
+Empty settings mean **Follow file**. A deck override applies to its voices;
+a voice override takes precedence. **Follow deck / file** removes a local
+voice override, and **Reset all** clears the open editor. Embedded controller,
+program and bend automation continues to be tracked while overridden, so
+clearing a control returns to the current source value. Existing per-voice
+program choices take precedence over a deck-wide program. Ordinary stamp
+program choices preserve original drum kits. Exact generator fields retain
+their native units, with seconds or Hz shown where appropriate.
+
+CC6/38 and CC96–101 are procedural data-entry/parameter-selection messages:
+use **Send** for them, or send an atomic **RPN / NRPN** number/value pair.
+Recovery actions release sustain, send All sound off / All notes off, or reset
+controllers; mono/poly mode has its own control. Procedural actions require an
+initialized audio target, can be superseded by later file
+automation, and are not saved as persistent overrides. Stamp actions target
+currently active shots. None of these controls arm Audio.
+
+Undefined CCs, pressure and some timbre-controller responses depend on the
+loaded SoundFont. Direct SoundFont generator controls are provided separately
+so an unmapped CC is not presented as a guaranteed filter or envelope knob.
+Raw sample addresses/IDs, allocator limits and arbitrary system-exclusive
+messages are not exposed as sound controls. This remains a MIDI 1.0 file mixer.
+The controller names follow the [MIDI Association reference](https://midi.org/midi-1-0-control-change-messages);
+DSP capabilities are verified against the bundled
+[SpessaSynth core](https://github.com/spessasus/spessasynth_core).
+
+Mix presets now save version 2 with deep copies of deck/channel MIDI overrides
+and shared effects; version 1 scenes migrate to file-following defaults.
+Recalling a scene replaces its overrides rather than leaving old controllers
+behind. Randomization reaches the added sound controls within bounded musical
+ranges; custom controller entries are randomized as part of their scene.
+Stamp sound/source settings remain separate live performance settings.
+
 ## Visualize and play one-shots
 
 The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
@@ -39,6 +99,16 @@ file instruments are the default for these stamps; choosing another sample
 sound overrides them. Source credits remain linked beside the stamp controls.
 Density and Pitch span apply to generated patterns, so they are disabled for
 file stamps. Existing MIDI files and their stored bytes remain unchanged.
+
+**Stamp MIDI** also exposes the exact pattern seed, key gate from 1–100%,
+automatic/dense/manual/whole source selection, manual start beat, word/letter
+layout, drawing row duration and drawing's lowest note. Source settings apply
+to subsequent launches. A shorter gate changes key-release timing; a file's
+sustain pedal can still extend the sound. It retains every attack and all
+source automation, with the 100% gate retaining the original bytes. Whole-file
+requests still obey the sample bounds and report any shortened excerpt.
+**Reset source settings** restores the defaults. Sound edits and sample level
+can update active shots; source selection does not restart them.
 
 File excerpts retain channel programs, controllers, pitch bend and held notes
 at their boundaries. An excerpt is shortened with an explicit status if it

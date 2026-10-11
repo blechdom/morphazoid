@@ -1858,6 +1858,10 @@ copy+require	src/instruments/midi-mixer/midi-mixer-app.js
 copy+require	src/instruments/midi-mixer/midi-mixer-performance.js
 copy+require	src/instruments/midi-mixer/midi-mixer-performance-score.js
 copy+require	src/instruments/midi-mixer/midi-mixer-file-stamps.js
+copy+require	src/instruments/midi-mixer/midi-mixer-score-transform.js
+copy+require	src/instruments/midi-mixer/midi-mixer-parameters.js
+copy+require	src/instruments/midi-mixer/midi-mixer-midi-editor.js
+copy+require	src/instruments/midi-mixer/midi-mixer-midi-editor.css
 copy+require	src/instruments/midi-mixer/midi-mixer.css
 copy+require	src/instruments/midi-mixer/midi-mixer-renderer.js
 copy+require	src/instruments/midi-mixer/midi-mixer-presets.js

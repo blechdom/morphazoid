@@ -55,7 +55,7 @@ function mountMidiphoria() {
     }
     renderer.captureEvent(event);
   };
-  let currentSongId = '';
+  let currentSongId = '', currentMidiBuffer = null, editingMidi = false;
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false, originalPlaySongId = '';
   let textScore = null, textDownloadUrl = null, drawingVisible = false;
@@ -196,6 +196,7 @@ function mountMidiphoria() {
     const playLabel = activeState.playing ? 'Pause MIDI' : 'Play MIDI';
     $('playButton').setAttribute('aria-label', playLabel); $('playButton').title = playLabel;
     $('stopButton').disabled = !state.ready && !loadingFile && !originalPlaySongId;
+    $('editMidiButton').disabled = !currentMidiBuffer || !selectionReady || loadingFile || editingMidi;
     $('songPosition').disabled = !state.ready || !selectionReady;
     $('songPosition').max = String(state.duration || 1);
     if (document.activeElement !== $('songPosition')) $('songPosition').value = String(state.time || 0);
@@ -298,6 +299,7 @@ function mountMidiphoria() {
 
   async function selectSong(song, { audition = false } = {}) {
     originalPlaySongId = '';
+    currentMidiBuffer = null;
     resumeAfterSelection = player.state.playing || (loadingFile && resumeAfterSelection)
       || (audition && player.state.audioEnabled);
     pendingPresetSong = false; currentSongId = song.id;
@@ -324,6 +326,7 @@ function mountMidiphoria() {
       const loaded = await player.load(binary, file?.name || song.title, { preserveLeadIn: Boolean(song.preserveLeadIn) });
       if (disposed || version !== selectionVersion) return;
       selectionReady = Boolean(loaded);
+      if (selectionReady) currentMidiBuffer = binary.slice(0);
       if (selectionReady && resumeAfterSelection && stageMode !== 'mixer') player.play();
     } catch (error) {
       if (disposed || version !== selectionVersion || error.name === 'AbortError') return;
@@ -391,6 +394,18 @@ function mountMidiphoria() {
     getDrawing: () => drawing.model.count ? drawing.model.score() : null });
   mixer.setActive(false);
   mixer.setVolume(Number($('outputLevel').value));
+  on($('editMidiButton'), 'click', async () => {
+    if (!currentMidiBuffer || editingMidi || loadingFile) return;
+    const version = selectionVersion, song = [...collection, ...localSongs].find(item => item.id === currentSongId), state = player.state;
+    editingMidi = true; fileError = ''; reflectPlayer();
+    try {
+      const loaded = await mixer.editMidi({ buffer: currentMidiBuffer.slice(0), title: song?.title || 'Your MIDI',
+        attribution: song?.attribution, sourceUrl: song?.sourceUrl, time: state.time, rate: state.rate, loop: state.loop });
+      if (!loaded || disposed || version !== selectionVersion) return;
+      await setStageMode('mixer');
+    } catch (error) { if (!disposed && version === selectionVersion) fileError = error.message || 'Could not edit this MIDI.'; }
+    finally { editingMidi = false; if (!disposed) reflectPlayer(); }
+  });
   player.setVolume(Number($('outputLevel').value));
   player.setPlaybackRate(Number($('playbackRate').value));
   player.setLoop($('loopSong').checked);
