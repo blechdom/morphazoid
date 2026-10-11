@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MIXER_SAMPLE_STAMPS, mixerStampScore, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
+import { MIXER_SAMPLE_STAMPS, MIXER_PATTERN_DEFAULTS, mixerStampScore, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
   indexPerformanceNotes, queryPerformanceNotes } from '../src/instruments/midi-mixer/midi-mixer-performance-score.js';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { midiColorHue } from '../src/instruments/midiphoria/midiphoria-renderer.js';
@@ -24,14 +24,62 @@ test('sample bank exports distinct upright shapes with the same notes as its sou
     assert.equal(score.duration, 4);
     assert.equal(score.columns, 48); assert.equal(score.rows, 32);
     assert.equal(score.text, stamp.label);
+    assert.equal(score.group, stamp.group); assert.ok(stamp.group);
     assert.equal(score.notes[0].start, 0, 'factory hits have no leading silence');
     assert.deepEqual(parsed.notes.map(note => ({ note: note.note, start: note.beat * .5,
       duration: note.duration * .5, velocity: note.velocity })).sort((a, b) => a.start - b.start || a.note - b.note), score.notes);
     assert.ok(score.notes.every(note => note.note >= 48 && note.note <= 95 && note.duration > 0));
     shapes.add(JSON.stringify(pixelsFor(score)));
+    assert.deepEqual(score.pixels, pixelsFor(score), 'thumbnail is the chronological sounding MIDI raster');
   }
-  assert.equal(shapes.size, 6);
+  assert.equal(shapes.size, MIXER_SAMPLE_STAMPS.length);
+  assert.equal(shapes.size, 30);
   assert.throws(() => mixerStampScore('unsupported'), /sample/);
+});
+
+test('density, pitch span, duration and whole-score transposition change the sounding geometry', () => {
+  for (const { id } of MIXER_SAMPLE_STAMPS) {
+    const sparse = mixerStampScore(id, { density: 0 }), dense = mixerStampScore(id, { density: 1 });
+    const count = score => score.pixels.reduce((sum, row) => sum + row.reduce((a, b) => a + b), 0);
+    assert.ok(count(dense) > count(sparse), `${id}: density adds sounding cells`);
+    const narrow = mixerStampScore(id, { span: 12, beats: 4, transpose: -24 });
+    assert.equal(narrow.columns, 12); assert.equal(narrow.lowestNote, 42); assert.equal(narrow.highestNote, 53);
+    assert.equal(parseMidi(narrow.buffer).durationBeats, 4);
+    assert.deepEqual(narrow.pixels, pixelsFor(narrow));
+    const long = mixerStampScore(id, { beats: 32 }), shifted = mixerStampScore(id, { transpose: 36 });
+    assert.equal(parseMidi(long.buffer).durationBeats, 32);
+    assert.deepEqual(long.pixels, mixerStampScore(id).pixels, 'duration scales time, preserving the picture');
+    assert.deepEqual(shifted.pixels, mixerStampScore(id).pixels, 'transposition never clips the picture');
+    assert.equal(shifted.highestNote, 127); assert.equal(shifted.patternOptions.transpose, 32);
+  }
+});
+
+test('seeded particle and organic patterns repeat exactly and reroll into distinct soundable scores', () => {
+  for (const id of ['drips', 'cloud', 'rain', 'comet', 'noise', 'scatter', 'explode', 'sparks', 'glob', 'glooob']) {
+    const first = mixerStampScore(id, { seed: 1234 }), same = mixerStampScore(id, { seed: 1234 });
+    const other = mixerStampScore(id, { seed: 9876 });
+    assert.deepEqual(first.buffer, same.buffer, `${id} is reproducible`);
+    assert.notDeepEqual(first.buffer, other.buffer, `${id} responds to its seed`);
+    assert.deepEqual(first.pixels, pixelsFor(first));
+  }
+});
+
+test('all pattern extremes remain bounded, nonempty and within the one-shot MIDI budget', () => {
+  const cases = [{ seed: 0, density: 0, span: 12, beats: 4, transpose: -36 },
+    { seed: 0xffffffff, density: 1, span: 48, beats: 32, transpose: 36 },
+    { seed: -1e100, density: 1e100, span: 1e100, beats: -1e100, transpose: 1e100 },
+    { seed: NaN, density: Infinity, span: 'wrong', beats: undefined, transpose: NaN }];
+  for (const { id } of MIXER_SAMPLE_STAMPS) for (const options of cases) {
+    const score = mixerStampScore(id, options), analysis = parseMidi(score.buffer);
+    assert.ok(analysis.noteCount > 0 && analysis.noteCount <= 768);
+    assert.ok(analysis.events.length < 32768 && score.buffer.byteLength < 2 * 1024 * 1024);
+    assert.equal(score.rows, 32); assert.ok(score.columns >= 12 && score.columns <= 48);
+    assert.ok(analysis.notes.every(note => note.note >= 0 && note.note <= 127 && note.duration > 0));
+    assert.ok(analysis.durationBeats >= 4 && analysis.durationBeats <= 32);
+    assert.equal(score.notes[0].start, 0);
+    assert.deepEqual(score.pixels, pixelsFor(score));
+  }
+  assert.deepEqual(mixerStampScore('noise', null).patternOptions, MIXER_PATTERN_DEFAULTS);
 });
 
 test('square sample is a hollow square; top and bottom of exported MIDI preserve drawing orientation', () => {
