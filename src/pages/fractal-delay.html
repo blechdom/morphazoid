@@ -12,11 +12,37 @@
 <div id="headerAudio"><label for="outputLevel">Output<input id="outputLevel" type="range" min="0" max="1" step=".01" value="1" /></label><button id="audioButton" type="button" aria-pressed="false">Audio</button></div>
 </div></header>
 <main class="fractal-shell">
-<section class="fractal-stage" aria-label="Live fractal delay network">
+<section class="fractal-stage" aria-label="Fractal explorer and live delay network">
+<div class="fractal-graphics">
+<div class="parameter-map"><canvas id="parameterMap" width="480" height="480" tabindex="0" aria-label="Mandelbrot fractal explorer. Drag to select c; Alt-drag to pan; use plus and minus to zoom." aria-describedby="mapInstructions">The Mandelbrot or Julia fractal with the current coefficient marked.</canvas><div class="explorer-caption"><span id="coordinateReadout">−0.745 + 0.113i</span><span id="explorerReadout">Mandelbrot · 1×</span></div></div>
 <div class="stage-wrap"><h1>Fractal Delay</h1><canvas id="stage" tabindex="0" aria-label="Fractal delay network. Drag to change the real and imaginary parameter." aria-describedby="canvasInstructions">Prepared delay connections and their measured travelling waves.</canvas>
 <div class="stage-caption"><span id="stageReadout">Preparing complete network…</span><span>● inputs <i>● pickups</i></span></div></div>
-<p id="canvasInstructions" class="stage-help">Drag: real / imaginary c · Shift: fine · Arrow keys: adjust c</p>
-<div class="parameter-map"><canvas id="parameterMap" width="240" height="120" tabindex="0" aria-label="Mandelbrot parameter map. Click to select c or the excitation position." aria-describedby="mapInstructions"></canvas><p id="mapInstructions">Mandelbrot map selects c.<br /><span id="coordinateReadout">−0.745 + 0.113i</span></p></div>
+</div>
+<section class="explorer-controls" aria-label="Fractal chooser and coefficient motion">
+<div class="explorer-toolbar">
+<label class="select-field" for="explorerSet">Fractal<select id="explorerSet"><option value="mandelbrot">Mandelbrot</option><option value="julia">Julia</option></select></label>
+<label class="select-field explorer-region" for="explorerPreset">Explore<span class="select-next"><select id="explorerPreset"><option value="whole">Whole fractal</option></select><button id="explorerPresetNext" type="button" aria-label="Next fractal region">›</button></span></label>
+<label class="knob-field explorer-zoom" for="explorerZoom"><span><b>Zoom</b><output for="explorerZoom">1×</output></span><input id="explorerZoom" type="range" min="1" max="10000" step="0.01" value="1" aria-label="Fractal zoom" /></label>
+<button id="explorerReset" class="mini-action" type="button" aria-label="Reset fractal view">Whole</button>
+<button id="motionTempoLatch" class="mini-action tempo-latch" type="button" aria-pressed="false" aria-label="Latch coordinate tempos" title="Keep Real and Imaginary tempos together"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m9 15 6-6m-9 5-2 2a4 4 0 0 0 6 6l4-4m4-8 2-2a4 4 0 0 0-6-6l-4 4" /></svg><span>Latch</span></button>
+</div>
+<div class="coordinate-motion"><div class="motion-row" role="group" aria-label="Real c motion">
+<div class="coefficient-field"><label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.000001" value="-0.745" aria-label="Real c" /></label>
+<label class="coefficient-number" for="cRealNumber"><span class="sr-only">Real c coefficient</span><input id="cRealNumber" type="number" min="-2" max="1" step="any" value="-0.745" aria-label="Real c coefficient" inputmode="decimal" /></label></div>
+<label class="knob-field" for="realMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Real tempo</b><output for="realMotionTempo">6 BPM</output></span><input id="realMotionTempo" type="range" min="0.25" max="60" step="0.05" value="6" aria-label="Real c motion tempo" /></label>
+<label class="knob-field" for="realMotionDepth" title="Sweep distance on each side of the starting Real c value."><span><b>Real sweep</b><output for="realMotionDepth">±0.035</output></span><input id="realMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Real c motion depth" /></label>
+<button id="realMotionPlay" class="motion-play play-button" type="button" aria-pressed="false" aria-label="Play Real c motion" title="Play / pause real c motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+</div>
+<div class="motion-row" role="group" aria-label="Imaginary c motion">
+<div class="coefficient-field"><label class="knob-field" for="cImag"><span><b>Imaginary c</b><output for="cImag">0.113</output></span><input id="cImag" type="range" min="-1.5" max="1.5" step="0.000001" value="0.113" aria-label="Imaginary c" /></label>
+<label class="coefficient-number" for="cImagNumber"><span class="sr-only">Imaginary c coefficient</span><input id="cImagNumber" type="number" min="-1.5" max="1.5" step="any" value="0.113" aria-label="Imaginary c coefficient" inputmode="decimal" /></label></div>
+<label class="knob-field" for="imagMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Imag tempo</b><output for="imagMotionTempo">4.5 BPM</output></span><input id="imagMotionTempo" type="range" min="0.25" max="60" step="0.05" value="4.5" aria-label="Imaginary c motion tempo" /></label>
+<label class="knob-field" for="imagMotionDepth" title="Sweep distance on each side of the starting Imaginary c value."><span><b>Imag sweep</b><output for="imagMotionDepth">±0.035</output></span><input id="imagMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Imaginary c motion depth" /></label>
+<button id="imagMotionPlay" class="motion-play play-button" type="button" aria-pressed="false" aria-label="Play Imaginary c motion" title="Play / pause imaginary c motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+</div>
+</div>
+<div class="explorer-help"><p id="mapInstructions" class="stage-help">Drag: c · Shift: fine · Alt: pan · Wheel: zoom</p><p id="canvasInstructions" class="stage-help">Delay: drag real / imaginary c · Shift: fine · Arrow keys: adjust c</p></div>
+</section>
 </section>
 <aside class="fractal-controls" aria-label="Fractal Delay controls" data-instrument-preset-host>
 <label id="fallbackPresets" for="presetSelect">Sound preset<select id="presetSelect"><option value="root-cloud">Root Cloud</option></select></label>
@@ -41,19 +67,6 @@
 <label id="domainField" class="select-field" for="domain">Domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
 <label class="select-field" for="routing">Connections<select id="routing"><option value="geometry">Geometry routes</option><option value="loop">Loop joins</option><option value="shortcuts">Small-world shortcuts</option><option value="hub">Hub spokes</option></select></label>
 <p id="modeDescription" class="control-note">Both square-root predecessors form a Julia vector tree.</p>
-<div class="motion-row" role="group" aria-label="Real c motion">
-<label class="knob-field" for="cReal"><span><b>Real c</b><output for="cReal">-0.745</output></span><input id="cReal" type="range" min="-2" max="1" step="0.001" value="-0.745" aria-label="Real c" /></label>
-<label class="knob-field" for="realMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Real tempo</b><output for="realMotionTempo">6 BPM</output></span><input id="realMotionTempo" type="range" min="0.25" max="60" step="0.05" value="6" aria-label="Real c motion tempo" /></label>
-<label class="knob-field" for="realMotionDepth" title="Sweep distance on each side of the starting Real c value."><span><b>Real sweep</b><output for="realMotionDepth">±0.035</output></span><input id="realMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Real c motion depth" /></label>
-<button id="realMotionPlay" class="motion-play" type="button" aria-pressed="false" aria-label="Play Real c motion">Play</button>
-</div>
-<div class="motion-row" role="group" aria-label="Imaginary c motion">
-<label class="knob-field" for="cImag"><span><b>Imaginary c</b><output for="cImag">0.113</output></span><input id="cImag" type="range" min="-1.5" max="1.5" step="0.001" value="0.113" aria-label="Imaginary c" /></label>
-<label class="knob-field" for="imagMotionTempo" title="One complete back-and-forth sweep per beat."><span><b>Imag tempo</b><output for="imagMotionTempo">4.5 BPM</output></span><input id="imagMotionTempo" type="range" min="0.25" max="60" step="0.05" value="4.5" aria-label="Imaginary c motion tempo" /></label>
-<label class="knob-field" for="imagMotionDepth" title="Sweep distance on each side of the starting Imaginary c value."><span><b>Imag sweep</b><output for="imagMotionDepth">±0.035</output></span><input id="imagMotionDepth" type="range" min="0" max="1.5" step="0.001" value="0.035" aria-label="Imaginary c motion depth" /></label>
-<button id="imagMotionPlay" class="motion-play" type="button" aria-pressed="false" aria-label="Play Imaginary c motion">Play</button>
-</div>
-<p class="control-note">Play either axis for a smooth back-and-forth sweep. Tempo sets a full round trip; Sweep sets its reach. Move c to choose a new center.</p>
 <div class="knob-grid" id="networkKnobs">
 <label class="knob-field" for="detail"><span><b>Detail</b><output for="detail">6</output></span><input id="detail" type="range" min="2" max="12" step="1" value="6" aria-label="Detail" /></label>
 <label class="knob-field" for="timeMs"><span><b>Travel time</b><output for="timeMs">140</output></span><input id="timeMs" type="range" min="0.05" max="2000" step="0.05" value="140" aria-label="Travel time" /></label>
