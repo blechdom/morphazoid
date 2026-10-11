@@ -1,7 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
-import { selectedSong, songButton } from './helpers/midiphoria-library.mjs';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 const errors = new WeakMap();
@@ -40,7 +39,7 @@ async function observe(page) {
         const result = qaTrigger.apply(this, args);
         if (result) __automataQA.launches.push({ id: result.id, name: result.name,
           program: result.midi?.program ?? result.program, gain: result.gain,
-          duration: result.analysis.durationBeats,
+          duration: result.analysis.durationBeats, bytes: Array.from(new Uint8Array(args[0])),
           notes: result.analysis.notes.map(({ note, beat, duration, velocity }) => ({ note, beat, duration, velocity })) });
         return result;
       };
@@ -48,17 +47,13 @@ async function observe(page) {
   });
 }
 
-async function open(page, mixer = false) {
+async function open(page) {
   await observe(page); await page.goto('/midiphoria.html');
   await expect(page.locator('#notePads button')).toHaveCount(24);
-  if (mixer) {
-    await page.locator('#mixerModeButton').click();
-    await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
-  }
-  const prefix = mixer ? 'mixerAutomata' : 'automataMidi';
-  await expand(page.locator(`#${mixer ? 'mixerAutomataTools' : 'automataMidiTools'} .midiphoria-automata`));
-  await expect(page.locator(`#${prefix}Preview`)).toBeVisible();
-  return prefix;
+  await page.locator('#automataModeButton').click();
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
+  await expect(page.locator('#automataMidiPreview')).toBeVisible();
+  return 'automataMidi';
 }
 async function expand(details) { if (!await details.getAttribute('open').then(value => value !== null)) await details.locator(':scope > summary').click(); }
 async function input(page, id, value) {
@@ -106,7 +101,7 @@ test('the rule atlas filters the active family and previews without selecting MI
   await page.locator(`#${prefix}RuleSearch`).fill('01011010'); await expect(rules).toHaveCount(1);
   await expect(rules).toHaveAttribute('data-automata-rule', '90');
   await rules.click(); await expect(page.locator(`#${prefix}RuleLabel`)).toContainText('90');
-  await expect(selectedSong(page)).toHaveCount(0);
+  expect(await launches(page)).toEqual([]);
   await page.locator(`#${prefix}Family`).selectOption('totalistic-r2'); await expand(picker);
   await page.locator(`#${prefix}RuleSearch`).fill(''); await expect(rules).toHaveCount(64);
   expect(await rules.evaluateAll(nodes => nodes.every(node => node.dataset.automataFamily === 'totalistic-r2' && Number(node.dataset.automataRule) <= 63))).toBe(true);
@@ -120,7 +115,7 @@ test('the rule atlas filters the active family and previews without selecting MI
   expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);
 });
 
-test('export and player receive the exact selected rule, dimensions, pitch, timing and velocity', async ({ page }) => {
+test('export and native stamp receive the exact selected rule, dimensions, pitch, timing and velocity', async ({ page }) => {
   const prefix = await open(page); await configure(page, prefix);
   await expect(page.locator(`#${prefix}Preview`)).toHaveAttribute('viewBox', '0 0 24 16');
   const bytes = await download(page, prefix), score = parseMidi(bytes);
@@ -138,48 +133,44 @@ test('export and player receive the exact selected rule, dimensions, pitch, timi
     Array.from({ length: 16 }, (_, row) => Array.from({ length: 24 }, (_, column) =>
       Number(path.isPointInFill(new DOMPoint(column + .5, row + .5))))));
   expect(displayed).toEqual(pixels);
-  await page.locator(`#${prefix}Generate`).click();
-  await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'automata-midi');
-  expect(await page.evaluate(() => __automataQA.loads.at(-1).bytes)).toEqual(Array.from(bytes));
-  await expect(page.locator('#currentSong')).toContainText('90');
+  const played = await launch(page, () => page.locator(`#${prefix}Generate`).click());
+  expect(played.bytes).toEqual(Array.from(bytes)); expect(played.notes).toEqual(notes);
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
+  await expect(page.locator(`#${prefix}Generate`)).toHaveText('Play rule');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
+  expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);
 });
 
-test('native automata playback retains its selected score through previews and keeps Play and Audio intent on regeneration', async ({ page }, testInfo) => {
+test('native automata playback stays in its tab, keeps existing sound during previews and preserves explicit Audio intent', async ({ page }, testInfo) => {
   test.setTimeout(60000); const prefix = await open(page); await configure(page, prefix, { rows: 64 });
-  await page.locator(`#${prefix}Generate`).click(); await page.locator('#loopSong').check();
-  await arm(page); await expect(page.locator('#playButton')).toBeEnabled(); await page.locator('#playButton').click();
-  await audible(page, testInfo, 'automata-player-native');
-  const original = await page.evaluate(() => __automataQA.loads);
+  await page.locator('#mixerSampleLoop').check(); await arm(page);
+  const first = await launch(page, () => page.locator(`#${prefix}Generate`).click());
+  await audible(page, testInfo, 'automata-native');
   await chooseRule(page, prefix, 30);
-  expect(await page.evaluate(() => __automataQA.loads)).toEqual(original);
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator(`#${prefix}Generate`).click();
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(songButton(page, 'automata-midi')).toHaveCount(1);
-  expect(await page.evaluate(() => __automataQA.loads.at(-1).bytes)).not.toEqual(original.at(-1).bytes);
+  expect((await launches(page)).length).toBe(1);
+  expect(await page.evaluate(id => __automataQA.engine.state.samples.some(sample => sample.id === id), first.id)).toBe(true);
+  const next = await launch(page, () => page.locator(`#${prefix}Generate`).click());
+  expect(next.notes).not.toEqual(first.notes);
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'automata');
   await audible(page, testInfo, 'automata-regenerated-native');
   await page.locator('#audioButton').click();
-  await chooseRule(page, prefix, 110); await page.locator(`#${prefix}Generate`).click();
+  await chooseRule(page, prefix, 110); await launch(page, () => page.locator(`#${prefix}Generate`).click());
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
   await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
-  const before = Number(await page.locator('#songPosition').inputValue());
-  await expect.poll(async () => Number(await page.locator('#songPosition').inputValue())).toBeGreaterThan(before + .1);
   await arm(page); await audible(page, testInfo, 'automata-audio-recovered');
   expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(1);
+  expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);
 });
 
-test('native mixer automata stamps repeat, paint by pitch and respond to sample controls without arming Audio implicitly', async ({ page }, testInfo) => {
-  test.setTimeout(60000); const prefix = await open(page, true); await configure(page, prefix, { rows: 64 });
+test('native automata stamps repeat, paint by pitch and respond to sample controls without arming Audio implicitly', async ({ page }, testInfo) => {
+  test.setTimeout(60000); const prefix = await open(page); await configure(page, prefix, { rows: 64 });
   const silent = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(silent.notes.length).toBeGreaterThan(0); expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#mixerStopSamples').click(); await arm(page);
   await page.locator('#mixerSampleProgram').selectOption('16');
-  const sounding = await launch(page, () => page.locator('#mixerStampAgain').click());
+  const sounding = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(sounding.notes).toEqual(silent.notes); expect(sounding.program).toBe(16);
   await audible(page, testInfo, 'automata-stamp-native');
   await input(page, 'mixerSampleLevel', 0);
@@ -187,7 +178,7 @@ test('native mixer automata stamps repeat, paint by pitch and respond to sample 
   await input(page, 'mixerSampleLevel', .7); await audible(page, testInfo, 'automata-stamp-level-recovered');
   const beforePreview = (await launches(page)).length; await chooseRule(page, prefix, 30);
   expect((await launches(page)).length).toBe(beforePreview);
-  const repeated = await launch(page, () => page.locator('#mixerStampAgain').click());
+  const repeated = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(repeated.notes).not.toEqual(sounding.notes);
   await page.locator('#mixerStopSamples').click();
   const canvas = page.locator('#mixerPerformanceCanvas'); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
@@ -201,7 +192,7 @@ test('native mixer automata stamps repeat, paint by pitch and respond to sample 
   await audible(page, testInfo, 'automata-painted-native');
   await page.locator('#mixerStopSamples').click();
   await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 8000 }).toBeLessThan(.0001);
-  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => __automataQA.engine.state.playing)).toBe(false);
   await expect(page.locator('[data-mixer-sample]')).toHaveCount(58);
 });
 
@@ -211,10 +202,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const page = await context.newPage(); const failures = []; page.on('pageerror', error => failures.push(error.message));
     try {
       await open(page);
-      for (const [prefix, host] of [['automataMidi', 'automataMidiTools'], ['mixerAutomata', 'mixerAutomataTools']]) {
-        if (prefix === 'mixerAutomata') {
-          await page.locator('#mixerModeButton').click(); await expand(page.locator(`#${host} .midiphoria-automata`));
-        }
+      for (const [prefix, host] of [['automataMidi', 'automataMidiTools']]) {
         await expand(page.locator(`#${prefix}Parameters`)); await expand(page.locator(`#${prefix}RulePicker`));
         await page.locator(`#${prefix}RuleSearch`).fill('90');
         for (const suffix of ['Family', 'RuleSearch', 'Columns', 'Rows', 'RowBeats', 'LowestNote', 'Articulation', 'Velocity', 'Generate', 'Download']) {

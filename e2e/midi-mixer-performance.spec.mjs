@@ -253,6 +253,7 @@ test('combined canvas follows both audible decks and samples overlay the running
   await page.locator('#deckMute0').check(); await page.locator('#deckMute1').check(); await silent(page);
   await expect.poll(() => sourceIds(page)).toEqual([]);
   const before = (await state(page)).mixer.beat;
+  await page.locator('#drawingModeButton').click();
   await page.locator('#mixerSampleProgram').selectOption('80'); await input(page, 'mixerSampleLevel', .31);
   await page.locator('[data-mixer-sample="heart"]').click();
   await expect.poll(() => sourceIds(page)).toEqual(expect.arrayContaining([expect.stringMatching(/^sample:/)]));
@@ -269,7 +270,7 @@ test('combined canvas follows both audible decks and samples overlay the running
 });
 
 test('sample buttons and text are silent previews before Audio and never revive canceled gestures', async ({ page }) => {
-  await open(page);
+  await open(page); await page.locator('#drawingModeButton').click();
   await page.locator('[data-mixer-sample="square"]').click();
   await expect(page.locator('#mixerSampleStatus')).toContainText(/silent preview/i);
   await page.locator('#mixerSampleMessage').fill('HEY'); await page.locator('#mixerSendMessage').click();
@@ -288,8 +289,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     test('combined performance controls remain reachable', async ({ page }, testInfo) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-      // The requested compact visualizer now sits below presets, above the
-      // decks; the stamp palette scrolls independently farther down the page.
+      // Mixer keeps its compact monitor; stamp actions belong to Draw.
       const canvas = page.locator('#mixerVisualizerHost #mixerPerformanceCanvas');
       await canvas.scrollIntoViewIfNeeded();
       const floor = await canvas.boundingBox();
@@ -297,14 +297,19 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       expect(floor.y).toBeGreaterThanOrEqual(0);
       expect(floor.y + floor.height).toBeLessThanOrEqual(viewport.height + 1); // Subpixel scroll rounding.
       await testInfo.attach('compact-canvas', { body: JSON.stringify({ viewport, canvas: floor }), contentType: 'application/json' });
-      for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#mixerSendDrawing', '#mixerStopSamples', '#deckOriginal0', '#deckOriginal1']) {
+      for (const selector of ['#deckOriginal0', '#deckOriginal1']) {
+        await page.locator(selector).scrollIntoViewIfNeeded(); await expect(page.locator(selector)).toBeVisible();
+      }
+      await page.locator('#drawingModeButton').click();
+      await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
+      for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#generateDrawingMidi', '#mixerStopSamples']) {
         const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();
         const box = await target.boundingBox(); expect(box.width).toBeGreaterThan(20);
         expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
       }
       if (touch) {
         expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-        const buttons = page.locator('.mixer-performance button:visible, #deckOriginal0, #deckOriginal1, #audioButton, #mixerPlay');
+        const buttons = page.locator('.mixer-performance button:visible, #generateDrawingMidi, #creativeStop, #audioButton');
         const dimensions = [];
         for (const button of await buttons.all()) {
           await button.scrollIntoViewIfNeeded(); await expect(button).toBeVisible();
