@@ -14,6 +14,8 @@ import {
 } from "../src/instruments/quadruped/quadruped-world.js";
 import { presetStateKey, validateFullPresetBank } from "../src/site/header-presets.js";
 
+import { QUADRUPED_SOUND_SKINS, QUADRUPED_DEFAULT_SOUND_SKIN } from "../src/instruments/quadruped/quadruped-sound-skins.js";
+
 const clone = value => JSON.parse(JSON.stringify(value));
 const musicalFields = Object.keys(createQuadrupedState()).filter(key => key !== "outputLevel").sort();
 const sharedFields = QUADRUPED_SHARED_FIELDS.filter(key => key !== "outputLevel");
@@ -22,7 +24,7 @@ function assertComplete(snapshot) {
   assert.doesNotThrow(() => presetStateKey(snapshot));
   assert.deepEqual(Object.keys(snapshot).sort(), ["actors", "groupMode", "groupSeed", "selectedActor", "soundSkinId", "version", "world"]);
   assert.equal(snapshot.version, 3);
-  assert.ok(["ground", "tendon", "porcelain", "voltage", "breath"].includes(snapshot.soundSkinId));
+  assert.ok(QUADRUPED_SOUND_SKINS.some(skin => skin.id === snapshot.soundSkinId));
   assert.ok(!Object.hasOwn(snapshot, "visualSkinId"), "appearance stays outside musical state");
   assert.ok(QUADRUPED_GROUP_MODES.includes(snapshot.groupMode));
   assert.ok(snapshot.actors.length >= 1 && snapshot.actors.length <= 3);
@@ -202,7 +204,7 @@ test("musical snapshots retain sound skins and ignore legacy animal appearance",
     assert.deepEqual(source, before, "legacy migration never edits the saved source");
     assert.deepEqual(randomizeQuadrupedPreset(source, quadrupedRandom(91)), randomizeQuadrupedPreset(null, quadrupedRandom(91)));
   }
-  assert.equal(normalizeQuadrupedPreset({ soundSkinId: "missing" }).soundSkinId, "ground");
+  assert.equal(normalizeQuadrupedPreset({ soundSkinId: "missing" }).soundSkinId, QUADRUPED_DEFAULT_SOUND_SKIN);
 });
 
 test("version-one scenes migrate expressive controls neutrally without changing saved music", () => {
@@ -269,4 +271,15 @@ test("dice reaches both expressive limits and favors playable centers without fr
     assert.ok(scores.some(score => score[key] < low), `${key} explores below center`);
     assert.ok(scores.some(score => score[key] > high), `${key} explores above center`);
   }
+});
+
+
+test("new sound skins round-trip while old Dirt scenes retain their saved identity", () => {
+  assert.equal(normalizeQuadrupedPreset().soundSkinId, "karplus");
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const saved = normalizeQuadrupedPreset({ soundSkinId: id });
+    assert.equal(saved.soundSkinId, id);
+    assert.deepEqual(captureQuadrupedPreset(JSON.parse(JSON.stringify(saved))), saved);
+  }
+  assert.equal(normalizeQuadrupedPreset({ version: 1, soundSkinId: "ground" }).soundSkinId, "ground");
 });

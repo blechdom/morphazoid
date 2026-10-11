@@ -8,10 +8,9 @@ import {
   sanitizeQuadrupedWorld,
 } from "./quadruped-world.js";
 import { emptyQuadrupedCalls } from "./quadruped-voices.js";
-import { QUADRUPED_SOUND_SKINS } from "./quadruped-sound-skins.js";
+import { QUADRUPED_SOUND_SKINS, sanitizeQuadrupedSoundSkin } from "./quadruped-sound-skins.js";
 import { presetRandom } from "../../site/preset-random.js";
 
-const skinId = (skins, value, fallback = skins[0].id) => skins.find(skin => skin.id === value)?.id ?? fallback;
 const sharedFields = QUADRUPED_SHARED_FIELDS.filter(key => key !== "outputLevel");
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const seed = (value, fallback = 1) => (finite(value, fallback) >>> 0) || 1;
@@ -53,7 +52,7 @@ export function normalizeQuadrupedPreset(value = {}) {
   }
   return {
     version: 3, actors, groupMode, selectedActor, groupSeed: seed(source.groupSeed),
-    soundSkinId: skinId(QUADRUPED_SOUND_SKINS, source.soundSkinId),
+    soundSkinId: sanitizeQuadrupedSoundSkin(source.soundSkinId),
     world: { ...sanitizeQuadrupedWorld(source.world && typeof source.world === "object" ? source.world : {}) },
   };
 }

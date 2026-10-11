@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { QUADRUPED_SOUND_SKINS } from "../src/instruments/quadruped/quadruped-sound-skins.js";
 
 test("independent skins preserve the score and the full tempo range stays live", async ({ page }) => {
   const errors = [];
@@ -9,10 +10,13 @@ test("independent skins preserve the score and the full tempo range stays live",
   });
   await page.goto("/quadruped.html");
   await expect(page.locator("#padGrid")).toHaveCount(0);
-  await expect(page.locator("#soundSkinSelect option")).toHaveCount(5);
+  await expect(page.locator("#soundSkinSelect option")).toHaveCount(20);
   await expect(page.locator("#visualSkinSelect option")).toHaveCount(5);
   const capture = () => page.evaluate(async () => (await import("./src/site/header-presets.js")).captureHeaderPresetState().snapshot);
   const before = await capture();
+  expect(before.soundSkinId).toBe("karplus");
+  await expect(page.locator('#soundSkinSelect')).toHaveValue("karplus");
+  await expect(page.locator('#soundSkinSelect option[value="ground"]')).toHaveText("Dirt");
   expect(before).not.toHaveProperty("visualSkinId");
   await expect(page.locator('#visualSkinSelect')).toHaveValue("constellation");
   await expect(page.locator('#visualSkinSelect option[value="animal"]')).toHaveText("Cartoon");
@@ -48,8 +52,12 @@ test("all sound skins stay bounded in a fast trio and release when paused", asyn
   await page.locator('[data-pace-ratio="3"]').click();
   await page.locator("#audioButton").click();
   await page.locator("#playButton").click();
-  for (const skin of ["ground", "tendon", "porcelain", "voltage", "breath"]) {
+  for (const { id: skin } of QUADRUPED_SOUND_SKINS) {
     await page.locator("#soundSkinSelect").selectOption(skin);
+    // Expire the previous skin's prepared horizon and longest contact tail.
+    await page.waitForTimeout(900);
+    await expect(page.locator('#visualSkinSelect')).toHaveValue("constellation");
+    await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
     await expect.poll(() => page.evaluate(async () => {
       const { rms, peak, clipped, connectionCount } = (await import("./src/audio-output-manager.js")).getSharedAudioOutputManager().getStatus();
       return rms > 0.001 && peak < 0.90 && !clipped && connectionCount === 1;
@@ -126,4 +134,54 @@ test("fully painted 1000 BPM trios retain future contacts within the voice budge
     expect(times[Math.floor(times.length / 2)], "sustained computation must fit inside the scheduled audio horizon").toBeLessThan(report.at(-1).lookaheadMs);
     await test.info().attach(`quadruped-dense-${stride}`, { body: JSON.stringify(report), contentType: "application/json" });
   }
+});
+
+test("cold sound-skin changes preserve prepared contacts, music and appearance", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  await page.route("**/src/instruments/quadruped/quadruped-app.js", async route => {
+    const response = await route.fetch();
+    await route.fulfill({ response, body: `${await response.text()}
+      const skinQueueReports = [];
+      const originalSkinReset = resetAudioSchedule;
+      resetAudioSchedule = options => {
+        const now = graph?.context.currentTime ?? 0;
+        const prepared = [...activeSources].filter(record => record.role === 'body-contact-batch' && record.endTime > now + .04);
+        const started = performance.now();
+        const result = originalSkinReset(options);
+        const after = graph?.context.currentTime ?? 0;
+        skinQueueReports.push({ skin: soundSkinId, prepared: prepared.length,
+          lost: prepared.filter(record => record.endTime > after + .01 && !activeSources.has(record)).length,
+          costMs: performance.now() - started });
+        return result;
+      };
+      globalThis.quadrupedSkinQueueTest = { clear: () => { skinQueueReports.length = 0; }, reports: () => skinQueueReports };
+    ` });
+  });
+  await page.goto("/quadruped.html");
+  await page.locator('[data-group-mode="trio"]').click();
+  await page.locator('#tempo').fill('180');
+  await page.locator('#audioButton').click();
+  await page.locator('#playButton').click();
+  await page.waitForTimeout(400);
+  const capture = () => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState().snapshot);
+  const before = await capture();
+  await page.evaluate(() => quadrupedSkinQueueTest.clear());
+  for (const { id } of QUADRUPED_SOUND_SKINS.slice(5)) {
+    await page.locator('#soundSkinSelect').selectOption(id);
+    await page.waitForTimeout(250);
+    expect(await capture()).toEqual({ ...before, soundSkinId: id });
+  }
+  const reports = await page.evaluate(() => quadrupedSkinQueueTest.reports());
+  expect(reports).toHaveLength(15);
+  expect(reports.reduce((count, row) => count + row.prepared, 0)).toBeGreaterThan(5);
+  expect(reports.every(row => row.lost === 0)).toBe(true);
+  await expect(page.locator('#visualSkinSelect')).toHaveValue('constellation');
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('#resetButton').click();
+  await expect(page.locator('#soundSkinSelect')).toHaveValue('karplus');
+  await expect(page.locator('#visualSkinSelect')).toHaveValue('constellation');
+  expect(errors).toEqual([]);
+  await test.info().attach('skin-queue-transitions', { body: JSON.stringify(reports), contentType: 'application/json' });
 });

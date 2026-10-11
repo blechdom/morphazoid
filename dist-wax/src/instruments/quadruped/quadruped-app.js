@@ -42,7 +42,7 @@ import {
   synchronizeQuadrupedMotorTempo,
   QUADRUPED_MOTOR_LIMITS,
 } from "./quadruped-motor.js";
-import { QUADRUPED_SOUND_SKINS, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
+import { QUADRUPED_SOUND_SKINS, QUADRUPED_DEFAULT_SOUND_SKIN, createQuadrupedSoundBank, mixQuadrupedContacts } from "./quadruped-sound-skins.js";
 import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedConstellationRig, drawQuadrupedFootprint, deriveQuadrupedVisualRig } from "./quadruped-visual-skins.js";
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
@@ -120,7 +120,7 @@ let behaviorButtonAnimalId = "";
 let groupMode = "solo";
 let selectedActor = 0;
 let groupSeed = 1;
-let soundSkinId = "ground";
+let soundSkinId = QUADRUPED_DEFAULT_SOUND_SKIN;
 let visualSkinId = "constellation";
 let world = sanitizeQuadrupedWorld();
 let courseOriginX = 0;
@@ -3619,7 +3619,7 @@ function bindControls() {
   $("behaviorSelect").addEventListener("change", () => switchBehavior($("behaviorSelect").value));
   $("soundSkinSelect").addEventListener("change", () => {
     soundSkinId = $("soundSkinSelect").value;
-    resetAudioSchedule();
+    resetAudioSchedule({ preserveQueued: true });
   });
   $("visualSkinSelect").addEventListener("change", () => {
     visualSkinId = $("visualSkinSelect").value;

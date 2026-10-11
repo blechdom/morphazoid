@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { QUADRUPED_LIMITS } from "../src/instruments/quadruped/quadruped-limits.js";
 import {
+  QUADRUPED_DEFAULT_SOUND_SKIN,
   QUADRUPED_SOUND_LIMITS,
   QUADRUPED_SOUND_SKINS,
   createQuadrupedSoundBank,
@@ -52,9 +53,14 @@ function rms(samples) {
   return Math.sqrt(samples.reduce((sum, value) => sum + value * value, 0) / samples.length);
 }
 
-test("five independent contact mechanisms are available with a stable fallback", () => {
-  assert.deepEqual(QUADRUPED_SOUND_SKINS.map(({ id }) => id), ["ground", "tendon", "porcelain", "voltage", "breath"]);
-  assert.equal(sanitizeQuadrupedSoundSkin("missing"), "ground");
+test("twenty skins retain Dirt compatibility and start on the shared Karplus engine", () => {
+  assert.equal(QUADRUPED_SOUND_SKINS.length, 20);
+  assert.equal(new Set(QUADRUPED_SOUND_SKINS.map(({ id }) => id)).size, 20);
+  assert.deepEqual(QUADRUPED_SOUND_SKINS.slice(0, 5).map(({ id }) => id), ["ground", "tendon", "porcelain", "voltage", "breath"]);
+  assert.equal(QUADRUPED_SOUND_SKINS.find(skin => skin.id === "ground").label, "Dirt");
+  assert.equal(QUADRUPED_DEFAULT_SOUND_SKIN, "karplus");
+  assert.equal(sanitizeQuadrupedSoundSkin("missing"), QUADRUPED_DEFAULT_SOUND_SKIN);
+  assert.equal(sanitizeQuadrupedSoundSkin("ground"), "ground");
   assert.equal(sanitizeQuadrupedSoundSkin("porcelain"), "porcelain");
 });
 
@@ -188,7 +194,7 @@ test("nonfinite or oversized public inputs cannot escape render/cache limits", (
   assert.ok(result.samples.every(Number.isFinite));
   assert.ok(Number.isFinite(result.gain));
   assert.ok(Number.isFinite(result.playbackRate));
-  assert.equal(result.skinId, "ground");
+  assert.equal(result.skinId, QUADRUPED_DEFAULT_SOUND_SKIN);
   assert.equal(result.phase, "touchdown");
   assert.ok(result.duration <= QUADRUPED_SOUND_LIMITS.maxDuration + 1 / result.sampleRate);
 });
@@ -226,7 +232,7 @@ test("batched contacts preserve each onset, level and stereo position without vo
   assert.ok(many.channels[0].some(value => value !== 0) && many.channels[1].some(value => value !== 0));
 });
 
-test("three-octave pitch travel moves all five spectra while contact lengths and output stay bounded", t => {
+test("three-octave pitch travel moves every skin spectrum while contact lengths and output stay bounded", t => {
   const summary = {};
   for (const { id } of QUADRUPED_SOUND_SKINS) {
     const registers = [-36, 0, 36].map(pitchSemitones => [7, 101, 904].map(seed => {
@@ -283,7 +289,45 @@ test("prepared-register seams never reverse pitch, including the lowest and high
   }
 });
 
-test("Spring changes all five grounded excitations and decay without replacing the pitch control", t => {
+// Measure the PCM itself: frequency metadata alone cannot catch the borrowed
+// string engine clamping a deep register to its native 20 Hz minimum.
+function contactFundamental(voice) {
+  const { samples } = voice;
+  const rate = voice.sampleRate * voice.playbackRate;
+  const wanted = voice.frequency * voice.playbackRate;
+  let best = { frequency: 0, correlation: -1 };
+  for (let frequency = wanted * .55; frequency <= wanted * 1.6; frequency += .08) {
+    const lag = rate / frequency;
+    let cross = 0, aEnergy = 0, bEnergy = 0;
+    const end = samples.length - Math.ceil(lag) - Math.ceil(rate * .008);
+    for (let index = Math.ceil(rate * .055); index < end; index++) {
+      const position = index + lag, left = Math.floor(position), fraction = position - left;
+      const a = samples[index], b = samples[left] * (1 - fraction) + samples[left + 1] * fraction;
+      cross += a * b; aEnergy += a * a; bEnergy += b * b;
+    }
+    const correlation = cross / Math.sqrt(aEnergy * bEnergy);
+    if (correlation > best.correlation) best = { frequency, correlation };
+  }
+  return { ...best, wanted };
+}
+
+test("borrowed strings stay tuned in the actual PCM across deep native-register seams", () => {
+  for (const [skinId, seam] of [["karplus", -18], ["coupled-harp", -30]]) {
+    for (const seed of [7, 101, 904]) {
+      const pair = [-.001, .001].map(offset => contactFundamental(renderQuadrupedContact({
+        skinId, seed, pitchSemitones: seam + offset, pitchRatio: .25,
+        spring: 2.5, resonance: 1, terrain: { damping: 0 },
+      })));
+      for (const { frequency, wanted, correlation } of pair) {
+        assert.ok(correlation > .75, `${skinId}: a measurable repeating string waveform`);
+        assert.ok(Math.abs(frequency / wanted - 1) < .03, `${skinId}: actual ${frequency} Hz follows ${wanted} Hz`);
+      }
+      assert.ok(Math.abs(pair[1].frequency / pair[0].frequency - 1) < .03, `${skinId}: crossing the register cannot jump in audible pitch`);
+    }
+  }
+});
+
+test("Spring changes every grounded excitation and decay without replacing the pitch control", t => {
   const summary = {};
   for (const { id } of QUADRUPED_SOUND_SKINS) {
     const observations = [7, 101, 904].map(seed => {
@@ -360,7 +404,7 @@ test("cached mixer preserves every exact-rate onset, sample and stereo gain agai
   }));
   for (const sampleRate of [8000, 24000, 48000]) {
     const length = Math.ceil(Math.max(...events.map(event => event.offset + event.voice.duration / event.voice.playbackRate)) * sampleRate) + 1;
-    const reference = [new Float32Array(length), new Float32Array(length)];
+    const sums = [new Float64Array(length), new Float64Array(length)];
     for (const { voice, offset, gain, pan } of events) {
       const start = Math.round(offset * sampleRate);
       const increment = voice.playbackRate * voice.sampleRate / sampleRate;
@@ -371,15 +415,26 @@ test("cached mixer preserves every exact-rate onset, sample and stereo gain agai
         const position = frame * increment;
         const index = Math.floor(position), fraction = position - index;
         const value = Math.fround((voice.samples[index] ?? 0) * (1 - fraction) + (voice.samples[index + 1] ?? 0) * fraction);
-        reference[0][start + frame] += value * leftGain;
-        reference[1][start + frame] += value * rightGain;
+        sums[0][start + frame] += value * leftGain;
+        sums[1][start + frame] += value * rightGain;
       }
     }
+    const reference = sums.map(channel => Float32Array.from(channel));
     const cache = new WeakMap();
     assert.deepEqual(mixQuadrupedContacts(events, sampleRate).channels, reference);
     assert.deepEqual(mixQuadrupedContacts(events, sampleRate, cache).channels, reference);
     assert.deepEqual(mixQuadrupedContacts(events, sampleRate, cache).channels, reference);
   }
+});
+
+test("dense mixing retains quiet contacts when larger overlapping samples cancel", () => {
+  const events = [.1, 1e-9, -.1].map(value => ({
+    voice: { samples: Float32Array.of(value), sampleRate: 24000, duration: 1 / 24000, playbackRate: 1 },
+    offset: 0, gain: 1, pan: -1,
+  }));
+  const mixed = mixQuadrupedContacts(events);
+  assert.ok(mixed.channels[0] instanceof Float32Array);
+  assert.ok(Math.abs(mixed.channels[0][0] - 1e-9) < 1e-15);
 });
 
 test("dense gait playback rates stay warm within global PCM and entry limits", () => {
@@ -410,4 +465,24 @@ test("dense gait playback rates stay warm within global PCM and entry limits", (
     sampleRate: 24000, playbackRate: 0.7 }, offset: 0, gain: 1, pan: 0 }], 24000, cache);
   const entries = [samples, ...longBuffers, ...shortBuffers].reduce((sum, buffer) => sum + (cache.get(buffer)?.size ?? 0), 0);
   assert.ok(entries <= QUADRUPED_SOUND_LIMITS.maxResampleEntries);
+});
+
+
+test("all twenty skins are reproducible and differ beyond overall gain", () => {
+  for (const seed of [7, 101, 904]) {
+    const renders = QUADRUPED_SOUND_SKINS.map(({ id }) => {
+      const options = { skinId: id, seed };
+      const voice = renderQuadrupedContact(options);
+      assert.deepEqual(voice.samples, renderQuadrupedContact(options).samples, id);
+      const energy = Math.sqrt(voice.samples.reduce((sum, value) => sum + value * value, 0));
+      return { id, samples: voice.samples, energy };
+    });
+    for (let left = 0; left < renders.length; left++) for (let right = left + 1; right < renders.length; right++) {
+      const a = renders[left], b = renders[right];
+      let dot = 0;
+      for (let index = 0; index < Math.min(a.samples.length, b.samples.length); index++) dot += a.samples[index] * b.samples[index];
+      const similarity = Math.abs(dot / (a.energy * b.energy));
+      assert.ok(similarity < .98, `${a.id}/${b.id}/${seed}: normalized similarity ${similarity}`);
+    }
+  }
 });

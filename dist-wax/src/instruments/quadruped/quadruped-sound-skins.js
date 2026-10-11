@@ -1,12 +1,19 @@
 import { QUADRUPED_PACE_RATIOS, QUADRUPED_STEP_COUNT } from "./quadruped.js";
 import { QUADRUPED_LIMITS } from "./quadruped-limits.js";
 import { quadrupedPitchRatio } from "./quadruped-voices.js";
+import { generateKarplusStrongSamples, KARPLUS_STRONG_PRESETS } from "../karplus-strong/karplus-strong.js";
+import { generateKarplusCarpetSamples } from "../karplus-carpet/karplus-carpet.js";
+import { RoachPercussion } from "../roach-synth/roach-synth-percussion.js";
+import { acousticVoice } from "../puggler/puggler-voice-dsp.js";
 
 /**
  * Contact-driven artistic voices, not recordings or animal/acoustic models.
  * Inspired by Morphazoid's Karplus Strong excitation/delay loop, FM Drums'
  * decaying modulation, Object Forge/Dentaphone's inharmonic modes, and Shapes'
- * prepared percussion buffers. No sibling engine or browser lifecycle is imported.
+ * prepared percussion buffers. The extended bank calls the existing Karplus,
+ * Carpet, Roach and Puggler PCM engines below; none of their browser/audio
+ * lifecycle classes is instantiated. Cultural/instrument names describe those
+ * existing theatrical synthesis approximations, not authenticated recordings.
  *
  * The caller schedules one buffer for each actual touchdown/load/push/toe-off.
  * There is deliberately no free-running scratch oscillator or noise loop.
@@ -22,12 +29,39 @@ const clamp = (value, low, high, fallback = low) => {
   return Math.max(low, Math.min(high, Number.isFinite(number) ? number : fallback));
 };
 
+// Reuse the actual sibling renderers and authored string settings. Keep this
+// preparation inside the bounded lazy bank, never an all-skin startup render.
+const EXTENDED_SKINS = Object.freeze([
+  { id: "karplus", label: "Karplus", description: "Warm nylon strings struck by each foot", engine: "karplus", patch: "nylon", root: 2.3, length: .29 },
+  { id: "steel-wire", label: "Steel Wire", description: "Bright picked wire", engine: "karplus", patch: "steel", root: 2.8, length: .30 },
+  { id: "rubber-cord", label: "Rubber Cord", description: "Soft, bent elastic plucks", engine: "karplus", patch: "rubber", root: 1.2, length: .23 },
+  { id: "prepared-bolt", label: "Prepared Bolt", description: "Clattering prepared strings", engine: "karplus", patch: "prepared", root: 2, length: .25,
+    // A wider pick and less loop loss retain its inverted-string character in
+    // a short footfall, without boosting a nearly silent high-crest impulse.
+    contactPatch: Object.freeze({ polarity: -.97, drive: .06, burstLength: .75 }) },
+  { id: "coupled-harp", label: "Coupled Harp", description: "Two sympathetic string loops", engine: "carpet", patch: "choir", root: 3, length: .32 },
+  { id: "roach-fm", label: "Roach FM", description: "Bending insect percussion", engine: "roach", channel: 1, root: 1.9, length: .24 },
+  { id: "seed-rattle", label: "Seed Rattle", description: "Seed-shell collisions and drum body", engine: "roach", channel: 2, root: 1.7, length: .21 },
+  { id: "shell-clack", label: "Shell Clack", description: "Short paired shell strikes", engine: "roach", channel: 5, root: 1.6, length: .16 },
+  { id: "piano", label: "Piano", description: "Hammered, stiff string harmonics", engine: "puggler", family: "piano", root: 2.5, length: .30 },
+  { id: "harpsichord", label: "Harpsichord", description: "Sharp quill-plucked harmonics", engine: "puggler", family: "harpsichord", root: 3.1, length: .24 },
+  { id: "sitar", label: "Sitar", description: "Buzzing strings with sympathetic beating", engine: "puggler", family: "sitar", root: 2.4, length: .32 },
+  { id: "bronze", label: "Bronze", description: "Beating, inharmonic bronze modes", engine: "puggler", family: "gamelan", root: 2.7, length: .32 },
+  { id: "tabla", label: "Tabla", description: "Tuned skin and finger attack", engine: "puggler", family: "tabla", root: 1.8, length: .23 },
+  { id: "wood-blocks", label: "Wood Blocks", description: "Dry struck wooden bars", engine: "puggler", family: "wood", root: 3.3, length: .20 },
+  { id: "timpani", label: "Timpani", description: "Low, rounded membrane modes", engine: "puggler", family: "timpani", root: .85, length: .29 },
+].map(Object.freeze));
+const EXTENDED_BY_ID = new Map(EXTENDED_SKINS.map(skin => [skin.id, skin]));
+const STRING_PATCHES = new Map(KARPLUS_STRONG_PRESETS.map(preset => [preset.id, preset.settings]));
+export const QUADRUPED_DEFAULT_SOUND_SKIN = "karplus";
+
 export const QUADRUPED_SOUND_SKINS = Object.freeze([
-  Object.freeze({ id: "ground", label: "Ground", description: "Weight, earth and broken contact grains" }),
+  Object.freeze({ id: "ground", label: "Dirt", description: "Weight, earth and broken contact grains" }),
   Object.freeze({ id: "tendon", label: "Tendon", description: "Damped plucked strings and elastic tension" }),
   Object.freeze({ id: "porcelain", label: "Porcelain", description: "Struck inharmonic ceramic resonances" }),
   Object.freeze({ id: "voltage", label: "Voltage", description: "Bending FM percussion" }),
   Object.freeze({ id: "breath", label: "Breath", description: "Short hollow air and reed impulses" }),
+  ...EXTENDED_SKINS,
 ]);
 export const QUADRUPED_SOUND_LIMITS = Object.freeze({
   sampleRate: 24_000,
@@ -47,10 +81,11 @@ const PHASES = Object.freeze({
   push: Object.freeze({ duration: 0.38, level: 0.30, pitch: 1.15 }),
   "toe-off": Object.freeze({ duration: 0.25, level: 0.20, pitch: 1.55 }),
 });
-const ROOTS = Object.freeze({ ground: 0.86, tendon: 2.15, porcelain: 3.45, voltage: 1.28, breath: 1.65 });
+const ROOTS = Object.freeze({ ground: 0.86, tendon: 2.15, porcelain: 3.45, voltage: 1.28, breath: 1.65,
+  ...Object.fromEntries(EXTENDED_SKINS.map(skin => [skin.id, skin.root])) });
 
 export function sanitizeQuadrupedSoundSkin(value) {
-  return SKIN_IDS.has(value) ? value : "ground";
+  return SKIN_IDS.has(value) ? value : QUADRUPED_DEFAULT_SOUND_SKIN;
 }
 
 function hash(value) {
@@ -94,7 +129,11 @@ function requestView(options = {}) {
   const requestedRatio = clamp(options.pitchRatio, 0.25, 4, 1) * quadrupedPitchRatio(options.pitchSemitones);
   // Bound the final pitch BEFORE splitting registers. Clamping a prepared
   // octave afterwards would make the extreme knob reverse pitch at its seam.
-  const pitchRatio = clamp(baseFrequency * requestedRatio, 12, view.sampleRate * 0.24) / baseFrequency;
+  const engine = EXTENDED_BY_ID.get(view.skinId)?.engine;
+  // Leave half an octave of room for the coarse register. Imported delay lines
+  // and Roach oscillators have their own native upper-frequency bounds.
+  const ceiling = engine === "roach" ? .06 : ["karplus", "carpet"].includes(engine) ? .14 : .24;
+  const pitchRatio = clamp(baseFrequency * requestedRatio, 12, view.sampleRate * ceiling) / baseFrequency;
   // Render the coarse register in the instrument itself. Residual playback is
   // always within half an octave, so deep bass never turns a short contact into
   // a many-second voice. The pitch between registers remains continuous.
@@ -154,6 +193,65 @@ function contactGrains(view, frames, random) {
   return grains;
 }
 
+function renderSiblingVoice(view, skin, frames, frequency, random) {
+  const { sampleRate } = view;
+  // The sibling engines clamp/omit frequencies below their native floor.
+  // Render a proportionally shorter native fragment and transpose it here so
+  // deep stair tuning stays continuous without stretching the contact tail.
+  const nativeFrequency = Math.max(skin.engine === "roach" ? 65 : 20, frequency);
+  const ratio = frequency / nativeFrequency;
+  const nativeFrames = ratio === 1 ? frames : Math.ceil(frames * ratio) + 1;
+  const duration = nativeFrames / sampleRate;
+  const elasticity = view.spring - 1;
+  let samples = new Float32Array(nativeFrames);
+  if (skin.engine === "karplus" || skin.engine === "carpet") {
+    const patch = STRING_PATCHES.get(skin.patch);
+    const settings = { ...patch, ...skin.contactPatch, frequency: nativeFrequency,
+      decay: Math.max(.2, duration * (1.5 + view.resonance * 1.8)),
+      damping: clamp(patch.damping * .65 + view.damping * .35 - elasticity * .08, 0, 1),
+      brightness: clamp(patch.brightness * .7 + view.brightness * .3, 0, 1),
+      hardness: clamp(patch.hardness * .65 + view.hardness * .35, 0, 1),
+      dispersion: clamp(patch.dispersion + elasticity * .09, 0, 1),
+    };
+    const rendered = skin.engine === "carpet"
+      ? generateKarplusCarpetSamples({ frequency: nativeFrequency, duration, timbre: view.hardness * 2 - 1,
+        timbreVariant: hash(view.seed) % 4 }, settings, sampleRate)
+      : generateKarplusStrongSamples({ ...settings, sampleRate, duration, random });
+    // The shared string API has an 80 ms minimum; short load/toe-off contacts
+    // take just their requested frames and receive the normal contact fade.
+    samples.set(rendered.subarray(0, nativeFrames));
+  } else if (skin.engine === "puggler") {
+    acousticVoice(samples, sampleRate, { family: skin.family, frequency: nativeFrequency, index: hash(`${view.seed}:${view.limbId}`) });
+  } else {
+    const voice = new RoachPercussion(sampleRate);
+    voice.configure(nativeFrequency / (2.4 * .83), clamp(.2 + view.brightness * .55 + elasticity * .12, 0, 1),
+      clamp(view.resonance * .8 + view.spring * .08, 0, 1), .6 + view.roughness * 1.4,
+      clamp(view.hardness * .8 + view.spring * .08, 0, 1));
+    voice.strike(1);
+    for (let index = 0; index < nativeFrames; index++) samples[index] = voice.sample(random() * 2 - 1, skin.channel)[skin.channel];
+  }
+  if (ratio !== 1) {
+    const native = samples;
+    samples = new Float32Array(frames);
+    for (let index = 0; index < frames; index++) {
+      const position = index * ratio, left = Math.floor(position), fraction = position - left;
+      samples[index] = native[left] * (1 - fraction) + native[left + 1] * fraction;
+    }
+  }
+  // Contact hardness and Spring alter the excitation's spectral balance, in
+  // addition to duration. Filter in the rendered register so low/high tuning
+  // remains meaningful for the imported acoustic models and noise attacks.
+  const cutoff = clamp(frequency * (3 + view.hardness * 9 + view.brightness * 5)
+    * (.4 + view.spring * .7), 25, sampleRate * .42);
+  const color = 1 - Math.exp(-TAU * cutoff / sampleRate);
+  let low = 0;
+  for (let index = 0; index < frames; index++) {
+    low += (samples[index] - low) * color;
+    samples[index] = low;
+  }
+  return samples;
+}
+
 function renderUnit(view) {
   const phase = PHASES[view.phase];
   const random = seededRandom(`${view.seed}:${view.limbId}:${view.phase}`);
@@ -165,9 +263,11 @@ function renderUnit(view) {
   const elasticity = view.spring - 1;
   const sustain = 1 + elasticity * 0.48;
   const tension = 1 + elasticity * 0.5;
-  const duration = clamp(lengths[view.skinId] * phase.duration * (0.64 + view.resonance * 0.6) * (1.1 - view.damping * 0.35) * sustain, 0.025, QUADRUPED_SOUND_LIMITS.maxDuration);
+  const skin = EXTENDED_BY_ID.get(view.skinId);
+  const duration = clamp((skin?.length ?? lengths[view.skinId]) * phase.duration * (0.64 + view.resonance * 0.6) * (1.1 - view.damping * 0.35) * sustain, 0.025, QUADRUPED_SOUND_LIMITS.maxDuration);
   const frames = Math.ceil(duration * view.sampleRate);
   const samples = new Float32Array(frames);
+  const sibling = skin ? renderSiblingVoice(view, skin, frames, frequency, random) : null;
   const grains = contactGrains(view, frames, random);
   const attackFrames = Math.max(8, Math.round(view.sampleRate * (view.phase === "load" ? 0.004 : 0.0015)));
   const releaseFrames = Math.min(Math.floor(frames / 4), Math.ceil(view.sampleRate * 0.008));
@@ -220,7 +320,9 @@ function renderUnit(view) {
     let value = 0;
     const attack = Math.min(1, index / attackFrames);
     const release = Math.min(1, (frames - 1 - index) / Math.max(1, releaseFrames));
-    if (view.skinId === "ground") {
+    if (sibling) {
+      value = sibling[index] * Math.exp(-1.4 * index / frames);
+    } else if (view.skinId === "ground") {
       oscillatorPhase += step * (1 + bend * groundBend);
       lowNoise += ((random() * 2 - 1) - lowNoise) * noiseColor;
       value = (Math.sin(oscillatorPhase) * 0.72 + lowNoise * 0.2) * envelope
@@ -309,7 +411,10 @@ export function createQuadrupedSoundBank({ sampleRate = QUADRUPED_SOUND_LIMITS.s
 export function mixQuadrupedContacts(events, sampleRate = QUADRUPED_SOUND_LIMITS.sampleRate, resampleCache = null) {
   if (!events.length) return null;
   const duration = Math.max(...events.map(event => event.offset + event.voice.duration / event.voice.playbackRate));
-  const channels = [new Float32Array(Math.ceil(duration * sampleRate) + 1), new Float32Array(Math.ceil(duration * sampleRate) + 1)];
+  // Sum in native JS precision, then convert once for Web Audio. Repeated
+  // Float32 writes both lose quiet overlapping detail and add a conversion to
+  // every contact/sample; a dense trio can mix thousands of contacts here.
+  const channels = [new Float64Array(Math.ceil(duration * sampleRate) + 1), new Float64Array(Math.ceil(duration * sampleRate) + 1)];
   let cacheState;
   if (resampleCache) {
     cacheState = RESAMPLE_CACHES.get(resampleCache);
@@ -361,7 +466,7 @@ export function mixQuadrupedContacts(events, sampleRate = QUADRUPED_SOUND_LIMITS
       right[target] += value * rightGain;
     }
   }
-  return { channels, duration: channels[0].length / sampleRate, sampleRate };
+  return { channels: channels.map(channel => Float32Array.from(channel)), duration: channels[0].length / sampleRate, sampleRate };
 }
 
 function forgetContactResample(state, samples) {
