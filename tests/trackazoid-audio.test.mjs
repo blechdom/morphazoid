@@ -320,6 +320,9 @@ test("Trackazoid grid corrections persist as overrides and free loops release be
   engine.setLoop("a", 0.1, 0.1 + 4 * 60 / 114);
   assert.equal(engine.snapshot("b").sync, true);
   h.setWall(14); near(engine.snapshot("b").phaseError, 0);
+  engine.setLoop("b", 0.2, 0.2 + 4 * 60 / 126);
+  near(engine.snapshot("b").phaseError, 0, "jumping into an earlier follower loop preserves beat phase");
+  engine.clearLoop("b");
   engine.setLoop("a", 0.1, 1.1);
   assert.equal(engine.snapshot("b").sync, false);
   engine.clearLoop("a"); engine.setSync("b", true);

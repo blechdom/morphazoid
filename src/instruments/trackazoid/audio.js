@@ -549,7 +549,7 @@ export class TrackazoidAudio {
       if (Math.abs(beats - Math.round(beats)) > 1e-4) this._syncFailure(deck, "A free-length loop overrides beat Sync.", false);
     }
     this._commit(deck, changes, when, now);
-    if (this._masterAt(now) === id) this._follow(when);
+    if (deck.sync || this._masterAt(now) === id) this._follow(when);
     this._notify(); return this.snapshot(id);
   }
   clearLoop(id) { return this.setLoop(id, 0, 0); }
