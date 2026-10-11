@@ -87,8 +87,9 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
       midiEditor.refresh();
     },
     onAction: action => {
-      if (action.kind === 'cc') engine.sendSampleController(action.controller, action.value);
-      else if (action.kind === 'parameter') engine.sendSampleParameter(action);
+      if (action.kind === 'cc') return engine.sendSampleController(action.controller, action.value);
+      if (action.kind === 'parameter') return engine.sendSampleParameter(action);
+      return false;
     },
   });
 
