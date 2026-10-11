@@ -55,9 +55,34 @@ parameters update the same engine used by drawings, stamps, messages and rules.
 Tab changes preserve these settings. **Reset effects** restores their defaults
 without stopping the patterns or changing Audio, output level or the SoundFont.
 
-Automatapoeia contains all 256 elementary and 64 radius-2 totalistic rules, with
-the same seed, boundary, transform, pitch, articulation and generation controls
-as its previous Midiophilia tab. Its MIDI generator is distinct from the
+Automatapoeia uses the original instrument's rule-picker layout: a current
+thumbnail inside the closed pulldown and thumbnail tiles inside the opened
+pulldown. Search decimal or binary codes, show all rules, show symmetry
+representatives, or show the selected rule's equivalence family. All 256
+elementary rules and 64 radius-2 totalistic codes remain available. Previous,
+Next, the rule knob, and the dropdown keep the same selected rule.
+
+Seed density, exact Seed, **Restart**, **Reseed**, family, rule, boundary,
+post-step transform and Columns / width are directly visible. Width supports
+8–128 pitches, bounded by MIDI's complete 0–127 note range. Restart prepares
+the same current seed again; Reseed advances to a reproducible new seed.
+Neither action sends MIDI or changes already-playing layers. At zero density,
+the seed is one centered cell, so different seed numbers retain the same picture.
+
+**Generation rate** uses 1–8 rows per beat and shares the existing
+**Beats per generation** value in MIDI pattern settings. They are reciprocal
+views of one value; 4 rows/beat is ¼ beat/generation. The existing 480-tick
+encoder rounds to actual MIDI timing. With Sync on, changing the master tempo
+changes real-time speed; with Sync off, generated scores use their original
+120 BPM. Generations, lowest note, articulation and velocity remain MIDI
+settings. Source edits change the next Send, while the active score is retained.
+
+The same original Automatapoeia catalogue, thumbnail raster, evolution, edge
+and post-step-transform functions are reused. The original instrument's
+oscillator voices, spectral/contour mappings and audio ADSR are synthesis
+controls, not cellular generation controls; Blech MIDI instead uses its
+SoundFont, Stamp MIDI and live-effects controls for those sound changes.
+The MIDI generator remains distinct from the
 [standalone Automatapoeia instrument](../automatapoeia.html).
 
 ## Pattern mapping and source details
