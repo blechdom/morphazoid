@@ -4,7 +4,7 @@
 const field = (id, label, group, min, max, step, value, unit = '', description = '') => Object.freeze({ id, label, group, min, max, step, default: value, unit, appliesTo: 'deck channel sample', ...(description ? { description } : {}) });
 export const MIDI_PARAMETER_FIELDS = Object.freeze([
   field('gain', 'Voice gain', 'Mix', 0, 2, .01, 1, '×'),
-  field('pan', 'Stereo position', 'Mix', -1, 1, .01, 0),
+  field('pan', 'Pan offset', 'Mix', -1, 1, .01, 0, '', 'Added to the file and SoundFont pan. Hold CC10 at 0 or 127 for absolute left or right pan.'),
   field('transpose', 'Voice pitch', 'Pitch', -48, 48, 1, 0, 'semitones', 'Additional pitch shift, including drum-note selection when applied to a drum voice. Notes shifted outside 0–127 are silent.'),
   field('fineTune', 'Fine tuning', 'Pitch', -1200, 1200, 1, 0, 'cents'),
   field('velocityScale', 'Velocity multiplier', 'Notes', 0, 4, .01, 1, '×', 'Changes new note attacks. A zero result silences the note.'),
@@ -29,7 +29,7 @@ export const MIDI_CC_PARAMETERS = Object.freeze(Array.from({ length:120 }, (_, i
 // Address offsets, sample IDs, sample topology and allocator internals are not musical controls.
 export const MIDI_GENERATOR_PARAMETERS = Object.freeze([
   field(5,'Mod LFO → pitch','Modulation',-12000,12000,1,0,'cents'), field(6,'Vibrato LFO → pitch','Modulation',-12000,12000,1,0,'cents'),field(7,'Mod envelope → pitch','Modulation',-12000,12000,1,0,'cents'),
-  field(8,'Filter cutoff','Filter',1500,13500,1,13500,'cents', 'Absolute pitch units: 6900 cents = 440 Hz. SoundFont filter, independent of the master filter.'),field(9,'Filter resonance','Filter',0,960,1,0,'cB'),field(10,'Mod LFO → filter','Modulation',-12000,12000,1,0,'cents'),field(11,'Mod envelope → filter','Modulation',-12000,12000,1,0,'cents'),field(13,'Mod LFO → volume','Modulation',-960,960,1,0,'cB'),
+  field(8,'Filter cutoff','Filter',1500,13500,1,13500,'cents', 'Absolute pitch units: 6900 cents = 440 Hz. SoundFont envelope/LFO modulation can raise this base cutoff; set their filter amounts to zero to isolate it. Independent of the master filter.'),field(9,'Filter resonance','Filter',0,960,1,0,'cB'),field(10,'Mod LFO → filter','Modulation',-12000,12000,1,0,'cents'),field(11,'Mod envelope → filter','Modulation',-12000,12000,1,0,'cents'),field(13,'Mod LFO → volume','Modulation',-960,960,1,0,'cB'),
   field(15,'SoundFont chorus send','SoundFont sends',0,1000,1,0,'‰'),field(16,'SoundFont reverb send','SoundFont sends',0,1000,1,0,'‰'),field(17,'SoundFont pan','Mix',-500,500,1,0),
   field(21,'Mod LFO delay','Modulation',-12000,5000,1,-12000,'timecents'),field(22,'Mod LFO frequency','Modulation',-16000,4500,1,0,'cents'),field(23,'Vibrato delay','Modulation',-12000,5000,1,-12000,'timecents'),field(24,'Vibrato frequency','Modulation',-16000,4500,1,0,'cents'),
   ...[[25,'Delay',-32768,5000,-32768],[26,'Attack',-32768,8000,-32768],[27,'Hold',-12000,5000,-12000],[28,'Decay',-12000,8000,-12000],[30,'Release',-12000,8000,-12000]].map(([id,name,min,max,value])=>field(id,`${name} · modulation envelope`,'Modulation envelope',min,max,1,value,'timecents','Applies to new note envelopes. 0 timecents = 1 second; 1200 doubles the time.')),

@@ -127,3 +127,18 @@ test('scheduled NRPN automation cannot replace held generators, original drum ki
     await p.command({type:'release'});assert.equal(p.synth.voiceCount<=192,true);
   } finally {await p.command({type:'dispose'});}
 });
+
+
+test('SoundFont base cutoff is audible when its existing filter-envelope modulation is explicitly removed',async()=>{
+  const {p,channels,config,render}=await processorFixture();
+  try {
+    await p.command({type:'crossfade',value:-1});await p.command({type:'transport',playing:true,beat:0});
+    const baseline=render(200).l;
+    assert.ok(p.synth.synthCore.voices.some(voice=>voice.isActive&&voice.channel===0&&voice.generators[11]>0),'fixture has a real filter-envelope offset');
+    await p.command({type:'deck',index:0,config,channels:[{...channels[0],midi:{generators:{8:1500,10:0,11:0}}}]});
+    render(200);const filtered=render(200).l;
+    assert.ok(filtered<baseline*.1,`base ${baseline}, isolated cutoff ${filtered}`);
+    await p.command({type:'deck',index:0,config,channels});render(100);
+    assert.ok(render(100).l>filtered*10,'Follow restores the held note and its SoundFont modulation');
+  } finally {await p.command({type:'dispose'});}
+});
