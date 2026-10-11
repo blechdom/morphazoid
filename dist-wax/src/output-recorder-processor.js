@@ -5,9 +5,18 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
   constructor(options = {}) {
     super();
     const config = options.processorOptions ?? {};
+    this.channelCount = config.channelCount === undefined ? 2 : config.channelCount;
+    if (!Number.isInteger(this.channelCount) || this.channelCount < 1 || this.channelCount > 32) {
+      throw new RangeError("Recorder channel count must be an integer from 1 to 32.");
+    }
+    this.bytesPerFrame = this.channelCount * 3;
     this.chunkFrames = Math.max(128, Math.min(65_536, Math.floor(config.chunkFrames || 16_384)));
+    const headerBytes = this.channelCount > 2 ? 68 : 44;
+    let maximumFrames = Math.floor((0xffff_ffff - headerBytes + 8) / this.bytesPerFrame);
+    const maximumDataBytes = maximumFrames * this.bytesPerFrame;
+    if (headerBytes - 8 + maximumDataBytes + maximumDataBytes % 2 > 0xffff_ffff) maximumFrames -= 1;
     this.maxFrames = Number.isFinite(config.maxFrames)
-      ? Math.max(0, Math.min(715_827_876, Math.floor(config.maxFrames))) : 0;
+      ? Math.max(0, Math.min(maximumFrames, Math.floor(config.maxFrames))) : 0;
     this.maxCredits = Math.max(1, Math.min(32, Math.floor(config.credits || 8)));
     this.credits = this.maxCredits;
     this.frames = 0;
@@ -26,7 +35,7 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
     if (!this.filled) return;
     const buffer = this.filled === this.chunkFrames
       ? this.bytes.buffer
-      : this.bytes.buffer.slice(0, this.filled * 6);
+      : this.bytes.buffer.slice(0, this.filled * this.bytesPerFrame);
     this.credits -= 1;
     this.port.postMessage({ type: "chunk", buffer, frames: this.filled }, [buffer]);
     this.bytes = null;
@@ -69,12 +78,14 @@ class MorphazoidOutputRecorderProcessor extends AudioWorkletProcessor {
           this.finish("backpressure");
           return false;
         }
-        this.bytes = new Uint8Array(this.chunkFrames * 6);
+        this.bytes = new Uint8Array(this.chunkFrames * this.bytesPerFrame);
       }
-      const left = input[0]?.[index] ?? 0;
-      const right = input[1]?.[index] ?? left;
-      this.writeSample(this.filled * 6, left);
-      this.writeSample(this.filled * 6 + 3, right);
+      for (let channel = 0; channel < this.channelCount; channel += 1) {
+        // Preserve the shared stereo recorder's mono duplication. Discrete
+        // multichannel buses keep missing channels silent instead.
+        const fallback = this.channelCount === 2 && channel === 1 ? input[0]?.[index] ?? 0 : 0;
+        this.writeSample(this.filled * this.bytesPerFrame + channel * 3, input[channel]?.[index] ?? fallback);
+      }
       this.frames += 1;
       this.filled += 1;
       if (this.filled === this.chunkFrames) this.flush();
