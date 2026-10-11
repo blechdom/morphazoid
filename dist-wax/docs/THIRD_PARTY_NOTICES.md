@@ -30,6 +30,15 @@ Creator tracks by Umplix, Alex McCulloch and Komiku retain their CC0 credits in
 retain reproducible generators and credits in `genre-demos/` and
 `experimental/`; they are not transcriptions of existing artists’ songs.
 
+## MIDI Mixer
+
+Midiophilia's two-deck MIDI Mixer view reuses its unchanged MIDI collection
+and TimGM6mb SoundFont, with the source and licensing records above. Its owned
+audio-clock mixer uses a pinned SpessaSynth Core 4.3.22 bundle with stb-vorbis
+0.0.6 under Apache-2.0; see the [bundle provenance and license](../src/instruments/midi-mixer/vendor/README.md).
+The mixer, inspector, rectangular renderer and scheduling code are original
+Morphazoid implementations.
+
 ## I/O setup synthesized voice
 
 The original `assets/audio/midi-received.wav` announcement was generated with

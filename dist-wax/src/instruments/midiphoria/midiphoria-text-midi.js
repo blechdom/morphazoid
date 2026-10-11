@@ -65,32 +65,36 @@ const GLYPHS = Object.freeze({
   '&': ['01100', '10010', '10100', '01000', '10101', '10010', '01101'],
 });
 
+// Curated pixel icons, independent of installed fonts or platform emoji artwork.
+const ICONS = Object.freeze({
+  '🙂': ['00000', '01010', '01010', '00000', '10001', '01110', '00000'],
+  '😀': ['00000', '01010', '01010', '00000', '11111', '10101', '01110'],
+  '⭐': ['00100', '00100', '11111', '01110', '01110', '01010', '10001'],
+  '❤': ['00000', '01010', '11111', '11111', '01110', '00100', '00000'],
+  '◆': ['00100', '01110', '11011', '10001', '11011', '01110', '00100'],
+});
+const glyphFor = character => GLYPHS[character] ?? ICONS[character];
 export const MAX_TEXT_MIDI_GLYPHS = 32;
 const INPUT_SCAN_LIMIT = 4096;
-const ROWS = 7;
-const GLYPH_COLUMNS = 5;
-const GLYPH_STRIDE = GLYPH_COLUMNS + 1;
-const GLYPHS_PER_PHRASE = 8;
-const ROWS_PER_PHRASE = ROWS + 1;
-const LOWEST_NOTE = 48;
-const TICKS_PER_BEAT = 480;
-const TICKS_PER_ROW = TICKS_PER_BEAT / 2;
-const SECONDS_PER_ROW = 0.5 / 2; // 120 BPM, one half of a beat.
-const VELOCITY = 88;
+const ROWS = 7, GLYPH_COLUMNS = 5, GLYPH_STRIDE = 6;
+const ROWS_PER_PHRASE = 8, LOWEST_NOTE = 48, TICKS_PER_BEAT = 480;
+const SECONDS_PER_ROW = .25, VELOCITY = 88;
 
-/** Bounded ASCII lettering; unsupported characters become word separators. */
-export function normalizeTextMidi(input) {
-  if (typeof input !== 'string') return '';
-  const normalized = input.slice(0, INPUT_SCAN_LIMIT).normalize('NFKD')
+function normalizedInput(input) {
+  return typeof input === 'string' ? input.slice(0, INPUT_SCAN_LIMIT).normalize('NFKD')
     .replace(/\p{M}/gu, '').toUpperCase()
-    .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-');
-  let text = '';
-  for (const character of normalized) {
-    if (Object.hasOwn(GLYPHS, character)) text += character;
-    else if (text && !text.endsWith(' ')) text += ' ';
-    if (text.length === MAX_TEXT_MIDI_GLYPHS) break;
+    .replace(/[‘’]/g, "'").replace(/[“”]/g, '"').replace(/[–—]/g, '-') : '';
+}
+
+/** Unsupported characters become silent word separators, never hidden notes. */
+export function normalizeTextMidi(input) {
+  const characters = [];
+  for (const character of normalizedInput(input)) {
+    if (glyphFor(character)) characters.push(character);
+    else if (characters.length && characters.at(-1) !== ' ') characters.push(' ');
+    if (characters.length === MAX_TEXT_MIDI_GLYPHS) break;
   }
-  return text.trimEnd();
+  return characters.join('').trimEnd();
 }
 
 const uint32 = value => [value >>> 24, (value >>> 16) & 255, (value >>> 8) & 255, value & 255];
@@ -100,57 +104,44 @@ function variableLength(value) {
   return bytes;
 }
 
-/**
- * Generate a format-0 Standard MIDI File and its matching piano-roll score.
- * start, duration and total duration are in seconds at the file's 120 BPM.
- * Up to eight upright glyphs read left to right in each phrase. Pitch increases
- * from left to right; time climbs from the bottom row to the top, followed by a
- * blank row before the next phrase. No scale snapping is applied.
- * A 32-glyph score lasts at most 8 s, holds at most 40 notes, and contains
- * at most 640 note runs / 1,280 note events. This owns no audio or UI lifecycle.
+/** One bounded pixel score owns both the visual notes and the exported MIDI.
+ * Input pixels are upright, top row first; time always travels bottom to top.
+ * Adjacent vertical pixels sustain a chromatic note; there is no scale snapping.
  */
-export function generateTextMidi(input) {
-  const text = normalizeTextMidi(input);
-  if (!text) throw new Error('Type letters, numbers or punctuation to make a MIDI.');
-  const phrases = [];
-  for (let index = 0; index < text.length; index += GLYPHS_PER_PHRASE) {
-    phrases.push(text.slice(index, index + GLYPHS_PER_PHRASE));
-  }
-  const columns = Math.min(GLYPHS_PER_PHRASE, text.length) * GLYPH_STRIDE - 1;
-  const rows = phrases.length * ROWS_PER_PHRASE;
+export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .25, lowestNote = 48 } = {}) {
+  if (!Array.isArray(pixels) || !pixels.length || pixels.length > 256) throw new Error('Use 1–256 rows.');
+  const columns = pixels[0]?.length, rows = pixels.length;
+  if (!Number.isInteger(columns) || columns < 1 || columns > 48
+    || pixels.some(row => row?.length !== columns)) throw new Error('Use a rectangular grid with 1–48 columns.');
+  if (!Number.isFinite(secondsPerRow) || secondsPerRow < .0625 || secondsPerRow > .5
+    || !Number.isInteger(lowestNote) || lowestNote < 0 || lowestNote + columns > 128) throw new Error('Invalid score timing or pitch range.');
+  secondsPerRow = Math.round(secondsPerRow * 960) / 960;
+  const filled = value => value === 1 || value === true || value === '1';
   const notes = [];
-  for (let glyphIndex = 0; glyphIndex < text.length; glyphIndex++) {
-    const glyph = GLYPHS[text[glyphIndex]];
-    if (!glyph) continue; // Spaces retain their silent pitch columns.
-    const phrase = Math.floor(glyphIndex / GLYPHS_PER_PHRASE);
-    const pitchOffset = glyphIndex % GLYPHS_PER_PHRASE * GLYPH_STRIDE;
-    for (let column = 0; column < GLYPH_COLUMNS; column++) {
-      for (let row = 0; row < ROWS;) {
-        if (glyph[ROWS - 1 - row][column] !== '1') { row++; continue; }
-        const from = row;
-        while (row < ROWS && glyph[ROWS - 1 - row][column] === '1') row++;
-        notes.push({ note: LOWEST_NOTE + pitchOffset + column,
-          start: (phrase * ROWS_PER_PHRASE + from) * SECONDS_PER_ROW,
-          duration: (row - from) * SECONDS_PER_ROW, velocity: VELOCITY });
-      }
+  for (let column = 0; column < columns; column++) {
+    for (let row = 0; row < rows;) {
+      if (!filled(pixels[rows - 1 - row][column])) { row++; continue; }
+      const from = row;
+      while (row < rows && filled(pixels[rows - 1 - row][column])) row++;
+      notes.push({ note: lowestNote + column, start: from * secondsPerRow,
+        duration: (row - from) * secondsPerRow, velocity: VELOCITY });
     }
   }
+  if (!notes.length) throw new Error('Draw some notes or choose a stamp first.');
   notes.sort((a, b) => a.start - b.start || a.note - b.note);
-  const title = [...`Text: ${text}`].map(character => character.charCodeAt(0));
+  const text = String(title).slice(0, 256);
+  const titleBytes = [...new TextEncoder().encode(text)];
+  const ticksPerRow = secondsPerRow * 960;
   const events = [
-    { tick: 0, order: 0, bytes: [0xff, 0x03, title.length, ...title] },
+    { tick: 0, order: 0, bytes: [0xff, 0x03, ...variableLength(titleBytes.length), ...titleBytes] },
     { tick: 0, order: 0, bytes: [0xff, 0x51, 3, 0x07, 0xa1, 0x20] },
-    { tick: 0, order: 0, bytes: [0xc0, 81] }, // GM Lead 2 (sawtooth), channel 1.
+    { tick: 0, order: 0, bytes: [0xc0, 81] },
   ];
   for (const { note, start, duration, velocity } of notes) {
-    const from = Math.round(start / SECONDS_PER_ROW) * TICKS_PER_ROW;
-    const length = Math.round(duration / SECONDS_PER_ROW) * TICKS_PER_ROW;
-    events.push({ tick: from, order: 2, bytes: [0x90, note, velocity] });
-    events.push({ tick: from + length, order: 1, bytes: [0x80, note, 0] });
+    events.push({ tick: Math.round(start * 960), order: 2, bytes: [0x90, note, velocity] });
+    events.push({ tick: Math.round((start + duration) * 960), order: 1, bytes: [0x80, note, 0] });
   }
-  // SpessaSynth measures duration through the last channel event, not EOT.
-  // Preserve the final blank row when looping, without adding a sounding note.
-  const endTick = rows * TICKS_PER_ROW;
+  const endTick = Math.round(rows * ticksPerRow);
   events.push({ tick: endTick, order: 3, bytes: [0xb0, 123, 0] });
   events.push({ tick: endTick, order: 4, bytes: [0xff, 0x2f, 0] });
   events.sort((a, b) => a.tick - b.tick || a.order - b.order);
@@ -165,7 +156,31 @@ export function generateTextMidi(input) {
     TICKS_PER_BEAT >>> 8, TICKS_PER_BEAT & 255,
     0x4d, 0x54, 0x72, 0x6b, ...uint32(track.length), ...track,
   ]).buffer;
-  return { buffer, text, notes, duration: rows * SECONDS_PER_ROW,
-    columns, rows, phrases, rowsPerPhrase: ROWS_PER_PHRASE, secondsPerRow: SECONDS_PER_ROW,
-    lowestNote: LOWEST_NOTE, highestNote: LOWEST_NOTE + columns - 1 };
+  return { buffer, text, notes, duration: rows * secondsPerRow, columns, rows,
+    secondsPerRow, lowestNote, highestNote: lowestNote + columns - 1 };
 }
+
+/** Whole words rise together, or individual letters use successive time windows. */
+export function generateTextMidi(input, { mode = 'word' } = {}) {
+  const text = normalizeTextMidi(input), characters = [...text];
+  if (!text) throw new Error('Type letters, numbers or punctuation, or try 🙂 😀 ⭐ ❤ ◆.');
+  const perPhrase = mode === 'letter' ? 1 : 8;
+  const phrases = [];
+  for (let index = 0; index < characters.length; index += perPhrase) phrases.push(characters.slice(index, index + perPhrase).join(''));
+  const columns = Math.min(perPhrase, characters.length) * GLYPH_STRIDE - 1;
+  const rows = phrases.length * ROWS_PER_PHRASE;
+  const pixels = Array.from({ length: rows }, () => Array(columns).fill(0));
+  characters.forEach((character, glyphIndex) => {
+    const glyph = glyphFor(character);
+    if (!glyph) return;
+    const phrase = Math.floor(glyphIndex / perPhrase), offset = glyphIndex % perPhrase * GLYPH_STRIDE;
+    for (let row = 0; row < ROWS; row++) for (let column = 0; column < GLYPH_COLUMNS; column++) {
+      pixels[rows - 1 - (phrase * ROWS_PER_PHRASE + ROWS - 1 - row)][offset + column] = Number(glyph[row][column]);
+    }
+  });
+  const score = generateGridMidi(pixels, { title: `Text: ${text}`, secondsPerRow: SECONDS_PER_ROW, lowestNote: LOWEST_NOTE });
+  const unsupported = [...new Set([...normalizedInput(input)].filter(character => !glyphFor(character) && !/\s/.test(character)))].slice(0, 8);
+  return { ...score, text, phrases, rowsPerPhrase: ROWS_PER_PHRASE, unsupported, mode: mode === 'letter' ? 'letter' : 'word' };
+}
+
+export function midiIconPixels(icon) { return ICONS[icon]?.map(row => [...row].map(Number)) ?? null; }
