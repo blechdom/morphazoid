@@ -70,13 +70,20 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
 .trace-fine { --trace-color: #80d9ff; }
 .trace-legend span { color: var(--trace-color, #8ba1ae); }
 .trace-legend span i { background: var(--trace-color); }
-.trace-layers { display: grid; gap: 6px; }
-.trace-layer { display: grid; grid-template-columns: 90px minmax(80px, 1fr) 62px; gap: 7px; align-items: center; min-height: 38px; }
-.trace-layer label { display: flex; align-items: center; gap: 7px; font-size: 12px; color: var(--trace-color); cursor: pointer; }
-.trace-layer input { accent-color: var(--trace-color); width: 17px; height: 17px; }
+.trace-layers { display: grid; gap: 10px; margin: 9px 0; }
+.trace-layer { display: grid; grid-template-columns: 76px minmax(0, 1fr) minmax(0, 1fr); gap: 9px; align-items: start; }
+.trace-layer-heading, .trace-layer-source { min-width: 0; }
+.trace-layer-heading label, .trace-layer-source label { display: flex; align-items: center; gap: 5px; min-height: 30px; font-size: 11px; color: var(--trace-color); cursor: pointer; }
+.trace-layer-heading label { font-size: 12px; }
+.trace-layer input { flex: 0 0 auto; accent-color: var(--trace-color); width: 16px; height: 16px; margin: 0; }
 .trace-layer select { min-width: 0; width: 100%; max-width: none; min-height: 35px; font-size: 12px; }
-.trace-layer output { font: 10px/1.3 var(--font-ui, sans-serif); color: #8ba1ae; }
-.trace-layer.is-muted label { opacity: .55; }
+.trace-layer output { display: block; padding: 3px 0 0 21px; overflow-wrap: anywhere; font: 10px/1.3 var(--font-ui, sans-serif); color: #8ba1ae; }
+.trace-layer.is-muted .trace-layer-heading { opacity: .6; }
+.vector-disclosure { margin-top: 2px; }
+.vector-disclosure summary { cursor: pointer; min-height: 38px; padding: 10px 0; color: #c3a2ef; font-size: 12px; }
+.vector-disclosure summary:focus-visible { outline: 2px solid var(--vector-accent); outline-offset: 2px; }
+.vector-disclosure .vector-select { margin-top: 5px; }
+.vector-disclosure .vector-knobs { margin-top: 0; }
 .vector-monitors:has(#waveformMonitor[hidden]) { grid-template-columns: minmax(0, 1fr); max-width: 230px; }
 #helpDialog { background: #111b23; color: #d8e6eb; border: 1px solid #42545f; border-radius: 9px; width: min(620px, calc(100vw - 30px)); max-height: 80dvh; padding: 26px; }
 #helpDialog::backdrop { background: #000b; }
@@ -101,6 +108,7 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
 }
 @media (pointer: coarse) {
   .trace-layer label, .trace-layer select { min-height: 44px; }
+  .vector-disclosure summary { min-height: 44px; }
   .vector-fractals-page .audio-button { min-width: 48px; min-height: 48px; }
   .vector-select select { min-height: 42px; }
   .contour-actions button, .contour-next, #exportContour { min-height: 48px; min-width: 48px; }

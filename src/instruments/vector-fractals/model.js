@@ -10,11 +10,18 @@ export const MODES = Object.freeze([
   { id: 'explorer', label: 'Contour Explorer', color: '#80d9ff' },
 ]);
 export const SHAPES = Object.freeze({ basilica: [-1, 0], rabbit: [-.122561166876653, .744861766619744], circle: [0, 0], ellipse: [-2, 0], cardioid: null });
-export const TRACE_VOICES = Object.freeze(['sine', 'reed', 'glass']);
+export const TRACE_VOICES = Object.freeze(['sine', 'reed', 'glass', 'shepard']);
+export const DRUM_VOICES = Object.freeze(['thump', 'wood', 'metal']);
 export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
   viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null,
   contourReader: 'trace', traceRate: .1, featureSize: .015,
-  layerVoices: TRACE_VOICES, layerEnabled: Object.freeze([true, true, true]) });
+  layerVoices: Object.freeze(['sine', 'reed', 'glass']), layerEnabled: Object.freeze([true, true, true]),
+  layerSustain: Object.freeze([true, true, true]), layerDrums: Object.freeze([false, false, false]),
+  layerDrumVoices: Object.freeze(['thump', 'wood', 'metal']),
+  toneLevel: 1, drumLevel: .55, drumSpacing: .04, drumDecay: .18, drumPitch: 120,
+  bendTimbre: .5, foldTimbre: 0, pitchDepth: 2, panWidth: 1,
+  radarX: 0, radarY: 0, scanAngle: 0,
+  shepardDirection: 'rise', shepardCycles: 1, shepardWidth: 1 });
 export const CONTOUR_LANDMARKS = Object.freeze([
   { id: 'whole', label: 'Whole outline', x: -.5, y: 0, width: 3.4 },
   { id: 'seahorse', label: 'Seahorse Valley', x: -.743643887037151, y: .13182590420533, width: .015 },
@@ -42,10 +49,22 @@ export function sanitizeState(input = {}) {
     contourQuality: s.contourQuality === 'fine' ? 'fine' : 'live',
     strandX: s.strandX == null ? null : clamp(s.strandX, -3, 3),
     strandY: s.strandY == null ? null : clamp(s.strandY, -3, 3),
-    contourReader: s.contourReader === 'xy' ? 'xy' : 'trace',
+    contourReader: ['trace', 'radar', 'scan', 'xy'].includes(s.contourReader) ? s.contourReader : 'trace',
     traceRate: clamp(s.traceRate, .01, 1, .1), featureSize: clamp(s.featureSize, .002, .08, .015),
-    layerVoices: TRACE_VOICES.map((voice, i) => TRACE_VOICES.includes(s.layerVoices?.[i]) ? s.layerVoices[i] : voice),
-    layerEnabled: TRACE_VOICES.map((_, i) => s.layerEnabled?.[i] !== false),
+    layerVoices: DEFAULT_STATE.layerVoices.map((voice, i) => TRACE_VOICES.includes(s.layerVoices?.[i]) ? s.layerVoices[i] : voice),
+    layerEnabled: DEFAULT_STATE.layerEnabled.map((_, i) => s.layerEnabled?.[i] !== false),
+    layerSustain: DEFAULT_STATE.layerSustain.map((_, i) => s.layerSustain?.[i] !== false),
+    layerDrums: DEFAULT_STATE.layerDrums.map((_, i) => s.layerDrums?.[i] === true),
+    layerDrumVoices: DEFAULT_STATE.layerDrumVoices.map((voice, i) => DRUM_VOICES.includes(s.layerDrumVoices?.[i]) ? s.layerDrumVoices[i] : voice),
+    toneLevel: clamp(s.toneLevel, 0, 1, 1), drumLevel: clamp(s.drumLevel, 0, 1, .55),
+    drumSpacing: clamp(s.drumSpacing, .006, .2, .04), drumDecay: clamp(s.drumDecay, .02, 1.5, .18),
+    drumPitch: clamp(s.drumPitch, 30, 1800, 120),
+    bendTimbre: clamp(s.bendTimbre, 0, 1, .5), foldTimbre: clamp(s.foldTimbre, 0, 1, 0),
+    pitchDepth: clamp(s.pitchDepth, 0, 4, 2), panWidth: clamp(s.panWidth, 0, 1, 1),
+    radarX: clamp(s.radarX, -.5, .5, 0), radarY: clamp(s.radarY, -.5, .5, 0),
+    scanAngle: clamp(s.scanAngle, -180, 180, 0),
+    shepardDirection: s.shepardDirection === 'fall' ? 'fall' : 'rise',
+    shepardCycles: clamp(s.shepardCycles, .25, 4, 1), shepardWidth: clamp(s.shepardWidth, .5, 2, 1),
   };
 }
 
@@ -178,8 +197,14 @@ export function mipSelection(frequency, sampleRate) {
 export function randomizeState(_previous, random = Math.random) {
   const pick = list => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
   const landmark = pick(CONTOUR_LANDMARKS);
-  const layerEnabled = TRACE_VOICES.map(() => random() > .25);
-  if (!layerEnabled.some(Boolean)) layerEnabled[Math.floor(random() * 3) % 3] = true;
+  const layerEnabled = DEFAULT_STATE.layerEnabled.map(() => random() > .25);
+  const layerSustain = DEFAULT_STATE.layerSustain.map(() => random() > .35);
+  const layerDrums = DEFAULT_STATE.layerDrums.map(() => random() > .4);
+  if (!layerEnabled.some((enabled, i) => enabled && (layerSustain[i] || layerDrums[i]))) {
+    const i = pick([0, 1, 2]);
+    layerEnabled[i] = true;
+    pick([layerSustain, layerDrums])[i] = true;
+  }
   return sanitizeState({ mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
     radius: 1.03 + random() ** 2 * .65, detail: pick([32, 64, 128, 256, 512]),
     depth: random() * .96, angle: random(), component: pick([1, 2]), speed: .005 + random() ** 2 * .395,
@@ -189,9 +214,16 @@ export function randomizeState(_previous, random = Math.random) {
     viewY: landmark.y + (random() - .5) * landmark.width * .12,
     viewWidth: landmark.width * (.7 + random() * .6), contourBias: -5 + random() * 25,
     contourQuality: pick(['live', 'fine']), strandX: landmark.x, strandY: landmark.y,
-    contourReader: pick(['trace', 'xy']), traceRate: .02 * 30 ** random(), featureSize: .002 * 40 ** random(),
-    layerVoices: TRACE_VOICES.map(() => pick(TRACE_VOICES)),
-    layerEnabled });
+    contourReader: pick(['trace', 'radar', 'scan', 'xy']), traceRate: .02 * 30 ** random(), featureSize: .002 * 40 ** random(),
+    layerVoices: DEFAULT_STATE.layerVoices.map(() => pick(TRACE_VOICES)),
+    layerDrumVoices: DEFAULT_STATE.layerDrumVoices.map(() => pick(DRUM_VOICES)),
+    layerEnabled, layerSustain, layerDrums,
+    toneLevel: .3 + random() * .7, drumLevel: .25 + random() * .65,
+    drumSpacing: .018 * (.1 / .018) ** random(), drumDecay: .03 * 30 ** random(),
+    drumPitch: 45 * 20 ** random(), bendTimbre: random(), foldTimbre: random(),
+    pitchDepth: random() * 4, panWidth: random(), radarX: random() - .5, radarY: random() - .5,
+    scanAngle: random() * 360 - 180, shepardDirection: pick(['rise', 'fall']),
+    shepardCycles: .25 * 16 ** random(), shepardWidth: .5 + random() * 1.5 });
 }
 
 export const PRESETS = Object.freeze([
@@ -211,5 +243,8 @@ export const PRESETS = Object.freeze([
   ['seahorse', 'Explorer · Seahorse Valley', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 65, detail: 512 }],
   ['filigree', 'Explorer · Seahorse filigree', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .0005, pitch: 41, detail: 512, contourQuality: 'fine' }],
   ['trace-glass', 'Explorer · Glass curls', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 164, traceRate: .16, featureSize: .005, layerVoices: ['reed', 'glass', 'sine'] }],
+  ['radar-drums', 'Explorer · Radar percussion', { mode: 'explorer', contourReader: 'radar', traceRate: .12, layerSustain: [false, false, false], layerDrums: [true, true, true], drumSpacing: .055, drumDecay: .14, drumPitch: 95, drumLevel: .65, bendTimbre: .75, foldTimbre: .35, radarX: -.08, radarY: .04 }],
+  ['scan-mixed', 'Explorer · Scan and shimmer', { mode: 'explorer', contourReader: 'scan', pitch: 147, traceRate: .08, scanAngle: 35, layerVoices: ['sine', 'reed', 'glass'], layerSustain: [true, false, true], layerDrums: [true, true, true], toneLevel: .65, drumLevel: .4, drumSpacing: .07, drumDecay: .3, drumPitch: 180, pitchDepth: 1.2, bendTimbre: .65, foldTimbre: .6 }],
+  ['shepard-rise', 'Explorer · Endless ascent', { mode: 'explorer', contourReader: 'radar', pitch: 110, traceRate: .055, layerVoices: ['shepard', 'shepard', 'shepard'], layerEnabled: [true, true, false], toneLevel: .7, bendTimbre: .3, foldTimbre: .5, pitchDepth: .4, panWidth: .75, shepardDirection: 'rise', shepardCycles: 1.5, shepardWidth: 1.25 }],
   ['explore-xy', 'Explorer · XY waveform', { mode: 'explorer', pitch: 82, contourReader: 'xy' }],
 ].map(([id, label, patch]) => ({ id, label, snapshot: sanitizeState({ ...DEFAULT_STATE, ...patch }) })));
