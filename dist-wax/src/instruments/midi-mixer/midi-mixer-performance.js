@@ -11,7 +11,7 @@ const clock = () => performance.now() / 1000;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -80,16 +80,29 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const savedPads = document.createElement('section'); savedPads.id = 'mixerSavedPads'; savedPads.className = 'mixer-saved-pads'; savedPads.hidden = true;
   savedPads.innerHTML = '<div class="mixer-stamp-bank-heading"><span>Your pads</span><small>Tap to play / stop · last 8 sends</small></div><div class="mixer-saved-bank" role="group" aria-label="Sent drawing, message and rule pads"></div>';
   (padsHost ?? section).append(savedPads);
+  const palette = section.querySelector('.mixer-stamp-palette'), bank = palette.querySelector('.mixer-sample-bank');
+  if (liveAutomata && padsHost) {
+    padsHost.append(palette); bank.prepend(savedPads);
+    palette.querySelector('.mixer-stamp-bank-heading > span').textContent = 'Playable pads';
+    savedPads.classList.add('mixer-saved-pads-inline');
+    savedPads.querySelector('.mixer-stamp-bank-heading').hidden = true;
+    $('mixerSampleSync').checked = true; $('mixerSampleSync').closest('label').hidden = true;
+    $('mixerSampleLoop').closest('label').lastChild.textContent = 'Loop drawing';
+    $('mixerSampleLoop').closest('label').title = 'Loop the next drawing you send. Other pads keep their own Loop settings.';
+  }
+  const shapeControls = section.querySelector('.mixer-stamp-shape-controls'), messageForm = section.querySelector('.mixer-sample-message');
+  if (shapeHost) shapeHost.append(shapeControls);
+  if (messageHost) messageHost.append(messageForm);
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   let active = false, disposed = false;
   const monitor = mountMidiPerformanceMonitor(canvas, { engine,
-    onFrame: state => { $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample; reflectPads(state); } });
+    onFrame: state => { $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample; reflectPads(state); if (liveAutomata) automata.refreshLive(state.automata); } });
   const renderer = monitor.renderer;
-  const stamps = new Map(), buttons = new Map(), fileCache = new Map(), padSamples = new Map(), saved = new Map();
+  const stamps = new Map(), buttons = new Map(), stampCards = new Map(), fileCache = new Map(), padSamples = new Map(), saved = new Map();
   let savedSerial = 0, drawingSerial = 0, pendingPad = null;
   let automataSelected = false, viewMode = 'draw';
-  let selected = 'heart', seed = 1, request = null, requestTicket = 0, loadingSample = false, previewFrame = null;
+  let selected = 'heart', seed = 1, request = null, requestTicket = 0, editRequest = null, editTicket = 0, loadingSample = false, previewFrame = null;
   let patternProgram = '0', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
   $('mixerSampleProgram').add(new Option('Original file instruments', 'original'));
   GM_PROGRAM_NAMES.forEach((name, program) => $('mixerSampleProgram').add(new Option(`${program + 1}. ${name}`, String(program))));
@@ -118,21 +131,28 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     return { ...score, ...edited, pixels: undefined, durationBeats: edited.analysis.durationBeats,
       warnings: [...(score.warnings ?? []), ...edited.warnings] };
   }
-  function padState(button, sample, pending = false) {
+  function padState(button, sample, pending = false, loop = $('mixerSampleLoop').checked) {
     const set = (name, value) => { if (button.getAttribute(name) !== value) button.setAttribute(name, value); };
     set('aria-pressed', String(Boolean(sample))); set('aria-busy', String(pending));
     if (button.dataset.pending !== String(pending)) button.dataset.pending = String(pending);
     const status = button.querySelector('[data-pad-state]');
-    const text = pending ? 'Loading · tap to cancel' : sample ? sample.loop ? 'Looping · tap to stop' : 'Playing · tap to retrigger' : $('mixerSampleLoop').checked ? 'Loop · tap to start' : 'One shot';
+    const text = pending ? 'Loading · tap to cancel' : sample ? sample.loop ? 'Looping · tap to stop' : 'Playing · tap to retrigger' : loop ? 'Loop · tap to start' : 'One shot';
     if (status && status.textContent !== text) status.textContent = text;
   }
   function reflectPads(state = engine.state) {
     const playing = new Map(state.samples.map(sample => [sample.id, sample]));
     for (const [key, id] of padSamples) if (!playing.has(id)) padSamples.delete(key);
-    for (const [key, button] of buttons) padState(button, playing.get(padSamples.get(key)), loadingSample && pendingPad === key);
+    for (const [key, button] of buttons) {
+      const sample = playing.get(padSamples.get(key));
+      padState(button, sample, loadingSample && pendingPad === key, liveAutomata ? stamps.get(key).loop : $('mixerSampleLoop').checked);
+      const card = stampCards.get(key);
+      if (card) { card.dataset.playing = String(Boolean(sample)); card.hidden = !sample && button.dataset.filtered === 'true'; }
+    }
     for (const record of saved.values()) {
       const sample = playing.get(padSamples.get(record.id));
       if (sample) record.loop = sample.loop;
+      record.card.dataset.playing = String(Boolean(sample));
+      record.card.hidden = !sample && record.button.dataset.filtered === 'true';
       record.loopInput.checked = record.loop;
       padState(record.button, sample);
       const status = record.button.querySelector('[data-pad-state]');
@@ -143,7 +163,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const previous = padSamples.get(padId);
     if (previous !== undefined) engine.stopSample(previous);
     const sample = engine.triggerSample(score.buffer, { name: label, program: null, gain: Number($('mixerSampleLevel').value),
-      loop, sync: $('mixerSampleSync').checked,
+      loop, sync: liveAutomata || $('mixerSampleSync').checked,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });
     if (sample && padId) padSamples.set(padId, sample.id);
     reflectPads(); return sample;
@@ -153,7 +173,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     padSamples.delete(record.id); saved.delete(record.id); record.events.abort(); record.card.remove();
     savedPads.hidden = !saved.size;
   }
-  function saveScore(score, label, program, kind) {
+  function saveScore(score, label, program, kind, loop = $('mixerSampleLoop').checked) {
     // Keep a bounded bank of immutable sends; playing audio retains its own copy.
     if (saved.size >= 8) {
       const activeIds = new Set(engine.state.samples.map(sample => sample.id));
@@ -163,11 +183,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const id = kind === 'drawing' ? `drawing-${++drawingSerial}` : `${kind}-${++savedSerial}`;
     if (kind === 'drawing') label = `Drawing ${drawingSerial}`;
     const card = document.createElement('div'); card.className = 'mixer-saved-pad'; card.dataset.savedPad = id;
-    card.innerHTML = '<button type="button" data-pad-play aria-pressed="false"><canvas width="96" height="48" aria-hidden="true"></canvas><span data-pad-name></span><small data-pad-state></small></button><div class="mixer-saved-pad-actions"><label><input type="checkbox" data-pad-loop>Loop</label><button type="button" data-pad-remove>Remove</button></div>';
+    card.innerHTML = '<button type="button" data-pad-play aria-pressed="false"><canvas width="96" height="48" aria-hidden="true"></canvas><span data-pad-name></span><small data-pad-state></small></button><div class="mixer-saved-pad-actions"><label><input type="checkbox" data-pad-loop>Loop</label><button type="button" data-pad-edit>Edit</button><button type="button" data-pad-remove>×</button></div>';
     const button = card.querySelector('[data-pad-play]'), loopInput = card.querySelector('[data-pad-loop]');
     button.querySelector('[data-pad-name]').textContent = label; button.setAttribute('aria-label', label);
     loopInput.setAttribute('aria-label', `Loop ${label}`); card.querySelector('[data-pad-remove]').setAttribute('aria-label', `Remove ${label}`);
-    const record = { id, card, button, loopInput, score, label, program, events: new AbortController(), loop: $('mixerSampleLoop').checked };
+    const record = { id, card, button, loopInput, score, label, program, events: new AbortController(), loop };
     const listen = (node, type, listener) => node.addEventListener(type, listener, { signal: record.events.signal });
     listen(button, 'click', () => safely(() => {
       const sample = engine.state.samples.find(sample => sample.id === padSamples.get(id));
@@ -180,14 +200,17 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       reflectPads();
     });
     listen(card.querySelector('[data-pad-remove]'), 'click', () => { forgetPad(record); reflectPads(); });
+    const edit = card.querySelector('[data-pad-edit]'); edit.hidden = !onEditDrawing;
+    edit.setAttribute('aria-label', `Edit ${label}`);
+    listen(edit, 'click', () => { cancelEdit(); onEditDrawing?.(record.score, record.label); });
     saved.set(id, record); savedPads.querySelector('.mixer-saved-bank').append(card); savedPads.hidden = false;
-    thumbnail(button, score); return record;
+    thumbnail(button, score); filterStamps(); return record;
   }
-  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null } = {}) {
+  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked } = {}) {
     const score = editScore(rawScore);
     if (!score?.buffer) throw new Error('Draw a score first in BLECH MIDI.');
-    const record = saveKind ? saveScore(score, label, program, saveKind) : null;
-    launchScore(score, record?.label ?? label, program, record?.id ?? padId);
+    const record = saveKind ? saveScore(score, label, program, saveKind, loop) : null;
+    launchScore(score, record?.label ?? label, program, record?.id ?? padId, loop);
     canvas.dataset.message = label;
     $('mixerSampleStatus').textContent = `${label} · ${engine.state.audioEnabled ? 'sample' : 'silent preview'}${detail ? ` · ${detail}` : ''}${score.unsupported?.length ? ` · skipped ${score.unsupported.join(' ')}` : ''}${score.warnings?.length ? ` · ${score.warnings.join(' ')}` : ''}`;
     return score;
@@ -199,6 +222,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (loadingSample && !disposed) $('mixerSampleStatus').textContent = 'Stamp loading canceled';
     loadingSample = false; pendingPad = null; pointer = null; reflectPads();
   }
+  function cancelEdit() { editTicket++; editRequest?.abort(); editRequest = null; }
   function options(transpose = 0) { return { seed, density: Number($('mixerStampDensity').value), span: Number($('mixerStampSpan').value), beats: Number($('mixerStampBeats').value), offset: Number($('mixerStampOffset').value), transpose }; }
   function numberInput(id, min, max, fallback, integer = false) {
     const value = $(id).valueAsNumber, bounded = Number.isFinite(value) ? clamp(value, min, max) : fallback;
@@ -221,7 +245,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   }
   function refreshPreviews() {
     previewFrame = null;
-    for (const stamp of stamps.values()) if (!stamp.file && !buttons.get(stamp.id).hidden) {
+    for (const stamp of stamps.values()) if (!stamp.file && !(stampCards.get(stamp.id) ?? buttons.get(stamp.id)).hidden) {
       const score = mixerStampScore(stamp.id, options());
       thumbnail(buttons.get(stamp.id), editScore(score));
       if (stamp.id === selected && !automataSelected) {
@@ -235,9 +259,15 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const words = $('mixerStampFilter').value.toLocaleLowerCase().trim().split(/\s+/).filter(Boolean); let count = 0;
     for (const stamp of stamps.values()) {
       const match = words.every(word => `${stamp.label} ${stamp.group || ''} ${stamp.artist || ''} ${stamp.file ? 'MIDI file' : 'generated pattern'}`.toLocaleLowerCase().includes(word));
-      buttons.get(stamp.id).hidden = !match; count += Number(match);
+      const button = buttons.get(stamp.id); button.dataset.filtered = String(!match);
+      if (!liveAutomata) button.hidden = !match;
+      count += Number(match);
     }
-    $('mixerStampCount').value = `${count} / ${stamps.size}`; queuePreviews();
+    for (const record of saved.values()) {
+      const match = words.every(word => `${record.label} saved drawing capture`.toLocaleLowerCase().includes(word));
+      record.button.dataset.filtered = String(!match); count += Number(match);
+    }
+    $('mixerStampCount').value = `${count} / ${stamps.size + saved.size}`; reflectPads(); queuePreviews();
   }
   function selectAutomata() {
     // Choosing a view changes the next source, never the samples already playing.
@@ -257,6 +287,17 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   }
   const automata = mountAutomataMidiControls(automataTools, {
     idPrefix: automataHost ? 'automataMidi' : 'mixerAutomata', actionLabel: automataHost ? 'Play rule' : 'Stamp rule',
+    live: liveAutomata,
+    onChange: settings => engine.configureAutomata(settings),
+    onPlayPause: () => engine.setAutomataPlaying(!engine.state.automata.playing),
+    onRestart: () => engine.restartAutomata(),
+    onCapture: async beats => {
+      const score = await engine.captureAutomata(beats);
+      if (disposed) return null;
+      saveScore(score, `Evolution ${++savedSerial} · ${Number(score.durationBeats.toFixed(2))} beats`, 'original', 'capture', true);
+      reflectPads(); $('mixerSampleStatus').textContent = 'Evolution captured · tap its pad to play';
+      return score;
+    },
     onGenerate: score => {
       if (!active || disposed) return;
       cancelPending();
@@ -264,6 +305,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       return playScore(score, score.text, '', $('mixerSampleProgram').value, { saveKind: 'rule' });
     },
   });
+  if (liveAutomata) engine.configureAutomata(automata.getSettings());
   if (automataHost) automataTools.querySelector('.midiphoria-automata').open = true;
   function selectStamp(id) {
     const previous = stamps.get(selected), stamp = stamps.get(id); if (!stamp) return;
@@ -294,7 +336,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       playScore(score, score.text, '', $('mixerSampleProgram').value, { saveKind: 'rule' }); return;
     }
     const ticket = requestTicket, stamp = stamps.get(selected); if (!stamp) return;
-    const pad = { padId, saveKind: padId ? null : 'flow' };
+    const pad = { padId, saveKind: padId ? null : 'flow', loop: liveAutomata ? stamp.loop : $('mixerSampleLoop').checked };
     if (!stamp.file) { thumbnail(buttons.get(stamp.id), playScore(mixerStampScore(stamp.id, options(transpose)), stamp.label, '', $('mixerSampleProgram').value, pad)); return; }
     // Switching creative views can select a different source family while this
     // file loads. Keep the sound chosen for this launch without touching others.
@@ -317,6 +359,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       lastFileStamp = score;
       if (mode === 'manual') $('mixerStampStart').value = String(score.sourceStartBeat);
       const range = `${whole && !score.shortened ? stamp.collection === 'Geometric patterns' ? 'whole pattern' : 'whole file' : 'excerpt'} · source beats ${score.sourceStartBeat.toFixed(1)}–${score.sourceEndBeat.toFixed(1)} · ${score.noteCount.toLocaleString()} notes`;
+      if (liveAutomata) pad.loop = stamp.loop;
       thumbnail(buttons.get(stamp.id), playScore(score, stamp.label, `${range}${score.shortened ? ' · shorter dense slice' : ''}`, program, pad));
     } catch (error) { if (ticket === requestTicket) fail(error); }
     finally { if (ticket === requestTicket) { loadingSample = false; pendingPad = null; request = null; reflectPads(); } }
@@ -330,7 +373,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     safely(() => stampSelected(0, id));
   }
   function addStamp(stamp) {
-    if (stamps.has(stamp.id)) return; stamps.set(stamp.id, stamp);
+    if (stamps.has(stamp.id)) return; stamp = { ...stamp, loop: false }; stamps.set(stamp.id, stamp);
     const button = document.createElement('button'); button.type = 'button'; button.dataset.mixerSample = stamp.id; button.title = `${stamp.label} · ${stamp.group || 'Shape'}`; button.setAttribute('aria-label', stamp.label); button.setAttribute('aria-pressed', 'false'); button.dataset.selected = String(stamp.id === selected);
     const miniature = document.createElement('canvas'); miniature.width = 96; miniature.height = 48; miniature.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span'); label.textContent = stamp.label;
@@ -339,7 +382,26 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     button.append(miniature, label, group, status); buttons.set(stamp.id, button);
     if (stamp.file) { const ctx = miniature.getContext('2d'); ctx.fillStyle = '#a8c5bd'; ctx.font = '14px monospace'; ctx.textAlign = 'center'; ctx.fillText('MIDI', 48, 30); }
     on(button, 'click', () => triggerPad(stamp.id));
-    section.querySelector('.mixer-sample-bank').append(button);
+    if (liveAutomata) {
+      const card = document.createElement('div'); card.className = 'mixer-saved-pad mixer-stamp-pad'; card.dataset.stampPad = stamp.id;
+      const actions = document.createElement('div'); actions.className = 'mixer-saved-pad-actions';
+      const loopLabel = document.createElement('label'), loop = document.createElement('input'); loop.type = 'checkbox'; loop.dataset.stampLoop = stamp.id; loop.setAttribute('aria-label', `Loop ${stamp.label}`);
+      loopLabel.append(loop, 'Loop'); actions.append(loopLabel);
+      on(loop, 'change', () => { stamp.loop = loop.checked; const id = padSamples.get(stamp.id); if (id !== undefined) engine.configureSample(id, { loop: stamp.loop }); reflectPads(); });
+      const edit = document.createElement('button'); edit.type = 'button'; edit.textContent = 'Edit'; edit.dataset.stampEdit = stamp.id; edit.setAttribute('aria-label', `Edit ${stamp.label}`); actions.append(edit);
+      on(edit, 'click', () => { selectStamp(stamp.id); cancelEdit(); editRequest = new AbortController(); const ticket = editTicket;
+        const geometry = options(), mode = $('mixerStampSourceMode').value;
+        const start = mode === 'manual' ? Number($('mixerStampStart').value) || 0 : fileStart;
+        const whole = mode === 'whole' || mode === 'auto' && stamp.collection === 'Geometric patterns';
+        safely(async () => {
+        if (!stamp.file) { onEditDrawing?.(mixerStampScore(stamp.id, geometry), stamp.label); return; }
+        let analysis = fileCache.get(stamp.id);
+        if (!analysis) { const response = await fetch(new URL(`../../../assets/midiphoria/${stamp.file}`, import.meta.url), { signal: editRequest.signal }); if (!response.ok) throw new Error('Could not open this MIDI shape.'); analysis = parseMidi(await response.arrayBuffer()); }
+        if (disposed || ticket !== editTicket) return;
+        onEditDrawing?.(createMidiFileStamp(analysis, { beats: geometry.beats, whole, fitBeats: geometry.beats, transpose: geometry.offset, ...(start === null || whole ? {} : { startBeat: start }), name: stamp.label }), stamp.label);
+      }); });
+      card.append(button, actions); stampCards.set(stamp.id, card); bank.append(card);
+    } else bank.append(button);
   }
   MIXER_SAMPLE_STAMPS.forEach(addStamp); selectStamp(selected); filterStamps();
   on($('mixerStampFilter'), 'input', filterStamps);
@@ -383,6 +445,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   });
   for (const [id, key] of [['mixerSampleLoop', 'loop'], ['mixerSampleSync', 'sync']]) {
     on($(id), 'change', () => {
+      if (liveAutomata) { if (key === 'sync') $(id).checked = true; reflectPads(); return; }
       if (key === 'loop') for (const record of saved.values()) record.loop = $(id).checked;
       engine.configureSamples({ [key]: $(id).checked }); reflectPads();
     });
@@ -411,21 +474,25 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     canvas.style.touchAction = painting ? 'none' : 'pan-y'; canvas.classList.toggle('mixer-painting', painting);
   };
   on($('mixerStampPaint'), 'change', paintMode); paintMode();
-  on(section.querySelector('.mixer-sample-message'), 'submit', event => {
+  on(messageForm, 'submit', event => {
     event.preventDefault(); cancelPending(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value, { mode: $('mixerStampTextMode').value }); playScore(score, score.text, '', $('mixerSampleProgram').value, { saveKind: 'message' }); });
   });
   on($('mixerStampDrawRow'), 'input', () => {
     $('mixerStampBeats').value = String(numberInput('mixerStampDrawRow', .0078125, 2, .25) * 32);
     $('mixerStampBeats').dispatchEvent(new Event('input', { bubbles: true }));
   });
-  function playDrawing() {
-    if (disposed) return null;
-    cancelPending(); drawingPitchRange();
-    return playScore(mixerPerformanceScore(getDrawing?.(), {
+  function getDrawingScore() {
+    drawingPitchRange();
+    return mixerPerformanceScore(getDrawing?.(), {
       heightBeats: options().beats, offset: options().offset,
       span: numberInput('mixerStampSpan', 12, 128, 48, true),
       lowestNote: Number($('mixerStampDrawBase').value),
-    }), 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
+    });
+  }
+  function playDrawing() {
+    if (disposed) return null;
+    cancelPending();
+    return playScore(getDrawingScore(), 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
   function stopSamples() {
     if (disposed) return;
@@ -434,11 +501,12 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   on(drawingButton ?? $('mixerSendDrawing'), 'click', () => safely(playDrawing));
   on($('mixerStopSamples'), 'click', stopSamples);
   on($('mixerPerformanceView'), 'change', () => renderer.configure({ view: $('mixerPerformanceView').value }));
-  const stampOnly = [section.querySelector('.mixer-stamp-palette'), section.querySelector('.mixer-stamp-shape-controls'),
-    section.querySelector('.mixer-sample-message'), ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
+  const stampOnly = [palette, shapeControls,
+    messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, playDrawing, stopSamples,
+    cancelPending, cancelEdit, playDrawing, stopSamples, getDrawingScore,
+    setAutomataSeed: row => automata.setSeedRow(row),
     setView(mode, nextVisualizerHost) {
       if (disposed) return;
       const next = ['draw', 'automata', 'mixer'].includes(mode) ? mode : 'mixer';
@@ -467,6 +535,6 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       if (!active) { cancelPending(); return; }
       midiEditor.refresh();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); for (const record of saved.values()) record.events.abort(); saved.clear(); padSamples.clear(); if (previewFrame !== null) cancelAnimationFrame(previewFrame); monitor.dispose(); engine.stopSamples(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); savedPads.remove(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; editTicket++; editRequest?.abort(); cancelPending(); fileCache.clear(); for (const record of saved.values()) record.events.abort(); saved.clear(); padSamples.clear(); if (previewFrame !== null) cancelAnimationFrame(previewFrame); monitor.dispose(); engine.stopSamples(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); savedPads.remove(); palette.remove(); shapeControls.remove(); messageForm.remove(); section.remove(); },
   };
 }

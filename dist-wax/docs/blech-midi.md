@@ -1,7 +1,7 @@
 # Blech MIDI
 
 [Open Blech MIDI](../blech-midi.html). Drawing, black MIDI and geometric stamps,
-words, and Automatapoeia MIDI rules now have their own page. The file player,
+words, and live Automatapoeia MIDI evolution share one page and one tempo. The file player,
 live MIDI visualizer and two-deck mixer remain in [Midiophilia](../midiphoria.html).
 
 ## Prepare and send
@@ -12,28 +12,32 @@ editing, erasing or clearing the preparation canvas leaves that score playing.
 **Download MIDI** saves the score that was sent, including its pitch span,
 lowest note, row length and key gate. Editing the drawing hides the stale link.
 
-The top **Send ↑** button performs the same action. In the **Automatapoeia**
-tab it sends the selected rule instead. Space outside editable controls sends
-the prepared source; it never arms Audio. Inside the preparation canvas, arrow
+The top **Send ↑** button performs the same action. Drawing and Automatapoeia
+remain visible together. Space outside editable controls sends
+the prepared drawing; it never arms Audio. Inside the preparation canvas, arrow
 keys move the cursor, Space or Enter paints, Delete erases, and Ctrl/Cmd+Z undoes.
 One captured freehand stroke is one undo action.
 
 The stamp bank contains the existing generated textures plus the bundled black
 MIDI and geometric file stamps. Its single filter searches names and collections.
-With **Loop** on, tap a pad to start it and tap again to stop only that pad.
+Each pad has its own **Loop** switch. With it on, tap a pad to start it and tap again to stop only that pad.
 With Loop off, a tap plays once; another tap retriggers that pad from the start
 without stopping other pads. Green means playing; the dashed outline means the
 shape selected for editing or painting. A loading file says **Loading · tap to
 cancel** and does not count as playing. Selecting another file cancels the old
 download; it does not stop already-playing pads.
 
-Each Send creates a thumbnail in **Your pads** below the live output. Drawings,
-rules, messages and painted copies retain their exact sent MIDI, independent of
+Each Send creates a thumbnail in the shared **Playable pads** bank below the live output. Drawings,
+captured evolution, messages and painted copies retain their exact MIDI, independent of
 the preparation canvas. Tap a looping saved pad to stop or restart it; its own
 **Loop** switch changes only that pad. Turning this switch off finishes the
 current pass. **Remove** stops and removes just that saved pad. Stop all leaves
 the bank available to replay. The bank holds eight sends for this page session;
-a ninth replaces the oldest stopped pad. Navigation/reload clears it.
+a ninth replaces the oldest stopped pad. Navigation/reload clears it. The single
+filter searches both factory and saved pads; playing pads remain visible and
+move to the front. **Edit** copies a pad into the 48 × 32 drawing grid. This
+raster draft simplifies source timing and pitch detail; the original MIDI pad
+is unchanged. Sending the draft creates another pad.
 
 **Paint flow** places separate copies of the selected stamp by pitch directly on
 the live output, each with its own saved pad. Enter on that output triggers the
@@ -42,25 +46,23 @@ remains separate from these live actions.
 
 ## Timing and sound
 
-The main **Loop** switch sets the pad launch mode and the Loop switches for saved
-pads, and updates running patterns. Turning it off lets each current cycle finish.
-Each playing pad has an independent position and can be stopped immediately by
-tapping it while looping, without interrupting another pad. **Sync to tempo** follows the 30–300 BPM tempo control;
-turn it off for each source's original timing. The tempo has the shared Tap
-control, and source-specific row length and clip length remain available.
+All sources follow the **30–300 BPM** tempo knob and its shared Tap control.
+Each pad retains its own position and Loop setting. **Loop drawing** sets only
+the next drawing/message Send; it never changes existing pads. Turning an
+individual pad's Loop off finishes its current pass. Tapping a looping pad
+stops it immediately without interrupting the other sources.
 
-**Stop all** removes the active patterns and releases their notes. **Audio off** also
-stops active patterns; preparing and sending silent previews remains possible.
-There is no queued conveyor or position-preserving pause. Sending another score
-layers it with the currently playing scores. Up to four clips play at once;
-another send replaces the oldest playing clip and its pad returns to idle.
-Its saved snapshot remains available. Enabling Audio during a silent preview
-joins its current position. Stopping a pad cancels its pending MIDI-effect echoes
-as well as its source notes; other pads and deck transport are unchanged.
+**Stop all** removes active pads and pauses Automatapoeia. **Audio off** releases
+pad playback but keeps the live automata transport evolving silently. Enabling
+Audio joins the current evolution. Audio never arms through Send, Play, seed
+selection, Capture or Restart. Up to four clips play alongside the independent
+live generator; another pad replaces the oldest playing clip. Its saved
+snapshot remains available. Stopping a source cancels its own pending
+MIDI-effect echoes and leaves other sources moving.
 
 Generated drawings, patterns and rules default to piano; file stamps can retain
-their original instruments. The Black MIDI volume controls the shared stamp
-bus, and masthead Output controls the instrument's final output. **Stamp MIDI**
+their original instruments. The **Pads** volume controls the stamp bus; Automatapoeia has its own volume
+and instrument selector. Masthead Output controls the final mix. **Stamp MIDI**
 retains program, controller, pitch, velocity and envelope parameters supported by
 the existing MIDI stamp engine. Source settings apply to future sends; live
 parameters update active voices where supported.
@@ -71,30 +73,51 @@ a bank leaves Audio off until explicitly enabled. Banks stay in this browser;
 loading errors keep the previous usable bank. Filter frequency, echo mix,
 beat-based echo length, feedback, and the existing SoundFont reverb/chorus
 parameters update the same engine used by drawings, stamps, messages and rules.
-Tab changes preserve these settings. **Reset effects** restores their defaults
+Editing either work area preserves these settings. **Reset effects** restores their defaults
 without stopping the patterns or changing Audio, output level or the SoundFont.
 
-Automatapoeia uses the original instrument's rule-picker layout: a current
-thumbnail inside the closed pulldown and thumbnail tiles inside the opened
-pulldown. Search decimal or binary codes, show all rules, show symmetry
-representatives, or show the selected rule's equivalence family. All 256
-elementary rules and 64 radius-2 totalistic codes remain available. Previous,
-Next, the rule knob, and the dropdown keep the same selected rule.
+## Live Automatapoeia
 
-Seed density, exact Seed, **Restart**, **Reseed**, family, rule, boundary,
-post-step transform and Columns / width are directly visible. Width supports
-8–128 pitches, bounded by MIDI's complete 0–127 note range. Restart prepares
-the same current seed again; Reseed advances to a reproducible new seed.
-Neither action sends MIDI or changes already-playing layers. At zero density,
-the seed is one centered cell, so different seed numbers retain the same picture.
+Automatapoeia runs beside the drawing editor with an independent **Play/Pause**
+and the same master tempo as the pads. Every row is computed from the previous
+row on the audio clock, without repeatedly launching sample clips. Pause
+releases only its notes and pending effects, retaining the generation and
+within-row phase. Resume continues that row's remaining time. The output shows
+its notes alongside every playing pad, with a distinct source color.
 
-**Generation rate** uses 1–8 rows per beat and shares the existing
-**Beats per generation** value in MIDI pattern settings. They are reciprocal
-views of one value; 4 rows/beat is ¼ beat/generation. The existing 480-tick
-encoder rounds to actual MIDI timing. With Sync on, changing the master tempo
-changes real-time speed; with Sync off, generated scores use their original
-120 BPM. Generations, lowest note, articulation and velocity remain MIDI
-settings. Source edits change the next Send, while the active score is retained.
+The original thumbnail rule menu, search, symmetry filters, Previous and Next
+remain available. All 256 elementary rules and 64 radius-2 totalistic codes
+are retained. The live preview shows the observed history, not a precomputed
+finite clip. **Generation rate** is 1–8 rows per master beat. Rule, boundary,
+transform, rate, width, pitch, velocity, articulation and sound edits apply at
+the next generation without resetting the stream. Width is 8–128 pitches;
+width changes center-fit the evolving row, while Lowest MIDI note transposes
+its pitch window at the next generation.
+
+**Restart** returns to the chosen seed without changing Play/Pause.
+**Reseed** chooses a reproducible random seed and restarts; from a single
+centered seed, it sets density to 50% so reseeding produces a different row.
+The exact seed number and density remain editable. These seed edits prepare the
+next Restart; they do not replace the current evolving row.
+
+**Pick seed row** changes the preparation canvas gesture from painting to
+choosing a horizontal row. The adjacent slider and arrow keys also select the
+row. **Use row as seed** copies its mapped MIDI pitches, including Width and
+Offset, into the visible seed strip and restarts only Automatapoeia. Its pitch
+window expands as needed to retain those notes. This action preserves its
+Play/Pause state and leaves every pad alone. No seed is inferred from the
+whole two-dimensional picture.
+
+**Capture to pad** saves the most recent 1, 2, 4, 8 or 16 performed beats as a
+stopped, looping pad. Capture leaves evolution running and does not double it.
+The downloadable MIDI retains source note gates, velocity, program, level and
+tempo changes; capture is before the shared MIDI effects layer, so replay does
+not bake in and then apply that layer twice. Less than the requested duration
+is captured if the source has just started. The history is bounded to 16 beats
+and 1,024 rows. Before Audio is initialized, a long hidden-tab gap advances at
+most 16 silent beats on return; excess idle time is discarded without overdue
+attacks or a claim that skipped generations were computed. The running audio
+worklet processes every rendered quantum independently of UI frames. Empty evolution cannot create a sounding capture.
 
 The same original Automatapoeia catalogue, thumbnail raster, evolution, edge
 and post-step-transform functions are reused. The original instrument's
@@ -149,22 +172,18 @@ phrases; One letter at a time uses a separate window for each letter. Up to
 are reported. The message field launches its score immediately. The separate
 Words & symbols file-generation feature remains in Midiophilia's visualizer.
 
-Automatapoeia maps each column to one chromatic pitch. Its seed row plays first,
-followed by each generated row. Retrigger attacks every active cell; Hold joins
-consecutive cells at the same pitch. The selected preview uses the actual seed,
-boundary and transform; rule-menu thumbnails use a fixed random seed with
-wraparound. Controls span 8–128 pitches and generations, ⅛–1 beat per row,
-MIDI pitches 0–127, velocity, seed density, reproducible seed, fixed or periodic
-edges, and post-step shift, reflection or inversion. At most 16,384 notes and
-128 beats are generated per pattern. Preview edits do not replace a playing
-pattern; Send rule launches the new snapshot. Download MIDI saves that rule.
+Automatapoeia maps each column to one chromatic pitch. Its seed row plays first.
+Retrigger attacks every active cell; Hold joins consecutive cells at the same
+pitch. Captured pads retain the performed note gates. The older finite MIDI
+rule generator remains available to other consumers without changing its
+published default MIDI bytes.
 
 ## Ownership and limits
 
 One `MidiMixerEngine` owns the sound graph and sample clocks; it loads no deck
 files on this page. One `mountMixerPerformance` instance retains the stamp bank,
-rule editor, live MIDI controls and renderer across tabs. Graphics follow native
-audio timing when Audio is running. With Audio off and no context, the existing
+live rule editor, MIDI controls and renderer in one workspace. Graphics follow native
+audio timing when Audio is running; rendering never schedules audible rows. With Audio off and no context, the existing
 silent preview clock advances without creating Web Audio.
 
 The shared output connection supports stereo meters and main-output recording.

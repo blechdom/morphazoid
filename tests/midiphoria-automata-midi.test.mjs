@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
+import { createHash } from 'node:crypto';
+import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
 import { automatapoeiaNextRow, automatapoeiaTransformRow } from '../src/instruments/cellular-automata/automatapoeia.js';
 import { parseMidi, MIDI_SAMPLE_LIMITS } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 
@@ -135,4 +136,43 @@ test('the densest 128 by 128 score keeps all 16384 notes within the existing sta
   assert.ok(parsed.events.length <= MIDI_SAMPLE_LIMITS.events);
   assert.ok(parsed.durationBeats <= MIDI_SAMPLE_LIMITS.beats);
   assert.equal(parsed.events.filter(event => event.kind === 8).length, parsed.noteCount);
+});
+
+
+test('finite MIDI bytes remain identical for existing centered, random and totalistic scores', () => {
+  for (const [options, hash] of [
+    [{}, '45782e918c17951afc9a820137116ca6ab220e3d352f2eca3934b57b878f5164'],
+    [{ columns: 8, rows: 8, density: .5, seed: 19 }, 'a507bdc39fbea40583c7fe64a1d11bf3a913d0ed12b105487806634835df040f'],
+    [{ family: 'totalistic-r2', rule: 20, boundary: 'periodic', transform: 'shift-left', columns: 24, rows: 16, articulation: 'hold' }, 'd259c09eab97bbb9a9798aa36af9726da6577d88911305d6ee05655ce7177d0e'],
+  ]) assert.equal(createHash('sha256').update(new Uint8Array(generateAutomataMidi(options).buffer)).digest('hex'), hash);
+});
+
+test('custom seeds retain pitch cells, own their memory, and evolve through the exact rule', () => {
+  const seedRow = [1, 0, 0, 1, 0, 1, 0, 0];
+  const settings = sanitizeAutomataMidiSettings({ columns: 8, rows: 8, lowestNote: 120, rule: 90, seedRow });
+  const seed = automataMidiSeedRow(settings); seed[0] = 0;
+  assert.equal(settings.seedRow[0], 1); assert.equal(seedRow[0], 1);
+  const score = generateAutomataMidi(settings);
+  assert.deepEqual(score.pixels[0], seedRow);
+  assert.deepEqual(score.pixels[1], automatapoeiaNextRow(seedRow, 90, 'fixed', 'elementary'));
+  const parsed = roundtrip(score);
+  assert.deepEqual(parsed.notes.filter(note => note.beat === 0).map(note => note.note), [120, 123, 125]);
+  assert.deepEqual(generateAutomataMidi({ ...settings, density: 1, seed: 99 }).buffer, score.buffer);
+  const reset = automataMidiSeedRow({ ...settings, seedRow: null, density: 0 });
+  assert.deepEqual(reset, [0, 0, 0, 0, 1, 0, 0, 0]);
+});
+
+test('custom seed rows are binary, bounded and padded, including an intentional empty seed', () => {
+  const source = new Float32Array([1, 0, -2, 2, NaN, Infinity, .1]);
+  const settings = sanitizeAutomataMidiSettings({ columns: 8, seedRow: source });
+  assert.deepEqual(settings.seedRow, [1, 0, 0, 1, 0, 0, 1, 0]);
+  source[0] = 0; assert.equal(settings.seedRow[0], 1);
+  assert.equal(sanitizeAutomataMidiSettings({ columns: 500, seedRow: Array(500).fill(1) }).seedRow.length, 128);
+  assert.equal(sanitizeAutomataMidiSettings({ seedRow: '101' }).seedRow, null);
+  const empty = { columns: 8, rows: 8, rule: 0, seedRow: [] };
+  assert.deepEqual(automataMidiSeedRow(empty), Array(8).fill(0));
+  assert.throws(() => generateAutomataMidi(empty), { code: 'EMPTY_AUTOMATA_MIDI' });
+  const born = generateAutomataMidi({ ...empty, rule: 255 });
+  assert.deepEqual(born.pixels[0], Array(8).fill(0));
+  assert.deepEqual(born.pixels[1], Array(8).fill(1)); roundtrip(born);
 });

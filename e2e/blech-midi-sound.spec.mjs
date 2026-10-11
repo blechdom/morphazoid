@@ -35,7 +35,7 @@ test('Blech MIDI imports SoundFonts, changes live effects and restores default s
   const font = fileURLToPath(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
   await page.locator('#mixerSoundFont').setInputFiles(font); await expect(page.locator('#mixerFontName')).toContainText('TimGM6mb.sf2');
   expect((await state(page)).contexts).toEqual([]); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('[data-stamp-loop="square"]').check(); await page.locator('#mixerSampleProgram').selectOption('16');
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   await page.locator('[data-mixer-sample="square"]').click(); const before = await audible(page), sent = (await state(page)).samples[0].id;
   await input(page, 'mixerFilterExact', 60, 'change');

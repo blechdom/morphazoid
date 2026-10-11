@@ -1932,3 +1932,6 @@ copy+require	assets/sound-fonts/lately-bass/LICENSE.txt
 copy+require	src/midi-note-effects.js
 copy+require	src/midi-note-effects-controls.js
 copy+require	src/instruments/midiphoria/midiphoria-processor.js
+
+# Blech MIDI continuous automata source and captured performance history.
+copy+require	src/instruments/midi-mixer/midi-mixer-automata.js

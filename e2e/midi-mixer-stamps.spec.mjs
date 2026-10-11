@@ -84,7 +84,7 @@ async function audible(page) {
 const pitchRange = score => Math.max(...score.notes.map(note => note.note)) - Math.min(...score.notes.map(note => note.note));
 test('one search field filters all 30 generated and 28 file stamps without arming audio', async ({ page }) => {
   await open(page);
-  await expect(page.locator('.mixer-stamp-palette input')).toHaveCount(1);
+  await expect(page.locator('.mixer-stamp-palette input[type=search]')).toHaveCount(1);
   await expect(page.locator('[data-mixer-sample]')).toHaveCount(58);
   const filter = page.locator('#mixerStampFilter');
   await filter.fill('generated pattern'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(30);
@@ -93,8 +93,13 @@ test('one search field filters all 30 generated and 28 file stamps without armin
   await filter.fill('black midi chasing'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(1);
   await expect(stamp(page, 'black-bleed-chasing-wind')).toBeVisible();
   await filter.fill('glooob'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(1);
+  await page.locator('[data-stamp-loop="glooob"]').check();
   await stamp(page, 'glooob').click(); await expect(page.locator('#mixerSampleStatus')).toContainText('silent preview');
+  // The counter reports matches; playing pads stay reachable outside those results.
   await filter.fill('no such stamp'); await expect(page.locator('#mixerStampCount')).toHaveText('0 / 58');
+  await expect(stamp(page, 'glooob')).toBeVisible(); await expect(stamp(page, 'glooob')).toHaveAttribute('aria-pressed', 'true');
+  await stamp(page, 'glooob').click(); await expect(stamp(page, 'glooob')).toBeHidden();
+  await expect(page.locator('#mixerStampCount')).toHaveText('0 / 58');
   await filter.fill(''); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(58);
   expect((await snapshot(page)).contexts).toEqual([]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');

@@ -3,7 +3,12 @@ import { readAudioStatus, sampleAudioEnvelope, waitForStableAudioState } from ".
 import { pageDiagnosticMessages, settlePage, watchPageDiagnostics } from "./helpers/diagnostics.mjs";
 
 const diagnostics = new WeakMap();
-const sections = ["modulation", "organ", "rotary"];
+const sections = ["modulation", "rotary"];
+const stopLabels = ["16′", "5⅓′", "8′", "4′", "2⅔′", "2′", "1⅗′", "1⅓′", "1′"];
+const registrations = {
+  tonewheel: ["tonewheel-clear", "tonewheel-night", "tonewheel-gospel", "tonewheel-rock"],
+  pipe: ["pipe-flute", "pipe-stopped", "pipe-principal", "pipe-string", "pipe-reed", "pipe-ripple"],
+};
 test.beforeEach(async ({ page, baseURL }) => {
   diagnostics.set(page, watchPageDiagnostics(page, { baseURL }));
   if (process.env.E2E_AUDIO_SILENT_SINK === "1") await page.addInitScript(() => {
@@ -22,7 +27,7 @@ test.afterEach(async ({ page }, testInfo) => {
 async function open(page) {
   expect((await page.goto("spartial.html"))?.ok()).toBe(true);
   await settlePage(page);
-  await expect(page.locator("#organDrawbars input[type=range]")).toHaveCount(9);
+  await expectBank(page, "partials", 16);
 }
 async function expand(page, section) {
   const details = page.locator(`details[data-section="${section}"]`);
@@ -35,7 +40,26 @@ async function setRange(page, id, value) {
   }, value);
 }
 async function values(page) {
-  return page.locator("#organDrawbars input[type=range]").evaluateAll(inputs => inputs.map(input => Number(input.value)));
+  return page.locator("#partialSliders input[type=range]").evaluateAll(inputs => inputs.map(input => Number(input.value)));
+}
+async function expectBank(page, mode, count = 9) {
+  await expect(page.locator(".spectrum-panel #partialSliders")).toHaveCount(1);
+  await expect(page.locator(".spectrum-panel #organMode")).toHaveValue(mode);
+  await expect(page.locator('#organDrawbars, #organPreset, #nextOrganPreset, #randomOrganPreset, [data-section="organ"]')).toHaveCount(0);
+  await expect(page.locator("#partialSliders input[type=range]")).toHaveCount(count);
+  if (mode === "partials") {
+    await expect(page.getByRole("slider", { name: /^Partial \d+ level$/ })).toHaveCount(count);
+    await expect(page.getByRole("slider", { name: / drawbar$/ })).toHaveCount(0);
+  } else {
+    await expect(page.getByRole("slider", { name: /^Partial \d+ level$/ })).toHaveCount(0);
+    for (const [index, name] of stopLabels.entries()) {
+      const input = page.locator(`#partialSliders #organStop${index}`);
+      await expect(input).toHaveAccessibleName(`${name} drawbar`);
+      await expect(input).toHaveAttribute("min", "0");
+      await expect(input).toHaveAttribute("max", "8");
+    }
+    expect(await page.locator('#spectrumPreset option:not([value="custom"])').evaluateAll(options => options.map(option => option.value))).toEqual(registrations[mode]);
+  }
 }
 async function hold(page) {
   for (const [id, value] of Object.entries({ cascade: 0, cascadeStart: 0, attack: .01, release: .06 })) await setRange(page, id, value);
@@ -99,13 +123,15 @@ test("SPARTIAL opens with organ effects off and section edits do not arm Audio",
     await expect(page.locator(`#${id}`)).toHaveValue(value);
   }
   for (const section of sections) await expand(page, section);
-  await expect(page.locator('[data-section="organ"] .organ-detail > summary')).toHaveCount(1);
+  await expect(page.locator('.spectrum-panel .organ-detail > summary')).toHaveCount(1);
   await expect(page.locator(".grain-detail > summary")).toHaveCount(1);
   await setRange(page, "pitchDepth", 42);
   await setRange(page, "amplitudeDepth", .4);
-  await page.locator("#organPreset").selectOption("tonewheel-clear");
-  await page.locator("#nextOrganPreset").click();
-  await page.locator("#randomOrganPreset").click();
+  await page.locator("#organMode").selectOption("tonewheel");
+  await expectBank(page, "tonewheel");
+  await page.locator("#spectrumPreset").selectOption("tonewheel-clear");
+  await page.locator("#nextSpectrum").click();
+  await page.locator("#randomSpectrum").click();
   await page.locator("#rotaryMode").selectOption("fast");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "false");
@@ -113,44 +139,114 @@ test("SPARTIAL opens with organ effects off and section edits do not arm Audio",
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 });
 
-test("SPARTIAL organ registrations, nine drawbars, Next and dice preserve the held note and master", async ({ page }, testInfo) => {
-  await open(page); await expand(page, "organ");
+test("SPARTIAL shared bank registrations, Next and dice stay in their mode and preserve held sound", async ({ page }, testInfo) => {
+  await open(page);
   await setRange(page, "level", .41);
   await setRange(page, "granularMix", .37);
   await hold(page);
-  await page.locator("#organPreset").selectOption("tonewheel-clear");
+  await page.locator("#playButton").click();
+  await page.locator("#organMode").selectOption("tonewheel");
+  await expectBank(page, "tonewheel");
+  await page.locator("#spectrumPreset").selectOption("tonewheel-clear");
   expect(await values(page)).toEqual([7, 0, 8, 2, 0, 0, 0, 0, 1]);
   await expect(page.locator("#organMode")).toHaveValue("tonewheel");
-  await page.locator("#nextOrganPreset").click();
-  await expect(page.locator("#organPreset")).toHaveValue("tonewheel-night");
+  await page.locator("#nextSpectrum").click();
+  await expect(page.locator("#spectrumPreset")).toHaveValue("tonewheel-night");
   expect(await values(page)).toEqual([7, 5, 8, 1, 0, 2, 0, 0, 1]);
-  await page.locator("#organPreset").selectOption("pipe-flute");
+  await page.locator("#spectrumPreset").selectOption("tonewheel-rock");
+  await page.locator("#nextSpectrum").click();
+  await expect(page.locator("#spectrumPreset")).toHaveValue("tonewheel-clear");
+  await page.locator("#randomSpectrum").click();
+  await expectBank(page, "tonewheel");
+  await page.locator("#organMode").selectOption("pipe");
+  await expectBank(page, "pipe");
+  await page.locator("#spectrumPreset").selectOption("pipe-flute");
   await expect(page.locator("#organMode")).toHaveValue("pipe");
   await expect(page.locator("#pipeControls")).toBeVisible();
   expect(await values(page)).toEqual([0, 0, 8, 2, 0, 0, 0, 0, 0]);
-  await page.locator("#organPreset").selectOption("pipe-ripple");
-  await page.locator("#nextOrganPreset").click();
-  await expect(page.locator("#organPreset")).toHaveValue("tonewheel-clear");
+  await page.locator("#spectrumPreset").selectOption("pipe-ripple");
+  await page.locator("#nextSpectrum").click();
+  await expect(page.locator("#spectrumPreset")).toHaveValue("pipe-flute");
   for (const [index, value] of [8, 7, 6, 5, 4, 3, 2, 1, 8].entries()) {
-    const input = page.locator("#organDrawbars input[type=range]").nth(index);
+    const input = page.locator("#partialSliders input[type=range]").nth(index);
     await expect(input).toHaveAttribute("min", "0");
     await expect(input).toHaveAttribute("max", "8");
     await input.evaluate((node, next) => { node.value = String(next); node.dispatchEvent(new Event("input", { bubbles: true })); }, value);
   }
   expect(await values(page)).toEqual([8, 7, 6, 5, 4, 3, 2, 1, 8]);
-  await expect(page.locator("#organPreset")).toHaveValue("custom");
+  await expect(page.locator("#spectrumPreset")).toHaveValue("custom");
   await sounding(page, testInfo, "edited-drawbars-held");
-  await page.locator("#randomOrganPreset").click();
+  await page.locator("#randomSpectrum").click();
+  await expectBank(page, "pipe");
   const randomized = await values(page);
   expect(randomized.some(Boolean)).toBe(true);
   expect(randomized.every(value => Number.isInteger(value) && value >= 0 && value <= 8)).toBe(true);
   expect(randomized).not.toEqual([8, 7, 6, 5, 4, 3, 2, 1, 8]);
-  await expect(page.locator("#organPreset")).toHaveValue("custom");
+  await expect(page.locator("#spectrumPreset")).toHaveValue("custom");
   await expect(page.locator("#level")).toHaveValue("0.41");
   await expect(page.locator("#granularMix")).toHaveValue("0.37");
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
   await sounding(page, testInfo, "random-organ-held");
+});
+
+test("SPARTIAL mode changes restore custom partials and the only drawbar bank controls actual sound", async ({ page }, testInfo) => {
+  test.setTimeout(45_000);
+  await open(page);
+  const partialSettings = { partials: 19, rolloff: 2.35, stretch: 1.3, inharmonicity: .55 };
+  for (const [id, value] of Object.entries(partialSettings)) await setRange(page, id, value);
+  // The future 8′ slot has zero painted gain. A hidden second trim bank would
+  // wrongly mute that drawbar when switching away from these custom partials.
+  const painted = Array.from({ length: 19 }, (_, index) => index === 0 ? .35 : index === 18 ? .73 : 0);
+  await page.locator("#partialSliders input").evaluateAll((inputs, next) => {
+    for (const [index, input] of inputs.entries()) {
+      input.value = String(next[index]);
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  }, painted);
+  await expectBank(page, "partials", 19);
+  expect(await values(page)).toEqual(painted);
+  await setRange(page, "level", .42);
+  await hold(page);
+  await page.locator("#playButton").click();
+  await page.locator("#organMode").selectOption("tonewheel");
+  await expectBank(page, "tonewheel");
+  for (const [id, value] of Object.entries({ partials: "32", rolloff: "0", stretch: "1", inharmonicity: "0" })) {
+    await expect(page.locator(`#${id}`)).toHaveValue(value);
+  }
+  await page.locator('.spectrum-panel .organ-detail > summary').click();
+  await expand(page, "rotary");
+  for (const [id, value] of Object.entries({ granularMix: 0, keyClick: 0, pipeChiff: 0, pitchDepth: 0, amplitudeDepth: 0, drive: 0 })) await setRange(page, id, value);
+  await page.locator("#organPercussion").selectOption("off");
+  await page.locator("#rotaryMode").selectOption("off");
+  for (let index = 0; index < 9; index += 1) await setRange(page, `organStop${index}`, index === 2 ? 8 : 0);
+  await sounding(page, testInfo, "isolated-eight-foot-drawbar");
+  const pitch = await measuredPitch(page);
+  const note = Number(await page.locator("#root").inputValue());
+  const expectedHz = 440 * 2 ** ((note - 69) / 12);
+  expect(pitch.finite).toBe(true); expect(pitch.frequencies.length).toBe(32);
+  expect(Math.max(...pitch.frequencies.map(frequency => Math.abs(frequency - expectedHz)))).toBeLessThan(1);
+  await setRange(page, "organStop2", 0);
+  await waitForStableAudioState(page, false);
+  await page.waitForTimeout(700);
+  const silent = await sampleAudioEnvelope(page, { durationMs: 350, intervalMs: 35 });
+  expect(silent.summary.maxPeak).toBeLessThan(1e-7);
+  expect(silent.summary.maxRms).toBeLessThan(1e-7);
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
+  await setRange(page, "organStop2", 8);
+  await sounding(page, testInfo, "same-held-note-drawbar-restored");
+  await page.locator("#organMode").selectOption("pipe");
+  await expectBank(page, "pipe");
+  await page.locator("#organMode").selectOption("partials");
+  await expectBank(page, "partials", 19);
+  expect(await values(page)).toEqual(painted);
+  for (const [id, value] of Object.entries(partialSettings)) await expect(page.locator(`#${id}`)).toHaveValue(String(value));
+  await expect(page.locator("#spectrumPreset")).toHaveValue("custom");
+  await expect(page.locator("#level")).toHaveValue("0.42");
+  await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
+  await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+  await sounding(page, testInfo, "restored-custom-partials-held");
 });
 
 test("SPARTIAL pitch, amplitude and rotary controls change actual held audio independently of Rotation", async ({ page }, testInfo) => {
@@ -198,13 +294,15 @@ test("SPARTIAL pitch, amplitude and rotary controls change actual held audio ind
 });
 
 test("SPARTIAL organ and rotary remain audible at full live-granular mix and master zero is exact silence", async ({ page }, testInfo) => {
-  await open(page); await expand(page, "organ"); await expand(page, "rotary");
-  await page.locator("#organPreset").selectOption("tonewheel-clear");
+  await open(page); await expand(page, "rotary");
+  await page.locator("#organMode").selectOption("tonewheel");
+  await page.locator("#spectrumPreset").selectOption("tonewheel-clear");
   for (const [id, value] of Object.entries({ granularMix: 1, grainSize: 200, grainDensity: 30, grainLookback: 0, grainScatter: 0, grainJitter: 0 })) await setRange(page, id, value);
   await hold(page);
   await expect(page.locator("#granularSource")).toHaveValue("additive");
   await sounding(page, testInfo, "organ-full-granular");
-  await page.locator("#organPreset").selectOption("pipe-principal");
+  await page.locator("#organMode").selectOption("pipe");
+  await page.locator("#spectrumPreset").selectOption("pipe-principal");
   await page.locator("#rotaryMode").selectOption("fast");
   await setRange(page, "drive", .3);
   await expect(page.locator("#granularMix")).toHaveValue("1");
@@ -234,9 +332,10 @@ test.describe("SPARTIAL organ controls on phones", () => {
       };
       for (const section of sections) { await expand(page, section); await pinned(); }
       await page.locator("#organMode").selectOption("pipe");
-      await page.locator('[data-section="organ"] .organ-detail > summary').click();
-      const ids = ["pitchDepth", "amplitudeDepth", "modulationRate", "modulationRipple", "modulationShape", "organPreset", "nextOrganPreset", "randomOrganPreset", "organMode", "pipeTone", "pipeBrightness", "pipeChiff", "keyClick", "organPercussion", "percussionLevel", "percussionDecay", "rotaryMode", "rotaryMix", "rotarySpread", "rotaryRamp", "drive"];
-      const controls = [...ids.map(id => page.locator(`#${id}`)), ...await page.locator("#organDrawbars input[type=range]").all()];
+      await expectBank(page, "pipe");
+      await page.locator('.spectrum-panel .organ-detail > summary').click();
+      const ids = ["pitchDepth", "amplitudeDepth", "modulationRate", "modulationRipple", "modulationShape", "spectrumPreset", "nextSpectrum", "randomSpectrum", "organMode", "pipeTone", "pipeBrightness", "pipeChiff", "keyClick", "organPercussion", "percussionLevel", "percussionDecay", "rotaryMode", "rotaryMix", "rotarySpread", "rotaryRamp", "drive"];
+      const controls = [...ids.map(id => page.locator(`#${id}`)), ...await page.locator("#partialSliders input[type=range]").all()];
       for (const control of controls) {
         await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
         expect(await control.evaluate(node => {
@@ -246,6 +345,14 @@ test.describe("SPARTIAL organ controls on phones", () => {
         }), "control can be scrolled into view and hit").toBe(true);
         await pinned();
       }
+      // The shared bank replaces its drawbars with the restored partials in
+      // place; both shapes of the bank must fit the same scrolling region.
+      await page.locator("#organMode").selectOption("partials");
+      await expectBank(page, "partials", 16);
+      await page.locator("#partialSliders input").last().scrollIntoViewIfNeeded();
+      await expect(page.locator("#partialSliders input").last()).toBeVisible();
+      await pinned();
+      await page.locator("#drive").scrollIntoViewIfNeeded();
       const pane = page.locator("#spartialControls");
       const before = await pane.evaluate(node => node.scrollTop), box = await pane.boundingBox();
       await page.mouse.move(box.x + 8, box.y + box.height / 2); await page.mouse.wheel(0, -160);
