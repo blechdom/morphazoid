@@ -98,6 +98,7 @@ test('persisted page restoration recovers after pagehide released the audio and 
 test('a file dropped during library restoration waits until saved metadata has loaded', async ({ page }) => {
   await ready(page); await drop(page, 'Saved.wav');
   await expect(page.locator('#aState')).toHaveText('READY');
+  await page.locator('#aAdjust > summary').click();
   await page.locator('#aBpm').fill('138');
   await expect.poll(() => page.evaluate(() => new Promise((resolve, reject) => {
     const opening = indexedDB.open('morphazoid-trackazoid-library', 1);

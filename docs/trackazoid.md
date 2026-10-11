@@ -14,13 +14,19 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
 2. Enable **Audio** in the Morphazoid menubar, then press a deck's **Play**.
    Loading, seeking and playing never enable Audio for you. Space controls
    the selected deck (A/B) when focus is outside an editable field or an interactive control.
-3. Set each track's **Source BPM** or use its **Tap** button. Place the cursor
-   on a known beat and use **Set downbeat here** to anchor the beat grid.
-4. Adjust tempo and nudge the decks into alignment. **Sync** copies the other
-   deck's effective BPM and aligns beat phase once, within the tempo range.
-   It depends on the BPM and grid you entered; it is not automatic beat analysis
-   or a continuous synchronization lock.
-5. Use the deck faders, three-band EQ, filters and crossfader to mix.
+3. Tempo and beats are detected in the background when a deck loads a new track.
+   The first playing deck becomes the **MASTER**. Enable **Sync** on the other
+   deck, then press its **Play**: it matches the master's tempo and launches on
+   a matching beat. Sync stays enabled and follows master tempo changes.
+4. Use the deck faders, three-band EQ, filters and crossfader to mix. **Key lock**
+   starts on to preserve pitch while changing tempo.
+
+Use **Adjust** only when an estimate needs correcting. Enter Source BPM or Tap,
+use **½ / ×2**, shift the grid with **Grid − / +**, or place the cursor on a
+known downbeat and choose **Set downbeat here**. Corrections save with the track.
+**Reanalyze** saves a new suggestion without replacing manual corrections;
+**Use automatic grid** explicitly applies that suggestion. Turning Sync off,
+seeking, nudging, or moving a follower's tempo slider gives you manual control.
 
 Audio begins off; the decks begin stopped. Turning Audio off mutes output
 without changing transport state. Reloading the page does not resume playback.
@@ -33,21 +39,44 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | --- | --- |
 | Waveform | Seek within the file; its cursor follows the transport clock. |
 | Tempo | Change playback speed from −16% to +16%. |
-| Key lock | Preserve pitch while changing tempo through Signalsmith Stretch. It starts off. |
-| Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. This is metadata, not an automatic tempo detector. |
+| Key lock | Preserve pitch while changing tempo through Signalsmith Stretch. It starts on; turn it off for native playback. |
+| Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. Overrides the automatic estimate; available under Adjust. |
 | Set downbeat here | Place the beat-grid anchor at the cursor. |
-| Sync | Match the other deck's tempo and beat phase once; the ±16% range still applies. |
+| Sync | Follow the master tempo and beat phase until disabled; the ±16% range still applies. |
 | Hot cues 1–4 | Store a position in an empty slot or jump to its saved position. Shift-click clears a slot. |
 | Beat loop | Repeat 1, 2, 4, 8 or 16 beats using the edited BPM/grid. |
 | EQ and filter | Shape the deck before it reaches the master and cue mixes. |
 | Crossfader | Blend the two decks. |
 
-The first release does not implement vinyl scratching, slip mode, automatic
-key/BPM detection, variable beat grids or DJ-controller profiles. Key lock is a
+This version does not implement vinyl scratching, slip mode, automatic
+key detection, variable beat grids or DJ-controller profiles. Key lock is a
 musical processing option: audition its transient quality and cue responsiveness
 on your own tracks before relying on it for a performance. With key lock on,
 commands are scheduled roughly 100 ms ahead to allow the stretch engine to process;
 native playback is the more immediate option for cueing.
+
+## Automatic beatmatching
+
+Analysis runs locally in a worker using bounded sections of the decoded audio.
+It estimates constant tempo and beat phase, not the musical phrase or which
+beat should be the first beat of a bar. The waveforms show the estimated grid;
+use Adjust if it lands on the wrong beats. Half/double-tempo ambiguity is normal,
+and live drums or changing tempos may need manual preparation. Silence or an
+unreliable result leaves BPM unknown and Sync/beat loops unavailable until you
+enter a tempo. Playback is still available during or after failed analysis.
+
+Results and their confidence are cached with the local track metadata. Existing
+prepared tracks from the first MVP are retained as manual corrections. The
+library indexes folders lazily; analysis happens on deck load, not across an
+entire folder at once. No audio is uploaded and no model download is required.
+
+Both decks use one audio clock. Play and synchronized tempo changes are scheduled
+at a common future time so native and key-locked playback can align despite
+different processing delays. The first playing deck leads; stopping it hands
+master status to the remaining playing deck. A paused synced deck keeps its Sync
+setting for its next launch. Beat loops preserve Sync; trimming a loop off-grid
+releases it. Sync cannot exceed the existing ±16% tempo range: correct a possible
+half/double BPM estimate or change the master tempo when the range is exceeded.
 
 ## Local library
 
@@ -116,9 +145,8 @@ and browser tests cannot establish those properties.
 1. **Prove the MVP:** long two-deck sessions, repeated cue/loop transitions,
    memory checks with long files, real split-output routing and listening tests
    with bass, percussion and vocals.
-2. **Library and preparation:** automatic BPM/key suggestions with correction
-   controls, richer tags and playlists, session export and resilient folder
-   reconnection.
+2. **Library and preparation:** key suggestions, richer tags and playlists,
+   session export and resilient folder reconnection.
 3. **Performance:** configurable keyboard/MIDI mappings, audio-interface cue
    routing, effects sends and loop editing informed by performance feedback.
 4. **Advanced:** four decks, flexible beat grids, slip/scratch modes,

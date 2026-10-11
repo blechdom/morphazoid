@@ -2,10 +2,10 @@
 
 **[Trackazoid](trackazoid.html)** is a desktop browser DJ workspace inside Morphazoid.
 Drop local audio onto two decks or open a music folder, then mix with waveforms,
-tempo, optional key lock, manual beat grids, four hot cues per deck, beat loops,
+automatic BPM and beat grids, persistent Sync, key lock, four hot cues per deck, beat loops,
 EQ, filters and a crossfader. File loading leaves Audio off; replacing a playing
 track requires an explicit Load replacement action. Source BPM and grid corrections
-save locally. Split output provides mono master/cue channels while recording
+save locally under Adjust. Split output provides mono master/cue channels while recording
 keeps the stereo master. [Controls, local files and the next stages](docs/trackazoid.md).
 
 **[Vector Fractals](vector-fractals.html#explorer)** is a work in progress: Contour Explorer reveals freshly calculated Mandelbrot and Julia vectors as you zoom. Choose named Julia coefficients such as Douady rabbit, Airplane and the golden-mean Siegel disk, then explore three detail layers with Trace, Radar, Scan, tone voices and drum beads. Shape changes preserve your musical settings. The original Julia Vectors, Mandelbrot Contours and Bulb Voyager demos remain available. Audio starts off. [Mathematics, controls and limits](docs/vector-fractals.md).

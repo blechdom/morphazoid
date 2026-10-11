@@ -1895,6 +1895,9 @@ copy+require	src/instruments/trackazoid/transport.js
 copy+require	src/instruments/trackazoid/library.js
 copy+require	src/instruments/trackazoid/library-model.js
 copy+require	src/instruments/trackazoid/waveform.js
+copy+require	src/instruments/trackazoid/beat-analysis.js
+copy+require	src/instruments/trackazoid/beat-analysis-worker.js
+copy+require	src/instruments/trackazoid/beat-analysis-client.js
 copy+require	assets/instruments/trackazoid.webp
 copy+require	docs/trackazoid.md
 # Standalone Blech MIDI drawing, stamps and automata.

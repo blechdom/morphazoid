@@ -60,7 +60,7 @@ async function dispose(page) {
   expect((await state(page)).contextState).toBe("none");
 }
 
-test("demo decks, manual sync, loops and key lock retain transport across Audio off/on", async ({ page }) => {
+test("demo decks, persistent sync, loops and key lock retain transport across Audio off/on", async ({ page }) => {
   test.setTimeout(45_000);
   const errors = diagnostics(page);
   await demos(page);
@@ -68,6 +68,8 @@ test("demo decks, manual sync, loops and key lock retain transport across Audio 
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
 
+  await page.locator("#aAdjust > summary").click();
+  await page.locator("#bAdjust > summary").click();
   // Source BPM changes the editable grid. Sync matches the effective other BPM.
   await page.locator("#aBpm").fill("120");
   await page.locator("#bBpm").fill("126");
@@ -75,6 +77,7 @@ test("demo decks, manual sync, loops and key lock retain transport across Audio 
   expect((await state(page)).decks.a.position).toBeCloseTo(0.02, 5);
   await page.locator("#aNudgeBack").click();
   expect((await state(page)).decks.a.position).toBeCloseTo(0, 5);
+  await page.locator("#bPlay").click();
   await page.locator("#aSync").click();
   expect((await state(page)).decks.a.rate).toBeCloseTo(1.05, 8);
   await expect(page.locator("#aEffective")).toHaveText("126.0");
@@ -83,6 +86,7 @@ test("demo decks, manual sync, loops and key lock retain transport across Audio 
   const loop = (await state(page)).decks.a.loop;
   expect(loop.end - loop.start).toBeCloseTo(1, 6);
   await page.locator("#aPlay").click();
+  await page.locator("#bPlay").click();
   await expect(page.locator("#aState")).toHaveText("SILENT PLAY");
   await expect.poll(async () => (await state(page)).decks.a.position).toBeGreaterThan(0.05);
   expect((await state(page)).contextState).toBe("none");
@@ -92,7 +96,6 @@ test("demo decks, manual sync, loops and key lock retain transport across Audio 
   expect(loopState.playing).toBe(true);
   expect(loopState.position).toBeGreaterThanOrEqual(loop.start);
   expect(loopState.position).toBeLessThan(loop.end);
-  await page.locator("#aKeyLock").click();
   await expect(page.locator("#aKeyLock")).toBeEnabled({ timeout: 15_000 });
   await expect(page.locator("#aKeyLock")).toHaveAttribute("aria-pressed", "true");
   await slider(page, "#aTempo", -8);

@@ -17,8 +17,8 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   "trackazoid": define(
     "Two-deck local audio mixer",
-    "Mix local tracks with two waveforms, tempo and key lock, manual beat grids, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.",
-    "Load a track into each deck, enable Audio, then Play. Set each source BPM and grid before using Sync; use split output for separate mono master and headphone cue channels.",
+    "Mix local tracks with two waveforms, automatic BPM and beat grids, persistent Sync, key lock, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.",
+    "Load a track into each deck, enable Audio, then Play. Enable Sync on the second deck before Play; use Adjust to correct BPM or beats, and split output for separate mono master and headphone cue channels.",
     ["Audio file", "Local folders", "Waveforms", "Looper", "Key lock", "Pointer"],
   ),
   "vector-fractals": define(

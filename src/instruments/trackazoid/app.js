@@ -1,13 +1,16 @@
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
 import { TrackazoidAudio } from "./audio.js";
 import { TrackLibrary } from "./library.js";
-import { WaveformView, formatTime, beatLoop, syncTarget } from "./waveform.js";
+import { WaveformView, formatTime, beatLoop } from "./waveform.js";
+import { createBeatAnalyzer, BEAT_ANALYSIS_VERSION } from "./beat-analysis-client.js";
+import { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis } from "./library-model.js";
 
 const $ = (id) => document.getElementById(id);
 const abort = new AbortController();
 const on = (target, event, fn, options = {}) => target.addEventListener(event, fn, { ...options, signal: abort.signal });
 const decks = Object.fromEntries(["a", "b"].map((id) => [id, {
-  entry: null, metadata: { bpm: 120, beatOffset: 0, cues: [null, null, null, null] },
+  entry: null, metadata: normalizeTrackMetadata(), buffer: null,
+  analyzer: createBeatAnalyzer(), analyzing: false, analysisRevision: 0, analysisError: "",
   pending: null, revision: 0, intent: 0, loading: false, keyPending: false, monitor: false,
 }]));
 let initialized = false, disposed = false, audioStarting = false, audioAttempt = 0;
@@ -23,7 +26,7 @@ const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", leve
 $("audioSlot").replaceWith(strip);
 engine.setMaster(0.65);
 const views = Object.fromEntries(["a", "b"].map((id) => [id, new WaveformView($(`${id}Waveform`), $(`${id}Overview`), {
-  color: id === "a" ? "#72e1cd" : "#f6b57c", getState: () => ({ ...engine.snapshot(id), ...decks[id].metadata }),
+  color: id === "a" ? "#72e1cd" : "#f6b57c", getState: () => ({ ...engine.snapshot(id), ...decks[id].metadata, gridReady: hasBeatGrid(decks[id].metadata) }),
   seek: (position) => seek(id, position), changeLoop: (start, end) => act(() => engine.setLoop(id, start, end)), onError: showError,
 })]));
 
@@ -80,7 +83,7 @@ function renderLibrary() {
     const row = document.createElement("tr");
     row.draggable = entry.available; row.dataset.trackId = entry.id;
     row.classList.toggle("is-loaded", Object.values(decks).some((deck) => deck.entry === entry.id));
-    const values = [entry.name, entry.folder || "Files", entry.metadata.duration ? entry.metadata.bpm.toFixed(1) : "—", entry.metadata.duration ? formatTime(entry.metadata.duration) : "—"];
+    const values = [entry.name, entry.folder || "Files", hasBeatGrid(entry.metadata) ? entry.metadata.bpm.toFixed(1) : "—", entry.metadata.duration ? formatTime(entry.metadata.duration) : "—"];
     for (const value of values) { const td = document.createElement("td"); td.textContent = value; td.title = value; row.append(td); }
     const controls = document.createElement("td");
     for (const id of ["a", "b"]) {
@@ -138,6 +141,7 @@ async function requestLoad(id, entryId, replace = false) {
   }
   if (replace) engine.pause(id);
   const revision = ++deck.revision;
+  deck.analyzer.cancel(); deck.analysisRevision++; deck.analyzing = false; deck.analysisError = "";
   deck.loading = true; deck.pending = null; clearError(); updateDecks();
   try {
     const file = await library.getFile(entryId);
@@ -162,22 +166,68 @@ async function requestLoad(id, entryId, replace = false) {
     // load commits the decoded buffer synchronously, then prepares optional DSP.
     // Commit its visible identity in the same turn, even if a later request fails.
     const loaded = engine.load(id, buffer);
-    deck.entry = entryId;
-    deck.metadata = { ...entry.metadata, bpm: Math.min(240, Math.max(40, entry.metadata.bpm)), duration: buffer.duration, cues: [...entry.metadata.cues] };
-    $(`${id}Bpm`).value = String(deck.metadata.bpm);
-    act(() => library.updateMetadata(entryId, deck.metadata));
+    deck.entry = entryId; deck.buffer = buffer;
+    const metadata = entryById(entryId)?.metadata || entry.metadata;
+    saveMetadata(id, { ...metadata, bpm: Math.min(240, Math.max(40, metadata.bpm)), duration: buffer.duration });
+    engine.setBeatGrid(id, hasBeatGrid(deck.metadata) ? deck.metadata : { bpm: null, beatOffset: 0 });
+    $(`${id}Bpm`).value = hasBeatGrid(deck.metadata) ? String(deck.metadata.bpm) : "";
     void views[id].setBuffer(buffer);
     selectDeck(id);
     await loaded;
     if (disposed || revision !== deck.revision) return;
     status(`Deck ${id.toUpperCase()} loaded · ${file.name}${engine.armed ? "" : " · Audio is off"}`);
+    if (deck.metadata.gridSource !== "manual" && deck.metadata.analysis?.version !== BEAT_ANALYSIS_VERSION) void analyzeDeck(id);
   } catch (error) { if (revision === deck.revision && !disposed) showError(error); }
   finally { if (revision === deck.revision) { deck.loading = false; updateDecks(); scheduleLibrary(); } }
 }
 
 function saveMetadata(id, patch) {
-  const deck = decks[id]; deck.metadata = { ...deck.metadata, ...patch };
-  if (deck.entry) act(() => library.updateMetadata(deck.entry, patch));
+  const deck = decks[id];
+  const next = normalizeTrackMetadata({ ...(entryById(deck.entry)?.metadata || deck.metadata), ...patch });
+  // Two decks can hold the same file; corrections belong to the track.
+  for (const [key, peer] of Object.entries(decks)) {
+    if (peer !== deck && (!deck.entry || peer.entry !== deck.entry)) continue;
+    const gridChanged = peer.metadata.bpm !== next.bpm || peer.metadata.beatOffset !== next.beatOffset || hasBeatGrid(peer.metadata) !== hasBeatGrid(next);
+    peer.metadata = { ...next, cues: [...next.cues] };
+    if (gridChanged) engine.setBeatGrid(key, hasBeatGrid(next) ? next : { bpm: null, beatOffset: 0 });
+    if (document.activeElement !== $(`${key}Bpm`)) $(`${key}Bpm`).value = hasBeatGrid(next) ? String(next.bpm) : "";
+  }
+  if (deck.entry) act(() => library.updateMetadata(deck.entry, next));
+}
+
+async function analyzeDeck(id) {
+  const deck = decks[id];
+  if (!deck.buffer || disposed) return;
+  const revision = deck.revision, attempt = ++deck.analysisRevision;
+  deck.analyzing = true; deck.analysisError = ""; updateDecks();
+  try {
+    const result = await deck.analyzer.analyze(deck.buffer);
+    if (disposed || revision !== deck.revision || attempt !== deck.analysisRevision) return;
+    // Read current metadata after the worker finishes: a manual edit always wins.
+    saveMetadata(id, withBeatAnalysis(deck.metadata, result));
+  } catch (error) {
+    if (!disposed && revision === deck.revision && attempt === deck.analysisRevision && error?.name !== "AbortError") {
+      deck.analysisError = "Analysis unavailable · use Adjust to set BPM or retry";
+    }
+  } finally {
+    if (!disposed && revision === deck.revision && attempt === deck.analysisRevision) { deck.analyzing = false; updateDecks(); }
+  }
+}
+
+function correctGrid(id, patch) {
+  if (!decks[id].entry || decks[id].loading) return;
+  decks[id].analysisError = "";
+  saveMetadata(id, { ...patch, gridSource: "manual" }); updateDecks();
+}
+
+function analysisLabel(deck) {
+  if (deck.analyzing) return deck.metadata.gridSource === "manual" ? "Analyzing · your corrections stay saved" : "Finding tempo and beats…";
+  if (deck.analysisError) return deck.analysisError;
+  if (!deck.entry) return "Tempo detected when you load a track";
+  if (deck.metadata.gridSource === "manual") return "Your BPM & grid · saved";
+  if (deck.metadata.gridSource === "auto") return deck.metadata.analysis?.status === "unreliable" ? "Previous estimate kept · check in Adjust"
+    : deck.metadata.analysis?.confidence < 0.6 ? "Estimated BPM · check in Adjust" : "BPM & beats detected";
+  return deck.metadata.analysis ? "No steady beat found · set BPM in Adjust" : "Use Adjust to set BPM or analyze";
 }
 function togglePlay(id) {
   if (!decks[id].entry || decks[id].loading) return;
@@ -204,24 +254,25 @@ function hotCue(id, index, clear = false) {
 }
 function toggleLoop(id, resize = false) {
   const snapshot = engine.snapshot(id); if (!snapshot.duration) return;
+  if (!hasBeatGrid(decks[id].metadata)) { status("Beat loops need a tempo. Wait for analysis or set BPM in Adjust."); return; }
   if (snapshot.loop && !resize) engine.clearLoop(id);
   else {
     const { bpm, beatOffset } = decks[id].metadata;
     const loop = beatLoop(snapshot.loop?.start ?? snapshot.position, bpm, beatOffset, Number($(`${id}LoopBeats`).value), snapshot.duration);
-    if (loop) { engine.setLoop(id, loop.start, loop.end); if (snapshot.position >= loop.end) engine.seek(id, loop.start); }
+    if (loop) engine.setLoop(id, loop.start, loop.end);
   }
   updateDecks();
 }
 function sync(id) {
   const other = id === "a" ? "b" : "a";
+  if (engine.snapshot(id).sync) { engine.setSync(id, false); status(`Deck ${id.toUpperCase()} Sync off · manual control.`); updateDecks(); return; }
   if (!decks[id].entry || !decks[other].entry) { status("Load both decks before syncing."); return; }
-  const source = engine.snapshot(id), reference = engine.snapshot(other);
-  const target = syncTarget({ position: source.position, duration: source.duration, bpm: decks[id].metadata.bpm, offset: decks[id].metadata.beatOffset,
-    otherPosition: reference.position, otherBpm: decks[other].metadata.bpm, otherOffset: decks[other].metadata.beatOffset, otherRate: reference.rate });
-  if (!target) { status("Sync needs more than ±16% tempo. Check each track’s source BPM or adjust the other deck."); return; }
-  engine.setRate(id, target.rate); seek(id, target.position);
-  $(`${id}Tempo`).value = String((target.rate - 1) * 100);
-  status(`Deck ${id.toUpperCase()} matched to ${other.toUpperCase()} · Sync uses your source BPM and downbeat.`); updateDecks();
+  if (!hasBeatGrid(decks[id].metadata) || !hasBeatGrid(decks[other].metadata)) { status("Wait for tempo analysis, or set BPM in Adjust."); return; }
+  clearError();
+  const enabled = !engine.snapshot(id).sync;
+  engine.setSync(id, enabled);
+  status(enabled ? `Deck ${id.toUpperCase()} Sync on · follows the master. Press Play when ready.` : `Deck ${id.toUpperCase()} Sync off · manual control.`);
+  updateDecks();
 }
 
 function updateDecks() {
@@ -240,13 +291,29 @@ function updateDecks() {
     const playLabel = state.playing ? "Ⅱ <span>Pause</span>" : "▶ <span>Play</span>";
     if ($(`${id}Play`).innerHTML !== playLabel) $(`${id}Play`).innerHTML = playLabel;
     for (const key of ["Play", "Cue", "NudgeBack", "NudgeForward", "Sync", "Loop", "Grid", "HotCue1", "HotCue2", "HotCue3", "HotCue4"]) $(`${id}${key}`).disabled = !entry || deck.loading;
-    $(`${id}Effective`).value = (deck.metadata.bpm * state.rate).toFixed(1);
+    const gridReady = hasBeatGrid(deck.metadata), other = id === "a" ? "b" : "a";
+    $(`${id}Effective`).value = gridReady ? (deck.metadata.bpm * state.rate).toFixed(1) : "—";
+    $(`${id}Sync`).setAttribute("aria-pressed", String(state.sync));
+    $(`${id}Sync`).disabled = !state.sync && (!entry || deck.loading || !gridReady || !hasBeatGrid(decks[other].metadata) || decks[other].loading);
+    $(`${id}Sync`).title = state.sync ? "Turn Sync off for manual control" : "Follow the master tempo and beats, including when you press Play";
+    $(`${id}SyncInfo`).textContent = state.syncError ? "CHECK SYNC" : state.isMaster ? "MASTER" : state.sync ? state.pending ? "ALIGNING" : state.playing ? "SYNCED" : "SYNC READY" : "";
+    $(`${id}SyncInfo`).title = state.syncError || (Number.isFinite(state.phaseError) ? `Beat offset: ${state.phaseError.toFixed(3)} beats` : "The first playing deck leads the tempo");
+    $(`${id}AnalysisStatus`).textContent = analysisLabel(deck);
     $(`${id}TempoOut`).value = `${state.rate >= 1 ? "+" : ""}${((state.rate - 1) * 100).toFixed(1)}%`;
     if (document.activeElement !== $(`${id}Tempo`)) $(`${id}Tempo`).value = String((state.rate - 1) * 100);
     $(`${id}KeyLock`).setAttribute("aria-pressed", String(state.keyLock));
     $(`${id}KeyLock`).disabled = deck.keyPending;
     $(`${id}Loop`).setAttribute("aria-pressed", String(Boolean(state.loop)));
-    $(`${id}GridInfo`).textContent = `Grid: ${formatTime(deck.metadata.beatOffset)} · manual BPM`;
+    $(`${id}Loop`).disabled = !entry || deck.loading || !gridReady;
+    $(`${id}Grid`).disabled = !entry || deck.loading || !gridReady;
+    $(`${id}GridInfo`).textContent = gridReady ? `Beat grid anchor: ${deck.metadata.beatOffset.toFixed(3)} s` : "Set BPM to enable the beat grid";
+    for (const key of ["GridBack", "GridForward"]) $(`${id}${key}`).disabled = !entry || deck.loading || !gridReady;
+    $(`${id}HalfBpm`).disabled = !gridReady || deck.loading || deck.metadata.bpm / 2 < 40;
+    $(`${id}DoubleBpm`).disabled = !gridReady || deck.loading || deck.metadata.bpm * 2 > 240;
+    $(`${id}Analyze`).disabled = !entry || deck.loading || deck.analyzing;
+    $(`${id}UseAuto`).hidden = deck.metadata.gridSource !== "manual" || deck.metadata.analysis?.status !== "ok";
+    $(`${id}UseAuto`).disabled = deck.loading || deck.analyzing;
+    $(`${id}Bpm`).disabled = !entry || deck.loading;
     for (let index = 0; index < 4; index++) $(`${id}HotCue${index + 1}`).classList.toggle("has-cue", deck.metadata.cues[index] !== null);
     $(`${id}Pending`).hidden = !deck.pending;
     $(`${id}PendingName`).textContent = deck.pending ? entryById(deck.pending)?.name || "Track ready" : "";
@@ -263,13 +330,19 @@ for (const id of ["a", "b"]) {
   on($(`${id}NudgeBack`), "click", () => seek(id, engine.snapshot(id).position - 0.02));
   on($(`${id}NudgeForward`), "click", () => seek(id, engine.snapshot(id).position + 0.02));
   on($(`${id}Sync`), "click", () => act(() => sync(id)));
-  on($(`${id}Tempo`), "input", (event) => { engine.setRate(id, 1 + Number(event.target.value) / 100); updateDecks(); });
-  on($(`${id}TempoReset`), "click", (event) => { event.preventDefault(); engine.setRate(id, 1); $(`${id}Tempo`).value = "0"; updateDecks(); });
+  on($(`${id}Tempo`), "input", (event) => act(() => { engine.setRate(id, 1 + Number(event.target.value) / 100); updateDecks(); }));
+  on($(`${id}TempoReset`), "click", (event) => { event.preventDefault(); act(() => { engine.setRate(id, 1); $(`${id}Tempo`).value = "0"; updateDecks(); }); });
   on($(`${id}Bpm`), "input", (event) => {
     const bpm = Number(event.target.value);
-    if (Number.isFinite(bpm) && bpm >= 40 && bpm <= 240) { saveMetadata(id, { bpm }); updateDecks(); }
+    if (Number.isFinite(bpm) && bpm >= 40 && bpm <= 240) act(() => correctGrid(id, { bpm }));
   });
-  on($(`${id}Bpm`), "change", (event) => { event.target.value = String(decks[id].metadata.bpm); });
+  on($(`${id}Bpm`), "change", (event) => { event.target.value = hasBeatGrid(decks[id].metadata) ? String(decks[id].metadata.bpm) : ""; });
+  on($(`${id}HalfBpm`), "click", () => act(() => correctGrid(id, { bpm: decks[id].metadata.bpm / 2 })));
+  on($(`${id}DoubleBpm`), "click", () => act(() => correctGrid(id, { bpm: decks[id].metadata.bpm * 2 })));
+  on($(`${id}Analyze`), "click", () => { void analyzeDeck(id); });
+  on($(`${id}UseAuto`), "click", () => act(() => {
+    saveMetadata(id, withBeatAnalysis(decks[id].metadata, decks[id].metadata.analysis, { useAutomatic: true })); updateDecks();
+  }));
   on($(`${id}KeyLock`), "click", () => act(async () => {
     decks[id].keyPending = true; updateDecks();
     try { await engine.setKeyLock(id, !engine.snapshot(id).keyLock); }
@@ -278,7 +351,11 @@ for (const id of ["a", "b"]) {
   for (let index = 0; index < 4; index++) on($(`${id}HotCue${index + 1}`), "click", (event) => hotCue(id, index, event.shiftKey));
   on($(`${id}Loop`), "click", () => act(() => toggleLoop(id)));
   on($(`${id}LoopBeats`), "change", () => { if (engine.snapshot(id).loop) act(() => toggleLoop(id, true)); });
-  on($(`${id}Grid`), "click", () => { saveMetadata(id, { beatOffset: engine.snapshot(id).position }); updateDecks(); });
+  on($(`${id}Grid`), "click", () => act(() => correctGrid(id, { beatOffset: engine.snapshot(id).position })));
+  for (const [key, step] of [["GridBack", -0.01], ["GridForward", 0.01]]) on($(`${id}${key}`), "click", () => act(() => {
+    const { bpm, beatOffset } = decks[id].metadata, period = 60 / bpm;
+    correctGrid(id, { beatOffset: beatOffset + step < 0 ? (beatOffset + step + period) % period : beatOffset + step });
+  }));
   on($(`${id}Load`), "click", () => { pickerDeck = id; $("filePicker").click(); });
   on($(`${id}Replace`), "click", () => act(() => requestLoad(id, decks[id].pending, true)));
   on($(`${id}Cancel`), "click", () => { decks[id].pending = null; updateDecks(); });
@@ -417,7 +494,11 @@ on($("demoPair"), "click", () => act(async () => {
   $("demoPair").disabled = true;
   try {
     const ids = await library.addFiles([demoFile(120, 0), demoFile(126, 1)], { folderName: "Trackazoid demos", folderId: "demo" });
-    for (let index = 0; index < ids.length; index++) await library.updateMetadata(ids[index], { bpm: index ? 126 : 120, beatOffset: 0 });
+    for (let index = 0; index < ids.length; index++) {
+      const metadata = entryById(ids[index]).metadata;
+      if (metadata.gridSource === "unknown") await library.updateMetadata(ids[index], { bpm: index ? 126 : 120, beatOffset: 0, gridSource: "auto",
+        analysis: { version: BEAT_ANALYSIS_VERSION, status: "ok", bpm: index ? 126 : 120, beatOffset: 0, confidence: 1, candidates: [], analyzedSeconds: 0, reason: null } });
+    }
     await requestLoad("a", ids[0]); await requestLoad("b", ids[1]);
     status("Demo pair ready · turn Audio on, then play a deck. Set a loop to keep mixing.");
   } finally { if (!disposed) $("demoPair").disabled = false; }
@@ -435,14 +516,15 @@ async function dispose() {
   disposed = true; audioAttempt++; decks.a.revision++; decks.b.revision++;
   cancelAnimationFrame(frame); cancelAnimationFrame(libraryRender); clearTimeout(settingsTimer);
   abort.abort(); views.a.destroy(); views.b.destroy(); library.dispose(); strip.destroy();
+  for (const deck of Object.values(decks)) { deck.analyzer.dispose(); deck.analyzing = false; deck.buffer = null; }
   await engine.dispose();
 }
 on(window, "pagehide", () => { void dispose(); });
 // This listener must survive teardown to recover a restored back/forward page.
 window.addEventListener("pageshow", (event) => { if (event.persisted && disposed) location.reload(); });
 globalThis.__trackazoid = Object.freeze({
-  snapshot: () => ({ armed: engine.armed, selected, disposed, contextState: engine.context?.state ?? "none",
-    decks: Object.fromEntries(["a", "b"].map((id) => [id, { ...engine.snapshot(id), entry: decks[id].entry, pending: decks[id].pending, loading: decks[id].loading, metadata: { ...decks[id].metadata, cues: [...decks[id].metadata.cues] } }])),
+  snapshot: () => ({ armed: engine.armed, selected, disposed, master: engine.master, contextState: engine.context?.state ?? "none",
+    decks: Object.fromEntries(["a", "b"].map((id) => [id, { ...engine.snapshot(id), entry: decks[id].entry, replacement: decks[id].pending, loading: decks[id].loading, analyzing: decks[id].analyzing, metadata: { ...decks[id].metadata, cues: [...decks[id].metadata.cues] } }])),
     library: library.entries.map(({ id, name, available, metadata }) => ({ id, name, available, metadata })), folders: library.folders }),
   dispose,
 });

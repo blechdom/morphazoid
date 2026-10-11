@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { TrackLibrary } from "../src/instruments/trackazoid/library.js";
 import {
-  fileTrackDescriptor, normalizeTrackMetadata, normalizeTrackPath, supportedAudioFile, trackIdentity,
+  fileTrackDescriptor, normalizeTrackMetadata, normalizeTrackPath, supportedAudioFile, trackIdentity, hasBeatGrid, withBeatAnalysis,
 } from "../src/instruments/trackazoid/library-model.js";
 
 function file(name, { path = "", size = 2048, lastModified = 1234, type = "audio/wav" } = {}) {
@@ -60,11 +60,55 @@ test("audio acceptance is a codec hint; paths and identities preserve nested dup
 });
 
 test("metadata validates malformed saved state and bounds cues to the decoded duration", () => {
-  assert.deepEqual(normalizeTrackMetadata(null), { version: 1, bpm: 120, beatOffset: 0, cues: [null, null, null, null] });
+  assert.deepEqual(normalizeTrackMetadata(null), { version: 2, bpm: 120, beatOffset: 0, cues: [null, null, null, null], gridSource: "unknown", analysis: null });
   assert.deepEqual(normalizeTrackMetadata({ version: 900, bpm: Infinity, duration: 30, beatOffset: -1, cues: [0, 12, 99, NaN, 3] }), {
-    version: 1, bpm: 120, duration: 30, beatOffset: 0, cues: [0, 12, 30, null],
+    version: 2, bpm: 120, duration: 30, beatOffset: 0, cues: [0, 12, 30, null], gridSource: "unknown", analysis: null,
   });
   assert.equal(normalizeTrackMetadata({ bpm: 999 }).bpm, 400);
+});
+
+test("automatic analysis fills unknown grids; manual corrections survive reanalysis until explicitly replaced", () => {
+  const unknown = normalizeTrackMetadata({ duration: 30 });
+  assert.equal(hasBeatGrid(unknown), false, "the legacy 120 fallback is not a detected tempo");
+  const result = { version: 1, status: "ok", bpm: 126.03, beatOffset: 0.13, confidence: 0.85, candidates: [], analyzedSeconds: 24 };
+  const automatic = withBeatAnalysis(unknown, result);
+  assert.equal(hasBeatGrid(automatic), true);
+  assert.equal(automatic.gridSource, "auto");
+  assert.equal(automatic.bpm, result.bpm);
+  const manual = { ...automatic, bpm: 63, beatOffset: 0.19, gridSource: "manual", cues: [2, null, null, null] };
+  const protectedGrid = withBeatAnalysis(manual, { ...result, bpm: 128 });
+  assert.equal(protectedGrid.bpm, 63);
+  assert.equal(protectedGrid.beatOffset, 0.19);
+  assert.equal(protectedGrid.analysis.bpm, 128, "new suggestion is saved without applying it");
+  const restored = withBeatAnalysis(protectedGrid, protectedGrid.analysis, { useAutomatic: true });
+  assert.equal(restored.bpm, 128);
+  assert.equal(restored.gridSource, "auto");
+  assert.deepEqual(restored.cues, manual.cues);
+  const unreliable = withBeatAnalysis(unknown, { version: 1, status: "unreliable", bpm: null, confidence: 0, reason: "silence" });
+  assert.equal(hasBeatGrid(unreliable), false);
+  assert.equal(unreliable.analysis.reason, "silence");
+});
+
+test("legacy prepared tracks retain their manual grids and invalid analysis is not trusted", () => {
+  const legacy = normalizeTrackMetadata({ version: 1, bpm: 120, duration: 70, beatOffset: 2.5, cues: [4] });
+  assert.equal(legacy.gridSource, "manual");
+  assert.equal(legacy.beatOffset, 2.5);
+  assert.equal(normalizeTrackMetadata({ version: 1, bpm: 120, beatOffset: 0 }).gridSource, "unknown");
+  assert.equal(normalizeTrackMetadata({ analysis: { version: 1, status: "ok", bpm: Infinity, beatOffset: 0 } }).analysis, null);
+});
+
+test("analysis and manual protection survive library persistence without retaining audio data", async () => {
+  const store = memoryStore(), first = new TrackLibrary({ store });
+  await first.init(); const [id] = await first.addFiles([file("prepared.wav")]);
+  await first.updateMetadata(id, withBeatAnalysis(normalizeTrackMetadata({ duration: 30 }), {
+    version: 1, status: "ok", bpm: 117.2, beatOffset: 0.17, confidence: 0.8, candidates: [], analyzedSeconds: 24,
+  }));
+  await first.updateMetadata(id, { bpm: 117, gridSource: "manual" }); first.dispose();
+  const second = new TrackLibrary({ store }); await second.init();
+  const metadata = second.entries[0].metadata;
+  assert.equal(metadata.gridSource, "manual"); assert.equal(metadata.bpm, 117);
+  assert.equal(metadata.analysis.bpm, 117.2); assert.equal(metadata.beatOffset, 0.17);
+  assert.equal(JSON.stringify(metadata).includes("samples"), false);
 });
 
 test("file-only imports deduplicate the full source identity and reconnect saved cues after reload", async () => {

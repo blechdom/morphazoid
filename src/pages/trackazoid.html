@@ -38,7 +38,7 @@
 </header>
 <main class="trackazoid-shell" id="trackazoid">
   <section class="tz-stage" aria-label="Trackazoid mixing workspace">
-    <div class="tz-heading"><h1>trackazoid</h1><p id="sessionStatus" role="status" aria-live="polite">Drop your tracks. Find the next mix.</p><button id="demoPair" type="button">Try demo pair</button><details class="tz-help"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck · <b>Space</b> play/pause · <b>1–4</b> hot cues · <b>L</b> loop · <b>Esc</b> pause both.</p><p>Shift-click a cue to clear it. Set Source BPM and the downbeat before using Sync or beat loops. Drag the waveform to seek; drag loop edges to trim.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href="docs/trackazoid.md">Trackazoid guide</a></div></details></div>
+    <div class="tz-heading"><h1>trackazoid</h1><p id="sessionStatus" role="status" aria-live="polite">Drop your tracks. Find the next mix.</p><button id="demoPair" type="button">Try demo pair</button><details class="tz-help"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck · <b>Space</b> play/pause · <b>1–4</b> hot cues · <b>L</b> loop · <b>Esc</b> pause both.</p><p>Shift-click a cue to clear it. Tempo and beats are detected on load. Play one deck, enable Sync on the other, then Play. Use Adjust only if the estimate needs correcting. Drag the waveform to seek; drag loop edges to trim.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href="docs/trackazoid.md">Trackazoid guide</a></div></details></div>
     <div class="tz-decks">
 
 <section class="tz-deck tz-deck-a" id="deckA" aria-label="Deck A">
@@ -50,21 +50,31 @@
   <div class="tz-transport">
     <button id="aPlay" class="tz-play" data-primary-transport type="button" aria-label="Play deck A" aria-pressed="false" disabled>▶ <span>Play</span></button>
     <button id="aCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
-    <button id="aNudgeBack" type="button" aria-label="Nudge deck A earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
-    <button id="aNudgeForward" type="button" aria-label="Nudge deck A later" title="Move forward 20 milliseconds" disabled>+ Nudge</button>
-    <button id="aSync" type="button" title="Match the other deck's tempo and beat phase" disabled>Sync</button>
+    <button id="aSync" type="button" aria-pressed="false" title="Follow the master tempo and beats" disabled>Sync</button>
   </div>
   <div class="tz-tempo-row">
-    <label class="tz-source-bpm" for="aBpm">Source BPM <input id="aBpm" type="number" min="40" max="240" step="0.1" value="120" aria-label="Deck A source BPM" /></label>
-    <div class="tz-effective"><output id="aEffective">120.0</output><span>PLAYING BPM</span></div>
-    <button id="aKeyLock" type="button" aria-pressed="false" title="Preserve musical pitch when changing tempo">Key lock</button>
+    <span id="aSyncInfo" class="tz-sync-info"></span>
+    <div class="tz-effective"><output id="aEffective">—</output><span>PLAYING BPM</span></div>
+    <button id="aKeyLock" type="button" aria-pressed="true" title="Preserve musical pitch when changing tempo">Key lock</button>
   </div>
   <label class="tz-tempo" for="aTempo"><span>Tempo <output id="aTempoOut" for="aTempo">+0.0%</output></span><input id="aTempo" type="range" min="-16" max="16" step="0.1" value="0" aria-label="Deck A tempo adjustment" /><button id="aTempoReset" type="button" aria-label="Reset deck A tempo">0</button></label>
   <div class="tz-performance-row">
     <div class="tz-cues" role="group" aria-label="Deck A hot cues"><button id="aHotCue1" type="button" title="Set or jump to cue 1; Shift-click to clear" aria-label="Deck A hot cue 1" disabled>1</button><button id="aHotCue2" type="button" title="Set or jump to cue 2; Shift-click to clear" aria-label="Deck A hot cue 2" disabled>2</button><button id="aHotCue3" type="button" title="Set or jump to cue 3; Shift-click to clear" aria-label="Deck A hot cue 3" disabled>3</button><button id="aHotCue4" type="button" title="Set or jump to cue 4; Shift-click to clear" aria-label="Deck A hot cue 4" disabled>4</button></div>
     <div class="tz-loop-controls"><label for="aLoopBeats" class="sr-only">Deck A loop length</label><select id="aLoopBeats" aria-label="Deck A loop length"><option value="1">1 beat</option><option value="2">2 beats</option><option value="4" selected>4 beats</option><option value="8">8 beats</option><option value="16">16 beats</option></select><button id="aLoop" type="button" aria-pressed="false" disabled>Loop</button></div>
   </div>
-  <div class="tz-grid-row"><button id="aGrid" type="button" disabled>Set downbeat here</button><span id="aGridInfo">Grid: 00:00.0 · manual BPM</span></div>
+  <p id="aAnalysisStatus" class="tz-analysis-status">Tempo detected when you load a track</p>
+  <details id="aAdjust" class="tz-adjust">
+    <summary>Adjust</summary>
+    <div class="tz-adjust-controls">
+      <div class="tz-grid-row"><label class="tz-source-bpm" for="aBpm">Source BPM <input id="aBpm" type="number" min="40" max="240" step="0.1" placeholder="Auto" disabled aria-label="Deck A source BPM" /></label><button id="aHalfBpm" type="button" aria-label="Halve deck A source BPM" disabled>½</button><button id="aDoubleBpm" type="button" aria-label="Double deck A source BPM" disabled>×2</button></div>
+      <div class="tz-grid-row"><button id="aGrid" type="button" disabled>Set downbeat here</button><button id="aGridBack" type="button" aria-label="Move deck A beat grid earlier" title="Move beat grid 10 ms earlier" disabled>Grid −</button><button id="aGridForward" type="button" aria-label="Move deck A beat grid later" title="Move beat grid 10 ms later" disabled>Grid +</button></div>
+      <p id="aGridInfo" class="tz-grid-info">Set BPM to enable the beat grid</p>
+      <div class="tz-grid-row"><button id="aNudgeBack" type="button" aria-label="Nudge deck A earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
+    <button id="aNudgeForward" type="button" aria-label="Nudge deck A later" title="Move forward 20 milliseconds" disabled>+ Nudge</button></div>
+      <div class="tz-grid-row"><button id="aAnalyze" type="button" title="Analyze again; your manual corrections are kept" disabled>Reanalyze</button><button id="aUseAuto" type="button" title="Replace your BPM and grid corrections with the automatic estimate" hidden>Use automatic grid</button></div>
+      <p class="tz-adjust-hint">Corrections save with the track. Nudging or seeking releases Sync.</p>
+    </div>
+  </details>
 </section>
     <section class="tz-mixer" aria-label="Mixer">
       <h2>Mixer</h2>
@@ -84,21 +94,31 @@
   <div class="tz-transport">
     <button id="bPlay" class="tz-play"  type="button" aria-label="Play deck B" aria-pressed="false" disabled>▶ <span>Play</span></button>
     <button id="bCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
-    <button id="bNudgeBack" type="button" aria-label="Nudge deck B earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
-    <button id="bNudgeForward" type="button" aria-label="Nudge deck B later" title="Move forward 20 milliseconds" disabled>+ Nudge</button>
-    <button id="bSync" type="button" title="Match the other deck's tempo and beat phase" disabled>Sync</button>
+    <button id="bSync" type="button" aria-pressed="false" title="Follow the master tempo and beats" disabled>Sync</button>
   </div>
   <div class="tz-tempo-row">
-    <label class="tz-source-bpm" for="bBpm">Source BPM <input id="bBpm" type="number" min="40" max="240" step="0.1" value="120" aria-label="Deck B source BPM" /></label>
-    <div class="tz-effective"><output id="bEffective">120.0</output><span>PLAYING BPM</span></div>
-    <button id="bKeyLock" type="button" aria-pressed="false" title="Preserve musical pitch when changing tempo">Key lock</button>
+    <span id="bSyncInfo" class="tz-sync-info"></span>
+    <div class="tz-effective"><output id="bEffective">—</output><span>PLAYING BPM</span></div>
+    <button id="bKeyLock" type="button" aria-pressed="true" title="Preserve musical pitch when changing tempo">Key lock</button>
   </div>
   <label class="tz-tempo" for="bTempo"><span>Tempo <output id="bTempoOut" for="bTempo">+0.0%</output></span><input id="bTempo" type="range" min="-16" max="16" step="0.1" value="0" aria-label="Deck B tempo adjustment" /><button id="bTempoReset" type="button" aria-label="Reset deck B tempo">0</button></label>
   <div class="tz-performance-row">
     <div class="tz-cues" role="group" aria-label="Deck B hot cues"><button id="bHotCue1" type="button" title="Set or jump to cue 1; Shift-click to clear" aria-label="Deck B hot cue 1" disabled>1</button><button id="bHotCue2" type="button" title="Set or jump to cue 2; Shift-click to clear" aria-label="Deck B hot cue 2" disabled>2</button><button id="bHotCue3" type="button" title="Set or jump to cue 3; Shift-click to clear" aria-label="Deck B hot cue 3" disabled>3</button><button id="bHotCue4" type="button" title="Set or jump to cue 4; Shift-click to clear" aria-label="Deck B hot cue 4" disabled>4</button></div>
     <div class="tz-loop-controls"><label for="bLoopBeats" class="sr-only">Deck B loop length</label><select id="bLoopBeats" aria-label="Deck B loop length"><option value="1">1 beat</option><option value="2">2 beats</option><option value="4" selected>4 beats</option><option value="8">8 beats</option><option value="16">16 beats</option></select><button id="bLoop" type="button" aria-pressed="false" disabled>Loop</button></div>
   </div>
-  <div class="tz-grid-row"><button id="bGrid" type="button" disabled>Set downbeat here</button><span id="bGridInfo">Grid: 00:00.0 · manual BPM</span></div>
+  <p id="bAnalysisStatus" class="tz-analysis-status">Tempo detected when you load a track</p>
+  <details id="bAdjust" class="tz-adjust">
+    <summary>Adjust</summary>
+    <div class="tz-adjust-controls">
+      <div class="tz-grid-row"><label class="tz-source-bpm" for="bBpm">Source BPM <input id="bBpm" type="number" min="40" max="240" step="0.1" placeholder="Auto" disabled aria-label="Deck B source BPM" /></label><button id="bHalfBpm" type="button" aria-label="Halve deck B source BPM" disabled>½</button><button id="bDoubleBpm" type="button" aria-label="Double deck B source BPM" disabled>×2</button></div>
+      <div class="tz-grid-row"><button id="bGrid" type="button" disabled>Set downbeat here</button><button id="bGridBack" type="button" aria-label="Move deck B beat grid earlier" title="Move beat grid 10 ms earlier" disabled>Grid −</button><button id="bGridForward" type="button" aria-label="Move deck B beat grid later" title="Move beat grid 10 ms later" disabled>Grid +</button></div>
+      <p id="bGridInfo" class="tz-grid-info">Set BPM to enable the beat grid</p>
+      <div class="tz-grid-row"><button id="bNudgeBack" type="button" aria-label="Nudge deck B earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
+    <button id="bNudgeForward" type="button" aria-label="Nudge deck B later" title="Move forward 20 milliseconds" disabled>+ Nudge</button></div>
+      <div class="tz-grid-row"><button id="bAnalyze" type="button" title="Analyze again; your manual corrections are kept" disabled>Reanalyze</button><button id="bUseAuto" type="button" title="Replace your BPM and grid corrections with the automatic estimate" hidden>Use automatic grid</button></div>
+      <p class="tz-adjust-hint">Corrections save with the track. Nudging or seeking releases Sync.</p>
+    </div>
+  </details>
 </section>
     </div>
   </section>

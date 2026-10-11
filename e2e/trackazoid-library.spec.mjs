@@ -96,6 +96,7 @@ test("local uploads decode only when loaded, keep Audio off, and restore saved c
     expect(await page.evaluate(() => window.__trackazoidAudioCreates.offline)).toBe(2);
     await audioRemainsUncreated(page);
 
+    await page.locator('#aAdjust > summary').click();
     await page.locator("#aBpm").fill("138");
     await page.locator("#aWaveform").focus(); await page.keyboard.press("ArrowRight");
     const cue = (await state(page)).decks.a.position;

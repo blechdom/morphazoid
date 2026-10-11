@@ -23,7 +23,7 @@ test('Trackazoid is a visible local-audio app with conservative MIDI and explici
   assert.deepEqual(TOOL_GROUPS.filter(group => group.tools.some(tool => tool.id === item.id)).map(group => group.id), ['app']);
   assert.equal(item.status, null);
   assert.deepEqual(item.tags.map(tag => tag.id), ['app', 'looper', 'audio-effect']);
-  assert.match(item.description, /local tracks.*manual beat grids/i);
+  assert.match(item.description, /local tracks.*automatic BPM and beat grids.*persistent Sync/i);
   assert.equal(CANONICAL_PAGE_ROUTES.filter(route => route === item.href).length, 1);
   assert.deepEqual(instrumentMidiCapabilityForId('trackazoid'), {
     id: 'trackazoid', midiInput: true, midiInputMode: 'universal-control',

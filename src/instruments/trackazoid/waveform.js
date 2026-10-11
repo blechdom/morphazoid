@@ -143,7 +143,7 @@ export class WaveformView {
         ctx.strokeStyle = "#c5ed91";
         for (const time of [state.loop.start, state.loop.end]) { ctx.beginPath(); ctx.moveTo(x(time), 0); ctx.lineTo(x(time), h); ctx.stroke(); }
       }
-      if (surface !== this.overview) {
+      if (surface !== this.overview && state.gridReady !== false) {
         const beat = 60 / (state.bpm || 120), offset = state.beatOffset || 0;
         for (let n = Math.ceil((start - offset) / beat); n * beat + offset < start + span; n++) {
           const px = x(n * beat + offset);

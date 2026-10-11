@@ -7,7 +7,7 @@
       "replacements": [
         {
           "before": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n",
-          "after": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n\n# Trackazoid: local two-deck DJ workspace.\ncopy+require\tsrc/instruments/trackazoid/app.js\ncopy+require\tsrc/instruments/trackazoid/style.css\ncopy+require\tsrc/instruments/trackazoid/audio.js\ncopy+require\tsrc/instruments/trackazoid/transport.js\ncopy+require\tsrc/instruments/trackazoid/library.js\ncopy+require\tsrc/instruments/trackazoid/library-model.js\ncopy+require\tsrc/instruments/trackazoid/waveform.js\ncopy+require\tassets/instruments/trackazoid.webp\ncopy+require\tdocs/trackazoid.md\n"
+          "after": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n\n# Trackazoid: local two-deck DJ workspace.\ncopy+require\tsrc/instruments/trackazoid/app.js\ncopy+require\tsrc/instruments/trackazoid/style.css\ncopy+require\tsrc/instruments/trackazoid/audio.js\ncopy+require\tsrc/instruments/trackazoid/transport.js\ncopy+require\tsrc/instruments/trackazoid/library.js\ncopy+require\tsrc/instruments/trackazoid/library-model.js\ncopy+require\tsrc/instruments/trackazoid/waveform.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis-worker.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis-client.js\ncopy+require\tassets/instruments/trackazoid.webp\ncopy+require\tdocs/trackazoid.md\n"
         }
       ]
     },
@@ -37,7 +37,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"trackazoid\": define(\n    \"Two-deck local audio mixer\",\n    \"Mix local tracks with two waveforms, tempo and key lock, manual beat grids, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.\",\n    \"Load a track into each deck, enable Audio, then Play. Set each source BPM and grid before using Sync; use split output for separate mono master and headphone cue channels.\",\n    [\"Audio file\", \"Local folders\", \"Waveforms\", \"Looper\", \"Key lock\", \"Pointer\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"trackazoid\": define(\n    \"Two-deck local audio mixer\",\n    \"Mix local tracks with two waveforms, automatic BPM and beat grids, persistent Sync, key lock, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.\",\n    \"Load a track into each deck, enable Audio, then Play. Enable Sync on the second deck before Play; use Adjust to correct BPM or beats, and split output for separate mono master and headphone cue channels.\",\n    [\"Audio file\", \"Local folders\", \"Waveforms\", \"Looper\", \"Key lock\", \"Pointer\"],\n  ),\n"
         }
       ]
     },
