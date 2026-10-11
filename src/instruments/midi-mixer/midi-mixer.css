@@ -208,8 +208,9 @@
 .mixer-stamp-shape-controls output { color: #a8c5bd; }
 .mixer-stamp-shape-controls input[type="range"] { width: 100%; min-width: 0; }
 .mixer-stamp-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
-.mixer-stamp-paint, #mixerStampHint { grid-column: 1 / -1; font-size: 11px; }
-.mixer-stamp-paint { display: flex; align-items: center; gap: 8px; min-height: 28px; }
+.mixer-stamp-switches, #mixerStampHint { grid-column: 1 / -1; font-size: 11px; }
+.mixer-stamp-switches { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.mixer-stamp-switches label { display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; }
 #mixerStampHint { color: #9bb5ab; line-height: 1.5; }
 .mixer-stamp-credit { font-size: 10px; color: #a8c5bd; }
 .mixer-sample-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
@@ -240,6 +241,6 @@
   .mixer-sample-controls select { max-width: 210px; }
   .mixer-sample-bank { max-height: 248px; }
 }
-@media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-paint { min-height: 48px; } }
+@media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-switches label { min-height: 48px; } }
 
 @media (pointer: coarse) { .mixer-shell .mixer-tempo-sources .mini-action { min-height: 48px; min-width: 48px; padding: 6px; } }

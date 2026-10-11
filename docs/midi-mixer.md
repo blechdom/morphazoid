@@ -155,7 +155,7 @@ Its seed, dimensions, articulation, timing and boundary controls affect the next
 shot. Existing deck playback keeps going; sample sound, level, key gate and
 **Stamp MIDI** edits work on rule stamps too. See the [rule mapping and limits](midiphoria.md#automatapoeia-rules-as-midi).
 
-## Visualize and play one-shots
+## Visualize and loop stamps
 
 The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
 deck B and the sample buttons feed the same graphic, with distinct voice
@@ -167,7 +167,7 @@ The searchable stamp palette includes 30 generated pictures and textures:
 Heart, Square, Zigzag, Polka dots, Plaid, Stripes, Drips, Glob, Glooob,
 Noise, Scatter, Explode and more. The thumbnails show the actual pitch/time
 cells that become MIDI notes. Density changes line thickness or particle
-population; Pitch span covers 12–48 chromatic notes; Length spans 4–32 beats.
+population; Pitch span covers 12–128 chromatic notes; Length spans 4–32 beats.
 Variation changes the reproducible seed for irregular patterns. Literal icons
 and fixed grids retain their geometry when only the seed changes.
 
@@ -206,14 +206,28 @@ instant that cannot fit is rejected. The downloadable 35-file archive also
 contains much larger decorative scores; those are not unpacked by this palette.
 
 Type a message and send it as an upward-moving playable score, or
-use **Play drawing** to play the current freehand canvas. Each shot follows
-the shared tempo and finishes once; it does not replace a deck or its loop.
-Shots can also play while the decks are paused. Audio remains an explicit,
-separate control. Stop shots clears just the sample layer; Pause or Stop
-releases both decks and shots.
+use **Play drawing** to play the current freehand canvas. **Loop** repeats each
+stamp at its actual length until stopped. Turning Loop off lets the current
+pass finish. Loop starts off; it applies to generated patterns, file excerpts,
+Automatapoeia rules, messages and drawings.
+
+**Sync to tempo** starts on. Synced stamps follow the master tempo, including
+live tempo changes, and new launches wait for the next beat when the mix is
+playing. With the decks paused they launch immediately. Turn Sync off to launch
+immediately and follow the stamp's own tempo map independently of the mixer.
+Generated patterns use 120 BPM; file excerpts preserve the source tempo at
+their start and later tempo changes. Whole-file fitting still places notes and
+tempo changes within the selected Length. Changing Sync on an active stamp
+preserves its position; turning it off on a queued stamp starts it immediately.
+
+Loop and Sync update both active stamps and subsequent launches. Neither
+control arms Audio or changes deck transport. Stamps can play while the decks
+are paused. **Stop samples** clears just the sample layer; Pause or Stop
+releases both decks and stamps. Audio off and leaving the mixer also cancel
+queued and looping stamps.
 
 Up to four shots can overlap; a fifth replaces the oldest. Picture, sample
-sound, sample level and stamp controls are live performance controls, retained when recalling
+sound, sample level, Loop, Sync and stamp controls are live performance controls, retained when recalling
 deck mix presets. The sample layer shares the mixer's SoundFont and effects.
 Editing stamp controls affects subsequent launches and keeps current playback
 running. Stopping samples, stopping/pausing the mix, turning Audio off or
@@ -335,9 +349,11 @@ transactions. This bounds the work at seeks and Weave handoffs; a source over
 that limit is rejected while the previously loaded deck remains intact.
 
 SoundFont synthesis shares a maximum of 192 voices across both decks and all
-four sample slots. One-shots are bounded to 2 MB, 32,768 notes, 131,072 events,
+four sample slots. Stamps are bounded to 2 MB, 32,768 notes, 131,072 events,
 16 channels and 512 beats each, with a shared 2,048-event sample budget per
-audio quantum. An
+audio quantum. Looping stamps share that event budget; a clip can cross at most
+16 loop boundaries in one quantum before it skips to the current phase and
+releases voices. This bounds even extremely short loops at extreme source tempos. An
 overload guard permits up to 8,192 events per deck per 128-frame audio quantum;
 events beyond that bound are skipped and held voices are released to prevent
 stuck notes. The engine reports skipped events. Analysis retains every accepted

@@ -26,7 +26,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   <div class="mixer-stamp-palette"><label class="sr-only" for="mixerStampFilter">Filter stamps</label>
     <input id="mixerStampFilter" type="search" placeholder="Filter stamps: zigzag, glob, black MIDI…" autocomplete="off" />
     <div class="mixer-stamp-bank-heading"><span>Stamps</span><output id="mixerStampCount"></output></div>
-    <div class="mixer-sample-bank" role="group" aria-label="One-shot MIDI samples"></div>
+    <div class="mixer-sample-bank" role="group" aria-label="MIDI stamps"></div>
   </div>
   <div id="mixerAutomataTools"></div>
   <div class="mixer-stamp-shape-controls">
@@ -34,7 +34,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     <label>Pitch span <output id="mixerStampSpanOut">48 notes</output><input id="mixerStampSpan" type="range" min="12" max="128" step="1" value="48" /></label>
     <label>Length <output id="mixerStampBeatsOut">8 beats</output><input id="mixerStampBeats" type="range" min="4" max="32" step="4" value="8" /></label>
     <div class="mixer-stamp-actions"><button id="mixerStampAgain" type="button">Stamp again</button><button id="mixerStampVariation" type="button">Variation</button><button id="mixerStampNextSlice" type="button" hidden>Next slice</button></div>
-    <label class="mixer-stamp-paint"><input id="mixerStampPaint" type="checkbox" checked />Paint flow</label>
+    <div class="mixer-stamp-switches" role="group" aria-label="Stamp playback">
+      <label title="Repeat stamps until stopped. Turn off to finish the current cycle."><input id="mixerSampleLoop" type="checkbox" />Loop</label>
+      <label title="Follow the master tempo and launch on the next beat while the mix is playing. Turn off to use source timing."><input id="mixerSampleSync" type="checkbox" checked />Sync to tempo</label>
+      <label class="mixer-stamp-paint"><input id="mixerStampPaint" type="checkbox" checked />Paint flow</label>
+    </div>
     <span id="mixerStampHint">Tap a stamp, or drag across the flow to place it by pitch.</span>
   </div>
   <div class="mixer-sample-controls">
@@ -136,11 +140,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   });
 
   function previewSource(source, now) {
-    const { key, analysis, position, rate = 1, gain = 1, transpose = 0, channels = [], midi = {}, end = Infinity } = source;
+    const { key, analysis, position, rate = 1, tempo = engine.state.tempo, cycle = 0, gain = 1, transpose = 0, channels = [], midi = {}, end = Infinity } = source;
     if (!analysis || !Number.isFinite(position)) return;
     let indexed = indexes.get(analysis);
     if (!indexed) { indexed = indexPerformanceNotes(analysis.notes); indexes.set(analysis, indexed); }
-    const signature = JSON.stringify([rate, transpose, gain, midi, channels.map(channel => [channel.channel, channel.mute, channel.solo, channel.midi])]);
+    const signature = JSON.stringify([cycle, rate, transpose, gain, midi, channels.map(channel => [channel.channel, channel.mute, channel.solo, channel.midi])]);
     let prior = preview.get(key);
     if (!prior || prior.signature !== signature || prior.analysis !== analysis || position < prior.position || position - prior.position > 2 * rate) {
       for (const [id, held] of activeNotes) if (held.event.sourceId === key) release(id, now);
@@ -148,7 +152,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       preview.set(key, prior);
     }
     if (gain <= .0001) return;
-    const secondsPerBeat = 60 / Math.max(30, engine.state.tempo) / rate;
+    const secondsPerBeat = 60 / Math.max(1, tempo) / rate;
     const settings = new Map(channels.map(channel => [channel.channel, channel])), solo = channels.some(channel => channel.solo);
     for (const { index, note } of queryPerformanceNotes(indexed, prior.position, position, 1024)) {
       const setting = settings.get(note.channel);
@@ -188,8 +192,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
             gain, transpose: deck.config.transpose, channels: deck.channels, midi: deck.config.midi, end: deck.loopEndBeats }, now);
         });
         for (const sample of state.samples ?? []) {
+          if (sample.pending) continue;
           const key = `sample:${sample.id}`; sources.add(key);
-          previewSource({ key, analysis: sample.analysis, position: sample.positionBeats, gain: sample.gain, midi: sample.midi }, now);
+          previewSource({ key, analysis: sample.analysis, position: sample.positionBeats, tempo: sample.tempo, cycle: sample.cycle,
+            gain: sample.gain, midi: sample.midi, end: sample.analysis.durationBeats }, now);
         }
         for (const [id, held] of activeNotes) if (!sources.has(held.event.sourceId)) release(id, now);
         for (const key of preview.keys()) if (!sources.has(key)) preview.delete(key);
@@ -217,6 +223,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (!score?.buffer) throw new Error('Draw a score first in Draw a MIDI.');
     const program = $('mixerSampleProgram').value;
     engine.triggerSample(score.buffer, { name: label, program: null, gain: Number($('mixerSampleLevel').value),
+      loop: $('mixerSampleLoop').checked, sync: $('mixerSampleSync').checked,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });
     canvas.dataset.message = label;
     $('mixerSampleStatus').textContent = `${label} · ${engine.state.audioEnabled ? 'sample' : 'silent preview'}${detail ? ` · ${detail}` : ''}${score.unsupported?.length ? ` · skipped ${score.unsupported.join(' ')}` : ''}${score.warnings?.length ? ` · ${score.warnings.join(' ')}` : ''}`;
@@ -381,6 +388,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const gain = Number($('mixerSampleLevel').value); $('mixerSampleLevelOut').value = `${Math.round(gain * 100)}%`;
     engine.configureSamples({ gain });
   });
+  for (const [id, key] of [['mixerSampleLoop', 'loop'], ['mixerSampleSync', 'sync']]) {
+    on($(id), 'change', () => engine.configureSamples({ [key]: $(id).checked }));
+  }
   function paint(event) {
     const rect = canvas.getBoundingClientRect(), pitch = (event.clientX - rect.left) / rect.width * 128;
     const settings = automataSelected ? automata.getSettings() : null;
