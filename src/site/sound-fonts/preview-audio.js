@@ -3,11 +3,26 @@ import { resumeAudioContext } from '../../audio-startup.js';
 
 export const MAX_PREVIEW_VOICES = 16;
 export const MAX_PREVIEW_SECONDS = 15;
+export const PREVIEW_PEAK_CEILING = 0.98;
 const MAX_CACHED_FRAMES = 8 * 1024 * 1024;
 const FADE_SECONDS = 0.012;
 const finite = (value, fallback) => Number.isFinite(Number(value)) ? Number(value) : fallback;
 const clamp = (value, low, high, fallback = low) => Math.min(high, Math.max(low, finite(value, fallback)));
 const disconnect = node => { try { node?.disconnect(); } catch { /* Already detached. */ } };
+
+/** Select a key that a zone can actually play at the requested MIDI velocity. */
+export function chooseAuditionNote(preset, velocity = 95) {
+  const byte = Math.round(clamp(velocity, 0, 127, 95));
+  if (!byte) return null;
+  for (const zone of preset?.zones ?? []) {
+    if (byte < (zone.lowVelocity ?? 0) || byte > (zone.highVelocity ?? 127)) continue;
+    const low = Math.ceil(clamp(zone.lowKey, 0, 127));
+    const high = Math.floor(clamp(zone.highKey, 0, 127, 127));
+    if (low > high) continue;
+    return Math.round(clamp(zone.rootKey, low, high, 60));
+  }
+  return null;
+}
 
 /** A deliberately small PCM SoundFont audition engine, armed only by Audio. */
 export class SoundFontPreview {
@@ -15,6 +30,8 @@ export class SoundFontPreview {
     this.context = null;
     this.analyser = null;
     this.master = null;
+    this.compressor = null;
+    this.peakGuard = null;
     this.font = null;
     this.presetIndex = 0;
     this.volume = 0.6;
@@ -27,7 +44,7 @@ export class SoundFontPreview {
     this.releaseOutput = null;
   }
 
-  get enabled() { return this._enabled; }
+  get enabled() { return this._enabled && this.context?.state === 'running'; }
 
   async setEnabled(enabled) {
     const serial = ++this.armSerial;
@@ -43,9 +60,12 @@ export class SoundFontPreview {
       this.releaseOutput?.();
       disconnect(this.master);
       disconnect(this.analyser);
+      disconnect(this.compressor);
+      disconnect(this.peakGuard);
       this.buffers.clear();
       this.cachedFrames = 0;
       this.context = this.master = this.analyser = null;
+      this.compressor = this.peakGuard = null;
     }
     if (!this.context) {
       const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
@@ -55,6 +75,19 @@ export class SoundFontPreview {
       try {
         this.master = this.context.createGain();
         this.master.gain.value = 0;
+        // Keep single notes at a useful level instead of reserving 26 dB for
+        // sixteen perfectly correlated voices. Compression handles dense chords;
+        // the non-oversampled guard also bounds compressor attack transients.
+        this.compressor = this.context.createDynamicsCompressor();
+        this.compressor.threshold.value = -8;
+        this.compressor.knee.value = 6;
+        this.compressor.ratio.value = 12;
+        this.compressor.attack.value = 0.002;
+        this.compressor.release.value = 0.08;
+        this.peakGuard = this.context.createWaveShaper();
+        this.peakGuard.curve = new Float32Array([-PREVIEW_PEAK_CEILING, PREVIEW_PEAK_CEILING]);
+        this.compressor.connect(this.peakGuard);
+        this.peakGuard.connect(this.master);
         this.analyser = this.context.createAnalyser();
         this.analyser.fftSize = 1024;
         this.master.connect(this.analyser);
@@ -63,8 +96,11 @@ export class SoundFontPreview {
         this.releaseOutput?.();
         disconnect(this.master);
         disconnect(this.analyser);
+        disconnect(this.compressor);
+        disconnect(this.peakGuard);
         void this.context.close().catch(() => {});
         this.context = this.master = this.analyser = null;
+        this.compressor = this.peakGuard = null;
         throw error;
       }
     }
@@ -122,8 +158,8 @@ export class SoundFontPreview {
     if (!(sample?.data instanceof Float32Array) || !sample.data.length) return null;
     const buffer = this.context.createBuffer(1, sample.data.length, clamp(sample.sampleRate, 8000, 192000, 44100));
     const target = buffer.getChannelData(0);
-    // Parsed PCM is normally finite and in range. Keep custom/generated input
-    // bounded too, so sixteen full-scale voices still sum below unity.
+    // Parsed PCM is normally finite and in range. Sanitize generated input too;
+    // the shared compressor and peak guard bound the combined output.
     for (let i = 0; i < target.length; i += 1) target[i] = clamp(sample.data[i], -1, 1, 0);
     while (this.buffers.size && this.cachedFrames + buffer.length > MAX_CACHED_FRAMES) {
       const key = this.buffers.keys().next().value;
@@ -157,7 +193,7 @@ export class SoundFontPreview {
       const source = this.context.createBufferSource();
       const gain = this.context.createGain();
       const pan = this.context.createStereoPanner();
-      const level = 0.05 * strength * 10 ** (-clamp(zone.attenuation, 0, 144) / 20);
+      const level = strength * 10 ** (-clamp(zone.attenuation, 0, 144) / 20);
       const rate = clamp(2 ** ((note - clamp(zone.rootKey, 0, 127, 60) + clamp(zone.tune, -12000, 12000, 0) / 100) / 12), 1 / 256, 256);
       source.buffer = buffer;
       source.playbackRate.value = rate;
@@ -179,7 +215,7 @@ export class SoundFontPreview {
       pan.pan.value = clamp(zone.pan, -1, 1, 0);
       source.connect(gain);
       gain.connect(pan);
-      pan.connect(this.master);
+      pan.connect(this.compressor);
       const voice = { note, source, gain, pan, level, attack, fade, start: now, end,
         release: clamp(zone.release, FADE_SECONDS, MAX_PREVIEW_SECONDS, 0.2), releasedAt: null };
       this.voices.add(voice);
@@ -244,11 +280,14 @@ export class SoundFontPreview {
     this.releaseOutput = null;
     disconnect(this.master);
     disconnect(this.analyser);
+    disconnect(this.compressor);
+    disconnect(this.peakGuard);
     this.buffers.clear();
     this.cachedFrames = 0;
     this.font = null;
     const context = this.context;
     this.context = this.master = this.analyser = null;
+    this.compressor = this.peakGuard = null;
     if (context && context.state !== 'closed') await context.close().catch(() => {});
   }
 }

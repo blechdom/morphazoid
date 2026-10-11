@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { SoundFontPreview, MAX_PREVIEW_VOICES, MAX_PREVIEW_SECONDS } from '../src/site/sound-fonts/preview-audio.js';
+import { readFileSync } from 'node:fs';
+import { SoundFontPreview, chooseAuditionNote, MAX_PREVIEW_VOICES, MAX_PREVIEW_SECONDS, PREVIEW_PEAK_CEILING } from '../src/site/sound-fonts/preview-audio.js';
+import { parseSoundFont } from '../src/site/sound-fonts/soundfont.js';
 
 class Parameter {
   constructor(value = 0) { this.value = value; this.events = []; }
@@ -22,6 +24,10 @@ class Context {
   createGain() { return Object.assign(new Node(), { gain: new Parameter(1) }); }
   createStereoPanner() { return Object.assign(new Node(), { pan: new Parameter() }); }
   createAnalyser() { return Object.assign(new Node(), { fftSize: 1024 }); }
+  createDynamicsCompressor() {
+    return Object.assign(new Node(), Object.fromEntries(['threshold','knee','ratio','attack','release'].map(key => [key,new Parameter()])));
+  }
+  createWaveShaper() { return new Node(); }
   createBuffer(channels, length, sampleRate) {
     const data = new Float32Array(length);
     return { length, sampleRate, duration: length / sampleRate, getChannelData: () => data };
@@ -79,7 +85,7 @@ test('key and velocity zones control triggering; pitch, PCM loop, pan, and atten
   assert.equal(voice.source.loopStart, 100 / 8000);
   assert.equal(voice.source.loopEnd, 7900 / 8000);
   assert.equal(voice.pan.pan.value, -0.7);
-  assert.ok(Math.abs(voice.level - 0.05 * 0.6 * 10 ** (-6 / 20)) < 1e-12);
+  assert.ok(Math.abs(voice.level - 0.6 * 10 ** (-6 / 20)) < 1e-12);
   preview.context.currentTime = 0.1;
   preview.noteOff(72);
   assert.equal(voice.source.stopped, 0.5);
@@ -143,5 +149,46 @@ test('non-looping sample playback fades at natural end and malformed PCM stays b
   assert.equal(voice.source.stopped, 0.5);
   assert.equal(voice.gain.gain.events.at(-1).time, 0.5);
   assert.ok(voice.source.buffer.getChannelData(0).every(value => Number.isFinite(value) && Math.abs(value) <= 1));
-  assert.ok(voice.level * MAX_PREVIEW_VOICES < 1);
+  assert.equal(voice.level, 1, 'single voices retain their sample level before output protection');
+  assert.deepEqual([...voice.pan.connections], [preview.compressor]);
+  assert.deepEqual([...preview.compressor.connections], [preview.peakGuard]);
+  assert.deepEqual([...preview.peakGuard.connections], [preview.master]);
+  assert.ok(Math.abs(preview.peakGuard.curve[1] - PREVIEW_PEAK_CEILING) < 1e-6);
+});
+
+test('audition notes respect velocity layers and mapped key ranges', () => {
+  assert.equal(chooseAuditionNote({ zones: [zone({ lowKey: 0, highKey: 78, rootKey: 88 })] }), 78);
+  assert.equal(chooseAuditionNote({ zones: [zone({ lowKey: 50, highKey: 60, rootKey: 40 })] }), 50);
+  const layers = { zones: [zone({ lowVelocity: 1, highVelocity: 63, rootKey: 48 }), zone({ lowVelocity: 64, highVelocity: 127, rootKey: 72 })] };
+  assert.equal(chooseAuditionNote(layers), 72);
+  assert.equal(chooseAuditionNote(layers, 32), 48);
+  assert.equal(chooseAuditionNote(layers, 0), null);
+  assert.equal(chooseAuditionNote({ zones: [] }), null);
+  assert.equal(chooseAuditionNote({ zones: [zone({ highVelocity: 50 })] }), null);
+});
+
+test('every bundled TimGM preset has a playable audition note, including Whistle and Helicopter', () => {
+  const bank = parseSoundFont(readFileSync(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url)));
+  for (const preset of bank.presets) {
+    const note = chooseAuditionNote(preset);
+    assert.ok(Number.isInteger(note), preset.name);
+    assert.ok(preset.zones.some(zone => note >= zone.lowKey && note <= zone.highKey && 95 >= zone.lowVelocity && 95 <= zone.highVelocity), preset.name);
+  }
+});
+
+test('interrupted contexts require an explicit Audio action to resume', async t => {
+  const preview = await setup(t);
+  preview.setFont(font());
+  await preview.setEnabled(true);
+  preview.context.state = 'suspended';
+  assert.equal(preview.enabled, false);
+  assert.equal(preview.noteOn(60), null);
+  assert.equal(preview.context.state, 'suspended');
+  await preview.setEnabled(true);
+  assert.equal(preview.enabled, true);
+  assert.equal(preview.noteOn(60), 60);
+  const compressor = preview.compressor, guard = preview.peakGuard;
+  await preview.dispose();
+  assert.equal(compressor.connections.size, 0);
+  assert.equal(guard.connections.size, 0);
 });
