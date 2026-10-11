@@ -1,11 +1,26 @@
-// The parameter map is independent of audio and recomputed only once.
-self.onmessage=({data})=>{
-  const {width=240,height=120}=data, pixels=new Uint8ClampedArray(width*height*4);
-  for(let y=0;y<height;y++)for(let x=0;x<width;x++){
-    const cr=-2+3*x/(width-1),ci=1.5-3*y/(height-1);let zr=0,zi=0,n=0;
-    for(;n<100&&zr*zr+zi*zi<16;n++){const next=zr*zr-zi*zi+cr;zi=2*zr*zi+ci;zr=next;}
-    const at=(y*width+x)*4,t=n===100?0:Math.min(1,n/30);
-    pixels[at]=n===100?28:18+70*t;pixels[at+1]=n===100?80:34+145*t;pixels[at+2]=n===100?72:46+115*t;pixels[at+3]=255;
+import { renderFractalImageAsync } from './fractal-explorer.js';
+
+/** Latest-wins worker: at most one render and one pending request are retained. */
+export function installExplorerWorker(scope, options = {}) {
+  let revision = 0, pending = null, running = false, disposed = false;
+  async function drain() {
+    if (running || disposed) return;
+    running = true;
+    try {
+      while (pending && !disposed) {
+        const request = pending, activeRevision = revision; pending = null;
+        const image = await renderFractalImageAsync(request, { ...options,
+          isCancelled: () => disposed || activeRevision !== revision });
+        if (image && !disposed && activeRevision === revision) scope.postMessage(image, [image.pixels.buffer]);
+      }
+    } finally { running = false; }
   }
-  self.postMessage({width,height,pixels},[pixels.buffer]);
-};
+  scope.onmessage = ({ data }) => {
+    if (disposed) return;
+    revision++; pending = data && typeof data === 'object' ? data : {};
+    void drain();
+  };
+  return () => { disposed = true; revision++; pending = null; scope.onmessage = null; };
+}
+
+if (typeof self !== 'undefined') installExplorerWorker(self);
