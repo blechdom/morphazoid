@@ -190,17 +190,17 @@ function drawContours() {
     traceTravel, drumHits: armed ? drumHits : null });
   if (state.contourReader === 'traveler' && traceBank?.reader === 'traveler') {
     const index = [2, 1, 0].find(i => state.layerEnabled[i] && traceBank.layers[i]?.x.length);
-    const point = index == null ? null : sampleReaderLayer(traceBank.layers[index], traceTravel)[0];
-    $('travelerReadout').textContent = point ? `${['Broad', 'Curl', 'Fine'][index]} turn ${Math.round(-point.turn * 180 / Math.PI)}°${traceBank.layers[index].closed ? '' : ' · retracing'}` : 'No border in view';
+    const point = index == null ? null : sampleReaderLayer(traceBank.layers[index], tracePhase)[0];
+    $('travelerReadout').textContent = point ? `${['Broad', 'Curl', 'Fine'][index]} turn this lap ${Math.round(-point.turn * 180 / Math.PI)}°${traceBank.layers[index].closed ? '' : ' · retracing'}` : 'No border in view';
   }
 }
-function selectStrand(index, remember = true) {
+function selectStrand(index, remember = true, anchor = null) {
   if (contourBusy || contourTimer || contourPhase !== 'complete' || !contourResult || index < 0 || index >= contourResult.closed.length) return;
   selectedPath = index;
   if (remember) {
     const vertex = Math.floor((contourResult.offsets[index] + contourResult.offsets[index + 1]) / 2) * 2;
-    state = { ...state, strandX: contourResult.view.x + contourResult.points[vertex] * contourResult.view.width,
-      strandY: contourResult.view.y + contourResult.points[vertex + 1] * contourResult.view.width };
+    state = { ...state, strandX: anchor?.x ?? contourResult.view.x + contourResult.points[vertex] * contourResult.view.width,
+      strandY: anchor?.y ?? contourResult.view.y + contourResult.points[vertex + 1] * contourResult.view.width };
     presets.refresh();
   }
   queueSelectedSound();
@@ -536,7 +536,7 @@ listen(window, 'pagehide', event => { if (!event.persisted) void dispose(); });
 navigation = new ContourNavigation($('contourStage'), {
   view: explorerView(), homeView: wholeExplorerView(),
   isActive: () => state.mode === 'explorer', onViewChange: updateExplorerView,
-  onSelect(point) { if (contourBusy || contourTimer || contourPhase !== 'complete') return; const index = contourRenderer.pick(point, explorerView()); if (index >= 0) selectStrand(index); },
+  onSelect(point) { if (contourBusy || contourTimer || contourPhase !== 'complete') return; const index = contourRenderer.pick(point, explorerView()); if (index >= 0) selectStrand(index, true, point); },
 });
 const resizeObserver = new ResizeObserver(() => {
   if (state.mode !== 'explorer' || disposed) return;

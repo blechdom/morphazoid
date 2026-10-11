@@ -119,7 +119,8 @@ at its own top unless you select a starting point by clicking a strand.
 turns without replaying earlier laps; zero holds the current pitch. Feature size
 smooths corner turns over a geometric arc-length window, so subdividing the same
 polyline does not add notes or change the mapping. Pitch is continuous and is not
-quantized to a musical scale. The angle readout counts right turns as positive.
+quantized to a musical scale. The angle readout shows the current lap and counts right turns as positive;
+the audible pitch continues across laps.
 
 A simple closed planar polygon has net signed turning ±360° per lap. Concave
 bends can reverse pitch locally even during a net rising lap. This is accumulated
@@ -138,7 +139,8 @@ through repeated laps. Ordinary Sine/Reed/Glass voices hold at ±4 octaves from
 the reference and retain the engine's final frequency bounds. Switching to
 Shepard makes continued turning audible after an ordinary voice reaches its
 limit. Geometry refinement and direction changes align replacement turn profiles
-at the current sounding pitch. Edits and Audio off/on preserve musical flow.
+at the current sounding pitch. Edits and Audio off/on preserve musical flow. Pitch holds while Audio is off;
+rearming resumes from that pitch at the current playhead position.
 
 Traveler replaces Height → pitch for sustained voices. Pan, bend/fold timbre,
 layer mutes, Tone/Drum switches, voice selection, and drum spacing remain active.
