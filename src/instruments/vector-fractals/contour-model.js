@@ -1,4 +1,4 @@
-// Mandelbrot equipotentials, sampled in parameter space. Geometry is returned
+// Mandelbrot parameter-space and fixed-c Julia equipotentials. Geometry is returned
 // relative to the view center in view-width units, so Float32 GPU buffers retain
 // detail even when the absolute complex coordinates are very close together.
 const LN2 = Math.LN2;
@@ -30,25 +30,29 @@ export function sanitizeContourRequest(request = {}) {
   const view = sanitizeContourView(request.view);
   return {
     id: request.id,
+    domain: request.domain === "julia" ? "julia" : "mandelbrot",
+    cReal: clamp(finite(request.cReal, -1), -2, 2),
+    cImag: clamp(finite(request.cImag, 0), -2, 2),
     view,
     depth: clamp(finite(request.depth, contourDepthForView(view)), 0.5, 320),
     resolution: Math.round(clamp(finite(request.resolution, 360), 24, 900)),
   };
 }
 
-function evaluatePotential(cr, ci, maxIterations, counters) {
+function evaluatePotential(cr, ci, maxIterations, counters, juliaX, juliaY) {
   if (counters) counters.evaluations += 1;
+  const julia = juliaX !== undefined;
   // These two analytically known interiors avoid spending the iteration budget
   // in the main cardioid and period-two bulb. Other nonescaping samples are only
   // classified below the requested positive equipotential, not proved interior.
   const ci2 = ci * ci;
   const shifted = cr - 0.25;
   const q = shifted * shifted + ci2;
-  if (Math.abs(cr) <= 2 && Math.abs(ci) <= 2
+  if (!julia && Math.abs(cr) <= 2 && Math.abs(ci) <= 2
       && (q * (q + shifted) <= 0.25 * ci2
       || (cr + 1) * (cr + 1) + ci2 <= 0.0625)) return -Infinity;
-  let zr = cr;
-  let zi = ci;
+  let zr = julia ? juliaX : cr;
+  let zi = julia ? juliaY : ci;
   let n = 0;
   let norm = zr * zr + zi * zi;
   while (norm < ESCAPE_SQUARED && n < maxIterations) {
@@ -72,7 +76,8 @@ function evaluatePotential(cr, ci, maxIterations, counters) {
     norm = zr * zr + zi * zi;
   }
   if (counters) counters.iterations += n;
-  // z_0 = c; G_M(c) = lim 2^-n log|z_n|. Do not shift n by one.
+  // Mandelbrot uses z_0=c; Julia uses the sampled z_0 with c fixed.
+  // Both use lim 2^-n log|z_n|. Do not shift n by one.
   const magnitude = Math.hypot(zr, zi);
   const scale = Math.max(Math.abs(zr), Math.abs(zi));
   const logMagnitude = Number.isFinite(magnitude) ? Math.log(magnitude)
@@ -84,6 +89,12 @@ function evaluatePotential(cr, ci, maxIterations, counters) {
 export function logGreenPotential(cr, ci = 0, maxIterations = 512) {
   if (!Number.isFinite(cr) || !Number.isFinite(ci)) return NaN;
   return evaluatePotential(cr, ci, Math.round(clamp(finite(maxIterations, 512), 1, 4096)));
+}
+
+/** log(G_c(z)); -Infinity means not escaped within cap, not proven interior. */
+export function logJuliaGreenPotential(zr, zi, cr, ci, maxIterations = 512) {
+  if (![zr, zi, cr, ci].every(Number.isFinite)) return NaN;
+  return evaluatePotential(cr, ci, Math.round(clamp(finite(maxIterations, 512), 1, 4096)), null, zr, zi);
 }
 
 function gridFor({ view, resolution }) {
@@ -110,19 +121,22 @@ function gridFor({ view, resolution }) {
 // within every expensive phase, including graph tracing and final packing.
 function* contourJob(input) {
   const startTime = clock();
-  const { view, depth, resolution } = sanitizeContourRequest(input);
+  const { view, depth, resolution, domain, cReal, cImag } = sanitizeContourRequest(input);
   const { columns, rows, limited } = gridFor({ view, resolution });
   const stride = columns + 1;
   const target = -depth;
   const counters = { evaluations: 0, iterations: 0 };
-  const boundC = Math.hypot(Math.abs(view.x) + view.width / 2,
+  const boundC = domain === "julia" ? Math.hypot(cReal, cImag) : Math.hypot(Math.abs(view.x) + view.width / 2,
     Math.abs(view.y) + view.width / (2 * view.aspect));
   // If |z_N| <= R, G(c) <= 2^-N log(R + |c|/R). Thus a sample
   // unescaped at this cap is below exp(-depth), even near a parabolic cusp.
   const maxIterations = Math.ceil((depth
     + Math.log(Math.log(ESCAPE_RADIUS + boundC / ESCAPE_RADIUS))) / LN2) + 1;
-  const sample = (x, y) => evaluatePotential(view.x + x * view.width,
-    view.y + y * view.width, maxIterations, counters);
+  const sample = domain === "julia"
+    ? (x, y) => evaluatePotential(cReal, cImag, maxIterations, counters,
+      view.x + x * view.width, view.y + y * view.width)
+    : (x, y) => evaluatePotential(view.x + x * view.width,
+      view.y + y * view.width, maxIterations, counters);
   const localX = (column) => column / columns - 0.5;
   const localY = (row) => (row / rows - 0.5) / view.aspect;
   const field = new Float64Array(stride * (rows + 1));
@@ -221,12 +235,14 @@ function* contourJob(input) {
   const pathClosed = [];
   let vertices = 0;
   let uncertainClosedPaths = 0;
-  // Every exact positive Green level is one Jordan curve surrounding all M.
+  // Every exact positive Mandelbrot Green level is one Jordan curve around M.
   // Finite sampling can lose thin connections and create extra closed loops.
   // Preserve those useful sampled outlines, but detect obvious topological
   // uncertainty via known points in M. This is not a topology certification:
   // underresolved=false cannot prove that every subcell feature was captured.
-  const anchors = [[-2, 0], [0.25, 0], [0, 1], [0, -1]].map(([x, y]) => [
+  // Julia can legitimately have multiple components, so this M-only diagnostic
+  // must not flag disconnected Julia curves as numerical topology mistakes.
+  const anchors = (domain === "mandelbrot" ? [[-2, 0], [0.25, 0], [0, 1], [0, -1]] : []).map(([x, y]) => [
     (x - view.x) / view.width, (y - view.y) / view.width,
   ]);
   function* trace(start) {
@@ -256,9 +272,9 @@ function* contourJob(input) {
       if ((vertices & 1023) === 0) yield;
     }
     pathOffsets.push(vertices);
-    if (isClosed && anchorMask !== 15) uncertainClosedPaths += 1;
+    if (isClosed && domain === "mandelbrot" && anchorMask !== 15) uncertainClosedPaths += 1;
     // This flag describes closure of the sampled polyline, not a guarantee
-    // that it is an independent exact Mandelbrot equipotential.
+    // that it is an independent exact equipotential.
     pathClosed.push(isClosed ? 1 : 0);
   }
   // Open crop fragments first, then cycles. Each cycle omits its repeated start.
@@ -284,7 +300,7 @@ function* contourJob(input) {
     if ((i & 2047) === 2047) yield;
   }
   return {
-    view, depth, points, offsets, closed,
+    view, depth, domain, cReal, cImag, points, offsets, closed,
     stats: {
       computationMs: clock() - startTime,
       grid: { columns, rows },

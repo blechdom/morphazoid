@@ -1,4 +1,4 @@
-import { MODES, PRESETS, CONTOUR_LANDMARKS, TRACE_VOICES, DRUM_VOICES, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
+import { MODES, PRESETS, CONTOUR_LANDMARKS, EXPLORER_JULIA_PRESETS, TRACE_VOICES, DRUM_VOICES, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
 import { VectorRenderer } from './renderer.js';
 import { ContourRenderer } from './contour-renderer.js';
 import { ContourNavigation } from './contour-navigation.js';
@@ -98,13 +98,15 @@ function explorerView() {
   const rect = $('contourStage').parentElement.getBoundingClientRect();
   return { x: state.viewX, y: state.viewY, width: state.viewWidth, aspect: Math.max(.25, rect.width / Math.max(1, rect.height)) };
 }
-function wholeExplorerView() {
+function wholeExplorerView(input = state) {
   const aspect = explorerView().aspect;
+  if (input.contourDomain === 'julia') return { x: 0, y: 0, width: Math.min(5, Math.max(4.2, 2.8 * aspect)), aspect };
   return { x: -.5, y: 0, width: Math.min(5, Math.max(3.4, 2.35 * aspect)), aspect };
 }
 function fitOpeningView(input) {
-  if (input.mode !== 'explorer' || input.viewX !== -.5 || input.viewY !== 0 || input.viewWidth !== 3.4) return input;
-  return { ...input, viewWidth: wholeExplorerView().width };
+  const julia = input.contourDomain === 'julia';
+  if (input.mode !== 'explorer' || input.viewX !== (julia ? 0 : -.5) || input.viewY !== 0 || input.viewWidth !== (julia ? 4.2 : 3.4)) return input;
+  return { ...input, viewWidth: wholeExplorerView(input).width };
 }
 function refreshExplorerUI() {
   const zoom = wholeExplorerView().width / state.viewWidth;
@@ -137,7 +139,8 @@ function requestContours(immediate = false) {
     // a huge, mostly cropped exterior circle on desktop.
     const depth = clamp(12 + 12 * Math.log2(wholeExplorerView().width / view.width) + state.contourBias, 4, 320);
     lastContourSend = performance.now();
-    contourWorker.postMessage({ id: contourRequest, view, depth, resolution, layered: true });
+    contourWorker.postMessage({ id: contourRequest, view, depth, resolution, layered: true,
+      domain: state.contourDomain, cReal: state.cReal, cImag: state.cImag });
   };
   if (immediate) send();
   else contourTimer = setTimeout(send, Math.max(0, 100 - (performance.now() - lastContourSend)));
@@ -291,6 +294,26 @@ for (let i = 0; i < 3; i++) {
 for (const key of ['shape', 'component', 'traversal', 'readout']) listen($(key), 'change', () => update({ [key]: $(key).value }));
 for (const key of ['vectors', 'reference']) listen($(key), 'change', () => update({ [key]: $(key).checked }));
 listen($('contourQuality'), 'change', () => update({ contourQuality: $('contourQuality').value }));
+for (const preset of EXPLORER_JULIA_PRESETS) {
+  const option = document.createElement('option'); option.value = preset.id; option.textContent = preset.label;
+  $('contourJuliaPreset').append(option);
+}
+const customJulia = document.createElement('option'); customJulia.value = 'custom'; customJulia.textContent = 'Custom coefficient'; customJulia.disabled = true;
+$('contourJuliaPreset').append(customJulia);
+function chooseExplorerGeometry(patch) {
+  const view = wholeExplorerView({ ...state, ...patch });
+  update({ ...patch, viewX: view.x, viewY: view.y, viewWidth: view.width, contourBias: 0, strandX: null, strandY: null });
+}
+listen($('contourDomain'), 'change', () => chooseExplorerGeometry({ contourDomain: $('contourDomain').value }));
+listen($('contourJuliaPreset'), 'change', () => {
+  const preset = EXPLORER_JULIA_PRESETS.find(p => p.id === $('contourJuliaPreset').value);
+  if (preset) chooseExplorerGeometry({ cReal: preset.cReal, cImag: preset.cImag });
+});
+for (const key of ['cReal', 'cImag']) listen($(key), 'change', () => {
+  const value = $(key).valueAsNumber;
+  if (Number.isFinite(value)) update({ [key]: value, strandX: null, strandY: null });
+  else $(key).value = String(state[key]);
+});
 listen($('contourRegion'), 'change', () => {
   const p = CONTOUR_LANDMARKS.find(p => p.id === $('contourRegion').value);
   if (p) { state = { ...state, strandX: null, strandY: null }; navigation.setView(p.id === 'whole' ? wholeExplorerView() : { ...explorerView(), x: p.x, y: p.y, width: p.width }, { notify: true }); }
@@ -331,6 +354,14 @@ function sync() {
   refreshTraceLayers();
   $('gestureHint').textContent = explorer ? 'drag to pan · scroll / pinch to zoom' : '↔ rotation · ↕ clearance';
   $('contourQuality').value = state.contourQuality;
+  const juliaExplorer = state.contourDomain === 'julia';
+  $('contourDomain').value = state.contourDomain;
+  $('contourRegionField').hidden = juliaExplorer;
+  $('contourJuliaControls').hidden = !juliaExplorer;
+  $('contourJuliaPreset').value = EXPLORER_JULIA_PRESETS.find(p => p.cReal === state.cReal && p.cImag === state.cImag)?.id ?? 'custom';
+  for (const key of ['cReal', 'cImag']) $(key).value = String(state[key]);
+  $('wholeView').title = `Return to the whole ${juliaExplorer ? 'Julia' : 'Mandelbrot'} outline (Home)`;
+  $('contourStage').setAttribute('aria-label', `Interactive ${juliaExplorer ? 'Julia' : 'Mandelbrot'} contour explorer. Drag or use arrow keys to pan. Scroll, pinch, or use plus and minus to zoom. Home restores the whole outline. Click a strand to hear it.`);
   for (const button of $('demoModes').children) button.setAttribute('aria-pressed', String(button.dataset.mode === state.mode));
   for (const [key, field] of fields) field.setValue(state[key]);
   for (const key of ['shape', 'component', 'traversal', 'readout']) $(key).value = state[key];
@@ -349,7 +380,7 @@ function sync() {
   fields.get('pitchDepth').labelElement.textContent = state.contourReader === 'radar' ? 'Distance → pitch' : 'Height → pitch';
   $('readerKnobs').hidden = !['radar', 'scan'].includes(state.contourReader);
   $('readerOptions').hidden = !['radar', 'scan'].includes(state.contourReader);
-  $('mapLabel').textContent = explorer ? 'Region in Mandelbrot' : state.mode === 'mandelbrot' ? 'Cardioid + period-two bulb' : 'Julia parameter c';
+  $('mapLabel').textContent = explorer && !juliaExplorer ? 'Region in Mandelbrot' : state.mode === 'mandelbrot' ? 'Cardioid + period-two bulb' : 'Julia parameter c';
   $('demoDescription').textContent = {
     julia: 'Counter-rotating vectors make a Julia contour. The same curve is the waveform.',
     mandelbrot: 'A contour around the whole Mandelbrot set. Move closer to reveal its structure.',
@@ -359,14 +390,17 @@ function sync() {
   history.replaceState(null, '', `#${state.mode}`);
   presets?.refresh();
   navigation?.setActive(explorer);
-  if (explorer) { navigation?.setView(explorerView(), { notify: false }); refreshExplorerUI(); }
+  if (explorer) {
+    if (navigation) { navigation.homeView = wholeExplorerView(); navigation.setView(explorerView(), { notify: false }); }
+    refreshExplorerUI();
+  }
 }
 function update(patch) {
   state = sanitizeState({ ...state, ...patch }); sync(); audio.send({ type: 'state', state });
   const keys = Object.keys(patch);
   if (keys.some(key => ['featureSize', 'contourReader', 'drumSpacing', 'radarX', 'radarY', 'scanAngle'].includes(key))) updateTraceBank();
   if (keys.some(key => ['mode', 'shape', 'component', 'radius', 'detail', 'depth', 'angle', 'traversal',
-    'viewX', 'viewY', 'viewWidth', 'contourBias', 'contourQuality'].includes(key))) build();
+    'viewX', 'viewY', 'viewWidth', 'contourBias', 'contourQuality', 'contourDomain', 'cReal', 'cImag'].includes(key))) build();
 }
 function switchMode(mode) {
   if (!MODES.some(m => m.id === mode) || mode === state.mode) return;
@@ -463,7 +497,7 @@ function frame(time) {
 
 export function diagnosticSnapshot() {
   return { state: { ...state }, playing, armed, starting, ready: Boolean(bank) && (state.mode !== 'explorer' || Boolean(contourResult)), building: busy || Boolean(queued) || (state.mode === 'explorer' && (contourBusy || Boolean(contourTimer) || Boolean(readerInFlight) || Boolean(readerQueued))),
-    frames: bank?.frames.length ?? 0, voyage, scanPhase, tracePhase, c: bank ? juliaParameter(bank.state, voyage) : null,
+    frames: bank?.frames.length ?? 0, voyage, scanPhase, tracePhase, c: bank ? juliaParameter(state.mode === 'explorer' ? state : bank.state, voyage) : null,
     trace: { ready: Boolean(traceBank), phase: tracePhase, travel: traceTravel, rate: telemetry?.traceRate ?? state.traceRate,
       reader: traceBank?.reader, bankId: traceBank?.id, drumTriggerCounts: telemetry?.drumTriggerCounts ?? [0, 0, 0],
       shepardTravel,
@@ -472,6 +506,7 @@ export function diagnosticSnapshot() {
         enabled: state.layerEnabled[i], sustain: state.layerSustain[i], drums: state.layerDrums[i], voice: state.layerVoices[i] })) ?? [] },
     audioTime: audio.context?.currentTime ?? null, renderer: renderer.gl ? 'webgl' : 'canvas', disposed,
     contours: { request: contourRequest, phase: contourPhase, view: contourResult?.view ?? null, depth: contourResult?.depth ?? null,
+      domain: contourResult?.domain ?? null, cReal: contourResult?.cReal ?? null, cImag: contourResult?.cImag ?? null,
       vertices: (contourResult?.points.length ?? 0) / 2, paths: contourResult?.closed.length ?? 0, selectedPath, stats: contourResult?.stats ?? null,
       renderer: contourRenderer.diagnosticSnapshot(), navigation: navigation?.diagnosticSnapshot() } };
 }
@@ -512,8 +547,9 @@ listen($('exportContour'), 'click', () => {
     }
     return `<g id="${isTrace() ? ['broad', 'curl', 'fine'][layer] : 'contour'}" fill="none" stroke="${isTrace() ? ['#ffba76', '#c69bff', '#80d9ff'][layer] : '#14738b'}" stroke-width=".8">${paths.join('')}</g>`;
   });
-  const meta = JSON.stringify({ view: contourResult.view, logGreen: results.map(result => result ? -result.depth : null), approximation: 'Sampled exterior contours; unresolved narrow connections may alter topology.' }).replaceAll('&', '&amp;').replaceAll('<', '&lt;');
-  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 ${height}"><title>Morphazoid Mandelbrot contours</title><metadata>${meta}</metadata>${groups.join('')}</svg>`;
+  const meta = JSON.stringify({ domain: contourResult.domain, c: contourResult.domain === 'julia' ? [contourResult.cReal, contourResult.cImag] : null,
+    view: contourResult.view, logGreen: results.map(result => result ? -result.depth : null), approximation: 'Sampled exterior contours; unresolved narrow connections may alter topology.' }).replaceAll('&', '&amp;').replaceAll('<', '&lt;');
+  const source = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 ${height}"><title>Morphazoid ${contourResult.domain === 'julia' ? 'Julia' : 'Mandelbrot'} contours</title><metadata>${meta}</metadata>${groups.join('')}</svg>`;
   const url = URL.createObjectURL(new Blob([source], { type: 'image/svg+xml' }));
   const a = document.createElement('a'); a.href = url; a.download = 'morphazoid-contours.svg'; a.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);

@@ -8,7 +8,13 @@ are unchanged. Enable **Audio**, then **Play**. Audio and transport are separate
 
 - **Contour Explorer:** scroll/pinch to zoom and drag to pan. Arrow keys pan,
   +/− zoom, and Home or Whole returns to the full outline. Jump to Seahorse Valley
-  or Seahorse filigree for dense structure. A quick vector preview appears first,
+  or Seahorse filigree for dense structure, or choose **Fractal → Julia** and a
+  named **Julia shape**. Julia coefficient exposes editable real/imaginary parts
+  of `c`; commit a number with Enter or by leaving the field. Both are bounded
+  to `[-2, 2]`. Shape selection restores the whole view and default Edge detail
+  while preserving reader, voices, drums, mappings, speed, pitch and transport.
+  Manual coefficient edits retain the camera. Whole/Home fits the current set.
+  A quick vector preview appears first,
   followed by finer contours calculated for the current region. Edge detail
   moves the sampled level closer to the set; Fine increases spatial sampling.
   Click a strand or use Next strand to choose the sound source. Save SVG exports
@@ -45,14 +51,44 @@ level and live Audio/Play state. Reset restores the current demo and voyage orig
 
 ### Progressive Contour Explorer
 
-The explorer samples the exterior Green potential of `z -> z*z+c`, starting
-with `z0=c`. After escape it evaluates
-`log G_M(c) = log(log |z_n|) - n*log(2)` and extracts a negative level with
+The explorer samples the exterior Green potential of `z -> z*z+c`. Mandelbrot
+uses `z0=c` while varying `c` across the parameter plane. Julia fixes `c` at the
+chosen coefficient and starts `z0` at each sampled position in the dynamical plane.
+After escape both evaluate `log G = log(log |z_n|) - n*log(2)` and extract a negative level with
 marching squares and refined edge crossings. The level moves closer to the set
 as the view narrows; it is recomputed, not a magnified stored SVG. The finite
 iteration limit and spatial grid make these approximations: narrow connections
 can fall between samples and appear as separate closed loops. Neither topology
 nor every filament is certified. More sampling reveals additional structure.
+The cardioid/period-two interior shortcuts apply only to Mandelbrot. Julia
+iteration bounds use the fixed coefficient, and multiple disconnected sampled
+paths remain separate. These do not rely on the limited Fourier family list.
+
+Julia shape coefficients are reused from
+[`JULIA_PRESETS`](../src/instruments/julia/julia.js) in Morphazoid's Julia instrument:
+
+| Shape | Real c | Imaginary c |
+| --- | ---: | ---: |
+| Basilica | -1 | 0 |
+| Douady rabbit | -0.12256116687665361 | 0.7448617666197442 |
+| Co-rabbit | -0.12256116687665361 | -0.7448617666197442 |
+| Airplane | -1.7548776662466927 | 0 |
+| San Marco | -0.75 | 0 |
+| Cauliflower | 0.25 | 0 |
+| Golden-mean Siegel disk | -0.3905408702184 | -0.5867879073469687 |
+| Spiral · finite depth | -0.7 | 0.27015 |
+| Listening default | -0.788 | 0.1191 |
+| Unit circle | 0 | 0 |
+
+The Siegel coefficient is `λ/2 − λ²/4`, with `λ = exp(2πi(√5−1)/2)`.
+Spiral's critical orbit escapes; it is a disconnected Julia set whose finite
+positive-potential outlines remain playable. Tiny components may be lost at a
+finite grid/depth; Fine refinement helps but does not certify topology. Airplane
+also benefits from Fine. Listening default and Spiral are sibling instrument
+scene names. Mandelbrot's Region menu retains camera locations, not fixed Julia
+coefficients. SVG metadata records the domain, Julia coefficient where relevant,
+camera and all exported potential levels. Shape selection is a focused geometry
+change; the main preset menu continues to recall complete musical scenes.
 
 A cancellable worker sends a coarse preview and a completed refinement. Camera
 transforms respond immediately while stale calculations are discarded. Sampling
@@ -74,8 +110,8 @@ without resetting the carrier. A completed empty region crossfades to silence.
 
 Trace treats the contours as slow musical paths. Three sampled Green-potential
 levels are visible together, colored amber (Broad), violet (Curl) and cyan (Fine).
-These are detail levels in Mandelbrot parameter space, not discrete recursive
-Julia generations. Refinement still has finite spatial resolution; increasing
+These are potential levels in the chosen Mandelbrot or Julia plane, not discrete
+recursive pullback generations. Refinement still has finite spatial resolution; increasing
 depth cannot recover filaments smaller than the sampling grid.
 
 Each layer selects a strand near the chosen fine strand. The heads share one
@@ -167,8 +203,8 @@ b[n] = ((n even ? b[n/2] : 0) - (n==1 ? c : 0)
 For `c=0`, `psi(w)=w`. For `c=-2`, `psi(w)=w+1/w`. Safe moving parameters use
 `c=q/2-q*q/4` (main cardioid) or `c=-1+q/4` (period two), where
 `q=depth*exp(i*theta)` and `depth<=0.96`. Fixed landmarks are the basilica and
-rabbit center. Unconstrained disconnected Julia sets are deliberately outside
-this demo's scope.
+rabbit center. Unconstrained disconnected Julia sets are outside these Fourier
+modes' scope; the sampled Contour Explorer supports fixed custom coefficients.
 
 The full-Mandelbrot map is `Psi(w)=w+sum(b[m]*w^-m)` beginning with
 `b[0]=-1/2, b[1]=1/8, b[2]=-1/4, b[3]=15/128`. Its 513 coefficients were
@@ -242,5 +278,10 @@ progressive navigation, selected-strand sound, SVG export and responsive control
 `tests/vector-trace-*.test.mjs` and `e2e/vector-trace.spec.mjs` cover layered
 geometry, density-independent curvature, independent musical/carrier clocks,
 voice/mute continuity, empty-region silence and colored SVG export.
+`tests/vector-julia-contours.test.mjs` checks analytic circle geometry, potential
+identities, coefficient provenance, valid disconnected paths and parameter bounds.
+`e2e/vector-julia-presets.spec.mjs` exercises all ten named coefficients, each
+reader, live shape changes, custom coefficients, Whole/zoom, SVG metadata and
+portrait/landscape controls.
 These are mechanical checks; human timbre/touch judgment and
 physical iPhone listening remain separate acceptance steps.

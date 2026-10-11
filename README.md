@@ -1,6 +1,6 @@
 # Morphazoid
 
-**[Vector Fractals](vector-fractals.html#explorer)** is a work in progress: Contour Explorer reveals freshly calculated Mandelbrot vectors as you zoom. Select a strand to hear its XY path, or explore Julia Vectors, Mandelbrot Contours and Bulb Voyager. Audio starts off. [Mathematics, controls and limits](docs/vector-fractals.md).
+**[Vector Fractals](vector-fractals.html#explorer)** is a work in progress: Contour Explorer reveals freshly calculated Mandelbrot and Julia vectors as you zoom. Choose named Julia coefficients such as Douady rabbit, Airplane and the golden-mean Siegel disk, then explore three detail layers with Trace, Radar, Scan, tone voices and drum beads. Shape changes preserve your musical settings. The original Julia Vectors, Mandelbrot Contours and Bulb Voyager demos remain available. Audio starts off. [Mathematics, controls and limits](docs/vector-fractals.md).
 
 **Main output recording** captures stereo 24-bit WAV from the red Record button
 beside the output meters. Stop to name and save a take, or choose **Record to

@@ -142,11 +142,11 @@ export class VectorRenderer {
       for (let i = 0; i <= 160; i++) { const [x, y] = project(componentPoint(1, i / 160, component)); if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); }
       ctx.stroke();
     }
-    if (state.mode === 'voyager' || state.shape === 'cardioid') {
+    if (state.mode === 'voyager' || (state.mode === 'julia' && state.shape === 'cardioid')) {
       ctx.strokeStyle = `rgba(${color.slice(0, 3).map(v => Math.round(v * 255)).join(',')},.7)`; ctx.beginPath();
       for (let i = 0; i <= 160; i++) { const [x, y] = project(componentPoint(state.depth, i / 160, state.mode === 'voyager' ? state.component : 1)); if (!i) ctx.moveTo(x, y); else ctx.lineTo(x, y); } ctx.stroke();
     }
-    if (state.mode === 'explorer') {
+    if (state.mode === 'explorer' && state.contourDomain !== 'julia') {
       const [x, y] = project([state.viewX, state.viewY]);
       const s = Math.min(w / 2.6, h / 1.65), size = Math.max(4, state.viewWidth * s);
       ctx.strokeStyle = '#80d9ff'; ctx.lineWidth = 1.5;
