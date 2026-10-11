@@ -100,7 +100,7 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
       context.strokeRect(left + cursor.x * cell, top + cursor.y * cell, cell, cell);
     }
     context.fillStyle = '#a1b4ae'; context.font = '11px system-ui';
-    context.textAlign = 'left'; context.fillText('Time ↑', left, top - 10);
+    context.textAlign = 'left'; context.fillText('Flow ↑', left, top - 10);
     context.textAlign = 'right'; context.fillText('Pitch →', left + DRAWING_COLUMNS * cell, top + DRAWING_ROWS * cell + 18);
   }
   function reflect() {

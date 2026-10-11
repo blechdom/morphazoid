@@ -90,7 +90,8 @@ and generated stamp bank. Enable **Audio**, draw or choose a shape, then press
 **Play drawing**. Playback stays in Draw and appears in the small live flow.
 **Stop stamps** releases it; **Loop** repeats it. **Download MIDI** saves the
 last played drawing. Neither drawing nor Play drawing turns Audio on.
-Pitch increases left to right; playback travels from the bottom to the top.
+Pitch increases left to right. The top of the drawing enters the live flow first,
+then rises so the complete picture stays upright.
 Drag to draw, or enable **Eraser**. Fast drags fill the crossed cells, and
 **Undo** reverses one complete stroke, stamp or Clear action. Keyboard users
 can move with arrow keys, paint with Space/Enter, erase with Delete/Backspace,
