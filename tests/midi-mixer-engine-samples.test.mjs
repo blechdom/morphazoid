@@ -144,6 +144,18 @@ test('real SoundFont samples overlay running decks, remain audible past crossfad
     await processor.command({ type: 'deck', index: 0, config: { ...defaultDeckConfig(), gain: 0, rate: 2 }, channels });
     telemetry.length = 0; await processor.command({ type: 'transport', playing: true, beat: 0 }); render(300);
     assert.equal(telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).some(event => event.type === 'noteOn'), false, 'gain-zero sources do not publish attacks');
+    await processor.command({ type: 'deck', index: 0, config: defaultDeckConfig(), channels });
+    await processor.command({ type: 'audibility', enabled: false, volume: 0.6 });
+    await processor.command({ type: 'transport', playing: true, beat: 0.5 }); telemetry.length = 0;
+    // Bridge the public rearm method to the actual processor: setting the
+    // audibility gate after rejoin would lose every restored held-note attack.
+    const gate = new MidiMixerEngine(); gate._ready = true;
+    gate.context = { state: 'running', currentTime: globalThis.currentTime, close: async () => {} };
+    gate.node = { port: { postMessage: message => { void processor.command(message); }, close() {} }, disconnect() {} };
+    gate.setAudioEnabled(true);
+    const restored = telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).find(event => event.type === 'noteOn' && event.sourceId === 'deck:0');
+    assert.ok(restored, 'Audio rearm publishes the genuinely restored held note'); assert.equal(restored.durationBeats, 0.5);
+    gate.node = null; await gate.dispose();
   } finally {
     await processor.command({ type: 'dispose' }); delete globalThis.AudioWorkletProcessor; delete globalThis.registerProcessor; delete globalThis.sampleRate; delete globalThis.currentTime;
   }

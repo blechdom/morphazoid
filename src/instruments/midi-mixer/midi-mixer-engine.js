@@ -118,8 +118,9 @@ export class MidiMixerEngine {
       this._publish(); await Promise.all([resumed, this._promise]);
       if (this._disposed || this.context !== context) return false;
       this._audioEnabled = this._desiredAudio && this._ready && context.state === 'running';
+      this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
       if (wasReady && this._audioEnabled) this._post({ type: 'rejoin' });
-      this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._sendSamples();
+      this._sendSamples();
       this._updateGain(); this._publish(); return this._audioEnabled;
     } catch (error) {
       if (!this._disposed) { this._error = error.message || 'Could not start MIDI audio.'; this._desiredAudio = false; await this._close(); this._publish(); }
@@ -130,9 +131,10 @@ export class MidiMixerEngine {
     const wasEnabled = this._audioEnabled;
     this._desiredAudio = Boolean(enabled);
     this._audioEnabled = this._desiredAudio && this._ready && this.context?.state === 'running';
+    this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume });
     if (!this._audioEnabled) { this.stopSamples(); this._post({ type: 'release' }); }
     else if (!wasEnabled) this._post({ type: 'rejoin' });
-    this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._sendSamples();
+    this._sendSamples();
     this._updateGain(); this._publish(); return this._audioEnabled;
   }
   play() {
@@ -273,6 +275,7 @@ export class MidiMixerEngine {
     this._freezeClock(); this._ready = true; this._audioAnchor = this._sampleAudioAnchor = context.currentTime; this._audioTempo = this._tempo;
     this._post({ type: 'sampleClock', beat: this._sampleBeat });
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });
+    this._post({ type: 'audibility', enabled: this._desiredAudio, volume: this._volume });
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });
   }
