@@ -149,9 +149,38 @@ export function parseMidi(input) {
   if (ignoredSysEx) warnings.push(`${ignoredSysEx} system-exclusive messages omitted from remix playback.`);
   return { format, trackCount, ppq, tracks, channels: channelList, events, notes, tempoMap, meterMap, keyMap: ordered(keys), key: ordered(keys)[0] ?? estimateKey(notes), initialTempo: tempoMap[0].bpm, durationBeats, durationSeconds: beatsToSeconds(durationBeats, tempoMap), noteCount: notes.length, firstNoteBeat: notes[0].beat, warnings };
 }
-export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null, midi: {} });
+export const defaultWeaveConfig = () => ({ enabled: false, pattern: 'AB', length: 1, unit: 'bars', barBeats: 4, advance: 'turns' });
+export function sanitizeWeaveConfig(input = {}, previous = defaultWeaveConfig()) {
+  const source = input && typeof input === 'object' ? input : {};
+  const pattern = String(source.pattern ?? previous.pattern).toUpperCase().replace(/[^AB]/g, '').slice(0, 16);
+  return { enabled: source.enabled === undefined ? previous.enabled : Boolean(source.enabled), pattern: pattern || previous.pattern || 'AB',
+    length: clamp(source.length ?? previous.length, .125, 16, previous.length),
+    unit: (source.unit ?? previous.unit) === 'beats' ? 'beats' : 'bars',
+    barBeats: clamp(source.barBeats ?? previous.barBeats, .125, 32, previous.barBeats),
+    advance: (source.advance ?? previous.advance) === 'running' ? 'running' : 'turns' };
+}
+/** The UI and worklet derive the same source progress from one master beat.
+ * Phase anchors are transport state, never saved slip offsets or preset data.
+ */
+export function weavePosition(beat, config = defaultWeaveConfig(), phase = { startBeat: 0, deckBeats: [0, 0] }) {
+  const elapsed = Math.max(0, beat - phase.startBeat), origins = phase.deckBeats;
+  if (!config.enabled) return { step: 0, deck: null, active: [true, true], deckBeats: origins.map(value => value + elapsed), nextBeat: Infinity };
+  const length = config.length * (config.unit === 'bars' ? config.barBeats : 1), pattern = config.pattern;
+  const whole = Math.floor(elapsed / length + 1e-9), step = whole % pattern.length, cycles = Math.floor(whole / pattern.length);
+  const remainder = Math.max(0, elapsed - whole * length), deck = pattern[step] === 'A' ? 0 : 1;
+  const deckBeats = origins.map((origin, index) => {
+    if (config.advance === 'running') return origin + elapsed;
+    const letter = index === 0 ? 'A' : 'B';
+    let complete = 0, partial = 0;
+    for (let position = 0; position < pattern.length; position++) if (pattern[position] === letter) { complete++; if (position < step) partial++; }
+    return origin + (cycles * complete + partial) * length + (deck === index ? remainder : 0);
+  });
+  return { step, deck, active: [deck === 0, deck === 1], deckBeats, nextBeat: phase.startBeat + (whole + 1) * length };
+}
+export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, reverse: 'off', offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null, midi: {} });
 export function sanitizeDeckConfig(input = {}, previous = defaultDeckConfig()) {
   return { midi: sanitizeMidiParameters(input.midi, previous.midi), rate: clamp(input.rate ?? previous.rate ?? 1, 0.25, 8, previous.rate ?? 1), gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -4000000, 4000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
+    reverse: ['notes', 'controllers'].includes(input.reverse ?? previous.reverse) ? input.reverse ?? previous.reverse : 'off',
     loopStartBeats: input.loopStartBeats === undefined ? previous.loopStartBeats : input.loopStartBeats === null ? null : clamp(input.loopStartBeats, 0, MIDI_MIXER_LIMITS.beats),
     loopEndBeats: input.loopEndBeats === undefined ? previous.loopEndBeats : input.loopEndBeats === null ? null : clamp(input.loopEndBeats, 0, MIDI_MIXER_LIMITS.beats) };
 }

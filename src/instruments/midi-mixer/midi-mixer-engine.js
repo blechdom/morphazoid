@@ -1,14 +1,17 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
-import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
+import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
+import { reverseMidiAnalysis, buildMidiStateHistories, getMidiNoteGates, midiStateMessages } from './midi-mixer-reverse.js';
 export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
 const SOUNDFONT_URL = new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url);
 const safeCall = (callback, value) => { try { callback?.(value); } catch { /* Display callbacks cannot break audio. */ } };
-const emptyDeck = () => ({ name: '', analysis: null, config: defaultDeckConfig(), channels: [], token: 0, loaded: false });
+const emptyDeck = () => ({ name: '', analysis: null, sourceAnalysis: null, config: defaultDeckConfig(), channels: [], token: 0, loaded: false });
+export const MAX_MIDI_CHASE_MESSAGES = 4096;
 /** Compact channel histories support seeks without replaying past attacks. */
 export function compileDeck(analysis) {
+  if (!analysis.ppq) analysis = { ...analysis, ppq: 480 };
   const histories = new Map();
   for (const event of analysis.events) {
     if (event.kind === 8 || event.kind === 9) continue;
@@ -16,9 +19,24 @@ export function compileDeck(analysis) {
     if (!histories.has(key)) histories.set(key, []);
     histories.get(key).push(event);
   }
-  const count = analysis.notes.length, held = { start: new Float64Array(count), end: new Float64Array(count), maxEnd: new Float64Array(count), info: new Uint32Array(count), ids: new Uint32Array(count) };
+  const stateHistories = { ppq: analysis.ppq, channels: [...buildMidiStateHistories(analysis)].map(([channel, state]) => ({ channel, lanes: [...state.lanes.values()] })) };
+  const chaseMessages = stateHistories.channels.reduce((sum, channel) => sum + channel.lanes.reduce((count, lane) => count + Math.max(1, lane.current === undefined ? 0 : midiStateMessages(lane, lane.current).length), 0), 0);
+  if (chaseMessages > MAX_MIDI_CHASE_MESSAGES) throw new Error('This MIDI needs more than 4,096 controller restoration messages; the current source is unchanged.');
+  if (analysis.events.some(event => event.kind === 11 && event.a === 66 && event.b >= 64)) {
+    const warning = 'The browser SoundFont engine does not sustain continuous forward CC66 notes. Rejoined held gates and Reverse + controllers preserve recorded sostenuto lengths.';
+    analysis.warnings = [...new Set([...(analysis.warnings ?? []), warning])];
+  }
+  for (const channel of stateHistories.channels) for (const lane of channel.lanes) if (lane.kind === 'cc' && lane.number === 66) {
+    let rise = -Infinity, riseOrder = -Infinity;
+    for (const change of lane.changes) {
+      if (change.previous < 64 && change.value >= 64) { rise = change.tick; riseOrder = change.order; }
+      change.rise = rise; change.riseOrder = riseOrder;
+    }
+  }
+  const gates = getMidiNoteGates(analysis);
+  const count = gates.length, held = { keyEndOrder: new Float64Array(count), keyEnd: new Float64Array(count), stateHistories, start: new Float64Array(count), end: new Float64Array(count), maxEnd: new Float64Array(count), info: new Uint32Array(count), ids: new Uint32Array(count) };
   for (let index = 0; index < count; index++) {
-    const note = analysis.notes[index]; held.start[index] = note.beat; held.end[index] = note.beat + note.duration;
+    const note = gates[index]; held.start[index] = note.start / analysis.ppq; held.end[index] = note.end / analysis.ppq; held.keyEnd[index] = note.keyEnd / analysis.ppq; held.keyEndOrder[index] = note.keyEndOrder ?? Infinity;
     held.info[index] = (note.channel << 14) | (note.note << 7) | note.velocity;
     held.ids[index] = note.id ?? index;
   }
@@ -28,7 +46,7 @@ export function compileDeck(analysis) {
     return held.maxEnd[middle] = Math.max(held.end[middle], augment(low, middle), augment(middle + 1, high));
   };
   augment(0, count);
-  return { events: analysis.events, channels: analysis.channels, controllers: [...histories.values()], held, loopBeats: loopLength(analysis), durationBeats: analysis.durationBeats };
+  return { events: analysis.events, channels: analysis.channels, stateHistories, controllers: [...histories.values()], held, loopBeats: loopLength(analysis), durationBeats: analysis.durationBeats };
 }
 
 export class MidiMixerEngine {
@@ -42,7 +60,7 @@ export class MidiMixerEngine {
     this._playing = false; this._desiredAudio = false; this._audioEnabled = false; this._volume = 0.6; this._tempo = 120; this._crossfade = 0;
     this._beat = 0; this._anchor = this._now(); this._audioAnchor = null; this._audioTempo = 120;
     this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._sampleMidi = {}; this._noteSubscribers = new Set();
-    this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._error = null; this._abort = null;
+    this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._sources = [null, null]; this._weave = defaultWeaveConfig(); this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
     this._onPageHide = () => { void this.dispose(); }; this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
@@ -56,10 +74,11 @@ export class MidiMixerEngine {
       if (this._ready && this._audioAnchor !== null && this.context) beat += Math.max(0, this.context.currentTime - this._audioAnchor) * this._audioTempo / 60;
       else beat += Math.max(0, this._now() - this._anchor) * this._tempo / 60;
     }
-    return { ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
+    const weave = weavePosition(beat, this._weave, this._weavePhase);
+    return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
       tempo: this._tempo, beat, sampleBeat, samples: this._samples.filter(sample => sampleBeat < sample.startBeat + sample.analysis.durationBeats).map(({ compiled, sent, ...sample }) => ({ ...sample, midi: sanitizeMidiParameters(sample.midi), positionBeats: Math.max(0, sampleBeat - sample.startBeat) })), sampleMidi: sanitizeMidiParameters(this._sampleMidi), effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
-      decks: this._decks.map(deck => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), positionBeats: deckPosition(beat, deck.analysis, deck.config), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
+      decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
   subscribeNotes(callback) { if (typeof callback !== 'function') return () => {}; this._noteSubscribers.add(callback); return () => this._noteSubscribers.delete(callback); }
   _publishNotes(notes) { if (!notes.length) return; safeCall(this.onNotes, notes); for (const callback of this._noteSubscribers) safeCall(callback, notes); }
@@ -116,9 +135,29 @@ export class MidiMixerEngine {
     let analysis;
     try { analysis = parseMidi(buffer); } catch (error) { this._error = error.message; this._publish(); throw error; }
     const previous = this._decks[index];
-    const deck = { name: String(name).slice(0, 256), analysis, config: { ...previous.config, ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, midi: {}, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
-    this._decks[index] = deck; this._compiled[index] = compileDeck(analysis); this._error = null;
+    const bytes = buffer instanceof ArrayBuffer ? buffer.slice(0) : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    const sourceAnalysis = analysis, source = { buffer: bytes, analysis, cache: new Map() };
+    if (previous.config.reverse !== 'off') analysis = this._effectiveSource(index, previous.config.reverse, source).analysis;
+    const compiled = compileDeck(analysis);
+    const deck = { name: String(name).slice(0, 256), analysis, sourceAnalysis, config: { ...previous.config, ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, midi: {}, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
+    this._sources[index] = source; this._decks[index] = deck; this._compiled[index] = compiled; this._error = null;
     this._sendDeck(index); this._publish(); return this.state.decks[index];
+  }
+  _effectiveSource(index, mode, source = this._sources[index]) { if (!source) return null;
+    if (mode === 'off') return source;
+    if (!source.cache.has(mode)) {
+      const reversed = reverseMidiAnalysis(source.buffer, { mode });
+      reversed.analysis.warnings = [...new Set([...(reversed.analysis.warnings ?? []), ...reversed.warnings])];
+      source.cache.set(mode, reversed);
+    }
+    return source.cache.get(mode);
+  }
+  getDeckMidi(index) { this._checkIndex(index); return this._effectiveSource(index, this._decks[index].config.reverse)?.buffer.slice(0) ?? null; }
+  configureWeave(partial = {}) {
+    const state = this.state, progress = weavePosition(state.beat, this._weave, this._weavePhase);
+    this._weavePhase = { startBeat: state.beat, deckBeats: [...progress.deckBeats] };
+    this._weave = sanitizeWeaveConfig(partial, this._weave);
+    this._post({ type: 'weave', config: this._weave, phase: this._weavePhase }); this._publish(); return { ...this._weave };
   }
   async enableAudio() {
     if (this._disposed) return false;
@@ -173,21 +212,39 @@ export class MidiMixerEngine {
   pause() {
     this._freezeClock(); this._playing = false; this.stopSamples(); this._post({ type: 'transport', playing: false, beat: this._beat }); this._publish();
   }
-  stop() { this._beat = 0; this._playing = false; this._anchor = this._now(); this._audioAnchor = this.context?.currentTime ?? null; this.stopSamples(); this._post({ type: 'transport', playing: false, beat: 0 }); this._publish(); }
+  stop() { this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._beat = 0; this._playing = false; this._anchor = this._now(); this._audioAnchor = this.context?.currentTime ?? null; this.stopSamples(); this._post({ type: 'transport', playing: false, beat: 0 }); this._post({ type: 'weave', config: this._weave, phase: this._weavePhase }); this._publish(); }
   setTempo(value) {
     this._freezeClock(); this._tempo = clamp(value, 30, 300, this._tempo); this._audioTempo = this._tempo;
     this._post({ type: 'tempo', tempo: this._tempo }); this._updateEffects(); this._publish(); return this._tempo;
   }
   configureDeck(index, partial) {
     this._checkIndex(index); const deck = this._decks[index], next = sanitizeDeckConfig(partial, deck.config);
-    if (next.rate !== deck.config.rate && !Object.hasOwn(partial, 'offsetBeats')) next.offsetBeats = deck.config.offsetBeats + this.state.beat * ((deck.config.rate ?? 1) - next.rate);
+    const changed = next.reverse !== deck.config.reverse && deck.sourceAnalysis;
+    const effective = changed ? this._effectiveSource(index, next.reverse) : null;
+    const compiled = changed ? compileDeck(effective.analysis) : null;
+    const state = this.state, progress = weavePosition(state.beat, this._weave, this._weavePhase).deckBeats[index];
+    if (next.rate !== deck.config.rate && !Object.hasOwn(partial, 'offsetBeats')) next.offsetBeats = deck.config.offsetBeats + progress * ((deck.config.rate ?? 1) - next.rate);
+    if (changed) {
+      if ((next.reverse === 'off') !== (deck.config.reverse === 'off')) {
+        const span = deck.sourceAnalysis.durationBeats, position = state.decks[index].positionBeats;
+        if (!Object.hasOwn(partial, 'loopStartBeats') && !Object.hasOwn(partial, 'loopEndBeats') && ((deck.config.loopStartBeats ?? 0) !== 0 || deck.config.loopEndBeats !== null)) {
+          const bounds = loopBounds(deck.analysis, deck.config);
+          next.loopStartBeats = Math.max(0, span - Math.min(span, bounds.end));
+          next.loopEndBeats = Math.max(next.loopStartBeats + 1 / 32, span - Math.min(span, bounds.start));
+        }
+        const target = !this._playing && Math.abs(position) < 1e-9 ? 0 : Math.max(0, span - position);
+        if (!Object.hasOwn(partial, 'offsetBeats')) next.offsetBeats = target - loopBounds(effective.analysis, next).start - progress * next.rate;
+      }
+      deck.analysis = effective.analysis; this._compiled[index] = compiled; deck.token = ++this._serial;
+    }
     deck.config = next;
-    this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) };
+    if (changed) this._sendDeck(index); else this._post({ type: 'deck', index, config: deck.config, channels: deck.channels });
+    this._publish(); return { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) };
   }
   seekDeck(index, sourceBeat) {
     this._checkIndex(index); const deck = this._decks[index], bounds = loopBounds(deck.analysis, deck.config);
     const target = clamp(sourceBeat, bounds.start, bounds.end, bounds.start) - bounds.start;
-    let offset = target - this.state.beat * (deck.config.rate ?? 1);
+    let offset = target - weavePosition(this.state.beat, this._weave, this._weavePhase).deckBeats[index] * (deck.config.rate ?? 1);
     if (deck.config.loop) offset = ((offset + bounds.length / 2) % bounds.length + bounds.length) % bounds.length - bounds.length / 2;
     return this.configureDeck(index, { offsetBeats: offset });
   }
@@ -304,6 +361,7 @@ export class MidiMixerEngine {
     if (this._disposed || this.context !== context) throw new Error('MIDI mixer initialization cancelled.');
     this._freezeClock(); this._ready = true; this._audioAnchor = this._sampleAudioAnchor = context.currentTime; this._audioTempo = this._tempo;
     this._post({ type: 'sampleClock', beat: this._sampleBeat });
+    this._post({ type: 'weave', config: this._weave, phase: this._weavePhase });
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });
     this._post({ type: 'effects', synth: this._effects.synth });
     this._post({ type: 'audibility', enabled: this._desiredAudio, volume: this._volume });
