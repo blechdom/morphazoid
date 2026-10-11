@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en" class="blech-midi-root">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Blech MIDI: prepare playable drawings, send black MIDI and geometric stamps, and turn Automatapoeia rules into sound and upward-moving note trails." />
+    <title>Blech MIDI — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/midiphoria/midiphoria.css" />
+    <link rel="stylesheet" href="src/instruments/midi-mixer/midi-mixer.css" />
+    <link rel="stylesheet" href="src/instruments/blech-midi/blech-midi.css" />
+  </head>
+  <body class="blech-midi-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="midiphoria.html">midiophilia</a><a class="tab active" href="blech-midi.html" aria-current="page">blech midi</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="midiphoria.html">midiophilia</option><option value="blech-midi.html" selected>blech midi</option></select></label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">≈</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+        <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">50%</output></span><input id="outputLevel" aria-label="Blech MIDI output level" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+      </div>
+    </header>
+    <main id="blechMidi" class="blech-midi-workspace mixer-shell" data-view="draw">
+      <section class="blech-midi-stage" id="creativeStage" aria-labelledby="blechMidiTitle">
+        <div class="blech-midi-heading">
+          <a class="blech-midi-credit" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Visuals inspired by Nicholas C. Stanley’s Midiphoria ↗</a>
+          <h1 id="blechMidiTitle">Blech MIDI</h1>
+          <div class="blech-midi-modes" role="group" aria-label="MIDI source">
+            <button id="drawingModeButton" type="button" aria-pressed="true">Drawing &amp; stamps</button>
+            <button id="automataModeButton" type="button" aria-pressed="false">Automatapoeia</button>
+            <a href="midiphoria.html">Midiophilia ↗</a>
+          </div>
+        </div>
+        <div class="blech-midi-transport">
+          <button id="playButton" class="mini-action" type="button" data-primary-transport aria-label="Send prepared drawing" disabled>Send ↑</button>
+          <button id="creativeStop" class="mini-action" type="button">Stop</button>
+          <label class="control" for="creativeTempo"><span><b>Tempo</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="Blech MIDI tempo" type="range" min="30" max="300" step=".1" value="120" /></label>
+          <div id="creativeVolumeHost"></div>
+          <button id="creativeAudioStart" class="mini-action" type="button">Turn audio on</button>
+        </div>
+        <div id="creativeVisualizerHost" aria-label="Live MIDI output"></div>
+        <div class="blech-midi-flow-controls" id="creativeFlowControls"><output id="creativePlaybackStatus" aria-live="off">Ready</output></div>
+        <p id="creativeStatus" class="midiphoria-help" role="status"></p>
+        <section id="drawingEditor" aria-labelledby="drawingHeading">
+          <div class="blech-midi-preparation-heading"><h2 id="drawingHeading">Prepare a drawing</h2><button id="generateDrawingMidi" type="button" class="mini-action" disabled>Send ↑</button></div>
+          <div class="midiphoria-drawing-tools" id="drawingTools">
+            <div class="midiphoria-drawing-actions">
+              <button id="drawingErase" type="button" aria-pressed="false">Eraser</button>
+              <button id="drawingUndo" type="button" disabled>Undo</button>
+              <button id="drawingClear" type="button" disabled>Clear</button>
+              <a id="downloadDrawingMidi" download="blech-drawing.mid" hidden>Download MIDI</a>
+              <output id="drawingStatus" aria-live="polite">0 pixels</output>
+            </div>
+            <div class="midiphoria-drawing-stamps" role="group" aria-label="Drawing stamps">
+              <span>Shapes</span>
+              <button type="button" data-drawing-stamp="🙂" aria-label="Smile stamp">🙂</button>
+              <button type="button" data-drawing-stamp="⭐" aria-label="Star stamp">⭐</button>
+              <button type="button" data-drawing-stamp="❤" aria-label="Heart stamp">♥</button>
+              <button type="button" data-drawing-stamp="◆" aria-label="Diamond stamp">◇</button>
+              <button type="button" data-drawing-stamp="spiral">Spiral</button>
+              <button type="button" data-drawing-stamp="wave">Wave</button>
+              <button type="button" data-drawing-stamp="zigzag">Zigzag</button>
+            </div>
+          </div>
+          <div class="midiphoria-drawing-viewport"><canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="Blech MIDI preparation canvas" aria-describedby="drawingHelp">Pitch increases to the right. Send your drawing to hear it and see it move upward in the live output.</canvas></div>
+          <p id="drawingHelp" class="midiphoria-help">Draw, then Send ↑. Edit your next drawing while it plays. Pitch → · flow ↑. Arrows move · Space paints · Delete erases.</p>
+        </section>
+        <section id="automataMidiTools" aria-label="Prepare Automatapoeia MIDI" hidden></section>
+      </section>
+      <aside id="creativeControlsHost" aria-label="Black MIDI, geometric stamps and sound controls"></aside>
+      <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>Turn Audio on to hear your MIDI through the piano SoundFont. Send copies your prepared drawing into the live output; later edits leave that copy playing. Stamps and messages send immediately. Loop repeats active patterns, and Sync to tempo makes them follow the tempo knob. Stop clears the active patterns. Up to four patterns can play together; a fifth replaces the oldest.</p><p>Audio off stops active stamps. The preparation canvas stays ready. Drawings use arrow keys and Space or Enter; the live flow accepts Enter to send the selected stamp. Space elsewhere sends the prepared drawing or selected rule.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
+    </main>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/blech-midi/blech-midi-app.js"></script>
+  </body>
+</html>
