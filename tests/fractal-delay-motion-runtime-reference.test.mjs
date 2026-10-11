@@ -10,7 +10,7 @@ const digest = source => createHash('sha256').update(source).digest('hex');
 const read = (file, encoding = 'utf8') => readFile(new URL(`../${file}`, import.meta.url), encoding);
 
 test('exact motion packaging restores fresh main without replacing historical fixture hashes', async () => {
-  assert.equal(fractalMotionRuntimeChanges.baseCommit, 'a1c99185d15b320809f2fd5507b7e7a1565ac6f8');
+  assert.equal(fractalMotionRuntimeChanges.baseCommit, '4950ee88097854e5b78cbd4f94749c6d4108044d');
   assert.deepEqual(fractalMotionRuntimeChanges.changes.map(({ file }) => file), [
     'scripts/site/runtime-files.tsv', 'src/site/tap-tempo-targets.js',
   ]);

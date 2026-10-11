@@ -1,10 +1,10 @@
 {
-  "baseCommit": "a1c99185d15b320809f2fd5507b7e7a1565ac6f8",
+  "baseCommit": "4950ee88097854e5b78cbd4f94749c6d4108044d",
   "description": "Exact reviewed Fractal Delay motion helper row and two coordinate-tempo targets; retain all previous runtime bytes and frozen historical guards.",
   "changes": [
     {
       "file": "scripts/site/runtime-files.tsv",
-      "sha256": "8158270a729c870a3345d5e910095e615dcc82c3da98442d65118f69a492f20b",
+      "sha256": "8282061bcaf7883244b31ae20723739c02de9afd14ea3796d512a0b0c16442f8",
       "addition": "copy+require\tsrc/instruments/fractal-delay/parameter-motion.js\n"
     },
     {
