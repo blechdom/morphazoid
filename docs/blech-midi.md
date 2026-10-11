@@ -46,6 +46,15 @@ retains program, controller, pitch, velocity and envelope parameters supported b
 the existing MIDI stamp engine. Source settings apply to future sends; live
 parameters update active voices where supported.
 
+The collapsed **SoundFont & live effects** section keeps the stamp sound controls
+on this page. Open a local SF2/SF3 bank up to 32 MB, or restore TimGM6mb. Selecting
+a bank leaves Audio off until explicitly enabled. Banks stay in this browser;
+loading errors keep the previous usable bank. Filter frequency, echo mix,
+beat-based echo length, feedback, and the existing SoundFont reverb/chorus
+parameters update the same engine used by drawings, stamps, messages and rules.
+Tab changes preserve these settings. **Reset effects** restores their defaults
+without stopping the patterns or changing Audio, output level or the SoundFont.
+
 Automatapoeia contains all 256 elementary and 64 radius-2 totalistic rules, with
 the same seed, boundary, transform, pitch, articulation and generation controls
 as its previous Midiophilia tab. Its MIDI generator is distinct from the

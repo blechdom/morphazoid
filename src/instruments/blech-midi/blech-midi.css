@@ -37,6 +37,14 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-midi-notes { grid-column: 1 / -1; font-size: 12px; line-height: 1.6; color: #a1b4ae; }
 .blech-midi-notes summary { cursor: pointer; min-height: 36px; align-content: center; }
 .blech-midi-notes p { max-width: 85ch; }
+.blech-midi-effects { margin: 16px 0 0; padding-top: 8px; }
+.blech-midi-font-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 10px; }
+.blech-midi-font-controls .deck-file { display: grid; gap: 8px; min-width: 0; width: 100%; }
+.blech-midi-font-controls input { width: 100%; min-width: 0; }
+.blech-midi-font-controls output { overflow-wrap: anywhere; font-size: 11px; }
+.blech-midi-effect-controls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; margin: 18px 0; }
+.blech-midi-effect-controls input[type="number"], .blech-midi-effect-controls select { width: 100%; min-width: 0; margin-top: 6px; }
+.blech-midi-effects #mixerFontStatus:empty { display: none; }
 @media (max-width: 1050px) { .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; padding-inline: 16px; } }
 @media (max-width: 800px) {
   .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }
@@ -47,6 +55,8 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
   .blech-midi-workspace .automata-midi-rule-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (pointer: coarse) {
+  .blech-midi-transport #playButton, .blech-midi-preparation-heading #generateDrawingMidi { min-height: 48px; }
+  .blech-midi-effects > summary { min-height: 48px; align-content: center; }
   .blech-midi-workspace .blech-midi-transport button, .blech-midi-workspace .blech-midi-modes button,
   .blech-midi-workspace .blech-midi-preparation-heading button, .blech-midi-workspace .midiphoria-drawing-tools button { min-height: 48px; min-width: 48px; }
   .blech-midi-workspace :is(.midiphoria-drawing-actions a, .blech-midi-modes a, .blech-midi-notes summary) { min-height: 48px; display: inline-flex; align-items: center; }

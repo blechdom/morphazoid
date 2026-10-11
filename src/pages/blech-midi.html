@@ -69,7 +69,24 @@
         </section>
         <section id="automataMidiTools" aria-label="Prepare Automatapoeia MIDI" hidden></section>
       </section>
-      <aside id="creativeControlsHost" aria-label="Black MIDI, geometric stamps and sound controls"></aside>
+      <aside id="creativeControlsHost" aria-label="Black MIDI, geometric stamps and sound controls">
+        <details id="mixerEffects" class="mixer-effects blech-midi-effects"><summary>SoundFont &amp; live effects</summary>
+          <div class="blech-midi-font-controls">
+            <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open Blech MIDI SoundFont" /></label>
+            <button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
+            <output id="mixerFontName" aria-label="Current SoundFont">TimGM6mb</output>
+          </div>
+          <p id="mixerFontStatus" class="midiphoria-help" role="status"></p>
+          <div class="blech-midi-effect-controls">
+            <label class="control" for="mixerFilter"><span><b>Low-pass filter</b><output id="mixerFilterOut">Open</output></span><input id="mixerFilter" type="range" min="1.7781512504" max="4.30103" step=".01" value="4.30103" aria-label="Blech MIDI low-pass filter" /><input id="mixerFilterExact" type="number" min="60" max="20000" step="1" value="20000" aria-label="Blech MIDI filter frequency in Hz" /></label>
+            <label class="control" for="mixerEcho"><span><b>Echo</b><output id="mixerEchoOut">0%</output></span><input id="mixerEcho" type="range" min="0" max=".75" step=".01" value="0" aria-label="Blech MIDI echo mix" /></label>
+            <label class="control" for="mixerEchoTime"><span><b>Echo time</b></span><select id="mixerEchoTime"><option value="0.125">⅛ beat</option><option value="0.25">¼ beat</option><option value="0.5" selected>½ beat</option><option value="0.75">¾ beat</option><option value="1">1 beat</option><option value="1.5">1½ beats</option><option value="2">2 beats</option><option value="4">4 beats</option></select><input id="mixerEchoExact" type="number" min=".125" max="4" step=".001" value=".5" aria-label="Blech MIDI exact echo time in beats" /></label>
+            <label class="control" for="mixerFeedback"><span><b>Feedback</b><output id="mixerFeedbackOut">30%</output></span><input id="mixerFeedback" type="range" min="0" max=".8" step=".01" value=".3" aria-label="Blech MIDI echo feedback" /></label>
+          </div>
+          <div id="mixerSynthEffects"></div>
+          <button id="mixerEffectsReset" class="mini-action" type="button">Reset effects</button>
+        </details>
+      </aside>
       <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>Turn Audio on to hear your MIDI through the piano SoundFont. Send copies your prepared drawing into the live output; later edits leave that copy playing. Stamps and messages send immediately. Loop repeats active patterns, and Sync to tempo makes them follow the tempo knob. Stop clears the active patterns. Up to four patterns can play together; a fifth replaces the oldest.</p><p>Audio off stops active stamps. The preparation canvas stays ready. Drawings use arrow keys and Space or Enter; the live flow accepts Enter to send the selected stamp. Space elsewhere sends the prepared drawing or selected rule.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
     </main>
     <script type="module" src="nav.js"></script>
