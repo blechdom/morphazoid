@@ -1,4 +1,4 @@
-import { TRACE_LAYERS, sampleTraceLayer } from './trace-model.js';
+import { TRACE_LAYERS, sampleReaderLayer, readerGuide } from './trace-model.js';
 
 const MAX_SEGMENTS = 500000;
 const FALLBACK_SEGMENTS = 30000;
@@ -72,6 +72,7 @@ export class ContourRenderer {
     this.traceBank = null;
     this.traceGeometry = [];
     this.traceHeads = [];
+    this.beadGeometry = []; this.beadFlashes = []; this.guide = null; this.guideBuffer = null;
     this.traceEnabled = [true, true, true];
     this.uploadDirty = false;
     this.error = '';
@@ -82,7 +83,9 @@ export class ContourRenderer {
       this.contextLost = true;
       this.program = null;
       this.buffer = null;
+      this.guideBuffer = null;
       for (const layer of this.traceGeometry) if (layer) { layer.buffer = null; layer.uploadDirty = true; }
+      for (const layer of this.beadGeometry) { layer.buffer = null; layer.uploadDirty = true; }
     };
     this.onRestored = () => {
       if (this.disposed) return;
@@ -185,6 +188,15 @@ export class ContourRenderer {
     }
   }
 
+  setReaderBank(bank) {
+    if (bank === this.traceBank) return;
+    for (const layer of this.beadGeometry) if (layer.buffer && !this.contextLost) this.gl?.deleteBuffer(layer.buffer);
+    this.beadGeometry = bank ? bank.layers.map(layer => ({
+      points: Float32Array.from((layer.beads || []).flatMap(bead => [bead.x, bead.y])), buffer: null, uploadDirty: true,
+    })) : [];
+    this.traceBank = bank;
+  }
+
   transformFor(sourceView, size) {
     const view = this.currentView, ratio = sourceView.width / view.width;
     // Subtract global centers in double precision before GPU conversion.
@@ -231,7 +243,8 @@ export class ContourRenderer {
     };
   }
 
-  draw(result, currentView, { selectedPath = -1, scanPhase = 0, traceBank = null, tracePhase = 0, traceEnabled = [true, true, true], layers = null } = {}) {
+  draw(result, currentView, { selectedPath = -1, scanPhase = 0, traceBank = null, tracePhase = 0, traceEnabled = [true, true, true], layers = null,
+    toneEnabled = [true, true, true], drumEnabled = [false, false, false], moving = false, traceRate = .1, traceTravel = 0, drumHits = null } = {}) {
     if (this.disposed) return;
     this.setResult(result);
     this.currentView = viewOf(currentView || result?.view);
@@ -239,16 +252,31 @@ export class ContourRenderer {
     this.drawCalls = 0;
     this.drawnSegments = 0;
     this.highlightSegments = 0;
-    this.traceBank = traceBank;
+    this.setReaderBank(traceBank);
     this.traceEnabled = traceEnabled;
+    this.drumEnabled = drumEnabled;
     this.setTraceLayers(traceBank ? layers : null);
     const phase = ((finite(tracePhase, 0) % 1) + 1) % 1;
-    this.traceHeads = traceBank ? traceBank.layers.slice(0, 3).map((layer, index) => {
-      const point = sampleTraceLayer(layer, phase);
-      return point ? { ...point, index, phase, enabled: traceEnabled[index] !== false,
+    this.traceHeads = traceBank ? traceBank.layers.slice(0, 3).flatMap((layer, index) =>
+      sampleReaderLayer(layer, phase).map(point => ({ ...point, index, phase, enabled: traceEnabled[index] !== false && toneEnabled[index] !== false,
         x: traceBank.view.x + point.x * traceBank.view.width, y: traceBank.view.y + point.y * traceBank.view.width,
-        localX: point.x, localY: point.y, pathIndex: layer.pathIndex } : null;
-    }) : [];
+        localX: point.x, localY: point.y, pathIndex: layer.pathIndex }))) : [];
+    this.guide = traceBank ? readerGuide(traceBank, phase) : null;
+    this.beadFlashes = [];
+    const window = Math.max(.0001, traceRate * .16);
+    if (traceBank && moving) for (let index = 0; index < 3; index++) {
+      if (!drumEnabled[index] || traceEnabled[index] === false) continue;
+      for (const bead of traceBank.layers[index]?.beads || []) {
+        let age = Infinity;
+        if (drumHits) {
+          for (const hit of drumHits) if (hit.layer === index && hit.bead === bead.id && hit.bankId === traceBank.id) age = Math.min(age, traceTravel - hit.travel);
+        } else {
+          for (const position of bead.phases) age = Math.min(age, (phase - position + 1) % 1);
+          if (age > traceTravel) continue;
+        }
+        if (age >= 0 && age < window) this.beadFlashes.push({ ...bead, index, strength: 1 - age / window });
+      }
+    }
     const head = traceBank ? null : this.headAt(scanPhase);
     this.scanHead = head ? { x: this.sourceView.x + head.x * this.sourceView.width, y: this.sourceView.y + head.y * this.sourceView.width } : null;
     if (this.contextLost) return;
@@ -318,7 +346,7 @@ export class ContourRenderer {
       gl.uniform2f(this.scaleUniform, transform.scaleX, transform.scaleY);
       gl.uniform2f(this.translationUniform, transform.x, transform.y);
       gl.uniform1f(this.markerUniform, 0);
-      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], enabled ? .27 : .1);
+      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], enabled ? (this.traceBank.reader === 'trace' ? .27 : .65) : .1);
       if (geometry.vertices.length) {
         gl.drawArrays(gl.LINES, 0, geometry.vertices.length / 2);
         this.drawnSegments += geometry.vertices.length / 4; this.drawCalls++;
@@ -335,18 +363,52 @@ export class ContourRenderer {
     const transform = this.transformFor(viewOf(this.traceBank.view), size);
     gl.uniform2f(this.scaleUniform, transform.scaleX, transform.scaleY);
     gl.uniform2f(this.translationUniform, transform.x, transform.y);
-    gl.disableVertexAttribArray(this.pointAttribute);
+    if (this.guide) {
+      if (!this.guideBuffer) this.guideBuffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, this.guideBuffer);
+      gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([this.guide.x1, this.guide.y1, this.guide.x2, this.guide.y2]), gl.DYNAMIC_DRAW);
+      gl.enableVertexAttribArray(this.pointAttribute);
+      gl.vertexAttribPointer(this.pointAttribute, 2, gl.FLOAT, false, 0, 0);
+      gl.uniform1f(this.markerUniform, 0);
+      gl.uniform4f(this.colorUniform, .9, .95, 1, .6);
+      gl.drawArrays(gl.LINES, 0, 2); this.drawCalls++;
+    }
     gl.uniform1f(this.markerUniform, 1);
+    for (let index = 0; index < this.beadGeometry.length; index++) {
+      const geometry = this.beadGeometry[index];
+      if (!this.drumEnabled[index] || !geometry.points.length) continue;
+      if (!geometry.buffer) geometry.buffer = gl.createBuffer();
+      gl.bindBuffer(gl.ARRAY_BUFFER, geometry.buffer);
+      if (geometry.uploadDirty) { gl.bufferData(gl.ARRAY_BUFFER, geometry.points, gl.STATIC_DRAW); geometry.uploadDirty = false; }
+      gl.enableVertexAttribArray(this.pointAttribute); gl.vertexAttribPointer(this.pointAttribute, 2, gl.FLOAT, false, 0, 0);
+      const color = TRACE_LAYERS[index].rgba;
+      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], this.traceEnabled[index] ? .65 : .18);
+      gl.uniform1f(this.pointSizeUniform, 4 * size.dpr);
+      gl.drawArrays(gl.POINTS, 0, geometry.points.length / 2); this.drawCalls++;
+    }
+    gl.disableVertexAttribArray(this.pointAttribute);
+    for (const bead of this.beadFlashes) {
+      const color = TRACE_LAYERS[bead.index].rgba;
+      gl.vertexAttrib2f(this.pointAttribute, bead.x, bead.y);
+      gl.uniform1f(this.pointSizeUniform, (5 + 7 * bead.strength) * size.dpr);
+      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], .3 + .7 * bead.strength);
+      gl.drawArrays(gl.POINTS, 0, 1); this.drawCalls++;
+    }
+    if (this.guide?.center) {
+      gl.vertexAttrib2f(this.pointAttribute, this.guide.center.x, this.guide.center.y);
+      gl.uniform1f(this.pointSizeUniform, 6 * size.dpr); gl.uniform4f(this.colorUniform, 1, 1, 1, .8);
+      gl.drawArrays(gl.POINTS, 0, 1); this.drawCalls++;
+    }
     for (const head of this.traceHeads) {
       if (!head) continue;
       const color = TRACE_LAYERS[head.index].rgba;
       gl.vertexAttrib2f(this.pointAttribute, head.localX, head.localY);
       gl.uniform1f(this.pointSizeUniform, (head.enabled ? 10 : 7) * size.dpr);
-      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], head.enabled ? 1 : .28);
+      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], (head.enabled ? 1 : .28) * (head.presence ?? 1));
       gl.drawArrays(gl.POINTS, 0, 1); this.drawCalls++;
       if (head.enabled) {
         gl.uniform1f(this.pointSizeUniform, 3 * size.dpr);
-        gl.uniform4f(this.colorUniform, 1, 1, 1, 1);
+        gl.uniform4f(this.colorUniform, 1, 1, 1, head.presence ?? 1);
         gl.drawArrays(gl.POINTS, 0, 1); this.drawCalls++;
       }
     }
@@ -398,15 +460,29 @@ export class ContourRenderer {
         if (!geometry) continue;
         const camera = this.transformFor(geometry.sourceView, size), color = TRACE_LAYERS[index].rgba;
         const enabled = this.traceEnabled[index] !== false;
-        this.drawnSegments += drawSegments(0, geometry.vertices.length / 2, [...color.slice(0, 3), enabled ? .27 : .1], FALLBACK_SEGMENTS / 10, geometry.vertices, camera);
+        this.drawnSegments += drawSegments(0, geometry.vertices.length / 2, [...color.slice(0, 3), enabled ? (this.traceBank.reader === 'trace' ? .27 : .65) : .1], FALLBACK_SEGMENTS / 10, geometry.vertices, camera);
         const range = geometry.ranges[this.traceBank.layers[index]?.pathIndex];
         if (range?.count) this.highlightSegments += drawSegments(range.first, range.count, [...color.slice(0, 3), enabled ? .95 : .25], FALLBACK_SEGMENTS / 6, geometry.vertices, camera);
       }
       const camera = this.transformFor(viewOf(this.traceBank.view), size);
+      if (this.guide) {
+        ctx.strokeStyle = 'rgba(230,242,255,.6)'; ctx.lineWidth = size.dpr;
+        ctx.beginPath(); ctx.moveTo(...screen(this.guide.x1, this.guide.y1, camera));
+        ctx.lineTo(...screen(this.guide.x2, this.guide.y2, camera)); ctx.stroke(); this.drawCalls++;
+      }
+      const point = (x, y, radius, color, alpha) => {
+        ctx.globalAlpha = alpha; ctx.fillStyle = color;
+        ctx.beginPath(); ctx.arc(...screen(x, y, camera), radius * size.dpr, 0, Math.PI * 2); ctx.fill(); this.drawCalls++;
+      };
+      for (let index = 0; index < 3; index++) if (this.drumEnabled[index]) {
+        for (const bead of this.traceBank.layers[index]?.beads || []) point(bead.x, bead.y, 2, TRACE_LAYERS[index].color, this.traceEnabled[index] ? .65 : .18);
+      }
+      for (const bead of this.beadFlashes) point(bead.x, bead.y, 2.5 + 3.5 * bead.strength, TRACE_LAYERS[bead.index].color, .3 + .7 * bead.strength);
+      if (this.guide?.center) point(this.guide.center.x, this.guide.center.y, 3, '#fff', .8);
       for (const head of this.traceHeads) {
         if (!head) continue;
         const point = screen(head.localX, head.localY, camera);
-        ctx.globalAlpha = head.enabled ? 1 : .28;
+        ctx.globalAlpha = (head.enabled ? 1 : .28) * (head.presence ?? 1);
         ctx.fillStyle = TRACE_LAYERS[head.index].color;
         ctx.beginPath(); ctx.arc(point[0], point[1], (head.enabled ? 5 : 3.5) * size.dpr, 0, Math.PI * 2); ctx.fill();
         this.drawCalls++;
@@ -452,6 +528,9 @@ export class ContourRenderer {
       highlightSegments: this.highlightSegments, drawCalls: this.drawCalls, uploads: this.uploads,
       selectedPath: this.selectedPath, scanHead: this.scanHead && { ...this.scanHead },
       traceHeads: this.traceHeads.map(head => head && { ...head }),
+      readerGuide: this.guide && { ...this.guide },
+      visibleBeads: this.beadGeometry.reduce((sum, layer, i) => sum + (this.drumEnabled[i] ? layer.points.length / 2 : 0), 0),
+      beadFlashes: this.beadFlashes.map(bead => ({ id: bead.id, layer: bead.index, strength: bead.strength })),
       layers: this.traceGeometry.map((geometry, index) => ({
         id: TRACE_LAYERS[index].id, depth: geometry?.result.depth ?? null,
         pathIndex: this.traceBank?.layers[index]?.pathIndex ?? -1,
@@ -469,6 +548,8 @@ export class ContourRenderer {
     this.canvas.removeEventListener('webglcontextrestored', this.onRestored);
     if (!this.contextLost) {
       if (this.buffer) this.gl.deleteBuffer(this.buffer);
+      if (this.guideBuffer) this.gl.deleteBuffer(this.guideBuffer);
+      for (const layer of this.beadGeometry) if (layer.buffer) this.gl.deleteBuffer(layer.buffer);
       for (const layer of this.traceGeometry) if (layer?.buffer) this.gl.deleteBuffer(layer.buffer);
       if (this.program) this.gl.deleteProgram(this.program);
     }
@@ -482,5 +563,6 @@ export class ContourRenderer {
     this.traceBank = null;
     this.traceGeometry = [];
     this.traceHeads = [];
+    this.beadGeometry = []; this.beadFlashes = []; this.guide = null; this.guideBuffer = null;
   }
 }

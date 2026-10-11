@@ -1,5 +1,4 @@
-import { MODES, PRESETS, CONTOUR_LANDMARKS, TRACE_VOICES, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
-import { createTraceBank } from './trace-model.js';
+import { MODES, PRESETS, CONTOUR_LANDMARKS, TRACE_VOICES, DRUM_VOICES, sanitizeState, randomizeState, clamp, wrap, juliaParameter } from './model.js';
 import { VectorRenderer } from './renderer.js';
 import { ContourRenderer } from './contour-renderer.js';
 import { ContourNavigation } from './contour-navigation.js';
@@ -18,7 +17,9 @@ let request = 0, busy = false, queued = null, buildTimer = 0, frameId = 0, activ
 let contourRequest = 0, contourBusy = false, contourTimer = 0, contourResult = null, contourPhase = 'idle';
 let selectedPath = -1, candidates = [], navigation = null, lastContourSend = 0;
 let contourLayers = null, traceLayers = null, traceBank = null, tracePhase = 0;
-const isTrace = () => state.mode === 'explorer' && state.contourReader === 'trace';
+let readerRequest = 0, readerInFlight = null, readerQueued = null, readerTimer = 0;
+let traceTravel = 0, shepardTravel = 0, drumHits = [];
+const isTrace = () => state.mode === 'explorer' && state.contourReader !== 'xy';
 const playbackLabel = () => isTrace() ? 'Playing · synced detail layers' : 'Playing · shared XY oscillator';
 const noContour = () => isTrace() ? !traceBank?.layers.some(layer => layer.x.length) : selectedPath < 0;
 const modeMemory = new Map(), fields = new Map(), knobs = [];
@@ -27,7 +28,10 @@ const listen = (node, name, callback, options = {}) => node.addEventListener(nam
 const status = message => { $('status').textContent = message; };
 const renderer = new VectorRenderer($('stage'), $('waveforms'), $('parameterMap'));
 const contourRenderer = new ContourRenderer($('contourStage'));
-const audio = new VectorAudio({ onTelemetry(data) { telemetry = data; }, onError(error) {
+const audio = new VectorAudio({ onTelemetry(data) {
+  telemetry = data;
+  if (data.recentDrumHits?.length) drumHits = [...drumHits, ...data.recentDrumHits].slice(-128);
+}, onError(error) {
   armed = false; telemetry = null; strip.setAudioState('error'); status(error.message);
 } });
 const strip = createAudioStrip({ buttonId: 'audioButton', levelId: 'level', level, max: .8, onAudioClick: toggleAudio,
@@ -67,6 +71,29 @@ function build() {
 }
 
 const contourWorker = new Worker(new URL('./contour-worker.js', import.meta.url), { type: 'module' });
+const readerWorker = new Worker(new URL('./reader-worker.js', import.meta.url), { type: 'module' });
+function sendReader() {
+  if (disposed || readerInFlight || !readerQueued) return;
+  readerInFlight = readerQueued; readerQueued = null;
+  readerWorker.postMessage(readerInFlight);
+}
+readerWorker.onmessage = ({ data }) => {
+  const completed = readerInFlight; readerInFlight = null;
+  if (disposed) return;
+  if (data.id === readerRequest && state.mode === 'explorer') {
+    if (data.error) status(`Reader could not update: ${data.error} The previous sound is retained.`);
+    else {
+      traceBank = data.bank; traceLayers = completed.layers; drumHits = [];
+      audio.send({ type: 'trace-bank', bank: traceBank }); refreshTraceLayers();
+      $('contourProgress').textContent = noContour() ? 'No contour here' : contourBusy ? 'Refining…' : '';
+    }
+  }
+  sendReader();
+};
+readerWorker.onerror = event => {
+  readerInFlight = null; readerQueued = null;
+  status(`Reader stopped: ${event.message || 'reload to retry'}`);
+};
 function explorerView() {
   const rect = $('contourStage').parentElement.getBoundingClientRect();
   return { x: state.viewX, y: state.viewY, width: state.viewWidth, aspect: Math.max(.25, rect.width / Math.max(1, rect.height)) };
@@ -135,11 +162,12 @@ function queueSelectedSound() {
 }
 function updateTraceBank() {
   if (!contourLayers || contourPhase !== 'complete') return;
-  traceLayers = contourLayers;
-  traceBank = createTraceBank(traceLayers, { finePath: selectedPath, featureSize: state.featureSize,
-    anchor: state.strandX == null ? null : { x: state.strandX, y: state.strandY } });
-  audio.send({ type: 'trace-bank', bank: traceBank });
-  refreshTraceLayers();
+  readerQueued = { id: ++readerRequest, layers: contourLayers, options: {
+    finePath: selectedPath, featureSize: state.featureSize, contourReader: state.contourReader,
+    drumSpacing: state.drumSpacing, radarX: state.radarX, radarY: state.radarY, scanAngle: state.scanAngle,
+    anchor: state.strandX == null ? null : { x: state.strandX, y: state.strandY },
+  } };
+  clearTimeout(readerTimer); readerTimer = setTimeout(() => { readerTimer = 0; sendReader(); }, 35);
 }
 function refreshTraceLayers() {
   for (let i = 0; i < 3; i++) {
@@ -151,7 +179,10 @@ function refreshTraceLayers() {
 function drawContours() {
   contourRenderer.draw(contourResult, explorerView(), { selectedPath, scanPhase,
     traceBank: isTrace() ? traceBank : null, tracePhase,
-    traceEnabled: state.layerEnabled, layers: isTrace() ? traceLayers : null });
+    traceEnabled: state.layerEnabled, layers: isTrace() ? traceLayers : null,
+    toneEnabled: state.layerSustain, drumEnabled: state.layerDrums,
+    moving: playing, traceRate: telemetry?.traceRate ?? state.traceRate,
+    traceTravel, drumHits: armed ? drumHits : null });
 }
 function selectStrand(index, remember = true) {
   if (contourBusy || contourTimer || contourPhase !== 'complete' || !contourResult || index < 0 || index >= contourResult.closed.length) return;
@@ -210,16 +241,31 @@ const parameters = [
   ['contourBias', 'Edge detail', -8, 24, 1, v => `${Math.round((v + 8) / 32 * 100)}%`, 'shapeKnobs'],
   ['pitch', 'Pitch', 25, 1200, 1, v => `${v.toFixed(0)} Hz`, 'soundKnobs'],
   ['rotation', 'Rotation', -180, 180, 1, v => `${v.toFixed(0)}°`, 'soundKnobs'],
-  ['traceRate', 'Cycle rate', .01, 1, .001, v => `${(1 / v).toFixed(1)} s / cycle`, 'traceKnobs'],
-  ['featureSize', 'Feature size', .002, .08, .001, v => `${(v * 100).toFixed(1)}% of path`, 'traceKnobs'],
+  ['traceRate', 'Cycle rate', .01, 1, .001, v => `${(1 / v).toFixed(1)} s / cycle`, 'soundKnobs'],
+  ['featureSize', 'Feature size', .002, .08, .001, v => `${(v * 100).toFixed(1)}% of path`, 'mappingKnobs'],
+  ['radarX', 'Radar X', -.5, .5, .005, v => `${Math.round(v * 100)}%`, 'readerKnobs'],
+  ['radarY', 'Radar Y', -.5, .5, .005, v => `${Math.round(v * 100)}%`, 'readerKnobs'],
+  ['scanAngle', 'Scan angle', -180, 180, 1, v => `${Math.round(v)}°`, 'readerKnobs'],
+  ['toneLevel', 'Tone level', 0, 1, .01, v => `${Math.round(v * 100)}%`, 'mixKnobs'],
+  ['drumLevel', 'Drum level', 0, 1, .01, v => `${Math.round(v * 100)}%`, 'mixKnobs'],
+  ['bendTimbre', 'Bend → color', 0, 1, .01, v => v === 0 ? 'Off' : `${Math.round(v * 100)}%`, 'mappingKnobs'],
+  ['foldTimbre', 'Fold → texture', 0, 1, .01, v => v === 0 ? 'Off' : `${Math.round(v * 100)}%`, 'mappingKnobs'],
+  ['pitchDepth', 'Height → pitch', 0, 4, .05, v => v === 0 ? 'Off' : `±${v.toFixed(2)} oct`, 'mappingKnobs'],
+  ['panWidth', 'Position → pan', 0, 1, .01, v => v === 0 ? 'Center' : `${Math.round(v * 100)}%`, 'mappingKnobs'],
+  ['drumSpacing', 'Spacing', .006, .2, .001, v => `${(v * 100).toFixed(1)}% of view`, 'drumKnobs'],
+  ['drumDecay', 'Decay', .02, 1.5, .01, v => `${Math.round(v * 1000)} ms`, 'drumKnobs'],
+  ['drumPitch', 'Drum pitch', 30, 1800, 1, v => `${Math.round(v)} Hz`, 'drumKnobs'],
+  ['shepardCycles', 'Travel / cycle', 0, 4, .05, v => v === 0 ? 'Still' : `${v.toFixed(2)} oct`, 'shepardKnobs'],
+  ['shepardWidth', 'Octave spread', .5, 2, .05, v => `${v.toFixed(2)} oct`, 'shepardKnobs'],
 ];
 for (const [key, label, min, max, step, format, host] of parameters) {
   const field = createRangeField({ id: key, label, min, max, step, value: state[key], format,
     onInput: value => update({ [key]: value }),
   });
-  $(host).append(field); knobs.push(enhanceRangeKnob(field.input, { scale: ['pitch', 'traceRate', 'featureSize'].includes(key) ? 'log' : 'linear' })); fields.set(key, field);
+  $(host).append(field); knobs.push(enhanceRangeKnob(field.input, { scale: ['pitch', 'traceRate', 'featureSize', 'drumSpacing', 'drumDecay', 'drumPitch'].includes(key) ? 'log' : 'linear' })); fields.set(key, field);
 }
 listen($('contourReader'), 'change', () => update({ contourReader: $('contourReader').value }));
+listen($('shepardDirection'), 'change', () => update({ shepardDirection: $('shepardDirection').value }));
 for (let i = 0; i < 3; i++) {
   for (const voice of TRACE_VOICES) {
     const option = document.createElement('option'); option.value = voice;
@@ -230,6 +276,16 @@ for (let i = 0; i < 3; i++) {
   });
   listen($(`layerEnabled${i}`), 'change', () => {
     const layerEnabled = [...state.layerEnabled]; layerEnabled[i] = $(`layerEnabled${i}`).checked; update({ layerEnabled });
+  });
+  for (const voice of DRUM_VOICES) {
+    const option = document.createElement('option'); option.value = voice;
+    option.textContent = voice[0].toUpperCase() + voice.slice(1); $(`layerDrumVoice${i}`).append(option);
+  }
+  listen($(`layerDrumVoice${i}`), 'change', () => {
+    const layerDrumVoices = [...state.layerDrumVoices]; layerDrumVoices[i] = $(`layerDrumVoice${i}`).value; update({ layerDrumVoices });
+  });
+  for (const key of ['layerSustain', 'layerDrums']) listen($(`${key}${i}`), 'change', () => {
+    const values = [...state[key]]; values[i] = $(`${key}${i}`).checked; update({ [key]: values });
   });
 }
 for (const key of ['shape', 'component', 'traversal', 'readout']) listen($(key), 'change', () => update({ [key]: $(key).value }));
@@ -261,9 +317,17 @@ function sync() {
   $('traceControls').hidden = !trace; $('readerField').hidden = !explorer;
   $('xyReadoutField').hidden = trace; $('waveformMonitor').hidden = trace;
   $('traceLegend').hidden = !trace; $('contourLegend').hidden = !explorer || trace;
-  $('scanHint').textContent = trace ? 'one shared cycle · three voices' : 'trace slowed 256×';
+  $('scanHint').textContent = trace ? 'one shared cycle · three layers' : 'trace slowed 256×';
+  $('traceLegend').lastElementChild.textContent = state.contourReader === 'trace'
+    ? 'click a fine strand to follow its neighborhood' : 'contacts sustain · beads strike on crossing';
+  $('nextStrand').hidden = ['radar', 'scan'].includes(state.contourReader);
   $('contourReader').value = state.contourReader;
-  for (let i = 0; i < 3; i++) { $(`layerVoice${i}`).value = state.layerVoices[i]; $(`layerEnabled${i}`).checked = state.layerEnabled[i]; }
+  for (let i = 0; i < 3; i++) {
+    $(`layerVoice${i}`).value = state.layerVoices[i]; $(`layerEnabled${i}`).checked = state.layerEnabled[i];
+    $(`layerDrumVoice${i}`).value = state.layerDrumVoices[i];
+    for (const key of ['layerSustain', 'layerDrums']) $(`${key}${i}`).checked = state[key][i];
+  }
+  $('shepardDirection').value = state.shepardDirection;
   refreshTraceLayers();
   $('gestureHint').textContent = explorer ? 'drag to pan · scroll / pinch to zoom' : '↔ rotation · ↕ clearance';
   $('contourQuality').value = state.contourQuality;
@@ -278,12 +342,19 @@ function sync() {
   fields.get('radius').hidden = explorer; fields.get('detail').hidden = explorer;
   fields.get('contourBias').hidden = !explorer;
   fields.get('rotation').hidden = trace;
+  fields.get('traceRate').hidden = !trace;
+  fields.get('radarX').hidden = state.contourReader !== 'radar';
+  fields.get('radarY').hidden = state.contourReader !== 'radar';
+  fields.get('scanAngle').hidden = state.contourReader !== 'scan';
+  fields.get('pitchDepth').labelElement.textContent = state.contourReader === 'radar' ? 'Distance → pitch' : 'Height → pitch';
+  $('readerKnobs').hidden = !['radar', 'scan'].includes(state.contourReader);
+  $('readerOptions').hidden = !['radar', 'scan'].includes(state.contourReader);
   $('mapLabel').textContent = explorer ? 'Region in Mandelbrot' : state.mode === 'mandelbrot' ? 'Cardioid + period-two bulb' : 'Julia parameter c';
   $('demoDescription').textContent = {
     julia: 'Counter-rotating vectors make a Julia contour. The same curve is the waveform.',
     mandelbrot: 'A contour around the whole Mandelbrot set. Move closer to reveal its structure.',
     voyager: 'A moving Mandelbrot parameter continuously reshapes the Julia oscillator.',
-    explorer: trace ? 'Three detail levels, three synced voices. Height sings, position pans, and bends color the sound.' : 'Zoom into the outline. New detail emerges as you move; select a strand to shape the sound.',
+    explorer: trace ? 'Explore synced detail layers with tones, drum beads, and adjustable contour mappings.' : 'Zoom into the outline. New detail emerges as you move; select a strand to shape the sound.',
   }[state.mode];
   history.replaceState(null, '', `#${state.mode}`);
   presets?.refresh();
@@ -292,8 +363,10 @@ function sync() {
 }
 function update(patch) {
   state = sanitizeState({ ...state, ...patch }); sync(); audio.send({ type: 'state', state });
-  if (Object.hasOwn(patch, 'featureSize')) updateTraceBank();
-  if (Object.keys(patch).some(k => !['pitch', 'rotation', 'speed', 'readout', 'vectors', 'reference', 'contourReader', 'traceRate', 'featureSize', 'layerVoices', 'layerEnabled'].includes(k))) build();
+  const keys = Object.keys(patch);
+  if (keys.some(key => ['featureSize', 'contourReader', 'drumSpacing', 'radarX', 'radarY', 'scanAngle'].includes(key))) updateTraceBank();
+  if (keys.some(key => ['mode', 'shape', 'component', 'radius', 'detail', 'depth', 'angle', 'traversal',
+    'viewX', 'viewY', 'viewWidth', 'contourBias', 'contourQuality'].includes(key))) build();
 }
 function switchMode(mode) {
   if (!MODES.some(m => m.id === mode) || mode === state.mode) return;
@@ -311,14 +384,14 @@ function setPlaying(value) {
 async function toggleAudio() {
   if (disposed || starting || stopping) return;
   if (armed) {
-    armed = false; stopping = true; telemetry = null; strip.setAudioState('off');
+    armed = false; stopping = true; telemetry = null; drumHits = []; strip.setAudioState('off');
     status('Audio off'); setPlaying(playing);
     try { await audio.stop(); } finally { stopping = false; }
     return;
   }
   starting = true; strip.setAudioState('starting');
   try {
-    await audio.start({ state, bank, traceBank, level, playing, scanPhase, tracePhase, voyage });
+    await audio.start({ state, bank, traceBank, level, playing, scanPhase, tracePhase, traceTravel, shepardTravel, voyage });
     if (disposed) return;
     // Edits and Play while loading must win over the initial snapshot.
     audio.send({ type: 'state', state }); audio.send({ type: 'bank', bank });
@@ -332,7 +405,7 @@ async function toggleAudio() {
 listen($('playButton'), 'click', () => setPlaying(!playing));
 listen($('reset'), 'click', () => {
   state = { ...fitOpeningView(PRESETS.find(p => p.snapshot.mode === state.mode).snapshot) };
-  scanPhase = 0; tracePhase = 0; voyage = 0; telemetry = null;
+  scanPhase = 0; tracePhase = 0; traceTravel = 0; drumHits = []; voyage = 0; telemetry = null;
   audio.send({ type: 'reset' }); audio.send({ type: 'state', state }); sync(); build();
 });
 listen(window, 'hashchange', () => switchMode(location.hash.slice(1)));
@@ -367,10 +440,16 @@ function frame(time) {
     const elapsed = playing && audio.context.state === 'running' ? Math.max(0, audio.context.currentTime - telemetry.time) : 0;
     scanPhase = wrap(telemetry.scanPhase + elapsed * telemetry.frequency / 256);
     tracePhase = wrap((telemetry.tracePhase ?? tracePhase) + elapsed * (telemetry.traceRate ?? state.traceRate));
+    traceTravel = (telemetry.traceTravel ?? traceTravel) + elapsed * (telemetry.traceRate ?? state.traceRate);
+    shepardTravel = (telemetry.shepardTravel ?? shepardTravel) + elapsed * (telemetry.traceRate ?? state.traceRate) * state.shepardCycles * (state.shepardDirection === 'fall' ? -1 : 1);
+    drumHits = drumHits.filter(hit => traceTravel - hit.travel < Math.max(.002, state.traceRate * .2));
     voyage = wrap(telemetry.voyage + (state.mode === 'voyager' ? elapsed * state.speed : 0));
   } else if (playing && !armed) {
     scanPhase = wrap(scanPhase + dt * state.pitch / 256);
-    if (isTrace()) tracePhase = wrap(tracePhase + dt * state.traceRate);
+    if (isTrace()) {
+      traceTravel += dt * state.traceRate; tracePhase = wrap(traceTravel);
+      shepardTravel += dt * state.traceRate * state.shepardCycles * (state.shepardDirection === 'fall' ? -1 : 1);
+    }
     if (state.mode === 'voyager') voyage = wrap(voyage + dt * state.speed);
   }
   if (time - lastPaint > 1000 / 30 && !document.hidden) {
@@ -383,10 +462,14 @@ function frame(time) {
 }
 
 export function diagnosticSnapshot() {
-  return { state: { ...state }, playing, armed, starting, ready: Boolean(bank) && (state.mode !== 'explorer' || Boolean(contourResult)), building: busy || Boolean(queued) || (state.mode === 'explorer' && (contourBusy || Boolean(contourTimer))),
+  return { state: { ...state }, playing, armed, starting, ready: Boolean(bank) && (state.mode !== 'explorer' || Boolean(contourResult)), building: busy || Boolean(queued) || (state.mode === 'explorer' && (contourBusy || Boolean(contourTimer) || Boolean(readerInFlight) || Boolean(readerQueued))),
     frames: bank?.frames.length ?? 0, voyage, scanPhase, tracePhase, c: bank ? juliaParameter(bank.state, voyage) : null,
-    trace: { ready: Boolean(traceBank), phase: tracePhase, rate: telemetry?.traceRate ?? state.traceRate,
-      layers: traceBank?.layers.map((layer, i) => ({ pathIndex: layer.pathIndex, depth: layer.depth, samples: layer.x.length, enabled: state.layerEnabled[i], voice: state.layerVoices[i] })) ?? [] },
+    trace: { ready: Boolean(traceBank), phase: tracePhase, travel: traceTravel, rate: telemetry?.traceRate ?? state.traceRate,
+      reader: traceBank?.reader, bankId: traceBank?.id, drumTriggerCounts: telemetry?.drumTriggerCounts ?? [0, 0, 0],
+      shepardTravel,
+      layers: traceBank?.layers.map((layer, i) => ({ pathIndex: layer.pathIndex, depth: layer.depth, samples: layer.x.length,
+        contacts: layer.contacts?.length ?? 1, beads: layer.beads?.length ?? 0, events: layer.events?.length ?? 0,
+        enabled: state.layerEnabled[i], sustain: state.layerSustain[i], drums: state.layerDrums[i], voice: state.layerVoices[i] })) ?? [] },
     audioTime: audio.context?.currentTime ?? null, renderer: renderer.gl ? 'webgl' : 'canvas', disposed,
     contours: { request: contourRequest, phase: contourPhase, view: contourResult?.view ?? null, depth: contourResult?.depth ?? null,
       vertices: (contourResult?.points.length ?? 0) / 2, paths: contourResult?.closed.length ?? 0, selectedPath, stats: contourResult?.stats ?? null,
@@ -395,6 +478,7 @@ export function diagnosticSnapshot() {
 export async function dispose() {
   if (disposed) return; disposed = true; cancelAnimationFrame(frameId); clearTimeout(buildTimer); abort.abort();
   clearTimeout(contourTimer); contourWorker.terminate(); navigation?.destroy(); contourRenderer.destroy(); resizeObserver.disconnect();
+  clearTimeout(readerTimer); readerWorker.terminate(); readerInFlight = null; readerQueued = null;
   worker.terminate(); presets.destroy(); strip.destroy(); for (const knob of knobs) knob.destroy();
   for (const field of fields.values()) field.destroy(); renderer.destroy(); await audio.destroy();
 }

@@ -71,7 +71,7 @@ test('reader, drum and Shepard settings reject malformed values and remain bound
   assert.deepEqual(state.layerDrumVoices, ['thump', 'metal', 'metal']);
   assert.equal(state.drumSpacing, .006); assert.equal(state.drumDecay, 1.5); assert.equal(state.drumPitch, 120);
   assert.equal(state.radarX, -.5); assert.equal(state.radarY, .5); assert.equal(state.scanAngle, 180);
-  assert.equal(state.shepardCycles, .25); assert.equal(state.shepardWidth, 2);
+  assert.equal(state.shepardCycles, 0); assert.equal(state.shepardWidth, 2);
   assert.equal(state.bendTimbre, .5); assert.equal(state.foldTimbre, 1); assert.equal(state.pitchDepth, 0); assert.equal(state.panWidth, 1);
 });
 

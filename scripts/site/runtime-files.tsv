@@ -1842,6 +1842,7 @@ copy+require	src/instruments/vector-fractals/contour-renderer.js
 copy+require	src/instruments/vector-fractals/contour-navigation.js
 copy+require	src/instruments/vector-fractals/contour-audio.js
 copy+require	src/instruments/vector-fractals/trace-model.js
+copy+require	src/instruments/vector-fractals/reader-worker.js
 copy+require	src/instruments/vector-fractals/trace-dsp.js
 copy+require	src/instruments/vector-fractals/audio.js
 copy+require	src/instruments/vector-fractals/dsp.js

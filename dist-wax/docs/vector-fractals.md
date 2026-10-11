@@ -1,4 +1,4 @@
-# Vector Fractals — layered Trace and XY sound
+# Vector Fractals — configurable contour readers and XY sound
 
 Open `/vector-fractals.html#explorer`, `#julia`, `#mandelbrot` or `#voyager`. These demos are
 an independent work in progress; existing Julia and Fractal Synthesis instruments
@@ -13,7 +13,11 @@ are unchanged. Enable **Audio**, then **Play**. Audio and transport are separate
   moves the sampled level closer to the set; Fine increases spatial sampling.
   Click a strand or use Next strand to choose the sound source. Save SVG exports
   the completed visible paths, keeping cropped paths open. **Trace** plays Broad,
-  Curl and Fine contour levels together, with a separate voice and mute per level.
+  Curl and Fine contour levels together. **Radar** sweeps a shared ray, and
+  **Scan** sweeps a line out and back. Each level has independent Tone and Drum
+  switches and voice choices, plus a whole-layer mute. Open Contour mappings,
+  Drum beads and Shepard motion to adjust their behavior; zero mapping amounts
+  disable those mappings. Try Radar percussion, Scan and shimmer or Endless ascent.
   Set Cycle rate independently of Pitch. Choose **XY oscillator** to read one
   strand as a periodic waveform instead.
 - **Julia Vectors:** start with Pure circle, then Ellipse. Both have only the
@@ -66,7 +70,7 @@ the source strand; the waveform monitor shows the filtered, rotated audio.
 Existing sound continues during refinement, then crossfades to the new strand
 without resetting the carrier. A completed empty region crossfades to silence.
 
-### Shapes-inspired layered Trace
+### Shapes-inspired layered readers
 
 Trace treats the contours as slow musical paths. Three sampled Green-potential
 levels are visible together, colored amber (Broad), violet (Curl) and cyan (Fine).
@@ -83,13 +87,45 @@ region is silent and its row says “outside view.”
 
 | Visible quantity / control | Sound mapping |
 | --- | --- |
-| Height | Continuous exponential pitch about the reference Pitch; no scale quantization |
-| Horizontal position | Stereo pan using the same view coordinates for every layer |
-| Bending over Feature size | Harmonic brightness of the selected Sine, Reed or Glass voice |
+| Height / Radar distance | Continuous pitch about the reference, with 0–4 octaves of deviation; no scale quantization |
+| Horizontal position | Stereo pan using shared view coordinates; Position → pan sets width, zero centers it |
+| Bending over Feature size | Bend → color controls local turning's contribution to brightness, independently switchable at zero |
+| Deviation from a broader local chord | Fold → texture controls a separate bounded spectral texture; default off |
 | Cycle rate | 0.01–1 Hz (100–1 seconds per shared cycle), default 0.1 Hz |
 | Feature size | 0.2–8% of path arc length, default 1.5%; small follows tiny bends, large measures broader turns |
 | Per-layer checkbox | Smooth mute without restarting that layer's cycle |
-| Per-layer voice | Independent timbre choice; Broad/Curl/Fine use low/middle/high registers |
+| Tone switch and voice | Sine, Reed, Glass or Shepard; Broad/Curl/Fine use low/middle/high registers |
+| Drum switch and voice | Thump, Wood or Metal, independent of the sustained voice |
+| Drum Spacing | Equal arc distances in shared view-width units, 0.6–20% of view width, default 4% |
+| Drum pitch / decay | 30–1,800 Hz reference and 20–1,500 ms decay |
+| Radar X/Y / Scan angle | Move the ray origin or rotate the scan direction, changing contacts and rhythmic spacing |
+| Shepard motion | Rise/fall, 0–4 octaves of travel per reader cycle (zero holds it still), 0.5–2 octave spectral width |
+
+Tone level and Drum level independently mix the two mechanisms. Every source
+and mapping remains editable when disabled; switching it back on uses those
+saved settings. Reader selection, voice, spacing and mapping edits preserve
+transport. All musical settings belong to complete presets and randomization.
+
+Trace follows its selected strands; Radar and Scan intersect the visible paths
+at each contour level. Their chord is bounded to three tracked contacts per
+level. More detailed regions can have many more intersections than that; this
+is a selected, smoothed reading of the geometry. Reader trajectories and drum
+crossing schedules are prepared in a separate worker with at most 128 paths,
+2,048 intersection segments and 64 candidate intersections per level/sample.
+
+Drum beads are placed by arc distance, independently of adaptive vertex count.
+Closed Trace gives even pulses; open Trace slows near its turnarounds. Radar
+crosses each noncentral bead once per turn. Scan crosses beads on the outward
+and return sweeps, counting a turnaround bead once. Equal projected positions
+strike simultaneously. Clustering conveys projected contour density and
+orientation, rather than measuring curvature alone. At most 256 beads per
+level are displayed and scheduled; dense cases increase spacing evenly.
+The spacing uses the current view width, so zoom can change the bead pattern.
+
+Shepard voices recycle octave-spaced partials through a smooth spectral window.
+Their accumulated pitch motion continues across the visible cycle seam; it is
+an endless-pitch illusion over finite repeating geometry. Selecting another
+voice switches that layer back to its ordinary sustained tone.
 
 This adapts the semantics of Shapes' `shape-readers.js` and `shape-sound.js`:
 constant-distance Trace, geometric pitch/pan and curvature-driven timbre. It
@@ -97,9 +133,10 @@ does not treat every adaptive vertex as a percussion event. Subdividing a
 straight segment therefore does not manufacture extra notes. The voice names
 describe synthetic colors, not sampled or validated acoustic instruments.
 
-The worklet samples three bounded 2,048-point position/bend tables with separate
-continuous carrier phases. The canvas interpolates the same positions using
-audio telemetry. Geometry and voice edits preserve the cycle, banks and mutes
+The worklet samples bounded 2,048-point contact tables with separate continuous
+carrier phases, up to nine sustained contacts and 24 percussion tails.
+The canvas interpolates the same positions using audio telemetry, and armed
+drum flashes follow actual reported strikes. Geometry and voice edits preserve the cycle, banks and mutes
 fade smoothly, and Play pauses motion and releases sound. Reset restores the
 current demo and resets motion; presets and randomization preserve Audio, Play
 and output level. Audio-off Play remains a silent visual preview. During

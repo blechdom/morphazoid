@@ -64,7 +64,7 @@ export function sanitizeState(input = {}) {
     radarX: clamp(s.radarX, -.5, .5, 0), radarY: clamp(s.radarY, -.5, .5, 0),
     scanAngle: clamp(s.scanAngle, -180, 180, 0),
     shepardDirection: s.shepardDirection === 'fall' ? 'fall' : 'rise',
-    shepardCycles: clamp(s.shepardCycles, .25, 4, 1), shepardWidth: clamp(s.shepardWidth, .5, 2, 1),
+    shepardCycles: clamp(s.shepardCycles, 0, 4, 1), shepardWidth: clamp(s.shepardWidth, .5, 2, 1),
   };
 }
 
@@ -223,7 +223,7 @@ export function randomizeState(_previous, random = Math.random) {
     drumPitch: 45 * 20 ** random(), bendTimbre: random(), foldTimbre: random(),
     pitchDepth: random() * 4, panWidth: random(), radarX: random() - .5, radarY: random() - .5,
     scanAngle: random() * 360 - 180, shepardDirection: pick(['rise', 'fall']),
-    shepardCycles: .25 * 16 ** random(), shepardWidth: .5 + random() * 1.5 });
+    shepardCycles: random() < .15 ? 0 : .25 * 16 ** random(), shepardWidth: .5 + random() * 1.5 });
 }
 
 export const PRESETS = Object.freeze([
