@@ -1,6 +1,10 @@
 // Slow readers follow the sampled contour itself. These tables are control
 // signals, not bandlimited single-cycle oscillator waves.
 export const TRACE_TABLE_SIZE = 2048;
+export const READER_CONTACT_LIMIT = 3;
+export const READER_SEGMENT_LIMIT = 2048;
+export const READER_BEAD_LIMIT = 256;
+const READER_CANDIDATE_LIMIT = 64;
 export const TRACE_LAYERS = Object.freeze([
   Object.freeze({ id: 'broad', label: 'Broad', color: '#ffba76', rgba: [1, 186 / 255, 118 / 255, 1] }),
   Object.freeze({ id: 'curl', label: 'Curl', color: '#c69bff', rgba: [198 / 255, 155 / 255, 1, 1] }),
@@ -88,24 +92,36 @@ function canonicalAnchor(path) {
   return path.vertices.reduce((best, vertex) => vertex.x > best.x || (vertex.x === best.x && vertex.y > best.y) ? vertex : best);
 }
 
-function traceLayer(path, result, anchor, featureSize) {
-  if (!path) return { x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), pathIndex: -1, closed: false, depth: result?.depth ?? 0 };
-  const x = new Float32Array(TRACE_TABLE_SIZE), y = new Float32Array(TRACE_TABLE_SIZE), bend = new Float32Array(TRACE_TABLE_SIZE);
-  const seam = path.closed ? nearest(path, anchor).distance : 0;
+function featuresAt(path, distance, featureSize) {
   // Neighbours are specified in geometric arc length, never a number of source
   // vertices. Subdividing the exact same polyline therefore cannot add strikes.
   const radius = Math.min(featureSize * path.total / 2, path.total / 8);
+  const point = atDistance(path, distance), before = atDistance(path, distance - radius), after = atDistance(path, distance + radius);
+  const ax = point.x - before.x, ay = point.y - before.y, bx = after.x - point.x, by = after.y - point.y;
+  let bend = 0;
+  if (Math.hypot(ax, ay) > 1e-12 && Math.hypot(bx, by) > 1e-12) bend = Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)) / Math.PI;
+  // Fold measures indentation against a broader chord. It is intentionally a
+  // different geometric signal from the fine neighbourhood's turning angle.
+  const broadRadius = Math.min(radius * 4, path.total / 4);
+  const left = atDistance(path, distance - broadRadius), right = atDistance(path, distance + broadRadius);
+  const dx = right.x - left.x, dy = right.y - left.y;
+  const fraction = clamp(((point.x - left.x) * dx + (point.y - left.y) * dy) / Math.max(1e-30, dx * dx + dy * dy), 0, 1);
+  const span = path.closed ? 2 * broadRadius : Math.min(path.total, distance + broadRadius) - Math.max(0, distance - broadRadius);
+  const fold = clamp(Math.hypot(point.x - left.x - fraction * dx, point.y - left.y - fraction * dy) / Math.max(1e-12, span / 2), 0, 1);
+  return { ...point, bend, fold };
+}
+
+function traceLayer(path, result, anchor, featureSize) {
+  if (!path) return { x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), fold: new Float32Array(0), pathIndex: -1, closed: false, depth: result?.depth ?? 0 };
+  const x = new Float32Array(TRACE_TABLE_SIZE), y = new Float32Array(TRACE_TABLE_SIZE), bend = new Float32Array(TRACE_TABLE_SIZE), fold = new Float32Array(TRACE_TABLE_SIZE);
+  const seam = path.closed ? nearest(path, anchor).distance : 0;
   for (let i = 0; i < TRACE_TABLE_SIZE; i++) {
     const phase = i / TRACE_TABLE_SIZE;
     const distance = seam + path.total * (path.closed ? phase : .5 - .5 * Math.cos(TAU * phase));
-    const point = atDistance(path, distance), before = atDistance(path, distance - radius), after = atDistance(path, distance + radius);
-    const ax = point.x - before.x, ay = point.y - before.y, bx = after.x - point.x, by = after.y - point.y;
-    x[i] = point.x; y[i] = point.y;
-    if (Math.hypot(ax, ay) > 1e-12 && Math.hypot(bx, by) > 1e-12) {
-      bend[i] = Math.abs(Math.atan2(ax * by - ay * bx, ax * bx + ay * by)) / Math.PI;
-    }
+    const point = featuresAt(path, distance, featureSize);
+    x[i] = point.x; y[i] = point.y; bend[i] = point.bend; fold[i] = point.fold;
   }
-  return { x, y, bend, pathIndex: path.pathIndex, closed: path.closed, depth: result.depth };
+  return { x, y, bend, fold, pathIndex: path.pathIndex, closed: path.closed, depth: result.depth };
 }
 
 /**
@@ -113,7 +129,7 @@ function traceLayer(path, result, anchor, featureSize) {
  * `anchor`, when provided, is an absolute complex-plane point (Y upwards).
  * Missing levels stay empty; we never duplicate a finer contour to fill them.
  */
-export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015 } = {}) {
+export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015, contourReader = 'trace', drumSpacing = .04, radarX = 0, radarY = 0, scanAngle = 0 } = {}) {
   const sources = Array.isArray(results) ? results.slice(0, 3) : [null, null, results];
   while (sources.length < 3) sources.push(null);
   const sourceView = sources[2]?.view || sources.find(result => result?.view)?.view;
@@ -131,7 +147,26 @@ export function createTraceBank(results, { finePath = -1, anchor = null, feature
     return !best || proximity < best.proximity ? { path: candidate, proximity } : best;
   }, null)?.path);
   const size = clamp(finite(featureSize, .015), .00005, 1);
-  return { view, layers: sources.map((result, index) => traceLayer(selected[index], result, target, size)) };
+  const reader = ['radar', 'scan'].includes(contourReader) ? contourReader : 'trace';
+  const angle = clamp(finite(scanAngle, 0), -180, 180), radians = angle * Math.PI / 180;
+  const extent = (Math.abs(Math.cos(radians)) + Math.abs(Math.sin(radians)) / view.aspect) / 2;
+  const bank = {
+    view, reader, radarX: clamp(finite(radarX, 0), -.5, .5), radarY: clamp(finite(radarY, 0), -.5, .5),
+    scanAngle: angle, scanMin: -extent, scanMax: extent, layers: [],
+  };
+  bank.layers = sources.map((result, index) => {
+    const layer = traceLayer(selected[index], result, target, size);
+    const activePaths = reader === 'trace' ? selected[index] ? [selected[index]] : [] : boundedPaths(paths[index]);
+    layer.readerSegmentCount = activePaths.reduce((sum, path) => sum + path.segmentCount, 0);
+    layer.contacts = reader === 'trace'
+      ? layer.x.length ? [{ x: layer.x, y: layer.y, bend: layer.bend, fold: layer.fold, presence: new Float32Array(TRACE_TABLE_SIZE).fill(1) }] : []
+      : projectedContacts(activePaths, bank, size);
+    const percussion = percussionFor(activePaths, bank, target, size, clamp(finite(drumSpacing, .04), .006, .2));
+    layer.beads = percussion.beads; layer.events = percussion.events;
+    layer.beadSpacing = percussion.spacing;
+    return layer;
+  });
+  return bank;
 }
 
 /** The renderer and audio reader use this same cyclic, linear interpolation. */
@@ -143,5 +178,215 @@ export function sampleTraceLayer(layer, phase = 0) {
     x: layer.x[index] + (layer.x[next] - layer.x[index]) * mix,
     y: layer.y[index] + (layer.y[next] - layer.y[index]) * mix,
     bend: layer.bend[index] + (layer.bend[next] - layer.bend[index]) * mix,
+    fold: layer.fold?.length === count ? layer.fold[index] + (layer.fold[next] - layer.fold[index]) * mix : 0,
   };
+}
+
+// Keep original segments whenever they fit. For unusually dense results the
+// intersection model uses bounded arc resampling; bead placement still uses the
+// original path. The longest 128 paths share one per-layer segment budget.
+function boundedPaths(paths) {
+  const candidates = [...paths].sort((a, b) => b.total - a.total || a.pathIndex - b.pathIndex).slice(0, 128);
+  const count = candidates.reduce((sum, path) => sum + path.segmentCount, 0);
+  if (count <= READER_SEGMENT_LIMIT) return candidates;
+  const minimum = candidates.reduce((sum, path) => sum + (path.closed ? 3 : 1), 0);
+  const total = candidates.reduce((sum, path) => sum + path.total, 0);
+  let remaining = READER_SEGMENT_LIMIT - minimum;
+  return candidates.map(path => {
+    const base = path.closed ? 3 : 1;
+    const extra = Math.min(remaining, Math.floor((READER_SEGMENT_LIMIT - minimum) * path.total / total));
+    remaining -= extra;
+    const segmentCount = base + extra, vertices = [], lengths = new Float64Array(segmentCount + 1);
+    for (let i = 0; i <= segmentCount; i++) {
+      lengths[i] = path.total * i / segmentCount;
+      if (i < segmentCount || !path.closed) vertices.push(atDistance(path, lengths[i]));
+    }
+    return { ...path, original: path, vertices, lengths, segmentCount };
+  });
+}
+
+function percussionFor(paths, bank, anchor, featureSize, requestedSpacing) {
+  const originals = paths.map(path => path.original || path);
+  const countsFor = spacing => originals.map(path => path.closed ? Math.max(1, Math.round(path.total / spacing)) : Math.max(2, Math.round(path.total / spacing) + 1));
+  let spacing = requestedSpacing, counts = countsFor(spacing);
+  // Raising a common spacing, rather than slicing the event list, leaves each
+  // retained contour evenly beaded when the percussion budget is reached.
+  while (counts.reduce((sum, count) => sum + count, 0) > READER_BEAD_LIMIT) {
+    spacing *= 1.1; counts = countsFor(spacing);
+  }
+  const beads = [], events = [];
+  originals.forEach((path, pathIndex) => {
+    const count = counts[pathIndex], seam = path.closed ? nearest(path, anchor).distance : 0;
+    for (let i = 0; i < count; i++) {
+      const distance = seam + path.total * i / (path.closed ? count : count - 1);
+      const point = featuresAt(path, distance, featureSize);
+      const phases = eventPhases(point, bank, path.closed, i / (path.closed ? count : count - 1));
+      const id = beads.length, bead = { id, ...point, pathIndex: path.pathIndex, phases };
+      beads.push(bead);
+      for (const phase of phases) events.push({ phase, bead: id, ...point });
+    }
+  });
+  events.sort((a, b) => a.phase - b.phase || a.bead - b.bead);
+  return { beads, events, spacing };
+}
+
+function eventPhases(point, bank, closed, arcFraction) {
+  if (bank.reader === 'radar') {
+    const dx = point.x - bank.radarX, dy = point.y - bank.radarY;
+    if (Math.hypot(dx, dy) < 1e-9) return [];
+    const phase = wrap((Math.atan2(dy, dx) + Math.PI / 2) / TAU);
+    return [phase > 1 - 1e-10 ? 0 : phase];
+  }
+  let forward;
+  if (bank.reader === 'scan') {
+    const angle = bank.scanAngle * Math.PI / 180;
+    const position = (point.x * Math.cos(angle) + point.y * Math.sin(angle) - bank.scanMin) / (bank.scanMax - bank.scanMin);
+    if (position < -1e-7 || position > 1 + 1e-7) return [];
+    forward = clamp(position, 0, 1) / 2;
+  } else {
+    if (closed) return [arcFraction];
+    forward = Math.acos(clamp(1 - 2 * arcFraction, -1, 1)) / TAU;
+  }
+  if (forward < 1e-10) return [0];
+  if (Math.abs(forward - .5) < 1e-10) return [.5];
+  return [forward, 1 - forward];
+}
+
+/** Guide geometry in bank.view-relative width units; Y points upwards. */
+export function readerGuide(bank, phase = 0) {
+  if (!bank || bank.reader === 'trace') return null;
+  const position = wrap(finite(phase, 0));
+  const reach = Math.hypot(1, 1 / bank.view.aspect) + 1;
+  if (bank.reader === 'radar') {
+    const angle = TAU * position - Math.PI / 2;
+    const x = bank.radarX, y = bank.radarY, dx = Math.cos(angle), dy = Math.sin(angle);
+    return { type: 'radar', reader: 'radar', x, y, dx, dy, angle, center: { x, y }, x1: x, y1: y, x2: x + dx * reach, y2: y + dy * reach };
+  }
+  const angle = bank.scanAngle * Math.PI / 180, nx = Math.cos(angle), ny = Math.sin(angle);
+  const coordinate = bank.scanMin + (bank.scanMax - bank.scanMin) * (1 - Math.abs(2 * position - 1));
+  const x = nx * coordinate, y = ny * coordinate, dx = -ny, dy = nx;
+  return { type: 'scan', reader: 'scan', nx, ny, coordinate, x, y, dx, dy, x1: x - dx * reach, y1: y - dy * reach, x2: x + dx * reach, y2: y + dy * reach };
+}
+
+function intersections(paths, guide) {
+  const result = [];
+  for (const path of paths) {
+    for (let i = 0; i < path.segmentCount; i++) {
+      const a = path.vertices[i], b = path.vertices[(i + 1) % path.vertices.length];
+      const sx = b.x - a.x, sy = b.y - a.y;
+      let fraction, order;
+      if (guide.reader === 'radar') {
+        const denominator = guide.dx * sy - guide.dy * sx;
+        if (Math.abs(denominator) < 1e-12) continue;
+        const ax = a.x - guide.x, ay = a.y - guide.y;
+        fraction = (ax * guide.dy - ay * guide.dx) / denominator;
+        order = (ax * sy - ay * sx) / denominator;
+        if (order < 1e-9) continue;
+      } else {
+        const denominator = sx * guide.nx + sy * guide.ny;
+        if (Math.abs(denominator) < 1e-12) continue;
+        fraction = (guide.coordinate - a.x * guide.nx - a.y * guide.ny) / denominator;
+        order = (a.x + fraction * sx) * guide.dx + (a.y + fraction * sy) * guide.dy;
+      }
+      if (fraction < -1e-9 || fraction > 1 + 1e-9) continue;
+      fraction = clamp(fraction, 0, 1);
+      const distance = path.lengths[i] + fraction * (path.lengths[i + 1] - path.lengths[i]);
+      result.push({ x: a.x + fraction * sx, y: a.y + fraction * sy, path, distance, order });
+    }
+  }
+  result.sort((a, b) => a.order - b.order || a.path.pathIndex - b.path.pathIndex || a.distance - b.distance);
+  const unique = [];
+  for (const point of result) {
+    const previous = unique.at(-1);
+    if (previous?.path === point.path && Math.hypot(previous.x - point.x, previous.y - point.y) < 1e-8) continue;
+    unique.push(point);
+    if (unique.length >= READER_CANDIDATE_LIMIT) break;
+  }
+  return unique;
+}
+
+function arcSeparation(a, b) {
+  if (a.path !== b.path) return Infinity;
+  const delta = Math.abs(a.distance - b.distance) / a.path.total;
+  return a.path.closed ? Math.min(delta, 1 - delta) : delta;
+}
+
+function continuousContact(a, b) {
+  return a && b && arcSeparation(a, b) < .12 && Math.hypot(a.x - b.x, a.y - b.y) < .08;
+}
+
+function projectedContacts(paths, bank, featureSize) {
+  if (!paths.length) return [];
+  const samples = Array.from({ length: TRACE_TABLE_SIZE }, (_, i) => intersections(paths, readerGuide(bank, i / TRACE_TABLE_SIZE)));
+  const tracks = Array.from({ length: READER_CONTACT_LIMIT }, () => ({ point: null, missing: 0 }));
+  const histories = Array.from({ length: READER_CONTACT_LIMIT }, () => new Array(TRACE_TABLE_SIZE).fill(null));
+  // One warm-up lap gives a branch already crossing phase zero the same voice
+  // identity it had before the seam. Existing branches win before new contacts.
+  for (let step = 0; step < TRACE_TABLE_SIZE * 2; step++) {
+    const index = step % TRACE_TABLE_SIZE, candidates = samples[index], used = new Set(), assignments = new Array(READER_CONTACT_LIMIT).fill(null);
+    const matches = [];
+    tracks.forEach((track, slot) => {
+      if (!track.point) return;
+      candidates.forEach((point, candidate) => {
+        const arc = arcSeparation(track.point, point);
+        if (continuousContact(track.point, point)) matches.push({ slot, candidate, cost: arc + .05 * Math.hypot(point.x - track.point.x, point.y - track.point.y) });
+      });
+    });
+    matches.sort((a, b) => a.cost - b.cost || a.slot - b.slot || a.candidate - b.candidate);
+    for (const match of matches) {
+      if (assignments[match.slot] || used.has(match.candidate)) continue;
+      assignments[match.slot] = candidates[match.candidate]; used.add(match.candidate);
+    }
+    tracks.forEach((track, slot) => {
+      if (!assignments[slot] && (!track.point || track.missing >= 8)) {
+        const candidate = candidates.findIndex((_, i) => !used.has(i));
+        if (candidate >= 0) { assignments[slot] = candidates[candidate]; used.add(candidate); }
+      }
+      const point = assignments[slot];
+      if (point) { track.point = point; track.missing = 0; }
+      else track.missing++;
+      if (step >= TRACE_TABLE_SIZE) histories[slot][index] = point;
+    });
+  }
+  return histories.map((history, slot) => {
+    const table = { slot, x: new Float32Array(TRACE_TABLE_SIZE), y: new Float32Array(TRACE_TABLE_SIZE), bend: new Float32Array(TRACE_TABLE_SIZE), fold: new Float32Array(TRACE_TABLE_SIZE), presence: new Float32Array(TRACE_TABLE_SIZE) };
+    let last = history.findLast(Boolean);
+    if (!last) return null;
+    for (let i = 0; i < TRACE_TABLE_SIZE; i++) {
+      const point = history[i];
+      if (point) last = point;
+      const features = featuresAt(last.path.original || last.path, last.distance, featureSize);
+      table.x[i] = last.x; table.y[i] = last.y; table.bend[i] = features.bend; table.fold[i] = features.fold;
+      table.presence[i] = point ? 1 : 0;
+    }
+    // Symmetric precomputed fades at births/deaths and unmatched branch jumps
+    // avoid either a sounding teleport or a hard gate, including at phase zero.
+    for (let i = 0; i < TRACE_TABLE_SIZE; i++) {
+      const previous = history[(i + TRACE_TABLE_SIZE - 1) % TRACE_TABLE_SIZE], current = history[i];
+      if (continuousContact(previous, current) || (!previous && !current)) continue;
+      for (let offset = -8; offset <= 8; offset++) {
+        const at = (i + offset + TRACE_TABLE_SIZE) % TRACE_TABLE_SIZE;
+        table.presence[at] = Math.min(table.presence[at], Math.max(0, (Math.abs(offset + .5) - .5) / 8));
+      }
+    }
+    return table;
+  }).filter(Boolean);
+}
+
+/** Sample every sounding contact without inventing intersections between slots. */
+export function sampleReaderLayer(layer, phase = 0) {
+  const contacts = layer?.contacts;
+  if (!Array.isArray(contacts)) {
+    const legacy = sampleTraceLayer(layer, phase);
+    return legacy ? [{ ...legacy, slot: 0, presence: 1 }] : [];
+  }
+  const samples = [];
+  contacts.forEach((contact, slot) => {
+    const sample = sampleTraceLayer(contact, phase), count = contact.presence?.length ?? 0;
+    if (!sample || !count) return;
+    const position = wrap(finite(phase, 0)) * count, index = Math.floor(position), mix = position - index;
+    const presence = contact.presence[index] * (1 - mix) + contact.presence[(index + 1) % count] * mix;
+    if (presence > 1e-5) samples.push({ ...sample, slot: contact.slot ?? slot, presence });
+  });
+  return samples;
 }
