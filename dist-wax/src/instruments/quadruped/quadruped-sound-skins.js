@@ -5,6 +5,7 @@ import { generateKarplusStrongSamples, KARPLUS_STRONG_PRESETS } from "../karplus
 import { generateKarplusCarpetSamples } from "../karplus-carpet/karplus-carpet.js";
 import { RoachPercussion } from "../roach-synth/roach-synth-percussion.js";
 import { acousticVoice } from "../puggler/puggler-voice-dsp.js";
+import { SpiderFrictionString } from "../spider-synth/spider-synth-textures.js";
 
 /**
  * Contact-driven artistic voices, not recordings or animal/acoustic models.
@@ -80,6 +81,7 @@ const PHASES = Object.freeze({
   load: Object.freeze({ duration: 0.48, level: 0.32, pitch: 0.66 }),
   push: Object.freeze({ duration: 0.38, level: 0.30, pitch: 1.15 }),
   "toe-off": Object.freeze({ duration: 0.25, level: 0.20, pitch: 1.55 }),
+  slide: Object.freeze({ duration: 1, level: 0.48, pitch: 0.82 }),
 });
 const ROOTS = Object.freeze({ ground: 0.86, tendon: 2.15, porcelain: 3.45, voltage: 1.28, breath: 1.65,
   ...Object.fromEntries(EXTENDED_SKINS.map(skin => [skin.id, skin.root])) });
@@ -252,7 +254,58 @@ function renderSiblingVoice(view, skin, frames, frequency, random) {
   return samples;
 }
 
+// A finite friction gesture: irregular grains retain the selected sound's
+// body, while Spider's bowed delay and a moving filter add catch/release and
+// an opening/closing timbre. Prepared once per seeded bank entry, never per
+// animation frame; there is no held noise loop or Web Audio node per grain.
+function renderSlideUnit(view) {
+  const source = renderUnit({ ...view, phase: "touchdown" }).samples;
+  const random = seededRandom(`slide:${view.seed}:${view.limbId}`);
+  const rate = view.sampleRate;
+  const duration = Math.min(QUADRUPED_SOUND_LIMITS.maxDuration, .18 + view.resonance * .1 + view.spring * .035);
+  const frames = Math.ceil(duration * rate);
+  const grains = new Float32Array(frames), pressure = new Float32Array(frames);
+  const texture = .2 + view.roughness * .35 + view.scrape * .45;
+  for (let start = 0; start < frames;) {
+    const length = Math.ceil(rate * (.009 + random() * (.02 + texture * .035)));
+    const offset = Math.floor(random() ** 2 * source.length * .55);
+    const increment = .65 + random() * .7;
+    const amount = .25 + random() * .75;
+    for (let index = 0; index < length && start + index < frames; index++) {
+      const window = Math.sin(Math.PI * index / length) ** 2 * amount;
+      const position = offset + index * increment, left = Math.floor(position), fraction = position - left;
+      grains[start + index] += ((source[left] ?? 0) * (1 - fraction) + (source[left + 1] ?? 0) * fraction) * window;
+      pressure[start + index] += window;
+    }
+    start += Math.max(1, Math.ceil(rate * (.004 + random() ** 2 * (.036 - texture * .024))));
+  }
+  const samples = new Float32Array(frames);
+  const frequency = contactFrequency(view) * view.synthesisRatio;
+  const bow = new SpiderFrictionString(rate);
+  let low = 0, noiseLow = 0, color = 0;
+  for (let index = 0; index < frames; index++) {
+    const progress = index / Math.max(1, frames - 1);
+    const swell = Math.sin(Math.PI * progress);
+    const opening = Math.sin(Math.PI * progress) ** 1.4;
+    if (index % 32 === 0) {
+      const cutoff = clamp(frequency * (1.4 + view.brightness * 4 + opening * (12 + view.hardness * 24)), 35, rate * .42);
+      color = 1 - Math.exp(-TAU * cutoff / rate);
+      bow.tune(frequency * (.6 + opening * .8), .15 + view.spring * .15);
+    }
+    const white = random() * 2 - 1;
+    noiseLow += (white - noiseLow) * .06;
+    const drive = (.2 + Math.min(1.8, pressure[index]) * .5) * swell;
+    const friction = bow.sample(drive, texture, white);
+    const grit = (white - noiseLow) * pressure[index] * (.012 + view.scrape * .026);
+    const value = grains[index] * .85 + friction * 3 + grit;
+    low += (value - low) * color;
+    samples[index] = low * swell * Math.min(1, (frames - 1 - index) / (rate * .012));
+  }
+  return finishContactUnit(view, samples, frequency);
+}
+
 function renderUnit(view) {
+  if (view.phase === "slide") return renderSlideUnit(view);
   const phase = PHASES[view.phase];
   const random = seededRandom(`${view.seed}:${view.limbId}:${view.phase}`);
   const frequency = contactFrequency(view) * view.synthesisRatio;
@@ -353,6 +406,11 @@ function renderUnit(view) {
     envelope *= decayStep;
     bend *= bendDecay;
   }
+  return finishContactUnit(view, samples, frequency);
+}
+
+function finishContactUnit(view, samples, frequency) {
+  const frames = samples.length, phase = PHASES[view.phase];
   // Level-match before velocity/intensity gain. A gentle bounded peak curve
   // keeps the high-crest air/string excitations from becoming much quieter than
   // modal or FM contacts. It acts within each event, never pumps between steps.

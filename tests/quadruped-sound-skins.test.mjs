@@ -66,7 +66,7 @@ test("twenty skins retain Dirt compatibility and start on the shared Karplus eng
 
 test("all skin/phase/extreme combinations produce finite bounded events with silent edges", () => {
   for (const { id } of QUADRUPED_SOUND_SKINS) {
-    for (const phase of ["touchdown", "load", "push", "toe-off"]) {
+    for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) {
       for (const extreme of [0, 1]) {
         const render = renderQuadrupedContact({ skinId: id, phase, sampleRate: extreme ? 8000 : 48000,
           animal: { mass: extreme ? 2 : 0.3, compliance: extreme ? 1.6 : 0.4 },
@@ -168,7 +168,7 @@ test("a warmed 500 BPM trio workload allocates no additional sample buffers", ()
   const requests = [];
   for (let actor = 0; actor < 3; actor += 1) {
     for (const limb of ["front-left", "front-right", "rear-left", "rear-right"]) {
-      for (const phase of ["touchdown", "load", "push", "toe-off"]) {
+      for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) {
         for (let seed = 0; seed < 4; seed += 1) requests.push({ animal: { mass: 0.5 + actor * 0.5 }, phase, seed, contact: { id: limb } });
       }
     }
@@ -366,7 +366,7 @@ test("Spring extrema stay finite at every contact phase and pitch, with neutral 
       assert.equal(neutral.samples, bank.get({ skinId: id, spring }).samples);
     }
     for (const spring of [-1e99, 0, 0.35, 1, 1.8, 2.5, 1e99]) {
-      for (const phase of ["touchdown", "load", "push", "toe-off"]) for (const pitchSemitones of [-36, 0, 36]) {
+      for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) for (const pitchSemitones of [-36, 0, 36]) {
         const voice = bank.get({ skinId: id, spring, phase, pitchSemitones });
         assert.ok(voice.samples.every(value => Number.isFinite(value) && Math.abs(value) <= QUADRUPED_SOUND_LIMITS.maxPeak));
         assert.ok(rms(voice.samples) > 0.0001);
@@ -484,5 +484,54 @@ test("all twenty skins are reproducible and differ beyond overall gain", () => {
       const similarity = Math.abs(dot / (a.energy * b.energy));
       assert.ok(similarity < .98, `${a.id}/${b.id}/${seed}: normalized similarity ${similarity}`);
     }
+  }
+});
+
+
+test("slides evolve in timbre, vary their grains, and retain deterministic sound-skin bodies", () => {
+  // Equal-length normalized comparisons reject a mere gain change or a
+  // stretched propulsion sample. Windowed spectra measure tone over the slide;
+  // they do not establish whether a listener likes the result.
+  const correlation = (a, b) => {
+    let dot = 0, aa = 0, bb = 0;
+    for (let i = 0; i < a.length; i++) {
+      const position = i / (a.length - 1) * (b.length - 1), j = Math.floor(position), fraction = position - j;
+      const value = b[j] * (1 - fraction) + (b[j + 1] ?? b[j]) * fraction;
+      dot += a[i] * value; aa += a[i] ** 2; bb += value ** 2;
+    }
+    return dot / Math.sqrt(Math.max(1e-20, aa * bb));
+  };
+  const centroid = (samples, sampleRate) => {
+    const windowed = Float64Array.from(samples, (x, i) => x * Math.sin(Math.PI * i / (samples.length - 1)) ** 2);
+    let weighted = 0, total = 0;
+    for (let probe = 0; probe < 64; probe++) {
+      const frequency = 35 * (Math.min(sampleRate * .42, 9000) / 35) ** (probe / 63);
+      const coefficient = 2 * Math.cos(2 * Math.PI * frequency / sampleRate);
+      let a = 0, b = 0;
+      for (const value of windowed) { const next = value + coefficient * a - b; b = a; a = next; }
+      const power = Math.max(0, a * a + b * b - coefficient * a * b) * frequency;
+      weighted += power * frequency; total += power;
+    }
+    return weighted / Math.max(1e-20, total);
+  };
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const centroids = [0, 0, 0];
+    for (const seed of [7, 101, 904]) {
+      const options = { skinId: id, phase: "slide", seed };
+      const slide = renderQuadrupedContact(options);
+      assert.ok(rms(slide.samples) > .008, `${id}: audible friction`);
+      assert.deepEqual(slide.samples, renderQuadrupedContact(options).samples);
+      assert.ok(Math.abs(correlation(slide.samples, renderQuadrupedContact({ ...options, phase: "push" }).samples)) < .95,
+        `${id}: a slide has its own texture`);
+      const smooth = renderQuadrupedContact({ ...options, scrape: 0 });
+      const gritty = renderQuadrupedContact({ ...options, scrape: 1 });
+      assert.ok(Math.abs(correlation(smooth.samples, gritty.samples)) < .95, `${id}: Grain changes texture`);
+      for (const [index, [start, end]] of [[.04, .24], [.4, .6], [.76, .96]].entries()) {
+        centroids[index] += centroid(slide.samples.subarray(Math.floor(slide.samples.length * start),
+          Math.floor(slide.samples.length * end)), slide.sampleRate) / 3;
+      }
+    }
+    assert.ok(Math.max(...centroids) / Math.min(...centroids) > 1.25, `${id}: tone changes through the slide`);
+    assert.ok(centroids[1] / ((centroids[0] + centroids[2]) / 2) > 1.15, `${id}: tone opens then closes`);
   }
 });

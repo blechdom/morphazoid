@@ -150,6 +150,11 @@
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
               <input id="tempo" name="tempo" type="range" min="10" max="1000" step="1" value="96" data-knob-scale="log" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests. Hold Shift while dragging for fine adjustment." />
             </label>
+            <div class="quadruped-action-row" role="group" aria-label="Animal actions">
+              <button type="button" data-motion-action="jump" title="Jump once with the selected animal">Jump</button>
+              <button type="button" data-motion-action="roll" title="Roll once with the selected animal">Roll</button>
+              <button type="button" data-motion-action="slide" title="Slide once with the selected animal">Slide</button>
+            </div>
             <div class="quadruped-performance-row">
               <div class="quadruped-pace" role="group" aria-label="Gait pace relative to global tempo">
                 <button type="button" data-pace-ratio="0.5" aria-pressed="false">½×</button>
@@ -219,7 +224,7 @@
           <details class="quadruped-control-group" open>
             <summary>
               <span><b>Motion + ground</b></span>
-              <output id="motionSummary">96 BPM · EARTH</output>
+              <output id="motionSummary">EARTH</output>
             </summary>
             <div class="quadruped-control-body">
               <div class="quadruped-knob-bank">

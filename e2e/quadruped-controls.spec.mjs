@@ -164,14 +164,16 @@ async function installResetProbe(page) {
     const retimeAnchor = 'motor = createQuadrupedMotorState(scoreForActor(selectedActor), options);\n  actors[selectedActor].motor = motor;\n  rebaseMotorClock(now);';
     expect(source).toContain(retimeAnchor);
     const observedSource = source.replace(retimeAnchor, retimeAnchor + `
-      globalThis.__quadrupedClockOrigin = { position: motor.position, stoppedPosition, at: now };
+      globalThis.__quadrupedClockOrigin = { position: motor.position, stoppedPosition, at: now, audioAt: motorClock.audioTime };
     `);
     await route.fulfill({ response, body: observedSource + `
       globalThis.__quadrupedResetProbe = () => ({
         musical: capturePreset(), position: motor.position, stoppedPosition, selectedStep,
         courseOriginX, transportPlaying, audioOn: isAudioOn(), outputLevel: state.outputLevel,
         clockOrigin: globalThis.__quadrupedClockOrigin,
-        sinceOriginMs: performance.now() - (globalThis.__quadrupedClockOrigin?.at ?? performance.now()),
+        sinceOriginSeconds: graph && globalThis.__quadrupedClockOrigin?.audioAt != null
+          ? motorClock.audioTime - globalThis.__quadrupedClockOrigin.audioAt
+          : (performance.now() - (globalThis.__quadrupedClockOrigin?.at ?? performance.now())) / 1000,
         activeGesture: Boolean(activeGesture), gestureKey,
         actors: actors.map(actor => ({ position: actor.motor.position, offset: actor.offset,
           motion: Boolean(performances.get(actor)?.motion), travel: Boolean(performances.get(actor)?.travel),
@@ -259,10 +261,10 @@ test('Reset all restores the complete startup scene and zero clock from edited T
     expect(reset).toMatchObject({ clockOrigin: { position: 0, stoppedPosition: 0 }, selectedStep: 0, courseOriginX: 0, transportPlaying: playing, audioOn: playing, outputLevel: .23, activeGesture: false, gestureKey: null });
     if (playing) {
       // Default Walk advances 16 frames per beat; allow its one fixed integration
-      // tick of quantization, not an arbitrary tolerance on the reset position.
+      // tick of quantization on the owning audio clock, not wall-clock time.
       const frameRate = startup.actors[0].tempoBpm * 16 / 60;
       expect(reset.position).toBeGreaterThanOrEqual(0);
-      expect(reset.position).toBeLessThanOrEqual((reset.sinceOriginMs / 1000 + 1 / 480) * frameRate);
+      expect(reset.position).toBeLessThanOrEqual((reset.sinceOriginSeconds + 1 / 480) * frameRate);
     } else expect(reset.position).toBe(0);
     expect(reset.stoppedPosition).toBe(reset.position);
     expect(reset.actors).toEqual([{ position: reset.position, offset: 0, motion: false, travel: false, call: false }]);
