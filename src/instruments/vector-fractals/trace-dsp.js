@@ -197,7 +197,7 @@ export class TraceDSP {
   setPhase(value) {
     this.travel = clamp(value, 0, 1e9, 0); this.phase = this.travel % 1;
     // A transport seek changes the location, not the already accumulated note.
-    // Initial startup has no initialized voices and can join any unwrapped lap.
+    // Initial startup joins any unwrapped lap at its reference pitch.
     this.anchorTraveler();
     this.seekEvents();
   }
@@ -329,9 +329,11 @@ export class TraceDSP {
     if (!this.travelerInitialized[slot]) {
       this.travelerInitialized[slot] = 1;
       this.travelerTurns[slot] = turn;
-      this.travelerPitch[slot] = -turn / TAU * this.params.travelerOctaves;
-      this.travelerSmoothedPitch[slot] = this.travelerPitch[slot];
-      this.travelerPositions[slot] = ((this.travelerPitch[slot] % 1) + 1) % 1;
+      // Silent preview or another reader may already have traversed many laps.
+      // Anchor here at the reference note; only future turning changes pitch.
+      this.travelerPitch[slot] = 0;
+      this.travelerSmoothedPitch[slot] = 0;
+      this.travelerPositions[slot] = 0;
       return;
     }
     // Span edits act on future turning. Re-multiplying historic laps would make

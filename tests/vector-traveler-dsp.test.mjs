@@ -30,15 +30,16 @@ function render(dsp, seconds, moving = true, baseFrequency = 160) {
 }
 
 test('Traveler turns right up and left down continuously; height and global Shepard direction do not set its pitch', () => {
-  for (const [turn, expected] of [[-TAU / 4, 80 * 2 ** .25], [TAU / 4, 80 * 2 ** -.25]]) {
+  for (const [direction, expected] of [[-1, 80 * 2 ** .25], [1, 80 * 2 ** -.25]]) {
     for (const y of [-.4, .4]) {
-      const dsp = make({ pitchDepth: 4, shepardDirection: 'fall', shepardCycles: 4 }, bank([contact(() => turn, 0, y)]));
+      const dsp = make({ pitchDepth: 4, shepardDirection: 'fall', shepardCycles: 4 }, bank([contact(t => direction * TAU * t, direction * TAU, y)]));
+      render(dsp, .25);
       const sound = render(dsp, .4, false);
       close(dsp.frequencies[0], expected, 1e-5); assert.ok(rms(sound.left) > .1);
-      close(dsp.travelerPitch[0], -turn / TAU, 1e-7);
+      close(dsp.travelerPitch[0], -direction * .25, 1e-7);
     }
   }
-  const fine = make({}, bank([contact(() => -.031 * TAU, 0)])); render(fine, .4, false);
+  const fine = make(); render(fine, .031); render(fine, .4, false);
   close(fine.frequencies[0], 80 * 2 ** .031, 1e-5);
 });
 
@@ -53,14 +54,14 @@ test('Traveler samples an unwrapped seam and all completed laps instead of retur
       assert.ok(delta >= 0 && delta < .00005, `seam delta ${delta}`); previous = dsp.travelerPitch[0];
     }
     close(dsp.travelerPitch[0] - start, .01, 2e-7);
-    close(dsp.travelerPitch[0], dsp.travel - 1 / dsp.sampleRate, 2e-7);
+    close(dsp.travelerPitch[0], dsp.travel - (laps + .997) - 1 / dsp.sampleRate, 2e-7);
   }
 });
 
 test('each detail layer drives its own signed Shepard pitch, including concave changes of direction', () => {
   const contacts = [contact(), contact(t => TAU * t, TAU), contact(t => TAU * .25 * Math.sin(TAU * t), 0)];
-  const dsp = make({ layerEnabled: [true, true, true], layerVoices: ['shepard', 'shepard', 'shepard'] }, bank(contacts), .25);
-  render(dsp, .4, false);
+  const dsp = make({ layerEnabled: [true, true, true], layerVoices: ['shepard', 'shepard', 'shepard'] }, bank(contacts));
+  render(dsp, .25); render(dsp, .4, false);
   close(dsp.travelerPitch[0], .25); close(dsp.travelerPitch[1], -.25); close(dsp.travelerPitch[2], -.25);
   close(dsp.travelerPositions[0], .25); close(dsp.travelerPositions[1], .75);
   const before = Array.from(dsp.travelerPitch); render(dsp, .1);
@@ -91,12 +92,32 @@ test('Traveler Shepard crosses octaves both ways without an impulse and keeps so
   }
 });
 
-test('ordinary voices reach a bounded four-octave excursion while Shepard keeps cycling at late transport times', () => {
+test('first activation joins late transport at its reference pitch and retains audible future contour detail', () => {
+  for (const travel of [4.3, 50.75, 50000.37]) for (const direction of [-1, 1]) {
+    const input = bank([contact(t => direction * TAU * t, direction * TAU)]);
+    const dsp = make({}, input, travel); render(dsp, .4, false);
+    close(dsp.travelerPitch[0], 0); close(dsp.frequencies[0], 80, 1e-5);
+    render(dsp, .25); render(dsp, .4, false);
+    close(dsp.travelerPitch[0], -direction * .25, 2e-7);
+    close(dsp.frequencies[0], 80 * 2 ** (-direction * .25), 2e-5);
+  }
+  const dsp = make({ contourReader: 'trace' }, bank([contact()], 'trace'), 90.4);
+  render(dsp, .2); dsp.setState(state); dsp.setBank(bank()); render(dsp, .4, false);
+  close(dsp.travelerPitch[0], 0); close(dsp.frequencies[0], 80, 1e-5);
+  render(dsp, .2); render(dsp, .4, false);
+  close(dsp.travelerPitch[0], .2, 1e-7);
+});
+
+test('restored long-running ordinary voices keep their bounded excursion while Shepard keeps cycling', () => {
   for (const sampleRate of [22050, 48000, 96000]) for (const direction of [-1, 1]) {
     const input = bank([contact(t => direction * TAU * t, direction * TAU)]);
     const ordinary = make({}, input, 50000.37, sampleRate); render(ordinary, .4, false);
+    const snapshot = ordinary.snapshotTraveler();
+    snapshot.pitch[0] = snapshot.smoothedPitch[0] = -direction * 50000.37;
+    ordinary.restoreTraveler(snapshot); render(ordinary, .4, false);
     close(ordinary.frequencies[0], direction < 0 ? 80 * 16 : 8, 1e-5);
     const endless = make({ layerVoices: ['shepard'] }, input, 50000.37, sampleRate);
+    endless.restoreTraveler(snapshot);
     render(endless, .4); const sound = render(endless, .2);
     assert.ok(rms(sound.left) > .08);
     assert.ok(sound.left.every(value => Number.isFinite(value) && Math.abs(value) < .91));
