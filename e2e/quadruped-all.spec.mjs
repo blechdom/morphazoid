@@ -264,7 +264,10 @@ for (const viewport of [{ label: 'desktop', width: 1440, height: 900 }, { label:
     expect(button.x - last.x - last.width).toBeGreaterThanOrEqual(0);
     expect(button.x - last.x - last.width).toBeLessThanOrEqual(12);
     expect(button.x + button.width).toBeLessThanOrEqual(viewport.width);
-    if (viewport.width < 900) expect(button.height).toBeGreaterThanOrEqual(44);
+    if (viewport.width < 900) {
+      expect(button.width).toBeGreaterThanOrEqual(44);
+      expect(button.height).toBeGreaterThanOrEqual(44);
+    }
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(1);
     await all(page).click();
     await expect(all(page)).toHaveAttribute('aria-pressed', 'true');
