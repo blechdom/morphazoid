@@ -113,6 +113,8 @@ test('scheduled NRPN automation cannot replace held generators, original drum ki
     assert.equal(melodic.patch.program,81);assert.equal(drums.patch.program,0);assert.equal(drums.drumChannel,true);
     await p.command({type:'deck',index:0,config:{...config,midi:{program:81}},channels:voices.map(v=>({...v,program:v.channel===9?8:null}))});
     assert.equal(drums.patch.program,8);assert.equal(drums.drumChannel,true,'explicit channel program remains a drum-bank selection');
+    await p.command({type:'midiAction',index:0,channel:9,action:{kind:'parameter',registered:false,parameter:(26<<7)|36,value:60<<7}});
+    assert.equal(drums.drumParams[36].gain,.5,'drum-level NRPN survives the complete procedural action');
     await p.command({type:'transport',playing:true,beat:0});assert.ok(render(20).l>0);
     for(const descriptor of MIDI_GENERATOR_PARAMETERS) {
       const current=p.clock.beat;

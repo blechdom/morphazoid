@@ -337,7 +337,6 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         ? [[action.registered ? 101 : 99, action.parameter >> 7], [action.registered ? 100 : 98, action.parameter & 127], [6, action.value >> 7], [38, action.value & 127], [101,127], [100,127]]
         : [[action.controller, action.value]];
       for (const [cc, value] of events) this.emit(source, { kind:11, channel:original, a:cc, b:value, beat:0 }, 0);
-      this.applyMidi(index, this.effectiveMidi.get(index) ?? {}, true);
     }
   }
   publish() {
