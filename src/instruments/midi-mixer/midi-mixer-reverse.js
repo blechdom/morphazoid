@@ -47,35 +47,46 @@ function sourceMetadata(bytes, analysis) {
 export function getMidiNoteGates(analysis, { sustain = true, onWarning = () => {} } = {}) {
   const warn = onWarning;
   const ppq = analysis.ppq, endTick = Math.round(analysis.durationBeats * ppq);
-  const notes = analysis.notes.map(note => ({ ...note, start: Math.round(note.beat * ppq), keyEnd: Math.min(endTick, Math.round((note.beat + note.duration) * ppq)), end: Math.min(endTick, Math.round((note.beat + note.duration) * ppq)), releaseVelocity: 0 }));
+  const notes = analysis.notes.map(note => ({ ...note, start: Math.round(note.beat * ppq), keyEnd: Math.min(endTick, Math.round((note.beat + note.duration) * ppq)), keyEndOrder: Infinity, end: Math.min(endTick, Math.round((note.beat + note.duration) * ppq)), releaseVelocity: 0 }));
   const byId = new Map(notes.map(note => [note.id, note])), states = new Map();
-  for (const channel of analysis.channels) states.set(channel.channel, { sustain: false, sostenuto: false, active: new Set(), held: new Set(), latched: new Set() });
-  const held = (state, note) => state.sustain || state.sostenuto && state.latched.has(note);
-  const close = (state, note, tick) => { note.end = Math.max(note.start + 1, tick); state.held.delete(note); state.latched.delete(note); };
-  const release = (state, tick) => { for (const note of state.held) if (!held(state, note)) close(state, note, tick); };
+  for (const channel of analysis.channels) states.set(channel.channel, { sustain: false, sostenuto: false, captureTick: -1, captureOrder: -1, active: new Set(), sustainHeld: new Set(), sostenutoHeld: new Set() });
+  const captured = (state, note) => state.sostenuto && (note.start < state.captureTick || note.start === state.captureTick && note.id < state.captureOrder);
+  const close = (state, note, tick) => { note.end = Math.max(note.start + 1, tick); state.sustainHeld.delete(note); state.sostenutoHeld.delete(note); };
+  const releaseGroup = (state, group, tick) => { for (const note of group) close(state, note, tick); };
+  const keyUp = (note, tick, order) => { if (tick < note.keyEnd || tick === note.keyEnd && order < note.keyEndOrder) { note.keyEnd = tick; note.keyEndOrder = order; } };
   let baked = false;
+  const releaseKey = (state, note, tick, force = false) => {
+    if (!force && (captured(state, note) || state.sustain)) {
+      (captured(state, note) ? state.sostenutoHeld : state.sustainHeld).add(note); note.end = endTick; baked = true;
+    } else close(state, note, tick);
+  };
   for (const event of analysis.events) {
     const note = byId.get(event.noteId), state = states.get(event.channel), tick = Math.round(event.beat * ppq);
-    if (event.kind === 8 && note) { note.releaseVelocity = event.b; note.keyEnd = Math.min(note.keyEnd, tick); }
+    if (event.kind === 8 && note) { note.releaseVelocity = event.b; keyUp(note, tick, event.order); }
     if (!sustain || !state) continue;
     if (event.kind === 9 && note) state.active.add(note);
-    else if (event.kind === 8 && note && state.active.delete(note)) {
-      if (held(state, note)) { state.held.add(note); note.end = endTick; baked = true; }
-      else close(state, note, tick);
-    } else if (event.kind === 11) {
-      if (event.a === 64) { state.sustain = event.b >= 64; release(state, tick); }
+    else if (event.kind === 8 && note && state.active.delete(note)) releaseKey(state, note, tick);
+    else if (event.kind === 11) {
+      if (event.a === 64) { state.sustain = event.b >= 64; if (!state.sustain) releaseGroup(state, state.sustainHeld, tick); }
       else if (event.a === 66) {
-        if (event.b >= 64 && !state.sostenuto) for (const active of state.active) state.latched.add(active);
-        state.sostenuto = event.b >= 64; if (!state.sostenuto) state.latched.clear(); release(state, tick);
-      } else if (event.a === 121) { state.sustain = state.sostenuto = false; state.latched.clear(); release(state, tick); }
+        // A capture timestamp replaces copying the whole active chord on each
+        // pedal-down. Each released note visits at most two held sets, keeping
+        // dense Black MIDI with many pedal changes linear in notes + events.
+        if (event.b >= 64 && !state.sostenuto) { state.captureTick = tick; state.captureOrder = event.order; }
+        state.sostenuto = event.b >= 64;
+        if (!state.sostenuto) {
+          if (state.sustain) { for (const sustained of state.sostenutoHeld) state.sustainHeld.add(sustained); state.sostenutoHeld.clear(); }
+          else releaseGroup(state, state.sostenutoHeld, tick);
+        }
+      } else if (event.a === 121) {
+        state.sustain = state.sostenuto = false; releaseGroup(state, state.sustainHeld, tick); releaseGroup(state, state.sostenutoHeld, tick);
+      }
       else if (event.a === 120 || event.a >= 123) {
         for (const active of state.active) {
-          active.keyEnd = Math.min(active.keyEnd, tick);
-          if (event.a !== 120 && held(state, active)) { state.held.add(active); active.end = endTick; baked = true; }
-          else close(state, active, tick);
+          keyUp(active, tick, event.order); releaseKey(state, active, tick, event.a === 120);
         }
         state.active.clear();
-        if (event.a === 120) { for (const sustained of state.held) close(state, sustained, tick); state.latched.clear(); }
+        if (event.a === 120) { releaseGroup(state, state.sustainHeld, tick); releaseGroup(state, state.sostenutoHeld, tick); }
       }
     }
   }

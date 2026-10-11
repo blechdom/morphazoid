@@ -93,6 +93,27 @@ test('sostenuto captures keys already down, while later keys release normally', 
   assert.ok(cc(result.analysis, 66).every(([, value]) => value === 0));
 });
 
+test('gate metadata preserves same-tick attack, sostenuto capture and release order for chase', () => {
+  const source = parseMidi(midi([[[0, 144, 60, 70], [0, 144, 62, 80], [1, 128, 62, 0], [1, 176, 66, 127], [1, 144, 64, 90], [1, 128, 60, 0], [2, 128, 64, 0], [4, 176, 66, 0]]]));
+  const gates = getMidiNoteGates(source), capture = source.events.find(event => event.kind === 11 && event.a === 66);
+  const earlier = gates.find(note => note.note === 60), released = gates.find(note => note.note === 62), later = gates.find(note => note.note === 64);
+  assert.equal(earlier.keyEnd, 960); assert.ok(earlier.keyEndOrder > capture.order); assert.equal(earlier.end, 4 * 960);
+  assert.equal(released.keyEnd, 960); assert.ok(released.keyEndOrder < capture.order); assert.equal(released.end, 960);
+  assert.equal(later.start, 960); assert.ok(later.id > capture.order); assert.equal(later.end, 2 * 960);
+});
+
+test('dense held chords and repeated pedal changes keep gate work bounded and release correctly', () => {
+  const events = [];
+  for (let i = 0; i < 10000; i++) events.push([0, 144, i % 128, 50 + i % 50]);
+  for (let i = 0; i < 10000; i++) events.push([(i + 1) / 960, 176, 66, i % 2 ? 0 : 127]);
+  events.push([12, 176, 64, 127], [12, 176, 66, 127]);
+  for (let i = 0; i < 10000; i++) events.push([13, 128, i % 128, 0]);
+  events.push([14, 176, 66, 0], [15, 176, 64, 0]);
+  const source = parseMidi(midi([events], 16)), started = performance.now(), gates = getMidiNoteGates(source);
+  assert.equal(gates.length, 10000); assert.ok(gates.every(note => note.keyEnd === 13 * 960 && note.end === 15 * 960));
+  assert.ok(performance.now() - started < 1500, 'pedal toggles must not repeatedly visit every active note');
+});
+
 test('reset controllers releases pedals and restores RP-015 performance values while retaining patch, volume, pan and parameters', () => {
   const source = midi([[[0, 176, 7, 77], [0, 176, 10, 22], [0, 176, 11, 40], [0, 224, 0, 70], [0, 176, 64, 127], [0, 176, 101, 0], [0, 176, 100, 0], [0, 176, 6, 12], [0, 144, 60, 100], [2, 128, 60, 0], [4, 176, 121, 0]]]);
   const result = reverseMidiAnalysis(source, { mode: 'controllers' });
