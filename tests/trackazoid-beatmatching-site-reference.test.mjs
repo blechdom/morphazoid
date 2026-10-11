@@ -1,3 +1,4 @@
+import { restoreBlechLiveRuntime } from './helpers/blech-live-runtime-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
@@ -10,7 +11,7 @@ import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-re
 const digest = source => createHash('sha256').update(source).digest('hex');
 const read = async file => {
   let source = await readFile(new URL(`../${file}`, import.meta.url), 'utf8');
-  for (const normalize of [restoreMidiNoteEffectsRuntime, restoreSoundFontsSite, restoreSpartialOrganRuntime]) {
+  for (const normalize of [restoreBlechLiveRuntime, restoreMidiNoteEffectsRuntime, restoreSoundFontsSite, restoreSpartialOrganRuntime]) {
     source = normalize(source, file, { allowRestored: true });
   }
   return source;

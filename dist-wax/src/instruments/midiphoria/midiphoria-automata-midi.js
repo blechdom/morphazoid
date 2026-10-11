@@ -7,10 +7,10 @@ import { generateGridMidi } from './midiphoria-text-midi.js';
 export const AUTOMATA_MIDI_DEFAULTS = Object.freeze({
   family: 'elementary', rule: 30, boundary: 'fixed', transform: 'none',
   seed: 1, density: 0, columns: 48, rows: 64, rowBeats: .25, lowestNote: 48,
-  articulation: 'retrigger', velocity: 100,
+  articulation: 'retrigger', velocity: 100, seedRow: null,
 });
 
-function settingsFor(input) {
+export function sanitizeAutomataMidiSettings(input) {
   const source = input && typeof input === 'object' ? input : {};
   const bounded = (key, low, high) => {
     const value = source[key] == null ? AUTOMATA_MIDI_DEFAULTS[key] : Number(source[key]);
@@ -29,21 +29,32 @@ function settingsFor(input) {
     lowestNote: Math.round(bounded('lowestNote', 0, 128 - columns)),
     articulation: source.articulation === 'hold' ? 'hold' : 'retrigger',
     velocity: Math.round(bounded('velocity', 1, 127)),
+    seedRow: Array.isArray(source.seedRow) || ArrayBuffer.isView(source.seedRow)
+      ? Array.from({ length: columns }, (_, index) => Number(Number.isFinite(Number(source.seedRow[index])) && Number(source.seedRow[index]) > 0))
+      : null,
   };
+}
+
+/** One binary row, in ascending pitch order. Explicit rows are copied so callers
+ * can evolve them without mutating the chosen seed. */
+export function automataMidiSeedRow(options = {}) {
+  const settings = sanitizeAutomataMidiSettings(options);
+  if (settings.seedRow) return settings.seedRow.slice();
+  let seed = settings.seed;
+  // Match the live instrument's centered cell / seeded Bernoulli initial row.
+  return Array.from({ length: settings.columns }, (_, column) => {
+    if (settings.density <= .001) return Number(column === Math.floor(settings.columns / 2));
+    seed = (1664525 * seed + 1013904223) >>> 0;
+    return Number(seed / 0x100000000 < settings.density);
+  });
 }
 
 /** Exact Automatapoeia rows become chromatic MIDI, with the seed heard first.
  * No resampling, scale snapping, cell thinning, or extra notes are introduced.
  */
 export function generateAutomataMidi(options = {}) {
-  const settings = settingsFor(options);
-  let seed = settings.seed;
-  // Match the live instrument's centered cell / seeded Bernoulli initial row.
-  let row = Array.from({ length: settings.columns }, (_, column) => {
-    if (settings.density <= .001) return Number(column === Math.floor(settings.columns / 2));
-    seed = (1664525 * seed + 1013904223) >>> 0;
-    return Number(seed / 0x100000000 < settings.density);
-  });
+  const settings = sanitizeAutomataMidiSettings(options);
+  let row = automataMidiSeedRow(settings);
   const pixels = [row];
   for (let index = 1; index < settings.rows; index++) {
     row = automatapoeiaTransformRow(

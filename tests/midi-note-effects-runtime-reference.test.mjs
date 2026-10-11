@@ -9,15 +9,16 @@ import { restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreFractalMotionRuntime } from './helpers/fractal-delay-motion-runtime-reference.mjs';
 import { restoreMidiMixerRuntime } from './helpers/midi-mixer-runtime-reference.mjs';
 import { restoreVectorFractalsSite } from './helpers/vector-fractals-site-reference.mjs';
+import { restoreBlechLiveRuntime } from './helpers/blech-live-runtime-reference.mjs';
 import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const url = new URL(`../${change.file}`, import.meta.url);
-// Keep the captured original Trackazoid MVP, peeling only later beatmatching
-// and independent organ changes before the note-effects guards.
+// Keep the captured Trackazoid MVP, peeling only later beatmatching,
+// live-automata and independent organ changes before the note-effects guards.
 const concurrent = source => restoreTrackazoidBeatmatchingSite(
-  restoreSpartialOrganRuntime(source, change.file, { allowRestored: true }),
-  change.file, { allowRestored: true },
+  restoreSpartialOrganRuntime(restoreBlechLiveRuntime(source, change.file, { allowRestored: true }),
+    change.file, { allowRestored: true }), change.file, { allowRestored: true },
 );
 const readFile = async (file, encoding) => concurrent(await readRawFile(file, encoding));
 const historical = [restoreTrackazoidSite, restoreFractalMotionRuntime, restoreMidiMixerRuntime, restoreVectorFractalsSite];

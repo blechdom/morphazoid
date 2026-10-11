@@ -1,4 +1,4 @@
-import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi } from './midiphoria-automata-midi.js';
+import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow } from './midiphoria-automata-midi.js';
 import { AUTOMATAPOEIA_RULES, AUTOMATAPOEIA_TOTALISTIC_RULES, AUTOMATAPOEIA_FAMILIES, AUTOMATAPOEIA_BOUNDARIES, AUTOMATAPOEIA_TRANSFORMS, automatapoeiaPreviewRows,
   automatapoeiaRowsPath } from '../cellular-automata/automatapoeia.js';
 
@@ -6,23 +6,23 @@ const SVG = 'http://www.w3.org/2000/svg';
 const catalogFor = family => family === 'totalistic-r2' ? AUTOMATAPOEIA_TOTALISTIC_RULES : AUTOMATAPOEIA_RULES;
 const formatBeats = value => Number(Number(value).toFixed(3)).toString();
 
-/** MIDI source controls only: previewing rules never arms Audio or starts a
- * transport. The owner chooses where the explicitly submitted score goes.
- */
-export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', actionLabel = 'Make MIDI', onGenerate } = {}) {
+/** Finite score preparation by default; optional live mode delegates transport
+ * and capture to its owner. Neither mode creates audio or advances a clock. */
+export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', actionLabel = 'Make MIDI', onGenerate, live: liveMode = false, onChange, onPlayPause, onRestart, onCapture } = {}) {
   const document = host.ownerDocument, window = document.defaultView ?? globalThis;
   const basePrefix = String(idPrefix).replace(/[^a-zA-Z0-9_-]/g, '-') || 'automataMidi';
   let prefix = basePrefix, suffix = 1;
   while (document.getElementById(`${prefix}Family`)) prefix = `${basePrefix}-${++suffix}`;
   const listeners = new AbortController(), inputs = new Map(), tiles = new Map();
   let settings = { ...AUTOMATA_MIDI_DEFAULTS }, score = null, currentError = null, dirty = true;
+  let liveState = { playing: false, generation: 0, row: [], history: [] }, captureBusy = false, captureTicket = 0, liveRasterKey = null;
   let disposed = false, previewFrame = null, url = null, ticket = 0, pending = null, busy = false, atlasFamily = null;
   const rememberedRules = new Map([['elementary', 30], ['totalistic-r2', 20]]);
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: listeners.signal });
   const id = (node, name) => { node.id = `${prefix}${name}`; return node; };
   const button = (name, text) => { const node = id(el('button', '', text), name); node.type = 'button'; return node; };
-  const root = el('details', 'midiphoria-automata'), heading = el('summary', '', 'Automatapoeia rules'); root.append(heading);
+  const root = el('details', `midiphoria-automata${liveMode ? ' automata-midi-live' : ''}`), heading = el('summary', '', liveMode ? 'Automatapoeia · live' : 'Automatapoeia rules'); root.append(heading);
   const body = el('div', 'automata-midi-body'), main = el('div', 'automata-midi-main'); root.append(body); body.append(main); host.append(root);
 
   function field(parent, name, label, key, type, options) {
@@ -41,7 +41,8 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
         settings.rule = rememberedRules.get(value) ?? Math.min(settings.rule, catalogFor(value).length - 1);
         search.value = ''; atlasFamily = null;
       } else settings[key] = value;
-      invalidate(); updateRule(); if (picker.open) buildAtlas();
+      if (key === 'seed' || key === 'density') settings.seedRow = null;
+      invalidate(); updateRule(); if (picker.open) buildAtlas(); emitSettings();
     });
     if (type !== 'select') on(input, 'change', () => { flushPreview(); input.value = String(settings[key]); });
     return input;
@@ -81,14 +82,25 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   rate.type = 'range'; rate.min = '1'; rate.max = '8'; rate.step = '.01'; rate.value = String(1 / settings.rowBeats);
   rate.setAttribute('aria-label', 'Generation rate in rows per beat');
   rateLabel.append(el('span', '', 'Generation rate'), rateOutput, rate); live.append(rateLabel);
-  on(rate, 'input', () => { settings.rowBeats = 1 / Number(rate.value); invalidate(); });
+  on(rate, 'input', () => { settings.rowBeats = 1 / Number(rate.value); invalidate(); emitSettings(); });
   on(rate, 'change', () => { flushPreview(); });
   const density = field(live, 'Density', 'Seed density', 'density', 'range', { min: 0, max: 1, step: .01 });
   const densityOutput = id(el('output'), 'DensityOut'); density.parentElement.insertBefore(densityOutput, density);
   field(live, 'Seed', 'Seed', 'seed', 'number', { min: 0, max: 4294967295, step: 1 });
   const seedActions = el('div', 'automata-midi-seed-actions'), restart = button('Restart', 'Restart'), reroll = button('NextSeed', 'Reseed');
-  restart.setAttribute('aria-label', 'Restart the prepared pattern from its current seed');
-  reroll.setAttribute('aria-label', 'Prepare a new seed without changing playing MIDI'); seedActions.append(restart, reroll); main.append(seedActions);
+  restart.setAttribute('aria-label', liveMode ? 'Restart live evolution from its chosen seed' : 'Restart the prepared pattern from its current seed');
+  reroll.setAttribute('aria-label', liveMode ? 'Choose a random seed and restart live evolution' : 'Prepare a new seed without changing playing MIDI'); seedActions.append(restart, reroll); main.append(seedActions);
+
+  const liveTransport = el('div', 'automata-midi-live-transport'), playPause = button('PlayPause', '▶');
+  playPause.className = 'automata-midi-play-pause'; playPause.setAttribute('aria-label', 'Play live automata'); playPause.setAttribute('aria-pressed', 'false');
+  const liveStatus = id(el('output', 'automata-midi-live-status', 'Paused · generation 0'), 'LiveStatus'); liveStatus.setAttribute('aria-live', 'off');
+  liveTransport.append(el('h2', '', 'Automatapoeia'), playPause, liveStatus); liveTransport.hidden = !liveMode;
+  if (liveMode) main.prepend(liveTransport);
+  const seedFigure = el('figure', 'automata-midi-seed'), seedStrip = id(document.createElementNS(SVG, 'svg'), 'SeedStrip');
+  seedStrip.setAttribute('role', 'img'); seedStrip.setAttribute('preserveAspectRatio', 'none'); seedStrip.setAttribute('viewBox', '0 0 48 1');
+  const seedPath = document.createElementNS(SVG, 'path'); seedPath.setAttribute('fill', 'currentColor'); seedStrip.append(seedPath);
+  const seedCaption = id(el('figcaption', 'automata-midi-caption'), 'SeedCaption'); seedFigure.append(seedStrip, seedCaption);
+  if (liveMode) main.append(seedFigure);
 
   const ruleSettings = el('div', 'automata-midi-rule-settings'); main.append(el('h3', 'automata-midi-control-heading', 'Rule settings'), ruleSettings);
   field(ruleSettings, 'Family', 'Automaton family', 'family', 'select', AUTOMATAPOEIA_FAMILIES.map(({ id, label, ruleCount }) => [id, `${label} · ${ruleCount}`]));
@@ -99,6 +111,10 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   field(ruleSettings, 'Transform', 'Post-step transform', 'transform', 'select', AUTOMATAPOEIA_TRANSFORMS.map(({ id, label }) => [id, label]));
   const columns = field(ruleSettings, 'Columns', 'Columns / width', 'columns', 'range', { min: 8, max: 128, step: 1 });
   const columnsOutput = id(el('output'), 'ColumnsOut'); columns.parentElement.insertBefore(columnsOutput, columns);
+  if (liveMode) {
+    const advanced = el('details', 'automata-midi-rule-details'); advanced.append(el('summary', '', 'Rule settings'));
+    ruleSettings.previousElementSibling.remove(); ruleSettings.before(advanced); advanced.append(ruleSettings);
+  }
 
   const figure = el('figure', 'automata-midi-figure'), preview = id(document.createElementNS(SVG, 'svg'), 'Preview');
   preview.setAttribute('class', 'automata-midi-preview'); preview.setAttribute('role', 'img'); preview.setAttribute('preserveAspectRatio', 'xMidYMid meet');
@@ -108,7 +124,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
 
   const parameters = id(el('details', 'automata-midi-parameters'), 'Parameters'), parameterSummary = el('summary', '', 'MIDI pattern settings');
   const fields = el('div', 'automata-midi-fields'); parameters.append(parameterSummary, fields); body.append(parameters);
-  field(fields, 'Rows', 'Generations', 'rows', 'number', { min: 8, max: 128, step: 1 });
+  field(fields, 'Rows', 'Generations', 'rows', 'number', { min: 8, max: 128, step: 1 }).parentElement.hidden = liveMode;
   field(fields, 'RowBeats', 'Beats per generation', 'rowBeats', 'number', { min: .125, max: 1, step: .001 });
   field(fields, 'LowestNote', 'Lowest MIDI note', 'lowestNote', 'number', { min: 0, max: 80, step: 1 });
   field(fields, 'Articulation', 'Articulation', 'articulation', 'select', [['retrigger', 'Retrigger cells'], ['hold', 'Hold notes']]);
@@ -121,6 +137,68 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   const actions = el('div', 'automata-midi-actions'), generate = button('Generate', actionLabel), download = id(el('a', '', 'Download MIDI'), 'Download');
   download.hidden = true; actions.append(generate, download); body.append(actions);
   const status = id(el('p', 'automata-midi-status'), 'Status'); status.setAttribute('role', 'status'); body.append(status);
+  const captureLength = id(el('select'), 'CaptureBeats'), capture = button('Capture', 'Capture to pad');
+  captureLength.setAttribute('aria-label', 'Beats to capture from live automata');
+  for (const beats of [1, 2, 4, 8, 16]) captureLength.add(new Option(`Last ${beats} ${beats === 1 ? 'beat' : 'beats'}`, String(beats)));
+  captureLength.value = '4';
+  if (liveMode) { root.open = true; generate.hidden = true; actions.prepend(captureLength, capture); }
+  if (liveMode) { liveTransport.after(figure); figure.after(actions); }
+
+  function settingsCopy() { return { ...settings, seedRow: settings.seedRow?.slice() ?? null }; }
+  function report(error) { if (!disposed) status.textContent = error?.message || 'Could not update live automata.'; }
+  function emitSettings() {
+    if (!liveMode || disposed) return;
+    settings = sanitizeAutomataMidiSettings(settings); syncFields(); refreshSeed();
+    try { onChange?.(settingsCopy()); } catch (error) { report(error); }
+  }
+  function restartLive() { try { const result = onRestart?.(); result?.catch(report); } catch (error) { report(error); } }
+  function refreshSeed() {
+    const row = automataMidiSeedRow(settings), count = row.reduce((total, value) => total + value, 0);
+    seedStrip.setAttribute('viewBox', `0 0 128 1`); seedPath.setAttribute('d', automatapoeiaRowsPath([Array.from({ length: 128 }, (_, note) => row[note - settings.lowestNote] ?? 0)]));
+    seedStrip.setAttribute('aria-label', `Chosen seed: ${count} notes, MIDI pitches ${settings.lowestNote}–${settings.lowestNote + settings.columns - 1}`);
+    seedCaption.textContent = `${settings.seedRow ? 'Chosen row' : 'Random / centered seed'} · ${count} notes · pitches ${settings.lowestNote}–${settings.lowestNote + settings.columns - 1}`;
+  }
+  function refreshLive(next = liveState) {
+    if (!liveMode || disposed) return;
+    liveState = next || liveState;
+    const playing = Boolean(liveState.playing), generation = Math.max(0, Number(liveState.generation) || 0);
+    playPause.textContent = playing ? 'Ⅱ' : '▶'; playPause.setAttribute('aria-pressed', String(playing));
+    playPause.setAttribute('aria-label', playing ? 'Pause live automata' : 'Play live automata');
+    liveStatus.value = `${playing ? 'Playing' : 'Paused'} · generation ${generation}`;
+    const history = Array.isArray(liveState.history) ? liveState.history.slice(-64) : [];
+    const rows = history.filter(item => Array.isArray(item) || Array.isArray(item?.row)).map(item => {
+      const row = Array.isArray(item) ? item : item.row, base = item.lowestNote ?? settings.lowestNote;
+      return Array.from({ length: 128 }, (_, note) => row[note - base] ?? 0);
+    });
+    if (!rows.length) {
+      const row = Array.isArray(liveState.row) && liveState.row.length ? liveState.row : automataMidiSeedRow(settings);
+      rows.push(Array.from({ length: 128 }, (_, note) => row[note - (liveState.rowSettings?.lowestNote ?? settings.lowestNote)] ?? 0));
+    }
+    const width = Math.max(1, ...rows.map(row => row.length)), rasterKey = rows.map(row => row.join('')).join('|');
+    if (rasterKey !== liveRasterKey) {
+      liveRasterKey = rasterKey; preview.setAttribute('viewBox', `0 0 ${width} ${rows.length}`); previewPath.setAttribute('d', automatapoeiaRowsPath(rows));
+    }
+    previewTitle.textContent = `Live automata history; generation ${generation}; newest row last`;
+    readout.textContent = `${playing ? 'Evolving' : 'Paused'} · ${settings.columns} pitches · ${formatBeats(1 / settings.rowBeats)} rows/beat`;
+    capture.disabled = captureBusy || !history.length;
+  }
+  function capturedDownload(result) {
+    const buffer = result?.buffer ?? result?.midi;
+    if (!(buffer instanceof ArrayBuffer) && !ArrayBuffer.isView(buffer)) return;
+    revokeDownload(); url = window.URL.createObjectURL(new Blob([buffer], { type: 'audio/midi' }));
+    download.href = url; download.download = `automata-capture-${settings.family}-${settings.rule}.mid`; download.hidden = false;
+  }
+  on(playPause, 'click', () => { if (disposed) return; try { const result = onPlayPause?.(); result?.catch(report); } catch (error) { report(error); } });
+  on(capture, 'click', async () => {
+    if (disposed || captureBusy || capture.disabled) return;
+    const captureId = ++captureTicket; captureBusy = true; refreshLive();
+    try {
+      const result = await onCapture?.(Number(captureLength.value));
+      if (disposed || captureId !== captureTicket) return;
+      capturedDownload(result); status.textContent = result === false || result == null ? 'No played notes to capture yet.' : 'Captured to a stopped pad. Live evolution continues.';
+    } catch (error) { report(error); }
+    finally { if (!disposed && captureId === captureTicket) { captureBusy = false; refreshLive(); } }
+  });
 
   function updateRule() {
     const catalog = catalogFor(settings.family), descriptor = catalog[Math.max(0, Math.min(catalog.length - 1, Math.round(settings.rule)))];
@@ -145,7 +223,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     if (atlasFamily === settings.family) filterAtlas();
   }
   function selectRule(rule, close = false) {
-    settings.rule = rule; rememberedRules.set(settings.family, rule); invalidate(); updateRule();
+    settings.rule = rule; rememberedRules.set(settings.family, rule); invalidate(); updateRule(); emitSettings();
     if (close) { picker.open = false; pickerSummary.focus(); }
   }
   function buildAtlas() {
@@ -184,7 +262,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   function revokeDownload() { if (url) window.URL.revokeObjectURL(url); url = null; download.removeAttribute('href'); download.hidden = true; }
   function invalidate() {
     if (disposed) return;
-    dirty = true; cancelPending(); status.textContent = ''; generate.disabled = true; revokeDownload();
+    dirty = true; cancelPending(); status.textContent = ''; generate.disabled = true; if (!liveMode) revokeDownload();
     if (root.open && previewFrame === null) previewFrame = window.requestAnimationFrame(() => { previewFrame = null; flushPreview(); });
   }
   function syncFields() {
@@ -200,7 +278,9 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     if (disposed) return null;
     if (previewFrame !== null) { window.cancelAnimationFrame(previewFrame); previewFrame = null; }
     if (!dirty) return score;
-    dirty = false; currentError = null; revokeDownload();
+    dirty = false; currentError = null;
+    if (liveMode) { settings = sanitizeAutomataMidiSettings(settings); syncFields(); refreshSeed(); refreshLive(); return null; }
+    revokeDownload();
     let pixels;
     try { score = generateAutomataMidi(settings); settings = { ...score.settings }; pixels = score.pixels; }
     catch (error) { score = null; currentError = error; pixels = error.pixels ?? []; if (error.settings) settings = { ...error.settings }; }
@@ -240,11 +320,11 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   for (const [control, offset] of [[previous, -1], [next, 1]]) on(control, 'click', () => {
     const count = catalogFor(settings.family).length; selectRule((settings.rule + offset + count) % count);
   });
-  on(restart, 'click', () => { invalidate(); flushPreview(); if (score) status.textContent = `Prepared from seed ${settings.seed}. Playing MIDI is unchanged.`; });
-  on(reroll, 'click', () => { settings.seed = (settings.seed + 1) >>> 0; invalidate(); flushPreview(); if (score) status.textContent = settings.density <= .001 ? 'One centered cell. Raise Seed density to hear different seeds.' : `Prepared seed ${settings.seed}. Send when ready.`; });
+  on(restart, 'click', () => { if (liveMode) { restartLive(); return; } invalidate(); flushPreview(); if (score) status.textContent = `Prepared from seed ${settings.seed}. Playing MIDI is unchanged.`; });
+  on(reroll, 'click', () => { settings.seed = (settings.seed + 1) >>> 0; settings.seedRow = null; if (liveMode && settings.density <= .001) settings.density = .5; invalidate(); flushPreview(); if (liveMode) { emitSettings(); restartLive(); return; } if (score) status.textContent = settings.density <= .001 ? 'One centered cell. Raise Seed density to hear different seeds.' : `Prepared seed ${settings.seed}. Send when ready.`; });
   on(reset, 'click', () => {
     settings = { ...AUTOMATA_MIDI_DEFAULTS }; rememberedRules.clear(); rememberedRules.set('elementary', 30); rememberedRules.set('totalistic-r2', 20);
-    search.value = ''; filter.value = 'all'; atlasFamily = null; invalidate(); syncFields(); if (picker.open) buildAtlas();
+    search.value = ''; filter.value = 'all'; atlasFamily = null; invalidate(); syncFields(); if (picker.open) buildAtlas(); emitSettings();
   });
   on(generate, 'click', async () => {
     const submitted = flushPreview(); if (!submitted || disposed || busy) return;
@@ -256,10 +336,27 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     } catch (error) { if (!disposed && generation === ticket && error?.name !== 'AbortError') status.textContent = error?.message || 'Could not use this MIDI pattern.'; }
     finally { if (!disposed && generation === ticket) { pending = null; busy = false; generate.disabled = !score; } }
   });
-  updateRule(); generate.disabled = true;
+  updateRule(); generate.disabled = true; if (liveMode) flushPreview();
   return {
-    getScore() { return flushPreview(); },
-    getSettings() { flushPreview(); return { ...settings }; },
-    dispose() { if (disposed) return; disposed = true; cancelPending(); if (previewFrame !== null) window.cancelAnimationFrame(previewFrame); previewFrame = null; revokeDownload(); listeners.abort(); tiles.clear(); root.remove(); },
+    getScore() { return liveMode ? generateAutomataMidi(settings) : flushPreview(); },
+    getSettings() { flushPreview(); return settingsCopy(); },
+    setSettings(partial) {
+      if (disposed) return null;
+      settings = sanitizeAutomataMidiSettings({ ...settings, ...partial });
+      rememberedRules.set(settings.family, settings.rule); atlasFamily = null; invalidate(); flushPreview(); if (picker.open) buildAtlas(); emitSettings();
+      return settingsCopy();
+    },
+    setSeedRow(absoluteRow) {
+      if (disposed) return null;
+      const cells = Array.from({ length: 128 }, (_, pitch) => Number(Number.isFinite(Number(absoluteRow?.[pitch])) && Number(absoluteRow[pitch]) > 0));
+      const pitches = cells.flatMap((value, pitch) => value ? [pitch] : []);
+      const low = Math.min(settings.lowestNote, ...pitches), high = Math.max(settings.lowestNote + settings.columns - 1, ...pitches);
+      settings = sanitizeAutomataMidiSettings({ ...settings, lowestNote: low, columns: high - low + 1, seedRow: cells.slice(low, high + 1) });
+      invalidate(); flushPreview(); emitSettings(); if (liveMode) restartLive();
+      const message = `Seeded ${pitches.length} notes at their original MIDI pitches.`; status.textContent = message;
+      return { count: pitches.length, message, settings: settingsCopy() };
+    },
+    refreshLive,
+    dispose() { if (disposed) return; disposed = true; captureTicket++; cancelPending(); if (previewFrame !== null) window.cancelAnimationFrame(previewFrame); previewFrame = null; revokeDownload(); listeners.abort(); tiles.clear(); root.remove(); },
   };
 }

@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreBlechLiveRuntime } from './blech-live-runtime-reference.mjs';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
@@ -23,6 +24,7 @@ export function restoreMidiNoteEffectsRuntime(source, file, { allowRestored = fa
 export async function readMidiNoteEffectsRuntimeReference(file, encoding) {
   const source = await readFile(file, encoding);
   const root = fileURLToPath(new URL('../../', import.meta.url));
-  return restoreMidiNoteEffectsRuntime(source,
-    relative(root, file instanceof URL ? fileURLToPath(file) : file), { allowRestored: true });
+  const relativeFile = relative(root, file instanceof URL ? fileURLToPath(file) : file);
+  return restoreMidiNoteEffectsRuntime(
+    restoreBlechLiveRuntime(source, relativeFile, { allowRestored: true }), relativeFile, { allowRestored: true });
 }

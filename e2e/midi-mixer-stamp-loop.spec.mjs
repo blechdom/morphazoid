@@ -30,7 +30,7 @@ function tempoFixture({ end = sourceBeats, notes = [[0, 60, .25], [1, 64, .25], 
   return Buffer.concat([Buffer.from([77, 84, 104, 100, 0, 0, 0, 6, 0, 0, 0, 1, sourcePpq >>> 8, sourcePpq & 255]), Buffer.from('MTrk'), length, Buffer.from(track)]);
 }
 
-async function open(page) {
+async function open(page, { fixture = false } = {}) {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.addInitScript(() => {
     globalThis.__stampLoopQA = { engine: null, contexts: [], launches: [], notes: [] };
@@ -54,7 +54,30 @@ async function open(page) {
           notes:sample.analysis.notes.map(({note,beat,duration})=>({note,beat,duration}))});return sample;
       };` });
   });
-  await page.goto('/blech-midi.html');
+  if (fixture) {
+    // Free-running Sync is still a shared-engine feature, while Blech now locks
+    // every pad to master tempo. Keep native timing coverage in an explicit
+    // real-component fixture instead of clicking Blech's intentionally hidden Sync.
+    await page.route('**/qa-native-stamp-clock', route => route.fulfill({ contentType: 'text/html', body: `<!doctype html>
+      <html><head><link rel="stylesheet" href="/style.css"><link rel="stylesheet" href="/src/instruments/midiphoria/midiphoria.css">
+      <link rel="stylesheet" href="/src/instruments/midi-mixer/midi-mixer.css"><style>[hidden]{display:none!important}</style></head><body>
+      <button id="audioButton" aria-pressed="false">Audio</button><button id="creativeStop">Stop</button>
+      <input id="creativeTempo" type="number" value="120"><main class="mixer-shell" id="controls"></main><script type="module">
+      import {MidiMixerEngine} from '/src/instruments/midi-mixer/midi-mixer-engine.js';
+      import {mountMixerPerformance} from '/src/instruments/midi-mixer/midi-mixer-performance.js';
+      import {getSharedAudioOutputManager} from '/src/audio-output-manager.js';
+      const button=document.querySelector('#audioButton');
+      const engine=new MidiMixerEngine({onState:state=>button.setAttribute('aria-pressed',String(state.audioEnabled))});engine.setVolume(.5);
+      const view=mountMixerPerformance(document.querySelector('#controls'),{engine});view.setView('draw');view.setActive(true);
+      view.setCollection(await (await fetch('/assets/midiphoria/collection.json')).json());
+      const releaseProbe=getSharedAudioOutputManager(globalThis).subscribe(()=>{});
+      button.addEventListener('click',async()=>{if(engine.state.audioEnabled)engine.setAudioEnabled(false);else await engine.enableAudio();});
+      document.querySelector('#creativeTempo').addEventListener('input',event=>engine.setTempo(Number(event.target.value)));
+      document.querySelector('#creativeStop').addEventListener('click',()=>engine.stop());
+      addEventListener('pagehide',()=>{releaseProbe();view.dispose();engine.dispose();});
+      </script></body></html>` }));
+  }
+  await page.goto(fixture ? '/qa-native-stamp-clock' : '/blech-midi.html');
   await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
   return errors;
 }
@@ -106,12 +129,16 @@ async function assertPeriod(page, sampleId, seconds, { after = -Infinity, count 
   return notes;
 }
 
-test('Loop and Sync default safely and apply to generated, file, message and drawing stamps without arming Audio', async ({ page }) => {
+test('independent loops and locked Sync apply to generated, file, message and drawing pads without arming Audio', async ({ page }) => {
   const errors = await open(page);
   await expect(page.locator('#mixerSampleLoop')).not.toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeChecked();
   const first = await launch(page, () => stamp(page, 'heart').click()); expect(first.loop).toBe(false); expect(first.sync).toBe(true);
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleSync').uncheck();
-  expect((await snapshot(page)).samples.every(sample => sample.loop && !sample.sync)).toBe(true);
+  await expect(page.locator('#mixerSampleSync')).toBeHidden();
+  await page.locator('#mixerSampleLoop').check();
+  expect((await snapshot(page)).samples.every(sample => !sample.loop && sample.sync)).toBe(true);
+  await page.locator('[data-stamp-loop="square"]').check();
+  await page.locator(`[data-stamp-loop="${fileId}"]`).check();
+  await input(page, 'mixerStampBeats', stampHeight);
   const generated = await launch(page, () => stamp(page, 'square').click());
   await page.locator('#mixerStopSamples').click();
   const file = await launch(page, () => stamp(page, fileId).click());
@@ -124,13 +151,13 @@ test('Loop and Sync default safely and apply to generated, file, message and dra
   await page.locator('#mixerSampleMessage').fill('LOOP'); const message = await launch(page, () => page.locator('#mixerSendMessage').click());
   await page.locator('[data-drawing-stamp="❤"]').click();
   const drawing = await launch(page, () => page.locator('#generateDrawingMidi').click());
-  for (const sample of [generated, file, message, drawing]) { expect(sample.loop).toBe(true); expect(sample.sync).toBe(false); }
+  for (const sample of [generated, file, message, drawing]) { expect(sample.loop).toBe(true); expect(sample.sync).toBe(true); }
   await page.locator('#mixerStopSamples').click(); await noSamples(page);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect(await page.evaluate(() => __stampLoopQA.contexts.length)).toBe(0); expect(errors).toEqual([]);
 });
 
 test('native stamp loops repeat their fitted height, track live master tempo and finish the current pass when Loop is disabled', async ({ page }, testInfo) => {
-  test.setTimeout(60000); const errors = await open(page); await fixtureSource(page);
+  test.setTimeout(60000); const errors = await open(page, { fixture: true }); await fixtureSource(page);
   await input(page, 'creativeTempo', 300); await page.locator('#mixerSampleLoop').check(); await arm(page); await transport(page);
   const sample = await launch(page, () => page.locator('#mixerStampAgain').click()); expect(sample.duration).toBe(stampHeight); expect(sample.ppq).toBe(stampPpq);
   expect(sample.tempoMap.map(tempo => [tempo.beat, tempo.bpm])).toEqual([[0, 120], [tempoChangeBeat, 240]]);
@@ -162,7 +189,7 @@ test('native stamp loops repeat their fitted height, track live master tempo and
 });
 
 test('native free stamps preserve source tempo changes and live Sync preserves position without reattacking or requantizing', async ({ page }, testInfo) => {
-  test.setTimeout(60000); const errors = await open(page); await fixtureSource(page); await input(page, 'creativeTempo', 300);
+  test.setTimeout(60000); const errors = await open(page, { fixture: true }); await fixtureSource(page); await input(page, 'creativeTempo', 300);
   await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleSync').uncheck(); await arm(page); await transport(page);
   const sample = await launch(page, () => page.locator('#mixerStampAgain').click());
   expect(sample.duration).toBe(stampHeight); expect(sample.ppq).toBe(stampPpq);
@@ -212,7 +239,7 @@ test('native free stamps preserve source tempo changes and live Sync preserves p
 });
 
 test('native looping stamps stop on shared-engine Pause, Stop samples and Audio off, and can launch immediately while transport is paused', async ({ page }) => {
-  test.setTimeout(60000); const errors = await open(page); await fixtureSource(page); await page.locator('#mixerSampleLoop').check(); await arm(page);
+  test.setTimeout(60000); const errors = await open(page, { fixture: true }); await fixtureSource(page); await page.locator('#mixerSampleLoop').check(); await arm(page);
   const paused = await launch(page, () => page.locator('#mixerStampAgain').click());
   expect((await snapshot(page)).playing).toBe(false); expect((await snapshot(page)).samples.find(sample => sample.id === paused.id)?.pending).toBe(false); await audible(page);
   await page.locator('#mixerStopSamples').click(); await noSamples(page); await silent(page);
@@ -227,23 +254,19 @@ test('native looping stamps stop on shared-engine Pause, Stop samples and Audio 
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`Loop and Sync controls are compact, keyboard accessible and reachable at ${viewport.width}×${viewport.height}`, async ({ browser }, testInfo) => {
+  test(`independent loop controls are compact, keyboard accessible and reachable at ${viewport.width}×${viewport.height}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL, viewport, isMobile: viewport.width < 1000, hasTouch: viewport.width < 1000 }); const page = await context.newPage();
     try {
-      const errors = await open(page), group = page.getByRole('group', { name: 'Stamp playback', exact: true });
-      await expect(group).toBeVisible(); await group.scrollIntoViewIfNeeded();
-      for (const [id, name, initial] of [['mixerSampleLoop', 'Loop', false], ['mixerSampleSync', 'Sync to tempo', true]]) {
-        const control = group.getByRole('checkbox', { name, exact: true }); await expect(page.locator(`#${id}`)).toHaveCount(1);
+      const errors = await open(page);
+      for (const [selector, initial] of [['#mixerSampleLoop', false], ['[data-stamp-loop="square"]', false]]) {
+        const control = page.locator(selector); await expect(control).toHaveCount(1); await control.scrollIntoViewIfNeeded();
         await control.focus(); await control.press('Space'); await expect(control).toBeChecked({ checked: !initial });
         await control.press('Space'); await expect(control).toBeChecked({ checked: initial });
         const box = await control.locator('..').boundingBox(); expect(box.x).toBeGreaterThanOrEqual(0); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
         if (viewport.width < 1000) expect(box.height).toBeGreaterThanOrEqual(48);
       }
-      const geometry = await page.evaluate(() => {
-        const group = document.querySelector('.mixer-stamp-switches').getBoundingClientRect(), live = document.querySelector('#creativeVisualizerHost').getBoundingClientRect();
-        return { gap: group.top - live.bottom, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
-      });
-      expect(geometry.gap).toBeGreaterThanOrEqual(0); expect(geometry.gap).toBeLessThan(30); expect(geometry.overflow).toBe(false);
+      await expect(page.locator('#mixerSampleSync')).toBeHidden(); await expect(page.locator('#mixerSampleSync')).toBeChecked();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth + 1)).toBe(false);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect(await page.evaluate(() => __stampLoopQA.contexts.length)).toBe(0); expect(errors).toEqual([]);
       await page.screenshot({ path: testInfo.outputPath(`stamp-loop-${viewport.width}.png`) });
     } finally { await context.close(); }

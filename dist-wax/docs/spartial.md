@@ -35,20 +35,28 @@ from low to high, and negative values reverse that direction. One turn spans
 one modulation cycle across the bank. The colored monitor follows the engine's
 partial modulation. These movements run independently of Rotation Play/Pause.
 
-## Organ voices
+## One fingerprint bank, three mappings
 
-**Custom partials** retains the original sound and starts selected. **Tonewheel**
-mixes nine sine drawbars; **Pipe organ** gives each stop a harmonic voice. The
-drawbars run from 0 (off) to 8, with footages **16′, 5⅓′, 8′, 4′, 2⅔′, 2′, 1⅗′,
-1⅓′, 1′**. The 8′ stop follows the played note; 16′ sounds an octave below it.
-All stops off silences the sustained organ tone. Fingerprint bars trim individual
-partials after the organ registration, so they remain useful for shaping it.
+The **Mapping** menu in Harmonic fingerprint changes what its single slider bank
+controls. **Custom partials** starts selected and retains the original individual
+partial levels. **Tonewheel** maps the bank to nine sine drawbars; **Pipe organ**
+maps it to nine voiced stops. The same preset menu, Next and dice follow the
+selected mapping. Switching back to Custom partials restores its remembered
+painting; organ mappings use neutral partial gains, with no hidden partial trims.
+
+In either organ mapping, the sliders run from 0 (off) to 8, with footages **16′,
+5⅓′, 8′, 4′, 2⅔′, 2′, 1⅗′, 1⅓′, 1′**. The 8′ stop follows the played note; 16′
+sounds an octave below it. All stops off silences the sustained organ tone.
+Frequency spacing and inharmonicity remain available beneath the bank; partial
+count and rolloff apply to Custom partials.
 
 Pipe voices include **Flute**, **Stopped flute**, **Principal**, **String pipe**
-and **Reed**. Brightness changes their harmonic balance; Pipe chiff adds an
-optional breath-like attack. **Key click & percussion** contains a short key
-transient and decaying second- or third-harmonic percussion with its own level
-and decay. Chiff, click and percussion start off. Registration presets, Next
+and **Reed**. Their controls appear beneath the same bank. Brightness changes
+their harmonic balance; Pipe chiff adds an optional breath-like attack.
+**Click, chiff & percussion** is available beneath the bank in every mapping.
+It contains the chiff amount, a short key transient and decaying second- or
+third-harmonic percussion with its own level and decay. Chiff, click and
+percussion start off. Registration presets, Next
 and dice offer additional starting points while preserving master Volume.
 
 The stops share the existing 32-partial bank, so high stops have fewer available
@@ -71,8 +79,9 @@ the selected output. Rotary motion is independent of the main Rotation control.
 timbre without changing the Volume setting. The rotary and drive models are
 compact effects inspired by Leslie features, not a cabinet or valve-circuit
 emulation; physical surround placement and subjective tone still need listening
-on the intended system. The three new control sections start collapsed, and
-the mobile graphic remains fixed above or beside the scrolling controls.
+on the intended system. Partial modulation, Rotary & drive, and Click, chiff &
+percussion start collapsed. The mobile graphic remains fixed above or beside
+the scrolling controls.
 
 ## Granular layer and mixer
 
