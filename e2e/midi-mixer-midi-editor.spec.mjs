@@ -13,7 +13,7 @@ async function open(page) {
     import {sanitizeMidiParameters,sanitizeMidiSynthEffects} from '/src/instruments/midi-mixer/midi-mixer-parameters.js';
     window.voiceState={};window.effectState={};window.actions=[];
     window.editor=mountMidiParameterEditor(document.querySelector('#voice'),{label:'Voice A',getValue:()=>voiceState,
-      onChange:value=>voiceState=sanitizeMidiParameters(value,voiceState),onAction:value=>actions.push(value)});
+      onChange:value=>voiceState=sanitizeMidiParameters(value,voiceState),onAction:value=>{actions.push(value);if(window.actionError)throw new Error(window.actionError);return window.actionAvailable!==false;}});
     window.effectEditor=mountMidiSynthEffectEditor(document.querySelector('#effects'),{getValue:()=>effectState,
       onChange:value=>effectState=sanitizeMidiSynthEffects(value,effectState)});
     </script></body></html>` }));
@@ -57,6 +57,13 @@ test('MIDI sound editors preserve sparse overrides, ordered actions, focus and h
   expect(await page.evaluate(() => actions.at(-1))).toEqual({ kind: 'parameter', registered: true, parameter: 0, value: 256 });
   await page.getByRole('button', { name: 'All sound off', exact: true }).click();
   expect(await page.evaluate(() => actions.at(-1))).toEqual({ kind: 'cc', controller: 120, value: 0 });
+  await expect(page.locator('#voice [role="status"]')).toHaveText('MIDI sent.');
+  await page.evaluate(() => { window.actionAvailable = false; });
+  await page.getByRole('button', { name: 'All sound off', exact: true }).click();
+  await expect(page.locator('#voice [role="status"]')).toContainText('Not sent.');
+  await page.evaluate(() => { window.actionError = 'No live target'; });
+  await page.getByRole('button', { name: 'All sound off', exact: true }).click();
+  await expect(page.locator('#voice [role="status"]')).toHaveText('Not sent. No live target');
   await expand(page, 'SoundFont reverb', '#effects');
   await page.getByRole('slider', { name: 'SoundFont effects: Reverb level', exact: true }).fill('89');
   expect(await page.evaluate(() => effectState)).toEqual({ 'reverb.level': 89 });

@@ -20,14 +20,28 @@ function mountEditor(host, options) {
   const document = host.ownerDocument, prefix = `midi-edit-${++nextEditorId}`, listeners = new AbortController();
   const { label, getValue, onChange, onAction, followLabel, effects = false, excludeFields } = options;
   const refreshers = [], fieldListeners = new Set(), excluded = new Set(excludeFields);
-  let destroyed = false, controlCount = 0, currentValue = getValue() ?? {};
+  let destroyed = false, controlCount = 0, actionVersion = 0, currentValue = getValue() ?? {};
   const el = (tag, className, text) => { const node = document.createElement(tag); if (className) node.className = className; if (text != null) node.textContent = text; return node; };
   const on = (node, type, callback) => node.addEventListener(type, callback, { signal: listeners.signal });
   const root = el('div', 'midi-parameter-editor'); root.setAttribute('aria-label', label); host.append(root);
   const toolbar = el('div', 'midi-edit-toolbar'), count = el('output', 'midi-edit-count');
   const reset = el('button', 'midi-edit-reset', 'Reset all'); reset.type = 'button'; reset.setAttribute('aria-label', `Reset ${label}`);
   toolbar.append(count, reset); root.append(toolbar);
+  const actionStatus = el('p', 'midi-edit-note'); actionStatus.setAttribute('role', 'status'); actionStatus.hidden = true; root.append(actionStatus);
   on(reset, 'click', () => commit(null));
+
+  async function send(action) {
+    const version = ++actionVersion;
+    try {
+      const sent = await onAction?.(action);
+      if (destroyed || version !== actionVersion) return;
+      actionStatus.textContent = sent === true ? 'MIDI sent.' : 'Not sent. Turn Audio on and load a MIDI, or start a stamp.';
+    } catch (error) {
+      if (destroyed || version !== actionVersion) return;
+      actionStatus.textContent = `Not sent. ${error?.message || 'The MIDI command could not be applied.'}`;
+    }
+    actionStatus.hidden = false;
+  }
 
   const valueAt = (descriptor, map) => map ? currentValue?.[map]?.[descriptor.id] : currentValue?.[descriptor.id];
   const hasValue = (descriptor, map) => map ? own(currentValue?.[map], descriptor.id) : own(currentValue, descriptor.id);
@@ -94,7 +108,7 @@ function mountEditor(host, options) {
     }
     fieldOn(input, input.tagName === 'SELECT' || toggle ? 'change' : 'input', () => changed(input));
     if (number) { fieldOn(number, 'input', () => changed(number)); fieldOn(number, 'change', () => { changed(number); number.value = String(local); }); }
-    fieldOn(clear, 'click', () => action ? onAction?.({ kind: 'cc', controller: Number(descriptor.id), value: Number(local) }) : commit(patch(descriptor, map, null)));
+    fieldOn(clear, 'click', () => action ? send({ kind: 'cc', controller: Number(descriptor.id), value: Number(local) }) : commit(patch(descriptor, map, null)));
     function reflect() {
       const overridden = hasValue(descriptor, map), value = action ? local : overridden ? valueAt(descriptor, map) : descriptor.default ?? descriptor.min ?? 0;
       local = value; updateInput(input, value); if (number) updateInput(number, value);
@@ -175,15 +189,15 @@ function mountEditor(host, options) {
     bank('All MIDI controllers', controllers, 'controllers', 'Find CC number, pan, sustain, expression…', 'Edits override the file until you choose Follow file. Some controllers depend on the SoundFont.');
     bank('SoundFont synthesis', entries(MIDI_GENERATOR_PARAMETERS), 'generators', 'Find envelope, filter, LFO, tuning…', 'Overrides the instrument’s SoundFont generators. Envelope and sample settings may take effect on new notes.');
     if (onAction) disclosure('RPN / NRPN & recovery', body => {
-      const form = el('form', 'midi-edit-rpn'), kind = el('select'), parameter = el('input'), value = el('input'), send = el('button', '', 'Send parameter');
+      const form = el('form', 'midi-edit-rpn'), kind = el('select'), parameter = el('input'), value = el('input'), sendButton = el('button', '', 'Send parameter');
       kind.add(new Option('RPN · registered parameter', 'rpn')); kind.add(new Option('NRPN · nonregistered parameter', 'nrpn'));
       kind.setAttribute('aria-label', `${label}: parameter type`);
       for (const [input, name] of [[parameter, 'Parameter number'], [value, 'Parameter value']]) { const text = el('label', '', name); input.type = 'number'; input.min = '0'; input.max = '16383'; input.step = '1'; input.value = '0'; input.required = true; input.setAttribute('aria-label', `${label}: ${name.toLowerCase()}`); text.append(input); form.append(text); }
-      form.prepend(kind); send.type = 'submit'; form.append(send); body.append(el('p', 'midi-edit-note', 'Send an ordered MIDI parameter message. Support depends on the receiving SoundFont engine; file automation can change it again.'), form);
-      on(form, 'submit', event => { event.preventDefault(); if (form.checkValidity()) onAction({ kind: 'parameter', registered: kind.value === 'rpn', parameter: Number(parameter.value), value: Number(value.value) }); });
+      form.prepend(kind); sendButton.type = 'submit'; form.append(sendButton); body.append(el('p', 'midi-edit-note', 'Send an ordered MIDI parameter message. Support depends on the receiving SoundFont engine; file automation can change it again.'), form);
+      on(form, 'submit', event => { event.preventDefault(); if (form.checkValidity()) void send({ kind: 'parameter', registered: kind.value === 'rpn', parameter: Number(parameter.value), value: Number(value.value) }); });
       const actions = el('div', 'midi-edit-recovery');
       for (const [controller, title] of [[64, 'Release sustain'], [123, 'All notes off'], [120, 'All sound off'], [121, 'Reset MIDI controllers']]) {
-        const button = el('button', '', title); button.type = 'button'; on(button, 'click', () => onAction({ kind: 'cc', controller, value: 0 })); actions.append(button);
+        const button = el('button', '', title); button.type = 'button'; on(button, 'click', () => { void send({ kind: 'cc', controller, value: 0 }); }); actions.append(button);
       }
       body.append(actions);
     });
