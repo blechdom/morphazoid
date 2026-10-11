@@ -47,6 +47,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
     { id: "graphs", label: "Graphs", href: "graphs.html" },
     { id: "tesselation", label: "Tesselation", href: "tesselation.html", legacyHrefs: ["tiles.html"], imageHref: "assets/instruments/tiles-app.webp" },
+    { id: "trackazoid", label: "Trackazoid", href: "trackazoid.html" },
   ]),
   freezeGroup("tesselation", "Tesselation", [
     { id: "lattice", label: "Lattice", href: "lattice.html" },

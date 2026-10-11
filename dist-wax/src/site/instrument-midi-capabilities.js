@@ -5,6 +5,7 @@ import { canonicalInstrumentId } from "./instrument-identities.js";
 // import cycle through the catalogue.
 const NOTE_MODE_IDS = Object.freeze({
   processor: Object.freeze([
+    "trackazoid",
     "midiphoria",
     "lumber",
     "micmic",
@@ -204,6 +205,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "trackazoid",
   "graph-delay-rust",
   "synthesis",
   "domino-run",

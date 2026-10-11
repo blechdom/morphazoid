@@ -4,7 +4,7 @@
 Drop local audio onto two decks or open a music folder, then mix with waveforms,
 tempo, optional key lock, manual beat grids, four hot cues per deck, beat loops,
 EQ, filters and a crossfader. File loading leaves Audio off; replacing a playing
-track requires an explicit Load pending action. Source BPM and grid corrections
+track requires an explicit Load replacement action. Source BPM and grid corrections
 save locally. Split output provides mono master/cue channels while recording
 keeps the stereo master. [Controls, local files and the next stages](docs/trackazoid.md).
 

@@ -13,9 +13,9 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
    Drop a file directly onto Deck A or B to load it there.
 2. Enable **Audio** in the Morphazoid menubar, then press a deck's **Play**.
    Loading, seeking and playing never enable Audio for you. Space controls
-   Deck A when focus is outside an editable field or an interactive control.
+   the selected deck (A/B) when focus is outside an editable field or an interactive control.
 3. Set each track's **Source BPM** or use its **Tap** button. Place the cursor
-   on a known beat and use **Set grid** to anchor the beat grid.
+   on a known beat and use **Set downbeat here** to anchor the beat grid.
 4. Adjust tempo and nudge the decks into alignment. **Sync** copies the other
    deck's effective BPM and aligns beat phase once, within the tempo range.
    It depends on the BPM and grid you entered; it is not automatic beat analysis
@@ -24,7 +24,7 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
 
 Audio begins off; the decks begin stopped. Turning Audio off mutes output
 without changing transport state. Reloading the page does not resume playback.
-A file dropped onto a playing deck is staged: **Load pending** explicitly
+A file dropped onto a playing deck is staged: **Load replacement** explicitly
 replaces it, keeping an accidental drop from cutting off the current track.
 
 ## Deck controls
@@ -35,7 +35,7 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | Tempo | Change playback speed from −16% to +16%. |
 | Key lock | Preserve pitch while changing tempo through Signalsmith Stretch. It starts off. |
 | Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. This is metadata, not an automatic tempo detector. |
-| Set grid | Place the beat-grid anchor at the cursor. |
+| Set downbeat here | Place the beat-grid anchor at the cursor. |
 | Sync | Match the other deck's tempo and beat phase once; the ±16% range still applies. |
 | Hot cues 1–4 | Store a position in an empty slot or jump to its saved position. Shift-click clears a slot. |
 | Beat loop | Repeat 1, 2, 4, 8 or 16 beats using the edited BPM/grid. |
@@ -45,7 +45,9 @@ replaces it, keeping an accidental drop from cutting off the current track.
 The first release does not implement vinyl scratching, slip mode, automatic
 key/BPM detection, variable beat grids or DJ-controller profiles. Key lock is a
 musical processing option: audition its transient quality and cue responsiveness
-on your own tracks before relying on it for a performance.
+on your own tracks before relying on it for a performance. With key lock on,
+commands are scheduled roughly 100 ms ahead to allow the stretch engine to process;
+native playback is the more immediate option for cueing.
 
 ## Local library
 
@@ -58,7 +60,8 @@ current mix available.
 
 The library indexes up to 20,000 tracks without decoding every track. Audio is
 decoded when a deck loads it, so two long recordings can still use substantial
-memory. Imports recognize MP3, WAV, AIFF, FLAC, Ogg, Opus, M4A/AAC, MP4 and WebM
+memory. The MVP limits a file to 160 MB and decoded PCM to 256 MB per deck;
+those checks do not eliminate the browser’s transient memory use during decode. Imports recognize MP3, WAV, AIFF, FLAC, Ogg, Opus, M4A/AAC, MP4 and WebM
 file extensions or an audio MIME type; actual decoding depends on the browser.
 An unsupported or damaged file reports a load error. The library's search and folder controls help narrow large
 collections before loading a deck.
@@ -98,7 +101,9 @@ One Web Audio clock drives both decks; graphics follow transport state. Native
 Web Audio mixer nodes provide EQ, filtering and gain. Optional key lock uses
 the existing MIT-licensed Signalsmith Stretch WebAssembly/AudioWorklet engine;
 see [third-party notices](THIRD_PARTY_NOTICES.md). No Rust toolchain, runtime Node
-process, external audio service or new framework is required.
+process, external audio service or new framework is required. The demo pair is
+synthesized locally from deterministic oscillators and percussion; the catalogue
+icon is original procedural Canvas artwork.
 
 Desktop Chrome/Edge are the initial target. Controls remain reachable on small
 screens, but the two-deck workspace is designed for a desktop display. Real

@@ -168,6 +168,13 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     const errors = diagnostics(page);
     await page.setViewportSize(viewport); await demos(page);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    if (viewport.width < 1000) {
+      // Programmatic scrollIntoView also scrolls overflow:hidden containers.
+      // A real wheel gesture must reach content beyond the viewport.
+      await page.mouse.move(viewport.width - 5, viewport.height - 60);
+      await page.mouse.wheel(0, 550);
+      await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(100);
+    }
     for (const selector of ["#aPlay", "#bPlay", "#crossfader", "#outputMode", "#openFolder", "#librarySearch"]) {
       const control = page.locator(selector);
       await control.scrollIntoViewIfNeeded(); await expect(control).toBeInViewport();
