@@ -51,7 +51,7 @@ async function loadLocal(page, index, name, buffer) {
   await expect(page.locator(`#deckSong${index} option:checked`)).toHaveText(name);
   await expect(page.locator(`#deckChannels${index} .channel-row`)).toHaveCount(3);
 }
-async function open(page) {
+async function open(page, { visualScore = false } = {}) {
   // Observe native contexts; no audio destination, engine, or timing replacement.
   await page.addInitScript(() => {
     globalThis.__mixerQAContexts = [];
@@ -61,6 +61,10 @@ async function open(page) {
     };
   });
   await page.goto('/midiphoria.html');
+  if (visualScore) {
+    await page.locator('#midiFile').setInputFiles({ name: 'QA visual.mid', mimeType: 'audio/midi', buffer: arrangement(120, 72) });
+    await expect(page.locator('#songList button[data-song-id="local-1"]')).toHaveAttribute('aria-pressed', 'true');
+  }
   await page.locator('#mixerModeButton').click();
   await expect(page.locator('#deckSong0 option')).not.toHaveCount(1);
   await expect(page.locator('#tempoFromA')).toBeEnabled();
@@ -160,6 +164,24 @@ test('whole-arrangement maps create loop regions and retain accessible keyboard 
   await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
 });
 
+test('independent half and double time retain the shared tempo and produce matching deck-rate readouts', async ({ page }) => {
+  await open(page); await input(page, 'masterTempo', 120);
+  await page.locator('#deckRate0').selectOption('2'); await page.locator('#deckRate1').selectOption('0.5');
+  await expect(page.locator('#deckRateOut0')).toHaveText('240.0 BPM');
+  await expect(page.locator('#deckRateOut1')).toHaveText('60.0 BPM');
+  await expect(page.locator('#masterTempo')).toHaveValue('120');
+  await page.locator('#mixerPlay').click();
+  const positions = () => page.evaluate(() => [0, 1].map(index => Number(document.getElementById(`deckPosition${index}`).value.match(/Beat\s+([\d.]+)/)?.[1])));
+  await expect.poll(async () => (await positions())[1]).toBeGreaterThan(.5);
+  await page.locator('#mixerPlay').click();
+  const [a, b] = await positions();
+  const difference = Math.abs(a - (4 * b % 16));
+  expect(Math.min(difference, 16 - difference)).toBeLessThanOrEqual(.3);
+  await page.locator('#mixerReset').click();
+  await expect(page.locator('#deckRate0')).toHaveValue('1'); await expect(page.locator('#deckRate1')).toHaveValue('1');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+});
+
 test('file changes keep playing and invalid MIDI preserves the previous arrangement', async ({ page }) => {
   await open(page); await page.locator('#mixerPlay').click();
   await expect.poll(() => beat(page)).toBeGreaterThan(1.5); const before = await beat(page);
@@ -177,6 +199,7 @@ test('file changes keep playing and invalid MIDI preserves the previous arrangem
 
 test('local SoundFont selection stays silent, and mix presets and reset provide recovery', async ({ page }) => {
   await open(page);
+  await page.locator('.mixer-effects summary').click();
   await page.locator('#mixerSoundFont').setInputFiles(fileURLToPath(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url)));
   await expect(page.locator('#mixerFontName')).toHaveText('TimGM6mb.sf2');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
@@ -214,12 +237,33 @@ test('real SoundFont playback is finite, channel and deck mute affect sound, and
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
 });
 
+test('armed view changes move playback between the real players and return to an audible preserved mix', async ({ page }) => {
+  test.setTimeout(60000);
+  await open(page, { visualScore: true }); await arm(page);
+  await input(page, 'deckPitch0', 7); await input(page, 'deckOffset1', 2);
+  await page.locator('#mixerPlay').click(); await audible(page);
+  await page.locator('#visualModeButton').click();
+  await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+  await audible(page);
+  await page.locator('#mixerModeButton').click();
+  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#deckPitch0')).toHaveValue('7');
+  await expect(page.locator('#deckOffset1')).toHaveValue('2');
+  await audible(page);
+  // The legacy Play DOM control mirrors the active transport for Space. Prove
+  // that its actual synth was silenced by muting both active mixer decks.
+  await page.locator('#deckMute0').check(); await page.locator('#deckMute1').check(); await silent(page);
+});
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`embedded mixer controls remain reachable at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport); await open(page);
     const overflow = await page.evaluate(() => ({ scroll: document.documentElement.scrollWidth, width: innerWidth }));
     expect(overflow.scroll).toBeLessThanOrEqual(overflow.width + 1);
     for (const id of ['mixerPlay', 'masterTempo', 'deckSong0', 'deckMap0', 'deckSong1', 'deckMap1', 'mixerSoundFont']) {
+      if (id === 'mixerSoundFont') await page.locator('.mixer-effects summary').click();
       const control = page.locator(`#${id}`); await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
       const box = await control.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
     }
