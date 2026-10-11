@@ -1,6 +1,6 @@
 import SignalsmithStretch from "../../../vendor/signalsmith-stretch/SignalsmithStretch.mjs";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { DeckTransport, clamp, crossfadeGains } from "./transport.js";
+import { DeckTransport, clamp, crossfadeGains, normalizeLoop, beatPhase, phaseDifference, alignedPosition, matchingRate, MIN_RATE, MAX_RATE } from "./transport.js";
 
 const FADE = 0.012;
 const SAMPLE_RATE = 48_000;
@@ -31,11 +31,12 @@ function bounded(promise, label) {
 
 /**
  * Two independent transports on one AudioContext. Play never creates/resumes it.
- * Native playback is the low-latency default; key lock uses vendored MIT Signalsmith.
+ * Key lock uses vendored MIT Signalsmith; native playback remains a fallback.
  * Signalsmith's buffer mode compensates its own latency. Commands are scheduled
  * latency + 12 ms ahead with the transport projected to that output time. The
- * snapshot describes the requested timeline immediately; audible key-lock edits
- * arrive after that lead (usually about 100 ms), never add latency to inputTime.
+ * snapshot positions follow the audible timeline; playing/rate describe intent
+ * while pending is true. Both decks receive changes at the same future time,
+ * including mixed native/key-lock playback. Never add latency to inputTime.
  * We deliberately do not use its inputTime notifications: they include analysis
  * lookahead. Seeking/key-lock transitions are smoothed, not scratch emulation.
  */
@@ -47,14 +48,15 @@ export class TrackazoidAudio {
       if (!Constructor) throw new Error("Trackazoid needs a browser with Web Audio.");
       return new Constructor({ latencyHint: "interactive", sampleRate: SAMPLE_RATE });
     }, stretchFactory = SignalsmithStretch, outputConnector = connectAudioOutput,
-    now = wallTime,
+    now = wallTime, defaultKeyLock = true,
   } = {}) {
     this.onError = onError; this.onChange = onChange;
     this.contextFactory = contextFactory; this.stretchFactory = stretchFactory;
     this.outputConnector = outputConnector; this.wallTime = now;
     this.context = null; this.armed = false; this.requestedAudio = false; this.disposed = false;
     this.audioGeneration = 0; this.clockIsAudio = false;
-    this.master = 0.7; this.crossfader = 0; this.cueLevel = 0.6; this.routing = "stereo";
+    this.masterLevel = 0.7; this.masterId = null; this.playSequence = 0;
+    this.crossfader = 0; this.cueLevel = 0.6; this.routing = "stereo";
     this.graph = null; this.release = null; this.armPromise = null;
     this.handleContextState = () => {
       if (!this.armed || this.disposed || this.context?.state === "running") return;
@@ -65,7 +67,8 @@ export class TrackazoidAudio {
     };
     this.decks = Object.fromEntries(DECK_IDS.map(id => [id, {
       id, transport: new DeckTransport(), buffer: null, generation: 0,
-      keyLock: false, gain: 0.8, eq: { low: 0, mid: 0, high: 0 }, filter: 0,
+      keyLock: defaultKeyLock, gain: 0.8, eq: { low: 0, mid: 0, high: 0 }, filter: 0,
+      grid: { bpm: null, beatOffset: 0 }, sync: false, syncError: null, playOrder: 0,
       cue: false, graph: null, source: null, retiring: new Set(), stretch: null,
       stretchBuffer: null, stretchPending: null, latency: 0,
     }]));
@@ -78,7 +81,78 @@ export class TrackazoidAudio {
   _now() { return this.clockIsAudio && this.context ? this.context.currentTime : this.wallTime(); }
   _notify() { try { this.onChange(); } catch { /* Observers cannot stop audio. */ } }
   _error(error) { try { this.onError(error); } catch { /* Observers cannot stop audio. */ } }
-  snapshot(id) { const deck = this._deck(id); return { ...deck.transport.snapshot(this._now()), keyLock: deck.keyLock }; }
+  _masterAt(now) {
+    const playing = Object.values(this.decks).filter(deck => deck.transport.intent(now).playing);
+    return playing.find(deck => deck.id === this.masterId)?.id
+      ?? playing.sort((a, b) => a.playOrder - b.playOrder)[0]?.id ?? null;
+  }
+  get master() { return this._masterAt(this._now()); }
+  snapshot(id) {
+    const now = this._now(), deck = this._deck(id), masterId = this._masterAt(now);
+    const current = deck.transport.snapshot(now), state = deck.transport.intent(now);
+    const reference = masterId ? this.decks[masterId] : null;
+    return { ...state, keyLock: deck.keyLock, sync: deck.sync, isMaster: masterId === id,
+      ...deck.grid, effectiveBpm: deck.grid.bpm ? deck.grid.bpm * state.rate : null,
+      syncError: deck.syncError,
+      phaseError: reference && current.playing && reference.transport.snapshot(now).playing
+        ? phaseDifference(current.position, deck.grid, reference.transport.snapshot(now).position, reference.grid) : null,
+    };
+  }
+
+  _lead() {
+    if (!this.armed || !this.context) return 0;
+    return FADE + Math.max(0, ...Object.values(this.decks).map(deck => (
+      deck.keyLock && deck.stretch && deck.stretchBuffer === deck.buffer ? deck.latency : 0
+    )));
+  }
+  _when() { return this._now() + this._lead(); }
+
+  _commit(deck, changes, when, now = this._now()) {
+    deck.transport.schedule(when, changes, now);
+    this._render(deck, when);
+  }
+
+  _syncRate(deck, master, time) {
+    return matchingRate(deck.grid.bpm, master.grid.bpm, master.transport.snapshot(time).rate);
+  }
+
+  _beatLoop(deck, time) {
+    const loop = deck.transport.intent(time).loop;
+    if (!loop) return true;
+    if (!deck.grid.bpm) return false;
+    const beats = (loop.end - loop.start) * deck.grid.bpm / 60;
+    return Math.abs(beats - Math.round(beats)) <= 1e-4;
+  }
+
+  _syncFailure(deck, message, report = true) {
+    deck.sync = false; deck.syncError = message;
+    if (report) this._error(new Error(message));
+  }
+
+  _follow(when, { align = true } = {}) {
+    const now = this._now(); this.masterId = this._masterAt(now);
+    const master = this.decks[this.masterId]; if (!master) return;
+    const reference = master.transport.snapshot(when);
+    for (const deck of Object.values(this.decks)) {
+      if (!deck.sync || deck === master) continue;
+      if (!this._beatLoop(master, now) || !this._beatLoop(deck, now)) {
+        this._syncFailure(deck, "A free-length loop overrides beat Sync."); continue;
+      }
+      const rate = this._syncRate(deck, master, when);
+      if (rate === null) {
+        this._syncFailure(deck, !deck.grid.bpm || !master.grid.bpm
+          ? "Sync needs a known BPM and beat grid on both decks."
+          : `Deck ${deck.id.toUpperCase()} needs more than ±16% tempo to follow the master. Sync is off.`);
+        continue;
+      }
+      deck.syncError = null;
+      const current = deck.transport.snapshot(when), intent = deck.transport.intent(now);
+      const changes = { rate };
+      if (align && intent.playing) changes.position = alignedPosition(current.position, deck.grid,
+        beatPhase(reference.position, master.grid), current.duration, current.loop);
+      this._commit(deck, changes, when, now);
+    }
+  }
 
   _switchClock(audio) {
     if (audio === this.clockIsAudio) return;
@@ -98,7 +172,7 @@ export class TrackazoidAudio {
   _createGraph() {
     if (this.graph) return;
     const context = this.context;
-    const master = this._gain(this.master * 0.7);
+    const master = this._gain(this.masterLevel * 0.7);
     const masterSafety = context.createWaveShaper(); masterSafety.curve = SAFETY_CURVE;
     const masterArm = this._gain(0);
     const cue = this._gain(this.cueLevel * 0.7);
@@ -169,7 +243,13 @@ export class TrackazoidAudio {
           return false;
         }
         this._createGraph();
-        await Promise.all(Object.values(this.decks).filter(deck => deck.keyLock && deck.buffer).map(deck => this._prepareStretch(deck)));
+        await Promise.all(Object.values(this.decks).filter(deck => deck.keyLock && deck.buffer).map(async deck => {
+          try { await this._prepareStretch(deck); }
+          catch (error) {
+            deck.keyLock = false;
+            this._error(new Error(`Deck ${deck.id.toUpperCase()} will play without key lock: ${error.message}`));
+          }
+        }));
         if (attempt !== this.audioGeneration || this.disposed) {
           if (!this.requestedAudio && context.state === "running") await context.suspend().catch(() => {});
           return false;
@@ -178,7 +258,9 @@ export class TrackazoidAudio {
         this._switchClock(true); this.armed = true;
         // Meter/record the stereo master, even while hardware output is split cue.
         this.release ??= this.outputConnector(context, this.graph.output, { stereoSource: this.graph.masterArm });
-        for (const deck of Object.values(this.decks)) this._render(deck);
+        const when = this._when();
+        this._follow(when);
+        for (const deck of Object.values(this.decks)) this._render(deck, when);
         smooth(this.graph.masterArm.gain, 1, context.currentTime);
         smooth(this.graph.cueArm.gain, 1, context.currentTime);
         this._notify();
@@ -206,6 +288,8 @@ export class TrackazoidAudio {
     this._stopDeck(deck, true);
     deck.buffer = buffer; deck.stretchBuffer = null;
     deck.transport.load(buffer.duration, this._now());
+    deck.grid = { bpm: null, beatOffset: 0 }; deck.sync = false; deck.syncError = null;
+    this.masterId = this._masterAt(this._now());
     this._notify();
     try {
       if (deck.stretch) await bounded(deck.stretch.dropBuffers(), "Releasing the previous track");
@@ -289,6 +373,7 @@ export class TrackazoidAudio {
     if (!voice) return;
     deck.source = null;
     const end = immediate ? when : when + FADE;
+    voice.endTime = end;
     if (immediate) voice.gain.gain.value = 0;
     else smooth(voice.gain.gain, 0, when);
     deck.retiring.add(voice);
@@ -302,23 +387,45 @@ export class TrackazoidAudio {
     }
   }
 
-  _stopDeck(deck, immediate = false) {
-    const now = this.context?.currentTime ?? 0;
+  _restoreNative(deck, now) {
+    if (!deck.source || deck.source.startTime <= now) return;
+    // Replace a not-yet-started command without cutting its still-playing predecessor.
+    const pending = deck.source; deck.source = null;
+    try { pending.node.stop(); } catch { /* Already stopped. */ }
+    disconnect(pending.node); disconnect(pending.gain);
+    const predecessor = [...deck.retiring].find(voice => voice.startTime <= now && voice.endTime > now);
+    if (predecessor) {
+      deck.retiring.delete(predecessor); deck.source = predecessor;
+      smooth(predecessor.gain.gain, 1, now);
+    }
+  }
+
+  _stopDeck(deck, immediate = false, when = this.context?.currentTime ?? 0) {
+    const now = when;
     this._stopNative(deck, now, immediate);
+    for (const voice of deck.retiring) {
+      if (immediate) { voice.gain.gain.value = 0; disconnect(voice.node); disconnect(voice.gain); }
+      else smooth(voice.gain.gain, 0, now);
+      voice.endTime = immediate ? now : now + FADE;
+      try { voice.node.stop(voice.endTime); } catch { /* Already stopped. */ }
+    }
+    if (immediate) deck.retiring.clear();
     if (deck.graph) smooth(deck.graph.stretchGain.gain, 0, now, immediate ? 0 : FADE);
     if (deck.stretch) {
       void deck.stretch.schedule({ active: false, output: now }).catch(error => this._error(error));
     }
   }
 
-  _render(deck) {
+  _render(deck, scheduledTime = this._when()) {
     if (this.disposed || !this.armed || !deck.buffer || !deck.graph) return;
     const context = this.context; const now = context.currentTime;
-    const state = deck.transport.snapshot(now);
-    if (!state.playing) { this._stopDeck(deck); return; }
+    const pendingTime = deck.transport.intent(now).playing ? deck.transport.pending?.time ?? scheduledTime : scheduledTime;
+    const when = Math.max(scheduledTime, pendingTime);
+    const state = deck.transport.snapshot(when);
+    this._restoreNative(deck, now);
+    if (!state.playing) { this._stopDeck(deck, false, when); return; }
     const useStretch = deck.keyLock && deck.stretch && deck.stretchBuffer === deck.buffer;
-    const when = now + (useStretch ? deck.latency + FADE : FADE);
-    const projected = deck.transport.snapshot(when);
+    const projected = state;
     if (useStretch) {
       this._stopNative(deck, when);
       void deck.stretch.schedule({
@@ -339,7 +446,7 @@ export class TrackazoidAudio {
     source.loop = Boolean(state.loop);
     if (state.loop) { source.loopStart = state.loop.start; source.loopEnd = state.loop.end; }
     const gain = this._gain(0); source.connect(gain).connect(deck.graph.input);
-    const voice = { node: source, gain }; deck.source = voice;
+    const voice = { node: source, gain, startTime: when, endTime: Infinity }; deck.source = voice;
     source.onended = () => {
       disconnect(source); disconnect(gain); deck.retiring.delete(voice);
       if (deck.source === voice) { deck.source = null; this._notify(); }
@@ -348,17 +455,104 @@ export class TrackazoidAudio {
     source.start(when, projected.position);
   }
 
-  _transport(id, operation, ...args) {
-    if (this.disposed) return this.snapshot(id);
-    const deck = this._deck(id); deck.transport[operation](...args, this._now());
-    this._render(deck); this._notify(); return this.snapshot(id);
+  setBeatGrid(id, { bpm = null, beatOffset = 0 } = {}) {
+    const deck = this._deck(id);
+    const known = Number.isFinite(bpm) && bpm >= 40 && bpm <= 240;
+    deck.grid = { bpm: known ? bpm : null, beatOffset: clamp(beatOffset, 0, deck.buffer?.duration ?? 24 * 60 * 60) };
+    if (!known && deck.sync) this._syncFailure(deck, "Set a BPM before enabling Sync.", false);
+    this._follow(this._when()); this._notify(); return this.snapshot(id);
   }
-  play(id) { return this._transport(id, "play"); }
-  pause(id) { return this._transport(id, "pause"); }
-  seek(id, seconds) { return this._transport(id, "seek", seconds); }
-  setRate(id, rate) { return this._transport(id, "setRate", rate); }
-  setLoop(id, start, end) { return this._transport(id, "setLoop", start, end); }
-  clearLoop(id) { return this._transport(id, "clearLoop"); }
+
+  setSync(id, enabled) {
+    if (this.disposed) return this.snapshot(id);
+    const now = this._now(), deck = this._deck(id), masterId = this._masterAt(now);
+    if (!enabled) { deck.sync = false; deck.syncError = null; this._notify(); return this.snapshot(id); }
+    let message = !deck.grid.bpm ? "Analyze this track or enter its source BPM before enabling Sync." : null;
+    if (!message && masterId && masterId !== id) {
+      const master = this.decks[masterId];
+      if (!master.grid.bpm) message = "Set the master track’s source BPM before enabling Sync.";
+      else if (this._syncRate(deck, master, this._when()) === null) message = "Sync needs more than ±16% tempo. Correct a half/double BPM or adjust the master tempo.";
+      else if (!this._beatLoop(deck, now) || !this._beatLoop(master, now)) message = "Use a whole-beat loop before enabling Sync.";
+    }
+    if (message) { this._syncFailure(deck, message, false); this._notify(); throw new Error(message); }
+    deck.sync = true; deck.syncError = null;
+    this._follow(this._when()); this._notify(); return this.snapshot(id);
+  }
+
+  play(id) {
+    if (this.disposed) return this.snapshot(id);
+    const deck = this._deck(id), now = this._now(), state = deck.transport.intent(now);
+    if (!state.duration || state.playing) return this.snapshot(id);
+    this.masterId = this._masterAt(now);
+    const master = this.decks[this.masterId]; let when = this._when();
+    const requestedPosition = deck.transport.pendingChanges?.position ?? state.position;
+    let position = requestedPosition >= state.duration ? 0 : requestedPosition;
+    const changes = { playing: true, position };
+    if (deck.sync && master && master !== deck) {
+      const rate = this._syncRate(deck, master, when);
+      if (rate === null) {
+        this._syncFailure(deck, "Sync cannot match this master within ±16%. Adjust the BPM or disable Sync.", false);
+        this._notify(); throw new Error(deck.syncError);
+      }
+      const reference = master.transport.snapshot(when);
+      const phase = beatPhase(reference.position, master.grid);
+      // Launch on the next master beat, after enough lead for both render modes.
+      if (phase > 1e-6 && 1 - phase > 1e-6) when += (1 - phase) * 60 / (master.grid.bpm * reference.rate);
+      changes.position = alignedPosition(position, deck.grid, beatPhase(master.transport.snapshot(when).position, master.grid), state.duration, state.loop);
+      changes.rate = rate;
+    }
+    deck.playOrder = ++this.playSequence;
+    this._commit(deck, changes, when, now);
+    if (!this.masterId) this.masterId = id;
+    // A first-playing master also supplies the tempo for stopped Sync followers.
+    if (this.masterId === id) this._follow(when);
+    this._notify(); return this.snapshot(id);
+  }
+
+  pause(id) {
+    if (this.disposed) return this.snapshot(id);
+    const deck = this._deck(id), now = this._now();
+    // Pause promptly; future quantized starts are cancelled as part of this edit.
+    deck.transport.change(now, { playing: false, position: deck.transport.snapshot(now).position }); this._stopDeck(deck);
+    this.masterId = this._masterAt(now); this._follow(this._when());
+    this._notify(); return this.snapshot(id);
+  }
+
+  seek(id, seconds) {
+    if (this.disposed) return this.snapshot(id);
+    const deck = this._deck(id), now = this._now(), when = this._when();
+    this.masterId = this._masterAt(now);
+    if (deck.sync && this.masterId !== id) { deck.sync = false; deck.syncError = null; }
+    this._commit(deck, { position: clamp(seconds, 0, deck.buffer?.duration ?? 0) }, when, now);
+    if (this.masterId === id) this._follow(when);
+    this._notify(); return this.snapshot(id);
+  }
+
+  setRate(id, rate) {
+    if (this.disposed) return this.snapshot(id);
+    const deck = this._deck(id), now = this._now(), when = this._when();
+    this.masterId = this._masterAt(now);
+    if (deck.sync && this.masterId !== id) { deck.sync = false; deck.syncError = null; }
+    this._commit(deck, { rate: clamp(rate, MIN_RATE, MAX_RATE, 1) }, when, now);
+    if (this.masterId === id) this._follow(when);
+    this._notify(); return this.snapshot(id);
+  }
+
+  setLoop(id, start, end) {
+    if (this.disposed) return this.snapshot(id);
+    const deck = this._deck(id), now = this._now(), when = this._when();
+    const loop = normalizeLoop(start, end, deck.buffer?.duration ?? 0);
+    const changes = { loop };
+    if (loop && deck.transport.snapshot(when).position >= loop.end) changes.position = loop.start;
+    if (loop && deck.sync && deck.grid.bpm) {
+      const beats = (loop.end - loop.start) * deck.grid.bpm / 60;
+      if (Math.abs(beats - Math.round(beats)) > 1e-4) this._syncFailure(deck, "A free-length loop overrides beat Sync.", false);
+    }
+    this._commit(deck, changes, when, now);
+    if (this._masterAt(now) === id) this._follow(when);
+    this._notify(); return this.snapshot(id);
+  }
+  clearLoop(id) { return this.setLoop(id, 0, 0); }
 
   async setKeyLock(id, enabled) {
     if (this.disposed) return false;
@@ -393,7 +587,7 @@ export class TrackazoidAudio {
   }
   setFilter(id, value) { const deck = this._deck(id); deck.filter = clamp(value, -1, 1, 0); this._applyMix(deck); }
   setCrossfader(value) { this.crossfader = clamp(value, -1, 1, 0); Object.values(this.decks).forEach(deck => this._applyMix(deck)); }
-  setMaster(value) { this.master = clamp(value, 0, 1, 0.7); if (this.graph) smooth(this.graph.master.gain, this.master * 0.7, this.context.currentTime); }
+  setMaster(value) { this.masterLevel = clamp(value, 0, 1, 0.7); if (this.graph) smooth(this.graph.master.gain, this.masterLevel * 0.7, this.context.currentTime); }
   setCue(id, value) { const deck = this._deck(id); deck.cue = Boolean(value); this._applyMix(deck); }
   setCueLevel(value) { this.cueLevel = clamp(value, 0, 1, 0.6); if (this.graph) smooth(this.graph.cue.gain, this.cueLevel * 0.7, this.context.currentTime); }
   setRouting(value) {

@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { DeckTransport, crossfadeGains, normalizeLoop } from "../src/instruments/trackazoid/transport.js";
+import { DeckTransport, crossfadeGains, normalizeLoop, phaseDifference, alignedPosition, matchingRate } from "../src/instruments/trackazoid/transport.js";
 
 function near(actual, expected) { assert.ok(Math.abs(actual - expected) < 1e-8, `${actual} ≈ ${expected}`); }
 
@@ -58,4 +58,28 @@ test("Trackazoid crossfader has silent endpoints and constant power", () => {
   for (let value = -1; value <= 1; value += 0.05) {
     const [a, b] = crossfadeGains(value); near(a * a + b * b, 1);
   }
+});
+
+test("Trackazoid future edits keep audible position intact and replace bounded pending intent", () => {
+  const transport = new DeckTransport(); transport.load(120, 0); transport.play(0);
+  transport.schedule(10, { rate: 1.1 }, 9);
+  near(transport.snapshot(9.5).position, 9.5);
+  assert.equal(transport.intent(9.5).rate, 1.1);
+  assert.equal(transport.snapshot(9.5).rate, 1);
+  transport.schedule(10.2, { rate: 1.15 }, 9.2);
+  near(transport.snapshot(10.1).position, 10.1);
+  near(transport.snapshot(11.2).position, 11.35);
+  transport.rebase(9.5, 100);
+  near(transport.snapshot(100.6).position, 10.1);
+  near(transport.snapshot(101.7).position, 11.35);
+});
+
+test("Trackazoid beat alignment handles unknown grids, track edges and octave mistakes", () => {
+  const grid = { bpm: 120, beatOffset: 0.2 };
+  near(alignedPosition(0, grid, 0.5, 100), 0.45);
+  near(alignedPosition(99.99, grid, 0.5, 100), 99.95);
+  near(phaseDifference(0.45, grid, 0.25, { bpm: 120, beatOffset: 0 }), 0);
+  assert.equal(phaseDifference(0, { bpm: null }, 0, grid), null);
+  near(matchingRate(126, 114, 1), 114 / 126);
+  assert.equal(matchingRate(60, 126, 1), null);
 });
