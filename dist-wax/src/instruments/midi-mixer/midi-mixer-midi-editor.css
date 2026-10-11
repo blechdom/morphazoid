@@ -1,0 +1,50 @@
+.midi-parameter-editor { min-width: 0; font-size: 11px; --midi-edit-ink: var(--deck-ink, #83efcf); }
+.midi-edit-toolbar { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin: 6px 0; }
+.midi-edit-count { color: #96b5a9; }
+.midi-parameter-editor button, .midi-parameter-editor select, .midi-parameter-editor input { font: inherit; max-width: 100%; box-sizing: border-box; }
+div.midi-parameter-editor button { cursor: pointer; color: #c8dcd5; border: 1px solid #304441; border-radius: 0; background: #10201c; padding: 7px 9px; min-height: 36px; min-width: 0; width: auto; height: auto; }
+.midi-parameter-editor button:disabled { cursor: default; opacity: .45; }
+.midi-parameter-editor input[type="number"], .midi-parameter-editor input[type="search"], .midi-parameter-editor select { color: #d5e1df; background: #0e191c; border: 1px solid #304441; border-radius: 0; padding: 7px 8px; min-height: 36px; }
+.midi-parameter-editor input[type="range"] { width: 100%; min-width: 0; accent-color: var(--midi-edit-ink); }
+.midi-parameter-editor input[type="checkbox"] { accent-color: var(--midi-edit-ink); width: 20px; height: 20px; }
+.midi-parameter-editor :focus-visible { outline: 2px solid var(--midi-edit-ink); outline-offset: 2px; }
+.midi-edit-group { border-top: 1px solid #23392f; }
+.midi-edit-group > summary { cursor: pointer; padding: 12px 0; line-height: 1.5; min-height: 40px; color: #bdd3cb; }
+.midi-edit-group-body { padding: 2px 0 14px; }
+.midi-edit-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 18px 20px; }
+.midi-edit-field { min-width: 0; }
+.midi-edit-field-heading { display: flex; align-items: baseline; justify-content: space-between; flex-wrap: wrap; gap: 4px 10px; margin-bottom: 7px; }
+.midi-edit-field-heading label { color: #c2d6cd; }
+.midi-edit-field-heading output { color: #8ba99d; font-size: 10px; font-variant-numeric: tabular-nums; }
+.midi-edit-field.is-overridden .midi-edit-field-heading output { color: var(--midi-edit-ink); }
+.midi-edit-value-row { display: flex; align-items: center; gap: 8px; }
+.midi-edit-value-row input[type="range"], .midi-edit-value-row select { flex: 1; width: 0; min-width: 0; }
+.midi-edit-value-row input.midi-edit-number { width: 72px; flex: 0 0 72px; min-width: 0; padding-left: 6px; padding-right: 3px; }
+.midi-edit-value-row .midi-edit-follow { flex: 0 0 auto; font-size: 10px; }
+.midi-edit-description { display: block; margin-top: 6px; color: #8ba99d; line-height: 1.5; }
+.midi-edit-note { margin: 8px 0 12px; color: #8ba99d; font-size: 10px; line-height: 1.6; }
+.midi-edit-search { display: block; width: 100%; }
+.midi-edit-results { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 4px; max-height: 180px; overflow-y: auto; overscroll-behavior: contain; margin: 10px 0 16px; scrollbar-gutter: stable; }
+.midi-edit-result { text-align: left; overflow-wrap: anywhere; }
+.midi-edit-result[aria-pressed="true"] { border-color: var(--midi-edit-ink); color: var(--midi-edit-ink); background: #152d23; }
+.midi-edit-result[hidden], .midi-edit-empty[hidden] { display: none; }
+.midi-edit-empty { padding: 12px 0; color: #8ba99d; }
+.midi-edit-active { display: grid; gap: 5px; margin-top: 12px; }
+.midi-edit-active-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.midi-edit-active-row .midi-edit-active-label { flex: 1; min-width: 0; text-align: left; border-color: transparent; color: var(--midi-edit-ink); overflow-wrap: anywhere; }
+.midi-edit-active-row .midi-edit-follow { flex-shrink: 0; font-size: 10px; }
+.midi-edit-rpn { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; align-items: end; }
+.midi-edit-rpn select, .midi-edit-rpn button { grid-column: 1 / -1; width: 100%; }
+.midi-edit-rpn label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.midi-edit-rpn input { width: 100%; }
+.midi-edit-recovery { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+@media (pointer: coarse) {
+  div.midi-parameter-editor button, .midi-parameter-editor select, .midi-parameter-editor input[type="number"], .midi-parameter-editor input[type="search"], .midi-edit-group > summary { min-height: 48px; }
+  .midi-parameter-editor input[type="range"] { min-height: 48px; }
+  .midi-parameter-editor input[type="checkbox"] { min-width: 48px; min-height: 48px; }
+}
+@media (max-width: 420px) {
+  .midi-edit-value-row { gap: 6px; }
+  .midi-edit-value-row input.midi-edit-number { width: 62px; flex-basis: 62px; }
+  .midi-edit-value-row .midi-edit-follow { max-width: 82px; white-space: normal; line-height: 1.3; }
+}

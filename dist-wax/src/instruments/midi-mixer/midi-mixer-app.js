@@ -1,9 +1,10 @@
 import { MidiMixerEngine } from './midi-mixer-engine.js';
-import { GM_PROGRAM_NAMES } from './midi-mixer-model.js';
+import { GM_PROGRAM_NAMES, defaultDeckConfig } from './midi-mixer-model.js';
 import { MidiMixerRenderer, mixerVoiceColor } from './midi-mixer-renderer.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { MIDI_MIXER_PRESETS, captureMixerPreset, applyMixerPreset, randomizeMixerPreset } from './midi-mixer-presets.js';
 import { mountMixerPerformance } from './midi-mixer-performance.js';
+import { mountMidiParameterEditor, mountMidiSynthEffectEditor } from './midi-mixer-midi-editor.js';
 
 const asset = path => new URL(`../../../assets/midiphoria/${path}`, import.meta.url).href;
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
@@ -26,11 +27,11 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   <div id="mixerDeckHost" class="mixer-decks"></div>
   <details class="mixer-effects"><summary>SoundFont & live effects</summary><div class="mixer-effects-controls">
     <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open mixer SoundFont"></label><button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
-    <label class="control"><span><b>Low-pass filter</b><output id="mixerFilterOut">Open</output></span><input id="mixerFilter" type="range" min="2" max="4.3" step=".01" value="4.3" aria-label="Mixer low-pass filter"></label>
+    <label class="control"><span><b>Low-pass filter</b><output id="mixerFilterOut">Open</output></span><input id="mixerFilter" type="range" min="1.7781512504" max="4.30103" step=".01" value="4.30103" aria-label="Mixer low-pass filter"><input id="mixerFilterExact" type="number" min="60" max="20000" step="1" value="20000" aria-label="Mixer filter frequency in Hz"></label>
     <label class="control"><span><b>Echo</b><output id="mixerEchoOut">0%</output></span><input id="mixerEcho" type="range" min="0" max=".75" step=".01" value="0" aria-label="Mixer echo mix"></label>
-    <label class="control"><span><b>Echo time</b></span><select id="mixerEchoTime"><option value="0.125">⅛ beat</option><option value="0.25">¼ beat</option><option value="0.5" selected>½ beat</option><option value="0.75">¾ beat</option><option value="1">1 beat</option><option value="1.5">1½ beats</option><option value="2">2 beats</option><option value="4">4 beats</option></select></label>
+    <label class="control"><span><b>Echo time</b></span><select id="mixerEchoTime"><option value="0.125">⅛ beat</option><option value="0.25">¼ beat</option><option value="0.5" selected>½ beat</option><option value="0.75">¾ beat</option><option value="1">1 beat</option><option value="1.5">1½ beats</option><option value="2">2 beats</option><option value="4">4 beats</option></select><input id="mixerEchoExact" type="number" min=".125" max="4" step=".001" value=".5" aria-label="Mixer exact echo time in beats"></label>
     <label class="control"><span><b>Feedback</b><output id="mixerFeedbackOut">30%</output></span><input id="mixerFeedback" type="range" min="0" max=".8" step=".01" value=".3" aria-label="Mixer echo feedback"></label>
-  </div></details>
+  </div><div id="mixerSynthEffects"></div></details>
   <details class="mixer-guide"><summary>Mixing & file details</summary><p>Each map spans the entire arrangement. Taller marks mean more note attacks, not higher pitches. Click to jump; drag a region to loop it. Arrow keys move one beat, Shift + arrows four beats. Choose Drums on one deck and Melody on the other, then use Solo to keep a particular voice. Grey rows are muted. Voices with no notes are listed in the inspector.</p><p>Both decks follow one beat clock. Tempo ratio lets A run at double time while B runs at half time. Slip advances or delays a score without moving that clock; pitch shifts leave General MIDI drums unchanged. Bar slips use each file’s initial time signature. SoundFonts stay in this browser. This is MIDI seeking and looping, rather than vinyl-style reversed audio scratching.</p><p><a href="docs/midi-mixer.md" target="_blank" rel="noopener">Mixer details ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI collection & SoundFont credits ↗</a></p></details>`;
   host.insertBefore(host.querySelector('.mixer-effects'), host.querySelector('#mixerDeckHost'));
   const $ = id => host.querySelector(`#${id}`);
@@ -38,7 +39,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
   let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, initialized = false;
   const deckUIs = [], renderers = [];
-  let engine, performanceView, presetController, fontSerial = 0, fontRequest = null, originalBusy = false;
+  let engine, performanceView, presetController, synthEffectEditor, fontSerial = 0, fontRequest = null, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
@@ -54,18 +55,28 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       <p class="deck-map-help">Click to jump · drag to loop · grey = muted</p>
       <div class="deck-parameters">
         <label class="control"><span><b>Tempo ratio</b><output id="deckRateOut${index}">120 BPM</output></span><select id="deckRate${index}" aria-label="Deck ${letter} tempo ratio"><option value="0.25">¼× · quarter time</option><option value="0.5">½× · half time</option><option value="1" selected>1× · shared tempo</option><option value="2">2× · double time</option><option value="4">4× · quadruple time</option></select></label>
-        <label class="control"><span><b>Level</b><output id="deckGainOut${index}">100%</output></span><input id="deckGain${index}" aria-label="Deck ${letter} level" type="range" min="0" max="1" step=".01" value="1"></label>
+        <label class="control"><span><b>Level</b><output id="deckGainOut${index}">100%</output></span><input id="deckGain${index}" aria-label="Deck ${letter} level" type="range" min="0" max="2" step=".01" value="1"></label>
         <label class="control"><span><b>Pitch</b><output id="deckPitchOut${index}">0 st</output></span><input id="deckPitch${index}" aria-label="Deck ${letter} pitch" type="range" min="-24" max="24" step="1" value="0"></label>
         <div class="control"><label for="deckOffset${index}">Slip · beats</label><div class="deck-slip"><button type="button" class="mini-action" id="deckBack${index}" aria-label="Slip deck ${letter} back one bar">−bar</button><input id="deckOffset${index}" type="number" min="-4000000" max="4000000" step=".25" value="0"><button type="button" class="mini-action" id="deckForward${index}" aria-label="Slip deck ${letter} forward one bar">+bar</button></div></div>
         <div class="control"><label for="deckScrub${index}">Position · beats</label><input id="deckScrub${index}" type="range" min="0" max="1" step=".25" value="0"></div>
       </div>
-      <div class="deck-loop-region"><label>Loop from<input id="deckLoopStart${index}" aria-label="Deck ${letter} loop start" type="number" min="0" max="1000000" step="1" value="0"></label><label>to<input id="deckLoopEnd${index}" aria-label="Deck ${letter} loop end" type="number" min="0" max="1000000" step="1" value="0"></label><button id="deckFullLoop${index}" type="button" class="mini-action">Whole file</button></div>
+      <details class="deck-midi-editor"><summary>MIDI · all voices</summary><label class="control deck-exact-ratio">Exact tempo ratio<input id="deckExactRate${index}" aria-label="Deck ${letter} exact tempo ratio" type="number" min=".25" max="4" step=".001" value="1"></label><div id="deckMidi${index}"></div></details>
+      <div class="deck-loop-region"><label>Loop from<input id="deckLoopStart${index}" aria-label="Deck ${letter} loop start" type="number" min="0" max="1000000" step=".03125" value="0"></label><label>to<input id="deckLoopEnd${index}" aria-label="Deck ${letter} loop end" type="number" min="0" max="1000000" step=".03125" value="0"></label><button id="deckFullLoop${index}" type="button" class="mini-action">Whole file</button></div>
       <div class="deck-switches"><label><input id="deckLoop${index}" type="checkbox" checked>Loop</label><label><input id="deckMute${index}" type="checkbox">Mute deck</label><button id="deckMatch${index}" class="mini-action" type="button" disabled>Match ${index ? 'A' : 'B'} key</button></div>
       <div class="deck-channel-heading"><h3>Voices</h3><div class="deck-channel-actions"><button id="deckAll${index}" type="button" class="mini-action">All</button><button id="deckDrums${index}" type="button" class="mini-action">Drums</button><button id="deckMelody${index}" type="button" class="mini-action">Melody</button></div></div>
       <div id="deckChannels${index}" class="deck-channels"></div>
       <details class="deck-inspector"><summary>Inspect MIDI · tracks, notes & timing</summary><div id="deckInspect${index}"></div></details>`;
     $('mixerDeckHost').append(section);
-    const ui = { section, analysis: null, rows: new Map(), letter, channelEvents: new AbortController() }; deckUIs.push(ui);
+    const ui = { section, analysis: null, rows: new Map(), letter, channelEvents: new AbortController(), midiEditor: null }; deckUIs.push(ui);
+    on(section.querySelector('.deck-midi-editor'), 'toggle', event => {
+      if (!event.target.open || !engine) return;
+      ui.midiEditor ??= mountMidiParameterEditor($(`deckMidi${index}`), {
+        label: `Deck ${letter} MIDI`, getValue: () => engine.state.decks[index].config.midi,
+        onChange: midi => { custom(); engine.configureDeck(index, { midi }); },
+        onAction: action => midiAction(index, null, action),
+      });
+      ui.midiEditor.refresh();
+    });
     renderers.push(new MidiMixerRenderer($(`deckMap${index}`), index, {
       onSeek: beat => { custom(); attempt(() => engine.seekDeck(index, beat)); },
       onLoop: (start, end) => { custom(); engine.configureDeck(index, { loopStartBeats: start, loopEndBeats: end, loop: true }); engine.seekDeck(index, start); },
@@ -95,6 +106,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     });
     for (const [id, key] of [['Gain', 'gain'], ['Pitch', 'transpose'], ['Offset', 'offsetBeats']]) on($(`deck${id}${index}`), 'input', event => { custom(); engine.configureDeck(index, { [key]: Number(event.target.value) }); });
     on($(`deckRate${index}`), 'change', event => { custom(); engine.configureDeck(index, { rate: Number(event.target.value) }); });
+    on($(`deckExactRate${index}`), 'change', event => { if (!event.target.validity.valid) return; custom(); engine.configureDeck(index, { rate: Number(event.target.value) }); });
     for (const [id, key] of [['Loop', 'loop'], ['Mute', 'mute']]) on($(`deck${id}${index}`), 'change', event => { custom(); engine.configureDeck(index, { [key]: event.target.checked }); });
     for (const [id, direction] of [['Back', -1], ['Forward', 1]]) on($(`deck${id}${index}`), 'click', () => {
       const deck = engine.state.decks[index], meter = deck.analysis?.meterMap[0], bar = meter ? meter.numerator * 4 / meter.denominator : 4;
@@ -115,12 +127,17 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       custom(); engine.configureDeck(index, { transpose: shift });
     });
   }
+  function midiAction(index, channel, action) {
+    return attempt(() => action.kind === 'parameter'
+      ? engine.sendChannelParameter(index, channel, action)
+      : engine.sendChannelController(index, channel, action.controller, action.value));
+  }
   function keyRoot(key) {
     const match = key?.label?.match(/^([A-G])([♭♯]?)/); if (!match) return null;
     return ({ C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 }[match[1]] + (match[2] === '♯' ? 1 : match[2] === '♭' ? -1 : 0) + 12) % 12;
   }
   function makeInfo(index, analysis) {
-    const ui = deckUIs[index]; ui.channelEvents.abort(); ui.channelEvents = new AbortController(); ui.analysis = analysis; ui.rows.clear(); $(`deckInfo${index}`).replaceChildren(); $(`deckChannels${index}`).replaceChildren(); $(`deckInspect${index}`).replaceChildren();
+    const ui = deckUIs[index]; ui.channelEvents.abort(); ui.channelEvents = new AbortController(); ui.analysis = analysis; for (const row of ui.rows.values()) row.editor?.destroy(); ui.rows.clear(); $(`deckInfo${index}`).replaceChildren(); $(`deckChannels${index}`).replaceChildren(); $(`deckInspect${index}`).replaceChildren();
     if (!analysis) return;
     const meter = analysis.meterMap[0], key = analysis.key;
     for (const [title, value] of [['Source tempo', `${analysis.initialTempo.toFixed(1)} BPM`], ['Original time', time(analysis.durationSeconds)], ['Meter', `${meter.numerator}/${meter.denominator}`], ['Key', `${key.label}${key.source === 'estimated' ? ' · estimated' : key.source === 'embedded' ? ' · MIDI' : ''}`]]) {
@@ -133,14 +150,26 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       const info = document.createElement('span'), small = document.createElement('small'); info.textContent = `${channel.port ? `P${channel.port + 1} · ` : ''}Ch ${channel.channel % 16 + 1}`; small.textContent = `${channel.noteCount.toLocaleString()} notes`; info.append(small); label.append(swatch, info);
       const select = document.createElement('select'); select.id = label.htmlFor; select.setAttribute('aria-label', `Deck ${ui.letter} channel ${channel.channel + 1} instrument`);
       select.append(new Option(`Original · ${channel.instrument}`, '')); GM_PROGRAM_NAMES.forEach((name, program) => select.append(new Option(`${program + 1} · ${name}`, String(program))));
-      // Drum kit program numbers are SoundFont-specific; expose the original kit rather than mislabel a melodic program as a kit.
-      if (channel.drums) { select.replaceChildren(new Option('Original drum kit', '')); select.disabled = true; }
+      if (channel.drums) { select.replaceChildren(new Option('Original drum kit', '')); for (let program = 0; program < 128; program++) select.append(new Option(`Kit ${program + 1} · SoundFont`, String(program))); }
       const mute = document.createElement('button'), solo = document.createElement('button'); mute.type = solo.type = 'button'; mute.textContent = 'M'; solo.textContent = 'S';
       mute.setAttribute('aria-label', `Mute deck ${ui.letter} channel ${channel.channel + 1}`); solo.setAttribute('aria-label', `Solo deck ${ui.letter} channel ${channel.channel + 1}`);
       mute.setAttribute('aria-pressed', 'false'); solo.setAttribute('aria-pressed', 'false'); mute.disabled = solo.disabled = !channel.noteCount;
       select.addEventListener('change', () => { custom(); engine.configureChannel(index, channel.channel, { program: select.value === '' ? null : Number(select.value) }); }, { signal: ui.channelEvents.signal });
       for (const [button, key] of [[mute, 'mute'], [solo, 'solo']]) button.addEventListener('click', () => { custom(); const setting = engine.state.decks[index].channels.find(item => item.channel === channel.channel); engine.configureChannel(index, channel.channel, { [key]: !setting[key] }); }, { signal: ui.channelEvents.signal });
-      row.append(label, select, mute, solo); $(`deckChannels${index}`).append(row); ui.rows.set(channel.channel, { row, select, mute, solo, silent: !channel.noteCount });
+      const details = document.createElement('details'), summary = document.createElement('summary'), editorHost = document.createElement('div');
+      details.className = 'channel-midi-editor'; summary.textContent = 'Edit voice'; details.append(summary, editorHost);
+      const entry = { row, select, mute, solo, details, editor: null, silent: !channel.noteCount };
+      details.addEventListener('toggle', () => {
+        if (!details.open) return;
+        entry.editor ??= mountMidiParameterEditor(editorHost, {
+          label: `Deck ${ui.letter} channel ${channel.channel + 1}`, followLabel: 'Follow deck / file', excludeFields: ['program'],
+          getValue: () => engine.state.decks[index].channels.find(item => item.channel === channel.channel)?.midi,
+          onChange: midi => { custom(); engine.configureChannel(index, channel.channel, { midi }); },
+          onAction: action => midiAction(index, channel.channel, action),
+        });
+        entry.editor.refresh();
+      }, { signal: ui.channelEvents.signal });
+      row.append(label, select, mute, solo, details); $(`deckChannels${index}`).append(row); ui.rows.set(channel.channel, entry);
     }
     const paragraph = document.createElement('p'); paragraph.textContent = `Format ${analysis.format} · ${analysis.trackCount} tracks · ${analysis.ppq} ticks/quarter · ${analysis.noteCount.toLocaleString()} notes · ${analysis.durationBeats.toFixed(2)} beats`; $(`deckInspect${index}`).append(paragraph);
     const table = document.createElement('table');
@@ -165,13 +194,21 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     $('mixerFontName').textContent = state.soundfontName || 'TimGM6mb';
     const effects = state.effects;
     if (effects) {
+      const echoMenu = $('mixerEchoTime'); let customEcho = echoMenu.querySelector('[data-custom-time]');
+      if (![.125, .25, .5, .75, 1, 1.5, 2, 4].includes(effects.delayBeats)) { if (!customEcho) { customEcho = new Option(); customEcho.dataset.customTime = ''; echoMenu.append(customEcho); } customEcho.value = String(effects.delayBeats); customEcho.textContent = `${effects.delayBeats.toFixed(3)} beats`; } else customEcho?.remove();
       field($('mixerFilter'), Math.log10(effects.filterHz)); field($('mixerEcho'), effects.delayMix); field($('mixerEchoTime'), effects.delayBeats); field($('mixerFeedback'), effects.feedback);
+      field($('mixerFilterExact'), Math.round(effects.filterHz)); field($('mixerEchoExact'), effects.delayBeats);
       $('mixerFilterOut').value = effects.filterHz >= 19000 ? 'Open' : `${Math.round(effects.filterHz)} Hz`; $('mixerEchoOut').value = `${Math.round(effects.delayMix * 100)}%`; $('mixerFeedbackOut').value = `${Math.round(effects.feedback * 100)}%`;
     }
+    synthEffectEditor?.refresh();
     state.decks.forEach((deck, index) => {
       $(`deckOriginal${index}`).disabled = !onOriginal || !originals[index] || loading[index] || originalBusy;
       const ui = deckUIs[index]; if (ui.analysis !== deck.analysis) makeInfo(index, deck.analysis);
-      const config = deck.config; field($(`deckRate${index}`), config.rate ?? 1); $(`deckRateOut${index}`).value = `${(state.tempo * (config.rate ?? 1)).toFixed(1)} BPM`; field($(`deckGain${index}`), config.gain); field($(`deckPitch${index}`), config.transpose); field($(`deckOffset${index}`), config.offsetBeats);
+      const config = deck.config, rateSelect = $(`deckRate${index}`), rate = config.rate ?? 1;
+      let customRate = rateSelect.querySelector('[data-custom-rate]');
+      if (![.25, .5, 1, 2, 4].includes(rate)) { if (!customRate) { customRate = new Option(); customRate.dataset.customRate = ''; rateSelect.append(customRate); } customRate.value = String(rate); customRate.textContent = `${rate.toFixed(3)}× · custom`; } else customRate?.remove();
+      field(rateSelect, rate); field($(`deckExactRate${index}`), rate); $(`deckRateOut${index}`).value = `${(state.tempo * rate).toFixed(1)} BPM`; field($(`deckGain${index}`), config.gain); field($(`deckPitch${index}`), config.transpose); field($(`deckOffset${index}`), config.offsetBeats);
+      if (ui.section.querySelector('.deck-midi-editor').open) ui.midiEditor?.refresh();
       field($(`deckLoopStart${index}`), config.loopStartBeats || 0); field($(`deckLoopEnd${index}`), deck.loopEndBeats ?? deck.loopBeats);
       $('tempoFrom' + ui.letter).disabled = !deck.analysis; $(`deckGainOut${index}`).value = `${Math.round(config.gain * 100)}%`; $(`deckPitchOut${index}`).value = `${config.transpose > 0 ? '+' : ''}${config.transpose} st`;
       $(`deckLoop${index}`).checked = config.loop; $(`deckMute${index}`).checked = config.mute;
@@ -183,12 +220,40 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
         const row = ui.rows.get(channel.channel); if (!row) continue;
         row.mute.setAttribute('aria-pressed', String(channel.mute)); row.solo.setAttribute('aria-pressed', String(channel.solo));
         row.row.classList.toggle('is-muted', row.silent || config.mute || channel.mute || (solo && !channel.solo)); field(row.select, channel.program ?? '');
+        if (row.details.open) row.editor?.refresh();
       }
     });
     onState({ ...state, ready: state.decks.some(deck => deck.analysis) });
   }
   engine = new MidiMixerEngine({ onState: reflect });
   performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing });
+  synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
+    label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
+    onChange: synth => { custom(); engine.configureEffects({ synth }); },
+  });
+  async function editMidi({ buffer, title = 'Your MIDI', time: seconds = 0, rate = 1, loop = false, ...metadata }) {
+    const index = 0, ticket = ++serial[index]; requests[index]?.abort(); loading[index] = true; error = ''; reflect();
+    try {
+      const loaded = await engine.loadDeck(index, buffer, title); if (disposed || ticket !== serial[index]) return false;
+      engine.configureDeck(index, { ...defaultDeckConfig(), rate, loop, midi: null });
+      for (const channel of loaded.analysis.channels) engine.configureChannel(index, channel.channel, { mute: false, solo: false, program: null, midi: null });
+      engine.setTempo(loaded.analysis.initialTempo); engine.setCrossfade(-1);
+      let remaining = Math.max(0, Number(seconds) || 0), beat = 0;
+      for (let i = 0; i < loaded.analysis.tempoMap.length; i++) {
+        const entry = loaded.analysis.tempoMap[i], end = loaded.analysis.tempoMap[i + 1]?.beat ?? loaded.analysis.durationBeats;
+        const span = Math.max(0, end - entry.beat) * 60 / entry.bpm;
+        if (remaining <= span) { beat = entry.beat + remaining * entry.bpm / 60; break; }
+        remaining -= span; beat = end;
+      }
+      engine.seekDeck(index, beat);
+      originals[index] = { ...metadata, buffer: buffer.slice(0), title }; selectedIds[index] = 'editable';
+      const menu = $(`deckSong${index}`); menu.querySelector('[value="editable"]')?.remove(); menu.append(new Option(title, 'editable')); menu.value = 'editable';
+      $(`deckCredit${index}`).textContent = metadata.attribution || 'Your MIDI · source preserved.';
+      const disclosure = deckUIs[index].section.querySelector('.deck-midi-editor'); disclosure.open = true;
+      custom(); return true;
+    } catch (cause) { fail(cause); throw cause; }
+    finally { if (!disposed && ticket === serial[index]) { loading[index] = false; resumePending(); reflect(); } }
+  }
   async function choose(index, id) {
     const song = collection.find(song => song.id === id); if (!song) return;
     const ticket = ++serial[index]; requests[index]?.abort(); const request = new AbortController(); requests[index] = request;
@@ -237,6 +302,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       randomize: (_snapshot, random) => randomizeMixerPreset(engine.state, random) });
   }
   for (const [id, key, transform] of [['mixerFilter', 'filterHz', value => 10 ** value], ['mixerEcho', 'delayMix', Number], ['mixerEchoTime', 'delayBeats', Number], ['mixerFeedback', 'feedback', Number]]) on($(id), id === 'mixerEchoTime' ? 'change' : 'input', event => { custom(); engine.configureEffects({ [key]: transform(Number(event.target.value)) }); });
+  for (const [id, key] of [['mixerFilterExact', 'filterHz'], ['mixerEchoExact', 'delayBeats']]) on($(id), 'change', event => { if (!event.target.validity.valid) return; custom(); engine.configureEffects({ [key]: Number(event.target.value) }); });
   on($('mixerSoundFont'), 'change', async event => {
     const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
     const ticket = ++fontSerial; fontRequest?.abort(); error = '';
@@ -273,7 +339,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     } active = next; performanceView.setActive(active); if (active) { if (engine.context?.state === 'suspended') void engine.context.resume().catch(fail); void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
     async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); performanceView.cancelPending(); return engine.setAudioEnabled(false); },
     setVolume(value) { engine.setVolume(value); },
-    suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => ui.channelEvents.abort()); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
+    suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }

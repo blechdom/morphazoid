@@ -131,7 +131,7 @@ function patternPixels(id, density, seed) {
  * The Draw editor's stationary score/playhead still uses its original direction.
  * Text phrases stay in reading order and retain their final silent row.
  */
-export function mixerPerformanceScore(score, { trimLeading = false } = {}) {
+export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote } = {}) {
   if (!score?.buffer || !Array.isArray(score.notes) || !score.notes.length
     || !Number.isInteger(score.rows) || score.rows < 1 || score.rows > 256
     || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 48
@@ -161,7 +161,7 @@ export function mixerPerformanceScore(score, { trimLeading = false } = {}) {
   for (const { column, start, length } of notes) {
     for (let row = start - shift; row < start - shift + length; row++) pixels[rows - 1 - row][column] = 1;
   }
-  return { ...score, ...generateGridMidi(pixels, { title: score.text, secondsPerRow, lowestNote }),
+  return { ...score, ...generateGridMidi(pixels, { title: score.text, secondsPerRow: rowTime ?? secondsPerRow, lowestNote: baseNote ?? lowestNote }),
     pixels: pixels.map(row => row.slice()).reverse() };
 }
 
@@ -216,9 +216,9 @@ export function nextMixerStampVariation(id, options) {
   return null;
 }
 
-export function mixerMessageScore(input) {
+export function mixerMessageScore(input, { mode = 'word' } = {}) {
   if (typeof input !== 'string' || !input.trim()) throw new Error('Type a message or a symbol first.');
-  const score = generateTextMidi(input);
+  const score = generateTextMidi(input, { mode });
   return { ...mixerPerformanceScore(score), name: score.text };
 }
 

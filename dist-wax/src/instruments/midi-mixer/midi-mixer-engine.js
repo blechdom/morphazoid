@@ -1,5 +1,6 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
+import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
 export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
@@ -10,8 +11,8 @@ const emptyDeck = () => ({ name: '', analysis: null, config: defaultDeckConfig()
 export function compileDeck(analysis) {
   const histories = new Map();
   for (const event of analysis.events) {
-    if (event.kind === 8 || event.kind === 9 || event.kind === 10) continue;
-    const key = `${event.channel}:${event.kind}:${event.kind === 11 ? event.a : 0}`;
+    if (event.kind === 8 || event.kind === 9) continue;
+    const key = `${event.channel}:${event.kind}:${event.kind === 11 || event.kind === 10 ? event.a : 0}`;
     if (!histories.has(key)) histories.set(key, []);
     histories.get(key).push(event);
   }
@@ -35,12 +36,12 @@ export class MidiMixerEngine {
     this.runtime = runtime; this.onState = onState; this.onNotes = onNotes; this._connectOutput = connectOutput;
     this.context = null; this.node = null; this._gain = null; this._preamp = null; this._compressor = null; this._ceiling = null;
     this._filter = null; this._delay = null; this._dry = null; this._wet = null; this._feedback = null;
-    this._effects = { filterHz: 20000, delayMix: 0, delayBeats: 0.5, feedback: 0.3 };
+    this._effects = { filterHz: 20000, delayMix: 0, delayBeats: 0.5, feedback: 0.3, synth: {} };
     this._font = null; this._fontName = 'TimGM6mb'; this._fontWaits = new Map();
     this._releaseOutput = null; this._promise = null; this._ready = false; this._disposed = false; this._serial = 0;
     this._playing = false; this._desiredAudio = false; this._audioEnabled = false; this._volume = 0.6; this._tempo = 120; this._crossfade = 0;
     this._beat = 0; this._anchor = this._now(); this._audioAnchor = null; this._audioTempo = 120;
-    this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._noteSubscribers = new Set();
+    this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._sampleMidi = {}; this._noteSubscribers = new Set();
     this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
     this._onPageHide = () => { void this.dispose(); }; this.runtime.addEventListener?.('pagehide', this._onPageHide);
@@ -56,13 +57,13 @@ export class MidiMixerEngine {
       else beat += Math.max(0, this._now() - this._anchor) * this._tempo / 60;
     }
     return { ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
-      tempo: this._tempo, beat, sampleBeat, samples: this._samples.filter(sample => sampleBeat < sample.startBeat + sample.analysis.durationBeats).map(({ compiled, sent, ...sample }) => ({ ...sample, positionBeats: Math.max(0, sampleBeat - sample.startBeat) })), effects: { ...this._effects }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
+      tempo: this._tempo, beat, sampleBeat, samples: this._samples.filter(sample => sampleBeat < sample.startBeat + sample.analysis.durationBeats).map(({ compiled, sent, ...sample }) => ({ ...sample, midi: sanitizeMidiParameters(sample.midi), positionBeats: Math.max(0, sampleBeat - sample.startBeat) })), sampleMidi: sanitizeMidiParameters(this._sampleMidi), effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
-      decks: this._decks.map(deck => ({ ...deck, config: { ...deck.config }, channels: deck.channels.map(channel => ({ ...channel })), positionBeats: deckPosition(beat, deck.analysis, deck.config), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
+      decks: this._decks.map(deck => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), positionBeats: deckPosition(beat, deck.analysis, deck.config), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
   subscribeNotes(callback) { if (typeof callback !== 'function') return () => {}; this._noteSubscribers.add(callback); return () => this._noteSubscribers.delete(callback); }
   _publishNotes(notes) { if (!notes.length) return; safeCall(this.onNotes, notes); for (const callback of this._noteSubscribers) safeCall(callback, notes); }
-  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8 } = {}) {
+  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {} } = {}) {
     if (this._disposed) return false;
     if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('One-shot MIDI samples must be 2 MB or smaller.');
     const analysis = parseMidi(buffer);
@@ -72,8 +73,34 @@ export class MidiMixerEngine {
     const used = new Set(this._samples.map(sample => sample.slot));
     let slot = Array.from({ length: MIDI_SAMPLE_LIMITS.clips }, (_, index) => index).find(index => !used.has(index));
     if (slot === undefined) slot = this._samples.shift().slot;
-    const sample = { id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled: compileDeck(analysis), startBeat, gain: clamp(gain, 0, 1, 0.8), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
+    const sample = { id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled: compileDeck(analysis), startBeat, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
+  }
+  configureSamples({ midi, gain } = {}) {
+    this._sampleMidi = sanitizeMidiParameters(midi, this._sampleMidi);
+    for (const sample of this._samples) {
+      sample.midi = sanitizeMidiParameters(midi, sample.midi);
+      if (gain !== undefined) sample.gain = clamp(gain, 0, 1, sample.gain);
+      if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi, gain: sample.gain });
+    }
+    this._publish(); return sanitizeMidiParameters(this._sampleMidi);
+  }
+  sendChannelController(index, channel, controller, value = 0) {
+    this._checkIndex(index); return this._sendMidiAction({ index, channel }, { kind: 'cc', controller, value });
+  }
+  sendChannelParameter(index, channel, parameter) {
+    this._checkIndex(index); return this._sendMidiAction({ index, channel }, { ...parameter, kind: 'parameter' });
+  }
+  sendSampleController(controller, value = 0) { return this._sendMidiAction({ samples: true }, { kind: 'cc', controller, value }); }
+  sendSampleParameter(parameter) { return this._sendMidiAction({ samples: true }, { ...parameter, kind: 'parameter' }); }
+  _sendMidiAction(target, action) {
+    if (this._disposed || !this._audioEnabled) return false;
+    if (target.samples ? !this.state.samples.length : !this._decks[target.index]?.analysis || target.channel != null && !this._decks[target.index].analysis.channels.some(item => item.channel === Number(target.channel))) return false;
+    if (target.channel != null && (!Number.isInteger(Number(target.channel)) || Number(target.channel) < 0 || Number(target.channel) > 4095)) return false;
+    const normalized = action.kind === 'cc'
+      ? { kind: 'cc', controller: Math.round(clamp(action.controller, 0, 127)), value: Math.round(clamp(action.value, 0, 127)) }
+      : { kind: 'parameter', registered: action.registered !== false, parameter: Math.round(clamp(action.parameter, 0, 16383)), value: Math.round(clamp(action.value, 0, 16383)) };
+    this._post({ type: 'midiAction', ...target, action: normalized }); return true;
   }
   stopSamples() { this._samples = []; this._post({ type: 'stopSamples' }); this._publish(); }
   _sendSamples() {
@@ -81,7 +108,7 @@ export class MidiMixerEngine {
     const beat = this.state.sampleBeat;
     this._samples = this._samples.filter(sample => beat < sample.startBeat + sample.analysis.durationBeats);
     for (const sample of this._samples) if (!sample.sent) {
-      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, gain: sample.gain, program: sample.program }); sample.sent = true;
+      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
     }
   }
   async loadDeck(index, buffer, name = 'MIDI file') {
@@ -89,7 +116,7 @@ export class MidiMixerEngine {
     let analysis;
     try { analysis = parseMidi(buffer); } catch (error) { this._error = error.message; this._publish(); throw error; }
     const previous = this._decks[index];
-    const deck = { name: String(name).slice(0, 256), analysis, config: { ...previous.config, ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
+    const deck = { name: String(name).slice(0, 256), analysis, config: { ...previous.config, ...(previous.analysis ? { loopStartBeats: null, loopEndBeats: null } : {}) }, channels: analysis.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: null, midi: {}, ...previous.channels.find(setting => setting.channel === channel.channel) })), token: ++this._serial, loaded: false };
     this._decks[index] = deck; this._compiled[index] = compileDeck(analysis); this._error = null;
     this._sendDeck(index); this._publish(); return this.state.decks[index];
   }
@@ -155,7 +182,7 @@ export class MidiMixerEngine {
     this._checkIndex(index); const deck = this._decks[index], next = sanitizeDeckConfig(partial, deck.config);
     if (next.rate !== deck.config.rate && !Object.hasOwn(partial, 'offsetBeats')) next.offsetBeats = deck.config.offsetBeats + this.state.beat * ((deck.config.rate ?? 1) - next.rate);
     deck.config = next;
-    this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...deck.config };
+    this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) };
   }
   seekDeck(index, sourceBeat) {
     this._checkIndex(index); const deck = this._decks[index], bounds = loopBounds(deck.analysis, deck.config);
@@ -167,7 +194,9 @@ export class MidiMixerEngine {
   configureEffects(partial = {}) {
     const ranges = { filterHz: [60, 20000], delayMix: [0, 0.75], delayBeats: [0.125, 4], feedback: [0, 0.8] };
     for (const [name, [low, high]] of Object.entries(ranges)) if (name in partial) this._effects[name] = clamp(partial[name], low, high, this._effects[name]);
-    this._updateEffects(); this._publish(); return { ...this._effects };
+    if ('synth' in partial) this._effects.synth = sanitizeMidiSynthEffects(partial.synth, this._effects.synth);
+    this._post({ type: 'effects', synth: this._effects.synth });
+    this._updateEffects(); this._publish(); return { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) };
   }
   async loadSoundFont(buffer, name = 'Imported SoundFont') {
     if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > 32 * 1024 * 1024) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 32 MB or smaller.');
@@ -189,11 +218,12 @@ export class MidiMixerEngine {
     this._checkIndex(index); const deck = this._decks[index];
     if (!Number.isInteger(Number(channel)) || Number(channel) < 0 || Number(channel) > 4095) return false;
     let setting = deck.channels.find(item => item.channel === Number(channel));
-    if (!setting) { setting = { channel: Number(channel), mute: false, solo: false, program: null }; deck.channels.push(setting); }
+    if (!setting) { setting = { channel: Number(channel), mute: false, solo: false, program: null, midi: {} }; deck.channels.push(setting); }
+    if ('midi' in partial) setting.midi = sanitizeMidiParameters(partial.midi, setting.midi);
     if ('mute' in partial) setting.mute = Boolean(partial.mute);
     if ('solo' in partial) setting.solo = Boolean(partial.solo);
     if ('program' in partial) setting.program = partial.program === null || Number(partial.program) < 0 ? null : Math.round(clamp(partial.program, 0, 127));
-    this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...setting };
+    this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...setting, midi: sanitizeMidiParameters(setting.midi) };
   }
   setCrossfade(value) { this._crossfade = clamp(value, -1, 1, this._crossfade); this._post({ type: 'crossfade', value: this._crossfade }); this._publish(); return this._crossfade; }
   setVolume(value) { this._volume = clamp(value, 0, 1, this._volume); this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._updateGain(); this._publish(); return this._volume; }
@@ -275,6 +305,7 @@ export class MidiMixerEngine {
     this._freezeClock(); this._ready = true; this._audioAnchor = this._sampleAudioAnchor = context.currentTime; this._audioTempo = this._tempo;
     this._post({ type: 'sampleClock', beat: this._sampleBeat });
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });
+    this._post({ type: 'effects', synth: this._effects.synth });
     this._post({ type: 'audibility', enabled: this._desiredAudio, volume: this._volume });
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });

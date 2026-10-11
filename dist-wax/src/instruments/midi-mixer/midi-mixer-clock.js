@@ -1,3 +1,4 @@
+import { midiParametersNeedResync } from './midi-mixer-parameters.js';
 /** Two decks advance from the same audio-frame counter. No wall-clock timers. */
 const mod = (value, size) => ((value % size) + size) % size;
 export function lowerBound(events, beat) {
@@ -24,7 +25,7 @@ export function heldNotesAt(held, beat, limit = 192) {
     if (held.start[middle] < beat - 1e-9) {
       if (held.end[middle] > beat) {
         const info = held.info[middle];
-        result.push({ beat, kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127, noteId: held.ids?.[middle] ?? middle, durationBeats: held.end[middle] - beat });
+        result.push({ beat, sourceBeat: held.start[middle], kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127, noteId: held.ids?.[middle] ?? middle, durationBeats: held.end[middle] - beat });
       }
       stack.push([middle + 1, high]);
     }
@@ -103,7 +104,7 @@ export class MidiMixerClock {
   }
   setDeck(index, config, channels) {
     const deck = this.decks[index]; if (!deck) return;
-    const seek = config.rate !== deck.config.rate || config.offsetBeats !== deck.config.offsetBeats || config.loop !== deck.config.loop || config.loopStartBeats !== deck.config.loopStartBeats || config.loopEndBeats !== deck.config.loopEndBeats;
+    const seek = config.transpose !== deck.config.transpose || midiParametersNeedResync(deck.config.midi, config.midi) || channels.some(channel => midiParametersNeedResync(deck.channelConfig.find(item => item.channel === channel.channel)?.midi, channel.midi)) || config.rate !== deck.config.rate || config.offsetBeats !== deck.config.offsetBeats || config.loop !== deck.config.loop || config.loopStartBeats !== deck.config.loopStartBeats || config.loopEndBeats !== deck.config.loopEndBeats;
     deck.config = { ...config }; deck.channelConfig = channels;
     if (seek) this.resync(index); else this.configure(index, config, channels);
   }
