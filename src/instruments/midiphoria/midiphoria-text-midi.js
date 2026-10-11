@@ -109,15 +109,17 @@ function variableLength(value) {
  * Adjacent vertical pixels sustain a chromatic note unless retrigger is enabled;
  * there is no scale snapping.
  */
-export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .25, lowestNote = 48, retrigger = false, velocity = VELOCITY } = {}) {
+export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .25, lowestNote = 48, retrigger = false, velocity = VELOCITY, ticksPerBeat = TICKS_PER_BEAT } = {}) {
   if (!Array.isArray(pixels) || !pixels.length || pixels.length > 256) throw new Error('Use 1–256 rows.');
   const columns = pixels[0]?.length, rows = pixels.length;
   if (!Number.isInteger(columns) || columns < 1 || columns > 128
     || pixels.some(row => row?.length !== columns)) throw new Error('Use a rectangular grid with 1–128 columns.');
-  if (!Number.isFinite(secondsPerRow) || secondsPerRow < .0625 || secondsPerRow > .5
+  if (!Number.isInteger(ticksPerBeat) || ticksPerBeat < 1 || ticksPerBeat > 0x7fff) throw new Error('Use 1–32767 MIDI ticks per beat.');
+  const ticksPerSecond = ticksPerBeat * 2; // The generated score uses 120 BPM.
+  if (!Number.isFinite(secondsPerRow) || secondsPerRow < 1 / ticksPerSecond || secondsPerRow > 32 || rows * secondsPerRow > 128
     || !Number.isInteger(lowestNote) || lowestNote < 0 || lowestNote + columns > 128) throw new Error('Invalid score timing or pitch range.');
   if (typeof retrigger !== 'boolean' || !Number.isInteger(velocity) || velocity < 1 || velocity > 127) throw new Error('Invalid note articulation or velocity.');
-  secondsPerRow = Math.round(secondsPerRow * 960) / 960;
+  secondsPerRow = Math.round(secondsPerRow * ticksPerSecond) / ticksPerSecond;
   const filled = value => value === 1 || value === true || value === '1';
   const notes = [];
   for (let column = 0; column < columns; column++) {
@@ -133,15 +135,15 @@ export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .2
   notes.sort((a, b) => a.start - b.start || a.note - b.note);
   const text = String(title).slice(0, 256);
   const titleBytes = [...new TextEncoder().encode(text)];
-  const ticksPerRow = secondsPerRow * 960;
+  const ticksPerRow = secondsPerRow * ticksPerSecond;
   const events = [
     { tick: 0, order: 0, bytes: [0xff, 0x03, ...variableLength(titleBytes.length), ...titleBytes] },
     { tick: 0, order: 0, bytes: [0xff, 0x51, 3, 0x07, 0xa1, 0x20] },
     { tick: 0, order: 0, bytes: [0xc0, 0] },
   ];
   for (const { note, start, duration, velocity } of notes) {
-    events.push({ tick: Math.round(start * 960), order: 2, bytes: [0x90, note, velocity] });
-    events.push({ tick: Math.round((start + duration) * 960), order: 1, bytes: [0x80, note, 0] });
+    events.push({ tick: Math.round(start * ticksPerSecond), order: 2, bytes: [0x90, note, velocity] });
+    events.push({ tick: Math.round((start + duration) * ticksPerSecond), order: 1, bytes: [0x80, note, 0] });
   }
   const endTick = Math.round(rows * ticksPerRow);
   events.push({ tick: endTick, order: 3, bytes: [0xb0, 123, 0] });
@@ -155,11 +157,11 @@ export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .2
   }
   const buffer = new Uint8Array([
     0x4d, 0x54, 0x68, 0x64, 0, 0, 0, 6, 0, 0, 0, 1,
-    TICKS_PER_BEAT >>> 8, TICKS_PER_BEAT & 255,
+    ticksPerBeat >>> 8, ticksPerBeat & 255,
     0x4d, 0x54, 0x72, 0x6b, ...uint32(track.length), ...track,
   ]).buffer;
   return { buffer, text, notes, duration: rows * secondsPerRow, columns, rows,
-    secondsPerRow, lowestNote, highestNote: lowestNote + columns - 1 };
+    secondsPerRow, lowestNote, highestNote: lowestNote + columns - 1, ticksPerBeat };
 }
 
 /** Whole words rise together, or individual letters use successive time windows. */

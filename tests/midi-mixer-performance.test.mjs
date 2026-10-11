@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
+import { createHash } from 'node:crypto';
 import { MIXER_SAMPLE_STAMPS, MIXER_PATTERN_DEFAULTS, mixerStampScore, nextMixerStampVariation, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
   indexPerformanceNotes, queryPerformanceNotes } from '../src/instruments/midi-mixer/midi-mixer-performance-score.js';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
@@ -13,7 +14,7 @@ import { generateAutomataMidi } from '../src/instruments/midiphoria/midiphoria-a
 function pixelsFor(score) {
   const pixels = Array.from({ length: score.rows }, () => Array(score.columns).fill(0));
   for (const note of parseMidi(score.buffer).notes) {
-    const from = note.beat * .5 / score.secondsPerRow, duration = note.duration * .5 / score.secondsPerRow;
+    const from = Math.round(note.beat * .5 / score.secondsPerRow), duration = Math.round(note.duration * .5 / score.secondsPerRow);
     for (let row = from; row < from + duration; row++) pixels[row][note.note - score.lowestNote] = 1;
   }
   return pixels;
@@ -57,6 +58,47 @@ test('density, pitch span, duration and whole-score transposition change the sou
   }
 });
 
+test('default stamp bank and drawing retain their published MIDI bytes', () => {
+  const bank = createHash('sha256');
+  for (const { id } of MIXER_SAMPLE_STAMPS) bank.update(new Uint8Array(mixerStampScore(id).buffer));
+  assert.equal(bank.digest('hex'), 'd0b72531a2dad567653100763101426e0a2ad5dc95c06b673a3e8e8843385c46');
+  const drawing = generateGridMidi([[0, 1, 0], [1, 1, 0], [1, 0, 1], [0, 0, 0]], { secondsPerRow: .125 });
+  assert.equal(createHash('sha256').update(new Uint8Array(mixerPerformanceScore(drawing).buffer)).digest('hex'),
+    'ee1aa7bd2d814b1e17cbf89ed531e82bbbb4814941b70fa8aa95dc3d8d00fbd2');
+});
+
+test('fractional pattern height scales the entire temporal extent without changing its bitmap', () => {
+  for (const { id } of MIXER_SAMPLE_STAMPS) {
+    const original = mixerStampScore(id);
+    for (const beats of [.25, .5, 2.75, 16.25, 64]) {
+      const score = mixerStampScore(id, { beats }), decoded = parseMidi(score.buffer);
+      assert.equal(score.rows, 32); assert.equal(score.heightBeats, beats);
+      assert.equal(score.patternOptions.beats, beats); assert.equal(decoded.durationBeats, beats);
+      assert.equal(score.secondsPerRow, beats / 64);
+      assert.deepEqual(score.pixels, original.pixels); assert.deepEqual(pixelsFor(score), original.pixels);
+      assert.equal(score.notes[0].start, 0); assert.equal(score.notes.length, original.notes.length);
+      score.notes.forEach((note, index) => {
+        assert.equal(note.start, original.notes[index].start * beats / 8);
+        assert.equal(note.duration, original.notes[index].duration * beats / 8);
+      });
+    }
+  }
+});
+
+test('horizontal pattern offset moves the fitted transposed window without clipping or folding', () => {
+  for (const span of [12, 48, 127, 128]) for (const transpose of [-127, 0, 7, 127]) {
+    const normal = mixerStampScore('scatter', { span, transpose, seed: 66, density: 1 });
+    for (const offset of [-127, -12, 0, 12, 127]) {
+      const score = mixerStampScore('scatter', { span, transpose, offset, seed: 66, density: 1 });
+      const expectedBase = Math.max(0, Math.min(128 - span, normal.lowestNote + offset));
+      assert.equal(score.lowestNote, expectedBase); assert.equal(score.highestNote, expectedBase + span - 1);
+      assert.equal(score.appliedOffset, expectedBase - normal.lowestNote);
+      assert.deepEqual(score.pixels, normal.pixels); assert.deepEqual(pixelsFor(score), normal.pixels);
+      assert.deepEqual(score.notes, normal.notes.map(note => ({ ...note, note: note.note + score.appliedOffset })));
+    }
+  }
+});
+
 test('seeded particle and organic patterns repeat exactly and reroll into distinct soundable scores', () => {
   for (const id of ['drips', 'cloud', 'rain', 'comet', 'noise', 'scatter', 'explode', 'sparks', 'glob', 'glooob']) {
     const first = mixerStampScore(id, { seed: 1234 }), same = mixerStampScore(id, { seed: 1234 });
@@ -85,7 +127,7 @@ test('full-width patterns sound MIDI endpoints and narrower patterns can be plac
 });
 
 test('Variation skips identical neighboring seeds and returns a complete distinct MIDI score', () => {
-  const options = { seed: 10, density: 0, span: 48, beats: 12, transpose: 7 };
+  const options = { seed: 10, density: 0, span: 48, beats: 2.75, transpose: 7, offset: -12 };
   const previous = mixerStampScore('stripes', options), adjacent = mixerStampScore('stripes', { ...options, seed: 11 });
   assert.deepEqual(previous.pixels, adjacent.pixels, 'regression: adjacent phase seeds can rasterize identically');
   const next = nextMixerStampVariation('stripes', options);
@@ -111,17 +153,17 @@ test('Variation returns null for fixed grids and literal shapes but varies spars
 });
 
 test('all pattern extremes remain bounded, nonempty and within the one-shot MIDI budget', () => {
-  const cases = [{ seed: 0, density: 0, span: 12, beats: 4, transpose: -36 },
-    { seed: 0xffffffff, density: 1, span: 128, beats: 32, transpose: 127 },
-    { seed: -1e100, density: 1e100, span: 1e100, beats: -1e100, transpose: 1e100 },
-    { seed: NaN, density: Infinity, span: 'wrong', beats: undefined, transpose: NaN }];
+  const cases = [{ seed: 0, density: 0, span: 12, beats: .25, transpose: -36, offset: -127 },
+    { seed: 0xffffffff, density: 1, span: 128, beats: 64, transpose: 127, offset: 127 },
+    { seed: -1e100, density: 1e100, span: 1e100, beats: -1e100, transpose: 1e100, offset: -1e100 },
+    { seed: NaN, density: Infinity, span: 'wrong', beats: undefined, transpose: NaN, offset: Infinity }];
   for (const { id } of MIXER_SAMPLE_STAMPS) for (const options of cases) {
     const score = mixerStampScore(id, options), analysis = parseMidi(score.buffer);
     assert.ok(analysis.noteCount > 0 && analysis.noteCount <= 2048);
     assert.ok(analysis.events.length < 32768 && score.buffer.byteLength < 2 * 1024 * 1024);
     assert.equal(score.rows, 32); assert.ok(score.columns >= 12 && score.columns <= 128);
     assert.ok(analysis.notes.every(note => note.note >= 0 && note.note <= 127 && note.duration > 0));
-    assert.ok(analysis.durationBeats >= 4 && analysis.durationBeats <= 32);
+    assert.ok(analysis.durationBeats >= .25 && analysis.durationBeats <= 64);
     assert.equal(score.notes[0].start, 0);
     assert.deepEqual(score.pixels, pixelsFor(score));
   }
@@ -194,6 +236,27 @@ test('drawing row length and lowest note resize timing and pitch without alterin
   assert.deepEqual(drawing.buffer, before);
   assert.throws(() => mixerPerformanceScore(drawing, { secondsPerRow: 0 }));
   assert.throws(() => mixerPerformanceScore(drawing, { lowestNote: 127 }));
+});
+
+test('drawing height overrides row timing and offset shifts only the final fitted pitch window', () => {
+  for (const rows of [4, 32, 128, 256]) {
+    const pixels = Array.from({ length: rows }, (_, row) => [Number(row % 3 === 0), Number(row % 7 === 1), Number(row === rows - 1)]);
+    const drawing = generateGridMidi(pixels, { secondsPerRow: .125 }), before = structuredClone(drawing);
+    for (const heightBeats of [.25, 2.75, 64]) for (const offset of [-127, 12, 127]) {
+      const score = mixerPerformanceScore(drawing, { heightBeats, secondsPerRow: 0, offset });
+      assert.equal(score.heightBeats, heightBeats); assert.equal(score.secondsPerRow, heightBeats / (rows * 2));
+      assert.equal(parseMidi(score.buffer).durationBeats, heightBeats);
+      assert.equal(score.lowestNote, Math.max(0, Math.min(125, drawing.lowestNote + offset)));
+      assert.equal(score.appliedOffset, score.lowestNote - drawing.lowestNote);
+      assert.deepEqual(score.pixels, pixels); assert.deepEqual(pixelsFor(score), pixels);
+      assert.equal(score.notes.length, drawing.notes.length);
+    }
+    assert.deepEqual(drawing, before);
+    const wide = mixerPerformanceScore(drawing, { span: 128, lowestNote: 127, offset: -127, heightBeats: .25 });
+    assert.equal(wide.lowestNote, 0); assert.equal(wide.highestNote, 127); assert.equal(wide.appliedOffset, 0);
+    const fitted = mixerPerformanceScore(drawing, { lowestNote: 127, offset: -12 });
+    assert.equal(fitted.lowestNote, 113, 'fit the original three-pitch window before applying offset');
+  }
 });
 
 test('drawing pitch span stretches to every MIDI pitch with matching export and preview, retaining its authored grid', () => {
