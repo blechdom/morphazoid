@@ -66,7 +66,7 @@ test("twenty skins retain Dirt compatibility and start on the shared Karplus eng
 
 test("all skin/phase/extreme combinations produce finite bounded events with silent edges", () => {
   for (const { id } of QUADRUPED_SOUND_SKINS) {
-    for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) {
+    for (const phase of ["touchdown", "load", "push", "toe-off", "slide", "flight"]) {
       for (const extreme of [0, 1]) {
         const render = renderQuadrupedContact({ skinId: id, phase, sampleRate: extreme ? 8000 : 48000,
           animal: { mass: extreme ? 2 : 0.3, compliance: extreme ? 1.6 : 0.4 },
@@ -167,10 +167,17 @@ test("prepared buffers are reused across continuous velocity/intensity/pitch cha
 test("a warmed 500 BPM trio workload allocates no additional sample buffers", () => {
   const requests = [];
   for (let actor = 0; actor < 3; actor += 1) {
+    const animal = { mass: 0.5 + actor * 0.5 };
     for (const limb of ["front-left", "front-right", "rear-left", "rear-right"]) {
-      for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) {
-        for (let seed = 0; seed < 4; seed += 1) requests.push({ animal: { mass: 0.5 + actor * 0.5 }, phase, seed, contact: { id: limb } });
+      for (const phase of ["touchdown", "load", "push", "toe-off"]) {
+        for (let seed = 0; seed < 4; seed++) requests.push({ animal, phase, seed, contact: { id: limb } });
       }
+    }
+    for (const progress of [.01, .34, .67, .99]) {
+      for (const limb of ["rear-left", "rear-right"]) {
+        requests.push({ animal, phase: "slide", slideProgress: progress, contact: { id: limb } });
+      }
+      requests.push({ animal, phase: "flight", flightProgress: progress, contact: { id: "body" } });
     }
   }
   for (const { id } of QUADRUPED_SOUND_SKINS) {
@@ -366,7 +373,7 @@ test("Spring extrema stay finite at every contact phase and pitch, with neutral 
       assert.equal(neutral.samples, bank.get({ skinId: id, spring }).samples);
     }
     for (const spring of [-1e99, 0, 0.35, 1, 1.8, 2.5, 1e99]) {
-      for (const phase of ["touchdown", "load", "push", "toe-off", "slide"]) for (const pitchSemitones of [-36, 0, 36]) {
+      for (const phase of ["touchdown", "load", "push", "toe-off", "slide", "flight"]) for (const pitchSemitones of [-36, 0, 36]) {
         const voice = bank.get({ skinId: id, spring, phase, pitchSemitones });
         assert.ok(voice.samples.every(value => Number.isFinite(value) && Math.abs(value) <= QUADRUPED_SOUND_LIMITS.maxPeak));
         assert.ok(rms(voice.samples) > 0.0001);
@@ -488,10 +495,9 @@ test("all twenty skins are reproducible and differ beyond overall gain", () => {
 });
 
 
-test("slides evolve in timbre, vary their grains, and retain deterministic sound-skin bodies", () => {
-  // Equal-length normalized comparisons reject a mere gain change or a
-  // stretched propulsion sample. Windowed spectra measure tone over the slide;
-  // they do not establish whether a listener likes the result.
+test("slide color progresses across the whole skid while contact texture remains deterministic", () => {
+  // The scheduler supplies whole-skid progress. Prepared blocks retain one
+  // color each, rather than restarting a sweep at every texture onset.
   const correlation = (a, b) => {
     let dot = 0, aa = 0, bb = 0;
     for (let i = 0; i < a.length; i++) {
@@ -515,23 +521,197 @@ test("slides evolve in timbre, vary their grains, and retain deterministic sound
     return weighted / Math.max(1e-20, total);
   };
   for (const { id } of QUADRUPED_SOUND_SKINS) {
-    const centroids = [0, 0, 0];
+    const centroids = [0, 0, 0, 0];
     for (const seed of [7, 101, 904]) {
-      const options = { skinId: id, phase: "slide", seed };
-      const slide = renderQuadrupedContact(options);
-      assert.ok(rms(slide.samples) > .008, `${id}: audible friction`);
-      assert.deepEqual(slide.samples, renderQuadrupedContact(options).samples);
-      assert.ok(Math.abs(correlation(slide.samples, renderQuadrupedContact({ ...options, phase: "push" }).samples)) < .95,
-        `${id}: a slide has its own texture`);
-      const smooth = renderQuadrupedContact({ ...options, scrape: 0 });
-      const gritty = renderQuadrupedContact({ ...options, scrape: 1 });
-      assert.ok(Math.abs(correlation(smooth.samples, gritty.samples)) < .95, `${id}: Grain changes texture`);
-      for (const [index, [start, end]] of [[.04, .24], [.4, .6], [.76, .96]].entries()) {
-        centroids[index] += centroid(slide.samples.subarray(Math.floor(slide.samples.length * start),
-          Math.floor(slide.samples.length * end)), slide.sampleRate) / 3;
+      for (const [stage, slideProgress] of [.01, .34, .67, .99].entries()) {
+        const options = { skinId: id, phase: "slide", slideProgress, seed };
+        const slide = renderQuadrupedContact(options);
+        assert.ok(rms(slide.samples) > .008, `${id}/${stage}: audible friction`);
+        assert.deepEqual(slide.samples, renderQuadrupedContact(options).samples);
+        assert.equal(Math.abs(slide.samples[0]), 0);
+        assert.equal(Math.abs(slide.samples.at(-1)), 0);
+        assert.ok(slide.samples.every(value => Number.isFinite(value) && Math.abs(value) <= QUADRUPED_SOUND_LIMITS.maxPeak));
+        assert.ok(slide.duration / slide.playbackRate <= QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+        assert.ok(Math.abs(correlation(slide.samples, renderQuadrupedContact({ ...options, phase: "push" }).samples)) < .95,
+          `${id}/${stage}: a slide has its own texture`);
+        const smooth = renderQuadrupedContact({ ...options, scrape: 0 });
+        const gritty = renderQuadrupedContact({ ...options, scrape: 1 });
+        assert.ok(Math.abs(correlation(smooth.samples, gritty.samples)) < .95, `${id}/${stage}: Grain changes texture`);
+        centroids[stage] += centroid(slide.samples, slide.sampleRate) / 3;
       }
     }
-    assert.ok(Math.max(...centroids) / Math.min(...centroids) > 1.25, `${id}: tone changes through the slide`);
-    assert.ok(centroids[1] / ((centroids[0] + centroids[2]) / 2) > 1.15, `${id}: tone opens then closes`);
+    assert.ok(centroids[0] > centroids[3] * 1.2, `${id}: the catch is brighter than the release`);
+    for (let stage = 1; stage < centroids.length; stage++) {
+      assert.ok(centroids[stage] <= centroids[stage - 1] * 1.04, `${id}: color settles through the skid`);
+    }
+  }
+});
+
+test("whole-skid progress occupies only four warm slide buffers per limb", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank();
+    const requests = [.01, .34, .67, .99].map(slideProgress => ({skinId: id, phase: "slide", slideProgress,
+      contact: { id: "rear-left", intensity: 1 } }));
+    const arrays = new Set(requests.map(request => bank.get(request).samples));
+    assert.equal(arrays.size, 4);
+    for (let index = 0; index < 400; index++) {
+      const voice = bank.get({ ...requests[0], slideProgress: (index % 100) / 99, seed: index,
+        velocity: 24 + index * .01, contact: { id: "rear-left", intensity: .1 + index * .001 } });
+      assert.ok(arrays.has(voice.samples), `${id}: advancing color and contact energy reuse the prepared stages`);
+    }
+    assert.equal(bank.size, 4);
+    const fresh = bank.get({ ...requests[0], slideTextureSeed: 42 });
+    assert.notDeepEqual(fresh.samples, bank.get(requests[0]).samples, `${id}: New grain changes the slide texture`);
+    assert.equal(fresh.samples, bank.get({ ...requests[0], slideTextureSeed: 42, seed: 999 }).samples);
+    assert.equal(bank.get({...requests[0], slideProgress: -100}).samples, bank.get(requests[0]).samples);
+    assert.equal(bank.get({...requests[0], slideProgress: 100}).samples, bank.get(requests[3]).samples);
+    assert.equal(bank.get({...requests[0], slideProgress: NaN}).samples,
+      bank.get({...requests[0], slideProgress: .5}).samples);
+  }
+});
+
+test("overlapping slide stages sustain one bounded gesture without interior holes", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank(), events = [];
+    const seconds = 2.7, hop = .06;
+    for (let offset = 0; offset < seconds; offset += hop) {
+      const progress = offset / seconds;
+      const outerEnvelope = Math.max(0, Math.min(1, offset / .16, (seconds - offset) / .4));
+      const voice = bank.get({ skinId: id, phase: "slide", slideProgress: progress,
+        contact: { id: "rear-left" }, seed: Math.round(offset * 997) });
+      events.push({ voice, offset, gain: voice.gain * outerEnvelope * (.95 - .35 * progress) * .6, pan: 0 });
+    }
+    const mixed = mixQuadrupedContacts(events);
+    assert.ok(mixed.duration <= seconds + QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+    const mono = mixed.channels[0], rate = mixed.sampleRate;
+    for (let offset = .3; offset < seconds - .3; offset += .02) {
+      assert.ok(rms(mono.subarray(Math.round(offset * rate), Math.round((offset + .02) * rate))) > .001,
+        `${id}: finite overlapping texture remains connected inside the skid`);
+    }
+    const body = rms(mono.subarray(Math.round(.4 * rate), Math.round(rate)));
+    const tail = rms(mono.subarray(mono.length - Math.round(.1 * rate)));
+    assert.ok(tail < body * .3, `${id}: the whole gesture releases`);
+    assert.equal(Math.abs(mono.at(-1)), 0);
+    assert.ok(mono.every(value => Number.isFinite(value) && Math.abs(value) < .9));
+  }
+});
+
+test("flight keeps each selected sound skin and opens its tone over one hop", () => {
+  const correlation = (a, b) => {
+    let dot = 0, aa = 0, bb = 0;
+    for (let i = 0; i < a.length; i++) {
+      const position = i / (a.length - 1) * (b.length - 1), j = Math.floor(position), fraction = position - j;
+      const value = b[j] * (1 - fraction) + (b[j + 1] ?? b[j]) * fraction;
+      dot += a[i] * value;
+      aa += a[i] ** 2;
+      bb += value ** 2;
+    }
+    return dot / Math.sqrt(Math.max(1e-20, aa * bb));
+  };
+  const centroid = (samples, sampleRate) => {
+    const windowed = Float64Array.from(samples, (x, i) => x * Math.sin(Math.PI * i / (samples.length - 1)) ** 2);
+    let weighted = 0, total = 0;
+    for (let probe = 0; probe < 64; probe++) {
+      const frequency = 35 * (Math.min(sampleRate * .42, 9000) / 35) ** (probe / 63);
+      const coefficient = 2 * Math.cos(2 * Math.PI * frequency / sampleRate);
+      let a = 0, b = 0;
+      for (const value of windowed) {
+        const next = value + coefficient * a - b;
+        b = a;
+        a = next;
+      }
+      const power = Math.max(0, a * a + b * b - coefficient * a * b) * frequency;
+      weighted += power * frequency;
+      total += power;
+    }
+    return weighted / Math.max(1e-20, total);
+  };
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const centroids = [0, 0, 0, 0];
+    for (const seed of [7, 101, 904]) {
+      for (const [stage, flightProgress] of [.01, .34, .67, .99].entries()) {
+        const options = { skinId: id, phase: "flight", flightProgress, seed, contact: { id: "body" } };
+        const flight = renderQuadrupedContact(options);
+        assert.equal(flight.skinId, id);
+        assert.equal(flight.phase, "flight");
+        assert.ok(rms(flight.samples) > .008, `${id}/${stage}: audible selected-skin flight`);
+        assert.deepEqual(flight.samples, renderQuadrupedContact(options).samples);
+        assert.equal(Math.abs(flight.samples[0]), 0);
+        assert.equal(Math.abs(flight.samples.at(-1)), 0);
+        assert.ok(flight.samples.every(value => Number.isFinite(value) && Math.abs(value) <= QUADRUPED_SOUND_LIMITS.maxPeak));
+        assert.ok(flight.duration / flight.playbackRate <= QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+        const silent = renderQuadrupedContact({ ...options, contact: { id: "body", intensity: 0 } });
+        assert.ok(silent.samples.every(value => value === 0));
+        const quiet = renderQuadrupedContact({ ...options, contact: { id: "body", intensity: .25 } });
+        assert.ok(Math.abs(rms(flight.samples) / rms(quiet.samples) - 4) < .00001);
+        centroids[stage] += centroid(flight.samples, flight.sampleRate) / 3;
+      }
+    }
+    // Tonal skins have fewer partials to open; test direction rather than
+    // requiring every instrument to become the same broadband whoosh.
+    assert.ok(centroids[1] > centroids[0], `${id}: timbre opens toward the apex`);
+    assert.ok(centroids[1] > centroids[2] && centroids[2] > centroids[3], `${id}: timbre closes during descent`);
+  }
+  for (const seed of [7, 101, 904]) {
+    const voices = QUADRUPED_SOUND_SKINS.map(({ id }) => ({
+      id, ...renderQuadrupedContact({
+        skinId: id, phase: "flight", flightProgress: .34, seed, contact: { id: "body" }
+      })
+    }));
+    for (let i = 0; i < voices.length; i++) for (let j = i + 1; j < voices.length; j++) {
+      assert.ok(Math.abs(correlation(voices[i].samples, voices[j].samples)) < .98,
+        `${voices[i].id}/${voices[j].id}: selecting another engine changes flight beyond gain`);
+    }
+  }
+});
+
+test("flight color and drag energy reuse four prepared stages, while New grain changes excitation", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank();
+    const request = { skinId: id, phase: "flight", motionTextureSeed: 7, contact: { id: "body", intensity: 1 } };
+    const arrays = new Set([.01, .34, .67, .99].map(flightProgress => bank.get({ ...request, flightProgress }).samples));
+    assert.equal(arrays.size, 4);
+    for (let index = 0; index < 400; index++) {
+      const voice = bank.get({
+        ...request, flightProgress: (index % 100) / 99, seed: index, velocity: 24 + index * .01,
+        contact: { id: "body", intensity: .1 + index * .001 }
+      });
+      assert.ok(arrays.has(voice.samples));
+    }
+    assert.equal(bank.size, 4);
+    const initial = bank.get({ ...request, flightProgress: .34 });
+    const fresh = bank.get({ ...request, flightProgress: .34, motionTextureSeed: 8 });
+    assert.notDeepEqual(initial.samples, fresh.samples);
+    assert.equal(initial.samples, bank.get({
+      ...request, flightProgress: .34, motionTextureSeed: undefined, slideTextureSeed: 7
+    }).samples);
+    const slide = { ...request, phase: "slide", slideProgress: .34 };
+    assert.equal(bank.get(slide).samples, bank.get({ ...slide, motionTextureSeed: undefined, slideTextureSeed: 7 }).samples);
+  }
+});
+
+test("prepared flight texture follows a whole-hop amplitude envelope and ends within the tail budget", () => {
+  for (const { id } of QUADRUPED_SOUND_SKINS) {
+    const bank = createQuadrupedSoundBank(), events = [], duration = 1.8;
+    for (let offset = 0; offset < duration; offset += .06) {
+      const progress = offset / duration;
+      const envelope = Math.sin(Math.PI * progress) ** .75 * (1 - .35 * progress);
+      const voice = bank.get({
+        skinId: id, phase: "flight", flightProgress: progress, motionTextureSeed: 7, contact: { id: "body" }
+      });
+      events.push({ voice, offset, gain: voice.gain * envelope * .6, pan: 0 });
+    }
+    const mixed = mixQuadrupedContacts(events), samples = mixed.channels[0], rate = mixed.sampleRate;
+    const attack = rms(samples.subarray(0, Math.round(.15 * rate)));
+    const apex = rms(samples.subarray(Math.round(.55 * rate), Math.round(.85 * rate)));
+    const release = rms(samples.subarray(samples.length - Math.round(.1 * rate)));
+    assert.ok(apex > attack * 1.5, `${id}: whole-hop attack has a pronounced rise`);
+    assert.ok(release < apex * .3, `${id}: whole-hop amplitude releases`);
+    for (let offset = .3; offset < duration - .3; offset += .02)
+      assert.ok(rms(samples.subarray(Math.round(offset * rate), Math.round((offset + .02) * rate))) > .001,
+        `${id}: no holes inside the envelope`);
+    assert.ok(mixed.duration <= duration + QUADRUPED_SOUND_LIMITS.maxPlaybackDuration);
+    assert.equal(Math.abs(samples.at(-1)), 0);
+    assert.ok(samples.every(value => Number.isFinite(value) && Math.abs(value) < .9));
   }
 });
