@@ -88,6 +88,7 @@ body.quadruped-page {
 .quadruped-suspension[hidden] { display: none; }
 .quadruped-suspension output { color: var(--accent); font: 9px var(--mono); white-space: nowrap; }
 .quadruped-choice-card, .quadruped-control-body { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 12px; }
+.quadruped-engine-choice { grid-column: 1 / -1; }
 .quadruped-control { display: grid; min-width: 0; gap: 6px; }
 .quadruped-skin-control { grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 12px; font-size: 10px; }
 .quadruped-control .select-shell { width: 100%; min-width: 0; }
