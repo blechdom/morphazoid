@@ -1,0 +1,8 @@
+{
+  "baseCommit": "cbbb247bddf67c336da34bf09ffbf89fa3a3ac5e",
+  "description": "Owner-requested October 11 Fractal Delay addition beside L-system Delay Rust in Faves; preserve all preceding registry bytes and historical catalogue guards.",
+  "file": "src/site/instrument-registry.js",
+  "sha256": "40d1f51d72d4378724d6ca3e042a697dd9484d82fe0b7897304a92f3ccea2a4c",
+  "before": "  \"micmic-rust\",\n  \"l-system\",",
+  "after": "  \"micmic-rust\",\n  \"fractal-delay\",\n  \"l-system\","
+}

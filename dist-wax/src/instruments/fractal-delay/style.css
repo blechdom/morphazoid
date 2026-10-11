@@ -1,49 +1,60 @@
-html:has(>body.fractal-delay-page){height:auto;min-height:100%;overflow:auto}
-.fractal-delay-page{--accent:#89f6be;--panel:#101619;--line:#283436;background:#080d10;color:#dfe8e8;font-family:var(--font-mono,monospace);margin:0;height:auto;min-height:100dvh;overflow:visible}
-.fractal-delay-page .masthead{position:relative;z-index:10;min-height:72px;padding:8px 18px;gap:12px;flex-wrap:wrap;border-bottom:1px solid var(--line)}
+html:has(>body.fractal-delay-page){height:100%;overflow:hidden}
+.fractal-delay-page{--accent:var(--mz-color-accent);--accent-soft:color-mix(in oklab,var(--accent) 55%,transparent);--accent-glow:color-mix(in oklab,var(--accent) 22%,transparent);background:var(--bg-deep);color:var(--ink);font-family:var(--mono);margin:0;height:100%;min-height:100dvh;overflow:hidden}
+.fractal-delay-page .masthead{position:relative;z-index:10;min-height:72px;padding:8px 18px;gap:12px;flex-wrap:wrap}
 .fractal-delay-page .header-io-controls{display:flex;align-items:center;gap:12px;margin-left:auto}
-.fractal-shell{display:grid;grid-template-columns:minmax(0,1fr) 360px;gap:0;height:calc(100dvh - var(--fractal-header-height,72px));min-height:450px;width:100%;max-width:1900px;margin:0 auto;flex:1 0 auto}
-.fractal-stage{min-width:0;display:flex;flex-direction:column;padding:16px;gap:10px;overflow:hidden;flex-shrink:0}
-.stage-wrap{position:relative;flex:1;min-height:230px;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:radial-gradient(ellipse at center,#112228,#080d10 75%)}
-.stage-wrap h1{position:absolute;top:16px;left:18px;margin:0;font-size:14px;letter-spacing:.08em;font-weight:500;z-index:1;pointer-events:none;color:#b9d4d2}
-#stage{display:block;width:100%;height:100%;min-height:230px;touch-action:none;outline-offset:-4px}
-.stage-caption{position:absolute;bottom:12px;left:16px;right:16px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:10px;color:#bfd1d0;pointer-events:none}
-.stage-caption>span+span{color:#89f6be;white-space:nowrap}.stage-caption i{font-style:normal;color:#ffca82;margin-left:8px}
-.stage-help{margin:0;font-size:11px;color:#afc0bf}.parameter-map{display:flex;align-items:center;gap:16px;flex:none;height:100px}
-#parameterMap{width:200px;height:100px;border:1px solid var(--line);border-radius:6px;touch-action:none;cursor:crosshair}
-.parameter-map p{font-size:11px;color:#adc3c0;line-height:1.9;margin:0}
-.fractal-controls{overflow-y:auto;overscroll-behavior:contain;min-width:0;padding:12px 14px 24px;border-left:1px solid var(--line);background:#0d1316;scrollbar-width:thin}
-.control-section{padding:12px 0;border-bottom:1px solid var(--line)}
-.control-section summary{cursor:pointer;font-size:12px;color:#dce9e7;min-height:28px;line-height:28px}
-.control-section summary span{float:right;font-size:10px;color:#8de3bc}
-.control-note,.input-note,.input-credit{font-size:10px;line-height:1.6;color:#a8bbb9;margin:8px 0}
-.select-field{display:block;font-size:11px;color:#c4d3d2;margin:0 0 9px;line-height:1.8}
-.select-field select,.select-field input[type=number],.file-field input{display:block;width:100%;min-width:0;background:#162126;color:#edf4f2;border:1px solid #38494c;border-radius:5px;padding:7px;font:inherit;font-size:12px;min-height:34px}
-.select-next{display:flex;gap:6px}.select-next select{flex:1}.select-next button{flex:none;width:34px;font-size:22px;padding:0}
-.fractal-controls button{background:#172528;color:#dcece8;border:1px solid #3b5354;border-radius:5px;min-height:32px;font:inherit;font-size:11px;padding:6px 10px;cursor:pointer}
-.fractal-controls button:hover{border-color:#8acbad}.file-field{font-size:11px;display:block}.file-field input{font-size:10px}
-.media-transport{display:flex;align-items:center;gap:7px}.media-transport label,.check-field{font-size:10px;line-height:1.6}.settings-link{font-size:10px;color:#abdec5}
+.fractal-shell{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,25vw,370px);gap:0;height:calc(100dvh - var(--fractal-header-height,72px));min-height:0;width:100%;flex:1 1 auto;overflow:hidden}
+.fractal-stage{display:grid;grid-template-rows:minmax(160px,1fr) auto;min-width:0;min-height:0;padding:0;gap:0;overflow:hidden}
+.fractal-graphics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;min-height:0;overflow:hidden}
+.fractal-delay-page .stage-wrap,.parameter-map{position:relative;min-width:0;min-height:0;width:100%;height:100%;border:0;border-radius:0;overflow:hidden;background:var(--bg-deep)}
+.fractal-delay-page .stage-wrap{flex:none;background:linear-gradient(rgba(214,232,226,.025) 1px,transparent 1px),linear-gradient(90deg,rgba(214,232,226,.025) 1px,transparent 1px),radial-gradient(circle at 50% 48%,var(--accent-glow),transparent 40%),var(--bg-deep);background-size:44px 44px,44px 44px,auto,auto}
+.fractal-delay-page .stage-wrap h1{position:absolute;top:12px;left:12px;margin:0;font-size:14px;letter-spacing:.04em;font-weight:500;z-index:1;pointer-events:none;color:var(--ink)}
+.fractal-delay-page #stage,.fractal-delay-page #parameterMap{display:block;width:100%;height:100%;min-width:0;min-height:0;border:0;border-radius:0;touch-action:none;outline-offset:-4px}
+.fractal-delay-page #parameterMap{cursor:crosshair}
+.stage-caption,.explorer-caption{position:absolute;bottom:10px;left:12px;right:12px;display:flex;flex-wrap:wrap;justify-content:space-between;gap:4px 12px;font-size:10px;color:var(--muted);pointer-events:none}
+.stage-caption>span+span{color:var(--accent);white-space:nowrap}.stage-caption i{font-style:normal;color:var(--orange);margin-left:8px}
+.explorer-caption{font-variant-numeric:tabular-nums}.explorer-caption>span:first-child{color:var(--accent)}
+.stage-help{margin:0;font-size:10px;color:var(--muted);line-height:1.5}
+.explorer-controls{min-width:0;min-height:0;max-height:340px;padding:0;background:var(--panel);overflow-y:auto;overscroll-behavior:contain;scrollbar-width:thin}
+.explorer-toolbar{display:grid;grid-template-columns:minmax(110px,1fr) minmax(140px,1.5fr) 72px auto auto;gap:8px;align-items:center}
+.explorer-toolbar>.select-field{margin:0}.explorer-toolbar>.mini-action{align-self:center}
+.coordinate-motion{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px}
+.motion-row{display:grid;grid-template-columns:repeat(3,minmax(0,1fr)) 48px;gap:6px;align-items:start;margin:4px 0 0;min-width:0}
+.motion-row>.mz-tap-tempo-field{width:100%;min-width:0;flex-direction:column;align-items:center;gap:4px}
+.motion-row .motion-play{width:48px;min-width:48px;height:48px;min-height:48px;align-self:start;justify-self:center;margin:3px 0 0;padding:0;border-radius:50%}
+.coefficient-field{min-width:0;display:flex;flex-direction:column;align-items:center;gap:1px}
+.coefficient-field>.knob-field.mz-range-knob{height:58px}.coefficient-field .knob-field output{display:none}.coefficient-field>.knob-field.mz-range-knob>span:not(.mz-range-knob__dial){min-height:14px}
+.coefficient-number{display:block;width:100%;max-width:110px;min-width:0}.coefficient-number input{display:block;width:100%;min-width:0;padding:4px 2px;border:1px solid var(--line-strong);border-radius:0;background:var(--panel-high);color:var(--accent);font:11px var(--mono);text-align:center;font-variant-numeric:tabular-nums}
+.explorer-controls .tempo-latch{display:flex;align-items:center;justify-content:center;gap:4px}.tempo-latch svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.explorer-controls .tempo-latch[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
+.explorer-help{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;margin:5px 0 7px}
+.fractal-controls{overflow-y:auto;overscroll-behavior:contain;min-width:0;min-height:0;padding:0;border:0;background:var(--panel);scrollbar-width:thin}
+.fractal-delay-page .control-section{padding:10px 0;border:0}
+.control-section summary{cursor:pointer;font-size:12px;color:var(--ink);min-height:28px;line-height:28px}
+.control-section summary span{float:right;font-size:10px;color:var(--accent)}
+.control-note,.input-note,.input-credit{font-size:10px;line-height:1.6;color:var(--muted);margin:8px 0}
+.select-field{display:block;font-size:11px;color:var(--muted);margin:0 0 9px;line-height:1.8}
+.select-field select,.select-field input[type=number],.file-field input{display:block;width:100%;min-width:0;background:var(--panel-high);color:var(--ink);border:1px solid var(--line-strong);border-radius:0;padding:7px;font:inherit;font-size:12px;min-height:34px}
+.select-next{display:flex;gap:6px;min-width:0}.select-next select{flex:1;min-width:0}.select-next button{flex:none;width:34px;font-size:22px;padding:0}
+.fractal-controls button:not(.play-button),.explorer-controls button:not(.play-button){background:var(--panel-high);color:var(--ink);border:1px solid var(--line-strong);border-radius:0;min-height:32px;font:inherit;font-size:11px;padding:6px 10px;cursor:pointer}
+.fractal-controls button:not(.play-button):hover,.explorer-controls button:not(.play-button):hover{border-color:var(--accent)}
+.fractal-delay-page .select-next button{width:34px;font-size:22px;padding:0}
+.file-field{font-size:11px;display:block}.file-field input{font-size:10px}
+.media-transport{display:flex;align-items:center;gap:7px}.media-transport label,.check-field{font-size:10px;line-height:1.6}.settings-link{font-size:10px;color:var(--accent)}
 .knob-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 3px;margin-top:12px;align-items:start}
-.motion-row{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px 3px;margin-top:12px;align-items:start}
-.motion-row>.mz-tap-tempo-field{width:100%;flex-direction:column;align-items:center;gap:4px}
-.fractal-controls .motion-play{min-width:48px;min-height:48px;align-self:start;justify-self:center;margin-top:3px;padding:6px}
-.fractal-controls .motion-play[aria-pressed=true]{color:#c5ffe0;border-color:#89f6be;background:#1a4031}
-.knob-field{display:flex;flex-direction:column;align-items:center;min-width:0;font-size:10px;color:#c1d0ce;gap:3px;text-align:center}
+.knob-field{display:flex;flex-direction:column;align-items:center;min-width:0;font-size:10px;color:var(--muted);gap:3px;text-align:center}
 .knob-field>span{display:flex;flex-direction:column;align-items:center;min-height:28px;gap:2px;order:2;width:100%;line-height:1.2}
-.knob-field b{font-weight:400;font-size:10px;white-space:nowrap}.knob-field output{font-size:10px;color:#91e5c1}
+.knob-field b{font-weight:400;font-size:10px;white-space:nowrap}.knob-field output{font-size:10px;color:var(--accent)}
 .knob-field.mz-range-knob{width:100%;min-width:0;height:72px;margin:0}
 .knob-field.mz-range-knob>span:not(.mz-range-knob__dial){bottom:0;min-height:26px;gap:3px}
 .knob-field.mz-range-knob>span>b{position:static;width:auto;height:auto;overflow:visible;clip-path:none;white-space:nowrap}
 .knob-field.mz-range-knob>input[type=range]{height:44px;max-width:none;inset:0;min-width:0}
 .knob-field .mz-range-knob__dial{width:30px;height:30px;top:3px;box-sizing:border-box}
 .knob-field input{max-width:65px}
-.live-data{font-size:10px;margin:8px 0 12px}.live-data>div{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.live-data dt{color:#a8bbb9}.live-data dd{margin:0;text-align:right;color:#dceee7;font-variant-numeric:tabular-nums}
-.live-status{font-size:11px;color:#a6dbbf;line-height:1.6}.live-status.is-error{color:#ffbd9b}
-.fractal-controls textarea{display:block;box-sizing:border-box;width:100%;background:#0c1215;color:#ccdcd7;font:10px monospace;border:1px solid var(--line);margin-top:8px}
-.fractal-delay-page [hidden]{display:none!important}.fractal-delay-page :focus-visible{outline:2px solid #adffd4;outline-offset:3px}
-.fractal-delay-page .instrument-preset-controls{position:relative;top:auto;margin-bottom:0}.fractal-delay-page .mz-input-strip{margin:0}
-@media(max-width:720px){.fractal-delay-page .masthead{padding:8px 12px;gap:8px;min-height:60px}.fractal-delay-page .wordmark{font-size:15px}.fractal-shell{display:flex;flex-direction:column;height:auto;min-height:0}.fractal-stage{padding:10px;gap:6px}.stage-wrap{height:34dvh;min-height:250px;flex:none}.fractal-controls{overflow:visible;border-left:0;border-top:1px solid var(--line);padding:12px 14px 24px}.parameter-map{height:76px}#parameterMap{width:152px;height:76px}.stage-caption{font-size:9px;left:10px;right:10px}.knob-grid{grid-template-columns:repeat(auto-fit,minmax(78px,1fr));gap:12px 4px}.fractal-delay-page .instrument-preset-controls{position:relative;z-index:5}.fractal-delay-page .header-io-controls{gap:8px}.fractal-delay-page .stage-help{font-size:9px}}
-@media(max-width:720px){.fractal-shell{display:grid;grid-template-columns:1fr;grid-template-rows:clamp(260px,40dvh,360px) minmax(0,1fr);height:calc(100dvh - var(--fractal-header-height,79px));flex:none}.fractal-stage{min-height:0}.stage-wrap{height:auto;min-height:160px;flex:1}.stage-wrap h1{top:10px;left:12px;font-size:12px}#stage{min-height:160px}.fractal-controls{overflow-y:auto;min-height:0}.parameter-map{height:44px}#parameterMap{width:100px;height:44px}.parameter-map p{font-size:9px;line-height:1.4}.stage-help{font-size:9px}}
-@media(max-height:480px) and (min-width:721px){.fractal-shell{height:calc(100dvh - var(--fractal-header-height,66px));min-height:0;grid-template-columns:minmax(0,1fr) 340px}.fractal-stage{padding:8px}.stage-wrap,#stage{min-height:140px}.parameter-map{height:62px}#parameterMap{width:124px;height:62px}.stage-help{font-size:9px}.fractal-controls{padding-top:8px}}
-@media(pointer:coarse){.fractal-delay-page #audioButton,.fractal-delay-page #micButton,.fractal-delay-page #restartInput,.fractal-delay-page #stopInput,.fractal-delay-page #sendPulse{min-width:48px;min-height:48px}.select-next button{min-width:42px;min-height:42px}.select-field select{min-height:42px}}
-@media(pointer:coarse){.motion-row .mz-tap-tempo{min-width:48px;min-height:48px}}
+.live-data{font-size:10px;margin:8px 0 12px}.live-data>div{display:flex;justify-content:space-between;gap:12px;padding:4px 0}.live-data dt{color:var(--muted)}.live-data dd{margin:0;text-align:right;color:var(--ink);font-variant-numeric:tabular-nums}
+.live-status{font-size:11px;color:var(--accent);line-height:1.6}.live-status.is-error{color:var(--orange)}
+.fractal-controls textarea{display:block;box-sizing:border-box;width:100%;background:var(--bg-deep);color:var(--ink);font:10px var(--mono);border:1px solid var(--line);margin-top:8px}
+.fractal-delay-page [hidden]{display:none!important}.fractal-delay-page :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
+.fractal-delay-page .instrument-preset-controls{position:relative;top:auto;margin:0;padding:0 0 8px;border:0;background:var(--panel)}.fractal-delay-page .mz-input-strip{margin:0}
+@media(max-width:1050px){.coordinate-motion{grid-template-columns:1fr;gap:4px}.explorer-controls{max-height:272px}.explorer-toolbar{grid-template-columns:minmax(90px,1fr) minmax(110px,1.3fr) 64px;gap:4px 6px}.explorer-toolbar>.mini-action{margin-bottom:4px}.explorer-toolbar>.tempo-latch{grid-column:2}.explorer-toolbar>.explorer-zoom{grid-column:3;grid-row:1/3;align-self:center}.explorer-help{display:block}}
+@media(max-width:720px){.fractal-delay-page .masthead{padding:8px 12px;gap:8px;min-height:60px}.fractal-delay-page .wordmark{font-size:15px}.fractal-shell{grid-template-columns:1fr;grid-template-rows:minmax(0,58%) minmax(0,42%);height:calc(100dvh - var(--fractal-header-height,79px));flex:none}.fractal-stage{grid-template-rows:minmax(135px,1fr) minmax(0,auto)}.explorer-controls{max-height:252px}.fractal-graphics{min-height:135px}.fractal-delay-page .stage-wrap h1{top:8px;left:8px;font-size:12px}.stage-caption,.explorer-caption{font-size:9px;left:8px;right:8px;bottom:8px;gap:3px}.stage-caption>span+span{font-size:8px}.knob-grid{grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:10px 3px}.fractal-delay-page .header-io-controls{gap:8px}.stage-help{font-size:9px}.fractal-controls{padding:0}.explorer-help{margin-bottom:5px}}
+@media(max-height:480px) and (min-width:721px){.fractal-shell{grid-template-columns:minmax(0,1fr) 320px;min-height:0}.fractal-stage{grid-template-rows:minmax(125px,1fr) minmax(0,auto)}.explorer-controls{max-height:148px}.stage-help{font-size:9px}}
+@media(pointer:coarse){.fractal-delay-page #audioButton,.fractal-delay-page #micButton,.fractal-delay-page #restartInput,.fractal-delay-page #stopInput,.fractal-delay-page #sendPulse{min-width:48px;min-height:48px}.fractal-delay-page .select-next button{min-width:42px;min-height:42px}.select-field select{min-height:42px}.motion-row .mz-tap-tempo{min-width:48px;min-height:48px}.coefficient-number input{min-height:36px}}

@@ -29,7 +29,7 @@ test("Shapes leads Faves while individual geometry instruments remain category-o
   assert.deepEqual(FAVE_TOOL_IDS, [
     "shapes", "rubix", "hiccup-head", "synthesis",
     "creaturazoid", "hybrinx", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
-    "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
+    "fractal-delay", "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
     "gesticulating-hand", "simd-chiptune",
   ]);
 });

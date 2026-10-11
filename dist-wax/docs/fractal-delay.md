@@ -80,8 +80,8 @@ property prescribed by the quadratic iteration.
 Angle pitch, Path taps and Bend tone are retained but inactive in Resonance.
 Short-delay factory resonators keep this interpretation; longer echo presets
 use Path echoes. Saved snapshots from before these controls restore Resonance
-with zero new mappings. New parameter captures use version 3 and include the
-four sweep settings. The captured c values become the new starting center;
+with zero new mappings. New parameter captures use version 4 and include the
+four sweep settings, the explorer view and the live tempo-latch preference. The captured c values become the new starting center;
 live Play/Pause states remain separate transport state.
 
 Short travel times make interference and resonance prominent; longer times
@@ -90,6 +90,44 @@ wet pickup continuously, without imposing a musical scale or retuning edge
 travel times. It is a two-window time-domain transposition after the network,
 rather than FFT pitch shifting. Inputs and receivers occupy actual graph nodes,
 shown by green source markers and orange pickup markers.
+
+## Fractal explorer and coordinate controls
+
+The graphic is split evenly: a Mandelbrot/Julia explorer on the left and the
+installed audio routes on the right. The chooser, region presets, Zoom, and
+both coordinate motion rows share one compact control area. There are 13 region
+starting points, including full sets, folded coasts, islands, fine spirals and
+Julia filament close-ups. These are visual invitations rather than claims of
+exact periodicity.
+The region Next button remembers the last chosen area while motion changes c,
+so it visits every region and skips the Custom view placeholder.
+
+The coefficient boxes accept typed values and show the current real and
+imaginary numbers. While a box has focus, its draft is preserved as motion
+continues; Enter commits its value as a new sweep center. Each axis has its own
+circular Play/Pause, tempo knob, Tap and Sweep. Latch links tempo edits in either
+direction, including native keyboard and Tap edits; it leaves the two phases,
+Play states and sweep reaches independent. Enabling Latch uses the Real tempo.
+A main sound preset with unequal authored rates releases the latch so it can
+recall exactly. The sound-preset snapshot format stays compatible with earlier
+captures; Copy parameters adds the view and latch alongside the musical state.
+
+On the Mandelbrot image, click or drag selects c. On the Julia image, drag
+changes c relatively; a simple click keeps the coefficient because Julia image
+coordinates are z rather than c. Shift makes the drag finer, Alt or middle
+button pans, the wheel and plus/minus keys zoom, and Escape or Whole returns
+to the full view. Arrow keys edit c and become finer with explorer zoom.
+Region selection applies its suggested coefficient without restarting input or
+arming Audio. Zoom, pan and switching the displayed set only change the view;
+Delay domain still chooses the Julia/parameter-plane construction for the
+applicable sound mappings.
+
+Image calculation stays in a worker with one active render and one latest
+pending target. It is bounded to 360 pixels per edge (240 while Audio or
+coordinate motion runs), 64–384 iterations, and at least 250 ms between
+submissions. Mandelbrot pixels do not recompute when c moves. View gestures
+transform the existing image immediately while the next image completes;
+actual travelling-wave graphics retain their separate audio-aligned renderer.
 
 ## Five mappings
 
