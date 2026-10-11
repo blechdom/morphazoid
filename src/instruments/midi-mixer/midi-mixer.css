@@ -110,3 +110,31 @@
 
 .mixer-scenes .header-preset-controls { margin: 0; width: 100%; }
 .mixer-scenes .instrument-picker { flex: 1; min-width: 0; }
+
+.deck-source-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
+.deck-source-actions .deck-file { flex: 1; min-width: 160px; }
+.deck-original { white-space: nowrap; }
+.mixer-performance { margin: 12px 0 24px; }
+.mixer-performance-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; }
+.mixer-performance-toolbar label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.mixer-performance-toolbar h2 { font-size: 14px; font-weight: 400; margin: 0 auto 0 0; }
+#mixerPerformanceCanvas { display: block; width: 100%; height: 300px; background: #030706; border-radius: 0; }
+.mixer-sample-bank { display: flex; flex-wrap: wrap; gap: 8px; margin: 12px 0; }
+.mixer-shell .mixer-sample-bank button { min-height: 48px; min-width: 72px; padding: 8px 14px; background: #162125; color: #e5c2ef; border: 1px solid #4b3854; }
+.mixer-shell .mixer-sample-bank button:active, .mixer-shell .mixer-sample-bank button[data-active="true"] { background: #b47bc9; color: #170d1c; }
+.mixer-sample-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 24px; }
+.mixer-sample-controls label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
+.mixer-sample-controls input[type="range"] { width: 110px; }
+.mixer-sample-message { display: flex; flex-wrap: wrap; align-items: end; gap: 8px; margin-top: 12px; }
+.mixer-sample-message label { flex: 1; min-width: 160px; font-size: 11px; }
+.mixer-sample-message input { display: block; width: 100%; margin-top: 6px; padding: 10px; background: #0e191c; border: 1px solid #304441; border-radius: 0; color: #d5e1df; font: inherit; min-height: 38px; }
+.mixer-sample-message button { min-height: 38px; }
+#mixerSampleStatus { display: block; min-height: 16px; margin-top: 8px; color: #a8c5bd; font-size: 11px; }
+@media (max-width: 680px) {
+  #mixerPerformanceCanvas { height: 240px; }
+  .mixer-sample-controls { gap: 12px; }
+  .mixer-sample-controls label { max-width: 100%; }
+  .mixer-sample-controls select { max-width: 210px; }
+  .mixer-shell .mixer-sample-bank button { flex: 1; }
+}
+@media (pointer: coarse) { .mixer-sample-message input { min-height: 48px; } }

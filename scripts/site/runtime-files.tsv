@@ -1855,6 +1855,8 @@ copy+require	src/instruments/vector-fractals/worker.js
 
 # Midiophilia MIDI Mixer view: two decks on one audio-clock timeline.
 copy+require	src/instruments/midi-mixer/midi-mixer-app.js
+copy+require	src/instruments/midi-mixer/midi-mixer-performance.js
+copy+require	src/instruments/midi-mixer/midi-mixer-performance-score.js
 copy+require	src/instruments/midi-mixer/midi-mixer.css
 copy+require	src/instruments/midi-mixer/midi-mixer-renderer.js
 copy+require	src/instruments/midi-mixer/midi-mixer-presets.js

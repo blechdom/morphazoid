@@ -6,6 +6,36 @@ decks share one beat clock, so changing the master tempo keeps their timing
 locked even when the decks use different speed ratios. A zoomed-out map shows the note
 density of each voice across the whole arrangement, with muted voices in grey.
 
+## Visualize and play one-shots
+
+The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
+deck B and the sample buttons feed the same graphic, with distinct voice
+colors. Muted parts disappear from the live graphic while their full-file
+activity maps remain available below. Graphics follow note events; rendering
+does not schedule the sound.
+
+Heart, Square, Star and the other sample buttons play short MIDI drawings over
+the decks. Type a message and send it as an upward-moving playable score, or
+use **Your drawing** to play the current freehand canvas. Each shot follows
+the shared tempo and finishes once; it does not replace a deck or its loop.
+Shots can also play while the decks are paused. Audio remains an explicit,
+separate control. Stop shots clears just the sample layer; Pause or Stop
+releases both decks and shots.
+
+## Play an original file
+
+Each deck has a **Play original** button. It opens that deck's unmodified MIDI
+in the Visualize view and plays it alone at 1×, including its original tempo
+changes, opening silence, instrument changes and controllers. Loop is off.
+The single-file player uses the default SoundFont and bypasses mixer pitch,
+slip, ratios, mute/solo, crossfade, filter, echo and sample buttons. MIDI files
+specify instruments, not recorded instrument audio; the SoundFont still
+determines their rendered sound.
+
+The mix pauses with its settings and position retained. Select **MIDI Mixer**
+to return. If Audio is off, Play original keeps it off and waits for explicit
+Audio activation; Stop or Reset cancels that pending play request.
+
 ## Combine arrangements
 
 - Choose songs independently for decks A and B, or open local MIDI files.

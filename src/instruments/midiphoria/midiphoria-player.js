@@ -160,7 +160,7 @@ export class MidiphoriaPlayer {
     try { this._padSynth?.stopAll(true); } catch { /* A failed processor is already being released. */ }
   }
 
-  async load(buffer, fileName = 'MIDI file.mid') {
+  async load(buffer, fileName = 'MIDI file.mid', { preserveLeadIn = false } = {}) {
     if (this._disposed) return false;
     try { validateMidi(buffer); }
     catch (error) { this._error = error.message; this._publish(); throw error; }
@@ -170,7 +170,7 @@ export class MidiphoriaPlayer {
     this._activeLoad?.resolve(false);
     let resolve;
     const completion = new Promise(done => { resolve = done; });
-    const request = { buffer: buffer.slice(0), fileName: String(fileName).slice(0, 256),
+    const request = { buffer: buffer.slice(0), fileName: String(fileName).slice(0, 256), preserveLeadIn: Boolean(preserveLeadIn),
       token: ++this._serial, completion, resolve };
     this._file = request; this._queued = request;
     this._readyToken = null; this._time = 0; this._duration = 0; this._seekTime = null; this._error = null;
@@ -183,7 +183,7 @@ export class MidiphoriaPlayer {
     if (this._disposed || !this.state.ready || this.context?.state !== 'running') return false;
     if (this._playing) return true;
     if (this._time >= this._duration) this.seek(0);
-    if (this._time === 0 && finite(this._sequencer.midiData?.firstNoteOn) > 0) {
+    if (!this._file?.preserveLeadIn && this._time === 0 && finite(this._sequencer.midiData?.firstNoteOn) > 0) {
       // MIDI exports can contain seconds of setup before their first note.
       // Skip that lead-in only when starting from zero. Ordered worklet
       // messages retain setup controllers and leave ordinary seeks unchanged.

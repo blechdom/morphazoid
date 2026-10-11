@@ -560,3 +560,18 @@ test('file note attacks carry the current SoundFont instrument name for each MID
   assert.equal(h.messages.at(-1).voiceName, 'Strings');
   await h.player.dispose();
 });
+
+test('original-file playback preserves the lead-in across replay without changing ordinary audition', async () => {
+  const h = harness(); const sequence = await ready(h);
+  sequence.midiData = { firstNoteOn: 2.5 };
+  const skips = [];
+  Object.defineProperty(sequence, 'skipToFirstNoteOn', { set(value) { skips.push(value); }, configurable: true });
+  await h.player.load(midi(), 'original.mid', { preserveLeadIn: true });
+  assert.equal(h.player.play(), true);
+  h.player.stop(); h.player.play();
+  assert.deepEqual(skips, [], 'the original starts at its real beat zero, including silence');
+  await h.player.load(midi(), 'audition.mid');
+  h.player.play();
+  assert.deepEqual(skips, [true, false], 'normal quick auditions retain their existing lead-in skip');
+  await h.player.dispose();
+});
