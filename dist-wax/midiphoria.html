@@ -7,7 +7,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Midiophilia — Morphazoid" />
-    <meta property="og:description" content="Midiophilia on Morphazoid: draw playable MIDI, generate words and shapes, visualize notes, and mix two MIDI files with voice maps and synchronized tempo ratios." />
+    <meta property="og:description" content="Midiophilia on Morphazoid: visualize MIDI notes and mix two MIDI files with voice maps and synchronized tempo ratios." />
     <meta property="og:url" content="https://morphazoid.com/midiphoria.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -17,14 +17,14 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Midiophilia — Morphazoid" />
-    <meta name="twitter:description" content="Midiophilia on Morphazoid: draw playable MIDI, generate words and shapes, visualize notes, and mix two MIDI files with voice maps and synchronized tempo ratios." />
+    <meta name="twitter:description" content="Midiophilia on Morphazoid: visualize MIDI notes and mix two MIDI files with voice maps and synchronized tempo ratios." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end -->
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#07090b" />
-    <meta name="description" content="Midiophilia on Morphazoid: draw playable MIDI, generate words and shapes, visualize notes, and mix two MIDI files with voice maps and synchronized tempo ratios." />
+    <meta name="description" content="Midiophilia on Morphazoid: visualize MIDI notes and mix two MIDI files with voice maps and synchronized tempo ratios." />
     <title>Midiophilia — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
@@ -34,8 +34,8 @@
   <body class="midiphoria-page">
     <header class="masthead">
       <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
-      <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">gesticules</a><a class="tab active" href="midiphoria.html" aria-current="page">midiophilia</a></nav>
-      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">gesticules</option><option value="midiphoria.html" selected>midiophilia</option></select></label>
+      <nav class="tabs" aria-label="Instrument"><a class="tab" href="gesticules.html">gesticules</a><a class="tab active" href="midiphoria.html" aria-current="page">midiophilia</a><a class="tab" href="blech-midi.html">Blech MIDI</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="gesticules.html">gesticules</option><option value="midiphoria.html" selected>midiophilia</option><option value="blech-midi.html">Blech MIDI</option></select></label>
       <div class="audio-strip" aria-label="Audio controls">
         <button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">≈</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
         <label class="header-level" for="outputLevel"><span><b>Output</b><output id="outputLevelOut" for="outputLevel">50%</output></span><input id="outputLevel" aria-label="Midiophilia output level" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
@@ -46,9 +46,8 @@
         <div class="midiphoria-stage-heading"><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a><h1>Midiophilia</h1></div>
         <div class="midiphoria-stage-modes" role="group" aria-label="Stage view">
           <button id="visualModeButton" type="button" aria-pressed="true">Visualize</button>
-          <button id="drawingModeButton" type="button" aria-pressed="false">BLECH MIDI</button>
-          <button id="automataModeButton" type="button" aria-pressed="false">Automatapoeia</button>
           <button id="mixerModeButton" type="button" aria-pressed="false">MIDI Mixer</button>
+          <a class="midiphoria-creative-link" href="blech-midi.html">Blech MIDI ↗</a>
         </div>
       </div>
       <div class="midiphoria-shell" id="midiphoriaLegacyView">
@@ -168,44 +167,6 @@
         <details class="midiphoria-notes" id="aboutSetup"><summary>About & setup</summary><p>Choose a song or open local MIDI files (up to 20 files per session, 10 MB each, 50 MB total). Enable Audio to load the SoundFont, then Play. Local files stay in your browser until you leave or reload the page. Muting Audio keeps the playhead and graphics moving. Choose a visual preset at the top, use Next or the dice, then tweak its palette, trails, motion and light envelope while listening. Visual presets keep the current song playing.</p><p>Connect a MIDI keyboard or a virtual MIDI port from your DAW, then enable MIDI In in Settings. Hardware MIDI needs a supported browser on HTTPS or localhost. The on-screen pads play SoundFont piano when Audio is on, including while the song is paused. Hold a pad with touch, mouse or Enter/Space; release to let the note decay. Pad velocity and the shared output level affect its sound. Reset releases the pads and restores the visual controls. With MIDI In and Audio on, computer keys and incoming MIDI notes also play piano, with note velocity, channel filtering and sustain.</p><p>Inspired by <a href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Nicholas C. Stanley’s Midiphoria ↗</a>. Independent browser visuals, with <a href="https://spessasus.github.io/spessasynth_lib/" target="_blank" rel="noopener noreferrer">SpessaSynth ↗</a> SoundFont playback. No Python installation is needed. <a href="docs/midiphoria.md" target="_blank" rel="noopener">Feature parity & limits ↗</a></p><p class="midiphoria-help"><a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p><details class="midiphoria-notes midiphoria-credits"><summary>Song credits & free MIDIs</summary><p id="songCredit"></p><p><a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">Collection & SoundFont credits ↗</a></p><p>Download full MIDI files, then use Open your MIDIs: <a href="https://midkar.com/Pop_Rock/Pop_Rock_A_to_Z.html" target="_blank" rel="noopener noreferrer">MIDKAR pop/rock ↗</a> · <a href="https://bushgrafts.com/midi/" target="_blank" rel="noopener noreferrer">Doug McKenzie jazz ↗</a> · <a href="https://www.midiworld.com/files/826/" target="_blank" rel="noopener noreferrer">MIDIWorld synth-pop ↗</a> · <a href="https://bitmidi.com/" target="_blank" rel="noopener noreferrer">BitMidi popular songs ↗</a> · <a href="https://midicollection.com/" target="_blank" rel="noopener noreferrer">MIDI Collection ↗</a> · <a href="https://github.com/rin-w/black-midi-patterns" target="_blank" rel="noopener noreferrer">Black-MIDI patterns ↗</a>. Extract ZIP or 7z collections before opening their .mid files.</p></details><button type="button" id="resetButton" class="midiphoria-reset" data-reset-all data-reset-in-place aria-label="Reset Midiophilia" title="Reset Midiophilia"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 8V4m0 0h4M5 4l3.2 3.2A7 7 0 1 1 5 14" /></svg><span>Reset</span></button></details>
       </aside>
       </div>
-      <section id="midiCreativeView" class="midiphoria-creative mixer-shell" aria-label="Create MIDI" hidden>
-        <div class="midiphoria-creative-stage">
-          <div class="midiphoria-creative-transport">
-            <div id="creativeActionHost"><button id="generateDrawingMidi" class="mini-action" type="button" disabled>Play drawing</button></div>
-            <label class="control" for="creativeTempo"><span><b>Tempo</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="Drawing and rules tempo" type="range" min="30" max="300" step=".1" value="120" /></label>
-            <button id="creativeStop" type="button" class="mini-action">Stop stamps</button>
-            <button id="creativeAudioStart" type="button" class="midiphoria-audio-start">Turn audio on</button>
-          </div>
-          <div id="creativeVisualizerHost"></div>
-          <div id="drawingEditor">
-            <div class="midiphoria-drawing-tools" id="drawingTools">
-              <div class="midiphoria-drawing-actions">
-                <button id="drawingErase" type="button" aria-pressed="false">Eraser</button>
-                <button id="drawingUndo" type="button" disabled>Undo</button>
-                <button id="drawingClear" type="button" disabled>Clear</button>
-                <a id="downloadDrawingMidi" download="drawn-score.mid" hidden>Download MIDI</a>
-                <output id="drawingStatus" aria-live="polite">0 pixels</output>
-              </div>
-              <div class="midiphoria-drawing-stamps" role="group" aria-label="Drawing stamps">
-                <span>Stamps</span>
-                <button type="button" data-drawing-stamp="🙂" aria-label="Smile stamp">🙂</button>
-                <button type="button" data-drawing-stamp="⭐" aria-label="Star stamp">⭐</button>
-                <button type="button" data-drawing-stamp="❤" aria-label="Heart stamp">♥</button>
-                <button type="button" data-drawing-stamp="◆" aria-label="Diamond stamp">◇</button>
-                <button type="button" data-drawing-stamp="spiral">Spiral</button>
-                <button type="button" data-drawing-stamp="wave">Wave</button>
-                <button type="button" data-drawing-stamp="zigzag">Zigzag</button>
-              </div>
-              <p id="drawingHelp" class="midiphoria-help">Draw or choose a shape, then Play drawing. Pitch → · flow ↑. Arrows move · Space paints · Delete erases.</p>
-            </div>
-            <div class="midiphoria-drawing-viewport">
-              <canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="BLECH MIDI drawing score" aria-describedby="drawingHelp">Pitch increases to the right. The drawing appears upright in upward-moving note trails.</canvas>
-            </div>
-          </div>
-          <div id="automataMidiTools" hidden></div>
-        </div>
-        <aside id="creativeControlsHost" aria-label="MIDI stamp controls"></aside>
-      </section>
       <section id="midiMixerView" aria-label="MIDI Mixer" hidden></section>
       <p id="modeStatus" class="midiphoria-help midiphoria-mode-status" role="status"></p>
     </main>

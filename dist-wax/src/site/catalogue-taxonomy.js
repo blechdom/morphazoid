@@ -183,6 +183,7 @@ export const CATALOGUE_TAGS = Object.freeze([
 ].map(tag => Object.freeze(tag)));
 export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({
   "midiphoria": ["2d"],
+  "blech-midi": ["2d", "sequencer", "algorithmic"],
   blobs: ["graphic-ui", "2d", "synthesizer"],
   "shape-synth": [
     "2d",
@@ -643,6 +644,13 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "hollowphonic": []
 }).map(([id, tags]) => [id, Object.freeze(tags)])));
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
+  "blech-midi": {
+    "kind": "Drawn and generated MIDI",
+    "description": "Draw playable MIDI, launch black MIDI and geometric stamps, or turn cellular automata and messages into SoundFont audio and moving note trails.",
+    "start": "Turn Audio on, draw or choose a stamp, then play it. Use Loop and Sync to tempo to keep patterns moving; switch to Automatapoeia for rule-generated MIDI.",
+    "features": ["SoundFont playback", "Drawing", "Black MIDI stamps", "Cellular automata", "MIDI file export"],
+    "pluginHref": null
+  },
   "midiphoria": {
     "kind": "Live MIDI visualizer",
     "description": "Turn live MIDI notes, velocity and controller messages into colorful geometry and fading note trails. Play a MIDI collection or local files with SoundFont audio while shaping the light live.",

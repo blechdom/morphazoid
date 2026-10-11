@@ -153,4 +153,3 @@ The browser mappings above are Morphazoid design choices, not ports of these
 applications or claims of their full feature sets. No code from these tools
 was imported for this stamp bank. Generated textures are original bounded
 pitch/time patterns; they do not claim to recreate any named composition.
-
