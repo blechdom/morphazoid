@@ -12,7 +12,11 @@ transport controls. **A tempo** and **B tempo** sit beside the shared tempo knob
 Drag any mixer knob vertically, hold Shift for finer movement, or use its arrow
 keys. Exact numeric MIDI editors remain available beside their knobs. Each voice
 name has inline **M** (mute) and **S** (solo) buttons aligned with its activity row.
-Stamp and generation tools follow the decks.
+Volume A, Volume B, and Black MIDI share a row near the transport; Black MIDI
+controls both active stamps and the next launch. Stamp and generation tools follow
+the decks. Generated drawings, messages, and patterns default to acoustic piano.
+Pitch span reaches 128 notes (MIDI 0–127), including drawings sent with Play drawing;
+the drawing’s lowest-note control adjusts to keep its selected span within that range.
 
 ## Edit the MIDI sound
 

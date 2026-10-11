@@ -52,7 +52,7 @@ test('stamp program selection remembers source families and live edits preserve 
   const errors = await open(page);
   await expect(page.locator('#mixerSampleProgram option')).toHaveCount(129);
   const first = await launch(page, () => page.locator('[data-mixer-sample="heart"]').click());
-  expect(first.program).toBeNull(); expect(first.midi.program).toBe(81);
+  expect(first.program).toBeNull(); expect(first.midi.program).toBe(0);
   await page.locator('#mixerSampleProgram').selectOption('127');
   expect((await summary(page)).samples[0].midi.program).toBe(127);
   const file = await launch(page, () => page.locator('[data-mixer-sample="black-pattern-3-beat-funnel-128"]').click());
@@ -69,7 +69,7 @@ test('stamp program selection remembers source families and live edits preserve 
   await page.locator('#mixerSampleLevel').fill('0.23'); expect((await summary(page)).samples.every(sample => sample.gain === .23)).toBe(true);
   await page.getByRole('button', { name: 'Reset Stamp sound', exact: true }).click();
   expect((await summary(page)).samples.every(sample => Object.keys(sample.midi).length === 0)).toBe(true);
-  await expect(page.locator('#mixerSampleProgram')).toHaveValue('81');
+  await expect(page.locator('#mixerSampleProgram')).toHaveValue('0');
   expect((await summary(page)).playing).toBe(true); expect((await summary(page)).stops).toBe(0); expect(errors).toEqual([]);
 });
 

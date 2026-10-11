@@ -6,8 +6,17 @@
 .mixer-shell { max-width: 1560px; margin: 0 auto; padding: 24px 32px 50px; }
 .mixer-main-row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 24px; margin-bottom: 18px; }
 .mixer-top-controls, .mixer-overview { min-width: 0; }
-.mixer-secondary-controls { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 8px; }
+.mixer-secondary-controls { display: grid; grid-template-columns: minmax(0, 350px) minmax(0, 1fr); gap: 18px; align-items: start; margin-top: 8px; }
 .mixer-secondary-controls .mixer-weave { margin: 0; }
+.mixer-level-bank { display: flex; align-items: start; gap: 12px; min-width: 0; }
+.mixer-source-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; flex: 1; min-width: 0; }
+.mixer-source-volume { min-width: 0; }
+.mixer-shell .mixer-source-volume > span:first-child { flex-direction: column; gap: 4px; }
+.mixer-source-volume b { white-space: nowrap; }
+.mixer-source-volume:has(#deckGain0) { --deck-ink: var(--mixer-a); }
+.mixer-source-volume:has(#deckGain1) { --deck-ink: var(--mixer-b); }
+.mixer-source-volume:has(#mixerSampleLevel) { --deck-ink: #caa0db; }
+@media (max-width: 1100px) { .mixer-secondary-controls { grid-template-columns: minmax(0, 1fr); gap: 10px; } }
 .mixer-overview { display: grid; gap: 10px; }
 .mixer-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
 .mixer-tempo-controls { display: flex; align-items: center; gap: 8px; }
@@ -31,7 +40,7 @@
 .mixer-transport .play-button[aria-pressed="true"] .transport-pause { display: block; }
 .mixer-shell .mini-action { min-height: 36px; background: #10201c; border: 1px solid #304441; color: #c8dcd5; padding: 8px 12px; }
 .mixer-mix-row { display: flex; gap: 24px; align-items: center; max-width: 730px; margin: 18px auto; }
-.mixer-crossfade { flex: none; width: 125px; min-width: 0; }
+.mixer-crossfade { flex: none; width: 90px; min-width: 0; }
 .mixer-tempo > span:first-child, .mixer-crossfade > span:first-child { flex-direction: column; gap: 4px; }
 .mixer-weave { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 20px; margin: 14px 0; font-size: 11px; }
 .mixer-weave-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
@@ -77,7 +86,7 @@
 .deck-info div { min-width: 0; }
 .deck-info dt { margin-bottom: 5px; font-size: 10px; color: #88a69c; }
 .deck-info dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
-.deck-parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px 0; }
+.deck-parameters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; padding: 12px 0; }
 .deck-parameters .deck-slip-control { grid-column: span 2; }
 .deck-slip { display: flex; align-items: center; gap: 6px; }
 .deck-slip input { flex: 1; width: 50px; }
@@ -216,12 +225,15 @@
 @media (max-width: 680px) {
   .mixer-performance { display: block; }
   #mixerPerformanceCanvas { height: 110px; min-height: 0; }
-  .mixer-secondary-controls { grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
+  .mixer-secondary-controls { grid-template-columns: minmax(0, 1fr); gap: 8px; }
+  .mixer-secondary-controls .mixer-weave { grid-template-columns: auto minmax(0, 1fr); }
   .mixer-secondary-controls:has(#mixerWeaveSettings[open]) { grid-template-columns: minmax(0, 1fr); }
   .mixer-overview { width: 100%; }
   .mixer-transport { gap: 10px; }
   .mixer-tempo { width: 88px; }
-  .mixer-crossfade { width: 104px; }
+  .mixer-crossfade { width: 90px; }
+  .mixer-source-levels { gap: 8px; }
+  .mixer-source-volume b { font-size: 10px; }
   .mixer-crossfade b { white-space: nowrap; font-size: 10px; }
   .mixer-sample-controls { gap: 12px; }
   .mixer-sample-controls label { max-width: 100%; }

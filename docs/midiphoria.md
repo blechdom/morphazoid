@@ -127,7 +127,7 @@ Drawings, text and generated files stay in this browser session.
 Whole-word text lasts at most eight seconds at 1×, with 40 simultaneous pitches
 and 640 note runs. One-letter mode lasts at most 64 seconds with five simultaneous
 pitches. Text uses 0.25-second rows and notes 48–94. Both generators use a General
-MIDI sawtooth lead at 120 BPM. The score renderer never schedules audio; the
+MIDI acoustic grand piano at 120 BPM. The score renderer never schedules audio; the
 existing AudioWorklet plays the exported notes. Normal note trails use square
 ends and square held-note markers; radial, orbital and ribbon paths retain
 their curves.

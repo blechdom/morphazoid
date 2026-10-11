@@ -161,7 +161,7 @@ test('file stamps preserve original instruments, cache excerpts and retain short
   const stretched = await lastLaunch(page, () => page.locator('#mixerStampAgain').click());
   expect(stretched.notes).toHaveLength(short.notes.length); expect(voices(stretched.notes)).toEqual(voices(short.notes));
   expect(stretched.duration / short.duration).toBeCloseTo(2, 2);
-  await stamp(page, 'square').click(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('81');
+  await stamp(page, 'square').click(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('0');
   await expect(page.locator('#mixerStampDensity')).toBeEnabled(); await expect(page.locator('#mixerStampNextSlice')).toBeHidden();
   expect((await snapshot(page)).contexts).toEqual([]);
 });

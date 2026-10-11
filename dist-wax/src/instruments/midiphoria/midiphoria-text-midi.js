@@ -137,7 +137,7 @@ export function generateGridMidi(pixels, { title = 'Drawing', secondsPerRow = .2
   const events = [
     { tick: 0, order: 0, bytes: [0xff, 0x03, ...variableLength(titleBytes.length), ...titleBytes] },
     { tick: 0, order: 0, bytes: [0xff, 0x51, 3, 0x07, 0xa1, 0x20] },
-    { tick: 0, order: 0, bytes: [0xc0, 81] },
+    { tick: 0, order: 0, bytes: [0xc0, 0] },
   ];
   for (const { note, start, duration, velocity } of notes) {
     events.push({ tick: Math.round(start * 960), order: 2, bytes: [0x90, note, velocity] });

@@ -21,7 +21,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     </div>
     <div class="mixer-overview"><div class="mixer-scenes" id="mixerPresetHost"></div><div id="mixerVisualizerHost"></div></div>
   </div>
-  <div class="mixer-mix-row"><button id="tempoFromA" class="mini-action" type="button" disabled>A tempo</button><label class="control mixer-crossfade"><span><b>Crossfade · A / B</b><output id="crossfadeOut" for="mixerCrossfade">A + B</output></span><input id="mixerCrossfade" name="balance" aria-label="Crossfade between deck A and B" type="range" min="-1" max="1" step=".01" value="0"></label><button id="tempoFromB" class="mini-action" type="button" disabled>B tempo</button></div>
+  <div class="mixer-mix-row"><button id="tempoFromA" class="mini-action" type="button" disabled>A tempo</button><label class="control mixer-crossfade"><span><b>Crossfade</b><output id="crossfadeOut" for="mixerCrossfade">A + B</output></span><input id="mixerCrossfade" name="balance" aria-label="Crossfade between deck A and B" type="range" min="-1" max="1" step=".01" value="0"></label><button id="tempoFromB" class="mini-action" type="button" disabled>B tempo</button></div>
   <section class="mixer-weave" aria-label="Weave MIDI decks">
     <div class="mixer-weave-heading"><button id="mixerWeaveToggle" type="button" class="mini-action" aria-pressed="false">Weave</button><output id="mixerWeaveStatus" aria-live="off">Off</output></div>
     <div id="mixerWeaveSteps" class="mixer-weave-steps" aria-label="Weave pattern"></div>
@@ -60,7 +60,11 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   tempoSources.append($('tempoFromA'), $('tempoFromB'));
   $('tempoFromA').setAttribute('aria-label', 'Use deck A tempo'); $('tempoFromB').setAttribute('aria-label', 'Use deck B tempo');
   const secondary = document.createElement('div'); secondary.className = 'mixer-secondary-controls';
-  secondary.append(host.querySelector('.mixer-crossfade'), host.querySelector('.mixer-weave'));
+  const levelBank = document.createElement('div'); levelBank.className = 'mixer-level-bank';
+  const sourceLevels = document.createElement('div'); sourceLevels.id = 'mixerSourceLevels'; sourceLevels.className = 'mixer-source-levels';
+  sourceLevels.setAttribute('role', 'group'); sourceLevels.setAttribute('aria-label', 'Source volumes');
+  levelBank.append(sourceLevels, host.querySelector('.mixer-crossfade'));
+  secondary.append(levelBank, host.querySelector('.mixer-weave'));
   host.querySelector('.mixer-mix-row').remove();
   topControls.append(transport, secondary, host.querySelector('.mixer-readout'), $('mixerStatus'));
   host.querySelector('.mixer-main-row').prepend(topControls);
@@ -105,6 +109,9 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       <details class="deck-inspector"><summary>Inspect MIDI · tracks, notes & timing</summary><div id="deckInspect${index}"></div></details>`;
     section.querySelector('.mixer-deck-map').before(section.querySelector('.deck-channel-heading'));
     $('mixerDeckHost').append(section);
+    const volume = $(`deckGain${index}`).closest('label');
+    volume.classList.add('mixer-source-volume'); volume.querySelector('b').textContent = `Volume ${letter}`;
+    $(`deckGain${index}`).setAttribute('aria-label', `Volume ${letter}`); sourceLevels.append(volume);
     const ui = { section, analysis: null, reverseMode: 'notes', reverseBusy: false, reverseSerial: 0, exportAnalysis: null, exportUrl: null, rows: new Map(), letter, channelEvents: new AbortController(), midiEditor: null }; deckUIs.push(ui);
     on(section.querySelector('.deck-midi-editor'), 'toggle', event => {
       if (!event.target.open || !engine) return;
@@ -334,7 +341,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     onState({ ...state, ready: state.decks.some(deck => deck.analysis) });
   }
   engine = new MidiMixerEngine({ onState: reflect });
-  performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing, visualizerHost: $('mixerVisualizerHost') });
+  performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing, visualizerHost: $('mixerVisualizerHost'), volumeHost: sourceLevels });
   knobs = mountMixerKnobs(host);
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,

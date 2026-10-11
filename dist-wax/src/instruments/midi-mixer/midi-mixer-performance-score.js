@@ -24,8 +24,8 @@ const FIXED_SEED_PATTERNS = new Set(['polka-dots', 'plaid', 'checker', 'ladder',
 const bounded = (value, low, high, fallback) => Number.isFinite(Number(value)) ? Math.max(low, Math.min(high, Number(value))) : fallback;
 function patternOptions(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
-  const span = Math.round(bounded(source.span, 12, 48, 48)), center = Math.round(72 - span / 2);
-  const transpose = Math.round(bounded(source.transpose, -36, 36, 0));
+  const span = Math.round(bounded(source.span, 12, 128, 48)), center = Math.round(72 - span / 2);
+  const transpose = Math.round(bounded(source.transpose, -127, 127, 0));
   return { seed: Math.trunc(bounded(source.seed, 0, 0xffffffff, 1)), density: bounded(source.density, 0, 1, .5), span,
     beats: Math.round(bounded(source.beats, 4, 32, 8)),
     transpose: Math.max(0, Math.min(128 - span, center + transpose)) - center };
@@ -130,11 +130,13 @@ function patternPixels(id, density, seed) {
 /** Raw trails carry earlier notes upward, so emit each picture's top row first.
  * The Draw editor's stationary score/playhead still uses its original direction.
  * Text phrases stay in reading order and retain their final silent row.
+ * An optional pitch span resizes the drawing's columns and fits its complete
+ * pitch window inside MIDI 0–127 without changing its source pixels or timing.
  */
-export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote } = {}) {
+export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote, span } = {}) {
   if (!score?.buffer || !Array.isArray(score.notes) || !score.notes.length
     || !Number.isInteger(score.rows) || score.rows < 1 || score.rows > 256
-    || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 48
+    || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 128
     || !Number.isFinite(score.secondsPerRow) || score.secondsPerRow <= 0) {
     throw new Error('Draw a score first in Draw a MIDI.');
   }
@@ -157,11 +159,24 @@ export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRo
     return { column, start, length };
   });
   const shift = trimLeading ? Math.min(...notes.map(note => note.start)) : 0;
-  const pixels = Array.from({ length: rows }, () => Array(columns).fill(0));
+  let pixels = Array.from({ length: rows }, () => Array(columns).fill(0));
   for (const { column, start, length } of notes) {
     for (let row = start - shift; row < start - shift + length; row++) pixels[rows - 1 - row][column] = 1;
   }
-  return { ...score, ...generateGridMidi(pixels, { title: score.text, secondsPerRow: rowTime ?? secondsPerRow, lowestNote: baseNote ?? lowestNote }),
+  let outputBase = baseNote ?? lowestNote;
+  if (span !== undefined) {
+    const outputColumns = Math.round(bounded(span, 1, 128, columns));
+    outputBase = Math.round(bounded(outputBase, 0, 128 - outputColumns, Math.min(lowestNote, 128 - outputColumns)));
+    pixels = pixels.map(row => {
+      if (outputColumns >= columns) return Array.from({ length: outputColumns }, (_, column) => row[Math.min(columns - 1, Math.floor((column + .5) * columns / outputColumns))]);
+      // Merge compressed columns so a thin drawn line cannot vanish between
+      // sample points. Expansion stretches the original cells without gaps.
+      const resized = Array(outputColumns).fill(0);
+      row.forEach((value, column) => { if (value) resized[Math.min(outputColumns - 1, Math.floor((column + .5) * outputColumns / columns))] = 1; });
+      return resized;
+    });
+  }
+  return { ...score, ...generateGridMidi(pixels, { title: score.text, secondsPerRow: rowTime ?? secondsPerRow, lowestNote: outputBase }),
     pixels: pixels.map(row => row.slice()).reverse() };
 }
 

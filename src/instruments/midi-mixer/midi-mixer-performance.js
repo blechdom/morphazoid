@@ -15,7 +15,7 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const MAX_ACTIVE = 4096;
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -31,7 +31,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   <div id="mixerAutomataTools"></div>
   <div class="mixer-stamp-shape-controls">
     <label>Density <output id="mixerStampDensityOut">50%</output><input id="mixerStampDensity" type="range" min="0" max="1" step=".05" value=".5" /></label>
-    <label>Pitch span <output id="mixerStampSpanOut">48 notes</output><input id="mixerStampSpan" type="range" min="12" max="48" step="1" value="48" /></label>
+    <label>Pitch span <output id="mixerStampSpanOut">48 notes</output><input id="mixerStampSpan" type="range" min="12" max="128" step="1" value="48" /></label>
     <label>Length <output id="mixerStampBeatsOut">8 beats</output><input id="mixerStampBeats" type="range" min="4" max="32" step="4" value="8" /></label>
     <div class="mixer-stamp-actions"><button id="mixerStampAgain" type="button">Stamp again</button><button id="mixerStampVariation" type="button">Variation</button><button id="mixerStampNextSlice" type="button" hidden>Next slice</button></div>
     <label class="mixer-stamp-paint"><input id="mixerStampPaint" type="checkbox" checked />Paint flow</label>
@@ -39,7 +39,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   </div>
   <div class="mixer-sample-controls">
     <label>Sample sound <select id="mixerSampleProgram"></select></label>
-    <label>Sample level <input id="mixerSampleLevel" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+    <label class="control mixer-source-volume"><span><b>Black MIDI</b><output id="mixerSampleLevelOut" for="mixerSampleLevel">70%</output></span><input id="mixerSampleLevel" aria-label="Black MIDI volume" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
     <button id="mixerSendDrawing" type="button">Play drawing</button>
     <button id="mixerStopSamples" type="button">Stop samples</button>
   </div>
@@ -70,7 +70,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const visualizer = document.createElement('div'); visualizer.className = 'mixer-performance-visualizer';
   visualizer.append(section.querySelector('.mixer-performance-toolbar'), section.querySelector('#mixerPerformanceCanvas'));
   if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer);
-  const $ = id => section.querySelector(`#${id}`) ?? visualizer.querySelector(`#${id}`), canvas = $('mixerPerformanceCanvas');
+  const volume = section.querySelector('#mixerSampleLevel').closest('label');
+  if (volumeHost) volumeHost.append(volume);
+  const $ = id => section.querySelector(`#${id}`) ?? visualizer.querySelector(`#${id}`) ?? volume.querySelector(`#${id}`), canvas = $('mixerPerformanceCanvas');
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   const renderer = new MidiphoriaRenderer(canvas), model = new MidiphoriaModel();
@@ -80,17 +82,17 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const stamps = new Map(), buttons = new Map(), fileCache = new Map();
   let automataSelected = false;
   let selected = 'heart', seed = 1, request = null, requestTicket = 0, loadingSample = false, previewFrame = null;
-  let patternProgram = '81', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
+  let patternProgram = '0', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
   $('mixerSampleProgram').add(new Option('Original file instruments', 'original'));
   GM_PROGRAM_NAMES.forEach((name, program) => $('mixerSampleProgram').add(new Option(`${program + 1}. ${name}`, String(program))));
-  $('mixerSampleProgram').value = '81';
+  $('mixerSampleProgram').value = '0';
   $('mixerSendDrawing').hidden = typeof getDrawing !== 'function';
   const midiEditor = mountMidiParameterEditor(section.querySelector('.mixer-stamp-live-midi'), {
     label: 'Stamp sound', getValue: () => engine.state.sampleMidi ?? {},
     excludeFields: ['program'],
     onChange: partial => {
       engine.configureSamples({ midi: partial });
-      if (partial === null) { patternProgram = '81'; fileProgram = 'original'; $('mixerSampleProgram').value = stamps.get(selected)?.file && !automataSelected ? fileProgram : patternProgram; }
+      if (partial === null) { patternProgram = '0'; fileProgram = 'original'; $('mixerSampleProgram').value = stamps.get(selected)?.file && !automataSelected ? fileProgram : patternProgram; }
       midiEditor.refresh();
     },
     onAction: action => {
@@ -232,6 +234,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const value = $(id).valueAsNumber, bounded = Number.isFinite(value) ? clamp(value, min, max) : fallback;
     return integer ? Math.round(bounded) : bounded;
   }
+  function drawingPitchRange() {
+    const maximum = 128 - numberInput('mixerStampSpan', 12, 128, 48, true);
+    const input = $('mixerStampDrawBase'); input.max = String(maximum);
+    input.value = String(numberInput('mixerStampDrawBase', 0, maximum, Math.min(48, maximum), true));
+  }
   function thumbnail(button, score) {
     const previewCanvas = button.querySelector('canvas'), ctx = previewCanvas.getContext('2d');
     ctx.clearRect(0, 0, previewCanvas.width, previewCanvas.height); ctx.fillStyle = '#caa0db';
@@ -342,7 +349,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   for (const name of ['mixerStampDensity', 'mixerStampSpan', 'mixerStampBeats']) on($(name), 'input', () => {
     cancelPending(); fileStart = null; lastFileStamp = null;
     $('mixerStampDensityOut').value = `${Math.round(options().density * 100)}%`;
-    $('mixerStampSpanOut').value = `${options().span} notes`; $('mixerStampBeatsOut').value = `${options().beats} beats`; selectStamp(selected); queuePreviews();
+    $('mixerStampSpanOut').value = `${options().span} notes`; $('mixerStampBeatsOut').value = `${options().beats} beats`; drawingPitchRange(); selectStamp(selected); queuePreviews();
   });
   on($('mixerStampAgain'), 'click', () => safely(() => stampSelected()));
   on($('mixerStampVariation'), 'click', () => { if (!nextVariation) return; seed = nextVariation.patternOptions.seed; $('mixerStampSeed').value = String(seed); selectStamp(selected); queuePreviews(); safely(() => stampSelected()); });
@@ -363,20 +370,23 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const defaults = { mixerStampDensity: '.5', mixerStampSpan: '48', mixerStampBeats: '8', mixerStampSeed: '1', mixerStampGate: '1', mixerStampSourceMode: 'auto', mixerStampStart: '0', mixerStampTextMode: 'word', mixerStampDrawRow: '.25', mixerStampDrawBase: '48' };
     for (const [id, value] of Object.entries(defaults)) $(id).value = value;
     $('mixerStampDensityOut').value = '50%'; $('mixerStampSpanOut').value = '48 notes'; $('mixerStampBeatsOut').value = '8 beats'; $('mixerStampGateOut').value = '100%';
-    selectStamp(selected); queuePreviews(); $('mixerSampleStatus').textContent = 'Source settings reset';
+    drawingPitchRange(); selectStamp(selected); queuePreviews(); $('mixerSampleStatus').textContent = 'Source settings reset';
   });
   on($('mixerSampleProgram'), 'change', () => {
     const value = $('mixerSampleProgram').value;
     if (stamps.get(selected)?.file && !automataSelected) fileProgram = value; else patternProgram = value;
     engine.configureSamples({ midi: { program: value === 'original' ? null : Number(value) } }); midiEditor.refresh();
   });
-  on($('mixerSampleLevel'), 'input', () => engine.configureSamples({ gain: Number($('mixerSampleLevel').value) }));
+  on($('mixerSampleLevel'), 'input', () => {
+    const gain = Number($('mixerSampleLevel').value); $('mixerSampleLevelOut').value = `${Math.round(gain * 100)}%`;
+    engine.configureSamples({ gain });
+  });
   function paint(event) {
     const rect = canvas.getBoundingClientRect(), pitch = (event.clientX - rect.left) / rect.width * 128;
     const settings = automataSelected ? automata.getSettings() : null;
     const transpose = settings
       ? Math.round(pitch - settings.columns / 2) - settings.lowestNote
-      : Math.round(clamp(pitch - 72, -36, 36));
+      : Math.round(clamp(pitch - 72, stamps.get(selected)?.file ? -36 : -127, stamps.get(selected)?.file ? 36 : 127));
     safely(() => stampSelected(transpose));
   }
   on(canvas, 'pointerdown', event => {
@@ -396,9 +406,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     event.preventDefault(); cancelPending(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value, { mode: $('mixerStampTextMode').value }); playScore(score, score.text); });
   });
   on($('mixerSendDrawing'), 'click', () => {
-    cancelPending(); safely(() => playScore(mixerPerformanceScore(getDrawing?.(), {
+    cancelPending(); drawingPitchRange(); safely(() => playScore(mixerPerformanceScore(getDrawing?.(), {
       secondsPerRow: numberInput('mixerStampDrawRow', .125, 1, .25) / 2,
-      lowestNote: numberInput('mixerStampDrawBase', 0, 80, 48, true),
+      span: numberInput('mixerStampSpan', 12, 128, 48, true),
+      lowestNote: Number($('mixerStampDrawBase').value),
     }), 'Your drawing'));
   });
   on($('mixerStopSamples'), 'click', () => { cancelPending(); engine.stopSamples(); $('mixerSampleStatus').textContent = 'Samples stopped'; });
@@ -415,6 +426,6 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       if (!active) { cancelPending(); if (frame !== null) cancelAnimationFrame(frame); frame = null; clear(); return; }
       midiEditor.refresh(); renderer.resize(); if (frame === null) draw();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); section.remove(); },
   };
 }
