@@ -96,6 +96,8 @@ body.quadruped-page {
 .quadruped-ensemble { display: flex; align-items: center; gap: 8px; margin-left: auto; }
 .quadruped-ensemble > div { display: flex; gap: 2px; }
 .quadruped-ensemble [data-actor-index] { min-width: 28px; padding-inline: 4px; }
+.quadruped-ensemble #allActorsButton { min-width: 32px; padding-inline: 5px; }
+.quadruped-grid-cell[data-mixed="true"] { outline: 1px dashed var(--accent-soft); outline-offset: -3px; }
 #scatterButton { margin-left: auto; padding-inline: 5px; }
 .quadruped-control-group { border-top: 1px solid var(--line); margin-top: 6px; }
 .quadruped-control-group summary { display: flex; align-items: center; justify-content: space-between; gap: 6px; padding: 14px 20px; cursor: pointer; color: var(--accent); font-size: 10px; }
