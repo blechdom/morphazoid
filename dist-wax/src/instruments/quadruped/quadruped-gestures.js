@@ -105,3 +105,22 @@ export function advanceQuadrupedGesture(gesture, sample = {}) {
   }
   return next;
 }
+
+/** Give a performed jump readable clearance on its existing musical flight arc. */
+export function liftQuadrupedJumpPose(pose, flight, score, strength = 0.65, maximumLift = Infinity) {
+  if (!pose.airborne || pose.groundSupportCount > 0 || !flight) return pose;
+  const progress = clamp(finite(flight.progress), 0, 1);
+  // Tiny gaps after landing are small rebounds, not a second full jump.
+  const span = clamp((finite(flight.end) - finite(flight.start)) / 5, 0, 1);
+  const spring = clamp(finite(score?.spring, 1), 0, 2.5);
+  const gravity = clamp(finite(score?.gravity, 1), 0.1, 3);
+  const apex = clamp((0.38 + 0.44 * clamp(finite(strength, 0.65), 0, 1))
+    * (0.85 + spring * 0.15) / Math.sqrt(gravity), 0.24, 0.7);
+  const clearance = apex * span * span * 4 * progress * (1 - progress);
+  // Keep slow, springy jumps bounded instead of stacking two large arcs.
+  const lift = Math.min(Math.max(0, maximumLift), Math.max(0, clearance - Math.max(0, pose.bodyLift - 0.05) * 0.38));
+  if (lift <= 0) return pose;
+  return { ...pose, bodyLift: pose.bodyLift + lift / 0.38,
+    legs: Object.fromEntries(Object.entries(pose.legs).map(([id, leg]) => [id,
+      leg.grounded === false ? { ...leg, lift: leg.lift + lift / 0.46 } : leg])) };
+}

@@ -49,7 +49,7 @@ import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedConstella
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
 import { createQuadrupedGestureCall, quadrupedGestureCallPerformance } from "./quadruped-gesture-voices.js";
-import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture } from "./quadruped-gestures.js";
+import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture, liftQuadrupedJumpPose } from "./quadruped-gestures.js";
 import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { createQuadrupedClock, readQuadrupedClock } from "./quadruped-clock.js";
@@ -231,15 +231,34 @@ function performCall(index, { strength = 0.8, pitch = 0, row = 0 } = {}) {
   announce(`${quadrupedAnimal(actors[index].score.animalId).label}: ${call.label}.${audible ? "" : " Turn Audio on to hear it."}`);
 }
 
-function performedPose(index, pose) {
-  const owner = performanceFor(index).call;
-  const running = actorIsRunning(index);
-  if (!owner) return { ...pose, performanceActive: running };
-  const now = owner.context?.currentTime ?? performance.now() / 1000;
-  const manual = quadrupedGestureCallPerformance(owner.call, now - owner.start);
-  if (now - owner.start >= owner.call.duration) performanceFor(index).call = null;
-  return { ...pose, performanceActive: running || manual.active,
-    headPerformance: manual.active ? manual : pose.headPerformance };
+function performedPose(index, pose, position, width, height) {
+  const { call: owner, motion } = performanceFor(index);
+  pose = { ...pose, performanceActive: actorIsRunning(index) };
+  if (owner) {
+    const now = owner.context?.currentTime ?? performance.now() / 1000;
+    const manual = quadrupedGestureCallPerformance(owner.call, now - owner.start);
+    if (now - owner.start >= owner.call.duration) performanceFor(index).call = null;
+    if (manual.active) pose = { ...pose, performanceActive: true, headPerformance: manual };
+  }
+  if (motion?.kind !== "jump") return pose;
+  const score = scoreForActor(index), flight = quadrupedFlightTrajectory(score, position);
+  const ordinary = pose;
+  pose = liftQuadrupedJumpPose(ordinary, flight, score, motion.strength);
+  // Follow a tall jumping animal only when it reaches the ceiling. Reserve
+  // space for dots, borders and shadows as well as the anatomy's vertices.
+  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74);
+  const rig = deriveQuadrupedVisualRig(pose, width, height, groundY, score, { playing: pose.performanceActive });
+  const points = [...rig.body, ...rig.skull, ...rig.neck, ...rig.tail, ...rig.humps.flat(),
+    ...rig.features.flatMap(feature => feature.points), ...rig.legs.flatMap(leg => leg.points)];
+  const padding = Math.max(4, rig.scale * 0.05);
+  const needed = Math.max(0, padding - Math.min(...points.map(point => point.y)));
+  const cameraOffset = Math.min(height * 0.99 - groundY, needed);
+  if (needed > cameraOffset) {
+    const addedLift = (pose.bodyLift - ordinary.bodyLift) * 0.38;
+    pose = liftQuadrupedJumpPose(ordinary, flight, score, motion.strength,
+      Math.max(0, addedLift - (needed - cameraOffset) / rig.scale));
+  }
+  return { ...pose, jumpCameraOffset: cameraOffset };
 }
 
 function cancelPerformances({ reschedule = false } = {}) {
@@ -3234,7 +3253,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
   const position = previewingStep
     ? Math.floor(motorSnapshot.position / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT + selectedStep + 0.0001
     : motorSnapshot.position;
-  const pose = performedPose(selectedActor, deriveQuadrupedPose(score, position, previewingStep ? null : motorSnapshot));
+  const pose = performedPose(selectedActor, deriveQuadrupedPose(score, position, previewingStep ? null : motorSnapshot), position, groupMode === "solo" ? width : width / 3 * 1.6, height);
   const animal = quadrupedAnimal(score.animalId);
   canvas.dataset.frame = String(pose.step);
   canvas.dataset.framePhase = pose.phase.toFixed(4);
@@ -3251,7 +3270,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
   const paperSkin = visualSkinId === "motion-card";
   // Tall-necked bodies keep their limb scale and gain headroom by lowering the
   // camera-followed support plane, not by shortening their anatomy.
-  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74);
+  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74) + (pose.jumpCameraOffset ?? 0);
   const stageAnimalScale = Math.min(height * 0.27, width * 0.145) * animal.bodyScale;
   const groundCenterX = width * 0.5;
   const surface = quadrupedTerrain(score.surfaceId);
@@ -3347,12 +3366,12 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
       const snapshot = snapshots[index];
       const actor = { ...actors[index], motor: snapshot };
       const actorScore = scoreForActor(index);
-      const actorPose = performedPose(index, deriveQuadrupedPose(actorScore, actor.motor.position, snapshot));
+      const actorPose = performedPose(index, deriveQuadrupedPose(actorScore, actor.motor.position, snapshot), actor.motor.position, laneWidth * 1.6, height);
       const actorAnimal = quadrupedAnimal(actorScore.animalId);
       const localScale = Math.min(height * 0.27, laneWidth * 1.6 * 0.145) * actorAnimal.bodyScale;
       const localWorldScale = localScale * 0.74;
       const localWorldX = quadrupedWorldAtPosition(actorScore, actor.motor.position);
-      const localGround = height * (["giraffe", "camel"].includes(actorScore.animalId) ? 0.81 : 0.74);
+      const localGround = height * (["giraffe", "camel"].includes(actorScore.animalId) ? 0.81 : 0.74) + (actorPose.jumpCameraOffset ?? 0);
       const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actorScore.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
       drawing.save(); drawing.translate(index * laneWidth, 0);
       drawing.beginPath(); drawing.rect(0, 0, laneWidth, height); drawing.clip();
