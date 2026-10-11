@@ -1,0 +1,16 @@
+{
+  "baseCommit": "a1c99185d15b320809f2fd5507b7e7a1565ac6f8",
+  "description": "Exact reviewed Fractal Delay motion helper row and two coordinate-tempo targets; retain all previous runtime bytes and frozen historical guards.",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "8158270a729c870a3345d5e910095e615dcc82c3da98442d65118f69a492f20b",
+      "addition": "copy+require\tsrc/instruments/fractal-delay/parameter-motion.js\n"
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "5ffd2fff3ab589b2528750d3c277e7e9c616e2d5916fdeb1329d4fad84b411b3",
+      "addition": "  {\"route\": \"fractal-delay.html\", \"selector\": \"#realMotionTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap Real c tempo (one complete back-and-forth sweep per beat)\"},\n  {\"route\": \"fractal-delay.html\", \"selector\": \"#imagMotionTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap Imaginary c tempo (one complete back-and-forth sweep per beat)\"},\n"
+    }
+  ]
+}
