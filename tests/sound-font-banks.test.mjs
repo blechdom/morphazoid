@@ -31,3 +31,54 @@ test('shipped banks retain exact upstream bytes, playable zones and distribution
     }
   }
 });
+
+test('all 140 Explore presets identify exact bank programs and cover their complete keyboard',async()=>{
+  const explorerIds=new Set();
+  let presetCount=0;
+  const address=preset=>`${preset.bank}:${preset.program}`;
+  const readableLabel=(value,label)=>{
+    assert.equal(typeof value,'string',label);
+    assert.equal(value,value.trim(),`${label}: no surrounding whitespace`);
+    assert.ok(value.length>=2&&value.length<=100,`${label}: useful readable length`);
+    assert.doesNotMatch(value,/[\u0000-\u001f\u007f]/,`${label}: no control characters`);
+  };
+  for(const bank of catalog) {
+    assert.ok(Array.isArray(bank.presets),`${bank.id}: Explore presets are declared`);
+    const font=parseSoundFont(await readFile(new URL(bank.file,root)));
+    const actualByAddress=new Map(font.presets.map(preset=>[address(preset),preset]));
+    assert.equal(actualByAddress.size,font.presets.length,`${bank.id}: source bank/program identifiers are unique`);
+    assert.equal(bank.presets.length,font.presets.length,`${bank.id}: every parsed preset is exposed`);
+    assert.equal(bank.presets.length,bank.presetCount,`${bank.id}: advertised preset count`);
+    const catalogAddresses=new Set();
+    for(const preset of bank.presets) {
+      const id=`${bank.id}:${address(preset)}`;
+      assert.ok(Number.isInteger(preset.bank)&&preset.bank>=0&&preset.bank<=16383,`${id}: valid bank`);
+      assert.ok(Number.isInteger(preset.program)&&preset.program>=0&&preset.program<=127,`${id}: valid program`);
+      assert.ok(!explorerIds.has(id),`${id}: unique Explore identifier`);
+      explorerIds.add(id);
+      catalogAddresses.add(address(preset));
+      const actual=actualByAddress.get(address(preset));
+      assert.ok(actual,`${id}: bank/program exists in the downloaded SF2`);
+      assert.equal(preset.name,actual.name,`${id}: preserve the SF2's native preset name`);
+      readableLabel(preset.displayName,`${id}: display name`);
+      readableLabel(preset.family,`${id}: instrument family`);
+      assert.ok(Number.isInteger(preset.keyboardBase)&&preset.keyboardBase>=0&&preset.keyboardBase<=99,`${id}: both chromatic rows stay inside MIDI 0–127`);
+      assert.ok(Number.isInteger(preset.previewNote)&&preset.previewNote>=0&&preset.previewNote<=127,`${id}: valid preview note`);
+      const playable=note=>actual.zones.some(zone=>
+        note>=zone.lowKey&&note<=zone.highKey&&95>=zone.lowVelocity&&95<=zone.highVelocity
+        &&font.samples[zone.sampleIndex]?.data.length>0,
+      );
+      assert.ok(playable(preset.previewNote),`${id}: preview note ${preset.previewNote} has a sampled zone at velocity 95`);
+      // Each physical row spans 17 semitones; the upper row starts one octave
+      // higher, so their overlap leaves 29 distinct notes that must all sound.
+      for(let offset=0;offset<=28;offset+=1) {
+        const note=preset.keyboardBase+offset;
+        assert.ok(playable(note),`${id}: keyboard note ${note} has a sampled zone at velocity 95`);
+      }
+      presetCount+=1;
+    }
+    assert.deepEqual([...catalogAddresses].sort(),[...actualByAddress.keys()].sort(),`${bank.id}: exact preset coverage`);
+  }
+  assert.equal(presetCount,140,'the starter Explore library exposes all 140 downloaded presets');
+  assert.equal(explorerIds.size,presetCount,'bank IDs disambiguate identical bank/program numbers across fonts');
+});

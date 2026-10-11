@@ -40,6 +40,7 @@ test('create, export, favorite and reload a real SoundFont',async({page})=>{
   await expect(page.locator('#fontCount')).toHaveText('4');
   await expect(page.locator('#selectedName')).toHaveText('Moss Bells');
   await expect(page.locator('#favoriteButton')).toHaveAttribute('aria-pressed','true');
+  await page.locator('[data-view=collection]').click();
   await page.getByRole('searchbox').fill('missing sound');
   await expect(page.locator('#emptyState')).toBeVisible();
   await page.getByRole('searchbox').fill('Moss');
@@ -103,6 +104,8 @@ test('audio requires explicit arming, produces finite output, and stops',async({
     };
   });
   await open(page);
+  await expect(page.locator('.masthead')).toHaveClass(/has-performance-header/);
+  await expect(page.locator('.header-io-controls #audioButton')).toHaveCount(1);
   await page.getByRole('button',{name:'Preview sound'}).click();
   expect(await page.evaluate(()=>window.audioContexts.length)).toBe(0);
   await page.locator('#audioButton').click();
@@ -114,14 +117,94 @@ test('audio requires explicit arming, produces finite output, and stops',async({
     let peak=0;
     for(const analyser of window.audioAnalysers) {const data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);for(const x of data){if(!Number.isFinite(x))return -1;peak=Math.max(peak,Math.abs(x));}}
     return peak;
-  })).toBeGreaterThan(.0001);
+  })).toBeGreaterThan(.04);
   await page.keyboard.up('q');
   await page.getByRole('button',{name:'Stop',exact:true}).click();
   await expect.poll(()=>page.evaluate(()=>{
     const analyser=window.audioAnalysers[0],data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);return Math.max(...data.map(Math.abs));
   })).toBeLessThan(.00001);
+  await page.locator('#auditionButton').click();
+  await expect.poll(()=>page.evaluate(()=>{
+    const analyser=window.audioAnalysers[0],data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);return Math.max(...data.map(Math.abs));
+  })).toBeGreaterThan(.04);
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+  await expect.poll(()=>page.evaluate(()=>{
+    const analyser=window.audioAnalysers[0],data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);return Math.max(...data.map(Math.abs));
+  })).toBeLessThan(.00001);
+});
+
+test('previously silent presets preview on selection and with the Preview button',async({page})=>{
+  await page.addInitScript(()=>{
+    window.previewAnalysers=[];
+    const Original=window.AudioContext;
+    window.AudioContext=class extends Original {
+      createAnalyser(){const analyser=super.createAnalyser();window.previewAnalysers.push(analyser);return analyser;}
+    };
+  });
+  await open(page);
+  await page.locator('#enableAudio').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
+  const peak=()=>page.evaluate(()=>{
+    const analyser=window.previewAnalysers[0],data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);
+    return data.every(Number.isFinite)?Math.max(...data.map(Math.abs)):-1;
+  });
+  for(const program of [78,125,126]) {
+    await page.locator(`[data-preset="timgm6mb:0:${program}"]`).click();
+    await expect.poll(peak,{intervals:[50]}).toBeGreaterThan(.01);
+    await page.locator('#stopButton').click();
+    await expect.poll(peak,{intervals:[50]}).toBeLessThan(.00001);
+    await page.locator('#auditionButton').click();
+    await expect.poll(peak,{intervals:[50]}).toBeGreaterThan(.01);
+    await page.locator('#stopButton').click();
+    await expect.poll(peak,{intervals:[50]}).toBeLessThan(.00001);
+  }
+});
+
+test('explore exposes every preset before downloads and selects by bank/program',async({page})=>{
+  const downloads=[];
+  page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('.sf2'))downloads.push(request.url());});
+  await open(page);
+  await expect(page.locator('.sf-preset-card')).toHaveCount(143);
+  expect(downloads).toHaveLength(0);
+  await page.locator('#familySelect').selectOption('Pianos');
+  await expect(page.locator('.sf-preset-card')).toHaveCount(8);
+  await page.getByRole('button',{name:'Acoustic Grand Piano Pianos · TimGM6mb',exact:true}).click();
+  await expect(page.locator('#selectedName')).toHaveText('TimGM6mb');
+  await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 1 · 0:0');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+  await expect(page.locator('#exploreBrowser')).toBeVisible();
+  await page.locator('#nextPreset').click();
+  await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 2 · 0:1');
+  await page.locator('#familySelect').selectOption('');
+  await page.locator('#presetSearch').fill('ocarina');
+  await expect(page.locator('.sf-preset-card')).toHaveCount(2);
+  await page.locator('[data-preset="freepats-ocarina:0:0"]').click();
+  await expect(page.locator('#selectedName')).toHaveText('Ocarina');
+  await expect(page.getByRole('button',{name:'Play C4, key Z',exact:true})).toBeEnabled();
+  expect(downloads).toHaveLength(2);
+});
+
+test('the latest preset wins during a shared bank download and leaving explore cancels selection',async({page})=>{
+  await open(page);
+  let pending, requests=0;
+  const bank=freeBanks[0];
+  await page.route(`**/${bank.file}`,route=>{requests++;pending=route;});
+  await page.locator('[data-preset="timgm6mb:0:0"]').click();
+  await expect.poll(()=>Boolean(pending)).toBe(true);
+  await page.locator('[data-preset="timgm6mb:0:1"]').click();
+  await pending.continue();
+  await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 2 · 0:1');
+  expect(requests).toBe(1);
+  const second=freeBanks[1]; pending=null;
+  await page.route(`**/${second.file}`,route=>{pending=route;});
+  await page.locator(`[data-preset="${second.id}:${second.presets[0].bank}:${second.presets[0].program}"]`).click();
+  await expect.poll(()=>Boolean(pending)).toBe(true);
+  await page.locator('[data-view=workshop]').click();
+  await pending.continue();
+  await expect(page.locator('#fontCount')).toHaveText('5');
+  await expect(page.locator('#workshopView')).toBeVisible();
+  await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 2 · 0:1');
 });
 
 test('free banks load on demand, retain credits, export unchanged and survive reload',async({page})=>{
@@ -189,6 +272,7 @@ test('storage failure stays usable and rejects unsafe source links visibly',asyn
   await open(page);
   await expect(page.locator('#storageStatus')).toContainText('Temporary session');
   await expect(page.locator('#error')).toContainText('before closing this tab');
+  await page.locator('[data-view=collection]').click();
   await page.getByRole('button',{name:'Save a link'}).click();
   await page.locator('#linkName').fill('Unsafe link');
   await page.locator('#linkUrl').fill('javascript:alert(1)');
@@ -207,7 +291,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     await open(page);
-    for(const section of ['Collection','Workshop','Find sounds']) {
+    for(const section of ['Explore','Collection','Workshop','Find sounds']) {
       await page.locator('.sf-nav button').filter({hasText:section}).click();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       expect(overflow).toBe(false);

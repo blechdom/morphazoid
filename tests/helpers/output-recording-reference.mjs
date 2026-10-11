@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { restoreSoundFontsToolbar } from './sound-fonts-toolbar-reference.mjs';
 
 export const outputRecordingAmendments = JSON.parse(readFileSync(new URL("../../docs/output-recording-runtime-changes.json", import.meta.url), "utf8"));
 export const voiceControlAmendments = JSON.parse(readFileSync(new URL("./l-system-voice-control-amendments.json", import.meta.url), "utf8"));
@@ -9,6 +10,7 @@ const sha256 = source => createHash("sha256").update(source).digest("hex");
 
 /** Independently reverse recording hooks on either approved UI baseline. */
 export function restoreOutputRecordingHooks(source, file) {
+  source = restoreSoundFontsToolbar(source, file, { allowRestored: true });
   for (const change of outputRecordingAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact output recording amendment`);
