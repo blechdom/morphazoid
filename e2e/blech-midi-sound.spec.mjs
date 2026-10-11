@@ -46,7 +46,7 @@ test('Blech MIDI imports SoundFonts, changes live effects and restores default s
   expect((await state(page)).effects).toEqual(expect.objectContaining({ delayMix: .35, delayBeats: 1.5, feedback: .45 }));
   await page.locator('#mixerEffectsReset').click();
   expect((await state(page)).effects).toEqual(expect.objectContaining({ filterHz: 20000, delayMix: 0, delayBeats: .5, feedback: .3, synth: {} }));
-  await page.locator('#mixerDefaultFont').click(); await expect(page.locator('#mixerFontName')).toContainText('TimGM6mb'); await audible(page);
+  await page.locator('#mixerDefaultFont').click(); await expect(page.locator('#mixerFontName')).toHaveText('TimGM6mb'); await audible(page);
   expect((await state(page)).samples.some(sample => sample.id === sent)).toBe(true); expect((await state(page)).contexts).toEqual(['running']);
   await page.locator('#mixerSoundFont').setInputFiles({ name: 'invalid.sf2', mimeType: 'application/octet-stream', buffer: Buffer.from('This is not a SoundFont') });
   await expect(page.locator('#mixerFontStatus')).toContainText(/not an SF2|not a SoundFont|invalid/i); await audible(page);
