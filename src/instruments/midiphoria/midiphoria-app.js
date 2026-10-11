@@ -4,6 +4,7 @@ import { MidiphoriaRenderer } from './midiphoria-renderer.js';
 import { MidiphoriaPlayer } from './midiphoria-player.js';
 import { mountMidiMixer } from '../midi-mixer/midi-mixer-app.js';
 import { generateTextMidi } from './midiphoria-text-midi.js';
+import { mountAutomataMidiControls } from './midiphoria-automata-controls.js';
 import { mountMidiDrawing } from './midiphoria-drawing.js';
 import { drawTextMidiScore } from './midiphoria-text-score.js';
 import { mountMidiphoriaEnvelope } from './midiphoria-envelope.js';
@@ -520,6 +521,17 @@ function mountMidiphoria() {
     setDrawingView(false);
     await pending;
   }
+  const automata = mountAutomataMidiControls($('automataMidiTools'), {
+    onGenerate: async score => {
+      const pending = addSessionSong({ id: 'automata-midi', title: score.text,
+        buffer: score.buffer, collection: 'Automatapoeia MIDI', textScore: score,
+        attribution: 'Generated with Automatapoeia rules in this browser.',
+      }, { audition: true });
+      setDrawingView(false);
+      await pending;
+      if (fileError) throw new Error(fileError);
+    },
+  });
   on($('textMidiForm'), 'submit', async event => {
     event.preventDefault();
     try {
@@ -794,7 +806,7 @@ function mountMidiphoria() {
     player.pause(); mixer.pause(); void player.dispose(); void mixer.dispose();
     if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
     if (frame !== null) cancelAnimationFrame(frame);
-    resize.disconnect(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
+    resize.disconnect(); automata.dispose(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
   function registerVisualPresets() {
     presetController?.destroy();

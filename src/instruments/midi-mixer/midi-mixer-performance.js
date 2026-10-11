@@ -1,5 +1,7 @@
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../midiphoria/midiphoria-model.js';
 import { MidiphoriaRenderer } from '../midiphoria/midiphoria-renderer.js';
+import { mountAutomataMidiControls } from '../midiphoria/midiphoria-automata-controls.js';
+import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 import { GM_PROGRAM_NAMES, parseMidi } from './midi-mixer-model.js';
 import { createMidiFileStamp } from './midi-mixer-file-stamps.js';
 import { transformMidiStamp } from './midi-mixer-score-transform.js';
@@ -26,6 +28,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
     <div class="mixer-stamp-bank-heading"><span>Stamps</span><output id="mixerStampCount"></output></div>
     <div class="mixer-sample-bank" role="group" aria-label="One-shot MIDI samples"></div>
   </div>
+  <div id="mixerAutomataTools"></div>
   <div class="mixer-stamp-shape-controls">
     <label>Density <output id="mixerStampDensityOut">50%</output><input id="mixerStampDensity" type="range" min="0" max="1" step=".05" value=".5" /></label>
     <label>Pitch span <output id="mixerStampSpanOut">48 notes</output><input id="mixerStampSpan" type="range" min="12" max="48" step="1" value="48" /></label>
@@ -72,6 +75,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   const activeNotes = new Map(), preview = new Map(), indexes = new WeakMap();
   let active = false, disposed = false, frame = null, lastFrame = -Infinity, audioWasEnabled = null, serial = 0;
   const stamps = new Map(), buttons = new Map(), fileCache = new Map();
+  let automataSelected = false;
   let selected = 'heart', seed = 1, request = null, requestTicket = 0, loadingSample = false, previewFrame = null;
   let patternProgram = '81', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
   $('mixerSampleProgram').add(new Option('Original file instruments', 'original'));
@@ -83,7 +87,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
     excludeFields: ['program'],
     onChange: partial => {
       engine.configureSamples({ midi: partial });
-      if (partial === null) { patternProgram = '81'; fileProgram = 'original'; $('mixerSampleProgram').value = stamps.get(selected)?.file ? fileProgram : patternProgram; }
+      if (partial === null) { patternProgram = '81'; fileProgram = 'original'; $('mixerSampleProgram').value = stamps.get(selected)?.file && !automataSelected ? fileProgram : patternProgram; }
       midiEditor.refresh();
     },
     onAction: action => {
@@ -248,9 +252,30 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
     }
     $('mixerStampCount').value = `${count} / ${stamps.size}`; queuePreviews();
   }
+  const automata = mountAutomataMidiControls($('mixerAutomataTools'), {
+    idPrefix: 'mixerAutomata', actionLabel: 'Stamp rule',
+    onGenerate: score => {
+      if (!active || disposed) return;
+      cancelPending();
+      // Keep the rule selected for Stamp again and pitch placement on the flow.
+      if (stamps.get(selected)?.file && !automataSelected) fileProgram = $('mixerSampleProgram').value;
+      automataSelected = true;
+      $('mixerSampleProgram').value = patternProgram;
+      for (const button of buttons.values()) button.setAttribute('aria-pressed', 'false');
+      for (const name of ['mixerStampDensity', 'mixerStampSpan', 'mixerStampBeats', 'mixerStampSeed', 'mixerStampVariation']) $(name).disabled = true;
+      $('mixerStampNextSlice').hidden = true;
+      section.querySelector('.mixer-stamp-file-controls').hidden = true;
+      $('mixerStampCredit').hidden = true;
+      $('mixerStampHint').textContent = 'Automatapoeia selected · Stamp again, or drag the flow to place this rule by pitch.';
+      canvas.dataset.stamp = 'automata';
+      playScore(score, score.text);
+    },
+  });
   function selectStamp(id) {
     const previous = stamps.get(selected), stamp = stamps.get(id); if (!stamp) return;
-    if (previous?.file) fileProgram = $('mixerSampleProgram').value; else patternProgram = $('mixerSampleProgram').value;
+    if (previous?.file && !automataSelected) fileProgram = $('mixerSampleProgram').value; else patternProgram = $('mixerSampleProgram').value;
+    automataSelected = false; $('mixerStampBeats').disabled = false;
+    $('mixerStampHint').textContent = 'Tap a stamp, or drag across the flow to place it by pitch.';
     if (selected !== id) { fileStart = null; lastFileStamp = null; }
     selected = id; $('mixerSampleProgram').value = stamp.file ? fileProgram : patternProgram;
     for (const [key, button] of buttons) button.setAttribute('aria-pressed', String(key === id));
@@ -268,7 +293,13 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   }
   async function stampSelected(transpose = 0) {
     if (!active || disposed) return;
-    cancelPending(); const ticket = requestTicket, stamp = stamps.get(selected); if (!stamp) return;
+    cancelPending();
+    if (automataSelected) {
+      const settings = automata.getSettings();
+      const score = generateAutomataMidi({ ...settings, lowestNote: settings.lowestNote + transpose });
+      playScore(score, score.text); return;
+    }
+    const ticket = requestTicket, stamp = stamps.get(selected); if (!stamp) return;
     if (!stamp.file) { thumbnail(buttons.get(stamp.id), playScore(mixerStampScore(stamp.id, options(transpose)), stamp.label)); return; }
     loadingSample = true; $('mixerSampleStatus').textContent = `Loading ${stamp.label}…`;
     try {
@@ -333,7 +364,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   });
   on($('mixerSampleProgram'), 'change', () => {
     const value = $('mixerSampleProgram').value;
-    if (stamps.get(selected)?.file) fileProgram = value; else patternProgram = value;
+    if (stamps.get(selected)?.file && !automataSelected) fileProgram = value; else patternProgram = value;
     engine.configureSamples({ midi: { program: value === 'original' ? null : Number(value) } }); midiEditor.refresh();
   });
   on($('mixerSampleLevel'), 'input', () => engine.configureSamples({ gain: Number($('mixerSampleLevel').value) }));
@@ -377,6 +408,6 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
       if (!active) { cancelPending(); if (frame !== null) cancelAnimationFrame(frame); frame = null; clear(); return; }
       midiEditor.refresh(); renderer.resize(); if (frame === null) draw();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); midiEditor.destroy(); events.abort(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); section.remove(); },
   };
 }

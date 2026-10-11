@@ -1874,3 +1874,5 @@ copy+require	src/instruments/midi-mixer/vendor/LICENSE.txt
 copy+require	src/instruments/midi-mixer/vendor/README.md
 copy+require	docs/midi-mixer.md
 copy+require	src/instruments/midiphoria/midiphoria-drawing.js
+copy+require	src/instruments/midiphoria/midiphoria-automata-midi.js
+copy+require	src/instruments/midiphoria/midiphoria-automata-controls.js

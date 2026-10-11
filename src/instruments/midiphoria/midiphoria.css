@@ -195,3 +195,30 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 @media (max-height: 480px) and (min-width: 801px) {
   .midiphoria-view-heading { padding: 16px 16px 0; }
 }
+
+/* Rule previews and their MIDI share one raster; keep the editor unboxed. */
+.midiphoria-automata { min-width: 0; margin: 6px 0 14px; font-size: 12px; }
+.midiphoria-automata summary { cursor: pointer; padding: 10px 0; color: #c5acd3; }
+.midiphoria-automata label { min-width: 0; display: flex; flex-direction: column; gap: 6px; }
+.midiphoria-automata input, .midiphoria-automata select { width: 100%; min-width: 0; max-width: 100%; box-sizing: border-box; font: inherit; color: #d7e3df; background: #0e191c; border: 1px solid #304441; border-radius: 0; padding: 7px; min-height: 36px; }
+.midiphoria-automata button { font: inherit; color: #dfc2e9; background: #182020; border: 1px solid #3a4845; border-radius: 0; padding: 8px; min-height: 36px; cursor: pointer; }
+.midiphoria-automata button:disabled { opacity: .45; cursor: default; }
+.midiphoria-automata :focus-visible { outline: 2px solid #c5acd3; outline-offset: 2px; }
+.automata-midi-main { display: grid; gap: 10px; min-width: 0; }
+.automata-midi-rule-picker { min-width: 0; }
+.automata-midi-rule-picker > summary { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; }
+.automata-midi-rule-picker > summary svg { width: 62px; height: 36px; fill: currentColor; }
+.automata-midi-rule-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; padding: 3px; margin: 8px 0; max-height: 280px; overflow-y: auto; overscroll-behavior: contain; scrollbar-color: #806289 #0b1515; }
+.midiphoria-automata .automata-midi-rule-list button { display: flex; flex-direction: column; align-items: center; min-width: 0; gap: 4px; padding: 5px; font-size: 11px; }
+.midiphoria-automata .automata-midi-rule-list button[aria-pressed="true"] { border-color: #c5acd3; background: #302238; }
+.automata-midi-rule-list svg { display: block; width: 100%; height: 38px; fill: currentColor; }
+.automata-midi-rule-list [hidden], .midiphoria-automata [hidden] { display: none; }
+.automata-midi-preview { display: block; width: 100%; max-height: 180px; margin: 10px 0; background: #050c0c; color: #caa0db; fill: currentColor; image-rendering: pixelated; }
+.automata-midi-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 8px 0 14px; }
+.automata-midi-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-top: 10px; }
+.automata-midi-actions a { color: #c5acd3; font-size: 11px; }
+.automata-midi-status { color: #a8c5bd; font-size: 11px; line-height: 1.5; overflow-wrap: anywhere; }
+@media (pointer: coarse) {
+  .midiphoria-automata summary, .midiphoria-automata input, .midiphoria-automata select, .midiphoria-automata button, .automata-midi-actions a { min-height: 48px; }
+  .midiphoria-automata summary, .automata-midi-actions a { box-sizing: border-box; align-content: center; }
+}
