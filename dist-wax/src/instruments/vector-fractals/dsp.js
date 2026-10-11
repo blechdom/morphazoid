@@ -18,7 +18,7 @@ export class VectorDSP {
   }
   setState(state) { this.state = state; this.trace.setState(state); }
   setTraceBank(bank) { this.trace.setBank(bank); }
-  get traceActive() { return this.state.mode === 'explorer' && ['trace', 'radar', 'scan'].includes(this.state.contourReader); }
+  get traceActive() { return this.state.mode === 'explorer' && ['trace', 'traveler', 'radar', 'scan'].includes(this.state.contourReader); }
   get tracePhase() { return this.trace.phase; }
   set tracePhase(value) { this.trace.setPhase(value); }
   get traceRate() { return this.playing && this.traceActive ? this.trace.rate : 0; }

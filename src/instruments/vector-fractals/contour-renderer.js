@@ -9,6 +9,15 @@ const BASE_COLOR = [1, .73, .46, .8];
 const SELECTED_COLOR = [.42, .96, .86, 1];
 const finite = (value, fallback) => Number.isFinite(value) ? value : fallback;
 
+// A fixed screen-size arrow makes the travel direction legible at every zoom.
+function travelerArrow(head, length) {
+  const dx = Math.cos(head.heading), dy = Math.sin(head.heading);
+  const tipX = head.localX + dx * length, tipY = head.localY + dy * length;
+  const back = length * .4, wing = length * .3;
+  return new Float32Array([tipX - dx * back - dy * wing, tipY - dy * back + dx * wing,
+    tipX, tipY, tipX - dx * back + dy * wing, tipY - dy * back - dx * wing]);
+}
+
 function viewOf(view = {}) {
   return { x: finite(view.x, 0), y: finite(view.y, 0), width: Math.max(1e-10, finite(view.width, 3.5)), aspect: Math.max(.01, finite(view.aspect, 1)) };
 }
@@ -258,9 +267,11 @@ export class ContourRenderer {
     this.setTraceLayers(traceBank ? layers : null);
     const phase = ((finite(tracePhase, 0) % 1) + 1) % 1;
     this.traceHeads = traceBank ? traceBank.layers.slice(0, 3).flatMap((layer, index) =>
-      sampleReaderLayer(layer, phase).map(point => ({ ...point, index, phase, enabled: traceEnabled[index] !== false && toneEnabled[index] !== false,
+      sampleReaderLayer(layer, traceBank.reader === 'traveler' ? traceTravel : phase).map(point => {
+        const ahead = traceBank.reader === 'traveler' ? sampleReaderLayer(layer, phase + 1 / 2048)[0] : null;
+        return ({ ...point, heading: ahead && Math.hypot(ahead.x - point.x, ahead.y - point.y) > 1e-12 ? Math.atan2(ahead.y - point.y, ahead.x - point.x) : null, index, phase, enabled: traceEnabled[index] !== false && toneEnabled[index] !== false,
         x: traceBank.view.x + point.x * traceBank.view.width, y: traceBank.view.y + point.y * traceBank.view.width,
-        localX: point.x, localY: point.y, pathIndex: layer.pathIndex }))) : [];
+        localX: point.x, localY: point.y, pathIndex: layer.pathIndex }); })) : [];
     this.guide = traceBank ? readerGuide(traceBank, phase) : null;
     this.beadFlashes = [];
     const window = Math.max(.0001, traceRate * .16);
@@ -346,7 +357,7 @@ export class ContourRenderer {
       gl.uniform2f(this.scaleUniform, transform.scaleX, transform.scaleY);
       gl.uniform2f(this.translationUniform, transform.x, transform.y);
       gl.uniform1f(this.markerUniform, 0);
-      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], enabled ? (this.traceBank.reader === 'trace' ? .27 : .65) : .1);
+      gl.uniform4f(this.colorUniform, color[0], color[1], color[2], enabled ? (['trace', 'traveler'].includes(this.traceBank.reader) ? .27 : .65) : .1);
       if (geometry.vertices.length) {
         gl.drawArrays(gl.LINES, 0, geometry.vertices.length / 2);
         this.drawnSegments += geometry.vertices.length / 4; this.drawCalls++;
@@ -402,6 +413,17 @@ export class ContourRenderer {
     for (const head of this.traceHeads) {
       if (!head) continue;
       const color = TRACE_LAYERS[head.index].rgba;
+      if (Number.isFinite(head.heading)) {
+        const length = 14 * size.dpr * 2 / (transform.scaleX * size.width);
+        const points = travelerArrow(head, length);
+        if (!this.guideBuffer) this.guideBuffer = gl.createBuffer();
+        gl.bindBuffer(gl.ARRAY_BUFFER, this.guideBuffer); gl.bufferData(gl.ARRAY_BUFFER, points, gl.DYNAMIC_DRAW);
+        gl.enableVertexAttribArray(this.pointAttribute); gl.vertexAttribPointer(this.pointAttribute, 2, gl.FLOAT, false, 0, 0);
+        gl.uniform1f(this.markerUniform, 0);
+        gl.uniform4f(this.colorUniform, color[0], color[1], color[2], head.enabled ? 1 : .28);
+        gl.drawArrays(gl.LINE_STRIP, 0, 3); this.drawCalls++;
+        gl.disableVertexAttribArray(this.pointAttribute); gl.uniform1f(this.markerUniform, 1);
+      }
       gl.vertexAttrib2f(this.pointAttribute, head.localX, head.localY);
       gl.uniform1f(this.pointSizeUniform, (head.enabled ? 10 : 7) * size.dpr);
       gl.uniform4f(this.colorUniform, color[0], color[1], color[2], (head.enabled ? 1 : .28) * (head.presence ?? 1));
@@ -460,7 +482,7 @@ export class ContourRenderer {
         if (!geometry) continue;
         const camera = this.transformFor(geometry.sourceView, size), color = TRACE_LAYERS[index].rgba;
         const enabled = this.traceEnabled[index] !== false;
-        this.drawnSegments += drawSegments(0, geometry.vertices.length / 2, [...color.slice(0, 3), enabled ? (this.traceBank.reader === 'trace' ? .27 : .65) : .1], FALLBACK_SEGMENTS / 10, geometry.vertices, camera);
+        this.drawnSegments += drawSegments(0, geometry.vertices.length / 2, [...color.slice(0, 3), enabled ? (['trace', 'traveler'].includes(this.traceBank.reader) ? .27 : .65) : .1], FALLBACK_SEGMENTS / 10, geometry.vertices, camera);
         const range = geometry.ranges[this.traceBank.layers[index]?.pathIndex];
         if (range?.count) this.highlightSegments += drawSegments(range.first, range.count, [...color.slice(0, 3), enabled ? .95 : .25], FALLBACK_SEGMENTS / 6, geometry.vertices, camera);
       }
@@ -484,6 +506,13 @@ export class ContourRenderer {
         const point = screen(head.localX, head.localY, camera);
         ctx.globalAlpha = (head.enabled ? 1 : .28) * (head.presence ?? 1);
         ctx.fillStyle = TRACE_LAYERS[head.index].color;
+        if (Number.isFinite(head.heading)) {
+          const arrow = travelerArrow(head, 14 * size.dpr * 2 / (camera.scaleX * size.width));
+          ctx.strokeStyle = ctx.fillStyle; ctx.lineWidth = size.dpr;
+          ctx.beginPath(); ctx.moveTo(...screen(arrow[0], arrow[1], camera));
+          ctx.lineTo(...screen(arrow[2], arrow[3], camera)); ctx.lineTo(...screen(arrow[4], arrow[5], camera));
+          ctx.stroke(); this.drawCalls++;
+        }
         ctx.beginPath(); ctx.arc(point[0], point[1], (head.enabled ? 5 : 3.5) * size.dpr, 0, Math.PI * 2); ctx.fill();
         this.drawCalls++;
         if (head.enabled) {
