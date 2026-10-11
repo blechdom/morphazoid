@@ -135,7 +135,7 @@ test('export and native stamp receive the exact selected rule, dimensions, pitch
   const played = await launch(page, () => page.locator(`#${prefix}Generate`).click());
   expect(played.bytes).toEqual(Array.from(bytes)); expect(played.notes).toEqual(notes);
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', 'automata');
-  await expect(page.locator(`#${prefix}Generate`)).toHaveText('Play rule');
+  await expect(page.locator(`#${prefix}Generate`)).toHaveText('Send rule ↑');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => __automataQA.contexts.length)).toBe(0);
   expect(await page.evaluate(() => __automataQA.loads)).toEqual([]);

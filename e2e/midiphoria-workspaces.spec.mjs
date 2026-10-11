@@ -47,7 +47,7 @@ test('Blech MIDI owns drawing and rules without deck requests or duplicate creat
   await page.locator('#generateDrawingMidi').click(); await expect.poll(() => page.evaluate(() => __workspaceQA.launches.length)).toBe(1);
   await view(page, 'automata');
   await expect(page.locator('#automataMidiTools .midiphoria-automata')).toHaveAttribute('open', '');
-  await expect(page.locator('#automataMidiGenerate')).toHaveText('Play rule'); await expect(page.locator('#automataMidiPreview')).toBeVisible();
+  await expect(page.locator('#automataMidiGenerate')).toHaveText('Send rule ↑'); await expect(page.locator('#automataMidiPreview')).toBeVisible();
   await expect(page.locator('#drawingCanvas')).toBeHidden(); await expect(page.locator('.mixer-sample-bank')).toBeHidden();
   for (const id of ['mixerSampleLoop', 'mixerSampleSync', 'mixerSampleProgram', 'mixerSampleLevel', 'mixerStopSamples']) await expect(page.locator(`#${id}`)).toBeVisible();
   await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).not.toBeChecked(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('16');
