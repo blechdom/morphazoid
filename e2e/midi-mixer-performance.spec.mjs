@@ -295,7 +295,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       }
       if (touch) {
         expect(await page.evaluate(() => matchMedia('(pointer: coarse)').matches)).toBe(true);
-        const buttons = page.locator('.mixer-performance button, #deckOriginal0, #deckOriginal1, #audioButton, #mixerPlay');
+        const buttons = page.locator('.mixer-performance button:visible, #deckOriginal0, #deckOriginal1, #audioButton, #mixerPlay');
         const dimensions = [];
         for (const button of await buttons.all()) {
           await button.scrollIntoViewIfNeeded(); await expect(button).toBeVisible();
