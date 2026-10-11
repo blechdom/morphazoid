@@ -1,6 +1,7 @@
 import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, SPARTIAL_CHORDS, spartialChordIntervals, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
 import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audio.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
+import { mountSpartialRecording } from "./spartial-recording.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -59,6 +60,14 @@ const audio = new SpartialAudio(
   route => { routeInfo = route; updateRouteStatus(); },
   error => { state.audioOn = false; updateAudioButton(); announce(error, true); },
 );
+const recording = mountSpartialRecording({
+  audio,
+  getPatch: () => ({ layoutId: state.layout, omitLfe: state.omitLfe }),
+  onLockChange: locked => {
+    $("layout").disabled = locked;
+    $("omitLfe").disabled = locked || !spartialLayout(state.layout).speakers.some(speaker => speaker.kind === "lfe");
+  },
+});
 const color = index => `hsl(${(166 + index * 9) % 360} 64% 66%)`;
 const noteName = note => `${NOTE_NAMES[((note % 12) + 12) % 12]}${Math.floor(note / 12) - 1}`;
 const percent = value => `${Math.round(value * 100)}%`;
@@ -97,6 +106,7 @@ function updateAudioButton() {
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("audioState").textContent = state.audioOn ? "on" : "off";
   updateRouteStatus();
+  recording.update();
 }
 function rotationRunning() { return state.playing && state.motion !== "off" && state.routingMode !== "focus"; }
 function updatePerformance() {
@@ -161,6 +171,7 @@ function syncControls() {
   updateGrainStatus();
   updateCascadeTiming();
   updatePerformance();
+  recording.update();
 }
 function updateGrainStatus() {
   const file = state.settings.granularSource === "file";
@@ -471,9 +482,13 @@ $("routingMode").addEventListener("change", () => {
   state.routingMode = $("routingMode").value; patchSettings({ lock: state.routingMode === "focus" ? 1 : 0 }); customPreset();
 });
 $("target").addEventListener("change", () => { patchSettings({ target: Number($("target").value) }); customPreset(); });
-$("layout").addEventListener("change", () => { state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview, state.omitLfe); });
+$("layout").addEventListener("change", () => {
+  if (recording.locked) { $("layout").value = state.layout; return; }
+  state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview, state.omitLfe); recording.update();
+});
 $("forcePreview").addEventListener("change", () => { state.forcePreview = $("forcePreview").checked; audio.route(state.layout, state.forcePreview, state.omitLfe); });
 $("omitLfe").addEventListener("change", () => {
+  if (recording.locked) { $("omitLfe").checked = state.omitLfe; return; }
   const targetChannel = speakers()[state.settings.target]?.channel;
   state.omitLfe = $("omitLfe").checked;
   buildPatch(targetChannel);
@@ -489,6 +504,7 @@ $("resetAll").addEventListener("click", () => {
 });
 $("audioButton").addEventListener("click", async () => {
   if (state.audioOn) {
+    void recording.stop("audio-off");
     state.audioOn = false; audio.disable(); updateAudioButton();
     if (held.size) announce("Audio is off — turn it on to hear playback", true); return;
   }
@@ -623,10 +639,11 @@ buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
 frame = requestAnimationFrame(draw);
 window.addEventListener("pagehide", event => {
   tempoKnob.cancelGesture();
+  void recording.stop("interrupted");
   if (event.persisted) {
     releaseManualNotes(); audio.disable(); state.audioOn = false; updateAudioButton(); cancelAnimationFrame(frame); void audio.context?.suspend(); return;
   }
-  disposed = true; cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
+  disposed = true; recording.destroy(); cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
 });
 window.addEventListener("pageshow", event => {
   if (event.persisted && !disposed) {

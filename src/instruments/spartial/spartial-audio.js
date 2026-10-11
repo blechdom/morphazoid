@@ -27,6 +27,7 @@ export class SpartialAudio {
     this.node = null;
     this.master = null;
     this.routes = [];
+    this.captureTaps = new Set();
     this.releaseOutput = null;
     this.layoutId = "8-circle";
     this.forcePreview = false;
@@ -134,7 +135,8 @@ export class SpartialAudio {
   rebuildRoutes() {
     if (!this.master || this.disposed) return;
     this.releaseOutput?.();
-    this.master.disconnect();
+    // Monitor replacement must leave the independent multitrack tap attached.
+    if (this.routes[0]) this.master.disconnect(this.routes[0]);
     for (const node of this.routes) node.disconnect();
     this.routes = [];
     const layout = spartialLayout(this.layoutId);
@@ -172,6 +174,32 @@ export class SpartialAudio {
     this.onRoute?.({ mode, capacity, layout, speakers, omitLfe: this.omitLfe });
   }
 
+  canRecord() { return this.enabled && !this.disposed && this.context?.state === "running"; }
+  recordingContext() { return this.canRecord() ? this.context : null; }
+  recordingSampleRate() { return this.context?.sampleRate || 48000; }
+  tapInto(context, target, { onerror } = {}) {
+    if (context !== this.context || !this.canRecord() || !this.master) throw new Error("Turn Audio on before recording.");
+    const layout = spartialLayout(this.layoutId);
+    const splitter = context.createChannelSplitter(16);
+    const merger = context.createChannelMerger(layout.speakers.length);
+    merger.channelInterpretation = "discrete";
+    let released = false;
+    const tap = { onerror, release: () => {
+      if (released) return;
+      released = true;
+      this.captureTaps.delete(tap);
+      try { this.master.disconnect(splitter); } catch { /* Already torn down. */ }
+      splitter.disconnect(); merger.disconnect();
+    } };
+    try {
+      spartialSpeakers(layout, this.omitLfe).forEach((speaker, index) => splitter.connect(merger, index, speaker.channel - 1));
+      this.master.connect(splitter);
+      merger.connect(target);
+      this.captureTaps.add(tap);
+    } catch (error) { tap.release(); throw error; }
+    return tap.release;
+  }
+
   route(layoutId, forcePreview, omitLfe = true) {
     const changed = layoutId !== this.layoutId || forcePreview !== this.forcePreview || omitLfe !== this.omitLfe;
     this.layoutId = layoutId;
@@ -203,6 +231,7 @@ export class SpartialAudio {
   panic() { this.node?.port.postMessage({ type: "panic" }); }
   disable() {
     this.enabled = false;
+    for (const tap of this.captureTaps) tap.onerror?.(new Error("Audio was turned off. The captured take is available."));
     if (this.master) {
       const now = this.context.currentTime;
       this.master.gain.cancelAndHoldAtTime(now);
@@ -215,6 +244,7 @@ export class SpartialAudio {
     this.grainFileToken += 1; this.grainFile = null;
     clearTimeout(this.routeTimer);
     this.releaseOutput?.();
+    for (const tap of this.captureTaps) { tap.onerror?.(new Error("Audio closed.")); tap.release(); }
     this.node?.port.close();
     this.node?.disconnect();
     this.master?.disconnect();
