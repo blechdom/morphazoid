@@ -20,24 +20,43 @@ One captured freehand stroke is one undo action.
 
 The stamp bank contains the existing generated textures plus the bundled black
 MIDI and geometric file stamps. Its single filter searches names and collections.
-Selecting a stamp sends it immediately. **Paint flow** places the selected stamp
-by pitch directly on the live output; Enter on that output sends it once. Messages
-also send immediately. The preparation canvas remains separate from these live
-actions.
+With **Loop** on, tap a pad to start it and tap again to stop only that pad.
+With Loop off, a tap plays once; another tap retriggers that pad from the start
+without stopping other pads. Green means playing; the dashed outline means the
+shape selected for editing or painting. A loading file says **Loading · tap to
+cancel** and does not count as playing. Selecting another file cancels the old
+download; it does not stop already-playing pads.
+
+Each Send creates a thumbnail in **Your pads** below the live output. Drawings,
+rules, messages and painted copies retain their exact sent MIDI, independent of
+the preparation canvas. Tap a looping saved pad to stop or restart it; its own
+**Loop** switch changes only that pad. Turning this switch off finishes the
+current pass. **Remove** stops and removes just that saved pad. Stop all leaves
+the bank available to replay. The bank holds eight sends for this page session;
+a ninth replaces the oldest stopped pad. Navigation/reload clears it.
+
+**Paint flow** places separate copies of the selected stamp by pitch directly on
+the live output, each with its own saved pad. Enter on that output triggers the
+selected stamp pad. Messages also send immediately. The preparation canvas
+remains separate from these live actions.
 
 ## Timing and sound
 
-**Loop** repeats active drawings, stamps, messages and rules. Turning it off lets
-each current cycle finish. **Sync to tempo** follows the 30–300 BPM tempo control;
+The main **Loop** switch sets the pad launch mode and the Loop switches for saved
+pads, and updates running patterns. Turning it off lets each current cycle finish.
+Each playing pad has an independent position and can be stopped immediately by
+tapping it while looping, without interrupting another pad. **Sync to tempo** follows the 30–300 BPM tempo control;
 turn it off for each source's original timing. The tempo has the shared Tap
 control, and source-specific row length and clip length remain available.
 
-**Stop** removes the active patterns and releases their notes. **Audio off** also
+**Stop all** removes the active patterns and releases their notes. **Audio off** also
 stops active patterns; preparing and sending silent previews remains possible.
-There is no queued conveyor or position-preserving pause in this move. Sending
-another score layers it with the currently playing scores. Up to four clips play
-at once; another send replaces the oldest. Enabling Audio during a silent preview
-joins its current position.
+There is no queued conveyor or position-preserving pause. Sending another score
+layers it with the currently playing scores. Up to four clips play at once;
+another send replaces the oldest playing clip and its pad returns to idle.
+Its saved snapshot remains available. Enabling Audio during a silent preview
+joins its current position. Stopping a pad cancels its pending MIDI-effect echoes
+as well as its source notes; other pads and deck transport are unchanged.
 
 Generated drawings, patterns and rules default to piano; file stamps can retain
 their original instruments. The Black MIDI volume controls the shared stamp
@@ -89,14 +108,21 @@ The MIDI generator remains distinct from the
 
 The 30 generated pictures include Heart, Square, Zigzag, Polka dots, Plaid,
 Stripes, Drips, Glob, Glooob, Noise, Scatter and Explode. Their thumbnails show
-actual pitch/time cells. Density changes stroke thickness or particle count;
-Pitch span covers 12–128 chromatic notes and Length spans 4–32 beats. Variation
+actual pitch/time cells, positioned across the full MIDI pitch range. Density
+changes stroke thickness or particle count; **Width →** covers 12–128 chromatic
+notes and **Height ↑** spans ¼–64 beats. Height stretches the picture in time;
+it does not change the tempo. The **Offset ↔** slider moves the whole picture
+left/right in pitch, stopping at MIDI's edges without folding or losing notes.
+At full width there is no room to move it farther sideways. Width, height and
+offset also apply to the next drawing Send; they leave saved snapshots intact.
+The advanced drawing-row length is another view of the same height setting.
+Variation
 changes a reproducible seed for irregular textures. Fixed icons retain their
 geometry when only that seed changes.
 
 The palette also retains 28 bundled file stamps: 16 Black MIDI arrangements,
 nine geometric patterns and three studies. Short geometric files play whole,
-fitted to Length. Longer arrangements use a dense excerpt; Next slice moves
+fitted to Height. Longer arrangements use a dense excerpt; Next slice moves
 through the source. File window offers automatic, densest, manual-start and
 whole-file selection. Status reports the source beat range and note count.
 The 35-file downloadable archive includes larger decorative scores that the

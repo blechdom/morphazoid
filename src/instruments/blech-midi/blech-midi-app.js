@@ -74,7 +74,7 @@ function mountBlechMidi() {
   engine.setTempo(Number($('creativeTempo').value));
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
-    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools') });
+    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost') });
   const noteEffectHost = document.createElement('div'); $('creativeControlsHost').append(noteEffectHost);
   noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'blechNoteFx',
     getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
@@ -89,7 +89,7 @@ function mountBlechMidi() {
   $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
   $('creativeFlowControls').prepend($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleSync').parentElement.title = 'Follow the tempo knob. Turn off to use each source’s original timing.';
-  $('mixerSampleLoop').parentElement.title = 'Repeat active patterns. Turn off to finish the current cycle.';
+  $('mixerSampleLoop').parentElement.title = 'Looping pads: tap to start, tap again to stop. Turn off for one shots and to finish running loops.';
   const ruleButton = $('automataMidiGenerate');
   ruleButton.textContent = 'Send rule ↑';
   knobs = mountMixerKnobs($('blechMidi'));

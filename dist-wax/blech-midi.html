@@ -55,7 +55,7 @@
         </div>
         <div class="blech-midi-transport">
           <button id="playButton" class="mini-action" type="button" data-primary-transport aria-label="Send prepared drawing" disabled>Send ↑</button>
-          <button id="creativeStop" class="mini-action" type="button">Stop</button>
+          <button id="creativeStop" class="mini-action" type="button">Stop all</button>
           <label class="control" for="creativeTempo"><span><b>Tempo</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="Blech MIDI tempo" type="range" min="30" max="300" step=".1" value="120" /></label>
           <div id="creativeVolumeHost"></div>
           <button id="creativeAudioStart" class="mini-action" type="button">Turn audio on</button>
@@ -63,6 +63,7 @@
         <div id="creativeVisualizerHost" aria-label="Live MIDI output"></div>
         <div class="blech-midi-flow-controls" id="creativeFlowControls"><output id="creativePlaybackStatus" aria-live="off">Ready</output></div>
         <p id="creativeStatus" class="midiphoria-help" role="status"></p>
+        <div id="creativePadsHost"></div>
         <section id="drawingEditor" aria-labelledby="drawingHeading">
           <div class="blech-midi-preparation-heading"><h2 id="drawingHeading">Prepare a drawing</h2><button id="generateDrawingMidi" type="button" class="mini-action" disabled>Send ↑</button></div>
           <div class="midiphoria-drawing-tools" id="drawingTools">
@@ -85,7 +86,7 @@
             </div>
           </div>
           <div class="midiphoria-drawing-viewport"><canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="Blech MIDI preparation canvas" aria-describedby="drawingHelp">Pitch increases to the right. Send your drawing to hear it and see it move upward in the live output.</canvas></div>
-          <p id="drawingHelp" class="midiphoria-help">Draw, then Send ↑. Edit your next drawing while it plays. Pitch → · flow ↑. Arrows move · Space paints · Delete erases.</p>
+          <p id="drawingHelp" class="midiphoria-help">Send ↑ saves a playable pad. Tap a looping pad to stop it; prepare the next drawing below. Width → · height ↑ · offset ↔. Arrows move · Space paints · Delete erases.</p>
         </section>
         <section id="automataMidiTools" aria-label="Prepare Automatapoeia MIDI" hidden></section>
       </section>
@@ -107,7 +108,7 @@
           <button id="mixerEffectsReset" class="mini-action" type="button">Reset effects</button>
         </details>
       </aside>
-      <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>Turn Audio on to hear your MIDI through the piano SoundFont. Send copies your prepared drawing into the live output; later edits leave that copy playing. Stamps and messages send immediately. Loop repeats active patterns, and Sync to tempo makes them follow the tempo knob. Stop clears the active patterns. Up to four patterns can play together; a fifth replaces the oldest.</p><p>Audio off stops active stamps. The preparation canvas stays ready. Drawings use arrow keys and Space or Enter; the live flow accepts Enter to send the selected stamp. Space elsewhere sends the prepared drawing or selected rule.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
+      <details class="blech-midi-notes"><summary>About &amp; controls</summary><p>Turn Audio on to hear your MIDI through the piano SoundFont. With Loop on, tap a stamp to start it and tap again to stop just that stamp. With Loop off, stamps play once; another tap retriggers. Send copies your prepared drawing into a reusable pad below the output. Each saved pad has its own Loop switch. Later edits leave its snapshot playing. Height sets time in beats; width and horizontal offset place notes across the pitch range.</p><p>Your pads keeps the last eight sends until you leave the page, replacing the oldest stopped pad when full. Stop all and Audio off stop playback but keep those pads ready to relaunch. Up to four patterns play together; a fifth replaces the oldest playing pattern. Sync to tempo follows the tempo knob. Turning the main Loop switch off lets running loops finish their current pass. Space outside controls sends the prepared drawing or selected rule.</p><p><a href="docs/blech-midi.md" target="_blank" rel="noopener">Controls &amp; limits ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI &amp; SoundFont credits ↗</a> · <a href="assets/midiphoria/archives/black-midi-archive-2026.7z" download>Download all 35 black-MIDI files · 14.9 MB</a></p></details>
     </main>
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/instruments/blech-midi/blech-midi-app.js"></script>
