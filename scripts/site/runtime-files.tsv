@@ -1884,3 +1884,9 @@ copy+require	docs/midi-mixer.md
 copy+require	src/instruments/midiphoria/midiphoria-drawing.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-midi.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-controls.js
+# Standalone Blech MIDI drawing, stamps and automata.
+copy+require	src/instruments/blech-midi/blech-midi-app.js
+copy+require	src/instruments/blech-midi/blech-midi.css
+copy+require	src/instruments/midi-mixer/midi-mixer-monitor.js
+copy+require	assets/instruments/blech-midi.webp
+copy+require	docs/blech-midi.md

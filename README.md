@@ -24,10 +24,15 @@ SoundFont in the browser: enable Audio, then Play. With Audio on, the on-screen
 pads and enabled computer/MIDI keys also play piano, independently of the song.
 Speed, loop, seek and live visual
 tweaks include axis reflections and travel from or toward the center, with sixteen visual presets, Next and parameter dice.
-Type a word to create and download a playable letter-shaped MIDI score. Song
+The MIDI Mixer view combines two songs with per-voice controls and synchronized tempo. Song
 Next/Random keeps playback active; the light ADSR has draggable envelope nodes. Independently implemented
 for the browser, inspired by [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria).
 See [setup, collection credits and feature gaps](docs/midiphoria.md).
+
+**[Blech MIDI](blech-midi.html)** is the separate drawing and generated-MIDI instrument.
+Prepare a drawing, launch black MIDI or geometric stamps, or play messages and
+cellular-automata rules. SoundFont audio and moving note trails share Loop and
+Sync to tempo controls. Audio starts off. [Drawing, stamps and rules](docs/blech-midi.md).
 
 **[L-system Delay Rust](l-mic-rust.html)** combines all 29 rule modes and 210
 complete presets in one instrument. Its classic and stochastic grammars now sit

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readBlechMidiSiteReference as readFile } from './helpers/blech-midi-site-reference.mjs';
 import test from 'node:test';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';

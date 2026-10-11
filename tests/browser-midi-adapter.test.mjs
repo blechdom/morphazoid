@@ -143,7 +143,7 @@ function testRuntime() {
 }
 
 test("one acyclic capability registry covers every playable catalog instrument and declared MIDI lab", () => {
-  const playableIds = [...INSTRUMENTS.map(({ id }) => id), ...labAdditions.filter(lab => lab.midiInput).map(lab => lab.id)];
+  const playableIds = [...INSTRUMENTS.map(({ id }) => id), ...labAdditions.filter(lab => lab.midiInput || lab.generatedMidi).map(lab => lab.id)];
   assert.equal(INSTRUMENT_MIDI_CAPABILITIES.length, playableIds.length);
   assert.deepEqual(
     new Set(INSTRUMENT_MIDI_CAPABILITIES.map(({ id }) => id)),
@@ -312,8 +312,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
       midiOutput,
       noteMode,
     }) => (
-      midiInput === true
-      && ["native", "universal-control"].includes(midiInputMode)
+      (midiInput === true ? ["native", "universal-control"].includes(midiInputMode) : midiInput === false && midiInputMode === "none")
       && ["page", "midi", "none"].includes(computerKeyboardMode)
       && ["processor", "drums", "pitched", "sequence"].includes(noteMode)
       && typeof audioInput === "boolean"
@@ -469,6 +468,14 @@ test("every route either keeps its native client or receives the intended browse
       routeId: support.id,
       manager,
     });
+
+    if (!support.midiInput) {
+      assert.equal(support.id, "blech-midi");
+      assert.equal(adapter, null, "generated MIDI does not install a live-input adapter");
+      assert.equal(registrations.length, 0);
+      assert.equal(listeners.size, 0);
+      continue;
+    }
 
     if (support.midiInputMode === "native") {
       assert.equal(adapter, null, `${support.id} must retain its exact native MIDI implementation`);

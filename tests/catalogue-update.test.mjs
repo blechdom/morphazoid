@@ -83,7 +83,7 @@ test("existing labs are browseable without being misrepresented as verified MIDI
   for (const lab of LABS) {
     assert.equal(lab.entryType, "lab");
     assert.equal(instrumentById(lab.id), null);
-    if (!labAdditions.some(item => item.id === lab.id && item.midiInput)) assert.equal(instrumentMidiCapabilityForId(lab.id), null);
+    if (!labAdditions.some(item => item.id === lab.id && (item.midiInput || item.generatedMidi))) assert.equal(instrumentMidiCapabilityForId(lab.id), null);
     assert.equal(waxSupportForId(lab.id), null);
     assert.equal(lab.features.includes("MIDI"), labAdditions.some(item => item.id === lab.id && item.midiInput));
     assert.ok(catalogueItemById(lab.id));

@@ -1,3 +1,4 @@
+import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const fractalDelayFavesAmendment = JSON.parse(readFileSync(
 
 /** Reverse only the approved Faves entry before older catalogue comparisons. */
 export function restoreFractalDelayFaves(source, file, { allowRestored = false } = {}) {
+  source = restoreBlechMidiSite(source, file, { allowRestored: true });
   const change = fractalDelayFavesAmendment;
   if (file !== change.file) return source;
   if (allowRestored && !source.includes(change.after) && source.split(change.before).length === 2) return source;

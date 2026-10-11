@@ -35,6 +35,8 @@ export const mainAdditions = [
 ];
 // Browseable demonstrations retain their own catalogue and MIDI declarations.
 export const labAdditions = [
+  { id: 'blech-midi', label: 'Blech MIDI', href: 'blech-midi.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
+    tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-midiphoria.json', import.meta.url), 'utf8')).additions,
   { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-synthesis.json', import.meta.url), 'utf8')).additions,
