@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreSoundFontsSite } from './sound-fonts-site-reference.mjs';
+import { restoreBlechLiveRuntime } from './blech-live-runtime-reference.mjs';
 import { restoreMidiNoteEffectsRuntime } from './midi-note-effects-runtime-reference.mjs';
 
 export const trackazoidSiteChanges = JSON.parse(readFileSync(
@@ -10,6 +11,7 @@ export const trackazoidSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the Trackazoid registration before comparing historical bytes. */
 export function restoreTrackazoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreBlechLiveRuntime(source, file, { allowRestored: true });
   source = restoreMidiNoteEffectsRuntime(source, file, { allowRestored: true });
   // This shared historical entry point peels the later additive Sound Fonts
   // utility before older snapshots, preserving their original hashes and guards.

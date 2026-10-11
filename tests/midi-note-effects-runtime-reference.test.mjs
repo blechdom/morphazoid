@@ -8,14 +8,15 @@ import { restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreFractalMotionRuntime } from './helpers/fractal-delay-motion-runtime-reference.mjs';
 import { restoreMidiMixerRuntime } from './helpers/midi-mixer-runtime-reference.mjs';
 import { restoreVectorFractalsSite } from './helpers/vector-fractals-site-reference.mjs';
+import { restoreBlechLiveRuntime } from './helpers/blech-live-runtime-reference.mjs';
 import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const url = new URL(`../${change.file}`, import.meta.url);
-// Remove only the independent organ additions before exercising the captured
+// Remove only later live-automata and independent organ additions before exercising the captured
 // note-effects baseline and mutations; keep its original hashes and guards.
 const readFile = async (file, encoding) => restoreSpartialOrganRuntime(
-  await readRawFile(file, encoding), change.file, { allowRestored: true },
+  restoreBlechLiveRuntime(await readRawFile(file, encoding), change.file, { allowRestored: true }), change.file, { allowRestored: true },
 );
 const historical = [restoreTrackazoidSite, restoreFractalMotionRuntime, restoreMidiMixerRuntime, restoreVectorFractalsSite];
 
