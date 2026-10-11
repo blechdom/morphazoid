@@ -276,7 +276,17 @@ test('tempo latch links native, keyboard and Tap edits in either direction witho
   await latch.click(); await expect(latch).toHaveAttribute('aria-pressed', 'true');
   const pairs = [];
   for (const [axis, tempo] of [['real', 18], ['imag', 24]]) {
-    await range(page, `${axis}MotionTempo`, tempo);
+    const immediate = await page.locator(`#${axis}MotionTempo`).evaluate((input, tempo) => {
+      input.value = String(tempo); input.dispatchEvent(new Event('input', { bubbles: true }));
+      return ['realMotionTempo', 'imagMotionTempo'].map(id => {
+        const paired = document.getElementById(id);
+        return { value: paired.value, output: document.querySelector(`output[for="${id}"]`).textContent,
+          needle: paired.closest('.knob-field').querySelector('.mz-range-knob__dial i').getAttribute('style') };
+      });
+    }, tempo);
+    expect(immediate.map(row => row.value), 'paired native values update before another event or UI frame').toEqual([String(tempo), String(tempo)]);
+    expect(immediate.map(row => row.output)).toEqual([`${tempo} BPM`, `${tempo} BPM`]);
+    expect(immediate[0].needle).toBe(immediate[1].needle);
     await expect.poll(async () => {
       const p = (await diagnostics(page)).parameters;
       return p.realMotionTempo === tempo && p.imagMotionTempo === tempo;
@@ -311,6 +321,34 @@ test('tempo latch links native, keyboard and Tap edits in either direction witho
   expect((await diagnostics(page)).parameters.imagMotionTempo).toBe(15);
   await expectAudioOff(page); expect(errors).toEqual([]);
   await testInfo.attach('tempo-latch.json', { body: JSON.stringify({ pairs, captured }, null, 2), contentType: 'application/json' });
+});
+
+test('region Next visits every region during motion, skips Custom, and retains an authored Julia selection', async ({ page }, testInfo) => {
+  test.setTimeout(60000); const errors = await fixture(page); await ready(page);
+  const regions = await page.evaluate(async () => (await import('/src/instruments/fractal-delay/fractal-explorer.js')).EXPLORER_PRESETS);
+  await choose(page, 'explorerPreset', 'julia-loops');
+  await page.waitForTimeout(200);
+  await expect(page.locator('#explorerPreset')).toHaveValue('julia-loops');
+  await choose(page, 'explorerPreset', regions[0].id);
+  await range(page, 'realMotionTempo', 20); await range(page, 'realMotionDepth', .04);
+  await page.locator('#realMotionPlay').click();
+  await expect(page.locator('#explorerPreset')).toHaveValue('');
+  const visited = [];
+  for (let index = 1; index <= regions.length; index++) {
+    const expected = regions[index % regions.length];
+    await page.locator('#explorerPresetNext').click();
+    const captured = await captureSettings(page);
+    expect(captured.explorer, expected.id).toEqual(expected.view);
+    await expect(page.locator('#realMotionPlay')).toHaveAttribute('aria-pressed', 'true');
+    visited.push({ region: expected.id, view: captured.explorer });
+    // Let motion change the coefficient and the select become Custom where
+    // appropriate before the next physical click; do not reset its selection.
+    await page.waitForTimeout(200);
+  }
+  expect(new Set(visited.map(row => row.region)).size).toBe(regions.length);
+  await page.locator('#realMotionPlay').click();
+  await expectAudioOff(page); expect(errors).toEqual([]);
+  await testInfo.attach('region-browse-during-motion.json', { body: JSON.stringify(visited, null, 2), contentType: 'application/json' });
 });
 
 test('Mandelbrot and Julia locations, zoom, drag and keyboard controls change real pixels and recover', async ({ page }, testInfo) => {

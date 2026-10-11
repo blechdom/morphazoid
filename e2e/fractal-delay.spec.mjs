@@ -612,7 +612,7 @@ test('Path controls and current capture recall preserve the admitted graph and m
     await page.locator('#captureSound').evaluate(button => { button.closest('details').open = true; });
     await page.locator('#captureSound').click();
     const captured = JSON.parse(await page.locator('#capturedSound').inputValue());
-    expect(captured.version).toBe(3); expect(captured.instrument).toBe('fractal-delay');
+    expect(captured.version).toBe(4); expect(captured.instrument).toBe('fractal-delay');
     expect(captured.parameters).toEqual(afterControls.parameters);
     expect(captured.liveLevels.dry).toBe(.15); expect(captured.liveLevels.inputDriveDb).toBe(afterControls.performance.inputDriveDb);
     await parameters(page, { propagation: 'resonance', geometryPitch: 0, tapCoverage: 0, turnTone: 0 });
@@ -820,7 +820,7 @@ test('two moving coordinates preserve production audio through presets, pause, U
   await page.locator('#captureSound').evaluate(button => { button.closest('details').open = true; });
   await page.locator('#captureSound').click();
   const captured = JSON.parse(await page.locator('#capturedSound').inputValue());
-  expect(captured.version).toBe(3);
+  expect(captured.version).toBe(4);
   for (const id of ['realMotionTempo', 'imagMotionTempo', 'realMotionDepth', 'imagMotionDepth'])
     expect(captured.parameters[id]).toBe((await diagnostics(page)).parameters[id]);
   expect(Object.hasOwn(captured, 'motion')).toBe(false);
@@ -1130,7 +1130,9 @@ for (const viewport of SIZES) {
     const errors = await fixture(page); await ready(page);
     const graphic = await page.locator('#stage').boundingBox();
     expect(graphic.height, 'the graphic must retain a usable height').toBeGreaterThan(120);
-    expect(graphic.width, 'the graphic must retain a usable width').toBeGreaterThan(200);
+    expect(graphic.width, 'each half of the graphic must retain a usable width').toBeGreaterThanOrEqual(150);
+    const explorer=await page.locator('#parameterMap').boundingBox();
+    expect(Math.abs(explorer.width-graphic.width), 'explorer and delay share the graphic equally').toBeLessThanOrEqual(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
       'mode', 'modeNext', 'domain', 'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'sendPulse',

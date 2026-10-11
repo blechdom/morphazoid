@@ -1803,6 +1803,7 @@ copy+require	src/instruments/fractal-delay/browser-engine.js
 copy+require	src/instruments/fractal-delay/performance.js
 copy+require	src/instruments/fractal-delay/model.js
 copy+require	src/instruments/fractal-delay/parameter-motion.js
+copy+require	src/instruments/fractal-delay/fractal-explorer.js
 copy+require	src/instruments/fractal-delay/presets.js
 copy+require	src/instruments/fractal-delay/geometry-worker.js
 copy+require	src/instruments/fractal-delay/preflight-worker.js
