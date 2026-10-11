@@ -74,6 +74,9 @@ function mountMidiphoria() {
     $('midiMixerView').hidden = stageMode !== 'mixer';
     $('midiCreativeView').hidden = stageMode !== 'draw' && stageMode !== 'automata';
     $('drawingEditor').hidden = !drawingVisible;
+    $('generateDrawingMidi').hidden = !drawingVisible;
+    const rulePlay = $('automataMidiGenerate');
+    if (rulePlay) rulePlay.hidden = stageMode !== 'automata';
     $('drawingCanvas').hidden = !drawingVisible;
     $('automataMidiTools').hidden = stageMode !== 'automata';
     for (const [id, mode] of [['drawingModeButton', 'draw'], ['visualModeButton', 'visual'], ['mixerModeButton', 'mixer'], ['automataModeButton', 'automata']]) {
@@ -405,6 +408,9 @@ function mountMidiphoria() {
     performanceHost: $('creativeControlsHost'), creativeVisualizerHost: $('creativeVisualizerHost'),
     automataHost: $('automataMidiTools'), creativeHost: $('midiCreativeView'),
     creativeTempo: { input: $('creativeTempo'), output: $('creativeTempoOut') } });
+  const rulePlay = $('automataMidiGenerate');
+  rulePlay.classList.add('mini-action'); rulePlay.hidden = true;
+  $('creativeActionHost').append(rulePlay);
   mixer.setActive(false);
   mixer.setVolume(Number($('outputLevel').value));
   on($('editMidiButton'), 'click', async () => {

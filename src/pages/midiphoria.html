@@ -151,6 +151,7 @@
       <section id="midiCreativeView" class="midiphoria-creative mixer-shell" aria-label="Create MIDI" hidden>
         <div class="midiphoria-creative-stage">
           <div class="midiphoria-creative-transport">
+            <div id="creativeActionHost"><button id="generateDrawingMidi" class="mini-action" type="button" disabled>Play drawing</button></div>
             <label class="control" for="creativeTempo"><span><b>Tempo</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="Drawing and rules tempo" type="range" min="30" max="300" step=".1" value="120" /></label>
             <button id="creativeStop" type="button" class="mini-action">Stop stamps</button>
             <button id="creativeAudioStart" type="button" class="midiphoria-audio-start">Turn audio on</button>
@@ -162,7 +163,6 @@
                 <button id="drawingErase" type="button" aria-pressed="false">Eraser</button>
                 <button id="drawingUndo" type="button" disabled>Undo</button>
                 <button id="drawingClear" type="button" disabled>Clear</button>
-                <button id="generateDrawingMidi" type="button" disabled>Play drawing</button>
                 <a id="downloadDrawingMidi" download="drawn-score.mid" hidden>Download MIDI</a>
                 <output id="drawingStatus" aria-live="polite">0 pixels</output>
               </div>
