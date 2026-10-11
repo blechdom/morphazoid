@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { MIXER_SAMPLE_STAMPS, MIXER_PATTERN_DEFAULTS, mixerStampScore, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
+import { MIXER_SAMPLE_STAMPS, MIXER_PATTERN_DEFAULTS, mixerStampScore, nextMixerStampVariation, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
   indexPerformanceNotes, queryPerformanceNotes } from '../src/instruments/midi-mixer/midi-mixer-performance-score.js';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { midiColorHue } from '../src/instruments/midiphoria/midiphoria-renderer.js';
@@ -62,6 +62,32 @@ test('seeded particle and organic patterns repeat exactly and reroll into distin
     assert.notDeepEqual(first.buffer, other.buffer, `${id} responds to its seed`);
     assert.deepEqual(first.pixels, pixelsFor(first));
   }
+});
+
+test('Variation skips identical neighboring seeds and returns a complete distinct MIDI score', () => {
+  const options = { seed: 10, density: 0, span: 48, beats: 12, transpose: 7 };
+  const previous = mixerStampScore('stripes', options), adjacent = mixerStampScore('stripes', { ...options, seed: 11 });
+  assert.deepEqual(previous.pixels, adjacent.pixels, 'regression: adjacent phase seeds can rasterize identically');
+  const next = nextMixerStampVariation('stripes', options);
+  assert.ok(next.patternOptions.seed > 11 && next.patternOptions.seed <= 26);
+  assert.notDeepEqual(next.pixels, previous.pixels); assert.notDeepEqual(next.buffer, previous.buffer);
+  assert.deepEqual(next.pixels, pixelsFor(next));
+  assert.deepEqual({ ...next.patternOptions, seed: 10 }, options);
+  const wrapped = nextMixerStampVariation('noise', { seed: 0xffffffff });
+  assert.equal(wrapped.patternOptions.seed, 0);
+  assert.notDeepEqual(wrapped.pixels, mixerStampScore('noise', { seed: 0xffffffff }).pixels);
+});
+
+test('Variation returns null for fixed grids and literal shapes but varies sparse icons', () => {
+  for (const id of ['heart', 'square', 'star', 'smile', 'diamond', 'wave', 'polka-dots', 'plaid', 'checker', 'ladder', 'staircase', 'rings']) {
+    assert.equal(nextMixerStampVariation(id), null, id);
+    assert.equal(nextMixerStampVariation(id, { density: 1, seed: 300 }), null, id);
+  }
+  for (const id of ['heart', 'square', 'star', 'smile', 'diamond', 'wave']) {
+    const next = nextMixerStampVariation(id, { density: .2 });
+    assert.ok(next); assert.notDeepEqual(next.pixels, mixerStampScore(id, { density: .2 }).pixels);
+  }
+  assert.throws(() => nextMixerStampVariation('unknown'), /Choose/);
 });
 
 test('all pattern extremes remain bounded, nonempty and within the one-shot MIDI budget', () => {

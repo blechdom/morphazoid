@@ -20,6 +20,7 @@ export const MIXER_SAMPLE_STAMPS = Object.freeze([
 ].map(Object.freeze));
 
 export const MIXER_PATTERN_DEFAULTS = Object.freeze({ seed: 1, density: .5, span: 48, beats: 8, transpose: 0 });
+const FIXED_SEED_PATTERNS = new Set(['polka-dots', 'plaid', 'checker', 'ladder', 'staircase', 'rings']);
 const bounded = (value, low, high, fallback) => Number.isFinite(Number(value)) ? Math.max(low, Math.min(high, Number(value))) : fallback;
 function patternOptions(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
@@ -197,6 +198,22 @@ export function mixerStampScore(id, options) {
   const lowestNote = Math.round(72 - normalized.span / 2) + normalized.transpose;
   const score = generateGridMidi(pixels, { title: stamp.label, secondsPerRow: normalized.beats / 64, lowestNote });
   return { ...mixerPerformanceScore(score, { trimLeading: true }), patternOptions: normalized, group: stamp.group };
+}
+
+/** Skip visually identical adjacent seeds without trapping a usable Variation
+ * control. Fixed grids and literal icons avoid generating unnecessary scores.
+ */
+export function nextMixerStampVariation(id, options) {
+  const stamp = MIXER_SAMPLE_STAMPS.find(item => item.id === id);
+  if (!stamp) throw new Error('Choose a sample from the bank.');
+  const normalized = patternOptions(options);
+  if (FIXED_SEED_PATTERNS.has(id) || ((stamp.glyph || id === 'square') && normalized.density >= .5)) return null;
+  const previous = mixerStampScore(id, normalized);
+  for (let offset = 1; offset <= 16; offset++) {
+    const next = mixerStampScore(id, { ...normalized, seed: (normalized.seed + offset) >>> 0 });
+    if (next.pixels.some((row, y) => row.some((value, x) => value !== previous.pixels[y][x]))) return next;
+  }
+  return null;
 }
 
 export function mixerMessageScore(input) {
