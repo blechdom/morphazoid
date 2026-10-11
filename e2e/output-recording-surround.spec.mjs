@@ -34,9 +34,10 @@ test("SPARTIAL preserves every surround channel in its stereo recording", async 
       captureInput.connect(captureOutput, 1, 17);
       captureOutput.connect(context.destination);
       let releaseTap;
-      const route = (layoutId, forcePreview) => {
+      const route = (layoutId, forcePreview, omitLfe = true) => {
         audio.layoutId = layoutId;
         audio.forcePreview = forcePreview;
+        audio.omitLfe = omitLfe;
         audio.rebuildRoutes();
         // Reserve channels 16/17 as an independent test readout of the stereo
         // recorder tap. Channels 0..15 retain the physical route unchanged.
@@ -55,14 +56,14 @@ test("SPARTIAL preserves every surround channel in its stereo recording", async 
         assert(manager.connectionCount() === 0 && manager.contexts.size === 0 && manager.recordingTaps.size === 0, 'teardown leaked an output/tap');
       } };
     };
-    const render = async (layoutId, forcePreview) => {
+    const render = async (layoutId, forcePreview, omitLfe) => {
       const layout = spartialLayout(layoutId);
-      const speakers = spartialSpeakers(layout);
+      const speakers = spartialSpeakers(layout, omitLfe);
       const { context, audio, route, tap, cleanup } = rig(speakers.length * block + block);
       // Rebuild with an active recorder lease to exercise old monitor cleanup
       // and attachment of the replacement context record.
       route('16-ring', true);
-      route(layoutId, forcePreview);
+      route(layoutId, forcePreview, omitLfe);
       assert(tap.connections.size === 1, 'capture did not reconnect after route rebuild');
       const source = context.createBufferSource();
       source.buffer = context.createBuffer(16, context.length, context.sampleRate);
@@ -92,19 +93,19 @@ test("SPARTIAL preserves every surround channel in its stereo recording", async 
       }
       const copies = stereo.map(data => Array.from(data));
       cleanup();
-      return { layoutId, mode: forcePreview ? 'preview' : 'discrete', channels, maxError, copies };
+      return { layoutId, omitLfe, mode: forcePreview ? 'preview' : 'discrete', channels, maxError, copies };
     };
     const results = [];
-    for (const layoutId of layouts) {
-      const discrete = await render(layoutId, false);
-      const preview = await render(layoutId, true);
+    for (const layoutId of layouts) for (const omitLfe of [true, false]) {
+      const discrete = await render(layoutId, false, omitLfe);
+      const preview = await render(layoutId, true, omitLfe);
       let maxDifference = 0;
       for (let side = 0; side < 2; side += 1) for (let frame = 0; frame < discrete.copies[side].length; frame += 1) {
         maxDifference = Math.max(maxDifference, Math.abs(discrete.copies[side][frame] - preview.copies[side][frame]));
       }
       assert(maxDifference === 0, `${layoutId}: discrete monitor differs from audible stereo preview`);
       delete discrete.copies; delete preview.copies;
-      results.push({ layoutId, speakers: discrete.channels.length, discrete, preview, maxDifference });
+      results.push({ layoutId, omitLfe, speakers: discrete.channels.length, discrete, preview, maxDifference });
     }
 
     // Rebuild during an existing take, retaining the same clock and tap.
@@ -146,7 +147,7 @@ test("SPARTIAL preserves every surround channel in its stereo recording", async 
     cleanup();
     return { layouts: results, liveTakeRouteChanges: segments, managerClean: manager.contexts.size === 0 };
   });
-  expect(results.layouts).toHaveLength(6);
+  expect(results.layouts).toHaveLength(12);
   expect(results.layouts.every(result => result.maxDifference === 0)).toBe(true);
   expect(results.managerClean).toBe(true);
   await test.info().attach("spartial-stereo-routing.json", {

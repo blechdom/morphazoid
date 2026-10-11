@@ -37,7 +37,7 @@ PRESETS.push(
 const state = {
   settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: "single", root: 48,
   chord: "minor", chordIntervals: spartialChordIntervals("minor"), chordSeed: 419,
-  keyboardBase: 48, layout: "8-circle", forcePreview: false,
+  keyboardBase: 48, layout: "8-circle", forcePreview: false, omitLfe: true,
   audioOn: false, playing: false, holding: false, phase: 0, motion: "off", tempo: 90, beatsPerTurn: 16,
   routingMode: "spread", presetIndex: 0, spectrumIndex: 0, grainPresetIndex: 0, randomSeed: 173,
 };
@@ -83,13 +83,15 @@ function announce(message, visible = false) {
   $("liveStatus").textContent = message;
   $("liveStatus").classList.toggle("sr-only", !visible);
 }
-function speakers() { return spartialSpeakers(spartialLayout(state.layout)); }
+function speakers() { return spartialSpeakers(spartialLayout(state.layout), state.omitLfe); }
 function updateRouteStatus() {
   $("routeBadge").textContent = !state.audioOn ? "Audio off" : routeInfo?.mode === "discrete" ? "Discrete surround" : "Stereo preview";
   if (!routeInfo) return;
+  const lfe = routeInfo.layout.speakers.find(speaker => speaker.kind === "lfe");
+  const lfeDetail = lfe ? ` LFE channel ${lfe.channel} ${routeInfo.omitLfe ? "omitted" : "included"}.` : "";
   $("outputDetail").textContent = routeInfo.mode === "discrete"
-    ? `${routeInfo.layout.speakers.length} discrete channels. Match the numbers to your interface patch. LFE is silent.`
-    : `${routeInfo.capacity} output channels available. Stereo previews left/right only; surround needs a multichannel output.`;
+    ? `${routeInfo.layout.speakers.length} discrete channels. Match the numbers to your interface patch.${lfeDetail}`
+    : `${routeInfo.capacity} output channels available. Stereo previews left/right only; surround needs a multichannel output.${lfeDetail}`;
 }
 function updateAudioButton() {
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
@@ -141,6 +143,9 @@ function syncControls() {
   $("tempo").setAttribute("aria-valuetext", `${state.tempo} BPM`);
   tempoKnob.update();
   $("forcePreview").checked = state.forcePreview;
+  $("omitLfe").checked = state.omitLfe;
+  $("omitLfe").disabled = !spartialLayout(state.layout).speakers.some(speaker => speaker.kind === "lfe");
+  $("omitLfe").title = $("omitLfe").disabled ? "This layout has no LFE channel" : "Leave the LFE output silent without changing other channel numbers";
   $("target").value = state.settings.target;
   for (const [index, bar] of [...$("partialSliders").children].entries()) {
     bar.title = `Partial ${index + 1}: ${partialFrequencyRatio(index, state.settings).toFixed(3)} × the played note`;
@@ -212,17 +217,19 @@ function patchSettings(patch) {
   if (previousCount !== state.settings.partials) buildSpectrum();
   syncControls();
 }
-function buildPatch() {
+function buildPatch(targetChannel = null) {
   const list = speakers();
   $("target").replaceChildren(...list.map((speaker, index) => {
     const option = document.createElement("option"); option.value = index;
     option.textContent = `${speaker.label} · channel ${speaker.channel}`; return option;
   }));
   $("speakerPatch").replaceChildren(...spartialLayout(state.layout).speakers.map(speaker => {
-    const item = document.createElement("span"); item.textContent = `${speaker.channel} · ${speaker.label}`;
-    item.title = speaker.kind === "lfe" ? "LFE channel — silent" : `Output channel ${speaker.channel}`; return item;
+    const omitted = speaker.kind === "lfe" && state.omitLfe;
+    const item = document.createElement("span"); item.textContent = `${speaker.channel} · ${speaker.label}${omitted ? " · omitted" : ""}`;
+    item.title = omitted ? "LFE channel — silent" : `Output channel ${speaker.channel}`; return item;
   }));
-  patchSettings({ speakerCount: list.length, target: Math.min(state.settings.target, list.length - 1) });
+  const retainedTarget = list.findIndex(speaker => speaker.channel === targetChannel);
+  patchSettings({ speakerCount: list.length, target: retainedTarget >= 0 ? retainedTarget : Math.min(state.settings.target, list.length - 1) });
 }
 function buildSpectrum() {
   $("partialSliders").replaceChildren(...Array.from({ length: state.settings.partials }, (_, index) => {
@@ -464,8 +471,14 @@ $("routingMode").addEventListener("change", () => {
   state.routingMode = $("routingMode").value; patchSettings({ lock: state.routingMode === "focus" ? 1 : 0 }); customPreset();
 });
 $("target").addEventListener("change", () => { patchSettings({ target: Number($("target").value) }); customPreset(); });
-$("layout").addEventListener("change", () => { state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview); });
-$("forcePreview").addEventListener("change", () => { state.forcePreview = $("forcePreview").checked; audio.route(state.layout, state.forcePreview); });
+$("layout").addEventListener("change", () => { state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview, state.omitLfe); });
+$("forcePreview").addEventListener("change", () => { state.forcePreview = $("forcePreview").checked; audio.route(state.layout, state.forcePreview, state.omitLfe); });
+$("omitLfe").addEventListener("change", () => {
+  const targetChannel = speakers()[state.settings.target]?.channel;
+  state.omitLfe = $("omitLfe").checked;
+  buildPatch(targetChannel);
+  audio.route(state.layout, state.forcePreview, state.omitLfe);
+});
 $("playButton").addEventListener("click", () => setPlaying(!rotationRunning()));
 $("holdButton").addEventListener("click", () => setHolding(!state.holding));
 $("restartCascade").addEventListener("click", restartCascade);
@@ -482,10 +495,10 @@ $("audioButton").addEventListener("click", async () => {
   $("audioButton").disabled = true; $("audioState").textContent = "starting";
   const firstStart = !audio.node;
   try {
-    await audio.start(state.settings, state.layout, state.forcePreview, state.phase);
+    await audio.start(state.settings, state.layout, state.forcePreview, state.phase, state.omitLfe);
     if (disposed) return;
     state.audioOn = true; updateAudioButton();
-    audio.settings(state.settings); audio.route(state.layout, state.forcePreview);
+    audio.settings(state.settings); audio.route(state.layout, state.forcePreview, state.omitLfe);
     if (firstStart) for (const [id, record] of held) record.notes.forEach((note, index) => audio.noteOn(`${id}:${index}`, note, record.velocity));
     announce("");
   } catch (error) { $("audioState").textContent = "error"; announce(`Audio could not start: ${error.message}`, true); }

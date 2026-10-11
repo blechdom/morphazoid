@@ -563,6 +563,73 @@ test("SPARTIAL keeps held notes sounding across voice, preset, and speaker-array
   await waitForStableAudioState(page, false);
 });
 
+test("SPARTIAL LFE omission retains the physical target and stays independent of presets and Audio", async ({ page }) => {
+  await openSpartial(page);
+  await page.locator('[data-section="sound"] > summary').click();
+  const omit = page.getByLabel("Omit LFE channel", { exact: true });
+  await expect(omit).toBeChecked();
+  await expect(omit).toBeDisabled();
+  await page.locator("#layout").selectOption("7-4-1");
+  await expect(omit).toBeEnabled();
+  await expect(page.locator("#target option")).toHaveCount(11);
+  await expect(page.locator("#speakerPatch")).toContainText("4 · LFE · omitted");
+  expect((await page.locator("#speakerPatch span").allTextContents()).slice(4, 8))
+    .toEqual(["5 · Ls", "6 · Rs", "7 · Lrs", "8 · Rrs"]);
+  await page.locator("#routingMode").selectOption("focus");
+  await page.locator("#target").selectOption({ label: "L · channel 1" });
+  await omit.uncheck();
+  await expect(page.locator("#target option")).toHaveCount(12);
+  await expect(page.locator("#target option:checked")).toHaveText("L · channel 1");
+  await expect(page.locator("#speakerPatch")).not.toContainText("omitted");
+  await page.locator("#target").selectOption({ label: "LFE · channel 4" });
+  await omit.check();
+  await expect(page.locator("#target option:checked")).not.toContainText("LFE");
+  await expect(page.locator("#target option:checked")).toHaveCount(1);
+  await omit.uncheck();
+  await page.locator("#layout").selectOption("8-circle");
+  await expect(omit).toBeDisabled();
+  await expect(omit).not.toBeChecked();
+  await page.locator("#layout").selectOption("4-1");
+  await expect(page.locator("#target option")).toHaveCount(5);
+  await page.locator("#preset").selectOption("grain-cloud");
+  await page.locator("#nextPreset").click();
+  await page.locator("#randomPreset").click();
+  await expect(omit).not.toBeChecked();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+});
+
+test("SPARTIAL toggles LFE during held additive and granular sound without stopping rotation", async ({ page }, testInfo) => {
+  await openSpartial(page);
+  await shortEnvelope(page);
+  await setRange(page, "granularMix", 0.65);
+  await page.locator('[data-section="sound"] > summary').click();
+  await page.locator("#layout").selectOption("7-4-1");
+  const omit = page.getByLabel("Omit LFE channel", { exact: true });
+  await omit.uncheck();
+  await armAudio(page);
+  await expect(page.locator("#outputDetail")).toContainText("LFE channel 4 included");
+  await page.locator("#holdButton").click();
+  await page.locator("#playButton").click();
+  await expectSustainedAudio(page, testInfo, "lfe-included");
+  for (const checked of [true, false, true]) {
+    await omit.setChecked(checked);
+    await expect(page.locator("#outputDetail")).toContainText(`LFE channel 4 ${checked ? "omitted" : "included"}`);
+    await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
+    await expect(page.locator("#playButton")).toHaveAttribute("aria-pressed", "true");
+    await expectSustainedAudio(page, testInfo, `lfe-${checked ? "omitted" : "included"}-held`);
+  }
+  await omit.uncheck();
+  await page.locator("#forcePreview").check();
+  await expect(page.locator("#outputDetail")).toContainText("LFE channel 4 included");
+  await page.locator("#audioButton").click();
+  await armAudio(page);
+  await expect(page.locator("#outputDetail")).toContainText("LFE channel 4 included");
+  await expectSustainedAudio(page, testInfo, "lfe-rearmed");
+  await page.locator("#panicButton").click();
+  await waitForStableAudioState(page, false);
+});
+
 test("SPARTIAL note pads release when the pointer leaves the pad and is lifted", async ({ page }, testInfo) => {
   await openSpartial(page);
   await shortEnvelope(page);
@@ -843,6 +910,13 @@ test.describe("SPARTIAL phone layout", () => {
         expect(box.height, `${id} touch height`).toBeGreaterThanOrEqual(48);
       }
       await expectCascadeControlsReachable(page);
+      await page.locator('[data-section="sound"] > summary').click();
+      await page.locator("#layout").selectOption("7-4-1");
+      await page.locator("#omitLfe").scrollIntoViewIfNeeded();
+      await expect(page.locator("#omitLfe")).toBeEnabled();
+      expect(await hitVisibleControl(page, "#omitLfe")).toBe(true);
+      await page.locator("#omitLfe").uncheck();
+      await expect(page.locator("#target option")).toHaveCount(12);
 
       // Scrolling each control into view also exercises nested panel scrolling;
       // document width alone cannot reveal a clipped interior control.

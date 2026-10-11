@@ -3,11 +3,18 @@ import { makeLayouts, outputModeFor, speakerPan } from "../surround-field/surrou
 
 export function spartialLayout(id = "8-circle") {
   if (id === "4-ring" || id === "16-ring") return makeLayouts(Number(id.split("-")[0])).custom;
-  return makeLayouts()[id] ?? makeLayouts()["8-circle"];
+  const layouts = makeLayouts();
+  const layout = layouts[id] ?? layouts["8-circle"];
+  if (id !== "7-4-1") return layout;
+  // SPARTIAL's interface patch places the side pair before the rear pair.
+  const channels = { "left-side": 5, "right-side": 6, "left-rear": 7, "right-rear": 8 };
+  return { ...layout, speakers: layout.speakers.map(speaker => ({
+    ...speaker, channel: channels[speaker.id] ?? speaker.channel,
+  })).sort((a, b) => a.channel - b.channel) };
 }
 
-export function spartialSpeakers(layout) {
-  return layout.speakers.filter((speaker) => speaker.kind !== "lfe")
+export function spartialSpeakers(layout, omitLfe = true) {
+  return layout.speakers.filter((speaker) => !omitLfe || speaker.kind !== "lfe")
     .sort((a, b) => ((a.azimuth + 360) % 360) - ((b.azimuth + 360) % 360) || a.z - b.z);
 }
 
@@ -23,6 +30,7 @@ export class SpartialAudio {
     this.releaseOutput = null;
     this.layoutId = "8-circle";
     this.forcePreview = false;
+    this.omitLfe = true;
     this.enabled = false;
     this.disposed = false;
     this.startPromise = null;
@@ -32,11 +40,12 @@ export class SpartialAudio {
     this.handleSinkChange = () => this.scheduleRouteChange();
   }
 
-  async start(settings, layoutId, forcePreview, phase = 0) {
+  async start(settings, layoutId, forcePreview, phase = 0, omitLfe = true) {
     if (this.startPromise) return this.startPromise;
     const start = async () => {
       this.layoutId = layoutId;
       this.forcePreview = forcePreview;
+      this.omitLfe = omitLfe;
       if (!this.context) {
         const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
         if (!Context) throw new Error("This browser does not support Web Audio.");
@@ -129,7 +138,7 @@ export class SpartialAudio {
     for (const node of this.routes) node.disconnect();
     this.routes = [];
     const layout = spartialLayout(this.layoutId);
-    const speakers = spartialSpeakers(layout);
+    const speakers = spartialSpeakers(layout, this.omitLfe);
     const capacity = Math.max(1, this.context.destination.maxChannelCount || 2);
     let mode = outputModeFor(capacity, layout.speakers.length, this.forcePreview);
     try {
@@ -160,13 +169,14 @@ export class SpartialAudio {
       this.routes.push(panner);
     });
     this.releaseOutput = connectAudioOutput(this.context, output, { stereoSource: stereo });
-    this.onRoute?.({ mode, capacity, layout, speakers });
+    this.onRoute?.({ mode, capacity, layout, speakers, omitLfe: this.omitLfe });
   }
 
-  route(layoutId, forcePreview) {
-    const changed = layoutId !== this.layoutId || forcePreview !== this.forcePreview;
+  route(layoutId, forcePreview, omitLfe = true) {
+    const changed = layoutId !== this.layoutId || forcePreview !== this.forcePreview || omitLfe !== this.omitLfe;
     this.layoutId = layoutId;
     this.forcePreview = forcePreview;
+    this.omitLfe = omitLfe;
     if (changed) this.scheduleRouteChange();
   }
   scheduleRouteChange() {

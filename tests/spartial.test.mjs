@@ -5,9 +5,38 @@ import {
   SpartialEngine, equalPowerRoute, partialCascadeRank, partialPosition, partialFrequencyRatio, randomSpartialSpectrum,
   sanitizeSpartialSettings, spartialCascadeTimes,
 } from "../src/instruments/spartial/spartial.js";
+import { spartialLayout, spartialSpeakers } from "../src/instruments/spartial/spartial-audio.js";
 
 const RATE = 48000;
 const base = { rotation: 0, cascade: 0, attack: 0.002, release: 0.025, level: 1 };
+
+test("SPARTIAL 7:4:1 patches side speakers before rear speakers", () => {
+  const layout = spartialLayout("7-4-1");
+  assert.deepEqual(layout.speakers.map(speaker => [speaker.channel, speaker.label]), [
+    [1, "L"], [2, "R"], [3, "C"], [4, "LFE"], [5, "Ls"], [6, "Rs"],
+    [7, "Lrs"], [8, "Rrs"], [9, "Tfl"], [10, "Tfr"], [11, "Trl"], [12, "Trr"],
+  ]);
+  assert.equal(layout.speakers.find(speaker => speaker.channel === 5).azimuth, -100);
+  assert.equal(layout.speakers.find(speaker => speaker.channel === 7).azimuth, -145);
+});
+
+test("LFE omission preserves physical channels and leaves non-LFE layouts unchanged", () => {
+  for (const [id, channel, count] of [["4-1", 5, 5], ["7-4-1", 4, 12]]) {
+    const layout = spartialLayout(id);
+    const omitted = spartialSpeakers(layout);
+    const included = spartialSpeakers(layout, false);
+    assert.equal(omitted.length, count - 1);
+    assert.equal(included.length, count);
+    assert.deepEqual(included.filter(speaker => speaker.kind !== "lfe"), omitted);
+    assert.equal(included.find(speaker => speaker.kind === "lfe").channel, channel);
+    assert.deepEqual(omitted.map(speaker => speaker.channel).sort((a, b) => a - b),
+      Array.from({ length: count }, (_, i) => i + 1).filter(i => i !== channel));
+    assert.equal(layout.speakers.length, count, "physical output count stays fixed");
+  }
+  for (const id of ["4-ring", "8-circle", "16-ring", "8-cube"]) {
+    assert.deepEqual(spartialSpeakers(spartialLayout(id)), spartialSpeakers(spartialLayout(id), false));
+  }
+});
 
 function render(engine, seconds, channelCount = 16) {
   const channels = Array.from({ length: channelCount }, () => new Float32Array(Math.round(seconds * engine.sampleRate)));
