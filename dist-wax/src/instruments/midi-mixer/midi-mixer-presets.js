@@ -1,3 +1,4 @@
+import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { sanitizeWeaveConfig } from './midi-mixer-model.js';
 import { MIDI_PARAMETER_FIELDS, MIDI_CC_PARAMETERS, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS,
   sanitizeMidiParameters, sanitizeMidiSynthEffects } from './midi-mixer-parameters.js';
@@ -7,7 +8,7 @@ const channel = (id, patch = {}) => ({ channel: id, mute: false, solo: false, pr
 const deck = (config = {}, channels = []) => ({ config: { gain: 1, rate: 1, transpose: 0, offsetBeats: 0, loop: true, mute: false, loopStartBeats: 0, loopEndBeats: null, reverse: 'off', ...config, midi: sanitizeMidiParameters(config.midi) },
   channels: Array.from({ length: 16 }, (_, id) => channel(id, channels.find(item => item.channel === id))) });
 export function captureMixerPreset(state) {
-  return { version: 3, weave: sanitizeWeaveConfig(state.weave), tempo: clamp(state.tempo, 30, 300, 120), crossfade: clamp(state.crossfade, -1, 1, 0),
+  return { version: 3, noteEffects: sanitizeMidiNoteEffects(state.noteEffects), weave: sanitizeWeaveConfig(state.weave), tempo: clamp(state.tempo, 30, 300, 120), crossfade: clamp(state.crossfade, -1, 1, 0),
     effects: { filterHz: clamp(state.effects?.filterHz, 60, 20000, 20000), delayMix: clamp(state.effects?.delayMix, 0, .75, 0),
       delayBeats: clamp(state.effects?.delayBeats, .125, 4, .5), feedback: clamp(state.effects?.feedback, 0, .8, .3), synth: sanitizeMidiSynthEffects(state.effects?.synth) },
     decks: [0, 1].map(index => {
@@ -34,6 +35,7 @@ function replacementMidi(previous = {}, next = {}) {
 }
 function writeMixerPreset(engine, next, { weave = true } = {}) {
   const previous = engine.state;
+  engine.setNoteEffects(next.noteEffects);
   engine.setTempo(next.tempo); engine.setCrossfade(next.crossfade); engine.configureEffects({ ...next.effects, synth: { ...Object.fromEntries(Object.keys(previous.effects?.synth || {}).map(key => [key, null])), ...next.effects.synth } });
   next.decks.forEach((value, index) => {
     for (const setting of engine.state.decks[index]?.channels ?? []) if (!value.channels.some(item => item.channel === setting.channel)) {
@@ -133,6 +135,10 @@ export function randomizeMixerPreset(current, random = Math.random) {
   snapshot.weave = sanitizeWeaveConfig({ enabled: unit() < .4, pattern: Array.from({ length: pick([2, 3, 4, 6, 8, 12, 16]) }, () => pick(['A', 'B'])).join(''),
     length: pick([.125, .25, .5, 1, 2, 3, 4, 8, 16]), unit: pick(['beats', 'bars']), barBeats: pick([2, 3, 3.5, 4, 5, 7]), advance: pick(['turns', 'running']) });
   snapshot.tempo = Math.round(60 + unit() * 140); snapshot.crossfade = unit() * 1.6 - .8;
+  snapshot.noteEffects = sanitizeMidiNoteEffects({ enabled: unit() < .45, transpose: pick([-12, -7, 0, 0, 5, 7, 12]),
+    velocity: .5 + unit(), chord: pick(['single', 'single', 'octave', 'fifth', 'major', 'minor']),
+    delayBeats: pick([0, 0, .125, .25, .5]), gateBeats: pick([0, .125, .25, .5, 1, 2]),
+    echoCount: pick([0, 0, 1, 2, 3, 4]), echoBeats: pick([.125, .25, .5, .75, 1, 2]), echoDecay: .25 + unit() * .5, drums: unit() < .08 });
   snapshot.effects = { filterHz: 10 ** (2.6 + unit() * 1.7), delayMix: unit() * .5, delayBeats: pick([.125, .25, .5, .75, 1, 1.5, 2, 4]), feedback: unit() * .65, synth: {} };
   for (const descriptor of MIDI_SYNTH_EFFECT_PARAMETERS) if (unit() < (descriptor.id in (current.effects?.synth || {}) ? .85 : .18)) {
     const radius = (descriptor.max - descriptor.min) * .25;

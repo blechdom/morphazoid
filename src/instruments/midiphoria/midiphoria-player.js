@@ -1,11 +1,13 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
+import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 
 const SOURCE = 'midiphoria:file';
+const PAD_SOURCE = 'midiphoria:pads';
 const MAX_FILE_BYTES = 10 * 1024 * 1024;
 const PLAYBACK_GAIN = 8; // +18 dB before compression; the volume knob remains 0–100%.
 const MAX_PAD_SOURCES = 32;
 const LIBRARY_URL = new URL('./vendor/spessasynth.js', import.meta.url);
-const WORKLET_URL = new URL('./vendor/spessasynth_processor.min.js', import.meta.url);
+const WORKLET_URL = new URL('./midiphoria-processor.js', import.meta.url);
 const SOUNDFONT_URL = new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url);
 const finite = (value, fallback = 0) => typeof value === 'number' && Number.isFinite(value) ? value : fallback;
 const clamp = (value, low, high, fallback = low) => Math.max(low, Math.min(high, finite(value, fallback)));
@@ -43,6 +45,7 @@ export class MidiphoriaPlayer {
     this._file = null; this._queued = null; this._activeLoad = null; this._loadTimer = null;
     this._serial = 0; this._readyToken = null; this._playing = false; this._audioEnabled = false;
     this._desiredAudio = false; this._volume = 0.5; this._rate = 1; this._loop = false;
+    this._noteEffects = sanitizeMidiNoteEffects({});
     this._time = 0; this._duration = 0; this._seekTime = null; this._error = null; this._disposed = false;
     this._onPageHide = () => { void this.dispose(); };
     this.runtime.addEventListener?.('pagehide', this._onPageHide);
@@ -126,6 +129,14 @@ export class MidiphoriaPlayer {
     return this._volume;
   }
 
+  setNoteEffects(config) {
+    this._noteEffects = sanitizeMidiNoteEffects(config, this._noteEffects);
+    if (!this._disposed) for (const synth of [this._synth, this._padSynth]) {
+      synth?.worklet?.port?.postMessage({ type: 'midiphoriaNoteEffects', config: this._noteEffects });
+    }
+    return { ...this._noteEffects };
+  }
+
   padNoteOn(sourceId, note, velocity) {
     // Pads are direct gestures, never queued through Audio initialization or file loading.
     if (this._disposed || !this._audioEnabled || !this._engineReady || !this._padSynth
@@ -158,6 +169,7 @@ export class MidiphoriaPlayer {
     this._padSources.clear(); this._padNotes.clear();
     // Release tails as well, so muting and re-arming cannot revive an old gesture.
     try { this._padSynth?.stopAll(true); } catch { /* A failed processor is already being released. */ }
+    safeCall(this.onClear, PAD_SOURCE, 'pads-release');
   }
 
   async load(buffer, fileName = 'MIDI file.mid', { preserveLeadIn = false } = {}) {
@@ -261,7 +273,7 @@ export class MidiphoriaPlayer {
     this._synth = synth;
     // A separate engine isolates pads from file program changes, MIDI ports,
     // sustain/reset messages, and transport-wide all-notes-off commands.
-    const padSynth = new library.WorkletSynthesizer(context, { eventsEnabled: false, audioNodeCreators });
+    const padSynth = new library.WorkletSynthesizer(context, { eventsEnabled: true, audioNodeCreators });
     this._padSynth = padSynth;
     this._master = context.createGain(); this._master.gain.value = 0;
     // Lift the complete SoundFont mix, including effects, before peak control.
@@ -309,6 +321,7 @@ export class MidiphoriaPlayer {
     // lib 4.3.14 documents -1, but core 4.3.22 implements Infinity (not -1).
     this._sequencer.loopCount = this._loop ? Infinity : 0;
     this._bindEvents();
+    this.setNoteEffects(this._noteEffects);
     this._engineReady = true; this._enginePromise = null;
     this._pumpLoad(); this._publish();
   }
@@ -343,6 +356,19 @@ export class MidiphoriaPlayer {
     this._listen(synthEvents, 'stopAll', data => forward('controlChange', {
       channel: data.channel, controller: data.force ? 120 : 123, value: 0,
     }));
+    // Pad graphics now follow the same post-effect native notes as their sound.
+    // The app suppresses its immediate raw pad drawing when padNoteOn succeeds;
+    // input gestures can still draw directly while Audio is off.
+    const padForward = (type, data) => {
+      if (this._disposed || !this._engineReady || (type === 'noteOn' && !this._audioEnabled)
+        || data?.channel !== 0 || !Number.isInteger(data.midiNote) || data.midiNote < 0 || data.midiNote > 127) return;
+      const velocity = type === 'noteOff' ? 0 : Math.round(clamp(data.velocity, 0, 127));
+      safeCall(this.onMidi, { type: velocity ? 'noteOn' : 'noteOff', channel: 0, sourceId: PAD_SOURCE,
+        note: data.midiNote, velocity, voiceName: 'Piano' });
+    };
+    this._listen(this._padSynth.eventHandler, 'noteOn', data => padForward('noteOn', data));
+    this._listen(this._padSynth.eventHandler, 'noteOff', data => padForward('noteOff', data));
+    this._listen(this._padSynth.eventHandler, 'stopAll', () => safeCall(this.onClear, PAD_SOURCE, 'pads-stop'));
     const events = this._sequencer.eventHandler;
     this._listen(events, 'songChange', () => this._finishLoad());
     this._listen(events, 'midiError', error => this._finishLoad(error));

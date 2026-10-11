@@ -90,7 +90,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
   const runtime = {
     AudioContext: Context,
     AudioWorkletNode: class {
-      constructor() { this.listeners = new Map(); }
+      constructor() { this.listeners = new Map(); this.messages = []; this.port = { postMessage: message => this.messages.push(message) }; }
       addEventListener(type, callback) { this.listeners.set(type, callback); }
       removeEventListener(type, callback) { if (this.listeners.get(type) === callback) this.listeners.delete(type); }
       emit(type) { this.listeners.get(type)?.(); }
@@ -459,7 +459,7 @@ test('pads use an isolated piano and their own cloned bank, before any file has 
   assert.deepEqual(pads.program, [0, 0]);
   assert.equal(file.bank.byteLength, 16); assert.equal(pads.bank.byteLength, 16);
   assert.notEqual(file.bank, pads.bank);
-  assert.equal(file.config.eventsEnabled, true); assert.equal(pads.config.eventsEnabled, false);
+  assert.equal(file.config.eventsEnabled, true); assert.equal(pads.config.eventsEnabled, true);
   h.contexts[0].currentTime = 7.5;
   assert.equal(h.player.padNoteOn('keyboard:c', 60, 78), true);
   assert.equal(h.player.padNoteOff('keyboard:c'), true);
@@ -573,5 +573,42 @@ test('original-file playback preserves the lead-in across replay without changin
   await h.player.load(midi(), 'audition.mid');
   h.player.play();
   assert.deepEqual(skips, [true, false], 'normal quick auditions retain their existing lead-in skip');
+  await h.player.dispose();
+});
+
+test('note effects are retained before Audio and sent to both engines without changing transport', async () => {
+  const h = harness();
+  const config = h.player.setNoteEffects({ enabled: true, transpose: 12, chord: 'major', echoCount: 2 });
+  assert.equal(h.contexts.length, 0);
+  assert.equal(config.transpose, 12);
+  await ready(h); h.player.play(); h.sequencers[0].currentTime = 4;
+  assert.ok(h.calls.find(call => Array.isArray(call) && call[0] === 'worklet')[1].endsWith('/midiphoria-processor.js'));
+  for (const synth of h.synths) assert.equal(synth.worklet.messages.at(-1).config.chord, 'major');
+  h.player.setNoteEffects({ enabled: false });
+  assert.equal(h.player.state.playing, true); assert.equal(h.player.state.time, 4);
+  for (const synth of h.synths) {
+    const message = synth.worklet.messages.at(-1);
+    assert.equal(message.type, 'midiphoriaNoteEffects');
+    assert.equal(message.config.enabled, false); assert.equal(message.config.transpose, 12);
+  }
+  await h.player.dispose();
+});
+
+test('effected pad notes reach graphics without a file and clear independently from its transport', async () => {
+  const h = harness(); await h.player.enableAudio();
+  h.synths[1].eventHandler.emit('noteOn', { channel: 0, midiNote: 72, velocity: 88 });
+  h.synths[1].eventHandler.emit('noteOff', { channel: 0, midiNote: 72 });
+  assert.deepEqual(h.messages, [
+    { type: 'noteOn', channel: 0, sourceId: 'midiphoria:pads', note: 72, velocity: 88, voiceName: 'Piano' },
+    { type: 'noteOff', channel: 0, sourceId: 'midiphoria:pads', note: 72, velocity: 0, voiceName: 'Piano' },
+  ]);
+  const clearCount = h.clears.filter(([source]) => source === 'midiphoria:pads').length;
+  h.player.pause();
+  assert.equal(h.clears.filter(([source]) => source === 'midiphoria:pads').length, clearCount);
+  h.player.releasePads();
+  assert.equal(h.clears.at(-1)[0], 'midiphoria:pads');
+  h.player.setAudioEnabled(false);
+  h.synths[1].eventHandler.emit('noteOn', { channel: 0, midiNote: 74, velocity: 88 });
+  assert.equal(h.messages.length, 2, 'late muted attacks cannot revive pad graphics');
   await h.player.dispose();
 });

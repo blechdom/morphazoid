@@ -1,3 +1,4 @@
+import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
@@ -63,6 +64,7 @@ export class MidiMixerEngine {
     this._sampleTime = 0; this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._sampleMidi = {}; this._noteSubscribers = new Set();
     this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._sources = [null, null]; this._weave = defaultWeaveConfig(); this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
+    this._noteEffects = sanitizeMidiNoteEffects();
     this._onPageHide = () => { void this.dispose(); }; this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
   _now() { return (this.runtime.performance?.now?.() ?? Date.now()) / 1000; }
@@ -84,7 +86,7 @@ export class MidiMixerEngine {
         if (timing.ended) return [];
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, ...visible } = sample;
         return [{ ...visible, midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
-      }), sampleMidi: sanitizeMidiParameters(this._sampleMidi), effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
+      }), sampleMidi: sanitizeMidiParameters(this._sampleMidi), noteEffects: { ...this._noteEffects }, effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
       decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
@@ -300,6 +302,7 @@ export class MidiMixerEngine {
     if ('program' in partial) setting.program = partial.program === null || Number(partial.program) < 0 ? null : Math.round(clamp(partial.program, 0, 127));
     this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...setting, midi: sanitizeMidiParameters(setting.midi) };
   }
+  setNoteEffects(input) { this._noteEffects = sanitizeMidiNoteEffects(input); this._post({ type: 'noteEffects', config: this._noteEffects }); this._publish(); return { ...this._noteEffects }; }
   setCrossfade(value) { this._crossfade = clamp(value, -1, 1, this._crossfade); this._post({ type: 'crossfade', value: this._crossfade }); this._publish(); return this._crossfade; }
   setVolume(value) { this._volume = clamp(value, 0, 1, this._volume); this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._updateGain(); this._publish(); return this._volume; }
   _checkIndex(index) { if (index !== 0 && index !== 1) throw new Error('Choose MIDI deck A or B.'); }
@@ -388,6 +391,7 @@ export class MidiMixerEngine {
     this._post({ type: 'weave', config: this._weave, phase: this._weavePhase });
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });
     this._post({ type: 'effects', synth: this._effects.synth });
+    this._post({ type: 'noteEffects', config: this._noteEffects });
     this._post({ type: 'audibility', enabled: this._desiredAudio, volume: this._volume });
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });

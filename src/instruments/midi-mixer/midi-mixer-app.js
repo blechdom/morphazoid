@@ -1,3 +1,4 @@
+import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from './midi-mixer-engine.js';
 import { GM_PROGRAM_NAMES, defaultDeckConfig } from './midi-mixer-model.js';
 import { MidiMixerRenderer, mixerVoiceColor } from './midi-mixer-renderer.js';
@@ -71,7 +72,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
   let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, collectionPromise = null, defaultsInitialized = false;
   const deckUIs = [], renderers = [];
-  let engine, performanceView, presetController, synthEffectEditor, knobs, fontSerial = 0, fontRequest = null, originalBusy = false;
+  let engine, performanceView, presetController, synthEffectEditor, noteEffectEditor, knobs, fontSerial = 0, fontRequest = null, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
@@ -313,7 +314,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
       field($('mixerFilterExact'), Math.round(effects.filterHz)); field($('mixerEchoExact'), effects.delayBeats);
       $('mixerFilterOut').value = effects.filterHz >= 19000 ? 'Open' : `${Math.round(effects.filterHz)} Hz`; $('mixerEchoOut').value = `${Math.round(effects.delayMix * 100)}%`; $('mixerFeedbackOut').value = `${Math.round(effects.feedback * 100)}%`;
     }
-    synthEffectEditor?.refresh();
+    synthEffectEditor?.refresh(); noteEffectEditor?.refresh();
     state.decks.forEach((deck, index) => {
       $(`deckOriginal${index}`).disabled = !onOriginal || !originals[index] || loading[index] || originalBusy;
       const ui = deckUIs[index]; if (ui.analysis !== deck.analysis) makeInfo(index, deck.analysis);
@@ -340,6 +341,9 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   }
   engine = new MidiMixerEngine({ onState: reflect });
   performanceView = mountMixerMonitor($('mixerVisualizerHost'), { engine });
+  const noteEffectHost = document.createElement('div'); host.querySelector('.mixer-effects').before(noteEffectHost);
+  noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'mixerNoteFx',
+    getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
   knobs = mountMixerKnobs(host);
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
@@ -498,6 +502,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
     setVolume(value) { engine.setVolume(value); }, setTempo,
     resumeAudioClock() { return engine.context?.state === 'suspended' ? engine.context.resume() : Promise.resolve(); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); noteEffectEditor?.destroy(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }

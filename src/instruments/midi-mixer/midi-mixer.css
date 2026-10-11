@@ -246,3 +246,22 @@
 @media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-switches label, .mixer-stamp-paint { min-height: 48px; } }
 
 @media (pointer: coarse) { .mixer-shell .mixer-tempo-sources .mini-action { min-height: 48px; min-width: 48px; padding: 6px; } }
+
+/* One shared note-effects layer, with instrument-owned state and transport. */
+.midi-note-effects { padding-block: .6rem; min-width: 0; }
+.midi-note-effects summary { cursor: pointer; font-weight: 700; }
+.midi-note-effects summary [data-fx-status] { margin-left: .65rem; color: var(--muted, #a7adbd); font-size: .75rem; font-weight: 400; }
+.midi-note-effects-actions { display: flex; align-items: center; justify-content: space-between; gap: .5rem; margin-block: .65rem; }
+.midi-note-effects-actions label, .midi-note-effects-drums { display: flex; align-items: center; gap: .4rem; font-size: .78rem; }
+.midi-note-effects-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)); gap: .6rem 1rem; align-items: start; }
+.midi-note-effects-fields .control { min-width: 0; margin: 0; }
+.midi-note-effects-fields .control > span:first-child { display: flex; flex-wrap: wrap; gap: .25rem .5rem; align-items: baseline; font-size: .75rem; }
+.midi-note-effects-fields output { color: var(--muted, #a7adbd); font-size: .7rem; }
+.midi-note-effects-fields select { width: 100%; min-width: 0; }
+.midi-note-effects-knob { display: block; width: 42px; height: 42px; margin-top: .25rem; }
+.midi-note-effects-drums { margin-top: .7rem; }
+.midi-note-effects-help { color: var(--muted, #a7adbd); font-size: .73rem; line-height: 1.4; margin: .6rem 0 0; }
+@media (pointer: coarse) {
+  .midi-note-effects summary, .midi-note-effects-actions label, .midi-note-effects-drums { min-height: 48px; align-content: center; }
+  .midi-note-effects-knob { width: 48px; height: 48px; }
+}

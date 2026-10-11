@@ -1,3 +1,4 @@
+import { midiNoteEffectChildren } from '../../midi-note-effects.js';
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../midiphoria/midiphoria-model.js';
 import { MidiphoriaRenderer } from '../midiphoria/midiphoria-renderer.js';
 import { mergeMidiParameters, transformMidiNote } from './midi-mixer-parameters.js';
@@ -11,7 +12,7 @@ const MAX_ACTIVE = 4096;
 export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {} }) {
   const renderer = new MidiphoriaRenderer(canvas), model = new MidiphoriaModel();
   renderer.configure({ colorSource: 'voice', view: 'trails', motion: 0, width: .65, glow: .12, reflection: 'none', trailSeconds: 6 });
-  const activeNotes = new Map(), preview = new Map(), indexes = new WeakMap();
+  const activeNotes = new Map(), scheduledNotes = new Map(), preview = new Map(), indexes = new WeakMap();
   let active = false, disposed = false, frame = null, lastFrame = -Infinity, audioWasEnabled = null, serial = 0;
   function noteMessage(event) {
     return { type: event.type, sourceId: `${event.sourceId}:channel:${event.channel}`, channel: event.channel % 16,
@@ -33,7 +34,7 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
     renderer.captureEvent({ ...event, id, type: 'noteOn', time: at,
       channel: mixerPerformanceChannel(event.sourceId, event.channel) });
   }
-  function clear() { activeNotes.clear(); preview.clear(); model.panic(clock()); renderer.clear(); }
+  function clear() { activeNotes.clear(); scheduledNotes.clear(); preview.clear(); model.panic(clock()); renderer.clear(); }
   const unsubscribe = engine.subscribeNotes(batch => {
     if (!active || disposed || !engine.state.audioEnabled) return;
     if (audioWasEnabled !== true) { clear(); audioWasEnabled = true; }
@@ -55,6 +56,7 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
     let prior = preview.get(key);
     if (!prior || prior.signature !== signature || prior.analysis !== analysis || position < prior.position || position - prior.position > 2 * rate) {
       for (const [id, held] of activeNotes) if (held.event.sourceId === key) release(id, now);
+      for (const [id, held] of scheduledNotes) if (held.event.sourceId === key) scheduledNotes.delete(id);
       prior = { analysis, signature, position: Math.max(0, position - .001), generation: ++serial, seen: new Set() };
       preview.set(key, prior);
     }
@@ -73,7 +75,16 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
       const transformed = transformMidiNote({ ...note, note: note.note + (note.channel % 16 === 9 ? 0 : transpose) }, parameters);
       const noteEnd = Math.min(end, note.beat + note.duration);
       const at = now - Math.max(0, position - note.beat) * secondsPerBeat;
-      attack({ id, type: 'noteOn', sourceId: key, channel: note.channel, note: transformed.note, velocity: transformed.velocity, gain: previewGain }, at, (noteEnd - note.beat) * secondsPerBeat);
+      const children = midiNoteEffectChildren({ ...engine.state.noteEffects, tempo: engine.state.tempo }, transformed.note, transformed.velocity,
+        { drums: Boolean(analysis.channels.find(channel => channel.channel === note.channel)?.drums) });
+      children.forEach((child, childIndex) => {
+        if (scheduledNotes.size + activeNotes.size >= MAX_ACTIVE) return;
+        const event = { id: `${id}:${childIndex}`, type: 'noteOn', sourceId: key, channel: note.channel,
+          note: child.note, velocity: child.velocity, gain: previewGain };
+        const start = at + child.delaySeconds, duration = Math.min((noteEnd - note.beat) * secondsPerBeat, child.gateSeconds);
+        if (start > now) scheduledNotes.set(event.id, { event, at: start, duration });
+        else if (start + duration > now) attack(event, start, duration);
+      });
     }
     // Index ownership is reset at every loop; cap display bookkeeping on long files.
     if (prior.seen.size > 8192) prior.seen = new Set([...prior.seen].slice(-4096));
@@ -103,6 +114,10 @@ export function mountMidiPerformanceMonitor(canvas, { engine, onFrame = () => {}
           const key = `sample:${sample.id}`; sources.add(key);
           previewSource({ key, analysis: sample.analysis, position: sample.positionBeats, tempo: sample.tempo, cycle: sample.cycle,
             gain: sample.gain, midi: sample.midi, end: sample.analysis.durationBeats }, now);
+        }
+        for (const [id, held] of scheduledNotes) {
+          if (!sources.has(held.event.sourceId)) scheduledNotes.delete(id);
+          else if (held.at <= now) { scheduledNotes.delete(id); if (held.at + held.duration > now) attack(held.event, held.at, held.duration); }
         }
         for (const [id, held] of activeNotes) if (!sources.has(held.event.sourceId)) release(id, now);
         for (const key of preview.keys()) if (!sources.has(key)) preview.delete(key);

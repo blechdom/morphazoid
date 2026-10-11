@@ -285,3 +285,33 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 
 .midiphoria-creative-link { display: inline-flex; align-items: center; min-height: 48px; padding: 6px 8px; color: var(--midiphoria-accent); font-size: 12px; text-decoration: none; }
 .midiphoria-creative-link:hover { text-decoration: underline; }
+
+/* MIDI uses Automatapoeia's native thumbnail picker and generation-control
+   layout, retaining this instrument's rectangular surfaces and MIDI units. */
+.midiphoria-automata .automata-rule-picker > summary { display: grid; grid-template-columns: minmax(0, 1fr) 100px auto; align-items: center; gap: 10px; min-height: 72px; padding: 9px 10px; border: 1px solid #3a4845; border-radius: 0; background: #101b1b; list-style: none; }
+.midiphoria-automata .automata-rule-picker > summary::-webkit-details-marker { display: none; }
+.midiphoria-automata .automata-rule-picker > summary:hover, .midiphoria-automata .automata-rule-picker[open] > summary { border-color: #c5acd3; }
+.midiphoria-automata .automata-rule-picker-copy { display: grid; min-width: 0; gap: 4px; }
+.midiphoria-automata .automata-rule-picker-copy > span { color: #9bb5ab; font-size: 10px; }
+.midiphoria-automata .automata-rule-picker-copy strong { font-size: 13px; font-weight: 500; line-height: 1.3; }
+.midiphoria-automata .automata-rule-current-preview { display: block; width: 100%; height: 48px; fill: #caa0db; background: #050c0c; shape-rendering: crispEdges; }
+.midiphoria-automata .automata-rule-picker-chevron { font-size: 20px; }
+.midiphoria-automata .automata-rule-picker[open] .automata-rule-picker-chevron { transform: rotate(180deg); }
+.midiphoria-automata .automata-rule-picker-panel { max-height: min(540px, 65vh); overflow-y: auto; overscroll-behavior: contain; border: 1px solid #3a4845; border-top: 0; padding: 10px; background: #0e1718; }
+.midiphoria-automata .automata-rule-atlas-controls { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 10px; }
+.midiphoria-automata .automata-rule-atlas-status { display: block; margin: 10px 0; font-size: 11px; }
+.midiphoria-automata .automata-rule-picker .automata-midi-rule-list { max-height: none; margin: 0; padding: 2px; }
+.midiphoria-automata .automata-rule-current-preview path, .midiphoria-automata .automata-rule-tile path { fill: currentColor; }
+.midiphoria-automata .automata-rule-current-preview { color: #caa0db; }
+.midiphoria-automata .automata-midi-rule-stepper, .midiphoria-automata .automata-midi-seed-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.midiphoria-automata .automata-midi-live-controls { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; margin-top: 6px; }
+.midiphoria-automata .automata-midi-rule-settings { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; }
+.midiphoria-automata .automata-midi-control-heading { font-size: 12px; font-weight: 500; margin: 6px 0 0; }
+.midiphoria-automata .automata-midi-rule-lookup { display: grid; gap: 7px; margin-top: 18px; font-size: 11px; }
+.midiphoria-automata .automata-midi-rule-lookup > span { color: #9bb5ab; }
+.midiphoria-automata .automata-midi-rule-lookup code { overflow-x: auto; white-space: nowrap; font-size: 11px; }
+@media (max-width: 500px) {
+  .midiphoria-automata .automata-rule-picker > summary { grid-template-columns: minmax(0, 1fr) 78px auto; }
+  .midiphoria-automata .automata-rule-atlas-controls { grid-template-columns: minmax(0, 1fr); }
+  .midiphoria-automata .automata-midi-live-controls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
