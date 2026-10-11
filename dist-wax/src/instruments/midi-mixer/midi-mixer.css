@@ -10,6 +10,7 @@
 .mixer-secondary-controls .mixer-weave { margin: 0; }
 .mixer-level-bank { display: flex; align-items: start; gap: 12px; min-width: 0; }
 .mixer-source-levels { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; flex: 1; min-width: 0; }
+.mixer-source-levels:not(:has(#mixerSampleLevel)) { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .mixer-source-volume { min-width: 0; }
 .mixer-shell .mixer-source-volume > span:first-child { flex-direction: column; gap: 4px; }
 .mixer-source-volume b { white-space: nowrap; }
@@ -209,7 +210,8 @@
 .mixer-stamp-shape-controls input[type="range"] { width: 100%; min-width: 0; }
 .mixer-stamp-actions { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; }
 .mixer-stamp-switches, #mixerStampHint { grid-column: 1 / -1; font-size: 11px; }
-.mixer-stamp-switches { display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.mixer-stamp-switches { grid-column: 2; display: flex; flex-wrap: wrap; gap: 4px 20px; }
+.mixer-stamp-paint { display: flex; align-items: center; gap: 8px; grid-column: 1 / -1; font-size: 11px; min-height: 28px; cursor: pointer; }
 .mixer-stamp-switches label { display: flex; align-items: center; gap: 8px; min-height: 28px; cursor: pointer; }
 #mixerStampHint { color: #9bb5ab; line-height: 1.5; }
 .mixer-stamp-credit { font-size: 10px; color: #a8c5bd; }
@@ -241,6 +243,6 @@
   .mixer-sample-controls select { max-width: 210px; }
   .mixer-sample-bank { max-height: 248px; }
 }
-@media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-switches label { min-height: 48px; } }
+@media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-switches label, .mixer-stamp-paint { min-height: 48px; } }
 
 @media (pointer: coarse) { .mixer-shell .mixer-tempo-sources .mini-action { min-height: 48px; min-width: 48px; padding: 6px; } }

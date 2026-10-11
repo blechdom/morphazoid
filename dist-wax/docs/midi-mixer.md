@@ -12,9 +12,11 @@ transport controls. **A tempo** and **B tempo** sit beside the shared tempo knob
 Drag any mixer knob vertically, hold Shift for finer movement, or use its arrow
 keys. Exact numeric MIDI editors remain available beside their knobs. Each voice
 name has inline **M** (mute) and **S** (solo) buttons aligned with its activity row.
-Volume A, Volume B, and Black MIDI share a row near the transport; Black MIDI
-controls both active stamps and the next launch. Stamp and generation tools follow
-the decks. Generated drawings, messages, and patterns default to acoustic piano.
+Volume A and Volume B sit near the mixer transport. Black MIDI volume and the
+searchable stamp bank are in **Draw a MIDI**; that volume controls both active
+stamps and the next launch. **Automatapoeia** has its own tab. These three views
+share one sound engine and tempo; switching between them keeps playback running.
+Opening Draw or Automatapoeia does not load or start the decks. Generated drawings, messages, and patterns default to acoustic piano.
 Pitch span reaches 128 notes (MIDI 0–127), including drawings sent with Play drawing;
 the drawing’s lowest-note control adjusts to keep its selected span within that range.
 
@@ -148,9 +150,9 @@ from their current positions; Stop returns the pattern to its beginning.
 
 ## Automatapoeia rule stamps
 
-The **Automatapoeia rules** pulldown beside the stamp bank generates MIDI from
-all 256 elementary and 64 totalistic rules. **Stamp rule** launches the selected
-pattern and selects it for **Stamp again** and pitch placement on the flow.
+The **Automatapoeia** tab generates MIDI from all 256 elementary and 64 totalistic
+rules. **Play rule** launches the selected pattern and selects it for pitch
+placement on the flow. The rule editor stays visible during playback.
 Its seed, dimensions, articulation, timing and boundary controls affect the next
 shot. Existing deck playback keeps going; sample sound, level, key gate and
 **Stamp MIDI** edits work on rule stamps too. See the [rule mapping and limits](midiphoria.md#automatapoeia-rules-as-midi).
@@ -163,7 +165,7 @@ colors. Muted parts stop adding new notes to the live graphic while their
 full-file activity maps remain available below. Graphics follow note events; rendering
 does not schedule the sound.
 
-The searchable stamp palette includes 30 generated pictures and textures:
+In **Draw a MIDI**, the searchable stamp palette includes 30 generated pictures and textures:
 Heart, Square, Zigzag, Polka dots, Plaid, Stripes, Drips, Glob, Glooob,
 Noise, Scatter, Explode and more. The thumbnails show the actual pitch/time
 cells that become MIDI notes. Density changes line thickness or particle
@@ -171,8 +173,8 @@ population; Pitch span covers 12–128 chromatic notes; Length spans 4–32 beat
 Variation changes the reproducible seed for irregular patterns. Literal icons
 and fixed grids retain their geometry when only the seed changes.
 
-Tap a button to launch it. With **Paint flow** enabled, click or drag across
-the common canvas to launch the selected stamp at different pitches. Horizontal
+In Draw, tap a button to launch it. With **Paint flow** enabled, click or drag across
+the live flow to launch the selected stamp at different pitches. Horizontal
 position shifts the whole shape without clipping its notes; vertical position
 does not seek the mix. Enter launches the selected stamp when the canvas has
 keyboard focus. Drag launches are spaced by at least half a shared beat (and
@@ -223,15 +225,15 @@ preserves its position; turning it off on a queued stamp starts it immediately.
 Loop and Sync update both active stamps and subsequent launches. Neither
 control arms Audio or changes deck transport. Stamps can play while the decks
 are paused. **Stop samples** clears just the sample layer; Pause or Stop
-releases both decks and stamps. Audio off and leaving the mixer also cancel
-queued and looping stamps.
+releases both decks and stamps. Audio off and switching to Visualize also cancel
+queued and looping stamps. Draw, Automatapoeia and Mixer tab changes preserve them.
 
 Up to four shots can overlap; a fifth replaces the oldest. Picture, sample
 sound, sample level, Loop, Sync and stamp controls are live performance controls, retained when recalling
 deck mix presets. The sample layer shares the mixer's SoundFont and effects.
 Editing stamp controls affects subsequent launches and keeps current playback
 running. Stopping samples, stopping/pausing the mix, turning Audio off or
-leaving the mixer cancels a pending file-stamp load. Only two parsed file
+switching to Visualize cancels a pending file-stamp load. Only two parsed file
 stamps are cached; downloads are lazy and cancelable.
 
 ## Black MIDI tools and references
@@ -295,7 +297,7 @@ Audio activation; Stop or Reset cancels that pending play request.
 - Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
   instrument sounds. Shared filter and delay controls shape the mixed output
   without creating another audio context. The import applies to both mixer decks;
-  it does not replace the visualizer/drawing SoundFont.
+  it also applies in Draw and Automatapoeia; Visualize keeps its own SoundFont.
 
 Audio and Play are separate. Starting playback, loading a file, changing a
 preset or tapping tempo does not arm Audio. Turning Audio off leaves the
