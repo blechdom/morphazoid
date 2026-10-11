@@ -1925,3 +1925,8 @@ copy+require	assets/sound-fonts/jaw-harp/LICENSE.txt
 copy+require	assets/sound-fonts/lately-bass/LatelyBass 20240409.sf2
 copy+require	assets/sound-fonts/lately-bass/README.txt
 copy+require	assets/sound-fonts/lately-bass/LICENSE.txt
+
+# Shared MIDI note effects and Midiophilia worklet scheduling.
+copy+require	src/midi-note-effects.js
+copy+require	src/midi-note-effects-controls.js
+copy+require	src/instruments/midiphoria/midiphoria-processor.js

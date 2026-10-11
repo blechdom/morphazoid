@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readMidiNoteEffectsRuntimeReference as readFile } from './helpers/midi-note-effects-runtime-reference.mjs';
 import test from 'node:test';
 import { restoreSoundFontsSite, soundFontsSiteChanges } from './helpers/sound-fonts-site-reference.mjs';
 import { readTrackazoidSiteReference, restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';

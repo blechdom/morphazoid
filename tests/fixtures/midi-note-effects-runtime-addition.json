@@ -1,0 +1,12 @@
+{
+  "baseCommit": "30ab06fd8d11aec396e17afdb84139d092e24b08",
+  "description": "Exactly three reviewed runtime modules for MIDI note effects and Midiophilia audio-clock scheduling; historical hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "c2fd64eab262a8d8d7dd702295eeee6286233a3aa87a9c11ff3d4cddade10dad",
+  "rows": [
+    "copy+require\tsrc/midi-note-effects.js\n",
+    "copy+require\tsrc/midi-note-effects-controls.js\n",
+    "copy+require\tsrc/instruments/midiphoria/midiphoria-processor.js\n"
+  ],
+  "addition": "\n# Shared MIDI note effects and Midiophilia worklet scheduling.\ncopy+require\tsrc/midi-note-effects.js\ncopy+require\tsrc/midi-note-effects-controls.js\ncopy+require\tsrc/instruments/midiphoria/midiphoria-processor.js\n"
+}
