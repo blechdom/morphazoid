@@ -1,0 +1,15 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+export const fractalDelayFavesAmendment = JSON.parse(readFileSync(
+  new URL('../fixtures/fractal-delay-faves-amendment.json', import.meta.url), 'utf8',
+));
+
+/** Reverse only the approved Faves entry before older catalogue comparisons. */
+export function restoreFractalDelayFaves(source, file, { allowRestored = false } = {}) {
+  const change = fractalDelayFavesAmendment;
+  if (file !== change.file) return source;
+  if (allowRestored && !source.includes(change.after) && source.split(change.before).length === 2) return source;
+  assert.equal(source.split(change.after).length - 1, 1, `${file}: exact Fractal Delay Faves addition`);
+  return source.replace(change.after, change.before);
+}

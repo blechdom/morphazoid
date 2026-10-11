@@ -19,6 +19,7 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "puggler",
   "micmic",
   "micmic-rust",
+  "fractal-delay",
   "l-system",
   "graph-delay",
   "graph-synth",

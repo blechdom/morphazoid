@@ -52,6 +52,28 @@ for (const layout of [
     test.use({ viewport: { width: layout.width, height: layout.height }, hasTouch: layout.touch });
     test("next arrow is reachable, preserves Choose, and reaches a silent instrument", async ({ page, baseURL }) => {
       const diagnostics = watchPageDiagnostics(page, { baseURL });
+      await page.goto("index.html");
+      await settlePage(page);
+      const faves = page.locator('.catalogue-group[data-category-id="faves"]');
+      const tile = faves.locator('.instrument-card[data-instrument-id="fractal-delay"]');
+      await expect(tile).toHaveCount(1);
+      await expect(tile.locator('.instrument-card-title')).toHaveText("Fractal Delay");
+      await expect(tile.locator('.instrument-card-image')).toHaveAttribute("src", "assets/instrument-icons/fractal-delay.webp");
+      const link = tile.locator('.instrument-card-link');
+      await expect(link).toHaveAttribute("href", "fractal-delay.html");
+      await expect(page.locator('.instrument-picker-group[data-group-id="faves"] .instrument-picker-link[data-tool-id="fractal-delay"]'))
+        .toHaveAttribute("href", /\/fractal-delay\.html$/);
+      await link.scrollIntoViewIfNeeded();
+      const sameLayout = await tile.evaluate(node => {
+        const other = node.parentElement.querySelector('[data-instrument-id="micmic-rust"]');
+        const properties = ['display', 'padding', 'borderRadius', 'gridTemplateRows'];
+        return node.className === other.className && properties.every(key => getComputedStyle(node)[key] === getComputedStyle(other)[key]);
+      });
+      expect(sameLayout).toBe(true);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
+      await link.click();
+      await expect(page).toHaveURL(/\/fractal-delay\.html$/);
+      await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
       await page.goto("hiccup-head.html?tour-source=1#source");
       await settlePage(page);
       const next = page.getByRole("link", { name: "Next instrument: Synthesaurus", exact: true });
@@ -87,8 +109,8 @@ for (const layout of [
 test("canonical routes and WAX navigation keep the correct next instrument and site root", async ({ page }) => {
   await page.goto("shape-synth.html?tour-source=1#source");
   await settlePage(page);
-  await page.getByRole("link", { name: "Next instrument: Solid", exact: true }).click();
-  await expect(page).toHaveURL(/\/solid-synth\.html$/);
+  await page.getByRole("link", { name: "Next instrument: Blobs", exact: true }).click();
+  await expect(page).toHaveURL(/\/blobs\.html$/);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
   await page.goto("dist-wax/hiccup-head.html");
   await settlePage(page);

@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
 
@@ -8,8 +9,24 @@ import { FAVE_TOOL_IDS, TOOL_GROUPS, SITE_LINKS, NAVIGATION_BASE_URL } from "../
 import { INSTRUMENTS, INSTRUMENT_GROUPS } from "../src/site/instrument-catalog.js";
 import { removedInstrumentIds } from "./helpers/catalogue-plan.mjs";
 import { restoreSynthesaurusIcon, synthesaurusIconChanges } from "./helpers/synthesaurus-icon-reference.mjs";
+import { restoreFractalDelayFaves, fractalDelayFavesAmendment } from "./helpers/fractal-delay-faves-reference.mjs";
 
 const snapshot = JSON.parse(await readFile(new URL("./fixtures/instrument-registry-v1.json", import.meta.url)));
+
+test("Fractal Delay Faves addition preserves exact prior registry bytes and rejects missing or duplicate entries", async () => {
+  const change = fractalDelayFavesAmendment;
+  const source = await readFile(new URL(`../${change.file}`, import.meta.url), "utf8");
+  const restored = restoreFractalDelayFaves(source, change.file);
+  assert.equal(createHash("sha256").update(restored).digest("hex"), change.sha256);
+  assert.equal(restoreFractalDelayFaves(restored, change.file, { allowRestored: true }), restored);
+  assert.throws(() => restoreFractalDelayFaves(restored, change.file), /exact Fractal Delay Faves addition/);
+  assert.throws(() => restoreFractalDelayFaves(source + change.after, change.file), /exact Fractal Delay Faves addition/);
+  assert.throws(() => restoreFractalDelayFaves(source.replace(change.after, change.after.replace("fractal-delay", "unreviewed")), change.file), /exact Fractal Delay Faves addition/);
+  const drift = "\n// unrelated drift\n";
+  assert.ok(restoreFractalDelayFaves(source + drift, change.file).endsWith(drift));
+  assert.notEqual(createHash("sha256").update(restoreFractalDelayFaves(source + drift, change.file)).digest("hex"), change.sha256);
+  assert.equal(restoreFractalDelayFaves("untouched", "unrelated.js"), "untouched");
+});
 
 test("Synthesaurus uses its dedicated dinosaur / synth / compendium icon", async () => {
   const tool = TOOL_GROUPS.flatMap(group => group.tools).find(item => item.id === "synthesis");

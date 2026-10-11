@@ -60,6 +60,8 @@ reordered.splice(reordered.indexOf("hyper-rubix") + 1, 0, "puggler");
 reordered.splice(reordered.indexOf("hiccup-head") + 1, 0, "synthesis");
 // Native Delay stays beside its original in the owner-requested webapp.
 reordered.splice(reordered.indexOf("micmic") + 1, 0, "micmic-rust");
+// Owner follow-up October 11: Fractal Delay joins the related delay in Faves.
+reordered.splice(reordered.indexOf("micmic-rust") + 1, 0, "fractal-delay");
 // Shapes replaces the three individual geometry instruments in the first
 // Faves section. Their ordinary Geometric catalogue records remain intact.
 export const expectedFaveToolIds = Object.freeze([
