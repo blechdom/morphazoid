@@ -112,7 +112,7 @@ export class MidiphoriaModel {
     return { ...next };
   }
 
-  handleMessage(input, now = this._now) {
+  handleMessage(input, now = this._now, { routed = false } = {}) {
     const message = normalize(input);
     if (!message) return false;
     this._advance(now);
@@ -128,7 +128,7 @@ export class MidiphoriaModel {
       this._releaseScope(sourceId, channel, false);
       return true;
     }
-    if (this.options.channel !== -1 && this.options.channel !== channel) return false;
+    if (!routed && this.options.channel !== -1 && this.options.channel !== channel) return false;
     if (type === 'controlChange' && message.controller === 64) {
       if (message.value >= 64) {
         if (!this._pedals.has(scope) && this._pedals.size >= CONTROL_LIMIT) {
@@ -139,7 +139,7 @@ export class MidiphoriaModel {
       } else this._releasePedal(sourceId, channel);
       this._updateGate();
     }
-    const mapped = this.options.trigger === 'mapped';
+    const mapped = !routed && this.options.trigger === 'mapped';
     if (type === 'noteOn' || type === 'noteOff') {
       const key = noteKey(message);
       if (mapped && (this.options.mappedType !== 'note' || this.options.mappedNumber !== message.note
