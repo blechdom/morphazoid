@@ -141,11 +141,14 @@ export class MidiMixerEngine {
     if (view.getUint32(0) !== 0x52494646 || view.getUint32(8) !== 0x7366626b) throw new Error('This is not an SF2 or SF3 SoundFont.');
     const font = { buffer: buffer.slice(0), name: String(name).slice(0, 128) };
     if (!this._ready) { this._font = font; this._fontName = font.name; this._publish(); return true; }
+    return this._uploadSoundFont(font, true);
+  }
+  _uploadSoundFont(font, commitSelection = false) {
     const token = ++this._serial;
     return new Promise((resolve, reject) => {
       const timer = this.runtime.setTimeout(() => { this._fontWaits.delete(token); reject(new Error('The SoundFont took too long to load.')); }, 30000);
-      this._fontWaits.set(token, { resolve, reject, font, timer });
-      const copy = buffer.slice(0); this.node.port.postMessage({ type: 'soundfont', soundfont: copy, token }, [copy]);
+      this._fontWaits.set(token, { resolve, reject, font, timer, commitSelection });
+      const copy = font.buffer.slice(0); this.node.port.postMessage({ type: 'soundfont', soundfont: copy, token }, [copy]);
     });
   }
   configureChannel(index, channel, partial) {
@@ -169,7 +172,8 @@ export class MidiMixerEngine {
   }
   async _initialize(context) {
     this._abort = new AbortController();
-    const response = this._font ? Promise.resolve(this._font.buffer.slice(0)) : this.runtime.fetch(SOUNDFONT_URL.href, { signal: this._abort.signal }).then(async response => { if (!response.ok) throw new Error(`Could not load the SoundFont (${response.status}).`); return response.arrayBuffer(); });
+    const requestedFont = this._font;
+    const response = requestedFont ? Promise.resolve(requestedFont.buffer.slice(0)) : this.runtime.fetch(SOUNDFONT_URL.href, { signal: this._abort.signal }).then(async response => { if (!response.ok) throw new Error(`Could not load the SoundFont (${response.status}).`); return response.arrayBuffer(); });
     const resources = Promise.all([context.audioWorklet.addModule(WORKLET_URL.href), response]);
     const [, soundfont] = await this._wait(resources, 'The MIDI audio resources took too long to load.');
     if (this._disposed || this.context !== context) throw new Error('MIDI mixer initialization cancelled.');
@@ -197,18 +201,41 @@ export class MidiMixerEngine {
         const request = this._fontWaits.get(data.token); if (!request) return;
         this.runtime.clearTimeout(request.timer); this._fontWaits.delete(data.token);
         if (data.error) request.reject(new Error(data.error));
-        else { this._font = request.font; this._fontName = request.font.name; request.resolve(true); this._publish(); }
+        else {
+          // Initialization uploads must not overwrite a newer pending choice.
+          if (request.commitSelection) { this._font = request.font; this._fontName = request.font.name; }
+          request.resolve(true); this._publish();
+        }
       }
       else if (data.type === 'error') { const error = new Error(data.message); rejectReady(error); this._processorFailed(error); }
       else if (data.type === 'state') {
+        // Until startup transfers the silent transport phase, processor beat 0
+        // describes an unstarted clock, including intermediate bank uploads.
+        if (!this._ready) return;
         // The audio thread is authoritative; rendering only interpolates telemetry.
         this._beat = data.beat; this._audioAnchor = data.at; this._audioTempo = data.tempo;
         this._skippedEvents = data.skippedEvents; this._voices = data.voices; this._droppedVisualEvents = data.droppedVisualEvents; this._publish();
       } else if (data.type === 'notes') safeCall(this.onNotes, data.notes);
       else if (data.type === 'loaded' && this._decks[data.index]?.token === data.token) { this._decks[data.index].loaded = true; this._publish(); }
     };
-    node.port.postMessage({ type: 'initialize', soundfont }, [soundfont]);
+    // A selection may have changed while the worklet or default bank fetched.
+    // Descriptor identity is its revision; keep the graph muted until the latest
+    // requested revision is acknowledged by the processor.
+    let activeFont = this._font;
+    const initialBank = activeFont !== requestedFont ? activeFont.buffer.slice(0) : soundfont;
+    node.port.postMessage({ type: 'initialize', soundfont: initialBank }, [initialBank]);
     await this._wait(initialized, 'The MIDI sound engine did not become ready.');
+    while (!this._disposed && this.context === context && this._font !== activeFont) {
+      const pendingFont = this._font;
+      try { await this._uploadSoundFont(pendingFont); activeFont = pendingFont; }
+      catch (error) {
+        if (this._disposed || this.context !== context) throw error;
+        // A bad replacement must leave the already validated bank usable.
+        if (this._font === pendingFont) {
+          this._font = activeFont; this._fontName = activeFont?.name ?? 'TimGM6mb'; this._error = error.message;
+        }
+      }
+    }
     if (this._disposed || this.context !== context) throw new Error('MIDI mixer initialization cancelled.');
     this._freezeClock(); this._ready = true; this._audioAnchor = context.currentTime; this._audioTempo = this._tempo;
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });

@@ -164,3 +164,55 @@ test('long imported timelines can seek beyond two thousand beats', async () => {
   engine.configureDeck(0, { offsetBeats: 3500000 }); assert.equal(engine.state.decks[0].config.offsetBeats, 3500000);
   await engine.dispose();
 });
+function deferredFontRuntime() {
+  const pending = { contexts: [], uploads: [], initialized: null, fetchResolve: null, now: 0, transport: null };
+  const parameter = () => ({ value: 0, cancelAndHoldAtTime() {}, cancelScheduledValues() {}, setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime(value) { this.value = value; }, setTargetAtTime(value) { this.value = value; } });
+  class Node {
+    constructor() { for (const name of ['gain', 'frequency', 'Q', 'delayTime', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[name] = parameter(); }
+    connect() {} disconnect() {} addEventListener() {} removeEventListener() {}
+  }
+  class Context {
+    constructor() { pending.contexts.push(this); this.currentTime = 0; this.sampleRate = 48000; this.state = 'running'; this.audioWorklet = { addModule: async () => {} }; }
+    createGain() { return new Node(); } createDynamicsCompressor() { return new Node(); } createWaveShaper() { return new Node(); } createBiquadFilter() { return new Node(); } createDelay() { return new Node(); }
+    addEventListener() {} removeEventListener() {} async resume() {} async close() { this.state = 'closed'; }
+  }
+  class Worklet extends Node {
+    constructor() {
+      super(); this.port = { onmessage: null, close() {}, postMessage: message => {
+        if (message.type === 'transport') pending.transport = message;
+        if (message.type === 'initialize') pending.initialized = { message, ready: () => this.port.onmessage({ data: { type: 'ready' } }) };
+        if (message.type === 'soundfont') pending.uploads.push({ message, complete: error => this.port.onmessage({ data: { type: 'soundfont', token: message.token, error } }) });
+      } };
+    }
+  }
+  return { pending, runtime: { AudioContext: Context, AudioWorkletNode: Worklet, setTimeout, clearTimeout, performance: { now: () => pending.now }, fetch: () => new Promise(resolve => { pending.fetchResolve = buffer => resolve({ ok: true, arrayBuffer: async () => buffer }); }) } };
+}
+const taggedFont = marker => new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 115, 102, 98, 107, marker]).buffer;
+async function untilMicrotasks(predicate) { for (let i = 0; i < 100 && !predicate(); i++) await Promise.resolve(); assert.ok(predicate()); }
+test('the latest SoundFont selection wins changes during fetch, processor initialization and pending bank acknowledgement', async () => {
+  const { runtime, pending } = deferredFontRuntime(), engine = new MidiMixerEngine({ runtime, connectOutput: () => () => {} });
+  await engine.loadDeck(0, generateTextMidi('A').buffer); engine.play(); pending.now = 6000; engine.pause(); engine.play(); pending.now = 7000;
+  const arming = engine.enableAudio();
+  await engine.loadSoundFont(taggedFont(2), 'During fetch'); pending.fetchResolve(taggedFont(1));
+  await untilMicrotasks(() => pending.initialized);
+  assert.equal(new Uint8Array(pending.initialized.message.soundfont)[12], 2);
+  await engine.loadSoundFont(taggedFont(3), 'During processor startup'); pending.initialized.ready();
+  await untilMicrotasks(() => pending.uploads.length === 1);
+  engine.node.port.onmessage({ data: { type: 'state', beat: 0, at: 0, tempo: 120, skippedEvents: 0, voices: 0, droppedVisualEvents: 0 } });
+  assert.equal(engine.state.beat, 14, 'intermediate bank telemetry cannot replace the silent transport phase');
+  assert.equal(engine.state.audioEnabled, false, 'arming stays muted until the pending bank is active');
+  await engine.loadSoundFont(taggedFont(4), 'Newest bank'); pending.uploads[0].complete();
+  await untilMicrotasks(() => pending.uploads.length === 2); pending.uploads[1].complete();
+  assert.equal(await arming, true);
+  assert.deepEqual(pending.uploads.map(upload => new Uint8Array(upload.message.soundfont)[12]), [3, 4]);
+  assert.equal(engine.state.soundfontName, 'Newest bank'); assert.equal(new Uint8Array(engine._font.buffer)[12], 4);
+  assert.equal(pending.contexts.length, 1); assert.equal(pending.transport.beat, 14); await engine.dispose();
+});
+test('a malformed pending SoundFont during arming retains the acknowledged working bank', async () => {
+  const { runtime, pending } = deferredFontRuntime(), engine = new MidiMixerEngine({ runtime, connectOutput: () => () => {} });
+  const arming = engine.enableAudio(); pending.fetchResolve(taggedFont(1)); await untilMicrotasks(() => pending.initialized);
+  await engine.loadSoundFont(taggedFont(2), 'Malformed bank'); pending.initialized.ready();
+  await untilMicrotasks(() => pending.uploads.length === 1); pending.uploads[0].complete('Invalid SoundFont sample data');
+  assert.equal(await arming, true); assert.equal(engine.state.soundfontName, 'TimGM6mb'); assert.equal(engine._font, null);
+  assert.match(engine.state.error, /Invalid SoundFont/); assert.equal(pending.contexts.length, 1); await engine.dispose();
+});
