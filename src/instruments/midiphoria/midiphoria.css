@@ -282,3 +282,6 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-creative #creativeActionHost button { min-height: 44px; background: #96f4cc; color: #07110b; border-color: #96f4cc; }
 .midiphoria-creative #creativeActionHost button[hidden] { display: none; }
 @media (pointer: coarse) { .midiphoria-creative #creativeActionHost button { min-height: 48px; } }
+
+.midiphoria-creative-link { display: inline-flex; align-items: center; min-height: 48px; padding: 6px 8px; color: var(--midiphoria-accent); font-size: 12px; text-decoration: none; }
+.midiphoria-creative-link:hover { text-decoration: underline; }
