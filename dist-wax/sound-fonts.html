@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Sound Fonts — Morphazoid" />
+    <meta property="og:description" content="Collect, audition, and create SoundFonts in Morphazoid. Import SF2 banks or turn your own samples into a new instrument." />
+    <meta property="og:url" content="https://morphazoid.com/sound-fonts.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Sound Fonts — Morphazoid" />
+    <meta name="twitter:description" content="Collect, audition, and create SoundFonts in Morphazoid. Import SF2 banks or turn your own samples into a new instrument." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#07090b" />
+    <meta name="description" content="Collect, audition, and create SoundFonts in Morphazoid. Import SF2 banks or turn your own samples into a new instrument." />
+    <title>Sound Fonts — Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/site/sound-fonts/sound-fonts.css" />
+  </head>
+  <body class="sound-fonts-page">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+      <nav class="tabs" aria-label="Morphazoid main menu"><a href="./">Instruments</a></nav>
+      <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="">choose</option></select></label>
+      <div id="audioControl"></div>
+    </header>
+    <main class="sf-shell">
+      <header class="sf-intro">
+        <div><p class="sf-eyebrow">THE MORPHAZOID SOUND LIBRARY</p><h1>Sound Fonts<span class="sf-title-dot" aria-hidden="true">.</span></h1><p class="sf-lede">A home for sounds you find. A workshop for sounds you make.</p></div>
+        <div class="sf-actions"><button id="importButton" class="sf-button" type="button">↓ Import SF2</button><button id="createButton" class="sf-button sf-primary" type="button">＋ Make a font</button></div>
+        <input id="fontFiles" class="sr-only" type="file" accept=".sf2" multiple tabindex="-1" aria-label="Import SoundFont files" />
+      </header>
+      <div class="sf-nav" role="group" aria-label="Sound font sections">
+        <button type="button" data-view="collection" aria-pressed="true">Collection <span id="fontCount">0</span></button>
+        <button type="button" data-view="workshop" aria-pressed="false">Workshop</button>
+        <button type="button" data-view="sources" aria-pressed="false">Find sounds</button>
+      </div>
+      <p id="status" class="sf-status" role="status">Opening your library…</p>
+      <p id="error" class="sf-error" role="alert" hidden></p>
+
+      <section id="collectionView" aria-label="Sound font collection">
+        <div class="sf-library-layout">
+          <div class="sf-library">
+            <div class="sf-library-tools"><label class="sf-search"><span class="sr-only">Search collection</span><input id="search" type="search" placeholder="Search sounds, makers, or notes…" /></label><button id="addLinkButton" class="sf-button sf-quiet" type="button">＋ Save a link</button></div>
+            <div id="filters" class="sf-filters" role="group" aria-label="Filter collection"><button type="button" data-filter="all" aria-pressed="true">All sounds</button><button type="button" data-filter="favorite" aria-pressed="false">★ Favorites</button><button type="button" data-filter="imported" aria-pressed="false">Imported</button><button type="button" data-filter="created" aria-pressed="false">Made here</button><button type="button" data-filter="link" aria-pressed="false">Links</button></div>
+            <div class="sf-list-heading"><span>SOUND / INSTRUMENT</span><span>FORMAT</span></div>
+            <div id="fontList" class="sf-font-list" aria-label="Saved sound fonts"></div>
+            <div id="emptyState" class="sf-empty" hidden><h2>No sounds here yet.</h2><p>Import an SF2, save a source link, or make something new in the workshop.</p><button type="button" class="sf-button" id="emptyCreate">Open workshop →</button></div>
+        <section class="sf-keyboard-section" aria-label="Play selected sound font"><div class="sf-keyboard-heading"><h2>Try a few notes</h2><span id="keyboardHint">Audio off · click keys or use your computer keyboard</span></div><div id="keyboard" class="sf-keyboard"></div></section>
+          </div>
+          <aside class="sf-inspector" aria-label="Selected sound font">
+            <div id="inspectorEmpty" class="sf-empty"><h2>Pick a sound.</h2><p>Select a font to explore its presets and play a few notes.</p></div>
+            <div id="inspectorContent" hidden>
+              <div class="sf-inspector-top"><span id="selectedKind" class="sf-eyebrow"></span><button id="favoriteButton" class="sf-icon-button" type="button" aria-label="Add to favorites" aria-pressed="false">☆</button></div>
+              <h2 id="selectedName"></h2><p id="selectedAuthor" class="sf-muted"></p>
+              <canvas id="waveform" width="600" height="150" aria-label="Waveform of the selected sound sample"></canvas>
+              <div id="playableDetails"><label class="sf-field">Preset<select id="presetSelect"></select></label><div class="sf-preview-actions"><button id="auditionButton" type="button" class="sf-button sf-primary">▶ Preview sound</button><button id="stopButton" type="button" class="sf-button">Stop</button></div><p class="sf-muted sf-small">Turn Audio on, then play. Sample preview; advanced bank effects may differ.</p></div>
+              <p id="linkOnlyNotice" class="sf-muted" hidden>Saved source link. Download an SF2 from its maker, then import it to play here.</p>
+              <dl class="sf-details"><div><dt>Contents</dt><dd id="selectedStats"></dd></div><div><dt>License</dt><dd id="selectedLicense"></dd></div></dl>
+              <p id="selectedNotes" class="sf-muted"></p><p id="fontWarnings" class="sf-muted sf-small"></p>
+              <div class="sf-actions"><button id="downloadButton" type="button" class="sf-button">↓ Download SF2</button><a id="sourceLink" class="sf-source-link" target="_blank" rel="noopener noreferrer" hidden>Visit source ↗</a></div>
+              <details class="sf-edit"><summary>Edit details</summary><form id="editForm"><label class="sf-field">Name<input id="editName" required maxlength="100" /></label><label class="sf-field">Creator<input id="editAuthor" maxlength="100" /></label><label class="sf-field">Source URL<input id="editSource" type="url" placeholder="https://" maxlength="2000" /></label><label class="sf-field">License<input id="editLicense" maxlength="300" /></label><label class="sf-field">Notes<textarea id="editNotes" rows="3" maxlength="2000"></textarea></label><button type="submit" class="sf-button">Save details</button></form></details>
+              <button id="deleteButton" class="sf-delete" type="button">Remove from collection</button>
+            </div>
+          </aside>
+        </div>
+
+      </section>
+
+      <section id="workshopView" aria-labelledby="workshopTitle" hidden>
+        <div class="sf-workshop-layout">
+          <form id="workshopForm" class="sf-workshop-form">
+            <p class="sf-eyebrow">FROM AN IDEA TO AN INSTRUMENT</p><h2 id="workshopTitle">Make your own.</h2><p class="sf-muted">Start with an original synthesized sound or bring a sample. Shape it, play it, and export an SF2.</p>
+            <label class="sf-field">Font name<input id="fontName" value="Untitled experiment" required maxlength="100" /></label>
+            <fieldset class="sf-source-options"><legend>01 / Choose a starting point</legend><label><input type="radio" name="sourceKind" value="glass" checked /><span>Glass bell<small>Bright, ringing partials</small></span></label><label><input type="radio" name="sourceKind" value="warm" /><span>Warm wave<small>Soft, rounded harmonics</small></span></label><label><input type="radio" name="sourceKind" value="pluck" /><span>Wire pluck<small>A short, textured attack</small></span></label><label><input type="radio" name="sourceKind" value="sample" /><span>Your sample<small>WAV, MP3, or other browser audio</small></span></label></fieldset>
+            <div id="sampleFields" hidden><label class="sf-field">Audio sample<input id="sampleFile" type="file" accept="audio/*" /></label><p id="sampleInfo" class="sf-muted sf-small">One sample, up to 30 seconds and 20 MB. Stereo is mixed to mono.</p></div>
+            <fieldset class="sf-shape-fields"><legend>02 / Shape the sound</legend><div class="sf-two-fields"><label class="sf-field">Root note<select id="rootKey"><option value="48">C3 · 130.81 Hz</option><option value="57">A3 · 220 Hz</option><option value="60" selected>C4 · 261.63 Hz</option><option value="69">A4 · 440 Hz</option><option value="72">C5 · 523.25 Hz</option></select></label><label class="sf-field" id="durationField">Length <output id="durationOut" for="duration">2.0 s</output><input id="duration" type="range" min="0.3" max="5" step="0.1" value="2" /></label></div><label class="sf-field" id="brightnessField">Brightness <output id="brightnessOut" for="brightness">50%</output><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.5" /></label><div class="sf-two-fields"><label class="sf-field">Attack <output id="attackOut" for="attack">0.01 s</output><input id="attack" type="range" min="0.001" max="1" step="0.001" value="0.01" /></label><label class="sf-field">Release <output id="releaseOut" for="release">0.35 s</output><input id="release" type="range" min="0.02" max="3" step="0.01" value="0.35" /></label></div></fieldset>
+            <details class="sf-edit"><summary>Credits and notes</summary><label class="sf-field">Creator<input id="fontAuthor" placeholder="Your name" maxlength="100" /></label><label class="sf-field">License or usage notes<input id="fontLicense" placeholder="Add permission or license details" maxlength="300" /></label><label class="sf-field">Description<textarea id="fontNotes" maxlength="2000" rows="2" placeholder="What does it sound like? Where will you use it?"></textarea></label></details>
+            <div class="sf-workshop-actions"><button id="previewDraft" type="button" class="sf-button">▶ Preview draft</button><button id="saveFont" type="submit" class="sf-button sf-primary">Create sound font →</button></div>
+          </form>
+          <aside class="sf-workshop-visual"><div class="sf-visual-label"><span>THE SHAPE OF YOUR SOUND</span><span id="draftSourceLabel">GLASS BELL</span></div><canvas id="draftWaveform" width="800" height="440" aria-label="Waveform of the workshop sample"></canvas><div class="sf-visual-bottom"><span id="draftDuration">2.0 seconds</span><span>MONO / SF2</span></div><div class="sf-workshop-note"><h3>A small beginning.</h3><p>This workshop creates one playable instrument from one sample, mapped across the keyboard. Download the SF2 to use it in a SoundFont player or keep building in an editor.</p><p>Your sample’s root note should match its recorded pitch.</p></div></aside>
+        </div>
+      </section>
+
+      <section id="sourcesView" aria-labelledby="sourcesTitle" hidden>
+        <div class="sf-section-intro"><p class="sf-eyebrow">FREE SOUNDFONTS</p><h2 id="sourcesTitle">Find your next sound.</h2><p class="sf-muted">Ready to play, with original credits and licenses. Add a bank to your collection to preview its presets, or download the SF2.</p></div>
+        <div id="bundledFonts" class="sf-source-grid" aria-label="Free soundfont banks"></div>
+        <p id="catalogStatus" class="sf-muted sf-small" role="status">Loading free banks…</p>
+        <p class="sf-muted sf-small">Looking for more? Explore <a href="https://schristiancollins.com/generaluser" target="_blank" rel="noopener noreferrer">GeneralUser GS</a> or the <a href="https://www.polyphone.io/" target="_blank" rel="noopener noreferrer">Polyphone repository</a>. Check the license of each additional download.</p>
+      </section>
+      <footer class="sf-footer"><span id="storageStatus">Saved on this device</span><span>Download your fonts to back up or share. Your files stay in this browser.</span></footer>
+      <noscript><p>This workshop needs JavaScript for importing, saving, and playing sound fonts.</p></noscript>
+    </main>
+    <dialog id="linkDialog" class="sf-dialog"><form id="linkForm"><p id="linkError" class="sf-error" role="alert" hidden></p><div class="sf-dialog-heading"><h2>Save a sound font link</h2><button id="closeLink" type="button" class="sf-icon-button" aria-label="Close">×</button></div><label class="sf-field">Name<input id="linkName" required maxlength="100" /></label><label class="sf-field">Source URL<input id="linkUrl" type="url" required placeholder="https://" maxlength="2000" /></label><label class="sf-field">Notes<textarea id="linkNotes" maxlength="2000" rows="3"></textarea></label><button type="submit" class="sf-button sf-primary">Add to collection</button></form></dialog>
+    <dialog id="deleteDialog" class="sf-dialog"><form method="dialog"><h2>Remove this sound?</h2><p id="deleteMessage"></p><div class="sf-actions"><button class="sf-button" value="cancel">Keep it</button><button class="sf-button sf-danger" value="remove">Remove</button></div></form></dialog>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/site/sound-fonts/app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

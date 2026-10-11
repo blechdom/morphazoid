@@ -1,0 +1,142 @@
+{
+  "description": "Original unmodified FreePats SF2 banks; author credit and CC0 notices retained. The SF2 INFO chunks omit author/license, so retain these explicit provenance records alongside the downloadable files.",
+  "banks": [
+    {
+      "id": "freepats-kalimba",
+      "title": "Kalimba",
+      "author": "Xavimart (Javier), Gonzalo and Roberto / FreePats",
+      "version": "2019-07-23",
+      "description": "Recorded kalimba with velocity layers and a C3–C6 range.",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceUrl": "https://freepats.zenvoid.org/Ethnic/kalimba.html",
+      "downloadUrl": "https://freepats.zenvoid.org/Ethnic/Kalimba/Kalimba-SF2-20190723.tar.xz",
+      "downloadedOn": "2026-10-11",
+      "file": "kalimba/Kalimba-20190723.sf2",
+      "bytes": 9889978,
+      "sha256": "8232588e69ca4554f52bd9336099c45d2ca18bd8bc01b2efde8016bfee2db978",
+      "archiveBytes": 3848000,
+      "archiveSha256": "c391c9c9ed4e91f33843383d6ffefe785d99acfa9594d9fc1945afba4b582476",
+      "originalReadme": "kalimba/README.txt",
+      "licenseFile": "kalimba/LICENSE.txt",
+      "licenseFileOrigin": "Identical CC0 legal text supplied in FreePats Ocarina archive; this bank’s original README applies CC0",
+      "presetCount": 1,
+      "sampleCount": 45,
+      "zoneCount": 1016,
+      "presets": [
+        {
+          "name": "Instrument",
+          "bank": 0,
+          "program": 0,
+          "zones": 1016,
+          "keyLow": 48,
+          "keyHigh": 84
+        }
+      ],
+      "previewWarnings": []
+    },
+    {
+      "id": "freepats-ocarina",
+      "title": "Ocarina",
+      "author": "Xavimart (Javier), Gonzalo and Roberto / FreePats",
+      "version": "2024-10-02",
+      "description": "Recorded ocarina, playable from C4 through G#6.",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceUrl": "https://freepats.zenvoid.org/Wind/ocarina.html",
+      "downloadUrl": "https://github.com/freepats/ocarina1/releases/download/2024-10-02/Ocarina-SF2-20241002.7z",
+      "downloadedOn": "2026-10-11",
+      "file": "ocarina/Ocarina 20241002.sf2",
+      "bytes": 3226512,
+      "sha256": "e92c42a68cb738663748ce512dfbc7f18c3c3ea38d12df9ce165b249e6da6bc6",
+      "archiveBytes": 3183518,
+      "archiveSha256": "1d48403208a38555503bbd9f65d09815ee4edb10ba01e9a345935ae44c38179c",
+      "originalReadme": "ocarina/README.txt",
+      "licenseFile": "ocarina/LICENSE.txt",
+      "licenseFileOrigin": "Upstream archive",
+      "presetCount": 1,
+      "sampleCount": 12,
+      "zoneCount": 12,
+      "presets": [
+        {
+          "name": "Ocarina",
+          "bank": 0,
+          "program": 0,
+          "zones": 12,
+          "keyLow": 60,
+          "keyHigh": 92
+        }
+      ],
+      "previewWarnings": []
+    },
+    {
+      "id": "freepats-jaw-harp",
+      "title": "Jaw Harp",
+      "author": "Eugene Vlaskin, Michail Chayka, N. K. Chayka and Roberto / FreePats",
+      "version": "2020-06-06",
+      "description": "48 recorded jaw-harp articulations mapped to C2–B5; keys select different sounds.",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceUrl": "https://freepats.zenvoid.org/Ethnic/jaw-harp.html",
+      "downloadUrl": "https://freepats.zenvoid.org/Ethnic/JawHarp/JawHarp-SF2-20200606.tar.bz2",
+      "downloadedOn": "2026-10-11",
+      "file": "jaw-harp/JawHarp-20200606.sf2",
+      "bytes": 3526490,
+      "sha256": "d1b45d2fb1d439a4e0be610a032cfefd68f033b8d3d73094b86031ee49961884",
+      "archiveBytes": 1897559,
+      "archiveSha256": "551ae818aa71e5008f45318121191ffe432007f09002bdf215704370a07791da",
+      "originalReadme": "jaw-harp/README.txt",
+      "licenseFile": "jaw-harp/LICENSE.txt",
+      "licenseFileOrigin": "Identical CC0 legal text supplied in FreePats Ocarina archive; this bank’s original README applies CC0",
+      "presetCount": 1,
+      "sampleCount": 48,
+      "zoneCount": 48,
+      "presets": [
+        {
+          "name": "Jaw Harp",
+          "bank": 0,
+          "program": 0,
+          "zones": 48,
+          "keyLow": 36,
+          "keyHigh": 83
+        }
+      ],
+      "previewWarnings": []
+    },
+    {
+      "id": "freepats-lately-bass",
+      "title": "Lately Bass",
+      "author": "Yingchun Soul and FreePats",
+      "version": "2024-04-09",
+      "description": "Dexed synthesis of a bright, percussive FM bass inspired by the TX81Z Lately Bass patch.",
+      "license": "CC0-1.0",
+      "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+      "sourceUrl": "https://freepats.zenvoid.org/Synthesizer/synth-bass.html",
+      "downloadUrl": "https://github.com/freepats/lately-bass/releases/download/2024-04-09/LatelyBass-SF2-20240409.7z",
+      "downloadedOn": "2026-10-11",
+      "file": "lately-bass/LatelyBass 20240409.sf2",
+      "bytes": 3993772,
+      "sha256": "466897ab10136f9745d35fffd385f8e0fde41ca4df3a89fb482333038f825028",
+      "archiveBytes": 2047154,
+      "archiveSha256": "5af4595187632a98e802893de32456beb6f0f865c20258c3ec35ff890b7f995e",
+      "originalReadme": "lately-bass/README.txt",
+      "licenseFile": "lately-bass/LICENSE.txt",
+      "licenseFileOrigin": "Upstream archive",
+      "presetCount": 1,
+      "sampleCount": 11,
+      "zoneCount": 11,
+      "presets": [
+        {
+          "name": "Lately Bass",
+          "bank": 0,
+          "program": 0,
+          "zones": 11,
+          "keyLow": 21,
+          "keyHigh": 103
+        }
+      ],
+      "previewWarnings": []
+    }
+  ],
+  "totalBytes": 20636752
+}
