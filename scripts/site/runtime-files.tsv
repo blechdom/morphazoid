@@ -1884,3 +1884,14 @@ copy+require	docs/midi-mixer.md
 copy+require	src/instruments/midiphoria/midiphoria-drawing.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-midi.js
 copy+require	src/instruments/midiphoria/midiphoria-automata-controls.js
+
+# Trackazoid: local two-deck DJ workspace.
+copy+require	src/instruments/trackazoid/app.js
+copy+require	src/instruments/trackazoid/style.css
+copy+require	src/instruments/trackazoid/audio.js
+copy+require	src/instruments/trackazoid/transport.js
+copy+require	src/instruments/trackazoid/library.js
+copy+require	src/instruments/trackazoid/library-model.js
+copy+require	src/instruments/trackazoid/waveform.js
+copy+require	assets/instruments/trackazoid.webp
+copy+require	docs/trackazoid.md

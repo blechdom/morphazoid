@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 11 owner request: a browser DJ workspace inside Morphazoid.
+  { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
+    categoryId: 'app', categoryLabel: 'App',
+    tags: [{ id: 'looper', label: 'Looper' }, { id: 'audio-effect', label: 'Audio Effect' }] },
   // October 10 owner request: three complex-vector/audio research demos.
   { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html', imageHref: 'assets/instruments/vector-fractals.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',

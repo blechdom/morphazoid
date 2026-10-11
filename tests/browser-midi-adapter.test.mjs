@@ -190,6 +190,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "trackazoid",
     "graph-delay-rust",
     "synthesis",
     "domino-run",

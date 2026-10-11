@@ -193,6 +193,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "throatazoid-architecture.html",
   "throatazoid.html",
   "tongued-beasts.html",
+  "trackazoid.html",
   "vector-flight.html",
   "vector-fractals.html",
   "vocal-effects-room.html",

@@ -820,7 +820,7 @@ test("input and plug-in availability facts remain explicit", () => {
   );
   assert.deepEqual(
     INSTRUMENT_GROUPS.find(({ id }) => id === "app")?.tools.map(({ id }) => id),
-    ["shapes", "rubixoids", "l-systems", "graphs", "tesselation"],
+    ["shapes", "rubixoids", "l-systems", "graphs", "tesselation", "trackazoid"],
   );
   assert.deepEqual(
     instrumentById("graphs")?.tags.map(({ id }) => id),
