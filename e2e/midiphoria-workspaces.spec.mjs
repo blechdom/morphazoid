@@ -95,7 +95,8 @@ test('page teardown releases native audio and BFCache restores one idle drawing 
   await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
   await expect.poll(() => page.evaluate(() => __workspaceQA.contexts.every(context => context.state === 'closed'))).toBe(true);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
-  await expect(page.locator('#mixerPerformanceCanvas')).toHaveCount(1); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
+  for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiGenerate']) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect((await snapshot(page)).samples).toEqual([]);
   expect((await snapshot(page)).loaded).toEqual([false, false]);
   await arm(page); await page.locator('#generateDrawingMidi').click(); await sounding(page);
