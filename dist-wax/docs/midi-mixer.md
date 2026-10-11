@@ -6,6 +6,14 @@ decks share one beat clock, so changing the master tempo keeps their timing
 locked even when the decks use different speed ratios. A zoomed-out map shows the note
 density of each voice across the whole arrangement, with muted voices in grey.
 
+The small live visualizer sits below the preset menu; the decks follow the compact
+transport controls. **A tempo** and **B tempo** sit beside the shared tempo knob.
+**Crossfade** balances A and B; the masthead volume knob sets overall output.
+Drag any mixer knob vertically, hold Shift for finer movement, or use its arrow
+keys. Exact numeric MIDI editors remain available beside their knobs. Each voice
+name has inline **M** (mute) and **S** (solo) buttons aligned with its activity row.
+Stamp and generation tools follow the decks.
+
 ## Edit the MIDI sound
 
 Open **MIDI · all voices** on a deck, **Edit voice** under a channel, or

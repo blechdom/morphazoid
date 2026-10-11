@@ -15,7 +15,7 @@ const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 const MAX_ACTIVE = 4096;
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -67,7 +67,10 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   <p id="mixerSampleStatus" class="midiphoria-help" role="status"></p>
   <a id="mixerStampCredit" class="mixer-stamp-credit" target="_blank" rel="noopener" hidden></a>`;
   host.append(section);
-  const $ = id => section.querySelector(`#${id}`), canvas = $('mixerPerformanceCanvas');
+  const visualizer = document.createElement('div'); visualizer.className = 'mixer-performance-visualizer';
+  visualizer.append(section.querySelector('.mixer-performance-toolbar'), section.querySelector('#mixerPerformanceCanvas'));
+  if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer);
+  const $ = id => section.querySelector(`#${id}`) ?? visualizer.querySelector(`#${id}`), canvas = $('mixerPerformanceCanvas');
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   const renderer = new MidiphoriaRenderer(canvas), model = new MidiphoriaModel();
@@ -412,6 +415,6 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
       if (!active) { cancelPending(); if (frame !== null) cancelAnimationFrame(frame); frame = null; clear(); return; }
       midiEditor.refresh(); renderer.resize(); if (frame === null) draw();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; cancelPending(); fileCache.clear(); if (frame !== null) cancelAnimationFrame(frame); if (previewFrame !== null) cancelAnimationFrame(previewFrame); unsubscribe(); engine.stopSamples(); resize.disconnect(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); section.remove(); },
   };
 }

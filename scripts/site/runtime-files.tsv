@@ -1863,6 +1863,9 @@ copy+require	src/instruments/midi-mixer/midi-mixer-parameters.js
 copy+require	src/instruments/midi-mixer/midi-mixer-midi-editor.js
 copy+require	src/instruments/midi-mixer/midi-mixer-midi-editor.css
 copy+require	src/instruments/midi-mixer/midi-mixer.css
+copy+require	src/instruments/midi-mixer/midi-mixer-knobs.js
+copy+require	src/instruments/midi-mixer/midi-mixer-knobs.css
+copy+require	src/instruments/midi-mixer/midi-mixer-voice-map.css
 copy+require	src/instruments/midi-mixer/midi-mixer-renderer.js
 copy+require	src/instruments/midi-mixer/midi-mixer-presets.js
 copy+require	src/instruments/midi-mixer/midi-mixer-model.js

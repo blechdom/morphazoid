@@ -4,6 +4,7 @@ import { MidiMixerRenderer, mixerVoiceColor } from './midi-mixer-renderer.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { MIDI_MIXER_PRESETS, captureMixerPreset, applyMixerPreset, randomizeMixerPreset } from './midi-mixer-presets.js';
 import { mountMixerPerformance } from './midi-mixer-performance.js';
+import { mountMixerKnobs } from './midi-mixer-knobs.js';
 import { mountMidiParameterEditor, mountMidiSynthEffectEditor } from './midi-mixer-midi-editor.js';
 
 const asset = path => new URL(`../../../assets/midiphoria/${path}`, import.meta.url).href;
@@ -18,9 +19,9 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       <button id="mixerStop" class="mini-action" type="button" aria-label="Stop MIDI mix">Stop</button>
       <label class="control mixer-tempo"><span><b>Shared tempo</b><output id="masterTempoOut" for="masterTempo">120 BPM</output></span><input id="masterTempo" name="tempo" type="range" min="30" max="300" step=".1" value="120"></label>
     </div>
-    <div class="mixer-scenes" id="mixerPresetHost"></div>
+    <div class="mixer-overview"><div class="mixer-scenes" id="mixerPresetHost"></div><div id="mixerVisualizerHost"></div></div>
   </div>
-  <div class="mixer-mix-row"><button id="tempoFromA" class="mini-action" type="button" disabled>Use A tempo</button><label class="control mixer-crossfade"><span><b><span class="deck-a-ink">A</span> · Balance · <span class="deck-b-ink">B</span></b><output id="crossfadeOut" for="mixerCrossfade">A + B</output></span><input id="mixerCrossfade" name="balance" type="range" min="-1" max="1" step=".01" value="0"></label><button id="tempoFromB" class="mini-action" type="button" disabled>Use B tempo</button></div>
+  <div class="mixer-mix-row"><button id="tempoFromA" class="mini-action" type="button" disabled>A tempo</button><label class="control mixer-crossfade"><span><b>Crossfade · A / B</b><output id="crossfadeOut" for="mixerCrossfade">A + B</output></span><input id="mixerCrossfade" name="balance" aria-label="Crossfade between deck A and B" type="range" min="-1" max="1" step=".01" value="0"></label><button id="tempoFromB" class="mini-action" type="button" disabled>B tempo</button></div>
   <section class="mixer-weave" aria-label="Weave MIDI decks">
     <div class="mixer-weave-heading"><button id="mixerWeaveToggle" type="button" class="mini-action" aria-pressed="false">Weave</button><output id="mixerWeaveStatus" aria-live="off">Off</output></div>
     <div id="mixerWeaveSteps" class="mixer-weave-steps" aria-label="Weave pattern"></div>
@@ -49,17 +50,31 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     <label class="control"><span><b>Feedback</b><output id="mixerFeedbackOut">30%</output></span><input id="mixerFeedback" type="range" min="0" max=".8" step=".01" value=".3" aria-label="Mixer echo feedback"></label>
   </div><div id="mixerSynthEffects"></div></details>
   <details class="mixer-guide"><summary>Mixing & file details</summary><p>Each map spans the entire arrangement. Taller marks mean more note attacks, not higher pitches. Click to jump; drag a region to loop it. Arrow keys move one beat, Shift + arrows four beats. Choose Drums on one deck and Melody on the other, then use Solo to keep a particular voice. Grey rows are muted or waiting for their Weave turn. Voices with no notes are listed in the inspector.</p><p>Both decks follow one beat clock. Tempo ratio lets A run at double time while B runs at half time. Slip advances or delays a score without moving that clock; pitch shifts leave General MIDI drums unchanged. Bar slips use each file’s initial time signature. Reverse changes note timing; Reverse + CC also rebuilds controller automation. Weave takes turns between decks using the displayed A/B pattern. SoundFonts stay in this browser.</p><p><a href="docs/midi-mixer.md" target="_blank" rel="noopener">Mixer details ↗</a> · <a href="assets/midiphoria/SOURCE.md" target="_blank" rel="noopener">MIDI collection & SoundFont credits ↗</a></p></details>`;
-  host.insertBefore(host.querySelector('.mixer-effects'), host.querySelector('#mixerDeckHost'));
   const $ = id => host.querySelector(`#${id}`);
+  const topControls = document.createElement('div'); topControls.className = 'mixer-top-controls';
+  const transport = host.querySelector('.mixer-transport'), tempo = $('masterTempo').closest('label');
+  const tempoControls = document.createElement('div'); tempoControls.className = 'mixer-tempo-controls';
+  const tempoSources = document.createElement('div'); tempoSources.className = 'mixer-tempo-sources';
+  tempoSources.setAttribute('role', 'group'); tempoSources.setAttribute('aria-label', 'Take a source tempo');
+  tempo.replaceWith(tempoControls); tempoControls.append(tempo, tempoSources);
+  tempoSources.append($('tempoFromA'), $('tempoFromB'));
+  $('tempoFromA').setAttribute('aria-label', 'Use deck A tempo'); $('tempoFromB').setAttribute('aria-label', 'Use deck B tempo');
+  const secondary = document.createElement('div'); secondary.className = 'mixer-secondary-controls';
+  secondary.append(host.querySelector('.mixer-crossfade'), host.querySelector('.mixer-weave'));
+  host.querySelector('.mixer-mix-row').remove();
+  topControls.append(transport, secondary, host.querySelector('.mixer-readout'), $('mixerStatus'));
+  host.querySelector('.mixer-main-row').prepend(topControls);
+  host.insertBefore($('mixerDeckHost'), $('mixerPerformanceHost'));
+  host.insertBefore(host.querySelector('.mixer-effects'), $('mixerPerformanceHost'));
   const events = new AbortController(), requests = [null, null], serial = [0, 0], selectedIds = ['', ''], originals = [null, null];
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
   let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, initialized = false;
   const deckUIs = [], renderers = [];
-  let engine, performanceView, presetController, synthEffectEditor, fontSerial = 0, fontRequest = null, originalBusy = false;
+  let engine, performanceView, presetController, synthEffectEditor, knobs, fontSerial = 0, fontRequest = null, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
-  function field(node, value) { if (document.activeElement !== node && node.value !== String(value)) node.value = String(value); }
+  function field(node, value) { if (document.activeElement !== node && node.value !== String(value)) { node.value = String(value); knobs?.update(node); } }
   for (let index = 0; index < 2; index++) {
     const letter = index ? 'B' : 'A', section = document.createElement('section');
     section.className = 'mixer-deck'; section.dataset.deck = String(index); section.setAttribute('aria-label', `MIDI deck ${letter}`);
@@ -79,7 +94,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
         <label class="control"><span><b>Tempo ratio</b><output id="deckRateOut${index}">120 BPM</output></span><select id="deckRate${index}" aria-label="Deck ${letter} tempo ratio"><option value="0.25">¼× · quarter time</option><option value="0.5">½× · half time</option><option value="1" selected>1× · shared tempo</option><option value="2">2× · double time</option><option value="4">4× · quadruple time</option><option value="8">8× · eight times</option></select></label>
         <label class="control"><span><b>Level</b><output id="deckGainOut${index}">100%</output></span><input id="deckGain${index}" aria-label="Deck ${letter} level" type="range" min="0" max="2" step=".01" value="1"></label>
         <label class="control"><span><b>Pitch</b><output id="deckPitchOut${index}">0 st</output></span><input id="deckPitch${index}" aria-label="Deck ${letter} pitch" type="range" min="-24" max="24" step="1" value="0"></label>
-        <div class="control"><label for="deckOffset${index}">Slip · beats</label><div class="deck-slip"><button type="button" class="mini-action" id="deckBack${index}" aria-label="Slip deck ${letter} back one bar">−bar</button><input id="deckOffset${index}" type="number" min="-4000000" max="4000000" step=".25" value="0"><button type="button" class="mini-action" id="deckForward${index}" aria-label="Slip deck ${letter} forward one bar">+bar</button></div></div>
+        <div class="control deck-slip-control"><label for="deckOffset${index}">Slip · beats</label><div class="deck-slip"><button type="button" class="mini-action" id="deckBack${index}" aria-label="Slip deck ${letter} back one bar">−bar</button><input id="deckOffset${index}" type="number" min="-4000000" max="4000000" step=".25" value="0"><button type="button" class="mini-action" id="deckForward${index}" aria-label="Slip deck ${letter} forward one bar">+bar</button></div></div>
         <div class="control"><label for="deckScrub${index}">Position · beats</label><input id="deckScrub${index}" type="range" min="0" max="1" step=".25" value="0"></div>
       </div>
       <details class="deck-midi-editor"><summary>MIDI · all voices</summary><label class="control deck-exact-ratio">Exact tempo ratio<input id="deckExactRate${index}" aria-label="Deck ${letter} exact tempo ratio" type="number" min=".25" max="8" step=".001" value="1"></label><div id="deckMidi${index}"></div></details>
@@ -88,6 +103,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       <div class="deck-channel-heading"><h3>Voices</h3><div class="deck-channel-actions"><button id="deckAll${index}" type="button" class="mini-action">All</button><button id="deckDrums${index}" type="button" class="mini-action">Drums</button><button id="deckMelody${index}" type="button" class="mini-action">Melody</button></div></div>
       <div id="deckChannels${index}" class="deck-channels"></div>
       <details class="deck-inspector"><summary>Inspect MIDI · tracks, notes & timing</summary><div id="deckInspect${index}"></div></details>`;
+    section.querySelector('.mixer-deck-map').before(section.querySelector('.deck-channel-heading'));
     $('mixerDeckHost').append(section);
     const ui = { section, analysis: null, reverseMode: 'notes', reverseBusy: false, reverseSerial: 0, exportAnalysis: null, exportUrl: null, rows: new Map(), letter, channelEvents: new AbortController(), midiEditor: null }; deckUIs.push(ui);
     on(section.querySelector('.deck-midi-editor'), 'toggle', event => {
@@ -100,6 +116,8 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       ui.midiEditor.refresh();
     });
     renderers.push(new MidiMixerRenderer($(`deckMap${index}`), index, {
+      onMute: channel => { custom(); const value = engine.state.decks[index].channels.find(item => item.channel === channel); engine.configureChannel(index, channel, { mute: !value?.mute }); },
+      onSolo: channel => { custom(); const value = engine.state.decks[index].channels.find(item => item.channel === channel); engine.configureChannel(index, channel, { solo: !value?.solo }); },
       onSeek: beat => { custom(); attempt(() => engine.seekDeck(index, beat)); },
       onLoop: (start, end) => { custom(); engine.configureDeck(index, { loopStartBeats: start, loopEndBeats: end, loop: true }); engine.seekDeck(index, start); },
     }));
@@ -245,14 +263,10 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       const select = document.createElement('select'); select.id = label.htmlFor; select.setAttribute('aria-label', `Deck ${ui.letter} channel ${channel.channel + 1} instrument`);
       select.append(new Option(`Original · ${channel.instrument}`, '')); GM_PROGRAM_NAMES.forEach((name, program) => select.append(new Option(`${program + 1} · ${name}`, String(program))));
       if (channel.drums) { select.replaceChildren(new Option('Original drum kit', '')); for (let program = 0; program < 128; program++) select.append(new Option(`Kit ${program + 1} · SoundFont`, String(program))); }
-      const mute = document.createElement('button'), solo = document.createElement('button'); mute.type = solo.type = 'button'; mute.textContent = 'M'; solo.textContent = 'S';
-      mute.setAttribute('aria-label', `Mute deck ${ui.letter} channel ${channel.channel + 1}`); solo.setAttribute('aria-label', `Solo deck ${ui.letter} channel ${channel.channel + 1}`);
-      mute.setAttribute('aria-pressed', 'false'); solo.setAttribute('aria-pressed', 'false'); mute.disabled = solo.disabled = !channel.noteCount;
       select.addEventListener('change', () => { custom(); engine.configureChannel(index, channel.channel, { program: select.value === '' ? null : Number(select.value) }); }, { signal: ui.channelEvents.signal });
-      for (const [button, key] of [[mute, 'mute'], [solo, 'solo']]) button.addEventListener('click', () => { custom(); const setting = engine.state.decks[index].channels.find(item => item.channel === channel.channel); engine.configureChannel(index, channel.channel, { [key]: !setting[key] }); }, { signal: ui.channelEvents.signal });
       const details = document.createElement('details'), summary = document.createElement('summary'), editorHost = document.createElement('div');
       details.className = 'channel-midi-editor'; summary.textContent = 'Edit voice'; details.append(summary, editorHost);
-      const entry = { row, select, mute, solo, details, editor: null, silent: !channel.noteCount };
+      const entry = { row, select, details, editor: null, silent: !channel.noteCount };
       details.addEventListener('toggle', () => {
         if (!details.open) return;
         entry.editor ??= mountMidiParameterEditor(editorHost, {
@@ -263,7 +277,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
         });
         entry.editor.refresh();
       }, { signal: ui.channelEvents.signal });
-      row.append(label, select, mute, solo, details); $(`deckChannels${index}`).append(row); ui.rows.set(channel.channel, entry);
+      row.append(label, select, details); $(`deckChannels${index}`).append(row); ui.rows.set(channel.channel, entry);
     }
     const paragraph = document.createElement('p'); paragraph.textContent = `Format ${analysis.format} · ${analysis.trackCount} tracks · ${analysis.ppq} ticks/quarter · ${analysis.noteCount.toLocaleString()} notes · ${analysis.durationBeats.toFixed(2)} beats`; $(`deckInspect${index}`).append(paragraph);
     const table = document.createElement('table');
@@ -313,7 +327,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       const solo = deck.channels.some(channel => channel.solo);
       for (const channel of deck.channels) {
         const row = ui.rows.get(channel.channel); if (!row) continue;
-        row.mute.setAttribute('aria-pressed', String(channel.mute)); row.solo.setAttribute('aria-pressed', String(channel.solo));
         row.row.classList.toggle('is-muted', row.silent || config.mute || channel.mute || (solo && !channel.solo)); field(row.select, channel.program ?? '');
         if (row.details.open) row.editor?.refresh();
       }
@@ -321,7 +334,8 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     onState({ ...state, ready: state.decks.some(deck => deck.analysis) });
   }
   engine = new MidiMixerEngine({ onState: reflect });
-  performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing });
+  performanceView = mountMixerPerformance($('mixerPerformanceHost'), { engine, getDrawing, visualizerHost: $('mixerVisualizerHost') });
+  knobs = mountMixerKnobs(host);
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
     onChange: synth => { custom(); engine.configureEffects({ synth }); },
@@ -453,6 +467,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); performanceView.cancelPending(); return engine.setAudioEnabled(false); },
     setVolume(value) { engine.setVolume(value); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }
