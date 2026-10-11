@@ -150,6 +150,8 @@ test('native synth renders before boundary restoration and stamp clock advances 
   await processor.command({ type: 'weave', config: defaultWeaveConfig(), phase });
   const sostenuto = setup(midi([[[0, 192, 16], [0, 176, 91, 0], [0, 176, 93, 0], [0, 144, 60, 100], [1, 176, 66, 127], [2, 128, 60, 0], [4, 176, 66, 0]]]));
   await processor.command({ type: 'load', index: 0, data: sostenuto, config: { ...defaultDeckConfig(), loop: false, offsetBeats: 3 }, channels: [{ channel: 0 }] });
+  assert.equal(processor.synth.midiChannels[0].midiParameters.pitchWheelRange, 2, 'new plain sources cannot inherit old RPN bend ranges');
+  assert.equal(processor.synth.midiChannels[0].midiParameters.fineTune, 0, 'new plain sources cannot inherit old RPN tuning');
   await processor.command({ type: 'deck', index: 1, config: { ...defaultDeckConfig(), mute: true }, channels: [{ channel: 0 }] });
   await processor.command({ type: 'transport', playing: true, beat: 0 });
   let energy = 0;

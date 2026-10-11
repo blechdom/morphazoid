@@ -223,6 +223,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       for (const key of Object.keys(midi.lockedMIDIParameters)) midi.lockMIDIParameter(key, false);
       midi.resetGeneratorOverrides(); midi.resetGeneratorOffsets();
       const shadow = this.sourceChannels.get(channel), drums = shadow?.sourceDrums;
+      // CC121 preserves parameter values by design. A seek/source replacement
+      // starts from a fresh channel baseline before replaying coherent history.
+      midi.reset(false); midi.setDrums(drums ?? false);
       if (shadow) { shadow.reset(false); shadow.setDrums(drums); shadow.polyPressureValues.fill(0); shadow.polyPressureAt.fill(-Infinity); }
       this.effectiveMidi.delete(channel);
       this.channelVolumes[channel] = 100 / 127; this.channelExpressions[channel] = 1;
