@@ -122,6 +122,7 @@ const uiTimers = new Set();
 let behaviorButtonAnimalId = "";
 let groupMode = "solo";
 let selectedActor = 0;
+let editAllActors = false;
 let groupSeed = 1;
 let soundSkinId = QUADRUPED_DEFAULT_SOUND_SKIN;
 let visualSkinId = "constellation";
@@ -182,8 +183,8 @@ function endActorMotion(index) {
   }
 }
 
-function performMotion(index, kind, strength = 0.65) {
-  materializeMotor(); saveSelectedActor();
+function performMotion(index, kind, strength = 0.65, deferSchedule = false) {
+  if (!deferSchedule) { materializeMotor(); saveSelectedActor(); }
   const actor = actors[index], performance = performanceFor(index);
   const oneShot = ["jump", "roll", "slide"].includes(kind);
   const pace = oneShot || kind === "dance" ? 1 : strength > 0.68 ? 3 : strength > 0.3 ? 2 : 1;
@@ -204,7 +205,7 @@ function performMotion(index, kind, strength = 0.65) {
     : rebaseQuadrupedTravel(performance.travel, { previousPosition: oldPosition, position, direction, stride: next.stride });
   actor.motor = kickQuadrupedMotor(scoreForActor(index), createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position }), 1);
   if (index === selectedActor) { motor = actor.motor; stoppedPosition = motor.position; }
-  resetAudioSchedule({ includeCurrentBoundary: true });
+  if (!deferSchedule) resetAudioSchedule({ includeCurrentBoundary: true });
 }
 
 function releaseGestureCall(index) {
@@ -283,6 +284,7 @@ function applyPreset(snapshot) {
   groupMode = next.groupMode;
   groupSeed = next.groupSeed;
   selectedActor = next.selectedActor;
+  editAllActors = false;
   world = next.world;
   soundSkinId = next.soundSkinId;
   state = actors[selectedActor].score;
@@ -299,6 +301,33 @@ function applyPreset(snapshot) {
 
 function activeActorIndices() {
   return groupMode === "solo" ? [selectedActor] : actors.map((_, index) => index);
+}
+
+function editingActorIndices() {
+  return editAllActors ? actors.map((_, index) => index) : [selectedActor];
+}
+
+// The selected score remains the editor's reference. Broadcast only the
+// requested edit, retaining each companion's other settings, score and phase.
+// Call inside an existing edit transaction; it schedules no audio or UI work.
+function editOtherActors(update, { rebaseTravel = false, wake = false, step = null, retime = true } = {}) {
+  if (!editAllActors) return;
+  for (let index = 0; index < actors.length; index++) {
+    if (index === selectedActor) continue;
+    const actor = actors[index], previous = scoreForActor(index);
+    const position = actor.motor.position, performance = performanceFor(index);
+    actor.score = sanitizeQuadrupedState(update(actor.score, index), actor.score);
+    if (!retime) continue;
+    if (performance.travel) {
+      if (rebaseTravel) performance.travel = rebaseQuadrupedTravel(performance.travel, { previousPosition: position, position, stride: actor.score.stride });
+      else if (previous.stride !== actor.score.stride) performance.travel = changeQuadrupedTravel(performance.travel, { position, direction: 1, stride: actor.score.stride, feet: quadrupedSupportSnapshot(previous, position).legs });
+    }
+    actor.motor = createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position });
+    if (wake && transportPlaying && actor.motor.velocity <= 0.012) {
+      const footfall = nextFootfallPosition(position, step, actor.score);
+      if (footfall !== null) actor.motor = kickQuadrupedMotor(scoreForActor(index), createQuadrupedMotorState(scoreForActor(index), { position: footfall }), 1);
+    }
+  }
 }
 
 function saveSelectedActor() {
@@ -335,7 +364,12 @@ function worldSoundAt(score = state, position = motor.position, laneId = null) {
 
 function selectActor(index) {
   const nextIndex = Math.trunc(clamp(index, 0, actors.length - 1));
-  if (nextIndex === selectedActor) return;
+  const wasAll = editAllActors;
+  editAllActors = false;
+  if (nextIndex === selectedActor) {
+    if (wasAll) { syncAllControls(); announce(`Editing animal ${nextIndex + 1}.`); }
+    return;
+  }
   materializeMotor();
   saveSelectedActor();
   selectedActor = nextIndex;
@@ -351,6 +385,7 @@ function selectActor(index) {
 
 function setGroupMode(mode) {
   if (!["solo", "herd", "trio"].includes(mode) || mode === groupMode) return;
+  editAllActors = false;
   cancelPerformances();
   materializeMotor();
   saveSelectedActor();
@@ -424,12 +459,15 @@ function announce(message) {
   });
 }
 
-function modeKey(source = state) {
-  return `${selectedActor}:${source.animalId}:${source.behaviorId}`;
+function modeKey(source = state, index = selectedActor) {
+  return `${index}:${source.animalId}:${source.behaviorId}`;
 }
 
 function rememberMode() {
-  modeMemory.set(modeKey(), sanitizeQuadrupedState(state));
+  for (const index of editingActorIndices()) {
+    const score = index === selectedActor ? state : actors[index].score;
+    modeMemory.set(modeKey(score, index), sanitizeQuadrupedState(score));
+  }
 }
 
 function rebaseMotorClock(now = performance.now()) {
@@ -514,9 +552,9 @@ function footfallEnergyAtStep(score, step) {
   ), 0);
 }
 
-function nextFootfallPosition(position, preferredStep = null) {
+function nextFootfallPosition(position, preferredStep = null, score = state) {
   const safePosition = Math.max(0, Number(position) || 0);
-  if (preferredStep !== null && footfallEnergyAtStep(state, preferredStep) > 0) {
+  if (preferredStep !== null && footfallEnergyAtStep(score, preferredStep) > 0) {
     let candidate = Math.floor(safePosition / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT
       + mod(Math.trunc(preferredStep), QUADRUPED_STEP_COUNT);
     if (candidate < safePosition - 0.001) candidate += QUADRUPED_STEP_COUNT;
@@ -525,7 +563,7 @@ function nextFootfallPosition(position, preferredStep = null) {
   const firstOrdinal = Math.ceil(safePosition - 0.001);
   for (let offset = 0; offset < QUADRUPED_STEP_COUNT; offset += 1) {
     const candidate = firstOrdinal + offset;
-    if (footfallEnergyAtStep(state, candidate) > 0) return candidate;
+    if (footfallEnergyAtStep(score, candidate) > 0) return candidate;
   }
   return null;
 }
@@ -1532,7 +1570,7 @@ function syncTransportPresentation(snapshot = quadrupedMotorSnapshot(state, moto
   play.setAttribute("aria-pressed", String(transportPlaying));
   setOutput($("playLabel"), transportPlaying ? "Pause" : stoppedPosition > 0 ? "Resume" : "Start");
   for (const button of document.querySelectorAll("[data-motion-action]")) {
-    button.dataset.active = String(performanceFor(selectedActor).motion?.kind === button.dataset.motionAction);
+    button.dataset.active = String(editingActorIndices().some(index => performanceFor(index).motion?.kind === button.dataset.motionAction));
   }
   $("stageState").dataset.state = transportPlaying ? snapshot.stalled ? "stalled" : "running" : "ready";
   syncTransportHint();
@@ -1599,10 +1637,11 @@ function restartTransport() {
   announce("Quadruped returned to step one without changing the score.");
 }
 
-function replaceState(nextState, { preservePosition = true, announceMessage = "" } = {}) {
+function replaceState(nextState, { preservePosition = true, announceMessage = "", updateOthers = null } = {}) {
   cancelPerformances();
   const now = performance.now();
   const position = preservePosition ? currentPosition(now) : 0;
+  if (updateOthers) editOtherActors(updateOthers, { rebaseTravel: true, wake: true });
   state = sanitizeQuadrupedState(nextState, state);
   retimeTransport(position, now, { preserveMotion: preservePosition, rebaseTravel: true });
   if (transportPlaying && motor.velocity <= 0.012) wakeMotorAtFootfall(now);
@@ -1612,22 +1651,29 @@ function replaceState(nextState, { preservePosition = true, announceMessage = ""
 }
 
 function switchAnimal(animalId) {
-  if (animalId === state.animalId) return;
+  if (editingActorIndices().every(index => (index === selectedActor ? state : actors[index].score).animalId === animalId)) return;
   rememberMode();
   const targetAnimal = quadrupedAnimal(animalId);
-  const next = applyQuadrupedAnimal(state, targetAnimal.id);
+  const update = score => score.animalId === targetAnimal.id ? score : applyQuadrupedAnimal(score, targetAnimal.id);
+  const next = update(state);
   replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
+    updateOthers: update,
     announceMessage: `${targetAnimal.label} loaded. The global tempo and moving playhead stayed put.`,
   });
 }
 
 function switchBehavior(behaviorId) {
-  if (behaviorId === state.behaviorId) return;
+  if (editingActorIndices().every(index => (index === selectedActor ? state : actors[index].score).behaviorId === behaviorId)) return;
   rememberMode();
-  const key = `${selectedActor}:${state.animalId}:${behaviorId}`;
-  const stored = modeMemory.get(key);
-  const next = stored ?? applyQuadrupedBehavior(state, behaviorId);
+  const update = (score, index) => {
+    if (score.behaviorId === behaviorId) return score;
+    const stored = modeMemory.get(`${index}:${score.animalId}:${behaviorId}`);
+    const next = stored ?? applyQuadrupedBehavior(score, behaviorId);
+    return { ...next, tempoBpm: score.tempoBpm, paceRatio: score.paceRatio, suspensionBeats: score.suspensionBeats, outputLevel: score.outputLevel };
+  };
+  const next = update(state, selectedActor);
   replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
+    updateOthers: update,
     announceMessage: `${quadrupedBehavior(behaviorId).label} loaded on the same global tempo.`,
   });
 }
@@ -1648,6 +1694,7 @@ function updateStateValue(key, value) {
   const now = performance.now();
   const position = currentPosition(now);
   const previous = scoreForActor(selectedActor);
+  if (!QUADRUPED_SHARED_FIELDS.includes(key)) editOtherActors(score => ({ ...score, [key]: value }));
   const feet = key === "stride" ? quadrupedSupportSnapshot(previous, position).legs : null;
   state = sanitizeQuadrupedState({ ...state, [key]: value }, state);
   const actorPerformance = performanceFor(selectedActor);
@@ -1675,6 +1722,8 @@ function editContact(laneId, step, direction = 1) {
   const now = performance.now();
   const position = currentPosition(now);
   state = cycleQuadrupedContact(state, laneId, step, direction);
+  const nextAmount = state.pattern[laneId][mod(step, QUADRUPED_STEP_COUNT)];
+  editOtherActors(score => setQuadrupedContact(score, laneId, step, nextAmount), { wake: nextAmount > 0, step });
   retimeTransport(position, now, { preserveMotion: true });
   selectedStep = mod(step, QUADRUPED_STEP_COUNT);
   const amount = state.pattern[laneId][selectedStep];
@@ -1853,6 +1902,8 @@ function editCall(row, step, direction = 1, clear = false) {
   const levels = [0, 0.58, 1];
   const value = state.callPattern[row][step];
   state.callPattern[row][step] = clear ? 0 : levels[mod((value <= 0 ? 0 : value < 0.8 ? 1 : 2) + direction, 3)];
+  const amount = state.callPattern[row][step];
+  editOtherActors(score => ({ ...score, callPattern: score.callPattern.map((values, index) => index === row ? values.map((old, frame) => frame === step ? amount : old) : values) }), { retime: false });
   rememberMode(); renderGridState(); resetAudioSchedule();
   announce(`${quadrupedCalls(state.animalId)[row].label}, frame ${step + 1}: ${state.callPattern[row][step] ? "call" : "rest"}.`);
 }
@@ -1981,6 +2032,7 @@ function handleGridKeydown(event) {
     const now = performance.now();
     const position = currentPosition(now);
     state = setQuadrupedContact(state, laneId, step, 0);
+    editOtherActors(score => setQuadrupedContact(score, laneId, step, 0));
     retimeTransport(position, now, { preserveMotion: true });
     rememberMode();
     renderGridState();
@@ -2034,13 +2086,17 @@ function renderGridState() {
       control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${supportLabel}, ${duration} beats.`);
       continue;
     }
+    const valueFor = score => control.callRow !== undefined ? score.callPattern[control.callRow][control.step] : score.pattern[control.laneId][control.step];
+    const mixed = editAllActors && actors.some((actor, index) => valueFor(index === selectedActor ? state : actor.score) !== valueFor(state));
+    control.button.dataset.mixed = String(mixed);
+    const scopeLabel = mixed ? ` Values differ across animals; showing animal ${selectedActor + 1}. Editing sets all three.` : editAllActors ? " Editing sets all three animals." : "";
     if (control.callRow !== undefined) {
       const value = state.callPattern[control.callRow][control.step];
       control.button.dataset.level = value <= 0 ? "none" : value < 0.8 ? "soft" : "strong";
       control.button.style.setProperty("--level", String(value));
       control.button.textContent = value <= 0 ? "·" : value < 0.8 ? "○" : "●";
       control.button.setAttribute("aria-pressed", value <= 0 ? "false" : value < 0.8 ? "mixed" : "true");
-      control.button.setAttribute("aria-label", `${quadrupedCalls(state.animalId)[control.callRow].label}, frame ${control.step + 1}: ${value <= 0 ? "rest" : value < 0.8 ? "soft call" : "strong call"}. Activate to cycle.`);
+      control.button.setAttribute("aria-label", `${quadrupedCalls(state.animalId)[control.callRow].label}, frame ${control.step + 1}: ${value <= 0 ? "rest" : value < 0.8 ? "soft call" : "strong call"}. Activate to cycle.${scopeLabel}`);
       continue;
     }
     const value = state.pattern[control.laneId][control.step];
@@ -2057,7 +2113,7 @@ function renderGridState() {
     const supportText = support.grounded
       ? value > 0 ? "touchdown begins support" : "continuing support from an earlier touchdown"
       : "swing";
-    control.button.setAttribute("aria-label", `${lane.label}, frame ${control.step + 1}: ${levelName}; ${supportText}. Activate to cycle touchdown strength; Shift activate for previous.`);
+    control.button.setAttribute("aria-label", `${lane.label}, frame ${control.step + 1}: ${levelName}; ${supportText}. Activate to cycle touchdown strength; Shift activate for previous.${scopeLabel}`);
   }
 }
 
@@ -2095,17 +2151,46 @@ function syncEnsembleControls() {
     const index = Number(button.dataset.actorIndex);
     const actor = actors[index];
     button.hidden = !actor || (groupMode === "solo" && index !== selectedActor);
-    button.setAttribute("aria-pressed", String(index === selectedActor));
+    button.setAttribute("aria-pressed", String(!editAllActors && index === selectedActor));
     button.textContent = String(index + 1);
     const label = `Edit animal ${index + 1}: ${actor ? quadrupedAnimal(actor.score.animalId).label : ""}`;
     button.setAttribute("aria-label", label);
     button.title = label;
   });
+  $("allActorsButton").hidden = groupMode === "solo";
+  $("allActorsButton").setAttribute("aria-pressed", String(editAllActors));
   $("scatterButton").disabled = groupMode === "solo";
-  $("sequenceTitle").textContent = `Score ${selectedActor + 1}`;
+  $("sequenceTitle").textContent = editAllActors ? `All · score ${selectedActor + 1}` : `Score ${selectedActor + 1}`;
+  $("sequenceTitle").title = editAllActors ? `Edits apply to all animals; the score shows animal ${selectedActor + 1}. Dashed cells have different values.` : "";
   for (const key of ["grain", "cavern"]) {
     $(key).value = String(world[key]);
     setOutput($(key + "Out"), `${Math.round(world[key] * 100)}%`);
+  }
+}
+
+function syncEditScopePresentation() {
+  const mixed = key => editAllActors && actors.some((actor, index) => (index === selectedActor ? state : actor.score)[key] !== state[key]);
+  for (const [id, key] of [["animalSelect", "animalId"], ["behaviorSelect", "behaviorId"]]) {
+    const select = $(id), differs = mixed(key);
+    select.dataset.mixed = String(differs);
+    let option = select.querySelector("[data-mixed-option]");
+    if (differs) {
+      if (!option) {
+        option = document.createElement("option");
+        option.value = ""; option.disabled = true; option.dataset.mixedOption = "true";
+        option.textContent = "Mixed"; select.prepend(option);
+      }
+      select.value = "";
+    } else option?.remove();
+  }
+  for (const key of ["momentum", "gravity", "suspensionBeats", "pitchSemitones", "lopsided", "spring"]) {
+    const input = $(key), differs = mixed(key);
+    const output = $(key === "suspensionBeats" ? "suspensionOut" : `${key}Out`);
+    input.dataset.mixed = String(differs);
+    if (differs) setOutput(output, "Mixed");
+    if (differs) input.setAttribute("aria-valuetext", "Mixed values; adjusting sets all three animals");
+    else if (key === "suspensionBeats") input.setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
+    else input.removeAttribute("aria-valuetext");
   }
 }
 
@@ -2126,7 +2211,7 @@ function syncAllControls({ grid = true, deferGrid = false } = {}) {
   $("tempo").value = String(state.tempoBpm);
   document.querySelectorAll("[data-pace-ratio]").forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset.paceRatio) === state.paceRatio)));
   $("suspensionBeats").value = String(state.suspensionBeats);
-  const supportsRest = Boolean(quadrupedScoreTiming(state).window);
+  const supportsRest = editingActorIndices().some(index => Boolean(quadrupedScoreTiming(index === selectedActor ? state : actors[index].score).window));
   $("suspensionBeats").disabled = !supportsRest;
   $("suspensionControl").hidden = !supportsRest;
   $("suspensionBeats").setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
@@ -2150,6 +2235,7 @@ function syncAllControls({ grid = true, deferGrid = false } = {}) {
   setOutput($("springOut"), `${Math.round(state.spring * 100)}%`);
   setOutput($("groundResonanceOut"), `${Math.round(state.groundResonance * 100)}%`);
   setOutput($("levelOut"), `${Math.round(state.outputLevel * 100)}%`);
+  syncEditScopePresentation();
   controlKnobs.forEach(knob => knob.update());
   setOutput($("animalDescription"), animal.description);
   syncBehaviorReadouts();
@@ -3304,7 +3390,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
       syncAnimalHandle(index, actorPose, actorScore, laneWidth * 1.6, height, localGround, index * laneWidth - laneWidth * 0.3, index * laneWidth, laneWidth);
       drawing.restore();
       drawing.font = "12px ui-monospace, monospace"; drawing.textAlign = "center";
-      drawing.fillStyle = paperSkin ? "#463c2b" : index === selectedActor ? "#eeffb8" : "#c9d8cc";
+      drawing.fillStyle = paperSkin ? "#463c2b" : editAllActors || index === selectedActor ? "#eeffb8" : "#c9d8cc";
       drawing.fillText(`${index + 1} · ${actorAnimal.label}`, laneWidth / 2, height - 12);
       drawing.restore();
     });
@@ -3336,7 +3422,8 @@ function animationLoop(now) {
   canvas.dataset.bodySlide = String(snapshot.bodySlide);
   canvas.dataset.clockPosition = snapshot.clockPosition.toFixed(4);
   canvas.dataset.height = snapshot.height.toFixed(4);
-  const presentation = `${transportPlaying}:${snapshot.stalled}:${performanceFor(selectedActor).motion?.kind ?? ""}`;
+  const motions = editingActorIndices().map(index => performanceFor(index).motion?.kind ?? "").join(",");
+  const presentation = `${transportPlaying}:${snapshot.stalled}:${motions}`;
   if (presentation !== lastMotorPresentation) {
     lastMotorPresentation = presentation;
     syncTransportPresentation(snapshot);
@@ -3536,6 +3623,12 @@ function handleGlobalKeydown(event) {
 function bindControls() {
   document.querySelectorAll("[data-group-mode]").forEach(button => button.addEventListener("click", () => setGroupMode(button.dataset.groupMode)));
   document.querySelectorAll("button[data-actor-index]").forEach(button => button.addEventListener("click", () => selectActor(Number(button.dataset.actorIndex))));
+  $("allActorsButton").addEventListener("click", () => {
+    if (groupMode === "solo" || editAllActors) return;
+    editAllActors = true;
+    syncAllControls();
+    announce(`Editing all three animals. Mixed values stay distinct until edited; the score shows animal ${selectedActor + 1}.`);
+  });
   $("scatterButton").addEventListener("click", scatterGroup);
   for (const key of ["grain", "cavern"]) $(key).addEventListener("input", () => {
     world = sanitizeQuadrupedWorld({ ...world, [key]: Number($(key).value) });
@@ -3548,11 +3641,13 @@ function bindControls() {
   $("callPhraseButton").addEventListener("click", () => {
     state.callPattern = emptyQuadrupedCalls();
     [0, 6, 12].forEach((step, row) => { state.callPattern[row][step] = 0.58; });
+    editOtherActors(score => ({ ...score, callPattern: state.callPattern }), { retime: false });
     rememberMode(); renderGridState(); resetAudioSchedule();
     announce("Three calls written on frames 1, 7 and 13.");
   });
   $("clearCallsButton").addEventListener("click", () => {
     state.callPattern = emptyQuadrupedCalls();
+    editOtherActors(score => ({ ...score, callPattern: emptyQuadrupedCalls() }), { retime: false });
     rememberMode(); renderGridState(); resetAudioSchedule();
     announce("Calls cleared; feet unchanged.");
   });
@@ -3568,9 +3663,11 @@ function bindControls() {
         if (captured?.element?.hasPointerCapture?.(captured.pointerId)) captured.element.releasePointerCapture(captured.pointerId);
         endActorMotion(index);
       }
-      performMotion(selectedActor, button.dataset.motionAction);
+      materializeMotor(); saveSelectedActor();
+      for (const index of editingActorIndices()) performMotion(index, button.dataset.motionAction, 0.65, true);
+      resetAudioSchedule({ includeCurrentBoundary: true });
       syncTransportPresentation();
-      announce(`${quadrupedAnimal(state.animalId).label}: ${button.textContent.trim()}.${isAudioOn() ? "" : " Turn Audio on to hear it."}`);
+      announce(`${editAllActors ? "All animals" : quadrupedAnimal(state.animalId).label}: ${button.textContent.trim()}.${isAudioOn() ? "" : " Turn Audio on to hear it."}`);
     });
     button.addEventListener("keydown", event => {
       if (event.key === "Escape") { event.preventDefault(); handleGestureBlur(); syncTransportPresentation(); }
@@ -3593,6 +3690,7 @@ function bindControls() {
     const now = performance.now();
     const position = currentPosition(now);
     state = mutateQuadrupedPattern(state);
+    editOtherActors(score => mutateQuadrupedPattern(score), { wake: true });
     retimeTransport(position, now, { preserveMotion: true });
     if (transportPlaying && motor.velocity <= 0.012) wakeMotorAtFootfall(now);
     rememberMode();
@@ -3605,6 +3703,7 @@ function bindControls() {
     const now = performance.now();
     const position = currentPosition(now);
     state = clearQuadrupedPattern(state);
+    editOtherActors(score => clearQuadrupedPattern(score));
     retimeTransport(position, now, { preserveMotion: true });
     rememberMode();
     renderGridState();
