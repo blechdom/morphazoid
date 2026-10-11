@@ -21,6 +21,8 @@ function harness() {
       this.midiChannels.push({ channel, drumChannel: channel % 16 === 9, midiParameters: { rxChannel: channel },
         noteOn: (note, velocity) => events.push({ type: 'on', channel, note, velocity, time: core.currentTime }),
         noteOff: note => events.push({ type: 'off', channel, note, time: core.currentTime }),
+        polyPressure: (note, pressure) => events.push({ type: 'pressure', channel, note, pressure, time: core.currentTime }),
+        resetRP15: () => events.push({ type: 'resetControllers', channel }),
         stopAllNotes: force => events.push({ type: 'stop', channel, force }),
       });
     },
@@ -30,6 +32,7 @@ function harness() {
       const channel = (message[0] & 15) + offset;
       if ((message[0] & 0xf0) === 0x90) this.noteOn(channel, message[1], message[2]);
       else if ((message[0] & 0xf0) === 0x80) this.noteOff(channel, message[1]);
+      else if ((message[0] & 0xf0) === 0xa0) this.polyPressure(channel, message[1], message[2]);
       else events.push({ type: 'midi', message, offset });
     },
   };
@@ -114,6 +117,35 @@ test('all-notes-off, reset, soundfont replacement and disposal cancel pending ef
   assert.deepEqual(h.events.filter(event => event.type === 'on').map(event => event.channel), [1]);
 });
 
+test('polyphonic pressure follows captured chord pitches through both native input paths', () => {
+  const h = harness(); h.configure({ enabled: true, transpose: 12, chord: 'major' });
+  h.synth.noteOn(0, 60, 100); h.configure({ transpose: -12, chord: 'single' });
+  h.synth.polyPressure(0, 60, 44);
+  assert.deepEqual(h.events.filter(event => event.type === 'pressure').map(({ note, pressure }) => [note, pressure]),
+    [[72, 44], [76, 44], [79, 44]], 'held children retain their original attack configuration');
+  h.core.processMessageInternal([0xa0, 60, 88]);
+  assert.deepEqual(h.events.filter(event => event.type === 'pressure').slice(-3).map(({ note, pressure }) => [note, pressure]),
+    [[72, 88], [76, 88], [79, 88]]);
+  h.core.midiChannels[0].resetRP15();
+  assert.deepEqual(h.events.filter(event => event.type === 'pressure').slice(-3).map(({ note, pressure }) => [note, pressure]),
+    [[72, 0], [76, 0], [79, 0]]);
+});
+
+test('delayed children inherit latest source pressure; new attacks and resets clear stale pressure', () => {
+  const h = harness();
+  h.configure({ enabled: true, tempo: 600, transpose: 12, delayBeats: 0.01, echoCount: 1, echoBeats: 0.0625 });
+  h.synth.noteOn(0, 60, 100); h.synth.polyPressure(0, 60, 65); h.render(128);
+  assert.equal(h.events.at(-1).type, 'pressure'); assert.equal(h.events.at(-1).note, 72); assert.equal(h.events.at(-1).pressure, 65);
+  h.synth.polyPressure(0, 60, 91); h.render(256);
+  assert.equal(h.events.at(-1).type, 'pressure'); assert.equal(h.events.at(-1).note, 72); assert.equal(h.events.at(-1).pressure, 91);
+  h.synth.noteOn(0, 60, 100); const before = h.events.length; h.render(512);
+  assert.ok(h.events.slice(before).some(event => event.type === 'on'));
+  assert.ok(!h.events.slice(before).some(event => event.type === 'pressure'), 'new source attack starts at zero pressure');
+  h.synth.polyPressure(0, 60, 77); h.core.reset(); h.synth.noteOn(0, 60, 100);
+  const afterReset = h.events.length; h.render(512);
+  assert.ok(!h.events.slice(afterReset).some(event => event.type === 'pressure'));
+});
+
 test('the real pinned SoundFont processor sounds and reports the same effected pitches from MIDI and its sequencer', async () => {
   const processor = new MidiphoriaProcessor({ processorOptions: { eventsEnabled: true, oneOutput: false } });
   const host = processor.core, synth = host.synthesizer;
@@ -140,6 +172,12 @@ test('the real pinned SoundFont processor sounds and reports the same effected p
   assert.ok(render(30) > 0.01, 'native SoundFont audio is non-silent');
   assert.deepEqual(processor.messages.filter(message => message.type === 'eventCall' && message.data.type === 'noteOn')
     .map(message => message.data.data.midiNote), [72, 76, 79]);
+  synth.polyPressure(0, 60, 63);
+  assert.ok(synth.synthCore.voices.filter(voice => voice.isActive && voice.channel === 0).every(voice => voice.pressure === 63));
+  host.handleMessage({ type: 'midiMessage', data: { messageData: [0xa0, 60, 99], channelOffset: 0, options: { time: 0 } } });
+  assert.ok(synth.synthCore.voices.filter(voice => voice.isActive && voice.channel === 0).every(voice => voice.pressure === 99));
+  synth.controllerChange(0, 121, 0);
+  assert.ok(synth.synthCore.voices.filter(voice => voice.isActive && voice.channel === 0).every(voice => voice.pressure === 0));
   synth.noteOn(0, 64, 100); synth.noteOff(0, 60);
   assert.equal(synth.midiChannels[0].noteOnID[76], 2, 'two chord children share a native pitch');
   assert.equal(synth.midiChannels[0].noteOffID[76], 1, 'each child closes exactly one native attack');
