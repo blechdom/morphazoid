@@ -115,6 +115,8 @@ Cycle rate. Left turns lower pitch and right turns raise it. Each layer starts
 at its own top unless you select a starting point by clicking a strand.
 **Closed path direction** reverses the traversal of closed borders.
 
+On first activation, Traveler starts at the reference pitch at its current
+position; time previously spent in another reader does not transpose it.
 **Turn → pitch** sets 0–4 octaves per 360° (default 1). Changes affect future
 turns without replaying earlier laps; zero holds the current pitch. Feature size
 smooths corner turns over a geometric arc-length window, so subdividing the same

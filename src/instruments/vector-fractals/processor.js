@@ -1,10 +1,19 @@
 import { VectorDSP } from './dsp.js';
+import { clamp } from './model.js';
 class VectorFractalProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(); this.dsp = new VectorDSP(sampleRate); this.count = 0; this.alive = true;
     const initial = options.processorOptions ?? {};
     this.dsp.setState(initial.state ?? {}); this.dsp.setBank(initial.bank);
     this.dsp.trace.rate = this.dsp.trace.targetRate;
+    this.dsp.trace.travelerMix = this.dsp.trace.reader === 'traveler' ? 1 : 0;
+    if (this.dsp.trace.travelerMix) {
+      // Arm the requested reader at its reference pitch and selected voices;
+      // startup must not glide through an unrelated XY/height/default voice.
+      this.dsp.frequency = clamp(initial.state?.pitch, 25, 1200, 110);
+      this.dsp.traceMix = 1; this.dsp.trace.voiceWeights.fill(0);
+      for (let layer = 0; layer < 3; layer++) this.dsp.trace.voiceWeights[layer * 4 + this.dsp.trace.voiceTargets[layer]] = 1;
+    }
     Object.assign(this.dsp.trace.params, this.dsp.trace.targets);
     this.dsp.setTraceBank(initial.traceBank); this.dsp.tracePhase = initial.traceTravel ?? initial.tracePhase ?? 0;
     this.dsp.trace.restoreTraveler(initial.travelerState);

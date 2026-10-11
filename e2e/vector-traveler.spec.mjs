@@ -140,6 +140,17 @@ test('a marching-squares circle accumulates signed turns through the seam and re
   const paused = await snapshot(page); await page.waitForTimeout(150);
   expect((await snapshot(page)).trace.travel).toBeCloseTo(paused.trace.travel, 5);
   expect((await sampleAudioEnvelope(page, { durationMs: 200, intervalMs: 40 })).summary.maxPeak).toBeLessThan(.001);
+  const heldPitch = (await snapshot(page)).trace.travelerState.pitch;
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await snapshot(page)).audioTime).toBeNull();
+  await page.locator('#playButton').click(); await page.waitForTimeout(400);
+  await page.locator('#playButton').click();
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await snapshot(page)).armed).toBe(true);
+  await page.waitForTimeout(200);
+  const resumed = await snapshot(page);
+  for (let i = 0; i < 3; i++) expect(resumed.trace.travelerState.pitch[i]).toBeCloseTo(heldPitch[i], 4);
+  expect(resumed.playing).toBe(false);
   await page.locator('#playButton').click(); await page.waitForTimeout(250);
   expect((await sampleAudioEnvelope(page, { durationMs: 200, intervalMs: 40 })).summary.maxPeak).toBeGreaterThan(.001);
   for (let i = 0; i < 3; i++) await page.locator(`#layerEnabled${i}`).uncheck();

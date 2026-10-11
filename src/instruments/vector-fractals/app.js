@@ -332,8 +332,10 @@ listen($('zoomOut'), 'click', () => navigation.zoomBy(1 / .65));
 listen($('wholeView'), 'click', () => { state = { ...state, strandX: null, strandY: null }; navigation.reset(); });
 listen($('nextStrand'), 'click', () => { if (candidates.length) selectStrand(candidates[(candidates.indexOf(selectedPath) + 1) % candidates.length]); });
 
-const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS, host: $('mainPresets'),
-  capture: () => ({ ...state }), apply: snapshot => { state = fitOpeningView(sanitizeState(snapshot)); sync(); build(); audio.send({ type: 'state', state }); },
+// Resolve responsive whole-view framing before registration so recall remains
+// an exact complete-state transaction instead of changing the requested preset.
+const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS.map(preset => ({ ...preset, snapshot: fitOpeningView(preset.snapshot) })), host: $('mainPresets'),
+  capture: () => ({ ...state }), apply: snapshot => { state = sanitizeState(snapshot); sync(); build(); audio.send({ type: 'state', state }); },
   randomize: (snapshot, random) => randomizeState(snapshot, random),
 });
 

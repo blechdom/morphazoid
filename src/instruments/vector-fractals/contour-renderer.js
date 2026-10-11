@@ -269,7 +269,7 @@ export class ContourRenderer {
     this.traceHeads = traceBank ? traceBank.layers.slice(0, 3).flatMap((layer, index) =>
       sampleReaderLayer(layer, traceBank.reader === 'traveler' ? traceTravel : phase).map(point => {
         const ahead = traceBank.reader === 'traveler' ? sampleReaderLayer(layer, phase + 1 / 2048)[0] : null;
-        return ({ ...point, heading: ahead ? Math.atan2(ahead.y - point.y, ahead.x - point.x) : null, index, phase, enabled: traceEnabled[index] !== false && toneEnabled[index] !== false,
+        return ({ ...point, heading: ahead && Math.hypot(ahead.x - point.x, ahead.y - point.y) > 1e-12 ? Math.atan2(ahead.y - point.y, ahead.x - point.x) : null, index, phase, enabled: traceEnabled[index] !== false && toneEnabled[index] !== false,
         x: traceBank.view.x + point.x * traceBank.view.width, y: traceBank.view.y + point.y * traceBank.view.width,
         localX: point.x, localY: point.y, pathIndex: layer.pathIndex }); })) : [];
     this.guide = traceBank ? readerGuide(traceBank, phase) : null;
