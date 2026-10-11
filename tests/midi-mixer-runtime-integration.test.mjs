@@ -26,7 +26,8 @@ test('MIDI Mixer is an embedded Midiophilia view, preserving one route and MIDI 
 });
 
 test('embedded mixer packaging additions restore exact previous bytes without hiding other changes', async () => {
-  assert.equal(midiMixerRuntimeChanges.baseCommit, '4b2653bc');
+  // The reviewed contour feature is the baseline before the exact Mixer rows.
+  assert.equal(midiMixerRuntimeChanges.baseCommit, 'e502256c');
   assert.deepEqual(midiMixerRuntimeChanges.changes.map(({ file }) => file), [
     'scripts/site/runtime-files.tsv', 'src/site/tap-tempo-targets.js',
   ]);

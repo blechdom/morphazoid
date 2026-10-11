@@ -10,8 +10,33 @@ export const MODES = Object.freeze([
   { id: 'explorer', label: 'Contour Explorer', color: '#80d9ff' },
 ]);
 export const SHAPES = Object.freeze({ basilica: [-1, 0], rabbit: [-.122561166876653, .744861766619744], circle: [0, 0], ellipse: [-2, 0], cardioid: null });
+export const TRACE_VOICES = Object.freeze(['sine', 'reed', 'glass', 'shepard']);
+export const DRUM_VOICES = Object.freeze(['thump', 'wood', 'metal']);
+// Geometry-only starting points from ../julia/julia.js JULIA_PRESETS. These
+// belong to the sampled Explorer; the Fourier modes keep their supported set.
+export const EXPLORER_JULIA_PRESETS = Object.freeze([
+  { id: 'basilica', label: 'Basilica', cReal: -1, cImag: 0 },
+  { id: 'rabbit', label: 'Douady rabbit', cReal: -.12256116687665361, cImag: .7448617666197442 },
+  { id: 'corabbit', label: 'Co-rabbit', cReal: -.12256116687665361, cImag: -.7448617666197442 },
+  { id: 'airplane', label: 'Airplane', cReal: -1.7548776662466927, cImag: 0 },
+  { id: 'san-marco', label: 'San Marco', cReal: -.75, cImag: 0 },
+  { id: 'cauliflower', label: 'Cauliflower', cReal: .25, cImag: 0 },
+  { id: 'siegel', label: 'Golden-mean Siegel disk', cReal: -.3905408702184, cImag: -.5867879073469687 },
+  { id: 'spiral', label: 'Spiral · finite depth', cReal: -.7, cImag: .27015 },
+  { id: 'listening', label: 'Listening default', cReal: -.788, cImag: .1191 },
+  { id: 'circle', label: 'Unit circle', cReal: 0, cImag: 0 },
+].map(Object.freeze));
 export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
-  viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null });
+  contourDomain: 'mandelbrot', cReal: -1, cImag: 0,
+  viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null,
+  contourReader: 'trace', traceRate: .1, featureSize: .015,
+  layerVoices: Object.freeze(['sine', 'reed', 'glass']), layerEnabled: Object.freeze([true, true, true]),
+  layerSustain: Object.freeze([true, true, true]), layerDrums: Object.freeze([false, false, false]),
+  layerDrumVoices: Object.freeze(['thump', 'wood', 'metal']),
+  toneLevel: 1, drumLevel: .55, drumSpacing: .04, drumDecay: .18, drumPitch: 120,
+  bendTimbre: .5, foldTimbre: 0, pitchDepth: 2, panWidth: 1,
+  radarX: 0, radarY: 0, scanAngle: 0,
+  shepardDirection: 'rise', shepardCycles: 1, shepardWidth: 1 });
 export const CONTOUR_LANDMARKS = Object.freeze([
   { id: 'whole', label: 'Whole outline', x: -.5, y: 0, width: 3.4 },
   { id: 'seahorse', label: 'Seahorse Valley', x: -.743643887037151, y: .13182590420533, width: .015 },
@@ -34,11 +59,29 @@ export function sanitizeState(input = {}) {
     traversal: s.traversal === 'distance' ? 'distance' : 'angle',
     readout: s.readout === 'mono' ? 'mono' : 'xy',
     vectors: Boolean(s.vectors), reference: Boolean(s.reference),
+    contourDomain: s.contourDomain === 'julia' ? 'julia' : 'mandelbrot',
+    cReal: clamp(s.cReal, -2, 2, -1), cImag: clamp(s.cImag, -2, 2, 0),
     viewX: clamp(s.viewX, -3, 3, -.5), viewY: clamp(s.viewY, -3, 3, 0),
     viewWidth: clamp(s.viewWidth, 1e-10, 5, 3.4), contourBias: clamp(s.contourBias, -8, 24, 0),
     contourQuality: s.contourQuality === 'fine' ? 'fine' : 'live',
     strandX: s.strandX == null ? null : clamp(s.strandX, -3, 3),
     strandY: s.strandY == null ? null : clamp(s.strandY, -3, 3),
+    contourReader: ['trace', 'radar', 'scan', 'xy'].includes(s.contourReader) ? s.contourReader : 'trace',
+    traceRate: clamp(s.traceRate, .01, 1, .1), featureSize: clamp(s.featureSize, .002, .08, .015),
+    layerVoices: DEFAULT_STATE.layerVoices.map((voice, i) => TRACE_VOICES.includes(s.layerVoices?.[i]) ? s.layerVoices[i] : voice),
+    layerEnabled: DEFAULT_STATE.layerEnabled.map((_, i) => s.layerEnabled?.[i] !== false),
+    layerSustain: DEFAULT_STATE.layerSustain.map((_, i) => s.layerSustain?.[i] !== false),
+    layerDrums: DEFAULT_STATE.layerDrums.map((_, i) => s.layerDrums?.[i] === true),
+    layerDrumVoices: DEFAULT_STATE.layerDrumVoices.map((voice, i) => DRUM_VOICES.includes(s.layerDrumVoices?.[i]) ? s.layerDrumVoices[i] : voice),
+    toneLevel: clamp(s.toneLevel, 0, 1, 1), drumLevel: clamp(s.drumLevel, 0, 1, .55),
+    drumSpacing: clamp(s.drumSpacing, .006, .2, .04), drumDecay: clamp(s.drumDecay, .02, 1.5, .18),
+    drumPitch: clamp(s.drumPitch, 30, 1800, 120),
+    bendTimbre: clamp(s.bendTimbre, 0, 1, .5), foldTimbre: clamp(s.foldTimbre, 0, 1, 0),
+    pitchDepth: clamp(s.pitchDepth, 0, 4, 2), panWidth: clamp(s.panWidth, 0, 1, 1),
+    radarX: clamp(s.radarX, -.5, .5, 0), radarY: clamp(s.radarY, -.5, .5, 0),
+    scanAngle: clamp(s.scanAngle, -180, 180, 0),
+    shepardDirection: s.shepardDirection === 'fall' ? 'fall' : 'rise',
+    shepardCycles: clamp(s.shepardCycles, 0, 4, 1), shepardWidth: clamp(s.shepardWidth, .5, 2, 1),
   };
 }
 
@@ -48,6 +91,7 @@ export function componentPoint(depth, phase, component = 1) {
 }
 
 export function juliaParameter(state, phase = 0) {
+  if (state.mode === 'explorer' && state.contourDomain === 'julia') return [state.cReal, state.cImag];
   if (state.mode === 'voyager') return componentPoint(state.depth, phase + state.angle, state.component);
   return SHAPES[state.shape] ?? componentPoint(state.depth, state.angle);
 }
@@ -171,15 +215,36 @@ export function mipSelection(frequency, sampleRate) {
 export function randomizeState(_previous, random = Math.random) {
   const pick = list => list[Math.min(list.length - 1, Math.floor(random() * list.length))];
   const landmark = pick(CONTOUR_LANDMARKS);
+  const contourDomain = pick(['mandelbrot', 'julia']);
+  const julia = pick(EXPLORER_JULIA_PRESETS);
+  const layerEnabled = DEFAULT_STATE.layerEnabled.map(() => random() > .25);
+  const layerSustain = DEFAULT_STATE.layerSustain.map(() => random() > .35);
+  const layerDrums = DEFAULT_STATE.layerDrums.map(() => random() > .4);
+  if (!layerEnabled.some((enabled, i) => enabled && (layerSustain[i] || layerDrums[i]))) {
+    const i = pick([0, 1, 2]);
+    layerEnabled[i] = true;
+    pick([layerSustain, layerDrums])[i] = true;
+  }
   return sanitizeState({ mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
+    contourDomain, cReal: julia.cReal, cImag: julia.cImag,
     radius: 1.03 + random() ** 2 * .65, detail: pick([32, 64, 128, 256, 512]),
     depth: random() * .96, angle: random(), component: pick([1, 2]), speed: .005 + random() ** 2 * .395,
     pitch: 30 * (1200 / 30) ** random(), rotation: random() * 360 - 180,
     traversal: pick(['angle', 'distance']), readout: pick(['xy', 'mono']), vectors: random() > .3, reference: random() > .2,
-    viewX: landmark.x + (random() - .5) * landmark.width * .12,
-    viewY: landmark.y + (random() - .5) * landmark.width * .12,
-    viewWidth: landmark.width * (.7 + random() * .6), contourBias: -5 + random() * 25,
-    contourQuality: pick(['live', 'fine']), strandX: landmark.x, strandY: landmark.y });
+    viewX: contourDomain === 'julia' ? 0 : landmark.x + (random() - .5) * landmark.width * .12,
+    viewY: contourDomain === 'julia' ? 0 : landmark.y + (random() - .5) * landmark.width * .12,
+    viewWidth: contourDomain === 'julia' ? 4.2 : landmark.width * (.7 + random() * .6), contourBias: -5 + random() * 25,
+    contourQuality: pick(['live', 'fine']), strandX: contourDomain === 'julia' ? null : landmark.x, strandY: contourDomain === 'julia' ? null : landmark.y,
+    contourReader: pick(['trace', 'radar', 'scan', 'xy']), traceRate: .02 * 30 ** random(), featureSize: .002 * 40 ** random(),
+    layerVoices: DEFAULT_STATE.layerVoices.map(() => pick(TRACE_VOICES)),
+    layerDrumVoices: DEFAULT_STATE.layerDrumVoices.map(() => pick(DRUM_VOICES)),
+    layerEnabled, layerSustain, layerDrums,
+    toneLevel: .3 + random() * .7, drumLevel: .25 + random() * .65,
+    drumSpacing: .018 * (.1 / .018) ** random(), drumDecay: .03 * 30 ** random(),
+    drumPitch: 45 * 20 ** random(), bendTimbre: random(), foldTimbre: random(),
+    pitchDepth: random() * 4, panWidth: random(), radarX: random() - .5, radarY: random() - .5,
+    scanAngle: random() * 360 - 180, shepardDirection: pick(['rise', 'fall']),
+    shepardCycles: random() < .15 ? 0 : .25 * 16 ** random(), shepardWidth: .5 + random() * 1.5 });
 }
 
 export const PRESETS = Object.freeze([
@@ -198,4 +263,9 @@ export const PRESETS = Object.freeze([
   ['explore', 'Explorer · Whole outline', { mode: 'explorer', pitch: 82, detail: 512 }],
   ['seahorse', 'Explorer · Seahorse Valley', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 65, detail: 512 }],
   ['filigree', 'Explorer · Seahorse filigree', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .0005, pitch: 41, detail: 512, contourQuality: 'fine' }],
+  ['trace-glass', 'Explorer · Glass curls', { mode: 'explorer', viewX: -.743643887037151, viewY: .13182590420533, viewWidth: .015, pitch: 164, traceRate: .16, featureSize: .005, layerVoices: ['reed', 'glass', 'sine'] }],
+  ['radar-drums', 'Explorer · Radar percussion', { mode: 'explorer', contourReader: 'radar', traceRate: .12, layerSustain: [false, false, false], layerDrums: [true, true, true], drumSpacing: .055, drumDecay: .14, drumPitch: 95, drumLevel: .65, bendTimbre: .75, foldTimbre: .35, radarX: -.08, radarY: .04 }],
+  ['scan-mixed', 'Explorer · Scan and shimmer', { mode: 'explorer', contourReader: 'scan', pitch: 147, traceRate: .08, scanAngle: 35, layerVoices: ['sine', 'reed', 'glass'], layerSustain: [true, false, true], layerDrums: [true, true, true], toneLevel: .65, drumLevel: .4, drumSpacing: .07, drumDecay: .3, drumPitch: 180, pitchDepth: 1.2, bendTimbre: .65, foldTimbre: .6 }],
+  ['shepard-rise', 'Explorer · Endless ascent', { mode: 'explorer', contourReader: 'radar', pitch: 110, traceRate: .055, layerVoices: ['shepard', 'shepard', 'shepard'], layerEnabled: [true, true, false], toneLevel: .7, bendTimbre: .3, foldTimbre: .5, pitchDepth: .4, panWidth: .75, shepardDirection: 'rise', shepardCycles: 1.5, shepardWidth: 1.25 }],
+  ['explore-xy', 'Explorer · XY waveform', { mode: 'explorer', pitch: 82, contourReader: 'xy' }],
 ].map(([id, label, patch]) => ({ id, label, snapshot: sanitizeState({ ...DEFAULT_STATE, ...patch }) })));
