@@ -1,3 +1,4 @@
+import { restoreTrackazoidBeatmatchingSite } from './helpers/trackazoid-beatmatching-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readMidiNoteEffectsRuntimeReference as readFile } from './helpers/midi-note-effects-runtime-reference.mjs';
@@ -8,9 +9,10 @@ import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-re
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 // Keep the published Sound Fonts evidence intact after the independent organ
-// registration; mutations below still exercise Sound Fonts' exact guards.
-const read = async (file, encoding = 'utf8') => restoreSpartialOrganRuntime(
-  await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true },
+// registration and Trackazoid beatmatching; mutations retain exact guards.
+const read = async (file, encoding = 'utf8') => restoreTrackazoidBeatmatchingSite(
+  restoreSpartialOrganRuntime(await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true }),
+  file, { allowRestored: true },
 );
 
 test('Sound Fonts amendments preserve exact shared files from the published parent', async () => {

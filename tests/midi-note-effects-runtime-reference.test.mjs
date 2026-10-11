@@ -1,3 +1,4 @@
+import { restoreTrackazoidBeatmatchingSite } from './helpers/trackazoid-beatmatching-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile as readRawFile } from 'node:fs/promises';
@@ -12,11 +13,13 @@ import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-re
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const url = new URL(`../${change.file}`, import.meta.url);
-// Remove only the independent organ additions before exercising the captured
-// note-effects baseline and mutations; keep its original hashes and guards.
-const readFile = async (file, encoding) => restoreSpartialOrganRuntime(
-  await readRawFile(file, encoding), change.file, { allowRestored: true },
+// Keep the captured original Trackazoid MVP, peeling only later beatmatching
+// and independent organ changes before the note-effects guards.
+const concurrent = source => restoreTrackazoidBeatmatchingSite(
+  restoreSpartialOrganRuntime(source, change.file, { allowRestored: true }),
+  change.file, { allowRestored: true },
 );
+const readFile = async (file, encoding) => concurrent(await readRawFile(file, encoding));
 const historical = [restoreTrackazoidSite, restoreFractalMotionRuntime, restoreMidiMixerRuntime, restoreVectorFractalsSite];
 
 test('note effects register exactly three copy-and-require runtime paths and restore captured main', async () => {
@@ -29,8 +32,7 @@ test('note effects register exactly three copy-and-require runtime paths and res
   const inventory = parseRuntimeManifest(source), baseline = parseRuntimeManifest(restored);
   assert.deepEqual(inventory.entries.filter(entry => !baseline.entries.some(old => old.path === entry.path)),
     paths.map(path => ({ path, policy: 'copy+require', copy: true, required: true })));
-  assert.equal(restoreSpartialOrganRuntime(
-    await readMidiNoteEffectsRuntimeReference(url, 'utf8'), change.file, { allowRestored: true }), restored);
+  assert.equal(concurrent(await readMidiNoteEffectsRuntimeReference(url, 'utf8')), restored);
   assert.equal(restoreMidiNoteEffectsRuntime(restored, change.file, { allowRestored: true }), restored);
   for (const normalize of historical) assert.equal(normalize(source, change.file), normalize(restored, change.file));
 });
