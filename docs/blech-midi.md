@@ -178,3 +178,29 @@ The browser mappings above are Morphazoid design choices, not ports of these
 applications or claims of their full feature sets. No code from these tools
 was imported for this stamp bank. Generated textures are original bounded
 pitch/time patterns; they do not claim to recreate any named composition.
+
+## MIDI note effects
+
+Open **MIDI effects**, turn the layer on, then shape new notes with transpose
+(±24 semitones), velocity, single/octave/fifth/major/minor chords, note delay,
+a gate limit, and up to four echoes with their own spacing and velocity decay.
+Drum pitches stay unchanged unless **Transpose & harmonize drums too** is on.
+Pitches outside MIDI 0–127 are omitted rather than folded onto the endpoints.
+
+Timing is in beats: the file player follows the file's current tempo and speed;
+Mixer and Blech MIDI use the shared tempo. A gate limit shortens key holds;
+source sustain pedals still apply. Edits and bypass affect new attacks, while
+held notes and pending echoes finish with their captured settings. Stop, seek,
+source replacement cancel the affected pending notes. Audio off releases pads
+and stamps; song transports keep moving.
+
+The layer runs before synthesis on the audio thread, and the visualizer receives
+the resulting notes. Playing, Audio permission, source MIDI bytes and download
+files remain independent. Mixer scenes include the layer; visualizer presets
+continue to own appearance only. These are MIDI note effects, separate from
+SoundFont reverb/chorus and the audio filter/delay controls.
+
+The shared scheduler bounds each engine to 512 source-note families and 4,096
+reserved events. Under extreme black-MIDI load it removes added voices before
+stealing the oldest family; each sounded child retains a matched release.
+Existing native synthesis and display polyphony limits still apply.

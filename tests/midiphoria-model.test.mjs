@@ -456,3 +456,14 @@ test('observer exceptions cannot break accepted notes, sustain release, or panic
   assert.equal(model.sample(5).activeNotes.length, 1);
   close(model.sample(5).level, 1);
 });
+
+test('already-routed sounding notes keep their transformed pitch through a source note mapping', () => {
+  const model = new MidiphoriaModel({ trigger: 'mapped', mappedType: 'note', mappedNumber: 60, mappedChannel: 2, channel: 2 });
+  const captured = []; model.onNoteEvent = event => captured.push(event);
+  const note = { type: 'noteOn', sourceId: 'midiphoria:pads', channel: 0, note: 72, velocity: 100 };
+  assert.equal(model.handleMessage(note, 0), false);
+  assert.equal(model.handleMessage(note, 0, { routed: true }), true);
+  assert.equal(captured[0].note, 72);
+  assert.equal(model.handleMessage({ ...note, type: 'noteOff' }, 1, { routed: true }), true);
+  assert.equal(captured[1].type, 'noteOff');
+});

@@ -14,7 +14,7 @@ export function mountMidiNoteEffectEditor(host, { id = 'midiNoteFx', getValue, o
     ['echoDecay', 'Echo velocity', .1, .9, .01, value => `${Math.round(value * 100)}%`],
   ];
   const section = doc.createElement('details'); section.className = 'midi-note-effects';
-  section.innerHTML = `<summary>MIDI effects <output data-fx-status>Bypassed</output></summary>
+  section.innerHTML = `<summary>MIDI effects <span data-fx-status>Bypassed</span></summary>
     <div class="midi-note-effects-actions"><label><input id="${id}Enabled" data-fx="enabled" type="checkbox"> MIDI effects on</label><button type="button" class="mini-action" data-fx-reset>Reset</button></div>
     <div class="midi-note-effects-fields"><label class="control"><span><b>Chord</b></span><select id="${id}Chord" data-fx="chord" aria-label="MIDI chord"><option value="single">Single note</option><option value="octave">Octave</option><option value="fifth">Fifth</option><option value="major">Major triad</option><option value="minor">Minor triad</option></select></label>
     ${definitions.map(([key, label, min, max, step]) => `<label class="control"><span><b>${label}</b><output data-fx-out="${key}"></output></span><span class="midi-note-effects-knob"><input id="${id}${key[0].toUpperCase()}${key.slice(1)}" data-fx="${key}" data-midi-note-effect type="range" min="${min}" max="${max}" step="${step}" aria-label="MIDI ${label.toLowerCase()}"></span></label>`).join('')}</div>
@@ -31,7 +31,7 @@ export function mountMidiNoteEffectEditor(host, { id = 'midiNoteFx', getValue, o
       else input.value = state[input.dataset.fx];
     }
     for (const [key, , , , , format] of definitions) section.querySelector(`[data-fx-out="${key}"]`).value = format(state[key]);
-    section.querySelector('[data-fx-status]').value = state.enabled ? 'On' : 'Bypassed';
+    section.querySelector('[data-fx-status]').textContent = state.enabled ? 'On' : 'Bypassed';
     section.dataset.enabled = String(state.enabled);
     for (const knob of knobs) knob.update();
   }

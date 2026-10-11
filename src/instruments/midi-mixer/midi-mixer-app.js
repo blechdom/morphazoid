@@ -341,7 +341,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   }
   engine = new MidiMixerEngine({ onState: reflect });
   performanceView = mountMixerMonitor($('mixerVisualizerHost'), { engine });
-  const noteEffectHost = document.createElement('div'); $('mixerEffects').before(noteEffectHost);
+  const noteEffectHost = document.createElement('div'); host.querySelector('.mixer-effects').before(noteEffectHost);
   noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'mixerNoteFx',
     getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
   knobs = mountMixerKnobs(host);

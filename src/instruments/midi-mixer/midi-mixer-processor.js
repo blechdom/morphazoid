@@ -155,6 +155,14 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       else this.noteFx.noteOff(channel, event.a, at, meta);
       return;
     }
+    if (!restoring && event.kind === 10) {
+      const pitches = this.noteFx.activePitches(channel, event.a);
+      for (const pitch of pitches.length ? pitches : [event.a]) this.synth.processMessage([0xa0 | channel % 16, pitch, event.b], channel - channel % 16,
+        { time: this.synth.currentTime + frame / sampleRate });
+      return;
+    }
+    const stopsNotes = event.kind === 11 && [120, 123, 124, 125, 126, 127].includes(event.a);
+    if (stopsNotes) this.noteFx.clear(this.synth.currentTime, meta => meta.source === deck && meta.event.channel === event.channel);
     const status = event.kind * 16 + channel % 16;
     const message = event.kind === 12 || event.kind === 13 ? [status, event.a] : [status, event.a, event.b];
     this.synth.processMessage(message, channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
@@ -162,8 +170,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       if (event.a === 7) this.channelVolumes[channel] = (midi.controllers?.[7] ?? event.b) / 127;
       if (event.a === 11) this.channelExpressions[channel] = (midi.controllers?.[11] ?? event.b) / 127;
       if (event.a === 121) this.channelExpressions[channel] = (midi.controllers?.[11] ?? 127) / 127;
-      if (event.a === 120 || event.a === 123) this.noteFx.clear(this.synth.currentTime, meta => meta.source === deck && meta.event.channel === event.channel);
-      if (event.a === 120 || event.a === 123 || (event.a === 7 || event.a === 11) && (midi.controllers?.[event.a] ?? event.b) === 0) this.releaseVisual(deck, frame, event.channel);
+      if (stopsNotes || (event.a === 7 || event.a === 11) && (midi.controllers?.[event.a] ?? event.b) === 0) this.releaseVisual(deck, frame, event.channel);
     }
   }
   soundEffectNote(note) {
@@ -176,7 +183,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     if (event.kind === 9 || note.release !== false) {
       this.synth.processMessage([event.kind * 16 + channel % 16, event.a, event.b], channel - channel % 16);
     }
-    if (event.kind === 9 && (midi.polyPressure !== undefined || shadow?.polyPressureValues[event.a])) this.synth.processMessage([0xa0 | channel % 16, event.a, midi.polyPressure ?? shadow.polyPressureValues[event.a]], channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
+    if (event.kind === 9 && (midi.polyPressure !== undefined || shadow?.polyPressureValues[original.a])) this.synth.processMessage([0xa0 | channel % 16, event.a, midi.polyPressure ?? shadow.polyPressureValues[original.a]], channel - channel % 16, { time: this.synth.currentTime + frame / sampleRate });
     const active = this.activeVisualNotes[deck];
     if (event.kind === 8) {
       const note = active.get(event.noteId);

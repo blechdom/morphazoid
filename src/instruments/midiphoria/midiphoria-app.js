@@ -52,7 +52,7 @@ function mountMidiphoria() {
     // transformed notes through player.onMidi; silent input keeps raw graphics.
     if (event.type === 'noteOn') {
       if (!usesMixer() && player?.padNoteOn(sourceId, event.note, event.velocity)) liveAudioNotes.add(event.id);
-      else model.handleMessage(event, clock(), { routed: true });
+      else { model.handleMessage(event, clock(), { routed: true }); renderer.setVoiceMetadata(event); }
     } else if (liveAudioNotes.delete(event.id)) player?.padNoteOff(sourceId);
     else model.handleMessage(event, clock(), { routed: true });
   };
