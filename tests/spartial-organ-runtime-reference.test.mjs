@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+// Peel later Trackazoid/Sound Fonts registrations before checking the original
+// organ baseline, while retaining the organ rows for their own strict guards.
+import { readTrackazoidSiteReference as readFile } from './helpers/trackazoid-site-reference.mjs';
 import test from 'node:test';
 import { spartialOrganRuntimeChanges, restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
 import { blechMidiSiteChanges, restoreBlechMidiSite } from './helpers/blech-midi-site-reference.mjs';

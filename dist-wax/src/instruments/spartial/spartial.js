@@ -1,4 +1,5 @@
 import { SpartialGranularEngine } from "./spartial-granular.js";
+import { SPARTIAL_ORGAN_DEFAULTS, sanitizeOrganSettings, writeOrganSpectrum, randomOrganRegistration } from "./spartial-organ.js";
 
 // SPARTIAL's browser-free additive/granular engine. Timing advances on the sample
 // clock; the application only supplies note gates and displays snapshots.
@@ -6,6 +7,7 @@ export const SPARTIAL_MAX_PARTIALS = 32;
 export const SPARTIAL_MAX_VOICES = 8;
 export const SPARTIAL_MAX_SPEAKERS = 16;
 export const SPARTIAL_DEFAULTS = Object.freeze({
+  ...SPARTIAL_ORGAN_DEFAULTS,
   partials: 16,
   rolloff: 1.2,
   attack: 0.04,
@@ -41,6 +43,21 @@ export const SPARTIAL_DEFAULTS = Object.freeze({
   grainFreeze: false,
   granularSource: "additive",
   grainPosition: 0.25,
+  pitchDepth: 0,
+  amplitudeDepth: 0,
+  modulationRate: 5,
+  modulationRipple: 0,
+  modulationShape: "sine",
+  rotaryMode: "off",
+  rotaryMix: 0.7,
+  rotarySpread: 0.7,
+  rotaryRamp: 2.5,
+  drive: 0,
+  keyClick: 0,
+  pipeChiff: 0,
+  organPercussion: "off",
+  percussionLevel: 0.25,
+  percussionDecay: 0.35,
   gains: Object.freeze(Array(SPARTIAL_MAX_PARTIALS).fill(1)),
 });
 
@@ -48,6 +65,7 @@ const TAU = 2 * Math.PI;
 const CONTROL_FRAMES = 32;
 const SMOOTH_SECONDS = 0.02;
 const OUTPUT_CEILING = 0.72;
+const SMOOTH_EFFECT_KEYS = ["pitchDepth", "amplitudeDepth", "modulationRate", "modulationRipple", "rotarySpread", "drive"];
 
 function finite(value, fallback) {
   return typeof value === "number" && Number.isFinite(value) ? value : fallback;
@@ -204,17 +222,35 @@ export function randomSpartialInstrument(current, seed = 17) {
       grainFreeze: granularSource === "additive" && current.grainBufferReady === true && random() < 0.3,
       granularSource,
       grainPosition: between(0, 1, 0.01),
+      ...randomOrganRegistration(settingsSeed),
+      organMode: pick(["partials", "tonewheel", "pipe"]),
+      pitchDepth: between(0, 80, 1),
+      amplitudeDepth: between(0, 0.8, 0.01),
+      modulationRate: between(0.05, 12, 0.05),
+      modulationRipple: between(-4, 4, 0.05),
+      modulationShape: pick(["sine", "triangle"]),
+      rotaryMode: pick(["off", "slow", "fast", "brake"]),
+      rotaryMix: between(0, 1, 0.01),
+      rotarySpread: between(0, 1, 0.01),
+      rotaryRamp: between(0.2, 8, 0.1),
+      drive: between(0, 0.7, 0.01),
+      keyClick: between(0, 0.65, 0.01),
+      pipeChiff: between(0, 0.65, 0.01),
+      organPercussion: pick(["off", "second", "third"]),
+      percussionLevel: between(0, 0.6, 0.01),
+      percussionDecay: between(0.08, 1.5, 0.01),
     }),
   };
 }
 
 function frequencyRatio(index, settings) {
-  if (index === 0) return 1;
+  const base = settings.organMode === "partials" ? 1 : 0.5;
+  if (index === 0) return base;
   // A stable per-partial deviation makes the irregular spacing reproducible;
   // it is an additive-synthesis texture, not a physical string/bar model.
   const random = seededRandom((settings.seed + 1) * 0x9e3779b1 ^ (index + 1) * 0x85ebca6b);
   const deviation = (random() * 2 - 1) * 0.22 * settings.inharmonicity;
-  return ((index + 1) ** settings.stretch) * (1 + deviation);
+  return base * ((index + 1) ** settings.stretch) * (1 + deviation);
 }
 
 /** Stretch 1 and inharmonicity 0 give exact integer harmonic ratios. */
@@ -237,6 +273,7 @@ export function sanitizeSpartialSettings(input = {}, previous = SPARTIAL_DEFAULT
   const rawGains = Array.isArray(patch.gains) || ArrayBuffer.isView(patch.gains)
     ? patch.gains : base.gains;
   return {
+    ...sanitizeOrganSettings(patch, base),
     partials: Math.round(number("partials", 1, SPARTIAL_MAX_PARTIALS)),
     rolloff: number("rolloff", 0, 3),
     attack: number("attack", 0.002, 8),
@@ -273,6 +310,21 @@ export function sanitizeSpartialSettings(input = {}, previous = SPARTIAL_DEFAULT
     grainFreeze: typeof patch.grainFreeze === "boolean" ? patch.grainFreeze : base.grainFreeze === true,
     granularSource: choice("granularSource", ["additive", "file"]),
     grainPosition: number("grainPosition", 0, 1),
+    pitchDepth: number("pitchDepth", 0, 200),
+    amplitudeDepth: number("amplitudeDepth", 0, 1),
+    modulationRate: number("modulationRate", 0.05, 20),
+    modulationRipple: number("modulationRipple", -4, 4),
+    modulationShape: choice("modulationShape", ["sine", "triangle"]),
+    rotaryMode: choice("rotaryMode", ["off", "slow", "fast", "brake"]),
+    rotaryMix: number("rotaryMix", 0, 1),
+    rotarySpread: number("rotarySpread", 0, 1),
+    rotaryRamp: number("rotaryRamp", 0.2, 8),
+    drive: number("drive", 0, 1),
+    keyClick: number("keyClick", 0, 1),
+    pipeChiff: number("pipeChiff", 0, 1),
+    organPercussion: choice("organPercussion", ["off", "second", "third"]),
+    percussionLevel: number("percussionLevel", 0, 1),
+    percussionDecay: number("percussionDecay", 0.08, 1.5),
     gains: Array.from({ length: SPARTIAL_MAX_PARTIALS }, (_, index) => clamp(
       finite(rawGains?.[index], finite(base.gains?.[index], 1)), 0, 1,
     )),
@@ -388,6 +440,9 @@ function makeVoice() {
     active: false, id: null, note: 60, velocity: 1, age: 0, serial: 0,
     gate: false, pending: null, releaseFrames: 0,
     panicGain: 1, panicStep: 0,
+    noiseState: 1, lastNoise: 0, chiffLow: 0, chiffHigh: 0,
+    clickLevel: 0, chiffLevel: 0, percussionEnvelope: 0, percussionPhase: 0,
+    percussionIncrement: 0, percussionDecay: 1, articulationDelay: 0,
     phases: new Float64Array(SPARTIAL_MAX_PARTIALS),
     increments: new Float64Array(SPARTIAL_MAX_PARTIALS),
     targetIncrements: new Float64Array(SPARTIAL_MAX_PARTIALS),
@@ -424,6 +479,31 @@ export class SpartialEngine {
     this.positions = new Float64Array(SPARTIAL_MAX_PARTIALS);
     this.routes = new Float64Array(SPARTIAL_MAX_PARTIALS * SPARTIAL_MAX_SPEAKERS);
     this.routeSteps = new Float64Array(this.routes.length);
+    this.organWeights = new Float64Array(SPARTIAL_MAX_PARTIALS);
+    this.modulationPhase = 0;
+    for (const key of SMOOTH_EFFECT_KEYS) this[key] = this.settings[key];
+    this.modulationTriangle = this.settings.modulationShape === "triangle" ? 1 : 0;
+    this.modulationValues = new Float64Array(SPARTIAL_MAX_PARTIALS);
+    this.pitchRatios = new Float64Array(SPARTIAL_MAX_PARTIALS).fill(1);
+    this.pitchSteps = new Float64Array(SPARTIAL_MAX_PARTIALS);
+    this.amplitudeGains = new Float64Array(SPARTIAL_MAX_PARTIALS).fill(1);
+    this.amplitudeSteps = new Float64Array(SPARTIAL_MAX_PARTIALS);
+    this.rotaryHornPhase = 0;
+    this.rotaryDrumPhase = 0.25;
+    this.rotaryHornHz = 0;
+    this.rotaryDrumHz = 0;
+    this.rotaryWet = this.settings.rotaryMode === "off" ? 0 : this.settings.rotaryMix;
+    this.rotaryRamp = this.settings.rotaryRamp;
+    this.rotaryLow = new Float64Array(SPARTIAL_MAX_SPEAKERS);
+    this.rotaryOutput = new Float64Array(SPARTIAL_MAX_SPEAKERS);
+    this.drivePrevious = new Float64Array(SPARTIAL_MAX_SPEAKERS);
+    this.delayLength = Math.ceil(this.sampleRate * 0.012) + 2;
+    this.rotaryDelayLow = new Float64Array(this.delayLength * SPARTIAL_MAX_SPEAKERS);
+    this.rotaryDelayHigh = new Float64Array(this.rotaryDelayLow.length);
+    this.rotaryCrossover = 1 - Math.exp(-TAU * 800 / this.sampleRate);
+    this.articulationSignal = 0;
+    this.articulationGain = 0;
+    this.updateModulation(true);
     this.updateWeights();
     this.updateSpectralRatios();
     this.updateCascadeSchedule();
@@ -510,21 +590,167 @@ export class SpartialEngine {
 
   updateWeights() {
     const settings = this.settings;
+    const organ = settings.organMode !== "partials";
+    if (organ) writeOrganSpectrum(settings, this.organWeights);
     let total = 0;
     for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
       const baselineWeight = partial < settings.partials
-        ? 1 / ((partial + 1) ** settings.rolloff) : 0;
+        ? (organ ? this.organWeights[partial] : 1) / ((partial + 1) ** settings.rolloff) : 0;
       this.targetWeights[partial] = baselineWeight * settings.gains[partial];
       total += baselineWeight;
     }
     // Normalize against the unpainted bank, not the edited gains. A bar at
     // 0.5 then halves that partial without turning up its neighbors. Since
     // every bar is <=1, the resulting L1 sum remains bounded by one.
+    if (organ) total = Math.max(1, total);
     if (total > 0) {
       for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
         this.targetWeights[partial] /= total;
       }
     }
+  }
+
+  updateModulation(initial = false) {
+    const denominator = Math.max(1, this.settings.partials - 1);
+    for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
+      // Positive ripple travels toward higher partials as the clock advances;
+      // zero gives every partial the same vibrato/tremolo phase.
+      const phase = wrap(this.modulationPhase - this.modulationRipple * partial / denominator);
+      const sine = Math.sin(TAU * phase);
+      const triangle = 1 - 4 * Math.abs(wrap(phase + 0.25) - 0.5);
+      const value = sine + (triangle - sine) * this.modulationTriangle;
+      this.modulationValues[partial] = value;
+      const pitch = 2 ** (this.pitchDepth * value / 1200);
+      const amplitude = 1 - this.amplitudeDepth * (0.5 - 0.5 * value);
+      if (initial) { this.pitchRatios[partial] = pitch; this.amplitudeGains[partial] = amplitude; }
+      this.pitchSteps[partial] = (pitch - this.pitchRatios[partial]) / CONTROL_FRAMES;
+      this.amplitudeSteps[partial] = (amplitude - this.amplitudeGains[partial]) / CONTROL_FRAMES;
+    }
+  }
+
+  updateEffectsClock() {
+    if (this.frame % CONTROL_FRAMES === 0) {
+      for (const key of SMOOTH_EFFECT_KEYS) {
+        this[key] += (this.settings[key] - this[key]) * this.routeApproach;
+        if (Math.abs(this.settings[key] - this[key]) < 1e-10) this[key] = this.settings[key];
+      }
+      this.modulationTriangle += ((this.settings.modulationShape === "triangle" ? 1 : 0) - this.modulationTriangle) * this.routeApproach;
+      this.rotaryRamp += (this.settings.rotaryRamp - this.rotaryRamp) * this.routeApproach;
+      const fast = this.settings.rotaryMode === "fast", slow = this.settings.rotaryMode === "slow";
+      // Ramp is approximately the 95% settling time; horn and drum have distinct
+      // inertia. Brake parks the last angle instead of resetting the speaker.
+      const ramp = 1 - Math.exp(-3 * CONTROL_FRAMES / (this.sampleRate * this.rotaryRamp));
+      this.rotaryHornHz += ((fast ? 6.6 : slow ? 0.8 : 0) - this.rotaryHornHz) * ramp;
+      this.rotaryDrumHz += ((fast ? 5.7 : slow ? 0.65 : 0) - this.rotaryDrumHz) * ramp * 0.72;
+      if (Math.abs(this.rotaryHornHz) < 1e-8) this.rotaryHornHz = 0;
+      if (Math.abs(this.rotaryDrumHz) < 1e-8) this.rotaryDrumHz = 0;
+    }
+    this.modulationPhase += this.modulationRate / this.sampleRate;
+    if (this.modulationPhase >= 1) this.modulationPhase -= 1;
+    this.rotaryHornPhase += this.rotaryHornHz / this.sampleRate;
+    if (this.rotaryHornPhase >= 1) this.rotaryHornPhase -= 1;
+    this.rotaryDrumPhase -= this.rotaryDrumHz / this.sampleRate;
+    if (this.rotaryDrumPhase < 0) this.rotaryDrumPhase += 1;
+    const targetWet = this.settings.rotaryMode === "off" ? 0 : this.settings.rotaryMix;
+    this.rotaryWet += (targetWet - this.rotaryWet) * this.approach;
+    if (Math.abs(targetWet - this.rotaryWet) < 1e-10) this.rotaryWet = targetWet;
+  }
+
+  voiceArticulation(voice) {
+    const age = voice.age - voice.articulationDelay;
+    if (age < 0) return 0;
+    let signal = 0;
+    if (age < this.sampleRate * 0.12 && (voice.clickLevel > 0 || voice.chiffLevel > 0)) {
+      let state = voice.noiseState;
+      state ^= state << 13; state ^= state >>> 17; state ^= state << 5;
+      voice.noiseState = state >>> 0;
+      const noise = voice.noiseState / 0x80000000 - 1;
+      const seconds = age / this.sampleRate;
+      if (seconds < 0.012) signal += (noise - voice.lastNoise) * voice.clickLevel * 0.08 * Math.exp(-seconds / 0.002);
+      voice.lastNoise = noise;
+      voice.chiffLow += (noise - voice.chiffLow) * (1 - Math.exp(-TAU * 500 / this.sampleRate));
+      voice.chiffHigh += (noise - voice.chiffHigh) * (1 - Math.exp(-TAU * 2800 / this.sampleRate));
+      signal += (voice.chiffHigh - voice.chiffLow) * voice.chiffLevel * 0.22
+        * Math.min(1, seconds / 0.003) * Math.exp(-seconds / 0.022);
+    }
+    if (voice.percussionEnvelope > 1e-7) {
+      voice.percussionPhase = wrap(voice.percussionPhase + voice.percussionIncrement, TAU);
+      signal += Math.sin(voice.percussionPhase) * voice.percussionEnvelope
+        * Math.min(1, age / (this.sampleRate * 0.002));
+      voice.percussionEnvelope *= voice.percussionDecay;
+    } else voice.percussionEnvelope = 0;
+    const release = voice.gate ? 1 : Math.min(1, voice.releaseFrames / (this.sampleRate * 0.015));
+    return signal * voice.velocity * voice.panicGain * release;
+  }
+
+  processOutputEffects(channels, frame, outputCount) {
+    const count = this.settings.speakerCount;
+    const write = this.frame % this.delayLength;
+    this.rotaryOutput.fill(0);
+    const horn = Math.sin(TAU * this.rotaryHornPhase), drum = Math.sin(TAU * this.rotaryDrumPhase);
+    const hornRead = wrap(write - this.sampleRate * (0.003 + 0.0008 * horn), this.delayLength);
+    const drumRead = wrap(write - this.sampleRate * (0.003 + 0.0005 * drum), this.delayLength);
+    const hornWhole = Math.floor(hornRead), drumWhole = Math.floor(drumRead);
+    for (let speaker = 0; this.rotaryWet > 0 && speaker < count; speaker += 1) {
+      const input = speaker < outputCount ? channels[speaker][frame] : 0;
+      this.rotaryLow[speaker] += (input - this.rotaryLow[speaker]) * this.rotaryCrossover;
+      const offset = speaker * this.delayLength;
+      this.rotaryDelayLow[offset + write] = this.rotaryLow[speaker];
+      this.rotaryDelayHigh[offset + write] = input - this.rotaryLow[speaker];
+      if (this.rotaryWet > 0) {
+        const low = this.rotaryDelayLow[offset + drumWhole] * (1 - drumRead + drumWhole)
+          + this.rotaryDelayLow[offset + (drumWhole + 1) % this.delayLength] * (drumRead - drumWhole);
+        const high = this.rotaryDelayHigh[offset + hornWhole] * (1 - hornRead + hornWhole)
+          + this.rotaryDelayHigh[offset + (hornWhole + 1) % this.delayLength] * (hornRead - hornWhole);
+        for (let band = 0; band < 2; band += 1) {
+          const phase = band ? this.rotaryHornPhase : this.rotaryDrumPhase;
+          const signal = band ? high * (0.82 + 0.18 * horn) : low * (0.88 + 0.12 * drum);
+          if (this.settings.lock === 1) {
+            this.rotaryOutput[this.settings.target] += signal;
+            continue;
+          }
+          let rotated = speaker + phase * count;
+          if (rotated >= count) rotated -= count;
+          const position = this.settings.lock === 0 ? rotated
+            : wrap(rotated + circleDelta(rotated, this.settings.target, count) * this.settings.lock, count);
+          const left = Math.floor(position), fraction = position - left;
+          // Linear interpolation preserves the total across neighboring buses;
+          // crossover bands may converge, so the final bus is bounded below.
+          this.rotaryOutput[left] += signal * (1 - fraction) * this.rotarySpread;
+          this.rotaryOutput[(left + 1) % count] += signal * fraction * this.rotarySpread;
+          // Width crossfades stationary and rotating buses, rather than
+          // scaling the wrapped angle (which would jump once per revolution).
+          if (this.settings.lock === 0) {
+            this.rotaryOutput[speaker] += signal * (1 - this.rotarySpread);
+            continue;
+          }
+          const fixed = wrap(speaker + circleDelta(speaker, this.settings.target, count) * this.settings.lock, count);
+          const fixedLeft = Math.floor(fixed), fixedFraction = fixed - fixedLeft;
+          this.rotaryOutput[fixedLeft] += signal * (1 - fixedFraction) * (1 - this.rotarySpread);
+          this.rotaryOutput[(fixedLeft + 1) % count] += signal * fixedFraction * (1 - this.rotarySpread);
+        }
+      }
+    }
+    let peak = 0, total = 0;
+    for (let speaker = 0; speaker < outputCount; speaker += 1) {
+      let signal = channels[speaker][frame] * (1 - this.rotaryWet) + this.rotaryOutput[speaker] * this.rotaryWet;
+      const previous = this.drivePrevious[speaker];
+      this.drivePrevious[speaker] = signal;
+      if (this.drive > 0 && (signal !== 0 || previous !== 0)) {
+        const amount = 1 + 4 * this.drive;
+        const x = signal / OUTPUT_CEILING, last = previous / OUTPUT_CEILING;
+        // First-order antiderivative antialiasing averages tanh over the sample
+        // segment; compensation restrains the drive's small-signal gain.
+        const difference = x - last;
+        const saturated = Math.abs(difference) < 1e-7 ? Math.tanh(amount * (x + last) / 2)
+          : (Math.log(Math.cosh(amount * x)) - Math.log(Math.cosh(amount * last))) / (amount * difference);
+        signal += (OUTPUT_CEILING * saturated / (1 + 3 * this.drive) - signal) * this.drive;
+      }
+      this.rotaryOutput[speaker] = signal;
+      peak = Math.max(peak, Math.abs(signal)); total += Math.abs(signal);
+    }
+    const scale = 1 / Math.max(1, peak / OUTPUT_CEILING, total / (OUTPUT_CEILING * Math.SQRT2));
+    for (let speaker = 0; speaker < outputCount; speaker += 1) channels[speaker][frame] = this.rotaryOutput[speaker] * scale * this.level;
   }
 
   updateRoutes(initial = false) {
@@ -553,7 +779,7 @@ export class SpartialEngine {
     }
   }
 
-  startVoice(voice, id, note, velocity) {
+  startVoice(voice, id, note, velocity, percussion = false) {
     voice.active = true;
     voice.id = id;
     voice.note = note;
@@ -568,6 +794,17 @@ export class SpartialEngine {
     voice.phases.fill(0);
     voice.envelopes.fill(0);
     voice.releaseSteps.fill(0);
+    voice.noiseState = (this.settings.seed ^ Math.imul(voice.serial, 0x9e3779b1)) >>> 0 || 1;
+    voice.lastNoise = 0; voice.chiffLow = 0; voice.chiffHigh = 0;
+    voice.clickLevel = this.settings.keyClick; voice.chiffLevel = this.settings.pipeChiff;
+    voice.percussionPhase = 0;
+    voice.articulationDelay = 0;
+    const harmonic = this.settings.organPercussion === "second" ? 2 : 3;
+    const frequency = 440 * 2 ** ((note - 69) / 12) * harmonic;
+    voice.percussionIncrement = TAU * Math.min(frequency, this.sampleRate * 0.49) / this.sampleRate;
+    voice.percussionEnvelope = percussion && this.settings.organPercussion !== "off" && frequency < this.sampleRate * 0.45
+      ? this.settings.percussionLevel * 0.45 : 0;
+    voice.percussionDecay = Math.exp(-1 / (this.sampleRate * this.settings.percussionDecay));
     this.updateVoiceFrequencies(voice, true);
     voice.onsets.set(this.cascadeOnsets);
   }
@@ -580,9 +817,12 @@ export class SpartialEngine {
     if (safeVelocity === 0) { this.noteOff(id); return false; }
     // Repeated held IDs are idempotent; a retrigger needs a new ID or note-off.
     if (this.voices.some((voice) => voice.active && voice.gate && voice.id === id)) return false;
+    // Hammond-inspired single trigger: percussion re-arms only after every
+    // note gate (including queued replacements) has been released.
+    const percussion = !this.voices.some(voice => (voice.active && voice.gate) || voice.pending);
     let voice = this.voices.find((candidate) => !candidate.active);
     if (voice) {
-      this.startVoice(voice, id, safeNote, safeVelocity);
+      this.startVoice(voice, id, safeNote, safeVelocity, percussion);
     } else {
       // Chord edits release the old latch first. Reuse its tails before taking
       // a still-held keyboard/MIDI note, and keep queued replacements intact.
@@ -590,7 +830,7 @@ export class SpartialEngine {
         if (!candidate.gate && !candidate.pending && (!voice || candidate.serial < voice.serial)) voice = candidate;
       }
       voice ??= this.voices.reduce((oldest, candidate) => candidate.serial < oldest.serial ? candidate : oldest);
-      voice.pending = { id, note: safeNote, velocity: safeVelocity };
+      voice.pending = { id, note: safeNote, velocity: safeVelocity, percussion };
       // Give a pending replacement its own age so dense chords rotate through
       // all eight slots rather than repeatedly overwriting the same slot.
       voice.serial = ++this.serial;
@@ -634,6 +874,7 @@ export class SpartialEngine {
       // An empty slot waits silently for the same fixed restart interval.
       this.startVoice(destination, id, safeNote, safeVelocity);
       this.releaseVoice(destination, 0.006);
+      destination.clickLevel = 0; destination.chiffLevel = 0; destination.percussionEnvelope = 0;
     }
     // An unrelated release may already own a queued replacement's slot. Keep
     // its remaining fade and add the rest of the fixed wait to the new voice.
@@ -682,11 +923,20 @@ export class SpartialEngine {
     const attackStep = 1 / (this.settings.attack * this.sampleRate);
     const energyDecay = Math.exp(-1 / (this.sampleRate * 0.07));
     for (let frame = 0; frame < length; frame += 1) {
-      if (this.frame % CONTROL_FRAMES === 0) this.updateRoutes();
+      if (this.frame % CONTROL_FRAMES === 0) { this.updateRoutes(); this.updateModulation(); }
+      this.updateEffectsClock();
       this.rotation += (this.settings.rotation - this.rotation) * this.approach;
       this.level += (this.settings.level - this.level) * this.approach;
+      if (this.settings.level === 0 && this.level < 1e-10) this.level = 0;
       this.phase = wrap(this.phase + this.rotation / this.sampleRate);
       this.partialSignals.fill(0);
+      this.articulationSignal = 0;
+      const modulating = this.pitchDepth > 0 || this.amplitudeDepth > 0;
+      const pitchModulating = this.pitchDepth > 1e-7;
+      if (modulating) for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
+          this.pitchRatios[partial] += this.pitchSteps[partial];
+          this.amplitudeGains[partial] += this.amplitudeSteps[partial];
+        }
       let envelopeSum = 0;
       let gated = false;
       for (const voice of this.voices) {
@@ -709,10 +959,16 @@ export class SpartialEngine {
           }
           voice.envelopes[partial] = envelope;
           peakEnvelope = Math.max(peakEnvelope, envelope);
-          let phase = voice.phases[partial] + voice.increments[partial];
+          const increment = pitchModulating ? voice.increments[partial] * this.pitchRatios[partial] : voice.increments[partial];
+          let phase = voice.phases[partial] + (increment > TAU * 0.49 ? TAU * 0.49 : increment);
           if (phase >= TAU) phase -= TAU;
           voice.phases[partial] = phase;
-          this.partialSignals[partial] += Math.sin(phase) * envelope * voiceGain * voice.spectralGains[partial];
+          let signal = Math.sin(phase) * envelope * voiceGain * voice.spectralGains[partial];
+          if (pitchModulating && increment > TAU * 0.46) signal *= Math.max(0, (TAU * 0.49 - increment) / (TAU * 0.03));
+          this.partialSignals[partial] += signal;
+        }
+        if (voice.clickLevel > 0 || voice.chiffLevel > 0 || voice.percussionEnvelope > 0) {
+          this.articulationSignal += this.voiceArticulation(voice);
         }
         envelopeSum += peakEnvelope * voice.velocity;
         voice.panicGain = Math.max(0, voice.panicGain - voice.panicStep);
@@ -723,8 +979,9 @@ export class SpartialEngine {
             const next = voice.pending;
             voice.active = false;
             if (next) {
-              this.startVoice(voice, next.id, next.note, next.velocity);
+              this.startVoice(voice, next.id, next.note, next.velocity, next.percussion);
               if (next.delayFrames) {
+                voice.articulationDelay = next.delayFrames;
                 for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
                   voice.onsets[partial] += next.delayFrames;
                 }
@@ -736,11 +993,18 @@ export class SpartialEngine {
       // Per-sample envelope normalization cannot overshoot when voices start
       // or release. Sum of weights <=1, route gains <=1, envelopes <=1, so even
       // eight phase-aligned notes gathered into one speaker stay <=0.72.
-      const gain = OUTPUT_CEILING * this.level / Math.max(1, envelopeSum);
+      const effects = this.rotaryWet > 0 || this.drive > 0 || this.articulationSignal !== 0 || this.articulationGain > 1e-10;
+      this.articulationGain += (Math.abs(this.articulationSignal) - this.articulationGain) * this.approach;
+      const gain = OUTPUT_CEILING * (effects ? 1 : this.level) / Math.max(1, envelopeSum);
       let capture = 0;
       for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
         this.weights[partial] += (this.targetWeights[partial] - this.weights[partial]) * this.approach;
+        if (modulating) this.partialSignals[partial] *= this.amplitudeGains[partial];
         capture += this.partialSignals[partial] * this.weights[partial] / Math.max(1, envelopeSum);
+      }
+      capture += this.articulationSignal / Math.max(1, envelopeSum);
+      if (this.articulationSignal !== 0 && Math.abs(capture) > 0.9) {
+        capture = Math.sign(capture) * (0.9 + 0.1 * Math.tanh((Math.abs(capture) - 0.9) / 0.1));
       }
       this.granular.capture(capture, this.frame);
       const grainOutput = this.granular.tick(this.frame, this.phase, gated, this.level);
@@ -748,7 +1012,7 @@ export class SpartialEngine {
       for (let partial = 0; partial < SPARTIAL_MAX_PARTIALS; partial += 1) {
         const signal = this.partialSignals[partial] * this.weights[partial] * gain * (1 - mix);
         this.partialEnergy[partial] = this.partialEnergy[partial] * energyDecay
-          + Math.abs(signal) * (1 - energyDecay);
+          + Math.abs(signal) * (effects ? this.level : 1) * (1 - energyDecay);
         for (let speaker = 0; speaker < SPARTIAL_MAX_SPEAKERS; speaker += 1) {
           const index = partial * SPARTIAL_MAX_SPEAKERS + speaker;
           this.routes[index] += this.routeSteps[index];
@@ -757,9 +1021,16 @@ export class SpartialEngine {
       }
       if (mix > 0) {
         for (let speaker = 0; speaker < outputCount; speaker += 1) {
-          channels[speaker][frame] += grainOutput[speaker] * OUTPUT_CEILING * this.level * mix;
+          channels[speaker][frame] += grainOutput[speaker] * OUTPUT_CEILING * (effects ? 1 : this.level) * mix;
         }
       }
+      if (this.articulationSignal !== 0) {
+        const partial = this.settings.organMode === "partials" ? 0 : 1;
+        for (let speaker = 0; speaker < outputCount; speaker += 1) {
+          channels[speaker][frame] += this.articulationSignal * gain * (1 - mix) * this.routes[partial * SPARTIAL_MAX_SPEAKERS + speaker];
+        }
+      }
+      if (effects) this.processOutputEffects(channels, frame, outputCount);
       this.frame += 1;
     }
   }
@@ -770,6 +1041,14 @@ export class SpartialEngine {
       voices: this.voices.filter((voice) => voice.active).length,
       positions: Array.from(this.positions.slice(0, this.settings.partials)),
       partialEnergy: Array.from(this.partialEnergy.slice(0, this.settings.partials)),
+      modulationPhase: this.modulationPhase,
+      modulationValues: Array.from(this.modulationValues.slice(0, this.settings.partials)),
+      pitchCents: Array.from(this.pitchRatios.slice(0, this.settings.partials), ratio => 1200 * Math.log2(ratio)),
+      amplitudeGains: Array.from(this.amplitudeGains.slice(0, this.settings.partials)),
+      rotaryHornPhase: this.rotaryHornPhase,
+      rotaryDrumPhase: this.rotaryDrumPhase,
+      rotaryHornHz: this.rotaryHornHz,
+      rotaryDrumHz: this.rotaryDrumHz,
       ...this.granular.snapshot(this.level),
     };
   }

@@ -25,6 +25,55 @@ Chords enter the live granular buffer as part of the additive sound. A loaded
 audio file still uses one transposition from the latest note; it does not create
 a separate grain cloud for every chord tone.
 
+## Partial modulation
+
+**Pitch movement** adds vibrato in cents; **Amplitude movement** adds tremolo by
+attenuating each partial. Both start at zero. Set a shared rate in hertz and a
+sine or triangle wave. **Ripple across partials** offsets the modulation phase
+through the bank: zero moves every partial together, positive values travel
+from low to high, and negative values reverse that direction. One turn spans
+one modulation cycle across the bank. The colored monitor follows the engine's
+partial modulation. These movements run independently of Rotation Play/Pause.
+
+## Organ voices
+
+**Custom partials** retains the original sound and starts selected. **Tonewheel**
+mixes nine sine drawbars; **Pipe organ** gives each stop a harmonic voice. The
+drawbars run from 0 (off) to 8, with footages **16′, 5⅓′, 8′, 4′, 2⅔′, 2′, 1⅗′,
+1⅓′, 1′**. The 8′ stop follows the played note; 16′ sounds an octave below it.
+All stops off silences the sustained organ tone. Fingerprint bars trim individual
+partials after the organ registration, so they remain useful for shaping it.
+
+Pipe voices include **Flute**, **Stopped flute**, **Principal**, **String pipe**
+and **Reed**. Brightness changes their harmonic balance; Pipe chiff adds an
+optional breath-like attack. **Key click & percussion** contains a short key
+transient and decaying second- or third-harmonic percussion with its own level
+and decay. Chiff, click and percussion start off. Registration presets, Next
+and dice offer additional starting points while preserving master Volume.
+
+The stops share the existing 32-partial bank, so high stops have fewer available
+overtones. These are original additive approximations inspired by organ
+construction and the Sormena Project tutorial's public description. They do
+not reproduce a sampled pipe, tonewheel mechanism or vintage drawbar gain law.
+See the [research sources and model limits](spartial-organ-research.md), including
+the distinction between the accessible video description and its unavailable
+transcript.
+
+## Rotary and drive
+
+**Rotary** starts Off. Slow and Fast glide between speeds; Brake lets the motion
+coast to a stop. Separate bass-drum and treble-horn movement processes both
+additive and granular layers. Mix, spread and transition time control its
+presence, width and acceleration. **One speaker** still gathers the result into
+the selected output. Rotary motion is independent of the main Rotation control.
+
+**Drive** adds saturation and starts at zero. It changes the shared output's
+timbre without changing the Volume setting. The rotary and drive models are
+compact effects inspired by Leslie features, not a cabinet or valve-circuit
+emulation; physical surround placement and subjective tone still need listening
+on the intended system. The three new control sections start collapsed, and
+the mobile graphic remains fixed above or beside the scrolling controls.
+
 ## Granular layer and mixer
 
 The Layer mix crossfader runs from additive only to granular only. It uses a

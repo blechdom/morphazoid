@@ -4,9 +4,14 @@ import { readFile } from 'node:fs/promises';
 import test from 'node:test';
 import { restoreSoundFontsSite, soundFontsSiteChanges } from './helpers/sound-fonts-site-reference.mjs';
 import { readTrackazoidSiteReference, restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
+import { restoreSpartialOrganRuntime } from './helpers/spartial-organ-runtime-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
-const read = (file, encoding = 'utf8') => readFile(new URL(`../${file}`, import.meta.url), encoding);
+// Keep the published Sound Fonts evidence intact after the independent organ
+// registration; mutations below still exercise Sound Fonts' exact guards.
+const read = async (file, encoding = 'utf8') => restoreSpartialOrganRuntime(
+  await readFile(new URL(`../${file}`, import.meta.url), encoding), file, { allowRestored: true },
+);
 
 test('Sound Fonts amendments preserve exact shared files from the published parent', async () => {
   assert.equal(soundFontsSiteChanges.baseCommit, 'cedaf28dca962b0af0a885b7d301dc7211517ecd');
@@ -23,7 +28,9 @@ test('Sound Fonts amendments preserve exact shared files from the published pare
     assert.equal(restoreTrackazoidSite(source, change.file, { allowRestored: true }),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }),
       'the existing historical reader peels Sound Fonts before Trackazoid');
-    assert.equal(await readTrackazoidSiteReference(new URL(`../${change.file}`, import.meta.url), 'utf8'),
+    assert.equal(restoreSpartialOrganRuntime(
+      await readTrackazoidSiteReference(new URL(`../${change.file}`, import.meta.url), 'utf8'),
+      change.file, { allowRestored: true }),
       restoreTrackazoidSite(restored, change.file, { allowRestored: true }));
   }
 });
