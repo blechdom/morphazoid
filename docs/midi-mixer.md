@@ -16,11 +16,15 @@ does not schedule the sound.
 
 Heart, Square, Star and the other sample buttons play short MIDI drawings over
 the decks. Type a message and send it as an upward-moving playable score, or
-use **Your drawing** to play the current freehand canvas. Each shot follows
+use **Play drawing** to play the current freehand canvas. Each shot follows
 the shared tempo and finishes once; it does not replace a deck or its loop.
 Shots can also play while the decks are paused. Audio remains an explicit,
 separate control. Stop shots clears just the sample layer; Pause or Stop
 releases both decks and shots.
+
+Up to four shots can overlap; a fifth replaces the oldest. Picture, sample
+sound and sample level are live performance controls, retained when recalling
+deck mix presets. The sample layer shares the mixer's SoundFont and effects.
 
 ## Play an original file
 
@@ -111,7 +115,10 @@ before mixing. Each file is limited to 10 MB, 1,024 tracks, 1.2 million events,
 600,000 notes and 64 distinct MIDI channels across ports. Oversized files are
 rejected with an error rather than silently truncated.
 
-SoundFont synthesis shares a maximum of 192 voices across both decks. An
+SoundFont synthesis shares a maximum of 192 voices across both decks and all
+four sample slots. One-shots are bounded to 2 MB, 32,768 notes, 131,072 events,
+16 channels and 512 beats each, with a shared 2,048-event sample budget per
+audio quantum. An
 overload guard permits up to 8,192 events per deck per 128-frame audio quantum;
 events beyond that bound are skipped and held voices are released to prevent
 stuck notes. The engine reports skipped events. Analysis retains every accepted

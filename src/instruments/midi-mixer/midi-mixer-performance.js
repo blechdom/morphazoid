@@ -1,7 +1,7 @@
 import { MidiphoriaModel, DEFAULT_VISUALS } from '../midiphoria/midiphoria-model.js';
 import { MidiphoriaRenderer } from '../midiphoria/midiphoria-renderer.js';
 import { GM_PROGRAM_NAMES } from './midi-mixer-model.js';
-import { MIXER_SAMPLE_STAMPS, mixerStampScore, mixerMessageScore, mixerPerformanceChannel,
+import { MIXER_SAMPLE_STAMPS, mixerStampScore, mixerMessageScore, mixerPerformanceScore, mixerPerformanceChannel,
   indexPerformanceNotes, queryPerformanceNotes } from './midi-mixer-performance-score.js';
 
 const clock = () => performance.now() / 1000;
@@ -155,7 +155,7 @@ export function mountMixerPerformance(host, { engine, getDrawing } = {}) {
   on(section.querySelector('form'), 'submit', event => {
     event.preventDefault(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value); playScore(score, score.text); });
   });
-  on($('mixerSendDrawing'), 'click', () => safely(() => playScore(getDrawing?.(), 'Your drawing')));
+  on($('mixerSendDrawing'), 'click', () => safely(() => playScore(mixerPerformanceScore(getDrawing?.()), 'Your drawing')));
   on($('mixerStopSamples'), 'click', () => { engine.stopSamples(); $('mixerSampleStatus').textContent = 'Samples stopped'; });
   on($('mixerPerformanceView'), 'change', () => renderer.configure({ view: $('mixerPerformanceView').value }));
   const resize = new ResizeObserver(() => { if (active) renderer.resize(); }); resize.observe(canvas);

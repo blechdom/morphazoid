@@ -180,7 +180,7 @@ function mountMidiphoria() {
     if (!player || disposed) return;
     const state = player.state, activeState = activeEngine()?.state ?? state;
     if (originalPlaySongId && originalPlaySongId === currentSongId && stageMode !== 'mixer'
-      && !loadingFile && state.ready && player.context?.state === 'running') {
+      && !loadingFile && state.ready && (!audioStarting || state.audioEnabled) && player.context?.state === 'running') {
       originalPlaySongId = ''; retainedPlayIntent = false;
       player.play(); return;
     }
