@@ -518,6 +518,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     setVolume(value) { engine.setVolume(value); }, setTempo,
     playDrawing() { return performanceView.playDrawing(); },
     stopSamples() { return performanceView.stopSamples(); },
+    resumeAudioClock() { return engine.context?.state === 'suspended' ? engine.context.resume() : Promise.resolve(); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
     dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); knobs?.destroy(); creativeKnobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
