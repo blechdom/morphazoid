@@ -31,6 +31,7 @@ async function open(page) {
             state.audioEnabled = true; publish(); return true;
           },
           setVolume(value) { state.volume = value; },
+          async resumeAudioClock() { /* No native context in this view-owner fixture. */ },
           play() { state.playing = true; publish(); }, pause() { state.playing = false; publish(); },
           reset() { state.playing = false; state.reset = true; publish(); },
           dispose() { presets?.destroy(); disposed = true; generation++; state.disposed = true; state.playing = false; state.audioEnabled = false; }
