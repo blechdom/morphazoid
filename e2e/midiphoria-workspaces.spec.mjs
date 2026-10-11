@@ -23,11 +23,13 @@ async function open(page) {
 }
 async function view(page, mode) {
   await page.locator(`#${mode === 'draw' ? 'drawing' : 'automata'}ModeButton`).click();
-  await expect(page.locator('#blechMidi')).toHaveAttribute('data-view', mode);
+  await expect(page.locator('#drawingCanvas')).toBeVisible();
+  await expect(page.locator('#automataMidiPreview')).toBeVisible();
 }
 const snapshot = page => page.evaluate(() => {
   const state = __workspaceQA.engine.state;
   return { playing: state.playing, audio: state.audioEnabled, beat: state.beat, tempo: state.tempo,
+    automata: { playing: state.automata.playing, generation: state.automata.generation, beat: state.automata.beat },
     loaded: state.decks.map(deck => Boolean(deck.analysis)), samples: state.samples.map(({ id, positionBeats, cycle, loop, sync }) => ({ id, positionBeats, cycle, loop, sync })),
     contexts: __workspaceQA.contexts.map(context => context.state) };
 });
@@ -39,18 +41,18 @@ test('Blech MIDI owns drawing and rules without deck requests or duplicate creat
   await expect(page.locator('h1')).toHaveText('Blech MIDI');
   expect((await snapshot(page)).loaded).toEqual([false, false]); expect((await snapshot(page)).playing).toBe(false);
   await expect(page.locator('#generateDrawingMidi')).toHaveText('Send ↑'); await expect(page.locator('#generateDrawingMidi')).toBeDisabled();
-  await expect(page.locator('#creativeControlsHost [data-mixer-sample]')).toHaveCount(58);
+  await expect(page.locator('#creativePadsHost [data-mixer-sample]')).toHaveCount(58);
   await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
   await expect(page.locator('#midiMixerView, #midiphoriaLegacyView, #deckSong0, #notePads')).toHaveCount(0);
   await page.locator('[data-drawing-stamp="❤"]').click(); const pixels = await page.locator('#drawingCanvas').getAttribute('data-pixels');
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleSync').uncheck(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('#mixerSampleLoop').check(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeHidden(); await page.locator('#mixerSampleProgram').selectOption('16');
   await page.locator('#generateDrawingMidi').click(); await expect.poll(() => page.evaluate(() => __workspaceQA.launches.length)).toBe(1);
   await view(page, 'automata');
   await expect(page.locator('#automataMidiTools .midiphoria-automata')).toHaveAttribute('open', '');
-  await expect(page.locator('#automataMidiGenerate')).toHaveText('Send rule ↑'); await expect(page.locator('#automataMidiPreview')).toBeVisible();
-  await expect(page.locator('#drawingCanvas')).toBeHidden(); await expect(page.locator('.mixer-sample-bank')).toBeHidden();
-  for (const id of ['mixerSampleLoop', 'mixerSampleSync', 'mixerSampleProgram', 'mixerSampleLevel', 'mixerStopSamples']) await expect(page.locator(`#${id}`)).toBeVisible();
-  await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).not.toBeChecked(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('16');
+  await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed', 'false'); await expect(page.locator('#automataMidiCapture')).toBeVisible();
+  await expect(page.locator('#drawingCanvas')).toBeVisible(); await expect(page.locator('.mixer-sample-bank')).toBeVisible();
+  for (const id of ['mixerSampleLoop', 'mixerSampleProgram', 'mixerSampleLevel', 'mixerStopSamples']) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('16');
   await view(page, 'draw'); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels); await expect(page.locator('.mixer-sample-bank')).toBeVisible();
   for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiTools']) await expect(page.locator(`#${id}`)).toHaveCount(1);
   await page.locator('#creativeStop').click();
@@ -62,19 +64,20 @@ test('Blech MIDI owns drawing and rules without deck requests or duplicate creat
 
 test('native loops persist across drawing and Automatapoeia, with one context and explicit stop', async ({ page }, testInfo) => {
   test.setTimeout(60000); const { errors } = await open(page);
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('[data-stamp-loop="square"]').check(); await page.locator('#mixerSampleProgram').selectOption('16');
   await arm(page); await page.locator('[data-mixer-sample="square"]').click(); await sounding(page);
   const id = (await snapshot(page)).samples[0].id;
   await page.locator('#creativeTempo').fill('173'); await expect.poll(async () => (await snapshot(page)).tempo).toBe(173);
-  await view(page, 'automata'); await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await sounding(page);
+  await view(page, 'automata'); await expect(page.locator('[data-stamp-loop="square"]')).toBeChecked(); await sounding(page);
   expect((await snapshot(page)).samples.some(sample => sample.id === id)).toBe(true); expect((await snapshot(page)).playing).toBe(false);
-  await page.locator('#automataMidiGenerate').click(); await expect.poll(() => page.evaluate(() => __workspaceQA.launches.length)).toBe(2);
+  await page.locator('#automataMidiPlayPause').click(); await expect.poll(async () => (await snapshot(page)).automata.generation).toBeGreaterThan(2);
+  expect(await page.evaluate(() => __workspaceQA.launches.length)).toBe(1);
   const signal = await sampleAudioEnvelope(page, { durationMs: 450, intervalMs: 40 });
   expect(signal.summary.finite).toBe(true); expect(signal.summary.maxRms).toBeGreaterThan(.001); expect(signal.summary.clippedSamples).toBe(0);
   expect((await snapshot(page)).contexts).toEqual(['running']);
   await view(page, 'draw'); await expect(page.locator('#creativeTempo')).toHaveValue('173');
   await page.locator('#creativeStop').click(); await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 8000 }).toBeLessThan(.0001);
-  expect((await snapshot(page)).samples).toEqual([]);
+  expect((await snapshot(page)).samples).toEqual([]); expect((await snapshot(page)).automata.playing).toBe(false);
   await page.locator('[data-mixer-sample="heart"]').click(); await sounding(page);
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect((await snapshot(page)).samples).toEqual([]);
@@ -90,15 +93,16 @@ test('native loops persist across drawing and Automatapoeia, with one context an
 test('page teardown releases native audio and BFCache restores one idle drawing workspace', async ({ page }) => {
   const { errors } = await open(page); await page.locator('[data-drawing-stamp="wave"]').click();
   const pixels = await page.locator('#drawingCanvas').getAttribute('data-pixels');
-  await page.locator('#mixerSampleLoop').check(); await arm(page); await page.locator('#generateDrawingMidi').click(); await sounding(page);
+  await page.locator('#mixerSampleLoop').check(); await arm(page); await page.locator('#generateDrawingMidi').click(); await page.locator('#automataMidiPlayPause').click(); await sounding(page);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
   await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
   await expect.poll(() => page.evaluate(() => __workspaceQA.contexts.every(context => context.state === 'closed'))).toBe(true);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
-  for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiGenerate']) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiPlayPause', 'automataMidiCapture']) await expect(page.locator(`#${id}`)).toHaveCount(1);
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect((await snapshot(page)).samples).toEqual([]);
-  expect((await snapshot(page)).loaded).toEqual([false, false]);
+  expect((await snapshot(page)).loaded).toEqual([false, false]); expect((await snapshot(page)).automata.playing).toBe(false);
+  await expect(page.locator('#automataMidiPreview')).toBeVisible();
   await arm(page); await page.locator('#generateDrawingMidi').click(); await sounding(page);
   expect((await snapshot(page)).contexts).toEqual(['closed', 'running']); expect(errors).toEqual([]);
 });
@@ -113,5 +117,5 @@ test('Midiophilia exposes only visualizer and mix controls and links to standalo
   expect(await monitor.getAttribute('tabindex')).toBeNull(); await monitor.click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   const destination = page.locator('main a[href="blech-midi.html"]').first(); await expect(destination).toBeVisible(); await destination.click();
-  await expect(page).toHaveURL(/\/blech-midi\.html$/); await expect(page.locator('#drawingCanvas')).toBeVisible();
+  await expect(page).toHaveURL(/\/blech-midi\.html$/); await expect(page.locator('#drawingCanvas')).toBeVisible(); await expect(page.locator('#automataMidiPreview')).toBeVisible();
 });

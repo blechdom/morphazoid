@@ -100,12 +100,16 @@ test('native loop pads toggle independently and restarting one never duplicates 
   await expect(page.locator('[data-mixer-sample][aria-pressed="true"]')).toHaveCount(0);
   await expect(pad(page, 'heart')).toHaveAttribute('data-selected', 'true');
   await input(page, 'mixerStampBeats', 4); await input(page, 'mixerStampSpan', 12); await input(page, 'creativeTempo', 240);
-  await page.locator('#mixerSampleProgram').selectOption('16'); await page.locator('#mixerSampleLoop').check(); await arm(page);
+  await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('[data-stamp-loop="heart"]').check(); await page.locator('[data-stamp-loop="square"]').check(); await arm(page);
   const heart = await launch(page, () => pad(page, 'heart').click());
   const square = await launch(page, () => pad(page, 'square').click());
   await expect(pad(page, 'heart')).toHaveAttribute('aria-pressed', 'true'); await expect(pad(page, 'square')).toHaveAttribute('aria-pressed', 'true');
   await expect(pad(page, 'square')).toHaveAttribute('data-selected', 'true');
   expect((await state(page)).samples.map(item => item.id)).toEqual([heart.id, square.id]);
+  await page.locator('#mixerStampFilter').fill('noise');
+  await expect(pad(page, 'heart')).toBeVisible(); await expect(pad(page, 'square')).toBeVisible();
+  await expect(pad(page, 'spiral')).toBeHidden(); await page.locator('#mixerStampFilter').fill('');
   await expect.poll(async () => (await sample(page, square.id))?.cycle).toBeGreaterThanOrEqual(1); await audible(page);
   const before = await progress(page, square.id); await pad(page, 'heart').click();
   await expect(pad(page, 'heart')).toHaveAttribute('aria-pressed', 'false');
@@ -125,7 +129,7 @@ test('native loop pads toggle independently and restarting one never duplicates 
 
 test('one-shot retrigger replaces only its pad and natural completion clears active state while retaining selection', async ({ page }) => {
   await open(page); await input(page, 'mixerStampBeats', 16); await input(page, 'creativeTempo', 240);
-  await expect(page.locator('#mixerSampleLoop')).not.toBeChecked();
+  await expect(page.locator('[data-stamp-loop="heart"]')).not.toBeChecked(); await expect(page.locator('[data-stamp-loop="square"]')).not.toBeChecked();
   const first = await launch(page, () => pad(page, 'heart').click()), other = await launch(page, () => pad(page, 'square').click());
   const again = await launch(page, () => pad(page, 'heart').click());
   expect(again.id).not.toBe(first.id); expect(again.loop).toBe(false);
@@ -200,7 +204,7 @@ test('height and horizontal offset transform stamps and drawing exports, with ma
 });
 
 test('tapping a pending file pad again cancels its fetch without stopping another loop or launching later', async ({ page }) => {
-  test.setTimeout(60000); await open(page); await page.locator('#mixerSampleLoop').check();
+  test.setTimeout(60000); await open(page); await page.locator('[data-stamp-loop="square"]').check();
   const other = await launch(page, () => pad(page, 'square').click());
   let ready, release, done, pending;
   const started = new Promise(resolve => { ready = resolve; }), gate = new Promise(resolve => { release = resolve; }), finished = new Promise(resolve => { done = resolve; });
