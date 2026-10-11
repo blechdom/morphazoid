@@ -228,8 +228,8 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         if (viewport.width < 1000) expect(box.height).toBeGreaterThanOrEqual(48);
       }
       const geometry = await page.evaluate(() => {
-        const group = document.querySelector('.mixer-stamp-switches').getBoundingClientRect(), actions = document.querySelector('.mixer-stamp-shape-controls').getBoundingClientRect();
-        return { gap: group.top - actions.bottom, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
+        const group = document.querySelector('.mixer-stamp-switches').getBoundingClientRect(), live = document.querySelector('#creativeVisualizerHost').getBoundingClientRect();
+        return { gap: group.top - live.bottom, overflow: document.documentElement.scrollWidth > innerWidth + 1 };
       });
       expect(geometry.gap).toBeGreaterThanOrEqual(0); expect(geometry.gap).toBeLessThan(30); expect(geometry.overflow).toBe(false);
       await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect(await page.evaluate(() => __stampLoopQA.contexts.length)).toBe(0); expect(errors).toEqual([]);

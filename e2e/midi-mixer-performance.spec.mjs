@@ -241,7 +241,7 @@ test('returning to Mixer during original Audio initialization prevents a late or
   await audible(page);
 });
 
-test('combined canvas follows both audible decks and samples overlay the running mix', async ({ page }, testInfo) => {
+test('combined canvas follows both audible decks and reflects live pitch and mute changes', async ({ page }, testInfo) => {
   test.setTimeout(60000);
   await open(page); await arm(page); await page.locator('#mixerPlay').click();
   await expect.poll(() => sourceIds(page)).toEqual(expect.arrayContaining(['deck:0', 'deck:1']));

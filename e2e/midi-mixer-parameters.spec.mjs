@@ -150,6 +150,9 @@ test('live stamp MIDI changes affect active notes while deck, voice and effect p
   await gain.fill('0.4'); const live = await sounding(page);
   const sampleId = await page.evaluate(() => __parameterQA.engine.state.samples[0]?.id); expect(sampleId).toBeTruthy();
   await expand(editor, 'Pitch'); await editor.getByRole('slider', { name: /Voice pitch$/, exact: false }).fill('7');
+  // Preserve shared-engine deep preset coverage with an original QA fixture.
+  // This is test setup, not a hidden song loaded by the Blech MIDI page.
+  await page.evaluate(async bytes => { await __parameterQA.engine.loadDeck(0, new Uint8Array(bytes).buffer, 'Preset fixture'); }, Array.from(fixture()));
   const saved = await page.evaluate(async () => {
     const { captureMixerPreset, applyMixerPreset } = await import('/src/instruments/midi-mixer/midi-mixer-presets.js');
     const engine = __parameterQA.engine; engine.configureDeck(0, { midi: { fineTune: 31, controllers: { 74: 42 }, generators: { 34: -3600 } } });

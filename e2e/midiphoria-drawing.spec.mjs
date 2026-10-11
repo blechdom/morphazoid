@@ -89,7 +89,7 @@ test('Send retains its draft and downloads exactly the played notes without enab
   const score = generateGridMidi([...expected.pixels].reverse(), { title: 'Drawn score', secondsPerRow: .125 });
   expect(bytes).toEqual(Buffer.from(score.buffer));
   expect(Array.from(bytes)).toEqual(await page.evaluate(() => __drawingQA.launches.at(-1).bytes));
-  expect(download.suggestedFilename()).toBe('drawn-score.mid');
+  expect(download.suggestedFilename()).toBe('blech-drawing.mid');
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', String(expected.count));
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => window.__drawingContexts.length)).toBe(0);
@@ -133,6 +133,12 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
         expect(bounds.x).toBeGreaterThanOrEqual(0); expect(bounds.x + bounds.width).toBeLessThanOrEqual(viewport.width + 1);
         if (viewport.width < 1000) { expect(bounds.width).toBeGreaterThanOrEqual(48); expect(bounds.height).toBeGreaterThanOrEqual(48); }
       }
+      const order = await page.evaluate(() => {
+        const live = document.getElementById('creativeVisualizerHost').getBoundingClientRect();
+        const draft = document.getElementById('drawingEditor').getBoundingClientRect();
+        return { liveBottom: live.bottom, draftTop: draft.top };
+      });
+      expect(order.draftTop).toBeGreaterThanOrEqual(order.liveBottom);
       expect(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth)).toBe(false);
       expect(await page.locator('#drawingCanvas').evaluate(node => getComputedStyle(node).borderRadius)).toBe('0px');
       await page.locator('#drawingModeButton').scrollIntoViewIfNeeded();
