@@ -112,7 +112,11 @@ export function parseMidi(input) {
   }
   ordered(events);
   const channels = new Map(), active = new Map(), notes = [];
-  const finish = (note, end) => { note.duration = Math.max(1 / ppq, end - note.beat); notes.push(note); if (notes.length > MIDI_MIXER_LIMITS.notes) throw new Error('This MIDI exceeds 600,000 notes.'); };
+  const finish = (note, end) => {
+    note.duration = Math.max(1 / ppq, end - note.beat);
+    note.attack.durationBeats = note.duration; delete note.attack;
+    notes.push(note); if (notes.length > MIDI_MIXER_LIMITS.notes) throw new Error('This MIDI exceeds 600,000 notes.');
+  };
   for (const event of events) {
     let channel = channels.get(event.channel);
     if (!channel) {
@@ -126,10 +130,11 @@ export function parseMidi(input) {
       channel.noteCount++; channel.minNote = Math.min(channel.minNote, event.a); channel.maxNote = Math.max(channel.maxNote, event.a);
       const key = event.channel * 128 + event.a; let queue = active.get(key);
       if (!queue) { queue = { values: [], index: 0 }; active.set(key, queue); }
-      queue.values.push({ beat: event.beat, duration: 0, channel: event.channel, note: event.a, velocity: event.b, track: event.track });
+      event.noteId = event.order;
+      queue.values.push({ id: event.noteId, attack: event, beat: event.beat, duration: 0, channel: event.channel, note: event.a, velocity: event.b, track: event.track });
     } else if (event.kind === 8) {
       const key = event.channel * 128 + event.a, queue = active.get(key);
-      if (queue && queue.index < queue.values.length) { finish(queue.values[queue.index++], event.beat); if (queue.index === queue.values.length) active.delete(key); }
+      if (queue && queue.index < queue.values.length) { const note = queue.values[queue.index++]; event.noteId = note.id; finish(note, event.beat); if (queue.index === queue.values.length) active.delete(key); }
     }
   }
   for (const queue of active.values()) for (let i = queue.index; i < queue.values.length; i++) finish(queue.values[i], durationBeats);
