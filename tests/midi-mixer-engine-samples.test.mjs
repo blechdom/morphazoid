@@ -4,7 +4,7 @@ import { readFile } from 'node:fs/promises';
 import { MidiMixerEngine, compileDeck } from '../src/instruments/midi-mixer/midi-mixer-engine.js';
 import { MidiMixerClock, MidiSampleClock, MAX_SAMPLE_EVENTS_PER_BLOCK } from '../src/instruments/midi-mixer/midi-mixer-clock.js';
 import { parseMidi, defaultDeckConfig } from '../src/instruments/midi-mixer/midi-mixer-model.js';
-import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
+import { generateTextMidi, generateGridMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
 
 function midi(events, endBeat = 8) {
   const vlq = value => { const bytes = [value & 127]; while ((value >>= 7)) bytes.unshift((value & 127) | 128); return bytes; };
@@ -156,6 +156,35 @@ test('real SoundFont samples overlay running decks, remain audible past crossfad
     const restored = telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).find(event => event.type === 'noteOn' && event.sourceId === 'deck:0');
     assert.ok(restored, 'Audio rearm publishes the genuinely restored held note'); assert.equal(restored.durationBeats, 0.5);
     gate.node = null; await gate.dispose();
+    // Actual dense collection files cannot consume the slots needed to draw
+    // four literal 48-column shapes. Checker rows change every cell at once.
+    for (const [index, file, start] of [[0, 'black-bleed-lightstorm.mid', 312], [1, 'black-bleed-seven-red-suns.mid', 120]]) {
+      const bytes = await readFile(new URL(`../assets/midiphoria/midi/${file}`, import.meta.url)), score = parseMidi(bytes);
+      await processor.command({ type: 'load', index, data: compileDeck(score), config: { ...defaultDeckConfig(), rate: 4, loopStartBeats: start, loopEndBeats: start + 16 }, channels: channelConfig(score) });
+    }
+    await processor.command({ type: 'crossfade', value: 0 }); await processor.command({ type: 'tempo', tempo: 120 });
+    await processor.command({ type: 'transport', playing: true, beat: 0 }); telemetry.length = 0;
+    const checks = generateGridMidi(Array.from({ length: 32 }, (_, row) => Array.from({ length: 48 }, (_, column) => Number((row + column) % 2 === 0))), { secondsPerRow: 0.125 });
+    const checkerAnalysis = parseMidi(checks.buffer), checkerData = compileDeck(checkerAnalysis);
+    for (let slot = 0; slot < 4; slot++) await processor.command({ type: 'sample', slot, id: 9 + slot, data: checkerData, startBeat: processor.sampleClock.beat, gain: 0.7, program: 0 });
+    render(1600);
+    const batches = telemetry.filter(message => message.type === 'notes');
+    assert.ok(batches.every(message => message.notes.length <= 256), 'combined telemetry never exceeds its batch cap');
+    const sampleEvents = batches.flatMap(message => message.notes).filter(event => event.sampleId >= 9 && event.sampleId <= 12);
+    for (let id = 9; id <= 12; id++) {
+      const attacks = sampleEvents.filter(event => event.sampleId === id && event.type === 'noteOn'), offs = sampleEvents.filter(event => event.sampleId === id && event.type === 'noteOff');
+      assert.equal(attacks.length, checkerAnalysis.noteCount, `all checker attacks from sample ${id} survive both dense decks`);
+      assert.deepEqual(new Set(offs.map(event => event.id)), new Set(attacks.map(event => event.id)), 'every sample gate receives its authoritative release');
+    }
+    assert.equal(processor.clock.skippedEvents + processor.sampleClock.skippedEvents, 0);
+    telemetry.length = 0;
+    const solidData = compileDeck(parseMidi(generateGridMidi(Array.from({ length: 4 }, () => Array(48).fill(1)), { secondsPerRow: 0.125 }).buffer));
+    for (let slot = 0; slot < 4; slot++) await processor.command({ type: 'sample', slot, id: 13 + slot, data: solidData, startBeat: processor.sampleClock.beat, gain: 0.7, program: 0 });
+    render(1); assert.equal(processor.sampleVisualCount, 192); assert.ok(processor.visualCount <= 512);
+    await processor.command({ type: 'stopSamples' });
+    const solidEvents = telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).filter(event => event.sampleId >= 13);
+    assert.equal(solidEvents.filter(event => event.type === 'noteOn').length, 192);
+    assert.equal(solidEvents.filter(event => event.type === 'noteOff').length, 192, 'all four full-width held rows release under dense traffic');
   } finally {
     await processor.command({ type: 'dispose' }); delete globalThis.AudioWorkletProcessor; delete globalThis.registerProcessor; delete globalThis.sampleRate; delete globalThis.currentTime;
   }

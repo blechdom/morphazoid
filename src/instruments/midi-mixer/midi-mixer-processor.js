@@ -7,7 +7,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     super(); this.alive = true; this.ready = false; this.synth = null; this.telemetryFrames = 0;
     this.deckChannels = Array.from({ length: 6 }, () => new Map()); this.channelSettings = Array.from({ length: 6 }, () => []); this.deckConfigs = Array(6).fill(null);
     this.sourceIds = ['deck:0', 'deck:1', '', '', '', '']; this.sampleIds = Array(6).fill(null); this.noteSerial = 0;
-    this.activeVisualNotes = Array.from({ length: 6 }, () => new Map()); this.visualCount = 0;
+    this.activeVisualNotes = Array.from({ length: 6 }, () => new Map()); this.visualCount = 0; this.sampleVisualCount = 0;
     this.channelVolumes = new Float32Array(192).fill(100 / 127); this.channelExpressions = new Float32Array(192).fill(1);
     this.audible = true; this.masterVolume = 1;
     this.crossfade = 0; this.noteEvents = []; this.droppedVisualEvents = 0; this.renderTime = 0;
@@ -100,37 +100,48 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     const active = this.activeVisualNotes[deck];
     if (event.kind === 8) {
       const note = active.get(event.noteId);
-      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; }
+      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; if (deck > 1) this.sampleVisualCount--; }
     }
     if (!restoring && event.kind === 9) {
       const parameters = this.synth.midiChannels[channel].systemParameters;
       const gain = parameters.gain * this.masterVolume * this.channelVolumes[channel] * this.channelExpressions[channel];
       if (!this.audible || parameters.isMuted || gain <= 1e-6) return;
-      if (this.noteEvents.length >= 256 || this.visualCount >= 512) { this.droppedVisualEvents++; return; }
+      // Four drawings can each hold 48 pitches. Reserve their 192 active slots;
+      // black-score deck attacks use the other 320, never stealing that reserve.
+      if (deck < 2 ? this.visualCount - this.sampleVisualCount >= 320 : this.sampleVisualCount >= 192) { this.droppedVisualEvents++; return; }
       const config = this.deckConfigs[deck], rate = config?.rate ?? 1;
       const boundary = deck < 2 ? mixerLoopBounds(this.clock.decks[deck]).end : this.sampleClock.samples[deck - 2]?.data.durationBeats ?? Infinity;
       const durationBeats = Math.max(0, Math.min(event.durationBeats ?? 0, boundary - event.beat));
       const note = { type: 'noteOn', id: `${this.sourceIds[deck]}:${++this.noteSerial}`, sourceId: this.sourceIds[deck], deck: deck < 2 ? deck : null, sampleId: this.sampleIds[deck], channel: event.channel,
         note: event.a + (event.channel % 16 === 9 ? 0 : config?.transpose ?? 0), velocity: event.b, gain,
-        beat: event.beat, at: currentTime + frame / sampleRate, durationBeats, duration: durationBeats * 60 / (this.clock.tempo * rate) };
-      this.queueVisual(note);
-      if (!active.has(event.noteId)) this.visualCount++;
+        beat: event.beat, at: currentTime + frame / sampleRate, durationBeats, duration: durationBeats * 60 / (this.clock.tempo * rate), published: false };
+      if (!this.queueVisual(note)) return;
+      if (!active.has(event.noteId)) { this.visualCount++; if (deck > 1) this.sampleVisualCount++; }
       active.set(event.noteId, note);
     }
   }
   queueVisual(note) {
     if (this.noteEvents.length >= 256) {
-      if (note.type === 'noteOn') { this.droppedVisualEvents++; return; }
-      const attack = this.noteEvents.findIndex(event => event.type === 'noteOn');
-      if (attack < 0) { this.droppedVisualEvents++; return; }
-      this.noteEvents.splice(attack, 1); this.droppedVisualEvents++;
+      const sample = note.sampleId !== null;
+      let replace = this.noteEvents.findIndex(event => event.sampleId === null && event.type === 'noteOn');
+      if (!sample && note.type === 'noteOn') replace = -1;
+      if (sample && replace < 0) replace = this.noteEvents.findIndex(event => event.sampleId === null);
+      if (sample && note.type === 'noteOff' && replace < 0) {
+        // Never discard a release for a sample attack already sent to the UI.
+        // At most 192 such sample gates exist. Any further crowded releases
+        // belong to an attack not yet published, so they can yield first.
+        replace = this.noteEvents.findIndex(event => !event.published && event.type === 'noteOff');
+        if (replace < 0) replace = this.noteEvents.findIndex(event => event.type === 'noteOn');
+      }
+      if (replace < 0) { this.droppedVisualEvents++; return false; }
+      this.noteEvents.splice(replace, 1); this.droppedVisualEvents++;
     }
-    this.noteEvents.push(note);
+    this.noteEvents.push(note); return true;
   }
   releaseVisual(source, frame = 0, channel = null) {
     const active = this.activeVisualNotes[source];
     for (const [key, note] of active) if (channel === null || note.channel === channel) {
-      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate }); active.delete(key); this.visualCount--;
+      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate }); active.delete(key); this.visualCount--; if (source > 1) this.sampleVisualCount--;
     }
   }
   release(deck, frame = 0) {
@@ -197,7 +208,10 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   }
   publish() {
     this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
-    if (this.noteEvents.length) { this.port.postMessage({ type: 'notes', notes: this.noteEvents }); this.noteEvents = []; }
+    if (this.noteEvents.length) {
+      for (const note of this.noteEvents) if (note.type === 'noteOn') note.published = true;
+      this.port.postMessage({ type: 'notes', notes: this.noteEvents.map(({ published, ...note }) => note) }); this.noteEvents = [];
+    }
   }
   process(_inputs, outputs) {
     if (!this.alive) return false;
