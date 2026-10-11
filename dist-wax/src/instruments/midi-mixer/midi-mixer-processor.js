@@ -1,7 +1,7 @@
 import { SpessaSynthProcessor, SoundBankLoader, SpessaLog } from './vendor/spessasynth-core.js';
 import { mergeMidiParameters, sanitizeMidiParameters, sanitizeMidiSynthEffects, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS } from './midi-mixer-parameters.js';
 import { midiStateMessages } from './midi-mixer-reverse.js';
-import { MidiMixerClock, MidiSampleClock, lowerBound, mixerLoopBounds } from './midi-mixer-clock.js';
+import { MidiMixerClock, MidiSampleClock, sampleSecondsAt, lowerBound, mixerLoopBounds } from './midi-mixer-clock.js';
 
 /** SoundFont and both sequencers live on this single audio thread and clock. */
 class MidiMixerProcessor extends AudioWorkletProcessor {
@@ -62,7 +62,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
     if (!this.ready) return;
     switch (message.type) {
-      case 'sampleClock': this.sampleClock.beat = Math.max(0, Number(message.beat) || 0); break;
+      case 'sampleClock': this.sampleClock.beat = Math.max(0, Number(message.beat) || 0); this.sampleClock.seconds = Math.max(0, Number(message.seconds) || 0); break;
       case 'sample': {
         const slot = message.slot, source = slot + 2;
         if (!Number.isInteger(slot) || slot < 0 || slot > 3 || message.data.channels.length > 16) break;
@@ -73,11 +73,14 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         const config = { gain: Math.max(0, Math.min(1, message.gain)), mute: false, transpose: 0, rate: 1, midi: sanitizeMidiParameters(message.midi) };
         this.prepareSourceChannels(source, message.data.channels);
         const channels = message.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : message.program }));
-        this.sampleClock.load(slot, { id: message.id, data: message.data, startBeat: message.startBeat, config, channels }); break;
+        const timing = message.timing ? { ...message.timing } : undefined;
+        if (timing && message.quantize && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat);
+        this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, config, channels }); break;
       }
       case 'sampleParameters': {
         const sample = this.sampleClock.samples[message.slot];
         if (!sample || sample.id !== message.id) break;
+        this.sampleClock.setOptions(message.slot, message);
         const previous = sample.config.midi;
         sample.config = { ...sample.config, gain: message.gain ?? sample.config.gain, midi: sanitizeMidiParameters(message.midi) };
         if (this.midiResync(previous, sample.config.midi)) this.sampleClock.load(message.slot, sample);
@@ -168,7 +171,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       const durationBeats = Math.max(0, Math.min(event.durationBeats ?? 0, boundary - event.beat));
       const note = { type: 'noteOn', id: `${this.sourceIds[deck]}:${++this.noteSerial}`, sourceId: this.sourceIds[deck], deck: deck < 2 ? deck : null, sampleId: this.sampleIds[deck], channel: event.channel,
         note: event.a + this.synth.midiChannels[channel].systemParameters.keyShift, velocity: event.b, gain,
-        beat: event.beat, at: currentTime + (this.renderOffset + frame) / sampleRate, durationBeats, duration: durationBeats * 60 / (this.clock.tempo * rate), published: false };
+        beat: event.beat, at: currentTime + (this.renderOffset + frame) / sampleRate, durationBeats, duration: event.durationSeconds ?? (deck > 1 && this.sampleClock.samples[deck - 2]?.sync === false ? sampleSecondsAt(this.sampleClock.samples[deck - 2].data, event.beat + durationBeats) - sampleSecondsAt(this.sampleClock.samples[deck - 2].data, event.beat) : durationBeats * 60 / (this.clock.tempo * rate)), published: false };
       if (!this.queueVisual(note)) return;
       if (!active.has(event.noteId)) { this.visualCount++; if (deck > 1) this.sampleVisualCount++; }
       active.set(event.noteId, note);
@@ -391,7 +394,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
   }
   publish() {
-    this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
+    this.port.postMessage({ type: 'state', beat: this.clock.beat, sampleBeat: this.sampleClock.beat, sampleTime: this.sampleClock.seconds, samples: this.sampleClock.snapshot(), tempo: this.clock.tempo, playing: this.clock.playing, at: currentTime, skippedEvents: this.clock.skippedEvents + this.sampleClock.skippedEvents, voices: this.synth?.voiceCount ?? 0, droppedVisualEvents: this.droppedVisualEvents });
     if (this.noteEvents.length) {
       for (const note of this.noteEvents) if (note.type === 'noteOn') note.published = true;
       this.port.postMessage({ type: 'notes', notes: this.noteEvents.map(({ published, ...note }) => note) }); this.noteEvents = [];

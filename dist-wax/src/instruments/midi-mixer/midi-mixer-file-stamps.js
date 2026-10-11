@@ -110,9 +110,17 @@ function chunk(id, bytes) {
   const size = bytes.length;
   return [...id].map(char => char.charCodeAt(0)).concat([size >>> 24, (size >>> 16) & 255, (size >>> 8) & 255, size & 255], bytes);
 }
-function encode(events, ppq, duration, meter) {
+function encode(events, ppq, duration, meter, tempoMap) {
   const tracks = [], endTick = Math.max(1, Math.round(duration * ppq));
-  const meta = [0, 255, 81, 3, 7, 161, 32, 0, 255, 88, 4, meter.numerator, Math.log2(meter.denominator), 24, 8, ...vlq(endTick), 255, 47, 0];
+  const meta = [0, 255, 88, 4, meter.numerator, Math.log2(meter.denominator), 24, 8];
+  let previousTempoTick = 0;
+  for (const tempo of tempoMap) {
+    const tick = Math.min(endTick, Math.max(previousTempoTick, Math.round(tempo.beat * ppq)));
+    const micros = Math.round(clamp(60000000 / tempo.bpm, 1, 0xffffff, 500000));
+    meta.push(...vlq(tick - previousTempoTick), 255, 81, 3, micros >>> 16, (micros >>> 8) & 255, micros & 255);
+    previousTempoTick = tick;
+  }
+  meta.push(...vlq(endTick - previousTempoTick), 255, 47, 0);
   tracks.push(chunk('MTrk', meta));
   const channels = new Map();
   for (const event of events) {
@@ -171,9 +179,17 @@ function excerpt(analysis, prepared, start, end, outputBeats, transpose) {
     events.push({ beat: outputBeats, order: Infinity, channel, kind: 11, a: 64, b: 0 });
     events.push({ beat: outputBeats, order: Infinity, channel, kind: 11, a: 123, b: 0 });
   }
-  if (events.length > MIDI_SAMPLE_LIMITS.events) return null;
+  // Tempo is state: an excerpt starts with the BPM already in effect, then
+  // follows its source changes. Length fitting scales their positions with
+  // the notes while retaining each BPM for unsynced playback.
+  const tempoMap = [{ beat: 0, bpm: analysis.tempoMap.findLast(item => item.beat <= start)?.bpm ?? 120 }];
+  for (const tempo of analysis.tempoMap) {
+    if (tempo.beat >= end) break;
+    if (tempo.beat > start) tempoMap.push({ beat: (tempo.beat - start) * scale, bpm: tempo.bpm });
+  }
+  if (events.length + tempoMap.length > MIDI_SAMPLE_LIMITS.events) return null;
   const meter = analysis.meterMap.findLast(item => item.beat <= start) ?? analysis.meterMap[0];
-  const buffer = encode(events, ppq, outputBeats, meter);
+  const buffer = encode(events, ppq, outputBeats, meter, tempoMap);
   if (buffer.byteLength > MIDI_SAMPLE_LIMITS.fileBytes) return null;
   return { buffer, noteCount: selected.length, channelCount: used.size, restoredNoteCount, sustainedNoteCount, effectiveTranspose, scale };
 }

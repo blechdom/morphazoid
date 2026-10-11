@@ -148,7 +148,7 @@ async function busyMix(page) {
   await input(page, 'masterTempo', 174); await input(page, 'mixerCrossfade', -.42);
   await page.locator('#deckRate0').selectOption('2'); await input(page, 'deckPitch0', 12); await input(page, 'deckOffset1', 2);
   await page.locator('#deckProgram0_0').selectOption('80');
-  await page.locator('#deckChannels0 [data-channel="1"] button').first().click();
+  await page.getByRole('button', { name: 'Mute deck A channel 2', exact: true }).click();
   await input(page, 'deckLoopStart0', 3, 'change'); await input(page, 'deckLoopEnd0', 7, 'change');
   await page.locator('.mixer-effects > summary').click();
   await input(page, 'mixerFilter', 2.6); await input(page, 'mixerEcho', .5); await input(page, 'mixerFeedback', .6);
@@ -288,19 +288,15 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     test('combined performance controls remain reachable', async ({ page }, testInfo) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-      if (viewport.width > 680) {
-        // Bring the palette's playing controls into view, without scrolling or
-        // centering the canvas itself: its attack floor must remain visible
-        // beside the controls on desktop and a short landscape viewport.
-        for (const control of ['#mixerStampFilter', '#mixerStampAgain']) {
-          await page.locator(control).scrollIntoViewIfNeeded();
-          const floor = await page.locator('#mixerPerformanceCanvas').boundingBox();
-          expect(floor.height, `canvas retains useful height beside ${control}`).toBeGreaterThanOrEqual(160);
-          expect(floor.y, `canvas top remains in the viewport beside ${control}`).toBeGreaterThanOrEqual(0);
-          expect(floor.y + floor.height, `canvas attack floor remains in the viewport beside ${control}`).toBeLessThanOrEqual(viewport.height);
-          await testInfo.attach(`canvas-beside-${control.slice(1)}`, { body: JSON.stringify({ viewport, canvas: floor }), contentType: 'application/json' });
-        }
-      }
+      // The requested compact visualizer now sits below presets, above the
+      // decks; the stamp palette scrolls independently farther down the page.
+      const canvas = page.locator('#mixerVisualizerHost #mixerPerformanceCanvas');
+      await canvas.scrollIntoViewIfNeeded();
+      const floor = await canvas.boundingBox();
+      expect(floor.height).toBe(viewport.width > 680 ? 150 : 110);
+      expect(floor.y).toBeGreaterThanOrEqual(0);
+      expect(floor.y + floor.height).toBeLessThanOrEqual(viewport.height + 1); // Subpixel scroll rounding.
+      await testInfo.attach('compact-canvas', { body: JSON.stringify({ viewport, canvas: floor }), contentType: 'application/json' });
       for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#mixerSendDrawing', '#mixerStopSamples', '#deckOriginal0', '#deckOriginal1']) {
         const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();
         const box = await target.boundingBox(); expect(box.width).toBeGreaterThan(20);

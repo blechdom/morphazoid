@@ -353,7 +353,9 @@ four sample slots. Stamps are bounded to 2 MB, 32,768 notes, 131,072 events,
 16 channels and 512 beats each, with a shared 2,048-event sample budget per
 audio quantum. Looping stamps share that event budget; a clip can cross at most
 16 loop boundaries in one quantum before it skips to the current phase and
-releases voices. This bounds even extremely short loops at extreme source tempos. An
+releases voices. The sample layer also shares a budget of four complete
+controller-state restores per quantum. This bounds even extremely short loops
+at extreme source tempos. An
 overload guard permits up to 8,192 events per deck per 128-frame audio quantum;
 events beyond that bound are skipped and held voices are released to prevent
 stuck notes. The engine reports skipped events. Analysis retains every accepted
