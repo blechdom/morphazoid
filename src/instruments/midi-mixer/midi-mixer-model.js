@@ -142,9 +142,9 @@ export function parseMidi(input) {
   if (ignoredSysEx) warnings.push(`${ignoredSysEx} system-exclusive messages omitted from remix playback.`);
   return { format, trackCount, ppq, tracks, channels: channelList, events, notes, tempoMap, meterMap, keyMap: ordered(keys), key: ordered(keys)[0] ?? estimateKey(notes), initialTempo: tempoMap[0].bpm, durationBeats, durationSeconds: beatsToSeconds(durationBeats, tempoMap), noteCount: notes.length, firstNoteBeat: notes[0].beat, warnings };
 }
-export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null });
+export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null });
 export function sanitizeDeckConfig(input = {}, previous = defaultDeckConfig()) {
-  return { gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -1000000, 1000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
+  return { rate: clamp(input.rate ?? previous.rate ?? 1, 0.25, 4, previous.rate ?? 1), gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -1000000, 1000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
     loopStartBeats: input.loopStartBeats === undefined ? previous.loopStartBeats : input.loopStartBeats === null ? null : clamp(input.loopStartBeats, 0, MIDI_MIXER_LIMITS.beats),
     loopEndBeats: input.loopEndBeats === undefined ? previous.loopEndBeats : input.loopEndBeats === null ? null : clamp(input.loopEndBeats, 0, MIDI_MIXER_LIMITS.beats) };
 }
@@ -159,6 +159,6 @@ export function loopBounds(analysis, config = defaultDeckConfig()) {
   return { start, end: finish, length: finish - start };
 }
 export function deckPosition(beat, analysis, config) {
-  const bounds = loopBounds(analysis, config), position = beat + config.offsetBeats;
+  const bounds = loopBounds(analysis, config), position = beat * (config.rate ?? 1) + config.offsetBeats;
   return config.loop ? bounds.start + modulo(position, bounds.length) : Math.max(bounds.start, Math.min(bounds.end, bounds.start + position));
 }

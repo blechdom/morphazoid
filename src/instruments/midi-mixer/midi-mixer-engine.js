@@ -14,7 +14,18 @@ export function compileDeck(analysis) {
     if (!histories.has(key)) histories.set(key, []);
     histories.get(key).push(event);
   }
-  return { events: analysis.events, channels: analysis.channels, controllers: [...histories.values()], loopBeats: loopLength(analysis), durationBeats: analysis.durationBeats };
+  const count = analysis.notes.length, held = { start: new Float64Array(count), end: new Float64Array(count), maxEnd: new Float64Array(count), info: new Uint32Array(count) };
+  for (let index = 0; index < count; index++) {
+    const note = analysis.notes[index]; held.start[index] = note.beat; held.end[index] = note.beat + note.duration;
+    held.info[index] = (note.channel << 14) | (note.note << 7) | note.velocity;
+  }
+  const augment = (low, high) => {
+    if (low >= high) return -Infinity;
+    const middle = (low + high) >>> 1;
+    return held.maxEnd[middle] = Math.max(held.end[middle], augment(low, middle), augment(middle + 1, high));
+  };
+  augment(0, count);
+  return { events: analysis.events, channels: analysis.channels, controllers: [...histories.values()], held, loopBeats: loopLength(analysis), durationBeats: analysis.durationBeats };
 }
 
 export class MidiMixerEngine {
@@ -54,7 +65,7 @@ export class MidiMixerEngine {
   }
   async enableAudio() {
     if (this._disposed) return false;
-    this._desiredAudio = true; this._error = null;
+    this._desiredAudio = true; this._error = null; const wasReady = this._ready;
     try {
       if (this.context?.state === 'closed') await this._close();
       if (!this.context) {
@@ -76,16 +87,20 @@ export class MidiMixerEngine {
       if (!this._ready && !this._promise) this._promise = this._initialize(context).finally(() => { if (this.context === context) this._promise = null; });
       this._publish(); await Promise.all([resumed, this._promise]);
       if (this._disposed || this.context !== context) return false;
-      this._audioEnabled = this._desiredAudio && this._ready && context.state === 'running'; this._updateGain(); this._publish(); return this._audioEnabled;
+      this._audioEnabled = this._desiredAudio && this._ready && context.state === 'running';
+      if (wasReady && this._audioEnabled) this._post({ type: 'rejoin' });
+      this._updateGain(); this._publish(); return this._audioEnabled;
     } catch (error) {
       if (!this._disposed) { this._error = error.message || 'Could not start MIDI audio.'; this._desiredAudio = false; await this._close(); this._publish(); }
       return false;
     }
   }
   setAudioEnabled(enabled) {
+    const wasEnabled = this._audioEnabled;
     this._desiredAudio = Boolean(enabled);
     this._audioEnabled = this._desiredAudio && this._ready && this.context?.state === 'running';
     if (!this._audioEnabled) this._post({ type: 'release' });
+    else if (!wasEnabled) this._post({ type: 'rejoin' });
     this._updateGain(); this._publish(); return this._audioEnabled;
   }
   play() {
@@ -103,13 +118,15 @@ export class MidiMixerEngine {
     this._post({ type: 'tempo', tempo: this._tempo }); this._updateEffects(); this._publish(); return this._tempo;
   }
   configureDeck(index, partial) {
-    this._checkIndex(index); const deck = this._decks[index]; deck.config = sanitizeDeckConfig(partial, deck.config);
+    this._checkIndex(index); const deck = this._decks[index], next = sanitizeDeckConfig(partial, deck.config);
+    if (next.rate !== deck.config.rate && !Object.hasOwn(partial, 'offsetBeats')) next.offsetBeats = deck.config.offsetBeats + this.state.beat * ((deck.config.rate ?? 1) - next.rate);
+    deck.config = next;
     this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...deck.config };
   }
   seekDeck(index, sourceBeat) {
     this._checkIndex(index); const deck = this._decks[index], bounds = loopBounds(deck.analysis, deck.config);
     const target = clamp(sourceBeat, bounds.start, bounds.end, bounds.start) - bounds.start;
-    let offset = target - this.state.beat;
+    let offset = target - this.state.beat * (deck.config.rate ?? 1);
     if (deck.config.loop) offset = ((offset + bounds.length / 2) % bounds.length + bounds.length) % bounds.length - bounds.length / 2;
     return this.configureDeck(index, { offsetBeats: offset });
   }

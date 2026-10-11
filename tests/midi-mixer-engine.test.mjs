@@ -118,3 +118,32 @@ test('scrubbing keeps global tempo phase, effect bounds stay finite, and SoundFo
   assert.equal(engine.state.soundfontName, 'Imported bank'); assert.equal(engine.context, null); assert.equal(engine.state.audioEnabled, false);
   await assert.rejects(engine.loadSoundFont(new ArrayBuffer(12)), /not an SF2/); await engine.dispose();
 });
+test('half-speed and double-speed files share exact master-beat alignment across independent loops', () => {
+  const attacks = [[], []]; let absoluteFrame = 0;
+  const clock = new MidiMixerClock({ emit: (deck, event, frame) => { if (event.kind === 9) attacks[deck].push(absoluteFrame + frame); } });
+  clock.load(0, data(1), { ...defaultDeckConfig(), rate: 2 }, []);
+  clock.load(1, data(1), { ...defaultDeckConfig(), rate: 0.5 }, []); clock.setTransport(true);
+  for (let index = 0; index < 3000; index++) { clock.process(128, 48000); absoluteFrame += 128; }
+  assert.equal(attacks[0].length, attacks[1].length * 4);
+  assert.deepEqual(attacks[1], attacks[0].filter((_, index) => index % 4 === 0));
+});
+test('changing a deck ratio preserves source position and scrub follows that ratio', async () => {
+  let now = 0; const engine = new MidiMixerEngine({ runtime: { performance: { now: () => now } } });
+  await engine.loadDeck(0, generateTextMidi('ABCDEFGHIJK').buffer); engine.play(); now = 1700;
+  const before = engine.state.decks[0].positionBeats; engine.configureDeck(0, { rate: 2 });
+  assert.equal(engine.state.decks[0].positionBeats, before);
+  now += 100; assert.ok(Math.abs(engine.state.decks[0].positionBeats - before - 0.4) < 1e-7);
+  engine.seekDeck(0, 2); assert.equal(engine.state.decks[0].positionBeats, 2); await engine.dispose();
+});
+test('resume restores currently held notes with a bounded interval query without retriggering finished attacks', async () => {
+  const { heldNotesAt } = await import('../src/instruments/midi-mixer/midi-mixer-clock.js');
+  const analysis = { events: [], channels: [{ channel: 0 }], meterMap: [{ numerator: 4, denominator: 4 }], durationBeats: 100,
+    notes: Array.from({ length: 1000 }, (_, index) => ({ beat: index / 100, duration: index === 0 ? 90 : 0.1, channel: 0, note: index % 127, velocity: 100 })) };
+  const compiled = compileDeck(analysis);
+  assert.deepEqual(heldNotesAt(compiled.held, 50).map(event => event.a), [0], 'long held note survives thousands of expired short notes');
+  assert.equal(heldNotesAt(compiled.held, 95).length, 0);
+  const emitted = [], clock = new MidiMixerClock({ emit: (_deck, event) => emitted.push(event) });
+  clock.load(0, compiled, defaultDeckConfig(), []); clock.setTransport(true, 50);
+  assert.equal(emitted.length, 1); assert.equal(emitted[0].a, 0);
+  clock.setTransport(false); assert.equal(emitted.length, 1, 'pause never attacks notes');
+});

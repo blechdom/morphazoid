@@ -10,6 +10,27 @@ export const mixerLoopBounds = deck => {
   const end = Math.max(start + 1 / 32, Math.min(deck.loopBeats, deck.config.loopEndBeats ?? deck.loopBeats));
   return { start, end, length: end - start };
 };
+/** Find notes that are sounding now, pruning an augmented interval tree.
+ * At most the audible voice budget is restored; notes ending before a seek
+ * are never triggered. This also keeps long sparse pads audible on Audio arm. */
+export function heldNotesAt(held, beat, limit = 192) {
+  if (!held?.start?.length) return [];
+  const result = [], stack = [[0, held.start.length]];
+  while (stack.length && result.length < limit) {
+    const [low, high] = stack.pop(); if (low >= high) continue;
+    const middle = (low + high) >>> 1;
+    if (held.maxEnd[middle] <= beat) continue;
+    stack.push([low, middle]);
+    if (held.start[middle] < beat - 1e-9) {
+      if (held.end[middle] > beat) {
+        const info = held.info[middle];
+        result.push({ beat, kind: 9, channel: info >>> 14, a: info >>> 7 & 127, b: info & 127 });
+      }
+      stack.push([middle + 1, high]);
+    }
+  }
+  return result;
+}
 export const MAX_EVENTS_PER_BLOCK = 8192;
 export class MidiMixerClock {
   constructor({ emit = () => {}, release = () => {}, restore = () => {}, configure = () => {} } = {}) {
@@ -24,25 +45,26 @@ export class MidiMixerClock {
   resync(index) {
     const deck = this.decks[index]; if (!deck) return;
     this.release(index);
-    const absolute = this.beat + deck.config.offsetBeats;
+    const absolute = this.beat * (deck.config.rate ?? 1) + deck.config.offsetBeats;
     const bounds = mixerLoopBounds(deck), position = bounds.start + (deck.config.loop ? mod(absolute, bounds.length) : absolute);
     deck.cursor = lowerBound(deck.events, Math.max(bounds.start, position)); deck.ended = false;
     deck.cycle = deck.config.loop ? Math.floor(absolute / bounds.length) : 0;
     // Controller-only history is separate: seeking never triggers overdue attacks.
     this.restore(index, deck.controllers, Math.max(bounds.start, position));
     this.configure(index, deck.config, deck.channelConfig);
+    if (this.playing) for (const event of heldNotesAt(deck.held, Math.max(bounds.start, position))) this.emit(index, event, 0);
   }
   setDeck(index, config, channels) {
     const deck = this.decks[index]; if (!deck) return;
-    const seek = config.offsetBeats !== deck.config.offsetBeats || config.loop !== deck.config.loop || config.loopStartBeats !== deck.config.loopStartBeats || config.loopEndBeats !== deck.config.loopEndBeats;
+    const seek = config.rate !== deck.config.rate || config.offsetBeats !== deck.config.offsetBeats || config.loop !== deck.config.loop || config.loopStartBeats !== deck.config.loopStartBeats || config.loopEndBeats !== deck.config.loopEndBeats;
     deck.config = { ...config }; deck.channelConfig = channels;
     if (seek) this.resync(index); else this.configure(index, config, channels);
   }
   setTransport(playing, beat = this.beat) {
-    const moved = Math.abs(beat - this.beat) > 1e-7;
-    this.beat = Math.max(0, beat);
+    const moved = Math.abs(beat - this.beat) > 1e-7, wasPlaying = this.playing;
+    this.beat = Math.max(0, beat); this.playing = Boolean(playing);
     if (!playing) for (let index = 0; index < 2; index++) this.release(index);
-    if (moved || playing && !this.playing) for (let index = 0; index < 2; index++) this.resync(index);
+    if (moved || playing && !wasPlaying) for (let index = 0; index < 2; index++) this.resync(index);
     this.playing = Boolean(playing);
   }
   process(frames, sampleRate) {
@@ -50,8 +72,8 @@ export class MidiMixerClock {
     const increment = this.tempo / (60 * sampleRate), end = this.beat + frames * increment;
     for (let index = 0; index < 2; index++) {
       const deck = this.decks[index]; if (!deck) continue;
-      const bounds = mixerLoopBounds(deck);
-      const start = this.beat + deck.config.offsetBeats, finish = end + deck.config.offsetBeats;
+      const bounds = mixerLoopBounds(deck), sourceIncrement = increment * (deck.config.rate ?? 1);
+      const start = this.beat * (deck.config.rate ?? 1) + deck.config.offsetBeats, finish = end * (deck.config.rate ?? 1) + deck.config.offsetBeats;
       if (!deck.config.loop && deck.ended) continue;
       let cursorBeat = start, budget = MAX_EVENTS_PER_BLOCK;
       // Minimum loop length is >= 1/32 quarter; at 300 BPM even the slowest supported
@@ -60,16 +82,18 @@ export class MidiMixerClock {
         const cycle = deck.config.loop ? Math.floor((cursorBeat + 1e-10) / bounds.length) : 0;
         const base = (deck.config.loop ? cycle * bounds.length : 0) - bounds.start;
         if (deck.cycle !== cycle) {
-          this.release(index, Math.max(0, Math.round((cursorBeat - start) / increment)));
+          this.release(index, Math.max(0, Math.round((cursorBeat - start) / sourceIncrement)));
           deck.cycle = cycle; deck.cursor = lowerBound(deck.events, bounds.start);
           this.restore(index, deck.controllers, bounds.start); this.configure(index, deck.config, deck.channelConfig);
+          const frame = Math.max(0, Math.round((cursorBeat - start) / sourceIncrement));
+          for (const event of heldNotesAt(deck.held, bounds.start)) this.emit(index, event, frame);
         }
         const segmentEnd = deck.config.loop ? Math.min(finish, base + bounds.end) : finish;
         const endIndex = lowerBound(deck.events, Math.min(bounds.end, segmentEnd - base) - 1e-10);
         const available = Math.max(0, endIndex - deck.cursor), count = Math.min(available, budget);
         for (let n = 0; n < count; n++) {
           const event = deck.events[deck.cursor++];
-          const frame = Math.max(0, Math.min(frames - 1, Math.round((event.beat + base - start) / increment)));
+          const frame = Math.max(0, Math.min(frames - 1, Math.round((event.beat + base - start) / sourceIncrement)));
           this.emit(index, event, frame);
         }
         budget -= count;
@@ -81,7 +105,7 @@ export class MidiMixerClock {
         cursorBeat = segmentEnd;
         if (!deck.config.loop) {
           if (finish >= bounds.length) {
-            this.release(index, Math.max(0, Math.min(frames - 1, Math.round((bounds.length - start) / increment))));
+            this.release(index, Math.max(0, Math.min(frames - 1, Math.round((bounds.length - start) / sourceIncrement))));
             deck.ended = true;
           }
           break;

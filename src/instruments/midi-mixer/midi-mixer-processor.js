@@ -54,6 +54,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.crossfade = Math.max(-1, Math.min(1, message.value));
         for (let i = 0; i < 2; i++) if (this.deckConfigs[i]) this.configure(i, this.deckConfigs[i], this.channelSettings[i]);
         break;
+      case 'rejoin': for (let i = 0; i < 2; i++) this.clock.resync(i); break;
       case 'release': this.synth.stopAllChannels(true); this.noteEvents.length = 0; break;
     }
     this.publish();
@@ -107,7 +108,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.synth.controllerChange(index, 0, 0); this.synth.controllerChange(index, 32, 0);
         this.synth.programChange(index, setting.program); channel.setSystemParameter('presetLock', true);
       } else if (previous.find(item => item.channel === setting.channel)?.program != null) {
-        const data = this.clock.decks[deck], rawBeat = this.clock.beat + config.offsetBeats;
+        const data = this.clock.decks[deck], rawBeat = this.clock.beat * (config.rate ?? 1) + config.offsetBeats;
         const bounds = mixerLoopBounds(data);
         const beat = bounds.start + (config.loop ? ((rawBeat % bounds.length) + bounds.length) % bounds.length : Math.max(0, rawBeat));
         this.synth.controllerChange(index, 0, 0); this.synth.controllerChange(index, 32, 0); this.synth.programChange(index, 0);
