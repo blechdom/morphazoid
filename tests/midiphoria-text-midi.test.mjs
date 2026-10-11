@@ -111,7 +111,7 @@ test('exported MIDI spells upright H I left to right while time moves from botto
   assert.deepEqual(parsed.notes, score.notes);
   assert.equal(parsed.duration, score.duration);
   assert.equal(parsed.tempo, 500000);
-  assert.equal(parsed.program, 81);
+  assert.equal(parsed.program, 0, 'generated text defaults to acoustic grand piano');
   assert.equal(parsed.title, 'Text: HI');
   assert.equal(score.secondsPerRow, 0.25);
   assert.equal(score.lowestNote, 48);
@@ -281,6 +281,7 @@ test('drawing MIDI contains exactly the upright painted cells including sustaine
   const pixels = [[0, 1, 0], [1, 1, 0], [0, 1, 1], [0, 0, 1]];
   const score = generateGridMidi(pixels, { secondsPerRow: .125 });
   const decoded = readScore(score.buffer);
+  assert.equal(decoded.program, 0, 'generated drawing exports acoustic grand piano');
   assert.deepEqual(decoded.notes, score.notes);
   const restored = pixels.map(row => row.map(() => 0));
   for (const note of decoded.notes) for (let row = note.start / .125; row < (note.start + note.duration) / .125; row++) {

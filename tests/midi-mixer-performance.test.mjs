@@ -5,6 +5,8 @@ import { MIXER_SAMPLE_STAMPS, MIXER_PATTERN_DEFAULTS, mixerStampScore, nextMixer
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { midiColorHue } from '../src/instruments/midiphoria/midiphoria-renderer.js';
 import { generateGridMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
+import { MidiDrawing } from '../src/instruments/midiphoria/midiphoria-drawing.js';
+import { generateAutomataMidi } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
 
 // Raw scrolling trails put older notes above younger notes: chronological rows
 // must be upright directly, without reversing the raster as the Draw editor does.
@@ -21,6 +23,7 @@ test('sample bank exports distinct upright shapes with the same notes as its sou
   const shapes = new Set();
   for (const stamp of MIXER_SAMPLE_STAMPS) {
     const score = mixerStampScore(stamp.id), parsed = parseMidi(score.buffer);
+    assert.equal(parsed.channels[0].program, 0, 'generated stamps default to acoustic grand piano');
     assert.equal(score.duration, 4);
     assert.equal(score.columns, 48); assert.equal(score.rows, 32);
     assert.equal(score.text, stamp.label);
@@ -64,6 +67,23 @@ test('seeded particle and organic patterns repeat exactly and reroll into distin
   }
 });
 
+test('full-width patterns sound MIDI endpoints and narrower patterns can be placed at either boundary', () => {
+  const full = mixerStampScore('scatter', { span: 128, density: 1, seed: 66 });
+  assert.equal(full.columns, 128); assert.equal(full.lowestNote, 0); assert.equal(full.highestNote, 127);
+  const notes = parseMidi(full.buffer).notes;
+  assert.ok(notes.some(note => note.note === 0)); assert.ok(notes.some(note => note.note === 127));
+  assert.deepEqual(pixelsFor(full), full.pixels);
+  for (const span of [12, 48, 127, 128]) {
+    const low = mixerStampScore('noise', { span, transpose: -127 });
+    const high = mixerStampScore('noise', { span, transpose: 127 });
+    assert.equal(low.lowestNote, 0); assert.equal(low.highestNote, span - 1);
+    assert.equal(high.lowestNote, 128 - span); assert.equal(high.highestNote, 127);
+    assert.deepEqual(low.pixels, high.pixels, 'moving a whole pattern preserves its geometry');
+    assert.deepEqual(low.pixels, pixelsFor(low)); assert.deepEqual(high.pixels, pixelsFor(high));
+    assert.deepEqual(low.notes.map(note => note.note + 128 - span), high.notes.map(note => note.note));
+  }
+});
+
 test('Variation skips identical neighboring seeds and returns a complete distinct MIDI score', () => {
   const options = { seed: 10, density: 0, span: 48, beats: 12, transpose: 7 };
   const previous = mixerStampScore('stripes', options), adjacent = mixerStampScore('stripes', { ...options, seed: 11 });
@@ -92,14 +112,14 @@ test('Variation returns null for fixed grids and literal shapes but varies spars
 
 test('all pattern extremes remain bounded, nonempty and within the one-shot MIDI budget', () => {
   const cases = [{ seed: 0, density: 0, span: 12, beats: 4, transpose: -36 },
-    { seed: 0xffffffff, density: 1, span: 48, beats: 32, transpose: 36 },
+    { seed: 0xffffffff, density: 1, span: 128, beats: 32, transpose: 127 },
     { seed: -1e100, density: 1e100, span: 1e100, beats: -1e100, transpose: 1e100 },
     { seed: NaN, density: Infinity, span: 'wrong', beats: undefined, transpose: NaN }];
   for (const { id } of MIXER_SAMPLE_STAMPS) for (const options of cases) {
     const score = mixerStampScore(id, options), analysis = parseMidi(score.buffer);
-    assert.ok(analysis.noteCount > 0 && analysis.noteCount <= 768);
+    assert.ok(analysis.noteCount > 0 && analysis.noteCount <= 2048);
     assert.ok(analysis.events.length < 32768 && score.buffer.byteLength < 2 * 1024 * 1024);
-    assert.equal(score.rows, 32); assert.ok(score.columns >= 12 && score.columns <= 48);
+    assert.equal(score.rows, 32); assert.ok(score.columns >= 12 && score.columns <= 128);
     assert.ok(analysis.notes.every(note => note.note >= 0 && note.note <= 127 && note.duration > 0));
     assert.ok(analysis.durationBeats >= 4 && analysis.durationBeats <= 32);
     assert.equal(score.notes[0].start, 0);
@@ -174,6 +194,49 @@ test('drawing row length and lowest note resize timing and pitch without alterin
   assert.deepEqual(drawing.buffer, before);
   assert.throws(() => mixerPerformanceScore(drawing, { secondsPerRow: 0 }));
   assert.throws(() => mixerPerformanceScore(drawing, { lowestNote: 127 }));
+});
+
+test('drawing pitch span stretches to every MIDI pitch with matching export and preview, retaining its authored grid', () => {
+  const pixels = Array.from({ length: 4 }, () => Array(48).fill(0));
+  pixels[0][0] = 1; pixels[1][12] = 1; pixels[2][12] = 1; pixels[3][47] = 1;
+  const drawing = generateGridMidi(pixels, { secondsPerRow: .125 }), before = structuredClone(drawing);
+  const normal = mixerPerformanceScore(drawing);
+  assert.deepEqual(mixerPerformanceScore(drawing, { span: 48 }).buffer, normal.buffer, 'explicit original span preserves the old drawing');
+  const full = mixerPerformanceScore(drawing, { span: 128, lowestNote: 48 });
+  assert.equal(full.lowestNote, 0); assert.equal(full.highestNote, 127); assert.equal(full.duration, normal.duration);
+  assert.deepEqual(full.pixels, pixels.map(row => Array.from({ length: 128 }, (_, x) => row[Math.floor((x + .5) * 48 / 128)])));
+  assert.deepEqual(pixelsFor(full), full.pixels);
+  const actual = parseMidi(full.buffer).notes;
+  assert.ok(actual.some(note => note.note === 0)); assert.ok(actual.some(note => note.note === 127));
+  assert.ok(actual.every(note => note.note >= 0 && note.note <= 127));
+  assert.deepEqual(drawing, before, 'resizing never edits the source drawing, notes or download');
+  const source128 = generateGridMidi([Array(128).fill(1)], { lowestNote: 0 });
+  assert.equal(mixerPerformanceScore(source128).columns, 128, 'full-width authored scores also pass through the adapter');
+});
+
+test('compressing a drawing retains thin strokes and safely fits its new pitch window', () => {
+  const pixels = Array.from({ length: 4 }, () => Array(48).fill(0));
+  pixels[1][12] = 1; pixels[2][12] = 1;
+  const drawing = generateGridMidi(pixels);
+  const narrow = mixerPerformanceScore(drawing, { span: 12, lowestNote: 127 });
+  assert.equal(narrow.lowestNote, 116); assert.equal(narrow.highestNote, 127);
+  assert.equal(narrow.notes.length, 1); assert.equal(narrow.notes[0].note, 119);
+  assert.equal(narrow.notes[0].duration, .5); assert.equal(narrow.notes[0].start, .25);
+  assert.deepEqual(narrow.pixels, pixelsFor(narrow));
+  for (const options of [{ span: -100, lowestNote: -10 }, { span: 10000, lowestNote: 127 }, { span: NaN }, { span: Infinity }]) {
+    const score = mixerPerformanceScore(drawing, options);
+    assert.ok(score.columns >= 1 && score.columns <= 128);
+    assert.ok(score.notes.length > 0 && score.notes.every(note => note.note >= 0 && note.note <= 127));
+    assert.deepEqual(score.pixels, pixelsFor(score));
+  }
+});
+
+test('standalone drawings and automata export acoustic grand piano before mixer overrides', () => {
+  const drawing = new MidiDrawing(); drawing.stamp('❤');
+  for (const score of [drawing.score(), generateAutomataMidi()]) {
+    assert.equal(parseMidi(score.buffer).channels[0].program, 0);
+    assert.ok(score.notes.length > 0);
+  }
 });
 
 test('deck A, deck B and sample voices use stable independent hues at identical pitch/channel', () => {
