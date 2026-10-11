@@ -50,9 +50,8 @@ async function observe(page) {
 
 async function open(page) {
   await observe(page); await page.goto('/midiphoria.html');
-  await page.locator('#mixerModeButton').click();
+  await page.locator('#drawingModeButton').click();
   await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
-  await expect(page.locator('#tempoFromB')).toBeEnabled();
 }
 async function input(page, id, value) {
   await page.locator(`#${id}`).evaluate((node, value) => {
@@ -211,11 +210,11 @@ for (const action of ['Stop samples', 'Stop mixer', 'Leave view', 'Audio off']) 
     test.setTimeout(60000); await open(page); if (action === 'Audio off') await arm(page);
     const deliver = await holdFile(page);
     if (action === 'Stop samples') await page.locator('#mixerStopSamples').click();
-    else if (action === 'Stop mixer') await page.locator('#mixerStop').click();
+    else if (action === 'Stop mixer') { await page.locator('#mixerModeButton').click(); await page.locator('#mixerStop').click(); }
     else if (action === 'Leave view') await page.locator('#visualModeButton').click();
     else await page.locator('#audioButton').click();
     await deliver(); expect(await launches(page)).toEqual([]); expect((await snapshot(page)).samples).toEqual([]);
-    if (action === 'Leave view') await page.locator('#mixerModeButton').click();
+    if (action === 'Leave view') await page.locator('#drawingModeButton').click();
     await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
     await arm(page); await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
     expect(await launches(page)).toEqual([]);
@@ -233,6 +232,7 @@ test('a generated stamp wins over a delayed file without a stale second launch',
 
 test('four native one-shots can overlap, replace the oldest, and leave deck playback intact', async ({ page }, testInfo) => {
   test.setTimeout(60000); await open(page); await input(page, 'mixerStampBeats', 32);
+  await page.locator('#mixerModeButton').click(); await expect(page.locator('#tempoFromB')).toBeEnabled();
   for (const index of [0, 1]) {
     const name = `Stamp QA deck ${index}.mid`;
     await page.locator(`#deckFile${index}`).setInputFiles({ name, mimeType: 'audio/midi', buffer: sustainedMidi(60 + index * 7) });
@@ -241,7 +241,7 @@ test('four native one-shots can overlap, replace the oldest, and leave deck play
   await arm(page);
   await page.locator('#mixerPlay').click(); await audible(page);
   await page.locator('#deckMute0').check(); await page.locator('#deckMute1').check();
-  const before = await snapshot(page);
+  const before = await snapshot(page); await page.locator('#drawingModeButton').click();
   for (const id of ['heart', 'square', 'star', 'smile', 'zigzag']) await stamp(page, id).click();
   const played = await launches(page), current = await snapshot(page);
   expect(current.samples.map(sample => sample.id)).toEqual(played.slice(-4).map(sample => sample.id));

@@ -140,7 +140,7 @@ test('controller and generator overrides survive source automation, seeks and lo
 });
 
 test('live stamp MIDI changes affect active notes while deck, voice and effect presets restore deeply', async ({ page }, testInfo) => {
-  test.setTimeout(60000); await open(page); await arm(page); await attachProbe(page); await input(page, 'mixerStampBeats', 32);
+  test.setTimeout(60000); await open(page); await arm(page); await attachProbe(page); await page.locator('#drawingModeButton').click(); await input(page, 'mixerStampBeats', 32);
   await page.evaluate(() => __parameterQA.engine.configureSamples({ midi: { controllers: { 91: 0, 93: 0, 94: 0 } } }));
   await page.locator('[data-mixer-sample="heart"]').click(); await sounding(page);
   const detail = page.locator('.mixer-stamp-midi'); await detail.locator(':scope > summary').click(); const editor = detail.locator('.midi-parameter-editor');
@@ -183,6 +183,15 @@ for (const generated of [false, true]) {
   });
 }
 
+async function checkEditorLayout(page, coarse) {
+  const dimensions = await page.evaluate(() => ({ viewport: innerWidth, scroll: document.documentElement.scrollWidth,
+    narrow: [...document.querySelectorAll('.midi-parameter-editor button,.midi-parameter-editor summary,.midi-parameter-editor select,.midi-parameter-editor input')]
+      .filter(node => node.getClientRects().length && getComputedStyle(node).display !== 'none')
+      .map(node => ({ name: node.getAttribute('aria-label') || node.textContent, rect: node.getBoundingClientRect().toJSON() })).filter(item => item.rect.height < 47.9),
+    overflow: [...document.querySelectorAll('.midi-parameter-editor,.deck-midi-editor,.channel-midi-editor,.mixer-stamp-midi')].filter(node => node.getClientRects().length && node.scrollWidth > node.clientWidth + 2).map(node => node.className) }));
+  expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport); expect(dimensions.overflow).toEqual([]); if (coarse) expect(dimensions.narrow).toEqual([]);
+}
+
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`expanded deck, voice and stamp editors fit at ${viewport.width}×${viewport.height}`, async ({ browser }) => {
     const coarse = viewport.width !== 1440, page = await browser.newPage({ viewport, hasTouch: coarse, isMobile: coarse });
@@ -190,15 +199,11 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     try {
       await open(page); const editor = await voice(page); await expand(editor, 'Mix'); await expand(editor, 'Expression & pedals'); await cc(editor, 74);
       await page.locator('[data-deck="0"] .deck-midi-editor > summary').click(); const deck = page.locator('#deckMidi0'); await expand(deck, 'Instrument');
+      await checkEditorLayout(page, coarse); await page.locator('#drawingModeButton').click();
       await page.locator('.mixer-stamp-midi > summary').click(); const sample = page.locator('.mixer-stamp-midi .midi-parameter-editor'); await expand(sample, 'Pitch'); await generator(sample, 34);
       const input = sample.getByRole('slider', { name: /Fine tuning$/, exact: false }); await input.focus();
       await page.evaluate(() => { for (let index = 0; index < 20; index++) __parameterQA.engine.configureSamples({ midi: { fineTune: index } }); }); await expect(input).toBeFocused();
-      const dimensions = await page.evaluate(() => ({ viewport: innerWidth, scroll: document.documentElement.scrollWidth,
-        narrow: [...document.querySelectorAll('.midi-parameter-editor button,.midi-parameter-editor summary,.midi-parameter-editor select,.midi-parameter-editor input')]
-          .filter(node => node.getClientRects().length && getComputedStyle(node).display !== 'none')
-          .map(node => ({ name: node.getAttribute('aria-label') || node.textContent, rect: node.getBoundingClientRect().toJSON() })).filter(item => item.rect.height < 47.9),
-        overflow: [...document.querySelectorAll('.midi-parameter-editor,.deck-midi-editor,.channel-midi-editor,.mixer-stamp-midi')].filter(node => node.getClientRects().length && node.scrollWidth > node.clientWidth + 2).map(node => node.className) }));
-      expect(dimensions.scroll).toBeLessThanOrEqual(dimensions.viewport); expect(dimensions.overflow).toEqual([]); if (coarse) expect(dimensions.narrow).toEqual([]);
+      await checkEditorLayout(page, coarse);
       expect(await page.evaluate(() => __parameterQA.contexts.length)).toBe(0);
       expect(childErrors).toEqual([]);
     } finally { await page.close(); }
