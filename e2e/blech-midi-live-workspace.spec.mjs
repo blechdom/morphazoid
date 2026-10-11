@@ -237,3 +237,31 @@ for(const viewport of [{width:390,height:844},{width:844,height:390}]){
     }finally{await context.close();}
   });
 }
+
+test('silent Rule 204 holds one visual note across generations and preserves it when changing from retrigger to hold',async({page})=>{
+  await open(page);await configure(page,{rule:204,rate:2,tempo:240});
+  const canvas=page.locator('#mixerPerformanceCanvas');
+  const graphics=()=>page.evaluate(()=>__liveQA.graphics.filter(event=>event.sourceId==='automata'));
+  await page.locator('#automataMidiArticulation').selectOption('hold');await play(page);
+  await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(8);
+  const held=await graphics();expect(held.filter(event=>event.type==='noteOn').map(event=>event.note)).toEqual([64]);
+  expect(held.filter(event=>event.type==='noteOff')).toEqual([]);await expect(canvas).toHaveAttribute('data-active-notes','1');
+  await page.locator('#automataMidiPlayPause').click();await expect(canvas).toHaveAttribute('data-active-notes','0');
+  expect((await graphics()).filter(event=>event.type==='noteOff').map(event=>event.note)).toEqual([64]);
+  await page.locator('#automataMidiArticulation').selectOption('retrigger');await page.locator('#automataMidiRestart').click();
+  const start=(await graphics()).length;await play(page);
+  await expect.poll(async()=>(await graphics()).slice(start).filter(event=>event.type==='noteOn').length).toBeGreaterThanOrEqual(5);
+  // Rule204 is identity: its one center cell stays at MIDI64 indefinitely.
+  // Switching articulation should extend that same gate, not lose/repeat it.
+  await page.locator('#automataMidiArticulation').selectOption('hold');
+  await expect.poll(async()=>(await state(page)).automata.rowSettings.articulation).toBe('hold');
+  await expect(canvas).toHaveAttribute('data-active-notes','1');
+  const transitioned=await state(page),events=(await graphics()).length;
+  await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(transitioned.automata.generation+8);
+  expect((await graphics()).length).toBe(events);await expect(canvas).toHaveAttribute('data-active-notes','1');
+  expect((await state(page)).automata.row.flatMap((on,i)=>on?[60+i]:[])).toEqual([64]);
+  await page.locator('#automataMidiPlayPause').click();await expect(canvas).toHaveAttribute('data-active-notes','0');
+  expect((await graphics()).slice(events).map(event=>[event.type,event.note])).toEqual([['noteOff',64]]);
+  expect((await state(page)).contexts).toEqual([]);expect((await state(page)).samples).toEqual([]);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+});
