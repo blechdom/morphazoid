@@ -129,9 +129,15 @@ function noteIntervals(analysis, mode, warn) {
 export function buildMidiStateHistories(analysis, { onWarning = () => {} } = {}) {
   const warn = onWarning;
   const channels = new Map(), ppq = analysis.ppq, span = Math.round(analysis.durationBeats * ppq);
-  for (const channel of analysis.channels) channels.set(channel.channel, { lanes: new Map(), bank: [0, 0], rpn: [127, 127], nrpn: [127, 127], registered: true, first: null });
+  for (const channel of analysis.channels) channels.set(channel.channel, { lanes: new Map(), resetDirty: new Set(), bank: [0, 0], rpn: [127, 127], nrpn: [127, 127], registered: true, first: null });
   const lane = (state, key, initial, kind, number) => {
-    if (!state.lanes.has(key)) state.lanes.set(key, { key, initial, current: initial, kind, number, assumedInitial: initial === undefined, changes: [] });
+    if (!state.lanes.has(key)) {
+      const resetValue = kind === 'bend' ? 8192 : kind === 'pressure' || kind === 'poly' ? 0
+        : (kind === 'cc' || kind === 'cc14') && !KEEP_ON_RESET(number) ? number === 11 ? 127 * 128 : 0 : undefined;
+      const target = { key, initial, current: initial, kind, number, assumedInitial: initial === undefined, changes: [], resetValue };
+      state.lanes.set(key, target);
+      if (resetValue !== undefined && initial !== undefined && initial !== resetValue) state.resetDirty.add(target);
+    }
     return state.lanes.get(key);
   };
   const set = (state, key, initial, kind, number, value, event) => {
@@ -143,7 +149,9 @@ export function buildMidiStateHistories(analysis, { onWarning = () => {} } = {})
     // Re-selecting an unchanged selector still changes which parameter family
     // subsequent data addresses, so its chronological position matters to chase.
     if (!same(target.current, value) || kind.endsWith('-selector')) target.changes.push({ tick, order: event.order, value, previous: target.current ?? value });
-    target.current = value; return target;
+    target.current = value;
+    if (target.resetValue !== undefined) { if (value === target.resetValue) state.resetDirty.delete(target); else state.resetDirty.add(target); }
+    return target;
   };
   for (const [channel, state] of channels) {
     lane(state, 'patch', [0, 0, 0], 'patch');
@@ -169,13 +177,11 @@ export function buildMidiStateHistories(analysis, { onWarning = () => {} } = {})
       state.rpn = [127, 127]; state.nrpn = [127, 127]; state.registered = true;
       set(state, 'rpn-selector', [127, 127], 'rpn-selector', null, [127, 127], event);
       set(state, 'nrpn-selector', [127, 127], 'nrpn-selector', null, [127, 127], event);
-      for (const target of state.lanes.values()) {
-        let reset;
-        if (target.kind === 'bend') reset = 8192;
-        else if (target.kind === 'pressure' || target.kind === 'poly') reset = 0;
-        else if ((target.kind === 'cc' || target.kind === 'cc14') && !KEEP_ON_RESET(target.number)) reset = target.number === 11 ? 127 * 128 : 0;
-        if (reset !== undefined) set(state, target.key, target.initial, target.kind, target.number, reset, event);
-      }
+      // Parameter lanes can number in the thousands but RP-015 never resets
+      // them. Visiting only dirty performance lanes also makes repeated reset
+      // messages constant work after the first reset, rather than replaying
+      // every historical parameter on every CC121.
+      for (const target of state.resetDirty) set(state, target.key, target.initial, target.kind, target.number, target.resetValue, event);
       continue;
     }
     if (cc >= 120 || cc === 84 || cc === 88 || cc === 69) {

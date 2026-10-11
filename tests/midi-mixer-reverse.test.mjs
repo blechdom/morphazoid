@@ -124,6 +124,17 @@ test('reset controllers releases pedals and restores RP-015 performance values w
   assert.equal(readState(result.analysis, 4).bend, 70 * 128);
 });
 
+test('repeated CC121 does not rescan accumulated device-specific parameter lanes', () => {
+  const events = [[0, 144, 60, 100], [0, 176, 10, 22], [0, 176, 11, 40]];
+  for (let parameter = 0; parameter < 5000; parameter++) events.push([1, 176, 99, parameter >> 7], [1, 176, 98, parameter & 127], [1, 176, 6, 70]);
+  for (let reset = 0; reset < 50000; reset++) events.push([2, 176, 121, 0]);
+  events.push([7, 128, 60, 0]);
+  const source = parseMidi(midi([events])), started = performance.now(), state = buildMidiStateHistories(source).get(0);
+  assert.equal(state.lanes.get('nrpn:4999').current, 70 * 128); assert.equal(state.lanes.get('cc:10').current, 22 * 128);
+  assert.equal(state.lanes.get('cc:11').current, 127 * 128); assert.equal(state.lanes.get('cc:11').changes.length, 2);
+  assert.ok(performance.now() - started < 2000, 'repeated resets must not multiply the independent parameter count');
+});
+
 test('all sound off truncates a sounding hold instead of resurrecting it to end-of-file', () => {
   const result = reverseMidiAnalysis(midi([[[0, 176, 64, 127], [0, 144, 60, 100], [1, 128, 60, 0], [3, 176, 120, 0]]]), { mode: 'controllers' });
   assert.deepEqual(notes(result.analysis), [[5, 3, 60, 100, 0]]);
