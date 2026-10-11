@@ -234,3 +234,46 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
   .midiphoria-page .midiphoria-automata input[type="number"],
   .midiphoria-page .midiphoria-automata input[type="search"] { min-height: 48px; }
 }
+
+/* Creation views share one sound engine and keep their source editors together. */
+.mixer-shell.midiphoria-creative { display: grid; grid-template-columns: minmax(0, 1fr) 390px; gap: 26px; max-width: 1800px; padding: 0 30px 30px; background: transparent; }
+.midiphoria-creative-stage, #creativeControlsHost { min-width: 0; }
+.midiphoria-creative [hidden], .midiphoria-creative[hidden] { display: none; }
+.midiphoria-creative-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 18px; margin-bottom: 12px; }
+.midiphoria-creative-transport .control { width: 110px; }
+.midiphoria-creative-transport .control > span:first-child { flex-direction: column; gap: 4px; }
+.midiphoria-creative-transport .midiphoria-audio-start { margin: 0; }
+.midiphoria-creative #creativeVisualizerHost { margin-bottom: 16px; }
+.midiphoria-drawing-viewport { position: relative; height: clamp(260px, 42vh, 420px); background: #030706; }
+.midiphoria-creative #drawingCanvas { display: block; }
+.midiphoria-creative .mixer-performance { display: flex; flex-direction: column; gap: 12px; margin: 0; padding: 0; border: 0; }
+.midiphoria-creative .mixer-performance [hidden], .midiphoria-creative #drawingCanvas[hidden] { display: none; }
+.midiphoria-creative .mixer-performance .mixer-stamp-palette { order: 0; }
+.midiphoria-creative .mixer-stamp-shape-controls { margin-bottom: 0; }
+.midiphoria-creative .mixer-sample-controls { gap: 12px 18px; }
+.midiphoria-creative .mixer-source-volume { width: 100px; }
+.midiphoria-creative .mixer-source-volume.control { display: block; }
+.midiphoria-creative .mixer-stamp-midi { margin: 0; }
+.midiphoria-creative .mixer-sample-message { margin-top: 0; }
+.midiphoria-creative .mixer-sample-bank { max-height: 280px; }
+.midiphoria-creative .midiphoria-drawing-tools { padding-bottom: 10px; }
+.midiphoria-creative .midiphoria-drawing-actions a { font-size: 11px; color: var(--midiphoria-accent); }
+.midiphoria-creative #automataMidiTools .midiphoria-automata { margin-top: 0; }
+.midiphoria-creative .automata-midi-preview { max-height: 240px; }
+.midiphoria-creative .automata-midi-rule-list { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.midiphoria-creative .automata-midi-rule-navigation { grid-template-columns: 42px minmax(0, 1fr) 42px; align-items: start; }
+.midiphoria-creative .automata-midi-rule-navigation .automata-midi-rule-picker { grid-column: 2; grid-row: 1; }
+.midiphoria-creative .automata-midi-rule-navigation > button:first-child { grid-column: 1; grid-row: 1; }
+.midiphoria-creative .automata-midi-rule-navigation > button:last-child { grid-column: 3; grid-row: 1; }
+@media (max-width: 1000px) {
+  .mixer-shell.midiphoria-creative { grid-template-columns: minmax(0, 1fr) 320px; gap: 20px; padding-inline: 16px; }
+}
+@media (max-width: 800px) {
+  .mixer-shell.midiphoria-creative { grid-template-columns: minmax(0, 1fr); gap: 22px; }
+  .midiphoria-drawing-viewport { height: 280px; }
+  .midiphoria-creative .automata-midi-rule-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (pointer: coarse) {
+  .midiphoria-creative .midiphoria-drawing-actions a { display: inline-flex; align-items: center; min-height: 48px; }
+  .midiphoria-creative .midiphoria-drawing-actions a[hidden] { display: none; }
+}

@@ -55,13 +55,12 @@ capture a hardware mapping.
 
 ## Automatapoeia rules as MIDI
 
-Open **Automatapoeia rules** beneath the MIDI library. The rule picker contains
-all 256 elementary rules and all 64 radius-2 totalistic rules from the same
-engine as [Automatapoeia](../automatapoeia.html). Choose a rule, then **Make MIDI**
-to load it into the ordinary player, or download its full `.mid` file. **Edit MIDI**
-opens it on mixer deck A for looping, voice edits, effects and speed ratios up to 8×.
-With Audio already enabled, Make MIDI auditions the result; with Audio off it
-stays muted. Preview edits alone do not replace or interrupt the playing file.
+Select the **Automatapoeia** tab. Its rule picker contains all 256 elementary
+rules and all 64 radius-2 totalistic rules from the same engine as
+[Automatapoeia](../automatapoeia.html). Enable **Audio**, choose a rule, then
+**Play rule** to hear and visualize it without leaving the tab. **Download MIDI**
+saves its full `.mid` file. With Audio off, Play rule runs a silent preview.
+Preview edits alone do not replace or interrupt a playing pattern.
 
 Columns map directly to chromatic MIDI pitches. The centered or seeded random
 row plays first, followed by each generated row. **Retrigger** produces a new
@@ -77,16 +76,20 @@ and post-step shifts, reflection or inversion. Pitch ranges stay within MIDI
 pattern. Dense scores still share the player's finite synthesis and rendering
 budgets. These are MIDI cell patterns, not Automatapoeia's separate synthesis modes.
 
-In **MIDI Mixer**, the same rule picker sits beside the stamp bank. **Stamp rule**
-adds the pattern to the shared audio-clock flow without replacing either deck.
-It also selects that rule for **Stamp again** and pitch placement on the canvas.
-Sample sound, level, key gate and the deep **Stamp MIDI** controls apply. Source
-settings affect the next stamp; an already launched pattern keeps its notes.
-The player and mixer keep separate rule settings during the current session.
+Draw, Automatapoeia and MIDI Mixer share one sound engine and tempo. Rule
+stamps can play over running decks; switching among these tabs keeps playback
+and the current rule settings. **Loop**, **Sync to tempo**, sample sound, level,
+key gate and **Stamp MIDI** edits apply to rules too. Source settings affect
+the next launch. Switching to Visualize stops stamps and transfers Audio to
+its independent file player.
 
 ## Draw, words and symbols
 
-**Draw a MIDI** switches the same stage to a 48-column × 32-row pixel score.
+**Draw a MIDI** opens a 48-column × 32-row pixel score beside the black MIDI
+and generated stamp bank. Enable **Audio**, draw or choose a shape, then press
+**Play drawing**. Playback stays in Draw and appears in the small live flow.
+**Stop stamps** releases it; **Loop** repeats it. **Download MIDI** saves the
+last played drawing. Neither drawing nor Play drawing turns Audio on.
 Pitch increases left to right; playback travels from the bottom to the top.
 Drag to draw, or enable **Eraser**. Fast drags fill the crossed cells, and
 **Undo** reverses one complete stroke, stamp or Clear action. Keyboard users
@@ -97,8 +100,10 @@ without leaving painting active. History retains the last 32 edits.
 Smile, star, heart, diamond, spiral, wave and zigzag stamps replace the drawing
 with an editable pattern. These are original pixel/geometry patterns; no
 platform emoji font is rasterized. Each filled column is a chromatic pitch,
-and adjacent vertical cells sustain the same note. A drawing lasts four seconds
-at 1×: 0.125 seconds per row, MIDI notes 48–95, at most 48 simultaneous pitches.
+and adjacent vertical cells sustain the same note. Defaults are acoustic piano,
+MIDI notes 48–95 and ¼ beat per row: four seconds at 120 BPM. Pitch span can
+cover all 128 MIDI notes; the lowest-note and row-length controls are in
+**Stamp MIDI**. **Sync to tempo** follows the visible shared tempo knob.
 There is no automatic scale or pentatonic snapping.
 
 In **Words & symbols**, type up to 32 characters and choose **Make MIDI**.
@@ -114,8 +119,8 @@ the text controls. Heart variation selectors are accepted.
 The generated MIDI appears in the session song list. When Audio is already on,
 **Make MIDI** auditions the new score, including after the previous score ends.
 With Audio off, generation stays muted; enable Audio and press Play to hear it
-through the existing SoundFont player. Drawing and stamping retain the current
-song until Make MIDI replaces it; replacing a score keeps active playback.
+through the existing SoundFont player. This Words & symbols action belongs to
+Visualize; Draw also has a message field that launches letters as stamps.
 
 **Pattern score** shows the actual pitches and durations from the generated
 MIDI, following the file's audio clock. Long scores scroll vertically; seek,

@@ -65,7 +65,7 @@ export class MidiDrawing {
   score() { return generateGridMidi(this.pixels, { title: 'Drawn score', secondsPerRow: .125 }); }
 }
 
-/** No audio ownership: the app loads score().buffer into its existing MIDI player. */
+/** No audio ownership: the app sends score().buffer through the shared stamp player. */
 export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eraseButton, onChange }) {
   const model = new MidiDrawing(), context = canvas.getContext('2d');
   const events = new AbortController();
@@ -106,7 +106,7 @@ export function mountMidiDrawing({ canvas, status, undoButton, clearButton, eras
   function reflect() {
     undoButton.disabled = !model.history.length;
     clearButton.disabled = !model.count;
-    status.value = `${model.count} pixels · 4 seconds`;
+    status.value = `${model.count} pixels`;
     canvas.dataset.pixels = String(model.count);
     onChange?.(model); render();
   }
