@@ -43,3 +43,13 @@ test('all 100 bundled arrangements parse with bounded metadata and dense note co
   }
   assert.ok(files.length >= 100); assert.ok(largest > 150000, 'full black MIDI arrangement remains intact');
 });
+
+test('worklet timing helpers import without main-thread text codecs', async () => {
+  const savedDecoder = globalThis.TextDecoder, savedEncoder = globalThis.TextEncoder;
+  try {
+    globalThis.TextDecoder = undefined; globalThis.TextEncoder = undefined;
+    const model = await import(`../src/instruments/midi-mixer/midi-mixer-model.js?worklet=${Date.now()}`);
+    assert.equal(model.weavePosition(1, model.sanitizeWeaveConfig({ enabled: true, unit: 'beats' })).deck, 1);
+    assert.equal(model.defaultDeckConfig().reverse, 'off');
+  } finally { globalThis.TextDecoder = savedDecoder; globalThis.TextEncoder = savedEncoder; }
+});

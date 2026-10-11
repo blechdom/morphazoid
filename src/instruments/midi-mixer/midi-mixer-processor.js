@@ -1,5 +1,6 @@
 import { SpessaSynthProcessor, SoundBankLoader, SpessaLog } from './vendor/spessasynth-core.js';
 import { mergeMidiParameters, sanitizeMidiParameters, sanitizeMidiSynthEffects, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS } from './midi-mixer-parameters.js';
+import { midiStateMessages } from './midi-mixer-reverse.js';
 import { MidiMixerClock, MidiSampleClock, lowerBound, mixerLoopBounds } from './midi-mixer-clock.js';
 
 /** SoundFont and both sequencers live on this single audio thread and clock. */
@@ -12,15 +13,30 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     this.activeVisualNotes = Array.from({ length: 6 }, () => new Map()); this.visualCount = 0; this.sampleVisualCount = 0;
     this.channelVolumes = new Float32Array(192).fill(100 / 127); this.channelExpressions = new Float32Array(192).fill(1);
     this.audible = true; this.masterVolume = 1;
-    this.crossfade = 0; this.noteEvents = []; this.droppedVisualEvents = 0; this.renderTime = 0;
+    this.crossfade = 0; this.noteEvents = []; this.droppedVisualEvents = 0; this.renderOffset = 0; this.actions = null;
     this.clock = new MidiMixerClock({
-      emit: (deck, event, frame) => this.emit(deck, event, frame),
-      release: (deck, frame = 0) => this.release(deck, frame),
-      restore: (deck, controllers, beat) => this.restore(deck, controllers, beat),
-      configure: (deck, config, channels) => this.configure(deck, config, channels),
+      emit: (deck, event, frame) => this.schedule('emit', frame, [deck, event]),
+      release: (deck, frame = 0, hard = false) => this.schedule('release', frame, [deck, hard]),
+      restore: (deck, controllers, beat, frame = 0) => this.schedule('restore', frame, [deck, controllers, beat]),
+      rehydrate: (deck, events, frame = 0) => this.schedule('rehydrate', frame, [deck, events]),
+      configure: (deck, config, channels, frame = 0) => this.schedule('configure', frame, [deck, config, channels]),
     });
-    this.sampleClock = new MidiSampleClock({ emit: (source, event, frame) => this.emit(source, event, frame), release: (source, frame = 0) => this.release(source, frame), restore: (source, controllers, beat) => this.restore(source, controllers, beat), configure: (source, config, channels) => this.configure(source, config, channels) });
+    this.sampleClock = new MidiSampleClock({
+      emit: (source, event, frame) => this.schedule('emit', frame, [source, event]),
+      release: (source, frame = 0) => this.schedule('release', frame, [source, false]),
+      restore: (source, controllers, beat, frame = 0) => this.schedule('restore', frame, [source, controllers, beat]),
+      rehydrate: (source, events, frame = 0) => this.schedule('rehydrate', frame, [source, events]),
+      configure: (source, config, channels, frame = 0) => this.schedule('configure', frame, [source, config, channels]),
+    });
     this.port.onmessage = ({ data }) => { void this.command(data).catch(error => this.port.postMessage({ type: 'error', message: error.message })); };
+  }
+  schedule(method, frame, args) {
+    const action = { method, frame: frame ?? 0, args };
+    if (this.actions) this.actions.push(action); else this.runAction(action);
+  }
+  runAction({ method, args }) {
+    if (method === 'release') this.release(args[0], 0, args[1]);
+    else this[method](...args, 0);
   }
   async command(message) {
     if (message.type === 'dispose') { this.sampleClock.stopAll(); this.alive = false; this.synth?.destroySynthProcessor(); this.synth = null; return; }
@@ -98,6 +114,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       }
       case 'transport': if (!message.playing) this.sampleClock.stopAll(); this.clock.setTransport(message.playing, message.beat); break;
       case 'tempo': this.clock.tempo = Math.max(30, Math.min(300, message.tempo)); break;
+      case 'weave': this.clock.setWeave(message.config, message.phase); break;
       case 'deck': this.clock.setDeck(message.index, message.config, message.channels); break;
       case 'crossfade':
         this.crossfade = Math.max(-1, Math.min(1, message.value));
@@ -137,7 +154,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     const active = this.activeVisualNotes[deck];
     if (event.kind === 8) {
       const note = active.get(event.noteId);
-      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; if (deck > 1) this.sampleVisualCount--; }
+      if (note) { this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate, beat: event.beat }); active.delete(event.noteId); this.visualCount--; if (deck > 1) this.sampleVisualCount--; }
     }
     if (!restoring && event.kind === 9) {
       const parameters = this.synth.midiChannels[channel].systemParameters;
@@ -151,7 +168,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       const durationBeats = Math.max(0, Math.min(event.durationBeats ?? 0, boundary - event.beat));
       const note = { type: 'noteOn', id: `${this.sourceIds[deck]}:${++this.noteSerial}`, sourceId: this.sourceIds[deck], deck: deck < 2 ? deck : null, sampleId: this.sampleIds[deck], channel: event.channel,
         note: event.a + this.synth.midiChannels[channel].systemParameters.keyShift, velocity: event.b, gain,
-        beat: event.beat, at: currentTime + frame / sampleRate, durationBeats, duration: durationBeats * 60 / (this.clock.tempo * rate), published: false };
+        beat: event.beat, at: currentTime + (this.renderOffset + frame) / sampleRate, durationBeats, duration: durationBeats * 60 / (this.clock.tempo * rate), published: false };
       if (!this.queueVisual(note)) return;
       if (!active.has(event.noteId)) { this.visualCount++; if (deck > 1) this.sampleVisualCount++; }
       active.set(event.noteId, note);
@@ -178,10 +195,10 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
   releaseVisual(source, frame = 0, channel = null) {
     const active = this.activeVisualNotes[source];
     for (const [key, note] of active) if (channel === null || note.channel === channel) {
-      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + frame / sampleRate }); active.delete(key); this.visualCount--; if (source > 1) this.sampleVisualCount--;
+      this.queueVisual({ ...note, type: 'noteOff', at: currentTime + (this.renderOffset + frame) / sampleRate }); active.delete(key); this.visualCount--; if (source > 1) this.sampleVisualCount--;
     }
   }
-  release(deck, frame = 0) {
+  release(deck, frame = 0, hard = false) {
     if (!this.synth) return;
     this.suppressedNotes[deck].clear();
     this.releaseVisual(deck, frame);
@@ -195,7 +212,8 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     for (const channel of this.deckChannels[deck].values()) {
       const status = 0xb0 | channel % 16, offset = channel - channel % 16;
       this.synth.processMessage([status, 64, 0], offset, { time: this.synth.currentTime + frame / sampleRate });
-      this.synth.processMessage([status, 123, 0], offset, { time: this.synth.currentTime + frame / sampleRate });
+      this.synth.processMessage([status, 66, 0], offset, { time: this.synth.currentTime + frame / sampleRate });
+      this.synth.processMessage([status, hard ? 120 : 123, 0], offset, { time: this.synth.currentTime + frame / sampleRate });
     }
   }
   restore(deck, controllers, beat) {
@@ -205,6 +223,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       for (const key of Object.keys(midi.lockedMIDIParameters)) midi.lockMIDIParameter(key, false);
       midi.resetGeneratorOverrides(); midi.resetGeneratorOffsets();
       const shadow = this.sourceChannels.get(channel), drums = shadow?.sourceDrums;
+      // CC121 preserves parameter values by design. A seek/source replacement
+      // starts from a fresh channel baseline before replaying coherent history.
+      midi.reset(false); midi.setDrums(drums ?? false);
       if (shadow) { shadow.reset(false); shadow.setDrums(drums); shadow.polyPressureValues.fill(0); shadow.polyPressureAt.fill(-Infinity); }
       this.effectiveMidi.delete(channel);
       this.channelVolumes[channel] = 100 / 127; this.channelExpressions[channel] = 1;
@@ -214,12 +235,42 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       this.synth.controllerChange(channel, 7, 100); this.synth.controllerChange(channel, 10, 64); this.synth.controllerChange(channel, 11, 127);
       this.synth.programChange(channel, 0); this.synth.pitchWheel(channel, 8192);
     }
-    // A bounded set of per-controller histories reconstructs the position with
-    // logarithmic lookups; notes before the seek point are never replayed.
-    const state = [];
-    for (const history of controllers) { const index = lowerBound(history, beat + 1e-9) - 1; if (index >= 0) state.push(history[index]); }
-    state.sort((a, b) => a.beat - b.beat || a.order - b.order);
-    for (const event of state) this.emit(deck, event, 0, true);
+    // Restore complete parameter transactions, latched patch and pending bank
+    // separately. Strictly-before avoids replaying procedural data at the cursor.
+    if (controllers?.channels) {
+      for (const { channel, lanes } of controllers.channels) {
+        const selected = lanes.map(lane => {
+          let low = 0, high = lane.changes.length;
+          while (low < high) { const middle = (low + high) >>> 1; if (lane.changes[middle].tick / controllers.ppq < beat - 1e-9) low = middle + 1; else high = middle; }
+          const change = lane.changes[low - 1];
+          return { lane, value: change?.value ?? (lane.assumedInitial ? undefined : lane.initial), tick: change?.tick ?? -1, order: change?.order ?? -1 };
+        }).filter(item => item.value !== undefined);
+        const rank = lane => lane.kind.endsWith('-selector') ? 4 : lane.kind === 'patch' ? 0 : lane.kind === 'bank' ? 1 : 2;
+        selected.sort((a, b) => rank(a.lane) - rank(b.lane) || a.tick - b.tick || a.order - b.order);
+        for (const { lane, value, tick } of selected) for (const [kind, a, b] of midiStateMessages(lane, value)) this.emit(deck, { channel, kind, a, b, beat: tick / controllers.ppq }, 0, true);
+      }
+    } else {
+      const state = [];
+      for (const history of controllers ?? []) { const index = lowerBound(history, beat - 1e-9) - 1; if (index >= 0) state.push(history[index]); }
+      state.sort((a, b) => a.beat - b.beat || a.order - b.order);
+      for (const event of state) this.emit(deck, event, 0, true);
+    }
+  }
+  rehydrate(deck, events) {
+    if (!events.length) return;
+    // Sostenuto captures only keys already down at its rising edge. Rebuild that
+    // set before adding newer keys, then release keys already sustained by pedals.
+    // This SoundFont core lacks CC66 holds: the clock schedules the final release
+    // for rejoined sostenuto-only keys while they remain keyed in the native synth.
+    const latched = events.filter(event => event.sostenutoHeld), affected = new Set(latched.map(event => event.channel));
+    for (const source of affected) this.synth.controllerChange(this.deckChannels[deck].get(source), 66, 0);
+    for (const event of latched) this.emit(deck, event);
+    for (const source of affected) this.synth.controllerChange(this.deckChannels[deck].get(source), 66, 127);
+    for (const event of events) if (!event.sostenutoHeld) this.emit(deck, event);
+    for (const event of events) if (event.keyReleased && !event.sostenutoHeld && !this.suppressedNotes[deck].has(event.noteId)) {
+      const channel = this.deckChannels[deck].get(event.channel);
+      if (channel !== undefined) this.synth.processMessage([0x80 | channel % 16, event.a, 0], channel - channel % 16);
+    }
   }
   prepareSourceChannels(deck, channels) {
     for (const info of channels) {
@@ -350,12 +401,25 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     if (!this.alive) return false;
     const [left, right] = outputs[0] ?? []; if (!left || !this.ready) return true;
     try {
+      this.actions = [];
       this.clock.process(left.length, sampleRate);
       this.sampleClock.process(left.length, sampleRate, this.clock.tempo);
-      this.synth.process(left, right ?? left);
+      const actions = this.actions; this.actions = null;
+      actions.sort((a, b) => a.frame - b.frame);
+      let cursor = 0;
+      // Native channel state is immediate. Render to each event's sample before
+      // applying it, including chased controllers at loop/weave boundaries.
+      // Distinct integer frame offsets bound this to at most 128 segments.
+      for (const action of actions) {
+        const frame = Math.max(0, Math.min(left.length - 1, Math.round(action.frame)));
+        if (frame > cursor) this.synth.process(left, right ?? left, cursor, frame - cursor);
+        cursor = frame; this.renderOffset = frame; this.runAction(action);
+      }
+      if (cursor < left.length) this.synth.process(left, right ?? left, cursor, left.length - cursor);
+      this.renderOffset = 0;
       this.telemetryFrames += left.length;
       if (this.telemetryFrames >= sampleRate / 30) { this.telemetryFrames = 0; this.publish(); }
-    } catch (error) { this.ready = false; left.fill(0); right?.fill(0); this.port.postMessage({ type: 'error', message: error.message }); }
+    } catch (error) { this.actions = null; this.renderOffset = 0; this.ready = false; left.fill(0); right?.fill(0); this.port.postMessage({ type: 'error', message: error.message }); }
     return true;
   }
 }

@@ -5,8 +5,10 @@ export const MIDI_SAMPLE_LIMITS = Object.freeze({ clips: 4, fileBytes: 2 * 1024 
 export const GM_PROGRAM_NAMES = Object.freeze(('Acoustic Grand Piano|Bright Acoustic Piano|Electric Grand Piano|Honky-tonk Piano|Electric Piano 1|Electric Piano 2|Harpsichord|Clavinet|Celesta|Glockenspiel|Music Box|Vibraphone|Marimba|Xylophone|Tubular Bells|Dulcimer|Drawbar Organ|Percussive Organ|Rock Organ|Church Organ|Reed Organ|Accordion|Harmonica|Tango Accordion|Acoustic Guitar (nylon)|Acoustic Guitar (steel)|Electric Guitar (jazz)|Electric Guitar (clean)|Electric Guitar (muted)|Overdriven Guitar|Distortion Guitar|Guitar Harmonics|Acoustic Bass|Electric Bass (finger)|Electric Bass (pick)|Fretless Bass|Slap Bass 1|Slap Bass 2|Synth Bass 1|Synth Bass 2|Violin|Viola|Cello|Contrabass|Tremolo Strings|Pizzicato Strings|Orchestral Harp|Timpani|String Ensemble 1|String Ensemble 2|Synth Strings 1|Synth Strings 2|Choir Aahs|Voice Oohs|Synth Voice|Orchestra Hit|Trumpet|Trombone|Tuba|Muted Trumpet|French Horn|Brass Section|Synth Brass 1|Synth Brass 2|Soprano Sax|Alto Sax|Tenor Sax|Baritone Sax|Oboe|English Horn|Bassoon|Clarinet|Piccolo|Flute|Recorder|Pan Flute|Blown Bottle|Shakuhachi|Whistle|Ocarina|Lead 1 (square)|Lead 2 (sawtooth)|Lead 3 (calliope)|Lead 4 (chiff)|Lead 5 (charang)|Lead 6 (voice)|Lead 7 (fifths)|Lead 8 (bass + lead)|Pad 1 (new age)|Pad 2 (warm)|Pad 3 (polysynth)|Pad 4 (choir)|Pad 5 (bowed)|Pad 6 (metallic)|Pad 7 (halo)|Pad 8 (sweep)|FX 1 (rain)|FX 2 (soundtrack)|FX 3 (crystal)|FX 4 (atmosphere)|FX 5 (brightness)|FX 6 (goblins)|FX 7 (echoes)|FX 8 (sci-fi)|Sitar|Banjo|Shamisen|Koto|Kalimba|Bagpipe|Fiddle|Shanai|Tinkle Bell|Agogo|Steel Drums|Woodblock|Taiko Drum|Melodic Tom|Synth Drum|Reverse Cymbal|Guitar Fret Noise|Breath Noise|Seashore|Bird Tweet|Telephone Ring|Helicopter|Applause|Gunshot').split('|'));
 export const clamp = (value, low, high, fallback = low) => Math.max(low, Math.min(high, Number.isFinite(Number(value)) ? Number(value) : fallback));
 export const modulo = (value, length) => ((value % length) + length) % length;
-const decoder = new TextDecoder('utf-8', { fatal: false });
-const text = bytes => decoder.decode(bytes).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 160);
+// Timing/state helpers are also imported in AudioWorkletGlobalScope, where
+// TextDecoder is unavailable. Only main-thread MIDI parsing needs the decoder.
+let decoder;
+const text = bytes => (decoder ??= new TextDecoder('utf-8', { fatal: false })).decode(bytes).replace(/[\u0000-\u001f]/g, ' ').trim().slice(0, 160);
 const ordered = values => values.sort((a, b) => a.beat - b.beat || a.order - b.order);
 function uniqueMap(values, initial) {
   const map = [initial];
@@ -149,9 +151,38 @@ export function parseMidi(input) {
   if (ignoredSysEx) warnings.push(`${ignoredSysEx} system-exclusive messages omitted from remix playback.`);
   return { format, trackCount, ppq, tracks, channels: channelList, events, notes, tempoMap, meterMap, keyMap: ordered(keys), key: ordered(keys)[0] ?? estimateKey(notes), initialTempo: tempoMap[0].bpm, durationBeats, durationSeconds: beatsToSeconds(durationBeats, tempoMap), noteCount: notes.length, firstNoteBeat: notes[0].beat, warnings };
 }
-export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null, midi: {} });
+export const defaultWeaveConfig = () => ({ enabled: false, pattern: 'AB', length: 1, unit: 'bars', barBeats: 4, advance: 'turns' });
+export function sanitizeWeaveConfig(input = {}, previous = defaultWeaveConfig()) {
+  const source = input && typeof input === 'object' ? input : {};
+  const pattern = String(source.pattern ?? previous.pattern).toUpperCase().replace(/[^AB]/g, '').slice(0, 16);
+  return { enabled: source.enabled === undefined ? previous.enabled : Boolean(source.enabled), pattern: pattern || previous.pattern || 'AB',
+    length: clamp(source.length ?? previous.length, .125, 16, previous.length),
+    unit: (source.unit ?? previous.unit) === 'beats' ? 'beats' : 'bars',
+    barBeats: clamp(source.barBeats ?? previous.barBeats, .125, 32, previous.barBeats),
+    advance: (source.advance ?? previous.advance) === 'running' ? 'running' : 'turns' };
+}
+/** The UI and worklet derive the same source progress from one master beat.
+ * Phase anchors are transport state, never saved slip offsets or preset data.
+ */
+export function weavePosition(beat, config = defaultWeaveConfig(), phase = { startBeat: 0, deckBeats: [0, 0] }) {
+  const elapsed = Math.max(0, beat - phase.startBeat), origins = phase.deckBeats;
+  if (!config.enabled) return { step: 0, deck: null, active: [true, true], deckBeats: origins.map(value => value + elapsed), nextBeat: Infinity };
+  const length = config.length * (config.unit === 'bars' ? config.barBeats : 1), pattern = config.pattern;
+  const whole = Math.floor(elapsed / length + 1e-9), step = whole % pattern.length, cycles = Math.floor(whole / pattern.length);
+  const remainder = Math.max(0, elapsed - whole * length), deck = pattern[step] === 'A' ? 0 : 1;
+  const deckBeats = origins.map((origin, index) => {
+    if (config.advance === 'running') return origin + elapsed;
+    const letter = index === 0 ? 'A' : 'B';
+    let complete = 0, partial = 0;
+    for (let position = 0; position < pattern.length; position++) if (pattern[position] === letter) { complete++; if (position < step) partial++; }
+    return origin + (cycles * complete + partial) * length + (deck === index ? remainder : 0);
+  });
+  return { step, deck, active: [deck === 0, deck === 1], deckBeats, nextBeat: phase.startBeat + (whole + 1) * length };
+}
+export const defaultDeckConfig = () => ({ gain: 1, transpose: 0, rate: 1, reverse: 'off', offsetBeats: 0, loop: true, mute: false, loopStartBeats: null, loopEndBeats: null, midi: {} });
 export function sanitizeDeckConfig(input = {}, previous = defaultDeckConfig()) {
   return { midi: sanitizeMidiParameters(input.midi, previous.midi), rate: clamp(input.rate ?? previous.rate ?? 1, 0.25, 8, previous.rate ?? 1), gain: clamp(input.gain ?? previous.gain, 0, 2, previous.gain), transpose: Math.round(clamp(input.transpose ?? previous.transpose, -24, 24, previous.transpose)), offsetBeats: clamp(input.offsetBeats ?? previous.offsetBeats, -4000000, 4000000, previous.offsetBeats), loop: input.loop === undefined ? previous.loop : Boolean(input.loop), mute: input.mute === undefined ? previous.mute : Boolean(input.mute),
+    reverse: ['notes', 'controllers'].includes(input.reverse ?? previous.reverse) ? input.reverse ?? previous.reverse : 'off',
     loopStartBeats: input.loopStartBeats === undefined ? previous.loopStartBeats : input.loopStartBeats === null ? null : clamp(input.loopStartBeats, 0, MIDI_MIXER_LIMITS.beats),
     loopEndBeats: input.loopEndBeats === undefined ? previous.loopEndBeats : input.loopEndBeats === null ? null : clamp(input.loopEndBeats, 0, MIDI_MIXER_LIMITS.beats) };
 }

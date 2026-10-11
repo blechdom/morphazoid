@@ -14,10 +14,22 @@ export function buildVoiceMap(analysis, bins = 512) {
   return { duration, rows, bins };
 }
 export class MidiMixerRenderer {
-  constructor(canvas, deckIndex, { onSeek = () => {}, onLoop = () => {} } = {}) {
-    this.canvas = canvas; this.deckIndex = deckIndex; this.onSeek = onSeek; this.onLoop = onLoop;
+  constructor(canvas, deckIndex, { onSeek = () => {}, onLoop = () => {}, onMute = () => {}, onSolo = () => {} } = {}) {
+    this.canvas = canvas; this.deckIndex = deckIndex; this.onSeek = onSeek; this.onLoop = onLoop; this.onMute = onMute; this.onSolo = onSolo;
     this.context = canvas.getContext('2d'); this.cache = null; this.analysis = null; this.gesture = null;
+    this.labelWidth = 0; this.voiceRows = new Map(); this.map = canvas.parentElement;
+    const document = canvas.ownerDocument, view = document.defaultView;
+    this.coarsePointer = view.matchMedia('(pointer: coarse)'); this.narrowViewport = view.matchMedia('(max-width: 900px)');
+    this.sidebar = document.createElement('div'); this.sidebar.className = 'mixer-voice-sidebar'; this.sidebar.hidden = true;
+    this.sidebar.setAttribute('role', 'group'); this.sidebar.setAttribute('aria-label', `Deck ${deckIndex ? 'B' : 'A'} voice controls`);
+    this.map.classList.add('mixer-voice-map'); this.map.insertBefore(this.sidebar, canvas);
     this.events = new AbortController();
+    this.sidebar.addEventListener('click', event => {
+      const button = event.target.closest('button[data-voice-action]');
+      if (!button || !this.sidebar.contains(button)) return;
+      const channel = Number(button.closest('[data-channel]').dataset.channel);
+      if (button.dataset.voiceAction === 'mute') this.onMute(channel); else this.onSolo(channel);
+    }, { signal: this.events.signal });
     const on = (type, fn) => canvas.addEventListener(type, fn, { signal: this.events.signal });
     on('pointerdown', event => {
       if (!this.cache || event.button !== 0) return;
@@ -48,15 +60,55 @@ export class MidiMixerRenderer {
   }
   beatAt(clientX) {
     const box = this.canvas.getBoundingClientRect();
-    return bounded((clientX - box.left - this.labelWidth) / Math.max(1, box.width - this.labelWidth), 0, 1) * this.cache.duration;
+    return bounded((clientX - box.left) / Math.max(1, box.width), 0, 1) * this.cache.duration;
+  }
+  rebuildVoices() {
+    const document = this.canvas.ownerDocument, letter = this.deckIndex ? 'B' : 'A', rows = this.cache?.rows ?? [];
+    this.voiceRows.clear(); this.sidebar.replaceChildren(); this.sidebar.hidden = !rows.length;
+    this.map.classList.toggle('has-voices', rows.length > 0);
+    for (const voice of rows) {
+      const row = document.createElement('div'); row.className = 'mixer-voice-row'; row.dataset.channel = String(voice.channel);
+      const label = document.createElement('span'); label.className = 'mixer-voice-label';
+      const name = document.createElement('span'); name.className = 'mixer-voice-name';
+      const count = document.createElement('span'); count.className = 'mixer-voice-count'; count.textContent = `${voice.noteCount.toLocaleString()} notes`;
+      label.append(name, count); row.append(label);
+      const entry = { row, label, name };
+      for (const action of ['mute', 'solo']) {
+        const button = document.createElement('button'); button.type = 'button'; button.className = 'mixer-voice-button';
+        button.textContent = action === 'mute' ? 'M' : 'S'; button.dataset.voiceAction = action;
+        button.setAttribute('aria-label', `${action === 'mute' ? 'Mute' : 'Solo'} deck ${letter} channel ${voice.channel + 1}`);
+        button.setAttribute('aria-pressed', 'false'); button.title = `${action === 'mute' ? 'Mute' : 'Solo'} this voice`;
+        row.append(button); entry[action] = button;
+      }
+      row.style.setProperty('--voice-ink', mixerVoiceColor(this.deckIndex, voice.channel));
+      this.sidebar.append(row); this.voiceRows.set(voice.channel, entry);
+    }
+  }
+  reflectVoice(voice, config, muted) {
+    const entry = this.voiceRows.get(voice.channel); if (!entry) return;
+    const instrument = voice.drums ? 'Drums' : config?.program != null ? GM_PROGRAM_NAMES[config.program] : voice.instrument;
+    const name = `${voice.port ? `P${voice.port + 1} · ` : ''}${voice.channel % 16 + 1} · ${instrument}`;
+    if (entry.name.textContent !== name) {
+      entry.name.textContent = name;
+      const tracks = (voice.tracks ?? []).map(index => this.analysis.tracks?.find(track => track.index === index)?.name).filter(Boolean);
+      entry.label.title = `${name} · ${voice.noteCount.toLocaleString()} notes${tracks.length ? ` · ${tracks.join(', ')}` : ''}`;
+    }
+    entry.row.classList.toggle('is-muted', Boolean(muted));
+    for (const action of ['mute', 'solo']) {
+      const pressed = String(Boolean(config?.[action]));
+      if (entry[action].getAttribute('aria-pressed') !== pressed) entry[action].setAttribute('aria-pressed', pressed);
+    }
   }
   draw(state) {
     const deck = state.decks?.[this.deckIndex]; if (!deck) return;
     if (deck.analysis !== this.analysis) {
       this.analysis = deck.analysis; this.cache = deck.analysis ? buildVoiceMap(deck.analysis) : null;
+      this.gesture = null; this.rebuildVoices();
     }
     const width = this.canvas.getBoundingClientRect().width; if (!width) return;
-    const rows = this.cache?.rows ?? [], rowHeight = 22, height = Math.max(96, rows.length * rowHeight + 24);
+    const rows = this.cache?.rows ?? [], rowHeight = this.coarsePointer.matches ? 48 : this.narrowViewport.matches ? 40 : 36;
+    const height = Math.max(96, rows.length * rowHeight + 24);
+    if (rowHeight !== this.rowHeight) { this.rowHeight = rowHeight; this.map.style.setProperty('--mixer-voice-row-height', `${rowHeight}px`); }
     const ratio = Math.min(2, globalThis.devicePixelRatio || 1);
     this.canvas.style.height = `${height}px`;
     if (this.canvas.width !== Math.round(width * ratio) || this.canvas.height !== Math.round(height * ratio)) {
@@ -64,19 +116,19 @@ export class MidiMixerRenderer {
     }
     const ctx = this.context; ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
     ctx.fillStyle = '#050b0d'; ctx.fillRect(0, 0, width, height);
-    this.labelWidth = Math.min(108, width * .28); const left = this.labelWidth, span = width - left;
+    const left = 0, span = width;
     ctx.font = '10px monospace'; ctx.textBaseline = 'middle';
     if (!this.cache) { ctx.fillStyle = '#9db7af'; ctx.fillText('Choose a MIDI file', 12, height / 2); return; }
     const duration = this.cache.duration, scale = span / duration;
     const configs = new Map(deck.channels.map(channel => [channel.channel, channel]));
     const solo = deck.channels.some(channel => channel.solo);
     rows.forEach((row, index) => {
-      const config = configs.get(row.channel), muted = deck.config.mute || config?.mute || (solo && !config?.solo);
+      const config = configs.get(row.channel), muted = deck.weaveActive === false || deck.config.mute || config?.mute || (solo && !config?.solo);
+      this.reflectVoice(row, config, muted);
       const y = index * rowHeight;
       ctx.fillStyle = index % 2 ? '#0a1317' : '#071014'; ctx.fillRect(left, y, span, rowHeight - 1);
       const color = muted ? '#46514f' : mixerVoiceColor(this.deckIndex, row.channel);
-      ctx.fillStyle = color; ctx.save(); ctx.beginPath(); ctx.rect(0, y, left - 5, rowHeight); ctx.clip();
-      ctx.fillText(`${row.channel + 1} ${row.drums ? 'Drums' : config?.program != null ? GM_PROGRAM_NAMES[config.program] : row.instrument}`, 5, y + rowHeight / 2); ctx.restore();
+      ctx.fillStyle = color;
       const cellWidth = span / this.cache.bins;
       for (let b = 0; b < row.bins.length; b++) {
         if (!row.bins[b]) continue;
@@ -101,5 +153,8 @@ export class MidiMixerRenderer {
     this.canvas.setAttribute('aria-valuemax', String(duration));
     this.canvas.setAttribute('aria-valuetext', `Beat ${this.position.toFixed(1)} of ${Math.round(duration)}. Left and right to seek; drag a region to loop.`);
   }
-  dispose() { this.events.abort(); this.gesture = null; }
+  dispose() {
+    this.events.abort(); this.gesture = null; this.sidebar.remove(); this.voiceRows.clear();
+    this.map.classList.remove('mixer-voice-map', 'has-voices'); this.map.style.removeProperty('--mixer-voice-row-height');
+  }
 }

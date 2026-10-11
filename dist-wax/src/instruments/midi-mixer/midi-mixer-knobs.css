@@ -1,0 +1,60 @@
+/* Match the masthead volume dial while leaving labels and precise editors free. */
+.mixer-shell .mixer-range-knob.mz-range-knob {
+  --accent: var(--deck-ink, var(--mixer-a));
+  position: relative;
+  display: inline-block;
+  flex: 0 0 44px;
+  width: 44px;
+  min-width: 44px;
+  max-width: 44px;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0;
+  vertical-align: middle;
+}
+.mixer-shell .mixer-range-knob.mz-range-knob > input[type="range"] {
+  position: absolute;
+  display: block;
+  inset: 0;
+  z-index: 1;
+  flex: none;
+  width: 100%;
+  min-width: 0;
+  max-width: none;
+  height: 100%;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  opacity: 0;
+  cursor: ns-resize;
+  touch-action: none;
+}
+.mixer-shell .mixer-range-knob.mz-range-knob > .mz-range-knob__dial {
+  top: 8px;
+  width: 28px;
+  height: 28px;
+  box-sizing: border-box;
+}
+.mixer-shell .mixer-range-knob.is-disabled > input { cursor: not-allowed; }
+.mixer-shell .mz-tap-tempo-field:has(.mixer-range-knob) {
+  align-items: center;
+  justify-content: flex-start;
+  gap: 8px;
+}
+.mixer-shell .mz-tap-tempo-field:has(.mixer-range-knob) > :first-child { flex: 0 1 auto; }
+@media (pointer: coarse) {
+  .mixer-shell .mixer-range-knob.mz-range-knob {
+    flex-basis: 48px;
+    width: 48px;
+    min-width: 48px;
+    max-width: 48px;
+    height: 48px;
+    min-height: 48px;
+  }
+  .mixer-shell .mixer-range-knob.mz-range-knob > .mz-range-knob__dial {
+    top: 8px;
+    width: 32px;
+    height: 32px;
+  }
+}

@@ -123,12 +123,18 @@ test('source inspection, tempo takeover, voice mute/solo, original patches and p
   await expect(row(page, 0, 0)).toHaveClass(/is-muted/); await expect(row(page, 0, 1)).toHaveClass(/is-muted/);
   await expect(row(page, 0, 9)).not.toHaveClass(/is-muted/);
   await expect.poll(() => page.locator('#deckMap0').evaluate(canvas => {
-    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-    let grey = 0; for (let i = 0; i < pixels.length; i += 4) if (pixels[i] === 70 && pixels[i + 1] === 81 && pixels[i + 2] === 79) grey++;
+    const rows = [...canvas.parentElement.querySelectorAll('.mixer-voice-row')];
+    const height = Math.round(rows.length * rows[0].getBoundingClientRect().height * canvas.height / canvas.getBoundingClientRect().height);
+    const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, height).data;
+    // Thin density marks blend with their row background at compact widths.
+    let grey = 0; for (let i = 0; i < pixels.length; i += 4) {
+      const red = pixels[i], green = pixels[i + 1], blue = pixels[i + 2];
+      if (red >= 30 && red <= 70 && green > red && green <= 81 && Math.abs(green - blue) <= 4) grey++;
+    }
     return grey;
   })).toBeGreaterThan(0);
   await page.locator('#deckAll0').click();
-  await row(page, 0, 1).getByRole('button', { name: 'Solo deck A channel 2', exact: true }).click();
+  await page.getByRole('button', { name: 'Solo deck A channel 2', exact: true }).click();
   await expect(row(page, 0, 1)).not.toHaveClass(/is-muted/);
   await expect(row(page, 0, 0)).toHaveClass(/is-muted/); await expect(row(page, 0, 9)).toHaveClass(/is-muted/);
   await page.locator('#deckAll0').click();
@@ -150,9 +156,9 @@ test('source inspection, tempo takeover, voice mute/solo, original patches and p
 test('whole-arrangement maps create loop regions and retain accessible keyboard seeking', async ({ page }) => {
   await open(page);
   const map = page.locator('#deckMap0'); await map.scrollIntoViewIfNeeded();
-  const box = await map.boundingBox(), label = Math.min(108, box.width * .28), span = box.width - label;
-  await page.mouse.move(box.x + label + span * .26, box.y + 35); await page.mouse.down();
-  await page.mouse.move(box.x + label + span * .51, box.y + 35, { steps: 8 }); await page.mouse.up();
+  const box = await map.boundingBox();
+  await page.mouse.move(box.x + box.width * .26, box.y + 35); await page.mouse.down();
+  await page.mouse.move(box.x + box.width * .51, box.y + 35, { steps: 8 }); await page.mouse.up();
   await expect(page.locator('#deckLoopStart0')).toHaveValue('4');
   await expect(page.locator('#deckLoopEnd0')).toHaveValue('9');
   await expect(page.locator('#deckLoop0')).toBeChecked();
@@ -235,7 +241,7 @@ test('real SoundFont playback is finite, channel and deck mute affect sound, and
   await testInfo.attach('native-mixer-audio', { body: JSON.stringify(summary, null, 2), contentType: 'application/json' });
   await input(page, 'mixerCrossfade', -1); await page.locator('#deckMute0').check(); await silent(page);
   await page.locator('#deckMute0').uncheck(); await audible(page);
-  for (const channel of [0, 1, 9]) await row(page, 0, channel).getByRole('button', { name: `Mute deck A channel ${channel + 1}`, exact: true }).click();
+  for (const channel of [0, 1, 9]) await page.getByRole('button', { name: `Mute deck A channel ${channel + 1}`, exact: true }).click();
   await silent(page); await page.locator('#deckAll0').click(); await audible(page);
   await input(page, 'deckPitch0', 12); await page.locator('#deckProgram0_0').selectOption('80'); await audible(page);
   const before = await beat(page); await page.locator('#audioButton').click(); await silent(page);

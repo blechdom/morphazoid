@@ -1,10 +1,19 @@
 @import url("../../ui/index.css");
 @import './midi-mixer-midi-editor.css';
+@import './midi-mixer-knobs.css';
+@import './midi-mixer-voice-map.css';
 .mixer-shell { --mixer-a: #83efcf; --mixer-b: #ef9aca; background: #080d10; color: #d5e1df; }
 .mixer-shell { max-width: 1560px; margin: 0 auto; padding: 24px 32px 50px; }
-.mixer-main-row { display: grid; grid-template-columns: minmax(0, 1fr) 310px; align-items: center; gap: 32px; }
-.mixer-transport { display: flex; align-items: center; gap: 12px; }
-.mixer-tempo { flex: 1; max-width: 500px; min-width: 0; }
+.mixer-main-row { display: grid; grid-template-columns: minmax(0, 1fr) 340px; align-items: start; gap: 24px; margin-bottom: 18px; }
+.mixer-top-controls, .mixer-overview { min-width: 0; }
+.mixer-secondary-controls { display: grid; grid-template-columns: 130px minmax(0, 1fr); gap: 14px; align-items: start; margin-top: 8px; }
+.mixer-secondary-controls .mixer-weave { margin: 0; }
+.mixer-overview { display: grid; gap: 10px; }
+.mixer-transport { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; }
+.mixer-tempo-controls { display: flex; align-items: center; gap: 8px; }
+.mixer-tempo-sources { display: flex; flex-direction: column; gap: 4px; }
+.mixer-shell .mixer-tempo-sources .mini-action { min-height: 26px; padding: 4px 7px; font-size: 10px; }
+.mixer-tempo { flex: none; width: 100px; min-width: 0; }
 .mixer-shell .control { margin: 0; display: block; }
 .mixer-shell .control > span { display: flex; gap: 12px; justify-content: space-between; margin-bottom: 8px; font-size: 11px; }
 .mixer-shell .control b { font-weight: 400; }
@@ -22,7 +31,25 @@
 .mixer-transport .play-button[aria-pressed="true"] .transport-pause { display: block; }
 .mixer-shell .mini-action { min-height: 36px; background: #10201c; border: 1px solid #304441; color: #c8dcd5; padding: 8px 12px; }
 .mixer-mix-row { display: flex; gap: 24px; align-items: center; max-width: 730px; margin: 18px auto; }
-.mixer-crossfade { flex: 1; min-width: 80px; }
+.mixer-crossfade { flex: none; width: 125px; min-width: 0; }
+.mixer-tempo > span:first-child, .mixer-crossfade > span:first-child { flex-direction: column; gap: 4px; }
+.mixer-weave { display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: center; gap: 8px 20px; margin: 14px 0; font-size: 11px; }
+.mixer-weave-heading { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.mixer-weave-heading output { max-width: 260px; }
+.mixer-shell #mixerWeaveToggle[aria-pressed="true"] { color: #071511; background: var(--mixer-a); border-color: var(--mixer-a); }
+.mixer-weave-steps { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }
+.mixer-weave-steps span { min-width: 18px; padding: 4px 2px; text-align: center; color: var(--mixer-a); border-bottom: 2px solid transparent; opacity: .5; }
+.mixer-weave-steps span[data-deck="B"] { color: var(--mixer-b); }
+.mixer-weave-steps span[aria-current="step"] { border-bottom-color: currentColor; opacity: 1; }
+#mixerWeaveSettings { grid-column: 1 / -1; min-width: 0; }
+#mixerWeaveSettings > summary { cursor: pointer; padding: 10px 0; color: #a9c8be; }
+.mixer-weave-fields { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 20px; max-width: 850px; margin: 6px 0 14px; }
+.mixer-weave-fields label { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.mixer-weave-fields input, .mixer-weave-fields select { width: 100%; min-width: 0; }
+#mixerWeavePattern { min-height: 36px; padding: 6px 9px; background: #0e191c; border: 1px solid #304441; border-radius: 0; color: #d5e1df; font: inherit; text-transform: uppercase; }
+#mixerWeavePattern:invalid { border-color: #ee987d; }
+.mixer-weave-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0; }
+#mixerWeaveHelp { margin: 12px 0 4px; line-height: 1.6; color: #9bb4ad; }
 .mixer-readout { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; min-height: 50px; font-size: 11px; }
 .mixer-readout > label { margin-left: auto; }
 .mixer-status { min-height: 20px; margin: 0 0 20px; color: #9bb4ad; font-size: 11px; line-height: 1.5; }
@@ -39,11 +66,19 @@
 .deck-file input::file-selector-button { border: 1px solid #304441; border-radius: 0; background: #10201c; color: #c8dcd5; padding: 8px; font: inherit; }
 .deck-credit { margin: 6px 0 12px; font-size: 10px; color: #90aba3; line-height: 1.5; overflow-wrap: anywhere; }
 .deck-credit a { color: inherit; }
+.deck-reverse { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; font-size: 11px; }
+.deck-reverse select { flex: 1; min-width: 130px; max-width: 220px; }
+.mixer-shell .deck-reverse button[aria-pressed="true"] { background: var(--deck-ink); border-color: var(--deck-ink); color: #071511; }
+.deck-reverse-status { flex-basis: 100%; color: #9bb4ad; line-height: 1.5; }
+.deck-reverse-status:empty { display: none; }
+.mixer-deck.is-weave-waiting .deck-heading output { color: #879a95; }
+.mixer-deck.is-weave-waiting .channel-label { opacity: .45; }
 .deck-info { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); margin: 12px 0; gap: 8px; }
 .deck-info div { min-width: 0; }
 .deck-info dt { margin-bottom: 5px; font-size: 10px; color: #88a69c; }
 .deck-info dd { margin: 0; font-size: 12px; overflow-wrap: anywhere; }
-.deck-parameters { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; padding: 12px 0; }
+.deck-parameters { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 12px 0; }
+.deck-parameters .deck-slip-control { grid-column: span 2; }
 .deck-slip { display: flex; align-items: center; gap: 6px; }
 .deck-slip input { flex: 1; width: 50px; }
 .deck-switches { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; padding: 8px 0 16px; font-size: 11px; }
@@ -54,7 +89,7 @@
 .deck-channel-actions { display: flex; gap: 6px; }
 .mixer-shell .deck-channel-actions button { padding: 6px 8px; font-size: 10px; }
 .deck-channels { display: grid; gap: 0; margin-top: 8px; }
-.channel-row { display: grid; grid-template-columns: minmax(64px, .8fr) minmax(120px, 2fr) 42px 42px; gap: 8px; align-items: center; min-height: 56px; border-bottom: 1px solid #1a2b27; }
+.channel-row { display: grid; grid-template-columns: minmax(64px, .8fr) minmax(120px, 2fr); gap: 8px; align-items: center; min-height: 56px; border-bottom: 1px solid #1a2b27; }
 .channel-label { display: flex; gap: 6px; align-items: center; font-size: 11px; min-width: 0; }
 .channel-swatch { display: inline-block; width: 7px; height: 16px; flex-shrink: 0; background: var(--deck-ink); }
 .channel-label small { display: block; font-size: 9px; color: #88a69c; margin-top: 3px; }
@@ -79,9 +114,11 @@
 .deck-inspector th { color: #c3d9d0; font-weight: 400; }
 .deck-a-ink { color: var(--mixer-a); } .deck-b-ink { color: var(--mixer-b); }
 .mixer-guide { border-top: 1px solid #273c35; padding-top: 12px; margin-top: 28px; }
-@media (max-width: 900px) { .mixer-shell { padding: 20px; } .mixer-decks { gap: 18px; } .mixer-main-row { grid-template-columns: 1fr 230px; gap: 20px; } .channel-row { grid-template-columns: minmax(55px, .7fr) minmax(80px, 2fr) 36px 36px; gap: 5px; } }
+@media (max-width: 900px) { .mixer-shell { padding: 20px; } .mixer-decks { gap: 18px; } .mixer-main-row { grid-template-columns: minmax(0, 1fr) 290px; gap: 18px; } .channel-row { grid-template-columns: minmax(55px, .7fr) minmax(80px, 2fr); gap: 5px; } }
 @media (max-width: 680px) { .mixer-shell { padding: 20px 16px; } .mixer-main-row { display: flex; flex-direction: column-reverse; align-items: stretch; gap: 16px; } .mixer-decks { grid-template-columns: 1fr; gap: 28px; } .mixer-mix-row { gap: 10px; } .mixer-mix-row .mini-action { max-width: 80px; } .mixer-readout { gap: 8px; } .mixer-readout > label { margin-left: 0; } }
-@media (pointer: coarse) { .mixer-shell button, .mixer-shell .mini-action, .mixer-shell select, .mixer-shell input[type="number"] { min-height: 48px; } .channel-row { grid-template-columns: minmax(58px, .8fr) minmax(80px, 2fr) 48px 48px; min-height: 62px; } .channel-row button { width: 48px; } .mixer-shell input::file-selector-button { min-height: 48px; } }
+@media (max-width: 680px) { .mixer-weave { grid-template-columns: minmax(0, 1fr); gap: 4px; } .mixer-weave-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; } }
+@media (pointer: coarse) { #mixerWeavePattern, #mixerWeaveSettings > summary, .deck-reverse a { min-height: 48px; } .deck-reverse a { display: inline-flex; align-items: center; } .deck-reverse a[hidden] { display: none; } }
+@media (pointer: coarse) { .mixer-shell button, .mixer-shell .mini-action, .mixer-shell select, .mixer-shell input[type="number"] { min-height: 48px; } .channel-row { grid-template-columns: minmax(58px, .8fr) minmax(80px, 2fr); min-height: 62px; } .channel-row button { width: 48px; } .mixer-shell input::file-selector-button { min-height: 48px; } }
 
 .mixer-shell[hidden] { display: none; }
 .mixer-scenes { min-width: 0; }
@@ -125,14 +162,16 @@
 .deck-source-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 16px; }
 .deck-source-actions .deck-file { flex: 1; min-width: 160px; }
 .deck-original { white-space: nowrap; }
-.mixer-performance { display: grid; grid-template-columns: minmax(0, 1fr) 340px; column-gap: 24px; margin: 12px 0 24px; }
-.mixer-performance-toolbar { grid-column: 1 / -1; display: flex; align-items: center; flex-wrap: wrap; gap: 8px 18px; margin-bottom: 10px; }
+.mixer-performance { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 24px; margin: 18px 0 24px; padding-top: 18px; border-top: 1px solid #273c35; }
+.mixer-performance-visualizer { min-width: 0; }
+.mixer-performance .mixer-stamp-palette { grid-column: 1; grid-row: 1 / span 9; }
+.mixer-performance-toolbar { display: flex; align-items: center; flex-wrap: wrap; gap: 6px 10px; margin-bottom: 6px; }
 .mixer-performance-toolbar label { display: flex; align-items: center; gap: 8px; font-size: 11px; }
 .mixer-performance-toolbar h2 { font-size: 14px; font-weight: 400; margin: 0 auto 0 0; }
-#mixerPerformanceCanvas { grid-column: 1; grid-row: 2 / span 9; align-self: start; position: sticky; top: 78px; display: block; width: 100%; height: clamp(160px, calc(100dvh - 470px), 420px); min-height: 0; background: #030706; border-radius: 0; }
+#mixerPerformanceCanvas { display: block; width: 100%; height: 150px; min-height: 0; background: #030706; border-radius: 0; }
 #mixerPerformanceCanvas.mixer-painting { cursor: crosshair; }
 #mixerPerformanceCanvas:focus-visible { outline: 1px solid #caa0db; outline-offset: 3px; }
-.mixer-performance-key { margin-left: auto; color: #a8c5bd; font-size: 11px; }
+.mixer-performance-key { margin-left: auto; color: #a8c5bd; font-size: 10px; }
 #mixerAutomataTools, .mixer-stamp-palette, .mixer-stamp-shape-controls, .mixer-sample-controls, .mixer-sample-message, #mixerSampleStatus, .mixer-stamp-credit { grid-column: 2; min-width: 0; }
 .mixer-stamp-midi { grid-column: 2; min-width: 0; margin: 8px 0 12px; font-size: 11px; }
 .mixer-stamp-midi > summary { cursor: pointer; padding: 10px 0; color: #b6c7c2; }
@@ -176,10 +215,19 @@
 #mixerSampleStatus { display: block; min-height: 16px; margin-top: 8px; color: #a8c5bd; font-size: 11px; }
 @media (max-width: 680px) {
   .mixer-performance { display: block; }
-  #mixerPerformanceCanvas { position: static; height: 280px; min-height: 0; margin-bottom: 16px; }
+  #mixerPerformanceCanvas { height: 110px; min-height: 0; }
+  .mixer-secondary-controls { grid-template-columns: 104px minmax(0, 1fr); gap: 8px; }
+  .mixer-secondary-controls:has(#mixerWeaveSettings[open]) { grid-template-columns: minmax(0, 1fr); }
+  .mixer-overview { width: 100%; }
+  .mixer-transport { gap: 10px; }
+  .mixer-tempo { width: 88px; }
+  .mixer-crossfade { width: 104px; }
+  .mixer-crossfade b { white-space: nowrap; font-size: 10px; }
   .mixer-sample-controls { gap: 12px; }
   .mixer-sample-controls label { max-width: 100%; }
   .mixer-sample-controls select { max-width: 210px; }
   .mixer-sample-bank { max-height: 248px; }
 }
 @media (pointer: coarse) { .mixer-sample-message input, .mixer-sample-controls button, .mixer-sample-message button, .mixer-stamp-actions button, #mixerStampResetSource, #mixerStampFilter, .mixer-stamp-paint { min-height: 48px; } }
+
+@media (pointer: coarse) { .mixer-shell .mixer-tempo-sources .mini-action { min-height: 48px; min-width: 48px; padding: 6px; } }

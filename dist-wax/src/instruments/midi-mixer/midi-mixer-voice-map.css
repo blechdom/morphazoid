@@ -1,0 +1,53 @@
+.mixer-deck-map.mixer-voice-map {
+  --mixer-voice-row-height: 36px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  align-items: start;
+  max-height: 360px;
+  min-width: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  scrollbar-color: #50665e #071014;
+  background: #050b0d;
+}
+.mixer-deck-map.mixer-voice-map.has-voices { grid-template-columns: clamp(176px, 44%, 240px) minmax(0, 1fr); }
+.mixer-voice-map > canvas { min-width: 0; align-self: start; }
+.mixer-deck-map.mixer-voice-map > canvas:focus-visible { outline-offset: -2px; }
+.mixer-voice-sidebar { min-width: 0; padding: 0 4px 24px 0; }
+.mixer-voice-sidebar[hidden] { display: none; }
+.mixer-voice-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) repeat(2, var(--mixer-voice-row-height));
+  align-items: center;
+  gap: 3px;
+  height: var(--mixer-voice-row-height);
+  padding-left: 5px;
+  background: #071014;
+}
+.mixer-voice-row:nth-child(even) { background: #0a1317; }
+.mixer-voice-label { display: block; min-width: 0; color: var(--voice-ink); font-size: 10px; line-height: 1.3; }
+.mixer-voice-name, .mixer-voice-count { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.mixer-voice-count { color: #91aaa2; font-size: 9px; }
+.mixer-voice-row.is-muted .mixer-voice-label, .mixer-voice-row.is-muted .mixer-voice-count { color: #778981; }
+.mixer-voice-map .mixer-voice-button {
+  width: var(--mixer-voice-row-height);
+  height: var(--mixer-voice-row-height);
+  min-width: 0;
+  min-height: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  color: #c8dcd5;
+  font: inherit;
+  font-size: 11px;
+  cursor: pointer;
+}
+.mixer-voice-map .mixer-voice-button:hover { background: #1b3029; }
+.mixer-voice-map .mixer-voice-button[aria-pressed="true"] { background: var(--deck-ink); color: #0b1714; }
+.mixer-voice-map .mixer-voice-button:focus-visible { outline: 2px solid var(--deck-ink); outline-offset: -3px; }
+@media (pointer: coarse) {
+  .mixer-deck-map.mixer-voice-map.has-voices { grid-template-columns: clamp(196px, 50%, 260px) minmax(0, 1fr); }
+}
