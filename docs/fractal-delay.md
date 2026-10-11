@@ -22,7 +22,52 @@ to WebAssembly runs the travelling-wave network inside an AudioWorklet in the
 browser; a local Rust service is not required. This implementation does not
 provide a native backend or a WAX track-audio connection.
 
-At a junction, equal-impedance scattering distributes arriving waves. Coupling
+**Path echoes** is the default Sound interpretation. Each arrival continues
+into the other connections at its junction, splitting into branches without
+the sign-inverting reflections of the resonant model. Coupling blends this
+forward travel with immediate return along the incoming connection. A leaf
+returns through End return; Sustain still applies `decay^length` on traversal.
+All admitted connections participate, including the visible loop/shortcut/hub
+routes. Crossings that merely overlap on screen are not additional junctions.
+
+Three compact controls make the visible geometry consequential:
+
+- **Angle pitch** gives each directed connection a continuous shift of
+  `Angle pitch × sin(heading)` semitones. Upward travel raises pitch, downward
+  lowers it, horizontal travel adds no shift, and reverse travel reverses the
+  shift. A journey accumulates these local shifts; **Pitch** remains a separate
+  transposition of the combined wet output. Neither mapping quantizes notes.
+- **Path taps** blends the selected Listening ports with delayed arrivals
+  throughout the complete prepared network. At zero only the selected pickups
+  are heard; at 100% every connected node is monitored. The whole-network
+  coefficient vector has unit L2 norm across incoming directions, rather than
+  dividing each distant tap by the full node count. Monitoring does not change
+  feedback or inject an undelayed source into the output. The default 65%
+  retains a 35% contribution from your selected listening points.
+- **Bend tone** darkens sharp turns and endpoint returns. At a junction with
+  several routes, it uses their mean continuation direction, excluding the
+  connection being returned through. A straight continuation stays open;
+  zero disables this additional filtering. New external excitation bypasses
+  bend filtering, so Network drive still feeds the requested source level.
+
+Direction pitch is a two-window time-domain read inside each travelling delay,
+not FFT processing. Its adaptive grain fits the existing 25% reserved history
+headroom, so it adds no per-edge delay memory. With Angle pitch zero the first
+arrival follows the geometric travel time. With pitch active, grain lookback
+can smear an arrival by up to 25% of that connection's nominal time (also bounded
+by a 110 ms grain span). Extremely short paths cannot support a meaningful
+independent pitch window and instead behave as short-delay coloration. The
+graphics sample the actual processing histories and arrival readheads; there
+is no separate animation clock for these journeys.
+
+**Send pulse** schedules one shaped 8 ms noise burst through the current input
+points. Audio must already be enabled. It keeps the chosen microphone, file or
+sample and its playback position; it uses the current input/drive staging and
+adds no direct path beyond the existing Direct input setting. Use it with
+Rabbit Cycle and a longer Travel time to follow successive arrivals and returns.
+
+**Resonance** retains the original sound interpretation. At a junction,
+equal-impedance scattering distributes arriving waves. Coupling
 continuously blends this redistribution with reflection. At zero coupling,
 incident waves reflect; at full coupling, a two-edge junction transmits and a
 branch scatters. The blend is energy bounded. Source injection is independent
@@ -32,6 +77,12 @@ one reflects. Decay (the Sustain knob) supplies a per-traversal multiplier of
 already exists in the bidirectional paths and loops.
 The sound propagation law is our acoustic interpretation of the graph, not a
 property prescribed by the quadratic iteration.
+Angle pitch, Path taps and Bend tone are retained but inactive in Resonance.
+Short-delay factory resonators keep this interpretation; longer echo presets
+use Path echoes. Saved snapshots from before these controls restore Resonance
+with zero new mappings. New parameter captures use version 3 and include the
+four sweep settings. The captured c values become the new starting center;
+live Play/Pause states remain separate transport state.
 
 Short travel times make interference and resonance prominent; longer times
 make individual routes and returns easier to follow. Pitch offset changes the
@@ -113,10 +164,44 @@ The complex parameter spans real −2…1 and imaginary −1.5…1.5. Detail spa
 2…12; higher requested detail requires more graph edges or grid resolution.
 Travel time spans 0.05…2,000 ms per normalized geometric unit. Coupling spans
 0…1, Decay 0…0.98, Pitch offset −24…24 semitones, and Pickup 0…1 along the
-indexed graph. Twenty-eight complete musical presets retain the original four
-starting points per mapping and add eight multiport/routing scenes. Random
+indexed graph. Forty complete musical presets retain the original four
+starting points per mapping, eight multiport/routing scenes and twelve bolder
+journeys. Rabbit Slingshot, Two-Step Thunder and Four-Way Carousel use longer
+returns; Orbit Torrent follows a long open route. The newer paths use stronger
+continuous angle pitch, broader listening coverage and lighter bend damping,
+with sparse excitation so successive arrivals can be heard. Root Cloud starts
+with a stronger path interpretation. Random
 changes every musical field within its bounds, while retaining
 the live source, levels and device state.
+
+Each c axis has independent **Play/Pause**, **Tempo** and **Sweep** controls.
+Motion starts paused and never enables Audio or microphone capture. Tempo is
+0.25–60 BPM: one beat is one complete back-and-forth round trip (6 BPM takes
+10 seconds). Shared Tap sets that same physical rate. Sweep is the distance
+on either side of the starting c value, from zero to ±1.5, clipped to the
+coordinate bounds. The motion follows a continuous sine with no jump at
+startup or pause/resume; tempo edits retain phase. Moving c or changing Sweep
+chooses a new center at the current pose. A preset restores its c and four
+motion settings while retaining each axis's live playing state.
+
+Sounding motion uses `AudioContext.currentTime`; visual-only exploration uses
+a monotonic performance clock. One shared 50 ms timer advances both phases
+independently of rendering. At most ten new geometry requests per second are
+sent, with only one motion scene outstanding through its installed Rust
+acknowledgement. A busy worker skips intermediate poses and next prepares the
+current pose; it does not accumulate old targets. The renderer adopts that
+same installed graph. Dense numerical contours/chambers can therefore update
+more slowly than simple orbits, while the sweep clock keeps its tempo.
+For Mandelbrot contours/rays/chambers, motion moves the excitation selection
+through the fixed parameter-plane graph rather than deforming it.
+
+Motion geometry is still admitted against its measured cost and real delay
+storage. The worker's exact-geometry cost cache holds at most 32 entries. Its
+offline benchmarks reuse one WASM allocator with a fresh Rust engine per
+trial, so prior histories/crossfades do not contaminate measurements. Allocated
+WASM pages retain their high-water mark; this is separate from the live audio
+instance. Source playback, live gains and the audio context stay in place
+through motion and preset changes.
 
 Travel time, Coupling, Decay and Pitch offset are live scalar changes; they do
 not regenerate topology. End return is also a live scalar. Port selection
@@ -140,8 +225,10 @@ The device memory envelope is 48, 96 or 192 MiB based on the browser's device
 memory hint (96 MiB when unavailable). Half is available to each scene so
 current and replacement networks can coexist. These are application budgets,
 not a claim to have measured all available system memory. A worker benchmarks
-the actual Rust graph to select a steady processing target with room for a
-transition. The test budget can bypass that CPU target while retaining memory
+the actual Rust graph with the maximum path mappings and Travel time to select
+a steady processing target with room for a transition. Live scalar edits keep
+that admitted graph instead of recalibrating capacity during the gesture.
+The test budget can bypass that CPU target while retaining memory
 and finite model bounds. It never changes automatically as sound gets louder.
 Admission reduces whole inverse depths, coherent contour/ray resolution or
 whole mesh resolution. The graphic displays the admitted network; it does not

@@ -16,7 +16,9 @@ test('Fractal Delay is one canonical instrument with all five playable mappings'
   const values = [...mode.matchAll(/<option\b[^>]*value=["']([^"']+)["']/g)].map(match => match[1]);
   assert.deepEqual(values.sort(), ['inverse', 'contours', 'orbits', 'rays', 'membrane'].sort());
   for (const id of ['audioButton', 'sourceMode', 'sampleSelect', 'fileInput', 'mode', 'cReal', 'cImag',
-    'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'inputDriveDb', 'dry', 'delayGainDb', 'stage', 'presetSelect']) {
+    'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'inputDriveDb', 'dry', 'delayGainDb',
+    'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'sendPulse', 'stage', 'presetSelect',
+    'realMotionPlay', 'imagMotionPlay', 'realMotionTempo', 'imagMotionTempo', 'realMotionDepth', 'imagMotionDepth']) {
     assert.equal([...html.matchAll(new RegExp(`id=["']${id}["']`, 'g'))].length, 1, `#${id} needs one authoritative control`);
   }
   const stage = html.match(/<canvas\b[^>]*id=["']stage["'][^>]*>/)?.[0];
@@ -49,7 +51,7 @@ test('Fractal Delay navigation and catalogue refer to the same real browser page
 test('Fractal Delay runtime assets are explicitly included in the release manifest', async () => {
   const manifest = await read('scripts/site/runtime-files.tsv');
   for (const path of ['fractal-delay.html', 'src/instruments/fractal-delay/app.js',
-    'src/instruments/fractal-delay/browser-engine.js']) {
+    'src/instruments/fractal-delay/browser-engine.js', 'src/instruments/fractal-delay/parameter-motion.js']) {
     assert.ok(manifest.split('\n').some(line => line.split('\t').includes(path)), `${path} must be published`);
   }
 });

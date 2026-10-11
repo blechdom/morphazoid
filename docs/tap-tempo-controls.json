@@ -1,6 +1,20 @@
 {
   "confirmed": [
     {
+      "route": "fractal-delay",
+      "selector": "#realMotionTempo",
+      "mapping": { "unit": "bpm" },
+      "note": "One complete back-and-forth Real c sweep per beat; transport remains independent.",
+      "source": "src/pages/fractal-delay.html"
+    },
+    {
+      "route": "fractal-delay",
+      "selector": "#imagMotionTempo",
+      "mapping": { "unit": "bpm" },
+      "note": "One complete back-and-forth Imaginary c sweep per beat; transport remains independent.",
+      "source": "src/pages/fractal-delay.html"
+    },
+    {
       "route": "nqueens",
       "selector": "#tempo",
       "mapping": {

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildNetwork, networkPorts, MODES, INPUT_MODES, PICKUP_MODES, ROUTING_MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, sanitizeParameters, randomizeParameters,
+import { buildNetwork, networkPorts, MODES, PROPAGATION_MODES, INPUT_MODES, PICKUP_MODES, ROUTING_MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, sanitizeParameters, randomizeParameters,
   escapePotential, complexSquareRoot, COMPLEX_COORDINATE_SCALE } from '../src/instruments/fractal-delay/model.js';
 import { PRESETS } from '../src/instruments/fractal-delay/presets.js';
 
@@ -53,6 +53,22 @@ test('parameters reject nonfinite input, ignore unrelated gains and remain compl
   assert.deepEqual(Object.keys(parameters).sort(), Object.keys(DEFAULT_PARAMETERS).sort());
 });
 
+test('path echoes have complete defaults and reject invalid or unbounded mapping parameters', () => {
+  assert.deepEqual(PROPAGATION_MODES.map(({ id, label }) => [id, label]), [['paths', 'Path echoes'], ['resonance', 'Resonance']]);
+  const legacy = { ...DEFAULT_PARAMETERS };
+  for (const key of ['propagation', 'geometryPitch', 'tapCoverage', 'turnTone']) delete legacy[key];
+  const defaults = sanitizeParameters(legacy);
+  assert.equal(defaults.propagation, 'paths');
+  assert.equal(defaults.geometryPitch, 8); assert.equal(defaults.tapCoverage, .65); assert.equal(defaults.turnTone, .3);
+  const extremes = sanitizeParameters({ propagation: 'fake', geometryPitch: -1, tapCoverage: 3, turnTone: -1 });
+  assert.equal(extremes.propagation, 'paths');
+  assert.equal(extremes.geometryPitch, 0); assert.equal(extremes.tapCoverage, 1); assert.equal(extremes.turnTone, 0);
+  const invalid = sanitizeParameters({ propagation: 'resonance', geometryPitch: Infinity, tapCoverage: NaN, turnTone: '0.8' });
+  assert.equal(invalid.propagation, 'resonance');
+  assert.equal(invalid.geometryPitch, 8); assert.equal(invalid.tapCoverage, .65); assert.equal(invalid.turnTone, .8);
+  assert.equal(sanitizeParameters({ geometryPitch: 30 }).geometryPitch, 24);
+});
+
 test('complex roots square back to their source on both axes and all quadrants', () => {
   for (const [x, y] of [[0, 0], [1, 0], [-1, 0], [0, -1], [0, 1], [-2, -.7], [-2, .7], [2, -.7], [2, .7]]) {
     const root = complexSquareRoot(x, y);
@@ -95,10 +111,11 @@ for (const mode of MODES) {
       assert.deepEqual(buildNetwork(parameters, budget), network);
     }
   });
-  test(`${mode.label} leaves geometry unchanged for all allocation-free audio scalars`, () => {
+  test(`${mode.label} leaves geometry and ports unchanged for both propagation interpretations and audio scalars`, () => {
     const parameters = { ...DEFAULT_PARAMETERS, mode: mode.id };
     const first = buildNetwork(parameters, 1024);
-    const second = buildNetwork({ ...parameters, timeMs: .05, coupling: 0, decay: .98, pitchOffset: 13.72 }, 1024);
+    const second = buildNetwork({ ...parameters, timeMs: .05, coupling: 0, decay: .98, pitchOffset: 13.72,
+      propagation: 'resonance', geometryPitch: 24, tapCoverage: 1, turnTone: 1 }, 1024);
     assert.deepEqual(second.nodes, first.nodes);
     assert.deepEqual(second.edges, first.edges);
     assert.equal(second.pickupNode, first.pickupNode);
@@ -151,18 +168,53 @@ test('period-two and period-three critical orbits become actual return routes', 
   assert.equal(two.nodes[0].x, 0); assert.equal(two.nodes[1].x * COMPLEX_COORDINATE_SCALE, -1);
   assert.ok(two.edges.some(edge => edge.returnRoute));
   const three = buildNetwork({ ...DEFAULT_PARAMETERS, mode: 'orbits', cReal: -.122561, cImag: .744862, detail: 8 }, 1024);
+  assert.equal(three.nodes.length, 3); assert.equal(three.edges.length, 3);
   assert.equal(three.metadata.period, 3);
+  assert.equal(three.metadata.repeatAt, 0);
+  assert.equal(three.metadata.nearReturnTolerance, 1e-5);
+  assert.ok(three.metadata.nearReturnDistance > 0 && three.metadata.nearReturnDistance < 1e-5);
+  assert.equal(three.metadata.numericalApproximation, true);
+  assert.match(three.metadata.construction, /approximate near-return/);
   assert.ok(three.edges.some(edge => edge.returnRoute));
+  assert.ok(three.nodes.every((_, index) => three.edges.filter(edge => edge.a === index || edge.b === index).length === 2));
   validateGraph(three, 1024);
+});
+
+test('neighboring Rabbit parameters retain richer chronological routes rather than welding visually overlapping steps', () => {
+  const rabbit = PRESETS.find(({ id }) => id === 'rabbit-cycle').parameters;
+  const first = buildNetwork(rabbit, 128);
+  for (const patch of [{ cReal: rabbit.cReal + .01 }, { cReal: rabbit.cReal + .05 }, { cImag: rabbit.cImag + .02 }]) {
+    const parameters = { ...rabbit, ...patch }, network = buildNetwork(parameters, 128), s = COMPLEX_COORDINATE_SCALE;
+    validateGraph(network, 128);
+    assert.ok(network.nodes.length > first.nodes.length);
+    assert.ok(network.metadata.repeatAt > 0, 'the genuine transient before the near-return remains in the graph');
+    assert.equal(network.nodes[0].x, 0); assert.equal(network.nodes[0].y, 0);
+    for (let index = 1; index < network.nodes.length; index++) {
+      const a = network.nodes[index - 1], b = network.nodes[index];
+      assert.equal(b.orbitStep, index);
+      assert.ok(Math.abs(b.x * s - ((a.x * s) ** 2 - (a.y * s) ** 2 + parameters.cReal)) < 1e-12);
+      assert.ok(Math.abs(b.y * s - (2 * a.x * a.y * s * s + parameters.cImag)) < 1e-12);
+      assert.ok(network.edges.some(edge => edge.a === index - 1 && edge.b === index && !edge.returnRoute));
+    }
+    const overlapping = network.nodes.some((a, index) => network.nodes.slice(index + 1).some(b => Math.hypot(a.x - b.x, a.y - b.y) < .0004));
+    assert.ok(overlapping, 'close chronological points remain distinct admitted nodes');
+    const last = network.nodes.at(-1), target = network.nodes[network.metadata.repeatAt];
+    const error = Math.hypot((last.x * s) ** 2 - (last.y * s) ** 2 + parameters.cReal - target.x * s,
+      2 * last.x * last.y * s * s + parameters.cImag - target.y * s);
+    assert.ok(error < network.metadata.nearReturnTolerance);
+    assert.ok(Math.abs(network.metadata.nearReturnDistance - error) < 1e-12);
+  }
 });
 
 test('escaping orbits remain exact finite open routes; fixed critical points disclose perturbation', () => {
   const escaping = buildNetwork({ ...DEFAULT_PARAMETERS, mode: 'orbits', cReal: 1, cImag: 1.5 }, 1024);
   assert.equal(escaping.metadata.escaped, true); assert.equal(escaping.metadata.period, 0);
+  assert.equal(escaping.metadata.nearReturnDistance, null);
   assert.ok(!escaping.edges.some(edge => edge.returnRoute));
   validateGraph(escaping, 1024);
   const fixed = buildNetwork({ ...DEFAULT_PARAMETERS, mode: 'orbits', cReal: 0, cImag: 0 }, 1024);
   assert.equal(fixed.metadata.perturbedFixedPoint, true);
+  assert.equal(fixed.metadata.nearReturnDistance, null);
   for (let index = 1; index < fixed.nodes.length; index++) {
     const a = fixed.nodes[index - 1], b = fixed.nodes[index], s = COMPLEX_COORDINATE_SCALE;
     assert.ok(Math.abs(b.x * s - (a.x * s) ** 2 + (a.y * s) ** 2) < 1e-12);
@@ -213,8 +265,8 @@ test('whole-graph memory admission reports requested versus actual geometric len
   assert.equal(impossible.metadata.admissionUnsupported, true, 'never claims an impossible fixed-length route fits memory');
 });
 
-test('all 28 complete presets are bounded and retain the first 20 original mathematical scenes', () => {
-  assert.equal(PRESETS.length, 28); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 28);
+test('all 40 complete presets are bounded and retain the first 20 original mathematical scenes', () => {
+  assert.equal(PRESETS.length, 40); assert.equal(new Set(PRESETS.map(preset => preset.id)).size, 40);
   for (const mode of MODES) assert.equal(PRESETS.slice(0, 20).filter(preset => preset.parameters.mode === mode.id).length, 4);
   for (const { parameters } of PRESETS.slice(0, 20)) {
     assert.equal(parameters.inputMode, 'point'); assert.equal(parameters.inputPosition, 0);
@@ -227,7 +279,7 @@ test('all 28 complete presets are bounded and retain the first 20 original mathe
     signatures.add(JSON.stringify(preset.parameters));
     validateGraph(buildNetwork(preset.parameters, 1024), 1024);
   }
-  assert.equal(signatures.size, 28);
+  assert.equal(signatures.size, 40);
 });
 
 test('multiport and routing controls are complete, bounded and reject invalid modes', () => {
@@ -362,7 +414,7 @@ test('port and boundary edits do not allocate different waveguide geometry', () 
 });
 
 test('eight new complete scenes explore all port modes and all added route types', () => {
-  const additions = PRESETS.slice(20);
+  const additions = PRESETS.slice(20, 28);
   assert.equal(additions.length, 8);
   assert.deepEqual(new Set(additions.map(({ parameters }) => parameters.routing)), new Set(ROUTING_MODES.map(({ id }) => id)));
   for (const inputMode of ['cluster', 'distributed', 'boundary', 'all']) assert.ok(additions.some(({ parameters }) => parameters.inputMode === inputMode));
@@ -379,6 +431,7 @@ test('randomization varies every complete musical parameter without adding gain 
   let seed = 193;
   const random = () => ((seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0) / 4294967296);
   const states = Array.from({ length: 100 }, () => randomizeParameters(DEFAULT_PARAMETERS, random));
+  assert.deepEqual(new Set(states.map(({ propagation }) => propagation)), new Set(PROPAGATION_MODES.map(({ id }) => id)));
   for (const key of Object.keys(DEFAULT_PARAMETERS)) assert.ok(new Set(states.map(state => state[key])).size > 1, `${key} varies`);
   for (const state of states) {
     assert.deepEqual(sanitizeParameters(state), state);

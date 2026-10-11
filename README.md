@@ -47,9 +47,14 @@ Julia inverse trees, coupled escape-potential contours, repeating or finite
 orbit routes, numerical gradient-ray lattices, and filled or explicitly thickened
 fractal chambers. Mic/line, audio files and the L-system Delay sample bank feed
 a browser Rust/WebAssembly bidirectional delay network; geometric edge lengths
-set wave travel times. Single, grouped or whole-shape excitation and listening,
+set wave travel times. Path echoes adds direction-based pitch, bend filtering,
+and audible arrivals throughout the prepared shape; Resonance retains the
+original scattering sound. Send pulse lets a single burst travel those routes
+while the selected source keeps playing. Single, grouped or whole-shape excitation and listening,
 endpoint returns, and optional loop/shortcut/hub connections extend those routes.
-Twenty-eight complete presets cover echoes and short-delay resonances.
+Independent Real c and Imaginary c Play/Pause, tempo, Tap and sweep controls
+cycle the actual sounding geometry back and forth. Forty complete presets
+cover delicate resonances and longer, stronger journeys through loops and branches.
 Audio starts off. Find it in Work in Progress.
 [Controls, mathematics and approximation limits](docs/fractal-delay.md).
 

@@ -14,6 +14,20 @@ function surface(){
 }
 function fallback(run){const previous=globalThis.OffscreenCanvas;globalThis.OffscreenCanvas=class{getContext(){return null;}};
  try{return run();}finally{if(previous===undefined)delete globalThis.OffscreenCanvas;else globalThis.OffscreenCanvas=previous;}}
+function measuredFrame(revision=network.revision){
+ return Object.freeze({revision,sampleClock:8192,waveformSize:32,
+  edgeWaveforms:Float32Array.from({length:64},(_,i)=>i<32?.07:-.04)});
+}
+function movedNetwork(revision=8){
+ const nodes=network.nodes.map(node=>({...node,y:node.id===1?.75:node.y}));
+ const next={...network,revision,nodes,edges:network.edges.map(edge=>({...edge,
+  length:Math.hypot(nodes[edge.b].x-nodes[edge.a].x,nodes[edge.b].y-nodes[edge.a].y)}))};
+ delete next.bounds;return next;
+}
+function flatPaths(next){
+ const s=surface(),r=createNetworkRenderer(s.canvas);
+ try{r.setNetwork(next);r.draw();return structuredClone(s.paths);}finally{r.dispose();}
+}
 
 test('all prepared vectors remain colored without an amplitude or availability animation',()=>fallback(()=>{
  const s=surface(),r=createNetworkRenderer(s.canvas);r.setNetwork(network);r.draw();assert.equal(r.renderer,'Canvas2D');
@@ -34,6 +48,72 @@ test('draw leaves resize/layout work to explicit resize and never replaces the i
  r.draw();r.draw();assert.equal(s.rectReads,reads);assert.equal(s.canvas.width,720);assert.equal(s.canvas.height,500);
  r.resize();r.draw();assert.equal(s.rectReads,reads+1);r.dispose();assert.equal(s.paths.length,0);
  r.draw();assert.equal(s.paths.length,0);
+}));
+
+test('coordinate installs retain the last measured wave on the new vectors without rewriting its revision or sample clock',()=>fallback(()=>{
+ const s=surface(),r=createNetworkRenderer(s.canvas),status=measuredFrame(),originalSamples=status.edgeWaveforms.slice();
+ try{
+  r.setNetwork(network);r.setStatus(status);r.draw();const originalFrame=structuredClone(s.paths);
+  const next=movedNetwork(),baseline=flatPaths(next);
+  r.setNetwork(next);r.setStatus({});r.draw();
+  assert.notDeepEqual(s.paths,originalFrame,'the prepared coordinates move rather than keeping the old picture');
+  for(let edge=0;edge<next.edges.length;edge++){
+   assert.deepEqual(s.paths[edge*2],baseline[edge*2],'the actual new vector remains the trace baseline');
+   assert.deepEqual(s.paths[edge*2+1].points[0],baseline[edge*2+1].points[0]);
+   assert.deepEqual(s.paths[edge*2+1].points.at(-1),baseline[edge*2+1].points.at(-1));
+   assert.ok(Math.hypot(...s.paths[edge*2+1].points[16].map((value,i)=>value-baseline[edge*2+1].points[16][i]))>1,
+    'both connections retain actual pressure displacement');
+  }
+  const held=structuredClone(s.paths);r.setStatus({});r.draw();assert.deepEqual(s.paths,held);
+  assert.equal(status.revision,7);assert.equal(status.sampleClock,8192);assert.deepEqual(status.edgeWaveforms,originalSamples);
+  r.setNetwork({...next,revision:9});r.setStatus({});r.draw();assert.deepEqual(s.paths,held,'multiple compatible installs retain the same dated frame');
+  r.setStatus({...status,revision:9,sampleClock:16384,edgeWaveforms:new Float32Array(64).fill(.015)});r.draw();
+  assert.notDeepEqual(s.paths,held,'a new matching measurement replaces the retained pressure');
+  assert.equal(status.revision,7);assert.equal(status.sampleClock,8192);assert.deepEqual(status.edgeWaveforms,originalSamples);
+ }finally{r.dispose();}
+}));
+
+test('Audio off clears retained pressure and empty install statuses cannot revive it',()=>fallback(()=>{
+ const s=surface(),r=createNetworkRenderer(s.canvas),next=movedNetwork(),baseline=flatPaths(next);
+ try{
+  r.setNetwork(network);r.setStatus(measuredFrame());r.setNetwork(next);r.setStatus({});r.draw();assert.notDeepEqual(s.paths,baseline);
+  r.setStatus(null);r.draw();assert.deepEqual(s.paths,baseline);
+  r.setStatus({});r.setNetwork({...next,revision:9});r.draw();assert.deepEqual(s.paths,baseline,'compatible geometry never revives a cleared measurement');
+  r.setStatus({...measuredFrame(9),sampleClock:24576});r.draw();assert.notDeepEqual(s.paths,baseline,'only a new matching measurement restores waves');
+ }finally{r.dispose();}
+}));
+
+for(const [label,change]of [
+ ['changed node identities',next=>({...next,nodes:next.nodes.map((node,i)=>i===0?{...node,id:100}:node)} )],
+ ['changed node ordering',next=>({...next,nodes:[next.nodes[1],next.nodes[0],next.nodes[2]]})],
+ ['changed edge identities',next=>({...next,edges:next.edges.map((edge,i)=>i===0?{...edge,id:101}:edge)})],
+ ['changed edge ordering',next=>({...next,edges:[...next.edges].reverse()})],
+ ['changed edge direction',next=>({...next,edges:next.edges.map((edge,i)=>i===0?{...edge,a:edge.b,b:edge.a}:edge)})],
+ ['changed endpoint index',next=>({...next,edges:next.edges.map((edge,i)=>i===0?{...edge,b:2}:edge)})],
+ ['additional connection',next=>({...next,edges:[...next.edges,{id:40,a:0,b:2,length:2}]})],
+]){
+ test(`retained pressure rejects ${label} even when other geometry is similar`,()=>fallback(()=>{
+  const s=surface(),r=createNetworkRenderer(s.canvas),next=change(movedNetwork()),baseline=flatPaths(next);
+  try{
+   r.setNetwork(network);r.setStatus(measuredFrame());r.draw();
+   r.setNetwork(next);r.setStatus({});r.draw();assert.deepEqual(s.paths,baseline,'old pressure indices cannot move unrelated paths');
+   const restored=movedNetwork(9);r.setNetwork(restored);r.setStatus({});r.draw();
+   assert.deepEqual(s.paths,flatPaths(restored),'returning to the old layout does not resurrect rejected telemetry');
+  }finally{r.dispose();}
+ }));
+}
+
+test('stale or malformed full measurements invalidate a held frame rather than bypassing revision and size checks',()=>fallback(()=>{
+ const next=movedNetwork(),baseline=flatPaths(next);
+ for(const replacement of [measuredFrame(7),{...measuredFrame(8),waveformSize:16},
+  {...measuredFrame(8),edgeWaveforms:new Float32Array(32)}]){
+  const s=surface(),r=createNetworkRenderer(s.canvas);
+  try{
+   r.setNetwork(network);r.setStatus(measuredFrame());r.setNetwork(next);r.setStatus({});r.draw();assert.notDeepEqual(s.paths,baseline);
+   r.setStatus(replacement);r.draw();assert.deepEqual(s.paths,baseline);
+   r.setStatus({});r.draw();assert.deepEqual(s.paths,baseline,'an empty placeholder cannot restore an invalidated measurement');
+  }finally{r.dispose();}
+ }
 }));
 
 const multiport={...network,inputPorts:[{node:0,weight:.6},{node:2,weight:.8}],
@@ -73,18 +153,39 @@ test('explicit ports replace legacy anchors and routing links retain coherent me
 }));
 
 function gpuSurface(){
- const draws=[],buffers=new Map(),attributes=new Map(),uniforms=new Map();let boundBuffer,vao;
+ const draws=[],textureImages=[],pressureUploads=[],buffers=new Map(),attributes=new Map(),uniforms=new Map();let boundBuffer,vao;
  const gl=new Proxy({
   createBuffer:()=>({}),createVertexArray:()=>({}),createShader:()=>({}),createProgram:()=>({}),createTexture:()=>({}),
   getShaderParameter:()=>true,getProgramParameter:()=>true,getUniformLocation:(_,name)=>name,
   bindBuffer:(_,buffer)=>{boundBuffer=buffer;},bindVertexArray:value=>{vao=value;},
   bufferData:(_,data)=>buffers.set(boundBuffer,data.slice()),
+  texImage2D:(...args)=>textureImages.push(args.at(-1).slice()),
+  texSubImage2D:(...args)=>pressureUploads.push(args.at(-1).slice()),
   vertexAttribPointer:(index,size,type,normalized,stride,offset)=>{if(!attributes.has(vao))attributes.set(vao,new Map());attributes.get(vao).set(index,{buffer:boundBuffer,size,stride,offset});},
   uniform1f:(name,value)=>uniforms.set(name,value),
   drawArrays:(mode,first,count)=>{const position=attributes.get(vao).get(0);draws.push({mode,first,count,stride:position.stride,data:buffers.get(position.buffer).slice(),size:uniforms.get('uSize')});},
  },{get(target,key){if(key in target)return target[key];return /^[A-Z_0-9]+$/.test(key)?key:()=>{};}});
- return {gl,draws};
+ return {gl,draws,textureImages,pressureUploads};
 }
+
+test('GPU reuploads retained measured pressure after geometry recreates its texture without uploading every draw',()=>{
+ const previous=globalThis.OffscreenCanvas,gpu=gpuSurface();
+ globalThis.OffscreenCanvas=class{constructor(){this.width=this.height=1;}getContext(){return gpu.gl;}};
+ let r;
+ try{
+  r=createNetworkRenderer(surface().canvas);r.setNetwork(network);
+  const status=measuredFrame(),original=status.edgeWaveforms.slice();r.setStatus(status);r.draw();
+  assert.equal(r.renderer,'WebGL2');assert.equal(gpu.textureImages.length,1);assert.equal(gpu.pressureUploads.length,1);
+  assert.deepEqual(gpu.pressureUploads[0].subarray(0,64),original);
+  r.setNetwork(movedNetwork());r.setStatus({});
+  assert.equal(gpu.textureImages.length,2);assert.ok(gpu.textureImages[1].every(value=>value===0),'the rebuilt GPU texture starts empty');
+  r.draw();assert.equal(gpu.pressureUploads.length,2);assert.deepEqual(gpu.pressureUploads[1],gpu.pressureUploads[0],
+   'the held measurement is reuploaded despite retaining the same array');
+  r.draw();r.draw();assert.equal(gpu.pressureUploads.length,2,'unchanged drawings reuse the uploaded pressure');
+  r.setStatus(null);r.draw();assert.equal(gpu.pressureUploads.length,3);assert.ok(gpu.pressureUploads[2].every(value=>value===0));
+  assert.equal(status.revision,7);assert.equal(status.sampleClock,8192);assert.deepEqual(status.edgeWaveforms,original);
+ }finally{r?.dispose();if(previous===undefined)delete globalThis.OffscreenCanvas;else globalThis.OffscreenCanvas=previous;}
+});
 
 test('GPU marker buffer and draw count include every admitted port with the same weight and overlap cues',()=>{
  const previous=globalThis.OffscreenCanvas,gpu=gpuSurface();

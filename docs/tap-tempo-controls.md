@@ -48,6 +48,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [Euclidean Pulse](../euclid.html) | `#tempo` |
 | [Falling Forms](../falling-forms.html) | `#physics-timeScale` |
 | [Fourier Epicycles](../fourier-epicycles.html) | `#fourierRate` |
+| [Fractal Delay](../fractal-delay.html) | `#realMotionTempo`, `#imagMotionTempo` (one complete back-and-forth sweep per beat) |
 | [Fractal Synthesis](../fractal-synthesis.html) | `#motionAngleTempo`, `#motionBranchTempo`, `#motionIndexTempo`, `#motionRootTempo`, `#motionScanTempo`, `#motionTurnsTempo`, `#rate` |
 | [Gear Ratio Drums](../gear-ratio-drums.html) | `#gearSpeed` |
 | [Geodesic Drift](../geodesic-drift.html) | `#physics-speed`, `#physics-timeScale` |

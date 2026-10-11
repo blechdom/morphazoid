@@ -6,9 +6,41 @@ import { createWasmNetwork } from '../src/instruments/fractal-delay/wasm-runtime
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/fractal-delay.wasm', import.meta.url)));
 const RATE = 48000, BLOCK = 128, zero = new Float32Array(BLOCK), signal = new Float32Array(BLOCK).fill(.04);
 const parameters = { mode: 'inverse', detail: 2, timeMs: 100, coupling: 1, decay: .7, pitchOffset: 0,
+  propagation: 'resonance', geometryPitch: 0, tapCoverage: 0, turnTone: 0,
   inputMode: 'point', inputPosition: 0, pickupMode: 'point', pickup: .7, boundary: 1, routing: 'geometry' };
 const performance = { inputGain: 1, inputDriveDb: 0, delayGainDb: 0, wet: 1, dry: 0, outputLevel: 1, outputBoostDb: 0,
   hpfHz: 0, lpfHz: 22000, compressorRatio: 1, compressorMakeupDb: 0 };
+
+test('reused offline WASM pages yield fresh engines identical to isolated instances', () => {
+  const instance = new WebAssembly.Instance(module, {});
+  let earlyPages;
+  for (let trial = 0; trial < 40; trial++) {
+    const rate = trial % 2 ? 44100 : RATE;
+    const scene = { nodes: [{ id: 1, x: 0, y: 0 }, { id: 2, x: .1, y: .1 }, { id: 3, x: .2, y: 0 }],
+      edges: [{ id: 10, a: 0, b: 1, length: .03 + trial % 5 * .003 },
+        { id: 11, a: 1, b: 2, length: .04 + trial % 7 * .002 }], inputNode: 0, pickupNode: 2,
+      reserveTimeMs: 2000, memoryBudgetBytes: 1024 * 1024 };
+    const reused = createWasmNetwork(instance, rate), isolated = createWasmNetwork(module, rate);
+    try {
+      for (const engine of [reused, isolated]) {
+        assert.equal(engine.status().sampleClock, 0, 'a previous benchmark must not leak its clock');
+        engine.controls({ ...parameters, propagation: 'paths', geometryPitch: 24, tapCoverage: 1, turnTone: 1,
+          timeMs: 2000 }, performance, 'media');
+        engine.prepareScene(scene, trial + 1);
+        assert.equal(engine.retiredCount(), 0, 'a fresh handle has no prior graph to crossfade');
+      }
+      let heard = false;
+      for (let block = 0; block < 160; block++) {
+        const a = reused.process(block < 32 ? signal : zero), b = isolated.process(block < 32 ? signal : zero);
+        assert.deepEqual(a.left, b.left); assert.deepEqual(a.right, b.right);
+        heard ||= a.left.some(value => Math.abs(value) > 1e-7);
+      }
+      assert(heard, 'identical measurements exercise actual delayed PCM, not just silence');
+    } finally { reused.dispose(); isolated.dispose(); }
+    if (trial === 9) earlyPages = instance.exports.memory.buffer.byteLength;
+  }
+  assert.equal(instance.exports.memory.buffer.byteLength, earlyPages, 'repeated finite scenes reuse pages after the allocation high-water mark');
+});
 
 function peakBlock(engine) {
   const { left, right } = engine.process(signal), block = new Float32Array(BLOCK);

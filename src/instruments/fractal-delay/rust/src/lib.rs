@@ -1,9 +1,7 @@
-//! Genuine bidirectional digital waveguides: each edge owns two travelling-wave
-//! histories; equal-impedance Kirchhoff scattering connects the actual graph.
-//! Convex reflection/scattering blending is contractive for 0 <= coupling <= 1.
-//! Geometry is an artistic resonator, not an acoustically validated fractal room.
-//! Input policy and two-window wet transposition follow L-system Delay's browser
-//! instrument, while its shared-history tap renderer is deliberately not reused.
+//! Two-way travelling histories follow the actual drawn graph. Resonance retains
+//! equal-impedance Kirchhoff scattering. Path echoes uses positive, nonbacktracking
+//! routing, geometry-pitched arrivals and turn-dependent tonal loss. Both are
+//! artistic interpretations rather than acoustically validated fractal rooms.
 use serde::Deserialize;
 use std::collections::{HashMap, HashSet};
 use std::f64::consts::TAU;
@@ -11,6 +9,7 @@ use std::mem::MaybeUninit;
 
 const MAX_EDGES: usize = 16384;
 const WAVEFORM: usize = 32;
+const PITCH_WINDOW: usize = 2048;
 const METRICS: usize = 14;
 const MAX_RESERVE_MS: f64 = 2000.;
 const FADE_SECONDS: f64 = 0.064;
@@ -183,6 +182,97 @@ fn validate(scene: &Scene, rate: f64) -> Result<usize, &'static str> {
 }
 
 #[derive(Clone)]
+struct Direction {
+    ratio: f64,
+    ratio_target: f64,
+    phase: f64,
+    mix: f64,
+    coefficient: f64,
+    coefficient_target: f64,
+    tone: f64,
+}
+impl Direction {
+    fn new(phase: f64) -> Self {
+        Self {
+            ratio: 1.,
+            ratio_target: 1.,
+            phase,
+            mix: 0.,
+            coefficient: 1.,
+            coefficient_target: 1.,
+            tone: 0.,
+        }
+    }
+    fn inherit(&mut self, old: &Self) {
+        self.ratio = old.ratio;
+        self.phase = old.phase;
+        self.mix = old.mix;
+        self.coefficient = old.coefficient;
+        self.tone = old.tone;
+    }
+    fn window(window: &[f64; PITCH_WINDOW], phase: f64) -> f64 {
+        let position = phase * PITCH_WINDOW as f64;
+        let first = position as usize;
+        let fraction = position - first as f64;
+        let a = window[first & (PITCH_WINDOW - 1)];
+        a + (window[(first + 1) & (PITCH_WINDOW - 1)] - a) * fraction
+    }
+    fn sample(
+        &self,
+        history: &[f32],
+        write: usize,
+        delay: f64,
+        grain: f64,
+        window: &[f64; PITCH_WINDOW],
+    ) -> f64 {
+        if self.mix == 0. || grain < 1. {
+            return Edge::read(history, write, delay);
+        }
+        let other = (self.phase + 0.5).fract();
+        // One orientation for both directions of transposition: crossing unity
+        // never flips either read head to another location in the history.
+        let first = 1. - self.phase;
+        let second = 1. - other;
+        let weight = Self::window(window, self.phase);
+        // Every grain lies BEHIND the geometric arrival, never ahead of it.
+        // The adaptive span uses existing 25% reserved history headroom.
+        let pitched = Edge::read(history, write, delay + grain * (0.25 + first)) * weight
+            + Edge::read(history, write, delay + grain * (0.25 + second)) * (1. - weight);
+        if self.mix == 1. {
+            pitched
+        } else {
+            Edge::read(history, write, delay) * (1. - self.mix) + pitched * self.mix
+        }
+    }
+    fn advance(&mut self, path_mix: f64, grain: f64, smooth: f64) {
+        follow(&mut self.ratio, self.ratio_target, smooth);
+        let target = if grain >= 1. && (self.ratio_target - 1.).abs() > 0.0005 {
+            path_mix
+        } else {
+            0.
+        };
+        follow(&mut self.mix, target, smooth);
+        if grain >= 1. && self.mix > 0. {
+            let phase = self.phase + (self.ratio - 1.) / grain;
+            self.phase = phase - phase.floor();
+        }
+    }
+    fn color(&mut self, value: f64, path_mix: f64, smooth: f64) -> f64 {
+        follow(&mut self.coefficient, self.coefficient_target, smooth);
+        self.tone = if self.coefficient == 1. {
+            value
+        } else {
+            flush_small(self.tone + (value - self.tone) * self.coefficient)
+        };
+        if path_mix == 0. {
+            value
+        } else {
+            value * (1. - path_mix) + self.tone * path_mix
+        }
+    }
+}
+
+#[derive(Clone)]
 struct Edge {
     link: Link,
     ab: Vec<f32>,
@@ -194,11 +284,25 @@ struct Edge {
     incoming_ba: f64,
     loss: f64,
     loss_target: f64,
+    direction: [f64; 2],
+    turn: [f64; 2],
+    travel: [Direction; 2],
+    grain: f64,
     level: f32,
     history_source: Option<usize>,
     history_clock: u64,
 }
 impl Edge {
+    fn cache_direction(&mut self, nodes: &[Point]) {
+        let a = &nodes[self.link.a];
+        let b = &nodes[self.link.b];
+        let length = (b.x - a.x).hypot(b.y - a.y);
+        self.direction = if length > 1e-12 {
+            [(b.x - a.x) / length, (b.y - a.y) / length]
+        } else {
+            [0.; 2]
+        };
+    }
     fn read(buffer: &[f32], write: usize, delay: f64) -> f64 {
         let size = buffer.len();
         let position = (write as f64 - delay.clamp(1., (size - 2) as f64)).rem_euclid(size as f64);
@@ -206,13 +310,28 @@ impl Edge {
         let fraction = position - i as f64;
         f64::from(buffer[i]) * (1. - fraction) + f64::from(buffer[(i + 1) % size]) * fraction
     }
-    fn at(&self, distance_from_a: f64) -> f64 {
-        Self::read(&self.ab, self.write, (self.delay * distance_from_a).max(1.))
-            + Self::read(
-                &self.ba,
-                self.write,
-                (self.delay * (1. - distance_from_a)).max(1.),
-            )
+    fn at(&self, distance_from_a: f64, window: &[f64; PITCH_WINDOW]) -> f64 {
+        // Endpoints use the arrivals actually routed by the previous sample.
+        // Interior traces sample those same travelling histories/read laws.
+        if distance_from_a == 0. {
+            return Self::read(&self.ab, self.write, 1.) + self.incoming_ba;
+        }
+        if distance_from_a == 1. {
+            return self.incoming_ab + Self::read(&self.ba, self.write, 1.);
+        }
+        self.travel[0].sample(
+            &self.ab,
+            self.write,
+            (self.delay * distance_from_a).max(1.),
+            self.grain * distance_from_a,
+            window,
+        ) + self.travel[1].sample(
+            &self.ba,
+            self.write,
+            (self.delay * (1. - distance_from_a)).max(1.),
+            self.grain * (1. - distance_from_a),
+            window,
+        )
     }
 }
 struct Graph {
@@ -224,12 +343,83 @@ struct Graph {
     input_targets: Vec<f64>,
     pickup_targets: Vec<f64>,
     input_scale: Vec<f64>,
+    direction_sums: Vec<[f64; 2]>,
+    connected_scale: f64,
+    target_cursor: usize,
+    targets_remaining: usize,
     pan: Vec<[f64; 2]>,
     edges: Vec<Edge>,
     reserve_ms: f64,
     bytes: usize,
 }
 impl Graph {
+    fn geometry_targets(&mut self) {
+        self.direction_sums.fill([0.; 2]);
+        for edge in &mut self.edges {
+            edge.cache_direction(&self.nodes);
+            for axis in 0..2 {
+                self.direction_sums[edge.link.a][axis] += edge.direction[axis];
+                self.direction_sums[edge.link.b][axis] -= edge.direction[axis];
+            }
+        }
+        for index in 0..self.edges.len() {
+            self.cache_turn(index);
+        }
+        self.mark_controls();
+        // Retargeting is bounded inside process(), even for dense live edits.
+    }
+    fn cache_turn(&mut self, index: usize) {
+        let edge = &mut self.edges[index];
+        for (direction, node, sign) in [(0, edge.link.a, 1.), (1, edge.link.b, -1.)] {
+            let degree = self.degrees[node];
+            edge.turn[direction] = if degree <= 1. {
+                1.
+            } else {
+                let dot = sign
+                    * (edge.direction[0] * self.direction_sums[node][0]
+                        + edge.direction[1] * self.direction_sums[node][1]);
+                (0.5 * (1. - (1. - dot) / (degree - 1.))).clamp(0., 1.)
+            };
+        }
+    }
+    fn control_target(edge: &mut Edge, rate: f64, parameters: &Parameters) {
+        let paths = parameters.propagation == Propagation::Paths;
+        edge.loss_target = parameters.decay.powf(edge.link.length);
+        let semitones = if paths {
+            parameters.geometry_pitch * edge.direction[1]
+        } else {
+            0.
+        };
+        let ratio = 2f64.powf(semitones / 12.);
+        edge.travel[0].ratio_target = ratio;
+        edge.travel[1].ratio_target = 1. / ratio;
+        for (index, direction) in edge.travel.iter_mut().enumerate() {
+            direction.coefficient_target =
+                if paths && parameters.turn_tone > 0. && edge.turn[index] > 0. {
+                    let cutoff = (18000. * 0.045f64.powf(parameters.turn_tone * edge.turn[index]))
+                        .min(rate * 0.45);
+                    1. - (-TAU * cutoff / rate).exp()
+                } else {
+                    1.
+                };
+        }
+    }
+    fn mark_controls(&mut self) {
+        // Continuous gestures must not keep restarting at edge zero. Retain the
+        // rolling position and dirty one complete sweep of the latest controls.
+        self.targets_remaining = self.edges.len();
+    }
+    fn update_control_targets(&mut self, rate: f64, parameters: &Parameters, records: usize) {
+        let count = records.min(self.targets_remaining);
+        for _ in 0..count {
+            Self::control_target(&mut self.edges[self.target_cursor], rate, parameters);
+            self.target_cursor += 1;
+            if self.target_cursor == self.edges.len() {
+                self.target_cursor = 0;
+            }
+        }
+        self.targets_remaining -= count;
+    }
     fn step(
         &mut self,
         input: f64,
@@ -238,6 +428,9 @@ impl Graph {
         coupling: f64,
         boundary: f64,
         smooth: f64,
+        path_mix: f64,
+        tap_coverage: f64,
+        window: &[f64; PITCH_WINDOW],
     ) -> [f64; 2] {
         self.pressure.fill(0.);
         for e in &mut self.edges {
@@ -253,12 +446,21 @@ impl Graph {
                 e.delay = (e.delay + e.delay_velocity).clamp(1., (e.ab.len() - 2) as f64);
             }
             follow(&mut e.loss, e.loss_target, smooth);
-            e.incoming_ab = Self::safe(Edge::read(&e.ab, e.write, e.delay) * e.loss);
-            e.incoming_ba = Self::safe(Edge::read(&e.ba, e.write, e.delay) * e.loss);
+            e.grain = (rate * 0.11)
+                .min(e.delay * 0.20)
+                .min(((e.ab.len() - 2) as f64 - e.delay).max(0.) / 1.25);
+            e.travel[0].advance(path_mix, e.grain, smooth);
+            e.travel[1].advance(path_mix, e.grain, smooth);
+            e.incoming_ab =
+                Self::safe(e.travel[0].sample(&e.ab, e.write, e.delay, e.grain, window) * e.loss);
+            e.incoming_ba =
+                Self::safe(e.travel[1].sample(&e.ba, e.write, e.delay, e.grain, window) * e.loss);
             self.pressure[e.link.b] += e.incoming_ab;
             self.pressure[e.link.a] += e.incoming_ba;
         }
         let mut pickup = [0.; 2];
+        let mut path_pickup = [0.; 2];
+        let mut whole_pickup = [0.; 2];
         for index in 0..self.pressure.len() {
             self.pressure[index] *= 2. / self.degrees[index].max(1.);
             follow(
@@ -274,29 +476,67 @@ impl Graph {
             let pressure = self.pressure[index] * 0.5 * self.pickup_weights[index];
             pickup[0] += pressure * self.pan[index][0];
             pickup[1] += pressure * self.pan[index][1];
+            if path_mix > 0. && self.degrees[index] > 0. {
+                // Both tap vectors have L2 norm <= 1 across incoming channels:
+                // node arrivals /sqrt(degree), whole-network taps /sqrt(nodes).
+                let arrival =
+                    self.pressure[index] * 0.5 * self.degrees[index] * self.input_scale[index];
+                for channel in 0..2 {
+                    path_pickup[channel] +=
+                        arrival * self.pickup_weights[index] * self.pan[index][channel];
+                    whole_pickup[channel] +=
+                        arrival * self.connected_scale * self.pan[index][channel];
+                }
+            }
         }
         for e in &mut self.edges {
-            let reflected_a = (1. - coupling) * e.incoming_ba
+            let mut reflected_a = (1. - coupling) * e.incoming_ba
                 + coupling * (self.pressure[e.link.a] - e.incoming_ba);
-            let reflected_b = (1. - coupling) * e.incoming_ab
+            let mut reflected_b = (1. - coupling) * e.incoming_ab
                 + coupling * (self.pressure[e.link.b] - e.incoming_ab);
+            if path_mix > 0. {
+                let degree_a = self.degrees[e.link.a];
+                let degree_b = self.degrees[e.link.b];
+                let onward_a = if degree_a <= 1. {
+                    e.incoming_ba
+                } else {
+                    (1. - coupling) * e.incoming_ba
+                        + coupling * (self.pressure[e.link.a] * degree_a * 0.5 - e.incoming_ba)
+                            / (degree_a - 1.)
+                };
+                let onward_b = if degree_b <= 1. {
+                    e.incoming_ab
+                } else {
+                    (1. - coupling) * e.incoming_ab
+                        + coupling * (self.pressure[e.link.b] * degree_b * 0.5 - e.incoming_ab)
+                            / (degree_b - 1.)
+                };
+                reflected_a += (onward_a - reflected_a) * path_mix;
+                reflected_b += (onward_b - reflected_b) * path_mix;
+            }
             // A leaf may absorb incoming energy without attenuating the external
             // excitation. Per-node 1/sqrt(degree) injection makes a unit-L2 port
             // vector inject at most one source's energy across all directions.
-            let a = reflected_a
-                * if self.degrees[e.link.a] == 1. {
-                    boundary
-                } else {
-                    1.
-                }
-                + input * self.input_weights[e.link.a] * self.input_scale[e.link.a];
-            let b = reflected_b
-                * if self.degrees[e.link.b] == 1. {
-                    boundary
-                } else {
-                    1.
-                }
-                + input * self.input_weights[e.link.b] * self.input_scale[e.link.b];
+            let a = e.travel[0].color(
+                reflected_a
+                    * if self.degrees[e.link.a] == 1. {
+                        boundary
+                    } else {
+                        1.
+                    },
+                path_mix,
+                smooth,
+            ) + input * self.input_weights[e.link.a] * self.input_scale[e.link.a];
+            let b = e.travel[1].color(
+                reflected_b
+                    * if self.degrees[e.link.b] == 1. {
+                        boundary
+                    } else {
+                        1.
+                    },
+                path_mix,
+                smooth,
+            ) + input * self.input_weights[e.link.b] * self.input_scale[e.link.b];
             e.ab[e.write] = Self::safe(a) as f32;
             e.ba[e.write] = Self::safe(b) as f32;
             let amplitude = ((a * a + b * b) * 0.5).sqrt() as f32;
@@ -309,7 +549,12 @@ impl Graph {
                 e.write = 0;
             }
         }
-        pickup
+        std::array::from_fn(|channel| {
+            pickup[channel] * (1. - path_mix)
+                + (path_pickup[channel] * (1. - tap_coverage)
+                    + whole_pickup[channel] * tap_coverage)
+                    * path_mix
+        })
     }
     fn safe(value: f64) -> f64 {
         if value.is_finite() {
@@ -378,6 +623,9 @@ fn synchronize(edge: &mut Edge, old: &Edge, clock: u64, maximum: usize) {
     edge.delay = old.delay.min((edge.ab.len() - 2) as f64);
     edge.delay_velocity = old.delay_velocity;
     edge.level = old.level;
+    for (direction, previous) in edge.travel.iter_mut().zip(&old.travel) {
+        direction.inherit(previous);
+    }
 }
 struct Preparation {
     scene: Scene,
@@ -385,6 +633,15 @@ struct Preparation {
     reuse: HashMap<u32, usize>,
     cursor: usize,
     partial: Option<PartialEdge>,
+    coefficients_prepared: usize,
+    coefficients_dirty: bool,
+}
+
+#[derive(Clone, Copy, PartialEq, Deserialize)]
+#[serde(rename_all = "lowercase")]
+enum Propagation {
+    Resonance,
+    Paths,
 }
 
 #[derive(Clone, Deserialize)]
@@ -395,6 +652,10 @@ struct Parameters {
     coupling: f64,
     boundary: f64,
     pitch_offset: f64,
+    propagation: Propagation,
+    geometry_pitch: f64,
+    tap_coverage: f64,
+    turn_tone: f64,
     frozen: bool,
 }
 impl Default for Parameters {
@@ -405,6 +666,12 @@ impl Default for Parameters {
             coupling: 0.82,
             boundary: 1.,
             pitch_offset: 0.,
+            // Legacy JSON retains its previous resonator interpretation.
+            // The browser explicitly sends its new Path echoes defaults.
+            propagation: Propagation::Resonance,
+            geometry_pitch: 0.,
+            tap_coverage: 0.,
+            turn_tone: 0.,
             frozen: false,
         }
     }
@@ -476,6 +743,9 @@ struct Engine {
     coupling: f64,
     boundary: f64,
     ratio: f64,
+    path_mix: f64,
+    tap_coverage: f64,
+    pitch_window: [f64; PITCH_WINDOW],
     mic_gain: f64,
     input_drive: f64,
     delay_gain: f64,
@@ -527,6 +797,11 @@ impl Engine {
             coupling: 0.82,
             boundary: 1.,
             ratio: 1.,
+            path_mix: 0.,
+            tap_coverage: 0.,
+            pitch_window: std::array::from_fn(|i| {
+                0.5 - 0.5 * (TAU * i as f64 / PITCH_WINDOW as f64).cos()
+            }),
             mic_gain: p.input_gain,
             input_drive: 10f64.powf(p.input_drive_db / 20.),
             delay_gain: 10f64.powf(p.delay_gain_db / 20.),
@@ -582,6 +857,12 @@ impl Engine {
                 || !(0.0..=1.).contains(&p.boundary)
                 || !p.pitch_offset.is_finite()
                 || !(-24.0..=24.).contains(&p.pitch_offset)
+                || !p.geometry_pitch.is_finite()
+                || !(0.0..=24.).contains(&p.geometry_pitch)
+                || !p.tap_coverage.is_finite()
+                || !(0.0..=1.).contains(&p.tap_coverage)
+                || !p.turn_tone.is_finite()
+                || !(0.0..=1.).contains(&p.turn_tone)
             {
                 return Err("Invalid live network parameters");
             }
@@ -617,7 +898,7 @@ impl Engine {
                 || !(0.0..=1.).contains(&p.wet)
                 || !(0.0..=1.).contains(&p.dry)
                 || !(0.0..=2.).contains(&p.output_level)
-                || !(0.0..=24.).contains(&p.output_boost_db)
+                || !(-12.0..=24.).contains(&p.output_boost_db)
                 || !(0.0..=20000.).contains(&p.hpf_hz)
                 || !(20.0..=22000.).contains(&p.lpf_hz)
                 || !(-60.0..=0.).contains(&p.compressor_threshold_db)
@@ -635,15 +916,23 @@ impl Engine {
             }
         }
         if let Some(p) = controls.parameters {
+            let retarget = p.decay != self.parameters.decay
+                || p.propagation != self.parameters.propagation
+                || p.geometry_pitch != self.parameters.geometry_pitch
+                || p.turn_tone != self.parameters.turn_tone;
             self.parameters = p;
-            if let Some(g) = &mut self.graph {
-                for e in &mut g.edges {
-                    e.loss_target = self.parameters.decay.powf(e.link.length);
+            if retarget {
+                if let Some(g) = &mut self.graph {
+                    g.mark_controls();
                 }
-            }
-            if let Some(g) = &mut self.old {
-                for e in &mut g.edges {
-                    e.loss_target = self.parameters.decay.powf(e.link.length);
+                if let Some(g) = &mut self.old {
+                    g.mark_controls();
+                }
+                if let Some(p) = &mut self.pending {
+                    // Complete initial preparation without restarting it under
+                    // a gesture, then fairly refresh any coefficients prepared
+                    // before the latest controls after atomic installation.
+                    p.coefficients_dirty |= p.coefficients_prepared > 0;
                 }
             }
         }
@@ -698,8 +987,8 @@ impl Engine {
                 );
                 for (edge, link) in g.edges.iter_mut().zip(scene.edges) {
                     edge.link = link;
-                    edge.loss_target = self.parameters.decay.powf(edge.link.length);
                 }
+                g.geometry_targets();
                 g.reserve_ms = scene.reserve_time_ms;
                 self.revision = revision;
                 if let Some(previous) = self.pending.take() {
@@ -725,10 +1014,16 @@ impl Engine {
             scene.pickup_ports.as_deref(),
             scene.pickup_node,
         );
+        let connected_scale =
+            1. / (degree.iter().filter(|degree| **degree > 0.).count().max(1) as f64).sqrt();
         let graph = Graph {
             nodes: scene.nodes.clone(),
             input_scale: degree.iter().map(|n: &f64| 1. / n.max(1.).sqrt()).collect(),
             degrees: degree,
+            direction_sums: vec![[0.; 2]; scene.nodes.len()],
+            connected_scale,
+            target_cursor: 0,
+            targets_remaining: 0,
             pressure: vec![0.; scene.nodes.len()],
             input_weights: input_targets.clone(),
             pickup_weights: pickup_targets.clone(),
@@ -766,6 +1061,8 @@ impl Engine {
             reuse,
             cursor: 0,
             partial: None,
+            coefficients_prepared: 0,
+            coefficients_dirty: false,
         });
         self.pending_revision = revision;
         Ok(())
@@ -837,6 +1134,10 @@ impl Engine {
                     incoming_ba: 0.,
                     loss: self.decay.powf(partial.link.length),
                     loss_target: self.parameters.decay.powf(partial.link.length),
+                    direction: [0.; 2],
+                    turn: [0.; 2],
+                    travel: [Direction::new(0.25), Direction::new(0.25)],
+                    grain: 0.,
                     level: 0.,
                     history_source: partial.source,
                     history_clock: partial.source_clock,
@@ -846,6 +1147,9 @@ impl Engine {
                     edge.delay_velocity = old.delay_velocity;
                     edge.loss = old.loss;
                     edge.level = old.level;
+                    for (direction, previous) in edge.travel.iter_mut().zip(&old.travel) {
+                        direction.inherit(previous);
+                    }
                 }
                 partial.ready = Some(edge);
                 // The copying budget is already consumed by initialization.
@@ -862,14 +1166,34 @@ impl Engine {
                     continue;
                 }
             }
-            p.graph.edges.push(partial.ready.take().unwrap());
+            let mut ready = partial.ready.take().unwrap();
+            ready.cache_direction(&p.graph.nodes);
+            for axis in 0..2 {
+                p.graph.direction_sums[ready.link.a][axis] += ready.direction[axis];
+                p.graph.direction_sums[ready.link.b][axis] -= ready.direction[axis];
+            }
+            p.graph.edges.push(ready);
             p.partial = None;
             p.cursor += 1;
         }
         if p.cursor != p.scene.edges.len() {
             return 1;
         }
-        let p = self.pending.take().unwrap();
+        // Turn and coefficient preparation is also incremental; activating the
+        // complete graph never ends with a graph-wide exponential/pow burst.
+        let target_end = (p.coefficients_prepared + records).min(p.graph.edges.len());
+        for index in p.coefficients_prepared..target_end {
+            p.graph.cache_turn(index);
+            Graph::control_target(&mut p.graph.edges[index], self.rate, &self.parameters);
+        }
+        p.coefficients_prepared = target_end;
+        if p.coefficients_prepared < p.graph.edges.len() {
+            return 1;
+        }
+        let mut p = self.pending.take().unwrap();
+        if p.coefficients_dirty {
+            p.graph.mark_controls();
+        }
         if let Some(previous) = self.old.take() {
             self.retired.push(previous);
         }
@@ -918,12 +1242,25 @@ impl Engine {
         std::array::from_fn(|i| wet[i] * (1. - self.pitch_mix) + pitched[i] * self.pitch_mix)
     }
     fn process(&mut self, left: &[f32], right: &[f32], out_l: &mut [f32], out_r: &mut [f32]) {
+        // Controls only mark changed coefficients. Spread their preparation
+        // over quanta, retaining every edge's phase and already travelling audio.
+        if let Some(graph) = &mut self.graph {
+            graph.update_control_targets(self.rate, &self.parameters, 64);
+        }
+        if let Some(graph) = &mut self.old {
+            graph.update_control_targets(self.rate, &self.parameters, 64);
+        }
         let s = self.smooth;
         let ratio_target = 2f64.powf(self.parameters.pitch_offset / 12.);
         let output_target =
             self.performance.output_level * 10f64.powf(self.performance.output_boost_db / 20.);
         let delay_gain_target = 10f64.powf(self.performance.delay_gain_db / 20.);
         let input_drive_target = 10f64.powf(self.performance.input_drive_db / 20.);
+        let path_target = if self.parameters.propagation == Propagation::Paths {
+            1.
+        } else {
+            0.
+        };
         self.metrics[3] = 0.;
         self.metrics[4] = 0.;
         self.metrics[5] = 0.;
@@ -933,6 +1270,8 @@ impl Engine {
             follow(&mut self.coupling, self.parameters.coupling, s);
             follow(&mut self.boundary, self.parameters.boundary, s);
             follow(&mut self.ratio, ratio_target, s);
+            follow(&mut self.path_mix, path_target, s);
+            follow(&mut self.tap_coverage, self.parameters.tap_coverage, s);
             follow(&mut self.mic_gain, self.performance.input_gain, s);
             follow(&mut self.input_drive, input_drive_target, s);
             follow(&mut self.delay_gain, delay_gain_target, s);
@@ -968,6 +1307,9 @@ impl Engine {
                     self.coupling,
                     self.boundary,
                     s,
+                    self.path_mix,
+                    self.tap_coverage,
+                    &self.pitch_window,
                 )
             });
             let old = self.old.as_mut().map_or([0.; 2], |g| {
@@ -978,6 +1320,9 @@ impl Engine {
                     self.coupling,
                     self.boundary,
                     s,
+                    self.path_mix,
+                    self.tap_coverage,
+                    &self.pitch_window,
                 )
             });
             let wet = self.pitch(std::array::from_fn(|ch| {
@@ -1078,7 +1423,7 @@ impl Engine {
                 self.levels[i] = e.level;
                 for j in 0..WAVEFORM {
                     self.waveforms[i * WAVEFORM + j] =
-                        e.at(j as f64 / (WAVEFORM - 1) as f64) as f32;
+                        e.at(j as f64 / (WAVEFORM - 1) as f64, &self.pitch_window) as f32;
                 }
             }
         }
@@ -1401,7 +1746,17 @@ mod tests {
                 edge.loss = 1.;
                 edge.loss_target = 1.;
             }
-            g.step(0., 48000., 0.05, coupling, 1., 0.001);
+            g.step(
+                0.,
+                48000.,
+                0.05,
+                coupling,
+                1.,
+                0.001,
+                0.,
+                0.,
+                &e.pitch_window,
+            );
             let outgoing: f64 = g
                 .edges
                 .iter()
@@ -1434,7 +1789,17 @@ mod tests {
                 e.begin(s, 1).unwrap();
                 while e.prepare(16) == 1 {}
                 let g = e.graph.as_mut().unwrap();
-                g.step(0.1, 48000., 10., coupling, boundary, e.smooth);
+                g.step(
+                    0.1,
+                    48000.,
+                    10.,
+                    coupling,
+                    boundary,
+                    e.smooth,
+                    0.,
+                    0.,
+                    &e.pitch_window,
+                );
                 let injected: f64 = g
                     .edges
                     .iter()
@@ -1554,7 +1919,17 @@ mod tests {
             let last = g.edges[0].ab.len() - 1;
             g.edges[0].ab[last] = 0.1;
             g.edges[0].ba[last] = 0.2;
-            g.step(0., 48000., 0.05, 1., boundary, 0.001);
+            g.step(
+                0.,
+                48000.,
+                0.05,
+                1.,
+                boundary,
+                0.001,
+                0.,
+                0.,
+                &e.pitch_window,
+            );
             assert!((f64::from(g.edges[0].ab[0]) - 0.2 * boundary).abs() < 1e-8);
             assert!((f64::from(g.edges[1].ab[0]) - 0.1).abs() < 1e-8);
             assert!(g.edges[0].ba[0].abs() < 1e-8);
@@ -2043,6 +2418,675 @@ mod tests {
                 .is_err());
             assert_eq!(e.performance.input_drive_db, 0.);
             assert_eq!(e.clock, clock);
+        }
+    }
+    fn path_engine(mut s: Scene, time: f64, pitch: f64, tone: f64) -> Engine {
+        let mut e = Engine::new(48000.);
+        e.parameters.time_ms = time;
+        e.parameters.decay = 1.;
+        e.parameters.propagation = Propagation::Paths;
+        e.parameters.geometry_pitch = pitch;
+        e.parameters.turn_tone = tone;
+        e.time = time;
+        e.decay = 1.;
+        e.path_mix = 1.;
+        s.memory_budget_bytes = 64 * 1024 * 1024;
+        e.begin(s, 1).unwrap();
+        while e.prepare(16) != 2 {}
+        e
+    }
+    #[test]
+    fn path_impulses_arrive_at_exact_sum_of_line_lengths_without_instantaneous_pickup() {
+        for (second_length, expected) in [(0.2, 144), (0.4, 240)] {
+            let mut s = scene();
+            s.edges[1].length = second_length;
+            let mut e = path_engine(s, 10., 0., 0.);
+            let g = e.graph.as_mut().unwrap();
+            let mut onsets = Vec::new();
+            for frame in 0..400 {
+                let output = g.step(
+                    if frame == 0 { 1. } else { 0. },
+                    48000.,
+                    10.,
+                    1.,
+                    0.,
+                    e.smooth,
+                    1.,
+                    0.,
+                    &e.pitch_window,
+                );
+                if output[0].abs() > 1e-8 {
+                    onsets.push(frame);
+                }
+            }
+            assert_eq!(onsets, vec![expected], "all travel is causal and additive");
+        }
+        let mut e = path_engine(scene(), 10., 0., 0.);
+        let g = e.graph.as_mut().unwrap();
+        let mut onsets = Vec::new();
+        for frame in 0..200 {
+            let output = g.step(
+                if frame == 0 { 1. } else { 0. },
+                48000.,
+                10.,
+                1.,
+                0.,
+                e.smooth,
+                1.,
+                1.,
+                &e.pitch_window,
+            );
+            if output[0].abs() > 1e-8 {
+                onsets.push(frame);
+            }
+        }
+        assert_eq!(
+            onsets,
+            vec![48, 144],
+            "whole-network taps expose successive real arrivals"
+        );
+    }
+    #[test]
+    fn path_junctions_split_without_polarity_reversal_and_remain_contractive() {
+        for coupling in [0., 0.2, 0.82, 1.] {
+            for arrivals in [[0.03, -0.1, 0.07], [0.1, 0., 0.]] {
+                let mut s = scene();
+                s.nodes.push(Point {
+                    id: 3,
+                    x: 0.,
+                    y: 0.,
+                });
+                s.edges = vec![
+                    Link {
+                        id: 0,
+                        a: 0,
+                        b: 1,
+                        length: 0.0001,
+                    },
+                    Link {
+                        id: 1,
+                        a: 2,
+                        b: 1,
+                        length: 0.0001,
+                    },
+                    Link {
+                        id: 2,
+                        a: 3,
+                        b: 1,
+                        length: 0.0001,
+                    },
+                ];
+                let mut e = path_engine(s, 0.05, 0., 0.);
+                let g = e.graph.as_mut().unwrap();
+                for (edge, amplitude) in g.edges.iter_mut().zip(arrivals) {
+                    let last = edge.ab.len() - 1;
+                    edge.ab[last] = amplitude as f32;
+                }
+                g.step(
+                    0.,
+                    48000.,
+                    0.05,
+                    coupling,
+                    1.,
+                    e.smooth,
+                    1.,
+                    0.,
+                    &e.pitch_window,
+                );
+                let outgoing: Vec<f64> = g.edges.iter().map(|edge| f64::from(edge.ba[0])).collect();
+                let energy: f64 = outgoing.iter().map(|v| v * v).sum();
+                let original: f64 = arrivals.iter().map(|v| v * v).sum();
+                assert!(energy <= original + 1e-8);
+                if arrivals[1] == 0. {
+                    assert!(outgoing.iter().all(|v| *v >= 0.));
+                    assert!((outgoing[0] - 0.1 * (1. - coupling)).abs() < 1e-7);
+                    assert!((outgoing[1] - 0.05 * coupling).abs() < 1e-7);
+                    assert!((outgoing[2] - 0.05 * coupling).abs() < 1e-7);
+                }
+            }
+        }
+    }
+    #[test]
+    fn an_impulse_circulates_the_complete_triangle_with_geometry_timed_feedback() {
+        let mut s = scene();
+        s.edges.push(Link {
+            id: 2,
+            a: 2,
+            b: 0,
+            length: 0.3,
+        });
+        s.pickup_node = 0;
+        let mut e = path_engine(s, 10., 0., 0.);
+        let g = e.graph.as_mut().unwrap();
+        for edge in &mut g.edges {
+            edge.loss = 0.8f64.powf(edge.link.length);
+            edge.loss_target = edge.loss;
+        }
+        let mut arrivals = Vec::new();
+        for frame in 0..900 {
+            let output = g.step(
+                if frame == 0 { 1. } else { 0. },
+                48000.,
+                10.,
+                1.,
+                1.,
+                e.smooth,
+                1.,
+                0.,
+                &e.pitch_window,
+            );
+            if output[0].abs() > 1e-6 {
+                arrivals.push((frame, output[0]));
+            }
+        }
+        assert_eq!(
+            arrivals.iter().map(|a| a.0).collect::<Vec<_>>(),
+            vec![288, 576, 864]
+        );
+        let expected_loss = 0.8f64.powf(0.6);
+        assert!((arrivals[1].1 / arrivals[0].1 - expected_loss).abs() < 1e-6);
+        assert!((arrivals[2].1 / arrivals[1].1 - expected_loss).abs() < 1e-6);
+    }
+    fn single_line(up: bool) -> Scene {
+        let mut s = scene();
+        s.nodes.truncate(2);
+        s.nodes[1].y = if up { 1. } else { -1. };
+        s.edges = vec![Link {
+            id: 0,
+            a: 0,
+            b: 1,
+            length: 1.,
+        }];
+        s.pickup_node = 1;
+        s
+    }
+    #[test]
+    fn angle_pitch_changes_real_arrivals_continuously_and_reverse_travel_is_reciprocal() {
+        for (pitch, expected_ratio) in [(0., 1.), (7.2, 2f64.powf(0.6)), (12., 2.)] {
+            for reverse in [false, true] {
+                let mut s = single_line(true);
+                if reverse {
+                    s.input_node = 1;
+                    s.pickup_node = 0;
+                }
+                let mut e = path_engine(s, 100., pitch, 0.);
+                let g = e.graph.as_mut().unwrap();
+                let mut previous = 0.;
+                let mut crossings = 0;
+                for frame in 0..48000 {
+                    let input = 0.1 * (TAU * 440. * frame as f64 / 48000.).sin();
+                    let value = g.step(
+                        input,
+                        48000.,
+                        100.,
+                        1.,
+                        0.,
+                        e.smooth,
+                        1.,
+                        0.,
+                        &e.pitch_window,
+                    )[0];
+                    if frame >= 24000 && previous <= 0. && value > 0. {
+                        crossings += 1;
+                    }
+                    previous = value;
+                }
+                let ratio = if reverse {
+                    1. / expected_ratio
+                } else {
+                    expected_ratio
+                };
+                // Window wraps introduce carrier sidebands spaced by the grain
+                // hop frequency. Check its derived resolution, not an invented
+                // claim that this bounded granular effect is an exact FFT shift.
+                let hop_hz = (ratio - 1.).abs() / 0.020;
+                assert!(
+                    (crossings as f64 * 2. - 440. * ratio).abs() <= hop_hz * 2. + 4.,
+                    "continuous geometry ratio {ratio}, measured {} Hz",
+                    crossings * 2
+                );
+                if pitch > 0. {
+                    assert!(if reverse {
+                        crossings * 2 < 440
+                    } else {
+                        crossings * 2 > 440
+                    });
+                }
+                assert!((g.edges[0].travel[usize::from(reverse)].ratio - ratio).abs() < 1e-9);
+                assert!(
+                    (g.edges[0].travel[0].ratio_target * g.edges[0].travel[1].ratio_target - 1.)
+                        .abs()
+                        < 1e-12
+                );
+            }
+        }
+    }
+    fn tone_rms(bent: bool, frequency: f64) -> f64 {
+        let mut s = scene();
+        s.nodes[1].x = 0.1;
+        s.nodes[2].x = if bent { 0.1 } else { 0.3 };
+        s.nodes[2].y = if bent { 0.2 } else { 0. };
+        let mut e = path_engine(s, 10., 0., 0.8);
+        let g = e.graph.as_mut().unwrap();
+        let mut energy = 0.;
+        for frame in 0..24000 {
+            let input = 0.1 * (TAU * frequency * frame as f64 / 48000.).sin();
+            let value = g.step(
+                input,
+                48000.,
+                10.,
+                1.,
+                0.,
+                e.smooth,
+                1.,
+                0.,
+                &e.pitch_window,
+            )[0];
+            if frame >= 12000 {
+                energy += value * value;
+            }
+        }
+        (energy / 12000.).sqrt()
+    }
+    #[test]
+    fn actual_junction_turns_darken_arrivals_while_retaining_low_frequency_energy() {
+        let high = tone_rms(true, 6000.) / tone_rms(false, 6000.);
+        let low = tone_rms(true, 220.) / tone_rms(false, 220.);
+        assert!(high < 0.85, "bent/straight high-frequency RMS {high}");
+        assert!(low > 0.95, "bent/straight low-frequency RMS {low}");
+    }
+    #[test]
+    fn resonance_is_bit_identical_when_retained_path_controls_are_changed() {
+        let mut reference = delay_gain_engine(0., 1., 0.);
+        let mut changed = delay_gain_engine(0., 1., 0.);
+        let mut parameters = changed.parameters.clone();
+        parameters.geometry_pitch = 24.;
+        parameters.tap_coverage = 1.;
+        parameters.turn_tone = 1.;
+        changed
+            .controls(Controls {
+                parameters: Some(parameters),
+                performance: None,
+                input_mode: None,
+            })
+            .unwrap();
+        for block in 0..100 {
+            let input = std::array::from_fn::<_, 128, _>(|frame| {
+                (0.1 * (TAU * 731. * (block * 128 + frame) as f64 / 48000.).sin()) as f32
+            });
+            let mut a = [0.; 128];
+            let mut ar = [0.; 128];
+            let mut b = [0.; 128];
+            let mut br = [0.; 128];
+            reference.process(&input, &input, &mut a, &mut ar);
+            changed.process(&input, &input, &mut b, &mut br);
+            assert_eq!(a, b);
+            assert_eq!(ar, br);
+        }
+    }
+    #[test]
+    fn adaptive_pitch_uses_only_existing_delay_reservation_and_never_reads_before_arrival() {
+        for length in [0.00001, 0.0001, 0.01, 1., 16.] {
+            let mut s = single_line(true);
+            s.edges[0].length = length;
+            let mut e = path_engine(s, 2000., 24., 0.);
+            let g = e.graph.as_mut().unwrap();
+            g.step(0., 48000., 2000., 1., 0., e.smooth, 1., 0., &e.pitch_window);
+            let edge = &g.edges[0];
+            assert_eq!(edge.ab.len(), ring_size(length, 48000., 2000.));
+            assert_eq!(g.bytes, edge.ab.len() * 8);
+            assert!(edge.grain * 1.25 <= edge.delay * 0.25 + 1e-9);
+            assert!(edge.delay + edge.grain * 1.25 <= (edge.ab.len() - 2) as f64 + 1e-9);
+            if edge.grain < 1. {
+                assert_eq!(edge.travel[0].mix, 0.);
+            }
+        }
+    }
+    #[test]
+    fn path_live_controls_preserve_phase_history_clock_and_allocate_nothing() {
+        let mut e = path_engine(single_line(true), 100., 8., 0.3);
+        let input = [0.02; 128];
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        for _ in 0..100 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        let edge = &e.graph.as_ref().unwrap().edges[0];
+        let pointer = edge.ab.as_ptr();
+        let phase = edge.travel[0].phase;
+        let write = edge.write;
+        let clock = e.clock;
+        let mut parameters = e.parameters.clone();
+        parameters.geometry_pitch = 19.3;
+        parameters.turn_tone = 0.9;
+        parameters.tap_coverage = 1.;
+        parameters.time_ms = 170.;
+        e.controls(Controls {
+            parameters: Some(parameters),
+            performance: None,
+            input_mode: None,
+        })
+        .unwrap();
+        let edge = &e.graph.as_ref().unwrap().edges[0];
+        assert_eq!(edge.travel[0].phase, phase);
+        assert_eq!(edge.write, write);
+        assert_eq!(edge.ab.as_ptr(), pointer);
+        assert_eq!(e.clock, clock);
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for _ in 0..200 {
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(e.clock, clock + 200 * 128);
+        assert_eq!(e.graph.as_ref().unwrap().edges[0].ab.as_ptr(), pointer);
+        assert!(left
+            .iter()
+            .chain(&right)
+            .all(|v| v.is_finite() && v.abs() <= 0.94));
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
+    }
+    #[test]
+    fn legacy_propagation_defaults_and_path_control_validation_are_transactional() {
+        let legacy: Parameters = serde_json::from_str(r#"{"timeMs":140}"#).unwrap();
+        assert!(legacy.propagation == Propagation::Resonance);
+        assert_eq!(legacy.geometry_pitch, 0.);
+        assert_eq!(legacy.tap_coverage, 0.);
+        assert_eq!(legacy.turn_tone, 0.);
+        let mut e = Engine::new(48000.);
+        for (pitch, coverage, tone) in [
+            (-0.1, 0., 0.),
+            (24.1, 0., 0.),
+            (0., -0.1, 0.),
+            (0., 1.1, 0.),
+            (0., 0., 1.1),
+            (f64::NAN, 0., 0.),
+        ] {
+            let mut parameters = e.parameters.clone();
+            parameters.geometry_pitch = pitch;
+            parameters.tap_coverage = coverage;
+            parameters.turn_tone = tone;
+            assert!(e
+                .controls(Controls {
+                    parameters: Some(parameters),
+                    performance: None,
+                    input_mode: None
+                })
+                .is_err());
+            assert_eq!(e.parameters.geometry_pitch, 0.);
+            assert_eq!(e.parameters.tap_coverage, 0.);
+            assert_eq!(e.parameters.turn_tone, 0.);
+        }
+        assert!(serde_json::from_str::<Parameters>(r#"{"propagation":"unknown"}"#).is_err());
+    }
+    #[test]
+    fn path_waveform_endpoints_are_the_actual_pitched_arrivals_and_outgoing_waves() {
+        let mut e = path_engine(single_line(true), 100., 13., 0.7);
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        for block in 0..200 {
+            let input = std::array::from_fn::<_, 128, _>(|frame| {
+                (0.1 * (TAU * 337. * (block * 128 + frame) as f64 / 48000.).sin()) as f32
+            });
+            e.process(&input, &input, &mut left, &mut right);
+        }
+        e.snapshot();
+        let edge = &e.graph.as_ref().unwrap().edges[0];
+        assert!(edge.travel[0].mix > 0.999);
+        let a = Edge::read(&edge.ab, edge.write, 1.) + edge.incoming_ba;
+        let b = edge.incoming_ab + Edge::read(&edge.ba, edge.write, 1.);
+        assert_eq!(e.waveforms[0], a as f32);
+        assert_eq!(e.waveforms[WAVEFORM - 1], b as f32);
+        assert!(e.waveforms.iter().all(|v| v.is_finite()));
+        assert!(e.waveforms.iter().any(|v| v.abs() > 1e-4));
+    }
+    #[test]
+    fn expensive_live_targets_are_prepared_in_bounded_batches_and_scalar_edits_skip_them() {
+        let mut e = path_engine(vertical_chain(73), 100., 8., 0.3);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
+        let previous = e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target;
+        let mut parameters = e.parameters.clone();
+        parameters.geometry_pitch = 16.;
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        e.controls(Controls {
+            parameters: Some(parameters),
+            performance: None,
+            input_mode: None,
+        })
+        .unwrap();
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 0);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 73);
+        assert_eq!(
+            e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target,
+            previous
+        );
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        let zero = [0.; 128];
+        e.process(&zero, &zero, &mut left, &mut right);
+        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 64);
+        assert_eq!(
+            e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target,
+            previous
+        );
+        e.process(&zero, &zero, &mut left, &mut right);
+        assert_eq!(e.graph.as_ref().unwrap().target_cursor, 0);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, 0);
+        assert_ne!(
+            e.graph.as_ref().unwrap().edges[72].travel[0].ratio_target,
+            previous
+        );
+        let mut parameters = e.parameters.clone();
+        parameters.time_ms = 200.;
+        parameters.tap_coverage = 0.9;
+        parameters.coupling = 0.7;
+        e.controls(Controls {
+            parameters: Some(parameters),
+            performance: None,
+            input_mode: None,
+        })
+        .unwrap();
+        assert_eq!(
+            e.graph.as_ref().unwrap().targets_remaining,
+            0,
+            "timing, coverage and coupling do not recalculate per-edge pitch/filter coefficients"
+        );
+    }
+    fn vertical_chain(count: usize) -> Scene {
+        let mut s = scene();
+        s.nodes = (0..=count)
+            .map(|index| Point {
+                id: index as u32,
+                x: 0.,
+                y: index as f64 * 0.002,
+            })
+            .collect();
+        s.edges = (0..count)
+            .map(|index| Link {
+                id: index as u32,
+                a: index,
+                b: index + 1,
+                length: 0.002,
+            })
+            .collect();
+        s.pickup_node = count;
+        s.memory_budget_bytes = 64 * 1024 * 1024;
+        s
+    }
+    #[test]
+    fn continuous_dense_control_edits_visit_late_edges_without_starving_or_allocating() {
+        const EDGES: usize = 1025; // More than 384 targets fit between 60 Hz edits.
+        let mut e = path_engine(vertical_chain(EDGES), 100., 8., 0.3);
+        let zero = [0.; 128];
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        let mut late_updates = 0;
+        let mut previous_late = e.graph.as_ref().unwrap().edges[EDGES - 1].travel[0].ratio_target;
+        ALLOCATIONS.with(|n| n.set(0));
+        WATCH.with(|flag| flag.set(true));
+        for edit in 0..12 {
+            let mut parameters = e.parameters.clone();
+            parameters.geometry_pitch = 2. + edit as f64 * 1.3;
+            parameters.decay = 0.7 + edit as f64 * 0.01;
+            parameters.turn_tone = 0.25 + edit as f64 * 0.03;
+            let cursor = e.graph.as_ref().unwrap().target_cursor;
+            e.controls(Controls {
+                parameters: Some(parameters),
+                performance: None,
+                input_mode: None,
+            })
+            .unwrap();
+            assert_eq!(e.graph.as_ref().unwrap().target_cursor, cursor);
+            assert_eq!(e.graph.as_ref().unwrap().targets_remaining, EDGES);
+            // Six 128-frame blocks at 48 kHz = 16 ms: a continuous ~60 Hz drag.
+            for _ in 0..6 {
+                let graph = e.graph.as_ref().unwrap();
+                let cursor = graph.target_cursor;
+                let remaining = graph.targets_remaining;
+                e.process(&zero, &zero, &mut left, &mut right);
+                let graph = e.graph.as_ref().unwrap();
+                let changed = remaining.min(64);
+                assert_eq!(graph.target_cursor, (cursor + changed) % EDGES);
+                assert_eq!(graph.targets_remaining, remaining - changed);
+                let late = graph.edges[EDGES - 1].travel[0].ratio_target;
+                if late != previous_late {
+                    late_updates += 1;
+                    assert!((late - 2f64.powf(e.parameters.geometry_pitch / 12.)).abs() < 1e-12);
+                    previous_late = late;
+                }
+            }
+        }
+        WATCH.with(|flag| flag.set(false));
+        assert_eq!(ALLOCATIONS.with(|n| n.get()), 0);
+        assert!(
+            late_updates >= 4,
+            "the final edge must follow the ongoing gesture"
+        );
+        let mut blocks = 0;
+        while e.graph.as_ref().unwrap().targets_remaining > 0 {
+            let remaining = e.graph.as_ref().unwrap().targets_remaining;
+            e.process(&zero, &zero, &mut left, &mut right);
+            assert_eq!(
+                e.graph.as_ref().unwrap().targets_remaining,
+                remaining - remaining.min(64)
+            );
+            blocks += 1;
+            assert!(blocks <= EDGES.div_ceil(64));
+        }
+        let ratio = 2f64.powf(e.parameters.geometry_pitch / 12.);
+        let loss = e.parameters.decay.powf(0.002);
+        for edge in &e.graph.as_ref().unwrap().edges {
+            assert!((edge.travel[0].ratio_target - ratio).abs() < 1e-12);
+            assert!((edge.travel[1].ratio_target - 1. / ratio).abs() < 1e-12);
+            assert!((edge.loss_target - loss).abs() < 1e-12);
+        }
+    }
+    #[test]
+    fn continuous_control_edits_do_not_restart_atomic_coefficient_preparation() {
+        const EDGES: usize = 1025;
+        let mut e = path_engine(scene(), 100., 8., 0.3);
+        e.begin(vertical_chain(EDGES), 2).unwrap();
+        let zero = [0.; 128];
+        let mut left = [0.; 128];
+        let mut right = [0.; 128];
+        let mut previous_prepared = 0;
+        let maximum_steps = 2 * EDGES.div_ceil(16) + 2;
+        let mut installed = false;
+        for edit in 0..maximum_steps {
+            let mut parameters = e.parameters.clone();
+            parameters.geometry_pitch = 2. + (edit % 20) as f64;
+            parameters.decay = 0.7 + (edit % 20) as f64 * 0.01;
+            e.controls(Controls {
+                parameters: Some(parameters),
+                performance: None,
+                input_mode: None,
+            })
+            .unwrap();
+            assert_eq!(
+                e.pending.as_ref().unwrap().coefficients_prepared,
+                previous_prepared
+            );
+            e.process(&zero, &zero, &mut left, &mut right);
+            if e.prepare(16) == 2 {
+                installed = true;
+                break;
+            }
+            let prepared = e.pending.as_ref().unwrap().coefficients_prepared;
+            assert!(prepared >= previous_prepared);
+            assert!(prepared - previous_prepared <= 16);
+            previous_prepared = prepared;
+        }
+        assert!(
+            installed,
+            "one complete graph must install during an ongoing gesture"
+        );
+        assert_eq!(e.revision, 2);
+        assert_eq!(e.graph.as_ref().unwrap().edges.len(), EDGES);
+        assert_eq!(e.graph.as_ref().unwrap().targets_remaining, EDGES);
+        for _ in 0..EDGES.div_ceil(64) {
+            e.process(&zero, &zero, &mut left, &mut right);
+        }
+        let graph = e.graph.as_ref().unwrap();
+        assert_eq!(graph.targets_remaining, 0);
+        let ratio = 2f64.powf(e.parameters.geometry_pitch / 12.);
+        assert!(graph
+            .edges
+            .iter()
+            .all(|edge| (edge.travel[0].ratio_target - ratio).abs() < 1e-12));
+        assert!(left.iter().chain(&right).all(|value| value.is_finite()));
+    }
+    #[test]
+    fn geometry_pitch_crossing_unity_preserves_read_heads_and_actual_pcm() {
+        let window =
+            std::array::from_fn(|i| 0.5 - 0.5 * (TAU * i as f64 / PITCH_WINDOW as f64).cos());
+        let history: Vec<f32> = (0..8192).map(|index| index as f32 / 8192.).collect();
+        let mut direction = Direction::new(0.37);
+        direction.mix = 1.;
+        direction.ratio = 1. - 1e-6;
+        let before = direction.sample(&history, 6000, 2400., 480., &window);
+        direction.ratio = 1. + 1e-6;
+        let after = direction.sample(&history, 6000, 2400., 480., &window);
+        assert_eq!(
+            before, after,
+            "changing pitch direction must not relocate the read heads"
+        );
+        // A real live crossing has a target farther beyond unity while the
+        // current smoothed ratio passes through it; keep the pitch mix active.
+        let smoothing = 1. - (-1f64 / (48000. * 0.035)).exp();
+        direction.ratio = 1. - 1e-6;
+        direction.ratio_target = direction.ratio + 2e-6 / smoothing;
+        let phase = direction.phase;
+        direction.advance(1., 480., smoothing);
+        assert!((direction.ratio - (1. + 1e-6)).abs() < 1e-12);
+        assert!((direction.phase - phase - 1e-6 / 480.).abs() < 1e-15);
+        let next = direction.sample(&history, 6000, 2400., 480., &window);
+        assert!(
+            (next - after).abs() < 1e-9,
+            "only the continuous read motion changes PCM"
+        );
+    }
+    #[test]
+    fn signed_grain_motion_retains_forward_and_reverse_pitch_rate_and_causal_lookback() {
+        for ratio in [0.25, 0.5, 0.999, 1.001, 2., 4.] {
+            let mut direction = Direction::new(0.37);
+            direction.mix = 1.;
+            direction.ratio = ratio;
+            direction.ratio_target = ratio;
+            let grain = 480.;
+            let base = 2400.;
+            let previous_delay = base + grain * (0.25 + 1. - direction.phase);
+            direction.advance(1., grain, 1.);
+            let next_delay = base + grain * (0.25 + 1. - direction.phase);
+            let read_rate = 1. - (next_delay - previous_delay);
+            assert!(
+                (read_rate - ratio).abs() < 1e-10,
+                "one sample of write motion must produce the declared fractional read rate"
+            );
+            assert!(next_delay >= base && next_delay <= base + grain * 1.25);
         }
     }
 }

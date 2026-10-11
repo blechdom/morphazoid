@@ -55,3 +55,17 @@ test('musical recall and mastering retain independently chosen delay and source 
     assert.equal(mastered.outputLevel, .73);
   }
 });
+
+test('old saved sounds restore the legacy law while new complete scenes recall path controls', async () => {
+  const { PRESETS, recallParameters } = await import('../src/instruments/fractal-delay/presets.js');
+  const legacy = recallParameters({ mode:'orbits', cReal:-.122561, cImag:.744862, timeMs:280, pitchOffset:4.2 });
+  assert.equal(legacy.propagation,'resonance');
+  for(const key of ['geometryPitch','tapCoverage','turnTone']) assert.equal(legacy[key],0);
+  assert.equal(legacy.pitchOffset,4.2); assert.equal(legacy.timeMs,280);
+  const rabbit=PRESETS.find(preset=>preset.id==='rabbit-cycle');
+  assert.equal(rabbit.parameters.propagation,'paths'); assert.equal(rabbit.parameters.pitchOffset,0);
+  assert.deepEqual(recallParameters(rabbit.parameters),rabbit.parameters);
+  assert(PRESETS.some(preset=>preset.parameters.propagation==='resonance'),'original resonator scenes remain available');
+  assert(PRESETS.some(preset=>preset.parameters.propagation==='paths'),'echo scenes use the geometric path law');
+  for(const preset of PRESETS) assert.deepEqual(recallParameters(preset.parameters),preset.parameters);
+});
