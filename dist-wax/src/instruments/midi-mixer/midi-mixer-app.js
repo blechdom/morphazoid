@@ -451,8 +451,8 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   on($('mixerCrossfade'), 'input', event => { custom(); engine.setCrossfade(Number(event.target.value)); });
   for (const index of [0, 1]) on($('tempoFrom' + (index ? 'B' : 'A')), 'click', () => { custom(); engine.setTempo(engine.state.decks[index].analysis?.initialTempo ?? 120); });
   function mountPresets() {
-    if (presetController) return;
-    presetController = registerHeaderPresets({ id: 'midiphoria-mixer', host: $('mixerPresetHost'), presets: MIDI_MIXER_PRESETS,
+    if (presetController) { presetController.activate(); return; }
+    presetController = registerHeaderPresets({ id: 'midiphoria-mixer', host: $('mixerPresetHost'), label: 'MIDI mix presets', presets: MIDI_MIXER_PRESETS,
       capture: () => captureMixerPreset(engine.state), apply: snapshot => { cancelReversals(); return applyMixerPreset(engine, snapshot); },
       randomize: (_snapshot, random) => randomizeMixerPreset(engine.state, random) });
   }
@@ -494,7 +494,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       mountPresets();
       if (frame === null && !document.hidden) frame = requestAnimationFrame(draw);
     } else {
-      presetController?.destroy(); presetController = null;
+      presetController?.deactivate();
       if (frame !== null) cancelAnimationFrame(frame); frame = null;
     }
   }

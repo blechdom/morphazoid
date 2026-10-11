@@ -177,6 +177,44 @@ test("an automatic refresh queued before teardown cannot capture or revive the r
   assert.equal(fixture.doc.querySelector(".header-preset-controls"), null);
 });
 
+test("independent view banks retain pending recall and Next position while inactive shortcuts stay inert", async () => {
+  let release;
+  const fixture = randomFixture({ apply: snapshot => new Promise(resolve => { release = () => resolve(snapshot); }) });
+  const first = fixture.controller;
+  let other, otherState = { value: 0 };
+  try {
+    first.view.select("p-4");
+    const picker = fixture.doc.querySelector(".header-preset-picker"); picker.open = true;
+    first.deactivate();
+    assert.equal(picker.open, false, "inactive popovers close immediately");
+    assert.equal(fixture.doc.querySelector(".header-preset-controls"), null);
+    assert.equal(captureHeaderPresetState(fixture.doc), null);
+    fixture.doc.emit("keydown", { key: "ArrowRight", target: fixture.doc,
+      preventDefault() { assert.fail("inactive bank intercepted an arrow"); } });
+    other = registerHeaderPresets({ id: "other", presets: first.bank, document: fixture.doc,
+      runtime: first.runtime, capture: () => otherState, apply: snapshot => { otherState = snapshot; },
+      randomize: () => ({ value: .25 }), label: "Other presets" });
+    other.view.select("p-9");
+    release(); await settle();
+    assert.equal(first.selectedId, "p-4", "suspending a view does not discard its pending recall");
+    assert.equal(captureHeaderPresetState(fixture.doc).selectedId, "p-9", "background recall cannot change the active bank");
+    first.view.select("p-8");
+    assert.equal(fixture.applies(), 1, "detached controls cannot start another recall");
+    first.activate();
+    assert.equal(captureHeaderPresetState(fixture.doc).selectedId, "p-4");
+    assert.equal(fixture.doc.descendants().filter(node => node.classList.contains("header-preset-controls")).length, 1);
+    fixture.doc.querySelector(".header-preset-next").emit("click");
+    release(); await settle();
+    assert.deepEqual(fixture.state(), { value: 5 }, "Next retains the first bank's tour position");
+    other.activate();
+    assert.equal(captureHeaderPresetState(fixture.doc).selectedId, "p-9");
+    fixture.doc.querySelector(".header-preset-next").emit("click");
+    assert.deepEqual(otherState, { value: 10 }, "Next retains the other bank's independent position");
+    first.destroy(); first.activate();
+    assert.equal(captureHeaderPresetState(fixture.doc).instrumentId, "other", "destroyed controllers cannot reclaim shortcuts");
+  } finally { first.destroy(); other?.destroy(); }
+});
+
 test("dice is an accessible ordinary button; random settings become Custom and a preset restores them", () => {
   const fixture = randomFixture();
   try {

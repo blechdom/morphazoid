@@ -104,7 +104,7 @@ function mountMidiphoria() {
     // Only the visible instrument owns a running audio clock; inactive contexts
     // would otherwise make the shared recorder see two unrelated clocks.
     const idleAudio = previous === player ? player.context?.suspend().catch(() => {}) : mixer.suspendAudio?.();
-    if (isMixer) { presetController?.destroy(); presetController = null; }
+    if (isMixer) presetController?.deactivate();
     stageMode = next; reflectMode();
     if (!isMixer) registerVisualPresets();
     const target = activeEngine();
@@ -826,8 +826,8 @@ function mountMidiphoria() {
     resize.disconnect(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
   function registerVisualPresets() {
-    presetController?.destroy();
-    presetController = registerHeaderPresets({ id: 'midiphoria', presets: MIDIPHORIA_PRESETS,
+    if (presetController) { presetController.activate(); return; }
+    presetController = registerHeaderPresets({ id: 'midiphoria', host: $('visualPresetHost'), label: 'Visual presets', presets: MIDIPHORIA_PRESETS,
       capture: () => captureMidiphoriaPreset(settings, renderer.options),
       apply: snapshot => {
         setDrawingView(false);

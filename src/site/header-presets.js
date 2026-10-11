@@ -60,11 +60,13 @@ export function presetArrowDirection(event, { withinPicker = false } = {}) {
  * pure randomizer. Local sub-preset editors stay in the page.
  * Availability limits menu choices and cycling without changing the captured
  * scene or full bank. Call refresh() after changing an external availability rule.
+ * Views may deactivate()/activate() their own controller to retain independent
+ * selection history. Only the active controller receives preset shortcuts.
  * Call after initialization; registration never applies a preset on page load.
  */
 export function registerHeaderPresets({
   id, presets, capture, apply, randomize, random = Math.random, onApplied,
-  isPresetAvailable = () => true,
+  isPresetAvailable = () => true, label = null,
   document: doc = globalThis.document, runtime = globalThis, host = null,
 }) {
   validateFullPresetBank(presets);
@@ -74,10 +76,25 @@ export function registerHeaderPresets({
   const bank = JSON.parse(JSON.stringify(presets));
   presetStateKey(capture());
   registrations.get(doc)?.destroy();
-  const controller = { id, bank, capture, apply, randomize, random, onApplied, isPresetAvailable, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
-  controller.destroy = () => {
-    controller.view?.destroy();
+  const controller = { id, bank, capture, apply, randomize, random, onApplied, isPresetAvailable, label, runtime, doc, host, view: null, selectedId: null, hasPresetInteraction: false };
+  let disposed = false;
+  controller.deactivate = () => {
+    controller.view?.setActive(false);
     if (registrations.get(doc) === controller) registrations.delete(doc);
+  };
+  controller.activate = () => {
+    if (disposed) return;
+    if (registrations.get(doc) !== controller) {
+      registrations.get(doc)?.deactivate();
+      registrations.set(doc, controller);
+      if (controller.view) controller.view.setActive(true);
+      else mountHeaderPresets(doc);
+    }
+    controller.refresh();
+  };
+  controller.destroy = () => {
+    controller.deactivate();
+    controller.view?.destroy(); controller.view = null; disposed = true;
   };
   controller.refresh = () => controller.view?.refresh();
   registrations.set(doc, controller);
@@ -94,14 +111,14 @@ export function mountHeaderPresets(doc) {
   const abort = new runtime.AbortController();
   const listen = (node, type, handler, options = {}) => node.addEventListener(type, handler, { ...options, signal: abort.signal });
   const shell = createChoosePickerShell(doc, {
-    current: "Select Preset", label: "Choose full-instrument preset", title: "Full-instrument presets",
-    panelId: "header-preset-panel", placeholder: "Type a preset", filterLabel: "Filter presets", listLabel: "Full-instrument presets",
+    current: controller.label ?? "Select Preset", label: controller.label ?? "Choose full-instrument preset", title: controller.label ?? "Full-instrument presets",
+    panelId: "header-preset-panel", placeholder: "Type a preset", filterLabel: "Filter presets", listLabel: controller.label ?? "Full-instrument presets",
   });
   const { details, summary, currentLabel, panel, search, searchInput, list } = shell;
   const root = doc.createElement("div");
   root.className = "header-preset-controls instrument-preset-controls";
   root.setAttribute("role", "group");
-  root.setAttribute("aria-label", "Instrument presets");
+  root.setAttribute("aria-label", controller.label ?? "Instrument presets");
   root.dataset.instrumentId = controller.id;
   details.classList.add("header-preset-picker");
   summary.setAttribute("aria-keyshortcuts", "ArrowRight ArrowLeft ArrowDown ArrowUp");
@@ -147,6 +164,7 @@ export function mountHeaderPresets(doc) {
   let applying = false;
   let destroyed = false;
   let refreshQueued = false;
+  const isActive = () => registrations.get(doc) === controller;
   const refresh = () => {
     if (destroyed) return;
     filter();
@@ -158,9 +176,9 @@ export function mountHeaderPresets(doc) {
     controller.selectedId = selected?.id ?? null;
     const selectedId = selected?.id ?? (controller.hasPresetInteraction ? "custom" : "unselected");
     if (root.dataset.presetId !== selectedId) root.dataset.presetId = selectedId;
-    const label = controller.hasPresetInteraction ? selected?.label ?? "Preset · Custom" : "Select Preset";
+    const label = controller.hasPresetInteraction ? selected?.label ?? "Preset · Custom" : controller.label ?? "Select Preset";
     if (currentLabel.textContent !== label) currentLabel.textContent = label;
-    const title = controller.hasPresetInteraction ? selected?.label ?? "Custom instrument settings" : "Select Preset";
+    const title = controller.hasPresetInteraction ? selected?.label ?? "Custom instrument settings" : controller.label ?? "Select Preset";
     if (summary.title !== title) summary.title = title;
     for (const button of buttons) {
       const pressed = String(button.dataset.presetId === selected?.id);
@@ -171,12 +189,12 @@ export function mountHeaderPresets(doc) {
   // automatic display update singular without delaying explicit recall,
   // capture, availability checks or background-page updates until a frame.
   const queueRefresh = () => {
-    if (destroyed || refreshQueued) return;
+    if (destroyed || !isActive() || refreshQueued) return;
     refreshQueued = true;
-    runtime.queueMicrotask(() => { refreshQueued = false; refresh(); });
+    runtime.queueMicrotask(() => { refreshQueued = false; if (isActive()) refresh(); });
   };
   const transact = (prepare, success, failure, updateSelection = () => {}) => {
-    if (applying || destroyed) return;
+    if (applying || destroyed || !isActive()) return;
     const previous = JSON.parse(presetStateKey(capture()));
     applying = true;
     let attemptedApply = false;
@@ -299,6 +317,7 @@ export function mountHeaderPresets(doc) {
     }
   });
   listen(doc, "keydown", event => {
+    if (!isActive()) return;
     const target = event.composedPath?.()[0] ?? event.target;
     const direction = presetArrowDirection(event, { withinPicker: target === summary || target === next || target === dice });
     if (!direction) return;
@@ -312,11 +331,19 @@ export function mountHeaderPresets(doc) {
   panel.append(search, list);
   details.append(summary, panel);
   // Explicit instrument-owned placement, never guessed from category or title.
-  if (host.children[0]) host.children[0].before(root);
-  else host.append(root);
+  const attach = () => {
+    if (host.children[0]) host.children[0].before(root);
+    else host.append(root);
+  };
+  attach();
   const anchoredPanel = anchorChoosePickerPanel(shell, runtime);
   controller.view = {
     refresh, select, randomize,
+    setActive(active) {
+      if (destroyed) return;
+      if (active) { attach(); refresh(); }
+      else { details.open = false; searchInput.value = ""; anchoredPanel.update(); root.remove(); }
+    },
     destroy() {
       destroyed = true;
       abort.abort();

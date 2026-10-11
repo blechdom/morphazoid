@@ -13,7 +13,7 @@ Drag any mixer knob vertically, hold Shift for finer movement, or use its arrow
 keys. Exact numeric MIDI editors remain available beside their knobs. Each voice
 name has inline **M** (mute) and **S** (solo) buttons aligned with its activity row.
 Volume A and Volume B sit near the mixer transport. Black MIDI volume and the
-searchable stamp bank are in **Draw a MIDI**; that volume controls both active
+searchable stamp bank are in **BLECH MIDI**; that volume controls both active
 stamps and the next launch. **Automatapoeia** has its own tab. These three views
 share one sound engine and tempo; switching between them keeps playback running.
 Opening Draw or Automatapoeia does not load or start the decks. Generated drawings, messages, and patterns default to acoustic piano.
@@ -165,7 +165,7 @@ colors. Muted parts stop adding new notes to the live graphic while their
 full-file activity maps remain available below. Graphics follow note events; rendering
 does not schedule the sound.
 
-In **Draw a MIDI**, the searchable stamp palette includes 30 generated pictures and textures:
+In **BLECH MIDI**, the searchable stamp palette includes 30 generated pictures and textures:
 Heart, Square, Zigzag, Polka dots, Plaid, Stripes, Drips, Glob, Glooob,
 Noise, Scatter, Explode and more. The thumbnails show the actual pitch/time
 cells that become MIDI notes. Density changes line thickness or particle

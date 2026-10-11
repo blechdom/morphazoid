@@ -8,6 +8,11 @@ keeps the file's original time; Stop returns to zero, and manual seeks and
 pause/resume retain their chosen positions.
 SpessaSynth plays Standard MIDI Files through the bundled TimGM6mb SoundFont in
 an AudioWorklet. The same note and controller events drive Canvas graphics.
+The **Visual presets** bank belongs to Visualize; **MIDI mix presets** belong to
+MIDI Mixer. Each remembers its own selection and Next position when changing
+tabs. Visual presets change the light, while mix presets change decks, tempo
+and effects. BLECH MIDI and Automatapoeia do not receive hidden preset shortcuts.
+
 Mute leaves the transport and graphics running. Color, velocity weighting,
 ADSR, invert, hue and view changes stay live during playback.
 Playback applies an 18 dB boost before compression so quiet arrangements have
@@ -85,7 +90,7 @@ its independent file player.
 
 ## Draw, words and symbols
 
-**Draw a MIDI** opens a 48-column × 32-row pixel score beside the black MIDI
+**BLECH MIDI** opens a 48-column × 32-row pixel score beside the black MIDI
 and generated stamp bank. Enable **Audio**, draw or choose a shape, then press
 **Play drawing**. Playback stays in Draw and appears in the small live flow.
 **Stop stamps** releases it; **Loop** repeats it. **Download MIDI** saves the

@@ -138,7 +138,7 @@ export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRo
     || !Number.isInteger(score.rows) || score.rows < 1 || score.rows > 256
     || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 128
     || !Number.isFinite(score.secondsPerRow) || score.secondsPerRow <= 0) {
-    throw new Error('Draw a score first in Draw a MIDI.');
+    throw new Error('Draw a score first in BLECH MIDI.');
   }
   const { rows, columns, secondsPerRow, lowestNote } = score;
   const phraseRows = score.rowsPerPhrase;

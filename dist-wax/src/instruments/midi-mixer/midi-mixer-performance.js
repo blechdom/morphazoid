@@ -224,7 +224,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   }
   function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value) {
     const score = editScore(rawScore);
-    if (!score?.buffer) throw new Error('Draw a score first in Draw a MIDI.');
+    if (!score?.buffer) throw new Error('Draw a score first in BLECH MIDI.');
     engine.triggerSample(score.buffer, { name: label, program: null, gain: Number($('mixerSampleLevel').value),
       loop: $('mixerSampleLoop').checked, sync: $('mixerSampleSync').checked,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });

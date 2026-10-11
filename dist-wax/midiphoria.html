@@ -46,7 +46,7 @@
         <div class="midiphoria-stage-heading"><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a><h1>Midiophilia</h1></div>
         <div class="midiphoria-stage-modes" role="group" aria-label="Stage view">
           <button id="visualModeButton" type="button" aria-pressed="true">Visualize</button>
-          <button id="drawingModeButton" type="button" aria-pressed="false">Draw a MIDI</button>
+          <button id="drawingModeButton" type="button" aria-pressed="false">BLECH MIDI</button>
           <button id="automataModeButton" type="button" aria-pressed="false">Automatapoeia</button>
           <button id="mixerModeButton" type="button" aria-pressed="false">MIDI Mixer</button>
         </div>
@@ -67,7 +67,7 @@
         </div>
         <div class="midiphoria-keyboard" id="notePads" role="group" aria-label="Piano pads, C3 through B4"></div>
       </section>
-      <aside class="panel midiphoria-panel" aria-label="Midiophilia controls" data-instrument-preset-host>
+      <aside id="visualPresetHost" class="panel midiphoria-panel" aria-label="Midiophilia visualizer controls" data-instrument-preset-host>
         <section class="midiphoria-section midiphoria-player" aria-label="MIDI playback">
           <div class="midiphoria-transport">
             <button class="play-button" id="playButton" type="button" data-primary-transport aria-pressed="false" aria-label="Play MIDI" title="Play MIDI" disabled>
@@ -199,7 +199,7 @@
               <p id="drawingHelp" class="midiphoria-help">Draw or choose a shape, then Play drawing. Pitch → · flow ↑. Arrows move · Space paints · Delete erases.</p>
             </div>
             <div class="midiphoria-drawing-viewport">
-              <canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="Draw a MIDI score" aria-describedby="drawingHelp">Pitch increases to the right. The drawing appears upright in upward-moving note trails.</canvas>
+              <canvas id="drawingCanvas" tabindex="0" data-space-key-owner role="application" aria-label="BLECH MIDI drawing score" aria-describedby="drawingHelp">Pitch increases to the right. The drawing appears upright in upward-moving note trails.</canvas>
             </div>
           </div>
           <div id="automataMidiTools" hidden></div>
