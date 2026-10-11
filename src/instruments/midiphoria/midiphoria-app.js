@@ -40,7 +40,7 @@ function mountMidiphoria() {
   const padHeld = new Map();
   const padTimers = new Map();
   const pads = [];
-  let mixer, stageMode = 'visual', modeVersion = 0, pendingAudioIntent = null, pendingPlayIntent = null;
+  let mixer, stageMode = 'visual', modeVersion = 0, pendingAudioIntent = null, pendingPlayIntent = null, retainedPlayIntent = false;
   let player, audioStarting = false, loadingFile = false, selectionReady = false, fileError = '';
   let receivingLiveMidi = false;
   const liveAudioNotes = new Set();
@@ -87,12 +87,14 @@ function mountMidiphoria() {
     }
     const previous = activeEngine();
     const wantedAudio = pendingAudioIntent ?? previous.state.audioEnabled;
-    const wantedPlay = pendingPlayIntent ?? previous.state.playing;
+    const wantedPlay = pendingPlayIntent ?? (retainedPlayIntent || previous.state.playing);
     const version = ++modeVersion;
-    pendingAudioIntent = wantedAudio; pendingPlayIntent = wantedPlay;
+    pendingAudioIntent = wantedAudio; pendingPlayIntent = wantedPlay; retainedPlayIntent = wantedPlay;
     resumeAfterSelection = false; clear();
     previous.pause(); void armEngine(previous, false);
+    if (isMixer) { presetController?.destroy(); presetController = null; }
     stageMode = next; reflectMode();
+    if (!isMixer) registerVisualPresets();
     const target = activeEngine();
     audioStarting = wantedAudio; $('modeStatus').textContent = ''; reflectPlayer();
     try {
@@ -102,6 +104,8 @@ function mountMidiphoria() {
         return;
       }
       if (pendingPlayIntent && (target === mixer || target.state.ready)) target.play();
+      // Empty views cannot run a transport, but must not cancel the performer’s Play.
+      retainedPlayIntent = Boolean(pendingPlayIntent && !target.state.playing);
     } catch (error) {
       if (!disposed && version === modeVersion) $('modeStatus').textContent = error.message || 'Could not start this view.';
     } finally {
@@ -439,6 +443,7 @@ function mountMidiphoria() {
     void selectSong(added[0]);
   });
   on($('playButton'), 'click', () => {
+    retainedPlayIntent = false; pendingPlayIntent = null;
     if (stageMode === 'mixer') {
       if (mixer.state.playing) mixer.pause(); else mixer.play();
       reflectPlayer(); return;
@@ -448,7 +453,7 @@ function mountMidiphoria() {
     else player.play();
     reflectPlayer();
   });
-  on($('stopButton'), 'click', () => { if (stageMode === 'mixer') { mixer.reset(); return; } resumeAfterSelection = false; player.stop(); reflectPlayer(); });
+  on($('stopButton'), 'click', () => { retainedPlayIntent = false; pendingPlayIntent = false; if (stageMode === 'mixer') { mixer.reset(); return; } resumeAfterSelection = false; player.stop(); reflectPlayer(); });
   on($('songPosition'), 'input', () => { $('songTime').value = `${timeLabel(Number($('songPosition').value))} / ${timeLabel(player.state.duration)}`; });
   on($('songPosition'), 'change', () => { player.seek(Number($('songPosition').value)); reflectPlayer(); });
   on($('playbackRate'), 'input', () => {
@@ -645,7 +650,7 @@ function mountMidiphoria() {
   }
   on($('padVelocity'), 'input', () => { $('padVelocityOut').value = $('padVelocity').value; });
   on($('resetButton'), 'click', () => {
-    pendingPlayIntent = false;
+    retainedPlayIntent = false; pendingPlayIntent = false;
     if (stageMode === 'mixer') { mixer.reset(); return; }
     setDrawingView(false);
     $('showTextScore').checked = false;
@@ -746,16 +751,20 @@ function mountMidiphoria() {
     if (frame !== null) cancelAnimationFrame(frame);
     resize.disconnect(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
-  presetController = registerHeaderPresets({ id: 'midiphoria', presets: MIDIPHORIA_PRESETS,
-    capture: () => captureMidiphoriaPreset(settings, renderer.options),
-    apply: snapshot => {
-      setDrawingView(false);
-      $('showTextScore').checked = false;
-      applyMidiphoriaPreset(model, renderer, snapshot, clock());
-      settings = { ...model.options }; reflectControls(); choosePresetSong();
-    },
-    randomize: randomizeMidiphoriaPreset,
-  });
+  function registerVisualPresets() {
+    presetController?.destroy();
+    presetController = registerHeaderPresets({ id: 'midiphoria', presets: MIDIPHORIA_PRESETS,
+      capture: () => captureMidiphoriaPreset(settings, renderer.options),
+      apply: snapshot => {
+        setDrawingView(false);
+        $('showTextScore').checked = false;
+        applyMidiphoriaPreset(model, renderer, snapshot, clock());
+        settings = { ...model.options }; reflectControls(); choosePresetSong();
+      },
+      randomize: randomizeMidiphoriaPreset,
+    });
+  }
+  registerVisualPresets();
   reflectControls(); draw();
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('Collection unavailable. You can still open a local MIDI file.'); return response.json(); })

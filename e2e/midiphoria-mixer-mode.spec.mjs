@@ -7,13 +7,22 @@ async function open(page) {
   await page.route('**/src/instruments/midi-mixer/midi-mixer.css', route => route.fulfill({ contentType: 'text/css', body: '' }));
   await page.route('**/src/instruments/midi-mixer/midi-mixer-app.js', route => route.fulfill({
     contentType: 'application/javascript', body: `
+      import { registerHeaderPresets } from '/src/site/header-presets.js';
       export function mountMidiMixer(host, { onState }) {
-        let disposed = false, generation = 0;
+        let disposed = false, generation = 0, presets = null, amount = 0;
         const state = { ready: true, playing: false, audioEnabled: false, active: false, volume: .5 };
         const publish = () => { host.dataset.playing = String(state.playing); host.dataset.audio = String(state.audioEnabled); onState(); };
-        host.innerHTML = '<button id="fixtureMixerPlay" type="button">Mixer Play</button>';
+        host.innerHTML = '<div id="fixtureMixerPresets"></div><button id="fixtureMixerPlay" type="button">Mixer Play</button>';
         const api = { get state() { return { ...state }; },
-          setActive(value) { state.active = value; },
+          setActive(value) {
+            state.active = value;
+            if (value && !presets) presets = registerHeaderPresets({
+              id: 'fixture-mixer', host: host.querySelector('#fixtureMixerPresets'),
+              presets: Array.from({ length: 12 }, (_, index) => ({ id: 'scene-' + index, label: 'Scene ' + index, snapshot: { amount: index } })),
+              capture: () => ({ amount }), apply: snapshot => { amount = snapshot.amount; }, randomize: () => ({ amount: 6 })
+            });
+            else if (!value) { presets?.destroy(); presets = null; }
+          },
           async setAudioEnabled(value) {
             const token = ++generation;
             if (!value) { state.audioEnabled = false; publish(); return false; }
@@ -24,9 +33,9 @@ async function open(page) {
           setVolume(value) { state.volume = value; },
           play() { state.playing = true; publish(); }, pause() { state.playing = false; publish(); },
           reset() { state.playing = false; state.reset = true; publish(); },
-          dispose() { disposed = true; generation++; state.disposed = true; state.playing = false; state.audioEnabled = false; }
+          dispose() { presets?.destroy(); disposed = true; generation++; state.disposed = true; state.playing = false; state.audioEnabled = false; }
         };
-        host.querySelector('button').onclick = () => state.playing ? api.pause() : api.play();
+        host.querySelector('#fixtureMixerPlay').onclick = () => state.playing ? api.pause() : api.play();
         (window.__mixerModes ??= []).push(api); return api;
       }
     `,
@@ -129,4 +138,45 @@ test('Mixer suppresses the inactive piano input and returning releases stale hel
   await sendMidi(page, [0x80, 64, 0]); await sendMidi(page, [0x90, 67, 100]);
   await expect(page.locator('#noteReadout')).toContainText('1 held');
   await sendMidi(page, [0x80, 67, 0]);
+});
+
+
+test('an empty Visualize or Draw view retains Play intent; explicit Pause and Reset cancel it', async ({ page }) => {
+  await open(page); await page.locator('#mixerModeButton').click();
+  await page.locator('#fixtureMixerPlay').click();
+  await page.locator('#visualModeButton').click();
+  expect((await states(page)).legacy.ready).toBe(false);
+  expect((await states(page)).legacy.playing).toBe(false);
+  await page.locator('#drawingModeButton').click();
+  await page.locator('#mixerModeButton').click();
+  expect((await states(page)).mixer.playing).toBe(true);
+  await page.locator('#fixtureMixerPlay').click();
+  await page.locator('#visualModeButton').click(); await page.locator('#mixerModeButton').click();
+  expect((await states(page)).mixer.playing).toBe(false);
+  await page.locator('#fixtureMixerPlay').click(); await page.locator('#visualModeButton').click();
+  await page.locator('#resetButton').evaluate(node => node.click());
+  await page.locator('#mixerModeButton').click();
+  expect((await states(page)).mixer.playing).toBe(false);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+});
+
+test('only the active view owns the shared preset shortcuts after every mode change', async ({ page }) => {
+  await open(page);
+  const presetState = () => page.evaluate(async () => (await import('/src/site/header-presets.js')).captureHeaderPresetState());
+  expect((await presetState()).instrumentId).toBe('midiphoria');
+  for (let index = 0; index < 3; index++) {
+    await page.locator('#mixerModeButton').click();
+    expect((await presetState()).instrumentId).toBe('fixture-mixer');
+    await expect(page.locator('.header-preset-controls')).toHaveCount(1);
+    await page.locator('h1').click(); await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'mixer');
+    expect((await presetState()).snapshot.amount).toBeGreaterThanOrEqual(1);
+    await page.locator('#visualModeButton').click();
+    expect((await presetState()).instrumentId).toBe('midiphoria');
+    await expect(page.locator('.header-preset-controls')).toHaveCount(1);
+  }
+  await page.locator('h1').click(); await page.keyboard.press('ArrowRight');
+  expect((await presetState()).selectedId).not.toBeNull();
+  await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'visual');
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });
