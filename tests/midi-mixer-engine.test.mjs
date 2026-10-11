@@ -112,7 +112,7 @@ test('scrubbing keeps global tempo phase, effect bounds stay finite, and SoundFo
   engine.configureDeck(0, { loopStartBeats: 1, loopEndBeats: 3 }); engine.seekDeck(0, 2.5);
   assert.equal(engine.state.beat, beat); assert.equal(engine.state.decks[0].positionBeats, 2.5); assert.equal(engine.state.decks[0].loopBeats, 2);
   engine.configureEffects({ filterHz: 0, delayMix: 2, delayBeats: 100, feedback: 1 });
-  assert.deepEqual(engine.state.effects, { filterHz: 60, delayMix: 0.75, delayBeats: 4, feedback: 0.8 });
+  assert.deepEqual(engine.state.effects, { filterHz: 60, delayMix: 0.75, delayBeats: 4, feedback: 0.8, synth: {} });
   const font = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
   await engine.loadSoundFont(font.buffer.slice(font.byteOffset, font.byteOffset + font.byteLength), 'Imported bank');
   assert.equal(engine.state.soundfontName, 'Imported bank'); assert.equal(engine.context, null); assert.equal(engine.state.audioEnabled, false);
