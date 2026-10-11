@@ -216,9 +216,18 @@ test('native Weave handoffs alternate notes and grey maps on the audio clock eve
   await expect.poll(() => page.evaluate(() => {
     const state = __reverseWeaveQA.engine.state;
     return [0, 1].every(index => {
-      const canvas = document.getElementById(`deckMap${index}`), pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data;
-      let grey = 0; for (let i = 0; i < pixels.length; i += 4) if (pixels[i] === 70 && pixels[i + 1] === 81 && pixels[i + 2] === 79) grey++;
-      return state.decks[index].weaveActive ? grey === 0 : grey > 0;
+      const canvas = document.getElementById(`deckMap${index}`);
+      const rows = [...document.querySelectorAll(`.mixer-deck[data-deck="${index}"] .mixer-voice-row`)];
+      const height = Math.round(rows.length * rows[0].getBoundingClientRect().height * canvas.height / canvas.getBoundingClientRect().height);
+      const pixels = canvas.getContext('2d').getImageData(0, 0, canvas.width, height).data;
+      // Narrow timelines draw subpixel attack bars, blending #46514f with
+      // the row background. Detect its desaturated hue, not only full pixels.
+      let grey = 0; for (let i = 0; i < pixels.length; i += 4) {
+        const red = pixels[i], green = pixels[i + 1], blue = pixels[i + 2];
+        if (red >= 30 && red <= 70 && green > red && green <= 81 && Math.abs(green - blue) <= 4) grey++;
+      }
+      return state.decks[index].weaveActive ? grey === 0 && rows.every(row => !row.classList.contains('is-muted'))
+        : grey > 0 && rows.every(row => row.classList.contains('is-muted'));
     });
   })).toBe(true);
   await testInfo.attach('weave-native-boundaries', { body: JSON.stringify({ sampleRate, attacks, stall }), contentType: 'application/json' });
