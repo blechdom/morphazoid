@@ -288,6 +288,19 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     test('combined performance controls remain reachable', async ({ page }, testInfo) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+      if (viewport.width > 680) {
+        // Bring the palette's playing controls into view, without scrolling or
+        // centering the canvas itself: its attack floor must remain visible
+        // beside the controls on desktop and a short landscape viewport.
+        for (const control of ['#mixerStampFilter', '#mixerStampAgain']) {
+          await page.locator(control).scrollIntoViewIfNeeded();
+          const floor = await page.locator('#mixerPerformanceCanvas').boundingBox();
+          expect(floor.height, `canvas retains useful height beside ${control}`).toBeGreaterThanOrEqual(160);
+          expect(floor.y, `canvas top remains in the viewport beside ${control}`).toBeGreaterThanOrEqual(0);
+          expect(floor.y + floor.height, `canvas attack floor remains in the viewport beside ${control}`).toBeLessThanOrEqual(viewport.height);
+          await testInfo.attach(`canvas-beside-${control.slice(1)}`, { body: JSON.stringify({ viewport, canvas: floor }), contentType: 'application/json' });
+        }
+      }
       for (const selector of ['#mixerPerformanceCanvas', '[data-mixer-sample="heart"]', '[data-mixer-sample="square"]', '#mixerSampleMessage', '#mixerSendMessage', '#mixerSendDrawing', '#mixerStopSamples', '#deckOriginal0', '#deckOriginal1']) {
         const target = page.locator(selector); await target.scrollIntoViewIfNeeded(); await expect(target).toBeVisible();
         const box = await target.boundingBox(); expect(box.width).toBeGreaterThan(20);

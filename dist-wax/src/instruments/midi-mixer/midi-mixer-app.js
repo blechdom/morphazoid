@@ -209,6 +209,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     try {
       const response = await fetch(asset('collection.json'), { signal: events.signal }); if (!response.ok) throw new Error('Could not load the MIDI collection. Open a local MIDI to mix.');
       collection = await response.json(); if (disposed) return;
+      performanceView.setCollection(collection);
       for (const index of [0, 1]) {
         const groups = new Map(), select = $(`deckSong${index}`);
         for (const song of collection) {
@@ -223,10 +224,10 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     } catch (cause) { fail(cause); }
   }
   function play() { pendingPlay = true; resumePending(); }
-  function pause() { pendingPlay = false; engine.pause(); }
-  function reset() { pendingPlay = false; error = ''; engine.stop(); applyMixerPreset(engine, MIDI_MIXER_PRESETS[0].snapshot); presetController?.refresh(); }
+  function pause() { pendingPlay = false; performanceView.cancelPending(); engine.pause(); }
+  function reset() { pendingPlay = false; error = ''; performanceView.cancelPending(); engine.stop(); applyMixerPreset(engine, MIDI_MIXER_PRESETS[0].snapshot); presetController?.refresh(); }
   on($('mixerPlay'), 'click', () => engine.state.playing ? pause() : play());
-  on($('mixerStop'), 'click', () => { pendingPlay = false; engine.stop(); }); on($('mixerReset'), 'click', reset);
+  on($('mixerStop'), 'click', () => { pendingPlay = false; performanceView.cancelPending(); engine.stop(); }); on($('mixerReset'), 'click', reset);
   on($('masterTempo'), 'input', event => { custom(); engine.setTempo(Number(event.target.value)); });
   on($('mixerCrossfade'), 'input', event => { custom(); engine.setCrossfade(Number(event.target.value)); });
   for (const index of [0, 1]) on($('tempoFrom' + (index ? 'B' : 'A')), 'click', () => { custom(); engine.setTempo(engine.state.decks[index].analysis?.initialTempo ?? 120); });
@@ -270,7 +271,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     setActive(value) { const next = Boolean(value); if (next !== active) {
       if (next) mountPresets(); else { presetController?.destroy(); presetController = null; }
     } active = next; performanceView.setActive(active); if (active) { if (engine.context?.state === 'suspended') void engine.context.resume().catch(fail); void initialize(); resumePending(); if (frame === null) frame = requestAnimationFrame(draw); } else { cancelAnimationFrame(frame); frame = null; } },
-    async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); return engine.setAudioEnabled(false); },
+    async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); performanceView.cancelPending(); return engine.setAudioEnabled(false); },
     setVolume(value) { engine.setVolume(value); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset,
     dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => ui.channelEvents.abort()); originals.fill(null); void engine.dispose(); host.replaceChildren(); },

@@ -14,8 +14,39 @@ colors. Muted parts stop adding new notes to the live graphic while their
 full-file activity maps remain available below. Graphics follow note events; rendering
 does not schedule the sound.
 
-Heart, Square, Star and the other sample buttons play short MIDI drawings over
-the decks. Type a message and send it as an upward-moving playable score, or
+The searchable stamp palette includes 30 generated pictures and textures:
+Heart, Square, Zigzag, Polka dots, Plaid, Stripes, Drips, Glob, Glooob,
+Noise, Scatter, Explode and more. The thumbnails show the actual pitch/time
+cells that become MIDI notes. Density changes line thickness or particle
+population; Pitch span covers 12–48 chromatic notes; Length spans 4–32 beats.
+Variation changes the reproducible seed for irregular patterns. Literal icons
+and fixed grids retain their geometry when only the seed changes.
+
+Tap a button to launch it. With **Paint flow** enabled, click or drag across
+the common canvas to launch the selected stamp at different pitches. Horizontal
+position shifts the whole shape without clipping its notes; vertical position
+does not seek the mix. Enter launches the selected stamp when the canvas has
+keyboard focus. Drag launches are spaced by at least half a shared beat (and
+120 ms), so the pointer cannot flood the audio scheduler. Turn Paint flow off
+to scroll normally through the canvas on a touch device.
+
+The same palette includes the 28 existing Black MIDI and geometric files:
+16 Black MIDI audio arrangements, nine reusable geometric patterns and three
+studies. The short geometric patterns play whole, stretched to the selected
+Length. Longer files launch a dense excerpt; **Next slice** moves through the
+source, and the status shows the source beat range and note count. Original
+file instruments are the default for these stamps; choosing another sample
+sound overrides them. Source credits remain linked beside the stamp controls.
+Density and Pitch span apply to generated patterns, so they are disabled for
+file stamps. Existing MIDI files and their stored bytes remain unchanged.
+
+File excerpts retain channel programs, controllers, pitch bend and held notes
+at their boundaries. An excerpt is shortened with an explicit status if it
+exceeds sample limits; notes are not silently thinned to make it fit. A single
+instant that cannot fit is rejected. The downloadable 35-file archive also
+contains much larger decorative scores; those are not unpacked by this palette.
+
+Type a message and send it as an upward-moving playable score, or
 use **Play drawing** to play the current freehand canvas. Each shot follows
 the shared tempo and finishes once; it does not replace a deck or its loop.
 Shots can also play while the decks are paused. Audio remains an explicit,
@@ -23,8 +54,32 @@ separate control. Stop shots clears just the sample layer; Pause or Stop
 releases both decks and shots.
 
 Up to four shots can overlap; a fifth replaces the oldest. Picture, sample
-sound and sample level are live performance controls, retained when recalling
+sound, sample level and stamp controls are live performance controls, retained when recalling
 deck mix presets. The sample layer shares the mixer's SoundFont and effects.
+Editing stamp controls affects subsequent launches and keeps current playback
+running. Stopping samples, stopping/pausing the mix, turning Audio off or
+leaving the mixer cancels a pending file-stamp load. Only two parsed file
+stamps are cached; downloads are lazy and cancelable.
+
+## Black MIDI tools and references
+
+Primary-source research for the stamp workflow, checked October 2026:
+
+| Tool | Documented role | Relevance here |
+| --- | --- | --- |
+| [ImageToMidi](https://github.com/arduano/ImageToMidi) | Desktop image-to-MIDI note-art generator, with pitch range and time-per-pixel controls. | Pixel geometry can become the actual sounding score. |
+| [midi2img](https://github.com/mathigatti/midi2img) | Python conversion between monochrome images and MIDI piano rolls. | A clear pitch/time raster model. |
+| [rin-w Black MIDI Patterns](https://github.com/rin-w/black-midi-patterns) | Reusable patterns in MIDI, Domino and FL Studio formats. | Nine existing patterns become whole playable stamps. |
+| [Zenith](https://github.com/arduano/Zenith-MIDI) | MIDI video renderer with plugins, live preview settings, gradients, opacity, ripples, textures and statistics. Its author states it is no longer supported. | Reference for independent visual presentation controls. |
+| [Kiva](https://github.com/arduano/Kiva) | Native MIDI player supporting palettes and MIDI color events. | Reference for distinguishable voices on one canvas. |
+| [Wasabi](https://github.com/BlackMIDIDevs/wasabi) | Rust/Vulkan Black MIDI player with integrated XSynth and SoundFonts. | Reference for keeping dense graphics and audio workloads separate. |
+| [MIDITrail](https://www.yknk.org/miditrail/en/summary/) | A 3D MIDI player for Windows, macOS and iOS. | Reference for depth and rain-style presentations. |
+| [Piano From Above](https://github.com/brian-pantano/PianoFromAbove) | Native visual MIDI player with a separate visualization branch. | Reference for readable rectangular note geometry. |
+
+The browser mappings above are Morphazoid design choices, not ports of these
+applications or claims of their full feature sets. No code from these tools
+was imported for this stamp bank. Generated textures are original bounded
+pitch/time patterns; they do not claim to recreate any named composition.
 
 ## Play an original file
 
