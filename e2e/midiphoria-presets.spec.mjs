@@ -85,6 +85,74 @@ test('visual presets recall exactly, Next tours the bank, edits and dice become 
   expect(errors).toEqual([]);
 });
 
+test('Visualize and MIDI Mixer retain independent preset selection and Next position across creative tabs and backgrounding', async ({ page }) => {
+  test.setTimeout(60000);
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await open(page);
+  const visuals = await bank(page);
+  const mixes = await page.evaluate(async () => (await import('/src/instruments/midi-mixer/midi-mixer-presets.js')).MIDI_MIXER_PRESETS);
+  const controls = page.locator('.header-preset-controls');
+  const view = async mode => {
+    await page.locator(`#${mode}ModeButton`).click();
+    if (mode === 'mixer') await expect(page.locator('#tempoFromB')).toBeEnabled();
+  };
+  const selected = async (id, snapshot) => {
+    await expect(controls).toHaveAttribute('data-preset-id', id);
+    expect((await capture(page)).snapshot).toEqual(snapshot);
+  };
+  await expect(controls).toHaveAttribute('aria-label', 'Visual presets');
+  await expect(page.locator('#visualPresetHost .header-preset-controls')).toHaveCount(1);
+  await select(page, visuals[2].id);
+  await view('mixer');
+  await expect(controls).toHaveAttribute('aria-label', 'MIDI mix presets');
+  await expect(page.locator('#mixerPresetHost .header-preset-controls')).toHaveCount(1);
+  await expect(controls).toHaveAttribute('data-preset-id', 'unselected');
+  await select(page, mixes[5].id);
+  await selected(mixes[5].id, mixes[5].snapshot);
+  await view('visual');
+  await selected(visuals[2].id, visuals[2].snapshot);
+  await page.locator('.header-preset-next').click();
+  await selected(visuals[3].id, visuals[3].snapshot);
+  await view('mixer');
+  await selected(mixes[5].id, mixes[5].snapshot);
+  await page.locator('.header-preset-next').click();
+  await selected(mixes[6].id, mixes[6].snapshot);
+  // Backgrounding must not recreate the active bank as an unselected picker.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+    Object.defineProperty(document, 'hidden', { configurable: true, value: false });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await selected(mixes[6].id, mixes[6].snapshot);
+  // Neither creative workspace owns this shortcut or either preset controller.
+  for (const mode of ['drawing', 'automata']) {
+    await view(mode);
+    if (mode === 'drawing') await expect(page.locator('#drawingModeButton')).toHaveText('BLECH MIDI');
+    await expect(controls).toHaveCount(0);
+    expect(await capture(page)).toBeNull();
+    await page.locator('h1').click(); await page.keyboard.press('ArrowRight');
+    expect(await capture(page)).toBeNull();
+  }
+  await view('visual'); await selected(visuals[3].id, visuals[3].snapshot);
+  await range(page, 'glow', .43);
+  await expect(controls).toHaveAttribute('data-preset-id', 'custom');
+  const visualEdit = (await capture(page)).snapshot;
+  await view('mixer'); await selected(mixes[6].id, mixes[6].snapshot);
+  await range(page, 'masterTempo', 177);
+  await expect(controls).toHaveAttribute('data-preset-id', 'custom');
+  const mixEdit = (await capture(page)).snapshot;
+  await view('visual'); await selected('custom', visualEdit);
+  await page.locator('.header-preset-next').click();
+  await selected(visuals[4].id, visuals[4].snapshot);
+  await view('mixer'); await selected('custom', mixEdit);
+  await page.locator('.header-preset-next').click();
+  await selected(mixes[7].id, mixes[7].snapshot);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => window.__midiphoriaPresetContexts.length)).toBe(0);
+  expect(errors).toEqual([]);
+});
+
 test('factory presets produce distinct Canvas pixels from the same chord at the same time', async ({ page }, testInfo) => {
   await open(page);
   const images = await page.evaluate(async url => {
