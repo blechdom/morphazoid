@@ -123,6 +123,28 @@ export class MidiMixerEngine {
     }
     this._publish(); return sanitizeMidiParameters(this._sampleMidi);
   }
+  configureSample(id, { loop, sync } = {}) {
+    if (this._disposed) return false;
+    const sample = this._samples.find(item => item.id === id); if (!sample) return false;
+    const state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
+    if (timing.ended) return false;
+    // Rebase only this clip before changing its timebase. The other clips and
+    // decks retain their clocks; turning Loop off finishes this current pass.
+    sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
+    if (loop !== undefined) sample.loop = Boolean(loop);
+    if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
+    sample.revision++;
+    if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi,
+      gain: sample.gain, loop: sample.loop, sync: sample.sync, revision: sample.revision });
+    this._publish(); return this.state.samples.find(item => item.id === id) ?? false;
+  }
+  stopSample(id) {
+    if (this._disposed) return false;
+    const index = this._samples.findIndex(sample => sample.id === id); if (index < 0) return false;
+    const [sample] = this._samples.splice(index, 1);
+    if (sample.sent) this._post({ type: 'stopSample', slot: sample.slot, id: sample.id });
+    this._publish(); return true;
+  }
   sendChannelController(index, channel, controller, value = 0) {
     this._checkIndex(index); return this._sendMidiAction({ index, channel }, { kind: 'cc', controller, value });
   }

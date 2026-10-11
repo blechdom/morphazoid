@@ -92,6 +92,13 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       case 'noteEffects': this.noteFx.configure({ ...message.config, tempo: this.clock.tempo }); break;
       case 'effects': this.applyEffects(message.synth); break;
       case 'midiAction': this.midiAction(message); break;
+      case 'stopSample': {
+        // An older pad's release must not stop a newer clip that reused its slot.
+        if (!Number.isInteger(message.slot) || message.slot < 0 || message.slot >= 4) break;
+        const sample = this.sampleClock.samples[message.slot];
+        if (sample && sample.id === message.id) this.sampleClock.stop(message.slot);
+        break;
+      }
       case 'stopSamples': this.sampleClock.stopAll(); break;
       case 'audibility':
         this.audible = Boolean(message.enabled); this.masterVolume = Math.max(0, Math.min(1, message.volume));
