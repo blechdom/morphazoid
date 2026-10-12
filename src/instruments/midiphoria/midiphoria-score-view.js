@@ -8,7 +8,7 @@ const count = value => Math.round(value || 0).toLocaleString();
 /** Bounded, lossless decompression; this never edits or removes MIDI events. */
 export async function readMidiAsset(song, signal) {
   const response = await fetch(new URL(`../../../assets/midiphoria/${song.file}`, import.meta.url), { signal });
-  if (!response.ok) throw new Error('Could not load this MIDI. Choose another or open a local file.');
+  if (!response.ok) throw new Error('Could not load this song. Choose another or open a local MIDI file.');
   const limit = song.compression ? MAX_SCORE_BYTES : 10 * 1024 * 1024;
   let stream = response.body;
   if (song.compression === 'gzip') {
@@ -49,7 +49,7 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
     <label class="control"><span><b>Look ahead</b><output data-look-output>6 s</output></span><input data-look type="range" min="1" max="20" step="0.5" value="6"></label>
     <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><button type="button" class="mini-action" data-reset-colors>Reset track colors</button><div data-tracks class="midiphoria-score-tracks"></div></details>
-    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes come from the file. Live pads and MIDI input remain in Visualize.</p></details>
+    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes show the source file before MIDI effects. Live pads, MIDI input and effected notes remain in Visualize.</p></details>
     <p class="midiphoria-help"><a href="blech-midi.html">Make MIDI artwork in Blech MIDI ↗</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
   const knobs = mountMixerKnobs(controls);
