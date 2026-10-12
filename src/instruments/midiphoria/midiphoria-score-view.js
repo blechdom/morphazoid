@@ -1,4 +1,4 @@
-import { createBlackMidiVisualizer } from './midiphoria-black-renderer.js';
+import { createBlackMidiVisualizer, blackMidiColor } from './midiphoria-black-renderer.js';
 
 const MAX_SCORE_BYTES = 200 * 1024 * 1024;
 export const MAX_PREVIEW_NOTES = 12000000;
@@ -47,11 +47,11 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     <label class="control"><span><b>Palette</b></span><select data-palette><option value="rainbow">Rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
     <label class="control"><span><b>Look ahead</b><output data-look-output>6 s</output></span><input data-look type="range" min="1" max="20" step="0.5" value="6"></label>
-    <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><div data-tracks class="midiphoria-score-tracks"></div></details>
+    <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><button type="button" class="mini-action" data-reset-colors>Reset track colors</button><div data-tracks class="midiphoria-score-tracks"></div></details>
     <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes come from the file. Live pads and MIDI input remain in Visualize.</p></details>
     <p class="midiphoria-help"><a href="blech-midi.html">Make MIDI artwork in Blech MIDI ↗</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
-  let renderer, score = null, status = '', lastStats = null, request = null, serial = 0, disposed = false;
+  let renderer, score = null, lastStats = null, request = null, serial = 0, disposed = false;
   let trackColors = {}, hiddenTracks = [];
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   function options() {
@@ -61,17 +61,25 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
   function details() {
     if (!score || !lastStats) return;
     const diagnostics = score.diagnostics ?? {};
-    $('[data-score-detail]').textContent = `${lastStats.renderer || 'Preparing renderer'} · Peak ${count(score.peakPolyphony)} held · ${count(lastStats.visible)} drawn / ${count(lastStats.candidateCount)} in view${lastStats.omitted ? ` · ${count(lastStats.omitted)} omitted from this frame (score counts remain complete)` : ''}. ${Object.entries(diagnostics).filter(([, value]) => typeof value === 'number' && value > 0).map(([key, value]) => `${key}: ${count(value)}`).join(' · ')}`;
+    $('[data-score-detail]').textContent = `${lastStats.renderer || 'Preparing renderer'} · Peak ${count(score.peakPolyphony)} held · ${count(lastStats.visible)} drawn / ${count(lastStats.candidateCount)} in view${lastStats.omitted ? ` · ${count(lastStats.omitted)} omitted from this frame (score counts remain complete)` : ''}.${diagnostics.unclosed ? ` ${count(diagnostics.unclosed)} notes without an off event end at the track boundary.` : ''}${diagnostics.unmatchedOffs ? ` ${count(diagnostics.unmatchedOffs)} unmatched off events.` : ''}`;
   }
   renderer = createBlackMidiVisualizer({ mount, getTransport,
-    onStatus(value) { status = value.message || ''; $('[data-score-status]').textContent = status; },
+    onStatus(value) { $('[data-score-status]').textContent = value.message || ''; },
     onStats(stats) {
+      if (!score) return;
       lastStats = stats;
       for (const [key, value] of [['total', stats.total], ['passed', stats.passed], ['nps', stats.notesPerSecond], ['held', stats.held]]) $('[data-' + key + ']').value = count(value);
       details();
     },
   });
-  function configure() { $('[data-look-output]').value = `${$('[data-look]').value} s`; renderer.setOptions(options()); }
+  function configure() {
+    $('[data-look-output]').value = `${$('[data-look]').value} s`; renderer.setOptions(options());
+    for (const input of controls.querySelectorAll('[data-track][type="color"]')) {
+      input.value = trackColors[input.dataset.track] || '#' + blackMidiColor({ track: Number(input.dataset.track), pitch: 60, channel: 0, velocity: 96 }, { ...options(), colorBy: 'track' })
+        .map(value => Math.round(value * 255).toString(16).padStart(2, '0')).join('');
+    }
+  }
+  on($('[data-reset-colors]'), 'click', () => { trackColors = {}; configure(); });
   for (const node of controls.querySelectorAll('select, [data-look]')) on(node, 'input', configure);
   on($('[data-tracks]'), 'input', event => {
     const node = event.target, id = Number(node.dataset.track);
@@ -88,11 +96,11 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
   }
   async function load(buffer, { signal } = {}) {
     clear('Reading complete MIDI score…');
-    const version = serial; request = new AbortController();
-    const abort = () => request?.abort(); signal?.addEventListener('abort', abort, { once: true });
+    const version = serial; request = new AbortController(); const active = request;
+    const abort = () => active.abort(); signal?.addEventListener('abort', abort, { once: true });
     try {
       signal?.throwIfAborted();
-      const parsed = await renderer.load(buffer, { signal: request.signal });
+      const parsed = await renderer.load(buffer, { signal: active.signal });
       if (disposed || version !== serial) return null;
       score = parsed;
       const rows = score.tracks.filter(track => track.noteCount).map(track => {
