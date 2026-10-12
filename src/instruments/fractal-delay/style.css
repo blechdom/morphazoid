@@ -1,7 +1,5 @@
 html:has(>body.fractal-delay-page){height:100%;overflow:hidden}
 .fractal-delay-page{--accent:var(--mz-color-accent);--accent-soft:color-mix(in oklab,var(--accent) 55%,transparent);--accent-glow:color-mix(in oklab,var(--accent) 22%,transparent);background:var(--bg-deep);color:var(--ink);font-family:var(--mono);margin:0;height:100%;min-height:100dvh;overflow:hidden}
-.fractal-delay-page .masthead{position:relative;z-index:10;min-height:72px;padding:8px 18px;gap:12px;flex-wrap:wrap}
-.fractal-delay-page .header-io-controls{display:flex;align-items:center;gap:12px;margin-left:auto}
 .fractal-shell{display:grid;grid-template-columns:minmax(0,1fr) clamp(320px,25vw,370px);gap:0;height:calc(100dvh - var(--fractal-header-height,72px));min-height:0;width:100%;flex:1 1 auto;overflow:hidden}
 .fractal-stage{display:grid;grid-template-rows:minmax(160px,1fr) auto;min-width:0;min-height:0;padding:0;gap:0;overflow:hidden}
 .fractal-graphics{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));min-width:0;min-height:0;overflow:hidden}
@@ -26,11 +24,11 @@ html:has(>body.fractal-delay-page){height:100%;overflow:hidden}
 .coefficient-number{display:block;width:100%;max-width:110px;min-width:0}.coefficient-number input{display:block;width:100%;min-width:0;padding:4px 2px;border:1px solid var(--line-strong);border-radius:0;background:var(--panel-high);color:var(--accent);font:11px var(--mono);text-align:center;font-variant-numeric:tabular-nums}
 .explorer-controls .tempo-latch{display:flex;align-items:center;justify-content:center;gap:4px}.tempo-latch svg{width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}.explorer-controls .tempo-latch[aria-pressed=true]{color:var(--accent);border-color:var(--accent)}
 .explorer-help{display:flex;flex-wrap:wrap;justify-content:space-between;gap:2px 12px;margin:5px 0 7px}
-.fractal-controls{overflow-y:auto;overscroll-behavior:contain;min-width:0;min-height:0;padding:0;border:0;background:var(--panel);scrollbar-width:thin}
+.fractal-controls{overflow-y:auto;overscroll-behavior:contain;scroll-padding-top:64px;min-width:0;min-height:0;padding:12px 14px 24px;border:0;background:var(--panel);scrollbar-width:thin}
 .fractal-delay-page .control-section{padding:10px 0;border:0}
 .control-section summary{cursor:pointer;font-size:12px;color:var(--ink);min-height:28px;line-height:28px}
 .control-section summary span{float:right;font-size:10px;color:var(--accent)}
-.control-note,.input-note,.input-credit{font-size:10px;line-height:1.6;color:var(--muted);margin:8px 0}
+.control-note{font-size:10px;line-height:1.6;color:var(--muted);margin:8px 0}
 .select-field{display:block;font-size:11px;color:var(--muted);margin:0 0 9px;line-height:1.8}
 .select-field select,.select-field input[type=number],.file-field input{display:block;width:100%;min-width:0;background:var(--panel-high);color:var(--ink);border:1px solid var(--line-strong);border-radius:0;padding:7px;font:inherit;font-size:12px;min-height:34px}
 .select-next{display:flex;gap:6px;min-width:0}.select-next select{flex:1;min-width:0}.select-next button{flex:none;width:34px;font-size:22px;padding:0}
@@ -38,13 +36,23 @@ html:has(>body.fractal-delay-page){height:100%;overflow:hidden}
 .fractal-controls button:not(.play-button):hover,.explorer-controls button:not(.play-button):hover{border-color:var(--accent)}
 .fractal-delay-page .select-next button{width:34px;font-size:22px;padding:0}
 .file-field{font-size:11px;display:block}.file-field input{font-size:10px}
-.media-transport{display:flex;align-items:center;gap:7px}.media-transport label,.check-field{font-size:10px;line-height:1.6}.settings-link{font-size:10px;color:var(--accent)}
+.media-transport{display:flex;align-items:center;gap:7px}.media-transport label,.check-field{font-size:10px;line-height:1.6}
 .knob-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:8px 3px;margin-top:12px;align-items:start}
+.input-section .knob-grid{grid-template-columns:repeat(2,minmax(0,1fr))}
+.input-section .impulse-knobs{grid-template-columns:repeat(auto-fit,minmax(80px,1fr));gap:8px 3px}
+.impulse-transport{display:flex;align-items:center;gap:8px;margin:8px 0 12px}
+.impulse-transport .knob-field.mz-range-knob{width:72px;flex:0 0 72px}
+.impulse-transport>.mz-tap-tempo-field{margin-left:auto;min-width:72px}
+.impulse-transport #impulsePlay{width:48px;height:48px;min-width:48px;min-height:48px;border-radius:50%;flex:none}
+.impulse-transport #sendImpulse{min-width:48px;min-height:48px}
+.no-decay-control{display:flex;align-items:center;gap:8px;min-height:40px;margin-bottom:6px;color:var(--accent);cursor:pointer}
 .knob-field{display:flex;flex-direction:column;align-items:center;min-width:0;font-size:10px;color:var(--muted);gap:3px;text-align:center}
 .knob-field>span{display:flex;flex-direction:column;align-items:center;min-height:28px;gap:2px;order:2;width:100%;line-height:1.2}
 .knob-field b{font-weight:400;font-size:10px;white-space:nowrap}.knob-field output{font-size:10px;color:var(--accent)}
 .knob-field.mz-range-knob{width:100%;min-width:0;height:72px;margin:0}
 .knob-field.mz-range-knob>span:not(.mz-range-knob__dial){bottom:0;min-height:26px;gap:3px}
+.input-section .knob-field.mz-range-knob{height:58px}
+.input-section .knob-field.mz-range-knob>span:not(.mz-range-knob__dial){min-height:14px}
 .knob-field.mz-range-knob>span>b{position:static;width:auto;height:auto;overflow:visible;clip-path:none;white-space:nowrap}
 .knob-field.mz-range-knob>input[type=range]{height:44px;max-width:none;inset:0;min-width:0}
 .knob-field .mz-range-knob__dial{width:30px;height:30px;top:3px;box-sizing:border-box}
@@ -53,8 +61,10 @@ html:has(>body.fractal-delay-page){height:100%;overflow:hidden}
 .live-status{font-size:11px;color:var(--accent);line-height:1.6}.live-status.is-error{color:var(--orange)}
 .fractal-controls textarea{display:block;box-sizing:border-box;width:100%;background:var(--bg-deep);color:var(--ink);font:10px var(--mono);border:1px solid var(--line);margin-top:8px}
 .fractal-delay-page [hidden]{display:none!important}.fractal-delay-page :focus-visible{outline:2px solid var(--accent);outline-offset:3px}
-.fractal-delay-page .instrument-preset-controls{position:relative;top:auto;margin:0;padding:0 0 8px;border:0;background:var(--panel)}.fractal-delay-page .mz-input-strip{margin:0}
+.fractal-delay-page .fractal-controls>.instrument-preset-controls,.fractal-delay-page .fractal-controls>.mz-input-preset-row{position:sticky;z-index:30;top:0;margin:0;padding:0 0 8px;border:0;background:var(--panel)}
+.fractal-delay-page .fractal-controls>.instrument-preset-controls::before,.fractal-delay-page .fractal-controls>.mz-input-preset-row::before{content:"";position:absolute;top:-12px;left:-14px;right:-14px;height:12px;background:var(--panel);pointer-events:none}
+.fractal-delay-page .mz-input-preset-row>.instrument-preset-controls{position:relative;top:auto;margin:0;padding:0;border:0;background:var(--panel)}.fractal-delay-page .mz-input-strip{margin:0}
 @media(max-width:1050px){.coordinate-motion{grid-template-columns:1fr;gap:4px}.explorer-controls{max-height:272px}.explorer-toolbar{grid-template-columns:minmax(90px,1fr) minmax(110px,1.3fr) 64px;gap:4px 6px}.explorer-toolbar>.mini-action{margin-bottom:4px}.explorer-toolbar>.tempo-latch{grid-column:2}.explorer-toolbar>.explorer-zoom{grid-column:3;grid-row:1/3;align-self:center}.explorer-help{display:block}}
-@media(max-width:720px){.fractal-delay-page .masthead{padding:8px 12px;gap:8px;min-height:60px}.fractal-delay-page .wordmark{font-size:15px}.fractal-shell{grid-template-columns:1fr;grid-template-rows:minmax(0,58%) minmax(0,42%);height:calc(100dvh - var(--fractal-header-height,79px));flex:none}.fractal-stage{grid-template-rows:minmax(135px,1fr) minmax(0,auto)}.explorer-controls{max-height:252px}.fractal-graphics{min-height:135px}.fractal-delay-page .stage-wrap h1{top:8px;left:8px;font-size:12px}.stage-caption,.explorer-caption{font-size:9px;left:8px;right:8px;bottom:8px;gap:3px}.stage-caption>span+span{font-size:8px}.knob-grid{grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:10px 3px}.fractal-delay-page .header-io-controls{gap:8px}.stage-help{font-size:9px}.fractal-controls{padding:0}.explorer-help{margin-bottom:5px}}
+@media(max-width:720px){.fractal-shell{grid-template-columns:1fr;grid-template-rows:minmax(0,58%) minmax(0,42%);height:calc(100dvh - var(--fractal-header-height,79px));flex:none}.fractal-stage{grid-template-rows:minmax(135px,1fr) minmax(0,auto)}.explorer-controls{max-height:252px}.fractal-graphics{min-height:135px}.fractal-delay-page .stage-wrap h1{top:8px;left:8px;font-size:12px}.stage-caption,.explorer-caption{font-size:9px;left:8px;right:8px;bottom:8px;gap:3px}.stage-caption>span+span{font-size:8px}.knob-grid{grid-template-columns:repeat(auto-fit,minmax(72px,1fr));gap:10px 3px}.stage-help{font-size:9px}.explorer-help{margin-bottom:5px}}
 @media(max-height:480px) and (min-width:721px){.fractal-shell{grid-template-columns:minmax(0,1fr) 320px;min-height:0}.fractal-stage{grid-template-rows:minmax(125px,1fr) minmax(0,auto)}.explorer-controls{max-height:148px}.stage-help{font-size:9px}}
-@media(pointer:coarse){.fractal-delay-page #audioButton,.fractal-delay-page #micButton,.fractal-delay-page #restartInput,.fractal-delay-page #stopInput,.fractal-delay-page #sendPulse{min-width:48px;min-height:48px}.fractal-delay-page .select-next button{min-width:42px;min-height:42px}.select-field select{min-height:42px}.motion-row .mz-tap-tempo{min-width:48px;min-height:48px}.coefficient-number input{min-height:36px}}
+@media(pointer:coarse){.fractal-delay-page #audioButton,.fractal-delay-page #micButton,.fractal-delay-page #restartInput,.fractal-delay-page #stopInput{min-width:48px;min-height:48px}.fractal-delay-page .select-next button{min-width:42px;min-height:42px}.select-field select{min-height:42px}.motion-row .mz-tap-tempo{min-width:48px;min-height:48px}.coefficient-number input{min-height:36px}}

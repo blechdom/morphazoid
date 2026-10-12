@@ -50,7 +50,7 @@ for (const layout of [
 ]) {
   test.describe(layout.name, () => {
     test.use({ viewport: { width: layout.width, height: layout.height }, hasTouch: layout.touch });
-    test("next arrow is reachable, preserves Choose, and reaches a silent instrument", async ({ page, baseURL }) => {
+    test("next arrow is reachable, preserves Choose, and reaches a silent instrument", async ({ page, baseURL }, testInfo) => {
       const diagnostics = watchPageDiagnostics(page, { baseURL });
       await page.goto("index.html");
       await settlePage(page);
@@ -74,6 +74,44 @@ for (const layout of [
       await link.click();
       await expect(page).toHaveURL(/\/fractal-delay\.html$/);
       await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+      const fractalPicker = page.locator('.tabs .instrument-picker');
+      await expect(fractalPicker).toHaveAttribute('data-active-tool-id', 'fractal-delay');
+      await expect(page.locator('.tabs > a[href$="l-mic-rust.html"]')).toHaveCount(0);
+      const fractalChoose = fractalPicker.locator('.instrument-picker-trigger');
+      await expect(fractalChoose).toHaveAttribute('aria-label', 'Choose instrument. Current: Fractal Delay');
+      await fractalChoose.click();
+      const search = page.getByRole('searchbox', { name: 'Filter instruments' });
+      await search.fill('fractal delay');
+      const current = fractalPicker.locator('.instrument-picker-link[data-tool-id="fractal-delay"]');
+      await expect(current).toBeVisible();
+      expect(await current.evaluate(link => {
+        const rect = link.getBoundingClientRect();
+        return link.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2));
+      }), 'the filtered Choose result receives pointer events').toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`fractal-choose-${layout.width}.png`), fullPage: true });
+      await search.fill('');
+      if (layout.width === 390) {
+        const overlap = await fractalPicker.evaluate(menu => {
+          const sticky = document.querySelector('.fractal-controls > .mz-input-preset-row, .fractal-controls > .instrument-preset-controls').getBoundingClientRect();
+          const panel = menu.querySelector('.instrument-picker-panel').getBoundingClientRect();
+          for (const link of menu.querySelectorAll('.instrument-picker-link')) {
+            const row = link.getBoundingClientRect();
+            const left = Math.max(row.left, sticky.left, panel.left), right = Math.min(row.right, sticky.right, panel.right);
+            const top = Math.max(row.top, sticky.top, panel.top), bottom = Math.min(row.bottom, sticky.bottom, panel.bottom);
+            if (right - left < 4 || bottom - top < 4) continue;
+            return { found: true, hit: link.contains(document.elementFromPoint((left + right) / 2, (top + bottom) / 2)) };
+          }
+          return { found: false };
+        });
+        expect(overlap, 'an unfiltered menu row above the mobile sticky toolbar receives the pointer').toEqual({ found: true, hit: true });
+        await page.screenshot({ path: testInfo.outputPath('fractal-choose-mobile-overlap.png'), fullPage: true });
+      }
+      await page.keyboard.press('Escape');
+      await expect(fractalPicker).not.toHaveAttribute('open', '');
+      expect(await page.evaluate(async () => {
+        const d = (await import('/src/instruments/fractal-delay/browser-engine.js')).getFractalDelayEngine().getDiagnostics();
+        return { audio: d.audioDesired, context: d.contextState, sourceCount: d.sourceCount };
+      })).toEqual({ audio: false, context: 'uninitialized', sourceCount: 0 });
       await page.goto("hiccup-head.html?tour-source=1#source");
       await settlePage(page);
       const next = page.getByRole("link", { name: "Next instrument: Synthesaurus", exact: true });
@@ -119,4 +157,8 @@ test("canonical routes and WAX navigation keep the correct next instrument and s
   await next.click();
   await expect(page).toHaveURL(/\/dist-wax\/synthesis\.html$/);
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  await page.goto('dist-wax/fractal-delay.html');
+  await expect(page.locator('.tabs .instrument-picker')).toHaveAttribute('data-active-tool-id', 'fractal-delay');
+  await expect(page.locator('.tabs .instrument-picker-next')).toHaveAttribute('href', /\/dist-wax\/l-system\.html$/);
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });

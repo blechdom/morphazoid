@@ -105,3 +105,44 @@ test('pause holds one axis, tempo preserves its phase, and disposing a held job 
     assert.equal(f.engine.getDiagnostics().audioDesired, false);
   } finally { await f.close(); }
 });
+
+test('continuous manual coordinates install completed scenes and coalesce the newest waiting target', async () => {
+  const f = await fixture();
+  try {
+    const initial = f.engine.getDiagnostics().network.revision;
+    const first = f.engine.setParameters({ cReal: -.7, cImag: .1 });
+    await f.worker.waitForPosts(2);
+    const waiting = [];
+    for (let i = 0; i < 6; i++) waiting.push(f.engine.setParameters({ cReal: -.6 + i * .02, cImag: .2 + i * .01 }));
+    assert.equal(f.worker.posts.length, 2, 'new input cannot cancel or queue work behind the active worker job');
+    for (const skipped of waiting.slice(0, -1)) assert.equal(await skipped, false);
+    assert.equal(f.engine.getDiagnostics().network.revision, initial);
+    await f.worker.install(1);
+    assert.equal(await first, true, 'the graph in flight installs even though the pointer has moved ahead');
+    await f.worker.waitForPosts(3);
+    assert.equal(f.engine.getDiagnostics().network.parameters.cReal, -.7);
+    assert.equal(f.engine.getDiagnostics().compiling, true, 'the latest pose is still preparing');
+    assert.equal(f.worker.posts[2].parameters.cReal, -.6 + 5 * .02);
+    assert.equal(f.worker.posts[2].parameters.cImag, .2 + 5 * .01);
+    await f.worker.install(2);
+    assert.equal(await waiting.at(-1), true);
+    const final = f.engine.getDiagnostics();
+    assert.equal(final.network.parameters.cReal, final.parameters.cReal);
+    assert.equal(final.network.parameters.cImag, final.parameters.cImag);
+    assert.equal(final.compiling, false); assert.equal(final.audioDesired, false);
+    assert.equal(final.contextGeneration, 0); assert.equal(final.sourceCount, 0);
+  } finally { await f.close(); }
+});
+
+test('disposing an active manual edit settles its waiting target and prevents late work from restarting', async () => {
+  const f = await fixture();
+  try {
+    const active = f.engine.setParameters({ cReal: -.5 }); await f.worker.waitForPosts(2);
+    const queued = f.engine.setParameters({ cImag: .4 });
+    await f.engine.dispose();
+    assert.equal(await active, false); assert.equal(await queued, false);
+    await f.worker.install(1); await f.advance(1000);
+    assert.equal(f.worker.posts.length, 2);
+    assert.equal(f.engine.getDiagnostics().audioDesired, false);
+  } finally { await f.close(); }
+});

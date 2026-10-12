@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { restoreFractalNavigation } from './fractal-delay-navigation-reference.mjs';
 
 export const outputRecordingAmendments = JSON.parse(readFileSync(new URL("../../docs/output-recording-runtime-changes.json", import.meta.url), "utf8"));
 export const voiceControlAmendments = JSON.parse(readFileSync(new URL("./l-system-voice-control-amendments.json", import.meta.url), "utf8"));
@@ -50,5 +51,6 @@ export function restoreLiveFlow(source, file) {
 
 /** Compose approved runtime extensions without changing historical hashes. */
 export function restoreOutputRecording(source, file) {
+  source = restoreFractalNavigation(source, file, { allowRestored: true });
   return restoreVoiceControls(restoreLiveFlow(restoreOutputRecordingHooks(source, file), file), file);
 }

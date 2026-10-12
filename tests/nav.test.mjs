@@ -1,6 +1,8 @@
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import test from "node:test";
+import { createHash } from 'node:crypto';
+import { restoreFractalNavigation, fractalNavigationAmendments } from './helpers/fractal-delay-navigation-reference.mjs';
 
 import {
   FAVE_TOOL_IDS,
@@ -573,6 +575,24 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   const searchInput = picker.querySelector(".instrument-picker-search-input");
   assert.equal(searchInput.type, "search");
   assert.equal(searchInput.placeholder, "Type an instrument");
+  searchInput.value = "fractal delay";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, false, "Faves-only instruments remain searchable");
+  const visibleResults = picker.findAll(node => node.classList.contains("instrument-picker-link")
+    && !node.parentNode.hidden && !node.parentNode.parentNode.hidden);
+  assert.deepEqual(visibleResults.map(link => link.getAttribute("data-tool-id")), ["fractal-delay"]);
+  assert.equal(picker.querySelector(".instrument-picker-empty").hidden, true);
+  searchInput.value = "synthesaurus";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, false, "Synthesaurus is also a Faves-only search result");
+  assert.equal(groupNodes[0].findAll(node => node.getAttribute("data-tool-id") === "synthesis")[0].parentNode.hidden, false);
+  searchInput.value = "graph delay faves";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, false, "a Faves-specific search retains rows whose category copy does not match");
+  assert.equal(groupNodes[0].findAll(node => node.getAttribute("data-tool-id") === "graph-delay")[0].parentNode.hidden, false);
+  searchInput.value = "graph delay";
+  searchInput.dispatch("input");
+  assert.equal(groupNodes[0].hidden, true, "matching category results suppress duplicated Faves rows");
   searchInput.value = "trombonazoid";
   searchInput.dispatch("input");
   assert.equal(groupNodes[0].hidden, true, "search suppresses duplicate Faves results");
@@ -2056,6 +2076,22 @@ test("gear flyout never opens on hover and preserves native activation, dismissa
   assert.equal(doc.listeners.get("keydown").length, 0);
   assert.equal(menu.details.listeners.get("toggle").length, 0);
   assert.equal(menu.details.listeners.get("pointerenter")?.length ?? 0, 0);
+});
+
+test('Fractal navigation changes reverse exactly without weakening frozen navigation guards', async () => {
+  const source = await readFile(new URL('../nav.js', import.meta.url), 'utf8');
+  const digest = text => createHash('sha256').update(text).digest('hex');
+  const change = fractalNavigationAmendments.changes[0];
+  const restored = restoreFractalNavigation(source, 'nav.js');
+  assert.equal(digest(restored), change.sha256);
+  assert.equal(restoreFractalNavigation(restored, 'nav.js', { allowRestored: true }), restored);
+  for (const replacement of change.replacements) {
+    assert.throws(() => restoreFractalNavigation(source.replace(replacement.after, ''), 'nav.js'), /exact Fractal navigation amendment/);
+    assert.throws(() => restoreFractalNavigation(source + replacement.after, 'nav.js'), /exact Fractal navigation amendment/);
+    assert.throws(() => restoreFractalNavigation(source.replace(replacement.after,
+      replacement.after.replace('outsideFaves', 'changedFaves')), 'nav.js'), /exact Fractal navigation amendment/);
+  }
+  assert.notEqual(digest(restoreFractalNavigation(source + '\n// unrelated drift\n', 'nav.js')), change.sha256);
 });
 
 test("catalogue/info headers get one standalone gear without MIDI activation", () => {

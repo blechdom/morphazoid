@@ -2,7 +2,7 @@
 
 [Open the instrument](../fractal-delay.html). Its five mappings share one
 mic/line, local audio-file and recorded-sample input system based on L-system
-Delay Rust. Audio starts off; choose a source and explicitly enable Audio.
+Delay Rust, plus a synthesized Impulse source from the L-Systems Notes engine. Audio starts off; choose a source and explicitly enable Audio.
 Microphone capture has its own permission and on/off control; it can meter
 silently and never arms Audio. Mic trim applies
 to mic/line; file and sample playback enter at unity. Source, playback and live
@@ -60,12 +60,6 @@ independent pitch window and instead behave as short-delay coloration. The
 graphics sample the actual processing histories and arrival readheads; there
 is no separate animation clock for these journeys.
 
-**Send pulse** schedules one shaped 8 ms noise burst through the current input
-points. Audio must already be enabled. It keeps the chosen microphone, file or
-sample and its playback position; it uses the current input/drive staging and
-adds no direct path beyond the existing Direct input setting. Use it with
-Rabbit Cycle and a longer Travel time to follow successive arrivals and returns.
-
 **Resonance** retains the original sound interpretation. At a junction,
 equal-impedance scattering distributes arriving waves. Coupling
 continuously blends this redistribution with reflection. At zero coupling,
@@ -90,6 +84,43 @@ wet pickup continuously, without imposing a musical scale or retuning edge
 travel times. It is a two-window time-domain transposition after the network,
 rather than FFT pitch shifting. Inputs and receivers occupy actual graph nodes,
 shown by green source markers and orange pickup markers.
+
+## No decay and synthesized impulses
+
+**No decay** in Network opens the forward paths: Path echoes, 100% Sustain,
+Coupling, Path taps and End return, with Bend tone at zero. An impulse can
+traverse the complete connected shape and circulate through its returns.
+The toggle changes live audio controls without rebuilding the graph or clearing
+its travelling sound. Switching it off restores the previous loss settings;
+Sustain remains adjustable from zero through 100%.
+
+No configured decay is not a promise of equal loudness at every point or an
+infinite constant waveform. Junction splitting and pitch interpolation can
+still reduce amplitude; branching normalization and the output limiter remain
+active. Angle pitch remains available. Set it to zero to compare unpitched
+travel or constant-amplitude circulation on a simple loop.
+
+Choose **Synth impulse** under Input. **Send** launches one note;
+the circular **Play/Pause** repeats notes at the **Repeat tempo**, with the
+shared Tap control. Audio must be armed separately. Pause stops future
+excitation and lets the network's existing sound continue. Audio off mutes the
+instrument and stops the source. Switching to mic, a file or a sample cancels
+its repeat transport; switching back is ready for a fresh Send or Play.
+
+The sound settings reuse the existing L-Systems sine, triangle, square, saw,
+FM, PM and Shepard voices, with frequency, modulation index/ratio, tone filter,
+ADSR/hold, Shepard motion/width and level. Modulation applies to FM/PM and
+Shepard settings to Shepard. Envelope stages share the synth's four-second
+maximum; excessive stage times are fitted proportionally and reflected in the
+knobs. Repeat notes are scheduled against the AudioContext clock with an 85 ms
+lookahead, independent of drawing. Tempo edits retain beat phase; a long UI
+stall skips missed attacks rather than replaying a backlog.
+
+The synth borrows the network's AudioContext and feeds only its input, through
+Network drive. Direct input at zero hears only the delayed output. Mic trim
+does not attenuate the synth. Musical preset selection, Next and randomize
+retain the selected source, impulse sound and repeat state. Copy parameters
+includes the impulse settings, without persisting a live playing state.
 
 ## Fractal explorer and coordinate controls
 
@@ -124,10 +155,25 @@ applicable sound mappings.
 
 Image calculation stays in a worker with one active render and one latest
 pending target. It is bounded to 360 pixels per edge (240 while Audio or
-coordinate motion runs), 64–384 iterations, and at least 250 ms between
-submissions. Mandelbrot pixels do not recompute when c moves. View gestures
-transform the existing image immediately while the next image completes;
+coordinate motion runs), 64–384 iterations, and at least 100 ms between
+submissions (150 ms while Audio or coordinate motion runs). Bounded row chunks
+yield through messages rather than chained timers, so idle timer delays do not
+accumulate between rows. Mandelbrot pixels do not recompute when c moves. View gestures
+transform cached images immediately while the next image completes. Up to six
+rasters retain wider views beneath recent detail; Julia rasters are kept only
+for the same coefficient. Drawing crops each raster to the visible canvas,
+including at maximum zoom, and skips covered background layers. Newly exposed
+areas outside all cached views still need a new calculation; deep zoom retains
+finite resolution and iteration limits to protect audio processing. The
 actual travelling-wave graphics retain their separate audio-aligned renderer.
+
+The masthead uses Morphazoid's shared Choose and next-instrument navigation,
+including Faves, search and keyboard dismissal. The Rust/WASM controller owns
+its audio lifecycle independently from the pure navigation enhancement.
+Faves-only instruments remain searchable; only Faves rows duplicated in other
+groups are suppressed during filtering. The exact shared-menu amendment is
+recorded in `fractal-delay-navigation-runtime-changes.json` without changing
+historical navigation reference hashes.
 
 ## Five mappings
 
@@ -245,7 +291,13 @@ Travel time, Coupling, Decay and Pitch offset are live scalar changes; they do
 not regenerate topology. End return is also a live scalar. Port selection
 reuses the admitted geometry in the worker, then retargets source and receiver
 weights in Rust over 35 ms without replacing histories or resetting the clock.
-Geometry preparation runs in a separate worker with latest-revision guards.
+Coefficient knobs and explorer drags update during the gesture. Geometry
+preparation runs in a separate worker, with one graph in flight through its
+Rust installation acknowledgement and only the newest waiting target retained.
+New pointer positions cannot cancel a graph before it becomes audible and
+visible; intermediate positions are skipped when preparation is slower than
+the gesture. Audio startup uses the same queue. Source playback and live levels
+remain independent of these edits.
 The complete new playable graph is admitted at once;
 preparation is not an animation of generations progressively becoming active.
 Fractional delay readers have a one-sample minimum. Travel changes use a 35 ms

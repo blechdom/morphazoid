@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreFractalImpulseRuntime } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -13,6 +14,7 @@ const motionRuntimeRow = 'copy+require\tsrc/instruments/fractal-delay/parameter-
 // Remove only the reviewed, later explorer declaration before checking the
 // independently captured SPARTIAL baseline. Keep the frozen hashes unchanged.
 function restoreLaterExplorerRuntime(source, file) {
+  source = restoreFractalImpulseRuntime(source, file, { allowRestored: true });
   if (file !== 'scripts/site/runtime-files.tsv') return source;
   const context = motionRuntimeRow + explorerRuntimeRow;
   assert.equal(source.split(explorerRuntimeRow).length - 1, 1, 'exact later Fractal Delay explorer declaration');
@@ -59,7 +61,7 @@ test('later explorer normalization rejects missing, duplicate or altered declara
   const unrelated = 'copy+require\tsrc/instruments/unreviewed-runtime.js\n';
   const restored = restoreLaterExplorerRuntime(source + unrelated, file);
   assert.ok(restored.endsWith(unrelated));
-  assert.equal(restored, source.replace(explorerRuntimeRow, '') + unrelated);
+  assert.equal(restored, restoreFractalImpulseRuntime(source, file).replace(explorerRuntimeRow, '') + unrelated);
   assert.equal(restoreLaterExplorerRuntime('untouched', 'unrelated.js'), 'untouched');
 });
 

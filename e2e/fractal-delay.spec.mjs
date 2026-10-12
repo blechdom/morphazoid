@@ -22,20 +22,29 @@ function wav({ duration = 4, amplitude = .035, frequencies = [173, 311, 659] } =
   return bytes;
 }
 
-async function fixture(page, { holdContext = false, observeRenderer = false, observeMotion = false } = {}) {
+async function fixture(page, { holdContext = false, observeRenderer = false, observeMotion = false, observeImpulse = false, geometryDelay = 0 } = {}) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await page.addInitScript(({ holdContext, observeRenderer, observeMotion }) => {
+  await page.addInitScript(({ holdContext, observeRenderer, observeMotion, observeImpulse, geometryDelay }) => {
     const NativeContext = AudioContext, NativeNode = AudioWorkletNode;
     const qa = window.__fractalPcmWitness = { contexts: [], sources: [], nodes: [], packets: [], statuses: [], allStatuses: [],
       streams: [], microphoneRequests: 0, pendingMicrophones: [], holdMicrophone: false, recording: false,
-      geometryJobs: [], sceneRequests: [], sceneAcks: [] };
-    if (observeMotion) {
+      geometryJobs: [], sceneRequests: [], sceneAcks: [], synthNodes: [], synthNotes: [], links: new Map(), inputPackets: [], holdSynth: false, pendingSynth: [], longTasks: [], repeatPolls: [] };
+    if(observeImpulse) {
+      new PerformanceObserver(list=>qa.longTasks.push(...list.getEntries().map(({startTime,duration})=>({startTime,duration}))))
+        .observe({type:'longtask',buffered:true});
+      const interval=window.setInterval;
+      window.setInterval=(callback,delay,...args)=>interval.call(window,delay===25?()=>{
+        qa.repeatPolls.push({wall:performance.now(),audio:qa.contexts[0]?.currentTime});callback();
+      }:callback,delay,...args);
+    }
+    if (observeMotion || geometryDelay) {
       const NativeWorker = Worker;
       window.Worker = class extends NativeWorker {
         constructor(url, ...args) {
           super(url, ...args);
           if (!String(url).includes('/fractal-delay/preflight-worker.js')) return;
+          this.geometryDelay = geometryDelay;
           const post = this.postMessage.bind(this);
           this.postMessage = (data, ...rest) => {
             if (data.parameters) qa.geometryJobs.push({ revision: data.revision, at: performance.now(),
@@ -43,6 +52,13 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
             return post(data, ...rest);
           };
         }
+        set onmessage(listener) {
+          // Simulate preparation slower than incoming pointer events while
+          // retaining the production worker, model, Rust DSP and real ACKs.
+          super.onmessage = this.geometryDelay && typeof listener === 'function'
+            ? event => setTimeout(() => listener.call(this, event), this.geometryDelay) : listener;
+        }
+        get onmessage() { return super.onmessage; }
       };
     }
     if (observeRenderer) {
@@ -118,17 +134,42 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
     AudioWorklet.prototype.addModule = async function (url, ...args) {
       if (qa.holdContext && String(url).split('?')[0].endsWith('/network-worklet.js'))
         await new Promise(resolve => qa.pendingInitializers.push(resolve));
+      if (qa.holdSynth && String(url).includes('contour-synth-processor.js'))
+        await new Promise(resolve => qa.pendingSynth.push(resolve));
       return addModule.call(this, url, ...args);
     };
     const connect = AudioNode.prototype.connect;
     AudioNode.prototype.connect = function (destination, ...args) {
       const result = connect.call(this, destination, ...args);
+      if(destination instanceof AudioNode) {
+        if(!qa.links.has(this))qa.links.set(this,new Set());
+        qa.links.get(this).add(destination);
+      }
+      if(observeImpulse&&qa.nodes.includes(destination)) {
+        const source=this;
+        qa.inputProbeReady=(async()=>{
+          await qa.probeReady;
+          const probe=qa.inputProbe=new NativeNode(source.context,'fractal-pcm-witness',{outputChannelCount:[1]});
+          probe.port.onmessage=({data})=>{
+            if(data.reset){qa.inputResetAck?.();return;}
+            if(qa.recording)qa.inputPackets.push(data);
+          };
+          connect.call(source,probe);connect.call(probe,source.context.destination);
+        })();
+      }
       if (qa.nodes.includes(this) && destination instanceof GainNode) {
         const analyser = destination.context.createAnalyser(), mute = destination.context.createGain();
         analyser.fftSize = 4096; mute.gain.value = 0;
         connect.call(destination, analyser); connect.call(analyser, mute); connect.call(mute, destination.context.destination);
         qa.mainMonitor = { analyser, samples: new Float32Array(analyser.fftSize) };
       }
+      return result;
+    };
+    const disconnect=AudioNode.prototype.disconnect;
+    AudioNode.prototype.disconnect=function(destination,...args) {
+      const result=disconnect.apply(this,arguments);
+      if(destination instanceof AudioNode)qa.links.get(this)?.delete(destination);
+      else qa.links.delete(this);
       return result;
     };
     window.AudioContext = class extends NativeContext {
@@ -146,7 +187,17 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
     window.AudioWorkletNode = class extends NativeNode {
       constructor(...args) {
         super(...args);
-        if (args[1] !== 'fractal-delay-network') return;
+        if (args[1] !== 'fractal-delay-network') {
+          if(String(args[1]).includes('synth')) {
+            qa.synthNodes.push(this);
+            const post=this.port.postMessage.bind(this.port);
+            this.port.postMessage=(data,...rest)=>{
+              if(data.type==='notes')qa.synthNotes.push(structuredClone(data));
+              return post(data,...rest);
+            };
+          }
+          return;
+        }
         qa.nodes.push(this);
         if (observeMotion) {
           const post = this.port.postMessage.bind(this.port);
@@ -239,7 +290,7 @@ async function fixture(page, { holdContext = false, observeRenderer = false, obs
         } }));
       return destination.stream;
     };
-  }, { holdContext, observeRenderer, observeMotion });
+  }, { holdContext, observeRenderer, observeMotion, observeImpulse, geometryDelay });
   await page.route('**/assets/synthesis/loops/*.wav', route => route.fulfill({
     status: 200, contentType: 'audio/wav', body: wav(),
   }));
@@ -277,8 +328,8 @@ async function ready(page) {
   expect((await diagnostics(page)).audioDesired).toBe(false);
 }
 
-async function markerEvidence(page) {
-  return page.evaluate(async module => {
+async function markerEvidence(page, recordCoordinates = false) {
+  return page.evaluate(async ({ module, recordCoordinates }) => {
     const d = (await import(module)).getFractalDelayEngine().getDiagnostics(), network = d.network;
     const frame = __fractalPcmWitness.markerFrame, errors = [];
     if (!network || !frame) return { matches: false, errors: ['no installed graph or rendered marker frame'] };
@@ -306,8 +357,12 @@ async function markerEvidence(page) {
     }
     return { matches: errors.length === 0 && performance.now() - frame.renderedAt < 1000,
       backend: frame.backend, revision: network.revision, inputCount: inputs.length, pickupCount: pickups.length,
-      drawnCount: frame.markers.length, maximumPositionError, errors };
-  }, ENGINE);
+      drawnCount: frame.markers.length, maximumPositionError, errors,
+      ...(recordCoordinates ? { cReal: network.parameters.cReal, cImag: network.parameters.cImag,
+        coordinates: network.nodes.map(node => [node.x, node.y]),
+        acked: __fractalPcmWitness.sceneAcks.some(row => row.revision === network.revision),
+        liveInstall: __fractalPcmWitness.liveInstalls?.find(row => row.revision === network.revision) } : {}) };
+  }, { module: ENGINE, recordCoordinates });
 }
 
 async function choose(page, id, value) {
@@ -395,7 +450,11 @@ async function beginCapture(page) {
     const qa = __fractalPcmWitness; await qa.probeReady;
     qa.recording = false;
     await new Promise(resolve => { qa.resetAck = resolve; qa.probe.port.postMessage('reset'); });
-    qa.packets.length = 0; qa.statuses.length = 0; qa.recording = true;
+    if(qa.inputProbeReady) {
+      await qa.inputProbeReady;
+      await new Promise(resolve=>{qa.inputResetAck=resolve;qa.inputProbe.port.postMessage('reset');});
+    }
+    qa.inputPackets.length=0;qa.packets.length = 0; qa.statuses.length = 0; qa.recording = true;
   });
 }
 
@@ -487,15 +546,40 @@ test('presets, continuous controls and a blocked UI preserve the audio clock and
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 30000 }).toBe(true);
-  await performanceState(page, { wet: .7, dry: .3 });
-  const before = await diagnostics(page); await beginCapture(page);
+  const liveLevels = { inputGain: 1.23, inputDriveDb: 9.1, delayGainDb: 17, dry: .3, outputLevel: .61, outputBoostDb: 2 };
+  await performanceState(page, { wet: .7, ...liveLevels });
+  const before = await diagnostics(page);
+  await page.evaluate(() => { window.__presetSessionUi = { masthead: document.querySelector('.masthead'),
+    source: document.getElementById('sourceMode'), output: document.getElementById('outputLevel') }; });
+  const sessionPreserved = async () => {
+    const current = await diagnostics(page);
+    expect(current.input).toEqual(before.input);
+    expect(current.microphone).toBe(before.microphone);
+    expect(current.audioDesired).toBe(before.audioDesired);
+    for (const [key, value] of Object.entries(liveLevels)) expect(current.performance[key], key).toBe(value);
+    expect(await page.evaluate(() => Object.entries(window.__presetSessionUi).every(([key, node]) => node ===
+      (key === 'masthead' ? document.querySelector('.masthead') : document.getElementById(key === 'source' ? 'sourceMode' : 'outputLevel'))))).toBe(true);
+    await expect(page.locator('#sourceMode')).toHaveValue('file');
+    await expect(page.locator('#outputLevel')).toHaveValue(String(liveLevels.outputLevel));
+  };
+  await beginCapture(page);
   const presets = await page.locator('#presetSelect').evaluate(select => [...select.options].map(option => option.value).filter(Boolean));
   expect(presets.length).toBeGreaterThanOrEqual(5);
   for (const id of presets.slice(0, 5)) {
     await page.locator('.instrument-preset-controls summary').click();
     await page.locator(`button[data-full-preset][data-preset-id="${id}"]`).click();
     await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', id);
+    await sessionPreserved();
   }
+  await page.locator('.header-preset-next').click();
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', presets[5 % presets.length]);
+  await sessionPreserved();
+  const beforeRandom = (await diagnostics(page)).parameters;
+  await page.locator('.header-preset-random').click();
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('aria-busy', 'false', { timeout: 30000 });
+  await expect(page.locator('.instrument-preset-controls')).toHaveAttribute('data-preset-id', 'custom');
+  expect((await diagnostics(page)).parameters).not.toEqual(beforeRandom);
+  await sessionPreserved();
   for (const value of [15, 90, 25, 160, 35, 70]) await range(page, 'timeMs', value);
   await page.locator('#stage').focus();
   await page.keyboard.press('ArrowRight'); await page.keyboard.press('ArrowUp');
@@ -511,6 +595,97 @@ test('presets, continuous controls and a blocked UI preserve the audio clock and
   expect(after.input.playing).toBe(true); expect(after.audioDesired).toBe(true);
   expect(after.error).toBeFalsy(); expect(errors).toEqual([]);
   await testInfo.attach('live-edit-continuity.json', { body: JSON.stringify({ before, after, pcm }, null, 2), contentType: 'application/json' });
+});
+
+test('held coefficient knobs and explorer drags continuously install and draw the sounding network', async ({ page }, testInfo) => {
+  test.setTimeout(120000);
+  const errors = await fixture(page, { observeRenderer: true, observeMotion: true, geometryDelay: 250 });
+  await ready(page);
+  await parameters(page, { mode: 'inverse', detail: 5, timeMs: 35 });
+  await performanceState(page, { wet: .7, dry: .25 });
+  await page.evaluate(async module => {
+    const engine = (await import(module)).getFractalDelayEngine();
+    let revision = engine.getDiagnostics().network.revision;
+    __fractalPcmWitness.liveInstalls = [];
+    engine.subscribe(d => {
+      if (d.network.revision === revision) return;
+      revision = d.network.revision;
+      const pointer = window.__heldPointer;
+      __fractalPcmWitness.liveInstalls.push({ revision,
+        captured: !!pointer && document.getElementById(pointer.controlId).hasPointerCapture(pointer.id),
+        desiredAhead: d.parameters.cReal !== d.network.parameters.cReal || d.parameters.cImag !== d.network.parameters.cImag });
+    });
+  }, ENGINE);
+  const evidence = [];
+  const drag = async (id, startAudio = false) => {
+    await page.locator(`#${id}`).scrollIntoViewIfNeeded();
+    const box = await page.locator(`#${id}`).boundingBox();
+    let x = box.x + box.width / 2, y = box.y + 16;
+    if (id === 'parameterMap') {
+      const point = await page.evaluate(async module => {
+        const d = (await import(module)).getFractalDelayEngine().getDiagnostics();
+        const { pixelAt, DEFAULT_EXPLORER_VIEW } = await import('/src/instruments/fractal-delay/fractal-explorer.js');
+        const rect = document.getElementById('parameterMap').getBoundingClientRect();
+        return pixelAt(DEFAULT_EXPLORER_VIEW, d.parameters.cReal, d.parameters.cImag, rect.width / rect.height);
+      }, ENGINE);
+      x = box.x + point.x * box.width; y = box.y + point.y * box.height;
+    }
+    const before = await diagnostics(page), frames = [];
+    await page.locator(`#${id}`).evaluate(node => {
+      window.__heldPointer = { id: null, controlId: node.id, times: [] };
+      node.addEventListener('pointerdown', event => { __heldPointer.id = event.pointerId; }, { once: true });
+      node.addEventListener('pointermove', event => { if (event.buttons) __heldPointer.times.push(performance.now()); });
+    });
+    await page.mouse.move(x, y); await page.mouse.down();
+    // Arm from a real keyboard action while the coefficient pointer remains
+    // captured; bootstrap must not race a separately installed cached scene.
+    if (startAudio) await page.locator('#audioButton').press('Enter');
+    for (let i = 1; i <= 96; i++) {
+      const phase = i / 32 * Math.PI * 2;
+      await page.mouse.move(x + (id === 'parameterMap' ? Math.sin(phase) * 8 : 0), y + Math.sin(phase) * 5);
+      await page.waitForTimeout(10);
+      if (i % 8 === 0) {
+        // One small observation avoids pausing the pointer stream to copy the
+        // complete, growing audio diagnostic history through browser IPC.
+        const marker = await markerEvidence(page, true);
+        if (marker.matches && marker.acked && marker.revision > before.network.revision) frames.push(marker);
+      }
+    }
+    const held = await page.locator(`#${id}`).evaluate(node => ({ captured: node.hasPointerCapture(__heldPointer.id),
+      maximumGap: Math.max(0, ...__heldPointer.times.slice(1).map((time, i) => time - __heldPointer.times[i])) }));
+    expect(held.captured, `${id}: observations occur before pointer release`).toBe(true);
+    // Judge at installation, not by a wall-clock gap in browser automation:
+    // newer intent must already exist while the held graph installs and draws.
+    const movingFrames = frames.filter(frame => frame.liveInstall?.captured && frame.liveInstall.desiredAhead);
+    expect(new Set(movingFrames.map(frame => frame.revision)).size, `${id}: newer input cannot starve admitted graphs`).toBeGreaterThanOrEqual(2);
+    expect(new Set(frames.map(frame => frame.revision)).size, `${id}: several Rust-installed revisions draw during motion`).toBeGreaterThanOrEqual(2);
+    expect(new Set(frames.map(frame => JSON.stringify(frame.coordinates))).size, `${id}: actual route coordinates change during motion`).toBeGreaterThanOrEqual(2);
+    await page.mouse.up();
+    await expect.poll(async () => {
+      const d = await diagnostics(page);
+      return !d.compiling && d.status.revision === d.network.revision
+        && d.network.parameters.cReal === d.parameters.cReal && d.network.parameters.cImag === d.parameters.cImag;
+    }, { timeout: 30000 }).toBe(true);
+    evidence.push({ id, startAudio, held, frames });
+  };
+  await drag('cReal', true);
+  await choose(page, 'sourceMode', 'file'); await upload(page);
+  await expect.poll(async () => (await diagnostics(page)).input.playing).toBe(true);
+  const before = await diagnostics(page); await beginCapture(page);
+  for (const id of ['cReal', 'cImag', 'parameterMap']) await drag(id);
+  const pcm = await capture(page); boundedPcm(pcm); expect(pcm.longestZeroSeconds).toBeLessThan(.04);
+  const after = await diagnostics(page);
+  expect(after.contextGeneration).toBe(before.contextGeneration); expect(after.witness.sources).toEqual(before.witness.sources);
+  expect(after.input).toEqual(before.input); expect(after.audioDesired).toBe(true); expect(after.sampleClock).toBeGreaterThan(before.sampleClock);
+  const jobs = await page.evaluate(() => ({ jobs: __fractalPcmWitness.geometryJobs, acks: __fractalPcmWitness.sceneAcks }));
+  const soundingJobs = jobs.jobs.filter(job => job.at > jobs.acks[0].installedAt);
+  for (let i = 1; i < soundingJobs.length; i++) {
+    const previous = jobs.acks.find(ack => ack.revision === soundingJobs[i - 1].revision);
+    expect(previous, 'every graph finishes its real Rust ACK before another worker job starts').toBeTruthy();
+    expect(soundingJobs[i].at).toBeGreaterThanOrEqual(previous.installedAt);
+  }
+  expect(after.error).toBeFalsy(); expect(errors).toEqual([]);
+  await testInfo.attach('continuous-held-geometry.json', { body: JSON.stringify({ evidence, jobs, pcm }, null, 2), contentType: 'application/json' });
 });
 
 test('multiport excitation, pickups and routing show the installed scene without interrupting playback', async ({ page }, testInfo) => {
@@ -592,7 +767,7 @@ test('Path controls and current capture recall preserve the admitted graph and m
     }
     await choose(page, 'propagation', 'resonance');
     for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeDisabled();
-    await expect(page.locator('#propagationDescription')).toContainText('retained');
+    await expect(page.locator('#routingDescription, #propagationDescription, #portReadout')).toHaveCount(0);
     const retained = await diagnostics(page);
     expect(retained.parameters.geometryPitch).toBe(7.5);
     expect(retained.parameters.tapCoverage).toBe(.72); expect(retained.parameters.turnTone).toBe(.44);
@@ -643,10 +818,10 @@ test('Path controls and current capture recall preserve the admitted graph and m
   } finally { await context.close(); }
 });
 
-test('Send pulse never arms Audio and excites real paths without replacing a playing input', async ({ page }, testInfo) => {
+test('engine pulse never arms Audio and excites real paths without replacing a playing input', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   const errors = await fixture(page); await ready(page);
-  await expect(page.locator('#sendPulse')).toBeDisabled();
+  await expect(page.locator('#sendPulse')).toHaveCount(0);
   expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(false);
   const off = await diagnostics(page);
   expect(off.audioDesired).toBe(false); expect(off.contextState).toBe('uninitialized'); expect(off.sourceCount).toBe(0);
@@ -659,8 +834,8 @@ test('Send pulse never arms Audio and excites real paths without replacing a pla
     const d = await diagnostics(page);
     return !d.compiling && d.audio && d.status.revision === d.network?.revision && d.activeEdges === d.preparedEdges;
   }, { timeout: 30000 }).toBe(true);
-  await expect(page.locator('#sendPulse')).toBeEnabled();
-  const prepared = await diagnostics(page); await beginCapture(page); await page.locator('#sendPulse').click();
+  const prepared = await diagnostics(page); await beginCapture(page);
+  expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(true);
   const isolated = await capture(page); boundedPcm(isolated);
   await expect.poll(async () => (await diagnostics(page)).witness.sources.at(-1).ended).toBe(true);
   const afterPulse = await diagnostics(page);
@@ -670,7 +845,8 @@ test('Send pulse never arms Audio and excites real paths without replacing a pla
 
   await choose(page, 'sourceMode', 'file'); await upload(page);
   await expect.poll(async () => (await diagnostics(page)).input.playing, { timeout: 15000 }).toBe(true);
-  const playing = await diagnostics(page); await beginCapture(page); await page.locator('#sendPulse').click();
+  const playing = await diagnostics(page); await beginCapture(page);
+  expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(true);
   const mixed = await capture(page);
   await testInfo.attach('pulse-mixed-callback-audit.json', { body: JSON.stringify(mixed, null, 2), contentType: 'application/json' });
   boundedPcm(mixed);
@@ -681,7 +857,7 @@ test('Send pulse never arms Audio and excites real paths without replacing a pla
   expect(after.input).toEqual(playing.input); expect(after.sourceCount).toBe(1);
   expect(after.network.revision).toBe(playing.network.revision); expect(after.contextGeneration).toBe(playing.contextGeneration);
   expect(after.sampleClock).toBeGreaterThan(playing.sampleClock); expect(after.error).toBeFalsy();
-  await page.locator('#audioButton').click(); await expect(page.locator('#sendPulse')).toBeDisabled();
+  await page.locator('#audioButton').click();
   expect(await page.evaluate(async module => (await import(module)).getFractalDelayEngine().sendPulse(), ENGINE)).toBe(false);
   expect((await diagnostics(page)).audioDesired).toBe(false); expect(errors).toEqual([]);
   await testInfo.attach('performed-pulse-pcm.json', { body: JSON.stringify({ isolated, mixed,
@@ -1115,7 +1291,7 @@ test('turning Audio off during cold preparation cannot start a late source', asy
 
 test('Fractal Delay has no critical or serious accessible-control violations', async ({ page }, testInfo) => {
   test.setTimeout(60000);
-  await fixture(page); await ready(page);
+  await fixture(page); await ready(page);await choose(page,'sourceMode','impulse');
   const result = await new AxeBuilder({ page }).withTags(['wcag2a', 'wcag2aa', 'wcag21a', 'wcag21aa', 'wcag22aa']).analyze();
   await testInfo.attach('fractal-delay-accessibility.json', {
     body: JSON.stringify({ violations: result.violations, incomplete: result.incomplete }, null, 2), contentType: 'application/json',
@@ -1135,7 +1311,10 @@ for (const viewport of SIZES) {
     expect(Math.abs(explorer.width-graphic.width), 'explorer and delay share the graphic equally').toBeLessThanOrEqual(2);
     expect(await page.evaluate(() => document.documentElement.scrollWidth - innerWidth)).toBeLessThanOrEqual(2);
     for (const id of ['sourceMode', 'sampleSelect', 'sampleNext', 'fileInput', 'inputLoop', 'restartInput', 'stopInput',
-      'mode', 'modeNext', 'domain', 'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'sendPulse',
+      'sendImpulse','impulsePlay','impulseTempo','impulseMode','impulseFrequency','impulseIndex','impulseRatio',
+      'impulseCutoff','impulseResonance','impulseAttackMs','impulseDecayMs','impulseSustain','impulseHoldMs',
+      'impulseReleaseMs','impulseShepardRate','impulseShepardWidth','impulseLevel','noDecay',
+      'mode', 'modeNext', 'domain', 'propagation', 'geometryPitch', 'tapCoverage', 'turnTone',
       'realMotionPlay', 'imagMotionPlay', 'realMotionTempo', 'imagMotionTempo', 'realMotionDepth', 'imagMotionDepth',
       'cReal', 'cImag', 'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup',
       'inputMode', 'inputPosition', 'inputCount', 'inputSpread', 'pickupMode', 'pickupCount', 'pickupSpread', 'boundary', 'routing', 'linkDensity',
@@ -1143,6 +1322,7 @@ for (const viewport of SIZES) {
       'wet', 'dry', 'hpfHz', 'lpfHz', 'outputBoostDb', 'compressorThresholdDb', 'compressorRatio',
       'compressorAttackMs', 'compressorReleaseMs', 'compressorMakeupDb', 'masteringPreset', 'inputTrim', 'outputLevel',
       'voiceBudget', 'manualBudget', 'captureSound', 'audioButton', 'presetSelect']) {
+      if (id === 'sendImpulse') await choose(page, 'sourceMode', 'impulse');
       if (id === 'sampleSelect') await choose(page, 'sourceMode', 'samples');
       if (id === 'fileInput') await choose(page, 'sourceMode', 'file');
       if (id === 'domain') await choose(page, 'mode', 'contours');
@@ -1159,6 +1339,24 @@ for (const viewport of SIZES) {
       expect(box.x, id).toBeGreaterThanOrEqual(-1);
       expect(box.x + box.width, id).toBeLessThanOrEqual(viewport.width + 1);
     }
+    const ordering = await page.evaluate(() => {
+      const panel = document.querySelector('.fractal-controls'), live = document.getElementById('liveData');
+      const preset = panel.querySelector('.instrument-preset-controls');
+      const row = preset.closest('.mz-input-preset-row') || preset;
+      return { presetsFirst: panel.firstElementChild === row,
+        interactiveBeforeData: [...panel.querySelectorAll('input, select, button, textarea')].every(node =>
+          !!(node.compareDocumentPosition(live) & Node.DOCUMENT_POSITION_FOLLOWING)),
+        budgetSection: document.getElementById('voiceBudget').closest('details').id };
+    });
+    expect(ordering).toEqual({ presetsFirst: true, interactiveBeforeData: true, budgetSection: 'capacityControls' });
+    await page.locator('.fractal-controls').evaluate(panel => { panel.scrollTop = panel.scrollHeight; });
+    const rail = await page.locator('.fractal-controls').boundingBox();
+    const toolbar = await page.locator('.instrument-preset-controls').boundingBox();
+    expect(toolbar.y).toBeGreaterThanOrEqual(rail.y - 1);
+    expect(toolbar.y + toolbar.height).toBeLessThan(rail.y + rail.height);
+    await page.locator('.instrument-preset-controls summary').click();
+    await expect(page.locator('button[data-full-preset]').first()).toBeVisible();
+    await page.locator('.instrument-preset-controls summary').click();
     const before = await diagnostics(page);
     for (const axis of ['real', 'imag']) await motionCaptionsDoNotOverlapTap(page, axis);
     await page.locator('#stage').scrollIntoViewIfNeeded(); await page.locator('#stage').focus();
@@ -1177,16 +1375,12 @@ for (const viewport of SIZES) {
 }
 
 for (const viewport of SIZES.slice(1)) {
-  test(`coarse-pointer Audio and Pulse remain at least 48 pixels at ${viewport.width}×${viewport.height}`, async ({ browser, baseURL }, testInfo) => {
+  test(`coarse-pointer Audio, Play and Tap remain at least 48 pixels at ${viewport.width}×${viewport.height}`, async ({ browser, baseURL }, testInfo) => {
     const context = await browser.newContext({ baseURL, viewport, isMobile: true, hasTouch: true });
     try {
       const page = await context.newPage(); await fixture(page); await ready(page);
       const audio = await page.locator('#audioButton').boundingBox();
       expect(audio.width).toBeGreaterThanOrEqual(48); expect(audio.height).toBeGreaterThanOrEqual(48);
-      await page.locator('#sendPulse').scrollIntoViewIfNeeded();
-      const pulse = await page.locator('#sendPulse').boundingBox();
-      expect(pulse.width).toBeGreaterThanOrEqual(48); expect(pulse.height).toBeGreaterThanOrEqual(48);
-      await expect(page.locator('#sendPulse')).toBeDisabled();
       for (const axis of ['real', 'imag']) {
         const play = page.locator(`#${axis}MotionPlay`), tap = page.locator(`.mz-tap-tempo[data-tap-control="#${axis}MotionTempo"]`);
         for (const control of [play, tap]) {
@@ -1200,6 +1394,31 @@ for (const viewport of SIZES.slice(1)) {
         expect((await diagnostics(page)).contextState).toBe('uninitialized');
         await play.click(); await expect(play).toHaveAttribute('aria-pressed', 'false');
       }
+      await choose(page, 'sourceMode', 'impulse');
+      for(const control of [page.locator('#sendImpulse'),page.locator('#impulsePlay'),page.locator('.mz-tap-tempo[data-tap-control="#impulseTempo"]')]) {
+        await control.scrollIntoViewIfNeeded();await expect(control).toBeVisible();
+        const box=await control.boundingBox();expect(box.width).toBeGreaterThanOrEqual(48);expect(box.height).toBeGreaterThanOrEqual(48);
+        expect(box.x).toBeGreaterThanOrEqual(0);expect(box.x+box.width).toBeLessThanOrEqual(viewport.width);
+        expect(await control.evaluate(node=>{
+          const rect=node.getBoundingClientRect(),rail=node.closest('.fractal-controls').getBoundingClientRect();
+          return rect.right<=rail.right&&rect.left>=rail.left;
+        })).toBe(true);
+      }
+      await page.locator('#impulsePlay').click();await expect(page.locator('#impulsePlay')).toHaveAttribute('aria-pressed','true');
+      expect((await diagnostics(page)).contextState).toBe('uninitialized');
+      await page.locator('#impulsePlay').click();
+      const overlap=await page.locator('.impulse-transport').evaluate(row=>{
+        const tap=row.querySelector('.mz-tap-tempo').getBoundingClientRect();
+        return [...row.querySelectorAll('b,output')].some(node=>{
+          const box=node.getBoundingClientRect();return box.left<tap.right&&box.right>tap.left&&box.top<tap.bottom&&box.bottom>tap.top;
+        });
+      });expect(overlap).toBe(false);
+      const labelOverlaps=await page.locator('.impulse-knobs').evaluate(grid=>{
+        const labels=[...grid.querySelectorAll('b')].map(node=>({text:node.textContent,box:node.getBoundingClientRect()}));
+        return labels.flatMap((a,i)=>labels.slice(i+1).filter(b=>a.box.left<b.box.right&&a.box.right>b.box.left&&a.box.top<b.box.bottom&&a.box.bottom>b.box.top).map(b=>[a.text,b.text]));
+      });expect(labelOverlaps).toEqual([]);
+      await page.locator('#impulsePlay').scrollIntoViewIfNeeded();
+      await page.screenshot({path:testInfo.outputPath(`impulse-touch-${viewport.width}.png`),fullPage:true});
       await choose(page, 'propagation', 'resonance');
       for (const id of ['geometryPitch', 'tapCoverage', 'turnTone']) await expect(page.locator(`#${id}`)).toBeDisabled();
       await page.locator('#geometryPitch').evaluate(node => node.scrollIntoView({ block: 'center' }));
@@ -1211,3 +1430,118 @@ for (const viewport of SIZES.slice(1)) {
     } finally { await context.close(); }
   });
 }
+
+async function impulseInputEvidence(page) {
+  return page.evaluate(()=>{
+    const qa=__fractalPcmWitness,packets=qa.inputPackets,rate=packets[0]?.rate||48000;
+    const samples=packets.flatMap(packet=>Array.from({length:packet.frames},(_,i)=>(packet.raw[2*i]+packet.raw[2*i+1])*.5));
+    let energy=0,peak=0,quiet=rate,nonFinite=0;const attacks=[];
+    const frequencies=[220,440,660,880,1100],bands=frequencies.map(()=>[0,0]);
+    samples.forEach((sample,i)=>{
+      if(!Number.isFinite(sample))nonFinite++;
+      peak=Math.max(peak,Math.abs(sample));energy+=sample*sample;
+      if(Math.abs(sample)<.0001)quiet++;
+      else {if(quiet>rate*.025)attacks.push(i/rate);quiet=0;}
+      frequencies.forEach((f,j)=>{const phase=i/rate*2*Math.PI*f;bands[j][0]+=sample*Math.cos(phase);bands[j][1]+=sample*Math.sin(phase);});
+    });
+    const powers=bands.map(([a,b])=>a*a+b*b),total=powers.reduce((a,b)=>a+b,0);
+    const reaches=(from,avoidNetwork)=>{
+      const seen=new Set(),pending=[from];
+      while(pending.length){const node=pending.pop();if(seen.has(node)||avoidNetwork&&qa.nodes.includes(node))continue;
+        seen.add(node);if(node===node.context.destination)return true;pending.push(...qa.links.get(node)||[]);}
+      return false;
+    };
+    return {rms:Math.sqrt(energy/samples.length),peak,nonFinite,attacks,spectrum:powers.map(v=>v/total),
+      synths:qa.synthNodes.length,notes:qa.synthNotes,
+      speakerPath:qa.synthNodes.map(node=>reaches(node,false)),bypass:qa.synthNodes.map(node=>reaches(node,true)),
+      discontinuities:packets.at(-1)?.discontinuities,longTasks:qa.longTasks,repeatPolls:qa.repeatPolls};
+  });
+}
+
+test('Impulse voices feed real Rust audio only; No decay is live and reversible without rebuilding', async ({page},testInfo)=>{
+  test.setTimeout(120000);
+  const errors=await fixture(page,{observeImpulse:true});await ready(page);await choose(page,'sourceMode','impulse');
+  await range(page,'impulseFrequency',220);await range(page,'impulseTempo',120);
+  await page.locator('#impulsePlay').click();
+  expect((await diagnostics(page)).contextState).toBe('uninitialized');await expect(page.locator('#sendImpulse')).toBeDisabled();
+  await page.locator('#impulsePlay').click();
+  await parameters(page,{mode:'orbits',detail:2,timeMs:20,coupling:1,decay:.8,boundary:.7,tapCoverage:1,geometryPitch:0,turnTone:.2});
+  await performanceState(page,{wet:1,dry:0,inputDriveDb:0,delayGainDb:0,outputLevel:.7,outputBoostDb:0});
+  await page.locator('#audioButton').click();
+  await expect.poll(async()=>(await diagnostics(page)).impulse.enabled,{timeout:30000}).toBe(true);
+  const before=await diagnostics(page);
+  await page.locator('#noDecay').check();
+  await expect.poll(async()=>(await diagnostics(page)).parameters.decay).toBe(1);
+  const noDecay=await diagnostics(page);
+  expect(noDecay.network.revision).toBe(before.network.revision);
+  for(const key of ['decay','coupling','tapCoverage','boundary'])expect(noDecay.parameters[key]).toBe(1);
+  expect(noDecay.parameters.turnTone).toBe(0);
+  const results={};
+  for(const mode of ['sine','triangle','square','saw','fm','pm','shepard']) {
+    await choose(page,'impulseMode',mode);await beginCapture(page);await page.locator('#sendImpulse').click();
+    const pcm=await capture(page,.6);boundedPcm(pcm);
+    const input=await impulseInputEvidence(page);
+    expect(input.rms,mode).toBeGreaterThan(.00001);expect(input.nonFinite).toBe(0);expect(input.discontinuities).toBe(0);
+    expect(input.synths).toBe(1);expect(input.speakerPath).toEqual([true]);expect(input.bypass).toEqual([false]);
+    results[mode]={pcm,input};
+  }
+  expect(results.sine.input.spectrum.reduce((sum,value,i)=>sum+Math.abs(value-results.fm.input.spectrum[i]),0)).toBeGreaterThan(.1);
+  await page.locator('#noDecay').uncheck();
+  await expect.poll(async()=>(await diagnostics(page)).parameters.decay).toBe(.8);
+  const after=await diagnostics(page);expect(after.parameters.turnTone).toBe(.2);expect(after.parameters.boundary).toBe(.7);
+  expect(after.network.revision).toBe(before.network.revision);expect(after.witness.contexts).toBe(1);expect(after.witness.nodes).toBe(1);
+  expect(errors).toEqual([]);
+  await testInfo.attach('impulse-modes-pcm.json',{body:JSON.stringify(results),contentType:'application/json'});
+});
+
+test('Impulse repeat attacks follow tempo; Pause leaves network tails and presets preserve the source',async({page},testInfo)=>{
+  test.setTimeout(90000);const errors=await fixture(page,{observeImpulse:true});await ready(page);await choose(page,'sourceMode','impulse');
+  await parameters(page,{mode:'orbits',detail:2,timeMs:25,coupling:1,decay:1,boundary:1,tapCoverage:1,geometryPitch:0,turnTone:0});
+  await performanceState(page,{wet:1,dry:0,inputDriveDb:0,delayGainDb:0,outputLevel:.7});
+  await choose(page,'impulseMode','sine');await range(page,'impulseTempo',120);await page.locator('#audioButton').click();
+  await expect.poll(async()=>(await diagnostics(page)).impulse.enabled,{timeout:30000}).toBe(true);
+  await beginCapture(page);await page.locator('#impulsePlay').click();boundedPcm(await capture(page,1.8));
+  const slow=await impulseInputEvidence(page);await testInfo.attach('repeat-start.json',{body:JSON.stringify(slow),contentType:'application/json'});expect(slow.attacks.length).toBeGreaterThanOrEqual(3);
+  for(let i=1;i<slow.attacks.length;i++)expect(Math.abs(slow.attacks[i]-slow.attacks[i-1]-.5)).toBeLessThan(.004);
+  await range(page,'impulseTempo',240);await beginCapture(page);boundedPcm(await capture(page,1.3));
+  const fast=await impulseInputEvidence(page);expect(fast.attacks.length).toBeGreaterThanOrEqual(4);
+  // A capture may begin inside the last old note; compare the settled intervals.
+  for(let i=2;i<fast.attacks.length;i++)expect(Math.abs(fast.attacks[i]-fast.attacks[i-1]-.25)).toBeLessThan(.004);
+  await page.locator('#impulsePlay').click();await page.waitForTimeout(250);await beginCapture(page);
+  const tails=await capture(page,.5),paused=await impulseInputEvidence(page);boundedPcm(tails);expect(paused.peak).toBeLessThan(.000001);
+  await page.locator('#impulsePlay').click();const settings=(await diagnostics(page)).impulse.parameters;
+  await page.locator('.instrument-preset-controls summary').click();await page.locator('button[data-full-preset]').nth(2).click();
+  await page.locator('.header-preset-next').click();await page.locator('.header-preset-random').click();
+  const state=await diagnostics(page);expect(state.input.mode).toBe('impulse');expect(state.impulse.parameters).toEqual(settings);expect(state.impulse.playing).toBe(true);
+  await page.locator('#captureSound').evaluate(node=>{node.closest('details').open=true;});await page.locator('#captureSound').click();
+  expect(JSON.parse(await page.locator('#capturedSound').inputValue()).impulse).toEqual(settings);
+  await page.locator('#audioButton').click();const off=await diagnostics(page);expect(off.impulse.enabled).toBe(false);expect(off.impulse.playing).toBe(false);
+  expect(errors).toEqual([]);await testInfo.attach('impulse-repeat-pcm.json',{body:JSON.stringify({slow,fast,paused,tails}),contentType:'application/json'});
+});
+
+test('Impulse cancels held startup, late microphone and media; teardown closes its borrowed resources',async({page})=>{
+  test.setTimeout(90000);const errors=await fixture(page,{observeImpulse:true});await ready(page);
+  await choose(page,'sourceMode','file');await upload(page);await page.locator('#audioButton').click();
+  await expect.poll(async()=>(await diagnostics(page)).input.playing,{timeout:30000}).toBe(true);
+  await page.evaluate(()=>{__fractalPcmWitness.holdSynth=true;});await choose(page,'sourceMode','impulse');
+  await expect.poll(()=>page.evaluate(()=>__fractalPcmWitness.pendingSynth.length)).toBe(1);
+  await page.locator('#impulsePlay').click();await page.locator('#audioButton').click();
+  await page.evaluate(()=>{const qa=__fractalPcmWitness;qa.holdSynth=false;qa.pendingSynth.splice(0).forEach(resolve=>resolve());});
+  await expect.poll(async()=>(await diagnostics(page)).impulse.pending).toBe(false);
+  let state=await diagnostics(page);expect(state.impulse.enabled).toBe(false);expect(state.impulse.playing).toBe(false);
+  expect(state.witness.sources.every(row=>row.stops>0)).toBe(true);
+  await page.locator('#audioButton').click();await expect.poll(async()=>(await diagnostics(page)).impulse.enabled).toBe(true);
+  await page.locator('#sendImpulse').click();await choose(page,'sourceMode','samples');
+  await expect.poll(async()=>(await diagnostics(page)).input.playing).toBe(true);expect((await diagnostics(page)).impulse.enabled).toBe(false);
+  await page.evaluate(()=>{__fractalPcmWitness.holdMicrophone=true;});await choose(page,'sourceMode','mic');
+  await page.evaluate(async module=>{void(await import(module)).getFractalDelayEngine().setMicrophoneEnabled(true);},ENGINE);
+  await expect.poll(async()=>(await diagnostics(page)).witness.pendingMicrophones).toBe(1);
+  await choose(page,'sourceMode','impulse');
+  await page.evaluate(()=>__fractalPcmWitness.pendingMicrophones.splice(0).forEach(row=>row.resolve()));
+  await expect.poll(async()=>(await diagnostics(page)).witness.liveTracks).toBe(0);
+  await page.locator('#impulsePlay').click();await expect.poll(async()=>(await diagnostics(page)).impulse.playing).toBe(true);
+  await page.evaluate(async module=>{await(await import(module)).getFractalDelayEngine().dispose();},ENGINE);
+  await expect.poll(()=>page.evaluate(()=>__fractalPcmWitness.contexts.every(context=>context.state==='closed'))).toBe(true);
+  const count=await page.evaluate(()=>__fractalPcmWitness.synthNotes.length);await page.waitForTimeout(300);
+  expect(await page.evaluate(()=>__fractalPcmWitness.synthNotes.length)).toBe(count);expect(errors).toEqual([]);
+});

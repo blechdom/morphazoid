@@ -221,20 +221,28 @@ function createInstrumentPicker(doc, activeTool, siteRoot, index) {
   noResults.setAttribute("role", "status");
   list.append(noResults);
 
+  const outsideFaves = new Map();
+  for (const record of groupRecords.filter(record => record.group.id !== "faves")) {
+    for (const [index, row] of record.rows.entries()) {
+      const id = record.group.tools[index].id, terms = outsideFaves.get(id) || [];
+      terms.push(row.getAttribute("data-filter-text")); outsideFaves.set(id, terms);
+    }
+  }
   const applyFilter = () => {
     const query = searchInput.value.trim().toLocaleLowerCase();
     let visibleRows = 0;
     for (const record of groupRecords) {
       let groupMatches = 0;
-      for (const row of record.rows) {
-        const matches = !query || row.getAttribute("data-filter-text").includes(query);
+      for (const [index, row] of record.rows.entries()) {
+        const duplicate = Boolean(query) && record.group.id === "faves"
+          && outsideFaves.get(record.group.tools[index].id)?.some(text => text.includes(query));
+        const matches = !duplicate && (!query || row.getAttribute("data-filter-text").includes(query));
         row.hidden = !matches;
         if (matches) groupMatches += 1;
       }
-      const hideDuplicateFaves = Boolean(query) && record.group.id === "faves";
-      record.section.hidden = hideDuplicateFaves || groupMatches === 0;
+      record.section.hidden = groupMatches === 0;
       record.section.open = query ? groupMatches > 0 : record.defaultOpen;
-      if (!hideDuplicateFaves) visibleRows += groupMatches;
+      visibleRows += groupMatches;
     }
     noResults.hidden = visibleRows > 0;
   };

@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { Worker } from 'node:worker_threads';
 import { DEFAULT_EXPLORER_VIEW, EXPLORER_LIMITS, EXPLORER_PRESETS, complexAt, pixelAt,
-  normalizeExplorerView, zoomExplorer, panExplorer, normalizeExplorerRenderRequest,
+  normalizeExplorerView, zoomExplorer, panExplorer, projectExplorerImage, normalizeExplorerRenderRequest,
   renderFractalImage, renderFractalImageAsync } from '../src/instruments/fractal-delay/fractal-explorer.js';
 import { installExplorerWorker } from '../src/instruments/fractal-delay/mandelbrot-worker.js';
 
@@ -59,6 +59,31 @@ test('render allocation and iteration work stay bounded while retaining requeste
   assert.ok(normalizeExplorerRenderRequest({ view: { zoom: 16 } }).iterations > normalizeExplorerRenderRequest({}).iterations);
   assert.ok(normalizeExplorerRenderRequest({ width: 1e30, height: 1e30 }).width <= 360);
   assert.equal(normalizeExplorerRenderRequest({ width: 1, height: 0 }).width, 2);
+});
+
+test('cached raster projection clips deep zoom and pan without changing complex coordinates', () => {
+  const image = { width: 310, height: 360, view: DEFAULT_EXPLORER_VIEW };
+  for (const zoom of [.5, 1, 350, 16384]) {
+    const view = { ...DEFAULT_EXPLORER_VIEW, centerReal: -.743643887, centerImag: .131825904, zoom };
+    const crop = projectExplorerImage(image, view, 540, 627);
+    assert.ok(crop);
+    const [sx, sy, sw, sh, dx, dy, dw, dh] = crop;
+    assert.ok(crop.every(Number.isFinite));
+    assert.ok(sx >= 0 && sy >= 0 && sx + sw <= image.width + 1e-9 && sy + sh <= image.height + 1e-9);
+    assert.ok(dx >= 0 && dy >= 0 && dx + dw <= 540 && dy + dh <= 627);
+    for (const fraction of [0, .5, 1]) {
+      const source = complexAt(image.view, (sx + sw * fraction) / image.width,
+        (sy + sh * fraction) / image.height, image.width / image.height);
+      const destination = complexAt(view, (dx + dw * fraction) / 540,
+        (dy + dh * fraction) / 627, 540 / 627);
+      close(source.real, destination.real); close(source.imag, destination.imag);
+    }
+  }
+  assert.equal(projectExplorerImage(image, { centerReal: 4, centerImag: 4, zoom: 16384 }, 540, 627), null);
+  for (const invalid of [NaN, Infinity, 0, -1]) {
+    assert.equal(projectExplorerImage(image, DEFAULT_EXPLORER_VIEW, invalid, 627), null);
+    assert.equal(projectExplorerImage({ ...image, width: invalid }, DEFAULT_EXPLORER_VIEW, 540, 627), null);
+  }
 });
 
 test('Mandelbrot uses the parameter plane and Julia uses the current instrument coefficient', () => {

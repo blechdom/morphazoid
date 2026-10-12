@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreFractalImpulseRuntime } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
@@ -35,8 +36,8 @@ test('creative tempo guards reject missing, duplicate and tampered additions whi
   assert.throws(() => restoreMidiophiliaCreativeTempo(missing, file), error);
   assert.throws(() => restoreMidiophiliaCreativeTempo(tampered, file), error);
   for (const options of [{}, { allowRestored: true }]) assert.throws(() => restoreMidiophiliaCreativeTempo(source + addition, file, options), error);
-  assert.equal(restoreMidiophiliaCreativeTempo(missing, file, { allowRestored: true }), missing);
-  assert.equal(restoreMidiophiliaCreativeTempo(tampered, file, { allowRestored: true }), tampered);
+  assert.equal(restoreMidiophiliaCreativeTempo(missing, file, { allowRestored: true }), restoreFractalImpulseRuntime(missing, file));
+  assert.equal(restoreMidiophiliaCreativeTempo(tampered, file, { allowRestored: true }), restoreFractalImpulseRuntime(tampered, file));
   for (const [fixture, normalize] of historical) {
     assert.throws(() => normalize(source + addition, file), error);
     assert.notEqual(digest(normalize(tampered, file)), fixture.changes.find(change => change.file === file).sha256);

@@ -27,7 +27,7 @@
 </head><body class="fractal-delay-page" data-audio-backend="rust-wasm">
 <header class="masthead has-performance-header">
 <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
-<nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab" href="l-mic-rust.html">L-system Delay Rust</a><a class="tab active" href="fractal-delay.html" aria-current="page">Fractal Delay</a></nav>
+<nav class="tabs tools-nav" id="instrumentNavigation" aria-label="Instrument"><a class="tab active" href="fractal-delay.html" aria-current="page">Fractal Delay</a></nav>
 <div class="header-io-controls" id="headerControls" role="group" aria-label="Audio controls">
 <div id="headerAudio"><label for="outputLevel">Output<input id="outputLevel" type="range" min="0" max="1" step=".01" value="1" /></label><button id="audioButton" type="button" aria-pressed="false">Audio</button></div>
 </div></header>
@@ -67,21 +67,40 @@
 <aside class="fractal-controls" aria-label="Fractal Delay controls" data-instrument-preset-host>
 <label id="fallbackPresets" for="presetSelect">Sound preset<select id="presetSelect"><option value="root-cloud">Root Cloud</option></select></label>
 <section class="control-section input-section" aria-label="Input source">
-<label class="select-field" for="sourceMode">Input<select id="sourceMode"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option></select></label>
+<label class="select-field" for="sourceMode">Input<select id="sourceMode"><option value="mic">Mic / line</option><option value="file">Audio file</option><option value="samples">Built-in samples</option><option value="impulse">Synth impulse</option></select></label>
 <div id="sampleControls" hidden><label class="select-field" for="sampleSelect">Sample<span class="select-next"><select id="sampleSelect"><option value="sample-drums">Drum loop</option></select><button id="sampleNext" type="button" aria-label="Next sample">›</button></span></label></div>
 <label id="fileControls" class="file-field" for="fileInput" hidden>Choose audio file<input id="fileInput" type="file" accept="audio/*" /></label>
 <div id="mediaTransport" class="media-transport" hidden><button id="restartInput" type="button">Restart</button><button id="stopInput" type="button">Stop input</button><label for="inputLoop"><input id="inputLoop" type="checkbox" checked /> Loop</label></div>
-<div id="legacyMic" hidden><button id="micButton" type="button">Mic</button><input id="inputTrim" type="range" min="0" max="4" step=".01" value=".85" aria-label="Mic / line gain" /></div>
-<p class="input-note" id="inputNote">Enable Mic for capture. Files and samples play at unity input gain.</p><p id="inputCredit" class="input-credit" hidden></p>
-<div class="knob-grid">
-<label class="knob-field" for="inputDriveDb" title="Boost the source feeding the delay network without increasing direct playback."><span><b>Network drive</b><output for="inputDriveDb">+12 dB</output></span><input id="inputDriveDb" type="range" min="-12" max="24" step="0.1" value="12" aria-label="Network drive" /></label>
-<label class="knob-field" for="dry" title="Unprocessed input sent directly to the speakers. Zero keeps the source feeding the network without direct playback."><span><b>Direct input</b><output for="dry">0%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0" aria-label="Direct input" /></label>
+<div id="impulseControls" hidden>
+<div class="impulse-transport" role="group" aria-label="Impulse transport">
+<button id="sendImpulse" type="button" disabled>Send</button>
+<button id="impulsePlay" class="play-button" type="button" aria-label="Play repeating impulses" aria-pressed="false"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+<label class="knob-field" for="impulseTempo"><span><b>Repeat tempo</b><output for="impulseTempo">60 BPM</output></span><input id="impulseTempo" type="range" min="1" max="240" step="0.1" value="60" aria-label="Impulse repeat tempo" /></label>
 </div>
-<p class="control-note">Network drive feeds the effect. Direct input at zero lets you hear only the effect.</p>
-<div class="media-transport"><button id="sendPulse" type="button" disabled title="Enable Audio, then send a short pulse through the selected input points.">Send pulse</button></div>
-<a class="settings-link" href="settings.html#audio-input">Audio settings</a>
+<label class="select-field" for="impulseMode">Voice<select id="impulseMode"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="square">Square</option><option value="saw">Saw</option><option value="fm" selected>FM</option><option value="pm">PM</option><option value="shepard">Shepard</option></select></label>
+<details id="impulseSettings" class="control-section" open><summary title="Envelope stages share a four-second maximum.">Impulse sound</summary><div class="knob-grid impulse-knobs">
+<label class="knob-field" for="impulseFrequency"><span><b>Frequency</b><output for="impulseFrequency">220</output></span><input id="impulseFrequency" type="range" min="20" max="4000" step="1" value="220" aria-label="Impulse frequency" /></label>
+<label class="knob-field" for="impulseIndex"><span><b>Mod depth</b><output for="impulseIndex">3</output></span><input id="impulseIndex" type="range" min="0" max="12" step="0.05" value="3" aria-label="Impulse mod depth" /></label>
+<label class="knob-field" for="impulseRatio"><span><b>Mod ratio</b><output for="impulseRatio">2</output></span><input id="impulseRatio" type="range" min="0.125" max="16" step="0.025" value="2" aria-label="Impulse mod ratio" /></label>
+<label class="knob-field" for="impulseCutoff"><span><b>Cutoff</b><output for="impulseCutoff">9000</output></span><input id="impulseCutoff" type="range" min="80" max="20000" step="1" value="9000" aria-label="Impulse cutoff" /></label>
+<label class="knob-field" for="impulseResonance"><span><b>Resonance</b><output for="impulseResonance">0.6</output></span><input id="impulseResonance" type="range" min="0.1" max="8" step="0.05" value="0.6" aria-label="Impulse resonance" /></label>
+<label class="knob-field" for="impulseAttackMs"><span><b>Attack</b><output for="impulseAttackMs">8</output></span><input id="impulseAttackMs" type="range" min="8" max="1000" step="1" value="8" aria-label="Impulse attack" /></label>
+<label class="knob-field" for="impulseDecayMs"><span><b>Decay</b><output for="impulseDecayMs">30</output></span><input id="impulseDecayMs" type="range" min="8" max="2000" step="1" value="30" aria-label="Impulse decay" /></label>
+<label class="knob-field" for="impulseSustain"><span><b>Sustain</b><output for="impulseSustain">0.25</output></span><input id="impulseSustain" type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Impulse sustain" /></label>
+<label class="knob-field" for="impulseHoldMs"><span><b>Hold</b><output for="impulseHoldMs">10</output></span><input id="impulseHoldMs" type="range" min="0" max="3964" step="1" value="10" aria-label="Impulse hold" /></label>
+<label class="knob-field" for="impulseReleaseMs"><span><b>Release</b><output for="impulseReleaseMs">120</output></span><input id="impulseReleaseMs" type="range" min="20" max="3984" step="1" value="120" aria-label="Impulse release" /></label>
+<label class="knob-field" for="impulseShepardRate"><span><b>Shepard rate</b><output for="impulseShepardRate">1</output></span><input id="impulseShepardRate" type="range" min="-8" max="8" step="0.01" value="1" aria-label="Impulse shepard rate" /></label>
+<label class="knob-field" for="impulseShepardWidth"><span><b>Shepard width</b><output for="impulseShepardWidth">4</output></span><input id="impulseShepardWidth" type="range" min="1" max="8" step="0.05" value="4" aria-label="Impulse shepard width" /></label>
+<label class="knob-field" for="impulseLevel"><span><b>Level</b><output for="impulseLevel">0.35</output></span><input id="impulseLevel" type="range" min="0" max="1" step="0.01" value="0.35" aria-label="Impulse level" /></label></div></details>
+</div>
+<div id="legacyMic" hidden><button id="micButton" type="button">Mic</button><input id="inputTrim" type="range" min="0" max="4" step=".01" value=".85" aria-label="Mic / line gain" /></div>
+<div class="knob-grid">
+<label class="knob-field" for="inputDriveDb" title="Boost the source feeding the delay network without increasing direct playback."><span><b>Network drive</b><output class="sr-only" for="inputDriveDb">+12 dB</output></span><input id="inputDriveDb" type="range" min="-12" max="24" step="0.1" value="12" aria-label="Network drive" /></label>
+<label class="knob-field" for="dry" title="Unprocessed input sent directly to the speakers. Zero keeps the source feeding the network without direct playback."><span><b>Direct input</b><output class="sr-only" for="dry">0%</output></span><input id="dry" type="range" min="0" max="1" step="0.01" value="0" aria-label="Direct input" /></label>
+</div>
 </section>
 <section class="control-section" aria-label="Network">
+<label class="check-field no-decay-control" for="noDecay" title="Carry sound through all paths without configured path, connection, bend or endpoint loss. Restores your previous loss settings when switched off."><input id="noDecay" type="checkbox" /> No decay</label>
 <label class="select-field" for="propagation">Sound<select id="propagation"><option value="paths">Path echoes</option><option value="resonance">Resonance</option></select></label>
 <label class="select-field" for="mode">Geometry<span class="select-next"><select id="mode"><option value="inverse">Inverse tree</option><option value="contours">Contour loops</option><option value="orbits">Orbit routes</option><option value="rays">Ray lattice</option><option value="membrane">Fractal chamber</option></select><button id="modeNext" type="button" aria-label="Next geometry">›</button></span></label>
 <label id="domainField" class="select-field" for="domain">Delay domain<select id="domain"><option value="julia">Julia set</option><option value="mandelbrot">Mandelbrot set</option></select></label>
@@ -95,11 +114,9 @@
 <label class="knob-field" for="tapCoverage" title="Blend the selected listening points with arrivals throughout the complete prepared network."><span><b>Path taps</b><output for="tapCoverage">65%</output></span><input id="tapCoverage" type="range" min="0" max="1" step="0.01" value="0.65" aria-label="Path taps" /></label>
 <label class="knob-field" for="turnTone" title="Darken echoes at sharper bends. Straight continuation stays open."><span><b>Bend tone</b><output for="turnTone">30%</output></span><input id="turnTone" type="range" min="0" max="1" step="0.01" value="0.3" aria-label="Bend tone" /></label>
 <label class="knob-field" for="coupling"><span><b>Coupling</b><output for="coupling">0.82</output></span><input id="coupling" type="range" min="0" max="1" step="0.01" value="0.82" aria-label="Coupling" /></label>
-<label class="knob-field" for="decay"><span><b>Sustain</b><output for="decay">0.84</output></span><input id="decay" type="range" min="0" max="0.98" step="0.01" value="0.84" aria-label="Sustain" /></label>
+<label class="knob-field" for="decay"><span><b>Sustain</b><output for="decay">0.84</output></span><input id="decay" type="range" min="0" max="1" step="0.01" value="0.84" aria-label="Sustain" /></label>
 <label class="knob-field" for="boundary"><span><b>End return</b><output for="boundary">100%</output></span><input id="boundary" type="range" min="0" max="1" step="0.01" value="1" aria-label="Endpoint reflection" /></label>
 <label class="knob-field" for="linkDensity"><span><b>Link density</b><output for="linkDensity">25%</output></span><input id="linkDensity" type="range" min="0" max="1" step="0.01" value="0.25" aria-label="Extra connection density" /></label></div>
-<p id="routingDescription" class="control-note">Geometry routes follow the selected fractal construction.</p>
-<p id="propagationDescription" class="control-note">Length → travel time · direction → pitch · bends → tone.</p>
 </section>
 <section class="control-section" aria-label="Excitation and pickups">
 <label class="select-field" for="inputMode">Excitation<select id="inputMode"><option value="point">Single point</option><option value="cluster">Local cluster</option><option value="distributed">Distributed points</option><option value="boundary">Boundary points</option><option value="all">Whole shape</option></select></label>
@@ -113,13 +130,7 @@
 <label class="knob-field" for="pickupSpread"><span><b>Listen spread</b><output for="pickupSpread">50%</output></span><input id="pickupSpread" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Pickup spread" /></label>
 <label class="knob-field" for="delayGainDb" title="Amplify the collected delay signal before pitch, effect/direct mixing, and mastering."><span><b>Delay gain</b><output for="delayGainDb">+24 dB</output></span><input id="delayGainDb" type="range" min="-12" max="48" step="0.1" value="24" aria-label="Delay gain" /></label>
 </div>
-<p id="portReadout" class="control-note" role="status">One excitation point · one pickup.</p>
-<p class="control-note">Count and spread shape grouped modes. Whole shape uses every prepared node. Delay gain boosts the listening signal before mixing. End return controls endpoint reflections; Sustain controls loss along each path.</p>
 </section>
-<details class="control-section" id="liveData"><summary>Live data <span id="edgeCount">— connections</span></summary><dl class="live-data"><div><dt>Requested / prepared</dt><dd id="capacityReadout">—</dd></div><div><dt>Processing</dt><dd id="processingReadout">Audio off</dd></div><div><dt>Excitation / pickups</dt><dd id="portsReadout">—</dd></div><div><dt>Added routes</dt><dd id="linksReadout">—</dd></div><div><dt>Audio load / peak</dt><dd id="cpuReadout">—</dd></div><div><dt>Worker estimate</dt><dd id="estimateReadout">—</dd></div><div><dt>Delay history</dt><dd id="memoryReadout">—</dd></div><div><dt>Missed deadlines</dt><dd id="deadlineReadout">0</dd></div><div><dt>Renderer</dt><dd id="rendererReadout">—</dd></div></dl>
-<label class="select-field" for="voiceBudget">Connection budget<input id="voiceBudget" type="number" min="2" max="16384" step="1" value="16384" /></label>
-<label class="check-field" for="manualBudget"><input id="manualBudget" type="checkbox" /> Test budget beyond measured CPU target</label><p class="control-note">Two travelling waves per connection. Memory remains bounded. Capacity stays fixed until you change geometry or the budget.</p>
-</details>
 <details class="control-section" id="mixControls" open><summary>Mix &amp; mastering</summary><label class="select-field" for="masteringPreset">Mastering<select id="masteringPreset"><option value="">Custom</option><option value="open">Open / gentle</option><option value="clear">Clear / controlled</option><option value="warm">Warm / close</option><option value="dense">Dense / restrained</option></select></label><div class="knob-grid"><label class="knob-field" for="wet"><span><b>Wet</b><output for="wet">0.7</output></span><input id="wet" type="range" min="0" max="1" step="0.01" value="0.7" aria-label="Wet" /></label>
 <label class="knob-field" for="outputBoostDb"><span><b>Boost</b><output for="outputBoostDb">6</output></span><input id="outputBoostDb" type="range" min="-12" max="18" step="0.1" value="6" aria-label="Boost" /></label>
 <label class="knob-field" for="hpfHz"><span><b>High pass</b><output for="hpfHz">30</output></span><input id="hpfHz" type="range" min="5" max="2000" step="1" value="30" aria-label="High pass" /></label>
@@ -129,7 +140,12 @@
 <label class="knob-field" for="compressorAttackMs"><span><b>Attack</b><output for="compressorAttackMs">5</output></span><input id="compressorAttackMs" type="range" min="0.1" max="100" step="0.1" value="5" aria-label="Attack" /></label>
 <label class="knob-field" for="compressorReleaseMs"><span><b>Release</b><output for="compressorReleaseMs">120</output></span><input id="compressorReleaseMs" type="range" min="10" max="1000" step="1" value="120" aria-label="Release" /></label>
 <label class="knob-field" for="compressorMakeupDb"><span><b>Makeup</b><output for="compressorMakeupDb">0</output></span><input id="compressorMakeupDb" type="range" min="0" max="18" step="0.1" value="0" aria-label="Makeup" /></label></div></details>
-<details class="control-section"><summary>Capture a sound</summary><button id="captureSound" type="button">Copy parameters</button><textarea id="capturedSound" rows="5" readonly aria-label="Captured Fractal Delay parameters" hidden></textarea><p id="captureStatus" class="control-note" role="status">Paste captured parameters into chat to save a preset.</p></details>
+<details class="control-section" id="capacityControls"><summary>Capacity</summary>
+<label class="select-field" for="voiceBudget">Connection budget<input id="voiceBudget" type="number" min="2" max="16384" step="1" value="16384" /></label>
+<label class="check-field" for="manualBudget"><input id="manualBudget" type="checkbox" /> Test budget beyond measured CPU target</label><p class="control-note">Two travelling waves per connection. Memory remains bounded. Capacity stays fixed until you change geometry or the budget.</p>
+</details>
+<details class="control-section" id="captureControls"><summary>Capture a sound</summary><button id="captureSound" type="button">Copy parameters</button><textarea id="capturedSound" rows="5" readonly aria-label="Captured Fractal Delay parameters" hidden></textarea><p id="captureStatus" class="control-note" role="status">Paste captured parameters into chat to save a preset.</p></details>
+<details class="control-section" id="liveData"><summary>Live data <span id="edgeCount">— connections</span></summary><dl class="live-data"><div><dt>Requested / prepared</dt><dd id="capacityReadout">—</dd></div><div><dt>Processing</dt><dd id="processingReadout">Audio off</dd></div><div><dt>Excitation / pickups</dt><dd id="portsReadout">—</dd></div><div><dt>Added routes</dt><dd id="linksReadout">—</dd></div><div><dt>Audio load / peak</dt><dd id="cpuReadout">—</dd></div><div><dt>Worker estimate</dt><dd id="estimateReadout">—</dd></div><div><dt>Delay history</dt><dd id="memoryReadout">—</dd></div><div><dt>Missed deadlines</dt><dd id="deadlineReadout">0</dd></div><div><dt>Renderer</dt><dd id="rendererReadout">—</dd></div></dl></details>
 <p id="liveStatus" class="live-status" role="status">Audio off.</p>
 </aside></main>
 <script type="module" src="nav.js"></script><script type="module" src="src/instruments/fractal-delay/app.js"></script>

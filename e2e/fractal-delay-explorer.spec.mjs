@@ -44,7 +44,7 @@ async function fixture(page, { pcm = false } = {}) {
           let hash = 2166136261;
           for (let i = 0; i < data.pixels.length; i += 64)
             for (let c = 0; c < 4; c++) hash = Math.imul(hash ^ data.pixels[i + c], 16777619);
-          qa.maps.push({ hash: hash >>> 0, width: data.width, height: data.height, revision: data.revision });
+          qa.maps.push({ hash: hash >>> 0, width: data.width, height: data.height, revision: data.revision, view: data.view });
         });
       }
     };
@@ -416,6 +416,36 @@ test('Mandelbrot and Julia locations, zoom, drag and keyboard controls change re
   await expectAudioOff(page); expect(errors).toEqual([]);
   await testInfo.attach('fractal-view.json', { body: JSON.stringify({ located: located.witness.requests.at(-1),
     zoomed: zoomed.witness.requests.at(-1), julia: julia.explorer, final: finalCapture.explorer }, null, 2), contentType: 'application/json' });
+});
+
+test('deep zoom and return retain complete cached coverage without rebuilding the audio graph', async ({ page }, testInfo) => {
+  test.setTimeout(90000); const errors = await fixture(page); await ready(page);
+  await choose(page, 'explorerPreset', 'mandelbrot-fine'); await settled(page);
+  await expect.poll(() => page.evaluate(() => __fractalExplorerWitness.maps.at(-1).view.zoom)).toBe(350);
+  const before = await diagnostics(page);
+  const previews = await page.evaluate(() => {
+    const canvas = document.getElementById('parameterMap'), context = canvas.getContext('2d'), previews = [];
+    for (const zoom of [16384, 350, 16384]) {
+      const input = document.getElementById('explorerZoom'); input.value = String(zoom);
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      // Check actual painted corners in the same task, before any worker can
+      // replace the preview. An opaque full-set underlay must survive a reset.
+      document.getElementById('explorerReset').click();
+      previews.push([[3,3],[canvas.width-4,3],[3,canvas.height-4],[canvas.width-4,canvas.height-4]]
+        .map(([x,y]) => [...context.getImageData(x,y,1,1).data]));
+    }
+    return previews;
+  });
+  for (const corners of previews) for (const pixel of corners) {
+    expect(pixel[3]).toBe(255); expect(pixel.slice(0,3)).not.toEqual([5,7,9]);
+  }
+  const after = await settled(page);
+  expect(after.network.revision).toBe(before.network.revision);
+  expect(after.witness.geometry.length).toBe(before.witness.geometry.length);
+  expect(after.parameters).toEqual(before.parameters); await expectAudioOff(page);
+  expect(errors).toEqual([]);
+  await testInfo.attach('cached-zoom-coverage.json', { body: JSON.stringify({ previews,
+    graphRevision: after.network.revision }, null, 2), contentType: 'application/json' });
 });
 
 for (const viewport of SIZES.slice(1)) {

@@ -1,0 +1,16 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+export const fractalNavigationAmendments = JSON.parse(readFileSync(new URL('../../docs/fractal-delay-navigation-runtime-changes.json', import.meta.url), 'utf8'));
+
+export function restoreFractalNavigation(source, file, { allowRestored = false } = {}) {
+  for (const change of fractalNavigationAmendments.changes.filter(change => change.file === file)) {
+    for (const replacement of [...change.replacements].reverse()) {
+      const count = source.split(replacement.after).length - 1;
+      if (allowRestored && count === 0 && source.split(replacement.before).length - 1 === 1) continue;
+      assert.equal(count, 1, `${file}: exact Fractal navigation amendment`);
+      source = source.replace(replacement.after, replacement.before);
+    }
+  }
+  return source;
+}

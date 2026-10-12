@@ -1,0 +1,24 @@
+{
+  "baseCommit": "25d3ed91024a64dc5803337c993d1133a79f890f",
+  "description": "October 11 Fractal Delay standard Choose menu integration: keep Faves-only tools searchable while suppressing rows duplicated in other groups. Historical menu reference hashes remain unchanged.",
+  "changes": [
+    {
+      "file": "nav.js",
+      "sha256": "6b1ed31431c6eb501237d613020506d35b082c4cbfefaf8f2fa08917b6c45584",
+      "regressionTests": [
+        "tests/nav.test.mjs",
+        "e2e/instrument-tour.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  const applyFilter = () => {\n    const query = searchInput.value.trim().toLocaleLowerCase();",
+          "after": "  const outsideFaves = new Map();\n  for (const record of groupRecords.filter(record => record.group.id !== \"faves\")) {\n    for (const [index, row] of record.rows.entries()) {\n      const id = record.group.tools[index].id, terms = outsideFaves.get(id) || [];\n      terms.push(row.getAttribute(\"data-filter-text\")); outsideFaves.set(id, terms);\n    }\n  }\n  const applyFilter = () => {\n    const query = searchInput.value.trim().toLocaleLowerCase();"
+        },
+        {
+          "before": "      for (const row of record.rows) {\n        const matches = !query || row.getAttribute(\"data-filter-text\").includes(query);\n        row.hidden = !matches;\n        if (matches) groupMatches += 1;\n      }\n      const hideDuplicateFaves = Boolean(query) && record.group.id === \"faves\";\n      record.section.hidden = hideDuplicateFaves || groupMatches === 0;\n      record.section.open = query ? groupMatches > 0 : record.defaultOpen;\n      if (!hideDuplicateFaves) visibleRows += groupMatches;",
+          "after": "      for (const [index, row] of record.rows.entries()) {\n        const duplicate = Boolean(query) && record.group.id === \"faves\"\n          && outsideFaves.get(record.group.tools[index].id)?.some(text => text.includes(query));\n        const matches = !duplicate && (!query || row.getAttribute(\"data-filter-text\").includes(query));\n        row.hidden = !matches;\n        if (matches) groupMatches += 1;\n      }\n      record.section.hidden = groupMatches === 0;\n      record.section.open = query ? groupMatches > 0 : record.defaultOpen;\n      visibleRows += groupMatches;"
+        }
+      ]
+    }
+  ]
+}

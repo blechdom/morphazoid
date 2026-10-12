@@ -4,6 +4,7 @@ import { DEFAULT_PERFORMANCE, sanitizePerformance } from './performance.js';
 import { createInputSource } from '../micmic/native/input-source.js';
 import { audioInputConstraints, configureAudioInputNode, audioInputDescription } from '../../audio-input-settings.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
+import { createImpulseSource } from './impulse-source.js';
 
 let singleton;
 // Port edits share the atomic revision acknowledgement; the worker reuses the
@@ -14,16 +15,18 @@ const wait = ms => new Promise(resolve => setTimeout(resolve, ms));
 export function createFractalDelayEngine(options = {}) {
   let parameters = sanitizeParameters(options.parameters || DEFAULT_PARAMETERS);
   let performance = sanitizePerformance(options.performance || DEFAULT_PERFORMANCE);
-  let context, node, master, releaseOutput, contextPromise, modulePromise, module;
+  let context, node, installedNode, master, releaseOutput, contextPromise, modulePromise, module;
   let contextGeneration = 0, audioDesired = false, audio = false, disposed = false, processorFailure = false;
   let micStream, micNode, micPending = false, micVersion = 0, audioVersion = 0;
-  let network, networkBytes, preview, status = {}, error = '', revision = 0, messageId = 0, lastSampleClock = 0;
+  let network, preview, status = {}, error = '', revision = 0, messageId = 0, lastSampleClock = 0;
   let compiling = false, cpuEstimate = 0, requiredDelayBytes = 0, pollTimer, pollPending = false;
   let manual = false, budget = 16384;
   const motion = createParameterMotion(parameters);
   let motionTimer, motionClock, motionBusy = false, lastMotionDispatch = -Infinity;
   const memoryBytes = (navigator.deviceMemory >= 8 ? 192 : navigator.deviceMemory <= 2 ? 48 : 96) * 1024 * 1024;
   const requests = new Map(), builds = new Map(), listeners = new Set();
+  let activeBuild, queuedBuild;
+  let sourceMode='mic';
   const pulseNodes = new Set();
   let pulseBuffer;
   const worker = new Worker(new URL('./preflight-worker.js', import.meta.url), { type:'module' });
@@ -31,14 +34,18 @@ export function createFractalDelayEngine(options = {}) {
   const report = reason => { error = String(reason?.message || reason); emit(); };
   const input = createInputSource({
     prepare: prepareContext, getContext: () => context, getTarget: () => node,
-    canPlay: () => audioDesired && audio && !!node && !disposed,
+    canPlay: () => audioDesired && audio && sourceMode!=='impulse' && !!node && !disposed,
     onChange: emit, onError: report,
   });
+  const impulse=createImpulseSource({getContext:()=>context,getTarget:()=>node,
+    canPlay:()=>audioDesired&&audio&&sourceMode==='impulse'&&!!node&&!disposed,
+    onChange:emit,onError:report});
+  function inputSnapshot(){return sourceMode==='impulse'?{...input.snapshot(),mode:'impulse',playing:impulse.snapshot().sounding,loop:false}:input.snapshot();}
   function getDiagnostics() {
     return { parameters:{...parameters}, performance:{...performance}, motion:motion.snapshot(), audioDesired, audio,
-      contextState:context?.state || 'uninitialized', contextGeneration, input:input.snapshot(),
+      contextState:context?.state || 'uninitialized', contextGeneration, input:inputSnapshot(),impulse:impulse.snapshot(),
       microphone:!!micStream, microphonePending:micPending, inputDescription:audioInputDescription(micStream),
-      sourceCount:Number(!!micStream)+Number(input.snapshot().playing), error, compiling,
+      sourceCount:Number(!!micStream)+Number(input.snapshot().playing)+Number(impulse.snapshot().enabled), error, compiling,
       network, preview, revision:status.revision || network?.revision || 0,
       preparedEdges:(network || preview)?.edges.length || 0,
       requestedEdges:(network || preview)?.requestedEdges || 0,
@@ -56,7 +63,7 @@ export function createFractalDelayEngine(options = {}) {
   }
   function sendControls() {
     if (node) node.port.postMessage({type:'controls', parameters, performance,
-      inputMode:input.snapshot().mode === 'mic' ? 'mic' : 'media'});
+      inputMode:sourceMode === 'mic' ? 'mic' : 'media'});
   }
   async function loadModule() {
     if (!modulePromise) modulePromise = fetch(new URL('../../../assets/wasm/fractal-delay.wasm', import.meta.url))
@@ -67,39 +74,59 @@ export function createFractalDelayEngine(options = {}) {
   }
   worker.onmessage = async ({data}) => {
     const job = builds.get(data.revision); if (!job) return;
-    builds.delete(data.revision);
-    if (data.error) { if (data.revision === revision) { compiling = false; report(data.error); } job.reject(new Error(data.error)); return; }
-    if (data.type === 'superseded' || data.revision !== revision || disposed) { job.resolve(false); return; }
-    const next = {...data.network,revision:data.revision};
     try {
+      if (data.error) throw new Error(data.error);
+      if (data.type === 'superseded' || disposed || processorFailure) { job.resolve(false); return; }
+      const next = {...data.network,revision:data.revision};
       if (node) {
         await context.resume();
+        if (disposed || processorFailure) { job.resolve(false); return; }
         const result = await request('scene',{sceneBytes:data.sceneBytes,revision:next.revision, parameters,performance,
-          inputMode:input.snapshot().mode === 'mic' ? 'mic' : 'media'});
-        if (result.superseded) { job.resolve(false); return; }
+          inputMode:sourceMode === 'mic' ? 'mic' : 'media'});
+        if (result.superseded || disposed || processorFailure) { job.resolve(false); return; }
+        installedNode=node;
       }
       // Every installed revision must be drawn, even if a newer edit is queued.
       // Desired state and the actually processing graph are distinct lifecycles.
-      network = next; networkBytes=data.sceneBytes; preview = next; status = {};
+      network = next; preview = next; status = {};
       cpuEstimate = data.measurement.cpuLoad; requiredDelayBytes = data.requiredDelayBytes;
-      if(next.revision===revision){compiling = false; error = '';}
+      if(next.revision===revision)error = '';
       emit(); job.resolve(true);
-      if (context && !audioDesired && !micStream) await context.suspend();
-    } catch (reason) { if(next.revision===revision){compiling=false;report(reason);}job.reject(reason); }
+      if (context && !audioDesired && !micStream && !queuedBuild && !contextPromise) await context.suspend();
+    } catch (reason) { if(job.revision===revision)report(reason);job.reject(reason); }
+    finally { finishBuild(job); }
   };
-  worker.onerror = event => { report(event.message); for (const job of builds.values()) job.reject(new Error(event.message)); builds.clear(); compiling=false; };
-  async function prepareNetwork() {
-    const nextRevision = ++revision; compiling = true; emit();
-    let wasm;
-    try { wasm = await loadModule(); }
-    catch(reason) {if(nextRevision===revision){compiling=false;report(reason);}throw reason;}
-    if (nextRevision !== revision || disposed) return false;
-    for (const [id,job] of builds) { job.resolve(false); builds.delete(id); }
-    return new Promise((resolve,reject) => {
-      builds.set(nextRevision,{resolve,reject});
-      worker.postMessage({revision:nextRevision,parameters,budget,manual,memoryBytes:memoryBytes/2,
-        sampleRate:context?.sampleRate || 48000,module:wasm,performance});
-    });
+  worker.onerror = event => {
+    for (const job of builds.values()) job.reject(new Error(event.message)); builds.clear();
+    queuedBuild?.reject(new Error(event.message));activeBuild=queuedBuild=undefined;compiling=false;report(event.message);
+  };
+  function finishBuild(job) {
+    if(activeBuild!==job)return;
+    builds.delete(job.revision);activeBuild=undefined;
+    const next=queuedBuild;queuedBuild=undefined;
+    if(next&&!disposed&&!processorFailure)void dispatchBuild(next);
+    else {compiling=false;emit();}
+  }
+  async function dispatchBuild(job) {
+    activeBuild=job;builds.set(job.revision,job);
+    try {
+      const wasm=await loadModule();
+      if(disposed||processorFailure||activeBuild!==job){job.resolve(false);finishBuild(job);return;}
+      worker.postMessage({...job.target,revision:job.revision,module:wasm});
+    } catch(reason) {if(job.revision===revision)report(reason);job.reject(reason);finishBuild(job);}
+  }
+  function prepareNetwork() {
+    if(disposed||processorFailure)return Promise.resolve(false);
+    let resolve,reject;
+    const promise=new Promise((yes,no)=>{resolve=yes;reject=no;});
+    // Finish one complete graph through its Rust ACK. Continuous input keeps
+    // only the newest waiting target; it cannot starve the graph in flight.
+    const job={revision:++revision,resolve,reject,promise,target:{parameters:{...parameters},budget,manual,
+      memoryBytes:memoryBytes/2,sampleRate:context?.sampleRate||48000,performance:{...performance}}};
+    compiling=true;
+    if(activeBuild){queuedBuild?.resolve(false);queuedBuild=job;}
+    else void dispatchBuild(job);
+    emit();return promise;
   }
   async function prepareContext() {
     if (disposed) throw new Error('Instrument has closed');
@@ -134,9 +161,13 @@ export function createFractalDelayEngine(options = {}) {
       node.onprocessorerror = () => failProcessor('Audio processor stopped. Reload to restart.');
       node.connect(master); sendControls();
       await context.resume();
-      if (!network || context.sampleRate !== 48000) await prepareNetwork();
-      else await request('scene',{sceneBytes:networkBytes,revision:network.revision,parameters,performance,
-        inputMode:input.snapshot().mode === 'mic' ? 'mic' : 'media'});
+      // Bootstrap shares admission with ongoing gestures. A cached scene sent
+      // separately could supersede a newer graph already installing in Rust.
+      await prepareNetwork();
+      while(installedNode!==node){
+        if(disposed||processorFailure)throw new Error('Instrument has closed');
+        await (activeBuild?.promise||prepareNetwork());
+      }
       if (!audioDesired && !micStream) await context.suspend();
       if(disposed || ownedContext.state==='closed')throw new Error('Instrument has closed');
       pollTimer = setInterval(() => {
@@ -159,7 +190,7 @@ export function createFractalDelayEngine(options = {}) {
     advanceMotionClock();
     const token = ++audioVersion; audioDesired=!!enabled; error=''; emit();
     if (!enabled) {
-      stopPulses(); stopMicrophone(); input.stop(); audio=false;advanceMotionClock();
+      impulse.disable();stopPulses(); stopMicrophone(); input.stop(); audio=false;advanceMotionClock();
       if (master && context?.state !== 'closed') {
         master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(0,context.currentTime,.008);
         await wait(35);
@@ -172,17 +203,19 @@ export function createFractalDelayEngine(options = {}) {
       await prepareContext(); if (token !== audioVersion || !audioDesired || disposed) return false;
       await context.resume(); sendControls();advanceMotionClock();audio=true;advanceMotionClock();
       master.gain.cancelScheduledValues(context.currentTime); master.gain.setTargetAtTime(1,context.currentTime,.012);
-      if (input.snapshot().mode !== 'mic') await input.start(); emit(); return true;
+      if(sourceMode==='impulse')await impulse.enable();
+      else if(sourceMode!=='mic')await input.start();emit();return true;
     } catch(reason) { if (token===audioVersion){advanceMotionClock();audioDesired=audio=false;advanceMotionClock();} report(reason); throw reason; }
   }
   function failProcessor(reason) {
     advanceMotionClock();audioDesired=audio=false;advanceMotionClock();processorFailure=true;
     motion.setPlaying('real',false);motion.setPlaying('imag',false);stopMotionTimer();
     if(master)master.gain.value=0;
-    stopPulses();stopMicrophone();input.stop();compiling=false;
+    impulse.disable();stopPulses();stopMicrophone();input.stop();compiling=false;
     const failure=new Error(String(reason?.message||reason));
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.reject(failure);}requests.clear();
     for(const pending of builds.values())pending.resolve(false);builds.clear();
+    queuedBuild?.resolve(false);activeBuild=queuedBuild=undefined;
     if(context?.state==='running')void context.suspend().catch(report);
     report(failure);
   }
@@ -202,7 +235,7 @@ export function createFractalDelayEngine(options = {}) {
       await contextReady;
       if(token!==micVersion || disposed) return false;
       const stream=await navigator.mediaDevices.getUserMedia({audio:audioInputConstraints(globalThis)});
-      if(token!==micVersion || input.snapshot().mode!=='mic' || disposed) {
+      if(token!==micVersion || sourceMode!=='mic' || disposed) {
         stream.getTracks().forEach(track=>track.stop());return false;
       }
       await context.resume();
@@ -213,15 +246,18 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function setInputMode(mode) {
     if(mode==='sample')mode='samples';
-    stopMicrophone(); input.selectMode(mode); sendControls();
-    if(audio && mode!=='mic') await input.start(); emit();
+    if(!['mic','file','samples','impulse'].includes(mode))mode='mic';
+    stopMicrophone();if(mode!==sourceMode)impulse.disable();sourceMode=mode;
+    input.selectMode(mode==='impulse'?'mic':mode);sendControls();
+    if(audio&&mode==='impulse')await impulse.enable();
+    else if(audio&&mode!=='mic')await input.start();emit();
   }
   async function setSample(id) {
-    stopMicrophone(); input.selectMode('samples'); sendControls(); input.selectSample(id);
+    impulse.disable();sourceMode='samples';stopMicrophone(); input.selectMode('samples'); sendControls(); input.selectSample(id);
     if(audio)await input.start(); emit();
   }
   async function loadFile(file) {
-    stopMicrophone(); input.selectMode('file'); sendControls(); await input.loadFile(file); emit();
+    impulse.disable();sourceMode='file';stopMicrophone(); input.selectMode('file'); sendControls(); await input.loadFile(file); emit();
   }
   function advanceMotionClock() {
     // Motion uses the audio clock while sound runs. Rendering and UI stalls do
@@ -301,14 +337,17 @@ export function createFractalDelayEngine(options = {}) {
   }
   async function dispose() {
     if(disposed)return; audioDesired=false; audio=false; stopPulses(); stopMicrophone();input.dispose();disposed=true;
+    await impulse.dispose();
     clearInterval(pollTimer);stopMotionTimer();motion.setPlaying('real',false);motion.setPlaying('imag',false);worker.terminate();
     for(const pending of requests.values()){clearTimeout(pending.timer);pending.resolve({superseded:true});}requests.clear();
     for(const pending of builds.values())pending.resolve(false);builds.clear();
+    queuedBuild?.resolve(false);activeBuild=queuedBuild=undefined;
     node?.port.postMessage({type:'dispose'});node?.disconnect();master?.disconnect();releaseOutput?.();
     if(context?.state!=='closed')await context?.close();listeners.clear();
   }
   const engine={getDiagnostics,setParameters,setMotionPlaying,setPerformance,setAudio,setMicrophoneEnabled,setInputMode,setSample,loadFile,sendPulse,
-    setInputLoop:loop=>input.setLoop(loop),restartInput:()=>input.restart(),stopInput:()=>{stopPulses();stopMicrophone();input.stop();},
+    setImpulseParameters:patch=>impulse.setParameters(patch),setImpulsePlaying:value=>impulse.setPlaying(value),sendImpulse:()=>impulse.send(),
+    setInputLoop:loop=>input.setLoop(loop),restartInput:()=>sourceMode==='impulse'?impulse.send():input.restart(),stopInput:()=>{impulse.disable();stopPulses();stopMicrophone();input.stop();},
     setVoiceBudget:async(value,override=false)=>{budget=Math.max(2,Math.min(16384,Math.floor(Number(value)||16384)));manual=!!override;return prepareNetwork();},
     subscribe(listener){listeners.add(listener);listener(getDiagnostics());return()=>listeners.delete(listener);},
     ready:()=>prepareNetwork(),dispose};

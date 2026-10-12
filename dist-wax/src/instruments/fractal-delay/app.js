@@ -1,5 +1,5 @@
 import { createFractalDelayEngine } from './browser-engine.js';
-import { MODES, ROUTING_MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, randomizeParameters } from './model.js';
+import { MODES, DEFAULT_PARAMETERS, PARAMETER_LIMITS, randomizeParameters, NO_DECAY_PARAMETERS, hasNoDecay } from './model.js';
 import { PRESETS, DEFAULT_PRESET, recallParameters } from './presets.js';
 import { DEFAULT_PERFORMANCE, PERFORMANCE_LIMITS, musicalMix, recallMix, MASTERING_PRESETS } from './performance.js';
 import { SAMPLE_INPUT_OPTIONS } from '../micmic/native/input-source.js';
@@ -11,14 +11,17 @@ import { mountAudioInputControl } from '../../audio-input-control.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { initializeOutputRecording } from '../../site/output-recording-controls.js';
 import { initializeTapTempoControls } from '../../site/tap-tempo-controls.js';
+import { enhanceSharedNavigation } from '../../../nav.js';
+import { IMPULSE_LIMITS } from './impulse-source.js';
 import { DEFAULT_EXPLORER_VIEW, EXPLORER_PRESETS, EXPLORER_LIMITS, normalizeExplorerView,
-  complexAt, pixelAt, zoomExplorer, panExplorer } from './fractal-explorer.js';
+  complexAt, pixelAt, zoomExplorer, panExplorer, projectExplorerImage } from './fractal-explorer.js';
 
 const $=id=>document.getElementById(id);
+enhanceSharedNavigation(document);
 const engine=createFractalDelayEngine({parameters:DEFAULT_PRESET.parameters});
 const renderer=createNetworkRenderer($('stage'));
 let explorerView={...DEFAULT_EXPLORER_VIEW},explorerRegionId=EXPLORER_PRESETS[0].id,motionTempoLatched=false;
-let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastCredit='',lastUi=-Infinity,lastRoutingLinks=0,frame,closed=false;
+let state=engine.getDiagnostics(),lastRevision=-1,lastStatus,lastAudio,lastStateKey='',lastUi=-Infinity,lastRoutingLinks=0,frame,closed=false;
 const run=promise=>Promise.resolve(promise).catch(reason=>{
   $('liveStatus').textContent=reason.message||String(reason);$('liveStatus').classList.add('is-error');
 });
@@ -41,6 +44,17 @@ const headerObserver=new ResizeObserver(()=>document.body.style.setProperty('--f
 headerObserver.observe(document.querySelector('.masthead'));
 
 const knobs=new Map();
+const impulseIds=Object.fromEntries(Object.keys(IMPULSE_LIMITS).map(key=>[`impulse${key[0].toUpperCase()}${key.slice(1)}`,key]));
+let previousLossSettings;
+$('noDecay').addEventListener('change',()=>{
+  if($('noDecay').checked){
+    previousLossSettings=Object.fromEntries(Object.keys(NO_DECAY_PARAMETERS).map(key=>[key,state.parameters[key]]));
+    run(engine.setParameters(NO_DECAY_PARAMETERS));
+  }else{
+    run(engine.setParameters(previousLossSettings||Object.fromEntries(Object.keys(NO_DECAY_PARAMETERS).map(key=>[key,DEFAULT_PRESET.parameters[key]]))));
+    previousLossSettings=undefined;
+  }
+});
 function editParameters(patch){
   if(motionTempoLatched){
     const key=['realMotionTempo','imagMotionTempo'].find(key=>Object.hasOwn(patch,key));
@@ -58,15 +72,20 @@ function editParameters(patch){
 }
 for(const input of document.querySelectorAll('.knob-field input[type=range]')){
   const id=input.id;
-  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz','inputCount','pickupCount','realMotionTempo','imagMotionTempo','explorerZoom'].includes(id)?'log':'linear'}));
+  knobs.set(id,enhanceRangeKnob(input,{scale:['timeMs','hpfHz','lpfHz','inputCount','pickupCount','realMotionTempo','imagMotionTempo','explorerZoom','impulseFrequency','impulseCutoff','impulseRatio','impulseTempo'].includes(id)?'log':'linear'}));
   input.addEventListener('input',()=>{
     if(id==='explorerZoom'){setExplorerView(zoomExplorer(explorerView,Number(input.value)));return;}
+    if(impulseIds[id]){engine.setImpulseParameters({[impulseIds[id]]:Number(input.value)});return;}
     run(id in PARAMETER_LIMITS?editParameters({[id]:Number(input.value)}):engine.setPerformance({[id]:Number(input.value)}));
   });
 }
 // Rust/WASM pages own their bootstrap; nav.js leaves this lifecycle to us.
 const tapTempo=initializeTapTempoControls(document,globalThis);
 const format=(key,value)=>{
+  if(key==='impulseTempo')return `${Number(value.toFixed(1))} BPM`;
+  if(key.startsWith('impulse')&&key.endsWith('Ms'))return `${Math.round(value)} ms`;
+  if(['impulseFrequency','impulseCutoff'].includes(key))return value>=1000?`${(value/1000).toFixed(2)} kHz`:`${Math.round(value)} Hz`;
+  if(['impulseSustain','impulseLevel'].includes(key))return `${Math.round(value*100)}%`;
   if(key.endsWith('MotionTempo'))return `${Number(value.toFixed(2))} BPM`;
   if(key.endsWith('MotionDepth'))return `±${Number(value.toFixed(3))}`;
   if(['timeMs','compressorAttackMs','compressorReleaseMs'].includes(key))return `${Number(value.toFixed(value<10?2:0))} ms`;
@@ -106,12 +125,14 @@ $('mode').addEventListener('change',()=>run(engine.setParameters({mode:$('mode')
 $('domain').addEventListener('change',()=>run(engine.setParameters({domain:$('domain').value})));
 for(const id of ['routing','inputMode','pickupMode','propagation'])$(id).addEventListener('change',()=>run(engine.setParameters({[id]:$(id).value})));
 $('sourceMode').addEventListener('change',()=>run(engine.setInputMode($('sourceMode').value)));
+$('impulseMode').addEventListener('change',()=>engine.setImpulseParameters({mode:$('impulseMode').value}));
+$('sendImpulse').addEventListener('click',()=>run(engine.sendImpulse()));
+$('impulsePlay').addEventListener('click',()=>run(engine.setImpulsePlaying(!state.impulse.playing)));
 $('sampleSelect').addEventListener('change',()=>run(engine.setSample($('sampleSelect').value)));
 $('fileInput').addEventListener('change',()=>{const file=$('fileInput').files[0];if(file)run(engine.loadFile(file));});
 $('inputLoop').addEventListener('change',()=>engine.setInputLoop($('inputLoop').checked));
 $('restartInput').addEventListener('click',()=>run(engine.restartInput()));
 $('stopInput').addEventListener('click',()=>engine.stopInput());
-$('sendPulse').addEventListener('click',()=>run(engine.sendPulse()));
 for(const axis of ['real','imag'])$(`${axis}MotionPlay`).addEventListener('click',()=>
   run(engine.setMotionPlaying(axis,!state.motion[axis].playing)));
 $('motionTempoLatch').addEventListener('click',()=>{
@@ -132,7 +153,7 @@ $('masteringPreset').addEventListener('change',()=>{
 for(const id of ['voiceBudget','manualBudget'])$(id).addEventListener('change',()=>run(engine.setVoiceBudget($('voiceBudget').value,$('manualBudget').checked)));
 $('captureSound').addEventListener('click',async()=>{
   const text=JSON.stringify({instrument:'fractal-delay',version:4,...capture(),explorer:{...explorerView},motionTempoLatched,
-    liveLevels:{inputGain:state.performance.inputGain,
+    impulse:{...state.impulse.parameters},liveLevels:{inputGain:state.performance.inputGain,
     inputDriveDb:state.performance.inputDriveDb,delayGainDb:state.performance.delayGainDb,dry:state.performance.dry,
     outputLevel:state.performance.outputLevel,outputBoostDb:state.performance.outputBoostDb}},null,2);
   $('capturedSound').value=text;$('capturedSound').hidden=false;
@@ -163,10 +184,11 @@ function arrows(event){
 function usesParameterPlane(){return state.parameters.domain==='mandelbrot'&&!['inverse','orbits'].includes(state.parameters.mode);}
 $('stage').addEventListener('keydown',arrows);$('parameterMap').addEventListener('keydown',arrows);
 const mapWorker=new Worker(new URL('./mandelbrot-worker.js',import.meta.url),{type:'module'});
-let mapImage,mapRevision=0,mapBusy=false,mapFailed=false,pendingMapRequest,lastMapKey='',lastMapSubmission=-Infinity;
+let mapRevision=0,mapBusy=false,mapFailed=false,pendingMapRequest,lastMapKey='',lastMapSubmission=-Infinity;
+const mapImages=[];
 const mapContext=$('parameterMap').getContext('2d');
-const imageSurface=document.createElement('canvas'),imageContext=imageSurface.getContext('2d');
 function mapAspect(){const rect=$('parameterMap').getBoundingClientRect();return rect.width/Math.max(1,rect.height);}
+function mapInterval(){return state.audio||state.motion.real.playing||state.motion.imag.playing?150:100;}
 function submitMap(request){pendingMapRequest=undefined;mapBusy=true;lastMapSubmission=performance.now();mapWorker.postMessage(request);}
 function requestMap(){
   if(mapFailed||closed)return;
@@ -179,14 +201,28 @@ function requestMap(){
   if(key===lastMapKey)return;lastMapKey=key;request.revision=++mapRevision;
   // Finish one finite image, retaining only the latest target. Continuous c
   // motion must not cancel every frame, and never queues a render backlog.
-  if(mapBusy||performance.now()-lastMapSubmission<250)pendingMapRequest=request;
+  if(mapBusy||performance.now()-lastMapSubmission<mapInterval())pendingMapRequest=request;
   else submitMap(request);
 }
 mapWorker.onmessage=({data})=>{
   mapBusy=false;
   if(data.pixels&&data.view?.set===explorerView.set){
-    imageSurface.width=data.width;imageSurface.height=data.height;
-    imageContext.putImageData(new ImageData(data.pixels,data.width,data.height),0,0);mapImage=data;paintMap();
+    // Julia imagery belongs to one coefficient; never combine different sets
+    // while filling newly exposed areas from cached wider views.
+    for(let i=mapImages.length-1;i>=0;i--){const image=mapImages[i];
+      if(data.view.set==='julia'&&image.view.set==='julia'&&(image.cReal!==data.cReal||image.cImag!==data.cImag))mapImages.splice(i,1);
+    }
+    const surface=document.createElement('canvas');surface.width=data.width;surface.height=data.height;
+    surface.getContext('2d').putImageData(new ImageData(data.pixels,data.width,data.height),0,0);
+    mapImages.push({...data,pixels:undefined,surface});
+    // Retain each set's widest view as an underlay, plus recent detail. Six
+    // bounded raster surfaces use at most 3 MiB; no image backlog is retained.
+    if(mapImages.length>6){
+      const widest=set=>mapImages.filter(image=>image.view.set===set).reduce((best,image)=>!best||image.view.zoom<best.view.zoom?image:best,null);
+      const keep=new Set([widest('julia'),widest('mandelbrot'),mapImages.at(-1)]);
+      mapImages.splice(mapImages.findIndex(image=>!keep.has(image)),1);
+    }
+    paintMap();
   }
 };
 mapWorker.onerror=()=>{mapFailed=true;mapBusy=false;pendingMapRequest=undefined;lastStateKey='';};
@@ -195,11 +231,14 @@ function paintMap(){
   const width=Math.max(2,Math.round(rect.width)),height=Math.max(2,Math.round(rect.height));
   if(canvas.width!==width||canvas.height!==height){canvas.width=width;canvas.height=height;}
   mapContext.fillStyle='#050709';mapContext.fillRect(0,0,width,height);
-  if(mapImage?.view.set===explorerView.set){
-    const oldAspect=mapImage.width/mapImage.height;
-    const topLeft=complexAt(mapImage.view,0,0,oldAspect),bottomRight=complexAt(mapImage.view,1,1,oldAspect);
-    const start=pixelAt(explorerView,topLeft.real,topLeft.imag,aspect),end=pixelAt(explorerView,bottomRight.real,bottomRight.imag,aspect);
-    mapContext.drawImage(imageSurface,start.x*width,start.y*height,(end.x-start.x)*width,(end.y-start.y)*height);
+  const images=mapImages.filter(image=>image.view.set===explorerView.set);
+  const latest=images.at(-1);
+  const latestCrop=latest&&projectExplorerImage(latest,explorerView,width,height);
+  const covered=latestCrop&&latestCrop[4]<1e-6&&latestCrop[5]<1e-6&&latestCrop[4]+latestCrop[6]>=width-1e-6&&latestCrop[5]+latestCrop[7]>=height-1e-6;
+  const layers=covered?[latest]:[...images.filter(image=>image!==latest).sort((a,b)=>a.view.zoom-b.view.zoom),...(latest?[latest]:[])];
+  for(const image of layers){
+    const crop=projectExplorerImage(image,explorerView,width,height);
+    if(crop)mapContext.drawImage(image.surface,...crop);
   }
   if(explorerView.set==='mandelbrot'){
     const point=pixelAt(explorerView,state.parameters.cReal,state.parameters.cImag,aspect);
@@ -269,9 +308,10 @@ const release=engine.subscribe(next=>{state=next;
   if(next.status!==lastStatus||next.audio!==lastAudio){lastStatus=next.status;lastAudio=next.audio;renderer.setStatus(next.audio?next.status:null);}
 });
 function syncControls(){
-  const key=JSON.stringify([state.parameters,state.performance,state.input.mode,state.input.sampleId,state.audio,state.motion.real.playing,state.motion.imag.playing,explorerView,motionTempoLatched]);
+  const key=JSON.stringify([state.parameters,state.performance,state.input.mode,state.input.sampleId,state.audio,state.impulse.parameters,state.impulse.playing,state.impulse.pending,state.motion.real.playing,state.motion.imag.playing,explorerView,motionTempoLatched]);
   if(key===lastStateKey)return;lastStateKey=key;
-  for(const [id,value]of Object.entries({...state.parameters,...state.performance})){
+  const impulseValues=Object.fromEntries(Object.entries(impulseIds).map(([id,key])=>[id,state.impulse.parameters[key]]));
+  for(const [id,value]of Object.entries({...state.parameters,...state.performance,...impulseValues})){
     const input=$(id);if(!input)continue;
     const changed=input.value!==String(value);if(changed)input.value=String(value);
     if(knobs.has(id)){
@@ -283,7 +323,11 @@ function syncControls(){
   audioStrip.setLevel(state.performance.outputLevel);inputControl.root.setGain(state.performance.inputGain);
   $('sourceMode').value=state.input.mode;$('sampleSelect').value=state.input.sampleId;
   $('sampleControls').hidden=state.input.mode!=='samples';$('fileControls').hidden=state.input.mode!=='file';
-  $('mediaTransport').hidden=state.input.mode==='mic';
+  $('mediaTransport').hidden=!['file','samples'].includes(state.input.mode);
+  $('impulseControls').hidden=state.input.mode!=='impulse';$('impulseMode').value=state.impulse.parameters.mode;
+  $('sendImpulse').disabled=!state.audio||state.impulse.pending;
+  $('impulsePlay').setAttribute('aria-pressed',String(state.impulse.playing));
+  $('impulsePlay').setAttribute('aria-label',`${state.impulse.playing?'Pause':'Play'} repeating impulses`);
   $('domainField').hidden=['inverse','orbits'].includes(state.parameters.mode);
   $('canvasInstructions').textContent=usesParameterPlane()?'Drag: excitation position · Shift: fine · Arrow keys: adjust':'Drag: real / imaginary c · Shift: fine · Arrow keys: adjust c';
   for(const [id,label]of [['cReal','Real'],['cImag','Imaginary']]){
@@ -293,8 +337,8 @@ function syncControls(){
     if(document.activeElement!==numberInput)numberInput.value=String(Number(state.parameters[id].toPrecision(12)));
   }
   $('modeDescription').textContent=MODES.find(mode=>mode.id===state.parameters.mode).description;
-  $('routingDescription').textContent=ROUTING_MODES.find(mode=>mode.id===state.parameters.routing)?.description||'';
   const paths=state.parameters.propagation==='paths';
+  $('noDecay').checked=hasNoDecay(state.parameters);
   for(const [axis,name]of [['real','Real'],['imag','Imaginary']]){
     const playing=state.motion[axis].playing,button=$(`${axis}MotionPlay`);
     button.setAttribute('aria-pressed',String(playing));
@@ -313,7 +357,6 @@ function syncControls(){
   $('explorerReadout').textContent=mapFailed?'Fractal view unavailable':`${explorerView.set==='julia'?'Julia':'Mandelbrot'} · ${Number(explorerView.zoom.toFixed(2))}×`;
   $('parameterMap').setAttribute('aria-label',`${explorerView.set==='julia'?'Julia fractal. Drag to change c.':'Mandelbrot parameter map. Drag to select c.'} Alt-drag to pan; plus and minus to zoom.`);
   for(const id of ['geometryPitch','tapCoverage','turnTone'])$(id).disabled=!paths;
-  $('propagationDescription').textContent=paths?'Length → travel time · direction → pitch · bends → tone.':'Wave scattering and reflections. Path controls are retained for Path echoes.';
   $('masteringPreset').value=MASTERING_PRESETS.find(preset=>Object.entries(preset.mix).every(([key,value])=>Math.abs(state.performance[key]-value)<.001))?.id||'';
   const detailTitle={inverse:'Generations',contours:'Contour detail',orbits:'Orbit steps',rays:'Ray detail',membrane:'Mesh detail'}[state.parameters.mode];
   document.querySelector('label[for="detail"] b').textContent=detailTitle;$('detail').setAttribute('aria-label',detailTitle);
@@ -322,18 +365,10 @@ function syncControls(){
 }
 function paintUi(now){
   syncControls();audioStrip.setAudioState(state.audio?'on':state.audioDesired?'starting':state.error?'error':'off');
-  $('sendPulse').disabled=!state.audio;
   inputControl.refresh();outputMeter.setLevels({left:state.status.outputLeftPeak||0,right:state.status.outputRightPeak||0,active:state.audio});
-  $('inputNote').textContent=state.input.pending?'Loading input…':state.input.mode==='mic'?
-    (state.microphone?state.inputDescription:'Enable Mic for capture. Mic / line gain is separate from file and sample playback.'):
-    `${state.input.label || 'Choose a file'} · unity input gain${state.input.playing?' · playing':''}`;
-  const creditKey=`${state.input.credit}|${state.input.creditUrl}`;
-  if(creditKey!==lastCredit){lastCredit=creditKey;$('inputCredit').hidden=!state.input.credit;$('inputCredit').replaceChildren();
-    if(state.input.credit){const a=document.createElement('a');a.textContent=state.input.credit;a.href=state.input.creditUrl||'#';a.rel='noopener';a.target='_blank';$('inputCredit').append(a);}}
   const n=state.network;
   const inputs=n?.inputPorts?.length||(n?1:0),pickups=n?.pickupPorts?.length||(n?1:0);
   const links=lastRoutingLinks;
-  $('portReadout').textContent=`${inputs} excitation ${inputs===1?'point':'points'} · ${pickups} ${pickups===1?'pickup':'pickups'}${state.compiling?' · updating…':''}`;
   $('portsReadout').textContent=`${inputs} / ${pickups}`;$('linksReadout').textContent=String(links);
   $('edgeCount').textContent=`${state.preparedEdges.toLocaleString()} connections`;
   $('stageReadout').textContent=n?`${MODES.find(mode=>mode.id===n.mode).label.toUpperCase()} · ${n.edges.length.toLocaleString()} connections${state.compiling?' · preparing change':''}`:'Preparing complete network…';
@@ -351,7 +386,7 @@ function paintUi(now){
 }
 let lastDraw=-Infinity;
 function animate(now){if(closed)return;
-  if(!mapBusy&&pendingMapRequest&&now-lastMapSubmission>=250){const request=pendingMapRequest;pendingMapRequest=undefined;submitMap(request);}
+  if(!mapBusy&&pendingMapRequest&&now-lastMapSubmission>=mapInterval()){const request=pendingMapRequest;pendingMapRequest=undefined;submitMap(request);}
   if(now-lastDraw>=1000/30){renderer.resize();renderer.draw();lastDraw=now;}
   if(now-lastUi>=150)paintUi(now);frame=requestAnimationFrame(animate);}
 frame=requestAnimationFrame(animate);

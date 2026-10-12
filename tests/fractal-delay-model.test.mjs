@@ -48,7 +48,7 @@ test('parameters reject nonfinite input, ignore unrelated gains and remain compl
   assert.equal(parameters.cImag, -1.5);
   assert.equal(parameters.timeMs, .05);
   assert.equal(parameters.detail, 12);
-  assert.equal(parameters.decay, .98);
+  assert.equal(parameters.decay, 1);
   assert.ok(!Object.hasOwn(parameters, 'inputGain'));
   assert.deepEqual(Object.keys(parameters).sort(), Object.keys(DEFAULT_PARAMETERS).sort());
 });

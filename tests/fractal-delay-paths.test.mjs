@@ -258,3 +258,27 @@ test('Rabbit orbit geometry stays admitted while whole taps hear both conjugate 
     t.diagnostic(`admitted Rabbit connections: ${graphs.map(graph => graph.edges.length).join(' / ')}`);
   } finally { engines.forEach(engine => engine.dispose()); }
 });
+
+test('no-decay traverses 64 serial edges at full arrival strength; decay changes loss but never timing', () => {
+  const points=Array.from({length:65},(_,i)=>[0,i*.1]);
+  const graph=scene(points,Array.from({length:64},(_,i)=>[i,i+1]));
+  for(const decay of [1,.8]) {
+    const engine=install(graph,{decay});
+    try {
+      const output=render(engine,40,impulse);finite(output);
+      assert.equal(first(output.left),3072);
+      isolatedArrival(output.left,3072,.01*decay**6.4);
+    } finally {engine.dispose();}
+  }
+});
+
+test('no-decay closed path preserves circulating amplitude through successive complete laps', () => {
+  const graph=scene([[0,0],[.2,0],[.1,Math.sqrt(3)*.1]],[[0,1],[1,2],[2,0]],0);
+  const engine=install(graph,{decay:1});
+  try {
+    const output=render(engine,100,impulse);finite(output);
+    assert.equal(first(output.left),288);
+    for(let lap=2;lap<=40;lap++)
+      assert(Math.abs(unlimit(output.left[lap*288])/unlimit(output.left[288])-1)<1e-6,`lap ${lap} retains arrival strength`);
+  } finally {engine.dispose();}
+});

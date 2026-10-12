@@ -50,12 +50,17 @@ export const PARAMETER_LIMITS = Object.freeze({ cReal: Object.freeze([-2, 1]), c
   realMotionTempo: MOTION_LIMITS.tempo, imagMotionTempo: MOTION_LIMITS.tempo,
   realMotionDepth: MOTION_LIMITS.depth, imagMotionDepth: MOTION_LIMITS.depth,
   detail: Object.freeze([2, 12]), timeMs: Object.freeze([.05, 2000]), coupling: Object.freeze([0, 1]),
-  decay: Object.freeze([0, .98]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]),
+  decay: Object.freeze([0, 1]), pitchOffset: Object.freeze([-24, 24]), pickup: Object.freeze([0, 1]),
   geometryPitch: Object.freeze([0, 24]), tapCoverage: Object.freeze([0, 1]), turnTone: Object.freeze([0, 1]),
   inputPosition: Object.freeze([0, 1]), inputCount: Object.freeze([1, 256]), inputSpread: Object.freeze([0, 1]),
   pickupCount: Object.freeze([1, 256]), pickupSpread: Object.freeze([0, 1]), boundary: Object.freeze([0, 1]),
   linkDensity: Object.freeze([0, 1]) });
 export const MAX_NETWORK_EDGES = 16384;
+export const NO_DECAY_PARAMETERS = Object.freeze({ propagation: 'paths', decay: 1, coupling: 1,
+  turnTone: 0, tapCoverage: 1, boundary: 1 });
+export function hasNoDecay(parameters) {
+  return Object.entries(NO_DECAY_PARAMETERS).every(([key, value]) => parameters[key] === value);
+}
 export const COMPLEX_COORDINATE_SCALE = 2.5;
 const MAX_ITERATIONS = 96;
 const TAU = 2 * Math.PI;
@@ -89,7 +94,7 @@ export function randomizeParameters(candidate = DEFAULT_PARAMETERS, random = Mat
     cReal: -2 + 3 * unit(), cImag: -1.5 + 3 * unit(), detail: 2 + Math.floor(11 * unit()),
     realMotionTempo: .25 * 240 ** unit(), imagMotionTempo: .25 * 240 ** unit(),
     realMotionDepth: 1.5 * unit(), imagMotionDepth: 1.5 * unit(),
-    timeMs: .05 * (2000 / .05) ** unit(), coupling: .3 + .7 * unit(), decay: .35 + .63 * unit(),
+    timeMs: .05 * (2000 / .05) ** unit(), coupling: .3 + .7 * unit(), decay: .35 + .65 * unit(),
     pitchOffset: -24 + 48 * unit(), pickup: unit(),
     geometryPitch: 24 * unit(), tapCoverage: unit(), turnTone: unit(),
     inputMode: INPUT_MODES[Math.floor(unit() * INPUT_MODES.length)].id, inputPosition: unit(),

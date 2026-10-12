@@ -32,6 +32,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "fourier-epicycles.html", "selector": "#fourierRate", "mapping": {"unit": "hz", "signed": false}},
   {"route": "fractal-delay.html", "selector": "#realMotionTempo", "mapping": {"unit": "bpm"}, "title": "Tap Real c tempo (one complete back-and-forth sweep per beat)"},
   {"route": "fractal-delay.html", "selector": "#imagMotionTempo", "mapping": {"unit": "bpm"}, "title": "Tap Imaginary c tempo (one complete back-and-forth sweep per beat)"},
+  {"route": "fractal-delay.html", "selector": "#impulseTempo", "mapping": {"unit": "bpm"}, "title": "Tap impulse repeat tempo"},
   {"route": "fractal-synthesis.html", "selector": "#motionAngleTempo", "mapping": {"unit": "bpm", "signed": true}},
   {"route": "fractal-synthesis.html", "selector": "#motionBranchTempo", "mapping": {"unit": "bpm", "signed": true}},
   {"route": "fractal-synthesis.html", "selector": "#motionIndexTempo", "mapping": {"unit": "bpm", "signed": true}},

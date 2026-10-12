@@ -17,7 +17,7 @@ test('Fractal Delay is one canonical instrument with all five playable mappings'
   assert.deepEqual(values.sort(), ['inverse', 'contours', 'orbits', 'rays', 'membrane'].sort());
   for (const id of ['audioButton', 'sourceMode', 'sampleSelect', 'fileInput', 'mode', 'cReal', 'cImag',
     'detail', 'timeMs', 'pitchOffset', 'decay', 'coupling', 'pickup', 'inputDriveDb', 'dry', 'delayGainDb',
-    'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'sendPulse', 'stage', 'presetSelect',
+    'propagation', 'geometryPitch', 'tapCoverage', 'turnTone', 'stage', 'presetSelect',
     'realMotionPlay', 'imagMotionPlay', 'realMotionTempo', 'imagMotionTempo', 'realMotionDepth', 'imagMotionDepth']) {
     assert.equal([...html.matchAll(new RegExp(`id=["']${id}["']`, 'g'))].length, 1, `#${id} needs one authoritative control`);
   }
@@ -40,6 +40,11 @@ test('Fractal Delay reuses the existing input lifecycle and shared input control
 });
 
 test('Fractal Delay navigation and catalogue refer to the same real browser page', async () => {
+  const [html, app] = await Promise.all([read('src/pages/fractal-delay.html'), read('src/instruments/fractal-delay/app.js')]);
+  const nav = html.match(/<nav\b[^>]*id="instrumentNavigation"[^>]*>([\s\S]*?)<\/nav>/)?.[1];
+  assert.ok(nav); assert.match(nav, /aria-current="page"/);
+  assert.doesNotMatch(nav, /l-mic/);
+  assert.match(app, /enhanceSharedNavigation\(document\)/);
   const tools = TOOL_GROUPS.flatMap(group => group.tools).filter(tool => tool.id === 'fractal-delay');
   assert.equal(tools.length, 1); assert.equal(tools[0].href, 'fractal-delay.html');
   const records = INSTRUMENTS.filter(record => record.id === 'fractal-delay');

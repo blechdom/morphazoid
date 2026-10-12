@@ -52,6 +52,25 @@ export function panExplorer(view, dxFraction, dyFraction, aspect = 1) {
     centerImag: normalized.centerImag + finite(dyFraction, 0) * span / aspectOf(aspect) });
 }
 
+/** Crop a cached raster to the visible canvas before scaling it. Even a jump
+ * from the full set to maximum zoom draws only one canvas-sized rectangle.
+ */
+export function projectExplorerImage(image, view, width, height) {
+  if (![image?.width, image?.height, width, height].every(value => Number.isFinite(value) && value > 0)) return null;
+  const topLeft = complexAt(image.view, 0, 0, image.width / image.height);
+  const bottomRight = complexAt(image.view, 1, 1, image.width / image.height);
+  const start = pixelAt(view, topLeft.real, topLeft.imag, width / height);
+  const end = pixelAt(view, bottomRight.real, bottomRight.imag, width / height);
+  const left = start.x * width, top = start.y * height;
+  const spanX = (end.x - start.x) * width, spanY = (end.y - start.y) * height;
+  if (![spanX, spanY].every(value => Number.isFinite(value) && value > 0)) return null;
+  const x = Math.max(0, left), y = Math.max(0, top);
+  const w = Math.min(width, left + spanX) - x, h = Math.min(height, top + spanY) - y;
+  if (w <= 0 || h <= 0) return null;
+  return [(x - left) / spanX * image.width, (y - top) / spanY * image.height,
+    w / spanX * image.width, h / spanY * image.height, x, y, w, h];
+}
+
 // Independently chosen exploration regions and coefficient starting points.
 // Names describe visual invitations, not claims of exact periodicity or topology.
 const preset = (id, label, set, centerReal, centerImag, zoom, cReal, cImag) => Object.freeze({ id, label,
