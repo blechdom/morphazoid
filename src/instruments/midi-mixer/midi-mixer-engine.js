@@ -1,3 +1,4 @@
+import { MAX_SOUNDFONT_BYTES } from '../../sound-fonts/bank-format.js';
 import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
@@ -342,7 +343,7 @@ export class MidiMixerEngine {
     this._updateEffects(); this._publish(); return { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) };
   }
   async loadSoundFont(buffer, name = 'Imported SoundFont') {
-    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > 32 * 1024 * 1024) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 32 MB or smaller.');
+    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > MAX_SOUNDFONT_BYTES) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 128 MiB or smaller.');
     const view = new DataView(buffer);
     if (view.getUint32(0) !== 0x52494646 || view.getUint32(8) !== 0x7366626b) throw new Error('This is not an SF2 or SF3 SoundFont.');
     const font = { buffer: buffer.slice(0), name: String(name).slice(0, 128) };
@@ -352,7 +353,7 @@ export class MidiMixerEngine {
   _uploadSoundFont(font, commitSelection = false) {
     const token = ++this._serial;
     return new Promise((resolve, reject) => {
-      const timer = this.runtime.setTimeout(() => { this._fontWaits.delete(token); reject(new Error('The SoundFont took too long to load.')); }, 30000);
+      const timer = this.runtime.setTimeout(() => { this._fontWaits.delete(token); reject(new Error('The SoundFont took too long to load.')); }, 90000);
       this._fontWaits.set(token, { resolve, reject, font, timer, commitSelection });
       const copy = font.buffer.slice(0); this.node.port.postMessage({ type: 'soundfont', soundfont: copy, token }, [copy]);
     });
@@ -471,9 +472,9 @@ export class MidiMixerEngine {
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });
   }
-  _wait(promise, message) {
+  _wait(promise, message, timeoutMs = 90000) {
     return new Promise((resolve, reject) => {
-      const timeout = this.runtime.setTimeout(() => reject(new Error(message)), 30000);
+      const timeout = this.runtime.setTimeout(() => reject(new Error(message)), timeoutMs);
       const cancel = () => reject(new Error('MIDI mixer initialization cancelled.')); this._waitCancel = cancel;
       Promise.resolve(promise).then(resolve, reject).finally(() => { this.runtime.clearTimeout(timeout); if (this._waitCancel === cancel) this._waitCancel = null; });
     });

@@ -63,7 +63,9 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         }
       };
       if (!this.alive) return;
-      synth.soundBankManager.addSoundBank(SoundBankLoader.fromArrayBuffer(message.soundfont), 'midi-mixer');
+      this.activeSoundBank = SoundBankLoader.fromArrayBuffer(message.soundfont);
+      if (!this.activeSoundBank.presets.length) throw new Error('The SoundFont contains no instrument presets.');
+      synth.soundBankManager.addSoundBank(this.activeSoundBank, 'midi-mixer');
       synth.setSystemParameter('voiceCap', 192);
       synth.setSystemParameter('autoAllocateVoices', false);
       while (synth.midiChannels.length < 193) synth.createMIDIChannel();
@@ -130,17 +132,30 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.port.postMessage({ type: 'loaded', index: message.index, token: message.token }); break;
       }
       case 'soundfont': {
+        const previous = this.activeSoundBank;
+        let replacementStarted = false;
         try {
+          // Parse completely before touching the playing bank or releasing voices.
           const bank = SoundBankLoader.fromArrayBuffer(message.soundfont);
           if (!bank.presets.length) throw new Error('The SoundFont contains no instrument presets.');
+          replacementStarted = true;
+          this.synth.soundBankManager.addSoundBank(bank, 'midi-mixer');
           this.synth.synthCore.eventQueue.length = 0;
-          this.synth.stopAllChannels(true); this.synth.soundBankManager.addSoundBank(bank, 'midi-mixer');
+          this.synth.stopAllChannels(true);
           this.captureEffectDefaults(); this.applyEffects(this.effectOverrides);
           for (let slot = 0; slot < 4; slot++) { const sample = this.sampleClock.samples[slot]; if (sample) this.sampleClock.load(slot, sample); }
           for (let i = 0; i < 2; i++) this.clock.resync(i);
           this.automata.rejoin();
+          this.activeSoundBank = bank;
           this.port.postMessage({ type: 'soundfont', token: message.token });
-        } catch (error) { this.port.postMessage({ type: 'soundfont', token: message.token, error: error.message }); }
+        } catch (error) {
+          if (replacementStarted && previous) {
+            this.synth.soundBankManager.addSoundBank(previous, 'midi-mixer');
+            for (let i = 0; i < 2; i++) this.clock.resync(i);
+            this.automata.rejoin();
+          }
+          this.port.postMessage({ type: 'soundfont', token: message.token, error: error.message });
+        }
         break;
       }
       case 'transport': if (!message.playing) this.sampleClock.stopAll(); this.clock.setTransport(message.playing, message.beat); break;
