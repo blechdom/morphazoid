@@ -64,3 +64,32 @@ test('variation returns a newly seeded falling score rather than reverting to tr
   assert.deepEqual(next.buffer, expected.buffer);
   assert.deepEqual(next.pixels, chronological(next).reverse());
 });
+
+
+test('explicit text width, height and offset shape the exported score and its falling thumbnail', () => {
+  const original = mixerMessageScore('FL', { mode: 'letter', orientation: 'falling' });
+  const moved = mixerMessageScore('FL', { mode: 'letter', orientation: 'falling', span: 10, beats: 16, offset: 12 });
+  assert.equal(original.columns, 5); assert.equal(moved.columns, 10);
+  assert.equal(moved.duration, 8); assert.equal(moved.lowestNote, 60);
+  assert.deepEqual(moved.phrases, ['F', 'L']);
+  const rows = chronological(moved);
+  assert.equal(rows[0].join(''), '1100000000'); assert.equal(rows[6].join(''), '1111111111');
+  assert.equal(rows[7].join(''), '0000000000');
+  assert.equal(rows[8].join(''), '1111111111'); assert.equal(rows[14].join(''), '1100000000');
+  assert.deepEqual(moved.pixels, rows.toReversed());
+  assert.ok(parseMidi(moved.buffer).notes.every(note => note.note >= 60 && note.note <= 69));
+});
+
+test('unspecified text geometry preserves legacy duration and width; each optional control is independent', () => {
+  const text = 'HELLO', original = mixerMessageScore(text);
+  assert.deepEqual(mixerMessageScore(text, { span: undefined, heightBeats: undefined, offset: undefined }).buffer, original.buffer);
+  const taller = mixerMessageScore(text, { heightBeats: 12 });
+  assert.equal(taller.columns, original.columns); assert.equal(taller.lowestNote, original.lowestNote);
+  assert.equal(taller.duration, 6); assert.deepEqual(taller.pixels, original.pixels);
+  const offset = mixerMessageScore(text, { offset: -24 });
+  assert.equal(offset.columns, original.columns); assert.equal(offset.duration, original.duration);
+  assert.equal(offset.lowestNote, original.lowestNote - 24); assert.deepEqual(offset.pixels, original.pixels);
+  const width = mixerMessageScore(text, { span: 128, offset: 127 });
+  assert.equal(width.columns, 128); assert.equal(width.lowestNote, 0); assert.equal(width.duration, original.duration);
+  assert.equal(mixerMessageScore(text, { beats: 12, heightBeats: 4 }).duration, 2, 'explicit height uses the score adapter units');
+});

@@ -244,10 +244,10 @@ export function nextMixerStampVariation(id, options) {
   return null;
 }
 
-export function mixerMessageScore(input, { mode = 'word', orientation = 'rising' } = {}) {
+export function mixerMessageScore(input, { mode = 'word', orientation = 'rising', span, beats, heightBeats, offset, lowestNote } = {}) {
   if (typeof input !== 'string' || !input.trim()) throw new Error('Type a message or a symbol first.');
   const score = generateTextMidi(input, { mode });
-  return { ...mixerPerformanceScore(score, { orientation }), name: score.text };
+  return { ...mixerPerformanceScore(score, { orientation, span, heightBeats: heightBeats ?? beats, offset, lowestNote }), name: score.text };
 }
 
 /** Distinct stable renderer hues for each deck/channel and each sample instance. */
