@@ -6,45 +6,45 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
 /** Full-score file transport, independent of drawing pads and live evolution. */
-export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest } = {}) {
+export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, settingsHost, onAudioRequest } = {}) {
   const events = new AbortController();
   const on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
-  host.innerHTML = `<summary>Black MIDI player</summary>
+  host.innerHTML = `
     <div class="blech-file-layout">
       <div class="blech-file-stage">
         <div class="blech-file-transport">
-          <button id="blackPlayButton" class="play-button" type="button" aria-pressed="false" aria-label="Play Black MIDI" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+          <button id="blackPlayButton" data-primary-transport class="play-button" type="button" aria-pressed="false" aria-label="Play Black MIDI" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
           <button id="blackStopButton" type="button" class="mini-action" aria-label="Stop and rewind Black MIDI" disabled>■</button>
           <label class="control" for="blackPlaybackRate"><span><b>Speed</b><output id="blackPlaybackRateOut">1.00×</output></span><input id="blackPlaybackRate" type="range" min=".5" max="8" step=".05" value="1"></label>
           <label class="control" for="blackFileLevel"><span><b>File volume</b><output id="blackFileLevelOut">75%</output></span><input id="blackFileLevel" type="range" min="0" max="1" step=".01" value=".75"></label>
           <label class="blech-art-check"><input id="blackLoopSong" type="checkbox">Loop file</label>
           <label class="blech-art-check"><input id="blackSyncTempo" type="checkbox">Sync to tempo</label>
         </div>
+        <p id="blackCurrentSong" class="midiphoria-current-song" hidden></p>
         <p id="blackTempoStatus" class="midiphoria-help"></p>
         <button id="blackAudioStart" class="midiphoria-audio-start" type="button" hidden>Turn audio on</button>
         <p id="blackPlayerStatus" class="midiphoria-help" role="status"></p>
         <div class="blech-file-viewport"><div id="blackMidiViewport"></div><button id="blackFullscreen" type="button" class="mini-action" aria-label="Black MIDI fullscreen">⛶</button></div>
         <label class="control blech-file-position" for="blackSongPosition"><span><b>Position</b><output id="blackSongTime">0:00 / 0:00</output></span><input id="blackSongPosition" type="range" data-keep-slider min="0" max="1" step=".1" value="0" disabled></label>
-        <details class="blech-file-settings"><summary>Colors, keyboard &amp; statistics</summary><section id="blackMidiControls" aria-label="Black MIDI score controls"></section></details>
+        <section id="blackMidiControls" aria-label="Black MIDI score controls"></section>
       </div>
       <section class="blech-file-library" aria-labelledby="blackSongListHeading">
         <div class="midiphoria-library-heading"><h2 id="blackSongListHeading">MIDI files</h2><output id="blackSongCount">Loading…</output><button id="blackNextSong" type="button" class="mini-action" aria-label="Next MIDI" disabled>Next</button><button id="blackRandomSong" type="button" class="mini-action" aria-label="Random MIDI" disabled>Random</button></div>
-        <label class="control"><span class="sr-only">Filter MIDI files</span><input id="blackSongSearch" type="search" placeholder="Filter by song, artist or collection" autocomplete="off"></label>
-        <p id="blackSongSearchStatus" class="midiphoria-help" role="status"></p>
-        <p id="blackCurrentSong" class="midiphoria-current-song" hidden></p>
-        <ul id="blackSongList" class="midiphoria-song-list" aria-labelledby="blackSongListHeading" aria-busy="true"></ul>
+        <label class="control" for="blackSongSelect"><span>Choose a MIDI file</span><select id="blackSongSelect" aria-label="MIDI file"><option value="">Choose a MIDI…</option></select></label>
         <label class="midiphoria-file">Open your MIDIs<input id="blackMidiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple></label>
       </section>
     </div>`;
-  const $ = id => host.querySelector(`#${id}`);
+  const nodes = new Map([...host.querySelectorAll('[id]')].map(node => [node.id, node]));
+  const $ = id => nodes.get(id);
+  if (libraryHost) libraryHost.append(host.querySelector('.blech-file-library'));
+  if (settingsHost) settingsHost.append($('blackMidiControls'));
   const songDescription = creditsHost.querySelector('#blackSongDescription');
   const songCredit = creditsHost.querySelector('#blackSongCredit');
   let disposed = false, frame = null, lastReflect = -Infinity, version = 0, request = null;
-  let collection = [], locals = [], visible = [], selected = null, focusId = '', localSerial = 0;
+  let collection = [], locals = [], visible = [], selected = null, localSerial = 0;
   let loading = false, ready = false, resumeAfterSelection = false, error = '', tempo = null, tempoChanges = 0, preparedSongId = '';
-  const rows = new Map();
   let player;
-  const view = mountMidiScoreView({ mount: $('blackMidiViewport'), controls: $('blackMidiControls'),
+  const view = mountMidiScoreView({ mount: $('blackMidiViewport'), controls: $('blackMidiControls'), getLiveState: () => engine.state,
     getTransport: () => { const state = player?.state; return { position: state?.time ?? 0, playing: state?.playing ?? false, speed: state?.rate ?? 1 }; } });
   // One context and one final effects/volume/peak-control path for the whole page.
   // The file player already supplies an 8× preamp; undo that before Blech's 8× stage.
@@ -81,41 +81,19 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
   const label = song => `${song.composer ? `${song.composer} · ` : ''}${song.title}`;
   const group = song => song.collection || 'Your MIDIs';
   function renderList() {
-    const query = $('blackSongSearch').value.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
-    const all = [...locals, ...collection];
-    visible = all.filter(song => query.every(word => `${label(song)} ${group(song)}`.toLocaleLowerCase().includes(word)));
-    if (!visible.some(song => song.id === focusId)) focusId = visible.find(song => song.id === selected?.id)?.id ?? visible[0]?.id ?? '';
-    const list = $('blackSongList'), scroll = list.scrollTop;
-    const focused = list.contains(document.activeElement) ? document.activeElement.dataset.songId : null;
-    const next = visible.map(song => {
-      if (!rows.has(song.id)) {
-        const row = document.createElement('li'), button = document.createElement('button');
-        button.type = 'button'; button.className = 'midiphoria-song'; button.dataset.songId = song.id;
-        const title = document.createElement('span'), meta = document.createElement('span');
-        title.className = 'midiphoria-song-title'; meta.className = 'midiphoria-song-meta';
-        title.textContent = label(song); meta.textContent = group(song); button.append(title, meta); row.append(button); rows.set(song.id, row);
-      }
-      const row = rows.get(song.id), button = row.firstElementChild;
-      button.setAttribute('aria-pressed', String(song.id === selected?.id)); button.tabIndex = song.id === focusId ? 0 : -1;
-      return row;
-    });
-    if (next.length !== list.children.length || next.some((row, i) => row !== list.children[i])) {
-      list.replaceChildren(...next); list.scrollTop = scroll;
-      if (focused && visible.some(song => song.id === focused)) rows.get(focused).firstElementChild.focus({ preventScroll: true });
+    visible = [...locals, ...collection];
+    const select = $('blackSongSelect'), groups = new Map();
+    select.replaceChildren(new Option('Choose a MIDI…', ''));
+    for (const song of visible) {
+      const name = group(song);
+      if (!groups.has(name)) { const node = document.createElement('optgroup'); node.label = name; groups.set(name, node); select.append(node); }
+      groups.get(name).append(new Option(label(song), song.id));
     }
-    list.setAttribute('aria-busy', 'false');
-    $('blackSongCount').value = query.length ? `${visible.length} / ${all.length}` : `${all.length}`;
+    select.value = selected?.id ?? '';
+    $('blackSongCount').value = `${visible.length} files`;
     $('blackNextSong').disabled = $('blackRandomSong').disabled = !visible.length;
-    $('blackSongSearchStatus').textContent = visible.length ? '' : 'No matching MIDIs.';
     $('blackCurrentSong').hidden = !selected;
     $('blackCurrentSong').textContent = selected ? label(selected) : '';
-  }
-  function showRow(id) {
-    const list = $('blackSongList'), row = rows.get(id);
-    if (row?.parentNode !== list) return;
-    const bounds = row.getBoundingClientRect(), viewport = list.getBoundingClientRect();
-    if (bounds.top < viewport.top) list.scrollTop -= viewport.top - bounds.top;
-    else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
   }
   function credit(song) {
     creditsHost.hidden = false;
@@ -134,8 +112,8 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
     const ticket = ++version;
     resumeAfterSelection = player.state.playing || (loading && resumeAfterSelection);
     request?.abort(); request = new AbortController(); const signal = request.signal;
-    loading = true; ready = false; error = ''; selected = song; focusId = song.id; tempo = null; tempoChanges = 0; preparedSongId = '';
-    player.stop(); view.clear('Loading MIDI score…'); renderList(); showRow(song.id); credit(song); reflect();
+    loading = true; ready = false; error = ''; selected = song; tempo = null; tempoChanges = 0; preparedSongId = '';
+    player.stop(); view.clear('Loading MIDI score…'); renderList(); credit(song); reflect();
     songDescription.textContent = '';
     try {
       let binary = null, preview = null;
@@ -172,25 +150,11 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
       }
     } finally { if (!disposed && ticket === version) { loading = false; resumeAfterSelection = false; reflect(); } }
   }
-  function open() { host.open = true; view.setVisible(!document.hidden); }
-  on($('blackSongList'), 'click', event => {
-    const button = event.target.closest('[data-song-id]'), song = button && visible.find(item => item.id === button.dataset.songId);
-    if (song && (song.id !== selected?.id || !ready && !loading || error)) void select(song);
+  function open() { view.setVisible(!document.hidden); }
+  on($('blackSongSelect'), 'change', () => {
+    const song = visible.find(item => item.id === $('blackSongSelect').value);
+    if (song) void select(song);
   });
-  on($('blackSongList'), 'focusin', event => {
-    const id = event.target.dataset.songId; if (!id) return;
-    focusId = id; for (const row of $('blackSongList').children) row.firstElementChild.tabIndex = row.firstElementChild.dataset.songId === id ? 0 : -1;
-  });
-  on($('blackSongList'), 'keydown', event => {
-    if (event.altKey || event.ctrlKey || event.metaKey || event.shiftKey) return;
-    const buttons = [...$('blackSongList').querySelectorAll('[data-song-id]')], index = buttons.indexOf(event.target);
-    if (index < 0) return;
-    const page = Math.max(1, Math.floor($('blackSongList').clientHeight / event.target.offsetHeight));
-    const next = { ArrowUp: index - 1, ArrowDown: index + 1, Home: 0, End: buttons.length - 1, PageUp: index - page, PageDown: index + page }[event.key];
-    if (next === undefined) return; event.preventDefault();
-    const target = buttons[Math.max(0, Math.min(buttons.length - 1, next))]; target.focus({ preventScroll: true }); showRow(target.dataset.songId);
-  });
-  on($('blackSongSearch'), 'input', () => { $('blackSongList').scrollTop = 0; renderList(); });
   on($('blackNextSong'), 'click', () => { if (visible.length) void select(visible[(visible.findIndex(song => song.id === selected?.id) + 1) % visible.length]); });
   on($('blackRandomSong'), 'click', () => {
     const others = visible.filter(song => song.id !== selected?.id), choices = others.length ? others : visible;
@@ -213,7 +177,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
       error = 'Keep up to 20 local MIDIs and 200 MB total. Large scores may be visual-only.'; reflect(); return;
     }
     const added = files.map(file => ({ id: `file-${++localSerial}`, title: file.name, localFile: file }));
-    locals.push(...added); $('blackSongSearch').value = ''; void select(added[0]);
+    locals.push(...added); void select(added[0]);
   });
   on($('blackFullscreen'), 'click', async () => {
     try { if (document.fullscreenElement) await document.exitFullscreen(); else await host.querySelector('.blech-file-viewport').requestFullscreen(); }
@@ -222,18 +186,17 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
   const showHash = () => { if (['#blackMidiPlayer', '#black-midi'].includes(location.hash)) open(); };
   on(globalThis, 'hashchange', showHash);
   for (const link of document.querySelectorAll('a[href="#blackMidiPlayer"]')) on(link, 'click', open);
-  on(host, 'toggle', () => view.setVisible(host.open && !document.hidden));
   function tick(now) {
     frame = null; if (disposed || document.hidden) return;
     if (now - lastReflect > 100) { lastReflect = now; reflect(); }
     frame = requestAnimationFrame(tick);
   }
   on(document, 'visibilitychange', () => {
-    view.setVisible(host.open && !document.hidden);
+    view.setVisible(!document.hidden);
     if (document.hidden) { if (frame !== null) cancelAnimationFrame(frame); frame = null; }
     else if (frame === null) frame = requestAnimationFrame(tick);
   });
-  showHash(); view.setVisible(host.open && !document.hidden); reflect();
+  showHash(); view.setVisible(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   return {
     stop, reflect, setTempo,
@@ -252,10 +215,9 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest
     async previewScore(score, title = 'Your MIDI artwork') {
       if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare a drawing or artwork first.');
       const old = locals.findIndex(song => song.id === 'prepared-art'); if (old >= 0) locals.splice(old, 1);
-      rows.delete('prepared-art');
-      const song = { id: 'prepared-art', title, buffer: score.buffer.slice(0), collection: 'Your artwork', attribution: 'Prepared in Blech MIDI.' };
-      locals.unshift(song); $('blackSongSearch').value = ''; open(); await select(song); host.scrollIntoView({ block: 'start', behavior: 'smooth' });
+      const song = { id: 'prepared-art', title, buffer: score.buffer.slice(0), collection: 'Your artwork', attribution: 'Prepared in BLECH MIDI.' };
+      locals.unshift(song); open(); await select(song);
     },
-    dispose() { if (disposed) return; disposed = true; version++; request?.abort(); events.abort(); if (frame !== null) cancelAnimationFrame(frame); view.dispose(); void player.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; version++; request?.abort(); events.abort(); if (frame !== null) cancelAnimationFrame(frame); view.dispose(); void player.dispose(); libraryHost?.replaceChildren(); settingsHost?.replaceChildren(); host.replaceChildren(); },
   };
 }

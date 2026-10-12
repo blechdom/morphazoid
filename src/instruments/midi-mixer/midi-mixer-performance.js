@@ -11,7 +11,7 @@ const clock = () => performance.now() / 1000;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing, showVisualizer = true, orientation = 'rising' } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -73,7 +73,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const $ = id => nodes.get(id), canvas = $('mixerPerformanceCanvas'), automataTools = $('mixerAutomataTools');
   const visualizer = document.createElement('div'); visualizer.className = 'mixer-performance-visualizer';
   visualizer.append(section.querySelector('.mixer-performance-toolbar'), canvas);
-  if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer);
+  if (showVisualizer) { if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer); }
   const volume = $('mixerSampleLevel').closest('label');
   if (volumeHost) volumeHost.append(volume);
   if (automataHost) automataHost.append(automataTools);
@@ -96,9 +96,16 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   let active = false, disposed = false;
-  const monitor = mountMidiPerformanceMonitor(canvas, { engine,
-    onFrame: state => { $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample; reflectPads(state); if (liveAutomata) automata.refreshLive(state.automata); } });
-  const renderer = monitor.renderer;
+  function refresh(state = engine.state) {
+    $('mixerStopSamples').disabled = !(state.samples?.length) && !loadingSample;
+    reflectPads(state); if (liveAutomata) automata.refreshLive(state.automata);
+  }
+  const monitor = showVisualizer ? mountMidiPerformanceMonitor(canvas, { engine, onFrame: refresh }) : null;
+  const renderer = monitor?.renderer ?? { configure() {}, resize() {} };
+  if (!showVisualizer) {
+    $('mixerStampPaint').closest('label').remove();
+    $('mixerStampHint').textContent = 'Tap a pad to drop it. Looping pads toggle on and off.';
+  }
   const stamps = new Map(), buttons = new Map(), stampCards = new Map(), fileCache = new Map(), padSamples = new Map(), saved = new Map();
   let savedSerial = 0, drawingSerial = 0, pendingPad = null;
   let automataSelected = false, viewMode = 'draw';
@@ -146,6 +153,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       const sample = playing.get(padSamples.get(key));
       padState(button, sample, loadingSample && pendingPad === key, liveAutomata ? stamps.get(key).loop : $('mixerSampleLoop').checked);
       const card = stampCards.get(key);
+      if (sample && card) { stamps.get(key).loop = sample.loop; card.querySelector('[data-stamp-loop]').checked = sample.loop; }
       if (card) { card.dataset.playing = String(Boolean(sample)); card.hidden = !sample && button.dataset.filtered === 'true'; }
     }
     for (const record of saved.values()) {
@@ -223,7 +231,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     loadingSample = false; pendingPad = null; pointer = null; reflectPads();
   }
   function cancelEdit() { editTicket++; editRequest?.abort(); editRequest = null; }
-  function options(transpose = 0) { return { seed, density: Number($('mixerStampDensity').value), span: Number($('mixerStampSpan').value), beats: Number($('mixerStampBeats').value), offset: Number($('mixerStampOffset').value), transpose }; }
+  function options(transpose = 0) { return { orientation, seed, density: Number($('mixerStampDensity').value), span: Number($('mixerStampSpan').value), beats: Number($('mixerStampBeats').value), offset: Number($('mixerStampOffset').value), transpose }; }
   function numberInput(id, min, max, fallback, integer = false) {
     const value = $(id).valueAsNumber, bounded = Number.isFinite(value) ? clamp(value, min, max) : fallback;
     return integer ? Math.round(bounded) : bounded;
@@ -240,7 +248,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       const height = score.pixels.length;
       score.pixels.forEach((row, y) => row.forEach((value, x) => { if (value) ctx.fillRect(((score.lowestNote ?? 0) + x) * 96 / 128, y * 48 / height, Math.max(1, 96 / 128), Math.max(1, 48 / height)); }));
     } else if (score.analysis) {
-      for (const note of score.analysis.notes) ctx.fillRect(note.note / 128 * 96, note.beat / score.durationBeats * 48, 1, Math.max(1, note.duration / score.durationBeats * 48));
+      for (const note of score.analysis.notes) ctx.fillRect(note.note / 128 * 96, (orientation === 'falling' ? 1 - (note.beat + note.duration) / score.durationBeats : note.beat / score.durationBeats) * 48, 1, Math.max(1, note.duration / score.durationBeats * 48));
     }
   }
   function refreshPreviews() {
@@ -475,7 +483,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   };
   on($('mixerStampPaint'), 'change', paintMode); paintMode();
   on(messageForm, 'submit', event => {
-    event.preventDefault(); cancelPending(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value, { mode: $('mixerStampTextMode').value }); playScore(score, score.text, '', $('mixerSampleProgram').value, { saveKind: 'message' }); });
+    event.preventDefault(); cancelPending(); safely(() => { const score = mixerMessageScore($('mixerSampleMessage').value, { ...(orientation === 'falling' ? options() : {}), mode: $('mixerStampTextMode').value }); playScore(score, score.text, '', $('mixerSampleProgram').value, { saveKind: 'message' }); });
   });
   on($('mixerStampDrawRow'), 'input', () => {
     $('mixerStampBeats').value = String(numberInput('mixerStampDrawRow', .0078125, 2, .25) * 32);
@@ -484,7 +492,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   function getDrawingScore() {
     drawingPitchRange();
     return mixerPerformanceScore(getDrawing?.(), {
-      heightBeats: options().beats, offset: options().offset,
+      orientation, heightBeats: options().beats, offset: options().offset,
       span: numberInput('mixerStampSpan', 12, 128, 48, true),
       lowestNote: Number($('mixerStampDrawBase').value),
     });
@@ -515,12 +523,12 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, sendScore, stopSamples, getDrawingScore,
+    cancelPending, cancelEdit, playDrawing, sendScore, stopSamples, getDrawingScore, refresh,
     setAutomataSeed: row => automata.setSeedRow(row),
     setView(mode, nextVisualizerHost) {
       if (disposed) return;
       const next = ['draw', 'automata', 'mixer'].includes(mode) ? mode : 'mixer';
-      if (nextVisualizerHost && visualizer.parentElement !== nextVisualizerHost) nextVisualizerHost.append(visualizer);
+      if (showVisualizer && nextVisualizerHost && visualizer.parentElement !== nextVisualizerHost) nextVisualizerHost.append(visualizer);
       if (next !== viewMode) {
         pointer = null;
         if (next === 'automata') selectAutomata();
@@ -541,10 +549,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       const next = Boolean(value) && !disposed;
       if (active === next) return;
       active = next;
-      monitor.setActive(active);
+      monitor?.setActive(active);
       if (!active) { cancelPending(); return; }
       midiEditor.refresh();
     },
-    dispose() { if (disposed) return; disposed = true; active = false; editTicket++; editRequest?.abort(); cancelPending(); fileCache.clear(); for (const record of saved.values()) record.events.abort(); saved.clear(); padSamples.clear(); if (previewFrame !== null) cancelAnimationFrame(previewFrame); monitor.dispose(); engine.stopSamples(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); savedPads.remove(); palette.remove(); shapeControls.remove(); messageForm.remove(); section.remove(); },
+    dispose() { if (disposed) return; disposed = true; active = false; editTicket++; editRequest?.abort(); cancelPending(); fileCache.clear(); for (const record of saved.values()) record.events.abort(); saved.clear(); padSamples.clear(); if (previewFrame !== null) cancelAnimationFrame(previewFrame); monitor?.dispose(); engine.stopSamples(); automata.dispose(); midiEditor.destroy(); events.abort(); visualizer.remove(); volume.remove(); automataTools.remove(); savedPads.remove(); palette.remove(); shapeControls.remove(); messageForm.remove(); section.remove(); },
   };
 }

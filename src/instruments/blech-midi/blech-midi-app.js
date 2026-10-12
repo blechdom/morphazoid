@@ -8,6 +8,8 @@ import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/m
 import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
 import { mountMidiArtCreator } from './blech-midi-art-controls.js';
 import { mountBlechFilePlayer } from './blech-midi-file-player.js';
+import { mountBlechMath } from './blech-midi-math-controls.js';
+import { mountBlechFrames } from './blech-midi-frames-controls.js';
 
 const $ = id => document.getElementById(id);
 let retainedDraft = null;
@@ -16,11 +18,34 @@ function mountBlechMidi() {
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
+  $('blechLiveLayers').replaceChildren();
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
-  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer;
+  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools;
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
   let seedPicking = false;
+  const layerNodes = new Map();
+  function reflectLayers(state) {
+    const ids = new Set(state.samples.map(sample => sample.id));
+    for (const [id, node] of layerNodes) if (!ids.has(id)) { node.remove(); layerNodes.delete(id); }
+    for (const sample of state.samples) {
+      let node = layerNodes.get(sample.id);
+      if (!node) {
+        node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
+        const name = document.createElement('span'), loopLabel = document.createElement('label'), loop = document.createElement('input'), stop = document.createElement('button');
+        name.textContent = sample.name || 'Pattern'; name.title = name.textContent;
+        loop.type = 'checkbox'; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
+        loopLabel.append(loop, 'Loop'); stop.type = 'button'; stop.textContent = '■'; stop.setAttribute('aria-label', `Stop ${name.textContent}`);
+        loop.addEventListener('change', () => engine.configureSample(sample.id, { loop: loop.checked }));
+        stop.addEventListener('click', () => engine.stopSample(sample.id));
+        node.append(name, loopLabel, stop); layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
+      }
+      node.querySelector('input').checked = sample.loop;
+    }
+    const toggle = $('blechAutomataToggle');
+    toggle.hidden = !state.automata?.playing;
+    toggle.setAttribute('aria-pressed', String(Boolean(state.automata?.playing)));
+  }
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
   const value = (node, next) => {
     if (document.activeElement !== node && node.value !== String(next)) { node.value = String(next); knobs?.update(node); }
@@ -38,8 +63,8 @@ function mountBlechMidi() {
     $('creativeAudioStart').hidden = enabled;
     $('creativeAudioStart').disabled = starting;
     field($('creativeAudioStart'), starting ? 'Starting audio…' : state.error ? 'Retry audio' : 'Turn audio on');
-    $('playButton').disabled = !drawing?.model.count;
     $('previewDrawingMidi').disabled = !drawing?.model.count;
+    $('captureDrawingFrame').disabled = !drawing?.model.count;
     const playing = state.samples.length;
     field($('creativePlaybackStatus'), `${playing} pad${playing === 1 ? '' : 's'}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
@@ -61,6 +86,8 @@ function mountBlechMidi() {
       synthEffectEditor?.refresh();
     }
     noteEffectEditor?.refresh();
+    performanceView?.refresh(state);
+    reflectLayers(state);
     if (state.error) field($('creativeStatus'), state.error);
   }
   drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
@@ -78,7 +105,7 @@ function mountBlechMidi() {
   engine.setTempo(Number($('creativeTempo').value));
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
-    visualizerHost: $('creativeVisualizerHost'), volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
+    showVisualizer: false, orientation: 'falling', volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
     liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: $('drawingMessageHost'), onEditDrawing: loadDrawingCopy });
   const sound = $('automataSound'); sound.replaceChildren();
   GM_PROGRAM_NAMES.forEach((name, program) => sound.add(new Option(`${program + 1}. ${name}`, String(program))));
@@ -96,13 +123,9 @@ function mountBlechMidi() {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
     onChange: synth => engine.configureEffects({ synth }),
   });
-  const canvas = $('mixerPerformanceCanvas');
-  canvas.setAttribute('aria-label', 'Live Blech MIDI output: pitch runs left to right and notes rise from bottom to top');
-  canvas.textContent = 'Sent drawings, stamps, messages and rules appear together, colored by voice.';
-  $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
   $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
-  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'),
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'),
     onAudioRequest: () => {
       if (starting) return;
       if (engine.state.audioEnabled) void filePlayer.enableAudio();
@@ -116,6 +139,41 @@ function mountBlechMidi() {
     onSend: (score, options) => performanceView.sendScore(score, options),
     onPreview: score => filePlayer.previewScore(score),
   });
+  const onDrop = (score, options) => performanceView.sendScore(score, options);
+  mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop });
+  frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop, onEditDrawing: loadDrawingCopy });
+  on($('captureDrawingFrame'), 'click', () => { try { const index = frameTools.capture(); field($('creativeStatus'), `Frame ${index + 1} captured. Open Frames to arrange and drop the sequence.`); } catch (error) { field($('creativeStatus'), error.message); } });
+  const textLayout = $('mixerStampTextMode').closest('label');
+  $('drawingMessageHost').prepend(textLayout);
+  $('mixerSendMessage').textContent = 'Drop ↓';
+  $('mixerSampleMessage').placeholder = 'Write a word, 🙂 ⭐ ❤ …';
+  const tabs = [...document.querySelectorAll('[data-blech-tab]')];
+  function activateTab(name, focus = false) {
+    const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];
+    name = selected.dataset.blechTab;
+    for (const tab of tabs) {
+      const active = tab === selected;
+      tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
+      $(tab.getAttribute('aria-controls')).hidden = !active;
+    }
+    $('blechMidi').dataset.tab = name;
+    $('drawingShapeControls').hidden = !['stamps', 'drawing', 'text'].includes(name);
+    if (focus) { selected.focus({ preventScroll: true }); selected.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
+    if (name === 'drawing') drawing.render();
+  }
+  tabs.forEach((tab, index) => {
+    on(tab, 'click', () => activateTab(tab.dataset.blechTab));
+    on(tab, 'keydown', event => {
+      const next = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index + tabs.length - 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
+      if (next !== undefined) { event.preventDefault(); activateTab(tabs[next].dataset.blechTab, true); }
+    });
+  });
+  const hashTab = () => {
+    const name = { '#automata': 'automata', '#automataMidiTools': 'automata', '#drawingEditor': 'drawing', '#midiArtCreator': 'art', '#blackMidiPlayer': 'files', '#black-midi': 'files' }[location.hash];
+    if (name) activateTab(name);
+  };
+  on(globalThis, 'hashchange', hashTab); hashTab();
+  on($('blechAutomataToggle'), 'click', () => { engine.setAutomataPlaying(!engine.state.automata.playing); reflect(); });
   function refreshSeedBridge(model = drawing?.model) {
     const row = Number($('drawingSeedRow').value) - 1;
     $('drawingSeedRowOut').value = String(row + 1);
@@ -133,14 +191,14 @@ function mountBlechMidi() {
     for (const note of analysis.notes) {
       const x = Math.min(DRAWING_COLUMNS - 1, Math.floor((note.note - base + .5) * DRAWING_COLUMNS / span));
       const start = Math.max(0, Math.floor(note.beat / duration * DRAWING_ROWS)), end = Math.min(DRAWING_ROWS, Math.ceil((note.beat + note.duration) / duration * DRAWING_ROWS));
-      for (let y = start; y < Math.max(start + 1, end) && y < DRAWING_ROWS; y++) pixels[y][x] = 1;
+      for (let y = start; y < Math.max(start + 1, end) && y < DRAWING_ROWS; y++) pixels[DRAWING_ROWS - 1 - y][x] = 1;
     }
     for (const [id, value] of [['mixerStampSpan', span], ['mixerStampDrawBase', base], ['mixerStampOffset', 0], ['mixerStampBeats', Math.min(64, duration)]]) {
       $(id).value = String(value); $(id).dispatchEvent(new Event('input', { bubbles: true }));
     }
     drawing.loadPixels(pixels);
-    field($('creativeStatus'), `${name} copied into the 48 × 32 drawing grid. Send creates a new pad.`);
-    $('drawingEditor').scrollIntoView({ block: 'start', behavior: 'smooth' });
+    field($('creativeStatus'), `${name} copied into the 48 × 32 drawing grid. Drop creates a new pad.`);
+    activateTab('drawing');
   }
   on($('drawingSeedMode'), 'click', () => {
     seedPicking = !seedPicking; $('drawingSeedMode').setAttribute('aria-pressed', String(seedPicking));
@@ -168,7 +226,6 @@ function mountBlechMidi() {
     } catch (error) { field($('creativeStatus'), error.message || 'Could not send this drawing.'); }
   }
   on($('generateDrawingMidi'), 'click', sendDrawing);
-  on($('playButton'), 'click', sendDrawing);
   on($('previewDrawingMidi'), 'click', async () => {
     try { await filePlayer.previewScore(performanceView.getDrawingScore(), 'Your drawing'); }
     catch (error) { field($('creativeStatus'), error.message); }
@@ -248,10 +305,9 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
-  performanceView.setView('draw', $('creativeVisualizerHost')); performanceView.setActive(!document.hidden); reflect();
-  if (location.hash === '#automata') $('automataMidiTools').scrollIntoView({ block: 'start' });
+  performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('File stamps could not load. Drawings and generated patterns are ready.'); return response.json(); })

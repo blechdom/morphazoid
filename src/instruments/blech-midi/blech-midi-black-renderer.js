@@ -97,7 +97,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   if (!mount?.ownerDocument) throw new Error('Falling notes requires a mount element.');
   const document = mount.ownerDocument, window = document.defaultView;
   const wrapper = document.createElement('div'); wrapper.className = 'midiphoria-black-stage';
-  Object.assign(wrapper.style, { position: 'relative', width: '100%', height: '100%', minHeight: '160px', overflow: 'hidden', background: '#06080c' });
+  Object.assign(wrapper.style, { position: 'relative', width: '100%', height: '100%', minHeight: '0', overflow: 'hidden', background: '#06080c' });
   const makeCanvas = (label, accessible = false) => {
     const canvas = document.createElement('canvas'); canvas.setAttribute('aria-label', label);
     canvas.setAttribute(accessible ? 'role' : 'aria-hidden', accessible ? 'img' : 'true');
