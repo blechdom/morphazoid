@@ -103,6 +103,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "midiphoria.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "midiphoria.html", "selector": "#masterTempo", "mapping": {"unit": "bpm"}},
   {"route": "blech-midi.html", "selector": "#creativeTempo", "mapping": {"unit": "bpm"}},
+  {"route": "blech-midi.html", "selector": "#blackPlaybackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap Black MIDI speed (120 BPM = 1×)"},
   {"route": "minimax.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "moebius-synth.html", "selector": "#rotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "moebius-synth.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},

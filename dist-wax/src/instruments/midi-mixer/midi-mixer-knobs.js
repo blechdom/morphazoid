@@ -11,6 +11,9 @@ export function mountMixerKnobs(host) {
 
   function add(input) {
     if (destroyed || controls.has(input) || !host.contains(input) || input.hasAttribute('data-midi-note-effect') || input.hasAttribute('data-keep-slider')) return;
+    // Nested editors may already own this input's knob. One native range has
+    // one presentation owner, even when a parent watches newly mounted tools.
+    if (input.closest('.mixer-range-knob')) return;
     // An editor row also contains its exact number and Follow button. A separate
     // dial surface prevents the transparent range from intercepting either.
     const owner = input.closest('.midi-edit-field, .control, label') ?? input.parentElement;

@@ -1,6 +1,6 @@
 import { canvasSizing } from '../../graphics/canvas-sizing.js';
-import { blackMidiStatistics, queryBlackMidiNotes } from './midiphoria-black-score.js';
-import { parseBlackMidi } from './midiphoria-black-loader.js';
+import { blackMidiStatistics, queryBlackMidiNotes } from './blech-midi-black-score.js';
+import { parseBlackMidi } from './blech-midi-black-loader.js';
 
 export const BLACK_MIDI_PALETTES = Object.freeze(['rainbow', 'candy', 'ember', 'ice', 'acid']);
 const clamp = (value, min, max, fallback) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));

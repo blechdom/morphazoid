@@ -147,3 +147,47 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-art-settings .midiphoria-help { margin-top: 12px; }
 @media (max-width: 650px) { .blech-art-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
 @media (pointer: coarse) { .blech-art-creator :is(button, summary, input[type="number"]), .blech-art-layer label, .blech-art-check { min-height: 48px; } }
+
+#blackMidiViewport { position: absolute; inset: 0; }
+#blackMidiViewport[hidden], #blackMidiControls[hidden] { display: none; }
+.midiphoria-score-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin: 12px 0; font-size: 11px; color: #a1b4ae; }
+.midiphoria-score-stats output { display: block; font: 16px ui-monospace, monospace; color: #96f4cc; margin-top: 4px; }
+.midiphoria-score-tracks { max-height: 240px; overflow-y: auto; margin: 12px 0; }
+.midiphoria-score-track { display: grid; grid-template-columns: 20px minmax(0, 1fr) 34px; gap: 8px; align-items: center; min-height: 38px; font-size: 11px; }
+.midiphoria-score-track span { overflow-wrap: anywhere; }
+.midiphoria-score-track input[type="color"] { width: 32px; height: 28px; padding: 1px; border: 0; background: transparent; }
+#blackMidiControls details { margin: 14px 0; font-size: 12px; }
+#blackMidiControls summary { cursor: pointer; min-height: 26px; }
+#blackMidiControls .mixer-range-knob { display: block; width: 48px; height: 48px; min-height: 48px; }
+.blech-file-player { min-width: 0; margin-bottom: 18px; scroll-margin-top: 90px; }
+.blech-file-player > summary, .blech-file-settings > summary { cursor: pointer; min-height: 40px; align-content: center; font-size: 13px; color: #96f4cc; }
+.blech-file-layout { display: grid; grid-template-columns: minmax(0, 1fr) minmax(240px, .72fr); align-items: start; gap: 20px; margin: 12px 0 24px; }
+.blech-file-stage, .blech-file-library { min-width: 0; }
+.blech-file-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 14px; }
+.blech-file-transport .control { width: 80px; }
+.blech-file-transport .control > span { display: grid; gap: 4px; }
+.blech-file-transport .play-button { flex: 0 0 44px; width: 44px; height: 44px; border-radius: 50%; }
+.blech-file-transport .play-button[aria-pressed="true"] { color: #07110b; }
+.blech-file-transport .transport-pause { fill: none; stroke: currentColor; stroke-width: 3; }
+.blech-file-viewport { position: relative; width: 100%; height: clamp(180px, 28vh, 300px); background: #030706; margin-top: 12px; }
+.blech-file-viewport:fullscreen { width: 100vw; height: 100dvh; }
+.blech-file-viewport #blackFullscreen { position: absolute; top: 8px; right: 8px; background: #0a1210b8; z-index: 1; }
+.blech-file-player .blech-file-position { display: block; width: 100%; margin: 12px 0; }
+.blech-file-position > span { display: flex; justify-content: space-between; font-size: 11px; }
+.blech-file-position input { width: 100%; accent-color: #96f4cc; }
+.blech-file-player .midiphoria-library-heading { flex-wrap: wrap; }
+.blech-file-player h2 { margin: 0; font-size: 12px; font-weight: 500; }
+.blech-file-player .midiphoria-song-list { height: 240px; min-height: 180px; max-height: 45vh; }
+.blech-file-player input[type="search"] { box-sizing: border-box; width: 100%; min-width: 0; background: #111916; color: #dbe6df; border: 1px solid #324037; border-radius: 0; padding: 8px; }
+.blech-file-player #blackMidiControls > .control { display: inline-grid; align-content: start; vertical-align: top; gap: 8px; width: calc(50% - 10px); margin: 10px 10px 8px 0; }
+.blech-file-player #blackMidiControls > .control > span { display: grid; gap: 4px; font-size: 11px; }
+.blech-file-player #blackMidiControls select { width: 100%; min-width: 0; }
+.blech-file-player :is(#blackTempoStatus, #blackPlayerStatus, #blackSongSearchStatus, #blackSongDescription):empty { display: none; }
+.blech-file-player a { color: #96f4cc; }
+.blech-midi-preparation-heading { flex-wrap: wrap; }
+.blech-midi-preparation-heading h2 { margin-right: auto; }
+@media (max-width: 700px) { .blech-file-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } }
+@media (pointer: coarse) {
+  .blech-file-player :is(button, summary, .blech-art-check) { min-height: 48px; }
+  .blech-file-transport .play-button { flex-basis: 48px; width: 48px; height: 48px; }
+}

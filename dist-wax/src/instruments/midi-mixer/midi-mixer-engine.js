@@ -61,6 +61,7 @@ export class MidiMixerEngine {
     this._effects = { filterHz: 20000, delayMix: 0, delayBeats: 0.5, feedback: 0.3, synth: {} };
     this._font = null; this._fontName = 'TimGM6mb'; this._fontWaits = new Map(); this._fontSelection = 0;
     this._releaseOutput = null; this._promise = null; this._ready = false; this._disposed = false; this._serial = 0;
+    this._externalSources = new Map();
     this._playing = false; this._desiredAudio = false; this._audioEnabled = false; this._volume = 0.6; this._tempo = 120; this._crossfade = 0;
     this._beat = 0; this._anchor = this._now(); this._audioAnchor = null; this._audioTempo = 120;
     this._sampleTime = 0; this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._sampleMidi = {}; this._noteSubscribers = new Set();
@@ -379,6 +380,24 @@ export class MidiMixerEngine {
   setNoteEffects(input) { this._noteEffects = sanitizeMidiNoteEffects(input); this._post({ type: 'noteEffects', config: this._noteEffects }); this._publish(); return { ...this._noteEffects }; }
   setCrossfade(value) { this._crossfade = clamp(value, -1, 1, this._crossfade); this._post({ type: 'crossfade', value: this._crossfade }); this._publish(); return this._crossfade; }
   setVolume(value) { this._volume = clamp(value, 0, 1, this._volume); this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._updateGain(); this._publish(); return this._volume; }
+  /** Mix another source through this instrument's filter, effects, master gain
+   * and final peak ceiling. The caller keeps transport/context ownership. */
+  connectExternalSource(context, source, { gain = 1 } = {}) {
+    if (this._disposed || !this._ready || context !== this.context || context?.state === 'closed' || !this._filter) throw new Error('The shared MIDI audio engine is not ready.');
+    if (!source || typeof source.connect !== 'function' || typeof source.disconnect !== 'function' || source.context && source.context !== context) throw new Error('The external source must use the shared audio context.');
+    if (this._externalSources.has(source)) throw new Error('This source is already connected.');
+    if (this._externalSources.size >= 4) throw new Error('Up to four external MIDI sources can be mixed.');
+    const input = context.createGain(); input.gain.value = clamp(gain, 0, 1, 1);
+    try { source.connect(input); input.connect(this._filter); }
+    catch (error) { try { source.disconnect(input); } catch {} input.disconnect(); throw error; }
+    let released = false;
+    const release = () => {
+      if (released) return; released = true; this._externalSources.delete(source);
+      try { source.disconnect(input); } catch { /* Caller may already have released its source. */ }
+      input.disconnect();
+    };
+    this._externalSources.set(source, release); return release;
+  }
   _checkIndex(index) { if (index !== 0 && index !== 1) throw new Error('Choose MIDI deck A or B.'); }
   _freezeClock() { const state = this.state; this._beat = state.beat; this._sampleBeat = state.sampleBeat; this._sampleTime = state.sampleTime; this._anchor = this._sampleAnchor = this._now(); this._audioAnchor = this._sampleAudioAnchor = this._ready ? this.context?.currentTime ?? null : null; }
   _post(message) { if (this._ready && !this._disposed) this.node?.port.postMessage(message); }
@@ -514,6 +533,7 @@ export class MidiMixerEngine {
     for (const request of this._fontWaits.values()) { this.runtime.clearTimeout(request.timer); request.reject(new Error('SoundFont load cancelled.')); } this._fontWaits.clear();
     for (const request of this._automataWaits.values()) { this.runtime.clearTimeout(request.timer); request.reject(new Error('Automatapoeia capture cancelled.')); } this._automataWaits.clear();
     for (const remove of this._listeners.splice(0)) remove();
+    for (const release of [...this._externalSources.values()]) release();
     if (this.node) { this.node.port.onmessage = null; this.node.port.postMessage({ type: 'dispose' }); this.node.disconnect(); this.node.port.close?.(); this.node = null; }
     this._releaseOutput?.(); this._releaseOutput = null;
     for (const key of ['_preamp', '_compressor', '_gain', '_ceiling', '_filter', '_delay', '_dry', '_wet', '_feedback']) { this[key]?.disconnect(); this[key] = null; }

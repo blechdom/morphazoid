@@ -5,7 +5,7 @@ const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '
 const range = (id, label, min, max, step, value) => `<label class="control" for="art${id}"><span><b>${label}</b><output id="art${id}Out">${value}</output></span><input id="art${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></label>`;
 const curve = (id, label) => `<label>${label}<select id="art${id}">${ART_CURVES.map(name => `<option value="${name}">${name}</option>`).join('')}</select></label>`;
 
-export function mountMidiArtCreator(host, { getDrawingScore, onSend, getTempo = () => 120 } = {}) {
+export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, getTempo = () => 120 } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `<summary>MIDI art creator</summary><div class="blech-art-body">
     <div class="blech-art-actions"><label class="blech-art-upload deck-file">Image → MIDI<input id="artImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Image to MIDI"></label><button id="artUseDrawing" type="button">Copy drawing</button><button id="artClear" type="button">Clear layers</button></div>
@@ -13,7 +13,7 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, getTempo = 
     <div id="artLayers" class="blech-art-layers" role="group" aria-label="Artwork layers"></div>
     <label class="blech-art-check"><input id="artGhosts" type="checkbox" checked>Show original notes behind the result</label>
     <label class="blech-art-script">Piano-roll script<select id="artScript">${ART_SCRIPTS.map(script => `<option value="${script.id}">${escape(script.label)}</option>`).join('')}</select></label><p id="artScriptDescription" class="midiphoria-help"></p>
-    <div class="blech-art-actions"><button id="artSend" type="button" disabled>Send to pad ↑</button><label class="blech-art-check"><input id="artLoop" type="checkbox">Loop this send</label><button id="artExport" type="button" disabled>Export MIDI</button></div>
+    <div class="blech-art-actions"><button id="artSend" type="button" disabled>Send to pad ↑</button><label class="blech-art-check"><input id="artLoop" type="checkbox">Loop this send</label><button id="artExport" type="button" disabled>Export MIDI</button><button id="artPreviewScore" type="button" disabled>Preview score ↓</button></div>
     <output id="artStatus" role="status"></output>
     <details class="blech-art-settings"><summary>Image mapping &amp; script controls</summary><div class="blech-art-controls">
       ${range('Width', 'Image width', 4, 128, 1, 64)}${range('Height', 'Image height', 4, 256, 1, 64)}${range('Threshold', 'Ink threshold', 0, 255, 1, 128)}
@@ -79,6 +79,7 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, getTempo = 
       $('Status').value = '';
     } catch (caught) { error = caught.message; processed = { notes: [], durationBeats: number('Beats') }; $('Statistics').value = 'Adjust the artwork before sending.'; $('Status').value = error; }
     $('Send').disabled = $('Export').disabled = Boolean(error) || !processed.notes.length;
+    $('PreviewScore').disabled = !onPreview || $('Send').disabled;
     render();
   }
   function queueUpdate() { if (scheduled === null) scheduled = requestAnimationFrame(() => { scheduled = null; update(); }); }
@@ -112,6 +113,10 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, getTempo = 
   on($('Reseed'), 'click', () => { $('Seed').value = String(crypto.getRandomValues(new Uint32Array(1))[0]); update(); });
   const score = () => { update(); if (error) throw new Error(error); return encodeArtwork(processed.notes, { title: `MIDI artwork ${$('Script').selectedOptions[0].textContent}`, tempo: getTempo(), durationBeats: processed.durationBeats }); };
   on($('Send'), 'click', () => safely(() => { const snapshot = score(); onSend(snapshot, { name: `Artwork ${serial || 1}`, program: 'original', loop: $('Loop').checked }); $('Status').value = `${snapshot.analysis.noteCount.toLocaleString()} notes sent to an independent pad.`; }));
+  on($('PreviewScore'), 'click', async () => {
+    try { await onPreview?.(score()); }
+    catch (caught) { if (!disposed) $('Status').value = caught.message; }
+  });
   on($('Export'), 'click', () => safely(() => { const snapshot = score(); revoke(); download = URL.createObjectURL(new Blob([snapshot.buffer], { type: 'audio/midi' })); const link = document.createElement('a'); link.href = download; link.download = 'morphazoid-midi-art.mid'; link.click(); $('Status').value = `${snapshot.analysis.noteCount.toLocaleString()} notes exported.`; }));
   const resize = new ResizeObserver(render); resize.observe(canvas); on(host, 'toggle', render);
   const jump = host.ownerDocument.querySelector('a[href="#midiArtCreator"]');

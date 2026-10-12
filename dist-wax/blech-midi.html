@@ -51,9 +51,11 @@
             <a id="drawingModeButton" href="#drawingEditor">Draw</a>
             <a id="automataModeButton" href="#automataMidiTools">Automatapoeia</a>
             <a href="#midiArtCreator">MIDI art</a>
+            <a href="#blackMidiPlayer">Black MIDI</a>
             <a href="midiphoria.html">Midiophilia ↗</a>
           </div>
         </div>
+        <details id="blackMidiPlayer" class="blech-file-player"></details>
         <div class="blech-midi-transport">
           <button id="playButton" class="mini-action" type="button" data-primary-transport aria-label="Send prepared drawing" disabled>Send ↑</button>
           <button id="creativeStop" class="mini-action" type="button">Stop all</button>
@@ -67,7 +69,7 @@
         <div id="creativePadsHost"></div>
         <div class="blech-midi-workbenches">
         <section id="drawingEditor" aria-labelledby="drawingHeading">
-          <div class="blech-midi-preparation-heading"><h2 id="drawingHeading">Prepare a drawing</h2><button id="generateDrawingMidi" type="button" class="mini-action" disabled>Send ↑</button></div>
+          <div class="blech-midi-preparation-heading"><h2 id="drawingHeading">Prepare a drawing</h2><button id="previewDrawingMidi" type="button" class="mini-action" disabled>Preview score ↓</button><button id="generateDrawingMidi" type="button" class="mini-action" disabled>Send ↑</button></div>
           <div id="drawingPlaybackOptions" class="blech-drawing-playback"></div>
           <div class="midiphoria-drawing-tools" id="drawingTools">
             <div class="midiphoria-drawing-actions">

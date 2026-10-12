@@ -130,6 +130,15 @@ identifies a Disklavier performance by Mei-Ting Sun from June 9, 2002.
 It is one performed work, not the player-piano Studies collection or an original
 roll scan; redistribution terms were not established here, so it is linked only.
 
+A further search verified **seven downloadable MIDI files**: the complete Tango
+performance above and six [Robert Willey Study No. 37 examples](https://willshare.com/willeyrk/creative/papers/study37/).
+The examples cover Canon I (piano and multiple-timbre versions, 60 attacks each)
+and Canon V (four timbre/pan versions, 1,644 attacks each). These are score-derived
+canons, not the complete Study No. 37 and not Foundation roll scans. All seven
+were downloaded and validated locally. No public redistribution grant was found,
+so the public collection links the sources rather than mirroring those files.
+Use **Blech MIDI → Black MIDI → Open your MIDIs** to play downloaded copies.
+
 No generated “Nancarrow-style” example is relabelled as Nancarrow, and no audio
 preview is presented as a downloadable MIDI score.
 

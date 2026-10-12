@@ -38,7 +38,8 @@ async function delayedSong(page, file) {
 
 test('empty startup shows the full library; preset selection fills it once and keeps imports', async ({ page }) => {
   await open(page);
-  const songs = await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json()));
+  const songs = (await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json())))
+    .filter(song => !song.visualOnly && !song.compression);
   await expect(songButtons(page)).toHaveCount(songs.length);
   await expect(page.locator('#songSelect, #collectionSelect')).toHaveCount(0);
   await expect(page.locator('#songList')).toHaveJSProperty('tagName', 'UL');
@@ -157,7 +158,8 @@ test('Stop during a pending song load cancels playback intent; failed replacemen
 
 test('one search matches title, artist and collection words in any order', async ({ page }) => {
   await open(page);
-  const songs = await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json()));
+  const songs = (await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json())))
+    .filter(song => !song.visualOnly && !song.compression);
   const expected = songs.filter(song => {
     const text = `${song.title} ${song.composer || ''} ${song.collection || ''}`.toLocaleLowerCase();
     return ['black', 'midi'].every(word => text.includes(word));

@@ -46,7 +46,7 @@
         <div class="midiphoria-stage-heading"><a class="midiphoria-original" href="https://github.com/NicholasCStanley/midiphoria" target="_blank" rel="noopener noreferrer">Original by Nicholas C. Stanley ↗</a><h1>Midiophilia</h1></div>
         <div class="midiphoria-stage-modes" role="group" aria-label="Stage view">
           <button id="visualModeButton" type="button" aria-pressed="true">Visualize</button>
-          <button id="blackModeButton" type="button" aria-pressed="false">Black MIDI</button>
+          <a class="midiphoria-creative-link" href="blech-midi.html#blackMidiPlayer">Black MIDI ↗</a>
           <button id="mixerModeButton" type="button" aria-pressed="false">MIDI Mixer</button>
           <a class="midiphoria-creative-link" href="blech-midi.html">Blech MIDI ↗</a>
         </div>
@@ -55,7 +55,6 @@
       <section class="midiphoria-stage" aria-label="MIDI visualization">
         <div class="midiphoria-viewport" id="visualViewport">
           <canvas id="visualCanvas" aria-label="Live MIDI color field and note trails">MIDI notes control the color and brightness. The readout below describes the current input.</canvas>
-          <div id="blackMidiViewport" hidden></div>
           <button type="button" class="mini-action midiphoria-fullscreen" id="fullscreenButton" aria-label="Enter visualization fullscreen">⛶ <span>Fullscreen</span></button>
         </div>
         <div class="midiphoria-readout"><output id="noteReadout" aria-live="off">Waiting for a note</output><output id="levelReadout" aria-live="off">0% light</output></div>
@@ -94,7 +93,6 @@
           <label class="midiphoria-file" for="midiFile"><span>Open your MIDIs</span><input id="midiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple /></label>
           <label class="control" for="songPosition"><span><b>Position</b><output id="songTime" for="songPosition">0:00 / 0:00</output></span><input id="songPosition" type="range" min="0" max="1" step="0.1" value="0" disabled /></label>
         </section>
-        <section id="blackMidiControls" class="midiphoria-section" aria-label="Black MIDI score controls" hidden></section>
         <div id="visualNoteEffects"></div>
         <section class="midiphoria-section" aria-labelledby="textMidiHeading">
           <h2 id="textMidiHeading">Words &amp; symbols</h2>

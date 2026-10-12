@@ -7,6 +7,7 @@ import { mountMidiSynthEffectEditor } from '../midi-mixer/midi-mixer-midi-editor
 import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/midiphoria-drawing.js';
 import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
 import { mountMidiArtCreator } from './blech-midi-art-controls.js';
+import { mountBlechFilePlayer } from './blech-midi-file-player.js';
 
 const $ = id => document.getElementById(id);
 let retainedDraft = null;
@@ -16,8 +17,9 @@ function mountBlechMidi() {
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
-  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator;
+  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer;
   let bankChooser, effectsSignature = '';
+  let sharedBank = null, bankQueue = Promise.resolve();
   let seedPicking = false;
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
   const value = (node, next) => {
@@ -37,6 +39,7 @@ function mountBlechMidi() {
     $('creativeAudioStart').disabled = starting;
     field($('creativeAudioStart'), starting ? 'Starting audio…' : state.error ? 'Retry audio' : 'Turn audio on');
     $('playButton').disabled = !drawing?.model.count;
+    $('previewDrawingMidi').disabled = !drawing?.model.count;
     const playing = state.samples.length;
     field($('creativePlaybackStatus'), `${playing} pad${playing === 1 ? '' : 's'}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
@@ -87,7 +90,7 @@ function mountBlechMidi() {
   $('automataMidiTools').append($('automataMidiTools').querySelector('.blech-automata-sound'));
   const noteEffectHost = document.createElement('div'); $('creativeControlsHost').append(noteEffectHost);
   noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'blechNoteFx',
-    getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
+    getValue: () => engine.state.noteEffects, onChange: value => { engine.setNoteEffects(value); filePlayer?.setNoteEffects(value); } });
   $('creativeControlsHost').append($('mixerEffects'));
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
@@ -99,11 +102,19 @@ function mountBlechMidi() {
   $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
   $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine,
+    onAudioRequest: () => {
+      if (starting) return;
+      if (engine.state.audioEnabled) void filePlayer.enableAudio();
+      else $('audioButton').click();
+    },
+  });
   knobs = mountMixerKnobs($('blechMidi'));
   artCreator = mountMidiArtCreator($('midiArtCreator'), {
     getDrawingScore: () => { const score = performanceView.getDrawingScore(); return { ...score, analysis: score.analysis ?? parseMidi(score.buffer) }; },
     getTempo: () => engine.state.tempo,
     onSend: (score, options) => performanceView.sendScore(score, options),
+    onPreview: score => filePlayer.previewScore(score),
   });
   function refreshSeedBridge(model = drawing?.model) {
     const row = Number($('drawingSeedRow').value) - 1;
@@ -158,11 +169,16 @@ function mountBlechMidi() {
   }
   on($('generateDrawingMidi'), 'click', sendDrawing);
   on($('playButton'), 'click', sendDrawing);
-  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); reflect(); });
+  on($('previewDrawingMidi'), 'click', async () => {
+    try { await filePlayer.previewScore(performanceView.getDrawingScore(), 'Your drawing'); }
+    catch (error) { field($('creativeStatus'), error.message); }
+  });
+  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
   on($('creativeTempo'), 'input', () => {
     const tempo = engine.setTempo(Number($('creativeTempo').value));
     $('creativeTempoOut').value = `${Number(tempo.toFixed(1))} BPM`;
+    filePlayer.setTempo();
   });
   on($('outputLevel'), 'input', () => { engine.setVolume(Number($('outputLevel').value)); $('outputLevelOut').value = `${Math.round(engine.state.volume * 100)}%`; });
   for (const [id, key, convert] of [['mixerFilter', 'filterHz', number => 10 ** number], ['mixerEcho', 'delayMix', Number], ['mixerEchoTime', 'delayBeats', Number], ['mixerFeedback', 'feedback', Number]]) {
@@ -172,19 +188,48 @@ function mountBlechMidi() {
     on($(id), 'change', event => { if (event.target.validity.valid) engine.configureEffects({ [key]: Number(event.target.value) }); });
   }
   on($('mixerEffectsReset'), 'click', () => engine.configureEffects({ filterHz: 20000, delayMix: 0, delayBeats: .5, feedback: .3, synth: null }));
+  function loadSharedBank({ bytes, name }) {
+    // Both consumers commit or both return to the last accepted bank. Serialize
+    // chooser requests so an older rollback cannot undo a newer selection.
+    const pending = bankQueue.catch(() => {}).then(async () => {
+      if (disposed) throw new DOMException('SoundFont selection cancelled.', 'AbortError');
+      if (!sharedBank) {
+        const response = await fetch(new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url), { signal: events.signal });
+        if (!response.ok) throw new Error('Could not prepare SoundFont recovery. Try again.');
+        sharedBank = { bytes: await response.arrayBuffer(), name: 'TimGM6mb' };
+      }
+      const previous = sharedBank;
+      try {
+        await filePlayer.loadSoundFont(bytes, name);
+        if (disposed) throw new DOMException('SoundFont selection cancelled.', 'AbortError');
+        await engine.loadSoundFont(bytes, name);
+        sharedBank = { bytes, name };
+      } catch (error) {
+        if (disposed) throw error;
+        const restored = await Promise.allSettled([filePlayer.loadSoundFont(previous.bytes, previous.name), engine.loadSoundFont(previous.bytes, previous.name)]);
+        if (restored.some(result => result.status === 'rejected')) {
+          audioIntent = false; engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect();
+          throw new Error('SoundFont recovery failed. Audio is off; choose a bank again.');
+        }
+        reflect(); throw error;
+      }
+      if (!disposed) reflect();
+    });
+    bankQueue = pending.catch(() => {}); return pending;
+  }
   bankChooser = mountSoundFontChooser($('mixerBankChooser'), {
     fileInput: $('mixerSoundFont'), defaultButton: $('mixerDefaultFont'),
-    async onLoad({ bytes, name }) { await engine.loadSoundFont(bytes, name); if (!disposed) reflect(); },
+    onLoad: loadSharedBank,
     onStatus(state) { if (!disposed) field($('mixerFontStatus'), state.error?.message || (state.loading ? 'Loading SoundFont…' : state.current ? `Using ${state.current.name}` : '')); },
   });
   on($('audioButton'), 'click', async () => {
     audioIntent = !(starting ? audioIntent : engine.state.audioEnabled);
-    if (!audioIntent) { starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); reflect(); return; }
+    if (!audioIntent) { starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return; }
     starting = true; field($('creativeStatus'), '');
     // Creating and resuming the native context stays inside this explicit gesture.
     const pending = engine.enableAudio(); reflect();
-    try { await pending; }
-    finally { if (!disposed) { starting = false; if (!audioIntent) engine.setAudioEnabled(false); reflect(); } }
+    try { if (await pending && !disposed && audioIntent) await filePlayer.enableAudio(); }
+    finally { if (!disposed) { starting = false; if (!audioIntent) { engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); } reflect(); } }
   });
   on($('creativeAudioStart'), 'click', () => { if (!engine.state.audioEnabled && !starting) $('audioButton').click(); });
   function tick(now) {
@@ -203,14 +248,14 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    artCreator.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw', $('creativeVisualizerHost')); performanceView.setActive(!document.hidden); reflect();
   if (location.hash === '#automata') $('automataMidiTools').scrollIntoView({ block: 'start' });
   if (!document.hidden) frame = requestAnimationFrame(tick);
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('File stamps could not load. Drawings and generated patterns are ready.'); return response.json(); })
-    .then(collection => { if (!disposed) performanceView.setCollection(collection); })
+    .then(collection => { if (!disposed) { performanceView.setCollection(collection); filePlayer.setCollection(collection); } })
     .catch(error => { if (!disposed && error.name !== 'AbortError') field($('creativeStatus'), error.message); });
 }
 

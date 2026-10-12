@@ -163,6 +163,8 @@ export function parseBlackMidiScore(buffer, { limits: requested = {} } = {}) {
     peakPolyphony = Math.max(peakPolyphony, passed - released); attacks.next();
   }
   return { version: 1, format: midi.format, division: midi.division, total, duration, peakPolyphony,
+    initialTempo: midi.secondsPerTick ? null : 60000000 / tempoValues[0],
+    tempoChanges: midi.secondsPerTick ? 0 : tempoValues.length - 1,
     starts, ends, sortedEnds, pitches, velocities, channels, tracks,
     diagnostics: { unclosed, unmatchedOffs, sourceBytes: buffer.byteLength, noteLimit: limits.notes, thinned: false },
   };

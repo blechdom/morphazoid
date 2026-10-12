@@ -1,8 +1,84 @@
 # Blech MIDI
 
 [Open Blech MIDI](../blech-midi.html). Drawing, black MIDI and geometric stamps,
-words, and live Automatapoeia MIDI evolution share one page and one tempo. The file player,
-live MIDI visualizer and two-deck mixer remain in [Midiophilia](../midiphoria.html).
+words, MIDI artwork, the Black MIDI file player and live Automatapoeia evolution
+share one page. The light-trail visualizer, ordinary file player and two-deck
+mixer remain in [Midiophilia](../midiphoria.html).
+
+## Black MIDI file player
+
+Open **Black MIDI** near the title, or the **Black MIDI player** disclosure.
+Its full file list has one search field, Next and Random, plus local imports.
+Play/Pause, Stop, Loop file and File volume belong only to this player.
+Collapsing the player, preparing another drawing, changing colors, or pausing
+Automatapoeia does not stop the file. **Stop all** also stops the file.
+Changing files preserves an already-running file transport.
+
+**Preview score ↓** beside a prepared drawing or in the MIDI art creator loads
+an independent snapshot into the falling-note player. It does not send a pad,
+arm Audio or alter pads already looping. Press the player's Play button after
+turning Audio on. Sending and previewing have separate transport ownership.
+
+The file synthesizer borrows Blech's AudioContext and feeds the same filter,
+delay, master volume and final peak limiter as the pads and Automatapoeia.
+The SoundFont picker and MIDI note effects apply to file playback too. File
+volume balances this source before the shared output. Audio remains an
+explicit page-wide action; stopping a file does not close the shared context.
+Synthesizer-specific live-pad parameter edits remain with their pad source.
+
+By default, Speed preserves the file's own tempo map. **Sync to tempo** scales
+that map by the shared tempo divided by its initial BPM, multiplied by Speed.
+Changes are continuous and bounded to 0.5–8×. Variable-tempo files retain their
+tempo changes: this is a tempo ratio, not a rewritten constant-tempo score or
+a bar-alignment system. The status explains a clamped ratio. SMPTE-timed files
+have no initial musical BPM and retain speed-only playback.
+
+Local import accepts up to 20 files and 200 MiB total per session. Scores above
+10 MiB use silent visual playback unless the collection supplies a separate
+creator AUDIO edition. The complete score still has the limits below.
+
+**Black MIDI** is the file-based falling-note view in Blech MIDI. Future rectangles descend onto the full **128 MIDI pitches (0–127)**;
+choose piano-key spacing or equal pitch lanes. All tracks overlap on the same
+keyboard. Track checkboxes isolate only the picture, and per-track color
+selectors, five palettes and track/channel/pitch/velocity mappings differentiate
+voices. Collapsing its controls preserves the file clock.
+
+This view uses **WebGL2**, with Canvas 2D fallback after GPU unavailability or
+context loss. The live output and Midiophilia light/trail views remain Canvas 2D. It does not use
+WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
+tools such as Wasabi; our browser GPU path is WebGL2. This is an original
+Piano From Above-style presentation, not a port of that application.
+
+A module worker parses the complete SMF into indexed typed arrays. Total notes
+count every positive-velocity Note On, including quiet/decorative channels.
+Zero-velocity Note On is an off event. Repeated overlapping pitches use FIFO
+matching within each track/channel. Statistics show total/passed notes, attacks
+in the preceding score second, held note gates and peak overlap. Sustain,
+release tails, effects and the synthesizer's 128-voice limit are separate.
+
+The parser accepts up to 12 million notes and 200 MiB, with no silent thinning.
+Drawing caps are 200,000 rectangles per frame in WebGL2 and 25,000 in Canvas;
+Score details reports omitted rectangles while statistics retain the full
+score. Large files can require hundreds of megabytes of memory; the desktop
+9.39-million-note benchmark is not a claim of mobile support at that size.
+Lightstorm's 22,866,471-note original remains downloadable, with an explicit
+preview-limit message and playable creator AUDIO edition.
+
+The library now includes all 19 decorative BLEEDING EDGE MONOTONE originals
+and three Hans5958 files, losslessly compressed from the creators' originals.
+Sixteen decorative entries play the separately supplied AUDIO edition on its
+original timeline. Different editions can have different note/end times; no
+duration-based stretching is applied. Unpaired scores at or below the 10 MiB
+audio-loader limit use the original MIDI; larger unpaired scores have an
+explicitly silent visual transport with pause, seek, loop and 0.5–8× speed.
+The complete scores are kept out of the bounded mixer/stamp selectors.
+See [artist sources and Nancarrow findings](../assets/midiphoria/ARTWORK-SOURCES.md)
+for provenance, redistribution terms and exact independently checked counts.
+
+Black MIDI displays the original source score before MIDI effects. Blech’s live
+output continues to display generated pads and evolution; those sources have
+independent transports and are not composited into the future file score.
+
 
 ## Prepare and send
 

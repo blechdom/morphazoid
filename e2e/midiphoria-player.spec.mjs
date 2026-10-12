@@ -243,7 +243,9 @@ test('collection words combine with title filtering and imports clear the search
   await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'local-1');
   await expect(page.locator('#songList button[data-song-id^="local-"]')).toHaveCount(1);
   await page.locator('#songSearch').fill('Black MIDI');
-  await expect(songButtons(page)).toHaveCount(48);
+  const available = await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json()));
+  const ordinaryBlack = available.filter(song => !song.visualOnly && !song.compression && /black midi/i.test(`${song.title} ${song.composer || ''} ${song.collection || ''}`));
+  await expect(songButtons(page)).toHaveCount(ordinaryBlack.length);
 });
 
 test('black MIDI peak passages at 8× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {
