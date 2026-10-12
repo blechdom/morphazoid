@@ -149,9 +149,12 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     if (disposed) return latestStats;
     const time = Math.max(0, Number(position) || 0), strike = 1 - options.keyboardHeight;
     const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .125, 8, 1);
+    // A real-seconds window sees proportionally more score at high speed.
+    // Reduce graphics work first; file indexing and audio remain complete.
+    const frameLimit = Math.max(Math.floor(backend.limit / 8), Math.floor(backend.limit / Math.max(1, speed)));
     let liveState = null;
     try { liveState = getLiveState?.(); } catch { /* Display failure cannot affect sound. */ }
-    const live = projectLive(liveState, { lookAhead: options.lookAhead, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, backend.limit / 2) });
+    const live = projectLive(liveState, { lookAhead: options.lookAhead, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, frameLimit / 2) });
     lit.fill(null); let count = 0;
     function rectangle({ pitch, velocity, channel, track, start, end }) {
       const key = layout[pitch]; if (!key || count >= backend.limit) return;
@@ -168,7 +171,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
       if (start <= 0 && end > 0) lit[pitch] = rgb;
     }
     // Live layers retain a guaranteed share even over a dense decorative file.
-    const fileLimit = backend.limit - live.notes.length;
+    const fileLimit = Math.max(0, frameLimit - live.notes.length);
     const queried = queryBlackMidiNotes(score, time, options.lookAhead * speed, { limit: fileLimit, scanLimit: fileLimit * 2, hiddenTracks: options.hiddenTracks,
       visit(index, track) {
         rectangle({ pitch: score.pitches[index], velocity: score.velocities[index], channel: score.channels[index], track,
@@ -180,7 +183,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     backend.draw(data, count); drawKeyboard();
     latestStats = { ...blackMidiStatistics(score, time, { ...options, lookAhead: options.lookAhead * speed }), visible: fileVisible, scanned: queried.scanned,
       liveVisible: live.notes.length, liveHeld: live.held, liveSources: live.sources, liveTruncated: live.truncated,
-      renderer: backend.name, displayLimit: backend.limit, position: time };
+      renderer: backend.name, displayLimit: frameLimit, position: time };
     latestStats.omitted = Math.max(0, latestStats.candidateCount - fileVisible);
     wrapper.dataset.liveNotes = String(live.notes.length);
     wrapper.dataset.liveHeld = String(live.held);
