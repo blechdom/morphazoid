@@ -144,7 +144,7 @@ export class MidiSampleClock {
         if (available > count) { this.skippedEvents += available - count; sample.cursor = endIndex; this.release(slot + 2, frameAt(frameStart + (finish - position) / increment)); }
         frameStart += (finish - position) / increment;
         if (finish < length - Math.min(1e-10, length * 1e-9)) break;
-        if (!sample.loop) { this.release(slot + 2, frameAt(frameStart)); if (this.completed.length >= 4) this.completed.shift(); this.completed.push({ id: sample.id, revision: sample.revision, ended: true }); this.samples[slot] = null; break; }
+        if (!sample.loop) { this.release(slot + 2, frameAt(frameStart)); if (this.completed.length >= 4) this.completed.shift(); this.completed.push({ id: sample.id, revision: sample.revision, ended: true, positionBeats: sample.data.durationBeats, cycle: final.cycle, pendingBeats: 0, finishedAt: this.seconds + frameStart / sampleRate }); this.samples[slot] = null; break; }
         // At a block edge defer the new cycle to frame zero of the next block.
         if (frameStart >= frames - 1e-9) { sample.wrapPending = true; break; }
         if (!restores) { skipRemainder(frameAt(frameStart)); break; }

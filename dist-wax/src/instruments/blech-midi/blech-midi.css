@@ -92,7 +92,7 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-automata-sound .control { width: 110px; }
 .blech-automata-sound .control > span:first-child { display: grid; gap: 4px; font-size: 11px; }
 .blech-midi-workspace #creativeControlsHost > .mixer-performance > .mixer-sample-controls { display: flex; flex-wrap: wrap; }
-@media (max-width: 1200px) { .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-inline: 16px; } .blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; } }
+@media (max-width: 1200px) { .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 20px; padding-inline: 16px; } .blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; } }
 @media (max-width: 800px) {
   .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr); gap: 24px; padding-top: 16px; }
   .blech-midi-modes a { margin-left: 0; }
@@ -196,9 +196,9 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 html.blech-midi-root { height: 100%; overflow: hidden; }
 body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
 .blech-midi-page > .masthead { flex: 0 0 auto; position: relative; }
-.blech-midi-workspace.mixer-shell { flex: 1; min-height: 0; width: 100%; max-width: 1680px; margin: 0 auto; padding: 6px 20px 12px; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(260px, 46%) auto minmax(0, 1fr); gap: 6px; overflow: hidden; }
-.blech-midi-stage { min-height: 0; display: flex; flex-direction: column; }
-.blech-midi-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 16px; }
+.blech-midi-workspace.mixer-shell { flex: 1; min-height: 0; width: 100%; max-width: 1680px; margin: 0 auto; padding: 6px 20px 12px; display: grid; grid-template-columns: minmax(0, 1.7fr) minmax(340px, 1fr); grid-template-rows: minmax(0, 1fr) auto; gap: 8px 20px; overflow: hidden; }
+.blech-midi-stage { grid-column: 1; grid-row: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; }
+.blech-midi-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; }
 .blech-midi-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(23px, 2.5vw, 34px); font-weight: 800; letter-spacing: -.04em; white-space: nowrap; }
 .blech-midi-heading h1 img { width: 76px; height: 44px; object-fit: contain; }
 .blech-midi-transport { margin: 0; flex-wrap: nowrap; gap: 12px; }
@@ -222,7 +222,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-file-stage { position: relative; }
 #blackTempoStatus, #blackPlayerStatus { margin: 0; }
 #blackAudioStart { display: none; }
-.blech-live-strip { display: flex; gap: 10px; align-items: center; min-width: 0; min-height: 36px; border-bottom: 1px solid #293831; overflow-x: auto; }
+.blech-live-strip { grid-column: 1 / -1; grid-row: 2; display: flex; gap: 10px; align-items: center; min-width: 0; min-height: 36px; border-bottom: 1px solid #293831; overflow-x: auto; }
 #creativePlaybackStatus { flex: 0 0 auto; font-size: 10px; color: #a1b4ae; }
 #blechLiveLayers { display: flex; gap: 8px; min-width: 0; }
 .blech-live-layer { display: flex; flex: 0 0 auto; align-items: center; gap: 8px; border-left: 2px solid #96f4cc; padding-left: 8px; font-size: 10px; }
@@ -230,8 +230,8 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-live-layer label { display: flex; gap: 3px; align-items: center; }
 .blech-live-layer button { min-height: 30px; padding: 4px 8px; }
 #creativeStatus { margin: 0; flex: 0 0 auto; max-width: 420px; }
-.blech-workbench { display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
-.blech-workspace-tabs { display: flex; flex: 0 0 auto; min-width: 0; overflow-x: auto; gap: 2px; border-bottom: 1px solid #293831; }
+.blech-workbench { grid-column: 2; grid-row: 1; display: flex; flex-direction: column; min-height: 0; min-width: 0; overflow: hidden; }
+.blech-workspace-tabs { display: flex; flex-wrap: wrap; flex: 0 0 auto; min-width: 0; overflow-x: auto; gap: 2px; border-bottom: 1px solid #293831; }
 .blech-workspace-tabs [role="tab"] { flex: 0 0 auto; white-space: nowrap; border: 0; border-bottom: 2px solid transparent; background: transparent; padding: 9px 12px; min-height: 36px; font-size: 11px; color: #a1b4ae; }
 .blech-workspace-tabs [aria-selected="true"] { color: #96f4cc; border-bottom-color: #96f4cc; background: #111d17; }
 .blech-workspace-tabs [role="tab"]:focus-visible { outline: 2px solid #96f4cc; outline-offset: -3px; }
@@ -254,22 +254,24 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #drawingShapeControls #mixerStampHint { display: none; }
 .blech-midi-workspace:not([data-tab="stamps"]) #drawingShapeControls .mixer-stamp-actions { display: none; }
 .blech-midi-workspace .midiphoria-drawing-viewport { height: clamp(150px, 26vh, 250px); }
-.blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 24px; }
+.blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .blech-midi-effects { margin: 0; }
 .blech-art-creator { margin: 0; }
 .blech-art-creator > summary { display: none; }
 .blech-art-scene canvas { height: 200px; aspect-ratio: auto; }
-#blackMidiControls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; }
+#blackMidiControls { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 #blackMidiControls > .control { display: grid; align-content: start; gap: 8px; min-width: 0; font-size: 11px; }
 #blackMidiControls select { width: 100%; min-width: 0; }
 #blackMidiControls .midiphoria-score-stats, #blackMidiControls details { margin: 0; }
-#blackMidiControls .midiphoria-score-stats { grid-column: span 2; }
-.blech-midi-workspace .automata-midi-body { display: grid; grid-template-columns: minmax(240px, 1fr) minmax(240px, 1fr); gap: 20px; }
+#blackMidiControls .midiphoria-score-stats, #blackMidiControls > h2, #blackMidiControls > p, #blackMidiControls > details { grid-column: 1 / -1; }
+.blech-midi-workspace .automata-midi-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 #drawingMessageHost { margin: 0; max-width: 850px; display: grid; gap: 16px; }
 #drawingMessageHost > label { display: flex; align-items: center; gap: 12px; font-size: 12px; }
 .blech-midi-workspace #mixerSendMessage { background: #96f4cc; color: #07110b; }
 @media (max-width: 700px) {
-  .blech-midi-workspace.mixer-shell { padding: 4px 10px 8px; grid-template-rows: minmax(260px, 45%) auto minmax(0, 1fr); }
+  .blech-midi-workspace.mixer-shell { padding: 4px 10px 8px; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(330px, 62%) auto minmax(0, 1fr); gap: 6px; }
+  .blech-workbench { grid-column: 1; grid-row: 3; }
+  .blech-workspace-tabs { flex-wrap: nowrap; }
   .blech-midi-heading { gap: 8px; flex-wrap: wrap; }
   .blech-midi-heading h1 { font-size: 22px; }
   .blech-midi-heading h1 img { width: 48px; height: 30px; }
@@ -287,6 +289,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
   #blackMidiControls { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 @media (max-height: 500px) and (min-width: 701px) {
+  .blech-workspace-tabs { flex-wrap: nowrap; }
   .blech-midi-workspace.mixer-shell { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-rows: minmax(0, 1fr) 36px; gap: 8px; }
   .blech-midi-stage { grid-column: 1; grid-row: 1; }
   .blech-live-strip { grid-column: 1 / -1; grid-row: 2; }
@@ -321,6 +324,9 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-midi-preparation-heading { margin-bottom: 4px; }
 .blech-drawing-playback { margin-bottom: 6px; }
 @media (max-width: 700px), (max-height: 500px) {
+  .blech-workbench { display: block; overflow-y: auto; overscroll-behavior: contain; scroll-padding-top: 54px; }
+  .blech-workspace-tabs { position: sticky; top: 0; z-index: 2; background: #07090b; }
+  .blech-workbench > [role="tabpanel"] { overflow: visible; }
   #drawingShapeControls { overflow-x: auto; }
   #drawingShapeControls .mixer-stamp-shape-controls { flex-wrap: nowrap; min-width: max-content; }
   #drawingShapeControls .mixer-stamp-shape-controls > label { flex: 0 0 auto; min-width: 110px; }

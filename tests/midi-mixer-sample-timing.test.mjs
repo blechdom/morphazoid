@@ -46,7 +46,10 @@ test('synced loops follow tempo, restore at boundaries, and disabling loop finis
   assert.deepEqual(clock.samples[0].timing, before);
   render(clock, 48000, () => 240, frame => { base = 96000 + frame; });
   assert.equal(clock.samples[0], null);
-  assert.deepEqual(clock.snapshot(), [{ id: 1, revision: undefined, ended: true }]);
+  const [completed] = clock.snapshot();
+  const { finishedAt, ...completion } = completed;
+  assert.deepEqual(completion, { id: 1, revision: undefined, ended: true, positionBeats: data.durationBeats, cycle: before.cycle, pendingBeats: 0 });
+  assert.ok(Math.abs(finishedAt - (2 + (data.durationBeats - before.positionBeats) * 60 / 240)) < 1e-9);
   assert.deepEqual(clock.snapshot(), []);
 });
 

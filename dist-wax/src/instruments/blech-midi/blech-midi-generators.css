@@ -4,7 +4,7 @@
 .blech-generator-check { display: inline-flex; align-items: center; gap: .35rem; min-height: 34px; font-size: .8rem; }
 .blech-math-equations label { display: flex; align-items: center; gap: .5rem; flex: 1 1 220px; font: .9rem ui-monospace, monospace; }
 .blech-math-equations input { min-width: 0; width: 100%; font: inherit; }
-.blech-generator-work { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(220px, 1fr); gap: .8rem; align-items: start; min-width: 0; }
+.blech-generator-work { display: grid; grid-template-columns: minmax(0, 1fr); gap: .8rem; align-items: start; min-width: 0; }
 .blech-generator-work > canvas { display: block; width: 100%; aspect-ratio: 25 / 8; max-height: 190px; background: #080d10; border-radius: 0; }
 .blech-generator-controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(82px, 1fr)); align-items: start; gap: .5rem; min-width: 0; }
 .blech-generator-controls .control { min-width: 0; font-size: .7rem; }
@@ -19,7 +19,7 @@
 .blech-generator-bounds input { max-width: 112px; width: 100%; box-sizing: border-box; }
 .blech-generator-param-bounds { display: flex; gap: .6rem; }
 .blech-generator [hidden] { display: none !important; }
-.blech-frame-list { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: .4rem; min-width: 0; }
+.blech-frame-list { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .4rem; min-width: 0; }
 .blech-frame-choice { display: grid; min-width: 0; gap: .25rem; padding: .25rem; border-radius: 0; }
 .blech-frame-choice canvas { width: 100%; min-width: 0; height: auto; aspect-ratio: 25 / 8; }
 .blech-frame-choice span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; }

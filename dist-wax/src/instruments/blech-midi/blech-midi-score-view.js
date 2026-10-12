@@ -47,9 +47,12 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     <label class="control"><span><b>Color by</b></span><select data-color-by><option value="track">Track</option><option value="channel">MIDI channel</option><option value="pitch">Pitch</option><option value="velocity">Velocity</option></select></label>
     <label class="control"><span><b>Palette</b></span><select data-palette><option value="rainbow">Rainbow</option><option value="candy">Candy</option><option value="ember">Ember</option><option value="ice">Ice</option><option value="acid">Acid</option></select></label>
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
-    <label class="control"><span><b>Look ahead</b><output data-look-output>6 s</output></span><input data-look type="range" min="1" max="20" step="0.5" value="6"></label>
+    <label class="control"><span><b>Future</b><output data-look-output>6 s</output></span><input data-look aria-label="Future window" type="range" min="1" max="20" step="0.5" value="6"></label>
+    <label class="control"><span><b>Trail lifetime</b><output data-past-output>4 s</output></span><input data-past aria-label="Past trail lifetime" type="range" min="0.5" max="20" step="0.5" value="4"></label>
+    <label class="control"><span><b>Keyboard position</b><output data-present-output>60%</output></span><input data-present aria-label="Keyboard position" type="range" min="30" max="80" step="1" value="60"></label>
+    <label class="blech-art-check"><input data-trails type="checkbox" checked>Past trails</label>
     <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><button type="button" class="mini-action" data-reset-colors>Reset track colors</button><div data-tracks class="midiphoria-score-tracks"></div></details>
-    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">File notes show the source score before MIDI effects. Playing pads and Automatapoeia share this keyboard; their forecasts follow their own clocks and current note effects. Changing a rule updates future generations. Dense live forecasts have a separate display limit.</p></details>
+    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">File notes show the source score before MIDI effects. Playing pads and Automatapoeia share this keyboard; their forecasts follow their own clocks and current note effects. Changing a rule updates future generations. Above the keys is the future; below them is fading history. Future sets the fall speed. Trail lifetime sets how long the past remains, until it leaves the picture. Keyboard position divides the picture. File history follows its playhead, including seeks; live history follows each layer and continues after a pad stops. Dense forecasts and history have separate display limits.</p></details>
     <p class="midiphoria-help"><a href="#midiArtCreator">Make MIDI artwork ↓</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
   const knobs = mountMixerKnobs(controls);
@@ -58,7 +61,9 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   function options() {
     return { colorBy: $('[data-color-by]').value, palette: $('[data-palette]').value,
-      alignment: $('[data-alignment]').value, lookAhead: Number($('[data-look]').value), trackColors, hiddenTracks };
+      alignment: $('[data-alignment]').value, lookAhead: Number($('[data-look]').value),
+      pastSeconds: Number($('[data-past]').value), keyboardPosition: Number($('[data-present]').value) / 100,
+      trails: $('[data-trails]').checked, trackColors, hiddenTracks };
   }
   function details() {
     if (!lastStats) return;
@@ -75,14 +80,17 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     },
   });
   function configure() {
-    $('[data-look-output]').value = `${$('[data-look]').value} s`; renderer.setOptions(options());
+    $('[data-look-output]').value = `${$('[data-look]').value} s`;
+    $('[data-past-output]').value = `${$('[data-past]').value} s`;
+    $('[data-present-output]').value = `${$('[data-present]').value}%`;
+    renderer.setOptions(options());
     for (const input of controls.querySelectorAll('[data-track][type="color"]')) {
       input.value = trackColors[input.dataset.track] || '#' + blackMidiColor({ track: Number(input.dataset.track), pitch: 60, channel: 0, velocity: 96 }, { ...options(), colorBy: 'track' })
         .map(value => Math.round(value * 255).toString(16).padStart(2, '0')).join('');
     }
   }
   on($('[data-reset-colors]'), 'click', () => { trackColors = {}; configure(); });
-  for (const node of controls.querySelectorAll('select, [data-look]')) on(node, 'input', configure);
+  for (const node of controls.querySelectorAll('select, [data-look], [data-past], [data-present], [data-trails]')) on(node, 'input', configure);
   on($('[data-tracks]'), 'input', event => {
     const node = event.target, id = Number(node.dataset.track);
     if (!Number.isInteger(id)) return;

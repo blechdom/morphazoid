@@ -151,6 +151,7 @@ function mountBlechMidi() {
   function activateTab(name, focus = false) {
     const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];
     name = selected.dataset.blechTab;
+    if ($('blechMidi').dataset.tab !== name) selected.closest('.blech-workbench').scrollTop = 0;
     for (const tab of tabs) {
       const active = tab === selected;
       tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
