@@ -1,0 +1,234 @@
+import { test, expect } from "@playwright/test";
+import { readAudioStatus } from "./helpers/audio-probe.mjs";
+
+const state = (page) => page.evaluate(() => window.__trackazoid.snapshot());
+const deck = async (page, id) => (await state(page)).decks[id];
+const demoIds = ["mint-transmission", "amber-circuit", "broken-orbit", "velvet-current", "chrome-parade", "cobalt-rush"];
+const demoBpms = [120, 126, 110, 90, 116, 174];
+
+function diagnostics(page) {
+  const errors = [];
+  page.on("pageerror", error => errors.push(error.message));
+  page.on("console", message => { if (message.type() === "error") errors.push(message.text()); });
+  page.on("response", response => { if (response.status() >= 400 && new URL(response.url()).origin === new URL(page.url()).origin) errors.push(`${response.status()} ${response.url()}`); });
+  page.on("dialog", dialog => { errors.push(`Unexpected dialog: ${dialog.message()}`); void dialog.dismiss(); });
+  return errors;
+}
+
+async function ready(page, pair = true) {
+  await page.goto("/trackazoid.html");
+  await expect(page.locator("#trackazoid")).toHaveAttribute("data-ready", "true");
+  if (pair) {
+    await page.locator("#demoPair").click();
+    await expect(page.locator("#demoPair")).toBeEnabled();
+    await expect(page.locator("#aState")).toHaveText("READY");
+    await expect(page.locator("#bState")).toHaveText("READY");
+  }
+}
+
+async function audioOff(page, errors) {
+  expect((await state(page)).contextState).toBe("none");
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
+  expect(errors).toEqual([]);
+}
+
+async function seekBeat(page, id, beats) {
+  await page.locator(`#${id}Waveform`).focus(); await page.keyboard.press("Home");
+  for (let i = 0; i < beats; i++) await page.keyboard.press("ArrowRight");
+}
+
+async function selectBeats(page, id, start, end) {
+  await seekBeat(page, id, start); await page.keyboard.press("i");
+  for (let i = start; i < end; i++) await page.keyboard.press("ArrowRight");
+  await page.keyboard.press("o"); return (await deck(page, id)).selection;
+}
+
+async function editor(page, id, slot) {
+  const details = page.locator(`#deck${id.toUpperCase()} .tz-pad-editor`);
+  if (!(await details.evaluate(node => node.open))) await details.locator("summary").click();
+  await page.locator(`#${id}PadSlot`).selectOption(String(slot));
+}
+
+async function stored(page, name) {
+  return page.evaluate(name => new Promise((resolve, reject) => {
+    const opening = indexedDB.open("morphazoid-trackazoid-library", 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result, request = db.transaction("entries", "readonly").objectStore("entries").getAll();
+      request.onerror = () => { db.close(); reject(request.error); };
+      request.onsuccess = () => { db.close(); resolve(request.result.find(entry => entry.name.startsWith(name))); };
+    };
+  }), name);
+}
+
+async function synced(page) {
+  await expect.poll(async () => {
+    const { decks } = await state(page);
+    return decks.a.playing && decks.b.playing && decks.b.sync && !decks.b.pending && Math.abs(decks.b.phaseError) < 0.03;
+  }).toBe(true);
+}
+
+test("six per-deck demos load independently and stage changes to a playing deck", async ({ page }) => {
+  test.setTimeout(45_000);
+  const errors = diagnostics(page); await ready(page, false);
+  for (const id of ["a", "b"]) expect(await page.locator(`#${id}Demo option`).evaluateAll(options => options.map(option => option.value).filter(Boolean))).toEqual(demoIds);
+  await Promise.all([page.locator("#aDemo").selectOption(demoIds[0]), page.locator("#bDemo").selectOption(demoIds[1])]);
+  await expect(page.locator("#aState")).toHaveText("READY"); await expect(page.locator("#bState")).toHaveText("READY");
+  const b = await deck(page, "b");
+  for (let i = 2; i < demoIds.length; i++) {
+    await page.locator("#aDemo").selectOption(demoIds[i]);
+    await expect(page.locator("#aDemo")).toBeEnabled();
+    const a = await deck(page, "a");
+    expect(a.metadata.bpm).toBe(demoBpms[i]); expect(a.metadata.gridSource).toBe("auto");
+    expect(a.duration).toBeGreaterThan(15); expect(a.playing).toBe(false);
+    expect((await deck(page, "b")).entry).toBe(b.entry);
+  }
+  expect((await state(page)).library).toHaveLength(6);
+  await page.locator("#aLoop").click(); await page.locator("#aPlay").click();
+  const playing = await deck(page, "a");
+  await page.locator("#aDemo").selectOption(demoIds[0]); await expect(page.locator("#aPending")).toBeVisible();
+  expect((await deck(page, "a")).entry).toBe(playing.entry); expect((await deck(page, "a")).playing).toBe(true);
+  await page.locator("#aCancel").click(); expect((await deck(page, "a")).replacement).toBeNull();
+  await page.locator("#aDemo").selectOption(demoIds[2]); await expect(page.locator("#aPending")).toBeVisible();
+  await page.locator("#aReplace").click(); await expect(page.locator("#aState")).toHaveText("READY");
+  expect((await deck(page, "a")).metadata.bpm).toBe(110); expect((await deck(page, "a")).playing).toBe(false);
+  expect((await deck(page, "b")).entry).toBe(b.entry);
+  await audioOff(page, errors);
+});
+
+test("all eight typed pads persist names and moved saved loops without changing their length", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page);
+  for (let slot = 0; slot < 7; slot++) {
+    await seekBeat(page, "a", slot); await page.locator(`#aHotCue${slot + 1}`).click();
+  }
+  const selection = await selectBeats(page, "a", 8, 12);
+  await page.locator("#aHotCue8").click();
+  let a = await deck(page, "a");
+  expect(a.metadata.version).toBe(3); expect(a.metadata.pads).toHaveLength(8); expect(a.metadata.cues).toHaveLength(8);
+  expect(a.metadata.pads.slice(0, 7).map(pad => pad.type)).toEqual(Array(7).fill("cue"));
+  expect(a.metadata.pads[7]).toEqual({ type: "loop", ...selection, name: "" });
+  expect(a.loop).toBeNull(); expect(a.playing).toBe(false);
+  const name = '<img src=x onerror=alert(1)> & "chorus"';
+  await editor(page, "a", 7); await page.locator("#aPadName").fill(name);
+  await page.waitForTimeout(150); await expect(page.locator("#aPadName")).toHaveValue(name);
+  await page.locator("#aPadRename").click(); await expect(page.locator("#aHotCue8")).toContainText(name);
+  await expect(page.locator("#aHotCue8 img")).toHaveCount(0);
+  await page.locator("#aFit").click();
+  const canvas = page.locator("#aWaveform"); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
+  a = await deck(page, "a");
+  await page.mouse.move(box.x + selection.start / a.viewport.span * box.width + 3, box.y + box.height - 12);
+  await page.mouse.down(); await page.mouse.move(box.x + box.width * 0.58, box.y + box.height - 12, { steps: 8 }); await page.mouse.up();
+  const moved = (await deck(page, "a")).metadata.pads[7];
+  expect(moved.start).toBeGreaterThan(selection.start + 1); expect(moved.end - moved.start).toBeCloseTo(selection.end - selection.start, 6);
+  expect(moved.name).toBe(name); expect(moved.type).toBe("loop");
+  await expect.poll(async () => (await stored(page, "Mint transmission"))?.metadata.pads[7]).toEqual(moved);
+  await ready(page); a = await deck(page, "a"); expect(a.metadata.pads[7]).toEqual(moved); expect(a.loop).toBeNull();
+  await page.locator("#aHotCue8").click(); expect((await deck(page, "a")).loop).toEqual({ start: moved.start, end: moved.end });
+  expect((await deck(page, "a")).playing).toBe(false);
+  await page.locator("#aWaveform").focus(); await page.keyboard.press("Shift+Digit8");
+  expect((await deck(page, "a")).metadata.pads[7]).toBeNull();
+  // Clearing a stored pad leaves the already playing/selected loop independent.
+  expect((await deck(page, "a")).loop).toEqual({ start: moved.start, end: moved.end });
+  await audioOff(page, errors);
+});
+
+test("legacy four-cue metadata migrates to eight pads and cleared pads never revive", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page);
+  await page.evaluate(() => new Promise((resolve, reject) => {
+    const opening = indexedDB.open("morphazoid-trackazoid-library", 1);
+    opening.onerror = () => reject(opening.error);
+    opening.onsuccess = () => {
+      const db = opening.result, transaction = db.transaction("entries", "readwrite"), store = transaction.objectStore("entries"), request = store.getAll();
+      request.onsuccess = () => {
+        const entry = request.result.find(entry => entry.name.startsWith("Mint transmission"));
+        entry.metadata = { version: 1, bpm: 132, beatOffset: 0.25, duration: 16, cues: [1, 2, null, 4] }; store.put(entry);
+      };
+      transaction.oncomplete = () => { db.close(); resolve(); };
+      transaction.onerror = () => { db.close(); reject(transaction.error); };
+    };
+  }));
+  await ready(page);
+  let metadata = (await deck(page, "a")).metadata;
+  expect(metadata.version).toBe(3); expect(metadata.gridSource).toBe("manual"); expect(metadata.bpm).toBe(132);
+  expect(metadata.cues).toEqual([1, 2, null, 4, null, null, null, null]);
+  expect(metadata.pads[0]).toEqual({ type: "cue", position: 1, name: "" });
+  await page.locator("#aHotCue1").click({ modifiers: ["Shift"] });
+  await editor(page, "a", 7); await page.locator("#aPadStoreCue").click();
+  await expect.poll(async () => (await stored(page, "Mint transmission"))?.metadata.version).toBe(3);
+  await ready(page); metadata = (await deck(page, "a")).metadata;
+  expect(metadata.pads[0]).toBeNull(); expect(metadata.cues[0]).toBeNull(); expect(metadata.pads[7].type).toBe("cue");
+  expect(metadata.cues[1]).toBe(2); expect(metadata.cues[3]).toBe(4);
+  await audioOff(page, errors);
+});
+
+test("beat jumps, loop movement and half/double controls use their displayed beat units and preserve native typing", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page, false);
+  await page.locator("#aDemo").selectOption("broken-orbit"); await expect(page.locator("#aState")).toHaveText("READY");
+  const period = 60 / 110;
+  for (const beats of [1, 4, 8, 16, 32]) {
+    await page.locator("#aMoveBeats").selectOption(String(beats)); await page.locator("#aBeatJumpForward").click();
+    expect((await deck(page, "a")).position).toBeCloseTo(beats * period, 6);
+    await page.locator("#aBeatJumpBack").click(); expect((await deck(page, "a")).position).toBeCloseTo(0, 6);
+  }
+  await page.locator("#aMoveBeats").selectOption("4"); await page.locator("#aWaveform").focus(); await page.keyboard.press("BracketRight");
+  expect((await deck(page, "a")).position).toBeCloseTo(4 * period, 6);
+  await page.locator("#aLoop").click(); const original = (await deck(page, "a")).loop;
+  await page.locator("#aLoopHalf").click(); let loop = (await deck(page, "a")).loop;
+  expect(loop.start).toBeCloseTo(original.start, 6); expect(loop.end - loop.start).toBeCloseTo(2 * period, 6);
+  await page.locator("#aLoopDouble").click(); expect((await deck(page, "a")).loop).toEqual(original);
+  await page.locator("#aLoopMoveForward").click(); loop = (await deck(page, "a")).loop;
+  expect(loop.start).toBeCloseTo(original.start + 4 * period, 6); expect(loop.end - loop.start).toBeCloseTo(4 * period, 6);
+  await page.locator("#aWaveform").focus(); await page.keyboard.press("Shift+BracketLeft");
+  expect((await deck(page, "a")).loop).toEqual(original);
+  await page.keyboard.press("q"); expect((await deck(page, "a")).quantize).toBe(false);
+  await page.keyboard.press("q"); expect((await deck(page, "a")).quantize).toBe(true);
+  const before = await deck(page, "a"); await page.locator("#librarySearch").fill("q"); await page.keyboard.type("[]q");
+  await expect(page.locator("#librarySearch")).toHaveValue("q[]q");
+  const after = await deck(page, "a"); expect(after.position).toBe(before.position); expect(after.loop).toEqual(before.loop); expect(after.quantize).toBe(true);
+  await audioOff(page, errors);
+});
+
+test("Quantize preserves playing follower phase on cue and loop recall; manual recalls release Sync", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page);
+  await seekBeat(page, "b", 8); await page.locator("#bHotCue1").click();
+  const range = await selectBeats(page, "b", 12, 16); await page.locator("#bHotCue2").click();
+  await page.locator("#bSelectionClear").click(); await seekBeat(page, "b", 0);
+  await page.locator("#aLoopBeats").selectOption("16"); await page.locator("#aLoop").click();
+  await page.locator("#aPlay").click(); await page.locator("#bSync").click(); await page.locator("#bPlay").click(); await synced(page);
+  expect((await deck(page, "b")).quantize).toBe(true);
+  await page.locator("#bHotCue1").click(); await synced(page);
+  await page.locator("#bHotCue2").click(); await synced(page); expect((await deck(page, "b")).loop).toEqual(range);
+  await page.locator("#bLoopHalf").click(); await synced(page);
+  await page.locator("#bLoopDouble").click(); await synced(page);
+  await page.locator("#bLoopMoveForward").click(); await synced(page);
+  await page.locator("#bQuantize").click(); await page.locator("#bHotCue1").click();
+  expect((await deck(page, "b")).sync).toBe(false); expect((await deck(page, "b")).playing).toBe(true);
+  await page.locator("#bSync").click(); await synced(page);
+  await page.locator("#bBeatJumpForward").click(); await synced(page); // Integer beat jumps keep phase even with Q off.
+  await page.locator("#bHotCue2").click(); expect((await deck(page, "b")).sync).toBe(false);
+  await page.locator("#bSync").click(); await synced(page);
+  await page.locator("#bWaveform").focus(); await page.keyboard.press("ArrowRight");
+  expect((await deck(page, "b")).sync).toBe(false);
+  await audioOff(page, errors);
+});
+
+for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
+  test(`performance pads and movement controls remain reachable below the menubar at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+    const errors = diagnostics(page); await page.setViewportSize(viewport); await ready(page);
+    for (const id of ["a", "b"]) {
+      await editor(page, id, 7);
+      for (const suffix of ["Demo", "Quantize", "HotCue1", "HotCue8", "MoveBeats", "BeatJumpForward", "LoopMoveForward", "LoopHalf", "LoopDouble", "PadName", "PadStoreLoop", "PadClear"]) {
+        const control = page.locator(`#${id}${suffix}`); await control.scrollIntoViewIfNeeded(); await expect(control).toBeInViewport();
+        const box = await control.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
+      }
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
+    const header = page.locator(".masthead"), hit = await header.evaluate(node => {
+      const box = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(box.x + box.width / 2, Math.max(0, box.y) + 2));
+    });
+    expect(hit).toBe(true);
+    await page.locator(".header-settings-trigger").click(); await expect(page.locator(".header-settings-panel")).toBeVisible();
+    await page.keyboard.press("Escape"); await expect(page.locator(".header-settings-panel")).toBeHidden();
+    await audioOff(page, errors);
+  });
+}
