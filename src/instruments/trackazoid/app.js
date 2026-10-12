@@ -659,7 +659,8 @@ function restoreSettings() {
 for (const id of ["a", "b"]) {
   for (const demo of DEMO_TRACKS) {
     const option = document.createElement("option"); option.value = demo.id;
-    option.textContent = `${demo.name} · ${demo.bpm} BPM · ${demo.description}`;
+    option.textContent = `${demo.name} · ${demo.bpm} BPM · ${demo.description.split(" · ")[0]}`;
+    option.title = demo.description;
     $(`${id}Demo`).append(option);
   }
 }
