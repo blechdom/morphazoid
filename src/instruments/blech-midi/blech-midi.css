@@ -182,8 +182,8 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-file-player #blackMidiControls > .control { display: inline-grid; align-content: start; vertical-align: top; gap: 8px; width: calc(50% - 10px); margin: 10px 10px 8px 0; }
 .blech-file-player #blackMidiControls > .control > span { display: grid; gap: 4px; font-size: 11px; }
 .blech-file-player #blackMidiControls select { width: 100%; min-width: 0; }
-.blech-file-player :is(#blackTempoStatus, #blackPlayerStatus, #blackSongSearchStatus, #blackSongDescription):empty { display: none; }
-.blech-file-player a { color: #96f4cc; }
+.blech-file-player :is(#blackTempoStatus, #blackPlayerStatus, #blackSongSearchStatus):empty, #blackSongDescription:empty { display: none; }
+.blech-file-player a, #blackMidiCredits a { color: #96f4cc; }
 .blech-midi-preparation-heading { flex-wrap: wrap; }
 .blech-midi-preparation-heading h2 { margin-right: auto; }
 @media (max-width: 700px) { .blech-file-layout { grid-template-columns: minmax(0, 1fr); gap: 16px; } }

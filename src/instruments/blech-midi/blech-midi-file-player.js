@@ -6,7 +6,7 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
 /** Full-score file transport, independent of drawing pads and live evolution. */
-export function mountBlechFilePlayer(host, { engine, onAudioRequest } = {}) {
+export function mountBlechFilePlayer(host, { engine, creditsHost, onAudioRequest } = {}) {
   const events = new AbortController();
   const on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `<summary>Black MIDI player</summary>
@@ -34,10 +34,11 @@ export function mountBlechFilePlayer(host, { engine, onAudioRequest } = {}) {
         <p id="blackCurrentSong" class="midiphoria-current-song" hidden></p>
         <ul id="blackSongList" class="midiphoria-song-list" aria-labelledby="blackSongListHeading" aria-busy="true"></ul>
         <label class="midiphoria-file">Open your MIDIs<input id="blackMidiFile" type="file" accept=".mid,.midi,audio/midi,audio/x-midi" multiple></label>
-        <p id="blackSongDescription" class="midiphoria-help"></p><p id="blackSongCredit" class="midiphoria-help midiphoria-credits"></p>
       </section>
     </div>`;
   const $ = id => host.querySelector(`#${id}`);
+  const songDescription = creditsHost.querySelector('#blackSongDescription');
+  const songCredit = creditsHost.querySelector('#blackSongCredit');
   let disposed = false, frame = null, lastReflect = -Infinity, version = 0, request = null;
   let collection = [], locals = [], visible = [], selected = null, focusId = '', localSerial = 0;
   let loading = false, ready = false, resumeAfterSelection = false, error = '', tempo = null, tempoChanges = 0, preparedSongId = '';
@@ -117,7 +118,8 @@ export function mountBlechFilePlayer(host, { engine, onAudioRequest } = {}) {
     else if (bounds.bottom > viewport.bottom) list.scrollTop += bounds.bottom - viewport.bottom;
   }
   function credit(song) {
-    const node = $('blackSongCredit'); node.replaceChildren();
+    creditsHost.hidden = false;
+    const node = songCredit; node.replaceChildren();
     node.append(document.createTextNode(song.attribution || (song.file ? '' : 'Your MIDI · stays in this browser.')));
     function link(text, href, download) {
       const a = document.createElement('a'); a.textContent = text; a.href = href;
@@ -134,7 +136,7 @@ export function mountBlechFilePlayer(host, { engine, onAudioRequest } = {}) {
     request?.abort(); request = new AbortController(); const signal = request.signal;
     loading = true; ready = false; error = ''; selected = song; focusId = song.id; tempo = null; tempoChanges = 0; preparedSongId = '';
     player.stop(); view.clear('Loading MIDI score…'); renderList(); showRow(song.id); credit(song); reflect();
-    $('blackSongDescription').textContent = '';
+    songDescription.textContent = '';
     try {
       let binary = null, preview = null;
       if (song.noteCount > MAX_PREVIEW_NOTES) view.unavailable(song);
@@ -158,9 +160,9 @@ export function mountBlechFilePlayer(host, { engine, onAudioRequest } = {}) {
       }
       if (disposed || ticket !== version) return;
       ready = Boolean(loaded);
-      $('blackSongDescription').textContent = paired
+      songDescription.textContent = paired
         ? 'Full decorative score · sound uses the creator’s AUDIO edition on its original timeline. Editions may differ.'
-        : audio ? 'Original MIDI sound · up to 128 sounding voices. The picture retains every score note.'
+        : audio ? ''
           : 'Full score · silent visual playback. No separate audio edition is available for this file.';
       if (ready && resumeAfterSelection) player.play();
     } catch (caught) {

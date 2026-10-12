@@ -102,7 +102,7 @@ function mountBlechMidi() {
   $('creativeVisualizerHost').querySelector('.mixer-performance-key').textContent = 'Live output';
   $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
-  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine,
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'),
     onAudioRequest: () => {
       if (starting) return;
       if (engine.state.audioEnabled) void filePlayer.enableAudio();
