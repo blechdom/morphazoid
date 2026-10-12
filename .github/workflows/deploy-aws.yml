@@ -92,7 +92,27 @@ jobs:
           grep -iE "^x-frame-options:[[:space:]]*SAMEORIGIN[[:space:]]*$" "$storybook_headers"
           grep -iE "^content-security-policy:[[:space:]]*frame-ancestors[[:space:]]+'self'[[:space:]]*$" \
             "$storybook_headers"
+      - name: Verify deployment revision
+        id: revision
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          # Jobs hold the production lock here; an older queued build must not
+          # overwrite a newer main revision that reached deployment first.
+          deployment_head="$(gh api "repos/$GITHUB_REPOSITORY/git/ref/heads/main" --jq '.object.sha')"
+          if [[ ! "$deployment_head" =~ ^[0-9a-f]{40}$ ]]; then
+            echo "::error::Could not verify the current main revision. Publication is blocked."
+            exit 1
+          fi
+          if [[ "$deployment_head" != "$GITHUB_SHA" ]]; then
+            echo "::notice::Skipping outdated deployment $GITHUB_SHA; main is now $deployment_head."
+            echo "deploy=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo "deploy=true" >> "$GITHUB_OUTPUT"
       - name: Publish static files
+        if: steps.revision.outputs.deploy == 'true'
         run: |
           aws s3 sync site/ "s3://${{ vars.AWS_SITE_BUCKET }}/" \
             --delete \
@@ -105,6 +125,7 @@ jobs:
             --only-show-errors \
             --cache-control "public,max-age=0,must-revalidate"
       - name: Invalidate CloudFront
+        if: steps.revision.outputs.deploy == 'true'
         id: invalidation
         run: |
           invalidation_id="$(
@@ -116,11 +137,13 @@ jobs:
           )"
           echo "id=$invalidation_id" >> "$GITHUB_OUTPUT"
       - name: Wait for publication
+        if: steps.revision.outputs.deploy == 'true'
         run: |
           aws cloudfront wait invalidation-completed \
             --distribution-id "${{ vars.AWS_CLOUDFRONT_DISTRIBUTION_ID }}" \
             --id "${{ steps.invalidation.outputs.id }}"
       - name: Smoke-test production
+        if: steps.revision.outputs.deploy == 'true'
         run: |
           curl --fail --silent --show-error \
             --retry 8 --retry-all-errors --retry-delay 5 \
