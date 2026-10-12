@@ -1,4 +1,4 @@
-import { parseBlackMidiScore } from './midiphoria-black-score.js';
+import { parseBlackMidiScore } from './blech-midi-black-score.js';
 
 self.onmessage = ({ data }) => {
   try {

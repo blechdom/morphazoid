@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechBlackMidiRuntime } from './blech-black-midi-runtime-reference.mjs';
 
 export const blackMidiArtRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/black-midi-art-runtime-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blackMidiArtRuntimeChange = JSON.parse(readFileSync(
 export function restoreBlackMidiArtRuntime(source, file, { allowRestored = false } = {}) {
   const change = blackMidiArtRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechBlackMidiRuntime(source, file, { allowRestored: true });
   const counts = change.rows.map(row => source.split(row).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const message = `${file}: exact Black MIDI artwork runtime addition`;

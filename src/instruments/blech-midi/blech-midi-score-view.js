@@ -1,4 +1,4 @@
-import { createBlackMidiVisualizer, blackMidiColor } from './midiphoria-black-renderer.js';
+import { createBlackMidiVisualizer, blackMidiColor } from './blech-midi-black-renderer.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 
 const MAX_SCORE_BYTES = 200 * 1024 * 1024;
@@ -49,8 +49,8 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
     <label class="control"><span><b>Look ahead</b><output data-look-output>6 s</output></span><input data-look type="range" min="1" max="20" step="0.5" value="6"></label>
     <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><button type="button" class="mini-action" data-reset-colors>Reset track colors</button><div data-tracks class="midiphoria-score-tracks"></div></details>
-    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes show the source file before MIDI effects. Live pads, MIDI input and effected notes remain in Visualize.</p></details>
-    <p class="midiphoria-help"><a href="blech-midi.html">Make MIDI artwork in Blech MIDI ↗</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
+    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes show the source file before MIDI effects. Live pads and generated notes remain in Live output.</p></details>
+    <p class="midiphoria-help"><a href="#midiArtCreator">Make MIDI artwork ↓</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
   const knobs = mountMixerKnobs(controls);
   let renderer, score = null, lastStats = null, request = null, serial = 0, disposed = false;

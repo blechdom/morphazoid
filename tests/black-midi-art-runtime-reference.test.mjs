@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readBlechBlackMidiRuntimeReference as readFile } from './helpers/blech-black-midi-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blackMidiArtRuntimeChange as change, restoreBlackMidiArtRuntime } from './helpers/black-midi-art-runtime-reference.mjs';
 import { restoreFractalImpulseRuntime, readFractalImpulseRuntimeReference } from './helpers/fractal-delay-impulse-runtime-reference.mjs';

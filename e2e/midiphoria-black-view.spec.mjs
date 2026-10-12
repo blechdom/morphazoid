@@ -25,7 +25,7 @@ async function open(page) {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}\nconst qaPublish=MidiphoriaPlayer.prototype._publish; MidiphoriaPlayer.prototype._publish=function(...args){__blackQA.player=this;return qaPublish.apply(this,args);};` });
   });
-  await page.route('**/src/instruments/midiphoria/midiphoria-black-renderer.js', async route => {
+  await page.route('**/src/instruments/blech-midi/blech-midi-black-renderer.js', async route => {
     const response = await route.fetch(), source = (await response.text()).replace('export function createBlackMidiVisualizer(', 'function qaCreateBlackMidiVisualizer(');
     await route.fulfill({ response, body: `${source}\nexport function createBlackMidiVisualizer(...args){const view=qaCreateBlackMidiVisualizer(...args);__blackQA.view=view;const options=view.setOptions;view.setOptions=function(value){__blackQA.options=structuredClone(value);return options.call(view,value);};return view;}` });
   });

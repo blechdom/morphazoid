@@ -1942,11 +1942,12 @@ copy+require	src/instruments/midiphoria/midiphoria-processor.js
 copy+require	src/instruments/midi-mixer/midi-mixer-automata.js
 
 # Black MIDI complete decorative scores, GPU falling view and bespoke MIDI art.
-copy+require	src/instruments/midiphoria/midiphoria-black-score.js
-copy+require	src/instruments/midiphoria/midiphoria-black-loader.js
-copy+require	src/instruments/midiphoria/midiphoria-black-worker.js
-copy+require	src/instruments/midiphoria/midiphoria-black-renderer.js
-copy+require	src/instruments/midiphoria/midiphoria-score-view.js
+copy+require	src/instruments/blech-midi/blech-midi-black-score.js
+copy+require	src/instruments/blech-midi/blech-midi-black-loader.js
+copy+require	src/instruments/blech-midi/blech-midi-black-worker.js
+copy+require	src/instruments/blech-midi/blech-midi-black-renderer.js
+copy+require	src/instruments/blech-midi/blech-midi-score-view.js
+copy+require	src/instruments/blech-midi/blech-midi-file-player.js
 copy+require	src/instruments/blech-midi/blech-midi-art.js
 copy+require	src/instruments/blech-midi/blech-midi-art-controls.js
 copy+require	assets/midiphoria/midi/artists/black-hans-stereo-madness.mid.gz

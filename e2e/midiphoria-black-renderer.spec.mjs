@@ -3,8 +3,8 @@ import { test, expect } from '@playwright/test';
 const fixture = `<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>Falling score fixture</title></head>
 <body style="margin:0;background:#111"><div id="stage" style="width:100%;height:60vh;min-height:180px"></div>
 <script type="module">
-import {createBlackMidiVisualizer} from '/src/instruments/midiphoria/midiphoria-black-renderer.js';
-import {parseBlackMidi} from '/src/instruments/midiphoria/midiphoria-black-loader.js';
+import {createBlackMidiVisualizer} from '/src/instruments/blech-midi/blech-midi-black-renderer.js';
+import {parseBlackMidi} from '/src/instruments/blech-midi/blech-midi-black-loader.js';
 window.parseBlackMidi=parseBlackMidi; window.position=0; window.statistics=[]; window.statuses=[];
 window.midi = (count=128) => {
  const data=new Uint8Array(14+8+count*8+4), view=new DataView(data.buffer);

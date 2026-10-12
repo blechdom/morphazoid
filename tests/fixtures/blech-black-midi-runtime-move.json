@@ -1,0 +1,38 @@
+{
+  "baseCommit": "5c5805024a5fdec75724fdbee76548527a21087a",
+  "description": "Exact Black MIDI ownership move into Blech MIDI and independent file-player registration. Prior fixture bytes and hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "ac7d405ba15d6293bf603aaa61af7d0877171e53ed91096c48bdf727fb4b371c",
+  "before": "\n# Black MIDI complete decorative scores, GPU falling view and bespoke MIDI art.\ncopy+require\tsrc/instruments/midiphoria/midiphoria-black-score.js\ncopy+require\tsrc/instruments/midiphoria/midiphoria-black-loader.js\ncopy+require\tsrc/instruments/midiphoria/midiphoria-black-worker.js\ncopy+require\tsrc/instruments/midiphoria/midiphoria-black-renderer.js\ncopy+require\tsrc/instruments/midiphoria/midiphoria-score-view.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-art.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-art-controls.js\ncopy+require\tassets/midiphoria/midi/artists/black-hans-stereo-madness.mid.gz\ncopy+require\tassets/midiphoria/midi/artists/black-hans-yiay-final2.mid.gz\ncopy+require\tassets/midiphoria/midi/artists/black-hans-yiay-one-million.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-a-soul-of-steel-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-chasing-wind-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-dnca-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-five-pebbles-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-fmk30tp-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-jbsmg-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-judgement-day-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-lightstorm-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-looking-to-the-moon-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-mournful-camaraderie-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-seven-red-suns-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-sliver-of-straw-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-swmg-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-twin-nemesis-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-unparalleled-innocence-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-update-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-uvb-76-the-buzzer-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-winter-s-pain-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-winter-s-rage-full.mid.gz\ncopy+require\tassets/midiphoria/ARTWORK-SOURCES.md\ncopy+require\tassets/midiphoria/licenses/HANS5958-CC-BY-4.0.md\n",
+  "after": "\n# Black MIDI complete decorative scores, GPU falling view and bespoke MIDI art.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-black-score.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-black-loader.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-black-worker.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-black-renderer.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-score-view.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-file-player.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-art.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-art-controls.js\ncopy+require\tassets/midiphoria/midi/artists/black-hans-stereo-madness.mid.gz\ncopy+require\tassets/midiphoria/midi/artists/black-hans-yiay-final2.mid.gz\ncopy+require\tassets/midiphoria/midi/artists/black-hans-yiay-one-million.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-a-soul-of-steel-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-chasing-wind-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-dnca-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-five-pebbles-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-fmk30tp-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-jbsmg-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-judgement-day-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-lightstorm-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-looking-to-the-moon-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-mournful-camaraderie-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-seven-red-suns-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-sliver-of-straw-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-swmg-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-twin-nemesis-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-unparalleled-innocence-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-update-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-uvb-76-the-buzzer-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-winter-s-pain-full.mid.gz\ncopy+require\tassets/midiphoria/midi/decorative/black-bleed-winter-s-rage-full.mid.gz\ncopy+require\tassets/midiphoria/ARTWORK-SOURCES.md\ncopy+require\tassets/midiphoria/licenses/HANS5958-CC-BY-4.0.md\n",
+  "markers": [
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-black-score.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-black-loader.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-black-worker.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-black-renderer.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-score-view.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-file-player.js\n"
+  ],
+  "replacements": [
+    {
+      "before": "src/instruments/midiphoria/midiphoria-black-score.js",
+      "after": "src/instruments/blech-midi/blech-midi-black-score.js"
+    },
+    {
+      "before": "src/instruments/midiphoria/midiphoria-black-loader.js",
+      "after": "src/instruments/blech-midi/blech-midi-black-loader.js"
+    },
+    {
+      "before": "src/instruments/midiphoria/midiphoria-black-worker.js",
+      "after": "src/instruments/blech-midi/blech-midi-black-worker.js"
+    },
+    {
+      "before": "src/instruments/midiphoria/midiphoria-black-renderer.js",
+      "after": "src/instruments/blech-midi/blech-midi-black-renderer.js"
+    },
+    {
+      "before": "src/instruments/midiphoria/midiphoria-score-view.js",
+      "after": "src/instruments/blech-midi/blech-midi-score-view.js"
+    }
+  ]
+}

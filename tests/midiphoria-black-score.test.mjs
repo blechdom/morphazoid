@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseBlackMidiScore, blackMidiStatistics, queryBlackMidiNotes } from '../src/instruments/midiphoria/midiphoria-black-score.js';
-import { blackMidiKeyLayout, blackMidiColor } from '../src/instruments/midiphoria/midiphoria-black-renderer.js';
+import { parseBlackMidiScore, blackMidiStatistics, queryBlackMidiNotes } from '../src/instruments/blech-midi/blech-midi-black-score.js';
+import { blackMidiKeyLayout, blackMidiColor } from '../src/instruments/blech-midi/blech-midi-black-renderer.js';
 
 function vlq(number) { const bytes = [number & 127]; while ((number = Math.floor(number / 128))) bytes.unshift((number & 127) | 128); return bytes; }
 const event = (delta, ...bytes) => [...vlq(delta), ...bytes];
@@ -17,6 +17,7 @@ test('positive note attacks, FIFO overlaps, zero-velocity releases, track identi
     [event(0, 145, 127, 127), event(480, 129, 127, 0), event(0, 145, 0, 1), event(480, 129, 0, 0)],
   ]));
   assert.equal(score.total, 4); assert.equal(score.duration, 1.5); assert.equal(score.peakPolyphony, 3);
+  assert.equal(score.initialTempo, 120); assert.equal(score.tempoChanges, 1);
   assert.deepEqual([...score.starts], [0, .25, 0, .5]); assert.deepEqual([...score.ends], [.5, 1.5, .5, 1.5]);
   assert.equal(score.tracks[1].name, 'Bass'); assert.deepEqual(score.tracks[2].channels, [1]);
   assert.deepEqual([...score.pitches], [64, 64, 127, 0]);
@@ -72,7 +73,17 @@ test('SMPTE timing including 29.97 fps ignores tempo metadata', () => {
   for (const fps of [24, 25, 29, 30]) {
     const score = parseBlackMidiScore(midi([[event(0, 144, 64, 100), event(1000, 128, 64, 0)]], { division: ((256 - fps) << 8) | 40 }));
     assert.ok(Math.abs(score.duration - 1000 / ((fps === 29 ? 30000 / 1001 : fps) * 40)) < 1e-10);
+    assert.equal(score.initialTempo, null); assert.equal(score.tempoChanges, 0);
   }
+});
+
+test('tempo metadata distinguishes fixed defaults and merged changes at the same tick', () => {
+  const fixed = parseBlackMidiScore(midi([[event(0, 144, 60, 100), event(480, 128, 60, 0)]]));
+  assert.equal(fixed.initialTempo, 120); assert.equal(fixed.tempoChanges, 0);
+  const changed = parseBlackMidiScore(midi([[event(0, 255, 81, 3, 15, 66, 64), event(0, 144, 60, 100),
+    event(240, 255, 81, 3, 7, 161, 32), event(0, 255, 81, 3, 3, 208, 144), event(240, 128, 60, 0)]]));
+  assert.equal(changed.initialTempo, 60); assert.equal(changed.tempoChanges, 1);
+  assert.equal(changed.duration, .625);
 });
 
 test('invalid files and explicit budgets reject instead of silently thinning', () => {
