@@ -222,7 +222,10 @@ export function createBlechLiveProjector() {
     // Actual evolved rows, not forecast descendants, supply the past. A pause
     // stops adding gates; retained history can still leave through the bottom.
     if (hasAutomata && pastSeconds > 0) {
-      const tempoMap = { tempoMap: compileSampleTempoMap(automata.tempos ?? [{ beat: 0, bpm: tempo }]) };
+      // Starting/restarting a row precedes the clock's first advance, so its
+      // published tempo history can legitimately be an empty array.
+      const tempos = automata.tempos?.length ? automata.tempos : [{ beat: 0, bpm: tempo }];
+      const tempoMap = { tempoMap: compileSampleTempoMap(tempos) };
       const present = sampleSecondsAt(tempoMap, automata.beat);
       let visited = 0;
       for (let rowIndex = (automata.history?.length ?? 0) - 1; rowIndex >= 0 && visited < BLECH_LIVE_NOTE_LIMIT; rowIndex--) {

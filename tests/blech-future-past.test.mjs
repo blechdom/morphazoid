@@ -169,3 +169,20 @@ test('Automata Hold carries the original effect family through row boundaries', 
   assert.ok(!result.pastNotes.some(item => item.pitch === heldPitch + 12));
   assert.ok(result.notes.some(item => item.pitch >= 72 && item.pitch !== heldPitch + 12));
 });
+
+
+test('Automata can start, restart and change tempo before its first tempo-history entry', () => {
+  const clock = new MidiAutomataClock(), project = createBlechLiveProjector();
+  clock.setPlaying(true);
+  assert.deepEqual(clock.snapshot().tempos, []);
+  for (const tempo of [120, 240]) {
+    const result = project(state([], 0, { tempo, automata: clock.snapshot() }), { pastSeconds: 4 });
+    assert.ok(result.notes.length > 0);
+    assert.ok(result.notes.every(item => Number.isFinite(item.start) && Number.isFinite(item.end)));
+    assert.equal(result.pastNotes.length, 0);
+  }
+  clock.advance(.25, 240); project(state([], .0625, { tempo: 240, automata: clock.snapshot() }), { pastSeconds: 4 });
+  clock.restart();
+  const restarted = project(state([], .0625, { tempo: 240, automata: clock.snapshot() }), { pastSeconds: 4 });
+  assert.ok(restarted.notes.every(item => Number.isFinite(item.start) && Number.isFinite(item.end)));
+});
