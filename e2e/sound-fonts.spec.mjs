@@ -70,7 +70,7 @@ test('imports SF2, rejects invalid files, and keeps source links distinct',async
 
 test('creates a font from uploaded audio and canceling removal preserves it',async({page})=>{
   await open(page);
-  await page.getByRole('button',{name:'Workshop',exact:true}).click();
+  await page.getByRole('button',{name:'Create',exact:true}).click();
   await page.getByRole('radio',{name:/Your sample/}).check();
   await page.locator('#sampleFile').setInputFiles({name:'recording.wav',mimeType:'audio/wav',buffer:wav()});
   await expect(page.locator('#sampleInfo')).toContainText('recording.wav');
@@ -244,7 +244,7 @@ test('a delayed bank save preserves a newer workshop selection',async({page})=>{
   await page.getByRole('button',{name:'Find sounds',exact:true}).click();
   await page.getByRole('button',{name:`Add ${bank.name} to collection`,exact:true}).click();
   await expect.poll(()=>Boolean(pending)).toBe(true);
-  await page.getByRole('button',{name:'Workshop',exact:true}).click();
+  await page.getByRole('button',{name:'Create',exact:true}).click();
   await pending.continue();
   await expect(page.locator('#fontCount')).toHaveText('4');
   await expect(page.locator('#workshopView')).toBeVisible();
@@ -291,7 +291,7 @@ for(const viewport of [{width:1440,height:900},{width:390,height:844},{width:844
     const errors=[]; page.on('pageerror',error=>errors.push(error.message));
     page.on('console',message=>{if(message.type()==='error')errors.push(message.text());});
     await open(page);
-    for(const section of ['Explore','Collection','Workshop','Find sounds']) {
+    for(const section of ['Explore','Collection','Create','Find sounds']) {
       await page.locator('.sf-nav button').filter({hasText:section}).click();
       const overflow=await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1);
       expect(overflow).toBe(false);

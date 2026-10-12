@@ -121,7 +121,7 @@ function renderDetails() {
   if (!entry) return;
   $('selectedName').textContent=entry.name;
   $('selectedAuthor').textContent=entry.author || 'Creator not specified';
-  $('selectedKind').textContent=({factory:'MORPHAZOID ORIGINAL',created:'MADE IN THE WORKSHOP',imported:'IMPORTED SOUNDFONT',link:'SAVED SOURCE'})[entry.kind];
+  $('selectedKind').textContent=({factory:'MORPHAZOID ORIGINAL',created:'CREATED SOUND FONT',imported:'IMPORTED SOUNDFONT',link:'SAVED SOURCE'})[entry.kind];
   $('selectedLicense').textContent=entry.license || 'Not specified';
   $('selectedNotes').textContent=entry.notes || '';
   $('selectedStats').textContent=entry.kind==='link'?'Source link':`${entry.presetCount} presets · ${entry.sampleCount} samples · ${sizeLabel(entry.size)}`;

@@ -41,13 +41,15 @@ modulators, filters, effects, some envelope stages, exclusive classes, and some
 generator offsets are omitted or reported. Unsupported banks fail visibly.
 Preview warnings describe limitations; original imported files remain intact.
 
-## Make a font
+## Create a Sound Font
 
 The three starter sounds and workshop templates are original deterministic
 additive synthesis, not third-party recordings or authentic instrument models.
 Brightness changes partial amplitudes; length controls the generated sample.
 
-Alternatively, load a browser-decodable audio file up to 20 MiB and 30 seconds.
+To use a recording, open **Create**, choose **Your sample**, and select an
+**Audio sample** file. Browser-decodable audio files up to 20 MiB and 30 seconds
+are supported.
 The workshop decodes it at 22,050 Hz, mixes channels to mono, caps peaks, and adds
 short edge fades. Choose the sample's recorded root pitch. One sample is mapped
 across MIDI keys 0–127. Attack and release become instrument generators.

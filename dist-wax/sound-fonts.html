@@ -46,7 +46,7 @@
       <div class="sf-nav" role="group" aria-label="Sound font sections">
         <button type="button" data-view="explore" aria-pressed="true">Explore <span id="presetCount">0</span></button>
         <button type="button" data-view="collection" aria-pressed="false">Collection <span id="fontCount">0</span></button>
-        <button type="button" data-view="workshop" aria-pressed="false">Workshop</button>
+        <button type="button" data-view="workshop" aria-pressed="false">Create</button>
         <button type="button" data-view="sources" aria-pressed="false">Find sounds</button>
       </div>
       <p id="status" class="sf-status" role="status">Opening your library…</p>
@@ -65,7 +65,7 @@
             <div id="filters" class="sf-filters" role="group" aria-label="Filter collection"><button type="button" data-filter="all" aria-pressed="true">All sounds</button><button type="button" data-filter="favorite" aria-pressed="false">★ Favorites</button><button type="button" data-filter="imported" aria-pressed="false">Imported</button><button type="button" data-filter="created" aria-pressed="false">Made here</button><button type="button" data-filter="link" aria-pressed="false">Links</button></div>
             <div class="sf-list-heading"><span>SOUND / INSTRUMENT</span><span>FORMAT</span></div>
             <div id="fontList" class="sf-font-list" aria-label="Saved sound fonts"></div>
-            <div id="emptyState" class="sf-empty" hidden><h2>No sounds here yet.</h2><p>Import an SF2, save a source link, or make something new in the workshop.</p><button type="button" class="sf-button" id="emptyCreate">Open workshop →</button></div>
+            <div id="emptyState" class="sf-empty" hidden><h2>No sounds here yet.</h2><p>Import an SF2, save a source link, or create a sound font.</p><button type="button" class="sf-button" id="emptyCreate">Create a Sound Font →</button></div>
             </div>
         <section class="sf-keyboard-section" aria-label="Play selected sound font"><div class="sf-keyboard-heading"><h2>Try a few notes</h2><span id="keyboardHint">Audio off · click keys or use your computer keyboard</span></div><div id="keyboard" class="sf-keyboard"></div></section>
           </div>
@@ -99,7 +99,7 @@
             <details class="sf-edit"><summary>Credits and notes</summary><label class="sf-field">Creator<input id="fontAuthor" placeholder="Your name" maxlength="100" /></label><label class="sf-field">License or usage notes<input id="fontLicense" placeholder="Add permission or license details" maxlength="300" /></label><label class="sf-field">Description<textarea id="fontNotes" maxlength="2000" rows="2" placeholder="What does it sound like? Where will you use it?"></textarea></label></details>
             <div class="sf-workshop-actions"><button id="previewDraft" type="button" class="sf-button">▶ Preview draft</button><button id="saveFont" type="submit" class="sf-button sf-primary">Create sound font →</button></div>
           </form>
-          <aside class="sf-workshop-visual"><div class="sf-visual-label"><span>THE SHAPE OF YOUR SOUND</span><span id="draftSourceLabel">GLASS BELL</span></div><canvas id="draftWaveform" width="800" height="440" aria-label="Waveform of the workshop sample"></canvas><div class="sf-visual-bottom"><span id="draftDuration">2.0 seconds</span><span>MONO / SF2</span></div><div class="sf-workshop-note"><p>create a playable instrument from one sample, mapped across the keyboard. Download the SF2 to use it in a SoundFont player or keep building in an editor.</p><p>Your sample’s root note should match its recorded pitch.</p></div></aside>
+          <aside class="sf-workshop-visual"><div class="sf-visual-label"><span>THE SHAPE OF YOUR SOUND</span><span id="draftSourceLabel">GLASS BELL</span></div><canvas id="draftWaveform" width="800" height="440" aria-label="Waveform of the sample"></canvas><div class="sf-visual-bottom"><span id="draftDuration">2.0 seconds</span><span>MONO / SF2</span></div><div class="sf-workshop-note"><p>create a playable instrument from one sample, mapped across the keyboard. Download the SF2 to use it in a SoundFont player or keep building in an editor.</p><p>Your sample’s root note should match its recorded pitch.</p></div></aside>
         </div>
       </section>
 
@@ -110,7 +110,7 @@
         <p class="sf-muted sf-small">Looking for more? Explore <a href="https://schristiancollins.com/generaluser" target="_blank" rel="noopener noreferrer">GeneralUser GS</a> or the <a href="https://www.polyphone.io/" target="_blank" rel="noopener noreferrer">Polyphone repository</a>. Check the license of each additional download.</p>
       </section>
       <footer class="sf-footer"><span id="storageStatus">Saved on this device</span><span>Download your fonts to back up or share. Your files stay in this browser.</span></footer>
-      <noscript><p>This workshop needs JavaScript for importing, saving, and playing sound fonts.</p></noscript>
+      <noscript><p>This page needs JavaScript for importing, saving, and playing sound fonts.</p></noscript>
     </main>
     <dialog id="linkDialog" class="sf-dialog"><form id="linkForm"><p id="linkError" class="sf-error" role="alert" hidden></p><div class="sf-dialog-heading"><h2>Save a sound font link</h2><button id="closeLink" type="button" class="sf-icon-button" aria-label="Close">×</button></div><label class="sf-field">Name<input id="linkName" required maxlength="100" /></label><label class="sf-field">Source URL<input id="linkUrl" type="url" required placeholder="https://" maxlength="2000" /></label><label class="sf-field">Notes<textarea id="linkNotes" maxlength="2000" rows="3"></textarea></label><button type="submit" class="sf-button sf-primary">Add to collection</button></form></dialog>
     <dialog id="deleteDialog" class="sf-dialog"><form method="dialog"><h2>Remove this sound?</h2><p id="deleteMessage"></p><div class="sf-actions"><button class="sf-button" value="cancel">Keep it</button><button class="sf-button sf-danger" value="remove">Remove</button></div></form></dialog>
