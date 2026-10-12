@@ -6,7 +6,13 @@
     "full": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Chasing Wind.mid",
     "fullBytes": 6209274,
     "audioBytes": 291363,
-    "audioDurationSeconds": 176.759
+    "audioDurationSeconds": 176.759,
+    "decorativeId": "black-bleed-chasing-wind-full",
+    "decorativeFile": "midi/decorative/black-bleed-chasing-wind-full.mid.gz",
+    "compressedBytes": 307922,
+    "fullSha256": "d1262feb6541ce32d5805838296adeb5d76fe4db600749903675eac9d3b5011f",
+    "fullNoteOnCount": 775128,
+    "fullDurationSeconds": 176.75875
   },
   {
     "title": "Looking To The Moon",
@@ -15,7 +21,13 @@
     "full": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Looking To The Moon.mid",
     "fullBytes": 2777355,
     "audioBytes": 653724,
-    "audioDurationSeconds": 195.509
+    "audioDurationSeconds": 195.509,
+    "decorativeId": "black-bleed-looking-to-the-moon-full",
+    "decorativeFile": "midi/decorative/black-bleed-looking-to-the-moon-full.mid.gz",
+    "compressedBytes": 172953,
+    "fullSha256": "7e97d13ac49cc2913f0f4193d126fd4d19a7b17636b4f40b84b2e8e322eee1a0",
+    "fullNoteOnCount": 346781,
+    "fullDurationSeconds": 195.509254
   },
   {
     "title": "Seven Red Suns",
@@ -24,7 +36,13 @@
     "full": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Seven Red Suns.mid",
     "fullBytes": 6901431,
     "audioBytes": 419299,
-    "audioDurationSeconds": 182.243
+    "audioDurationSeconds": 182.243,
+    "decorativeId": "black-bleed-seven-red-suns-full",
+    "decorativeFile": "midi/decorative/black-bleed-seven-red-suns-full.mid.gz",
+    "compressedBytes": 531168,
+    "fullSha256": "238cd6d4bb193c63b4d2f967472558ec2464d64b35d739878822b94faf723b89",
+    "fullNoteOnCount": 849536,
+    "fullDurationSeconds": 182.242914
   },
   {
     "title": "Sliver of Straw",
@@ -33,7 +51,13 @@
     "full": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Sliver of Straw.mid",
     "fullBytes": 24214707,
     "audioBytes": 268427,
-    "audioDurationSeconds": 179.397
+    "audioDurationSeconds": 179.397,
+    "decorativeId": "black-bleed-sliver-of-straw-full",
+    "decorativeFile": "midi/decorative/black-bleed-sliver-of-straw-full.mid.gz",
+    "compressedBytes": 1280553,
+    "fullSha256": "258fc823f6250658fedefc4117240b07b5a6ff9164c675ee4d6cc9e94f58c118",
+    "fullNoteOnCount": 3000000,
+    "fullDurationSeconds": 179.385941
   },
   {
     "title": "Unparalleled Innocence",
@@ -42,7 +66,13 @@
     "full": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Unparalleled Innocence.mid",
     "fullBytes": 12773241,
     "audioBytes": 143218,
-    "audioDurationSeconds": 160.2
+    "audioDurationSeconds": 160.2,
+    "decorativeId": "black-bleed-unparalleled-innocence-full",
+    "decorativeFile": "midi/decorative/black-bleed-unparalleled-innocence-full.mid.gz",
+    "compressedBytes": 1475899,
+    "fullSha256": "0b8c158f8cb0a695cdf56b147110d87b04ad6cdd6cbd11464d1a822e5351bed4",
+    "fullNoteOnCount": 1596265,
+    "fullDurationSeconds": 164.696875
   },
   {
     "title": "DNCA",
@@ -51,7 +81,13 @@
     "full": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - DNCA.mid",
     "fullBytes": 18459742,
     "audioBytes": 340600,
-    "audioDurationSeconds": 289.072
+    "audioDurationSeconds": 289.072,
+    "decorativeId": "black-bleed-dnca-full",
+    "decorativeFile": "midi/decorative/black-bleed-dnca-full.mid.gz",
+    "compressedBytes": 1248956,
+    "fullSha256": "0aab9f8dcfc925a5de3de1b631fe2b115cbaf55ef21a7ff49719274a424dde62",
+    "fullNoteOnCount": 2299967,
+    "fullDurationSeconds": 289.072297
   },
   {
     "title": "FMK30TP",
@@ -60,7 +96,13 @@
     "full": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - FMMK30TP.mid",
     "fullBytes": 8307175,
     "audioBytes": 261488,
-    "audioDurationSeconds": 170.873
+    "audioDurationSeconds": 170.873,
+    "decorativeId": "black-bleed-fmk30tp-full",
+    "decorativeFile": "midi/decorative/black-bleed-fmk30tp-full.mid.gz",
+    "compressedBytes": 534644,
+    "fullSha256": "c9862d31ec17dc41cabb6d1dfd4d808135f854974d5d44f5fca75124008c8fba",
+    "fullNoteOnCount": 1033135,
+    "fullDurationSeconds": 170.108344
   },
   {
     "title": "JBSMG",
@@ -69,7 +111,13 @@
     "full": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - JBSMG.mid",
     "fullBytes": 30696938,
     "audioBytes": 556457,
-    "audioDurationSeconds": 241.187
+    "audioDurationSeconds": 241.187,
+    "decorativeId": "black-bleed-jbsmg-full",
+    "decorativeFile": "midi/decorative/black-bleed-jbsmg-full.mid.gz",
+    "compressedBytes": 1842625,
+    "fullSha256": "718503ebff94ade359456bb0e16eb4e9290671dc5459bc8e4fcedf7d539477a1",
+    "fullNoteOnCount": 3824595,
+    "fullDurationSeconds": 241.186744
   },
   {
     "title": "SWMG",
@@ -78,7 +126,13 @@
     "full": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - SWMG.mid",
     "fullBytes": 24619798,
     "audioBytes": 304211,
-    "audioDurationSeconds": 202.642
+    "audioDurationSeconds": 202.642,
+    "decorativeId": "black-bleed-swmg-full",
+    "decorativeFile": "midi/decorative/black-bleed-swmg-full.mid.gz",
+    "compressedBytes": 1719106,
+    "fullSha256": "61829d053c976ee499dd9ed0a957b03692e11111ad911e8de3c53e7bf9feb440",
+    "fullNoteOnCount": 3074790,
+    "fullDurationSeconds": 202.733166
   },
   {
     "title": "A SOUL OF STEEL",
@@ -87,7 +141,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - A SOUL OF STEEL.mid",
     "fullBytes": 75788442,
     "audioBytes": 1906702,
-    "audioDurationSeconds": 455.273
+    "audioDurationSeconds": 455.273,
+    "decorativeId": "black-bleed-a-soul-of-steel-full",
+    "decorativeFile": "midi/decorative/black-bleed-a-soul-of-steel-full.mid.gz",
+    "compressedBytes": 12450956,
+    "fullSha256": "6000c535ad6198b26af6eb761967d9b2b7e0dbcb809b0bb2354255b6908265ca",
+    "fullNoteOnCount": 9388159,
+    "fullDurationSeconds": 455.272925
   },
   {
     "title": "JUDGEMENT DAY",
@@ -96,7 +156,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - JUDGEMENT DAY.mid",
     "fullBytes": 53247463,
     "audioBytes": 547973,
-    "audioDurationSeconds": 407.167
+    "audioDurationSeconds": 407.167,
+    "decorativeId": "black-bleed-judgement-day-full",
+    "decorativeFile": "midi/decorative/black-bleed-judgement-day-full.mid.gz",
+    "compressedBytes": 12512275,
+    "fullSha256": "7395cd89f07dc8315262a61ac948996b223b525bd12bcf5f3b28ea098be6e4a9",
+    "fullNoteOnCount": 6654566,
+    "fullDurationSeconds": 407.167056
   },
   {
     "title": "LIGHTSTORM",
@@ -105,7 +171,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - LIGHTSTORM.mid",
     "fullBytes": 183534498,
     "audioBytes": 1181106,
-    "audioDurationSeconds": 254.818
+    "audioDurationSeconds": 254.818,
+    "decorativeId": "black-bleed-lightstorm-full",
+    "decorativeFile": "midi/decorative/black-bleed-lightstorm-full.mid.gz",
+    "compressedBytes": 14189193,
+    "fullSha256": "ea34399e52c3597ba1d135450cfafe1c677cb4c9ae3f74c11ebe0ee24b13facc",
+    "fullNoteOnCount": 22866471,
+    "fullDurationSeconds": 254.818453
   },
   {
     "title": "MOURNFUL CAMARADERIE",
@@ -114,7 +186,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - MOURNFUL CAMARADERIE.mid",
     "fullBytes": 11086582,
     "audioBytes": 488761,
-    "audioDurationSeconds": 238.674
+    "audioDurationSeconds": 238.674,
+    "decorativeId": "black-bleed-mournful-camaraderie-full",
+    "decorativeFile": "midi/decorative/black-bleed-mournful-camaraderie-full.mid.gz",
+    "compressedBytes": 2260377,
+    "fullSha256": "77bcd98059a36a6f22001c66ade48f3fa6e40ec5c9a75543135955bb519128ae",
+    "fullNoteOnCount": 1349347,
+    "fullDurationSeconds": 238.673958
   },
   {
     "title": "TWIN NEMESIS",
@@ -123,7 +201,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - TWIN NEMESIS.mid",
     "fullBytes": 49636036,
     "audioBytes": 1477917,
-    "audioDurationSeconds": 252.853
+    "audioDurationSeconds": 252.853,
+    "decorativeId": "black-bleed-twin-nemesis-full",
+    "decorativeFile": "midi/decorative/black-bleed-twin-nemesis-full.mid.gz",
+    "compressedBytes": 2468760,
+    "fullSha256": "26f0c0098a991b7e808bb51721e5cd976c20fcec2e0a0e004bc605f25f4a7128",
+    "fullNoteOnCount": 6120386,
+    "fullDurationSeconds": 252.853434
   },
   {
     "title": "UVB-76 THE BUZZER",
@@ -132,7 +216,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - UVB-76 THE BUZZER.mid",
     "fullBytes": 8243827,
     "audioBytes": 377721,
-    "audioDurationSeconds": 149.052
+    "audioDurationSeconds": 149.052,
+    "decorativeId": "black-bleed-uvb-76-the-buzzer-full",
+    "decorativeFile": "midi/decorative/black-bleed-uvb-76-the-buzzer-full.mid.gz",
+    "compressedBytes": 462494,
+    "fullSha256": "40dc16863994c0c447792c11c3575b28bf049508cf493c29b9df58a96d1b127f",
+    "fullNoteOnCount": 1030149,
+    "fullDurationSeconds": 149.051586
   },
   {
     "title": "WINTER'S RAGE",
@@ -141,7 +231,13 @@
     "full": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - WINTER's RAGE.mid",
     "fullBytes": 13529827,
     "audioBytes": 598920,
-    "audioDurationSeconds": 288.605
+    "audioDurationSeconds": 288.605,
+    "decorativeId": "black-bleed-winter-s-rage-full",
+    "decorativeFile": "midi/decorative/black-bleed-winter-s-rage-full.mid.gz",
+    "compressedBytes": 634155,
+    "fullSha256": "146b65ac36c7266f80bf2c4271d13d32afa9a89e79e75c4566d6fb134954ff40",
+    "fullNoteOnCount": 1677777,
+    "fullDurationSeconds": 288.605179
   },
   {
     "title": "Five Pebbles",
@@ -151,7 +247,13 @@
     "fullBytes": 32522767,
     "durationSeconds": null,
     "noteOnCount": null,
-    "reason": "No creator AUDIO variant; full version retained in downloadable archive. Not proposed for browser menu due to full-score size/event density."
+    "reason": "No creator AUDIO variant. Complete decorative score is now separately available as a lossless gzip MIDI.",
+    "decorativeId": "black-bleed-five-pebbles-full",
+    "decorativeFile": "midi/decorative/black-bleed-five-pebbles-full.mid.gz",
+    "compressedBytes": 2052867,
+    "fullSha256": "6ef64997bd115c10d0a6e5cba65cc164f04968e544b168c8443c0b475d984788",
+    "fullNoteOnCount": 4065202,
+    "fullDurationSeconds": 204.8
   },
   {
     "title": "UPDATE",
@@ -161,7 +263,13 @@
     "fullBytes": 3967378,
     "durationSeconds": 155.459,
     "noteOnCount": 455179,
-    "reason": "No creator AUDIO variant; full version retained in downloadable archive. Not proposed for browser menu due to full-score size/event density."
+    "reason": "No creator AUDIO variant. Complete decorative score is now separately available as a lossless gzip MIDI.",
+    "decorativeId": "black-bleed-update-full",
+    "decorativeFile": "midi/decorative/black-bleed-update-full.mid.gz",
+    "compressedBytes": 302648,
+    "fullSha256": "e4bc7e2ed2b4de9f35f53c0b70faa44d8e6cc25c30bed52c95a175b2c437593e",
+    "fullNoteOnCount": 455179,
+    "fullDurationSeconds": 155.459271
   },
   {
     "title": "WINTER's PAIN",
@@ -171,6 +279,12 @@
     "fullBytes": 7034860,
     "durationSeconds": 159.273,
     "noteOnCount": 872471,
-    "reason": "No creator AUDIO variant; full version retained in downloadable archive. Not proposed for browser menu due to full-score size/event density."
+    "reason": "No creator AUDIO variant. Complete decorative score is now separately available as a lossless gzip MIDI.",
+    "decorativeId": "black-bleed-winter-s-pain-full",
+    "decorativeFile": "midi/decorative/black-bleed-winter-s-pain-full.mid.gz",
+    "compressedBytes": 316326,
+    "fullSha256": "86364d5a99472cd676b3bfc75c5a44f70b4b8c8ebc792a6f4e662348ee933ff4",
+    "fullNoteOnCount": 872471,
+    "fullDurationSeconds": 159.27257
   }
 ]
