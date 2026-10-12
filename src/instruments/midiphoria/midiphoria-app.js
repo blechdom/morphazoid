@@ -4,6 +4,7 @@ import { getSharedMidiManager } from '../../midi-manager.js';
 import { MidiphoriaModel, DEFAULT_VISUALS } from './midiphoria-model.js';
 import { MidiphoriaRenderer } from './midiphoria-renderer.js';
 import { MidiphoriaPlayer } from './midiphoria-player.js';
+import { mountMidiScoreView, readMidiAsset, MAX_PREVIEW_NOTES } from './midiphoria-score-view.js';
 import { mountMidiMixer } from '../midi-mixer/midi-mixer-app.js';
 import { generateTextMidi } from './midiphoria-text-midi.js';
 import { drawTextMidiScore } from './midiphoria-text-score.js';
@@ -60,6 +61,8 @@ function mountMidiphoria() {
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false, originalPlaySongId = '';
   let textScore = null, textDownloadUrl = null;
+  const scoreView = mountMidiScoreView({ mount: $('blackMidiViewport'), controls: $('blackMidiControls'),
+    getTransport: () => { const state = player?.state; return { position: state?.time ?? 0, playing: state?.playing ?? false, speed: state?.rate ?? 1 }; } });
   function usesMixer(mode = stageMode) { return mode === 'mixer'; }
   const activeEngine = () => usesMixer() ? mixer : player;
   const armEngine = (engine, enabled) => engine === player
@@ -67,9 +70,13 @@ function mountMidiphoria() {
     : engine?.setAudioEnabled(enabled);
   function reflectMode() {
     $('midiphoria').dataset.view = stageMode;
-    $('midiphoriaLegacyView').hidden = stageMode !== 'visual';
+    $('midiphoriaLegacyView').hidden = stageMode === 'mixer';
     $('midiMixerView').hidden = stageMode !== 'mixer';
-    for (const [id, mode] of [['visualModeButton', 'visual'], ['mixerModeButton', 'mixer']]) {
+    $('visualCanvas').hidden = stageMode === 'black';
+    $('blackMidiViewport').hidden = stageMode !== 'black';
+    $('blackMidiControls').hidden = stageMode !== 'black';
+    scoreView.setVisible(stageMode === 'black' && !document.hidden);
+    for (const [id, mode] of [['visualModeButton', 'visual'], ['blackModeButton', 'black'], ['mixerModeButton', 'mixer']]) {
       $(id).setAttribute('aria-pressed', String(stageMode === mode));
     }
     mixer?.setActive(usesMixer() && !document.hidden);
@@ -120,6 +127,7 @@ function mountMidiphoria() {
   }
   reflectMode();
   on($('visualModeButton'), 'click', () => { void setStageMode('visual'); });
+  on($('blackModeButton'), 'click', () => { void setStageMode('black'); });
   on($('mixerModeButton'), 'click', () => { void setStageMode('mixer'); });
   let voiceSignature = '';
   const voiceButtons = new Map();
@@ -180,7 +188,7 @@ function mountMidiphoria() {
     $('audioButton').setAttribute('aria-pressed', String(activeState.audioEnabled));
     $('audioButton').disabled = audioStarting;
     $('audioState').textContent = audioStarting ? 'loading' : activeState.audioEnabled ? 'on' : 'off';
-    $('startAudioButton').hidden = !currentSongId || state.audioEnabled;
+    $('startAudioButton').hidden = !currentSongId || state.audioEnabled || state.visualOnly;
     $('startAudioButton').disabled = audioStarting;
     $('playButton').disabled = stageMode === 'mixer' ? !activeState.ready : !state.ready || !selectionReady || loadingFile || state.loading;
     $('playButton').setAttribute('aria-pressed', String(activeState.playing));
@@ -206,8 +214,11 @@ function mountMidiphoria() {
   function showSongCredit(song) {
     $('songCredit').replaceChildren();
     $('songDescription').textContent = song?.description && song.buffer ? song.description : !song ? 'Your MIDI · stored only for this session.'
+      : song.visualOnly ? song.pairedAudioId ? 'Full decorative score · sound uses the creator’s AUDIO edition on its original timeline. Editions may differ.'
+        : song.uncompressedBytes <= 10 * 1024 * 1024 ? 'Full decorative score and original MIDI sound · dense playback is limited to 128 sounding voices.'
+          : 'Full decorative score · silent visual playback. No separate audio edition is available for this file.'
       : song.kind === 'pattern' ? 'Short geometric pattern · enable Loop to repeat.'
-      : song.collection === 'Black MIDI' ? 'Complete creator AUDIO edition. Full decorative scores are in About & setup.'
+      : song.collection === 'Black MIDI' ? 'Complete creator AUDIO edition. Search “Decorative” for full artwork scores.'
       : song.collection?.startsWith('Orchestral') ? 'Full orchestral arrangement.' : '';
     if (!song) { $('songCredit').textContent = 'Local MIDI file · stays in this browser.'; return; }
     $('songCredit').append(document.createTextNode(`${song.attribution} `));
@@ -218,7 +229,7 @@ function mountMidiphoria() {
     if (song.file) {
       const download = document.createElement('a');
       download.href = new URL(`../../../assets/midiphoria/${song.file}`, import.meta.url).href;
-      download.download = song.file.split('/').pop(); download.textContent = 'Download MIDI';
+      download.download = song.file.split('/').pop(); download.textContent = song.compression ? 'Download full MIDI (.gz)' : 'Download MIDI';
       $('songCredit').append(document.createTextNode(' · '), download);
     }
     if (song.licenseUrl && song.licenseName) {
@@ -301,23 +312,34 @@ function mountMidiphoria() {
     const file = song.localFile;
     const version = ++selectionVersion;
     songRequest?.abort(); songRequest = new AbortController();
+    const signal = songRequest.signal;
+    scoreView.clear('Loading MIDI score…');
     loadingFile = true; selectionReady = false; fileError = ''; player.stop();
+    if (song.visualOnly) void setStageMode('black');
     showSongCredit(file ? null : song); reflectPlayer();
     try {
       if (file && file.size > 10 * 1024 * 1024) throw new Error('Choose a MIDI file smaller than 10 MB.');
-      let binary;
+      let binary, preview = null;
       if (song.buffer) binary = song.buffer;
       else if (file) binary = await file.arrayBuffer();
+      else if (song.noteCount > MAX_PREVIEW_NOTES) scoreView.unavailable(song);
+      else binary = await readMidiAsset(song, signal);
+      if (disposed || version !== selectionVersion) return;
+      if (binary) preview = scoreView.load(binary, { signal });
+      const paired = song.pairedAudioId && collection.find(entry => entry.id === song.pairedAudioId);
+      const audio = paired ? await readMidiAsset(paired, signal) : binary?.byteLength <= 10 * 1024 * 1024 ? binary : null;
+      if (disposed || version !== selectionVersion) return;
+      let loaded;
+      if (audio) loaded = await player.load(audio, file?.name || song.title, { preserveLeadIn: Boolean(song.preserveLeadIn || song.visualOnly) });
       else {
-        const response = await fetch(new URL(`../../../assets/midiphoria/${song.file}`, import.meta.url), { signal: songRequest.signal });
-        if (!response.ok) throw new Error('Could not load this song. Choose another or open a local MIDI file.');
-        binary = await response.arrayBuffer();
+        const score = await preview;
+        if (disposed || version !== selectionVersion) return;
+        if (!score) throw new Error('This file cannot be previewed here. Its complete original is available to download.');
+        loaded = await player.loadVisualTimeline(score.duration, song.title);
       }
       if (disposed || version !== selectionVersion) return;
-      const loaded = await player.load(binary, file?.name || song.title, { preserveLeadIn: Boolean(song.preserveLeadIn) });
-      if (disposed || version !== selectionVersion) return;
       selectionReady = Boolean(loaded);
-      if (selectionReady) currentMidiBuffer = binary.slice(0);
+      if (selectionReady && !song.visualOnly) currentMidiBuffer = binary.slice(0);
       if (selectionReady && resumeAfterSelection && !usesMixer()) player.play();
     } catch (error) {
       if (disposed || version !== selectionVersion || error.name === 'AbortError') return;
@@ -335,7 +357,7 @@ function mountMidiphoria() {
 
   function choosePresetSong() {
     if (currentSongId) return;
-    const song = randomSong(collection);
+    const song = randomSong(collection.filter(entry => !entry.visualOnly));
     if (!song) { pendingPresetSong = true; return; }
     $('songSearch').value = '';
     void selectSong(song);
@@ -750,7 +772,7 @@ function mountMidiphoria() {
     frame = null;
     if (disposed || document.hidden) return;
     const now = clock(), sample = model.sample(now);
-    if (usesMixer()) renderer.capture(sample, now);
+    if (usesMixer() || stageMode === 'black') renderer.capture(sample, now);
     else if (textScore && $('showTextScore').checked) {
       renderer.capture(sample, now);
       drawTextMidiScore(renderer.context, renderer.width, renderer.height, textScore, player.state, renderer.options, settings);
@@ -773,13 +795,14 @@ function mountMidiphoria() {
   on(globalThis, 'blur', releasePads);
   on(document, 'visibilitychange', () => {
     mixer.setActive(usesMixer() && !document.hidden);
+    scoreView.setVisible(stageMode === 'black' && !document.hidden);
     if (document.hidden) { clear(); if (frame !== null) cancelAnimationFrame(frame); frame = null; }
     else if (frame === null) draw();
   });
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     disposed = true; modeVersion++; clear(); songRequest?.abort();
-    player.pause(); mixer.pause(); noteEffectEditor.destroy(); void player.dispose(); void mixer.dispose();
+    player.pause(); mixer.pause(); scoreView.dispose(); noteEffectEditor.destroy(); void player.dispose(); void mixer.dispose();
     if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
     if (frame !== null) cancelAnimationFrame(frame);
     resize.disconnect(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();

@@ -15,7 +15,7 @@ class Events {
   emit(type, data) { for (const [key, callback] of this.callbacks) if (key.startsWith(`${type}:`)) callback(data); }
 }
 
-function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false } = {}) {
+function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock } = {}) {
   const calls = [], messages = [], clears = [], states = [], contexts = [], synths = [], sequencers = [];
   const timers = new Map(), windowEvents = new Map();
   let nextTimer = 0, releaseLibrary;
@@ -101,7 +101,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
     addEventListener(type, callback) { windowEvents.set(type, callback); },
     removeEventListener(type, callback) { if (windowEvents.get(type) === callback) windowEvents.delete(type); },
   };
-  const player = new MidiphoriaPlayer({ runtime, loadLibrary: () => { calls.push('import'); return libraryPromise; },
+  const player = new MidiphoriaPlayer({ runtime, clock, loadLibrary: () => { calls.push('import'); return libraryPromise; },
     connectOutput: (context, source) => { context.outputSource = source; calls.push('output-connect'); return () => calls.push('output-release'); },
     onMidi: message => messages.push(message), onClear: (...args) => clears.push(args), onState: state => states.push(state),
   });
@@ -114,6 +114,38 @@ async function ready(h) {
   assert.equal(await h.player.enableAudio(), true);
   return h.sequencers[0];
 }
+
+test('silent decorative timeline supports seek, 8x, pause, looping and end without creating audio', async () => {
+  let now = 0; const h = harness({ clock: () => now });
+  await h.player.loadVisualTimeline(20, 'Artwork');
+  assert.equal(h.player.state.visualOnly, true); assert.equal(h.player.state.ready, true);
+  assert.equal(h.player.play(), true); now = 2; assert.equal(h.player.state.time, 2);
+  h.player.setPlaybackRate(8); now = 3; assert.equal(h.player.state.time, 10);
+  h.player.pause(); now = 5; assert.equal(h.player.state.time, 10);
+  h.player.seek(18); h.player.setLoop(true); h.player.play(); now = 6;
+  assert.equal(h.player.state.time, 6); assert.equal(h.player.state.playing, true);
+  h.player.setLoop(false); now = 10; assert.equal(h.player.state.time, 20); assert.equal(h.player.state.playing, false);
+  assert.equal(h.contexts.length, 0); assert.equal(h.calls.includes('import'), false);
+  h.player.stop(); assert.equal(h.player.state.time, 0); await h.player.dispose();
+});
+
+test('switching a decorative timeline back to MIDI requires explicit Audio and releases the virtual clock', async () => {
+  let now = 0; const h = harness({ clock: () => now });
+  await h.player.loadVisualTimeline(30, 'Artwork'); h.player.play(); now = 3;
+  await h.player.load(midi(), 'Back to sound.mid');
+  assert.equal(h.player.state.visualOnly, undefined); assert.equal(h.player.state.playing, false);
+  assert.equal(h.player.play(), false); assert.equal(h.contexts.length, 0);
+  await h.player.enableAudio(); assert.equal(h.player.play(), true);
+  assert.equal(h.player.state.duration, 10); await h.player.dispose();
+});
+
+test('late audio clock events do not move a decorative timeline', async () => {
+  let now = 0; const h = harness({ clock: () => now }); const seq = await ready(h);
+  await h.player.loadVisualTimeline(60, 'Artwork'); h.player.play(); now = 4;
+  seq.eventHandler.emit('timeChange', 99); seq.eventHandler.emit('songEnded');
+  assert.equal(h.player.state.time, 4); assert.equal(h.player.state.playing, true);
+  await h.player.dispose(); assert.equal(h.player.play(), false);
+});
 
 test('file selection and Play never create audio; Audio resumes before asynchronous resources', async () => {
   const h = harness();

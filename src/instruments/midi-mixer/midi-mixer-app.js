@@ -392,7 +392,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
     if (collectionPromise) return collectionPromise;
     collectionPromise = (async () => {
       const response = await fetch(asset('collection.json'), { signal: events.signal }); if (!response.ok) throw new Error('Could not load the MIDI collection. Open a local MIDI to mix.');
-      collection = await response.json(); if (disposed) return;
+      collection = (await response.json()).filter(song => !song.visualOnly && !song.compression); if (disposed) return;
       for (const index of [0, 1]) {
         const groups = new Map(), select = $(`deckSong${index}`);
         for (const song of collection) {
