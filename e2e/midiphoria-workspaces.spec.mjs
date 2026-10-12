@@ -22,9 +22,15 @@ async function open(page) {
   return { errors, requests };
 }
 async function view(page, mode) {
-  await page.locator(`#${mode === 'draw' ? 'drawing' : 'automata'}ModeButton`).click();
-  await expect(page.locator('#drawingCanvas')).toBeVisible();
-  await expect(page.locator('#automataMidiPreview')).toBeVisible();
+  const name = mode === 'draw' ? 'drawing' : mode;
+  await page.locator(`[data-blech-tab="${name}"]`).click();
+  await expect(page.locator(`#blechPanel-${name}`)).toBeVisible();
+  await expect(page.locator('#blackMidiViewport')).toBeVisible();
+  await expect(page.locator('#drawingCanvas'))[name === 'drawing' ? 'toBeVisible' : 'toBeHidden']();
+  await expect(page.locator('#automataMidiPreview'))[name === 'automata' ? 'toBeVisible' : 'toBeHidden']();
+}
+async function input(page, selector, value) {
+  await page.locator(selector).evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 }
 const snapshot = page => page.evaluate(() => {
   const state = __workspaceQA.engine.state;
@@ -36,38 +42,49 @@ const snapshot = page => page.evaluate(() => {
 async function sounding(page) { await expect.poll(async () => (await readAudioStatus(page)).rms, { timeout: 10000 }).toBeGreaterThan(.001); }
 async function arm(page) { await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 }); }
 
-test('Blech MIDI owns drawing and rules without deck requests or duplicate creative controls', async ({ page }) => {
+test('BLECH MIDI keeps one falling stage while independent source tabs preserve prepared state', async ({ page }) => {
   const { errors, requests } = await open(page);
-  await expect(page.locator('h1')).toHaveText('Blech MIDI');
+  await expect(page.locator('h1')).toHaveText('BLECH MIDI');
   expect((await snapshot(page)).loaded).toEqual([false, false]); expect((await snapshot(page)).playing).toBe(false);
-  await expect(page.locator('#generateDrawingMidi')).toHaveText('Send ↑'); await expect(page.locator('#generateDrawingMidi')).toBeDisabled();
+  await expect(page.locator('#blackMidiViewport')).toBeVisible();
+  await expect(page.locator('#blackSongSelect')).toBeVisible();
+  await page.locator('[data-blech-tab="files"]').focus(); await page.keyboard.press('ArrowRight');
+  await expect(page.locator('[data-blech-tab="stamps"]')).toBeFocused();
+  await expect(page.locator('[data-blech-tab="stamps"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#blackMidiViewport')).toBeVisible();
+  await page.keyboard.press('End'); await expect(page.locator('[data-blech-tab="info"]')).toBeFocused();
+  await page.keyboard.press('Home'); await expect(page.locator('[data-blech-tab="files"]')).toHaveAttribute('aria-selected', 'true');
+  await expect(page.locator('#mixerPerformanceCanvas, #midiMixerView, #midiphoriaLegacyView, #deckSong0, #notePads')).toHaveCount(0);
+  await view(page, 'draw');
+  await expect(page.locator('#generateDrawingMidi')).toHaveText('Drop ↓'); await expect(page.locator('#generateDrawingMidi')).toBeDisabled();
   await expect(page.locator('#creativePadsHost [data-mixer-sample]')).toHaveCount(58);
-  await expect(page.locator('#creativeVisualizerHost #mixerPerformanceCanvas')).toBeVisible();
-  await expect(page.locator('#midiMixerView, #midiphoriaLegacyView, #deckSong0, #notePads')).toHaveCount(0);
   await page.locator('[data-drawing-stamp="❤"]').click(); const pixels = await page.locator('#drawingCanvas').getAttribute('data-pixels');
-  await page.locator('#mixerSampleLoop').check(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeHidden(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('#mixerSampleLoop').check(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeHidden();
+  await view(page, 'sound'); await page.locator('#mixerSampleProgram').selectOption('16'); await view(page, 'draw');
   await page.locator('#generateDrawingMidi').click(); await expect.poll(() => page.evaluate(() => __workspaceQA.launches.length)).toBe(1);
   await view(page, 'automata');
   await expect(page.locator('#automataMidiTools .midiphoria-automata')).toHaveAttribute('open', '');
   await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed', 'false'); await expect(page.locator('#automataMidiCapture')).toBeVisible();
-  await expect(page.locator('#drawingCanvas')).toBeVisible(); await expect(page.locator('.mixer-sample-bank')).toBeVisible();
-  for (const id of ['mixerSampleLoop', 'mixerSampleProgram', 'mixerSampleLevel', 'mixerStopSamples']) await expect(page.locator(`#${id}`)).toBeVisible();
+  await expect(page.locator('#blechLiveLayers button')).toBeVisible();
+  await expect(page.locator('.mixer-sample-bank')).toBeHidden();
   await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('16');
-  await view(page, 'draw'); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels); await expect(page.locator('.mixer-sample-bank')).toBeVisible();
-  for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiTools']) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  await view(page, 'draw'); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
+  for (const id of ['blackMidiViewport', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiTools']) await expect(page.locator(`#${id}`)).toHaveCount(1);
   await page.locator('#creativeStop').click();
   await page.locator('h1').click(); await page.keyboard.press('Space');
-  await expect.poll(() => page.evaluate(() => __workspaceQA.launches.length)).toBe(2);
+  await expect(page.locator('#blackPlayButton')).toBeDisabled(); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => __workspaceQA.launches.length)).toBe(1);
   expect((await snapshot(page)).loaded).toEqual([false, false]); expect(requests).toEqual([]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect((await snapshot(page)).contexts).toEqual([]); expect(errors).toEqual([]);
 });
 
 test('native loops persist across drawing and Automatapoeia, with one context and explicit stop', async ({ page }, testInfo) => {
   test.setTimeout(60000); const { errors } = await open(page);
-  await page.locator('[data-stamp-loop="square"]').check(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await view(page, 'sound'); await page.locator('#mixerSampleProgram').selectOption('16'); await view(page, 'stamps');
+  await page.locator('[data-stamp-loop="square"]').check();
   await arm(page); await page.locator('[data-mixer-sample="square"]').click(); await sounding(page);
   const id = (await snapshot(page)).samples[0].id;
-  await page.locator('#creativeTempo').fill('173'); await expect.poll(async () => (await snapshot(page)).tempo).toBe(173);
+  await input(page, '#creativeTempo', 173); await expect.poll(async () => (await snapshot(page)).tempo).toBe(173);
   await view(page, 'automata'); await expect(page.locator('[data-stamp-loop="square"]')).toBeChecked(); await sounding(page);
   expect((await snapshot(page)).samples.some(sample => sample.id === id)).toBe(true); expect((await snapshot(page)).playing).toBe(false);
   await page.locator('#automataMidiPlayPause').click(); await expect.poll(async () => (await snapshot(page)).automata.generation).toBeGreaterThan(2);
@@ -78,32 +95,32 @@ test('native loops persist across drawing and Automatapoeia, with one context an
   await view(page, 'draw'); await expect(page.locator('#creativeTempo')).toHaveValue('173');
   await page.locator('#creativeStop').click(); await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 8000 }).toBeLessThan(.0001);
   expect((await snapshot(page)).samples).toEqual([]); expect((await snapshot(page)).automata.playing).toBe(false);
-  await page.locator('[data-mixer-sample="heart"]').click(); await sounding(page);
+  await view(page, 'stamps'); await page.locator('[data-mixer-sample="heart"]').click(); await sounding(page);
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect((await snapshot(page)).samples).toEqual([]);
-  await page.locator('[data-drawing-stamp="wave"]').click(); await page.locator('#generateDrawingMidi').click();
+  await view(page, 'draw'); await page.locator('[data-drawing-stamp="wave"]').click(); await page.locator('#generateDrawingMidi').click();
   const sample = (await snapshot(page)).samples[0];
   await expect.poll(async () => (await snapshot(page)).samples.find(item => item.id === sample.id)?.positionBeats).toBeGreaterThan(sample.positionBeats + .2);
-  await expect.poll(() => page.locator('#mixerPerformanceCanvas').getAttribute('data-captured-notes').then(Number)).toBeGreaterThan(0);
+  await expect.poll(() => page.locator('#blackMidiViewport .midiphoria-black-stage').getAttribute('data-live-notes').then(Number)).toBeGreaterThan(0);
   await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
   expect((await snapshot(page)).contexts.length).toBe(1);
   await testInfo.attach('workspace-native-audio', { body: JSON.stringify({ signal: signal.summary, final: await snapshot(page) }), contentType: 'application/json' }); expect(errors).toEqual([]);
 });
 
 test('page teardown releases native audio and BFCache restores one idle drawing workspace', async ({ page }) => {
-  const { errors } = await open(page); await page.locator('[data-drawing-stamp="wave"]').click();
+  const { errors } = await open(page); await view(page, 'draw'); await page.locator('[data-drawing-stamp="wave"]').click();
   const pixels = await page.locator('#drawingCanvas').getAttribute('data-pixels');
-  await page.locator('#mixerSampleLoop').check(); await arm(page); await page.locator('#generateDrawingMidi').click(); await page.locator('#automataMidiPlayPause').click(); await sounding(page);
+  await page.locator('#mixerSampleLoop').check(); await arm(page); await page.locator('#generateDrawingMidi').click(); await view(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await sounding(page);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
   await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
   await expect.poll(() => page.evaluate(() => __workspaceQA.contexts.every(context => context.state === 'closed'))).toBe(true);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
-  for (const id of ['mixerPerformanceCanvas', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiPlayPause', 'automataMidiCapture']) await expect(page.locator(`#${id}`)).toHaveCount(1);
+  for (const id of ['blackMidiViewport', 'mixerSampleLoop', 'mixerSampleSync', 'automataMidiPlayPause', 'automataMidiCapture']) await expect(page.locator(`#${id}`)).toHaveCount(1);
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false'); expect((await snapshot(page)).samples).toEqual([]);
   expect((await snapshot(page)).loaded).toEqual([false, false]); expect((await snapshot(page)).automata.playing).toBe(false);
-  await expect(page.locator('#automataMidiPreview')).toBeVisible();
-  await arm(page); await page.locator('#generateDrawingMidi').click(); await sounding(page);
+  await view(page, 'automata'); await expect(page.locator('#automataMidiPreview')).toBeVisible();
+  await view(page, 'draw'); await arm(page); await page.locator('#generateDrawingMidi').click(); await sounding(page);
   expect((await snapshot(page)).contexts).toEqual(['closed', 'running']); expect(errors).toEqual([]);
 });
 
@@ -117,5 +134,7 @@ test('Midiophilia exposes only visualizer and mix controls and links to standalo
   expect(await monitor.getAttribute('tabindex')).toBeNull(); await monitor.click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   const destination = page.locator('main a[href="blech-midi.html"]').first(); await expect(destination).toBeVisible(); await destination.click();
-  await expect(page).toHaveURL(/\/blech-midi\.html$/); await expect(page.locator('#drawingCanvas')).toBeVisible(); await expect(page.locator('#automataMidiPreview')).toBeVisible();
+  await expect(page).toHaveURL(/\/blech-midi\.html$/); await expect(page.locator('#blackMidiViewport')).toBeVisible();
+  await expect(page.locator('#blackSongSelect')).toBeVisible(); await expect(page.locator('#drawingCanvas')).toBeHidden();
+  await view(page, 'draw'); await view(page, 'automata');
 });

@@ -37,25 +37,26 @@ async function open(page) {
     await route.fulfill({ response, body: `${source}\nexport function createBlackMidiVisualizer(...args){const view=qaCreateBlackMidiVisualizer(...args);__blackQA.view=view;const options=view.setOptions;view.setOptions=function(value){__blackQA.options=structuredClone(value);return options.call(view,value);};return view;}` });
   });
   await page.goto('/blech-midi.html#blackMidiPlayer');
-  await page.locator('.blech-file-settings > summary').click();
-  await expect(page.locator('#blackSongList')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('#blackSongSelect option')).toHaveCount(collection.length + 1);
+  await expect(page.locator('#blackSongList, #blackSongSearch')).toHaveCount(0);
 }
 async function select(page, item) {
-  await page.locator('#blackSongSearch').fill(item.title.split(' · ')[0]);
-  await page.locator(`[data-song-id="${item.id}"]`).click();
-  await expect(page.locator(`[data-song-id="${item.id}"]`)).toHaveAttribute('aria-pressed', 'true');
+  await tab(page, 'files');
+  await page.locator('#blackSongSelect').selectOption(item.id);
+  await expect(page.locator('#blackSongSelect')).toHaveValue(item.id);
 }
 async function input(page, selector, value) { await page.locator(selector).evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); }, value); }
 const state = page => page.evaluate(() => ({ player: __blackQA.player?.state, stats: __blackQA.view?.stats, contexts: __blackQA.contexts.length, options: __blackQA.options }));
 const total = page => page.locator('#blackMidiControls [data-total]');
-const black = page => page.locator('#blackMidiPlayer').evaluate(node => { node.open = true; });
+const black = page => expect(page.locator('#blackMidiViewport')).toBeVisible();
+async function tab(page, name) { await page.locator(`[data-blech-tab="${name}"]`).click(); await expect(page.locator(`#blechPanel-${name}`)).toBeVisible(); }
 async function arm(page) { await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 }); }
 async function audible(page) {
   await expect.poll(async () => (await readAudioStatus(page)).rms, { timeout: 12000 }).toBeGreaterThan(.001);
   const { summary } = await sampleAudioEnvelope(page, { durationMs: 300, intervalMs: 35 });
   expect(summary.finite).toBe(true); expect(summary.maxRms).toBeGreaterThan(.001); expect(summary.clippedSamples).toBe(0);
 }
-async function detail(page, text) { const summary = page.locator('#blackMidiControls summary').filter({ hasText: text }); if (await summary.locator('..').getAttribute('open') === null) await summary.click(); }
+async function detail(page, text) { await tab(page, 'visuals'); const summary = page.locator('#blackMidiControls summary').filter({ hasText: text }); if (await summary.locator('..').getAttribute('open') === null) await summary.click(); }
 
 test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, exact counts and overlaid voice colors', async ({ page }) => {
   test.setTimeout(60000); await open(page); await select(page, pattern); await black(page);
@@ -69,7 +70,8 @@ test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, 
   expect(Math.max(...keyboard.rectangles.map(rect => rect[0] + rect[2]))).toBeGreaterThan(keyboard.width - 2);
   await page.locator('#blackLoopSong').check(); await arm(page);
   expect((await state(page)).contexts).toBe(1); await expect(page.locator('#blackPlayButton')).toBeEnabled(); await page.locator('#blackPlayButton').click(); await audible(page);
-  await page.locator('#blackMidiPlayer').evaluate(node => { node.open = false; }); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
+  await tab(page, 'drawing'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#blackSongSelect')).toBeHidden(); await expect(page.locator('#blackMidiViewport')).toBeVisible();
   await black(page); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await detail(page, 'Tracks & colors');
   await page.locator('#blackMidiControls [data-palette]').selectOption('candy');
@@ -96,7 +98,7 @@ test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, 
 test('decorative gzip score indexes every note and plays the creator audio edition on its original timeline', async ({ page }) => {
   test.setTimeout(120000); const item = song('black-bleed-chasing-wind-full'), paired = song(item.pairedAudioId), requests = [];
   page.on('request', request => requests.push(request.url())); await open(page); await select(page, item);
-  await expect(page.locator('#blackMidiPlayer')).toHaveAttribute('open', '');
+  await expect(page.locator('#blackMidiViewport')).toBeVisible();
   await expect(total(page)).toHaveText(item.noteCount.toLocaleString('en-US'), { timeout: 90000 });
   expect(requests.some(url => url.endsWith(item.file))).toBe(true); expect(requests.some(url => url.endsWith(paired.file))).toBe(true);
   await expect(page.locator('#blackSongDescription')).toContainText('AUDIO edition');
@@ -115,6 +117,8 @@ test('Lightstorm retains its full note count and download while playing audio wi
   await arm(page); await expect(page.locator('#blackPlayButton')).toBeEnabled(); await input(page, '#blackSongPosition', 10); await page.locator('#blackPlayButton').click(); await audible(page);
   await expect(total(page)).toHaveText(item.noteCount.toLocaleString('en-US'));
   expect(requests.some(url => url.endsWith(item.file))).toBe(false); expect(requests.some(url => url.endsWith(paired.file))).toBe(true);
+  await tab(page, 'info'); await page.locator('#blackMidiCredits > summary').click();
+  await expect(page.locator('#blackSongCredit a[download]')).toBeVisible(); await expect(page.locator('#blackMidiViewport')).toBeVisible();
   await expect(page.locator('#blackSongCredit a[download]')).toHaveAttribute('href', new RegExp(`${item.file.replaceAll('.', '\\.')}$`));
   expect((await state(page)).stats?.total ?? 0).toBe(0);
 });
@@ -149,20 +153,25 @@ test('a later selection aborts an in-flight decorative download and owns the sco
   await expect(page.locator('#blackPlayerStatus')).toHaveText('');
 });
 
-for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) test(`Black keyboard and controls remain reachable at ${viewport.width} × ${viewport.height}`, async ({ page }, testInfo) => {
+for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) test(`Black keyboard and controls remain reachable at ${viewport.width} × ${viewport.height}`, async ({ page }, testInfo) => {
   await page.setViewportSize(viewport); await open(page); await select(page, pattern); await black(page); await expect(total(page)).toHaveText('128');
-  await page.locator('#blackMidiControls [data-alignment]').selectOption('equal'); await detail(page, 'Tracks & colors');
+  await tab(page, 'visuals'); await page.locator('#blackMidiControls [data-alignment]').selectOption('equal'); await detail(page, 'Tracks & colors');
   await page.locator('#blackMidiViewport').scrollIntoViewIfNeeded();
   const layout = await page.evaluate(() => {
     const stage = document.querySelector('#blackMidiViewport'), box = stage.getBoundingClientRect();
-    return { overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
+    const keyboard = stage.querySelector('canvas[aria-label="MIDI keyboard"]').getBoundingClientRect();
+    const seek = document.querySelector('.blech-file-position').getBoundingClientRect(), live = document.querySelector('.blech-live-strip').getBoundingClientRect();
+    const transport = ['#blackLoopSong', '#blackSyncTempo'].map(selector => { const node = document.querySelector(selector), rect = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); });
+    return { keyboard: { top: keyboard.top, bottom: keyboard.bottom, height: keyboard.height }, top: box.top, bottom: box.bottom, seekBottom: seek.bottom, liveTop: live.top, liveBottom: live.bottom, transport, overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
   });
-  expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(160); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
+  expect(layout.transport).toEqual([true, true]); expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 48 : 100); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
+  expect(layout.keyboard.height).toBeGreaterThan(8); expect(layout.keyboard.top).toBeGreaterThanOrEqual(layout.top); expect(layout.keyboard.bottom).toBeLessThanOrEqual(layout.bottom + 1);
+  expect(layout.seekBottom).toBeLessThanOrEqual(layout.liveTop + 1); expect(layout.liveBottom).toBeLessThanOrEqual(viewport.height + 1);
   await page.screenshot({ path: testInfo.outputPath('black-midi.png') });
 });
 
 test('drawing preview is an independent snapshot and file, pad and evolution transports coexist on one audio clock', async ({ page }) => {
-  test.setTimeout(60000); await open(page);
+  test.setTimeout(60000); await open(page); await tab(page, 'drawing');
   await page.getByRole('button', { name: 'Heart stamp', exact: true }).click();
   await page.locator('#mixerSampleLoop').check(); await page.locator('#generateDrawingMidi').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
@@ -172,15 +181,15 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
   await page.locator('#drawingClear').click(); await expect(total(page)).toHaveText(drawing.noteCount.toLocaleString('en-US'));
   expect((await state(page)).contexts).toBe(0); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'false');
   await page.locator('#blackLoopSong').check(); await arm(page); await page.locator('#blackPlayButton').click();
-  await page.locator('#automataMidiPlayPause').click(); await audible(page);
+  await tab(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await audible(page);
   expect((await state(page)).contexts).toBe(1);
   const icon = await page.locator('#blackPlayButton').evaluate(button => ({ background: getComputedStyle(button).backgroundColor, stroke: getComputedStyle(button.querySelector('.transport-pause')).stroke, visible: getComputedStyle(button.querySelector('.transport-pause')).display }));
   expect(icon.visible).not.toBe('none'); expect(icon.stroke).not.toBe(icon.background);
   await page.locator('#blackPlayButton').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1'); await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed', 'true'); await audible(page);
-  await page.locator('#blackPlayButton').click(); await page.locator('#mixerSavedPads [data-pad-play]').click();
+  await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers button').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#automataMidiPlayPause').click(); await audible(page);
+  await tab(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await audible(page);
   await page.locator('#blackSyncTempo').check(); await input(page, '#creativeTempo', 240);
   expect((await state(page)).player.rate).toBeCloseTo(2, 6);
   await input(page, '#blackPlaybackRate', 8); expect((await state(page)).player.rate).toBe(8);
@@ -194,7 +203,7 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
 });
 
 test('MIDI art previews directly in the falling score without sending a pad or arming audio', async ({ page }) => {
-  await open(page); await page.locator('#midiArtCreator > summary').click();
+  await open(page); await tab(page, 'art');
   await page.locator('#artScript').selectOption('sine'); await expect(page.locator('#artPreview')).toHaveAttribute('data-notes', '64');
   await page.locator('#artPreviewScore').click(); await expect(total(page)).toHaveText('64');
   await expect(page.locator('#blackCurrentSong')).toContainText('Your MIDI artwork');
@@ -212,14 +221,15 @@ test('Midiophilia links to the moved player and retains its ordinary MIDI librar
   expect(requests.some(url => url.includes('black-renderer.js'))).toBe(false);
   await page.getByRole('link', { name: 'Black MIDI ↗', exact: true }).click();
   await expect(page).toHaveURL(/blech-midi\.html#blackMidiPlayer$/);
-  await expect(page.locator('#blackMidiViewport')).toBeVisible(); await expect(page.locator('#blackSongList')).toHaveAttribute('aria-busy', 'false');
+  await expect(page.locator('#blackMidiViewport')).toBeVisible(); await expect(page.locator('#blackSongSelect option')).toHaveCount(collection.length + 1);
 });
 
 test('Audio retries a failed file processor but never revives an older file after a replacement download fails', async ({ page }) => {
   test.setTimeout(60000); await open(page); await arm(page);
   await page.evaluate(() => { __blackQA.failNextLoad = true; }); await select(page, pattern);
   await expect(page.locator('#blackPlayerStatus')).toContainText('processor stopped'); await expect(page.locator('#blackPlayButton')).toBeDisabled();
-  await page.locator('#blackAudioStart').click(); await expect(page.locator('#blackPlayButton')).toBeEnabled({ timeout: 20000 });
+  await page.locator('#audioButton').click(); await page.locator('#audioButton').click();
+  await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true'); await expect(page.locator('#blackPlayButton')).toBeEnabled({ timeout: 20000 });
   await page.locator('#blackLoopSong').check(); await page.locator('#blackPlayButton').click(); await audible(page);
   expect((await state(page)).contexts).toBe(1);
   const replacement = song('black-bleed-chasing-wind-full'); await page.route(`**/${replacement.file}`, route => route.abort());
@@ -237,6 +247,7 @@ test('Audio retries a failed file processor but never revives an older file afte
 test('a failed shared SoundFont change restores both consumers and the next choice preserves file playback', async ({ page }) => {
   test.setTimeout(90000); await open(page); await select(page, pattern); await page.locator('#blackLoopSong').check(); await arm(page);
   await page.locator('#blackPlayButton').click(); await audible(page);
+  await tab(page, 'sound'); await page.locator('#mixerEffects > summary').click();
   const bank = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
   const names = () => page.evaluate(() => [__blackQA.engine.state.soundfontName, __blackQA.player.state.soundfontName]);
   for (const failure of ['failFileBank', 'failPadBank']) {

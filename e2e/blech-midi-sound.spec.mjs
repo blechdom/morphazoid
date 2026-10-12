@@ -16,7 +16,7 @@ async function open(page) {
       MidiMixerEngine.prototype.setVolume=function(...args){__blechSoundQA.engine=this;return qaVolume.apply(this,args);};` });
   });
   await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
-  await page.locator('#mixerEffects > summary').click(); return errors;
+  await page.locator('[data-blech-tab="sound"]').click(); await page.locator('#mixerEffects > summary').click(); return errors;
 }
 const state = page => page.evaluate(() => { const state = __blechSoundQA.engine.state; return { audio: state.audioEnabled, effects: state.effects,
   samples: state.samples.map(({ id, positionBeats }) => ({ id, positionBeats })), font: state.soundfontName, contexts: __blechSoundQA.contexts.map(context => context.state) }; });
@@ -35,10 +35,11 @@ test('Blech MIDI imports SoundFonts, changes live effects and restores default s
   const font = fileURLToPath(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
   await page.locator('#mixerSoundFont').setInputFiles(font); await expect(page.locator('#mixerFontName')).toContainText('TimGM6mb1.sf2');
   expect((await state(page)).contexts).toEqual([]); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await page.locator('[data-stamp-loop="square"]').check(); await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('#mixerSampleProgram').selectOption('16');
+  await page.locator('[data-blech-tab="stamps"]').click(); await page.locator('[data-stamp-loop="square"]').check();
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   await page.locator('[data-mixer-sample="square"]').click(); const before = await audible(page), sent = (await state(page)).samples[0].id;
-  await input(page, 'mixerFilterExact', 60, 'change');
+  await page.locator('[data-blech-tab="sound"]').click(); await input(page, 'mixerFilterExact', 60, 'change');
   await expect.poll(async () => (await state(page)).effects.filterHz).toBe(60);
   await expect.poll(async () => (await readAudioStatus(page)).rms).toBeLessThan(before.maxRms * .3);
   await input(page, 'mixerFilterExact', 20000, 'change'); const restored = await audible(page);
