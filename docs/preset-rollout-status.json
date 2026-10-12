@@ -903,7 +903,7 @@
     },
     {
       "id": "blech-midi",
-      "label": "Blech MIDI",
+      "label": "BLECH MIDI",
       "href": "blech-midi.html",
       "category": "graphic-ui",
       "scope": "deferred-lab",
