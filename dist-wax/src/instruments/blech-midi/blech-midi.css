@@ -118,3 +118,32 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
   .blech-seed-bridge input { min-height: 48px; }
   .blech-midi-workspace .automata-midi-play-pause { width: 48px; height: 48px; }
 }
+.blech-art-creator { margin-top: 24px; scroll-margin-top: 90px; }
+.blech-art-creator > summary, .blech-art-settings > summary { cursor: pointer; min-height: 40px; align-content: center; font-size: 13px; }
+.blech-art-body { display: grid; gap: 12px; padding-top: 10px; }
+.blech-art-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.blech-art-actions button { min-height: 38px; }
+.blech-art-upload { display: grid; gap: 6px; font-size: 11px; flex: 1; min-width: 180px; }
+.blech-art-upload input { min-width: 0; width: 100%; font-size: 11px; }
+.blech-art-scene { min-width: 0; }
+.blech-art-scene canvas { display: block; width: 100%; height: auto; aspect-ratio: 25 / 11; background: #080d10; border-radius: 0; }
+.blech-art-scene output, #artStatus { display: block; margin-top: 6px; font-size: 11px; color: #a1b4ae; }
+#artStatus:empty { display: none; }
+.blech-art-layers { display: flex; gap: 8px 16px; flex-wrap: wrap; }
+.blech-art-layer { display: flex; align-items: center; gap: 4px; min-width: 0; max-width: 100%; color: var(--art-layer); }
+.blech-art-layer label { display: flex; gap: 6px; align-items: center; min-width: 0; overflow-wrap: anywhere; font-size: 11px; }
+.blech-art-layer button { padding: 3px 6px; min-height: 28px; border: 0; background: transparent; }
+.blech-art-check { display: inline-flex; align-items: center; gap: 6px; font-size: 11px; }
+.blech-art-script { display: grid; gap: 6px; font-size: 11px; }
+.blech-art-script select { width: 100%; min-width: 0; }
+.blech-art-body .midiphoria-help { margin: 0; }
+.blech-art-controls { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-block: 12px; }
+.blech-art-controls > label { min-width: 0; display: grid; gap: 6px; align-content: start; font-size: 11px; }
+.blech-art-controls .control > span:first-child { display: grid; gap: 5px; }
+.blech-art-controls select { width: 100%; min-width: 0; }
+.blech-art-seed { display: inline-flex; align-items: center; gap: 8px; font-size: 11px; }
+.blech-art-seed input { width: 120px; min-width: 0; }
+#artSend { background: #96f4cc; border-color: #96f4cc; color: #07110b; }
+.blech-art-settings .midiphoria-help { margin-top: 12px; }
+@media (max-width: 650px) { .blech-art-controls { grid-template-columns: repeat(3, minmax(0, 1fr)); } }
+@media (pointer: coarse) { .blech-art-creator :is(button, summary, input[type="number"]), .blech-art-layer label, .blech-art-check { min-height: 48px; } }

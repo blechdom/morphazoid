@@ -206,6 +206,32 @@ will become a separately visible mark or simultaneous sounding voice.
 
 ## Black MIDI tools and references
 
+### Bespoke MIDI artwork creator
+
+Open **MIDI artwork creator** below the drawing and Automata workbenches. Import
+a local raster image (up to 16 MiB), copy the current drawing, or generate a
+ribbon/cloud. The image is mapped into at most 128 pitch columns and 256 time
+rows, reading upward from the bottom. Threshold, inversion, dimensions, pitch
+range, duration and brightness-to-velocity determine the actual MIDI notes.
+Images stay in the browser; animated formats use the decoded first frame.
+
+Up to eight layers overlap in one rectangular preview. Inclusion toggles affect
+the exported score; faint original notes show what a transformation changed.
+The script dropdown explains each operation: original, up/down/ping-pong
+arpeggiation, ratchet, pitch/time mirror, seeded scatter, strum, canon/echoes,
+time quantization, sine/zigzag ribbons and seeded note clouds. These are 14
+built-in browser choices, not an interpreter for FL Studio Python scripts.
+Randomization is reproducible from its seed.
+
+Pitch paths, velocity and note-length curves alter individual MIDI notes. They
+are discrete score transformations, not continuous pitch-bend or CC automation.
+Export produces a type-1 SMF with separate layer channels and piano programs.
+**Send** captures an immutable score into the playable pad bank, with its own
+Loop checkbox and tap-to-stop behavior; clearing/editing the creator leaves
+already sent pads intact. It shares Blech's tempo and explicitly armed Audio.
+Limits are 32,768 notes and 512 beats; exceeding them produces an error instead
+of silently deleting notes.
+
 Primary-source research for the stamp workflow, checked October 2026:
 
 | Tool | Documented role | Relevance here |

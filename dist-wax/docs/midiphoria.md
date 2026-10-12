@@ -33,7 +33,7 @@ results without changing Audio. Clicking the selected song again preserves its
 position. Arrow keys, Home/End and Page Up/Down browse the list without selecting;
 Enter or Space selects the focused file. Imports and generated text clear the
 filter so their new rows remain visible.
-Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and looping.
+Speed is 0.5–8×, with the shared Tap control (120 BPM = 1×), seek and looping.
 Seeking restores MIDI programs/controllers and resumes subsequent note events;
 it does not reconstruct notes whose attacks precede the seek point.
 
@@ -224,7 +224,7 @@ bundled. Matching capabilities does not imply identical defaults or pixels.
 | Export FPS, resolution, crop, duration, tails and channel subsets | Missing |
 | Shutter samples, averaging/max blending, start/center/end sampling | Missing |
 | Original keyboard shortcuts | Partial; browser controls and shared note keyboard differ |
-| Torch/CUDA and OpenGL renderer | Replaced by browser Canvas/Web Audio |
+| Torch/CUDA and OpenGL renderer | Browser Canvas 2D/Web Audio; Black MIDI adds WebGL2 |
 
 The browser adds note trails, audible on-screen piano pads, two-row computer keys, sustain,
 source/channel isolation, disconnect recovery, a curated menu, local MIDI
@@ -244,6 +244,51 @@ exact; release retains the note color. Upstream uses different defaults and
 envelope/color behavior, so this is not a pixel-exact port.
 
 ## Dense files and verification limits
+
+### Black MIDI score view (October 12, 2026)
+
+**Black MIDI** adds a file-based falling-note view alongside Visualize and MIDI
+Mixer. Future rectangles descend onto the full **128 MIDI pitches (0–127)**;
+choose piano-key spacing or equal pitch lanes. All tracks overlap on the same
+keyboard. Track checkboxes isolate only the picture, and per-track color
+selectors, five palettes and track/channel/pitch/velocity mappings differentiate
+voices. Changing views between Visualize and Black MIDI preserves the file clock.
+
+This view uses **WebGL2**, with Canvas 2D fallback after GPU unavailability or
+context loss. The original light/trail view remains Canvas 2D. It does not use
+WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
+tools such as Wasabi; our browser GPU path is WebGL2. This is an original
+Piano From Above-style presentation, not a port of that application.
+
+A module worker parses the complete SMF into indexed typed arrays. Total notes
+count every positive-velocity Note On, including quiet/decorative channels.
+Zero-velocity Note On is an off event. Repeated overlapping pitches use FIFO
+matching within each track/channel. Statistics show total/passed notes, attacks
+in the preceding score second, held note gates and peak overlap. Sustain,
+release tails, effects and the synthesizer's 128-voice limit are separate.
+
+The parser accepts up to 12 million notes and 200 MiB, with no silent thinning.
+Drawing caps are 200,000 rectangles per frame in WebGL2 and 25,000 in Canvas;
+Score details reports omitted rectangles while statistics retain the full
+score. Large files can require hundreds of megabytes of memory; the desktop
+9.39-million-note benchmark is not a claim of mobile support at that size.
+Lightstorm's 22,866,471-note original remains downloadable, with an explicit
+preview-limit message and playable creator AUDIO edition.
+
+The library now includes all 19 decorative BLEEDING EDGE MONOTONE originals
+and three Hans5958 files, losslessly compressed from the creators' originals.
+Sixteen decorative entries play the separately supplied AUDIO edition on its
+original timeline. Different editions can have different note/end times; no
+duration-based stretching is applied. Unpaired scores at or below the 10 MiB
+audio-loader limit use the original MIDI; larger unpaired scores have an
+explicitly silent visual transport with pause, seek, loop and 0.5–8× speed.
+The complete scores are kept out of the bounded mixer/stamp selectors.
+See [artist sources and Nancarrow findings](../assets/midiphoria/ARTWORK-SOURCES.md)
+for provenance, redistribution terms and exact independently checked counts.
+
+Black MIDI displays the source score, before MIDI effects. Visualize continues
+to receive sounding events after the effects layer. Live pads and incoming MIDI
+have no future file score; use Visualize for those sources.
 
 The file synthesizer caps synthesis at 128 voices; the independent piano pads
 cap synthesis at 32 voices and track at most 32 held input sources. Both share

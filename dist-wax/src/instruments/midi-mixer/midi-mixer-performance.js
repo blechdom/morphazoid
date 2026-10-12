@@ -206,8 +206,8 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     saved.set(id, record); savedPads.querySelector('.mixer-saved-bank').append(card); savedPads.hidden = false;
     thumbnail(button, score); filterStamps(); return record;
   }
-  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked } = {}) {
-    const score = editScore(rawScore);
+  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked, applyGate = true } = {}) {
+    const score = applyGate ? editScore(rawScore) : rawScore;
     if (!score?.buffer) throw new Error('Draw a score first in BLECH MIDI.');
     const record = saveKind ? saveScore(score, label, program, saveKind, loop) : null;
     launchScore(score, record?.label ?? label, program, record?.id ?? padId, loop);
@@ -494,6 +494,16 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     cancelPending();
     return playScore(getDrawingScore(), 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
+  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false } = {}) {
+    if (disposed) return null;
+    if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
+    // The creator already applies its note curves. Store a separate snapshot so
+    // later edits and the drawing pad's gate control cannot change this send.
+    const snapshot = structuredClone(score);
+    cancelPending();
+    return playScore(snapshot, String(name).slice(0, 128), '', program,
+      { saveKind: 'art', loop: Boolean(loop), applyGate: false });
+  }
   function stopSamples() {
     if (disposed) return;
     cancelPending(); engine.stopSamples(); reflectPads(); $('mixerSampleStatus').textContent = 'Samples stopped';
@@ -505,7 +515,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, stopSamples, getDrawingScore,
+    cancelPending, cancelEdit, playDrawing, sendScore, stopSamples, getDrawingScore,
     setAutomataSeed: row => automata.setSeedRow(row),
     setView(mode, nextVisualizerHost) {
       if (disposed) return;
@@ -524,7 +534,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       paintMode(); if (active) renderer.resize();
     },
     setCollection(collection) {
-      for (const song of collection) if (song.file && /black midi|geometric/i.test(song.collection || '')) addStamp({ ...song, label: song.title, group: song.collection });
+      for (const song of collection) if (song.file && !song.visualOnly && !song.compression && /black midi|geometric/i.test(song.collection || '')) addStamp({ ...song, label: song.title, group: song.collection });
       filterStamps();
     },
     setActive(value) {

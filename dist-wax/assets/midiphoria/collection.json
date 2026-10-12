@@ -7912,5 +7912,2345 @@
       "Timpani        ",
       "Harp 1         "
     ]
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Chasing Wind.mid",
+    "tracks": 44,
+    "noteTracks": 16,
+    "noteOnCount": 775128,
+    "channelCount": 12,
+    "channelNoteCounts": {
+      "0": 330753,
+      "3": 50595,
+      "4": 108398,
+      "1": 3274,
+      "2": 7248,
+      "5": 59520,
+      "6": 25596,
+      "7": 112896,
+      "8": 54528,
+      "9": 8928,
+      "11": 4464,
+      "12": 8928
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 176.75875,
+    "fileDurationSeconds": 176.76,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-chasing-wind-full.mid.gz",
+    "bytes": 307922,
+    "sha256": "5c466ad76089ecbb48250ab5ed10750c23f9e46a9f9f4eae3115997b5d8b4738",
+    "id": "black-bleed-chasing-wind-full",
+    "pairedAudioId": "black-bleed-chasing-wind",
+    "title": "Chasing Wind · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 6209274,
+    "uncompressedSha256": "d1262feb6541ce32d5805838296adeb5d76fe4db600749903675eac9d3b5011f",
+    "noteCount": 775128,
+    "midiFormat": 1,
+    "ticksPerBeat": 192,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Chasing Wind by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Looking To The Moon.mid",
+    "tracks": 9,
+    "noteTracks": 7,
+    "noteOnCount": 346781,
+    "channelCount": 7,
+    "channelNoteCounts": {
+      "0": 70936,
+      "1": 41305,
+      "2": 42604,
+      "3": 11588,
+      "4": 39418,
+      "5": 75865,
+      "7": 65065
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 195.509254,
+    "fileDurationSeconds": 195.509254,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #8"
+    ],
+    "file": "midi/decorative/black-bleed-looking-to-the-moon-full.mid.gz",
+    "bytes": 172953,
+    "sha256": "e87cb3988bd35a91b966c73bd7571bedc33a4b7d2c4163f06527d08ea1945021",
+    "id": "black-bleed-looking-to-the-moon-full",
+    "pairedAudioId": "black-bleed-looking-to-the-moon",
+    "title": "Looking To The Moon · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 2777355,
+    "uncompressedSha256": "7e97d13ac49cc2913f0f4193d126fd4d19a7b17636b4f40b84b2e8e322eee1a0",
+    "noteCount": 346781,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Looking To The Moon by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Seven Red Suns.mid",
+    "tracks": 76,
+    "noteTracks": 28,
+    "noteOnCount": 849536,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 16256,
+      "2": 622,
+      "3": 1394,
+      "5": 6220,
+      "6": 83364,
+      "1": 704,
+      "4": 3072,
+      "7": 71424,
+      "8": 68256,
+      "9": 56064,
+      "10": 142464,
+      "11": 60672,
+      "12": 63434,
+      "13": 97048,
+      "14": 104752,
+      "15": 73790
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 182.242914,
+    "fileDurationSeconds": 183.205298,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-seven-red-suns-full.mid.gz",
+    "bytes": 531168,
+    "sha256": "d236ab4f3bf50b0d8e5b2388faafe5317b62668959ada2cbadf7171174297eb1",
+    "id": "black-bleed-seven-red-suns-full",
+    "pairedAudioId": "black-bleed-seven-red-suns",
+    "title": "Seven Red Suns · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 6901431,
+    "uncompressedSha256": "238cd6d4bb193c63b4d2f967472558ec2464d64b35d739878822b94faf723b89",
+    "noteCount": 849536,
+    "midiFormat": 1,
+    "ticksPerBeat": 192,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Seven Red Suns by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Sliver of Straw.mid",
+    "tracks": 19,
+    "noteTracks": 16,
+    "noteOnCount": 3000000,
+    "channelCount": 9,
+    "channelNoteCounts": {
+      "0": 4010,
+      "1": 521,
+      "2": 2440,
+      "3": 2462,
+      "4": 2044,
+      "5": 189,
+      "6": 738088,
+      "7": 417128,
+      "8": 1833118
+    },
+    "programs": {
+      "0": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 179.385941,
+    "fileDurationSeconds": 180.065929,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #16",
+      "MIDI Out #15",
+      "MIDI Out #14",
+      "MIDI Out #13",
+      "MIDI Out #12",
+      "MIDI Out #11",
+      "MIDI Out #10",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-sliver-of-straw-full.mid.gz",
+    "bytes": 1280553,
+    "sha256": "ef9eb849633b4018ccdc6234b4a3f42b6d4228c24a8a2a0182db49871b9c9d1d",
+    "id": "black-bleed-sliver-of-straw-full",
+    "pairedAudioId": "black-bleed-sliver-of-straw",
+    "title": "Sliver of Straw · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 24214707,
+    "uncompressedSha256": "258fc823f6250658fedefc4117240b07b5a6ff9164c675ee4d6cc9e94f58c118",
+    "noteCount": 3000000,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Sliver of Straw by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Unparalleled Innocence.mid",
+    "tracks": 19,
+    "noteTracks": 16,
+    "noteOnCount": 1596265,
+    "channelCount": 9,
+    "channelNoteCounts": {
+      "0": 2121,
+      "1": 3178,
+      "2": 3586,
+      "3": 4264,
+      "4": 768,
+      "5": 128,
+      "6": 3472,
+      "7": 15360,
+      "8": 1563388
+    },
+    "programs": {
+      "0": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 164.696875,
+    "fileDurationSeconds": 164.7,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #16",
+      "MIDI Out #15",
+      "MIDI Out #14",
+      "MIDI Out #13",
+      "MIDI Out #12",
+      "MIDI Out #11",
+      "MIDI Out #10",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-unparalleled-innocence-full.mid.gz",
+    "bytes": 1475899,
+    "sha256": "32a2f77d0aebad36e338d65844924da68ecf088218ff3291820ff8ffdfb9c68d",
+    "id": "black-bleed-unparalleled-innocence-full",
+    "pairedAudioId": "black-bleed-unparalleled-innocence",
+    "title": "Unparalleled Innocence · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 12773241,
+    "uncompressedSha256": "0b8c158f8cb0a695cdf56b147110d87b04ad6cdd6cbd11464d1a822e5351bed4",
+    "noteCount": 1596265,
+    "midiFormat": 1,
+    "ticksPerBeat": 96,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Unparalleled Innocence by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - DNCA.mid",
+    "tracks": 74,
+    "noteTracks": 27,
+    "noteOnCount": 2299967,
+    "channelCount": 13,
+    "channelNoteCounts": {
+      "4": 296460,
+      "3": 565693,
+      "2": 132870,
+      "1": 158962,
+      "0": 203222,
+      "14": 91424,
+      "13": 188064,
+      "12": 547968,
+      "10": 512,
+      "8": 8079,
+      "6": 12217,
+      "5": 27200,
+      "7": 67296
+    },
+    "programs": {
+      "7": [
+        0
+      ],
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 289.072297,
+    "fileDurationSeconds": 294.720273,
+    "embeddedCredits": [
+      "MIDI out #30",
+      "MIDI out #29",
+      "MIDI out #28",
+      "MIDI out #27",
+      "MIDI out #25",
+      "MIDI out #24",
+      "MIDI out #23",
+      "MIDI out #22",
+      "MIDI out #21",
+      "MIDI out #20",
+      "MIDI out #19",
+      "MIDI out #18",
+      "MIDI out #17",
+      "MIDI out #16",
+      "MIDI out #15",
+      "MIDI out #14",
+      "MIDI out #13",
+      "MIDI out #26",
+      "MIDI out #12",
+      "MIDI out #11",
+      "MIDI out #10",
+      "MIDI out #9",
+      "MIDI out #8",
+      "MIDI out #6",
+      "MIDI out #5",
+      "MIDI out #4",
+      "MIDI out #3",
+      "MIDI out #2",
+      "MIDI out",
+      "MIDI out #7",
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-dnca-full.mid.gz",
+    "bytes": 1248956,
+    "sha256": "99a7dbf873c4798af45fc6003a34064e92fa02c0e95ed61f1753c00f771cf4ec",
+    "id": "black-bleed-dnca-full",
+    "pairedAudioId": "black-bleed-dnca",
+    "title": "Dnca · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 18459742,
+    "uncompressedSha256": "0aab9f8dcfc925a5de3de1b631fe2b115cbaf55ef21a7ff49719274a424dde62",
+    "noteCount": 2299967,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "DNCA by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - FMMK30TP.mid",
+    "tracks": 26,
+    "noteTracks": 15,
+    "noteOnCount": 1033135,
+    "channelCount": 15,
+    "channelNoteCounts": {
+      "0": 1791,
+      "1": 3933,
+      "2": 1244,
+      "3": 2878,
+      "4": 15744,
+      "5": 2178,
+      "6": 148748,
+      "7": 89088,
+      "8": 63824,
+      "9": 133137,
+      "10": 154825,
+      "11": 131368,
+      "12": 82839,
+      "13": 110658,
+      "14": 90880
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "7": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 170.108344,
+    "fileDurationSeconds": 170.109085,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "MIDI Out 1"
+    ],
+    "file": "midi/decorative/black-bleed-fmk30tp-full.mid.gz",
+    "bytes": 534644,
+    "sha256": "e414e9f498716decceedf6d23735192334dcf977b1d9bbef57609523d020d101",
+    "id": "black-bleed-fmk30tp-full",
+    "pairedAudioId": "black-bleed-fmk30tp",
+    "title": "Fmk30Tp · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 8307175,
+    "uncompressedSha256": "c9862d31ec17dc41cabb6d1dfd4d808135f854974d5d44f5fca75124008c8fba",
+    "noteCount": 1033135,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "FMK30TP by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - JBSMG.mid",
+    "tracks": 38,
+    "noteTracks": 19,
+    "noteOnCount": 3824595,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 2230,
+      "1": 2644,
+      "2": 2364,
+      "3": 3013,
+      "4": 14972,
+      "5": 2456,
+      "6": 29544,
+      "7": 74080,
+      "8": 587276,
+      "9": 560544,
+      "10": 612220,
+      "11": 444800,
+      "12": 1048928,
+      "13": 179712,
+      "14": 217544,
+      "15": 42268
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 241.186744,
+    "fileDurationSeconds": 241.187786,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "MIDI Out #17",
+      "MIDI Out #18",
+      "MIDI Out #19"
+    ],
+    "file": "midi/decorative/black-bleed-jbsmg-full.mid.gz",
+    "bytes": 1842625,
+    "sha256": "9ea9f913101dd582ab07b07b419f2efb102ca41a45fa611463e99d74e6569917",
+    "id": "black-bleed-jbsmg-full",
+    "pairedAudioId": "black-bleed-jbsmg",
+    "title": "Jbsmg · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 30696938,
+    "uncompressedSha256": "718503ebff94ade359456bb0e16eb4e9290671dc5459bc8e4fcedf7d539477a1",
+    "noteCount": 3824595,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "JBSMG by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series II - The Shitposty Class/Full MIDI/BLEED - SWMG.mid",
+    "tracks": 91,
+    "noteTracks": 19,
+    "noteOnCount": 3074790,
+    "channelCount": 14,
+    "channelNoteCounts": {
+      "4": 38274,
+      "3": 319814,
+      "2": 101566,
+      "1": 101973,
+      "0": 230178,
+      "14": 104480,
+      "13": 298834,
+      "12": 264574,
+      "11": 379034,
+      "10": 300487,
+      "8": 715148,
+      "7": 217160,
+      "6": 1472,
+      "5": 1796
+    },
+    "programs": {
+      "7": [
+        0
+      ],
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 202.733166,
+    "fileDurationSeconds": 208.155791,
+    "embeddedCredits": [
+      "MIDI out #30",
+      "MIDI out #29",
+      "MIDI out #28",
+      "MIDI out #27",
+      "MIDI out #25",
+      "MIDI out #24",
+      "MIDI out #23",
+      "MIDI out #22",
+      "MIDI out #21",
+      "MIDI out #20",
+      "MIDI out #19",
+      "MIDI out #18",
+      "MIDI out #17",
+      "MIDI out #16",
+      "MIDI out #15",
+      "MIDI out #14",
+      "MIDI out #13",
+      "MIDI out #26",
+      "MIDI out #12",
+      "MIDI out #11",
+      "MIDI out #10",
+      "MIDI out #9",
+      "MIDI out #8",
+      "MIDI out #6",
+      "MIDI out #5",
+      "MIDI out #4",
+      "MIDI out #3",
+      "MIDI out #2",
+      "MIDI out",
+      "MIDI out #7",
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "Channel #1",
+      "MIDI Out #4 1"
+    ],
+    "file": "midi/decorative/black-bleed-swmg-full.mid.gz",
+    "bytes": 1719106,
+    "sha256": "1f8433de0b88cb9c2c36672d24b10f5b2da83630ff5faf945ebb05af9afd9a8b",
+    "id": "black-bleed-swmg-full",
+    "pairedAudioId": "black-bleed-swmg",
+    "title": "Swmg · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 24619798,
+    "uncompressedSha256": "61829d053c976ee499dd9ed0a957b03692e11111ad911e8de3c53e7bf9feb440",
+    "noteCount": 3074790,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "SWMG by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - A SOUL OF STEEL.mid",
+    "tracks": 16,
+    "noteTracks": 12,
+    "noteOnCount": 9388159,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 58508,
+      "1": 285947,
+      "3": 2101786,
+      "4": 747932,
+      "5": 973520,
+      "6": 138651,
+      "7": 1936696,
+      "8": 653633,
+      "2": 381805,
+      "15": 363785,
+      "9": 59444,
+      "11": 65989,
+      "10": 1136559,
+      "12": 85526,
+      "13": 333115,
+      "14": 65263
+    },
+    "programs": {
+      "9": [
+        0
+      ],
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.405242,
+    "durationSeconds": 455.272925,
+    "fileDurationSeconds": 461.575954,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "Art1",
+      "Art2",
+      "Art3",
+      "Channel #1",
+      "Channel #2"
+    ],
+    "file": "midi/decorative/black-bleed-a-soul-of-steel-full.mid.gz",
+    "bytes": 12450956,
+    "sha256": "f9944b0067c3228c989a97c3f9cbd65a58d64b1151119e3053982528490912ea",
+    "id": "black-bleed-a-soul-of-steel-full",
+    "pairedAudioId": "black-bleed-a-soul-of-steel",
+    "title": "A Soul Of Steel · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 75788442,
+    "uncompressedSha256": "6000c535ad6198b26af6eb761967d9b2b7e0dbcb809b0bb2354255b6908265ca",
+    "noteCount": 9388159,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "A SOUL OF STEEL by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.405242
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - JUDGEMENT DAY.mid",
+    "tracks": 19,
+    "noteTracks": 12,
+    "noteOnCount": 6654566,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "11": 509976,
+      "6": 818434,
+      "15": 836084,
+      "12": 869286,
+      "7": 847448,
+      "14": 306400,
+      "8": 325568,
+      "4": 241377,
+      "13": 530912,
+      "3": 135796,
+      "10": 310912,
+      "2": 142479,
+      "1": 57748,
+      "9": 198528,
+      "0": 477728,
+      "5": 45890
+    },
+    "programs": {
+      "7": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 407.167056,
+    "fileDurationSeconds": 422.38743,
+    "embeddedCredits": [
+      "art6",
+      "art5",
+      "art4",
+      "art3",
+      "art2",
+      "Art 1",
+      "MIDI out #9",
+      "MIDI out #8",
+      "MIDI out #6",
+      "MIDI out #5",
+      "MIDI out #4",
+      "MIDI out #3",
+      "MIDI out #2",
+      "MIDI out",
+      "MIDI out #7",
+      "MIDI out #10",
+      "MIDI Out"
+    ],
+    "file": "midi/decorative/black-bleed-judgement-day-full.mid.gz",
+    "bytes": 12512275,
+    "sha256": "c0843214d454d954977414fa35269eedf7692fb4c5338583a7796e3a492f792b",
+    "id": "black-bleed-judgement-day-full",
+    "pairedAudioId": "black-bleed-judgement-day",
+    "title": "Judgement Day · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 53247463,
+    "uncompressedSha256": "7395cd89f07dc8315262a61ac948996b223b525bd12bcf5f3b28ea098be6e4a9",
+    "noteCount": 6654566,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "JUDGEMENT DAY by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - LIGHTSTORM.mid",
+    "tracks": 19,
+    "noteTracks": 15,
+    "noteOnCount": 22866471,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 48576,
+      "1": 242081,
+      "2": 418476,
+      "3": 7108397,
+      "4": 1034339,
+      "5": 2260474,
+      "6": 840046,
+      "7": 2082056,
+      "8": 368392,
+      "10": 913488,
+      "11": 2135284,
+      "14": 3201032,
+      "9": 1300992,
+      "13": 210382,
+      "12": 298260,
+      "15": 404196
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 254.818453,
+    "fileDurationSeconds": 261.444414,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "Art",
+      "Art #2",
+      "Art #3",
+      "Art #4",
+      "BassMidiVsti [64bit]"
+    ],
+    "file": "midi/decorative/black-bleed-lightstorm-full.mid.gz",
+    "bytes": 14189193,
+    "sha256": "34bcd24e5893c3207b2b999c8a588163e47a7b57f58b280ecbead1902158cca6",
+    "id": "black-bleed-lightstorm-full",
+    "pairedAudioId": "black-bleed-lightstorm",
+    "title": "Lightstorm · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 183534498,
+    "uncompressedSha256": "ea34399e52c3597ba1d135450cfafe1c677cb4c9ae3f74c11ebe0ee24b13facc",
+    "noteCount": 22866471,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "LIGHTSTORM by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - MOURNFUL CAMARADERIE.mid",
+    "tracks": 18,
+    "noteTracks": 10,
+    "noteOnCount": 1349347,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 87586,
+      "1": 167758,
+      "2": 102814,
+      "3": 195553,
+      "4": 146574,
+      "5": 58874,
+      "8": 52204,
+      "6": 76468,
+      "7": 143314,
+      "9": 57658,
+      "15": 76608,
+      "10": 52184,
+      "11": 29376,
+      "12": 25832,
+      "13": 23768,
+      "14": 52776
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 238.673958,
+    "fileDurationSeconds": 250.71991,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "Art 1",
+      "Art 1 #2",
+      "Art 1 #3",
+      "Art 1 #4",
+      "Art 1 #5",
+      "Art 1 #6"
+    ],
+    "file": "midi/decorative/black-bleed-mournful-camaraderie-full.mid.gz",
+    "bytes": 2260377,
+    "sha256": "60dd1e51b15bdaa3c4ac53a33b54c293470520e94d94991c37b689239cd5c533",
+    "id": "black-bleed-mournful-camaraderie-full",
+    "pairedAudioId": "black-bleed-mournful-camaraderie",
+    "title": "Mournful Camaraderie · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 11086582,
+    "uncompressedSha256": "77bcd98059a36a6f22001c66ade48f3fa6e40ec5c9a75543135955bb519128ae",
+    "noteCount": 1349347,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "MOURNFUL CAMARADERIE by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - TWIN NEMESIS.mid",
+    "tracks": 34,
+    "noteTracks": 17,
+    "noteOnCount": 6120386,
+    "channelCount": 12,
+    "channelNoteCounts": {
+      "0": 170560,
+      "1": 89644,
+      "2": 968082,
+      "3": 1985435,
+      "4": 170292,
+      "5": 807308,
+      "6": 980074,
+      "7": 487723,
+      "8": 115669,
+      "10": 222309,
+      "11": 99090,
+      "12": 24200
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 252.853434,
+    "fileDurationSeconds": 256.3751,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "Art1",
+      "Art2",
+      "Art3",
+      "Art4",
+      "Art 1",
+      "Art 2",
+      "Art 3",
+      "Art 4"
+    ],
+    "file": "midi/decorative/black-bleed-twin-nemesis-full.mid.gz",
+    "bytes": 2468760,
+    "sha256": "85eb8fb1ba91ba8bc69bfb22a1b433a3a3b3abe42194bd1f313d5c35ef452652",
+    "id": "black-bleed-twin-nemesis-full",
+    "pairedAudioId": "black-bleed-twin-nemesis",
+    "title": "Twin Nemesis · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 49636036,
+    "uncompressedSha256": "26f0c0098a991b7e808bb51721e5cd976c20fcec2e0a0e004bc605f25f4a7128",
+    "noteCount": 6120386,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "TWIN NEMESIS by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - UVB-76 THE BUZZER.mid",
+    "tracks": 18,
+    "noteTracks": 14,
+    "noteOnCount": 1030149,
+    "channelCount": 14,
+    "channelNoteCounts": {
+      "0": 9264,
+      "1": 8769,
+      "2": 53978,
+      "3": 108084,
+      "4": 37636,
+      "5": 7720,
+      "6": 31744,
+      "7": 166263,
+      "8": 179971,
+      "9": 16640,
+      "10": 139296,
+      "11": 155968,
+      "12": 95680,
+      "13": 19136
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 149.051586,
+    "fileDurationSeconds": 149.05323,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16"
+    ],
+    "file": "midi/decorative/black-bleed-uvb-76-the-buzzer-full.mid.gz",
+    "bytes": 462494,
+    "sha256": "4995275b1e3d2415b7469e914fae851779d86761f6bf3f67110676b2da41c726",
+    "id": "black-bleed-uvb-76-the-buzzer-full",
+    "pairedAudioId": "black-bleed-uvb-76-the-buzzer",
+    "title": "Uvb-76 The Buzzer · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 8243827,
+    "uncompressedSha256": "40dc16863994c0c447792c11c3575b28bf049508cf493c29b9df58a96d1b127f",
+    "noteCount": 1030149,
+    "midiFormat": 1,
+    "ticksPerBeat": 384,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "UVB-76 THE BUZZER by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - WINTER's RAGE.mid",
+    "tracks": 19,
+    "noteTracks": 16,
+    "noteOnCount": 1677777,
+    "channelCount": 15,
+    "channelNoteCounts": {
+      "0": 9240,
+      "2": 12637,
+      "3": 245250,
+      "4": 195844,
+      "5": 250440,
+      "6": 249068,
+      "7": 150,
+      "8": 80,
+      "9": 80,
+      "10": 80,
+      "11": 113316,
+      "12": 136016,
+      "13": 167152,
+      "14": 117680,
+      "15": 180744
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 288.605179,
+    "fileDurationSeconds": 288.609248,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16"
+    ],
+    "file": "midi/decorative/black-bleed-winter-s-rage-full.mid.gz",
+    "bytes": 634155,
+    "sha256": "9dbd9d0a5bba8194fffe7a9a9091d54c3cbd91447f93fed511a794b8e989be74",
+    "id": "black-bleed-winter-s-rage-full",
+    "pairedAudioId": "black-bleed-winter-s-rage",
+    "title": "Winter'S Rage · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 13529827,
+    "uncompressedSha256": "146b65ac36c7266f80bf2c4271d13d32afa9a89e79e75c4566d6fb134954ff40",
+    "noteCount": 1677777,
+    "midiFormat": 1,
+    "ticksPerBeat": 192,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "WINTER'S RAGE by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. Separate creator AUDIO edition available.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series I - The Iterator Class/Full MIDI/BLEED - Five Pebbles.mid",
+    "tracks": 13,
+    "noteTracks": 10,
+    "noteOnCount": 4065202,
+    "channelCount": 10,
+    "channelNoteCounts": {
+      "0": 470679,
+      "1": 334742,
+      "2": 314800,
+      "3": 43004,
+      "4": 349229,
+      "5": 491888,
+      "15": 734876,
+      "6": 37544,
+      "14": 640768,
+      "10": 647672
+    },
+    "programs": {
+      "14": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 204.8,
+    "fileDurationSeconds": 204.801042,
+    "embeddedCredits": [
+      "Red",
+      "Orange",
+      "Racist Yellow",
+      "Greeb",
+      "Also Greeb",
+      "CYAN!!!",
+      "biden balls",
+      "The Purple Hoser",
+      "Nefarious Blue",
+      "MIDI Out #2",
+      "MIDI Out #3"
+    ],
+    "file": "midi/decorative/black-bleed-five-pebbles-full.mid.gz",
+    "bytes": 2052867,
+    "sha256": "dd2e74126efef4f33c4e99d4333e966924906e4d02a77026aea0210c03240da3",
+    "id": "black-bleed-five-pebbles-full",
+    "pairedAudioId": null,
+    "title": "Five Pebbles · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 32522767,
+    "uncompressedSha256": "6ef64997bd115c10d0a6e5cba65cc164f04968e544b168c8443c0b475d984788",
+    "noteCount": 4065202,
+    "midiFormat": 1,
+    "ticksPerBeat": 192,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "Five Pebbles by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. No separate creator AUDIO edition was supplied.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - UPDATE.mid",
+    "tracks": 90,
+    "noteTracks": 15,
+    "noteOnCount": 455179,
+    "channelCount": 8,
+    "channelNoteCounts": {
+      "7": 102332,
+      "6": 3343,
+      "5": 76356,
+      "4": 189952,
+      "3": 13504,
+      "2": 13812,
+      "1": 26760,
+      "0": 29120
+    },
+    "programs": {
+      "7": [
+        0
+      ],
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 155.459271,
+    "fileDurationSeconds": 160.643248,
+    "embeddedCredits": [
+      "MIDI out #30",
+      "MIDI out #29",
+      "MIDI out #28",
+      "MIDI out #27",
+      "MIDI out #25",
+      "MIDI out #24",
+      "MIDI out #23",
+      "MIDI out #22",
+      "MIDI out #21",
+      "MIDI out #20",
+      "MIDI out #19",
+      "MIDI out #18",
+      "MIDI out #17",
+      "MIDI out #16",
+      "MIDI out #15",
+      "MIDI out #14",
+      "MIDI out #13",
+      "MIDI out #26",
+      "MIDI out #12",
+      "MIDI out #11",
+      "MIDI out #10",
+      "MIDI out #9",
+      "MIDI out #8",
+      "MIDI out #6",
+      "MIDI out #5",
+      "MIDI out #4",
+      "MIDI out #3",
+      "MIDI out #2",
+      "MIDI out",
+      "MIDI out #7",
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16",
+      "Channel #1"
+    ],
+    "file": "midi/decorative/black-bleed-update-full.mid.gz",
+    "bytes": 302648,
+    "sha256": "8f56cbd73dd1f0d130bb9939c8280289d251dade4f0bc4c2ef2af39ddb011a96",
+    "id": "black-bleed-update-full",
+    "pairedAudioId": null,
+    "title": "Update · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 3967378,
+    "uncompressedSha256": "e4bc7e2ed2b4de9f35f53c0b70faa44d8e6cc25c30bed52c95a175b2c437593e",
+    "noteCount": 455179,
+    "midiFormat": 1,
+    "ticksPerBeat": 768,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "UPDATE by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. No separate creator AUDIO edition was supplied.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "archivePath": "MonoBleedingEdge/Series III - The Personal Class/Full MIDI/BLEED - WINTER's PAIN.mid",
+    "tracks": 19,
+    "noteTracks": 12,
+    "noteOnCount": 872471,
+    "channelCount": 11,
+    "channelNoteCounts": {
+      "0": 4861,
+      "2": 6477,
+      "3": 105374,
+      "4": 23808,
+      "5": 180759,
+      "6": 147767,
+      "11": 61416,
+      "12": 73728,
+      "13": 97657,
+      "14": 117600,
+      "15": 53024
+    },
+    "programs": {
+      "0": [
+        0
+      ],
+      "1": [
+        0
+      ],
+      "2": [
+        0
+      ],
+      "3": [
+        0
+      ],
+      "4": [
+        0
+      ],
+      "5": [
+        0
+      ],
+      "6": [
+        0
+      ],
+      "7": [
+        0
+      ],
+      "8": [
+        0
+      ],
+      "9": [
+        0
+      ],
+      "10": [
+        0
+      ],
+      "11": [
+        0
+      ],
+      "12": [
+        0
+      ],
+      "13": [
+        0
+      ],
+      "14": [
+        0
+      ],
+      "15": [
+        0
+      ]
+    },
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 159.27257,
+    "fileDurationSeconds": 159.276639,
+    "embeddedCredits": [
+      "MIDI Out",
+      "MIDI Out #2",
+      "MIDI Out #3",
+      "MIDI Out #4",
+      "MIDI Out #5",
+      "MIDI Out #6",
+      "MIDI Out #7",
+      "MIDI Out #8",
+      "MIDI Out #9",
+      "MIDI Out #10",
+      "MIDI Out #11",
+      "MIDI Out #12",
+      "MIDI Out #13",
+      "MIDI Out #14",
+      "MIDI Out #15",
+      "MIDI Out #16"
+    ],
+    "file": "midi/decorative/black-bleed-winter-s-pain-full.mid.gz",
+    "bytes": 316326,
+    "sha256": "6afd6c76a3327b7c87f43864980635ce04e588d62610e5f87baa3c705c82cdc0",
+    "id": "black-bleed-winter-s-pain-full",
+    "pairedAudioId": null,
+    "title": "WINTER's PAIN · decorative score",
+    "artist": "BLEEDING EDGE MONOTONE",
+    "composer": "BLEEDING EDGE MONOTONE",
+    "collection": "Black MIDI · Decorative",
+    "kind": "black",
+    "compression": "gzip",
+    "uncompressedBytes": 7034860,
+    "uncompressedSha256": "86364d5a99472cd676b3bfc75c5a44f70b4b8c8ebc792a6f4e662348ee933ff4",
+    "noteCount": 872471,
+    "midiFormat": 1,
+    "ticksPerBeat": 192,
+    "visualOnly": true,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Black-MIDI-Archive (2026)",
+    "sourceUrl": "https://github.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive",
+    "downloadUrl": "https://raw.githubusercontent.com/BLEEDING-EDGE-MONOTONE/Black-MIDI-Archive/main/ARCHIVE%202026.7z",
+    "license": "CC0 1.0 Universal (author repository); creator credit retained as requested.",
+    "licenseId": "CC0-1.0",
+    "licenseName": "CC0 1.0",
+    "licenseUrl": "https://creativecommons.org/publicdomain/zero/1.0/",
+    "attribution": "WINTER's PAIN by BLEEDING EDGE MONOTONE. Complete original decorative MIDI, losslessly gzip-compressed; decompressed bytes unchanged. No separate creator AUDIO edition was supplied.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0
+  },
+  {
+    "tracks": 34,
+    "noteTracks": 23,
+    "noteOnCount": 1138915,
+    "channelCount": 10,
+    "channelNoteCounts": {
+      "15": 236998,
+      "4": 58386,
+      "0": 10480,
+      "1": 5976,
+      "5": 3584,
+      "2": 5952,
+      "3": 13260,
+      "9": 680311,
+      "13": 57920,
+      "14": 66048
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.0,
+    "durationSeconds": 196.5,
+    "fileDurationSeconds": 206.90625,
+    "embeddedCredits": [
+      "Forever Bound - Stereo Madness BLACK",
+      "Blackend - Copyright (C) Hans5958, 2017",
+      "Swoosh",
+      "Melody 1",
+      "Melody 2",
+      "Melody 3",
+      "Percussion 1",
+      "Percussion 2",
+      "Art 1",
+      "Art 2",
+      "Art 3",
+      "Art 4",
+      "Art 5",
+      "Krash Notes 1",
+      "Krash Notes 2",
+      "Krash Notes 3",
+      "Krash Notes 4",
+      "Krash Notes 5",
+      "Krash Notes 6",
+      "Krash Notes 7",
+      "Krash Notes 8",
+      "Krash Notes 9",
+      "Krash Notes 10",
+      "Krash Notes 11",
+      "===================",
+      "Forever Bound",
+      "Stereo Madness",
+      "(GD Level 1)",
+      "Blackend by Hans5958",
+      "Copyright (C)",
+      "Hans5958, 2017"
+    ],
+    "id": "black-hans-stereo-madness",
+    "title": "Stereo Madness · Final 1.2",
+    "artist": "Hans5958",
+    "arranger": "Hans5958",
+    "collection": "Black MIDI · Hans5958",
+    "kind": "black",
+    "file": "midi/artists/black-hans-stereo-madness.mid.gz",
+    "compression": "gzip",
+    "bytes": 219541,
+    "sha256": "797924f6f3b38704d1e87d2574e356eedfe0303c88e23aca87d4fb7abb64d47a",
+    "uncompressedBytes": 9114699,
+    "uncompressedSha256": "8e7de39692a9ed289542617ad769d3eb1574f7ffd4a97a2cf380ae8f6e31bfdd",
+    "noteCount": 1138915,
+    "midiFormat": 1,
+    "ticksPerBeat": 480,
+    "visualOnly": true,
+    "pairedAudioId": null,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Personal-Black-MIDI-Projects",
+    "sourcePath": "Stereo Madness/StereoMadness Final1.2.mid.xz",
+    "sourceCommit": "e5881e4e1a53a83360056ab166eb2505bf8b91a6",
+    "sourceUrl": "https://github.com/Hans5958/Personal-Black-MIDI-Projects",
+    "downloadUrl": "https://raw.githubusercontent.com/Hans5958/Personal-Black-MIDI-Projects/e5881e4e1a53a83360056ab166eb2505bf8b91a6/Stereo%20Madness/StereoMadness%20Final1.2.mid.xz",
+    "license": "CC BY 4.0 as supplied by the creator repository. The license applies to the creator's contributions; underlying composition rights remain with their respective holders.",
+    "licenseId": "CC-BY-4.0",
+    "licenseName": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "Stereo Madness · Final 1.2 — Black MIDI arrangement and note artwork by Hans5958. Original MIDI bytes preserved; XZ packaging replaced by lossless gzip. Source and CC BY 4.0 license are linked. Original composition: Stereo Madness by Forever Bound.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.0,
+    "composer": "Forever Bound"
+  },
+  {
+    "tracks": 47,
+    "noteTracks": 46,
+    "noteOnCount": 930184,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 16478,
+      "1": 1065,
+      "2": 4940,
+      "3": 1272,
+      "4": 768,
+      "5": 512,
+      "6": 512,
+      "7": 1855,
+      "8": 576,
+      "9": 209280,
+      "11": 296640,
+      "10": 40960,
+      "12": 135296,
+      "13": 57600,
+      "14": 57600,
+      "15": 104830
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.666624,
+    "durationSeconds": 10.666505,
+    "fileDurationSeconds": 13.332654,
+    "embeddedCredits": [
+      "YIAY Outro/LWIAY Intro",
+      "Hans5958 (c) 2019",
+      "Main 1",
+      "Main 2",
+      "Main Support 1",
+      "Main Support 2",
+      "Chords 1",
+      "Chords 2",
+      "Chords 3",
+      "Percussion 1",
+      "Percussion 2",
+      "Percussion 3",
+      "Percussion 4.1",
+      "Percussion 4.2",
+      "Glissando 1",
+      "Glissando 2",
+      "Glissando 3",
+      "Glissando 4",
+      "Glissando 5",
+      "Art 1.1",
+      "Art 1.2",
+      "Art 1.3",
+      "Art 1.4",
+      "Art 1.5",
+      "Art 2.1",
+      "Art 2.2",
+      "Art 2.3",
+      "Art 2.4",
+      "Art 2.5",
+      "Art 2.6",
+      "Art 3.1",
+      "Art 4.1",
+      "Art 4.2",
+      "Art 4.3",
+      "Art 4.4",
+      "Art 5.1",
+      "Art 5.2",
+      "Sustain Bomb 1",
+      "Sustain Bomb 2",
+      "Logo 1",
+      "Logo 2",
+      "Logo 3",
+      "Logo 4",
+      "Logo 5",
+      "Logo 6",
+      "Logo 7",
+      "Logo 8",
+      "Logo 9"
+    ],
+    "id": "black-hans-yiay-final2",
+    "title": "YIAY Lag Tester · Final 2",
+    "artist": "Hans5958",
+    "arranger": "Hans5958",
+    "collection": "Black MIDI · Hans5958",
+    "kind": "black",
+    "file": "midi/artists/black-hans-yiay-final2.mid.gz",
+    "compression": "gzip",
+    "bytes": 61284,
+    "sha256": "a99f92a96ed019dc387271b3c1d90560e65dae9218c6bc03fab59e7c4e683a8a",
+    "uncompressedBytes": 7453017,
+    "uncompressedSha256": "d323299c5b9d5aadc3e854c2cb24d776ea052814ccd9d00a07ad52d5733d0b63",
+    "noteCount": 930184,
+    "midiFormat": 1,
+    "ticksPerBeat": 480,
+    "visualOnly": true,
+    "pairedAudioId": null,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Personal-Black-MIDI-Projects",
+    "sourcePath": "YIAY Lag Tester/YIAY Lag Tester WIP14 (Final2).mid.xz",
+    "sourceCommit": "e5881e4e1a53a83360056ab166eb2505bf8b91a6",
+    "sourceUrl": "https://github.com/Hans5958/Personal-Black-MIDI-Projects",
+    "downloadUrl": "https://raw.githubusercontent.com/Hans5958/Personal-Black-MIDI-Projects/e5881e4e1a53a83360056ab166eb2505bf8b91a6/YIAY%20Lag%20Tester/YIAY%20Lag%20Tester%20WIP14%20%28Final2%29.mid.xz",
+    "license": "CC BY 4.0 as supplied by the creator repository. The license applies to the creator's contributions; underlying composition rights remain with their respective holders.",
+    "licenseId": "CC-BY-4.0",
+    "licenseName": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "YIAY Lag Tester · Final 2 — Black MIDI arrangement and note artwork by Hans5958. Original MIDI bytes preserved; XZ packaging replaced by lossless gzip. Source and CC BY 4.0 license are linked.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.666624
+  },
+  {
+    "tracks": 48,
+    "noteTracks": 47,
+    "noteOnCount": 1000000,
+    "channelCount": 16,
+    "channelNoteCounts": {
+      "0": 16478,
+      "1": 1065,
+      "2": 4940,
+      "3": 1272,
+      "4": 768,
+      "5": 512,
+      "6": 512,
+      "7": 1855,
+      "8": 576,
+      "9": 209280,
+      "11": 366456,
+      "10": 40960,
+      "12": 135296,
+      "13": 57600,
+      "14": 57600,
+      "15": 104830
+    },
+    "programs": {},
+    "lowestNote": 0,
+    "highestNote": 127,
+    "firstNoteSeconds": 0.666624,
+    "durationSeconds": 10.666505,
+    "fileDurationSeconds": 13.332654,
+    "embeddedCredits": [
+      "YIAY Outro/LWIAY Intro",
+      "Hans5958 (c) 2019",
+      "Main 1",
+      "Main 2",
+      "Main Support 1",
+      "Main Support 2",
+      "Chords 1",
+      "Chords 2",
+      "Chords 3",
+      "Percussion 1",
+      "Percussion 2",
+      "Percussion 3",
+      "Percussion 4.1",
+      "Percussion 4.2",
+      "Glissando 1",
+      "Glissando 2",
+      "Glissando 3",
+      "Glissando 4",
+      "Glissando 5",
+      "Art 1.1",
+      "Art 1.2",
+      "Art 1.3",
+      "Art 1.4",
+      "Art 1.5",
+      "Art 2.1",
+      "Art 2.2",
+      "Art 2.3",
+      "Art 2.4",
+      "Art 2.5",
+      "Art 2.6",
+      "Art 3.1",
+      "Art 4.1",
+      "Art 4.2",
+      "Art 4.3",
+      "Art 4.4",
+      "Art 5.1",
+      "Art 5.2",
+      "Sustain Bomb 1",
+      "Sustain Bomb 2",
+      "Logo 1",
+      "Logo 2",
+      "Logo 3",
+      "Logo 4",
+      "Logo 5",
+      "Logo 6",
+      "Logo 7",
+      "Logo 8",
+      "Logo 9",
+      "Rounding 1"
+    ],
+    "id": "black-hans-yiay-one-million",
+    "title": "YIAY Lag Tester · One million",
+    "artist": "Hans5958",
+    "arranger": "Hans5958",
+    "collection": "Black MIDI · Hans5958",
+    "kind": "black",
+    "file": "midi/artists/black-hans-yiay-one-million.mid.gz",
+    "compression": "gzip",
+    "bytes": 65787,
+    "sha256": "3aa28b83cd2e36766d0d8382779e40ba6a4a37be55955b228514565965f144f4",
+    "uncompressedBytes": 8011580,
+    "uncompressedSha256": "2df019835870dec72311f20b3f507957319162a857357a46640b1b7945c92a02",
+    "noteCount": 1000000,
+    "midiFormat": 1,
+    "ticksPerBeat": 480,
+    "visualOnly": true,
+    "pairedAudioId": null,
+    "arrangementType": "creator-decorative-score",
+    "sourceCollection": "Personal-Black-MIDI-Projects",
+    "sourcePath": "YIAY Lag Tester/YIAY Lag Tester WIP17 (1M).mid.xz",
+    "sourceCommit": "e5881e4e1a53a83360056ab166eb2505bf8b91a6",
+    "sourceUrl": "https://github.com/Hans5958/Personal-Black-MIDI-Projects",
+    "downloadUrl": "https://raw.githubusercontent.com/Hans5958/Personal-Black-MIDI-Projects/e5881e4e1a53a83360056ab166eb2505bf8b91a6/YIAY%20Lag%20Tester/YIAY%20Lag%20Tester%20WIP17%20%281M%29.mid.xz",
+    "license": "CC BY 4.0 as supplied by the creator repository. The license applies to the creator's contributions; underlying composition rights remain with their respective holders.",
+    "licenseId": "CC-BY-4.0",
+    "licenseName": "CC BY 4.0",
+    "licenseUrl": "https://creativecommons.org/licenses/by/4.0/",
+    "attribution": "YIAY Lag Tester · One million — Black MIDI arrangement and note artwork by Hans5958. Original MIDI bytes preserved; XZ packaging replaced by lossless gzip. Source and CC BY 4.0 license are linked.",
+    "retrieved": "2026-10-12",
+    "smokeSeekSeconds": 3.666624
   }
 ]

@@ -5,6 +5,7 @@ import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 import { mountMidiSynthEffectEditor } from '../midi-mixer/midi-mixer-midi-editor.js';
 import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/midiphoria-drawing.js';
 import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
+import { mountMidiArtCreator } from './blech-midi-art-controls.js';
 
 const $ = id => document.getElementById(id);
 let retainedDraft = null;
@@ -14,7 +15,7 @@ function mountBlechMidi() {
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
-  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor;
+  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator;
   let fontSerial = 0, fontRequest = null, fontBusy = false, effectsSignature = '';
   let seedPicking = false;
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
@@ -99,6 +100,11 @@ function mountBlechMidi() {
   $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
   knobs = mountMixerKnobs($('blechMidi'));
+  artCreator = mountMidiArtCreator($('midiArtCreator'), {
+    getDrawingScore: () => { const score = performanceView.getDrawingScore(); return { ...score, analysis: score.analysis ?? parseMidi(score.buffer) }; },
+    getTempo: () => engine.state.tempo,
+    onSend: (score, options) => performanceView.sendScore(score, options),
+  });
   function refreshSeedBridge(model = drawing?.model) {
     const row = Number($('drawingSeedRow').value) - 1;
     $('drawingSeedRowOut').value = String(row + 1);
@@ -218,7 +224,7 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; fontSerial++; fontRequest?.abort(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    artCreator.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw', $('creativeVisualizerHost')); performanceView.setActive(!document.hidden); reflect();
   if (location.hash === '#automata') $('automataMidiTools').scrollIntoView({ block: 'start' });

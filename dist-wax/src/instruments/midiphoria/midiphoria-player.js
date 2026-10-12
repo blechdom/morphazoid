@@ -32,10 +32,11 @@ function validateMidi(buffer) {
  * Callbacks receive display events, never schedule sound from animation frames.
  */
 export class MidiphoriaPlayer {
-  constructor({ onMidi, onState, onClear, runtime = globalThis,
+  constructor({ onMidi, onState, onClear, runtime = globalThis, clock = () => performance.now() / 1000,
     loadLibrary = () => import(LIBRARY_URL.href), connectOutput = connectAudioOutput } = {}) {
     this.onMidi = onMidi; this.onState = onState; this.onClear = onClear;
     this.runtime = runtime; this._loadLibrary = loadLibrary; this._connectOutput = connectOutput;
+    this._clock = clock; this._visual = null;
     this.context = null; this._master = null; this._preamp = null; this._compressor = null; this._ceiling = null;
     this._synth = null; this._padSynth = null; this._sequencer = null;
     this._padSources = new Map(); this._padNotes = new Map();
@@ -52,6 +53,12 @@ export class MidiphoriaPlayer {
   }
 
   get state() {
+    if (this._visual) {
+      const time = this._visualTime(), score = this._visual;
+      return { ready: true, hasSong: true, loading: false, playing: score.playing, visualOnly: true,
+        audioEnabled: this._audioEnabled && this.context?.state === 'running', time, duration: score.duration,
+        rate: this._rate, loop: this._loop, volume: this._volume, fileName: score.name, error: this._error };
+    }
     const ready = this._engineReady && Boolean(this._file) && this._readyToken === this._file.token;
     const current = this._seekTime ?? (this._playing ? this._sequencer?.currentTime : this._time);
     return { ready, hasSong: Boolean(this._file), loading: Boolean(this._enginePromise || this._activeLoad),
@@ -177,6 +184,7 @@ export class MidiphoriaPlayer {
     try { validateMidi(buffer); }
     catch (error) { this._error = error.message; this._publish(); throw error; }
     this.pause();
+    this._visual = null;
     this._clear('song-replacement');
     this._queued?.resolve(false);
     this._activeLoad?.resolve(false);
@@ -192,6 +200,13 @@ export class MidiphoriaPlayer {
   }
 
   play() {
+    if (!this._disposed && this._visual) {
+      const score = this._visual;
+      this._visualTime();
+      if (score.time >= score.duration) score.time = 0;
+      if (!score.playing) { score.at = this._clock(); score.playing = true; }
+      this._publish(); return true;
+    }
     if (this._disposed || !this.state.ready || this.context?.state !== 'running') return false;
     if (this._playing) return true;
     if (this._time >= this._duration) this.seek(0);
@@ -210,6 +225,7 @@ export class MidiphoriaPlayer {
 
   pause() {
     if (this._disposed) return;
+    if (this._visual) { this._visualTime(); this._visual.playing = false; }
     this._time = this.state.time; this._playing = false;
     this._sequencer?.pause(); this._synth?.stopAll(true);
     this._clear('pause'); this._publish();
@@ -222,6 +238,10 @@ export class MidiphoriaPlayer {
 
   seek(seconds) {
     if (this._disposed || !this.state.ready) return false;
+    if (this._visual) {
+      this._visual.time = clamp(seconds, 0, this._visual.duration, this.state.time);
+      this._visual.at = this._clock(); this._publish(); return true;
+    }
     const time = clamp(seconds, 0, this._duration, this.state.time);
     this._clear('seek');
     this._time = time; this._seekTime = time;
@@ -230,20 +250,49 @@ export class MidiphoriaPlayer {
   }
 
   setPlaybackRate(value) {
+    if (this._visual) { this._visualTime(); this._visual.at = this._clock(); }
     this._rate = clamp(value, 0.5, 8, this._rate);
     if (this._sequencer) this._sequencer.playbackRate = this._rate;
     this._publish(); return this._rate;
   }
 
   setLoop(enabled) {
+    if (this._visual) { this._visualTime(); this._visual.at = this._clock(); }
     this._loop = Boolean(enabled);
     if (this._sequencer) this._sequencer.loopCount = this._loop ? Infinity : 0;
     this._publish(); return this._loop;
   }
 
+  /** A silent score clock for full decorative files too large for synthesis. */
+  async loadVisualTimeline(duration, name = 'Decorative MIDI') {
+    if (this._disposed) return false;
+    if (!Number.isFinite(duration) || duration <= 0) throw new Error('This score has no visual duration.');
+    this.pause(); this._clear('song-replacement');
+    const loading = Boolean(this._activeLoad);
+    this._cancelLoads(); this._file = null; this._error = null;
+    this._visual = { duration, name: String(name).slice(0, 256), time: 0, at: this._clock(), playing: false };
+    // Song-change events have no request IDs. Retire a pending audio loader so
+    // its late completion cannot be mistaken for a subsequently selected file.
+    if (loading) { this._audioEnabled = false; await this._closeEngine(); }
+    this._publish(); return this.state;
+  }
+
+  _visualTime() {
+    const score = this._visual;
+    if (!score.playing) return score.time;
+    const now = this._clock();
+    let time = score.time + Math.max(0, now - score.at) * this._rate;
+    if (time >= score.duration) {
+      if (this._loop) time %= score.duration;
+      else { time = score.duration; score.playing = false; }
+    }
+    score.time = time; score.at = now; return time;
+  }
+
   async dispose() {
     if (this._disposed) return;
     this._disposed = true; this._playing = false; this._audioEnabled = false; this._desiredAudio = false;
+    this._visual = null;
     this.runtime.removeEventListener?.('pagehide', this._onPageHide);
     this._cancelLoads(); this._clear('dispose'); this._file = null;
     await this._closeEngine();
@@ -373,12 +422,12 @@ export class MidiphoriaPlayer {
     this._listen(events, 'songChange', () => this._finishLoad());
     this._listen(events, 'midiError', error => this._finishLoad(error));
     this._listen(events, 'songEnded', () => {
-      if (this._activeLoad || this._disposed) return;
+      if (this._activeLoad || this._disposed || this._visual) return;
       this._playing = false; this._time = this._duration; this._seekTime = null;
       this._clear('ended'); this._publish();
     });
     this._listen(events, 'timeChange', time => {
-      if (this._disposed) return;
+      if (this._disposed || this._visual) return;
       if (this._playing && this._seekTime === null && finite(time) + 0.05 < this._time) this._clear('loop');
       this._time = clamp(time, 0, this._duration); this._seekTime = null;
       this._publish();
