@@ -53,11 +53,49 @@ export function matchingRate(bpm, masterBpm, masterRate) {
     ? clamp(rate, MIN_RATE, MAX_RATE) : null;
 }
 
+/** Strict, phase-preserving target: never turn an impossible jump into a clamp. */
+export function beatJumpPosition(position, beats, grid, duration) {
+  if (!grid?.bpm || !Number.isInteger(beats) || !beats || Math.abs(beats) > 32) return null;
+  const target = position + beats * 60 / grid.bpm;
+  return Number.isFinite(target) && target >= 0 && target < duration ? target : null;
+}
+
+export function wholeBeatLoop(loop, grid) {
+  if (!loop) return true;
+  if (!grid?.bpm) return false;
+  const beats = (loop.end - loop.start) * grid.bpm / 60;
+  return Math.abs(beats - Math.round(beats)) <= 1e-4;
+}
+
+/** Quantize moves the destination to the current phase, without waiting a beat. */
+export function quantizedPosition(target, reference, grid, duration, loop = null) {
+  if (!grid?.bpm) return null;
+  const phase = beatPhase(reference, grid);
+  const position = alignedPosition(target, grid, phase, duration, loop);
+  return Math.abs(phaseDifference(position, grid, reference, grid)) < 1e-6 ? position : null;
+}
+
+export function shiftedLoop(loop, beats, grid, duration) {
+  if (!loop || !grid?.bpm || !Number.isInteger(beats) || !beats || Math.abs(beats) > 32) return null;
+  const delta = beats * 60 / grid.bpm, start = loop.start + delta, end = loop.end + delta;
+  return start >= 0 && end <= duration ? { start, end } : null;
+}
+
+export function resizedLoop(loop, factor, grid, duration) {
+  if (!loop || !grid?.bpm || ![0.5, 2].includes(factor)) return null;
+  const length = (loop.end - loop.start) * factor, beats = length * grid.bpm / 60;
+  const end = loop.start + length;
+  return length >= 0.05 && beats >= 0.125 - 1e-8 && beats <= 32 + 1e-8 && end <= duration
+    ? { start: loop.start, end } : null;
+}
+
 export class DeckTransport {
   constructor() {
     this.state = { position: 0, duration: 0, time: 0, playing: false, rate: 1, loop: null };
     this.pending = null;
     this.pendingChanges = null;
+    this.pendingPositionOffset = null;
+    this.pendingPositionInLoop = false;
   }
 
   snapshot(time) {
@@ -80,6 +118,7 @@ export class DeckTransport {
   advance(time) {
     if (this.pending && time >= this.pending.time) {
       this.state = this.pending; this.pending = null; this.pendingChanges = null;
+      this.pendingPositionOffset = null; this.pendingPositionInLoop = false;
     }
   }
 
@@ -91,18 +130,54 @@ export class DeckTransport {
   }
 
   /** One replaceable future transition; slider traffic cannot grow a queue. */
-  schedule(time, changes, now = time) {
-    this.advance(now);
+  _scheduled(time, changes, { relativePosition = false } = {}) {
     const combined = { ...this.pendingChanges, ...changes };
+    // Project the audible predecessor, never through a command being replaced.
+    // Beat actions retain their displacement if a later tempo edit changes the
+    // output boundary; an ordinary absolute seek deliberately stays absolute.
+    const position = transportPosition(this.state, time);
+    const predecessor = { ...this.state, position,
+      playing: this.state.playing && Boolean(this.state.duration) && (Boolean(this.state.loop) || position < this.state.duration) };
+    const offset = Object.hasOwn(changes, "position")
+      ? relativePosition ? changes.position - predecessor.position : null : this.pendingPositionOffset;
+    const next = { ...predecessor, time, ...combined };
+    const inLoop = Object.hasOwn(changes, "position") ? Boolean(relativePosition && next.loop &&
+      changes.position >= next.loop.start && changes.position < next.loop.end) : this.pendingPositionInLoop;
+    if (offset !== null) {
+      next.position = predecessor.position + offset;
+      if (inLoop && next.loop) {
+        const length = next.loop.end - next.loop.start;
+        next.position = next.loop.start + ((next.position - next.loop.start) % length + length) % length;
+      }
+      if (next.position < 0 || next.position >= next.duration) throw new RangeError("The pending beat action would leave the track. Pause or finish the jump before changing tempo.");
+      combined.position = next.position;
+    }
+    return { next, combined, offset, inLoop };
+  }
+
+  /** Intent re-timed to a new boundary, without playing a replaced command. */
+  projected(time, now) {
+    if (!this.pending || this.pending.time <= now) return this.snapshot(time);
+    const { next } = this._scheduled(time, {});
+    const position = transportPosition(next, time);
+    return { ...next, position,
+      playing: next.playing && Boolean(next.duration) && (Boolean(next.loop) || position < next.duration) };
+  }
+
+  schedule(time, changes, now = time, options = {}) {
+    this.advance(now);
+    const { next, combined, offset, inLoop } = this._scheduled(time, changes, options);
     this.pending = null;
-    const next = { ...this.snapshot(time), time, ...combined };
-    if (time <= now) { this.state = next; this.pendingChanges = null; }
-    else { this.pending = next; this.pendingChanges = combined; }
+    if (time <= now) {
+      this.state = next; this.pendingChanges = null; this.pendingPositionOffset = null; this.pendingPositionInLoop = false;
+    } else {
+      this.pending = next; this.pendingChanges = combined; this.pendingPositionOffset = offset; this.pendingPositionInLoop = inLoop;
+    }
     return this.intent(now);
   }
 
   load(duration, time) {
-    this.pending = null; this.pendingChanges = null;
+    this.pending = null; this.pendingChanges = null; this.pendingPositionOffset = null; this.pendingPositionInLoop = false;
     this.state = { ...this.state, duration: clamp(duration, 0, 24 * 60 * 60), position: 0, playing: false, loop: null, time };
   }
 
