@@ -1,4 +1,5 @@
 import { createBlackMidiVisualizer, blackMidiColor } from './midiphoria-black-renderer.js';
+import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 
 const MAX_SCORE_BYTES = 200 * 1024 * 1024;
 export const MAX_PREVIEW_NOTES = 12000000;
@@ -51,6 +52,7 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes come from the file. Live pads and MIDI input remain in Visualize.</p></details>
     <p class="midiphoria-help"><a href="blech-midi.html">Make MIDI artwork in Blech MIDI ↗</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
+  const knobs = mountMixerKnobs(controls);
   let renderer, score = null, lastStats = null, request = null, serial = 0, disposed = false;
   let trackColors = {}, hiddenTracks = [];
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
@@ -123,6 +125,6 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
   return { load, clear,
     unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); $('[data-total]').value = count(song.noteCount); },
     setVisible(value) { renderer.setVisible(value); },
-    dispose() { disposed = true; clear(); events.abort(); renderer.dispose(); },
+    dispose() { disposed = true; clear(); events.abort(); knobs.destroy(); renderer.dispose(); },
   };
 }

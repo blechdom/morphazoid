@@ -1,5 +1,6 @@
 import { expect, test } from '@playwright/test';
 import { installFakeMidi, enableFakeMidi, sendMidi } from './helpers/fake-midi.mjs';
+import { bundledMidiCount } from './helpers/midiphoria-library.mjs';
 
 // The embedded-view owner is tested independently from the mixer's scheduler.
 // The real legacy player stays in place; the mixer fixture exposes only its API.
@@ -47,7 +48,7 @@ async function open(page) {
     await route.fulfill({ response, body: source + `\nexport class MidiphoriaPlayer extends OriginalMidiphoriaPlayer { constructor(...args) { super(...args); (window.__legacyModes ??= []).push(this); } }` });
   });
   await page.goto('/midiphoria.html');
-  await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount} MIDIs`);
 }
 
 async function states(page) {
@@ -116,7 +117,7 @@ test('rapid view changes cancel stale audio activation and pagehide disposes bot
   expect((await states(page)).mixer.disposed).toBe(true);
   expect((await states(page)).legacy.audioEnabled).toBe(false);
   await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
-  await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount} MIDIs`);
   await expect(page.locator('#midiphoria')).toHaveAttribute('data-view', 'visual');
   await expect(page.locator('#audioState')).toHaveText('off');
   expect(await page.evaluate(() => window.__mixerModes.length)).toBe(2);

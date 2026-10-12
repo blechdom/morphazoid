@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { selectedSong, songButton, selectSong } from './helpers/midiphoria-library.mjs';
+import { bundledMidiCount, selectedSong, songButton, selectSong } from './helpers/midiphoria-library.mjs';
 import { readFile } from 'node:fs/promises';
 import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
@@ -14,7 +14,7 @@ async function open(page) {
     };
   });
   await page.goto('/midiphoria.html');
-  await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount} MIDIs`);
 }
 
 async function generate(page, text) {
@@ -50,7 +50,7 @@ test('typing generates the actual downloadable letter MIDI without arming audio 
     dispatchEvent(new PageTransitionEvent('pagehide'));
     dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true }));
   });
-  await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount} MIDIs`);
   await expect(songButton(page, 'text-midi')).toHaveCount(0);
   await expect(page.locator('#downloadTextMidi')).toBeHidden();
   await expect(page.locator('#downloadTextMidi')).not.toHaveAttribute('href');
@@ -75,7 +75,7 @@ test('generated MIDI sounds, retains playback on regeneration, and stays selecte
   expect(await page.locator('#visualCanvas').evaluate(canvas => canvas.toDataURL())).not.toBe(still);
   await generate(page, 'JAZZ ROBOT');
   await expect(page.locator('#playButton')).toHaveAttribute('aria-pressed', 'true');
-  await expect(page.locator('#songCount')).toHaveText('101 MIDIs');
+  await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount + 1} MIDIs`);
   await expect(songButton(page, 'text-midi')).toHaveCount(1);
   await page.locator('.header-preset-next').click();
   await expect(page.locator('#visualCanvas')).toHaveAttribute('data-display', 'lights');

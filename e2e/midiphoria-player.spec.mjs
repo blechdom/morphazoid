@@ -210,7 +210,8 @@ test('every bundled arrangement plays finite audio; the dense study stays bounde
   const songs = await page.evaluate(() => fetch('/assets/midiphoria/collection.json').then(response => response.json()));
   expect(songs.filter(song => song.webArrangement).length).toBeGreaterThanOrEqual(40);
   await arm(page);
-  for (const song of songs) {
+  // Full decorative originals have their own visual/silent/paired-audio suite.
+  for (const song of songs.filter(song => !song.visualOnly)) {
     await selectSong(page, song.id);
     await expect(page.locator('#playButton')).toBeEnabled();
     await page.locator('#loopSong').setChecked(song.kind === 'pattern');
@@ -242,7 +243,7 @@ test('collection words combine with title filtering and imports clear the search
   await expect(selectedSong(page)).toHaveAttribute('data-song-id', 'local-1');
   await expect(page.locator('#songList button[data-song-id^="local-"]')).toHaveCount(1);
   await page.locator('#songSearch').fill('Black MIDI');
-  await expect(songButtons(page)).toHaveCount(26);
+  await expect(songButtons(page)).toHaveCount(48);
 });
 
 test('black MIDI peak passages at 8× stay audible and controllable with maximum radial copies and all reflection axes', async ({ page }) => {

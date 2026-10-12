@@ -1,4 +1,5 @@
 import { expect, test } from '@playwright/test';
+import { bundledMidiCount } from './helpers/midiphoria-library.mjs';
 
 const errors = new WeakMap();
 test.beforeEach(({ page }) => { errors.set(page, []); page.on('pageerror', error => errors.get(page).push(error.message)); });
@@ -42,7 +43,7 @@ async function input(page, id, value, event = 'input') {
 }
 async function open(page, { mixer = true, blech = false } = {}) {
   await observe(page);
-  if (blech) { await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58'); return; } await page.goto('/midiphoria.html'); await expect(page.locator('#songCount')).toHaveText('100 MIDIs');
+  if (blech) { await page.goto('/blech-midi.html'); await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58'); return; } await page.goto('/midiphoria.html'); await expect(page.locator('#songCount')).toHaveText(`${bundledMidiCount} MIDIs`);
   if (!mixer) return;
   await page.locator('#mixerModeButton').click(); await expect(page.locator('#tempoFromB')).toBeEnabled();
   await page.locator('#deckFile0').setInputFiles({ name: 'Controller automation.mid', mimeType: 'audio/midi', buffer: fixture() });

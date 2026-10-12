@@ -17,6 +17,7 @@ body.midiphoria-page { --midiphoria-accent: #96f4cc; --accent: var(--midiphoria-
 .midiphoria-score-track input[type="color"] { width: 32px; height: 28px; padding: 1px; border: 0; background: transparent; }
 #blackMidiControls details { margin: 14px 0; font-size: 12px; }
 #blackMidiControls summary { cursor: pointer; min-height: 26px; }
+#blackMidiControls .mixer-range-knob { display: block; width: 48px; height: 48px; min-height: 48px; }
 .midiphoria-fullscreen { position: absolute; bottom: 12px; right: 12px; background: #0a1210e8; color: #d2e4dc; }
 .midiphoria-viewport:fullscreen { width: 100vw; height: 100vh; border-radius: 0; }
 .midiphoria-viewport:fullscreen .midiphoria-fullscreen { opacity: .25; }
