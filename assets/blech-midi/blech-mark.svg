@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 240 140" fill="none">
+  <title>BLECH MIDI bat-wing cable</title>
+  <desc>An angular pair of bat wings surrounds a five-pin MIDI connector, with a bent cable below.</desc>
+  <!-- Original Morphazoid artwork. No third-party shapes, fonts, or assets. -->
+  <defs>
+    <path id="wing" fill-rule="evenodd" d="M100 62 80 39 68 18 65 36 8 5 27 44 2 34 29 80 43 67 55 96 67 75 85 97 83 73 103 81 100 62ZM23 20 63 43 81 63 57 54 23 20ZM28 56 44 59 52 78 40 64 28 56ZM68 56 88 68 80 80 79 66 68 56Z"/>
+  </defs>
+  <g fill="#96f4cc">
+    <use href="#wing"/>
+    <use href="#wing" transform="translate(240 0) scale(-1 1)"/>
+    <path fill-rule="evenodd" d="m120 22 21 9 11 20-4 23-15 15h-26L92 74l-4-23 11-20 21-9Zm0 11a24 24 0 1 0 0 48 24 24 0 0 0 0-48Z"/>
+    <path d="m109 91-3 6h28l-3-6h-22Zm-3 11 3 6h22l3-6h-28Zm9 10v7l11 12h25l8-9-5-6-7 8h-18l-6-7v-5h-8Z"/>
+    <path d="m120 27-4 11h8l-4-11Z"/>
+    <circle cx="104" cy="57" r="3.5"/>
+    <circle cx="109" cy="45" r="3.5"/>
+    <circle cx="120" cy="41" r="3.5"/>
+    <circle cx="131" cy="45" r="3.5"/>
+    <circle cx="136" cy="57" r="3.5"/>
+  </g>
+</svg>
