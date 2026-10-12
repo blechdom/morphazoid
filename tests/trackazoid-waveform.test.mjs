@@ -234,6 +234,18 @@ test("cue flags drag existing cue with snapping or Alt; double-click marks at th
   view.destroy();
 });
 
+test("native pointer double-click keeps its first timeline position when Follow moves the view", () => {
+  const { view, state, calls, event } = waveform();
+  // Real PointerEvent.detail is 0 on both releases; click/dblclick alone carry
+  // click counts. Render after the first seek to reproduce the moving window.
+  event("pointerdown", 600, { detail: 0 }); event("pointerup", 600, { detail: 0 });
+  assert.equal(state.position, 6); view.draw(); near(view.getViewport().start, 3.6);
+  event("pointerdown", 600, { detail: 0 }); event("pointerup", 600, { detail: 0 });
+  event("dblclick", 600, { detail: 2 });
+  assert.deepEqual(calls.seek, [6, 6]); assert.deepEqual(calls.mark, [6]); assert.equal(state.position, 6);
+  view.destroy();
+});
+
 test("cancel, lost capture, loading, replacement and disposal never commit stale selection or cue previews", async () => {
   const { view, state, calls, event, canvas } = waveform({ selection: { start: 1, end: 4 }, cues: [2, null] });
   event("pointerdown", 100); event("pointermove", 200); event("pointercancel", 200); event("pointerup", 200);
@@ -267,6 +279,22 @@ test("gestures ignore other pointers and right buttons; only existing seek keys 
   for (const [key, shiftKey, expected] of [["ArrowRight", false, 1.5], ["ArrowLeft", true, 0], ["End", false, 60], ["Home", false, 0]]) {
     assert.equal(event("keydown", 0, { key, shiftKey }).defaultPrevented, true); assert.equal(calls.seek.at(-1), expected);
   }
+  view.destroy();
+});
+
+test("loading, browser modifier shortcuts and already-handled keys do not seek", () => {
+  const { view, state, calls, event, canvas } = waveform();
+  for (const modifier of ["altKey", "ctrlKey", "metaKey"]) {
+    assert.equal(event("keydown", 0, { key: "ArrowLeft", [modifier]: true }).defaultPrevented, false);
+    assert.equal(event("keydown", 0, { key: "Home", [modifier]: true }).defaultPrevented, false);
+  }
+  const handled = new Event("keydown", { cancelable: true });
+  Object.assign(handled, { key: "End" }); handled.preventDefault(); canvas.dispatchEvent(handled);
+  state.loading = true;
+  for (const key of ["ArrowRight", "ArrowLeft", "Home", "End"]) assert.equal(event("keydown", 0, { key }).defaultPrevented, false);
+  event("pointerdown", 200); event("pointerup", 200); event("dblclick", 200);
+  assert.deepEqual(calls.seek, []); assert.deepEqual(calls.mark, []);
+  state.loading = false; event("keydown", 0, { key: "ArrowRight", shiftKey: true }); assert.deepEqual(calls.seek, [10]);
   view.destroy();
 });
 

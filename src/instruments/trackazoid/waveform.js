@@ -104,6 +104,7 @@ export class WaveformView {
         if (recentClick) this.mark?.(snapTime(this.lastClick.time, state, event.altKey));
       });
       on("keydown", (event) => {
+        if (event.defaultPrevented || event.altKey || event.ctrlKey || event.metaKey) return;
         const state = getState();
         if (!state.duration || state.loading) return;
         const step = event.shiftKey ? 10 : 60 / (state.bpm || 120);
@@ -195,13 +196,16 @@ export class WaveformView {
         snapTime(drag.time, drag.state, event.altKey), drag.state.duration));
     } else if (drag.mode === "select") {
       if (drag.moved) this.selectRange?.(drag.previewRange);
-      else if (event.detail !== 2) {
+      else {
         const previous = this.lastClick;
         const sameClick = previous && previous.revision === this.revision && event.timeStamp - previous.at < 700 &&
           Math.hypot(event.clientX - previous.x, event.clientY - previous.y) <= 4;
-        this.lastClick = { time: sameClick ? previous.time : drag.time, at: sameClick ? previous.at : event.timeStamp,
+        // PointerEvent.detail is 0 even for the second click. Following may
+        // already have moved the viewport, so reuse the first timeline target.
+        const time = sameClick ? previous.time : drag.time;
+        this.lastClick = { time, at: sameClick ? previous.at : event.timeStamp,
           x: event.clientX, y: event.clientY, revision: this.revision };
-        this.seek(drag.time);
+        this.seek(time);
       }
     } else if (drag.mode === "cue") {
       if (drag.moved) this.changeCue?.(drag.cueIndex, drag.previewCue);
