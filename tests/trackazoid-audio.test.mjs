@@ -485,6 +485,19 @@ test("Trackazoid a pending tempo edit followed by a jump uses the audible predec
   await engine.dispose();
 });
 
+test("Trackazoid Quantize replaces an unheard manual seek using the still-audible beat phase", async () => {
+  const h = harness({ defaultKeyLock: true }), { engine, context } = h;
+  await engine.load("a", audioBuffer()); engine.setBeatGrid("a", { bpm: 120 });
+  await engine.setAudio(true); engine.play("a"); context.currentTime = 7.231;
+  const when = 7.323, phase = beatPhase(engine.decks.a.transport.snapshot(when).position, engine.decks.a.grid);
+  engine.seek("a", 17.137); engine.triggerCue("a", 30);
+  near(beatPhase(engine.decks.a.transport.pending.position, engine.decks.a.grid), phase);
+  engine.seek("a", 19.137); engine.triggerLoop("a", { start: 40, end: 42 });
+  near(beatPhase(engine.decks.a.transport.pending.position, engine.decks.a.grid), phase);
+  near(engine.decks.a.stretch.schedules.at(-1).output, when);
+  await engine.dispose();
+});
+
 test("Trackazoid enabling key lock re-times both a pending jump and its audible source", async () => {
   const h = harness(), { engine, context } = h;
   await engine.load("a", audioBuffer()); engine.setBeatGrid("a", { bpm: 120 });

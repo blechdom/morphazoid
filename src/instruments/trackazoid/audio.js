@@ -554,7 +554,9 @@ export class TrackazoidAudio {
     // A prepared Sync launch keeps its later, quantized start. Repeated actions
     // compose against one pending destination rather than growing an event queue.
     const when = Math.max(now + this._lead(), deck.transport.pending?.time ?? now);
-    return { deck, now, when, state: deck.transport.projected(when, now) };
+    const state = deck.transport.projected(when, now);
+    const reference = deck.transport.snapshot(now).playing ? deck.transport.predecessorPosition(when, now) : state.position;
+    return { deck, now, when, state, reference };
   }
 
   _actionCommit({ deck, now, when }, changes, { preserveSync, relativePosition = false }) {
@@ -571,7 +573,7 @@ export class TrackazoidAudio {
     const action = this._actionState(id), { deck, state } = action;
     if (!Number.isFinite(time) || time < 0 || time > state.duration) throw new RangeError("This cue lies outside the track.");
     const quantized = deck.quantize && Boolean(deck.grid.bpm);
-    const position = quantized && state.playing ? quantizedPosition(time, state.position, deck.grid, state.duration) : time;
+    const position = quantized && state.playing ? quantizedPosition(time, action.reference, deck.grid, state.duration) : time;
     if (position === null) throw new RangeError("This track has no playable point at the current beat phase.");
     // Cue recall outside a loop exits it atomically; inside it keeps the loop.
     const loop = state.loop && position >= state.loop.start && position < state.loop.end ? state.loop : null;
@@ -586,7 +588,7 @@ export class TrackazoidAudio {
       range.end > state.duration || range.end - range.start < 0.05) throw new RangeError("A saved loop needs at least 50 ms within the track.");
     const loop = { start: range.start, end: range.end };
     const quantized = deck.quantize && Boolean(deck.grid.bpm);
-    const aligned = quantized && state.playing ? quantizedPosition(loop.start, state.position, deck.grid, state.duration, loop) : null;
+    const aligned = quantized && state.playing ? quantizedPosition(loop.start, action.reference, deck.grid, state.duration, loop) : null;
     // A sub-beat/free loop may contain no point with the current full-beat
     // phase. It still recalls exactly, but cannot promise persistent beat Sync.
     const position = aligned ?? loop.start;

@@ -108,6 +108,11 @@ export class DeckTransport {
     };
   }
 
+  /** Project only what is audible now, excluding an unheard replacement seek. */
+  predecessorPosition(time, now) {
+    return transportPosition(this.pending && this.pending.time <= now ? this.pending : this.state, time);
+  }
+
   rebase(fromTime, toTime) {
     this.advance(fromTime);
     const current = this.snapshot(fromTime);
