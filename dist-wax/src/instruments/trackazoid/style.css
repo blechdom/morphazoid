@@ -1,9 +1,11 @@
 @import url("../../ui/index.css");
 
-html.trackazoid-document { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; }
+html.trackazoid-document { --tz-header-clearance: 70px; height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; scroll-padding-top: var(--tz-header-clearance); }
 body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; display: block; background: #0b1016; color: #e5edf2; }
-.trackazoid-page .masthead { position: sticky; top: 0; z-index: 40; }
-.trackazoid-shell { max-width: 1840px; margin: 0 auto; padding: 14px 20px 24px; font-family: var(--font-ui, system-ui, sans-serif); }
+/* The shared header has no background. Keep scrolled decks behind an opaque
+   surface without clipping its fixed Settings panel or Choose popover. */
+.trackazoid-page .masthead { position: sticky; top: 0; z-index: 40; background: #0b1016; box-shadow: 0 5px 14px #0003; }
+.trackazoid-shell { isolation: isolate; max-width: 1840px; margin: 0 auto; padding: 14px 20px 24px; font-family: var(--font-ui, system-ui, sans-serif); }
 .trackazoid-shell * { box-sizing: border-box; }
 .trackazoid-shell [hidden] { display: none !important; }
 .trackazoid-shell button, .trackazoid-shell select, .trackazoid-shell input { font: inherit; }
@@ -40,7 +42,14 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
 .tz-time-row > span { color: var(--deck-color); font-size: 9px; letter-spacing: .12em; }
 .tz-waveform, .tz-overview { display: block; width: 100%; background: #0b121a; border-radius: 3px; touch-action: none; cursor: crosshair; }
 .tz-waveform { height: 130px; }
-.tz-overview { height: 36px; margin-top: 5px; }
+.tz-overview { height: 36px; margin-top: 5px; cursor: pointer; }
+.tz-wave-tools, .tz-selection-controls { display: flex; align-items: center; flex-wrap: wrap; gap: 4px; min-width: 0; margin-top: 6px; }
+.tz-wave-tools button, .tz-selection-controls button { min-height: 28px; padding: 4px 7px; font-size: 10px; white-space: nowrap; }
+.tz-wave-tools label { display: inline-flex; align-items: center; gap: 5px; min-height: 28px; color: #b9cbd7; font-size: 10px; cursor: pointer; }
+.tz-wave-tools input[type="checkbox"] { margin: 0; accent-color: var(--deck-color); }
+.tz-wave-tools output { margin-left: auto; color: #b9cbd7; font-size: 10px; font-variant-numeric: tabular-nums; }
+.tz-selection-info { display: block; flex: 1 1 100%; min-width: 0; color: #c5d3dd; font-size: 10px; font-variant-numeric: tabular-nums; line-height: 1.5; overflow-wrap: anywhere; }
+.tz-wave-hint { color: #aabcc9; font-size: 10px; line-height: 1.4; margin-top: 6px !important; }
 .tz-transport { display: flex; gap: 6px; margin-top: 12px; }
 .tz-transport button { flex: 1; padding: 8px 6px; white-space: nowrap; }
 .tz-transport .tz-play { min-width: 78px; }
@@ -140,4 +149,8 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
 }
 @media (pointer: coarse) {
   .trackazoid-shell .tz-play { min-height: 48px; min-width: 70px; }.tz-waveform, .tz-overview { touch-action: pan-y; }.tz-transport button { min-height: 44px; }.tz-cues button { min-height: 42px; }
+  .tz-wave-tools button, .tz-selection-controls button { min-width: 44px; min-height: 44px; padding: 6px 9px; }.tz-wave-tools label { min-height: 44px; }
+}
+@media (max-width: 520px) {
+  html.trackazoid-document { --tz-header-clearance: 122px; }
 }
