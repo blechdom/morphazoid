@@ -1,4 +1,5 @@
 import { restoreTrackazoidBeatmatchingSite } from './trackazoid-beatmatching-site-reference.mjs';
+import { restoreTrackazoidPadsSite } from './trackazoid-pads-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreSoundFontsSite } from './sound-fonts-site-reference.mjs';
@@ -14,6 +15,7 @@ export const trackazoidSiteChanges = JSON.parse(readFileSync(
 export function restoreTrackazoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
   source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });
+  source = restoreTrackazoidPadsSite(source, file, { allowRestored: true });
   source = restoreTrackazoidBeatmatchingSite(source, file, { allowRestored: true });
   source = restoreBlechLiveRuntime(source, file, { allowRestored: true });
   source = restoreMidiNoteEffectsRuntime(source, file, { allowRestored: true });

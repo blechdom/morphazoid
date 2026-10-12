@@ -7,6 +7,7 @@ import { blackMidiArtRuntimeChange as change, restoreBlackMidiArtRuntime } from 
 import { restoreFractalImpulseRuntime, readFractalImpulseRuntimeReference } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 import { restoreTrackazoidSite, readTrackazoidSiteReference } from './helpers/trackazoid-site-reference.mjs';
 import { readMidiNoteEffectsRuntimeReference } from './helpers/midi-note-effects-runtime-reference.mjs';
+import { restoreTrackazoidPadsSite } from './helpers/trackazoid-pads-site-reference.mjs';
 
 const digest = value => createHash('sha256').update(value).digest('hex');
 const url = new URL(`../${change.file}`, import.meta.url);
@@ -15,7 +16,8 @@ const normalizers = [restoreFractalImpulseRuntime, restoreTrackazoidSite];
 test('complete scores, creator and falling renderer have exact required paths and reverse to unchanged main inventory', async () => {
   assert.equal(change.baseCommit, 'dd5c052ae7270b2e121f5c77a00288b4d4a93396');
   assert.equal(change.file, 'scripts/site/runtime-files.tsv');
-  const source = await readFile(url, 'utf8'), restored = restoreBlackMidiArtRuntime(source, change.file);
+  const source = restoreTrackazoidPadsSite(await readFile(url, 'utf8'), change.file);
+  const restored = restoreBlackMidiArtRuntime(source, change.file);
   assert.equal(digest(restored), change.sha256);
   const current = parseRuntimeManifest(source), baseline = parseRuntimeManifest(restored);
   const added = current.entries.filter(entry => !baseline.entries.some(old => old.path === entry.path));

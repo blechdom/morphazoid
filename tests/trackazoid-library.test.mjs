@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { TrackLibrary } from "../src/instruments/trackazoid/library.js";
 import {
   fileTrackDescriptor, normalizeTrackMetadata, normalizeTrackPath, supportedAudioFile, trackIdentity, hasBeatGrid, withBeatAnalysis,
+  PAD_COUNT, normalizeTrackPad, withTrackPad,
 } from "../src/instruments/trackazoid/library-model.js";
+
+const cue = (position, name = "") => ({ type: "cue", position, name });
+const cues = (...positions) => Array.from({ length: PAD_COUNT }, (_, index) => positions[index] ?? null);
 
 function file(name, { path = "", size = 2048, lastModified = 1234, type = "audio/wav" } = {}) {
   return {
@@ -60,11 +64,116 @@ test("audio acceptance is a codec hint; paths and identities preserve nested dup
 });
 
 test("metadata validates malformed saved state and bounds cues to the decoded duration", () => {
-  assert.deepEqual(normalizeTrackMetadata(null), { version: 2, bpm: 120, beatOffset: 0, cues: [null, null, null, null], gridSource: "unknown", analysis: null });
+  assert.deepEqual(normalizeTrackMetadata(null), { version: 3, bpm: 120, beatOffset: 0, pads: cues(), cues: cues(), gridSource: "unknown", analysis: null });
   assert.deepEqual(normalizeTrackMetadata({ version: 900, bpm: Infinity, duration: 30, beatOffset: -1, cues: [0, 12, 99, NaN, 3] }), {
-    version: 2, bpm: 120, duration: 30, beatOffset: 0, cues: [0, 12, 30, null], gridSource: "unknown", analysis: null,
+    version: 3, bpm: 120, duration: 30, beatOffset: 0, cues: cues(0, 12, 30, null, 3),
+    pads: [cue(0), cue(12), cue(30), null, cue(3), null, null, null], gridSource: "unknown", analysis: null,
   });
   assert.equal(normalizeTrackMetadata({ bpm: 999 }).bpm, 400);
+});
+
+test("v1 and v2 markers migrate into eight typed pads without changing their grids or analysis", () => {
+  const analysis = { version: 1, status: "ok", bpm: 123.5, beatOffset: 0.12, confidence: 0.9, candidates: [], reason: null, analyzedSeconds: 24 };
+  for (const version of [1, 2]) {
+    const legacy = { version, bpm: 123, beatOffset: 0.25, duration: 180, cues: [0, null, 20, 170],
+      ...(version === 2 ? { gridSource: "auto", analysis } : {}) };
+    const migrated = normalizeTrackMetadata(legacy);
+    assert.equal(migrated.version, 3);
+    assert.equal(migrated.bpm, legacy.bpm); assert.equal(migrated.beatOffset, legacy.beatOffset);
+    assert.equal(migrated.duration, legacy.duration);
+    assert.equal(migrated.gridSource, version === 1 ? "manual" : "auto");
+    assert.deepEqual(migrated.analysis, version === 1 ? null : analysis);
+    assert.deepEqual(migrated.pads, [cue(0), null, cue(20), cue(170), null, null, null, null]);
+    assert.deepEqual(migrated.cues, cues(0, null, 20, 170));
+    assert.deepEqual(normalizeTrackMetadata(migrated), migrated, "Migration is idempotent");
+  }
+});
+
+test("typed pads remain canonical when numeric projections are stale or the last pad is cleared", () => {
+  const loop = { type: "loop", start: 8, end: 12, name: "Break" };
+  const normalized = normalizeTrackMetadata({ version: 3, duration: 30,
+    pads: [loop, cue(4, "Verse"), null], cues: [99, 99, 99, 99] });
+  assert.deepEqual(normalized.cues, cues(8, 4));
+  assert.deepEqual(normalized.pads[0], loop);
+  for (const pads of [[], null, undefined, "bad", { 0: cue(5) }]) {
+    const cleared = normalizeTrackMetadata({ pads, cues: [1, 2, 3, 4] });
+    assert.deepEqual(cleared.pads, cues());
+    assert.deepEqual(cleared.cues, cues(), "Malformed or cleared pads never restore old numeric markers");
+  }
+  const excessive = normalizeTrackMetadata({ pads: Array.from({ length: 20 }, (_, i) => cue(i)) });
+  assert.equal(excessive.pads.length, 8); assert.equal(excessive.cues.length, 8);
+});
+
+test("saved loops enforce finite ordered positions and the transport's 50 ms minimum after duration clamping", () => {
+  assert.deepEqual(normalizeTrackPad({ type: "loop", start: 0, end: 0.05 }), { type: "loop", start: 0, end: 0.05, name: "" });
+  assert.deepEqual(normalizeTrackPad({ type: "loop", start: 58, end: 100, name: "Outro" }, 60), { type: "loop", start: 58, end: 60, name: "Outro" });
+  for (const pad of [
+    { type: "loop", start: 0, end: 0.049 }, { type: "loop", start: 2, end: 1 },
+    { type: "loop", start: -1, end: 1 }, { type: "loop", start: NaN, end: 1 },
+    { type: "loop", start: 0, end: Infinity }, { type: "loop", start: 60, end: 61 },
+    { type: "loop", start: 59.99, end: 80 }, { type: "cue", position: -1 },
+    { type: "cue", position: NaN }, { type: "cue", position: Infinity },
+    { type: "cue", position: "3" }, { type: "unknown", position: 4 },
+  ]) assert.equal(normalizeTrackPad(pad, 60), null, JSON.stringify(pad));
+  assert.deepEqual(normalizeTrackPad(cue(100), 60), cue(60), "Cue clamping preserves previous metadata behavior");
+  assert.equal(normalizeTrackPad({ type: "loop", start: 0, end: 1 }, 0), null);
+});
+
+test("pad names and fields are bounded plain metadata, with no audio or active state", () => {
+  const input = { type: "loop", start: 1, end: 5, name: ` \n${"🎚".repeat(80)} `,
+    samples: new Float32Array(20), playing: true, active: true, loop: { unsafe: true } };
+  const result = normalizeTrackPad(input, 30);
+  assert.deepEqual(Object.keys(result), ["type", "start", "end", "name"]);
+  assert.equal(Array.from(result.name).length, 64);
+  assert.equal(/[\u0000-\u001f\u007f]/.test(result.name), false);
+  assert.equal(normalizeTrackPad({ type: "cue", position: 1, name: {} }).name, "");
+  assert.equal(input.playing, true, "Normalization does not mutate the source");
+});
+
+test("editing one typed pad retains the others and clearing it cannot revive its numeric marker", () => {
+  const original = normalizeTrackMetadata({ duration: 60, gridSource: "manual", bpm: 128, beatOffset: 0.1,
+    pads: [cue(3, "Intro"), { type: "loop", start: 10, end: 14, name: "Hook" }] });
+  const before = structuredClone(original);
+  const edited = withTrackPad(original, 7, cue(45, "End"));
+  assert.deepEqual(original, before);
+  assert.deepEqual(edited.pads.slice(0, 7), original.pads.slice(0, 7));
+  assert.deepEqual(edited.pads[7], cue(45, "End"));
+  assert.equal(edited.cues[7], 45);
+  const cleared = withTrackPad(edited, 1, null);
+  assert.equal(cleared.pads[1], null); assert.equal(cleared.cues[1], null);
+  assert.deepEqual(normalizeTrackMetadata(cleared), cleared);
+  for (const index of [-1, 8, 0.5, NaN]) assert.deepEqual(withTrackPad(original, index, cue(20)), original);
+});
+
+test("reanalysis preserves saved cue names and loops when the grid changes", () => {
+  const prepared = normalizeTrackMetadata({ bpm: 120, beatOffset: 0.1, duration: 30, gridSource: "auto",
+    pads: [cue(2, "Vocal"), { type: "loop", start: 4, end: 8, name: "Break" }] });
+  const result = { version: 1, status: "ok", bpm: 124, beatOffset: 0.2, confidence: 0.9 };
+  const analyzed = withBeatAnalysis(prepared, result);
+  assert.equal(analyzed.bpm, 124); assert.equal(analyzed.beatOffset, 0.2);
+  assert.deepEqual(analyzed.pads, prepared.pads); assert.deepEqual(analyzed.cues, prepared.cues);
+});
+
+test("eight typed pads and old record migrations survive persistence without stale numeric patches erasing loops", async () => {
+  const store = memoryStore();
+  const first = new TrackLibrary({ store }); await first.init();
+  const [id] = await first.addFiles([file("prepared-pads.wav")]); first.dispose();
+  store.entries.get(id).metadata = { version: 2, duration: 60, bpm: 125, beatOffset: 0.3, gridSource: "manual", cues: [1, null, 8, null] };
+  const second = new TrackLibrary({ store }); await second.init();
+  assert.deepEqual(second.entries[0].metadata.pads[2], cue(8));
+  const next = withTrackPad(second.entries[0].metadata, 7, { type: "loop", start: 32, end: 40, name: "Final phrase" });
+  await second.updateMetadata(id, { pads: next.pads });
+  await second.updateMetadata(id, { cues: [55, 55, 55, 55] });
+  second.dispose();
+  const third = new TrackLibrary({ store }); await third.init();
+  const metadata = third.entries[0].metadata;
+  assert.equal(metadata.version, 3); assert.equal(metadata.gridSource, "manual");
+  assert.equal(metadata.bpm, 125); assert.equal(metadata.beatOffset, 0.3);
+  assert.deepEqual(metadata.pads[7], { type: "loop", start: 32, end: 40, name: "Final phrase" });
+  assert.deepEqual(metadata.cues, cues(1, null, 8, null, null, null, null, 32));
+  assert.equal(third.entries[0].available, false, "Reloading pads does not implicitly reconnect an audio file");
+  await third.updateMetadata(id, { duration: 32.02 });
+  assert.equal(third.entries[0].metadata.pads[7], null, "A shortened file cannot retain a sub-minimum saved loop");
 });
 
 test("automatic analysis fills unknown grids; manual corrections survive reanalysis until explicitly replaced", () => {
@@ -75,7 +184,7 @@ test("automatic analysis fills unknown grids; manual corrections survive reanaly
   assert.equal(hasBeatGrid(automatic), true);
   assert.equal(automatic.gridSource, "auto");
   assert.equal(automatic.bpm, result.bpm);
-  const manual = { ...automatic, bpm: 63, beatOffset: 0.19, gridSource: "manual", cues: [2, null, null, null] };
+  const manual = withTrackPad({ ...automatic, bpm: 63, beatOffset: 0.19, gridSource: "manual" }, 0, cue(2));
   const protectedGrid = withBeatAnalysis(manual, { ...result, bpm: 128 });
   assert.equal(protectedGrid.bpm, 63);
   assert.equal(protectedGrid.beatOffset, 0.19);
@@ -120,7 +229,7 @@ test("file-only imports deduplicate the full source identity and reconnect saved
   assert.equal(ids.length, 2);
   assert.equal(first.entries.length, 2);
   assert.equal(await first.getFile(ids[0]), kick);
-  await first.updateMetadata(ids[0], { bpm: 131, duration: 33, cues: [2, null, 22] });
+  await first.updateMetadata(ids[0], { bpm: 131, duration: 33, pads: [cue(2), null, cue(22)] });
   first.dispose();
   const second = new TrackLibrary({ store });
   await second.init();
@@ -131,7 +240,7 @@ test("file-only imports deduplicate the full source identity and reconnect saved
   await second.addFiles([kick]);
   const recovered = second.entries.find((entry) => entry.id === ids[0]);
   assert.equal(recovered.available, true);
-  assert.deepEqual(recovered.metadata.cues, [2, null, 22, null]);
+  assert.deepEqual(recovered.metadata.cues, cues(2, null, 22));
   assert.equal(recovered.metadata.bpm, 131);
   assert.equal(second.entries.length, 2);
   assert.equal(second.folders[0].connected, true);
@@ -152,7 +261,7 @@ test("folder access indexes recursively without bytes, stays lazy on restore, an
   assert.deepEqual(first.entries.map((entry) => entry.path), ["root.wav", "Nested/root.wav"]);
   assert.equal(rootTrack.reads, 1);
   assert.equal(nestedTrack.reads, 1);
-  await first.updateMetadata(ids[0], { bpm: 96, cues: [1] });
+  await first.updateMetadata(ids[0], { bpm: 96, pads: [cue(1)] });
   first.dispose();
   folder.permission = "prompt";
   const second = new TrackLibrary({ store });
@@ -192,11 +301,11 @@ test("same-named folders remain distinct, but choosing the same directory again 
   const library = new TrackLibrary({ store: memoryStore(), directoryPicker: async () => choices.shift() });
   await library.init();
   const [id] = await library.openFolder();
-  await library.updateMetadata(id, { cues: [4] });
+  await library.updateMetadata(id, { pads: [cue(4)] });
   await library.openFolder(); await library.openFolder();
   assert.equal(library.entries.length, 2);
   assert.equal(library.folders.length, 2);
-  assert.deepEqual(library.entries.find((entry) => entry.id === id).metadata.cues, [4, null, null, null]);
+  assert.deepEqual(library.entries.find((entry) => entry.id === id).metadata.cues, cues(4));
 });
 
 test("indexing yields progressively, cancellation preserves the accepted batch, and files stay bounded", async () => {
@@ -231,13 +340,13 @@ test("refresh marks removed files unavailable and changed audio receives a disti
   const folder = directory("Music", [track]); const store = memoryStore();
   const library = new TrackLibrary({ store, directoryPicker: async () => folder });
   await library.init(); const [oldId] = await library.openFolder();
-  await library.updateMetadata(oldId, { cues: [8] });
+  await library.updateMetadata(oldId, { pads: [cue(8)] });
   track.source = file("one.wav", { lastModified: 3000 });
   await assert.rejects(library.getFile(oldId), /changed on disk/);
   const [newId] = await library.refresh(library.folders[0].id);
   assert.notEqual(newId, oldId);
   assert.equal(library.entries.find((entry) => entry.id === oldId).available, false);
-  assert.deepEqual(library.entries.find((entry) => entry.id === newId).metadata.cues, [null, null, null, null]);
+  assert.deepEqual(library.entries.find((entry) => entry.id === newId).metadata.cues, cues());
   folder.children = [];
   await library.refresh(library.folders[0].id);
   assert.equal(library.entries.every((entry) => !entry.available), true);
@@ -263,12 +372,12 @@ test("a rejected permission request leaves cues intact and never asks for write 
   const folder = directory("Music", [fileHandle(file("one.wav"))], { grant: "denied" });
   const library = new TrackLibrary({ store: memoryStore(), directoryPicker: async () => folder });
   await library.init(); const [id] = await library.openFolder();
-  await library.updateMetadata(id, { cues: [9] });
+  await library.updateMetadata(id, { pads: [cue(9)] });
   folder.permission = "prompt";
   await assert.rejects(library.reconnect(library.folders[0].id), /not granted/);
   assert.equal(library.folders[0].connected, false);
   assert.equal(library.entries[0].available, false);
-  assert.deepEqual(library.entries[0].metadata.cues, [9, null, null, null]);
+  assert.deepEqual(library.entries[0].metadata.cues, cues(9));
 });
 
 test("storage opening failure still permits import", async () => {
