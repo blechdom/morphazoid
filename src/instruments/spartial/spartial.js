@@ -497,6 +497,8 @@ export class SpartialEngine {
     this.rotaryLow = new Float64Array(SPARTIAL_MAX_SPEAKERS);
     this.rotaryOutput = new Float64Array(SPARTIAL_MAX_SPEAKERS);
     this.drivePrevious = new Float64Array(SPARTIAL_MAX_SPEAKERS);
+    this.driveEnvelope = new Float64Array(SPARTIAL_MAX_SPEAKERS);
+    this.driveDecay = Math.exp(-1 / (this.sampleRate * 0.12));
     this.delayLength = Math.ceil(this.sampleRate * 0.012) + 2;
     this.rotaryDelayLow = new Float64Array(this.delayLength * SPARTIAL_MAX_SPEAKERS);
     this.rotaryDelayHigh = new Float64Array(this.rotaryDelayLow.length);
@@ -736,15 +738,22 @@ export class SpartialEngine {
       let signal = channels[speaker][frame] * (1 - this.rotaryWet) + this.rotaryOutput[speaker] * this.rotaryWet;
       const previous = this.drivePrevious[speaker];
       this.drivePrevious[speaker] = signal;
+      this.driveEnvelope[speaker] = Math.max(Math.abs(signal), this.driveEnvelope[speaker] * this.driveDecay);
       if (this.drive > 0 && (signal !== 0 || previous !== 0)) {
-        const amount = 1 + 4 * this.drive;
-        const x = signal / OUTPUT_CEILING, last = previous / OUTPUT_CEILING;
+        // Partial normalization and surround panning can make each bus much
+        // quieter than full scale. Shape relative to its own recent peak, then
+        // restore that scale so drawbar levels, grain windows and fades remain.
+        const reference = Math.max(0.0001, this.driveEnvelope[speaker]);
+        const amount = 1 + 15 * this.drive * this.drive;
+        const x = signal / reference, last = previous / reference;
         // First-order antiderivative antialiasing averages tanh over the sample
-        // segment; compensation restrains the drive's small-signal gain.
+        // segment, using the same reference for both samples. Mild compensation
+        // balances the added harmonics without the old full-drive level collapse.
         const difference = x - last;
         const saturated = Math.abs(difference) < 1e-7 ? Math.tanh(amount * (x + last) / 2)
           : (Math.log(Math.cosh(amount * x)) - Math.log(Math.cosh(amount * last))) / (amount * difference);
-        signal += (OUTPUT_CEILING * saturated / (1 + 3 * this.drive) - signal) * this.drive;
+        const compensation = Math.tanh(amount) * (1 + 0.25 * this.drive);
+        signal += (reference * saturated / compensation - signal) * this.drive;
       }
       this.rotaryOutput[speaker] = signal;
       peak = Math.max(peak, Math.abs(signal)); total += Math.abs(signal);
@@ -1031,6 +1040,15 @@ export class SpartialEngine {
         }
       }
       if (effects) this.processOutputEffects(channels, frame, outputCount);
+      else {
+        // Keep the detector current while bypassed, without changing a single
+        // dry output sample. Master volume is outside the drive's reference.
+        for (let speaker = 0; speaker < outputCount; speaker += 1) {
+          const signal = this.level > 0 ? channels[speaker][frame] / this.level : 0;
+          this.drivePrevious[speaker] = signal;
+          this.driveEnvelope[speaker] = Math.max(Math.abs(signal), this.driveEnvelope[speaker] * this.driveDecay);
+        }
+      }
       this.frame += 1;
     }
   }

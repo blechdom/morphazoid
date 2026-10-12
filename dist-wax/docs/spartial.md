@@ -75,8 +75,12 @@ additive and granular layers. Mix, spread and transition time control its
 presence, width and acceleration. **One speaker** still gathers the result into
 the selected output. Rotary motion is independent of the main Rotation control.
 
-**Drive** adds saturation and starts at zero. It changes the shared output's
-timbre without changing the Volume setting. The rotary and drive models are
+**Drive** adds saturation and starts at zero. It works with Rotary off and colors
+both additive and granular sound. Each speaker channel uses its recent signal
+level to set the saturation range, so quiet distributed partials respond too.
+Turning Drive up adds progressively stronger harmonics while preserving partial
+levels and the master Volume setting; zero restores the dry sound.
+The rotary and drive models are
 compact effects inspired by Leslie features, not a cabinet or valve-circuit
 emulation; physical surround placement and subjective tone still need listening
 on the intended system. Partial modulation, Rotary & drive, and Click, chiff &
