@@ -195,7 +195,7 @@ test('dense tempo automation counts toward the stamp event budget and shortens t
 
 test('all 28 bundled black/geometric files fit .25–64 beat heights; whole patterns retain every note', async () => {
   const collection = JSON.parse(await readFile(new URL('../assets/midiphoria/collection.json', import.meta.url), 'utf8'));
-  const files = collection.filter(file => /Black MIDI|Geometric/.test(file.collection));
+  const files = collection.filter(file => !file.visualOnly && !file.compression && /Black MIDI|Geometric/.test(file.collection));
   assert.equal(files.length, 28);
   const engine = new MidiMixerEngine({ runtime: { performance: { now: () => 0 } } });
   let patterns = 0;
