@@ -291,6 +291,7 @@ async function assertHeaderHit(page) {
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
   test(`wave tools and opaque menubar remain usable after document and library scrolling at ${viewport.width}×${viewport.height}`, async ({ page }) => {
     const errors = diagnostics(page); await page.setViewportSize(viewport); await ready(page);
+    await page.locator("#aLoop").click(); await page.locator("#aPlay").click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
     for (const id of ["a", "b"]) {
       for (const key of ["Waveform", "Snap", "ZoomIn", "ZoomOut", "Fit", "Follow", "SelectionIn", "SelectionOut", "Mark"]) {
@@ -310,9 +311,13 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     await page.locator(".masthead .instrument-picker-trigger").first().click();
     await expect(page.locator(".masthead .instrument-picker-panel").first()).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.locator(".masthead .instrument-picker-panel").first()).toBeHidden();
+    expect((await deck(page, "a")).playing).toBe(true);
     await page.locator(".header-settings-trigger").click();
     await expect(page.locator(".header-settings-panel")).toBeVisible();
     await page.keyboard.press("Escape");
+    await expect(page.locator(".header-settings-panel")).toBeHidden();
+    expect((await deck(page, "a")).playing).toBe(true);
     await assertHeaderHit(page); await remainsSilent(page, errors);
   });
 }
