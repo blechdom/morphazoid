@@ -51,12 +51,12 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. Overrides the automatic estimate; available under Adjust. |
 | Set downbeat here | Place the beat-grid anchor at the cursor. |
 | Sync | Follow the master tempo and beat phase until disabled; the ±16% range still applies. |
-| Pads 1–8 | An empty pad saves the selection, then the active loop, or otherwise the playhead as a cue. A filled pad recalls it. Shift-click or Shift+1–8 clears a pad. |
-| Edit pads | Select a slot, name it, explicitly store a cue or loop, or clear it. Names and ranges save with the track. |
+| Saved cues & loops (1–8) | An empty pad saves the selection, then the active loop, or otherwise the playhead as a cue. A filled pad recalls it. Color means a marker is saved, not that a switch is on. Choose a slot beside **Clear pad** to remove it without recalling it, or Shift-click / Shift+1–8. Clearing a saved loop leaves any currently playing loop intact; use **Loop** to stop looping. |
+| Edit pads | Name the selected slot or explicitly store a cue or loop. Names and ranges save with the track. |
 | Beat loop | With no selection, Loop / L repeats the chosen length from ⅛ to 32 beats. The length menu resizes an active loop; ½ / ×2 halves or doubles it. Loops must last at least 50 ms. |
 | Beat jump | Jump backward or forward by 1, 4, 8, 16 or 32 beats without losing beat phase. Use [ / ] for the selected size. |
 | Move loop | Move the active loop backward or forward by the selected jump size (Shift+[ / Shift+]). |
-| EQ and filter | Shape the deck before it reaches the master and cue mixes. |
+| EQ knobs and filter | Shape the deck before it reaches the master and cue mixes. Drag EQ knobs up/down, hold Shift for fine adjustment, or use arrow keys. Double-click returns that band to 0 dB; Reset mixer resets all bands. |
 | Crossfader | Blend the two decks. |
 
 Selecting, trimming a selection, moving markers, panning and zooming preserve
