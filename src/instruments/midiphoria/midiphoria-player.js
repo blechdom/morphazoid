@@ -1,5 +1,6 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
+import { inspectSoundFont, MAX_SOUNDFONT_BYTES } from '../../sound-fonts/bank-format.js';
 
 const SOURCE = 'midiphoria:file';
 const PAD_SOURCE = 'midiphoria:pads';
@@ -33,9 +34,11 @@ function validateMidi(buffer) {
  */
 export class MidiphoriaPlayer {
   constructor({ onMidi, onState, onClear, runtime = globalThis, clock = () => performance.now() / 1000,
-    loadLibrary = () => import(LIBRARY_URL.href), connectOutput = connectAudioOutput } = {}) {
+    loadLibrary = () => import(LIBRARY_URL.href), connectOutput = connectAudioOutput, getAudioContext } = {}) {
     this.onMidi = onMidi; this.onState = onState; this.onClear = onClear;
     this.runtime = runtime; this._loadLibrary = loadLibrary; this._connectOutput = connectOutput;
+    this._getAudioContext = getAudioContext; this._ownsContext = false;
+    this._font = null; this._fontName = 'TimGM6mb'; this._fontSelection = 0; this._fontQueue = Promise.resolve(); this._fontUpload = 0;
     this._clock = clock; this._visual = null;
     this.context = null; this._master = null; this._preamp = null; this._compressor = null; this._ceiling = null;
     this._synth = null; this._padSynth = null; this._sequencer = null;
@@ -57,14 +60,14 @@ export class MidiphoriaPlayer {
       const time = this._visualTime(), score = this._visual;
       return { ready: true, hasSong: true, loading: false, playing: score.playing, visualOnly: true,
         audioEnabled: this._audioEnabled && this.context?.state === 'running', time, duration: score.duration,
-        rate: this._rate, loop: this._loop, volume: this._volume, fileName: score.name, error: this._error };
+        rate: this._rate, loop: this._loop, volume: this._volume, fileName: score.name, soundfontName: this._fontName, error: this._error };
     }
     const ready = this._engineReady && Boolean(this._file) && this._readyToken === this._file.token;
     const current = this._seekTime ?? (this._playing ? this._sequencer?.currentTime : this._time);
     return { ready, hasSong: Boolean(this._file), loading: Boolean(this._enginePromise || this._activeLoad),
       playing: this._playing, audioEnabled: this._audioEnabled && this.context?.state === 'running', time: clamp(current, 0, this._duration),
       duration: this._duration, rate: this._rate, loop: this._loop, volume: this._volume,
-      fileName: this._file?.fileName ?? '', error: this._error };
+      fileName: this._file?.fileName ?? '', soundfontName: this._fontName, error: this._error };
   }
 
   async enableAudio() {
@@ -82,9 +85,17 @@ export class MidiphoriaPlayer {
     let context;
     try {
       if (!this.context) {
-        const AudioContext = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
-        if (!AudioContext) throw new Error('Web Audio is unavailable in this browser.');
-        this.context = new AudioContext({ latencyHint: 'interactive' });
+        if (this._getAudioContext !== undefined) {
+          const borrowed = this._getAudioContext();
+          if (!borrowed || borrowed.state === 'closed' || typeof borrowed.resume !== 'function' || !borrowed.audioWorklet) {
+            throw new Error('The shared audio engine is not ready. Turn Audio on again.');
+          }
+          this.context = borrowed; this._ownsContext = false;
+        } else {
+          const AudioContext = this.runtime.AudioContext ?? this.runtime.webkitAudioContext;
+          if (!AudioContext) throw new Error('Web Audio is unavailable in this browser.');
+          this.context = new AudioContext({ latencyHint: 'interactive' }); this._ownsContext = true;
+        }
         const ownedContext = this.context;
         const onStateChange = () => this._contextStateChanged(ownedContext);
         ownedContext.addEventListener('statechange', onStateChange);
@@ -142,6 +153,59 @@ export class MidiphoriaPlayer {
       synth?.worklet?.port?.postMessage({ type: 'midiphoriaNoteEffects', config: this._noteEffects });
     }
     return { ...this._noteEffects };
+  }
+
+  /** Validate before replacing either bank. A bank edit never starts audio or
+   * changes the sequencer's position, rate, loop or Play/Pause state. */
+  async loadSoundFont(buffer, name = 'Imported SoundFont') {
+    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > MAX_SOUNDFONT_BYTES) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 128 MiB or smaller.');
+    const view = new DataView(buffer);
+    if (view.getUint32(0) !== 0x52494646 || view.getUint32(8) !== 0x7366626b) throw new Error('This is not an SF2 or SF3 SoundFont.');
+    inspectSoundFont(buffer);
+    const selection = ++this._fontSelection;
+    const { SoundBankLoader } = await import('../midi-mixer/vendor/spessasynth-core.js');
+    if (this._disposed || selection !== this._fontSelection) throw new DOMException('SoundFont selection was superseded.', 'AbortError');
+    const parsed = SoundBankLoader.fromArrayBuffer(buffer);
+    if (!parsed.presets.length) throw new Error('The SoundFont contains no instrument presets.');
+    const font = { buffer: buffer.slice(0), name: String(name).slice(0, 128) };
+    if (!this._engineReady) { this._font = font; this._fontName = font.name; this._publish(); return true; }
+    // SpessaSynth has one pending bank acknowledgement per synth. Serialize
+    // replacements so a previous response cannot acknowledge a newer upload.
+    const context = this.context;
+    const operation = this._fontQueue.catch(() => {}).then(async () => {
+      if (this._disposed || context !== this.context || selection !== this._fontSelection) throw new DOMException('SoundFont selection was superseded.', 'AbortError');
+      const previous = this._font;
+      try { await this._uploadSoundFont(font, context); }
+      catch (error) {
+        if (context === this.context && !this._disposed && previous) {
+          if (error.message?.includes('too long')) { this._audioEnabled = false; await this._closeEngine(); }
+          else try { await this._uploadSoundFont(previous, context); }
+          catch { this._audioEnabled = false; await this._closeEngine(); }
+        }
+        throw error;
+      }
+      if (this._disposed || context !== this.context) throw cancelled();
+      this._font = font; this._fontName = font.name; this._publish(); return true;
+    });
+    this._fontQueue = operation.catch(() => {}); return operation;
+  }
+
+  async _uploadSoundFont(font, context) {
+    const engines = [this._synth, this._padSynth], id = `midiphoria-bank-${++this._fontUpload}`;
+    let rejectError;
+    const failure = new Promise((_, reject) => { rejectError = reject; });
+    for (const synth of engines) synth.eventHandler.addEvent('soundBankError', id,
+      data => rejectError(new Error(data?.message || String(data || 'Could not load the SoundFont.'))));
+    try {
+      const uploaded = Promise.all(engines.map(async synth => {
+        await synth.isReady;
+        if (this._disposed || context !== this.context) throw cancelled();
+        // Same bank ID replaces rather than accumulating banks. Never detach
+        // the retained rollback/next-start buffer or the chooser's source.
+        await synth.soundBankManager.addSoundBank(font.buffer.slice(0), 'midiphoria');
+      }));
+      await this._wait(Promise.race([uploaded, failure]), 'The SoundFont took too long to load.');
+    } finally { for (const synth of engines) synth.eventHandler.removeEvent('soundBankError', id); }
   }
 
   padNoteOn(sourceId, note, velocity) {
@@ -292,6 +356,7 @@ export class MidiphoriaPlayer {
   async dispose() {
     if (this._disposed) return;
     this._disposed = true; this._playing = false; this._audioEnabled = false; this._desiredAudio = false;
+    this._fontSelection++;
     this._visual = null;
     this.runtime.removeEventListener?.('pagehide', this._onPageHide);
     this._cancelLoads(); this._clear('dispose'); this._file = null;
@@ -301,12 +366,14 @@ export class MidiphoriaPlayer {
   async _initialize(context) {
     const valid = () => { if (this._disposed || context !== this.context) throw cancelled(); };
     this._fetchController = new AbortController();
-    const responsePromise = this.runtime.fetch(SOUNDFONT_URL.href, { signal: this._fetchController.signal });
+    const requestedFont = this._font;
+    const responsePromise = requestedFont ? Promise.resolve(requestedFont.buffer.slice(0))
+      : this.runtime.fetch(SOUNDFONT_URL.href, { signal: this._fetchController.signal }).then(async response => {
+        if (!response.ok) throw new Error(`Could not load the SoundFont (${response.status}).`);
+        return response.arrayBuffer();
+      });
     // Attach rejection handlers immediately even if another initialization stage fails.
-    const resources = Promise.all([this._loadLibrary(), responsePromise.then(async response => {
-      if (!response.ok) throw new Error(`Could not load the SoundFont (${response.status}).`);
-      return response.arrayBuffer();
-    }), context.audioWorklet.addModule(WORKLET_URL.href)]);
+    const resources = Promise.all([this._loadLibrary(), responsePromise, context.audioWorklet.addModule(WORKLET_URL.href)]);
     const [library, soundfont] = await this._wait(resources, 'Audio resources took too long to load.');
     valid();
     const audioNodeCreators = {
@@ -348,22 +415,14 @@ export class MidiphoriaPlayer {
     // Use the piano's own release, without an effects buffer that could become
     // audible again after Audio off/on has cleared the held pad voices.
     padSynth.setSystemParameter?.('effectsEnabled', false);
-    let rejectSoundfont;
-    const soundfontError = new Promise((_, reject) => { rejectSoundfont = reject; });
-    for (const engine of [synth, padSynth]) {
-      this._listen(engine.eventHandler, 'soundBankError', data => {
-        rejectSoundfont(new Error(data?.message || String(data || 'Could not load the SoundFont.')));
-      });
-    }
-    // addSoundBank transfers (detaches) its buffer; clone before either upload.
-    const padSoundfont = soundfont.slice(0);
-    // The processor reports malformed banks by event instead of rejecting addSoundBank.
-    const banksReady = Promise.all([[synth, soundfont], [padSynth, padSoundfont]].map(([engine, bank]) => (
-      Promise.resolve(engine.isReady).then(() => {
-        valid(); return engine.soundBankManager.addSoundBank(bank, 'midiphoria');
-      })
-    )));
-    await this._wait(Promise.race([banksReady, soundfontError]), 'The MIDI sound engine did not become ready.');
+    const defaultFont = requestedFont ?? { buffer: soundfont, name: 'TimGM6mb' };
+    let activeFont = this._font ?? defaultFont;
+    await this._uploadSoundFont(activeFont, context);
+    valid();
+    // A chooser can finish validating a new selection during resource startup.
+    // Keep output muted until the latest accepted bank is uploaded to both synths.
+    while (this._font && this._font !== activeFont) { activeFont = this._font; await this._uploadSoundFont(activeFont, context); valid(); }
+    this._font = activeFont; this._fontName = activeFont.name;
     valid();
     padSynth.programChange(0, 0); // General MIDI acoustic grand piano.
     this._sequencer = new library.Sequencer(synth, { skipToFirstNoteOn: false, initialPlaybackRate: this._rate });
@@ -517,9 +576,9 @@ export class MidiphoriaPlayer {
   }
 
   async _closeEngine() {
-    const context = this.context;
+    const context = this.context, ownsContext = this._ownsContext;
     this.releasePads();
-    this.context = null; this._engineReady = false; this._enginePromise = null; this._playing = false;
+    this.context = null; this._ownsContext = false; this._engineReady = false; this._enginePromise = null; this._playing = false;
     this._fetchController?.abort(); this._fetchController = null;
     for (const [timer, reject] of this._waits) { this.runtime.clearTimeout(timer); reject(cancelled()); }
     this._waits.clear();
@@ -533,7 +592,7 @@ export class MidiphoriaPlayer {
     this._preamp?.disconnect(); this._preamp = null;
     this._compressor?.disconnect(); this._compressor = null;
     this._ceiling?.disconnect(); this._ceiling = null;
-    if (context && context.state !== 'closed') await context.close().catch(() => {});
+    if (ownsContext && context && context.state !== 'closed') await context.close().catch(() => {});
   }
 
   _updateGain() {

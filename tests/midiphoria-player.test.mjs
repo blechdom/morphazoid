@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { MidiphoriaPlayer } from '../src/instruments/midiphoria/midiphoria-player.js';
+import { encodeSoundFont } from '../src/site/sound-fonts/soundfont.js';
 
 const flush = async () => { for (let index = 0; index < 24; index++) await Promise.resolve(); };
 const midi = () => new Uint8Array([
@@ -15,7 +16,7 @@ class Events {
   emit(type, data) { for (const [key, callback] of this.callbacks) if (key.startsWith(`${type}:`)) callback(data); }
 }
 
-function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock } = {}) {
+function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock, getAudioContext } = {}) {
   const calls = [], messages = [], clears = [], states = [], contexts = [], synths = [], sequencers = [];
   const timers = new Map(), windowEvents = new Map();
   let nextTimer = 0, releaseLibrary;
@@ -54,13 +55,17 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
       this.context = context; this.config = config; this.notes = []; this.stops = [];
       this.eventHandler = new Events(); this.isReady = Promise.resolve(); this.index = synths.length; synths.push(this);
       this.worklet = config.audioNodeCreators.worklet(context, 'fake-synth', {});
-      this.soundBankManager = { addSoundBank: async buffer => {
+      this.pendingBanks = []; this.bankIds = [];
+      this.soundBankManager = { addSoundBank: async (buffer, id) => {
+        this.bankIds.push(id);
         this.bank = structuredClone(buffer, { transfer: [buffer] });
         calls.push('soundbank');
-        if (bankFailure === true || bankFailure === this.index) {
+        if (bankFailure === true || bankFailure === this.index || this.failNextBank) {
+          this.failNextBank = false;
           this.eventHandler.emit('soundBankError', new Error('bad bank'));
           return new Promise(() => {});
         }
+        if (this.deferBanks) return new Promise(resolve => this.pendingBanks.push(resolve));
       } };
     }
     connect(target) { calls.push('synth-connect'); this.target = target; }
@@ -101,7 +106,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
     addEventListener(type, callback) { windowEvents.set(type, callback); },
     removeEventListener(type, callback) { if (windowEvents.get(type) === callback) windowEvents.delete(type); },
   };
-  const player = new MidiphoriaPlayer({ runtime, clock, loadLibrary: () => { calls.push('import'); return libraryPromise; },
+  const player = new MidiphoriaPlayer({ runtime, clock, getAudioContext, loadLibrary: () => { calls.push('import'); return libraryPromise; },
     connectOutput: (context, source) => { context.outputSource = source; calls.push('output-connect'); return () => calls.push('output-release'); },
     onMidi: message => messages.push(message), onClear: (...args) => clears.push(args), onState: state => states.push(state),
   });
@@ -114,6 +119,99 @@ async function ready(h) {
   assert.equal(await h.player.enableAudio(), true);
   return h.sequencers[0];
 }
+
+const bank = name => encodeSoundFont({ name, samples: [{ data: new Float32Array(64).fill(.1) }] });
+const waitFor = async predicate => {
+  for (let index = 0; index < 30 && !predicate(); index++) await new Promise(resolve => setImmediate(resolve));
+  assert.ok(predicate());
+};
+
+test('borrowed audio context survives file-player teardown and processor failure', async () => {
+  let shared; const h = harness({ getAudioContext: () => shared }); shared = new h.runtime.AudioContext();
+  await ready(h); assert.equal(h.contexts.length, 1); h.player.play();
+  h.synths[0].worklet.emit('processorerror'); await flush();
+  assert.equal(shared.state, 'running'); assert.equal(h.calls.includes('close'), false);
+  assert.equal(h.player.context, null); assert.equal(h.synths[0].destroyed, true);
+  assert.equal(await h.player.enableAudio(), true); assert.equal(h.contexts.length, 1);
+  assert.equal(h.player.state.ready, true);
+  await h.player.dispose(); assert.equal(shared.state, 'running'); assert.equal(shared.listeners.size, 0);
+  assert.equal(h.calls.includes('close'), false); assert.equal(h.calls.filter(call => call === 'output-release').length, 2);
+});
+
+test('unavailable shared context never creates a private engine and failed startup leaves its owner usable', async () => {
+  const absent = harness({ getAudioContext: () => null });
+  assert.equal(await absent.player.enableAudio(), false); assert.equal(absent.contexts.length, 0);
+  assert.match(absent.player.state.error, /shared audio engine/); await absent.player.dispose();
+  let shared; const failed = harness({ getAudioContext: () => shared, bankFailure: true }); shared = new failed.runtime.AudioContext();
+  assert.equal(await failed.player.enableAudio(), false); assert.equal(shared.state, 'running');
+  assert.equal(shared.listeners.size, 0); assert.equal(failed.timers.size, 0); assert.equal(failed.calls.includes('close'), false);
+  assert.ok(shared.createGain(), 'the owning instrument can still create and play its own nodes');
+  await failed.player.dispose(); assert.equal(shared.state, 'running');
+});
+
+test('borrowed owner can replace a closed context and MIDI recovery uses only the new shared context', async () => {
+  let shared; const h = harness({ getAudioContext: () => shared }); shared = new h.runtime.AudioContext();
+  await ready(h); const previous = shared;
+  previous.changeState('closed'); await flush(); shared = new h.runtime.AudioContext();
+  assert.equal(await h.player.enableAudio(), true); assert.equal(h.contexts.length, 2); assert.equal(h.player.context, shared);
+  assert.equal(h.player.state.fileName, 'first.mid'); await h.player.dispose(); assert.equal(shared.state, 'running');
+});
+
+test('validated bank can be queued before Audio and startup uses its intact bytes for both synths', async () => {
+  const h = harness(), bytes = bank('Shared bank'), expected = [...new Uint8Array(bytes)];
+  await h.player.loadSoundFont(bytes, 'Shared bank'); assert.equal(h.contexts.length, 0);
+  assert.equal(h.player.state.soundfontName, 'Shared bank'); await ready(h);
+  assert.equal(h.calls.filter(call => Array.isArray(call) && call[0] === 'fetch').length, 0);
+  for (const synth of h.synths) { assert.deepEqual([...new Uint8Array(synth.bank)], expected); assert.deepEqual(synth.bankIds, ['midiphoria']); }
+  assert.deepEqual([...new Uint8Array(bytes)], expected); await h.player.dispose();
+});
+
+test('active SoundFont replacement retains time, rate, loop, volume, Audio and transport; invalid bank preserves it', async () => {
+  const h = harness(); const sequence = await ready(h); h.player.play(); sequence.currentTime = 4;
+  h.player.setPlaybackRate(2); h.player.setLoop(true); h.player.setVolume(.37);
+  const bytes = bank('Replacement'); await h.player.loadSoundFont(bytes, 'Replacement');
+  assert.equal(h.player.state.time, 4); assert.equal(h.player.state.playing, true); assert.equal(sequence.paused, false);
+  assert.equal(h.player.state.rate, 2); assert.equal(h.player.state.loop, true); assert.equal(h.player.state.volume, .37);
+  assert.equal(h.player.state.audioEnabled, true); assert.equal(h.player.state.soundfontName, 'Replacement');
+  const accepted = h.player._font;
+  for (const synth of h.synths) { assert.deepEqual([...new Uint8Array(synth.bank)], [...new Uint8Array(bytes)]); assert.deepEqual(synth.bankIds, ['midiphoria', 'midiphoria']); }
+  await assert.rejects(h.player.loadSoundFont(new ArrayBuffer(12), 'Bad'), /not an SF2/);
+  const broken = bytes.slice(0); new DataView(broken).setUint32(4, 10, true);
+  await assert.rejects(h.player.loadSoundFont(broken, 'Truncated'));
+  assert.equal(h.player._font, accepted); assert.equal(h.player.state.time, 4); assert.equal(h.player.state.playing, true);
+  await h.player.dispose();
+});
+
+test('failed active bank commit restores both accepted banks without stopping playback', async () => {
+  const h = harness(); const sequence = await ready(h); const accepted = bank('Accepted');
+  await h.player.loadSoundFont(accepted, 'Accepted'); h.player.play(); sequence.currentTime = 6;
+  h.synths[1].failNextBank = true;
+  await assert.rejects(h.player.loadSoundFont(bank('Rejected'), 'Rejected'), /bad bank/);
+  for (const synth of h.synths) assert.deepEqual([...new Uint8Array(synth.bank)], [...new Uint8Array(accepted)]);
+  assert.equal(h.player.state.soundfontName, 'Accepted'); assert.equal(h.player.state.time, 6); assert.equal(h.player.state.playing, true);
+  await h.player.dispose();
+});
+
+test('pending bank acknowledgements serialize across both synths and latest queued bank wins', async () => {
+  const h = harness(); await ready(h); h.synths.forEach(synth => { synth.deferBanks = true; });
+  const first = h.player.loadSoundFont(bank('First'), 'First');
+  await waitFor(() => h.synths.every(synth => synth.pendingBanks.length === 1));
+  const second = h.player.loadSoundFont(bank('Second'), 'Second'); await flush();
+  assert.ok(h.synths.every(synth => synth.bankIds.length === 2));
+  h.synths.forEach(synth => synth.pendingBanks.shift()()); await first;
+  await waitFor(() => h.synths.every(synth => synth.pendingBanks.length === 1));
+  h.synths.forEach(synth => synth.pendingBanks.shift()()); await second;
+  assert.equal(h.player.state.soundfontName, 'Second'); assert.ok(h.synths.every(synth => synth.bankIds.length === 3));
+  await h.player.dispose();
+});
+
+test('a bank chosen during initial resource loading is active before Audio becomes audible', async () => {
+  const h = harness({ deferredLibrary: true }), pending = h.player.enableAudio();
+  const bytes = bank('During startup'); await h.player.loadSoundFont(bytes, 'During startup'); h.releaseLibrary();
+  assert.equal(await pending, true); assert.equal(h.player.state.soundfontName, 'During startup');
+  for (const synth of h.synths) assert.deepEqual([...new Uint8Array(synth.bank)], [...new Uint8Array(bytes)]);
+  await h.player.dispose();
+});
 
 test('silent decorative timeline supports seek, 8x, pause, looping and end without creating audio', async () => {
   let now = 0; const h = harness({ clock: () => now });

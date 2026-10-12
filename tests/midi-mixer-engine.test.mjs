@@ -203,8 +203,8 @@ function deferredFontRuntime() {
   const pending = { contexts: [], uploads: [], initialized: null, fetchResolve: null, now: 0, transport: null };
   const parameter = () => ({ value: 0, cancelAndHoldAtTime() {}, cancelScheduledValues() {}, setValueAtTime(value) { this.value = value; }, linearRampToValueAtTime(value) { this.value = value; }, setTargetAtTime(value) { this.value = value; } });
   class Node {
-    constructor() { for (const name of ['gain', 'frequency', 'Q', 'delayTime', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[name] = parameter(); }
-    connect() {} disconnect() {} addEventListener() {} removeEventListener() {}
+    constructor() { this.targets = []; for (const name of ['gain', 'frequency', 'Q', 'delayTime', 'threshold', 'knee', 'ratio', 'attack', 'release']) this[name] = parameter(); }
+    connect(target) { this.targets.push(target); } disconnect(target) { this.targets = target ? this.targets.filter(value => value !== target) : []; } addEventListener() {} removeEventListener() {}
   }
   class Context {
     constructor() { pending.contexts.push(this); this.currentTime = 0; this.sampleRate = 48000; this.state = 'running'; this.audioWorklet = { addModule: async () => {} }; }
@@ -251,4 +251,26 @@ test('a malformed pending SoundFont during arming retains the acknowledged worki
   await untilMicrotasks(() => pending.uploads.length === 1); pending.uploads[0].complete('Invalid SoundFont sample data');
   assert.equal(await arming, true); assert.equal(engine.state.soundfontName, 'TimGM6mb'); assert.equal(engine._font, null);
   assert.match(engine.state.error, /Invalid SoundFont/); assert.equal(pending.contexts.length, 1); await engine.dispose();
+});
+
+test('external file sources share filter, effects, master and peak ceiling with bounded owned connections', async () => {
+  const { runtime, pending } = deferredFontRuntime(), engine = new MidiMixerEngine({ runtime, connectOutput: () => () => {} });
+  const arming = engine.enableAudio(), context = engine.context, source = context.createGain(); source.context = context;
+  assert.throws(() => engine.connectExternalSource(context, source), /not ready/);
+  pending.fetchResolve(taggedFont(1)); await untilMicrotasks(() => pending.initialized); pending.initialized.ready(); await arming;
+  const unrelated = context.createGain(); source.connect(unrelated);
+  const release = engine.connectExternalSource(context, source, { gain: 1 / 8 }), input = source.targets.find(node => node !== unrelated);
+  assert.equal(input.gain.value, 1 / 8); assert.deepEqual(input.targets, [engine._filter]);
+  assert.deepEqual(engine._filter.targets, [engine._preamp]); assert.deepEqual(engine._preamp.targets, [engine._compressor]);
+  assert.ok(engine._compressor.targets.includes(engine._dry)); assert.deepEqual(engine._dry.targets, [engine._gain]); assert.deepEqual(engine._gain.targets, [engine._ceiling]);
+  assert.equal(Math.max(...engine._ceiling.curve), .9800000190734863);
+  assert.throws(() => engine.connectExternalSource(context, source), /already connected/);
+  assert.throws(() => engine.connectExternalSource({}, source), /not ready/);
+  const foreign = context.createGain(); foreign.context = {}; assert.throws(() => engine.connectExternalSource(context, foreign), /shared audio context/);
+  for (let index = 0; index < 3; index++) engine.connectExternalSource(context, context.createGain(), { gain: 100 });
+  assert.equal(engine._externalSources.size, 4); assert.throws(() => engine.connectExternalSource(context, context.createGain()), /four/);
+  release(); release(); assert.deepEqual(source.targets, [unrelated]); assert.deepEqual(input.targets, []); assert.equal(engine._externalSources.size, 3);
+  const finalSource = context.createGain(); engine.connectExternalSource(context, finalSource, { gain: -10 }); assert.equal(finalSource.targets[0].gain.value, 0);
+  await engine.dispose(); assert.equal(engine._externalSources.size, 0); assert.deepEqual(finalSource.targets, []);
+  assert.throws(() => engine.connectExternalSource(context, source), /not ready/);
 });
