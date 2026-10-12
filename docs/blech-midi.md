@@ -68,8 +68,10 @@ the existing MIDI stamp engine. Source settings apply to future sends; live
 parameters update active voices where supported.
 
 The collapsed **SoundFont & live effects** section keeps the stamp sound controls
-on this page. Open a local SF2/SF3 bank up to 32 MB, or restore TimGM6mb. Selecting
-a bank leaves Audio off until explicitly enabled. Banks stay in this browser;
+on this page. Choose a bundled bank or a font saved on **Sound Fonts**, import a
+local SF2/SF3 file up to 128 MiB, or restore TimGM6mb. Accepted imports join the
+[shared browser library](shared-sound-fonts.md). Choosing a bank preserves the
+current Audio state; enable Audio explicitly to hear it. Banks stay in this browser;
 loading errors keep the previous usable bank. Filter frequency, echo mix,
 beat-based echo length, feedback, and the existing SoundFont reverb/chorus
 parameters update the same engine used by drawings, stamps, messages and rules.

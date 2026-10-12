@@ -1,25 +1,34 @@
 # Sound Fonts
 
 Open `/sound-fonts.html`, or follow **Sound Fonts** below the home catalogue.
-This is a browser-local collection and a small SF2 workshop. It does not add a
+This is a shared browser-local SF2/SF3 collection and a sample-to-SF2 creator. It does not add a
 server, account, cloud library, or a new catalogue instrument.
 
 ## Collect and play
 
-**Explore** opens with 143 searchable presets: 140 from the five bundled banks
+**Explore** opens with 814 searchable presets: 811 from the eight bundled banks
 and three Morphazoid originals. Filter by instrument family or search for an
 instrument. Selecting a preset downloads its bank once and saves it to the
-collection. Presets are identified by bank/program, independent of their SF2
+collection. Presets are identified by bank/program, independent of their SoundFont
 storage order. **Next preset** steps through the filtered results.
 
-**Find sounds** includes five free banks: TimGM6mb (136 General MIDI presets),
-FreePats Kalimba, Ocarina, Jaw Harp, and Lately Bass. **Add to collection** loads
-the original SF2 into browser storage; subsequent clicks open that saved entry.
-**Download SF2** exports the original file directly. Banks load on demand.
+**Find sounds** includes eight free banks: TimGM6mb (136 presets), FreePats
+Kalimba, Ocarina, Jaw Harp and Lately Bass, plus three complete GM banks:
+
+| Bank | Format | Download | Presets |
+| --- | --- | --- | --- |
+| GeneralUser GS 2.0.3 | SF2 | 30.8 MiB | 287 |
+| FluidR3Mono GM 2.312 | SF3 | 13.9 MiB | 195 |
+| FluidR3 GM 3.1 | SF3 | 23.1 MiB | 189 |
+
+Each new bank includes all 128 GM programs and standard percussion. Additional
+presets include alternate instruments and drum kits. **Add to collection**
+saves the bank in browser storage; subsequent clicks open the saved entry.
+**Download SF2/SF3** exports the exact bundled file. Banks load on demand.
 Credits and license links accompany every bank. Jaw Harp maps different
 articulations to keys, rather than transposing a single pitched sound.
 
-Import uncompressed SF2 files (up to 128 MiB each, eight files per import), or
+Import SF2 or compressed SF3 (up to 128 MiB each, eight files per import), or
 save an HTTP/HTTPS source link to revisit later. Search names, creators, and
 notes; filter imports, creations, links, and favorites. Edit descriptive
 metadata beside the selected font. Metadata edits preserve the original
@@ -35,11 +44,12 @@ The keyboard follows each bundled preset's playable register, including drum
 keys and the ocarina's higher range. Unmapped notes are disabled. Preview notes
 are validated against both key and velocity ranges.
 
-The player previews PCM sample zones with key and velocity ranges, pitch,
-panning, loop points, attack, and release. It is not a complete SoundFont synth:
-modulators, filters, effects, some envelope stages, exclusive classes, and some
-generator offsets are omitted or reported. Unsupported banks fail visibly.
-Preview warnings describe limitations; original imported files remain intact.
+The page uses the shared SpessaSynth SoundFont player for SF2/SF3 decoding,
+modulators, filters, envelopes, looping and effects. Original bank bytes remain
+intact. Fonts created or imported here are also available in Midiophilia's
+**MIDI Mixer** and **Blech MIDI**, under **SoundFont & live effects → SoundFont
+bank**. Accepted imports in either instrument appear here too. Other instruments
+can adopt the [shared picker, library service and playback adapter](shared-sound-fonts.md).
 
 ## Create a Sound Font
 
@@ -68,9 +78,9 @@ have separate collections. Download fonts for backup or sharing. If IndexedDB
 cannot open, a visible temporary-session notice explains that files must be
 downloaded before closing. Quota failures are shown without claiming a save.
 
-Audio is limited to 16 simultaneous sample sources, including release tails,
-with a 15-second maximum note and a bounded PCM buffer cache. Oversized or
-malformed SF2 data is rejected before unsafe indexing. Preview audio is
+Full-bank playback is limited to 64 voices and a 15-second maximum held note.
+The in-memory PCM fallback retains its 16-source cap and bounded buffer cache.
+Oversized or malformed SoundFont data is rejected before unsafe indexing. Preview audio is
 scheduled on the audio clock and does not depend on waveform drawing.
 Single notes use a practical playback level; a compressor and a 0.98 peak guard
 bound combined voices before the master volume.
@@ -83,15 +93,18 @@ source URLs, and file/archive hashes are retained in
 [`assets/sound-fonts/provenance.json`](../assets/sound-fonts/provenance.json).
 TimGM6mb reuses the existing GPL-2.0-only bank and notices in
 [`assets/midiphoria/soundfont/`](../assets/midiphoria/soundfont/).
-The additional links lead to [GeneralUser GS](https://schristiancollins.com/generaluser)
-and [Polyphone](https://www.polyphone.io/en/documentation/manual/online-repository).
-Those additional collections are not bundled or automatically downloaded.
+GeneralUser GS retains its custom license and author credits. The two Fluid
+banks retain their MIT notices. FluidR3 GM is redistributed as an SF3 converted
+from the original SF2; compressed audio is lossy, while instrument programming
+and loop points are preserved. Pinned sources, original and shipped hashes,
+conversion instructions and upstream metadata caveats are recorded beside each
+bank under `assets/sound-fonts/` and in `provenance.json`.
 
 Focused verification:
 
 ```sh
-node --test tests/sound-font-codec.test.mjs tests/sound-font-preview.test.mjs
-npx playwright test e2e/sound-fonts.spec.mjs
+node --test tests/sound-font-*.test.mjs
+npx playwright test e2e/sound-fonts.spec.mjs e2e/sound-font-shared.spec.mjs
 ```
 
 The browser suite checks actual import/export, uploaded audio, IndexedDB reload,

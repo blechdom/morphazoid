@@ -5,6 +5,7 @@ import { MidiMixerEngine, compileDeck } from '../src/instruments/midi-mixer/midi
 import { MidiMixerClock, MAX_EVENTS_PER_BLOCK } from '../src/instruments/midi-mixer/midi-mixer-clock.js';
 import { defaultDeckConfig, parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { generateTextMidi } from '../src/instruments/midiphoria/midiphoria-text-midi.js';
+import { encodeSoundFont } from '../src/site/sound-fonts/soundfont.js';
 
 const data = (beats = 4) => ({ events: [{ beat: 0, kind: 9, channel: 0, a: 60, b: 90 }, { beat: beats / 2, kind: 8, channel: 0, a: 60, b: 0 }], controllers: [], channels: [{ channel: 0, drums: false }], loopBeats: beats });
 test('two deck clocks stay aligned over an hour, loop against absolute beats and change tempo without phase reset', () => {
@@ -131,6 +132,25 @@ test('scrubbing keeps global tempo phase, effect bounds stay finite, and SoundFo
   assert.equal(engine.state.soundfontName, 'Imported bank'); assert.equal(engine.context, null); assert.equal(engine.state.audioEnabled, false);
   await assert.rejects(engine.loadSoundFont(new ArrayBuffer(12)), /not an SF2/); await engine.dispose();
 });
+test('a corrupt sample reference is rejected while Audio is off without replacing the accepted bank', async () => {
+  let constructed = 0;
+  const engine = new MidiMixerEngine({ runtime: { performance: { now: () => 0 }, AudioContext: class { constructor() { constructed++; } } } });
+  try {
+    const original = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
+    const bytes = original.buffer.slice(original.byteOffset, original.byteOffset + original.byteLength);
+    await engine.loadSoundFont(bytes, 'Working bank');
+    const accepted = engine._font, broken = bytes.slice(0), view = new DataView(broken);
+    const igen = original.indexOf(Buffer.from('igen')) + 8;
+    let mutated = false;
+    for (let at = igen; at < igen + view.getUint32(igen - 4, true); at += 4) {
+      if (view.getUint16(at, true) === 53) { view.setUint16(at + 2, 65535, true); mutated = true; break; }
+    }
+    assert.ok(mutated);
+    await assert.rejects(engine.loadSoundFont(broken, 'Corrupt bank'), /sample|undefined|invalid/i);
+    assert.equal(engine._font, accepted); assert.equal(engine.state.soundfontName, 'Working bank');
+    assert.equal(engine.context, null); assert.equal(constructed, 0); assert.equal(engine.state.audioEnabled, false);
+  } finally { await engine.dispose(); }
+});
 test('half-speed and up to eight-times-speed files share exact master-beat alignment across independent loops', () => {
   for (const rate of [2, 8]) {
     const attacks = [[], []]; let absoluteFrame = 0;
@@ -202,7 +222,8 @@ function deferredFontRuntime() {
   }
   return { pending, runtime: { AudioContext: Context, AudioWorkletNode: Worklet, setTimeout, clearTimeout, performance: { now: () => pending.now }, fetch: () => new Promise(resolve => { pending.fetchResolve = buffer => resolve({ ok: true, arrayBuffer: async () => buffer }); }) } };
 }
-const taggedFont = marker => new Uint8Array([82, 73, 70, 70, 5, 0, 0, 0, 115, 102, 98, 107, marker]).buffer;
+const taggedFont = marker => encodeSoundFont({ name: `Bank ${marker}`, samples: [{ data: new Float32Array(64).fill(.1) }] });
+const fontMarker = bytes => { const data = Buffer.from(bytes); return data[data.indexOf(Buffer.from('Bank ')) + 5] - 48; };
 async function untilMicrotasks(predicate) { for (let i = 0; i < 100 && !predicate(); i++) await Promise.resolve(); assert.ok(predicate()); }
 test('the latest SoundFont selection wins changes during fetch, processor initialization and pending bank acknowledgement', async () => {
   const { runtime, pending } = deferredFontRuntime(), engine = new MidiMixerEngine({ runtime, connectOutput: () => () => {} });
@@ -210,7 +231,7 @@ test('the latest SoundFont selection wins changes during fetch, processor initia
   const arming = engine.enableAudio();
   await engine.loadSoundFont(taggedFont(2), 'During fetch'); pending.fetchResolve(taggedFont(1));
   await untilMicrotasks(() => pending.initialized);
-  assert.equal(new Uint8Array(pending.initialized.message.soundfont)[12], 2);
+  assert.equal(fontMarker(pending.initialized.message.soundfont), 2);
   await engine.loadSoundFont(taggedFont(3), 'During processor startup'); pending.initialized.ready();
   await untilMicrotasks(() => pending.uploads.length === 1);
   engine.node.port.onmessage({ data: { type: 'state', beat: 0, at: 0, tempo: 120, skippedEvents: 0, voices: 0, droppedVisualEvents: 0 } });
@@ -219,8 +240,8 @@ test('the latest SoundFont selection wins changes during fetch, processor initia
   await engine.loadSoundFont(taggedFont(4), 'Newest bank'); pending.uploads[0].complete();
   await untilMicrotasks(() => pending.uploads.length === 2); pending.uploads[1].complete();
   assert.equal(await arming, true);
-  assert.deepEqual(pending.uploads.map(upload => new Uint8Array(upload.message.soundfont)[12]), [3, 4]);
-  assert.equal(engine.state.soundfontName, 'Newest bank'); assert.equal(new Uint8Array(engine._font.buffer)[12], 4);
+  assert.deepEqual(pending.uploads.map(upload => fontMarker(upload.message.soundfont)), [3, 4]);
+  assert.equal(engine.state.soundfontName, 'Newest bank'); assert.equal(fontMarker(engine._font.buffer), 4);
   assert.equal(pending.contexts.length, 1); assert.equal(pending.transport.beat, 14); await engine.dispose();
 });
 test('a malformed pending SoundFont during arming retains the acknowledged working bank', async () => {

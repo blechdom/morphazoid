@@ -1,3 +1,4 @@
+import { MAX_SOUNDFONT_BYTES } from '../../sound-fonts/bank-format.js';
 import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
@@ -58,7 +59,7 @@ export class MidiMixerEngine {
     this.context = null; this.node = null; this._gain = null; this._preamp = null; this._compressor = null; this._ceiling = null;
     this._filter = null; this._delay = null; this._dry = null; this._wet = null; this._feedback = null;
     this._effects = { filterHz: 20000, delayMix: 0, delayBeats: 0.5, feedback: 0.3, synth: {} };
-    this._font = null; this._fontName = 'TimGM6mb'; this._fontWaits = new Map();
+    this._font = null; this._fontName = 'TimGM6mb'; this._fontWaits = new Map(); this._fontSelection = 0;
     this._releaseOutput = null; this._promise = null; this._ready = false; this._disposed = false; this._serial = 0;
     this._playing = false; this._desiredAudio = false; this._audioEnabled = false; this._volume = 0.6; this._tempo = 120; this._crossfade = 0;
     this._beat = 0; this._anchor = this._now(); this._audioAnchor = null; this._audioTempo = 120;
@@ -342,9 +343,16 @@ export class MidiMixerEngine {
     this._updateEffects(); this._publish(); return { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) };
   }
   async loadSoundFont(buffer, name = 'Imported SoundFont') {
-    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > 32 * 1024 * 1024) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 32 MB or smaller.');
+    if (!(buffer instanceof ArrayBuffer) || buffer.byteLength < 12 || buffer.byteLength > MAX_SOUNDFONT_BYTES) throw new Error('Choose a SoundFont (.sf2 or .sf3) of 128 MiB or smaller.');
     const view = new DataView(buffer);
     if (view.getUint32(0) !== 0x52494646 || view.getUint32(8) !== 0x7366626b) throw new Error('This is not an SF2 or SF3 SoundFont.');
+    const selection = ++this._fontSelection;
+    // Validate the full preset/instrument/sample graph before accepting a bank,
+    // including while Audio is off. Loading the parser creates no audio context.
+    const { SoundBankLoader } = await import('./vendor/spessasynth-core.js');
+    if (this._disposed || selection !== this._fontSelection) throw new DOMException('SoundFont selection was superseded.', 'AbortError');
+    const parsed = SoundBankLoader.fromArrayBuffer(buffer);
+    if (!parsed.presets.length) throw new Error('The SoundFont contains no instrument presets.');
     const font = { buffer: buffer.slice(0), name: String(name).slice(0, 128) };
     if (!this._ready) { this._font = font; this._fontName = font.name; this._publish(); return true; }
     return this._uploadSoundFont(font, true);
@@ -352,7 +360,7 @@ export class MidiMixerEngine {
   _uploadSoundFont(font, commitSelection = false) {
     const token = ++this._serial;
     return new Promise((resolve, reject) => {
-      const timer = this.runtime.setTimeout(() => { this._fontWaits.delete(token); reject(new Error('The SoundFont took too long to load.')); }, 30000);
+      const timer = this.runtime.setTimeout(() => { this._fontWaits.delete(token); reject(new Error('The SoundFont took too long to load.')); }, 90000);
       this._fontWaits.set(token, { resolve, reject, font, timer, commitSelection });
       const copy = font.buffer.slice(0); this.node.port.postMessage({ type: 'soundfont', soundfont: copy, token }, [copy]);
     });
@@ -471,9 +479,9 @@ export class MidiMixerEngine {
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });
   }
-  _wait(promise, message) {
+  _wait(promise, message, timeoutMs = 90000) {
     return new Promise((resolve, reject) => {
-      const timeout = this.runtime.setTimeout(() => reject(new Error(message)), 30000);
+      const timeout = this.runtime.setTimeout(() => reject(new Error(message)), timeoutMs);
       const cancel = () => reject(new Error('MIDI mixer initialization cancelled.')); this._waitCancel = cancel;
       Promise.resolve(promise).then(resolve, reject).finally(() => { this.runtime.clearTimeout(timeout); if (this._waitCancel === cancel) this._waitCancel = null; });
     });

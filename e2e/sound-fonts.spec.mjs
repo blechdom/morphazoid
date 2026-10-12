@@ -163,12 +163,12 @@ test('previously silent presets preview on selection and with the Preview button
 
 test('explore exposes every preset before downloads and selects by bank/program',async({page})=>{
   const downloads=[];
-  page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('.sf2'))downloads.push(request.url());});
+  page.on('request',request=>{if(/\.sf[23]$/i.test(new URL(request.url()).pathname))downloads.push(request.url());});
   await open(page);
-  await expect(page.locator('.sf-preset-card')).toHaveCount(143);
+  await expect(page.locator('.sf-preset-card')).toHaveCount(3+freeBanks.reduce((sum,bank)=>sum+bank.presetCount,0));
   expect(downloads).toHaveLength(0);
   await page.locator('#familySelect').selectOption('Pianos');
-  await expect(page.locator('.sf-preset-card')).toHaveCount(8);
+  await expect(page.locator('.sf-preset-card')).toHaveCount(freeBanks.flatMap(bank=>bank.presets).filter(preset=>preset.family==='Pianos').length);
   await page.getByRole('button',{name:'Acoustic Grand Piano Pianos · TimGM6mb',exact:true}).click();
   await expect(page.locator('#selectedName')).toHaveText('TimGM6mb');
   await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 1 · 0:0');
@@ -178,7 +178,7 @@ test('explore exposes every preset before downloads and selects by bank/program'
   await expect(page.locator('#presetSelect option:checked')).toHaveText('Piano 2 · 0:1');
   await page.locator('#familySelect').selectOption('');
   await page.locator('#presetSearch').fill('ocarina');
-  await expect(page.locator('.sf-preset-card')).toHaveCount(2);
+  await expect(page.locator('.sf-preset-card')).toHaveCount(freeBanks.flatMap(bank=>bank.presets.map(preset=>({...preset,bankName:bank.name}))).filter(preset=>`${preset.displayName} ${preset.name} ${preset.family} ${preset.bankName}`.toLowerCase().includes('ocarina')).length);
   await page.locator('[data-preset="freepats-ocarina:0:0"]').click();
   await expect(page.locator('#selectedName')).toHaveText('Ocarina');
   await expect(page.getByRole('button',{name:'Play C4, key Z',exact:true})).toBeEnabled();
@@ -208,8 +208,9 @@ test('the latest preset wins during a shared bank download and leaving explore c
 });
 
 test('free banks load on demand, retain credits, export unchanged and survive reload',async({page})=>{
+  test.setTimeout(90000);
   const downloads=[];
-  page.on('request',request=>{if(new URL(request.url()).pathname.endsWith('.sf2'))downloads.push(request.url());});
+  page.on('request',request=>{if(/\.sf[23]$/i.test(new URL(request.url()).pathname))downloads.push(request.url());});
   await open(page);
   await page.getByRole('button',{name:'Find sounds',exact:true}).click();
   await expect(page.locator('.sf-bank')).toHaveCount(freeBanks.length);

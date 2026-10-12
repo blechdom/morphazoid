@@ -37,8 +37,10 @@ function riffDirectory(bytes) {
   const presets = lists.get('pdta').get('phdr'), samples = lists.get('pdta').get('shdr');
   assert.equal(presets.length % 38, 0);
   assert.equal(samples.length % 46, 0);
-  assert.equal(presets.toString('ascii', presets.length - 38, presets.length - 35), 'EOP');
-  assert.equal(samples.toString('ascii', samples.length - 46, samples.length - 43), 'EOS');
+  // MuseScore's FluidR3Mono export leaves terminal names blank. The terminal
+  // bag index and sample type, rather than display names, delimit the tables.
+  assert.equal(presets.readUInt16LE(presets.length - 38 + 24), lists.get('pdta').get('pbag').length / 4 - 1);
+  assert.equal(samples.readUInt16LE(samples.length - 2), 0);
   const addresses = [];
   for (let offset = 0; offset < presets.length - 38; offset += 38) {
     addresses.push({ bank: presets.readUInt16LE(offset + 22), program: presets.readUInt16LE(offset + 20) });

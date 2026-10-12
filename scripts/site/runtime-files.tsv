@@ -1939,3 +1939,25 @@ copy+require	src/instruments/midiphoria/midiphoria-processor.js
 
 # Blech MIDI continuous automata source and captured performance history.
 copy+require	src/instruments/midi-mixer/midi-mixer-automata.js
+
+# Shared SoundFont library, playback and complete GM banks.
+copy+require	assets/sound-fonts/fluidr3-gm/FluidR3_GM.sf3
+copy+require	assets/sound-fonts/fluidr3-gm/LICENSE.txt
+copy+require	assets/sound-fonts/fluidr3-gm/README.md
+copy+require	assets/sound-fonts/fluidr3-gm/UPSTREAM-README.txt
+copy+require	assets/sound-fonts/fluidr3-gm/convert-to-sf3.mjs
+copy+require	assets/sound-fonts/fluidr3mono-gm/FluidR3Mono_GM.sf3
+copy+require	assets/sound-fonts/fluidr3mono-gm/LICENSE.md
+copy+require	assets/sound-fonts/fluidr3mono-gm/README.md
+copy+require	assets/sound-fonts/generaluser-gs/GeneralUser-GS.sf2
+copy+require	assets/sound-fonts/generaluser-gs/LICENSE.txt
+copy+require	assets/sound-fonts/generaluser-gs/README.md
+copy+require	assets/sound-fonts/generaluser-gs/UPSTREAM-CHANGELOG.md
+copy+require	assets/sound-fonts/generaluser-gs/UPSTREAM-README.md
+copy+require	docs/shared-sound-fonts.md
+copy+require	src/sound-fonts/bank-format.js
+copy+require	src/sound-fonts/bank-service.js
+copy+require	src/sound-fonts/chooser.js
+copy+require	src/sound-fonts/library.js
+copy+require	src/sound-fonts/player-processor.js
+copy+require	src/sound-fonts/player.js

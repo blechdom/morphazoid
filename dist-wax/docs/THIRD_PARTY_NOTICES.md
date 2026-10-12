@@ -706,3 +706,20 @@ The Sound Fonts page also exposes the existing TimGM6mb bank, copyright Tim
 Brechbill and David Bolton, under GPL version 2. Its source record, copyright
 notice and complete GPL text remain in `assets/midiphoria/soundfont/`.
 These asset licenses are separate from Morphazoid's application license.
+
+GeneralUser GS 2.0.3 by S. Christian Collins is distributed unmodified under
+its GeneralUser GS License v2.0, which permits software integration and music
+creation and records uncertainty about some historical sample origins. The
+original license, release changelog and source record accompany the bank in
+`assets/sound-fonts/generaluser-gs/`.
+
+FluidR3Mono GM 2.312 retains the original MuseScore 2.1 SF3 and MIT license,
+crediting Frank Wen, Michael Cowgill, Ethan Winer and Michael Schorsch. Its
+accompanying license explicitly permits redistribution despite a stale
+restrictive comment embedded in the upstream asset; both are preserved.
+FluidR3 GM 3.1 by Frank Wen and contributors is distributed under its original
+MIT license as a Vorbis-compressed SF3, with all 189 presets and 1,418 sample
+mappings preserved. Its original SF2/archive hashes and reproducible conversion
+script are retained in `assets/sound-fonts/fluidr3-gm/` and the shared provenance
+record. SF3 compression is lossy. The original Fluid notices and contributors
+remain beside both banks; the application license does not replace them.

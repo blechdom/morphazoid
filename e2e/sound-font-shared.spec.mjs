@@ -132,7 +132,12 @@ for (const id of gmBankIds) {
     await page.getByRole('button', { name: `Add ${bank.name} to collection`, exact: true }).click();
     await expect(page.locator('#selectedName')).toHaveText(bank.name, { timeout: 60_000 });
     expect(downloads.length).toBeGreaterThan(0);
-    await page.locator('#presetSelect').selectOption('0');
+    // The page enhances its native preset select with the shared Choose UI.
+    const presetPicker = page.locator('.instrument-picker[data-select-id="presetSelect"]');
+    const piano = await page.locator('#presetSelect option[value="0"]').textContent();
+    await presetPicker.locator(':scope > summary').click();
+    await presetPicker.getByRole('searchbox', { name: 'Filter preset', exact: true }).fill(piano);
+    await presetPicker.getByRole('button', { name: piano, exact: true }).click();
     await expect(page.locator('#downloadButton')).toContainText(`Download ${bank.format.toUpperCase()}`);
     await page.locator('#auditionButton').click();
     await audioOff(page);
@@ -210,10 +215,47 @@ for (const consumer of consumers) {
   });
 }
 
+for (const source of ['draft', 'explore']) {
+  test(`Stop cancels pending ${source} preview while the bank loads`, async ({ page }) => {
+    await page.goto('/sound-fonts.html');
+    await expect(page.locator('#fontCount')).toHaveText('3');
+    await arm(page);
+    // Delay only the public loader's completion. The real worklet, bank and
+    // audio device still initialize, so silence proves cancellation of intent.
+    await page.evaluate(async () => {
+      const { SoundFontPlayer } = await import('/src/sound-fonts/player.js');
+      const original = SoundFontPlayer.prototype.load;
+      const gate = window.__bankReadyGate = { waiting: false, finished: false };
+      SoundFontPlayer.prototype.load = async function (...args) {
+        SoundFontPlayer.prototype.load = original;
+        await original.apply(this, args);
+        gate.waiting = true;
+        await new Promise(resolve => { gate.release = resolve; });
+        gate.finished = true;
+      };
+    });
+    if (source === 'draft') {
+      await page.locator('[data-view="workshop"]').click();
+      await page.locator('#previewDraft').click();
+    } else await page.locator('[data-preset="timgm6mb:0:0"]').click();
+    await expect.poll(() => page.evaluate(() => window.__bankReadyGate.waiting)).toBe(true);
+    await page.keyboard.press('Escape');
+    await page.evaluate(() => window.__bankReadyGate.release());
+    await expect.poll(() => page.evaluate(() => window.__bankReadyGate.finished)).toBe(true);
+    const canceled = await sampleAudioEnvelope(page, { durationMs: 600, intervalMs: 40 });
+    expect(canceled.summary.finite).toBe(true);
+    expect(canceled.summary.maxPeak).toBeLessThan(.0001);
+    await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
+    await page.locator(source === 'draft' ? '#previewDraft' : '#auditionButton').click();
+    await audible(page);
+    await page.keyboard.press('Escape'); await silent(page);
+  });
+}
+
 for (const consumer of consumers) for (const viewport of [
   { width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 },
 ]) {
-  test(`${consumer.name} exposes the shared picker at ${viewport.width}×${viewport.height}`, async ({ page }) => {
+  test(`${consumer.name} exposes the shared picker at ${viewport.width}×${viewport.height}`, async ({ page }, testInfo) => {
     await page.setViewportSize(viewport);
     await openConsumer(page, consumer);
     const picker = page.locator(pickerSelector), trigger = picker.locator(':scope > summary');
@@ -226,6 +268,9 @@ for (const consumer of consumers) for (const viewport of [
     await expect(search).toBeVisible(); await expect(search).toBeInViewport();
     await search.fill('GeneralUser');
     await expect(picker.getByRole('button').filter({ hasText: 'GeneralUser' })).toHaveCount(1);
+    const screenshot = testInfo.outputPath('shared-picker.png');
+    await page.screenshot({ path: screenshot });
+    await testInfo.attach('shared-picker', { path: screenshot, contentType: 'image/png' });
     await search.press('Escape'); await search.press('Escape');
     await expect(picker).not.toHaveAttribute('open', '');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

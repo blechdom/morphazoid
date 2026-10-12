@@ -41,6 +41,20 @@ test('metadata listing is lazy; bundled bytes are verified before load and persi
   service.dispose();
 });
 
+test('unnamed terminal records are accepted while corrupt terminal hydra pointers still fail', () => {
+  const unnamed = bytes.slice(0), view = new DataView(unnamed), copy = new Uint8Array(unnamed);
+  const phdr = data.indexOf(Buffer.from('phdr')), shdr = data.indexOf(Buffer.from('shdr'));
+  const presetTerminal = phdr + 8 + view.getUint32(phdr + 4, true) - 38;
+  const sampleTerminal = shdr + 8 + view.getUint32(shdr + 4, true) - 46;
+  copy.fill(0, presetTerminal, presetTerminal + 20); copy.fill(0, sampleTerminal, sampleTerminal + 46);
+  assert.equal(inspectSoundFont(unnamed).presetCount, 136);
+  view.setUint16(presetTerminal + 24, 0, true);
+  assert.throws(() => inspectSoundFont(unnamed), /bag index/);
+  const badGenerator = bytes.slice(0), broken = new DataView(badGenerator), pbag = data.indexOf(Buffer.from('pbag'));
+  broken.setUint16(pbag + 8 + broken.getUint32(pbag + 4, true) - 4, 65535, true);
+  assert.throws(() => inspectSoundFont(badGenerator), /generator\/modulator index/);
+});
+
 test('corrupt downloads, missing saved data, malformed imports and oversize files fail before consumption', async () => {
   const library = temporaryLibrary(), corrupt = bytes.slice(0); new Uint8Array(corrupt)[1000] ^= 1;
   const service = createSoundFontService({ library, crypto: webcrypto, fetch: async () => ({ ok: true, json: async () => [bank], arrayBuffer: async () => corrupt }) });
