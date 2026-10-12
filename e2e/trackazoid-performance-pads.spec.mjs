@@ -112,6 +112,8 @@ async function startRhythmCapture(page) {
       const timeout = setTimeout(() => { release(); node.disconnect(); node.port.close(); reject(new Error("Pad PCM capture timed out")); }, 12_000);
       node.port.onmessage = ({ data }) => { clearTimeout(timeout); release(); node.disconnect(); node.port.close(); resolve(data); };
     });
+    const started = context.currentTime;
+    window.__padCaptureTime = () => context.currentTime - started;
     node.connect(context.destination);
   });
 }
@@ -161,6 +163,7 @@ test("all eight typed pads persist names and moved saved loops without changing 
   await editor(page, "a", 7); await page.locator("#aPadName").fill(name);
   await page.waitForTimeout(150); await expect(page.locator("#aPadName")).toHaveValue(name);
   await page.locator("#aPadRename").click(); await expect(page.locator("#aHotCue8")).toContainText(name);
+  await expect(page.locator("#aHotCue8")).toHaveAccessibleName(`Deck A hot cue 8: loop ${name}`);
   await expect(page.locator("#aHotCue8 img")).toHaveCount(0);
   await page.locator("#aFit").click();
   const canvas = page.locator("#aWaveform"); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();
@@ -227,8 +230,10 @@ test("beat jumps, loop movement and half/double controls use their displayed bea
   expect((await deck(page, "a")).position).toBeCloseTo(4 * period, 6);
   await page.locator("#aLoop").click(); const original = (await deck(page, "a")).loop;
   await page.locator("#aLoopHalf").click(); let loop = (await deck(page, "a")).loop;
+  await expect(page.locator("#aLoopBeats")).toHaveValue("2");
   expect(loop.start).toBeCloseTo(original.start, 6); expect(loop.end - loop.start).toBeCloseTo(2 * period, 6);
   await page.locator("#aLoopDouble").click(); expect((await deck(page, "a")).loop).toEqual(original);
+  await expect(page.locator("#aLoopBeats")).toHaveValue("4");
   await page.locator("#aLoopMoveForward").click(); loop = (await deck(page, "a")).loop;
   expect(loop.start).toBeCloseTo(original.start + 4 * period, 6); expect(loop.end - loop.start).toBeCloseTo(4 * period, 6);
   await page.locator("#aWaveform").focus(); await page.keyboard.press("Shift+BracketLeft");
@@ -276,7 +281,7 @@ test("Quantize preserves playing follower phase on cue and loop recall; manual r
   await audioOff(page, errors);
 });
 
-test("actual stereo pulses stay aligned and audible through quantized cue, jump and saved-loop performance", async ({ page }) => {
+test("actual stereo pulses stay aligned and audible through quantized cue, jump and saved-loop performance", async ({ page }, testInfo) => {
   test.setTimeout(45_000);
   const errors = diagnostics(page); await ready(page, false);
   await page.locator("#filePicker").setInputFiles([
@@ -299,6 +304,22 @@ test("actual stereo pulses stay aligned and audible through quantized cue, jump 
   for (const suffix of ["HotCue1", "BeatJumpForward", "HotCue2", "LoopMoveForward", "LoopHalf", "LoopDouble"]) {
     await page.locator(`#b${suffix}`).click(); await synced(page); await page.waitForTimeout(170);
   }
+  // A second action in the same task replaces the scheduled manual seek. Its
+  // phase must come from what is still audible, not the discarded Home target.
+  await page.locator("#bWaveform").focus();
+  await page.waitForFunction(() => {
+    const a = window.__trackazoid.snapshot().decks.a, fraction = (a.position * 2) % 1;
+    return fraction > 0.35 && fraction < 0.65;
+  });
+  const rapidRecallTime = await page.evaluate(() => {
+    document.getElementById("bWaveform").dispatchEvent(new KeyboardEvent("keydown", { key: "Home", code: "Home", bubbles: true, cancelable: true }));
+    document.getElementById("bHotCue1").click();
+    return window.__padCaptureTime();
+  });
+  expect(rapidRecallTime + 1.1, "the unsynced regression must fit inside the PCM capture").toBeLessThan(8);
+  expect((await deck(page, "b")).sync).toBe(false);
+  await page.waitForTimeout(1100); // Hear two beats before Sync can repair any phase error.
+  await page.locator("#bSync").click(); await synced(page);
   const blocks = await page.evaluate(() => window.__padCapture);
   expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.left) && Number.isFinite(block.right))).toBe(true);
   expect(Math.max(...blocks.map(block => block.peak))).toBeLessThan(1);
@@ -317,6 +338,7 @@ test("actual stereo pulses stay aligned and audible through quantized cue, jump 
     expect(found.length, `${channel} beat attacks`).toBeGreaterThanOrEqual(13); attacks[channel] = found;
   }
   const gaps = attacks.right.map(time => Math.min(...attacks.left.map(other => Math.abs(time - other))));
+  await testInfo.attach("pad-pcm-rhythm.json", { body: JSON.stringify({ rapidRecallTime, attacks, onsetGaps: gaps }, null, 2), contentType: "application/json" });
   expect(Math.max(...gaps), `Rendered follower/master onset differences: ${gaps.join(", ")}`).toBeLessThan(0.045);
   await synced(page); expect((await readAudioStatus(page)).connectionCount).toBe(1);
   await page.evaluate(() => window.__trackazoid.dispose()); await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
