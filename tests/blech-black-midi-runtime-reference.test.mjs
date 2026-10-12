@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readBlechWorkspaceRuntimeReference as readFile } from './helpers/blech-workspace-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blechBlackMidiRuntimeChange as change, restoreBlechBlackMidiRuntime, readBlechBlackMidiRuntimeReference } from './helpers/blech-black-midi-runtime-reference.mjs';

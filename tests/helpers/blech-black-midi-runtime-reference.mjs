@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechWorkspaceRuntime } from './blech-workspace-runtime-reference.mjs';
 
 export const blechBlackMidiRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-black-midi-runtime-move.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blechBlackMidiRuntimeChange = JSON.parse(readFileSync(
 export function restoreBlechBlackMidiRuntime(source, file, { allowRestored = false } = {}) {
   const change = blechBlackMidiRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechWorkspaceRuntime(source, file, { allowRestored: true });
   // Paths, not policies, are the recognition markers: mutating every policy
   // still requires the exact reviewed block and cannot bypass strict checks.
   const paths = change.markers.map(row => row.split('\t')[1].trim());

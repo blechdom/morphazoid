@@ -1,0 +1,31 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+export const blechBrandSiteChanges = JSON.parse(readFileSync(
+  new URL('../fixtures/blech-brand-site-amendment.json', import.meta.url), 'utf8',
+));
+
+/** Restore only the reviewed label and catalogue copy; preserve unknown bytes. */
+export function restoreBlechBrandSite(source, file, { allowRestored = false } = {}) {
+  if (typeof source !== 'string') return source;
+  const change = blechBrandSiteChanges.changes.find(change => change.file === file);
+  if (!change) return source;
+  const markerCount = source.split(change.marker).length - 1;
+  const afterCount = source.split(change.after).length - 1;
+  const beforeCount = source.split(change.before).length - 1;
+  if (allowRestored && afterCount === 0 && (markerCount === 0 || (beforeCount > 0 && markerCount === beforeCount))) return source;
+  const error = `${file}: exact BLECH MIDI brand amendment`;
+  assert.equal(markerCount, 1, error);
+  assert.equal(afterCount, 1, error);
+  assert.equal(beforeCount, 0, error);
+  return source.replace(change.after, change.before);
+}
+
+export async function readBlechBrandSiteReference(file, encoding) {
+  const { readFile } = await import('node:fs/promises');
+  const { fileURLToPath } = await import('node:url');
+  const { relative } = await import('node:path');
+  const source = await readFile(file, encoding);
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  return restoreBlechBrandSite(source, relative(root, file instanceof URL ? fileURLToPath(file) : file));
+}

@@ -1996,3 +1996,13 @@ copy+require	src/sound-fonts/chooser.js
 copy+require	src/sound-fonts/library.js
 copy+require	src/sound-fonts/player-processor.js
 copy+require	src/sound-fonts/player.js
+
+# BLECH MIDI shared falling stage and tabbed performance generators.
+copy+require	assets/blech-midi/blech-mark.svg
+copy+require	src/instruments/blech-midi/blech-midi-live-score.js
+copy+require	src/instruments/blech-midi/blech-midi-math.js
+copy+require	src/instruments/blech-midi/blech-midi-math-controls.js
+copy+require	src/instruments/blech-midi/blech-midi-frames.js
+copy+require	src/instruments/blech-midi/blech-midi-frames-controls.js
+copy+require	src/instruments/blech-midi/blech-midi-generator-preview.js
+copy+require	src/instruments/blech-midi/blech-midi-generators.css

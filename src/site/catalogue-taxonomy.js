@@ -646,10 +646,10 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
 }).map(([id, tags]) => [id, Object.freeze(tags)])));
 export const LAB_CATALOGUE_DETAILS = Object.freeze(Object.fromEntries(Object.entries({
   "blech-midi": {
-    "kind": "Drawn and generated MIDI",
-    "description": "Draw playable MIDI, launch black MIDI and geometric stamps, or turn cellular automata and messages into SoundFont audio and moving note trails.",
-    "start": "Turn Audio on, draw or choose a stamp, then play it. Use Loop and Sync to tempo to keep patterns moving; switch to Automatapoeia for rule-generated MIDI.",
-    "features": ["SoundFont playback", "Drawing", "Black MIDI stamps", "Cellular automata", "MIDI file export"],
+    "kind": "Layered MIDI performance",
+    "description": "Layer MIDI files, stamps, drawings, equation patterns and frame loops on one falling-note keyboard. Play and capture Automatapoeia, then shape the shared SoundFont output live.",
+    "start": "Turn Audio on, choose a source tab, then Play or Drop a prepared pattern. Layer loops while the shared falling-note stage stays visible; Stop all releases every source.",
+    "features": ["SoundFont playback", "Falling-note keyboard", "Live layers", "Drawing", "Black MIDI stamps", "Equation patterns", "Frame loops", "Cellular automata", "MIDI file export"],
     "pluginHref": null
   },
   "midiphoria": {

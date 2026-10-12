@@ -14,7 +14,7 @@ const digest = source => createHash('sha256').update(source).digest('hex');
 test('Blech MIDI is a separate browseable Graphic-UI lab with its own tempo owner', () => {
   const group = TOOL_GROUPS.find(group => group.id === 'graphic-ui');
   const item = group.tools.find(item => item.id === 'blech-midi');
-  assert.equal(item.label, 'Blech MIDI');
+  assert.equal(item.label, 'BLECH MIDI');
   assert.equal(item.href, 'blech-midi.html');
   assert.equal(item.catalogue, false);
   assert.equal(item.browse, true);

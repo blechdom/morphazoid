@@ -1,0 +1,29 @@
+{
+  "baseCommit": "3b7c43d25d22b27a4338061e3ee54b9c24f6d80b",
+  "description": "Exact additive BLECH MIDI performance-workspace runtime registration. Historical inventory hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "e860f7fd6a35b3e06041aa9987b3a0362e633e9d90f3c77be9f2df63d9128f82",
+  "before": "copy+require\tsrc/sound-fonts/player.js\n",
+  "after": "copy+require\tsrc/sound-fonts/player.js\n\n# BLECH MIDI shared falling stage and tabbed performance generators.\ncopy+require\tassets/blech-midi/blech-mark.svg\ncopy+require\tsrc/instruments/blech-midi/blech-midi-live-score.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-math.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-math-controls.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-frames.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-frames-controls.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-generator-preview.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-generators.css\n",
+  "addition": "\n# BLECH MIDI shared falling stage and tabbed performance generators.\ncopy+require\tassets/blech-midi/blech-mark.svg\ncopy+require\tsrc/instruments/blech-midi/blech-midi-live-score.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-math.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-math-controls.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-frames.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-frames-controls.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-generator-preview.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-generators.css\n",
+  "paths": [
+    "assets/blech-midi/blech-mark.svg",
+    "src/instruments/blech-midi/blech-midi-live-score.js",
+    "src/instruments/blech-midi/blech-midi-math.js",
+    "src/instruments/blech-midi/blech-midi-math-controls.js",
+    "src/instruments/blech-midi/blech-midi-frames.js",
+    "src/instruments/blech-midi/blech-midi-frames-controls.js",
+    "src/instruments/blech-midi/blech-midi-generator-preview.js",
+    "src/instruments/blech-midi/blech-midi-generators.css"
+  ],
+  "rows": [
+    "copy+require\tassets/blech-midi/blech-mark.svg\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-live-score.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-math.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-math-controls.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-frames.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-frames-controls.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-generator-preview.js\n",
+    "copy+require\tsrc/instruments/blech-midi/blech-midi-generators.css\n"
+  ]
+}
