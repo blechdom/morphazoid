@@ -24,7 +24,7 @@ export function formatTime(seconds) {
 
 export function beatLoop(position, bpm, offset, beats, duration) {
   const beat = 60 / Math.max(40, Math.min(240, Number(bpm) || 120));
-  const count = [1, 2, 4, 8, 16].includes(beats) ? beats : 4;
+  const count = [0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32].includes(beats) ? beats : 4;
   const start = Math.max(0, offset + Math.floor((position - offset + 1e-7) / beat) * beat);
   const end = Math.min(duration, start + count * beat);
   return end - start >= 0.05 ? { start, end } : null;
@@ -365,11 +365,12 @@ export class WaveformView {
         const cue = this.drag?.mode === "cue" && this.drag.cueIndex === i ? this.drag.previewCue ?? state.cues[i] : state.cues[i];
         if (cue === null || cue === undefined) continue;
         const px = x(cue); if (px < 0 || px > w) continue;
-        ctx.fillStyle = this.color; ctx.fillRect(px, 0, 2, h);
+        const savedLoop = state.pads?.[i]?.type === "loop";
+        ctx.fillStyle = savedLoop ? "#c5ed91" : this.color; ctx.fillRect(px, 0, 2, h);
         if (surface !== this.overview) {
           const flag = Math.min(px, w - 22);
           ctx.fillRect(flag, h - 22, 22, 20); ctx.fillStyle = "#111820";
-          ctx.font = "bold 11px monospace"; ctx.textAlign = "left"; ctx.fillText(String(i + 1), flag + 6, h - 8);
+          ctx.font = "bold 11px monospace"; ctx.textAlign = "left"; ctx.fillText(`${i + 1}${savedLoop ? "L" : ""}`, flag + (savedLoop ? 3 : 6), h - 8);
         }
       }
       if (surface === this.overview) {

@@ -3,7 +3,8 @@ import { TrackazoidAudio } from "./audio.js";
 import { TrackLibrary } from "./library.js";
 import { WaveformView, formatTime, beatLoop } from "./waveform.js";
 import { createBeatAnalyzer, BEAT_ANALYSIS_VERSION } from "./beat-analysis-client.js";
-import { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis } from "./library-model.js";
+import { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis, withTrackPad, PAD_COUNT } from "./library-model.js";
+import { DEMO_TRACKS, createDemoFile } from "./demo-tracks.js";
 
 const $ = (id) => document.getElementById(id);
 const abort = new AbortController();
@@ -12,11 +13,11 @@ const decks = Object.fromEntries(["a", "b"].map((id) => [id, {
   entry: null, metadata: normalizeTrackMetadata(), buffer: null,
   analyzer: createBeatAnalyzer(), analyzing: false, analysisRevision: 0, analysisError: "",
   pending: null, revision: 0, intent: 0, loading: false, keyPending: false, monitor: false,
-  selection: null, selectionAnchor: null, snap: true,
+  selection: null, selectionAnchor: null, snap: true, selectedPad: 0, demoPending: false,
 }]));
-let initialized = false, disposed = false, audioStarting = false, audioAttempt = 0;
-let selected = "a", folderFilter = null, visibleLimit = 150, pickerDeck = null;
-let frame = 0, lastFrame = 0, libraryRender = 0, settingsTimer = 0, decodeQueue = Promise.resolve();
+let initialized = false, disposed = false, audioStarting = false, audioAttempt = 0, libraryInitialized = false;
+let selected = "a", folderFilter = null, visibleLimit = 150, pickerDeck = null, demoPairPending = false;
+let frame = 0, lastFrame = 0, libraryRender = 0, settingsTimer = 0, decodeQueue = Promise.resolve(), demoQueue = Promise.resolve();
 let libraryEntries = [], entryIndex = new Map();
 const engine = new TrackazoidAudio({ onError: showError, onChange: () => { if (initialized) updateDecks(); } });
 const library = new TrackLibrary({ onChange: scheduleLibrary, onStatus: (message) => {
@@ -174,7 +175,7 @@ async function requestLoad(id, entryId, replace = false) {
     // load commits the decoded buffer synchronously, then prepares optional DSP.
     // Commit its visible identity in the same turn, even if a later request fails.
     const loaded = engine.load(id, buffer);
-    deck.entry = entryId; deck.buffer = buffer; deck.selection = null; deck.selectionAnchor = null;
+    deck.entry = entryId; deck.buffer = buffer; deck.selection = null; deck.selectionAnchor = null; deck.selectedPad = 0;
     const metadata = entryById(entryId)?.metadata || entry.metadata;
     saveMetadata(id, { ...metadata, bpm: Math.min(240, Math.max(40, metadata.bpm)), duration: buffer.duration });
     engine.setBeatGrid(id, hasBeatGrid(deck.metadata) ? deck.metadata : { bpm: null, beatOffset: 0 });
@@ -196,7 +197,7 @@ function saveMetadata(id, patch) {
   for (const [key, peer] of Object.entries(decks)) {
     if (peer !== deck && (!deck.entry || peer.entry !== deck.entry)) continue;
     const gridChanged = peer.metadata.bpm !== next.bpm || peer.metadata.beatOffset !== next.beatOffset || hasBeatGrid(peer.metadata) !== hasBeatGrid(next);
-    peer.metadata = { ...next, cues: [...next.cues] };
+    peer.metadata = normalizeTrackMetadata(next);
     if (gridChanged) engine.setBeatGrid(key, hasBeatGrid(next) ? next : { bpm: null, beatOffset: 0 });
     if (document.activeElement !== $(`${key}Bpm`)) $(`${key}Bpm`).value = hasBeatGrid(next) ? String(next.bpm) : "";
   }
@@ -254,10 +255,46 @@ function seek(id, position) {
 }
 function hotCue(id, index, clear = false) {
   if (!decks[id].entry || decks[id].loading) return;
-  const cues = [...decks[id].metadata.cues];
-  if (clear) { cues[index] = null; saveMetadata(id, { cues }); }
-  else if (cues[index] === null) { cues[index] = engine.snapshot(id).position; saveMetadata(id, { cues }); }
-  else seek(id, cues[index]);
+  const deck = decks[id], pad = deck.metadata.pads[index];
+  deck.selectedPad = index; selectDeck(id);
+  if (clear) writePad(id, index, null);
+  else if (!pad) storePad(id, index);
+  else if (pad.type === "loop") {
+    engine.triggerLoop(id, pad); setSelection(id, { start: pad.start, end: pad.end });
+  } else engine.triggerCue(id, pad.position);
+  updateDecks();
+}
+function writePad(id, index, pad) {
+  if (!decks[id].entry || decks[id].loading) return;
+  const next = withTrackPad(decks[id].metadata, index, pad);
+  saveMetadata(id, { pads: next.pads }); updateDecks();
+}
+function storePad(id, index, type) {
+  const deck = decks[id];
+  if (!deck.entry || deck.loading) return;
+  const loop = deck.selection ?? engine.snapshot(id).loop, name = deck.metadata.pads[index]?.name || "";
+  if (type === "loop" && !loop) { status("Select a chunk or activate a loop before storing it."); return; }
+  writePad(id, index, type !== "cue" && loop ? { type: "loop", ...loop, name }
+    : { type: "cue", position: editPosition(id, engine.snapshot(id).position), name });
+}
+function performanceAction(id, method, value) {
+  if (!decks[id].entry || decks[id].loading) return;
+  selectDeck(id); clearError();
+  const followsLoop = ["moveLoop", "resizeLoop"].includes(method) && selectionIsLoop(id);
+  try {
+    const state = engine[method](id, value);
+    if (followsLoop && state.loop) setSelection(id, { ...state.loop });
+  }
+  catch (error) { status(error.message); }
+  updateDecks();
+}
+function resizeBeatLoop(id, factor) {
+  if (!decks[id].entry || decks[id].loading) return;
+  if (engine.snapshot(id).loop) performanceAction(id, "resizeLoop", factor);
+  else {
+    const field = $(`${id}LoopBeats`), beats = Number(field.value) * factor;
+    if (beats >= 0.125 && beats <= 32) field.value = String(beats);
+  }
   updateDecks();
 }
 function editPosition(id, position) {
@@ -295,16 +332,19 @@ function setSelectionPoint(id, edge) {
 }
 function moveMarker(id, index, time) {
   const deck = decks[id];
-  if (!deck.entry || deck.loading || !Number.isInteger(index) || index < 0 || index > 3 || !Number.isFinite(time)) return;
-  const cues = [...deck.metadata.cues];
-  cues[index] = Math.max(0, Math.min(engine.snapshot(id).duration, time));
-  saveMetadata(id, { cues }); updateDecks();
+  if (!deck.entry || deck.loading || !Number.isInteger(index) || index < 0 || index >= PAD_COUNT || !Number.isFinite(time)) return;
+  const pad = deck.metadata.pads[index], duration = engine.snapshot(id).duration;
+  deck.selectedPad = index;
+  if (pad?.type === "loop") {
+    const length = pad.end - pad.start, start = Math.max(0, Math.min(duration - length, time));
+    writePad(id, index, { ...pad, start, end: start + length });
+  } else writePad(id, index, { type: "cue", position: Math.max(0, Math.min(duration, time)), name: pad?.name || "" });
 }
 function addMarker(id, time = editPosition(id, engine.snapshot(id).position)) {
   const deck = decks[id];
   if (!deck.entry || deck.loading) return;
-  const index = deck.metadata.cues.indexOf(null);
-  if (index < 0) { status("All four markers are set. Shift-click a numbered cue to clear a slot."); return; }
+  const index = deck.metadata.pads.indexOf(null);
+  if (index < 0) { status("All eight pads are set. Shift-click a pad or use Edit pads to clear a slot."); return; }
   moveMarker(id, index, time);
 }
 function selectionIsLoop(id, loop = engine.snapshot(id).loop) {
@@ -315,7 +355,7 @@ function loopSelection(id) {
   const deck = decks[id];
   if (!deck.selection || deck.loading) return;
   if (selectionIsLoop(id)) engine.clearLoop(id);
-  else engine.setLoop(id, deck.selection.start, deck.selection.end);
+  else engine.triggerLoop(id, deck.selection);
   updateDecks();
 }
 function toggleLoop(id, resize = false) {
@@ -327,6 +367,7 @@ function toggleLoop(id, resize = false) {
     const { bpm, beatOffset } = decks[id].metadata;
     const loop = beatLoop(snapshot.loop?.start ?? snapshot.position, bpm, beatOffset, Number($(`${id}LoopBeats`).value), snapshot.duration);
     if (loop) engine.setLoop(id, loop.start, loop.end);
+    else status("That loop would be shorter than 50 ms or extend beyond the track. Choose a longer loop or move earlier.");
   }
   updateDecks();
 }
@@ -357,7 +398,7 @@ function updateDecks() {
     $(`${id}Play`).setAttribute("aria-label", `${state.playing ? "Pause" : "Play"} deck ${letter}`);
     const playLabel = state.playing ? "Ⅱ <span>Pause</span>" : "▶ <span>Play</span>";
     if ($(`${id}Play`).innerHTML !== playLabel) $(`${id}Play`).innerHTML = playLabel;
-    for (const key of ["Play", "Cue", "NudgeBack", "NudgeForward", "Sync", "Loop", "Grid", "HotCue1", "HotCue2", "HotCue3", "HotCue4"]) $(`${id}${key}`).disabled = !entry || deck.loading;
+    for (const key of ["Play", "Cue", "NudgeBack", "NudgeForward", "Sync", "Loop", "Grid"]) $(`${id}${key}`).disabled = !entry || deck.loading;
     const gridReady = hasBeatGrid(deck.metadata), other = id === "a" ? "b" : "a";
     $(`${id}Effective`).value = gridReady ? (deck.metadata.bpm * state.rate).toFixed(1) : "—";
     $(`${id}Sync`).setAttribute("aria-pressed", String(state.sync));
@@ -377,11 +418,23 @@ function updateDecks() {
     $(`${id}Snap`).disabled = !editable || !gridReady;
     $(`${id}Snap`).setAttribute("aria-pressed", String(deck.snap));
     $(`${id}Snap`).title = gridReady ? "Snap edits to beats; hold Alt for precise placement" : "Snap needs a detected or manually set BPM";
+    $(`${id}Quantize`).disabled = !editable || !gridReady;
+    $(`${id}Quantize`).setAttribute("aria-pressed", String(state.quantize));
+    $(`${id}Quantize`).title = gridReady ? "Keep cue and loop recalls in time during playback" : "Quantize needs a detected or manually set BPM";
+    for (const key of ["BeatJumpBack", "BeatJumpForward", "LoopHalf", "LoopDouble"]) $(`${id}${key}`).disabled = !editable || !gridReady;
+    for (const key of ["LoopMoveBack", "LoopMoveForward"]) $(`${id}${key}`).disabled = !editable || !gridReady || !state.loop;
+    $(`${id}LoopInfo`).textContent = state.loop ? gridReady ? `${Number(((state.loop.end - state.loop.start) * deck.metadata.bpm / 60).toFixed(3))} beats looping`
+      : `${(state.loop.end - state.loop.start).toFixed(2)} s looping` : "";
+    if (state.loop && gridReady) {
+      const field = $(`${id}LoopBeats`), beats = (state.loop.end - state.loop.start) * deck.metadata.bpm / 60;
+      const option = [...field.options].find((item) => Math.abs(Number(item.value) - beats) < 1e-6);
+      if (option && document.activeElement !== field) field.value = option.value;
+    }
     $(`${id}Follow`).setAttribute("aria-pressed", String(viewport.following));
     $(`${id}SelectionLoop`).disabled = !editable || !deck.selection;
     $(`${id}SelectionLoop`).setAttribute("aria-pressed", String(selectionIsLoop(id, state.loop)));
     $(`${id}SelectionClear`).disabled = !editable || (!deck.selection && deck.selectionAnchor === null);
-    $(`${id}Mark`).disabled = !editable || !deck.metadata.cues.includes(null);
+    $(`${id}Mark`).disabled = !editable || !deck.metadata.pads.includes(null);
     const selectionInfo = deck.selection
       ? `${formatTime(deck.selection.start)} → ${formatTime(deck.selection.end)} · ${(deck.selection.end - deck.selection.start).toFixed(2)} s selected`
       : deck.selectionAnchor !== null ? `In ${formatTime(deck.selectionAnchor)} · move forward and set Out` : "Drag the waveform to select a chunk";
@@ -395,11 +448,31 @@ function updateDecks() {
     $(`${id}UseAuto`).hidden = deck.metadata.gridSource !== "manual" || deck.metadata.analysis?.status !== "ok";
     $(`${id}UseAuto`).disabled = deck.loading || deck.analyzing;
     $(`${id}Bpm`).disabled = !entry || deck.loading;
-    for (let index = 0; index < 4; index++) $(`${id}HotCue${index + 1}`).classList.toggle("has-cue", deck.metadata.cues[index] !== null);
+    for (let index = 0; index < PAD_COUNT; index++) {
+      const pad = deck.metadata.pads[index], button = $(`${id}HotCue${index + 1}`);
+      button.disabled = !editable;
+      button.classList.toggle("has-cue", Boolean(pad)); button.classList.toggle("has-loop", pad?.type === "loop");
+      button.setAttribute("aria-pressed", String(Boolean(pad) && deck.selectedPad === index));
+      const label = pad ? pad.name || (pad.type === "loop" ? "Loop" : "Cue") : "Set";
+      const text = `${index + 1} ${label}`;
+      if (button.textContent !== text) button.textContent = text;
+      button.setAttribute("aria-label", `Deck ${letter} hot cue ${index + 1}: ${pad ? `${pad.type}${pad.name ? ` ${pad.name}` : ""}` : "Set empty pad"}`);
+      button.title = pad ? `${pad.type === "loop" ? "Recall loop" : "Jump to cue"} ${index + 1}${pad.name ? ` · ${pad.name}` : ""}; Shift-click to clear`
+        : "Save selection or active loop here; otherwise save a cue at the playhead";
+    }
+    const chosenPad = deck.metadata.pads[deck.selectedPad];
+    $(`${id}PadSlot`).value = String(deck.selectedPad);
+    const nameField = $(`${id}PadName`), padKey = JSON.stringify([deck.entry, deck.selectedPad, chosenPad?.name || ""]);
+    if (nameField.dataset.padKey !== padKey) { nameField.value = chosenPad?.name || ""; nameField.dataset.padKey = padKey; }
+    for (const key of ["PadSlot", "PadStoreCue"]) $(`${id}${key}`).disabled = !editable;
+    for (const key of ["PadName", "PadRename", "PadClear"]) $(`${id}${key}`).disabled = !editable || !chosenPad;
+    $(`${id}PadStoreLoop`).disabled = !editable || (!deck.selection && !state.loop);
+    $(`${id}Demo`).disabled = !libraryInitialized || deck.demoPending;
     $(`${id}Pending`).hidden = !deck.pending;
     $(`${id}PendingName`).textContent = deck.pending ? entryById(deck.pending)?.name || "Track ready" : "";
     $(`${id}Monitor`).setAttribute("aria-pressed", String(deck.monitor));
   }
+  $("demoPair").disabled = !libraryInitialized || demoPairPending || decks.a.demoPending || decks.b.demoPending;
 }
 
 for (const id of ["a", "b"]) {
@@ -412,6 +485,25 @@ for (const id of ["a", "b"]) {
   on($(`${id}NudgeForward`), "click", () => seek(id, engine.snapshot(id).position + 0.02));
   on($(`${id}Sync`), "click", () => act(() => sync(id)));
   on($(`${id}Snap`), "click", () => { decks[id].snap = !decks[id].snap; updateDecks(); });
+  on($(`${id}Quantize`), "click", () => performanceAction(id, "setQuantize", !engine.snapshot(id).quantize));
+  on($(`${id}BeatJumpBack`), "click", () => performanceAction(id, "beatJump", -Number($(`${id}MoveBeats`).value)));
+  on($(`${id}BeatJumpForward`), "click", () => performanceAction(id, "beatJump", Number($(`${id}MoveBeats`).value)));
+  on($(`${id}LoopMoveBack`), "click", () => performanceAction(id, "moveLoop", -Number($(`${id}MoveBeats`).value)));
+  on($(`${id}LoopMoveForward`), "click", () => performanceAction(id, "moveLoop", Number($(`${id}MoveBeats`).value)));
+  on($(`${id}LoopHalf`), "click", () => resizeBeatLoop(id, 0.5));
+  on($(`${id}LoopDouble`), "click", () => resizeBeatLoop(id, 2));
+  on($(`${id}PadSlot`), "change", (event) => { decks[id].selectedPad = Number(event.target.value); updateDecks(); });
+  on($(`${id}PadRename`), "click", () => {
+    const index = decks[id].selectedPad, pad = decks[id].metadata.pads[index];
+    if (pad) writePad(id, index, { ...pad, name: $(`${id}PadName`).value });
+  });
+  on($(`${id}PadStoreCue`), "click", () => storePad(id, decks[id].selectedPad, "cue"));
+  on($(`${id}PadStoreLoop`), "click", () => storePad(id, decks[id].selectedPad, "loop"));
+  on($(`${id}PadClear`), "click", () => writePad(id, decks[id].selectedPad, null));
+  on($(`${id}Demo`), "change", (event) => {
+    const demoId = event.target.value; event.target.value = "";
+    if (demoId) act(() => loadDemo(id, demoId));
+  });
   on($(`${id}ZoomIn`), "click", () => views[id].zoom(2));
   on($(`${id}ZoomOut`), "click", () => views[id].zoom(0.5));
   on($(`${id}Fit`), "click", () => views[id].fit());
@@ -439,7 +531,7 @@ for (const id of ["a", "b"]) {
     try { await engine.setKeyLock(id, !engine.snapshot(id).keyLock); }
     finally { decks[id].keyPending = false; updateDecks(); }
   }));
-  for (let index = 0; index < 4; index++) on($(`${id}HotCue${index + 1}`), "click", (event) => hotCue(id, index, event.shiftKey));
+  for (let index = 0; index < PAD_COUNT; index++) on($(`${id}HotCue${index + 1}`), "click", (event) => act(() => hotCue(id, index, event.shiftKey)));
   on($(`${id}Loop`), "click", () => act(() => toggleLoop(id)));
   on($(`${id}LoopBeats`), "change", () => { if (engine.snapshot(id).loop) act(() => toggleLoop(id, true)); });
   on($(`${id}Grid`), "click", () => act(() => correctGrid(id, { beatOffset: engine.snapshot(id).position })));
@@ -532,8 +624,13 @@ on(document, "keydown", (event) => {
   else if (key === "l") { event.preventDefault(); act(() => toggleLoop(selected)); }
   else if (key === "i" || key === "o") { event.preventDefault(); setSelectionPoint(selected, key === "i" ? "in" : "out"); }
   else if (key === "m") { event.preventDefault(); addMarker(selected); }
+  else if (key === "q") { event.preventDefault(); performanceAction(selected, "setQuantize", !engine.snapshot(selected).quantize); }
+  else if (["BracketLeft", "BracketRight"].includes(event.code)) {
+    event.preventDefault(); performanceAction(selected, event.shiftKey ? "moveLoop" : "beatJump",
+      (event.code === "BracketLeft" ? -1 : 1) * Number($(`${selected}MoveBeats`).value));
+  }
   else if (key === "delete" || key === "backspace") { event.preventDefault(); setSelection(selected, null); }
-  else if (/^Digit[1-4]$/.test(event.code)) { event.preventDefault(); hotCue(selected, Number(event.code.slice(-1)) - 1, event.shiftKey); }
+  else if (/^Digit[1-8]$/.test(event.code)) { event.preventDefault(); act(() => hotCue(selected, Number(event.code.slice(-1)) - 1, event.shiftKey)); }
 });
 
 function saveSettings() {
@@ -558,44 +655,51 @@ function restoreSettings() {
   } catch { /* Use audible, moderate defaults after a corrupt saved setting. */ }
 }
 
-function demoFile(bpm, variant) {
-  const sampleRate = 24000, duration = 32 * 60 / bpm, frames = Math.ceil(duration * sampleRate);
-  const bytes = new ArrayBuffer(44 + frames * 4), view = new DataView(bytes);
-  const text = (offset, value) => { [...value].forEach((char, i) => view.setUint8(offset + i, char.charCodeAt(0))); };
-  text(0, "RIFF"); view.setUint32(4, 36 + frames * 4, true); text(8, "WAVE"); text(12, "fmt ");
-  view.setUint32(16, 16, true); view.setUint16(20, 1, true); view.setUint16(22, 2, true); view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 4, true); view.setUint16(32, 4, true); view.setUint16(34, 16, true); text(36, "data"); view.setUint32(40, frames * 4, true);
-  let seed = 123456 + variant;
-  for (let i = 0; i < frames; i++) {
-    const t = i / sampleRate, beat = t * bpm / 60, phase = (beat % 1) * 60 / bpm;
-    seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0;
-    const noise = seed / 2147483648 - 1;
-    const kick = Math.sin(2 * Math.PI * (46 * phase + 9 * (1 - Math.exp(-phase * 30)))) * Math.exp(-phase * 18) * 0.43;
-    const hatPhase = (beat * 2 % 1) * 30 / bpm;
-    const hat = noise * Math.exp(-hatPhase * 150) * 0.1;
-    const note = [55, 55, 65.4, 49][Math.floor(beat / 2) % 4] * (variant ? 1.5 : 1);
-    const bass = Math.sin(2 * Math.PI * note * t) * Math.exp(-phase * 6) * 0.16;
-    const chimePhase = (beat % 2) * 60 / bpm;
-    const chime = Math.sin(2 * Math.PI * (variant ? 660 : 440) * t) * Math.exp(-chimePhase * 5) * 0.045;
-    const fade = Math.min(1, t / 0.003, (duration - t) / 0.01);
-    const value = (kick + hat + bass + chime) * fade;
-    view.setInt16(44 + i * 4, Math.round(Math.max(-1, Math.min(1, value)) * 32767), true);
-    view.setInt16(46 + i * 4, Math.round(Math.max(-1, Math.min(1, value - chime * 0.5)) * 32767), true);
+// Stable demo identities keep saved grids and pads across visits.
+for (const id of ["a", "b"]) {
+  for (const demo of DEMO_TRACKS) {
+    const option = document.createElement("option"); option.value = demo.id;
+    option.textContent = `${demo.name} · ${demo.bpm} BPM · ${demo.description}`;
+    $(`${id}Demo`).append(option);
   }
-  return new File([bytes], `${variant ? "Amber circuit" : "Mint transmission"} — ${bpm} BPM.wav`, { type: "audio/wav", lastModified: 1 });
+}
+async function demoEntry(demoId) {
+  const demo = DEMO_TRACKS.find((item) => item.id === demoId);
+  if (!demo) throw new Error("Choose a demo track from the list.");
+  const [entryId] = await library.addFiles([createDemoFile(demo.id)], { folderName: "Trackazoid demos", folderId: "demo" });
+  if (disposed || !entryId) return null;
+  const metadata = entryById(entryId)?.metadata;
+  if (metadata?.gridSource === "unknown") await library.updateMetadata(entryId, {
+    bpm: demo.bpm, beatOffset: 0, gridSource: "auto",
+    analysis: { version: BEAT_ANALYSIS_VERSION, status: "ok", bpm: demo.bpm, beatOffset: 0,
+      confidence: 1, candidates: [], analyzedSeconds: 0, reason: null },
+  });
+  return entryId;
+}
+async function loadDemo(id, demoId) {
+  const deck = decks[id];
+  if (!libraryInitialized || deck.demoPending || disposed) return;
+  const intent = ++deck.intent;
+  deck.demoPending = true; updateDecks();
+  try {
+    // Library imports are transactional. Serialize the two demo menus so
+    // choosing A and B together cannot cancel either import.
+    const task = demoQueue.catch(() => {}).then(() => disposed || intent !== deck.intent ? null : demoEntry(demoId));
+    demoQueue = task.then(() => {}, () => {});
+    const entryId = await task;
+    if (entryId && !disposed && intent === deck.intent) {
+      await requestLoad(id, entryId);
+      return !disposed && deck.intent === intent + 1 && (deck.entry === entryId || deck.pending === entryId);
+    }
+    return false;
+  } finally { deck.demoPending = false; updateDecks(); }
 }
 on($("demoPair"), "click", () => act(async () => {
-  $("demoPair").disabled = true;
+  demoPairPending = true; updateDecks();
   try {
-    const ids = await library.addFiles([demoFile(120, 0), demoFile(126, 1)], { folderName: "Trackazoid demos", folderId: "demo" });
-    for (let index = 0; index < ids.length; index++) {
-      const metadata = entryById(ids[index]).metadata;
-      if (metadata.gridSource === "unknown") await library.updateMetadata(ids[index], { bpm: index ? 126 : 120, beatOffset: 0, gridSource: "auto",
-        analysis: { version: BEAT_ANALYSIS_VERSION, status: "ok", bpm: index ? 126 : 120, beatOffset: 0, confidence: 1, candidates: [], analyzedSeconds: 0, reason: null } });
-    }
-    await requestLoad("a", ids[0]); await requestLoad("b", ids[1]);
-    status("Demo pair ready · turn Audio on, then play a deck. Set a loop to keep mixing.");
-  } finally { if (!disposed) $("demoPair").disabled = false; }
+    const loaded = await Promise.all([loadDemo("a", DEMO_TRACKS[0].id), loadDemo("b", DEMO_TRACKS[1].id)]);
+    if (loaded.every(Boolean) && !decks.a.pending && !decks.b.pending) status("Demo pair ready · turn Audio on, then play a deck. Set a loop to keep mixing.");
+  } finally { demoPairPending = false; if (!disposed) updateDecks(); }
 }));
 
 function animate(time) {
@@ -620,15 +724,16 @@ globalThis.__trackazoid = Object.freeze({
   snapshot: () => ({ armed: engine.armed, selected, disposed, master: engine.master, contextState: engine.context?.state ?? "none",
     decks: Object.fromEntries(["a", "b"].map((id) => [id, { ...engine.snapshot(id), entry: decks[id].entry, replacement: decks[id].pending, loading: decks[id].loading, analyzing: decks[id].analyzing,
       selection: decks[id].selection && { ...decks[id].selection }, selectionAnchor: decks[id].selectionAnchor, snap: decks[id].snap, viewport: views[id].getViewport(),
-      metadata: { ...decks[id].metadata, cues: [...decks[id].metadata.cues] } }])),
+      metadata: normalizeTrackMetadata(decks[id].metadata) }])),
     library: library.entries.map(({ id, name, available, metadata }) => ({ id, name, available, metadata })), folders: library.folders }),
   dispose,
 });
 initialized = true; restoreSettings(); selectDeck("a"); updateDecks();
-const importControls = ["addFiles", "openFolder", "demoPair", "aLoad", "bLoad"];
+const importControls = ["addFiles", "openFolder", "demoPair", "aLoad", "bLoad", "aDemo", "bDemo"];
 for (const id of importControls) $(id).disabled = true;
 const libraryReady = library.init().then(() => {
   if (disposed) return;
+  libraryInitialized = true;
   for (const id of importControls) $(id).disabled = false;
   $("trackazoid").dataset.ready = "true";
 }).catch(showError);
