@@ -68,6 +68,54 @@ async function synced(page) {
   }).toBe(true);
 }
 
+function pulseWave(channel) {
+  const sampleRate = 16000, frames = 24 * sampleRate, bytes = Buffer.alloc(44 + frames * 4);
+  bytes.write("RIFF"); bytes.writeUInt32LE(bytes.length - 8, 4); bytes.write("WAVEfmt ", 8);
+  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(2, 22);
+  bytes.writeUInt32LE(sampleRate, 24); bytes.writeUInt32LE(sampleRate * 4, 28);
+  bytes.writeUInt16LE(4, 32); bytes.writeUInt16LE(16, 34); bytes.write("data", 36); bytes.writeUInt32LE(frames * 4, 40);
+  for (let i = 0; i < frames; i++) {
+    const time = i / sampleRate, phase = time % 0.5;
+    const value = 0.45 * Math.sin(2 * Math.PI * 60 * phase) * Math.exp(-phase / 0.04) + 0.004 * Math.sin(2 * Math.PI * 220 * time);
+    bytes.writeInt16LE(Math.round(value * 32767), 44 + i * 4 + channel * 2);
+  }
+  return bytes;
+}
+
+async function startRhythmCapture(page) {
+  await page.evaluate(async () => {
+    const { getSharedAudioOutputManager } = await import("/src/audio-output-manager.js");
+    const manager = getSharedAudioOutputManager(globalThis), context = manager.recordingContext();
+    const source = `class PadProbe extends AudioWorkletProcessor {
+      constructor() { super(); this.frames = 0; this.blocks = []; this.done = false; }
+      process(inputs, outputs) {
+        for (const channel of outputs[0] || []) channel.fill(0);
+        if (this.done) return true;
+        const input = inputs[0], frames = input?.[0]?.length || 128;
+        let left = 0, right = 0, peak = 0, invalid = 0;
+        for (let i = 0; i < frames; i++) {
+          const l = input?.[0]?.[i] ?? 0, r = input?.[1]?.[i] ?? 0;
+          invalid += Number(!Number.isFinite(l) || !Number.isFinite(r));
+          left += l*l; right += r*r; peak = Math.max(peak, Math.abs(l), Math.abs(r));
+        }
+        this.blocks.push({time: this.frames / sampleRate, left: left / frames, right: right / frames, peak, invalid});
+        this.frames += frames;
+        if (this.frames >= sampleRate * 8) { this.done = true; this.port.postMessage(this.blocks); }
+        return true;
+      }
+    } registerProcessor("trackazoid-pad-probe", PadProbe);`;
+    const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+    try { await context.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+    const node = new AudioWorkletNode(context, "trackazoid-pad-probe", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2], channelCount: 2, channelCountMode: "explicit" });
+    const release = manager.tapInto(context, node);
+    window.__padCapture = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { release(); node.disconnect(); node.port.close(); reject(new Error("Pad PCM capture timed out")); }, 12_000);
+      node.port.onmessage = ({ data }) => { clearTimeout(timeout); release(); node.disconnect(); node.port.close(); resolve(data); };
+    });
+    node.connect(context.destination);
+  });
+}
+
 test("six per-deck demos load independently and stage changes to a playing deck", async ({ page }) => {
   test.setTimeout(45_000);
   const errors = diagnostics(page); await ready(page, false);
@@ -107,6 +155,7 @@ test("all eight typed pads persist names and moved saved loops without changing 
   expect(a.metadata.version).toBe(3); expect(a.metadata.pads).toHaveLength(8); expect(a.metadata.cues).toHaveLength(8);
   expect(a.metadata.pads.slice(0, 7).map(pad => pad.type)).toEqual(Array(7).fill("cue"));
   expect(a.metadata.pads[7]).toEqual({ type: "loop", ...selection, name: "" });
+  await expect(page.locator("#aMark")).toBeDisabled();
   expect(a.loop).toBeNull(); expect(a.playing).toBe(false);
   const name = '<img src=x onerror=alert(1)> & "chorus"';
   await editor(page, "a", 7); await page.locator("#aPadName").fill(name);
@@ -127,6 +176,7 @@ test("all eight typed pads persist names and moved saved loops without changing 
   expect((await deck(page, "a")).playing).toBe(false);
   await page.locator("#aWaveform").focus(); await page.keyboard.press("Shift+Digit8");
   expect((await deck(page, "a")).metadata.pads[7]).toBeNull();
+  await expect(page.locator("#aMark")).toBeEnabled();
   // Clearing a stored pad leaves the already playing/selected loop independent.
   expect((await deck(page, "a")).loop).toEqual({ start: moved.start, end: moved.end });
   await audioOff(page, errors);
@@ -154,7 +204,10 @@ test("legacy four-cue metadata migrates to eight pads and cleared pads never rev
   expect(metadata.pads[0]).toEqual({ type: "cue", position: 1, name: "" });
   await page.locator("#aHotCue1").click({ modifiers: ["Shift"] });
   await editor(page, "a", 7); await page.locator("#aPadStoreCue").click();
-  await expect.poll(async () => (await stored(page, "Mint transmission"))?.metadata.version).toBe(3);
+  await expect.poll(async () => {
+    const metadata = (await stored(page, "Mint transmission"))?.metadata;
+    return { version: metadata?.version, first: metadata?.pads[0], lastType: metadata?.pads[7]?.type };
+  }).toEqual({ version: 3, first: null, lastType: "cue" });
   await ready(page); metadata = (await deck(page, "a")).metadata;
   expect(metadata.pads[0]).toBeNull(); expect(metadata.cues[0]).toBeNull(); expect(metadata.pads[7].type).toBe("cue");
   expect(metadata.cues[1]).toBe(2); expect(metadata.cues[3]).toBe(4);
@@ -180,6 +233,14 @@ test("beat jumps, loop movement and half/double controls use their displayed bea
   expect(loop.start).toBeCloseTo(original.start + 4 * period, 6); expect(loop.end - loop.start).toBeCloseTo(4 * period, 6);
   await page.locator("#aWaveform").focus(); await page.keyboard.press("Shift+BracketLeft");
   expect((await deck(page, "a")).loop).toEqual(original);
+  await page.locator("#aFit").click(); const canvas = page.locator("#aWaveform"); await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  await page.mouse.move(box.x + box.width * 0.45, box.y + box.height * 0.4); await page.mouse.down();
+  await page.mouse.move(box.x + box.width * 0.55, box.y + box.height * 0.4, { steps: 8 }); await page.mouse.up();
+  const independentSelection = (await deck(page, "a")).selection;
+  expect(independentSelection.start).toBeGreaterThan(original.end);
+  await page.locator("#aLoopDouble").click(); expect((await deck(page, "a")).selection).toEqual(independentSelection);
+  await page.locator("#aWaveform").focus();
   await page.keyboard.press("q"); expect((await deck(page, "a")).quantize).toBe(false);
   await page.keyboard.press("q"); expect((await deck(page, "a")).quantize).toBe(true);
   const before = await deck(page, "a"); await page.locator("#librarySearch").fill("q"); await page.keyboard.type("[]q");
@@ -201,6 +262,9 @@ test("Quantize preserves playing follower phase on cue and loop recall; manual r
   await page.locator("#bLoopHalf").click(); await synced(page);
   await page.locator("#bLoopDouble").click(); await synced(page);
   await page.locator("#bLoopMoveForward").click(); await synced(page);
+  const moved = await deck(page, "b"); expect(moved.selection).toEqual(moved.loop);
+  await page.locator("#bLoop").click(); expect((await deck(page, "b")).loop).toBeNull();
+  await page.locator("#bHotCue2").click(); await synced(page);
   await page.locator("#bQuantize").click(); await page.locator("#bHotCue1").click();
   expect((await deck(page, "b")).sync).toBe(false); expect((await deck(page, "b")).playing).toBe(true);
   await page.locator("#bSync").click(); await synced(page);
@@ -210,6 +274,53 @@ test("Quantize preserves playing follower phase on cue and loop recall; manual r
   await page.locator("#bWaveform").focus(); await page.keyboard.press("ArrowRight");
   expect((await deck(page, "b")).sync).toBe(false);
   await audioOff(page, errors);
+});
+
+test("actual stereo pulses stay aligned and audible through quantized cue, jump and saved-loop performance", async ({ page }) => {
+  test.setTimeout(45_000);
+  const errors = diagnostics(page); await ready(page, false);
+  await page.locator("#filePicker").setInputFiles([
+    { name: "Left pulses.wav", mimeType: "audio/wav", buffer: pulseWave(0) },
+    { name: "Right pulses.wav", mimeType: "audio/wav", buffer: pulseWave(1) },
+  ]);
+  for (const [id, name] of [["a", "Left pulses.wav"], ["b", "Right pulses.wav"]]) {
+    await page.getByRole("button", { name: `Load ${name} into deck ${id.toUpperCase()}`, exact: true }).click();
+    await expect(page.locator(`#${id}State`)).toHaveText("READY");
+    await page.locator(`#${id}Adjust > summary`).click(); await page.locator(`#${id}Bpm`).fill("120");
+    await seekBeat(page, id, 0); await page.locator(`#${id}Grid`).click();
+  }
+  await seekBeat(page, "b", 4); await page.locator("#bHotCue1").click();
+  await selectBeats(page, "b", 12, 16); await page.locator("#bHotCue2").click();
+  await page.locator("#bSelectionClear").click(); await seekBeat(page, "b", 0);
+  await page.locator("#aPlay").click(); await page.locator("#bSync").click(); await page.locator("#bPlay").click();
+  await page.locator("#audioButton").click(); await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await synced(page); await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(0.005);
+  await startRhythmCapture(page); await page.waitForTimeout(650);
+  for (const suffix of ["HotCue1", "BeatJumpForward", "HotCue2", "LoopMoveForward", "LoopHalf", "LoopDouble"]) {
+    await page.locator(`#b${suffix}`).click(); await synced(page); await page.waitForTimeout(170);
+  }
+  const blocks = await page.evaluate(() => window.__padCapture);
+  expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.left) && Number.isFinite(block.right))).toBe(true);
+  expect(Math.max(...blocks.map(block => block.peak))).toBeLessThan(1);
+  const attacks = {};
+  for (const channel of ["left", "right"]) {
+    for (let second = 0; second < 8; second++) {
+      const window = blocks.filter(block => block.time >= second && block.time < second + 1);
+      expect(Math.sqrt(window.reduce((sum, block) => sum + block[channel], 0) / window.length), `${channel} RMS at ${second}s`).toBeGreaterThan(0.005);
+    }
+    const threshold = Math.max(...blocks.map(block => block[channel])) * 0.18, found = [];
+    for (let i = 1; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.time < 0.25 || block.time > 7.75 || block[channel] < threshold || blocks[i - 1][channel] >= threshold) continue;
+      if (!found.length || block.time - found.at(-1) > 0.3) found.push(block.time);
+    }
+    expect(found.length, `${channel} beat attacks`).toBeGreaterThanOrEqual(13); attacks[channel] = found;
+  }
+  const gaps = attacks.right.map(time => Math.min(...attacks.left.map(other => Math.abs(time - other))));
+  expect(Math.max(...gaps), `Rendered follower/master onset differences: ${gaps.join(", ")}`).toBeLessThan(0.045);
+  await synced(page); expect((await readAudioStatus(page)).connectionCount).toBe(1);
+  await page.evaluate(() => window.__trackazoid.dispose()); await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
+  expect(errors).toEqual([]);
 });
 
 for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
