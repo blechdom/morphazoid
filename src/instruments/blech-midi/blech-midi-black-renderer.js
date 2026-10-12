@@ -36,6 +36,37 @@ export function blackMidiColor({ pitch, velocity, channel, track }, options = {}
   return [0, 4, 2].map(offset => .96 * (.2 + .8 * clamp(Math.abs((sector + offset) % 6 - 3) - 1, 0, 1, 0)));
 }
 
+/** One velocity on both sides of the keyboard. Trail lifetime is bounded by
+ * pastSeconds; viewport clipping can make the visible past shorter. Keyboard
+ * thickness hides the crossing, rather than accelerating it into a second map.
+ */
+export function blackMidiTimeGeometry(options = {}, cssHeight = 500) {
+  const height = Math.max(1, Number(cssHeight) || 500);
+  const band = Math.min(.3, Math.max(18, Math.min(42, height * clamp(options.keyboardHeight, .04, .2, .08))) / height);
+  const center = clamp(options.keyboardPosition, .3, .8, .6);
+  const keyboardTop = Math.max(.1, center - band / 2), keyboardBottom = Math.min(.95, center + band / 2);
+  const lookAhead = clamp(options.lookAhead, .25, 60, 6), pastSeconds = clamp(options.pastSeconds, 0, 30, 4);
+  return { keyboardTop, keyboardBottom, lookAhead, pastSeconds, velocity: keyboardTop / lookAhead };
+}
+
+export function blackMidiNoteSegment(start, end, geometry, past = false) {
+  const { keyboardTop, keyboardBottom, velocity, lookAhead, pastSeconds } = geometry;
+  if (!Number.isFinite(start) || !Number.isFinite(end) || !(end > start)) return null;
+  if (!past) {
+    if (!(end > 0) || start > lookAhead) return null;
+    const top = Math.max(0, keyboardTop - end * velocity);
+    const bottom = Math.min(keyboardTop, keyboardTop - start * velocity);
+    return { top, height: Math.max(0, bottom - top), brightness: 1 };
+  }
+  if (!(pastSeconds > 0) || !(start < 0) || end <= -pastSeconds) return null;
+  const recent = Math.min(0, end), oldest = Math.max(-pastSeconds, start);
+  const top = keyboardBottom - recent * velocity;
+  const bottom = Math.min(1, keyboardBottom - oldest * velocity);
+  if (top >= 1 || bottom <= top) return null;
+  const age = ((top + bottom) / 2 - keyboardBottom) / velocity;
+  return { top, height: bottom - top, brightness: .82 * Math.pow(Math.max(0, 1 - age / pastSeconds), 1.3) };
+}
+
 function createGpu(canvas) {
   const gl = canvas.getContext('webgl2', { alpha: false, antialias: false, depth: false, stencil: false, preserveDrawingBuffer: false });
   if (!gl) return null;
@@ -104,13 +135,13 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     Object.assign(canvas.style, { position: 'absolute', inset: '0', width: '100%', height: '100%', display: 'block', pointerEvents: 'none' });
     return canvas;
   };
-  let canvas = makeCanvas('Falling MIDI notes and full 128-key keyboard', true);
+  let canvas = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true);
   const keyboard = makeCanvas('MIDI keyboard'), context = keyboard.getContext('2d');
   wrapper.append(canvas, keyboard); mount.append(wrapper);
   let backend = forceCanvas ? null : createGpu(canvas);
   // A canvas with a failed/lost WebGL context cannot acquire a 2D context.
-  if (!backend) { const replacement = makeCanvas('Falling MIDI notes and full 128-key keyboard', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas); }
-  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'rainbow', trackColors: {}, hiddenTracks: [], keyboardHeight: .16 };
+  if (!backend) { const replacement = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas); }
+  let options = { lookAhead: 6, alignment: 'piano', colorBy: 'track', palette: 'rainbow', trackColors: {}, hiddenTracks: [], keyboardHeight: .08, keyboardPosition: .6, pastSeconds: 4, trails: true };
   let layout = blackMidiKeyLayout(), score = null, visible = true, disposed = false, frame = null, lastFrame = -Infinity, lastStats = -Infinity;
   let previousTime = NaN, dirty = true, serial = 0, controller = null, latestStats = null;
   const data = new Float32Array(200_000 * 7), lit = new Array(128).fill(null);
@@ -128,7 +159,8 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   resizeObserver?.observe(wrapper); window.addEventListener('resize', resize);
   function drawKeyboard() {
     if (!context) return;
-    const { width, height } = dimensions, strike = (1 - options.keyboardHeight) * height, keyHeight = height - strike;
+    const { width, height, cssHeight } = dimensions, geometry = blackMidiTimeGeometry(options, cssHeight);
+    const strike = geometry.keyboardTop * height, keyHeight = (geometry.keyboardBottom - geometry.keyboardTop) * height;
     context.clearRect(0, 0, width, height);
     context.fillStyle = '#11131a'; context.fillRect(0, strike, width, keyHeight);
     const draw = black => {
@@ -140,55 +172,74 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     };
     draw(false); draw(true);
     context.fillStyle = '#aebbd3'; context.fillRect(0, strike, width, 1);
+    if (dimensions.cssHeight >= 180) {
+      context.font = `${Math.max(9, 10 * (width / dimensions.cssWidth))}px sans-serif`;
+      context.fillStyle = '#687184';
+      context.fillText('FUTURE', 6, 13 * (width / dimensions.cssWidth));
+      context.fillText('PAST', 6, Math.min(height - 5, strike + keyHeight + 14 * (width / dimensions.cssWidth)));
+    }
     if (dimensions.cssWidth >= 540) {
       context.fillStyle = '#596174'; context.font = `${Math.max(8, 9 * (width / dimensions.cssWidth))}px sans-serif`;
-      for (let pitch = 0; pitch < 128; pitch += 12) context.fillText(`C${pitch / 12 - 1}`, layout[pitch].x * width + 2, height - 3);
+      for (let pitch = 0; pitch < 128; pitch += 12) context.fillText(`C${pitch / 12 - 1}`, layout[pitch].x * width + 2, strike + keyHeight - 3);
     }
   }
   function render(position = getTransport()?.position ?? 0) {
     if (disposed) return latestStats;
-    const time = Math.max(0, Number(position) || 0), strike = 1 - options.keyboardHeight;
+    const time = Math.max(0, Number(position) || 0), geometry = blackMidiTimeGeometry(options, dimensions.cssHeight);
     const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .125, 8, 1);
-    // A real-seconds window sees proportionally more score at high speed.
-    // Reduce graphics work first; file indexing and audio remain complete.
     const frameLimit = Math.max(Math.floor(backend.limit / 8), Math.floor(backend.limit / Math.max(1, speed)));
     let liveState = null;
     try { liveState = getLiveState?.(); } catch { /* Display failure cannot affect sound. */ }
-    const live = projectLive(liveState, { lookAhead: options.lookAhead, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, frameLimit / 2) });
-    lit.fill(null); let count = 0;
-    function rectangle({ pitch, velocity, channel, track, start, end }) {
-      const key = layout[pitch]; if (!key || count >= backend.limit) return;
+    const pastSeconds = options.trails ? options.pastSeconds : 0;
+    const live = projectLive(liveState, { lookAhead: options.lookAhead, pastSeconds,
+      now: liveState?.sampleTime ?? window.performance.now() / 1000, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, frameLimit / 4) });
+    lit.fill(null); let count = 0, pastVisible = 0, futureVisible = 0;
+    function rectangle({ pitch, velocity, channel, track, start, end }, past = false) {
+      const key = layout[pitch]; if (!key || count >= frameLimit) return false;
+      const segment = blackMidiNoteSegment(start, end, geometry, past); if (!segment) return false;
       const custom = options.trackColors[track];
       const colorKey = /^#[0-9a-f]{6}$/i.test(custom) ? `custom:${custom}` : options.colorBy === 'pitch' ? pitch
         : options.colorBy === 'velocity' ? velocity : options.colorBy === 'channel' ? channel : track;
       let rgb = colorCache.get(colorKey);
-      if (!rgb) { rgb = blackMidiColor({ pitch, velocity, channel, track }, options); colorCache.set(colorKey, rgb); }
-      const bottom = Math.min(strike, strike - start / options.lookAhead * strike);
-      const top = Math.max(0, strike - end / options.lookAhead * strike);
+      if (!rgb) { if (colorCache.size >= 8192) colorCache.clear(); rgb = blackMidiColor({ pitch, velocity, channel, track }, options); colorCache.set(colorKey, rgb); }
       const at = count++ * 7;
-      data[at] = key.x; data[at + 1] = top; data[at + 2] = Math.max(1 / dimensions.width, key.width - .4 / dimensions.width);
-      data[at + 3] = Math.max(1 / dimensions.height, bottom - top); data[at + 4] = rgb[0]; data[at + 5] = rgb[1]; data[at + 6] = rgb[2];
-      if (start <= 0 && end > 0) lit[pitch] = rgb;
+      data[at] = key.x; data[at + 1] = segment.top; data[at + 2] = Math.max(1 / dimensions.width, key.width - .4 / dimensions.width);
+      data[at + 3] = Math.max(1 / dimensions.height, segment.height);
+      data[at + 4] = rgb[0] * segment.brightness; data[at + 5] = rgb[1] * segment.brightness; data[at + 6] = rgb[2] * segment.brightness;
+      if (past) pastVisible++; else { futureVisible++; if (start <= 0 && end > 0) lit[pitch] = rgb; }
+      return true;
     }
-    // Live layers retain a guaranteed share even over a dense decorative file.
-    const fileLimit = Math.max(0, frameLimit - live.notes.length);
-    const queried = queryBlackMidiNotes(score, time, options.lookAhead * speed, { limit: fileLimit, scanLimit: fileLimit * 2, hiddenTracks: options.hiddenTracks,
-      visit(index, track) {
-        rectangle({ pitch: score.pitches[index], velocity: score.velocities[index], channel: score.channels[index], track,
-          start: (score.starts[index] - time) / speed, end: (score.ends[index] - time) / speed });
-      },
-    });
+    const fileNote = (index, track) => ({ pitch: score.pitches[index], velocity: score.velocities[index], channel: score.channels[index], track,
+      start: (score.starts[index] - time) / speed, end: (score.ends[index] - time) / speed });
+    // Reserve both future and past live geometry before querying dense files.
+    const livePastLimit = Math.min(live.pastNotes.length, Math.floor(frameLimit / 4));
+    const fileLimit = Math.max(0, Math.floor((frameLimit - live.notes.length - livePastLimit) / (pastSeconds ? 2 : 1)));
+    const queried = queryBlackMidiNotes(score, time, options.lookAhead * speed, { limit: fileLimit, scanLimit: fileLimit * 2,
+      hiddenTracks: options.hiddenTracks, visit(index, track) { rectangle(fileNote(index, track)); } });
     const fileVisible = count;
     for (const note of live.notes) rectangle(note);
+    // A source-position query is intentional: file pause freezes its picture;
+    // seek replaces both sides immediately, so no unrelated stale tails survive.
+    let filePastVisible = 0;
+    if (pastSeconds) {
+      const from = Math.max(0, time - pastSeconds * speed);
+      queryBlackMidiNotes(score, from, time - from, { limit: fileLimit, scanLimit: fileLimit * 2,
+        hiddenTracks: options.hiddenTracks, visit(index, track) { if (rectangle(fileNote(index, track), true)) filePastVisible++; } });
+      for (let index = Math.max(0, live.pastNotes.length - livePastLimit); index < live.pastNotes.length; index++) rectangle(live.pastNotes[index], true);
+    }
     backend.draw(data, count); drawKeyboard();
     latestStats = { ...blackMidiStatistics(score, time, { ...options, lookAhead: options.lookAhead * speed }), visible: fileVisible, scanned: queried.scanned,
       liveVisible: live.notes.length, liveHeld: live.held, liveSources: live.sources, liveTruncated: live.truncated,
+      pastVisible, filePastVisible, livePastVisible: pastVisible - filePastVisible, futureVisible, keyboardTop: geometry.keyboardTop, keyboardBottom: geometry.keyboardBottom,
       renderer: backend.name, displayLimit: frameLimit, position: time };
     latestStats.omitted = Math.max(0, latestStats.candidateCount - fileVisible);
     wrapper.dataset.liveNotes = String(live.notes.length);
     wrapper.dataset.liveHeld = String(live.held);
     wrapper.dataset.liveSources = JSON.stringify(live.sources);
     wrapper.dataset.fileNotes = String(fileVisible);
+    wrapper.dataset.pastNotes = String(pastVisible);
+    wrapper.dataset.keyboardTop = String(geometry.keyboardTop);
+    wrapper.dataset.keyboardBottom = String(geometry.keyboardBottom);
     previousTime = time; dirty = false;
     return latestStats;
   }
@@ -205,7 +256,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   const contextLost = event => {
     event.preventDefault(); if (disposed || backend.name !== 'WebGL2') return;
     backend.destroy(); canvas.removeEventListener('webglcontextlost', contextLost);
-    const replacement = makeCanvas('Falling MIDI notes and full 128-key keyboard', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas);
+    const replacement = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas);
     resize(); dirty = true; status('ready', 'Using Canvas fallback after the GPU context was lost.'); schedule();
   };
   canvas.addEventListener('webglcontextlost', contextLost);
@@ -235,7 +286,9 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     setLiveSource(value) { getLiveState = typeof value === 'function' ? value : null; dirty = true; schedule(); },
     setOptions(value = {}) {
       options = { ...options, ...value,
-        lookAhead: clamp(value.lookAhead ?? options.lookAhead, .25, 60, 6), keyboardHeight: clamp(value.keyboardHeight ?? options.keyboardHeight, .08, .35, .16),
+        lookAhead: clamp(value.lookAhead ?? options.lookAhead, .25, 60, 6), keyboardHeight: clamp(value.keyboardHeight ?? options.keyboardHeight, .04, .2, .08),
+        keyboardPosition: clamp(value.keyboardPosition ?? options.keyboardPosition, .3, .8, .6),
+        pastSeconds: clamp(value.pastSeconds ?? options.pastSeconds, 0, 30, 4), trails: value.trails === undefined ? options.trails : Boolean(value.trails),
         alignment: (value.alignment ?? options.alignment) === 'equal' ? 'equal' : 'piano',
         colorBy: ['track', 'channel', 'pitch', 'velocity'].includes(value.colorBy ?? options.colorBy) ? value.colorBy ?? options.colorBy : 'track',
         palette: BLACK_MIDI_PALETTES.includes(value.palette ?? options.palette) ? value.palette ?? options.palette : 'rainbow',
