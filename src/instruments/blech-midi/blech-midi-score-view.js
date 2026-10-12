@@ -35,13 +35,13 @@ export async function readMidiAsset(song, signal) {
   return binary.buffer;
 }
 
-export function mountMidiScoreView({ mount, controls, getTransport }) {
+export function mountMidiScoreView({ mount, controls, getTransport, getLiveState }) {
   const events = new AbortController();
   controls.innerHTML = `
     <h2>Black MIDI</h2>
     <div class="midiphoria-score-stats" aria-label="MIDI score statistics">
       <span>Total notes <output data-total>—</output></span><span>Passed <output data-passed>0</output></span>
-      <span>Notes / second <output data-nps>0</output></span><span>Held notes <output data-held>0</output></span>
+      <span>Notes / second <output data-nps>0</output></span><span>Held notes <output data-held>0</output></span><span>Live layers <output data-live>0</output></span>
     </div>
     <p class="midiphoria-help" role="status" data-score-status>Choose a MIDI to see its complete score.</p>
     <label class="control"><span><b>Color by</b></span><select data-color-by><option value="track">Track</option><option value="channel">MIDI channel</option><option value="pitch">Pitch</option><option value="velocity">Velocity</option></select></label>
@@ -49,28 +49,28 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     <label class="control"><span><b>Keyboard layout</b></span><select data-alignment><option value="piano">Piano keys · 128 pitches</option><option value="equal">Equal pitch lanes · 128 pitches</option></select></label>
     <label class="control"><span><b>Look ahead</b><output data-look-output>6 s</output></span><input data-look type="range" min="1" max="20" step="0.5" value="6"></label>
     <details><summary>Tracks &amp; colors</summary><p class="midiphoria-help">Overlaid on one keyboard. Checkboxes change the picture; audio keeps playing.</p><button type="button" class="mini-action" data-reset-colors>Reset track colors</button><div data-tracks class="midiphoria-score-tracks"></div></details>
-    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">Future notes show the source file before MIDI effects. Live pads and generated notes remain in Live output.</p></details>
+    <details><summary>Score details</summary><p class="midiphoria-help" data-score-detail></p><p class="midiphoria-help">Total counts positive-velocity Note On events. Held and peak count overlapping note gates, before sustain, effects or the synthesizer's voice limit. Notes/second counts attacks in the preceding score second.</p><p class="midiphoria-help">File notes show the source score before MIDI effects. Playing pads and Automatapoeia share this keyboard; their forecasts follow their own clocks and current note effects. Changing a rule updates future generations. Dense live forecasts have a separate display limit.</p></details>
     <p class="midiphoria-help"><a href="#midiArtCreator">Make MIDI artwork ↓</a> · <a href="assets/midiphoria/ARTWORK-SOURCES.md" target="_blank" rel="noopener">Collections &amp; artist sources ↗</a></p>`;
   const $ = selector => controls.querySelector(selector);
   const knobs = mountMixerKnobs(controls);
   let renderer, score = null, lastStats = null, request = null, serial = 0, disposed = false;
-  let trackColors = {}, hiddenTracks = [];
+  let trackColors = {}, hiddenTracks = [], unavailableCount = null;
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   function options() {
     return { colorBy: $('[data-color-by]').value, palette: $('[data-palette]').value,
       alignment: $('[data-alignment]').value, lookAhead: Number($('[data-look]').value), trackColors, hiddenTracks };
   }
   function details() {
-    if (!score || !lastStats) return;
-    const diagnostics = score.diagnostics ?? {};
-    $('[data-score-detail]').textContent = `${lastStats.renderer || 'Preparing renderer'} · Peak ${count(score.peakPolyphony)} held · ${count(lastStats.visible)} drawn / ${count(lastStats.candidateCount)} in view${lastStats.omitted ? ` · ${count(lastStats.omitted)} omitted from this frame (score counts remain complete)` : ''}.${diagnostics.unclosed ? ` ${count(diagnostics.unclosed)} notes without an off event end at the track boundary.` : ''}${diagnostics.unmatchedOffs ? ` ${count(diagnostics.unmatchedOffs)} unmatched off events.` : ''}`;
+    if (!lastStats) return;
+    const diagnostics = score?.diagnostics ?? {};
+    $('[data-score-detail]').textContent = `${lastStats.renderer || 'Preparing renderer'} · Peak ${count(score?.peakPolyphony)} held · ${count(lastStats.visible)} drawn / ${count(lastStats.candidateCount)} in view${lastStats.omitted ? ` · ${count(lastStats.omitted)} omitted from this frame (score counts remain complete)` : ''}${lastStats.liveVisible ? ` · ${count(lastStats.liveVisible)} live notes in view` : ''}${lastStats.liveTruncated ? ' · live preview capped' : ''}.${diagnostics.unclosed ? ` ${count(diagnostics.unclosed)} notes without an off event end at the track boundary.` : ''}${diagnostics.unmatchedOffs ? ` ${count(diagnostics.unmatchedOffs)} unmatched off events.` : ''}`;
   }
-  renderer = createBlackMidiVisualizer({ mount, getTransport,
+  renderer = createBlackMidiVisualizer({ mount, getTransport, getLiveState,
     onStatus(value) { $('[data-score-status]').textContent = value.message || ''; },
     onStats(stats) {
-      if (!score) return;
       lastStats = stats;
-      for (const [key, value] of [['total', stats.total], ['passed', stats.passed], ['nps', stats.notesPerSecond], ['held', stats.held]]) $('[data-' + key + ']').value = count(value);
+      for (const [key, value] of [['total', unavailableCount ?? stats.total], ['passed', stats.passed], ['nps', stats.notesPerSecond], ['held', stats.held + stats.liveHeld]]) $('[data-' + key + ']').value = count(value);
+      $('[data-live]').value = count(stats.liveSources.length);
       details();
     },
   });
@@ -91,7 +91,7 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
     configure();
   });
   function clear(message = 'Choose a MIDI to see its complete score.') {
-    serial++; request?.abort(); request = null; score = null; lastStats = null;
+    serial++; request?.abort(); request = null; score = null; lastStats = null; unavailableCount = null;
     renderer.setScore(null); $('[data-tracks]').replaceChildren(); trackColors = {}; hiddenTracks = [];
     $('[data-score-status]').textContent = message; $('[data-score-detail]').textContent = '';
     $('[data-total]').value = '—'; for (const key of ['passed', 'nps', 'held']) $('[data-' + key + ']').value = '0';
@@ -123,8 +123,9 @@ export function mountMidiScoreView({ mount, controls, getTransport }) {
   }
   configure();
   return { load, clear,
-    unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); $('[data-total]').value = count(song.noteCount); },
+    unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); unavailableCount = song.noteCount; $('[data-total]').value = count(song.noteCount); },
     setVisible(value) { renderer.setVisible(value); },
+    setLiveSource(value) { renderer.setLiveSource(value); },
     dispose() { disposed = true; clear(); events.abort(); knobs.destroy(); renderer.dispose(); },
   };
 }

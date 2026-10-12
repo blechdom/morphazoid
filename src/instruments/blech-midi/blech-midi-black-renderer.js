@@ -1,6 +1,7 @@
 import { canvasSizing } from '../../graphics/canvas-sizing.js';
 import { blackMidiStatistics, queryBlackMidiNotes } from './blech-midi-black-score.js';
 import { parseBlackMidi } from './blech-midi-black-loader.js';
+import { createBlechLiveProjector, BLECH_LIVE_NOTE_LIMIT } from './blech-midi-live-score.js';
 
 export const BLACK_MIDI_PALETTES = Object.freeze(['rainbow', 'candy', 'ember', 'ice', 'acid']);
 const clamp = (value, min, max, fallback) => Math.max(min, Math.min(max, Number.isFinite(Number(value)) ? Number(value) : fallback));
@@ -89,9 +90,10 @@ function createCpu(canvas) {
 /** The score supplies future notes; the caller's actual audio transport supplies
  * seconds. Never extrapolates from frames, starts Audio, or mutates playback.
  * Counts represent the full file; preview-only hidden tracks and display caps
- * are separately reported. Live input belongs to the existing trail renderer.
+ * are separately reported. Generated layers use their independent engine clocks
+ * and share the same falling-note stage without owning any audio scheduling.
  */
-export function createBlackMidiVisualizer({ mount, getTransport = () => ({ position: 0 }), onStats, onStatus, forceCanvas = false } = {}) {
+export function createBlackMidiVisualizer({ mount, getTransport = () => ({ position: 0 }), getLiveState = null, onStats, onStatus, forceCanvas = false } = {}) {
   if (!mount?.ownerDocument) throw new Error('Falling notes requires a mount element.');
   const document = mount.ownerDocument, window = document.defaultView;
   const wrapper = document.createElement('div'); wrapper.className = 'midiphoria-black-stage';
@@ -113,6 +115,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   let previousTime = NaN, dirty = true, serial = 0, controller = null, latestStats = null;
   const data = new Float32Array(200_000 * 7), lit = new Array(128).fill(null);
   let colorCache = new Map();
+  const projectLive = createBlechLiveProjector();
   let dimensions = { width: 1, height: 1, cssWidth: 1, cssHeight: 1 };
   const status = (state, message) => safe(onStatus, { state, message, renderer: backend.name });
   const resize = () => {
@@ -145,34 +148,51 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   function render(position = getTransport()?.position ?? 0) {
     if (disposed) return latestStats;
     const time = Math.max(0, Number(position) || 0), strike = 1 - options.keyboardHeight;
+    const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .125, 8, 1);
+    let liveState = null;
+    try { liveState = getLiveState?.(); } catch { /* Display failure cannot affect sound. */ }
+    const live = projectLive(liveState, { lookAhead: options.lookAhead, limit: Math.min(BLECH_LIVE_NOTE_LIMIT, backend.limit / 2) });
     lit.fill(null); let count = 0;
-    const queried = queryBlackMidiNotes(score, time, options.lookAhead, { limit: backend.limit, scanLimit: backend.limit * 2, hiddenTracks: options.hiddenTracks,
+    function rectangle({ pitch, velocity, channel, track, start, end }) {
+      const key = layout[pitch]; if (!key || count >= backend.limit) return;
+      const custom = options.trackColors[track];
+      const colorKey = /^#[0-9a-f]{6}$/i.test(custom) ? `custom:${custom}` : options.colorBy === 'pitch' ? pitch
+        : options.colorBy === 'velocity' ? velocity : options.colorBy === 'channel' ? channel : track;
+      let rgb = colorCache.get(colorKey);
+      if (!rgb) { rgb = blackMidiColor({ pitch, velocity, channel, track }, options); colorCache.set(colorKey, rgb); }
+      const bottom = Math.min(strike, strike - start / options.lookAhead * strike);
+      const top = Math.max(0, strike - end / options.lookAhead * strike);
+      const at = count++ * 7;
+      data[at] = key.x; data[at + 1] = top; data[at + 2] = Math.max(1 / dimensions.width, key.width - .4 / dimensions.width);
+      data[at + 3] = Math.max(1 / dimensions.height, bottom - top); data[at + 4] = rgb[0]; data[at + 5] = rgb[1]; data[at + 6] = rgb[2];
+      if (start <= 0 && end > 0) lit[pitch] = rgb;
+    }
+    // Live layers retain a guaranteed share even over a dense decorative file.
+    const fileLimit = backend.limit - live.notes.length;
+    const queried = queryBlackMidiNotes(score, time, options.lookAhead * speed, { limit: fileLimit, scanLimit: fileLimit * 2, hiddenTracks: options.hiddenTracks,
       visit(index, track) {
-        const pitch = score.pitches[index], key = layout[pitch];
-        const velocity = score.velocities[index], channel = score.channels[index];
-        const custom = options.trackColors[track];
-        const colorKey = /^#[0-9a-f]{6}$/i.test(custom) ? `custom:${custom}` : options.colorBy === 'pitch' ? pitch
-          : options.colorBy === 'velocity' ? velocity : options.colorBy === 'channel' ? channel : track;
-        let rgb = colorCache.get(colorKey);
-        if (!rgb) { rgb = blackMidiColor({ pitch, velocity, channel, track }, options); colorCache.set(colorKey, rgb); }
-        const bottom = Math.min(strike, strike - (score.starts[index] - time) / options.lookAhead * strike);
-        const top = Math.max(0, strike - (score.ends[index] - time) / options.lookAhead * strike);
-        const at = count++ * 7;
-        data[at] = key.x; data[at + 1] = top; data[at + 2] = Math.max(1 / dimensions.width, key.width - .4 / dimensions.width);
-        data[at + 3] = Math.max(1 / dimensions.height, bottom - top); data[at + 4] = rgb[0]; data[at + 5] = rgb[1]; data[at + 6] = rgb[2];
-        if (score.starts[index] <= time && score.ends[index] > time) lit[pitch] = rgb;
+        rectangle({ pitch: score.pitches[index], velocity: score.velocities[index], channel: score.channels[index], track,
+          start: (score.starts[index] - time) / speed, end: (score.ends[index] - time) / speed });
       },
     });
+    const fileVisible = count;
+    for (const note of live.notes) rectangle(note);
     backend.draw(data, count); drawKeyboard();
-    latestStats = { ...blackMidiStatistics(score, time, options), visible: count, scanned: queried.scanned, renderer: backend.name, displayLimit: backend.limit, position: time };
-    latestStats.omitted = Math.max(0, latestStats.candidateCount - count);
+    latestStats = { ...blackMidiStatistics(score, time, { ...options, lookAhead: options.lookAhead * speed }), visible: fileVisible, scanned: queried.scanned,
+      liveVisible: live.notes.length, liveHeld: live.held, liveSources: live.sources, liveTruncated: live.truncated,
+      renderer: backend.name, displayLimit: backend.limit, position: time };
+    latestStats.omitted = Math.max(0, latestStats.candidateCount - fileVisible);
+    wrapper.dataset.liveNotes = String(live.notes.length);
+    wrapper.dataset.liveHeld = String(live.held);
+    wrapper.dataset.liveSources = JSON.stringify(live.sources);
+    wrapper.dataset.fileNotes = String(fileVisible);
     previousTime = time; dirty = false;
     return latestStats;
   }
   function tick(now) {
     frame = null; if (disposed || !visible || document.hidden) return;
     const position = getTransport()?.position ?? 0;
-    if (now - lastFrame >= 1000 / 30 && (dirty || position !== previousTime)) { lastFrame = now; render(position); }
+    if (now - lastFrame >= 1000 / 30 && (dirty || position !== previousTime || getLiveState)) { lastFrame = now; render(position); }
     if (latestStats && now - lastStats >= 100) { lastStats = now; safe(onStats, latestStats); }
     frame = window.requestAnimationFrame(tick);
   }
@@ -191,7 +211,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     if (disposed) return; disposed = true; cancelLoad();
     if (frame !== null) window.cancelAnimationFrame(frame); frame = null;
     resizeObserver?.disconnect(); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visibility);
-    window.removeEventListener('pagehide', dispose); canvas.removeEventListener('webglcontextlost', contextLost); backend.destroy(); wrapper.remove(); score = null;
+    window.removeEventListener('pagehide', dispose); canvas.removeEventListener('webglcontextlost', contextLost); backend.destroy(); wrapper.remove(); score = null; getLiveState = null; projectLive(null);
   }
   window.addEventListener('pagehide', dispose, { once: true });
   resize(); schedule();
@@ -209,6 +229,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
       finally { signal?.removeEventListener('abort', abort); if (controller === active) controller = null; }
     },
     setScore(value) { cancelLoad(); score = value; dirty = true; schedule(); },
+    setLiveSource(value) { getLiveState = typeof value === 'function' ? value : null; dirty = true; schedule(); },
     setOptions(value = {}) {
       options = { ...options, ...value,
         lookAhead: clamp(value.lookAhead ?? options.lookAhead, .25, 60, 6), keyboardHeight: clamp(value.keyboardHeight ?? options.keyboardHeight, .08, .35, .16),
