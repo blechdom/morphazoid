@@ -13,7 +13,7 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
    Drop a file directly onto Deck A or B to load it there.
 2. Enable **Audio** in the Morphazoid menubar, then press a deck's **Play**.
    Loading, seeking and playing never enable Audio for you. Space controls
-   the selected deck (A/B) when focus is outside an editable field or an interactive control.
+   the selected deck (A/B), including when its waveform is focused. Fields, buttons and menus keep their native keys.
 3. Tempo and beats are detected in the background when a deck loads a new track.
    The first playing deck becomes the **MASTER**. Enable **Sync** on the other
    deck, then press its **Play**: it matches the master's tempo and launches on
@@ -37,16 +37,31 @@ replaces it, keeping an accidental drop from cutting off the current track.
 
 | Control | Behavior |
 | --- | --- |
-| Waveform | Seek within the file; its cursor follows the transport clock. |
+| Waveform | Click to seek; drag to select a chunk; drag selection edges to trim. Shift-click extends a selection. |
+| Waveform view | Shift-drag pans; − / + zoom; Fit shows the whole file; Follow returns to the moving playhead. |
+| Snap | Align selection and marker edits to beats. Hold Alt to bypass snapping for a pointer edit. |
+| In / Out | Set selection boundaries at the playhead (I / O). Out must be at least 50 ms after In. |
+| Loop selection | Repeat the selected chunk (L). Click again to stop that same loop. No detected BPM is required. |
+| Clear selection | Clear the range or pending In point (Delete / Backspace), preserving any playing loop. |
+| Mark | Add the next empty cue marker at the playhead (M), or double-click the waveform to seek and place one. Drag a numbered flag to move it. |
 | Tempo | Change playback speed from −16% to +16%. |
 | Key lock | Preserve pitch while changing tempo through Signalsmith Stretch. It starts on; turn it off for native playback. |
 | Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. Overrides the automatic estimate; available under Adjust. |
 | Set downbeat here | Place the beat-grid anchor at the cursor. |
 | Sync | Follow the master tempo and beat phase until disabled; the ±16% range still applies. |
-| Hot cues 1–4 | Store a position in an empty slot or jump to its saved position. Shift-click clears a slot. |
-| Beat loop | Repeat 1, 2, 4, 8 or 16 beats using the edited BPM/grid. |
+| Hot cues 1–4 | Store a position in an empty slot or jump to its saved position. Shift-click or Shift+1–4 clears a slot. |
+| Beat loop | With no selection, Loop / L repeats 1, 2, 4, 8 or 16 beats using the BPM/grid. The length menu resizes an active loop. |
 | EQ and filter | Shape the deck before it reaches the master and cue mixes. |
 | Crossfader | Blend the two decks. |
+
+Selecting, trimming a selection, moving markers, panning and zooming preserve
+transport and Sync. Press **Loop selection** to apply an edited range to playback.
+With no selection, dragging an active loop edge changes the live loop.
+The overview remains a full-track seek control. Arrow keys seek by one beat
+(or half a second without BPM), Shift+Arrow by ten seconds, and Home/End reach the
+track ends. **Space** plays/pauses the selected deck; **Esc** pauses both.
+Selection and viewport reset when a new track loads; cue markers are saved with
+the track. These controls never edit the original audio file.
 
 This version does not implement vinyl scratching, slip mode, automatic
 key detection, variable beat grids or DJ-controller profiles. Key lock is a

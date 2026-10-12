@@ -12,6 +12,7 @@ const decks = Object.fromEntries(["a", "b"].map((id) => [id, {
   entry: null, metadata: normalizeTrackMetadata(), buffer: null,
   analyzer: createBeatAnalyzer(), analyzing: false, analysisRevision: 0, analysisError: "",
   pending: null, revision: 0, intent: 0, loading: false, keyPending: false, monitor: false,
+  selection: null, selectionAnchor: null, snap: true,
 }]));
 let initialized = false, disposed = false, audioStarting = false, audioAttempt = 0;
 let selected = "a", folderFilter = null, visibleLimit = 150, pickerDeck = null;
@@ -26,8 +27,15 @@ const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", leve
 $("audioSlot").replaceWith(strip);
 engine.setMaster(0.65);
 const views = Object.fromEntries(["a", "b"].map((id) => [id, new WaveformView($(`${id}Waveform`), $(`${id}Overview`), {
-  color: id === "a" ? "#72e1cd" : "#f6b57c", getState: () => ({ ...engine.snapshot(id), ...decks[id].metadata, gridReady: hasBeatGrid(decks[id].metadata) }),
-  seek: (position) => seek(id, position), changeLoop: (start, end) => act(() => engine.setLoop(id, start, end)), onError: showError,
+  color: id === "a" ? "#72e1cd" : "#f6b57c", getState: () => ({ ...engine.snapshot(id), ...decks[id].metadata,
+    gridReady: hasBeatGrid(decks[id].metadata), loading: decks[id].loading, selection: decks[id].selection,
+    selectionAnchor: decks[id].selectionAnchor, snap: decks[id].snap }),
+  seek: (position) => seek(id, position), changeLoop: (start, end) => act(() => {
+    if (!decks[id].loading) engine.setLoop(id, start, end);
+  }),
+  selectRange: (range) => setSelection(id, range), mark: (time) => addMarker(id, time),
+  changeCue: (index, time) => moveMarker(id, index, time),
+  onViewChange: () => { if (initialized) updateDecks(); }, onError: showError,
 })]));
 
 function showError(error) {
@@ -166,7 +174,7 @@ async function requestLoad(id, entryId, replace = false) {
     // load commits the decoded buffer synchronously, then prepares optional DSP.
     // Commit its visible identity in the same turn, even if a later request fails.
     const loaded = engine.load(id, buffer);
-    deck.entry = entryId; deck.buffer = buffer;
+    deck.entry = entryId; deck.buffer = buffer; deck.selection = null; deck.selectionAnchor = null;
     const metadata = entryById(entryId)?.metadata || entry.metadata;
     saveMetadata(id, { ...metadata, bpm: Math.min(240, Math.max(40, metadata.bpm)), duration: buffer.duration });
     engine.setBeatGrid(id, hasBeatGrid(deck.metadata) ? deck.metadata : { bpm: null, beatOffset: 0 });
@@ -238,7 +246,7 @@ function togglePlay(id) {
   updateDecks();
 }
 function seek(id, position) {
-  if (!decks[id].entry) return;
+  if (!decks[id].entry || decks[id].loading) return;
   selectDeck(id);
   const snapshot = engine.snapshot(id);
   if (snapshot.loop && (position < snapshot.loop.start || position >= snapshot.loop.end)) engine.clearLoop(id);
@@ -252,11 +260,70 @@ function hotCue(id, index, clear = false) {
   else seek(id, cues[index]);
   updateDecks();
 }
+function editPosition(id, position) {
+  const deck = decks[id], duration = engine.snapshot(id).duration;
+  if (deck.snap && hasBeatGrid(deck.metadata)) {
+    const { bpm, beatOffset } = deck.metadata, period = 60 / bpm;
+    position = beatOffset + Math.round((position - beatOffset) / period) * period;
+  }
+  return Math.min(duration, Math.max(0, position));
+}
+function setSelection(id, range) {
+  const deck = decks[id];
+  if (!deck.entry || deck.loading) return;
+  if (range) {
+    const duration = engine.snapshot(id).duration;
+    if (!Number.isFinite(range.start) || !Number.isFinite(range.end)) return;
+    range = { start: Math.max(0, Math.min(duration, range.start)), end: Math.max(0, Math.min(duration, range.end)) };
+    if (range.end - range.start < 0.05 - 1e-9) return;
+  }
+  deck.selection = range; deck.selectionAnchor = null; updateDecks();
+}
+function setSelectionPoint(id, edge) {
+  const deck = decks[id];
+  if (!deck.entry || deck.loading) return;
+  const position = editPosition(id, engine.snapshot(id).position);
+  if (edge === "in") {
+    const end = deck.selection?.end;
+    if (end != null && end - position >= 0.05) setSelection(id, { start: position, end });
+    else { deck.selection = null; deck.selectionAnchor = position; updateDecks(); }
+  } else {
+    const start = deck.selectionAnchor ?? deck.selection?.start ?? 0;
+    if (position - start < 0.05) { status("Move after the In point, then set Out (at least 50 ms apart)."); return; }
+    setSelection(id, { start, end: position });
+  }
+}
+function moveMarker(id, index, time) {
+  const deck = decks[id];
+  if (!deck.entry || deck.loading || !Number.isInteger(index) || index < 0 || index > 3 || !Number.isFinite(time)) return;
+  const cues = [...deck.metadata.cues];
+  cues[index] = Math.max(0, Math.min(engine.snapshot(id).duration, time));
+  saveMetadata(id, { cues }); updateDecks();
+}
+function addMarker(id, time = editPosition(id, engine.snapshot(id).position)) {
+  const deck = decks[id];
+  if (!deck.entry || deck.loading) return;
+  const index = deck.metadata.cues.indexOf(null);
+  if (index < 0) { status("All four markers are set. Shift-click a numbered cue to clear a slot."); return; }
+  moveMarker(id, index, time);
+}
+function selectionIsLoop(id, loop = engine.snapshot(id).loop) {
+  const selection = decks[id].selection;
+  return Boolean(selection && loop && Math.abs(selection.start - loop.start) < 1e-6 && Math.abs(selection.end - loop.end) < 1e-6);
+}
+function loopSelection(id) {
+  const deck = decks[id];
+  if (!deck.selection || deck.loading) return;
+  if (selectionIsLoop(id)) engine.clearLoop(id);
+  else engine.setLoop(id, deck.selection.start, deck.selection.end);
+  updateDecks();
+}
 function toggleLoop(id, resize = false) {
-  const snapshot = engine.snapshot(id); if (!snapshot.duration) return;
-  if (!hasBeatGrid(decks[id].metadata)) { status("Beat loops need a tempo. Wait for analysis or set BPM in Adjust."); return; }
+  const snapshot = engine.snapshot(id); if (!snapshot.duration || decks[id].loading) return;
+  if (!resize && decks[id].selection) { loopSelection(id); return; }
   if (snapshot.loop && !resize) engine.clearLoop(id);
   else {
+    if (!hasBeatGrid(decks[id].metadata)) { status("Select a chunk to loop, or set BPM in Adjust for beat loops."); return; }
     const { bpm, beatOffset } = decks[id].metadata;
     const loop = beatLoop(snapshot.loop?.start ?? snapshot.position, bpm, beatOffset, Number($(`${id}LoopBeats`).value), snapshot.duration);
     if (loop) engine.setLoop(id, loop.start, loop.end);
@@ -271,7 +338,7 @@ function sync(id) {
   clearError();
   const enabled = !engine.snapshot(id).sync;
   engine.setSync(id, enabled);
-  status(enabled ? `Deck ${id.toUpperCase()} Sync on · follows the master. Press Play when ready.` : `Deck ${id.toUpperCase()} Sync off · manual control.`);
+  status(enabled ? `Deck ${id.toUpperCase()} Sync on · follows the master.${engine.snapshot(id).playing ? "" : " Press Play when ready."}` : `Deck ${id.toUpperCase()} Sync off · manual control.`);
   updateDecks();
 }
 
@@ -304,7 +371,21 @@ function updateDecks() {
     $(`${id}KeyLock`).setAttribute("aria-pressed", String(state.keyLock));
     $(`${id}KeyLock`).disabled = deck.keyPending;
     $(`${id}Loop`).setAttribute("aria-pressed", String(Boolean(state.loop)));
-    $(`${id}Loop`).disabled = !entry || deck.loading || !gridReady;
+    $(`${id}Loop`).disabled = !entry || deck.loading || (!gridReady && !deck.selection && !state.loop);
+    const editable = Boolean(entry && !deck.loading), viewport = views[id].getViewport();
+    for (const key of ["ZoomIn", "ZoomOut", "Fit", "Follow", "SelectionIn", "SelectionOut"]) $(`${id}${key}`).disabled = !editable;
+    $(`${id}Snap`).disabled = !editable || !gridReady;
+    $(`${id}Snap`).setAttribute("aria-pressed", String(deck.snap));
+    $(`${id}Snap`).title = gridReady ? "Snap edits to beats; hold Alt for precise placement" : "Snap needs a detected or manually set BPM";
+    $(`${id}Follow`).setAttribute("aria-pressed", String(viewport.following));
+    $(`${id}SelectionLoop`).disabled = !editable || !deck.selection;
+    $(`${id}SelectionLoop`).setAttribute("aria-pressed", String(selectionIsLoop(id, state.loop)));
+    $(`${id}SelectionClear`).disabled = !editable || (!deck.selection && deck.selectionAnchor === null);
+    $(`${id}Mark`).disabled = !editable || !deck.metadata.cues.includes(null);
+    const selectionInfo = deck.selection
+      ? `${formatTime(deck.selection.start)} → ${formatTime(deck.selection.end)} · ${(deck.selection.end - deck.selection.start).toFixed(2)} s selected`
+      : deck.selectionAnchor !== null ? `In ${formatTime(deck.selectionAnchor)} · move forward and set Out` : "Drag the waveform to select a chunk";
+    if ($(`${id}SelectionInfo`).textContent !== selectionInfo) $(`${id}SelectionInfo`).textContent = selectionInfo;
     $(`${id}Grid`).disabled = !entry || deck.loading || !gridReady;
     $(`${id}GridInfo`).textContent = gridReady ? `Beat grid anchor: ${deck.metadata.beatOffset.toFixed(3)} s` : "Set BPM to enable the beat grid";
     for (const key of ["GridBack", "GridForward"]) $(`${id}${key}`).disabled = !entry || deck.loading || !gridReady;
@@ -330,6 +411,16 @@ for (const id of ["a", "b"]) {
   on($(`${id}NudgeBack`), "click", () => seek(id, engine.snapshot(id).position - 0.02));
   on($(`${id}NudgeForward`), "click", () => seek(id, engine.snapshot(id).position + 0.02));
   on($(`${id}Sync`), "click", () => act(() => sync(id)));
+  on($(`${id}Snap`), "click", () => { decks[id].snap = !decks[id].snap; updateDecks(); });
+  on($(`${id}ZoomIn`), "click", () => views[id].zoom(2));
+  on($(`${id}ZoomOut`), "click", () => views[id].zoom(0.5));
+  on($(`${id}Fit`), "click", () => views[id].fit());
+  on($(`${id}Follow`), "click", () => views[id].follow());
+  on($(`${id}SelectionIn`), "click", () => setSelectionPoint(id, "in"));
+  on($(`${id}SelectionOut`), "click", () => setSelectionPoint(id, "out"));
+  on($(`${id}SelectionLoop`), "click", () => act(() => loopSelection(id)));
+  on($(`${id}SelectionClear`), "click", () => setSelection(id, null));
+  on($(`${id}Mark`), "click", () => addMarker(id));
   on($(`${id}Tempo`), "input", (event) => act(() => { engine.setRate(id, 1 + Number(event.target.value) / 100); updateDecks(); }));
   on($(`${id}TempoReset`), "click", (event) => { event.preventDefault(); act(() => { engine.setRate(id, 1); $(`${id}Tempo`).value = "0"; updateDecks(); }); });
   on($(`${id}Bpm`), "input", (event) => {
@@ -433,13 +524,16 @@ on(window, "dragover", (event) => { if ([...event.dataTransfer.types].includes("
 on(window, "drop", (event) => { if ([...event.dataTransfer.types].includes("Files")) event.preventDefault(); });
 on(document, "keydown", (event) => {
   if (event.ctrlKey || event.metaKey || event.altKey || event.repeat) return;
+  if (event.defaultPrevented || event.target.closest("input, select, textarea, button, summary, [contenteditable]:not([contenteditable=false]), dialog, .masthead, [role=menu], [role=dialog]")) return;
   if (event.key === "Escape") { engine.pause("a"); engine.pause("b"); updateDecks(); return; }
-  if (event.target.closest("input, select, textarea, button, summary, [contenteditable=true], dialog, canvas")) return;
   const key = event.key.toLowerCase();
   if (key === "a" || key === "b") { selectDeck(key); event.preventDefault(); }
   else if (event.code === "Space") { event.preventDefault(); act(() => togglePlay(selected)); }
   else if (key === "l") { event.preventDefault(); act(() => toggleLoop(selected)); }
-  else if (/^[1-4]$/.test(key)) { event.preventDefault(); hotCue(selected, Number(key) - 1, event.shiftKey); }
+  else if (key === "i" || key === "o") { event.preventDefault(); setSelectionPoint(selected, key === "i" ? "in" : "out"); }
+  else if (key === "m") { event.preventDefault(); addMarker(selected); }
+  else if (key === "delete" || key === "backspace") { event.preventDefault(); setSelection(selected, null); }
+  else if (/^Digit[1-4]$/.test(event.code)) { event.preventDefault(); hotCue(selected, Number(event.code.slice(-1)) - 1, event.shiftKey); }
 });
 
 function saveSettings() {
@@ -524,7 +618,9 @@ on(window, "pagehide", () => { void dispose(); });
 window.addEventListener("pageshow", (event) => { if (event.persisted && disposed) location.reload(); });
 globalThis.__trackazoid = Object.freeze({
   snapshot: () => ({ armed: engine.armed, selected, disposed, master: engine.master, contextState: engine.context?.state ?? "none",
-    decks: Object.fromEntries(["a", "b"].map((id) => [id, { ...engine.snapshot(id), entry: decks[id].entry, replacement: decks[id].pending, loading: decks[id].loading, analyzing: decks[id].analyzing, metadata: { ...decks[id].metadata, cues: [...decks[id].metadata.cues] } }])),
+    decks: Object.fromEntries(["a", "b"].map((id) => [id, { ...engine.snapshot(id), entry: decks[id].entry, replacement: decks[id].pending, loading: decks[id].loading, analyzing: decks[id].analyzing,
+      selection: decks[id].selection && { ...decks[id].selection }, selectionAnchor: decks[id].selectionAnchor, snap: decks[id].snap, viewport: views[id].getViewport(),
+      metadata: { ...decks[id].metadata, cues: [...decks[id].metadata.cues] } }])),
     library: library.entries.map(({ id, name, available, metadata }) => ({ id, name, available, metadata })), folders: library.folders }),
   dispose,
 });

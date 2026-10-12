@@ -38,15 +38,27 @@
 </header>
 <main class="trackazoid-shell" id="trackazoid">
   <section class="tz-stage" aria-label="Trackazoid mixing workspace">
-    <div class="tz-heading"><h1>trackazoid</h1><p id="sessionStatus" role="status" aria-live="polite">Drop your tracks. Find the next mix.</p><button id="demoPair" type="button">Try demo pair</button><details class="tz-help"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck · <b>Space</b> play/pause · <b>1–4</b> hot cues · <b>L</b> loop · <b>Esc</b> pause both.</p><p>Shift-click a cue to clear it. Tempo and beats are detected on load. Play one deck, enable Sync on the other, then Play. Use Adjust only if the estimate needs correcting. Drag the waveform to seek; drag loop edges to trim.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href="docs/trackazoid.md">Trackazoid guide</a></div></details></div>
+    <div class="tz-heading"><h1>trackazoid</h1><p id="sessionStatus" role="status" aria-live="polite">Drop your tracks. Find the next mix.</p><button id="demoPair" type="button">Try demo pair</button><details class="tz-help"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck · <b>Space</b> play/pause · <b>I / O</b> selection In/Out · <b>L</b> loop selection (or beat loop) · <b>M</b> add marker · <b>1–4</b> hot cues · <b>Delete</b> clear selection · <b>Esc</b> pause both.</p><p>Shift-click a cue or press Shift+1–4 to clear it. Click the waveform to seek; drag to select, drag its edges to trim, Shift-drag to pan, or Shift-click to extend. Double-click to seek and add a marker; drag a numbered flag to move it. Snap aligns edits to beats; Alt bypasses it. Zoom, Fit and Follow change only the view. Use Loop selection to apply a chunk; clearing the selection keeps the loop playing.</p><p>Tempo and beats are detected on load. Play one deck, enable Sync on the other, then Play. Use Adjust only if the estimate needs correcting. Without a selection, drag active loop edges to trim the loop.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href="docs/trackazoid.md">Trackazoid guide</a></div></details></div>
     <div class="tz-decks">
 
 <section class="tz-deck tz-deck-a" id="deckA" aria-label="Deck A">
   <div class="tz-deck-heading"><span class="tz-deck-letter">A</span><div class="tz-track-heading"><h2 id="aTitle">Load a track</h2><p id="aInfo">Drop a file or choose one from your library</p></div><button id="aLoad" type="button" class="tz-load" aria-label="Choose file for deck A">Load</button></div>
   <div class="tz-pending" id="aPending" hidden><span id="aPendingName"></span><button id="aReplace" type="button">Load replacement</button><button id="aCancel" type="button" aria-label="Cancel replacement for deck A">×</button></div>
   <div class="tz-time-row"><output id="aPosition" aria-label="Deck A elapsed time">00:00.0</output><span id="aState">EMPTY</span><output id="aRemaining" aria-label="Deck A remaining time">−00:00.0</output></div>
-  <canvas id="aWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck A waveform position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Use Left and Right to seek by a beat, Shift for ten seconds.</canvas>
+  <canvas id="aWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck A waveform position" aria-describedby="aWaveHint" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Left/Right seek by a beat, Shift for ten seconds; Home/End seek to the ends. Space plays or pauses. I and O set selection edges, L loops, M adds a marker.</canvas>
   <canvas id="aOverview" class="tz-overview" role="slider" tabindex="0" aria-label="Deck A overview position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Full track overview.</canvas>
+  <div class="tz-wave-tools" role="group" aria-label="Deck A waveform view">
+    <button id="aSnap" type="button" aria-pressed="true" title="Snap edits to beats; hold Alt for precise placement" disabled>Snap</button>
+    <button id="aZoomOut" type="button" aria-label="Zoom out deck A waveform" disabled>−</button><button id="aZoomIn" type="button" aria-label="Zoom in deck A waveform" disabled>+</button>
+    <button id="aFit" type="button" title="Show the whole track" disabled>Fit</button><button id="aFollow" type="button" aria-pressed="true" title="Follow the playhead" disabled>Follow</button>
+  </div>
+  <div class="tz-selection-controls" role="group" aria-label="Deck A audio selection">
+    <button id="aSelectionIn" type="button" title="Set selection start at the playhead (I)" disabled>In</button><button id="aSelectionOut" type="button" title="Set selection end at the playhead (O)" disabled>Out</button>
+    <button id="aSelectionLoop" type="button" aria-pressed="false" title="Loop the selected chunk (L)" disabled>Loop selection</button><button id="aSelectionClear" type="button" title="Clear selection; keep any active loop (Delete)" disabled>Clear</button>
+    <button id="aMark" type="button" title="Add the next cue marker at the playhead (M)" disabled>Mark</button>
+    <output id="aSelectionInfo" class="tz-selection-info" aria-live="polite">Drag the waveform to select a chunk</output>
+  </div>
+  <p id="aWaveHint" class="tz-wave-hint">Click seek · Drag select · Shift-drag pan · Space play/pause</p>
   <div class="tz-transport">
     <button id="aPlay" class="tz-play" data-primary-transport type="button" aria-label="Play deck A" aria-pressed="false" disabled>▶ <span>Play</span></button>
     <button id="aCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
@@ -89,8 +101,20 @@
   <div class="tz-deck-heading"><span class="tz-deck-letter">B</span><div class="tz-track-heading"><h2 id="bTitle">Load a track</h2><p id="bInfo">Drop a file or choose one from your library</p></div><button id="bLoad" type="button" class="tz-load" aria-label="Choose file for deck B">Load</button></div>
   <div class="tz-pending" id="bPending" hidden><span id="bPendingName"></span><button id="bReplace" type="button">Load replacement</button><button id="bCancel" type="button" aria-label="Cancel replacement for deck B">×</button></div>
   <div class="tz-time-row"><output id="bPosition" aria-label="Deck B elapsed time">00:00.0</output><span id="bState">EMPTY</span><output id="bRemaining" aria-label="Deck B remaining time">−00:00.0</output></div>
-  <canvas id="bWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck B waveform position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Use Left and Right to seek by a beat, Shift for ten seconds.</canvas>
+  <canvas id="bWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck B waveform position" aria-describedby="bWaveHint" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Left/Right seek by a beat, Shift for ten seconds; Home/End seek to the ends. Space plays or pauses. I and O set selection edges, L loops, M adds a marker.</canvas>
   <canvas id="bOverview" class="tz-overview" role="slider" tabindex="0" aria-label="Deck B overview position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Full track overview.</canvas>
+  <div class="tz-wave-tools" role="group" aria-label="Deck B waveform view">
+    <button id="bSnap" type="button" aria-pressed="true" title="Snap edits to beats; hold Alt for precise placement" disabled>Snap</button>
+    <button id="bZoomOut" type="button" aria-label="Zoom out deck B waveform" disabled>−</button><button id="bZoomIn" type="button" aria-label="Zoom in deck B waveform" disabled>+</button>
+    <button id="bFit" type="button" title="Show the whole track" disabled>Fit</button><button id="bFollow" type="button" aria-pressed="true" title="Follow the playhead" disabled>Follow</button>
+  </div>
+  <div class="tz-selection-controls" role="group" aria-label="Deck B audio selection">
+    <button id="bSelectionIn" type="button" title="Set selection start at the playhead (I)" disabled>In</button><button id="bSelectionOut" type="button" title="Set selection end at the playhead (O)" disabled>Out</button>
+    <button id="bSelectionLoop" type="button" aria-pressed="false" title="Loop the selected chunk (L)" disabled>Loop selection</button><button id="bSelectionClear" type="button" title="Clear selection; keep any active loop (Delete)" disabled>Clear</button>
+    <button id="bMark" type="button" title="Add the next cue marker at the playhead (M)" disabled>Mark</button>
+    <output id="bSelectionInfo" class="tz-selection-info" aria-live="polite">Drag the waveform to select a chunk</output>
+  </div>
+  <p id="bWaveHint" class="tz-wave-hint">Click seek · Drag select · Shift-drag pan · Space play/pause</p>
   <div class="tz-transport">
     <button id="bPlay" class="tz-play"  type="button" aria-label="Play deck B" aria-pressed="false" disabled>▶ <span>Play</span></button>
     <button id="bCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
