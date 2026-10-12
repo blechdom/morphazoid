@@ -85,7 +85,7 @@ test('visual presets recall exactly, Next tours the bank, edits and dice become 
   expect(errors).toEqual([]);
 });
 
-test('Visualize and MIDI Mixer retain independent preset selection and Next position across creative tabs and backgrounding', async ({ page }) => {
+test('Visualize and MIDI Mixer retain independent preset selection and Next position across view changes and backgrounding', async ({ page }) => {
   test.setTimeout(60000);
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
@@ -125,15 +125,7 @@ test('Visualize and MIDI Mixer retain independent preset selection and Next posi
     document.dispatchEvent(new Event('visibilitychange'));
   });
   await selected(mixes[6].id, mixes[6].snapshot);
-  // Neither creative workspace owns this shortcut or either preset controller.
-  for (const mode of ['drawing', 'automata']) {
-    await view(mode);
-    if (mode === 'drawing') await expect(page.locator('#drawingModeButton')).toHaveText('BLECH MIDI');
-    await expect(controls).toHaveCount(0);
-    expect(await capture(page)).toBeNull();
-    await page.locator('h1').click(); await page.keyboard.press('ArrowRight');
-    expect(await capture(page)).toBeNull();
-  }
+  await expect(page.locator('#drawingModeButton, #automataModeButton')).toHaveCount(0);
   await view('visual'); await selected(visuals[3].id, visuals[3].snapshot);
   await range(page, 'glow', .43);
   await expect(controls).toHaveAttribute('data-preset-id', 'custom');

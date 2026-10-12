@@ -161,8 +161,6 @@
               <span class="quadruped-play-glyph" aria-hidden="true"></span>
               <span class="sr-only"><b id="playLabel">Start</b></span>
             </button>
-            <span id="playState" class="quadruped-play-state">sequence stopped</span>
-            <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
             <p id="transportHint" class="quadruped-transport-hint" role="status" hidden>
               Audio is off — turn it on to hear playback
             </p>
@@ -170,6 +168,7 @@
               <span><b>Tempo</b><output id="tempoOut" for="tempo">96 BPM · global</output></span>
               <input id="tempo" name="tempo" type="range" min="10" max="1000" step="1" value="96" data-knob-scale="log" title="Global BPM; 1× pace takes one beat per cycle before extra air or slide rests. Hold Shift while dragging for fine adjustment." />
             </label>
+            <button id="restartButton" class="quadruped-restart" type="button" aria-label="Return to step one" title="Return to step one">|◀</button>
             <div class="quadruped-action-row" role="group" aria-label="Animal actions">
               <button type="button" data-motion-action="jump" title="Jump once with the selected animal">Jump</button>
               <button type="button" data-motion-action="roll" title="Roll once with the selected animal">Roll</button>
@@ -196,6 +195,7 @@
                   <button type="button" data-actor-index="0" aria-pressed="true" aria-label="Edit animal 1: Elephant">1</button>
                   <button type="button" data-actor-index="1" aria-pressed="false" hidden aria-label="Edit animal 2">2</button>
                   <button type="button" data-actor-index="2" aria-pressed="false" hidden aria-label="Edit animal 3">3</button>
+                  <button type="button" id="allActorsButton" aria-pressed="false" hidden aria-label="Edit all three animals" title="Apply panel edits and actions to all three animals">All</button>
                 </div>
                 <button type="button" id="scatterButton" disabled title="Vary the spacing of the three animals">Scatter</button>
               </div>
@@ -203,7 +203,7 @@
             </div>
           </section>
 
-          <section class="quadruped-choice-card" aria-label="Animal and gait">
+          <section class="quadruped-choice-card" aria-label="Animal, gait and sound">
             <div class="quadruped-control quadruped-choice">
                 <label for="animalSelect"><span><b>Animal</b></span></label>
                 <div class="quadruped-select-row"><span class="select-shell"><select id="animalSelect" aria-describedby="animalDescription">
@@ -232,10 +232,35 @@
                   <button type="button" data-next-select="behaviorSelect" aria-label="Next gait" title="Next gait">›</button>
                 </div>
               </div>
-            <div class="quadruped-control quadruped-choice">
-                <label for="soundSkinSelect"><span><b>Sound skin</b></span></label>
+            <div class="quadruped-control quadruped-choice quadruped-engine-choice">
+                <label for="soundSkinSelect"><span><b>Sound engine</b></span></label>
                 <div class="quadruped-select-row"><span class="select-shell"><select id="soundSkinSelect"></select></span>
-                  <button type="button" data-next-select="soundSkinSelect" aria-label="Next sound skin" title="Next sound skin">›</button>
+                  <button type="button" data-next-select="soundSkinSelect" aria-label="Next sound engine" title="Next sound engine">›</button>
+                </div>
+              </div>
+              <div class="quadruped-control quadruped-choice">
+                <label for="terrain"><span><b>Surface</b></span></label>
+                <div class="quadruped-select-row"><span class="select-shell"><select id="terrain">
+                  <option value="earth">Packed earth</option>
+                  <option value="sand">Loose sand</option>
+                  <option value="wood">Hollow wood</option>
+                  <option value="stone">Cut stone</option>
+                  <option value="metal">Bell metal</option>
+                  <option value="snow">Deep snow</option>
+                  <option value="water">Shallow water</option>
+                  <option value="crystal">Resonant crystal</option>
+                </select></span>
+                  <button type="button" data-next-select="terrain" aria-label="Next surface" title="Next surface">›</button>
+                </div>
+              </div>
+              <div class="quadruped-control quadruped-choice">
+                <label for="groundProfile"><span><b>Path</b></span></label>
+                <div class="quadruped-select-row"><span class="select-shell"><select id="groundProfile">
+                  <option value="level">Level ground</option>
+                  <option value="stairs-up">Steps up</option>
+                  <option value="stairs-down">Steps down</option>
+                </select></span>
+                  <button type="button" data-next-select="groundProfile" aria-label="Next path" title="Next path">›</button>
                 </div>
               </div>
             <p id="animalDescription" class="sr-only"></p>
@@ -284,31 +309,6 @@
                 <span><b>Stair depth</b><output id="cavernOut" for="cavern">75%</output></span>
                 <input id="cavern" type="range" min="0" max="1" step="0.01" value="0.75" />
               </label>
-              </div>
-              <div class="quadruped-control quadruped-choice">
-                <label for="terrain"><span><b>Surface</b></span></label>
-                <div class="quadruped-select-row"><span class="select-shell"><select id="terrain">
-                  <option value="earth">Packed earth</option>
-                  <option value="sand">Loose sand</option>
-                  <option value="wood">Hollow wood</option>
-                  <option value="stone">Cut stone</option>
-                  <option value="metal">Bell metal</option>
-                  <option value="snow">Deep snow</option>
-                  <option value="water">Shallow water</option>
-                  <option value="crystal">Resonant crystal</option>
-                </select></span>
-                  <button type="button" data-next-select="terrain" aria-label="Next surface" title="Next surface">›</button>
-                </div>
-              </div>
-              <div class="quadruped-control quadruped-choice">
-                <label for="groundProfile"><span><b>Path</b></span></label>
-                <div class="quadruped-select-row"><span class="select-shell"><select id="groundProfile">
-                  <option value="level">Level ground</option>
-                  <option value="stairs-up">Steps up</option>
-                  <option value="stairs-down">Steps down</option>
-                </select></span>
-                  <button type="button" data-next-select="groundProfile" aria-label="Next path" title="Next path">›</button>
-                </div>
               </div>
               <button id="newGrainButton" type="button">New grain</button>
             </div>

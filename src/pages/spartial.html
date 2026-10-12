@@ -30,15 +30,36 @@
     </section>
     <div class="spartial-controls" id="spartialControls">
       <section class="spectrum-panel" aria-labelledby="spectrumTitle">
-        <div class="spectrum-heading"><h2 class="group-title" id="spectrumTitle">Harmonic fingerprint</h2><div class="preset-row spectrum-preset-row"><label class="sr-only" for="spectrumPreset">Harmonic fingerprint preset</label><select id="spectrumPreset"></select><button id="nextSpectrum" class="mini-action" type="button" aria-label="Next harmonic fingerprint" title="Next harmonic fingerprint">▶</button><button id="randomSpectrum" class="mini-action dice-button" type="button" aria-label="Randomize harmonic fingerprint" title="Randomize harmonic fingerprint"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div></div>
+        <div class="spectrum-heading"><h2 class="group-title" id="spectrumTitle">Harmonic fingerprint</h2></div>
+        <div class="spectrum-toolbar">
+          <label class="control" for="organMode"><span><b>Mapping</b></span><select id="organMode"><option value="partials">Custom partials</option><option value="tonewheel">Tonewheel</option><option value="pipe">Pipe organ</option></select></label>
+          <div class="preset-row spectrum-preset-row"><label id="spectrumPresetLabel" class="sr-only" for="spectrumPreset">Harmonic fingerprint preset</label><select id="spectrumPreset"></select><button id="nextSpectrum" class="mini-action" type="button" aria-label="Next harmonic fingerprint" title="Next harmonic fingerprint">▶</button><button id="randomSpectrum" class="mini-action dice-button" type="button" aria-label="Randomize harmonic fingerprint" title="Randomize harmonic fingerprint"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div>
+        </div>
         <div id="partialSliders" class="partial-sliders" role="group" aria-label="Individual partial levels"></div>
         <div class="spectrum-controls">
-          <label class="control" for="partials"><span><b>Number of partials</b><output id="partialsOut" for="partials">16</output></span><input id="partials" type="range" min="1" max="32" step="1" value="16" /></label>
+          <label id="partialCountControl" class="control" for="partials"><span><b>Number of partials</b><output id="partialsOut" for="partials">16</output></span><input id="partials" type="range" min="1" max="32" step="1" value="16" /></label>
           <label class="control" for="stretch"><span><b>Frequency spacing</b><output id="stretchOut" for="stretch">1.00 · harmonic</output></span><input id="stretch" type="range" min="0.5" max="2" step="0.01" value="1" /></label>
           <label class="control" for="inharmonicity"><span><b>Inharmonicity</b><output id="inharmonicityOut" for="inharmonicity">0%</output></span><input id="inharmonicity" type="range" min="0" max="1" step="0.01" value="0" /></label>
         </div>
+        <p id="mappingHint" class="control-note">Each bar sets one partial.</p>
+          <div id="pipeControls" class="spectrum-voice-controls" hidden>
+            <label class="control" for="pipeTone"><span><b>Pipe voice</b></span><select id="pipeTone"><option value="flute">Flute</option><option value="stopped">Stopped flute</option><option value="principal">Principal</option><option value="string">String pipe</option><option value="reed">Reed</option></select></label>
+          <label class="control" for="pipeBrightness"><span><b>Pipe brightness</b><output id="pipeBrightnessOut" for="pipeBrightness">50%</output></span><input id="pipeBrightness" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+          </div>
+          <details class="organ-detail"><summary>Click, chiff &amp; percussion</summary><div class="organ-articulation-controls">
+          <label class="control" for="keyClick"><span><b>Key click</b><output id="keyClickOut" for="keyClick">0%</output></span><input id="keyClick" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label class="control" for="pipeChiff"><span><b>Pipe chiff</b><output id="pipeChiffOut" for="pipeChiff">0%</output></span><input id="pipeChiff" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label class="control" for="organPercussion"><span><b>Harmonic percussion</b></span><select id="organPercussion"><option value="off">Off</option><option value="second">Second harmonic · 4′</option><option value="third">Third harmonic · 2⅔′</option></select></label>
+          <label class="control" for="percussionLevel"><span><b>Percussion level</b><output id="percussionLevelOut" for="percussionLevel">25%</output></span><input id="percussionLevel" type="range" min="0" max="1" step="0.01" value="0.25" /></label>
+          <label class="control" for="percussionDecay"><span><b>Percussion decay</b><output id="percussionDecayOut" for="percussionDecay">0.35 s</output></span><input id="percussionDecay" type="range" min="0.08" max="1.5" step="0.01" value="0.35" /></label>
+          <p class="control-note">Click, chiff and percussion change the next attack. Release all notes to retrigger percussion.</p>
+          </div></details>
       </section>
     <aside class="panel spartial-panel" data-instrument-preset-host aria-label="SPARTIAL controls">
+      <div class="spartial-recording" id="multitrackControls" aria-label="Multitrack recording">
+        <div><button id="multitrackRecord" class="mini-action" type="button" aria-pressed="false" disabled>Record multitrack</button><output id="multitrackTime" aria-label="Recording duration">00:00</output></div>
+        <p id="multitrackHint" class="control-note">Turn Audio on to record all speaker channels.</p>
+      </div>
       <div class="preset-row full-preset-row"><label class="sr-only" for="preset">Instrument preset</label><select id="preset"></select><button id="nextPreset" class="mini-action" type="button" aria-label="Next instrument preset" title="Next instrument preset">▶</button><button id="randomPreset" class="mini-action dice-button" type="button" aria-label="Randomize instrument" title="Randomize instrument"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="4" width="16" height="16" rx="2"/><circle cx="8" cy="8" r="1"/><circle cx="16" cy="8" r="1"/><circle cx="12" cy="12" r="1"/><circle cx="8" cy="16" r="1"/><circle cx="16" cy="16" r="1"/></svg></button></div>
       <section class="spartial-mixer" aria-label="Additive and granular mixer">
         <label class="control" for="granularMix"><span><b>Layer mix</b><output id="granularMixOut" for="granularMix">100% / 0%</output></span><input id="granularMix" type="range" min="0" max="1" step="0.01" value="0" aria-label="Additive to granular mix" /></label>
@@ -65,6 +86,30 @@
           <p id="liveStatus" class="spartial-status sr-only" role="status" aria-live="polite"></p>
           <label class="control" for="attack"><span><b>Additive fade in</b><output id="attackOut" for="attack">40 ms</output></span><input id="attack" type="range" min="0.005" max="2" step="0.005" value="0.04" /></label>
           <label class="control" for="release"><span><b>Additive release</b><output id="releaseOut" for="release">1.20 s</output></span><input id="release" type="range" min="0.02" max="5" step="0.01" value="1.2" /></label>
+        </div>
+      </details>
+      <details class="group control-section" data-section="modulation">
+        <summary class="group-summary"><h2 class="group-title">Partial modulation</h2></summary>
+        <div class="group-body">
+          <label class="control" for="pitchDepth"><span><b>Pitch movement</b><output id="pitchDepthOut" for="pitchDepth">0 cents</output></span><input id="pitchDepth" type="range" min="0" max="200" step="0.5" value="0" /></label>
+          <label class="control" for="amplitudeDepth"><span><b>Amplitude movement</b><output id="amplitudeDepthOut" for="amplitudeDepth">0%</output></span><input id="amplitudeDepth" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <label class="control" for="modulationRate"><span><b>Modulation rate</b><output id="modulationRateOut" for="modulationRate">5 Hz</output></span><input id="modulationRate" type="range" min="0.05" max="20" step="0.05" value="5" /></label>
+          <label class="control" for="modulationRipple"><span><b>Ripple across partials</b><output id="modulationRippleOut" for="modulationRipple">0 turns</output></span><input id="modulationRipple" type="range" min="-4" max="4" step="0.05" value="0" /></label>
+          <label class="control" for="modulationShape"><span><b>Wave shape</b></span><select id="modulationShape"><option value="sine">Sine · smooth</option><option value="triangle">Triangle</option></select></label>
+          <p class="control-note">Zero ripple moves all partials together. Positive travels low → high; negative reverses it. These movements run while notes sound, independently of Rotation.</p>
+          <div id="modulationMonitor" class="spartial-modulation-monitor" role="img" aria-label="Modulation across the partials"></div>
+        </div>
+      </details>
+      <details class="group control-section" data-section="rotary">
+        <summary class="group-summary"><h2 class="group-title">Rotary &amp; drive</h2></summary>
+        <div class="group-body">
+          <label class="control" for="rotaryMode"><span><b>Rotary speaker</b></span><select id="rotaryMode"><option value="off">Off</option><option value="slow">Slow · chorale</option><option value="fast">Fast · tremolo</option><option value="brake">Brake · spin down</option></select></label>
+          <label class="control" for="rotaryMix"><span><b>Rotary blend</b><output id="rotaryMixOut" for="rotaryMix">70%</output></span><input id="rotaryMix" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+          <label class="control" for="rotarySpread"><span><b>Rotary width</b><output id="rotarySpreadOut" for="rotarySpread">70%</output></span><input id="rotarySpread" type="range" min="0" max="1" step="0.01" value="0.7" /></label>
+          <label class="control" for="rotaryRamp"><span><b>Speed transition</b><output id="rotaryRampOut" for="rotaryRamp">2.5 s</output></span><input id="rotaryRamp" type="range" min="0.2" max="8" step="0.1" value="2.5" /></label>
+          <label class="control" for="drive"><span><b>Drive</b><output id="driveOut" for="drive">0%</output></span><input id="drive" type="range" min="0" max="1" step="0.01" value="0" /></label>
+          <p class="control-note">Separate treble horn (H) and bass drum (D) motion affects both layers. Slow/Fast glide between speeds. One speaker gathers the result into your selected output.</p>
+          <p id="rotaryStatus" class="control-note">Rotary off</p>
         </div>
       </details>
       <details class="group control-section granular-section" data-section="granular" open>
@@ -125,12 +170,27 @@
         <summary class="group-summary"><h2 class="group-title">Speaker setup</h2></summary>
         <div class="group-body"><label class="control" for="layout"><span><b>Layout</b></span><select id="layout"><option value="8-circle">8-speaker circle</option><option value="4-ring">4-speaker circle</option><option value="16-ring">16-speaker circle</option><option value="4-1">4:1 surround</option><option value="7-4-1">7:4:1 surround</option><option value="8-cube">8-speaker cube</option></select></label><label class="check-control"><input id="omitLfe" type="checkbox" checked disabled /> Omit LFE channel</label><label class="check-control"><input id="forcePreview" type="checkbox" /> Stereo preview</label><p class="control-note" id="routeBadge">Audio off</p><p class="control-note" id="outputDetail">Turn Audio on to check the available channels.</p><div class="speaker-patch" id="speakerPatch" aria-label="Speaker channel patch"></div></div>
       </details>
-      <details class="group control-section"><summary class="group-summary"><h2 class="group-title">About the controls</h2></summary><div class="group-body"><p class="control-note">The fingerprint contains 1–32 sine partials. Frequency spacing at 1 and inharmonicity at 0 produce the harmonic series. Lower spacing compresses their pitches; higher spacing expands them. Inharmonicity offsets upper partials while preserving the fundamental.</p><p class="control-note">The diagram shows speaker routing order. Colored dots are individual partial destinations; faint dots are silent. In One speaker mode all partials share the highlighted output. Click or drag to a speaker to choose it.</p><p class="control-note">Rotation Play/Pause controls movement only. Hold sustains the selected note or chord independently. Rotation follows the tempo; pausing retains the angle. Eight voices can sound at once. Cascade edits affect the next note; spectrum and space edits affect held notes.</p><p class="control-note">Delay is measured in milliseconds per partial. At Even spacing and 0% variation every gap is equal. Silent and out-of-range partials still occupy a step; long fade-ins can blur the entrances. Lower Fade in for sharper attacks. The timing strip shows scheduled entrances, not volume. Restart briefly fades the held note or chord before starting its cascade again.</p><p class="control-note">The granular layer captures the additive sound before the mixer and master volume. Files are mixed to mono before each grain is placed in surround. C4 plays a file at its original pitch; the latest note transposes its grains. Freeze holds the live source, while Rotation Pause holds spatial movement.</p><p class="control-note">Layouts come from <a href="surround-field.html">Surround for Safety</a>. Omit LFE channel keeps that output silent without renumbering the other channels. Uncheck it to include LFE in partial and grain routing; no subwoofer filter is applied. Stereo previews left/right only; physical surround needs a multichannel output and matching numbered interface patch.</p></div></details>
+      <details class="group control-section"><summary class="group-summary"><h2 class="group-title">About the controls</h2></summary><div class="group-body"><p class="control-note">The fingerprint has one bank of bars. Custom partials maps them to individual sine partials; Tonewheel and Pipe organ map them to nine footage registers. In the organ mappings, 8′ follows the played pitch and 16′ is one octave below. Frequency spacing at 1 and inharmonicity at 0 produce the harmonic series. Lower spacing compresses their pitches; higher spacing expands them. Inharmonicity offsets upper partials while preserving the fundamental.</p><p class="control-note">The diagram shows speaker routing order. Colored dots show partial routing before rotary; faint dots are silent. H and D follow the rotary horn and drum. In One speaker mode all partials share the highlighted output. Click or drag to a speaker to choose it.</p><p class="control-note">Rotation Play/Pause controls movement only. Hold sustains the selected note or chord independently. Rotation follows the tempo; pausing retains the angle. Eight voices can sound at once. Cascade edits affect the next note; spectrum and space edits affect held notes.</p><p class="control-note">Delay is measured in milliseconds per partial. At Even spacing and 0% variation every gap is equal. Silent and out-of-range partials still occupy a step; long fade-ins can blur the entrances. Lower Fade in for sharper attacks. The timing strip shows scheduled entrances, not volume. Restart briefly fades the held note or chord before starting its cascade again.</p><p class="control-note">The granular layer captures the additive sound before the mixer and master volume. Files are mixed to mono before each grain is placed in surround. C4 plays a file at its original pitch; the latest note transposes its grains. Freeze holds the live source, while Rotation Pause holds spatial movement.</p><p class="control-note">Organ synthesis and the Leslie-inspired effect are documented in the <a href="docs/spartial-organ-research.md">organ research notes</a>. These are original additive approximations, with no sampled organ recordings.</p><p class="control-note">Layouts come from <a href="surround-field.html">Surround for Safety</a>. Omit LFE channel keeps that output silent without renumbering the other channels. Uncheck it to include LFE in partial and grain routing; no subwoofer filter is applied. Stereo previews left/right only; physical surround needs a multichannel output and matching numbered interface patch.</p></div></details>
       <div class="reset-all-row"><button id="resetAll" class="reset-all-button" type="button" data-reset-all data-reset-in-place>Reset SPARTIAL</button></div>
     </aside>
     </div>
   </main>
   <script type="module" src="nav.js"></script>
   <script type="module" src="src/instruments/spartial/spartial-app.js"></script>
+  <dialog id="multitrackDialog" class="spartial-recording-dialog" aria-labelledby="multitrackTitle">
+    <h2 id="multitrackTitle">Multitrack recording</h2>
+    <p id="multitrackSummary"></p>
+    <p id="multitrackMessage" role="status"></p>
+    <details><summary>Channel order</summary><p id="multitrackChannelMap"></p></details>
+    <div class="spartial-recording-actions">
+      <button id="multitrackFolder" class="mini-action" type="button">Save tracks to folder</button>
+      <button id="multitrackZip" class="mini-action" type="button">Download tracks ZIP</button>
+      <button id="multitrackWav" class="mini-action" type="button">Download multichannel WAV</button>
+    </div>
+    <div class="spartial-recording-actions">
+      <button id="multitrackDiscard" class="mini-action" type="button">Discard take</button>
+      <button id="multitrackClose" class="mini-action" type="button">Close</button>
+    </div>
+  </dialog>
 </body>
 </html>

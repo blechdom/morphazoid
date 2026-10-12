@@ -528,7 +528,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.deepEqual(
     appsGroup.findAll((node) => node.classList.contains("instrument-picker-link"))
       .map((link) => link.getAttribute("data-tool-id")),
-    ["shapes", "rubixoids", "l-systems", "graphs", "tesselation"],
+    ["shapes", "rubixoids", "l-systems", "graphs", "tesselation", "trackazoid"],
   );
   assert.equal(groupNodes[0].open, true);
   assert.equal(
@@ -631,7 +631,7 @@ test("shared navigation creates a searchable accordion picker and preserves the 
   assert.equal(doc.select.children.indexOf(appsOptionGroup), 1);
   assert.deepEqual(
     appsOptionGroup.children.map((option) => option.textContent),
-    ["Shapes", "Rubixoids", "L-Systems", "Graphs", "Tesselation"],
+    ["Shapes", "Rubixoids", "L-Systems", "Graphs", "Tesselation", "Trackazoid"],
   );
   const selectedOptions = doc.select.findAll((node) => node.tagName === "OPTION" && node.selected);
   const orbitalFerrisOption = doc.select.findAll(

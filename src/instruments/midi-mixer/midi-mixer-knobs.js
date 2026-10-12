@@ -10,7 +10,7 @@ export function mountMixerKnobs(host) {
     : [];
 
   function add(input) {
-    if (destroyed || controls.has(input) || !host.contains(input)) return;
+    if (destroyed || controls.has(input) || !host.contains(input) || input.hasAttribute('data-midi-note-effect') || input.hasAttribute('data-keep-slider')) return;
     // An editor row also contains its exact number and Follow button. A separate
     // dial surface prevents the transparent range from intercepting either.
     const owner = input.closest('.midi-edit-field, .control, label') ?? input.parentElement;

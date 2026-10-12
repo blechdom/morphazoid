@@ -12,18 +12,16 @@ transport controls. **A tempo** and **B tempo** sit beside the shared tempo knob
 Drag any mixer knob vertically, hold Shift for finer movement, or use its arrow
 keys. Exact numeric MIDI editors remain available beside their knobs. Each voice
 name has inline **M** (mute) and **S** (solo) buttons aligned with its activity row.
-Volume A and Volume B sit near the mixer transport. Black MIDI volume and the
-searchable stamp bank are in **BLECH MIDI**; that volume controls both active
-stamps and the next launch. **Automatapoeia** has its own tab. These three views
-share one sound engine and tempo; switching between them keeps playback running.
-Opening Draw or Automatapoeia does not load or start the decks. Generated drawings, messages, and patterns default to acoustic piano.
-Pitch span reaches 128 notes (MIDI 0–127), including drawings sent with Play drawing;
-the drawing’s lowest-note control adjusts to keep its selected span within that range.
+Volume A and Volume B sit near the mixer transport. Drawing, black MIDI and
+geometric stamps, and the MIDI Automatapoeia editor now live on the separate
+[Blech MIDI page](../blech-midi.html). Its creative audio session is independent
+of this two-deck mixer. Download a generated MIDI there and open it on either
+deck here to mix it with another arrangement.
 
 ## Edit the MIDI sound
 
-Open **MIDI · all voices** on a deck, **Edit voice** under a channel, or
-**Stamp MIDI** beside the stamp bank. Editors start collapsed and build their
+Open **MIDI · all voices** on a deck or **Edit voice** under a channel.
+Editors start collapsed and build their
 controls when opened. The ordinary file player also has **Edit MIDI**: it
 copies the selected library, uploaded or generated MIDI into deck A, keeps
 the current source position and Audio/Play intent, and brings A to the front.
@@ -52,8 +50,7 @@ a voice override takes precedence. **Follow deck / file** removes a local
 voice override, and **Reset all** clears the open editor. Embedded controller,
 program and bend automation continues to be tracked while overridden, so
 clearing a control returns to the current source value. Existing per-voice
-program choices take precedence over a deck-wide program. Ordinary stamp
-program choices preserve original drum kits. Exact generator fields retain
+program choices take precedence over a deck-wide program. Exact generator fields retain
 their native units, with seconds or Hz shown where appropriate.
 
 CC6/38 and CC96–101 are procedural data-entry/parameter-selection messages:
@@ -61,8 +58,7 @@ use **Send** for them, or send an atomic **RPN / NRPN** number/value pair.
 Recovery actions release sustain, send All sound off / All notes off, or reset
 controllers; mono/poly mode has its own control. Procedural actions require an
 initialized audio target, can be superseded by later file
-automation, and are not saved as persistent overrides. Stamp actions target
-currently active shots. None of these controls arm Audio.
+automation, and are not saved as persistent overrides. None of these controls arm Audio.
 
 Undefined CCs, pressure and some timbre-controller responses depend on the
 loaded SoundFont. Direct SoundFont generator controls are provided separately
@@ -144,117 +140,20 @@ A Weave bar defaults to four quarter-note beats. **Use A meter** / **Use B meter
 takes the initial meter of that deck; the exact **Beats per bar** field supports
 other groupings. Meter changes inside a source do not alter Weave's shared grid.
 Notes release when a deck's turn ends, and held notes/controllers rejoin at the
-next active source position. One-shot stamps and messages play over the weave
-without being chopped by the A/B pattern. Turning Weave off resumes both decks
+next active source position. Turning Weave off resumes both decks
 from their current positions; Stop returns the pattern to its beginning.
 
-## Automatapoeia rule stamps
+## Live visualization
 
-The **Automatapoeia** tab generates MIDI from all 256 elementary and 64 totalistic
-rules. **Play rule** launches the selected pattern and selects it for pitch
-placement on the flow. The rule editor stays visible during playback.
-Its seed, dimensions, articulation, timing and boundary controls affect the next
-shot. Existing deck playback keeps going; sample sound, level, key gate and
-**Stamp MIDI** edits work on rule stamps too. See the [rule mapping and limits](midiphoria.md#automatapoeia-rules-as-midi).
+Both decks feed a shared note canvas, with distinct voice colors. Muted parts
+stop adding notes while their full-file activity maps remain visible below.
+Graphics follow the audio clock; they do not schedule notes. The output canvas
+is a read-only display. Choose Note trails, Radial, Ribbons or Orbit to change
+its view.
 
-## Visualize and loop stamps
-
-The mixer includes Midiophilia's shared-canvas note visualization. Deck A,
-deck B and the sample buttons feed the same graphic, with distinct voice
-colors. Muted parts stop adding new notes to the live graphic while their
-full-file activity maps remain available below. Graphics follow note events; rendering
-does not schedule the sound.
-
-In **BLECH MIDI**, the searchable stamp palette includes 30 generated pictures and textures:
-Heart, Square, Zigzag, Polka dots, Plaid, Stripes, Drips, Glob, Glooob,
-Noise, Scatter, Explode and more. The thumbnails show the actual pitch/time
-cells that become MIDI notes. Density changes line thickness or particle
-population; Pitch span covers 12–128 chromatic notes; Length spans 4–32 beats.
-Variation changes the reproducible seed for irregular patterns. Literal icons
-and fixed grids retain their geometry when only the seed changes.
-
-In Draw, tap a button to launch it. With **Paint flow** enabled, click or drag across
-the live flow to launch the selected stamp at different pitches. Horizontal
-position shifts the whole shape without clipping its notes; vertical position
-does not seek the mix. Enter launches the selected stamp when the canvas has
-keyboard focus. Drag launches are spaced by at least half a shared beat (and
-120 ms), so the pointer cannot flood the audio scheduler. Turn Paint flow off
-to scroll normally through the canvas on a touch device.
-
-The same palette includes the 28 existing Black MIDI and geometric files:
-16 Black MIDI audio arrangements, nine reusable geometric patterns and three
-studies. The short geometric patterns play whole, stretched to the selected
-Length. Longer files launch a dense excerpt; **Next slice** moves through the
-source, and the status shows the source beat range and note count. Original
-file instruments are the default for these stamps; choosing another sample
-sound overrides them. Source credits remain linked beside the stamp controls.
-Density and Pitch span apply to generated patterns, so they are disabled for
-file stamps. Existing MIDI files and their stored bytes remain unchanged.
-
-**Stamp MIDI** also exposes the exact pattern seed, key gate from 1–100%,
-automatic/dense/manual/whole source selection, manual start beat, word/letter
-layout, drawing row duration and drawing's lowest note. Source settings apply
-to subsequent launches. A shorter gate changes key-release timing; a file's
-sustain pedal can still extend the sound. It retains every attack and all
-source automation, with the 100% gate retaining the original bytes. Whole-file
-requests still obey the sample bounds and report any shortened excerpt.
-**Reset source settings** restores the defaults. Sound edits and sample level
-can update active shots; source selection does not restart them.
-
-File excerpts retain channel programs, controllers, pitch bend and held notes
-at their boundaries. An excerpt is shortened with an explicit status if it
-exceeds sample limits; notes are not silently thinned to make it fit. A single
-instant that cannot fit is rejected. The downloadable 35-file archive also
-contains much larger decorative scores; those are not unpacked by this palette.
-
-Type a message and send it as an upward-moving playable score, or
-use **Play drawing** to play the current freehand canvas. **Loop** repeats each
-stamp at its actual length until stopped. Turning Loop off lets the current
-pass finish. Loop starts off; it applies to generated patterns, file excerpts,
-Automatapoeia rules, messages and drawings.
-
-**Sync to tempo** starts on. Synced stamps follow the master tempo, including
-live tempo changes, and new launches wait for the next beat when the mix is
-playing. With the decks paused they launch immediately. Turn Sync off to launch
-immediately and follow the stamp's own tempo map independently of the mixer.
-Generated patterns use 120 BPM; file excerpts preserve the source tempo at
-their start and later tempo changes. Whole-file fitting still places notes and
-tempo changes within the selected Length. Changing Sync on an active stamp
-preserves its position; turning it off on a queued stamp starts it immediately.
-
-Loop and Sync update both active stamps and subsequent launches. Neither
-control arms Audio or changes deck transport. Stamps can play while the decks
-are paused. **Stop samples** clears just the sample layer; Pause or Stop
-releases both decks and stamps. Audio off and switching to Visualize also cancel
-queued and looping stamps. Draw, Automatapoeia and Mixer tab changes preserve them.
-
-Up to four shots can overlap; a fifth replaces the oldest. Picture, sample
-sound, sample level, Loop, Sync and stamp controls are live performance controls, retained when recalling
-deck mix presets. The sample layer shares the mixer's SoundFont and effects.
-Editing stamp controls affects subsequent launches and keeps current playback
-running. Stopping samples, stopping/pausing the mix, turning Audio off or
-switching to Visualize cancels a pending file-stamp load. Only two parsed file
-stamps are cached; downloads are lazy and cancelable.
-
-## Black MIDI tools and references
-
-Primary-source research for the stamp workflow, checked October 2026:
-
-| Tool | Documented role | Relevance here |
-| --- | --- | --- |
-| [ImageToMidi](https://github.com/arduano/ImageToMidi) | Desktop image-to-MIDI note-art generator, with pitch range and time-per-pixel controls. | Pixel geometry can become the actual sounding score. |
-| [midi2img](https://github.com/mathigatti/midi2img) | Python conversion between monochrome images and MIDI piano rolls. | A clear pitch/time raster model. |
-| [rin-w Black MIDI Patterns](https://github.com/rin-w/black-midi-patterns) | Reusable patterns in MIDI, Domino and FL Studio formats. | Nine existing patterns become whole playable stamps. |
-| [Zenith](https://github.com/arduano/Zenith-MIDI) | MIDI video renderer with plugins, live preview settings, gradients, opacity, ripples, textures and statistics. Its author states it is no longer supported. | Reference for independent visual presentation controls. |
-| [Kiva](https://github.com/arduano/Kiva) | Native MIDI player supporting palettes and MIDI color events. | Reference for distinguishable voices on one canvas. |
-| [Wasabi](https://github.com/BlackMIDIDevs/wasabi) | Rust/Vulkan Black MIDI player with integrated XSynth and SoundFonts. | Reference for keeping dense graphics and audio workloads separate. |
-| [MIDITrail](https://www.yknk.org/miditrail/en/summary/) | A 3D MIDI player for Windows, macOS and iOS. | Reference for depth and rain-style presentations. |
-| [Piano From Above](https://github.com/brian-pantano/PianoFromAbove) | Native visual MIDI player with a separate visualization branch. | Reference for readable rectangular note geometry. |
-
-The browser mappings above are Morphazoid design choices, not ports of these
-applications or claims of their full feature sets. No code from these tools
-was imported for this stamp bank. Generated textures are original bounded
-pitch/time patterns; they do not claim to recreate any named composition.
+For editable drawings, black MIDI/geometric stamps, generated textures, text
+and Automatapoeia rules, open [Blech MIDI](../blech-midi.html). Its
+[controls, limits and source credits](blech-midi.md) are documented separately.
 
 ## Play an original file
 
@@ -297,7 +196,7 @@ Audio activation; Stop or Reset cancels that pending play request.
 - Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
   instrument sounds. Shared filter and delay controls shape the mixed output
   without creating another audio context. The import applies to both mixer decks;
-  it also applies in Draw and Automatapoeia; Visualize keeps its own SoundFont.
+  Visualize keeps its own SoundFont.
 
 Audio and Play are separate. Starting playback, loading a file, changing a
 preset or tapping tempo does not arm Audio. Turning Audio off leaves the
@@ -327,13 +226,12 @@ re-entry also reconstructs already-held gates at its boundary.
 ## Scope and timing
 
 This view mixes two MIDI-file decks inside the existing Midiophilia page.
-Midiophilia retains its live-note and drawing views; the mixer does not add
+Midiophilia retains its live-note Visualize view; the mixer does not add
 a separate catalogue instrument, browser route or MIDI hardware client.
 The mixer has no hardware MIDI output or WAX host adapter.
 
-Drawing and letter/shape generation remain inside Midiophilia. Draw freehand
-or use the stamps, then hear the resulting MIDI through the same page's
-SoundFont playback. See [Midiophilia's drawing and text controls](midiphoria.md).
+Freehand drawing, pattern stamps and MIDI rules are on [Blech MIDI](blech-midi.md).
+The Visualize view retains its Words & symbols MIDI generator.
 
 Both decks are scheduled in one AudioWorklet using the same audio-frame beat
 clock. Canvas rendering follows that clock and does not schedule the notes.
@@ -350,20 +248,7 @@ also fit 4,096 controller-restoration messages, including complete RPN/NRPN
 transactions. This bounds the work at seeks and Weave handoffs; a source over
 that limit is rejected while the previously loaded deck remains intact.
 
-SoundFont synthesis shares a maximum of 192 voices across both decks and all
-four sample slots. Stamps are bounded to 2 MB, 32,768 notes, 131,072 events,
-16 channels and 512 beats each, with a shared 2,048-event sample budget per
-audio quantum. Looping stamps share that event budget; a clip can cross at most
-16 loop boundaries in one quantum before it skips to the current phase and
-releases voices. The sample layer also shares a budget of four complete
-controller-state restores per quantum. This bounds even extremely short loops
-at extreme source tempos. An
-overload guard permits up to 8,192 events per deck per 128-frame audio quantum;
-events beyond that bound are skipped and held voices are released to prevent
-stuck notes. The engine reports skipped events. Analysis retains every accepted
-note for the density map, while live note-event telemetry are bounded to 256
-events per 30 Hz report. Those display limits do not remove notes from the
-source analysis.
+SoundFont synthesis shares a maximum of 192 voices across both decks.
 
 ## Assets and credits
 
@@ -383,3 +268,29 @@ and the license accompany the runtime.
 The mixer and its rectangular renderer are independent Morphazoid code.
 Midiophilia's original visual inspiration remains
 [Nicholas C. Stanley's Midiphoria](https://github.com/NicholasCStanley/midiphoria).
+
+## MIDI note effects
+
+Open **MIDI effects**, turn the layer on, then shape new notes with transpose
+(±24 semitones), velocity, single/octave/fifth/major/minor chords, note delay,
+a gate limit, and up to four echoes with their own spacing and velocity decay.
+Drum pitches stay unchanged unless **Transpose & harmonize drums too** is on.
+Pitches outside MIDI 0–127 are omitted rather than folded onto the endpoints.
+
+Timing is in beats: the file player follows the file's current tempo and speed;
+Mixer and Blech MIDI use the shared tempo. A gate limit shortens key holds;
+source sustain pedals still apply. Edits and bypass affect new attacks, while
+held notes and pending echoes finish with their captured settings. Stop, seek,
+source replacement cancel the affected pending notes. Audio off releases pads
+and stamps; song transports keep moving.
+
+The layer runs before synthesis on the audio thread, and the visualizer receives
+the resulting notes. Playing, Audio permission, source MIDI bytes and download
+files remain independent. Mixer scenes include the layer; visualizer presets
+continue to own appearance only. These are MIDI note effects, separate from
+SoundFont reverb/chorus and the audio filter/delay controls.
+
+The shared scheduler bounds each engine to 512 source-note families and 4,096
+reserved events. Under extreme black-MIDI load it removes added voices before
+stealing the oldest family; each sounded child retains a matched release.
+Existing native synthesis and display polyphony limits still apply.

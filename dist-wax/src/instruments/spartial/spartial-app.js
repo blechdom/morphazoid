@@ -1,6 +1,8 @@
 import { SPARTIAL_DEFAULTS, SPARTIAL_SPECTRAL_PRESETS, SPARTIAL_CHORDS, spartialChordIntervals, sanitizeSpartialSettings, partialPosition, partialFrequencyRatio, randomSpartialSpectrum, randomSpartialInstrument, spartialCascadeTimes } from "./spartial.js";
 import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audio.js";
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
+import { mountSpartialRecording } from "./spartial-recording.js";
+import { SPARTIAL_ORGAN_STOPS, SPARTIAL_ORGAN_PRESETS, randomOrganRegistration } from "./spartial-organ.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -33,6 +35,9 @@ PRESETS.push(
   { id: "grain-rain", name: "Scattered grain rain", spectrum: "bright", mode: "single", motion: "off", granularMix: 1, grainSize: 25, grainDensity: 15, grainJitter: .5, grainScatter: 600, grainPattern: "scatter", cascade: 0 },
   { id: "grain-reverse", name: "Reverse grain tide", spectrum: "full", mode: "chord", chord: "fifth", motion: "off", granularMix: .85, grainSize: 400, grainDensity: 12, grainReverse: 1, grainLookback: 900, grainScatter: 300, attack: .2 },
   { id: "grain-shimmer", name: "Grain shimmer", spectrum: "bell", mode: "single", motion: "off", granularMix: .5, grainSize: 90, grainDensity: 36, grainPitch: 12, grainPattern: "alternate", grainScatter: 180 },
+  ...SPARTIAL_ORGAN_PRESETS.map(preset => ({ ...preset.settings, id: `organ-${preset.id}`, name: preset.name, organPreset: preset.id, spectrum: "full", mode: "single", motion: "off" })),
+  { id: "pitch-ripple", name: "Traveling pitch ripple", spectrum: "soft", mode: "single", motion: "off", pitchDepth: 32, modulationRate: .65, modulationRipple: 1.5, cascade: 0, attack: .15 },
+  { id: "amplitude-ripple", name: "Reverse amplitude ripple", spectrum: "full", mode: "single", motion: "off", amplitudeDepth: .8, modulationRate: 1.2, modulationRipple: -2, cascade: 0 },
 );
 const state = {
   settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: "single", root: 48,
@@ -41,6 +46,14 @@ const state = {
   audioOn: false, playing: false, holding: false, phase: 0, motion: "off", tempo: 90, beatsPerTurn: 16,
   routingMode: "spread", presetIndex: 0, spectrumIndex: 0, grainPresetIndex: 0, randomSeed: 173,
 };
+const partialMappingKeys = ["partials", "gains", "rolloff", "stretch", "inharmonicity"];
+let customPartialMapping = partialMapping(SPARTIAL_DEFAULTS);
+function partialMapping(settings) {
+  return Object.fromEntries(partialMappingKeys.map(key => [key, key === "gains" ? [...settings.gains] : settings[key]]));
+}
+function rememberPartialMapping() {
+  if (state.settings.organMode === "partials") customPartialMapping = partialMapping(state.settings);
+}
 const held = new Map();
 const downKeys = new Set();
 let snapshot = null;
@@ -55,10 +68,18 @@ const canvas = $("stage");
 const context = canvas.getContext("2d");
 const tempoKnob = enhanceRangeKnob($("tempo"));
 const audio = new SpartialAudio(
-  next => { snapshot = next; state.phase = next.phase; updateGrainStatus(); },
+  next => { snapshot = next; state.phase = next.phase; updateGrainStatus(); updateModulationMonitor(); },
   route => { routeInfo = route; updateRouteStatus(); },
   error => { state.audioOn = false; updateAudioButton(); announce(error, true); },
 );
+const recording = mountSpartialRecording({
+  audio,
+  getPatch: () => ({ layoutId: state.layout, omitLfe: state.omitLfe }),
+  onLockChange: locked => {
+    $("layout").disabled = locked;
+    $("omitLfe").disabled = locked || !spartialLayout(state.layout).speakers.some(speaker => speaker.kind === "lfe");
+  },
+});
 const color = index => `hsl(${(166 + index * 9) % 360} 64% 66%)`;
 const noteName = note => `${NOTE_NAMES[((note % 12) + 12) % 12]}${Math.floor(note / 12) - 1}`;
 const percent = value => `${Math.round(value * 100)}%`;
@@ -78,7 +99,14 @@ const formats = {
   grainLookback: value => `${Math.round(value)} ms`, grainScatter: value => `${Math.round(value)} ms`,
   grainPitch: value => `${value > 0 ? "+" : ""}${Number(value.toFixed(1))} st`,
   grainJitter: percent, grainReverse: percent, grainSpread: percent, grainPosition: percent,
+  pitchDepth: value => `${Number(value.toFixed(1))} cents`, amplitudeDepth: percent,
+  modulationRate: value => `${Number(value.toFixed(2))} Hz`,
+  modulationRipple: value => value === 0 ? "Together" : `${value > 0 ? "+" : ""}${Number(value.toFixed(2))} turns`,
+  pipeBrightness: percent, pipeChiff: percent, keyClick: percent,
+  percussionLevel: percent, percussionDecay: value => `${Math.round(value * 1000)} ms`,
+  rotaryMix: percent, rotarySpread: percent, rotaryRamp: value => `${Number(value.toFixed(1))} s`, drive: percent,
 };
+const organControlKeys = new Set(["organMode", "pipeTone", "pipeBrightness", "pipeChiff", "keyClick", "organPercussion", "percussionLevel", "percussionDecay", "pitchDepth", "amplitudeDepth", "modulationRate", "modulationRipple", "modulationShape", "rotaryMode", "rotaryMix", "rotarySpread", "rotaryRamp", "drive", "partials", "rolloff", "stretch", "inharmonicity", "attack", "release", "cascade", "cascadeStart"]);
 function announce(message, visible = false) {
   $("liveStatus").textContent = message;
   $("liveStatus").classList.toggle("sr-only", !visible);
@@ -97,6 +125,8 @@ function updateAudioButton() {
   $("audioButton").setAttribute("aria-pressed", String(state.audioOn));
   $("audioState").textContent = state.audioOn ? "on" : "off";
   updateRouteStatus();
+  updateModulationMonitor();
+  recording.update();
 }
 function rotationRunning() { return state.playing && state.motion !== "off" && state.routingMode !== "focus"; }
 function updatePerformance() {
@@ -137,7 +167,7 @@ function syncControls() {
     if (millisecondSettings.has(id) && document.activeElement !== $(`${id}Ms`)) $(`${id}Ms`).value = value;
     $(`${id}Out`).textContent = format(state.settings[id]);
   }
-  for (const id of ["pattern", "cascadeOrder", "grainPattern", "granularSource"]) $(id).value = state.settings[id];
+  for (const id of ["pattern", "cascadeOrder", "grainPattern", "granularSource", "organMode", "pipeTone", "organPercussion", "modulationShape", "rotaryMode"]) $(id).value = state.settings[id];
   for (const id of ["mode", "root", "chord", "layout", "motion", "tempo", "beatsPerTurn", "routingMode"]) $(id).value = state[id];
   $("tempoOut").textContent = `${state.tempo} BPM`;
   $("tempo").setAttribute("aria-valuetext", `${state.tempo} BPM`);
@@ -147,9 +177,19 @@ function syncControls() {
   $("omitLfe").disabled = !spartialLayout(state.layout).speakers.some(speaker => speaker.kind === "lfe");
   $("omitLfe").title = $("omitLfe").disabled ? "This layout has no LFE channel" : "Leave the LFE output silent without changing other channel numbers";
   $("target").value = state.settings.target;
+  const organ = state.settings.organMode !== "partials";
   for (const [index, bar] of [...$("partialSliders").children].entries()) {
-    bar.title = `Partial ${index + 1}: ${partialFrequencyRatio(index, state.settings).toFixed(3)} × the played note`;
+    const stop = organ ? SPARTIAL_ORGAN_STOPS[index] : null;
+    const level = organ ? state.settings.organStops[index] : state.settings.gains[index];
+    bar.querySelector("input").value = level;
+    if (organ) bar.querySelector("output").value = level;
+    bar.title = stop
+      ? `${stop.label}: ${partialFrequencyRatio(stop.partial - 1, state.settings).toFixed(3)} × the played note${state.settings.organMode === "pipe" ? ", with pipe overtones" : ""}`
+      : `Partial ${index + 1}: ${partialFrequencyRatio(index, state.settings).toFixed(3)} × the played note`;
   }
+  syncMappingMenu();
+  $("partialCountControl").hidden = organ;
+  $("rolloff").closest("label").hidden = organ;
   $("grainLivePosition").hidden = state.settings.granularSource === "file";
   $("grainFilePosition").hidden = state.settings.granularSource !== "file";
   $("granularSource").querySelector('[value="file"]').disabled = !audio.grainFile;
@@ -158,9 +198,69 @@ function syncControls() {
   $("grainFreeze").setAttribute("aria-pressed", String(state.settings.grainFreeze));
   $("grainFreeze").textContent = state.settings.grainFreeze ? "Unfreeze buffer" : "Freeze buffer";
   $("granularMix").setAttribute("aria-valuetext", `${percent(1 - state.settings.granularMix)} additive, ${percent(state.settings.granularMix)} granular`);
+  $("pipeControls").hidden = state.settings.organMode !== "pipe";
+  $("mappingHint").textContent = !organ
+    ? "Each bar sets one partial. Your custom levels are remembered when you change mappings."
+    : state.settings.organMode === "tonewheel"
+      ? "Each bar sets one tonewheel register. 8′ follows the played note; 16′ is one octave below."
+      : "Each bar sets a pipe register with its own overtones. 8′ follows the played note; 16′ is one octave below.";
+  updateModulationMonitor();
   updateGrainStatus();
   updateCascadeTiming();
   updatePerformance();
+  recording.update();
+}
+function buildModulationMonitor() {
+  $("modulationMonitor").replaceChildren(...Array.from({ length: 32 }, (_, index) => {
+    const bar = document.createElement("span"); bar.style.setProperty("--partial-color", color(index));
+    bar.setAttribute("aria-hidden", "true"); return bar;
+  }));
+}
+function updateModulationMonitor() {
+  const enabled = state.settings.pitchDepth > 0 || state.settings.amplitudeDepth > 0;
+  for (const [index, bar] of [...$("modulationMonitor").children].entries()) {
+    bar.hidden = index >= state.settings.partials;
+    const movement = state.audioOn && enabled ? snapshot?.modulationValues?.[index] ?? 0 : 0;
+    bar.style.setProperty("--movement", movement);
+    bar.style.setProperty("--mod-amount", Math.abs(movement));
+  }
+  $("modulationMonitor").setAttribute("aria-label", enabled
+    ? `Modulation across ${state.settings.partials} partials, ${state.settings.modulationRate} hertz, ${state.settings.modulationRipple} turns of ripple`
+    : "Partial modulation off");
+  const message = state.settings.rotaryMode === "off" ? "Rotary off"
+    : !state.audioOn ? "Rotary ready · Audio is off"
+      : `Horn ${Number(snapshot?.rotaryHornHz ?? 0).toFixed(2)} Hz · drum ${Number(snapshot?.rotaryDrumHz ?? 0).toFixed(2)} Hz`;
+  if ($("rotaryStatus").textContent !== message) $("rotaryStatus").textContent = message;
+}
+function organBankPatch() {
+  // The visible stop bank is the only amplitude mapping in organ modes.
+  return { partials: 32, gains: Array(32).fill(1), rolloff: 0 };
+}
+function mappingPresets() {
+  return state.settings.organMode === "partials" ? SPARTIAL_SPECTRAL_PRESETS
+    : SPARTIAL_ORGAN_PRESETS.filter(preset => preset.settings.organMode === state.settings.organMode);
+}
+function syncMappingMenu() {
+  const mode = state.settings.organMode;
+  const menu = $("spectrumPreset");
+  if (menu.dataset.mapping === mode) return;
+  populateSelect(menu, mappingPresets());
+  menu.dataset.mapping = mode; menu.value = "custom"; state.spectrumIndex = -1;
+  const name = mode === "partials" ? "harmonic fingerprint" : mode === "tonewheel" ? "tonewheel registration" : "pipe registration";
+  $("spectrumPresetLabel").textContent = `${name[0].toUpperCase()}${name.slice(1)} preset`;
+  for (const [id, verb] of [["nextSpectrum", "Next"], ["randomSpectrum", "Randomize"]]) {
+    $(id).title = `${verb} ${name}`;
+    $(id).setAttribute("aria-label", $(id).title);
+  }
+}
+function selectMapping(mode) {
+  if (mode === state.settings.organMode) return;
+  rememberPartialMapping();
+  const mapping = mode === "partials" ? customPartialMapping : {
+    ...organBankPatch(),
+    ...(state.settings.organMode === "partials" ? { stretch: 1, inharmonicity: 0 } : {}),
+  };
+  patchSettings({ ...mapping, organMode: mode }); customPreset(true);
 }
 function updateGrainStatus() {
   const file = state.settings.granularSource === "file";
@@ -212,9 +312,11 @@ function motionPatch() {
 }
 function patchSettings(patch) {
   const previousCount = state.settings.partials;
+  const previousMode = state.settings.organMode;
   state.settings = sanitizeSpartialSettings({ ...patch, ...motionPatch() }, state.settings);
   audio.settings(state.settings);
-  if (previousCount !== state.settings.partials) buildSpectrum();
+  if (previousCount !== state.settings.partials || previousMode !== state.settings.organMode
+    || $("partialSliders").dataset.mapping !== state.settings.organMode) buildSpectrum();
   syncControls();
 }
 function buildPatch(targetChannel = null) {
@@ -232,17 +334,31 @@ function buildPatch(targetChannel = null) {
   patchSettings({ speakerCount: list.length, target: retainedTarget >= 0 ? retainedTarget : Math.min(state.settings.target, list.length - 1) });
 }
 function buildSpectrum() {
-  $("partialSliders").replaceChildren(...Array.from({ length: state.settings.partials }, (_, index) => {
-    const label = document.createElement("label"); label.className = "partial-bar";
-    label.style.setProperty("--partial-color", color(index));
-    const range = document.createElement("input"); range.type = "range"; range.min = "0"; range.max = "1"; range.step = "0.01";
-    range.value = state.settings.gains[index]; range.setAttribute("aria-label", `Partial ${index + 1} level`);
-    const caption = document.createElement("span"); caption.textContent = index + 1;
+  const organ = state.settings.organMode !== "partials";
+  const bank = $("partialSliders");
+  bank.dataset.mapping = state.settings.organMode;
+  bank.setAttribute("aria-label", organ ? "Organ register levels" : "Partial levels");
+  bank.replaceChildren(...Array.from({ length: organ ? SPARTIAL_ORGAN_STOPS.length : state.settings.partials }, (_, index) => {
+    const stop = organ ? SPARTIAL_ORGAN_STOPS[index] : null;
+    const label = document.createElement("label"); label.className = organ ? "partial-bar organ-stop" : "partial-bar";
+    label.style.setProperty("--partial-color", color(stop ? stop.partial - 1 : index));
+    const range = document.createElement("input"); range.type = "range"; range.min = "0";
+    range.max = organ ? "8" : "1"; range.step = organ ? "1" : "0.01";
+    range.value = organ ? state.settings.organStops[index] : state.settings.gains[index];
+    range.setAttribute("aria-label", organ ? `${stop.label} drawbar` : `Partial ${index + 1} level`);
+    if (organ) range.id = `organStop${index}`;
+    const caption = document.createElement("span"); caption.textContent = organ ? stop.label : index + 1;
     range.addEventListener("input", () => {
-      const gains = [...state.settings.gains]; gains[index] = Number(range.value);
-      patchSettings({ gains }); customPreset(true);
+      const key = organ ? "organStops" : "gains";
+      const levels = [...state.settings[key]]; levels[index] = Number(range.value);
+      patchSettings({ [key]: levels }); customPreset(true);
     });
-    label.append(range, caption); return label;
+    label.append(range, caption);
+    if (organ) {
+      const output = document.createElement("output"); output.setAttribute("for", range.id); output.value = range.value;
+      label.append(output);
+    }
+    return label;
   }));
 }
 function releaseGroup(id) {
@@ -343,6 +459,7 @@ function buildPads() {
 function spectralPreset(id) { return SPARTIAL_SPECTRAL_PRESETS.find(preset => preset.id === id) ?? SPARTIAL_SPECTRAL_PRESETS[0]; }
 function applyPreset(index) {
   grainSourceRevision += 1;
+  rememberPartialMapping();
   state.presetIndex = (index + PRESETS.length) % PRESETS.length;
   const preset = PRESETS[state.presetIndex];
   const level = state.settings.level;
@@ -354,23 +471,31 @@ function applyPreset(index) {
   patchSettings({}); buildSpectrum(); refreshLatch();
   $("preset").value = preset.id;
   $("grainPreset").value = "custom";
-  state.spectrumIndex = SPARTIAL_SPECTRAL_PRESETS.findIndex(item => item.id === preset.spectrum);
-  $("spectrumPreset").value = preset.spectrum;
+  const mappingPreset = preset.organPreset ?? preset.spectrum;
+  state.spectrumIndex = mappingPresets().findIndex(item => item.id === mappingPreset);
+  $("spectrumPreset").value = mappingPreset;
 }
 function applySpectrum(index) {
-  state.spectrumIndex = (index + SPARTIAL_SPECTRAL_PRESETS.length) % SPARTIAL_SPECTRAL_PRESETS.length;
-  const preset = SPARTIAL_SPECTRAL_PRESETS[state.spectrumIndex];
+  const presets = mappingPresets();
+  state.spectrumIndex = (index + presets.length) % presets.length;
+  const preset = presets[state.spectrumIndex];
   patchSettings(preset.settings); buildSpectrum(); customPreset(); $("spectrumPreset").value = preset.id;
 }
 function randomSpectrum() {
-  state.randomSeed += 97; patchSettings(randomSpartialSpectrum(state.randomSeed));
+  state.randomSeed += 97;
+  patchSettings(state.settings.organMode === "partials" ? randomSpartialSpectrum(state.randomSeed) : {
+    ...organBankPatch(), ...randomOrganRegistration(state.randomSeed), organMode: state.settings.organMode,
+  });
   buildSpectrum(); customPreset(true);
 }
 function randomInstrument() {
   grainSourceRevision += 1;
+  rememberPartialMapping();
   state.randomSeed += 101;
   const randomized = randomSpartialInstrument(grainAvailability(), state.randomSeed);
-  state.settings = randomized.settings;
+  state.settings = sanitizeSpartialSettings({ ...randomized.settings,
+    ...(randomized.settings.organMode === "partials" ? {} : organBankPatch()),
+  });
   for (const key of ["mode", "chord", "chordIntervals", "motion", "beatsPerTurn", "routingMode"]) state[key] = randomized[key];
   $("grainPreset").value = "custom";
   patchSettings({});
@@ -384,7 +509,7 @@ function populateSelect(element, items, withCustom = true) {
     const custom = document.createElement("option"); custom.value = "custom"; custom.textContent = "Custom"; custom.disabled = true; element.append(custom);
   }
 }
-populateSelect($("preset"), PRESETS); populateSelect($("spectrumPreset"), SPARTIAL_SPECTRAL_PRESETS);
+populateSelect($("preset"), PRESETS); syncMappingMenu(); $("spectrumPreset").value = "full"; state.spectrumIndex = 0;
 populateSelect($("grainPreset"), GRAIN_PRESETS); $("grainPreset").value = "custom";
 populateSelect($("chord"), SPARTIAL_CHORDS, false);
 for (let note = 24; note <= 84; note += 1) {
@@ -394,21 +519,27 @@ for (const id of Object.keys(formats)) $(id).addEventListener("input", () => {
   patchSettings({ [id]: Number($(id).value) / (millisecondSettings.has(id) ? 1000 : 1) });
   if (id !== "level") customPreset(["stretch","inharmonicity","rolloff"].includes(id));
   if (GRAIN_TEXTURE_KEYS.includes(id)) $("grainPreset").value = "custom";
+  if (state.settings.organMode !== "partials" && organControlKeys.has(id)) $("spectrumPreset").value = "custom";
 });
 for (const id of millisecondSettings) {
   const input = $(`${id}Ms`);
   input.addEventListener("input", () => {
     const value = input.valueAsNumber;
     if (!Number.isFinite(value) || value < Number(input.min) || value > Number(input.max)) return;
-    patchSettings({ [id]: Math.round(value) / 1000 }); customPreset();
+    patchSettings({ [id]: Math.round(value) / 1000 }); customPreset(state.settings.organMode !== "partials");
   });
   input.addEventListener("change", () => {
     const value = input.valueAsNumber;
     input.value = Math.round(Number.isFinite(value) ? Math.max(Number(input.min), Math.min(Number(input.max), value)) : state.settings[id] * 1000);
-    patchSettings({ [id]: Number(input.value) / 1000 }); customPreset();
+    patchSettings({ [id]: Number(input.value) / 1000 }); customPreset(state.settings.organMode !== "partials");
   });
 }
-for (const id of ["pattern", "cascadeOrder", "grainPattern"]) $(id).addEventListener("change", () => { patchSettings({ [id]: $(id).value }); customPreset(); if (id === "grainPattern") $("grainPreset").value = "custom"; });
+for (const id of ["pattern", "cascadeOrder", "grainPattern", "modulationShape", "pipeTone", "organPercussion", "rotaryMode"]) $(id).addEventListener("change", () => {
+  patchSettings({ [id]: $(id).value }); customPreset();
+  if (id === "grainPattern") $("grainPreset").value = "custom";
+  if (state.settings.organMode !== "partials" && organControlKeys.has(id)) $("spectrumPreset").value = "custom";
+});
+$("organMode").addEventListener("change", () => selectMapping($("organMode").value));
 $("grainPreset").addEventListener("change", () => applyGrainPreset(GRAIN_PRESETS.findIndex(preset => preset.id === $("grainPreset").value)));
 $("nextGrainPreset").addEventListener("click", () => applyGrainPreset(state.grainPresetIndex + 1));
 $("randomGrainPreset").addEventListener("click", randomGrains);
@@ -464,16 +595,20 @@ for (const [id, direction] of [["octaveDown", -1], ["octaveUp", 1]]) $(id).addEv
 $("preset").addEventListener("change", () => applyPreset(PRESETS.findIndex(item => item.id === $("preset").value)));
 $("nextPreset").addEventListener("click", () => applyPreset(state.presetIndex + 1));
 $("randomPreset").addEventListener("click", randomInstrument);
-$("spectrumPreset").addEventListener("change", () => applySpectrum(SPARTIAL_SPECTRAL_PRESETS.findIndex(item => item.id === $("spectrumPreset").value)));
+$("spectrumPreset").addEventListener("change", () => applySpectrum(mappingPresets().findIndex(item => item.id === $("spectrumPreset").value)));
 $("nextSpectrum").addEventListener("click", () => applySpectrum(state.spectrumIndex + 1));
 $("randomSpectrum").addEventListener("click", randomSpectrum);
 $("routingMode").addEventListener("change", () => {
   state.routingMode = $("routingMode").value; patchSettings({ lock: state.routingMode === "focus" ? 1 : 0 }); customPreset();
 });
 $("target").addEventListener("change", () => { patchSettings({ target: Number($("target").value) }); customPreset(); });
-$("layout").addEventListener("change", () => { state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview, state.omitLfe); });
+$("layout").addEventListener("change", () => {
+  if (recording.locked) { $("layout").value = state.layout; return; }
+  state.layout = $("layout").value; buildPatch(); audio.route(state.layout, state.forcePreview, state.omitLfe); recording.update();
+});
 $("forcePreview").addEventListener("change", () => { state.forcePreview = $("forcePreview").checked; audio.route(state.layout, state.forcePreview, state.omitLfe); });
 $("omitLfe").addEventListener("change", () => {
+  if (recording.locked) { $("omitLfe").checked = state.omitLfe; return; }
   const targetChannel = speakers()[state.settings.target]?.channel;
   state.omitLfe = $("omitLfe").checked;
   buildPatch(targetChannel);
@@ -489,6 +624,7 @@ $("resetAll").addEventListener("click", () => {
 });
 $("audioButton").addEventListener("click", async () => {
   if (state.audioOn) {
+    void recording.stop("audio-off");
     state.audioOn = false; audio.disable(); updateAudioButton();
     if (held.size) announce("Audio is off — turn it on to hear playback", true); return;
   }
@@ -581,7 +717,8 @@ function draw(now) {
     if (state.routingMode === "focus") continue;
     const angle = position / list.length * TAU;
     const track = Math.floor(index * state.settings.cycles / state.settings.partials);
-    const r = radius * .76 - track * 11;
+    const pitchShift = state.audioOn ? (snapshot?.pitchCents?.[index] ?? 0) / 200 * 10 : 0;
+    const r = radius * .76 - track * 11 + pitchShift;
     const x = cx + Math.sin(angle) * r; const y = cy - Math.cos(angle) * r;
     context.globalAlpha = state.settings.gains[index] > 0 ? energy > .00001 ? .95 : .45 : .1;
     context.fillStyle = color(index); context.beginPath(); context.arc(x,y,3.5 + Math.min(3, energy * 35),0,TAU); context.fill();
@@ -596,6 +733,15 @@ function draw(now) {
       context.globalAlpha = Math.min(1, Math.max(0, grain.envelope));
       context.fillStyle = "#e7bd81";
       context.beginPath(); context.arc(cx + Math.sin(angle) * r, cy - Math.cos(angle) * r, 2.5 + grain.envelope * 3, 0, TAU); context.fill();
+    }
+    if (state.settings.rotaryMode !== "off") {
+      context.globalAlpha = .85;
+      for (const [key, label, fraction, shade] of [["rotaryHornPhase", "H", .33, "#e7bd81"], ["rotaryDrumPhase", "D", .23, "#86c4ca"]]) {
+        const angle = (snapshot[key] ?? 0) * TAU;
+        const x = cx + Math.sin(angle) * radius * fraction, y = cy - Math.cos(angle) * radius * fraction;
+        context.fillStyle = shade; context.font = "10px monospace"; context.textAlign = "center";
+        context.fillText(label, x, y);
+      }
     }
   }
   context.globalAlpha = 1;
@@ -619,14 +765,15 @@ function draw(now) {
   frame = requestAnimationFrame(draw);
 }
 
-buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
+buildModulationMonitor(); buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
 frame = requestAnimationFrame(draw);
 window.addEventListener("pagehide", event => {
   tempoKnob.cancelGesture();
+  void recording.stop("interrupted");
   if (event.persisted) {
     releaseManualNotes(); audio.disable(); state.audioOn = false; updateAudioButton(); cancelAnimationFrame(frame); void audio.context?.suspend(); return;
   }
-  disposed = true; cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
+  disposed = true; recording.destroy(); cancelAnimationFrame(frame); held.clear(); downKeys.clear(); audio.dispose(); tempoKnob.destroy();
 });
 window.addEventListener("pageshow", event => {
   if (event.persisted && !disposed) {

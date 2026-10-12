@@ -500,7 +500,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 ## Signalsmith Stretch
 
-L-system Delay's optional Silky renderer uses the Web Audio release of Signalsmith
+L-system Delay's optional Silky renderer and Trackazoid's optional key lock use the Web Audio release of Signalsmith
 Stretch:
 
 - https://signalsmith-audio.co.uk/code/stretch/
@@ -691,3 +691,18 @@ J.F. Lucarelli's Dvořák 7 edition is expressly Public Domain at Mutopia.
 TheOuterLinux's Night on Bald Mountain conversion is CC0 1.0. Source links and
 license texts accompany [orchestral sources](../assets/midiphoria/ORCHESTRAL-SOURCES.md).
 Copyrighted private-use Carlos and Mahler downloads are excluded from runtime assets.
+
+## Sound Fonts collection
+
+The Kalimba, Ocarina, Jaw Harp and Lately Bass banks are unmodified FreePats
+releases under CC0 1.0. Their original README files and the full CC0 legal text
+accompany each SF2 in `assets/sound-fonts/`. Kalimba and Ocarina credit Xavimart
+(Javier), Gonzalo and Roberto; Jaw Harp credits Eugene Vlaskin, Michail Chayka,
+N. K. Chayka and Roberto; Lately Bass credits Yingchun Soul and FreePats.
+Exact source/download URLs, versions and hashes are recorded in
+[`assets/sound-fonts/provenance.json`](../assets/sound-fonts/provenance.json).
+
+The Sound Fonts page also exposes the existing TimGM6mb bank, copyright Tim
+Brechbill and David Bolton, under GPL version 2. Its source record, copyright
+notice and complete GPL text remain in `assets/midiphoria/soundfont/`.
+These asset licenses are separate from Morphazoid's application license.

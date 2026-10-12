@@ -1,0 +1,21 @@
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+
+export const soundFontsToolbarAmendment = JSON.parse(readFileSync(
+  new URL('../fixtures/sound-fonts-toolbar-amendment.json', import.meta.url), 'utf8',
+));
+
+/** Peel only the exact audio-only toolbar opt-in before frozen navigation proofs. */
+export function restoreSoundFontsToolbar(source, file, { allowRestored = false } = {}) {
+  const change = soundFontsToolbarAmendment;
+  if (typeof source !== 'string' || file !== change.file) return source;
+  const count = source.split(change.addition).length - 1;
+  const markerCounts = change.markers.map(marker => source.split(marker).length - 1);
+  // Other historical helpers can reach these bytes again after restoration.
+  // Any surviving fragment still requires the complete, unique approved block.
+  if (allowRestored && count === 0 && markerCounts.every(value => value === 0)) return source;
+  const error = `${file}: exact Sound Fonts toolbar amendment`;
+  assert.equal(count, 1, error);
+  for (const markerCount of markerCounts) assert.equal(markerCount, 1, error);
+  return source.replace(change.addition, '');
+}

@@ -387,6 +387,9 @@ test("SPARTIAL preset and fingerprint controls reshape a held sound without stop
   await expect(page.locator("#holdButton")).toHaveAttribute("aria-pressed", "true");
   await waitForStableAudioState(page, true, { stableMs: 150 });
 
+  // Full presets may select an organ. Exercise fingerprint randomization in
+  // its own bank; organ registrations use the same controls on a 0–8 scale.
+  await page.locator("#organMode").selectOption("partials");
   const partialValues = () => page.locator("#partialSliders input").evaluateAll(inputs => inputs.map(input => Number(input.value)));
   const firstSpectrum = await page.locator("#spectrumPreset").inputValue();
   const firstValues = await partialValues();

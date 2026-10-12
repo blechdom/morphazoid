@@ -1,8 +1,10 @@
+import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
 import { reverseMidiAnalysis, buildMidiStateHistories, getMidiNoteGates, midiStateMessages } from './midi-mixer-reverse.js';
 import { compileSampleTempoMap, advanceSampleTiming, sampleTempoAt } from './midi-mixer-clock.js';
+import { MidiAutomataClock, captureAutomataMidi } from './midi-mixer-automata.js';
 export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
 
 const WORKLET_URL = new URL('./midi-mixer-processor.js', import.meta.url);
@@ -63,10 +65,13 @@ export class MidiMixerEngine {
     this._sampleTime = 0; this._sampleBeat = 0; this._sampleAnchor = this._anchor; this._sampleAudioAnchor = null; this._samples = []; this._sampleMidi = {}; this._noteSubscribers = new Set();
     this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._sources = [null, null]; this._weave = defaultWeaveConfig(); this._weavePhase = { startBeat: 0, deckBeats: [0, 0] }; this._error = null; this._abort = null;
     this._skippedEvents = 0; this._voices = 0; this._droppedVisualEvents = 0; this._listeners = []; this._waitCancel = null;
+    this._noteEffects = sanitizeMidiNoteEffects();
+    this._automata = new MidiAutomataClock(); this._automataAnchor = this._now(); this._automataRevision = 0; this._automataWaits = new Map(); this._automataSkippedSilentBeats = 0;
     this._onPageHide = () => { void this.dispose(); }; this.runtime.addEventListener?.('pagehide', this._onPageHide);
   }
   _now() { return (this.runtime.performance?.now?.() ?? Date.now()) / 1000; }
   get state() {
+    this._advanceAutomata();
     let beat = this._beat;
     const sampleBeat = this._sampleBeat + (this._ready && this._sampleAudioAnchor !== null && this.context
       ? Math.max(0, this.context.currentTime - this._sampleAudioAnchor) * this._audioTempo / 60
@@ -79,17 +84,58 @@ export class MidiMixerEngine {
     }
     const weave = weavePosition(beat, this._weave, this._weavePhase);
     return { weave: { ...this._weave }, weaveStep: weave.step, currentWeaveDeck: weave.deck, ready: this._ready, loading: Boolean(this._promise), audioEnabled: this._audioEnabled && this.context?.state === 'running', playing: this._playing,
-      tempo: this._tempo, beat, sampleBeat, sampleTime, samples: this._samples.flatMap(sample => {
+      tempo: this._tempo, beat, sampleBeat, sampleTime, automata: { ...this._automata.snapshot(), skippedSilentBeats: this._automataSkippedSilentBeats }, samples: this._samples.flatMap(sample => {
         const timing = this._sampleTiming(sample, sampleBeat, sampleTime);
         if (timing.ended) return [];
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, ...visible } = sample;
         return [{ ...visible, midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
-      }), sampleMidi: sanitizeMidiParameters(this._sampleMidi), effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
+      }), sampleMidi: sanitizeMidiParameters(this._sampleMidi), noteEffects: { ...this._noteEffects }, effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
       decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
   }
   subscribeNotes(callback) { if (typeof callback !== 'function') return () => {}; this._noteSubscribers.add(callback); return () => this._noteSubscribers.delete(callback); }
   _publishNotes(notes) { if (!notes.length) return; safeCall(this.onNotes, notes); for (const callback of this._noteSubscribers) safeCall(callback, notes); }
+  _advanceAutomata() {
+    const now = this._now();
+    if (!this._ready && !this._disposed && this._automata.playing) {
+      // A hidden silent tab may return hours later. Evolve only its retained
+      // 16-beat window; discard older idle time instead of replaying a backlog
+      // or fabricating descendants. Audio rendering never takes this path.
+      const beats = Math.max(0, now - this._automataAnchor) * this._tempo / 60;
+      this._automataSkippedSilentBeats += Math.max(0, beats - 16);
+      this._automata.advance(Math.min(beats, 16), this._tempo);
+    }
+    this._automataAnchor = now;
+  }
+  configureAutomata(settings = {}) {
+    if (this._disposed) return false;
+    this._advanceAutomata(); this._automata.configure(settings);
+    this._post({ type: 'automataConfigure', settings: this._automata.settings, revision: ++this._automataRevision });
+    this._publish(); return this.state.automata;
+  }
+  setAutomataPlaying(playing) {
+    if (this._disposed) return false;
+    this._advanceAutomata(); this._automata.setPlaying(playing);
+    this._post({ type: 'automataPlaying', playing: Boolean(playing), revision: ++this._automataRevision });
+    this._publish(); return this.state.automata;
+  }
+  restartAutomata() {
+    if (this._disposed) return false;
+    this._advanceAutomata(); this._automata.restart();
+    this._post({ type: 'automataRestart', revision: ++this._automataRevision });
+    this._publish(); return this.state.automata;
+  }
+  async captureAutomata(beats = 4) {
+    if (this._disposed) throw new Error('Automatapoeia has closed.');
+    this._advanceAutomata();
+    if (!this._ready) return captureAutomataMidi(this._automata.snapshot(true), beats);
+    const token = ++this._serial;
+    const state = await new Promise((resolve, reject) => {
+      const timer = this.runtime.setTimeout(() => { this._automataWaits.delete(token); reject(new Error('Automatapoeia capture timed out.')); }, 5000);
+      this._automataWaits.set(token, { resolve, reject, timer }); this._post({ type: 'automataCapture', token });
+    });
+    return captureAutomataMidi(state, beats);
+  }
   _sampleTiming(sample, beat, seconds) { return advanceSampleTiming(sample.timing, sample.compiled, sample, Math.max(0, beat - sample.timingBeat), Math.max(0, seconds - sample.timingTime)); }
   triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {}, loop = false, sync = true } = {}) {
     if (this._disposed) return false;
@@ -120,6 +166,28 @@ export class MidiMixerEngine {
       if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi, gain: sample.gain, loop: sample.loop, sync: sample.sync, revision: sample.revision });
     }
     this._publish(); return sanitizeMidiParameters(this._sampleMidi);
+  }
+  configureSample(id, { loop, sync } = {}) {
+    if (this._disposed) return false;
+    const sample = this._samples.find(item => item.id === id); if (!sample) return false;
+    const state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
+    if (timing.ended) return false;
+    // Rebase only this clip before changing its timebase. The other clips and
+    // decks retain their clocks; turning Loop off finishes this current pass.
+    sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
+    if (loop !== undefined) sample.loop = Boolean(loop);
+    if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
+    sample.revision++;
+    if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi,
+      gain: sample.gain, loop: sample.loop, sync: sample.sync, revision: sample.revision });
+    this._publish(); return this.state.samples.find(item => item.id === id) ?? false;
+  }
+  stopSample(id) {
+    if (this._disposed) return false;
+    const index = this._samples.findIndex(sample => sample.id === id); if (index < 0) return false;
+    const [sample] = this._samples.splice(index, 1);
+    if (sample.sent) this._post({ type: 'stopSample', slot: sample.slot, id: sample.id });
+    this._publish(); return true;
   }
   sendChannelController(index, channel, controller, value = 0) {
     this._checkIndex(index); return this._sendMidiAction({ index, channel }, { kind: 'cc', controller, value });
@@ -300,6 +368,7 @@ export class MidiMixerEngine {
     if ('program' in partial) setting.program = partial.program === null || Number(partial.program) < 0 ? null : Math.round(clamp(partial.program, 0, 127));
     this._post({ type: 'deck', index, config: deck.config, channels: deck.channels }); this._publish(); return { ...setting, midi: sanitizeMidiParameters(setting.midi) };
   }
+  setNoteEffects(input) { this._noteEffects = sanitizeMidiNoteEffects(input); this._post({ type: 'noteEffects', config: this._noteEffects }); this._publish(); return { ...this._noteEffects }; }
   setCrossfade(value) { this._crossfade = clamp(value, -1, 1, this._crossfade); this._post({ type: 'crossfade', value: this._crossfade }); this._publish(); return this._crossfade; }
   setVolume(value) { this._volume = clamp(value, 0, 1, this._volume); this._post({ type: 'audibility', enabled: this._audioEnabled, volume: this._volume }); this._updateGain(); this._publish(); return this._volume; }
   _checkIndex(index) { if (index !== 0 && index !== 1) throw new Error('Choose MIDI deck A or B.'); }
@@ -347,10 +416,18 @@ export class MidiMixerEngine {
         }
       }
       else if (data.type === 'error') { const error = new Error(data.message); rejectReady(error); this._processorFailed(error); }
+      else if (data.type === 'automataCapture') {
+        const request = this._automataWaits.get(data.token); if (!request) return;
+        this._automataWaits.delete(data.token); this.runtime.clearTimeout(request.timer); request.resolve(data.state);
+      }
       else if (data.type === 'state') {
         // Until startup transfers the silent transport phase, processor beat 0
         // describes an unstarted clock, including intermediate bank uploads.
         if (!this._ready) return;
+        if (data.automata && data.automataRevision === this._automataRevision) {
+          const notes = new Map([...this._automata.notes, ...(data.automataNotes ?? [])].map(note => [note.id, note]));
+          this._automata.restore({ ...data.automata, notes: [...notes.values()].filter(note => note.endBeat === null || note.endBeat > data.automata.beat - 16) });
+        }
         // The audio thread is authoritative; rendering only interpolates telemetry.
         this._beat = data.beat; this._audioAnchor = data.at; this._audioTempo = data.tempo;
         if (Number.isFinite(data.sampleBeat)) { this._sampleBeat = data.sampleBeat; this._sampleAudioAnchor = data.at; }
@@ -388,7 +465,9 @@ export class MidiMixerEngine {
     this._post({ type: 'weave', config: this._weave, phase: this._weavePhase });
     this._post({ type: 'tempo', tempo: this._tempo }); this._post({ type: 'crossfade', value: this._crossfade });
     this._post({ type: 'effects', synth: this._effects.synth });
+    this._post({ type: 'noteEffects', config: this._noteEffects });
     this._post({ type: 'audibility', enabled: this._desiredAudio, volume: this._volume });
+    this._post({ type: 'automataRestore', state: this._automata.snapshot(true), revision: this._automataRevision });
     for (let index = 0; index < 2; index++) this._sendDeck(index);
     this._post({ type: 'transport', playing: this._playing, beat: this._beat });
   }
@@ -425,13 +504,14 @@ export class MidiMixerEngine {
     const context = this.context; this.context = null; this._promise = null;
     this._abort?.abort(); this._abort = null; this._waitCancel?.(); this._waitCancel = null;
     for (const request of this._fontWaits.values()) { this.runtime.clearTimeout(request.timer); request.reject(new Error('SoundFont load cancelled.')); } this._fontWaits.clear();
+    for (const request of this._automataWaits.values()) { this.runtime.clearTimeout(request.timer); request.reject(new Error('Automatapoeia capture cancelled.')); } this._automataWaits.clear();
     for (const remove of this._listeners.splice(0)) remove();
     if (this.node) { this.node.port.onmessage = null; this.node.port.postMessage({ type: 'dispose' }); this.node.disconnect(); this.node.port.close?.(); this.node = null; }
     this._releaseOutput?.(); this._releaseOutput = null;
     for (const key of ['_preamp', '_compressor', '_gain', '_ceiling', '_filter', '_delay', '_dry', '_wet', '_feedback']) { this[key]?.disconnect(); this[key] = null; }
     if (context && context.state !== 'closed') await context.close().catch(() => {});
   }
-  async dispose() { if (this._disposed) return; this._disposed = true; this._playing = false; this._desiredAudio = false; this.runtime.removeEventListener?.('pagehide', this._onPageHide); await this._close(); this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._noteSubscribers.clear(); }
+  async dispose() { if (this._disposed) return; this._automata.setPlaying(false); this._disposed = true; this._playing = false; this._desiredAudio = false; this.runtime.removeEventListener?.('pagehide', this._onPageHide); await this._close(); this._decks = [emptyDeck(), emptyDeck()]; this._compiled = [null, null]; this._noteSubscribers.clear(); }
   _publish() { if (!this._disposed) safeCall(this.onState, this.state); }
 }
 export const createMixerEngine = options => new MidiMixerEngine(options);

@@ -1,0 +1,12 @@
+{
+  "baseCommit": "d67c35c8938061bfbcd6b2f5463319cacf8a1327",
+  "file": "nav.js",
+  "baseSha256": "6b1ed31431c6eb501237d613020506d35b082c4cbfefaf8f2fa08917b6c45584",
+  "approvedSha256": "be15426328e72fff0268ed3e6bb2dc1bd8f7f38175089bc9e211612faa546d2f",
+  "addition": "  // Audio-only utility pages share the performer controls without a MIDI client.\n  if (!navigation.activeTool && doc?.querySelector?.(\".masthead[data-audio-output-meter]\")) {\n    initializeMidiToolbars(doc, runtime, getSharedMidiManager(runtime), { routeId: null });\n  }\n",
+  "markers": [
+    "  // Audio-only utility pages share the performer controls without a MIDI client.\n",
+    "  if (!navigation.activeTool && doc?.querySelector?.(\".masthead[data-audio-output-meter]\")) {\n",
+    "    initializeMidiToolbars(doc, runtime, getSharedMidiManager(runtime), { routeId: null });\n"
+  ]
+}

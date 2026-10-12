@@ -1,6 +1,8 @@
 // Explicit owner units; labels alone cannot describe the speed curve.
 // Reviewed sources and exceptions: docs/tap-tempo-controls.json.
 export const TAP_TEMPO_TARGETS = [
+  {"route": "trackazoid.html", "selector": "#aBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck A source BPM"},
+  {"route": "trackazoid.html", "selector": "#bBpm", "mapping": {"unit": "bpm"}, "title": "Tap Deck B source BPM"},
   {"route": "vector-fractals.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},
   {"route": "vector-fractals.html", "selector": "#traceRate", "mapping": {"unit": "hz", "signed": false}, "resetAfter": 110000, "title": "Tap a complete reader cycle"},
   {"route": "acoustic-manifold.html", "selector": "#gesture-speed", "mapping": {"unit": "exponentialMultiplier", "base": 2, "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
@@ -100,7 +102,7 @@ export const TAP_TEMPO_TARGETS = [
   {"route": "lumber.html", "selector": "#delayRotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "midiphoria.html", "selector": "#playbackRate", "mapping": {"unit": "multiplier", "referenceBpm": 120}, "title": "Tap speed (120 BPM = normal 1×)"},
   {"route": "midiphoria.html", "selector": "#masterTempo", "mapping": {"unit": "bpm"}},
-  {"route": "midiphoria.html", "selector": "#creativeTempo", "mapping": {"unit": "bpm"}},
+  {"route": "blech-midi.html", "selector": "#creativeTempo", "mapping": {"unit": "bpm"}},
   {"route": "minimax.html", "selector": "#tempo", "mapping": {"unit": "bpm"}},
   {"route": "moebius-synth.html", "selector": "#rotationSpeed", "mapping": {"unit": "hz", "signed": true}},
   {"route": "moebius-synth.html", "selector": "#speed", "mapping": {"unit": "hz", "signed": false}},

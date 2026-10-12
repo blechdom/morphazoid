@@ -321,3 +321,33 @@ test('new grid articulation options preserve default held notes and their existi
   assert.ok(readScore(original.buffer).notes.every(note => note.velocity === 88));
   assert.equal(original.notes.find(note => note.note === 48).duration, .75);
 });
+
+test('optional grid resolution preserves default bytes and encodes short or tall grids exactly', () => {
+  const pixels = [[1, 0], [1, 1], [0, 1]];
+  assert.deepEqual(generateGridMidi(pixels).buffer, generateGridMidi(pixels, { ticksPerBeat: 480 }).buffer);
+  for (const rows of [1, 32, 128, 256]) for (const beats of [.25, 2.75, 64]) {
+    const grid = Array.from({ length: rows }, (_, row) => [1, row % 2]);
+    const score = generateGridMidi(grid, { secondsPerRow: beats / (rows * 2), ticksPerBeat: 15360, retrigger: true });
+    const decoded = readScore(score.buffer);
+    assert.equal(new DataView(score.buffer).getUint16(12), 15360);
+    assert.equal(decoded.duration, beats / 2); assert.equal(score.duration, decoded.duration);
+    assert.deepEqual(decoded.notes, score.notes); assert.equal(score.notes[0].duration, beats / (rows * 2));
+  }
+});
+
+test('grid quantization reports actual note timing and rejects invalid or unbounded resolution', () => {
+  const score = generateGridMidi([[1], [0], [1]], { secondsPerRow: .012345, ticksPerBeat: 15360 });
+  const expectedRow = Math.round(.012345 * 30720) / 30720;
+  assert.equal(score.secondsPerRow, expectedRow);
+  const decoded = readScore(score.buffer);
+  score.notes.forEach((note, index) => {
+    assert.ok(Math.abs(note.start - decoded.notes[index].start) < 1e-12);
+    assert.ok(Math.abs(note.duration - decoded.notes[index].duration) < 1e-12);
+  });
+  assert.ok(Math.abs(decoded.duration - score.duration) < 1e-12);
+  for (const options of [{ ticksPerBeat: 0 }, { ticksPerBeat: 32768 }, { ticksPerBeat: 1.5 }, { ticksPerBeat: Infinity },
+    { ticksPerBeat: '480' }, { ticksPerBeat: 15360, secondsPerRow: 1 / 61440 }, { secondsPerRow: 33 }]) {
+    assert.throws(() => generateGridMidi([[1]], options));
+  }
+  assert.throws(() => generateGridMidi(Array(256).fill([1]), { secondsPerRow: 1 }));
+});

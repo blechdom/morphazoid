@@ -5,6 +5,7 @@ import { canonicalInstrumentId } from "./instrument-identities.js";
 // import cycle through the catalogue.
 const NOTE_MODE_IDS = Object.freeze({
   processor: Object.freeze([
+    "trackazoid",
     "midiphoria",
     "lumber",
     "micmic",
@@ -204,6 +205,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "trackazoid",
   "graph-delay-rust",
   "synthesis",
   "domino-run",
@@ -343,8 +345,8 @@ const noMidiOutputIds = new Set([
   "vocalzoid",
 ]);
 
-export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
-  Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
+export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze([
+  ...Object.entries(NOTE_MODE_IDS).flatMap(([noteMode, ids]) => ids.map((id) => Object.freeze({
     id,
     midiInput: true,
     midiInputMode: nativeIds.has(id) ? "native" : "universal-control",
@@ -357,7 +359,18 @@ export const INSTRUMENT_MIDI_CAPABILITIES = Object.freeze(
       ? "page"
       : noGenericNoteKeyboardIds.has(id) ? "none" : "midi",
   }))),
-);
+  // Generates MIDI files and internal SoundFont notes; no live MIDI port or piano-key mapping.
+  Object.freeze({
+    id: "blech-midi",
+    midiInput: false,
+    midiInputMode: "none",
+    noteMode: "sequence",
+    audioInput: false,
+    midiOutput: false,
+    startsAudio: true,
+    computerKeyboardMode: "none",
+  }),
+]);
 
 const capabilityById = new Map(
   INSTRUMENT_MIDI_CAPABILITIES.map((capability) => [capability.id, capability]),

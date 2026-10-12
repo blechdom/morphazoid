@@ -19,15 +19,18 @@ export const MIXER_SAMPLE_STAMPS = Object.freeze([
   { id: 'explode', label: 'Explode', group: 'Particles' }, { id: 'sparks', label: 'Sparks', group: 'Particles' },
 ].map(Object.freeze));
 
-export const MIXER_PATTERN_DEFAULTS = Object.freeze({ seed: 1, density: .5, span: 48, beats: 8, transpose: 0 });
+export const MIXER_PATTERN_DEFAULTS = Object.freeze({ seed: 1, density: .5, span: 48, beats: 8, transpose: 0, offset: 0 });
 const FIXED_SEED_PATTERNS = new Set(['polka-dots', 'plaid', 'checker', 'ladder', 'staircase', 'rings']);
 const bounded = (value, low, high, fallback) => Number.isFinite(Number(value)) ? Math.max(low, Math.min(high, Number(value))) : fallback;
+// Retain the original file bytes when 480 PPQ describes each row exactly.
+// Higher resolution keeps quarter-beat total heights exact through 256 rows.
+const gridResolution = seconds => Math.abs(seconds * 960 - Math.round(seconds * 960)) < 1e-8 && seconds * 960 >= 1 ? 480 : 15360;
 function patternOptions(input = {}) {
   const source = input && typeof input === 'object' ? input : {};
   const span = Math.round(bounded(source.span, 12, 128, 48)), center = Math.round(72 - span / 2);
   const transpose = Math.round(bounded(source.transpose, -127, 127, 0));
   return { seed: Math.trunc(bounded(source.seed, 0, 0xffffffff, 1)), density: bounded(source.density, 0, 1, .5), span,
-    beats: Math.round(bounded(source.beats, 4, 32, 8)),
+    beats: bounded(source.beats, .25, 64, 8), offset: Math.round(bounded(source.offset, -127, 127, 0)),
     transpose: Math.max(0, Math.min(128 - span, center + transpose)) - center };
 }
 function seededRandom(seed) {
@@ -131,9 +134,10 @@ function patternPixels(id, density, seed) {
  * The Draw editor's stationary score/playhead still uses its original direction.
  * Text phrases stay in reading order and retain their final silent row.
  * An optional pitch span resizes the drawing's columns and fits its complete
- * pitch window inside MIDI 0–127 without changing its source pixels or timing.
+ * pitch window inside MIDI 0–127. Offset moves that fitted window as a whole;
+ * height stretches its total temporal extent without changing the bitmap.
  */
-export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote, span } = {}) {
+export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote, span, heightBeats, offset } = {}) {
   if (!score?.buffer || !Array.isArray(score.notes) || !score.notes.length
     || !Number.isInteger(score.rows) || score.rows < 1 || score.rows > 256
     || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 128
@@ -176,7 +180,13 @@ export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRo
       return resized;
     });
   }
-  return { ...score, ...generateGridMidi(pixels, { title: score.text, secondsPerRow: rowTime ?? secondsPerRow, lowestNote: outputBase }),
+  const fittedBase = offset === undefined ? outputBase : Math.round(bounded(outputBase, 0, 128 - pixels[0].length, 0));
+  if (offset !== undefined) outputBase = Math.round(bounded(fittedBase + Math.round(bounded(offset, -127, 127, 0)), 0, 128 - pixels[0].length, 0));
+  const outputRowTime = heightBeats === undefined ? rowTime ?? secondsPerRow
+    : bounded(heightBeats, .25, 64, rows * secondsPerRow * 2) / (rows * 2);
+  const ticksPerBeat = heightBeats === undefined ? score.ticksPerBeat ?? 480 : gridResolution(outputRowTime);
+  const generated = generateGridMidi(pixels, { title: score.text, secondsPerRow: outputRowTime, lowestNote: outputBase, ticksPerBeat });
+  return { ...score, ...generated, heightBeats: generated.duration * 2, appliedOffset: outputBase - fittedBase,
     pixels: pixels.map(row => row.slice()).reverse() };
 }
 
@@ -210,9 +220,10 @@ export function mixerStampScore(id, options) {
   pixels = pixels.map(row => Array.from({ length: normalized.span }, (_, column) => row[Math.min(47, Math.floor((column + .5) * 48 / normalized.span))]));
   // Even sparse/low-resolution combinations remain playable and recoverable.
   if (!pixels.some(row => row.some(Boolean))) pixels[15][Math.floor(normalized.span / 2)] = 1;
-  const lowestNote = Math.round(72 - normalized.span / 2) + normalized.transpose;
-  const score = generateGridMidi(pixels, { title: stamp.label, secondsPerRow: normalized.beats / 64, lowestNote });
-  return { ...mixerPerformanceScore(score, { trimLeading: true }), patternOptions: normalized, group: stamp.group };
+  const lowestNote = Math.round(72 - normalized.span / 2) + normalized.transpose, secondsPerRow = normalized.beats / 64;
+  const score = generateGridMidi(pixels, { title: stamp.label, secondsPerRow, lowestNote, ticksPerBeat: gridResolution(secondsPerRow) });
+  return { ...mixerPerformanceScore(score, { trimLeading: true, offset: normalized.offset }),
+    patternOptions: { ...normalized, beats: score.duration * 2 }, group: stamp.group };
 }
 
 /** Skip visually identical adjacent seeds without trapping a usable Variation

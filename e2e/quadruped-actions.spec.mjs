@@ -28,12 +28,37 @@ async function installActionProbe(page) {
         const [phase, , , when, , position, score, actorIndex] = args;
         const motion = performances.get(actors[actorIndex])?.motion;
         if (motion) actionContacts.push({ phase, when, position, actorIndex,
-          kind: motion.kind, untilPosition: motion.untilPosition, behaviorId: score.behaviorId });
+          kind: motion.kind, untilPosition: motion.untilPosition, behaviorId: score.behaviorId, slideProgress: args[9] });
         return originalActionContact(...args);
+      };
+      const actionJumpSamples = [], actionPoseSamples = new WeakMap();
+      const originalActionPose = performedPose;
+      performedPose = (...args) => {
+        const result = originalActionPose(...args), [actorIndex, original] = args;
+        if (performanceFor(actorIndex).motion?.kind === "jump") {
+          const sample = { actorIndex, addedLift: (result.bodyLift - original.bodyLift) * .38,
+            supportCount: original.groundSupportCount, headLiftUnchanged: result.headLift === original.headLift,
+            feet: QUADRUPED_LANES.map(({ id }) => ({ grounded: original.legs[id].grounded,
+              addedLift: (result.legs[id].lift - original.legs[id].lift) * .46 })) };
+          actionJumpSamples.push(sample); actionPoseSamples.set(result, sample);
+        }
+        return result;
+      };
+      const originalActionDraw = drawAnimal;
+      drawAnimal = (...args) => {
+        const [, pose, width, height, groundY, score] = args, sample = actionPoseSamples.get(pose);
+        if (sample) {
+          const rig = deriveQuadrupedVisualRig(pose, width, height, groundY, score);
+          const points = [...rig.body, ...rig.skull, ...rig.neck, ...rig.tail, ...rig.humps.flat(),
+            ...rig.features.flatMap(feature => feature.points), ...rig.legs.flatMap(leg => leg.points)];
+          Object.assign(sample, { minY: Math.min(...points.map(point => point.y)),
+            groundY, height, scale: rig.scale, bodyY: rig.center.y });
+        }
+        return originalActionDraw(...args);
       };
       globalThis.__quadrupedActionProbe = {
         read: () => ({
-          starts: actionStarts.slice(), contacts: actionContacts.slice(),
+          starts: actionStarts.slice(), contacts: actionContacts.slice(), jumps: actionJumpSamples.slice(),
           pageActive, schedulerActive: Boolean(schedulerTimer), sourceCount: activeSources.size,
           actors: actors.map(actor => ({ position: actor.motor.position,
             motion: performances.get(actor)?.motion ? { ...performances.get(actor).motion } : null })),
@@ -98,6 +123,15 @@ test('Jump, Roll and Slide perform one selected animal without changing its save
     expect(await capture(page)).toEqual(before);
     await expectLiveState(page);
     await expectActionFinished(page, 1);
+    if (action === 'jump') {
+      const samples = (await probe(page)).jumps.filter(sample => sample.actorIndex === 1);
+      expect(samples.some(sample => sample.addedLift > .15)).toBe(true);
+      for (const sample of samples) {
+        if (sample.supportCount) expect(sample.addedLift).toBe(0);
+        expect(sample.headLiftUnchanged).toBe(true);
+        for (const foot of sample.feet) expect(foot.addedLift).toBeCloseTo(sample.addedLift, 8);
+      }
+    }
     expect(await capture(page)).toEqual(before);
   }
   expect((await audioStatus(page)).connectionCount).toBe(0);
@@ -202,7 +236,12 @@ for (const viewport of [
       await expect(group.locator('[data-motion-action]')).toHaveCount(3);
       await page.locator('#playButton').click();
       await expect(page.locator('#tempoOut')).toHaveText('96 BPM · global');
-      await expect(page.locator('#playState')).not.toContainText('BPM');
+      await expect(page.locator('#playState')).toHaveCount(0);
+      const play = await page.locator('#playButton').boundingBox();
+      const tempo = await page.locator('.quadruped-transport-card > .mz-tap-tempo-field').boundingBox();
+      expect(tempo.x - play.x - play.width).toBeGreaterThanOrEqual(0);
+      expect(tempo.x - play.x - play.width).toBeLessThanOrEqual(12);
+      await expect(page.locator('.quadruped-transport-card')).not.toContainText(/Press Start|step \d/i);
       await expect(page.locator('#motionSummary')).not.toContainText('BPM');
       for (const action of ['jump', 'roll', 'slide']) {
         const button = actionButton(page, action);
@@ -304,3 +343,69 @@ test('short actions finish on the clock when no animation frames are painted', a
   await expectLiveState(page, false, true);
   expect(errors).toEqual([]);
 });
+
+
+test('a slow slide keeps a connected texture and progresses through one whole scrape', async ({ page }) => {
+  const errors = await openInstrument(page, { observed: true });
+  await page.locator('#tempo').fill('10');
+  const before = await capture(page);
+  await page.locator('#audioButton').click();
+  await actionButton(page, 'slide').click();
+  await expect.poll(async () => (await probe(page)).contacts.filter(contact => contact.phase === 'slide').at(-1)?.slideProgress,
+    { timeout: 8000 }).toBeGreaterThan(.9);
+  const contacts = (await probe(page)).contacts.filter(contact => contact.phase === 'slide');
+  const interior = contacts.filter(contact => contact.slideProgress > .1 && contact.slideProgress < .9);
+  expect(interior.length).toBeGreaterThan(40);
+  for (let index = 1; index < interior.length; index++) {
+    expect(interior[index].when - interior[index - 1].when).toBeGreaterThan(.05);
+    expect(interior[index].when - interior[index - 1].when).toBeLessThan(.07);
+    expect(interior[index].slideProgress).toBeGreaterThan(interior[index - 1].slideProgress);
+  }
+  await expectActionFinished(page);
+  await expect.poll(async () => (await audioStatus(page)).peak).toBeLessThan(.00001);
+  expect(await capture(page)).toEqual(before);
+  expect(errors).toEqual([]);
+});
+
+for (const viewport of [
+  { label: 'desktop', width: 1440, height: 900, mobile: false },
+  { label: 'phone portrait', width: 390, height: 844, mobile: true },
+  { label: 'phone landscape', width: 844, height: 390, mobile: true },
+]) {
+  test(`${viewport.label} higher Jump keeps tall heads, horns and ears in view`, async ({ browser, baseURL }) => {
+    const context = await browser.newContext({ baseURL,
+      viewport: { width: viewport.width, height: viewport.height },
+      isMobile: viewport.mobile, hasTouch: viewport.mobile, reducedMotion: 'reduce' });
+    const page = await context.newPage();
+    try {
+      const errors = await openInstrument(page, { observed: true });
+      await page.locator('#tempo').fill('48');
+      for (const [animal, extreme] of [['elephant'], ['giraffe'], ['camel'], ['rabbit'], ['unicorn'], ['giraffe', true]]) {
+        await page.locator('#animalSelect').selectOption(animal);
+        if (extreme) {
+          await page.locator('#tempo').fill('25');
+          await page.locator('#spring').fill('2.5');
+          await page.locator('#gravity').fill('0.1');
+        }
+        const before = await capture(page), count = (await probe(page)).jumps.length;
+        await page.locator('#stage').scrollIntoViewIfNeeded();
+        await actionButton(page, 'jump').click();
+        await expect.poll(async () => Math.max(0, ...(await probe(page)).jumps.slice(count).map(sample => sample.addedLift)),
+          { intervals: [25] }).toBeGreaterThan(extreme ? .15 : .25);
+        if (animal === 'elephant' || animal === 'giraffe') {
+          await test.info().attach(`${animal}-jump`, { body: await page.locator('#stage').screenshot(), contentType: 'image/png' });
+        }
+        await expectActionFinished(page);
+        const samples = (await probe(page)).jumps.slice(count).filter(sample => Number.isFinite(sample.minY));
+        expect(samples.length).toBeGreaterThan(3);
+        for (const sample of samples) {
+          expect(sample.minY, `${animal}: ${JSON.stringify(sample)}`).toBeGreaterThanOrEqual(Math.max(4, sample.scale * .05) - .01);
+          expect(sample.groundY).toBeLessThan(sample.height);
+        }
+        expect(await capture(page)).toEqual(before);
+        await expectLiveState(page);
+      }
+      expect(errors).toEqual([]);
+    } finally { await context.close(); }
+  });
+}

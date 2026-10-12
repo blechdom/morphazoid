@@ -49,8 +49,7 @@ async function observe(page) {
 }
 
 async function open(page) {
-  await observe(page); await page.goto('/midiphoria.html');
-  await page.locator('#drawingModeButton').click();
+  await observe(page); await page.goto('/blech-midi.html');
   await expect(page.locator('#mixerStampCount')).toHaveText('58 / 58');
 }
 async function input(page, id, value) {
@@ -83,17 +82,9 @@ async function audible(page) {
   return summary;
 }
 const pitchRange = score => Math.max(...score.notes.map(note => note.note)) - Math.min(...score.notes.map(note => note.note));
-function sustainedMidi(note) {
-  const track = [0, 192, 16, 0, 144, note, 96, 0x8c, 0, 128, note, 0, 0, 255, 47, 0];
-  const size = Buffer.alloc(4); size.writeUInt32BE(track.length);
-  // Sixteen beats at 96 PPQ: one held organ voice keeps audio checks independent
-  // of whichever songs happen to be the collection's current defaults.
-  return Buffer.concat([Buffer.from([77, 84, 104, 100, 0, 0, 0, 6, 0, 0, 0, 1, 0, 96]), Buffer.from('MTrk'), size, Buffer.from(track)]);
-}
-
 test('one search field filters all 30 generated and 28 file stamps without arming audio', async ({ page }) => {
   await open(page);
-  await expect(page.locator('.mixer-stamp-palette input')).toHaveCount(1);
+  await expect(page.locator('.mixer-stamp-palette input[type=search]')).toHaveCount(1);
   await expect(page.locator('[data-mixer-sample]')).toHaveCount(58);
   const filter = page.locator('#mixerStampFilter');
   await filter.fill('generated pattern'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(30);
@@ -102,12 +93,17 @@ test('one search field filters all 30 generated and 28 file stamps without armin
   await filter.fill('black midi chasing'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(1);
   await expect(stamp(page, 'black-bleed-chasing-wind')).toBeVisible();
   await filter.fill('glooob'); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(1);
+  await page.locator('[data-stamp-loop="glooob"]').check();
   await stamp(page, 'glooob').click(); await expect(page.locator('#mixerSampleStatus')).toContainText('silent preview');
+  // The counter reports matches; playing pads stay reachable outside those results.
   await filter.fill('no such stamp'); await expect(page.locator('#mixerStampCount')).toHaveText('0 / 58');
+  await expect(stamp(page, 'glooob')).toBeVisible(); await expect(stamp(page, 'glooob')).toHaveAttribute('aria-pressed', 'true');
+  await stamp(page, 'glooob').click(); await expect(stamp(page, 'glooob')).toBeHidden();
+  await expect(page.locator('#mixerStampCount')).toHaveText('0 / 58');
   await filter.fill(''); await expect(page.locator('[data-mixer-sample]:visible')).toHaveCount(58);
   expect((await snapshot(page)).contexts).toEqual([]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
-  await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
+  expect((await snapshot(page)).playing).toBe(false);
 });
 
 test('density, pitch span, length and Variation change the submitted MIDI notes', async ({ page }) => {
@@ -205,16 +201,16 @@ async function holdFile(page) {
   };
 }
 
-for (const action of ['Stop samples', 'Stop mixer', 'Leave view', 'Audio off']) {
+for (const action of ['Stop samples', 'Stop', 'Page teardown', 'Audio off']) {
   test(`${action} cancels a pending file stamp before its MIDI arrives`, async ({ page }) => {
     test.setTimeout(60000); await open(page); if (action === 'Audio off') await arm(page);
     const deliver = await holdFile(page);
     if (action === 'Stop samples') await page.locator('#mixerStopSamples').click();
-    else if (action === 'Stop mixer') { await page.locator('#mixerModeButton').click(); await page.locator('#mixerStop').click(); }
-    else if (action === 'Leave view') await page.locator('#visualModeButton').click();
+    else if (action === 'Stop') await page.locator('#creativeStop').click();
+    else if (action === 'Page teardown') await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pagehide', { persisted: true })));
     else await page.locator('#audioButton').click();
     await deliver(); expect(await launches(page)).toEqual([]); expect((await snapshot(page)).samples).toEqual([]);
-    if (action === 'Leave view') await page.locator('#drawingModeButton').click();
+    if (action === 'Page teardown') await page.evaluate(() => dispatchEvent(new PageTransitionEvent('pageshow', { persisted: true })));
     await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
     await arm(page); await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
     expect(await launches(page)).toEqual([]);
@@ -230,25 +226,14 @@ test('a generated stamp wins over a delayed file without a stale second launch',
   expect((await snapshot(page)).contexts).toEqual([]);
 });
 
-test('four native one-shots can overlap, replace the oldest, and leave deck playback intact', async ({ page }, testInfo) => {
-  test.setTimeout(60000); await open(page); await input(page, 'mixerStampBeats', 32);
-  await page.locator('#mixerModeButton').click(); await expect(page.locator('#tempoFromB')).toBeEnabled();
-  for (const index of [0, 1]) {
-    const name = `Stamp QA deck ${index}.mid`;
-    await page.locator(`#deckFile${index}`).setInputFiles({ name, mimeType: 'audio/midi', buffer: sustainedMidi(60 + index * 7) });
-    await expect(page.locator(`#deckSong${index} option:checked`)).toHaveText(name);
-  }
-  await arm(page);
-  await page.locator('#mixerPlay').click(); await audible(page);
-  await page.locator('#deckMute0').check(); await page.locator('#deckMute1').check();
-  const before = await snapshot(page); await page.locator('#drawingModeButton').click();
+test('four native one-shots overlap, replace the oldest, and leave unloaded decks idle', async ({ page }, testInfo) => {
+  test.setTimeout(60000); await open(page); await input(page, 'mixerStampBeats', 32); await arm(page);
+  const before = await snapshot(page);
   for (const id of ['heart', 'square', 'star', 'smile', 'zigzag']) await stamp(page, id).click();
   const played = await launches(page), current = await snapshot(page);
   expect(current.samples.map(sample => sample.id)).toEqual(played.slice(-4).map(sample => sample.id));
-  expect(current.playing).toBe(true);
-  expect(current.decks).toEqual(before.decks);
+  expect(current.playing).toBe(false); expect(current.decks).toEqual(before.decks);
   const audio = await audible(page); await testInfo.attach('overlap-native-audio', { body: JSON.stringify(audio), contentType: 'application/json' });
   await page.locator('#mixerStopSamples').click(); await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 8000 }).toBeLessThan(.0001);
-  expect((await snapshot(page)).samples).toEqual([]); await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => (await snapshot(page)).beat).toBeGreaterThan(before.beat + 1);
+  expect((await snapshot(page)).samples).toEqual([]); expect((await snapshot(page)).playing).toBe(false);
 });

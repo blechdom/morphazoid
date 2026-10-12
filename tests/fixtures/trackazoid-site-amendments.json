@@ -1,0 +1,79 @@
+{
+  "baseCommit": "25d3ed91",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "75966b6647d7e565e5d527416e20d921d39fb7d7549eb23b19a5a11bd091321b",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n",
+          "after": "copy+require\tsrc/instruments/midiphoria/midiphoria-automata-controls.js\n\n# Trackazoid: local two-deck DJ workspace.\ncopy+require\tsrc/instruments/trackazoid/app.js\ncopy+require\tsrc/instruments/trackazoid/style.css\ncopy+require\tsrc/instruments/trackazoid/audio.js\ncopy+require\tsrc/instruments/trackazoid/transport.js\ncopy+require\tsrc/instruments/trackazoid/library.js\ncopy+require\tsrc/instruments/trackazoid/library-model.js\ncopy+require\tsrc/instruments/trackazoid/waveform.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis-worker.js\ncopy+require\tsrc/instruments/trackazoid/beat-analysis-client.js\ncopy+require\tassets/instruments/trackazoid.webp\ncopy+require\tdocs/trackazoid.md\n"
+        }
+      ]
+    },
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "5e3d0a635eb413d8e4750dfe9fb0ecc8f2a3159ca11d34cfc618398aeb2e6c1f",
+      "replacements": [
+        {
+          "before": "  \"tongued-beasts.html\",\n",
+          "after": "  \"tongued-beasts.html\",\n  \"trackazoid.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "3a7bea3129833ca21b291f2867e45b469bce2992b4d637c7bbe9be94f6d01e29",
+      "replacements": [
+        {
+          "before": "export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({\n",
+          "after": "export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entries({\n  \"trackazoid\": [\"looper\", \"audio-effect\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "54067ae2c01909c26c160d4c0133273c74f4f914570036e0ca8e6b63e812a8fb",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"trackazoid\": define(\n    \"Two-deck local audio mixer\",\n    \"Mix local tracks with two waveforms, automatic BPM and beat grids, persistent Sync, key lock, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.\",\n    \"Load a track into each deck, enable Audio, then Play. Enable Sync on the second deck before Play; use Adjust to correct BPM or beats, and split output for separate mono master and headphone cue channels.\",\n    [\"Audio file\", \"Local folders\", \"Waveforms\", \"Looper\", \"Key lock\", \"Pointer\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "b9e926e833842700bd9806a23d19484c09232dba7cc4f86d83340d3626ab0416",
+      "replacements": [
+        {
+          "before": "  processor: Object.freeze([\n",
+          "after": "  processor: Object.freeze([\n    \"trackazoid\",\n"
+        },
+        {
+          "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
+          "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"trackazoid\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "c11e369932bebbf89474a09dc1eb9a803dd47682b2182cca9f9d9448a824aa2b",
+      "replacements": [
+        {
+          "before": "    { id: \"tesselation\", label: \"Tesselation\", href: \"tesselation.html\", legacyHrefs: [\"tiles.html\"], imageHref: \"assets/instruments/tiles-app.webp\" },\n",
+          "after": "    { id: \"tesselation\", label: \"Tesselation\", href: \"tesselation.html\", legacyHrefs: [\"tiles.html\"], imageHref: \"assets/instruments/tiles-app.webp\" },\n    { id: \"trackazoid\", label: \"Trackazoid\", href: \"trackazoid.html\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "97befdbfd23f9a9dbbf6e3e73015f9f8ebb5d28cb17d3093ed56272d20e15c69",
+      "replacements": [
+        {
+          "before": "export const TAP_TEMPO_TARGETS = [\n",
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"trackazoid.html\", \"selector\": \"#aBpm\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap Deck A source BPM\"},\n  {\"route\": \"trackazoid.html\", \"selector\": \"#bBpm\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap Deck B source BPM\"},\n"
+        }
+      ]
+    }
+  ]
+}

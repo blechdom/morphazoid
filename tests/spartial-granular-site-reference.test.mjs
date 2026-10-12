@@ -1,11 +1,12 @@
 import assert from 'node:assert/strict';
 import { restoreFractalImpulseRuntime } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readBlechMidiSiteReference as readFile } from './helpers/blech-midi-site-reference.mjs';
 import test from 'node:test';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';
 import { restoreSpartialGranularSite, spartialGranularSiteChanges } from './helpers/spartial-granular-site-reference.mjs';
+import { restoreSpartialRecordingRuntime } from './helpers/spartial-recording-runtime-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const explorerRuntimeRow = 'copy+require\tsrc/instruments/fractal-delay/fractal-explorer.js\n';
@@ -29,7 +30,10 @@ test('SPARTIAL granular catalogue and packaging reverse exactly and preserve ind
   ]);
   for (const change of spartialGranularSiteChanges.changes) {
     assert.equal(change.replacements.length, 1);
-    const source = restoreLaterExplorerRuntime(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
+    const source = restoreSpartialRecordingRuntime(
+      restoreLaterExplorerRuntime(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file),
+      change.file,
+    );
     const restored = restoreSpartialGranularSite(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-granular source preserved`);
     assert.equal(restoreSpartialGranularSite(restored, change.file, { allowRestored: true }), restored);
@@ -61,7 +65,7 @@ test('later explorer normalization rejects missing, duplicate or altered declara
   const unrelated = 'copy+require\tsrc/instruments/unreviewed-runtime.js\n';
   const restored = restoreLaterExplorerRuntime(source + unrelated, file);
   assert.ok(restored.endsWith(unrelated));
-  assert.equal(restored, restoreFractalImpulseRuntime(source, file).replace(explorerRuntimeRow, '') + unrelated);
+  assert.equal(restored, restoreFractalImpulseRuntime(source, file, { allowRestored: true }).replace(explorerRuntimeRow, '') + unrelated);
   assert.equal(restoreLaterExplorerRuntime('untouched', 'unrelated.js'), 'untouched');
 });
 

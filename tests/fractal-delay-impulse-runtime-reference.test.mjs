@@ -6,7 +6,7 @@ import { fractalImpulseRuntimeChanges, restoreFractalImpulseRuntime } from './he
 const digest = source => createHash('sha256').update(source).digest('hex');
 
 test('impulse additions reverse to captured main; historical guards keep their hashes', async () => {
-  assert.equal(fractalImpulseRuntimeChanges.baseCommit, '25d3ed91024a64dc5803337c993d1133a79f890f');
+  assert.equal(fractalImpulseRuntimeChanges.baseCommit, '1bc6b61c428ff6a77ae9120bb71131a59bbd63dc');
   assert.deepEqual(fractalImpulseRuntimeChanges.changes.map(change => change.file),
     ['scripts/site/runtime-files.tsv', 'src/site/tap-tempo-targets.js']);
   for (const { file, addition, sha256 } of fractalImpulseRuntimeChanges.changes) {

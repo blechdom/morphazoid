@@ -21,15 +21,24 @@ One change to Lib before bundling: remove the Sequencer constructor's exact
 This page never routes to external MIDI output. Its own pagehide lifecycle
 closes the synth and AudioContext; removing the anonymous listener prevents
 leaks on failed startup and restored pages. All other library code is unchanged.
-`spessasynth_processor.min.js` is the unchanged prebuilt AudioWorklet from the
-Lib 4.3.14 npm package, with its dependencies embedded by upstream.
+`spessasynth_processor.min.js` is the prebuilt AudioWorklet from the Lib 4.3.14
+npm package, with its dependencies embedded by upstream. Its only adaptation
+replaces the single exact `registerProcessor(ma,Xt);` statement with
+`export{Xt as SpessaSynthWorkletProcessor};`. The authored
+`../midiphoria-processor.js` subclasses that processor and registers the original
+processor name. Its note middleware handles sequencer and direct MIDI attacks
+before synthesis, preserving the upstream transport, controllers and sound bank.
+No upstream synthesis or sequencing implementation is rewritten.
 
 To reproduce: use `npm pack <package>@<version> --ignore-scripts` for each pinned
 package in a temporary directory; extract Lib as `package/`, Core as
 `node_modules/spessasynth_core/`, and stb-vorbis as `node_modules/stb-vorbis/`.
 Remove the one line above from Lib's `dist/index.js` into a temporary copy.
 Bundle an entry exporting `{ WorkletSynthesizer, Sequencer }` from that copy
-with the esbuild options above; copy Lib's processor and license verbatim.
+with the esbuild options above; copy Lib's processor and license, then apply
+the exact processor statement replacement described above once. Reversing that
+replacement must reproduce upstream processor SHA-256
+`109ad445931e5c6e17739a994b2694d325577a6cb6fd2b56b39385edfc9e1fb5`.
 No install hooks or upstream application scripts are required.
 
 | Source package | SHA-256 |
@@ -41,4 +50,4 @@ No install hooks or upstream application scripts are required.
 | Shipped file | SHA-256 |
 | --- | --- |
 | `spessasynth.js` | `ceebab141fe8b7e7625c70d5899ce8999e1d475938e5d10e23d5c5cebcc78771` |
-| `spessasynth_processor.min.js` | `109ad445931e5c6e17739a994b2694d325577a6cb6fd2b56b39385edfc9e1fb5` |
+| `spessasynth_processor.min.js` | `f62027244c4f1e4d687483c50976ee72ded54ce081e57c88b0d9cb0f81b9199a` |

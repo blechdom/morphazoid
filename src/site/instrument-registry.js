@@ -47,6 +47,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "l-systems", label: "L-Systems", href: "l-systems.html" },
     { id: "graphs", label: "Graphs", href: "graphs.html" },
     { id: "tesselation", label: "Tesselation", href: "tesselation.html", legacyHrefs: ["tiles.html"], imageHref: "assets/instruments/tiles-app.webp" },
+    { id: "trackazoid", label: "Trackazoid", href: "trackazoid.html" },
   ]),
   freezeGroup("tesselation", "Tesselation", [
     { id: "lattice", label: "Lattice", href: "lattice.html" },
@@ -156,6 +157,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "puggler", label: "Puggler the Punk Rock Jugger", href: "puggler.html" },
     { id: "gesticulating-hand", label: "Gesticules", href: "gesticules.html", legacyHrefs: ["gesticulating-hand.html"] },
     { id: "midiphoria", label: "Midiophilia", href: "midiphoria.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/midiphoria.webp" },
+    { id: "blech-midi", label: "Blech MIDI", href: "blech-midi.html", catalogue: false, browse: true, entryType: "lab", imageHref: "assets/instruments/blech-midi.webp" },
   ]),
   freezeGroup("dispersion", "Dispersion", [
     { id: "surround-field", label: "Surround for Safety", href: "surround-field.html" },

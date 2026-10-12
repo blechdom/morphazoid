@@ -9,6 +9,7 @@ import {
   applyQuadrupedBehavior,
   clearQuadrupedPattern,
   createQuadrupedState,
+  createQuadrupedContactSampler,
   cycleQuadrupedContact,
   deriveQuadrupedPose,
   describeQuadrupedStep,
@@ -19,6 +20,7 @@ import {
   quadrupedBehaviorFit,
   quadrupedBehaviorsForAnimal,
   quadrupedFootCycleState,
+  quadrupedFlightTrajectory,
   quadrupedGroundHeightAtWorldX,
   quadrupedGroundProfile,
   quadrupedSequenceEvent,
@@ -47,13 +49,13 @@ import { QUADRUPED_VISUAL_SKINS, drawQuadrupedVisualSkin, drawQuadrupedConstella
 import { drawQuadrupedEnvironment } from "./quadruped-environment.js";
 import { createQuadrupedTravel, changeQuadrupedTravel, rebaseQuadrupedTravel, quadrupedWorldAtPosition } from "./quadruped-travel.js";
 import { createQuadrupedGestureCall, quadrupedGestureCallPerformance } from "./quadruped-gesture-voices.js";
-import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture } from "./quadruped-gestures.js";
+import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture, liftQuadrupedJumpPose } from "./quadruped-gestures.js";
 import { quadrupedProfileMouth } from "./quadruped-mouth.js";
 import { createQuadrupedOutput } from "./quadruped-output.js";
 import { createQuadrupedClock, readQuadrupedClock } from "./quadruped-clock.js";
 import { QUADRUPED_AUDIO_COHORT_SECONDS, quadrupedAudioBucket, quadrupedAudioCutover, quadrupedAudioHorizon, groupQuadrupedContactOnsets } from "./quadruped-audio-queue.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls, quadrupedPitchRatio } from "./quadruped-voices.js";
+import { quadrupedCalls, quadrupedCallEvents, emptyQuadrupedCalls } from "./quadruped-voices.js";
 import { unlockAudioContext } from "../../audio.js";
 import { createQuadrupedGroup, shareQuadrupedWorld, QUADRUPED_SHARED_FIELDS, quadrupedGroupOffsets, quadrupedStairSound, sanitizeQuadrupedWorld } from "./quadruped-world.js";
 
@@ -86,6 +88,7 @@ let stoppedPosition = 0;
 let motor = createQuadrupedMotorState(state);
 let motorClock = createQuadrupedClock(performance.now());
 const audioPredictions = new WeakMap();
+const motionContactSamplers = new WeakMap();
 const audioStepTimes = new WeakMap();
 let audioScheduleFrom = 0;
 let sourceQueueTime = null;
@@ -119,6 +122,7 @@ const uiTimers = new Set();
 let behaviorButtonAnimalId = "";
 let groupMode = "solo";
 let selectedActor = 0;
+let editAllActors = false;
 let groupSeed = 1;
 let soundSkinId = QUADRUPED_DEFAULT_SOUND_SKIN;
 let visualSkinId = "constellation";
@@ -179,12 +183,17 @@ function endActorMotion(index) {
   }
 }
 
-function performMotion(index, kind, strength = 0.65) {
-  materializeMotor(); saveSelectedActor();
+function performMotion(index, kind, strength = 0.65, deferSchedule = false) {
+  if (!deferSchedule) { materializeMotor(); saveSelectedActor(); }
   const actor = actors[index], performance = performanceFor(index);
   const oneShot = ["jump", "roll", "slide"].includes(kind);
   const pace = oneShot || kind === "dance" ? 1 : strength > 0.68 ? 3 : strength > 0.3 ? 2 : 1;
-  if (!oneShot && performance.motion?.kind === kind && performance.motion.pace === pace) return;
+  if (!oneShot && performance.motion?.kind === kind && performance.motion.pace === pace) {
+    // Continuous drag energy changes the next prepared sounds without resetting
+    // the clock or discarding contact tails on every pointer sample.
+    performance.motion.strength = strength;
+    return;
+  }
   const previous = scoreForActor(index), oldPosition = actor.motor.position;
   const feet = quadrupedSupportSnapshot(previous, oldPosition).legs;
   performance.travel ??= createQuadrupedTravel({ position: oldPosition, stride: previous.stride });
@@ -196,7 +205,7 @@ function performMotion(index, kind, strength = 0.65) {
     : rebaseQuadrupedTravel(performance.travel, { previousPosition: oldPosition, position, direction, stride: next.stride });
   actor.motor = kickQuadrupedMotor(scoreForActor(index), createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position }), 1);
   if (index === selectedActor) { motor = actor.motor; stoppedPosition = motor.position; }
-  resetAudioSchedule({ includeCurrentBoundary: true });
+  if (!deferSchedule) resetAudioSchedule({ includeCurrentBoundary: true });
 }
 
 function releaseGestureCall(index) {
@@ -222,15 +231,34 @@ function performCall(index, { strength = 0.8, pitch = 0, row = 0 } = {}) {
   announce(`${quadrupedAnimal(actors[index].score.animalId).label}: ${call.label}.${audible ? "" : " Turn Audio on to hear it."}`);
 }
 
-function performedPose(index, pose) {
-  const owner = performanceFor(index).call;
-  const running = actorIsRunning(index);
-  if (!owner) return { ...pose, performanceActive: running };
-  const now = owner.context?.currentTime ?? performance.now() / 1000;
-  const manual = quadrupedGestureCallPerformance(owner.call, now - owner.start);
-  if (now - owner.start >= owner.call.duration) performanceFor(index).call = null;
-  return { ...pose, performanceActive: running || manual.active,
-    headPerformance: manual.active ? manual : pose.headPerformance };
+function performedPose(index, pose, position, width, height) {
+  const { call: owner, motion } = performanceFor(index);
+  pose = { ...pose, performanceActive: actorIsRunning(index) };
+  if (owner) {
+    const now = owner.context?.currentTime ?? performance.now() / 1000;
+    const manual = quadrupedGestureCallPerformance(owner.call, now - owner.start);
+    if (now - owner.start >= owner.call.duration) performanceFor(index).call = null;
+    if (manual.active) pose = { ...pose, performanceActive: true, headPerformance: manual };
+  }
+  if (motion?.kind !== "jump") return pose;
+  const score = scoreForActor(index), flight = quadrupedFlightTrajectory(score, position);
+  const ordinary = pose;
+  pose = liftQuadrupedJumpPose(ordinary, flight, score, motion.strength);
+  // Follow a tall jumping animal only when it reaches the ceiling. Reserve
+  // space for dots, borders and shadows as well as the anatomy's vertices.
+  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74);
+  const rig = deriveQuadrupedVisualRig(pose, width, height, groundY, score, { playing: pose.performanceActive });
+  const points = [...rig.body, ...rig.skull, ...rig.neck, ...rig.tail, ...rig.humps.flat(),
+    ...rig.features.flatMap(feature => feature.points), ...rig.legs.flatMap(leg => leg.points)];
+  const padding = Math.max(4, rig.scale * 0.05);
+  const needed = Math.max(0, padding - Math.min(...points.map(point => point.y)));
+  const cameraOffset = Math.min(height * 0.99 - groundY, needed);
+  if (needed > cameraOffset) {
+    const addedLift = (pose.bodyLift - ordinary.bodyLift) * 0.38;
+    pose = liftQuadrupedJumpPose(ordinary, flight, score, motion.strength,
+      Math.max(0, addedLift - (needed - cameraOffset) / rig.scale));
+  }
+  return { ...pose, jumpCameraOffset: cameraOffset };
 }
 
 function cancelPerformances({ reschedule = false } = {}) {
@@ -245,7 +273,7 @@ function cancelPerformances({ reschedule = false } = {}) {
   if (captured?.element?.hasPointerCapture?.(captured.pointerId)) captured.element.releasePointerCapture(captured.pointerId);
   actors.forEach((_, index) => { endActorMotion(index); releaseGestureCall(index); });
   for (const record of activeSources) if (record.gestureOwner) cancelAudioSource(record);
-  if (!transportPlaying) { cancelFutureSources(); stopAudioScheduler(); silenceFlightVoice(); }
+  if (!transportPlaying) { cancelFutureSources(); stopAudioScheduler(); }
   else if (reschedule) resetAudioSchedule();
 }
 
@@ -275,6 +303,7 @@ function applyPreset(snapshot) {
   groupMode = next.groupMode;
   groupSeed = next.groupSeed;
   selectedActor = next.selectedActor;
+  editAllActors = false;
   world = next.world;
   soundSkinId = next.soundSkinId;
   state = actors[selectedActor].score;
@@ -291,6 +320,33 @@ function applyPreset(snapshot) {
 
 function activeActorIndices() {
   return groupMode === "solo" ? [selectedActor] : actors.map((_, index) => index);
+}
+
+function editingActorIndices() {
+  return editAllActors ? actors.map((_, index) => index) : [selectedActor];
+}
+
+// The selected score remains the editor's reference. Broadcast only the
+// requested edit, retaining each companion's other settings, score and phase.
+// Call inside an existing edit transaction; it schedules no audio or UI work.
+function editOtherActors(update, { rebaseTravel = false, wake = false, step = null, retime = true } = {}) {
+  if (!editAllActors) return;
+  for (let index = 0; index < actors.length; index++) {
+    if (index === selectedActor) continue;
+    const actor = actors[index], previous = scoreForActor(index);
+    const position = actor.motor.position, performance = performanceFor(index);
+    actor.score = sanitizeQuadrupedState(update(actor.score, index), actor.score);
+    if (!retime) continue;
+    if (performance.travel) {
+      if (rebaseTravel) performance.travel = rebaseQuadrupedTravel(performance.travel, { previousPosition: position, position, stride: actor.score.stride });
+      else if (previous.stride !== actor.score.stride) performance.travel = changeQuadrupedTravel(performance.travel, { position, direction: 1, stride: actor.score.stride, feet: quadrupedSupportSnapshot(previous, position).legs });
+    }
+    actor.motor = createQuadrupedMotorState(scoreForActor(index), { ...actor.motor, position });
+    if (wake && transportPlaying && actor.motor.velocity <= 0.012) {
+      const footfall = nextFootfallPosition(position, step, actor.score);
+      if (footfall !== null) actor.motor = kickQuadrupedMotor(scoreForActor(index), createQuadrupedMotorState(scoreForActor(index), { position: footfall }), 1);
+    }
+  }
 }
 
 function saveSelectedActor() {
@@ -327,7 +383,12 @@ function worldSoundAt(score = state, position = motor.position, laneId = null) {
 
 function selectActor(index) {
   const nextIndex = Math.trunc(clamp(index, 0, actors.length - 1));
-  if (nextIndex === selectedActor) return;
+  const wasAll = editAllActors;
+  editAllActors = false;
+  if (nextIndex === selectedActor) {
+    if (wasAll) { syncAllControls(); announce(`Editing animal ${nextIndex + 1}.`); }
+    return;
+  }
   materializeMotor();
   saveSelectedActor();
   selectedActor = nextIndex;
@@ -343,6 +404,7 @@ function selectActor(index) {
 
 function setGroupMode(mode) {
   if (!["solo", "herd", "trio"].includes(mode) || mode === groupMode) return;
+  editAllActors = false;
   cancelPerformances();
   materializeMotor();
   saveSelectedActor();
@@ -416,12 +478,15 @@ function announce(message) {
   });
 }
 
-function modeKey(source = state) {
-  return `${selectedActor}:${source.animalId}:${source.behaviorId}`;
+function modeKey(source = state, index = selectedActor) {
+  return `${index}:${source.animalId}:${source.behaviorId}`;
 }
 
 function rememberMode() {
-  modeMemory.set(modeKey(), sanitizeQuadrupedState(state));
+  for (const index of editingActorIndices()) {
+    const score = index === selectedActor ? state : actors[index].score;
+    modeMemory.set(modeKey(score, index), sanitizeQuadrupedState(score));
+  }
 }
 
 function rebaseMotorClock(now = performance.now()) {
@@ -475,7 +540,7 @@ function materializeMotor(now = performance.now()) {
   stoppedPosition = motor.position;
   if (ended) {
     cancelFutureSources();
-    if (!anyActorRunning()) { stopAudioScheduler(); silenceFlightVoice(); }
+    if (!anyActorRunning()) { stopAudioScheduler(); }
   }
   return quadrupedMotorSnapshot(scoreForActor(selectedActor), motor);
 }
@@ -506,9 +571,9 @@ function footfallEnergyAtStep(score, step) {
   ), 0);
 }
 
-function nextFootfallPosition(position, preferredStep = null) {
+function nextFootfallPosition(position, preferredStep = null, score = state) {
   const safePosition = Math.max(0, Number(position) || 0);
-  if (preferredStep !== null && footfallEnergyAtStep(state, preferredStep) > 0) {
+  if (preferredStep !== null && footfallEnergyAtStep(score, preferredStep) > 0) {
     let candidate = Math.floor(safePosition / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT
       + mod(Math.trunc(preferredStep), QUADRUPED_STEP_COUNT);
     if (candidate < safePosition - 0.001) candidate += QUADRUPED_STEP_COUNT;
@@ -517,7 +582,7 @@ function nextFootfallPosition(position, preferredStep = null) {
   const firstOrdinal = Math.ceil(safePosition - 0.001);
   for (let offset = 0; offset < QUADRUPED_STEP_COUNT; offset += 1) {
     const candidate = firstOrdinal + offset;
-    if (footfallEnergyAtStep(state, candidate) > 0) return candidate;
+    if (footfallEnergyAtStep(score, candidate) > 0) return candidate;
   }
   return null;
 }
@@ -621,46 +686,6 @@ function applyMaterialProfile(materialBus, terrain, when, immediate = false) {
   });
 }
 
-function createFlightVoice(context, mixBus, noiseBuffer) {
-  const source = context.createBufferSource();
-  const highpass = context.createBiquadFilter();
-  const bandpass = context.createBiquadFilter();
-  const gain = context.createGain();
-  const panner = createPanner(context, 0);
-  source.buffer = noiseBuffer;
-  source.loop = true;
-  highpass.type = "highpass";
-  highpass.frequency.value = 100;
-  bandpass.type = "bandpass";
-  bandpass.frequency.value = 700;
-  bandpass.Q.value = 0.7;
-  gain.gain.value = 0;
-  source.connect(highpass);
-  highpass.connect(bandpass);
-  bandpass.connect(gain);
-  gain.connect(panner);
-  panner.connect(mixBus);
-  source.start();
-  const voice = { source, highpass, bandpass, gain, panner, active: false };
-  source.onended = () => {
-    for (const node of [source, highpass, bandpass, gain, panner]) node.disconnect();
-  };
-  return voice;
-}
-
-function silenceContinuousVoice(voice, releaseSeconds = 0.025) {
-  if (!voice || !graph) return;
-  const now = graph.context.currentTime;
-  voice.gain.gain.cancelScheduledValues(now);
-  voice.gain.gain.setValueAtTime(voice.gain.gain.value, now);
-  voice.gain.gain.linearRampToValueAtTime(0, now + Math.max(0.006, releaseSeconds));
-  voice.active = false;
-}
-
-function silenceFlightVoice(releaseSeconds = 0.025) {
-  for (const voice of graph?.flightVoices ?? []) silenceContinuousVoice(voice, releaseSeconds);
-}
-
 function createCavernBus(context, mixBus) {
   const input = context.createGain();
   const tone = context.createBiquadFilter();
@@ -702,32 +727,6 @@ function syncCavernBus() {
   }
 }
 
-function syncFlightVoice(snapshot, score = state, index = selectedActor) {
-  const voice = graph?.flightVoices[index];
-  if (!voice || !graph || !actorIsRunning(index)) {
-    silenceContinuousVoice(voice);
-    return;
-  }
-  const sliding = snapshot.bodySlide > 0;
-  const extendedRest = quadrupedScoreTiming(score).window !== null;
-  const unsupported = snapshot.supportCount === 0 && !extendedRest && !sliding;
-  const now = graph.context.currentTime;
-  const speed = clamp(snapshot.normalizedVelocity / 1.25);
-  const vertical = clamp(Math.abs(snapshot.verticalVelocity) / 6);
-  const height = clamp(snapshot.height / 1.2);
-  const energy = clamp(0.68 * speed + 0.2 * vertical + 0.12 * height);
-  const ensembleGain = groupMode === "solo" ? 1 : 0.52;
-  const pan = groupMode === "solo" ? 0 : (index - 1) * 0.6;
-  const pitchRatio = quadrupedPitchRatio(score.pitchSemitones);
-  voice.active = unsupported;
-  voice.gain.gain.setTargetAtTime(unsupported ? 0.075 * energy ** 1.25 * ensembleGain : 0, now, 0.018);
-  voice.highpass.frequency.setTargetAtTime(clamp((80 + 420 * speed) * pitchRatio, 20, 12_000), now, 0.025);
-  voice.bandpass.frequency.setTargetAtTime(clamp((450 + 2_800 * speed + 850 * vertical) * pitchRatio, 40, 18_000), now, 0.025);
-  voice.bandpass.Q.setTargetAtTime(0.55 + 0.8 * height, now, 0.025);
-  voice.panner.pan?.setTargetAtTime(pan, now, 0.03);
-
-}
-
 async function createAudioGraph() {
   const Context = globalThis.AudioContext ?? globalThis.webkitAudioContext;
   if (!Context) throw new Error("This browser does not provide Web Audio.");
@@ -756,8 +755,6 @@ async function createAudioGraph() {
   const cavernBus = createCavernBus(context, mixBus);
   const materialBus = createMaterialBus(context, cavernBus.input);
   applyMaterialProfile(materialBus, quadrupedTerrain(state.surfaceId), context.currentTime, true);
-  const flightVoices = Array.from({ length: 3 }, () => createFlightVoice(context, cavernBus.input, noiseBuffer));
-  const flightVoice = flightVoices[0];
   return {
     context,
     mixBus,
@@ -768,8 +765,6 @@ async function createAudioGraph() {
     releaseOutput,
     noiseBuffer,
     materialBus,
-    flightVoice,
-    flightVoices,
     soundBank: createQuadrupedSoundBank({ sampleRate: 24_000, maxEntries: 256 }),
     contactBuffers: new WeakMap(),
     contactResamples: new WeakMap(),
@@ -947,24 +942,13 @@ async function closeAudio({ announceChange = true } = {}) {
     setAudioPresentation("off");
     return;
   }
-  silenceFlightVoice(0.008);
   releaseAllSources();
   graph = null;
   rebaseMotorClock();
   startAudioScheduler();
   try {
-    for (const voice of closing.flightVoices) {
-      voice.source.stop();
-      for (const node of [voice.source, voice.highpass, voice.bandpass, voice.gain, voice.panner]) node.disconnect();
-    }
     for (const node of [closing.cavernBus.input, closing.cavernBus.tone, closing.cavernBus.wet, ...closing.cavernBus.echoes.flatMap(echo => [echo.delay, echo.damping, echo.feedback, echo.level, echo.pan])]) node.disconnect();
-    closing.flightVoice?.source?.stop();
     for (const node of [
-      closing.flightVoice?.source,
-      closing.flightVoice?.highpass,
-      closing.flightVoice?.bandpass,
-      closing.flightVoice?.gain,
-      closing.flightVoice?.panner,
       closing.materialBus?.input,
       closing.materialBus?.dryFilter,
       closing.materialBus?.dryGain,
@@ -1181,20 +1165,25 @@ function footSoundPlacement(score, position, laneId, actorIndex) {
 
 // Prepared, bounded sample voices follow the same motor events as the limbs.
 // Each event varies its excitation; there is no held or looping scrape source.
-function scheduleContactSound(phase, contact, terrain, when, normalization, position, score, actorIndex, velocity) {
+function scheduleContactSound(phase, contact, terrain, when, normalization, position, score, actorIndex, velocity, motionProgress) {
   if (!graph || !Number.isFinite(when)) return;
-  const placement = footSoundPlacement(score, position, contact.id, actorIndex);
+  const placement = footSoundPlacement(score, position, phase === "flight" ? null : contact.id, actorIndex);
   const laneIndex = laneById.get(contact.id)?.index ?? 0;
   const voice = graph.soundBank.get({
     skinId: soundSkinId, phase, animal: quadrupedAnimal(score.animalId), terrain, contact,
     velocity: velocity ?? actors[actorIndex]?.motor.velocity ?? 0,
     resonance: score.groundResonance, scrape: world.grain, pitchRatio: placement.pitch,
     pitchSemitones: score.pitchSemitones, spring: score.spring,
+    slideProgress: phase === "slide" ? motionProgress : undefined,
+    flightProgress: phase === "flight" ? motionProgress : undefined,
+    motionTextureSeed: world.seed,
     seed: (world.seed + Math.floor(position * 997) + laneIndex * 173 + actorIndex * 53) >>> 0,
   });
-  const pan = lanePan[contact.id] ?? 0;
+  const pan = phase === "slide" || phase === "flight" ? 0 : lanePan[contact.id] ?? 0;
   const placedPan = placement.pan === null ? pan : placement.pan + pan * 0.24;
-  const placedGain = voice.gain * normalization * placement.gain;
+  const motion = performanceFor(actorIndex).motion;
+  const gestureGain = motion ? .25 + .9 * clamp(motion.strength, 0, 1) : 1;
+  const placedGain = voice.gain * normalization * placement.gain * gestureGain;
   if (pendingContactSounds) {
     pendingContactSounds.push({ voice, when, pan: placedPan, gain: placedGain });
     return;
@@ -1374,30 +1363,97 @@ function scheduleStepSounds(absoluteStep, when, motorEvent, score, actorIndex) {
   }
 }
 
-// A skid presses the body against the ground even when all four feet lift.
-// Irregular clock-position contacts preserve this sound without a noise loop.
-function scheduleBodySlide(actor, actorIndex, snapshot, audioNow, horizon) {
-  if (actor.score.behaviorId !== "skid" || snapshot.velocity <= 0.012) return;
+const BODY_MOTION_SPACING_SECONDS = 0.06;
+const SHORT_FLIGHT_SECONDS = 0.075;
+
+function motionFlightTrajectory(score, position) {
+  let sample = motionContactSamplers.get(score);
+  if (!sample) {
+    sample = createQuadrupedContactSampler(score);
+    motionContactSamplers.set(score, sample);
+  }
+  return quadrupedFlightTrajectory(score, position, sample(position));
+}
+
+// A short hop can fit entirely between texture ticks. Anchor one finite voice
+// inside that flight; scaling its energy keeps fast repeated hops bounded.
+function scheduleShortFlight(actor, actorIndex, startPosition, duration, liftTime, velocity) {
+  if (!(duration >= 0.001 && duration <= SHORT_FLIGHT_SECONDS)
+    || quadrupedScoreTiming(actor.score).window !== null) return;
+  const progress = 1 / 3;
   const clockRate = actor.score.tempoBpm * 16 / 60;
-  const spacing = Math.max(1, clockRate * 0.085);
+  const startClock = quadrupedClockAtPosition(actor.score, startPosition);
+  // Dense footwork can contain tiny release gaps inside an ordinary contact
+  // transient. Do not turn each one into an overlapping body texture. Real
+  // hops remain audible even when tempo compresses them to a few milliseconds.
+  const endPosition = quadrupedPositionAtClock(actor.score, startClock + duration * clockRate);
+  if (endPosition - startPosition < 0.5) return;
+  const clock = startClock + duration * clockRate * progress;
+  const position = quadrupedPositionAtClock(actor.score, clock);
+  if (position >= (performanceFor(actorIndex).motion?.untilPosition ?? Infinity)) return;
+  const when = liftTime + duration * progress;
+  if (when + 1e-9 < Math.max(graph.context.currentTime + 0.002, audioScheduleFrom)) return;
+  const eventId = `short-flight:${startPosition.toFixed(6)}`;
+  if (actor.transitions.has(eventId)) return;
+  const pressure = Math.sin(Math.PI * progress) ** .75 * (1 - .35 * progress);
+  const intensity = .72 * pressure * Math.sqrt(Math.min(1, duration / BODY_MOTION_SPACING_SECONDS));
+  scheduleContactSound("flight", { id: "body", intensity },
+    quadrupedTerrain(actor.score.surfaceId), when, .85, position,
+    actor.score, actorIndex, velocity, progress);
+  // A lift-off near the prediction edge can place this contact <=25 ms beyond
+  // it. The existing unflushed cohort queue owns it until its bucket is ready.
+  actor.transitions.set(eventId, { when, position });
+}
+
+// Body slides and unsupported hops keep the selected instrument's voice.
+// Prepare overlapping textures on the audio clock, with one amplitude/tone
+// contour across the complete motion rather than a repeating noise loop.
+function scheduleBodyMotion(actor, actorIndex, snapshot, audioNow, horizon) {
+  if (snapshot.velocity <= 0.012) return;
+  const sliding = actor.score.behaviorId === "skid";
+  if (!sliding && quadrupedScoreTiming(actor.score).window !== null) return;
+  const phase = sliding ? "slide" : "flight";
+  const clockRate = actor.score.tempoBpm * 16 / 60;
+  const spacing = clockRate * BODY_MOTION_SPACING_SECONDS;
   const from = snapshot.clockPosition;
   const through = from + clockRate * horizon;
+  if (!sliding) {
+    // A control edit can rebuild prediction after lift-off but before the
+    // anchored voice. Recover that in-progress flight with the same event ID.
+    const flight = motionFlightTrajectory(actor.score, snapshot.position);
+    if (flight) scheduleShortFlight(actor, actorIndex, flight.start, flight.duration,
+      audioNow - (from - quadrupedClockAtPosition(actor.score, flight.start)) / clockRate, snapshot.velocity);
+  }
   for (let ordinal = Math.floor(from / spacing); ordinal <= Math.ceil(through / spacing); ordinal += 1) {
     const seed = (Math.imul(ordinal + actorIndex * 17, 1664525) ^ world.seed) >>> 0;
     const variation = ((Math.imul(seed ^ (seed >>> 13), 1274126177) >>> 0) % 1000) / 1000;
-    const clock = (ordinal + 0.15 + variation * 0.7) * spacing;
+    const clock = (ordinal + 0.2 + variation * 0.1) * spacing;
     if (clock < from || clock > through) continue;
     const position = quadrupedPositionAtClock(actor.score, clock);
     if (position >= (performanceFor(actorIndex).motion?.untilPosition ?? Infinity)) continue;
-    const pressure = quadrupedBodySlide(actor.score, position);
-    if (pressure <= 0.01) continue;
-    const eventId = `slide:${spacing}:${ordinal}`;
+    let progress, pressure;
+    if (sliding) {
+      pressure = quadrupedBodySlide(actor.score, position);
+      const cycle = Math.floor(position / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT;
+      const start = quadrupedClockAtPosition(actor.score, cycle + 1.6);
+      const end = quadrupedClockAtPosition(actor.score, cycle + 14);
+      progress = clamp((clock - start) / (end - start), 0, 1);
+      pressure *= .25 + .75 * (1 - progress) ** 1.5;
+    } else {
+      const flight = motionFlightTrajectory(actor.score, position);
+      if (!flight || flight.duration <= SHORT_FLIGHT_SECONDS) continue;
+      progress = flight.progress;
+      pressure = Math.sin(Math.PI * progress) ** .75 * (1 - .35 * progress);
+    }
+    if (pressure <= 0.001) continue;
+    const eventId = `${phase}:${spacing}:${ordinal}`;
     if (actor.transitions.has(eventId)) continue;
     const when = audioNow + (clock - from) / clockRate;
     if (when + 1e-9 < Math.max(graph.context.currentTime + 0.002, audioScheduleFrom)) continue;
-    scheduleContactSound("slide",
-      { id: ordinal % 2 ? "rear-left" : "rear-right", intensity: pressure * (0.38 + variation * 0.5) },
-      quadrupedTerrain(actor.score.surfaceId), when, 0.85, position, actor.score, actorIndex, snapshot.velocity);
+    const intensity = pressure * (sliding ? .68 : .72) * (.92 + variation * .16);
+    scheduleContactSound(phase,
+      { id: sliding ? ordinal % 2 ? "rear-left" : "rear-right" : "body", intensity },
+      quadrupedTerrain(actor.score.surfaceId), when, 0.85, position, actor.score, actorIndex, snapshot.velocity, progress);
     actor.transitions.set(eventId, { when, position });
   }
 }
@@ -1416,15 +1472,9 @@ function scheduleAudioWindow() {
   syncCavernBus();
   const active = activeActorIndices().filter(actorIsRunning);
   pendingContactSounds = [];
-  for (let index = 0; index < graph.flightVoices.length; index += 1) {
-    if (!active.includes(index)) {
-      silenceContinuousVoice(graph.flightVoices[index]);
-    }
-  }
   for (const index of active) {
     const actor = { ...actors[index], score: scoreForActor(index) };
     const snapshot = quadrupedMotorSnapshot(actor.score, actor.motor);
-    syncFlightVoice(snapshot, actor.score, index);
     let cursor = audioPredictions.get(actors[index]);
     if (!cursor || cursor.score !== actor.score || cursor.time < audioNow + 0.006) {
       const committedSeconds = Math.max(0, audioScheduleFrom - audioNow);
@@ -1442,7 +1492,7 @@ function scheduleAudioWindow() {
     const prediction = predictQuadrupedMotor(actor.score, predictionMotor, horizon);
     completedThrough = Math.min(completedThrough, from + horizon - prediction.motor.remainderSeconds);
     audioPredictions.set(actors[index], { score: actor.score, motor: prediction.motor, time: from + horizon });
-    scheduleBodySlide(actor, index, quadrupedMotorSnapshot(actor.score, predictionMotor), from, horizon);
+    scheduleBodyMotion(actor, index, quadrupedMotorSnapshot(actor.score, predictionMotor), from, horizon);
     for (const [ordinal, when] of audioStepTimes.get(actors[index]) ?? []) {
       if (when < audioNow - 0.1 && ordinal < snapshot.position) audioStepTimes.get(actors[index]).delete(ordinal);
     }
@@ -1450,6 +1500,11 @@ function scheduleAudioWindow() {
       if (scheduled.when < audioNow - 0.1 && scheduled.position < snapshot.position) actor.transitions.delete(eventId);
     }
     for (const transition of prediction.transitions) {
+      if (transition.type === "lift-off") {
+        scheduleShortFlight(actor, index, transition.position, transition.predictedFlightSeconds,
+          from + transition.offsetSeconds, transition.velocity);
+        continue;
+      }
       if (!transition.eventId || actor.transitions.has(transition.eventId)
         || transition.position >= (performanceFor(index).motion?.untilPosition ?? Infinity)) continue;
       const when = from + transition.offsetSeconds;
@@ -1533,13 +1588,8 @@ function syncTransportPresentation(snapshot = quadrupedMotorSnapshot(state, moto
   play.title = transportPlaying ? "Pause sequence (Space)" : "Start sequence (Space)";
   play.setAttribute("aria-pressed", String(transportPlaying));
   setOutput($("playLabel"), transportPlaying ? "Pause" : stoppedPosition > 0 ? "Resume" : "Start");
-  setOutput($("playState"), transportPlaying
-    ? snapshot.stalled
-      ? "stalled · add a footfall"
-      : `${snapshot.bodySlide > 0 ? "slide" : snapshot.airborne ? "air · rest" : `${state.paceRatio}×`}`
-    : `Press Start · step ${mod(Math.floor(stoppedPosition), QUADRUPED_STEP_COUNT) + 1}`);
   for (const button of document.querySelectorAll("[data-motion-action]")) {
-    button.dataset.active = String(performanceFor(selectedActor).motion?.kind === button.dataset.motionAction);
+    button.dataset.active = String(editingActorIndices().some(index => performanceFor(index).motion?.kind === button.dataset.motionAction));
   }
   $("stageState").dataset.state = transportPlaying ? snapshot.stalled ? "stalled" : "running" : "ready";
   syncTransportHint();
@@ -1565,7 +1615,7 @@ function stopTransport() {
   stoppedPosition = motor.position;
   selectedStep = mod(Math.floor(stoppedPosition), QUADRUPED_STEP_COUNT);
   stopAudioScheduler();
-  silenceFlightVoice();
+
   if (graph) {
     const now = graph.context.currentTime;
     graph.cavernBus.wet.gain.setTargetAtTime(0, now, 0.02);
@@ -1606,10 +1656,11 @@ function restartTransport() {
   announce("Quadruped returned to step one without changing the score.");
 }
 
-function replaceState(nextState, { preservePosition = true, announceMessage = "" } = {}) {
+function replaceState(nextState, { preservePosition = true, announceMessage = "", updateOthers = null } = {}) {
   cancelPerformances();
   const now = performance.now();
   const position = preservePosition ? currentPosition(now) : 0;
+  if (updateOthers) editOtherActors(updateOthers, { rebaseTravel: true, wake: true });
   state = sanitizeQuadrupedState(nextState, state);
   retimeTransport(position, now, { preserveMotion: preservePosition, rebaseTravel: true });
   if (transportPlaying && motor.velocity <= 0.012) wakeMotorAtFootfall(now);
@@ -1619,22 +1670,29 @@ function replaceState(nextState, { preservePosition = true, announceMessage = ""
 }
 
 function switchAnimal(animalId) {
-  if (animalId === state.animalId) return;
+  if (editingActorIndices().every(index => (index === selectedActor ? state : actors[index].score).animalId === animalId)) return;
   rememberMode();
   const targetAnimal = quadrupedAnimal(animalId);
-  const next = applyQuadrupedAnimal(state, targetAnimal.id);
+  const update = score => score.animalId === targetAnimal.id ? score : applyQuadrupedAnimal(score, targetAnimal.id);
+  const next = update(state);
   replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
+    updateOthers: update,
     announceMessage: `${targetAnimal.label} loaded. The global tempo and moving playhead stayed put.`,
   });
 }
 
 function switchBehavior(behaviorId) {
-  if (behaviorId === state.behaviorId) return;
+  if (editingActorIndices().every(index => (index === selectedActor ? state : actors[index].score).behaviorId === behaviorId)) return;
   rememberMode();
-  const key = `${selectedActor}:${state.animalId}:${behaviorId}`;
-  const stored = modeMemory.get(key);
-  const next = stored ?? applyQuadrupedBehavior(state, behaviorId);
+  const update = (score, index) => {
+    if (score.behaviorId === behaviorId) return score;
+    const stored = modeMemory.get(`${index}:${score.animalId}:${behaviorId}`);
+    const next = stored ?? applyQuadrupedBehavior(score, behaviorId);
+    return { ...next, tempoBpm: score.tempoBpm, paceRatio: score.paceRatio, suspensionBeats: score.suspensionBeats, outputLevel: score.outputLevel };
+  };
+  const next = update(state, selectedActor);
   replaceState({ ...next, tempoBpm: state.tempoBpm, paceRatio: state.paceRatio, suspensionBeats: state.suspensionBeats, outputLevel: state.outputLevel }, {
+    updateOthers: update,
     announceMessage: `${quadrupedBehavior(behaviorId).label} loaded on the same global tempo.`,
   });
 }
@@ -1655,6 +1713,7 @@ function updateStateValue(key, value) {
   const now = performance.now();
   const position = currentPosition(now);
   const previous = scoreForActor(selectedActor);
+  if (!QUADRUPED_SHARED_FIELDS.includes(key)) editOtherActors(score => ({ ...score, [key]: value }));
   const feet = key === "stride" ? quadrupedSupportSnapshot(previous, position).legs : null;
   state = sanitizeQuadrupedState({ ...state, [key]: value }, state);
   const actorPerformance = performanceFor(selectedActor);
@@ -1682,6 +1741,8 @@ function editContact(laneId, step, direction = 1) {
   const now = performance.now();
   const position = currentPosition(now);
   state = cycleQuadrupedContact(state, laneId, step, direction);
+  const nextAmount = state.pattern[laneId][mod(step, QUADRUPED_STEP_COUNT)];
+  editOtherActors(score => setQuadrupedContact(score, laneId, step, nextAmount), { wake: nextAmount > 0, step });
   retimeTransport(position, now, { preserveMotion: true });
   selectedStep = mod(step, QUADRUPED_STEP_COUNT);
   const amount = state.pattern[laneId][selectedStep];
@@ -1860,6 +1921,8 @@ function editCall(row, step, direction = 1, clear = false) {
   const levels = [0, 0.58, 1];
   const value = state.callPattern[row][step];
   state.callPattern[row][step] = clear ? 0 : levels[mod((value <= 0 ? 0 : value < 0.8 ? 1 : 2) + direction, 3)];
+  const amount = state.callPattern[row][step];
+  editOtherActors(score => ({ ...score, callPattern: score.callPattern.map((values, index) => index === row ? values.map((old, frame) => frame === step ? amount : old) : values) }), { retime: false });
   rememberMode(); renderGridState(); resetAudioSchedule();
   announce(`${quadrupedCalls(state.animalId)[row].label}, frame ${step + 1}: ${state.callPattern[row][step] ? "call" : "rest"}.`);
 }
@@ -1988,6 +2051,7 @@ function handleGridKeydown(event) {
     const now = performance.now();
     const position = currentPosition(now);
     state = setQuadrupedContact(state, laneId, step, 0);
+    editOtherActors(score => setQuadrupedContact(score, laneId, step, 0));
     retimeTransport(position, now, { preserveMotion: true });
     rememberMode();
     renderGridState();
@@ -2041,13 +2105,17 @@ function renderGridState() {
       control.button.setAttribute("aria-label", `Motion-study frame ${control.step + 1}, ${supportLabel}, ${duration} beats.`);
       continue;
     }
+    const valueFor = score => control.callRow !== undefined ? score.callPattern[control.callRow][control.step] : score.pattern[control.laneId][control.step];
+    const mixed = editAllActors && actors.some((actor, index) => valueFor(index === selectedActor ? state : actor.score) !== valueFor(state));
+    control.button.dataset.mixed = String(mixed);
+    const scopeLabel = mixed ? ` Values differ across animals; showing animal ${selectedActor + 1}. Editing sets all three.` : editAllActors ? " Editing sets all three animals." : "";
     if (control.callRow !== undefined) {
       const value = state.callPattern[control.callRow][control.step];
       control.button.dataset.level = value <= 0 ? "none" : value < 0.8 ? "soft" : "strong";
       control.button.style.setProperty("--level", String(value));
       control.button.textContent = value <= 0 ? "·" : value < 0.8 ? "○" : "●";
       control.button.setAttribute("aria-pressed", value <= 0 ? "false" : value < 0.8 ? "mixed" : "true");
-      control.button.setAttribute("aria-label", `${quadrupedCalls(state.animalId)[control.callRow].label}, frame ${control.step + 1}: ${value <= 0 ? "rest" : value < 0.8 ? "soft call" : "strong call"}. Activate to cycle.`);
+      control.button.setAttribute("aria-label", `${quadrupedCalls(state.animalId)[control.callRow].label}, frame ${control.step + 1}: ${value <= 0 ? "rest" : value < 0.8 ? "soft call" : "strong call"}. Activate to cycle.${scopeLabel}`);
       continue;
     }
     const value = state.pattern[control.laneId][control.step];
@@ -2064,7 +2132,7 @@ function renderGridState() {
     const supportText = support.grounded
       ? value > 0 ? "touchdown begins support" : "continuing support from an earlier touchdown"
       : "swing";
-    control.button.setAttribute("aria-label", `${lane.label}, frame ${control.step + 1}: ${levelName}; ${supportText}. Activate to cycle touchdown strength; Shift activate for previous.`);
+    control.button.setAttribute("aria-label", `${lane.label}, frame ${control.step + 1}: ${levelName}; ${supportText}. Activate to cycle touchdown strength; Shift activate for previous.${scopeLabel}`);
   }
 }
 
@@ -2102,17 +2170,46 @@ function syncEnsembleControls() {
     const index = Number(button.dataset.actorIndex);
     const actor = actors[index];
     button.hidden = !actor || (groupMode === "solo" && index !== selectedActor);
-    button.setAttribute("aria-pressed", String(index === selectedActor));
+    button.setAttribute("aria-pressed", String(!editAllActors && index === selectedActor));
     button.textContent = String(index + 1);
     const label = `Edit animal ${index + 1}: ${actor ? quadrupedAnimal(actor.score.animalId).label : ""}`;
     button.setAttribute("aria-label", label);
     button.title = label;
   });
+  $("allActorsButton").hidden = groupMode === "solo";
+  $("allActorsButton").setAttribute("aria-pressed", String(editAllActors));
   $("scatterButton").disabled = groupMode === "solo";
-  $("sequenceTitle").textContent = `Score ${selectedActor + 1}`;
+  $("sequenceTitle").textContent = editAllActors ? `All · score ${selectedActor + 1}` : `Score ${selectedActor + 1}`;
+  $("sequenceTitle").title = editAllActors ? `Edits apply to all animals; the score shows animal ${selectedActor + 1}. Dashed cells have different values.` : "";
   for (const key of ["grain", "cavern"]) {
     $(key).value = String(world[key]);
     setOutput($(key + "Out"), `${Math.round(world[key] * 100)}%`);
+  }
+}
+
+function syncEditScopePresentation() {
+  const mixed = key => editAllActors && actors.some((actor, index) => (index === selectedActor ? state : actor.score)[key] !== state[key]);
+  for (const [id, key] of [["animalSelect", "animalId"], ["behaviorSelect", "behaviorId"]]) {
+    const select = $(id), differs = mixed(key);
+    select.dataset.mixed = String(differs);
+    let option = select.querySelector("[data-mixed-option]");
+    if (differs) {
+      if (!option) {
+        option = document.createElement("option");
+        option.value = ""; option.disabled = true; option.dataset.mixedOption = "true";
+        option.textContent = "Mixed"; select.prepend(option);
+      }
+      select.value = "";
+    } else option?.remove();
+  }
+  for (const key of ["momentum", "gravity", "suspensionBeats", "pitchSemitones", "lopsided", "spring"]) {
+    const input = $(key), differs = mixed(key);
+    const output = $(key === "suspensionBeats" ? "suspensionOut" : `${key}Out`);
+    input.dataset.mixed = String(differs);
+    if (differs) setOutput(output, "Mixed");
+    if (differs) input.setAttribute("aria-valuetext", "Mixed values; adjusting sets all three animals");
+    else if (key === "suspensionBeats") input.setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
+    else input.removeAttribute("aria-valuetext");
   }
 }
 
@@ -2133,7 +2230,7 @@ function syncAllControls({ grid = true, deferGrid = false } = {}) {
   $("tempo").value = String(state.tempoBpm);
   document.querySelectorAll("[data-pace-ratio]").forEach((button) => button.setAttribute("aria-pressed", String(Number(button.dataset.paceRatio) === state.paceRatio)));
   $("suspensionBeats").value = String(state.suspensionBeats);
-  const supportsRest = Boolean(quadrupedScoreTiming(state).window);
+  const supportsRest = editingActorIndices().some(index => Boolean(quadrupedScoreTiming(index === selectedActor ? state : actors[index].score).window));
   $("suspensionBeats").disabled = !supportsRest;
   $("suspensionControl").hidden = !supportsRest;
   $("suspensionBeats").setAttribute("aria-valuetext", `${state.suspensionBeats} extra beats`);
@@ -2157,6 +2254,7 @@ function syncAllControls({ grid = true, deferGrid = false } = {}) {
   setOutput($("springOut"), `${Math.round(state.spring * 100)}%`);
   setOutput($("groundResonanceOut"), `${Math.round(state.groundResonance * 100)}%`);
   setOutput($("levelOut"), `${Math.round(state.outputLevel * 100)}%`);
+  syncEditScopePresentation();
   controlKnobs.forEach(knob => knob.update());
   setOutput($("animalDescription"), animal.description);
   syncBehaviorReadouts();
@@ -3155,7 +3253,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
   const position = previewingStep
     ? Math.floor(motorSnapshot.position / QUADRUPED_STEP_COUNT) * QUADRUPED_STEP_COUNT + selectedStep + 0.0001
     : motorSnapshot.position;
-  const pose = performedPose(selectedActor, deriveQuadrupedPose(score, position, previewingStep ? null : motorSnapshot));
+  const pose = performedPose(selectedActor, deriveQuadrupedPose(score, position, previewingStep ? null : motorSnapshot), position, groupMode === "solo" ? width : width / 3 * 1.6, height);
   const animal = quadrupedAnimal(score.animalId);
   canvas.dataset.frame = String(pose.step);
   canvas.dataset.framePhase = pose.phase.toFixed(4);
@@ -3172,7 +3270,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
   const paperSkin = visualSkinId === "motion-card";
   // Tall-necked bodies keep their limb scale and gain headroom by lowering the
   // camera-followed support plane, not by shortening their anatomy.
-  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74);
+  const groundY = height * (["giraffe", "camel"].includes(score.animalId) ? 0.81 : 0.74) + (pose.jumpCameraOffset ?? 0);
   const stageAnimalScale = Math.min(height * 0.27, width * 0.145) * animal.bodyScale;
   const groundCenterX = width * 0.5;
   const surface = quadrupedTerrain(score.surfaceId);
@@ -3268,12 +3366,12 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
       const snapshot = snapshots[index];
       const actor = { ...actors[index], motor: snapshot };
       const actorScore = scoreForActor(index);
-      const actorPose = performedPose(index, deriveQuadrupedPose(actorScore, actor.motor.position, snapshot));
+      const actorPose = performedPose(index, deriveQuadrupedPose(actorScore, actor.motor.position, snapshot), actor.motor.position, laneWidth * 1.6, height);
       const actorAnimal = quadrupedAnimal(actorScore.animalId);
       const localScale = Math.min(height * 0.27, laneWidth * 1.6 * 0.145) * actorAnimal.bodyScale;
       const localWorldScale = localScale * 0.74;
       const localWorldX = quadrupedWorldAtPosition(actorScore, actor.motor.position);
-      const localGround = height * (["giraffe", "camel"].includes(actorScore.animalId) ? 0.81 : 0.74);
+      const localGround = height * (["giraffe", "camel"].includes(actorScore.animalId) ? 0.81 : 0.74) + (actorPose.jumpCameraOffset ?? 0);
       const floorAt = x => localGround - (quadrupedGroundHeightAtWorldX(actorScore.groundProfileId, localWorldX + (x - laneWidth / 2) / localWorldScale) - actorPose.bodyGroundHeight) * localWorldScale;
       drawing.save(); drawing.translate(index * laneWidth, 0);
       drawing.beginPath(); drawing.rect(0, 0, laneWidth, height); drawing.clip();
@@ -3311,7 +3409,7 @@ function drawScene(now, snapshots = displayMotorSnapshots()) {
       syncAnimalHandle(index, actorPose, actorScore, laneWidth * 1.6, height, localGround, index * laneWidth - laneWidth * 0.3, index * laneWidth, laneWidth);
       drawing.restore();
       drawing.font = "12px ui-monospace, monospace"; drawing.textAlign = "center";
-      drawing.fillStyle = paperSkin ? "#463c2b" : index === selectedActor ? "#eeffb8" : "#c9d8cc";
+      drawing.fillStyle = paperSkin ? "#463c2b" : editAllActors || index === selectedActor ? "#eeffb8" : "#c9d8cc";
       drawing.fillText(`${index + 1} · ${actorAnimal.label}`, laneWidth / 2, height - 12);
       drawing.restore();
     });
@@ -3343,8 +3441,8 @@ function animationLoop(now) {
   canvas.dataset.bodySlide = String(snapshot.bodySlide);
   canvas.dataset.clockPosition = snapshot.clockPosition.toFixed(4);
   canvas.dataset.height = snapshot.height.toFixed(4);
-  const cadence = Math.round(snapshot.velocity / QUADRUPED_STEP_COUNT * 60);
-  const presentation = `${transportPlaying}:${snapshot.stalled}:${snapshot.airborne}:${snapshot.bodySlide > 0}:${cadence}:${performanceFor(selectedActor).motion?.kind ?? ""}`;
+  const motions = editingActorIndices().map(index => performanceFor(index).motion?.kind ?? "").join(",");
+  const presentation = `${transportPlaying}:${snapshot.stalled}:${motions}`;
   if (presentation !== lastMotorPresentation) {
     lastMotorPresentation = presentation;
     syncTransportPresentation(snapshot);
@@ -3544,6 +3642,12 @@ function handleGlobalKeydown(event) {
 function bindControls() {
   document.querySelectorAll("[data-group-mode]").forEach(button => button.addEventListener("click", () => setGroupMode(button.dataset.groupMode)));
   document.querySelectorAll("button[data-actor-index]").forEach(button => button.addEventListener("click", () => selectActor(Number(button.dataset.actorIndex))));
+  $("allActorsButton").addEventListener("click", () => {
+    if (groupMode === "solo" || editAllActors) return;
+    editAllActors = true;
+    syncAllControls();
+    announce(`Editing all three animals. Mixed values stay distinct until edited; the score shows animal ${selectedActor + 1}.`);
+  });
   $("scatterButton").addEventListener("click", scatterGroup);
   for (const key of ["grain", "cavern"]) $(key).addEventListener("input", () => {
     world = sanitizeQuadrupedWorld({ ...world, [key]: Number($(key).value) });
@@ -3556,11 +3660,13 @@ function bindControls() {
   $("callPhraseButton").addEventListener("click", () => {
     state.callPattern = emptyQuadrupedCalls();
     [0, 6, 12].forEach((step, row) => { state.callPattern[row][step] = 0.58; });
+    editOtherActors(score => ({ ...score, callPattern: state.callPattern }), { retime: false });
     rememberMode(); renderGridState(); resetAudioSchedule();
     announce("Three calls written on frames 1, 7 and 13.");
   });
   $("clearCallsButton").addEventListener("click", () => {
     state.callPattern = emptyQuadrupedCalls();
+    editOtherActors(score => ({ ...score, callPattern: emptyQuadrupedCalls() }), { retime: false });
     rememberMode(); renderGridState(); resetAudioSchedule();
     announce("Calls cleared; feet unchanged.");
   });
@@ -3576,9 +3682,11 @@ function bindControls() {
         if (captured?.element?.hasPointerCapture?.(captured.pointerId)) captured.element.releasePointerCapture(captured.pointerId);
         endActorMotion(index);
       }
-      performMotion(selectedActor, button.dataset.motionAction);
+      materializeMotor(); saveSelectedActor();
+      for (const index of editingActorIndices()) performMotion(index, button.dataset.motionAction, 0.65, true);
+      resetAudioSchedule({ includeCurrentBoundary: true });
       syncTransportPresentation();
-      announce(`${quadrupedAnimal(state.animalId).label}: ${button.textContent.trim()}.${isAudioOn() ? "" : " Turn Audio on to hear it."}`);
+      announce(`${editAllActors ? "All animals" : quadrupedAnimal(state.animalId).label}: ${button.textContent.trim()}.${isAudioOn() ? "" : " Turn Audio on to hear it."}`);
     });
     button.addEventListener("keydown", event => {
       if (event.key === "Escape") { event.preventDefault(); handleGestureBlur(); syncTransportPresentation(); }
@@ -3601,6 +3709,7 @@ function bindControls() {
     const now = performance.now();
     const position = currentPosition(now);
     state = mutateQuadrupedPattern(state);
+    editOtherActors(score => mutateQuadrupedPattern(score), { wake: true });
     retimeTransport(position, now, { preserveMotion: true });
     if (transportPlaying && motor.velocity <= 0.012) wakeMotorAtFootfall(now);
     rememberMode();
@@ -3613,6 +3722,7 @@ function bindControls() {
     const now = performance.now();
     const position = currentPosition(now);
     state = clearQuadrupedPattern(state);
+    editOtherActors(score => clearQuadrupedPattern(score));
     retimeTransport(position, now, { preserveMotion: true });
     rememberMode();
     renderGridState();
@@ -3623,7 +3733,6 @@ function bindControls() {
   $("resetButton").addEventListener("click", () => {
     controlKnobs.forEach(knob => knob.cancelGesture());
     cancelPerformances();
-    silenceFlightVoice();
     releaseAllSources();
     visualSkinId = "constellation";
     applyPreset(normalizeQuadrupedPreset());
@@ -3707,7 +3816,6 @@ document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
     cancelPerformances();
     if (transportPlaying) materializeMotor(performance.now());
-    silenceFlightVoice();
     releaseAllSources();
     stopAudioScheduler();
     return;

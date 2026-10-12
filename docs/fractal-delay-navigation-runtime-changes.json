@@ -1,10 +1,10 @@
 {
-  "baseCommit": "25d3ed91024a64dc5803337c993d1133a79f890f",
+  "baseCommit": "1bc6b61c428ff6a77ae9120bb71131a59bbd63dc",
   "description": "October 11 Fractal Delay standard Choose menu integration: keep Faves-only tools searchable while suppressing rows duplicated in other groups. Historical menu reference hashes remain unchanged.",
   "changes": [
     {
       "file": "nav.js",
-      "sha256": "6b1ed31431c6eb501237d613020506d35b082c4cbfefaf8f2fa08917b6c45584",
+      "sha256": "be15426328e72fff0268ed3e6bb2dc1bd8f7f38175089bc9e211612faa546d2f",
       "regressionTests": [
         "tests/nav.test.mjs",
         "e2e/instrument-tour.spec.mjs"

@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 11 owner request: a browser DJ workspace inside Morphazoid.
+  { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
+    categoryId: 'app', categoryLabel: 'App',
+    tags: [{ id: 'looper', label: 'Looper' }, { id: 'audio-effect', label: 'Audio Effect' }] },
   // October 10 owner request: three complex-vector/audio research demos.
   { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html', imageHref: 'assets/instruments/vector-fractals.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',
@@ -35,6 +39,8 @@ export const mainAdditions = [
 ];
 // Browseable demonstrations retain their own catalogue and MIDI declarations.
 export const labAdditions = [
+  { id: 'blech-midi', label: 'Blech MIDI', href: 'blech-midi.html', categoryId: 'graphic-ui', categoryLabel: 'Graphic-UI', midiInput: false, generatedMidi: true,
+    tags: [{ id: '2d', label: '2D' }, { id: 'sequencer', label: 'Sequencer' }, { id: 'algorithmic', label: 'Algorithmic' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-midiphoria.json', import.meta.url), 'utf8')).additions,
   { id: 'wasm-garden', categoryId: 'wip', categoryLabel: 'Work in Progress', tags: [{ id: 'resonator', label: 'Resonator' }] },
   ...JSON.parse(readFileSync(new URL('../fixtures/catalogue-synthesis.json', import.meta.url), 'utf8')).additions,

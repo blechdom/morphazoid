@@ -1,15 +1,15 @@
 {
-  "baseCommit": "25d3ed91024a64dc5803337c993d1133a79f890f",
+  "baseCommit": "1bc6b61c428ff6a77ae9120bb71131a59bbd63dc",
   "description": "Exact impulse source runtime row and repeat tempo target; preserve all historical runtime guards.",
   "changes": [
     {
       "file": "scripts/site/runtime-files.tsv",
-      "sha256": "75966b6647d7e565e5d527416e20d921d39fb7d7549eb23b19a5a11bd091321b",
+      "sha256": "e008f157b25b287cb284d6f04caa9b26f37b747a0f08248b61f2a5abafff1a9f",
       "addition": "copy+require\tsrc/instruments/fractal-delay/impulse-source.js\n"
     },
     {
       "file": "src/site/tap-tempo-targets.js",
-      "sha256": "97befdbfd23f9a9dbbf6e3e73015f9f8ebb5d28cb17d3093ed56272d20e15c69",
+      "sha256": "8ea658c45315a7f76772565bfdc76c605988dbf6281208e3e5c42df7e10d97eb",
       "addition": "  {\"route\": \"fractal-delay.html\", \"selector\": \"#impulseTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap impulse repeat tempo\"},\n"
     }
   ]

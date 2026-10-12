@@ -1,10 +1,11 @@
+import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
+import { sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
 import { getSharedMidiManager } from '../../midi-manager.js';
 import { MidiphoriaModel, DEFAULT_VISUALS } from './midiphoria-model.js';
 import { MidiphoriaRenderer } from './midiphoria-renderer.js';
 import { MidiphoriaPlayer } from './midiphoria-player.js';
 import { mountMidiMixer } from '../midi-mixer/midi-mixer-app.js';
 import { generateTextMidi } from './midiphoria-text-midi.js';
-import { mountMidiDrawing } from './midiphoria-drawing.js';
 import { drawTextMidiScore } from './midiphoria-text-score.js';
 import { mountMidiphoriaEnvelope } from './midiphoria-envelope.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
@@ -29,6 +30,7 @@ function mountMidiphoria() {
   const events = new AbortController();
   const on = (node, type, listener, options = {}) => node.addEventListener(type, listener, { ...options, signal: events.signal });
   const model = new MidiphoriaModel();
+  const liveRouting = new MidiphoriaModel();
   const renderer = new MidiphoriaRenderer($('visualCanvas'));
   renderer.view = $('viewMode').value;
   const manager = getSharedMidiManager(globalThis);
@@ -42,49 +44,36 @@ function mountMidiphoria() {
   const pads = [];
   let mixer, stageMode = 'visual', modeVersion = 0, pendingAudioIntent = null, pendingPlayIntent = null, retainedPlayIntent = false;
   let player, audioStarting = false, loadingFile = false, selectionReady = false, fileError = '';
-  let receivingLiveMidi = false;
   const liveAudioNotes = new Set();
-  model.onNoteEvent = event => {
+  model.onNoteEvent = event => renderer.captureEvent(event);
+  liveRouting.onNoteEvent = event => {
     const sourceId = `midiphoria:live:${event.id}`;
-    // Model events already obey routing, sustain and source-specific cleanup.
-    // Only manager attacks use this bridge; files and pads own their audio.
-    if (event.type === 'noteOn' && !usesMixer() && receivingLiveMidi && player?.padNoteOn(sourceId, event.note, event.velocity)) {
-      liveAudioNotes.add(event.id);
-    } else if (event.type === 'noteOff' && liveAudioNotes.delete(event.id)) {
-      player?.padNoteOff(sourceId);
-    }
-    renderer.captureEvent(event);
+    // Route and sustain the source first. The audible path returns its actual
+    // transformed notes through player.onMidi; silent input keeps raw graphics.
+    if (event.type === 'noteOn') {
+      if (!usesMixer() && player?.padNoteOn(sourceId, event.note, event.velocity)) liveAudioNotes.add(event.id);
+      else { model.handleMessage(event, clock(), { routed: true }); renderer.setVoiceMetadata(event); }
+    } else if (liveAudioNotes.delete(event.id)) player?.padNoteOff(sourceId);
+    else model.handleMessage(event, clock(), { routed: true });
   };
   let currentSongId = '', currentMidiBuffer = null, editingMidi = false;
   let collection = [], localSongs = [], visibleSongs = [], localSerial = 0, selectionVersion = 0, songRequest = null;
   let resumeAfterSelection = false, pendingPresetSong = false, originalPlaySongId = '';
-  let textScore = null, textDownloadUrl = null, drawingDownloadUrl = null, drawingVisible = false;
-  const drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
-    undoButton: $('drawingUndo'), clearButton: $('drawingClear'), eraseButton: $('drawingErase'),
-    onChange: state => { $('generateDrawingMidi').disabled = !state.count; $('downloadDrawingMidi').hidden = true; reflectPlayer(); } });
-  function usesMixer(mode = stageMode) { return mode === 'mixer' || mode === 'draw' || mode === 'automata'; }
+  let textScore = null, textDownloadUrl = null;
+  function usesMixer(mode = stageMode) { return mode === 'mixer'; }
   const activeEngine = () => usesMixer() ? mixer : player;
   const armEngine = (engine, enabled) => engine === player
     ? enabled ? player.enableAudio() : player.setAudioEnabled(false)
     : engine?.setAudioEnabled(enabled);
   function reflectMode() {
-    drawingVisible = stageMode === 'draw';
     $('midiphoria').dataset.view = stageMode;
     $('midiphoriaLegacyView').hidden = stageMode !== 'visual';
     $('midiMixerView').hidden = stageMode !== 'mixer';
-    $('midiCreativeView').hidden = stageMode !== 'draw' && stageMode !== 'automata';
-    $('drawingEditor').hidden = !drawingVisible;
-    $('generateDrawingMidi').hidden = !drawingVisible;
-    const rulePlay = $('automataMidiGenerate');
-    if (rulePlay) rulePlay.hidden = stageMode !== 'automata';
-    $('drawingCanvas').hidden = !drawingVisible;
-    $('automataMidiTools').hidden = stageMode !== 'automata';
-    for (const [id, mode] of [['drawingModeButton', 'draw'], ['visualModeButton', 'visual'], ['mixerModeButton', 'mixer'], ['automataModeButton', 'automata']]) {
+    for (const [id, mode] of [['visualModeButton', 'visual'], ['mixerModeButton', 'mixer']]) {
       $(id).setAttribute('aria-pressed', String(stageMode === mode));
     }
-    if (usesMixer()) mixer?.setView(stageMode);
     mixer?.setActive(usesMixer() && !document.hidden);
-    if (drawingVisible) drawing.render(); else if (stageMode === 'visual') renderer.resize();
+    if (stageMode === 'visual') renderer.resize();
   }
   async function setStageMode(next) {
     if (disposed || next === stageMode) return;
@@ -95,8 +84,7 @@ function mountMidiphoria() {
     }
     const previous = activeEngine();
     const wantedAudio = pendingAudioIntent ?? previous.state.audioEnabled;
-    const wantedPlay = next === 'draw' || next === 'automata' ? false
-      : pendingPlayIntent ?? (retainedPlayIntent || previous.state.playing);
+    const wantedPlay = pendingPlayIntent ?? (retainedPlayIntent || previous.state.playing);
     const version = ++modeVersion;
     pendingAudioIntent = wantedAudio; pendingPlayIntent = wantedPlay; retainedPlayIntent = wantedPlay;
     resumeAfterSelection = false; clear();
@@ -130,15 +118,9 @@ function mountMidiphoria() {
       }
     }
   }
-  const setDrawingView = visible => { void setStageMode(visible ? 'draw' : 'visual'); };
   reflectMode();
-  on($('drawingModeButton'), 'click', () => setDrawingView(true));
-  on($('visualModeButton'), 'click', () => setDrawingView(false));
+  on($('visualModeButton'), 'click', () => { void setStageMode('visual'); });
   on($('mixerModeButton'), 'click', () => { void setStageMode('mixer'); });
-  on($('automataModeButton'), 'click', () => { void setStageMode('automata'); });
-  for (const button of document.querySelectorAll('[data-drawing-stamp]')) {
-    on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
-  }
   let voiceSignature = '';
   const voiceButtons = new Map();
   const songRows = new Map();
@@ -200,13 +182,9 @@ function mountMidiphoria() {
     $('audioState').textContent = audioStarting ? 'loading' : activeState.audioEnabled ? 'on' : 'off';
     $('startAudioButton').hidden = !currentSongId || state.audioEnabled;
     $('startAudioButton').disabled = audioStarting;
-    $('creativeAudioStart').hidden = activeState.audioEnabled;
-    $('creativeAudioStart').disabled = audioStarting;
-    $('playButton').disabled = stageMode === 'draw' ? !drawing.model.count : stageMode === 'automata' ? false
-      : stageMode === 'mixer' ? !activeState.ready : !state.ready || !selectionReady || loadingFile || state.loading;
+    $('playButton').disabled = stageMode === 'mixer' ? !activeState.ready : !state.ready || !selectionReady || loadingFile || state.loading;
     $('playButton').setAttribute('aria-pressed', String(activeState.playing));
-    const playLabel = stageMode === 'draw' ? 'Play drawing' : stageMode === 'automata' ? 'Play rule'
-      : activeState.playing ? 'Pause MIDI' : 'Play MIDI';
+    const playLabel = activeState.playing ? 'Pause MIDI' : 'Play MIDI';
     $('playButton').setAttribute('aria-label', playLabel); $('playButton').title = playLabel;
     $('stopButton').disabled = !state.ready && !loadingFile && !originalPlaySongId;
     $('editMidiButton').disabled = !currentMidiBuffer || !selectionReady || loadingFile || editingMidi;
@@ -388,6 +366,9 @@ function mountMidiphoria() {
       if (reason === 'song-replacement') renderer.clearSource('midiphoria:file', true);
     },
   });
+  let noteEffects = sanitizeMidiNoteEffects();
+  const noteEffectEditor = mountMidiNoteEffectEditor($('visualNoteEffects'), { id: 'visualNoteFx',
+    getValue: () => noteEffects, onChange: value => { noteEffects = value; player.setNoteEffects(value); } });
   async function playOriginal({ buffer, title, index, ...metadata }) {
     const id = `original-deck-${index}`;
     // Load the unmodified source in the single-file player before transferring
@@ -395,6 +376,7 @@ function mountMidiphoria() {
     const pending = addSessionSong({ ...metadata, id, title, buffer,
       collection: 'Original MIDI', preserveLeadIn: true });
     originalPlaySongId = id;
+    noteEffects = sanitizeMidiNoteEffects(); player.setNoteEffects(noteEffects); noteEffectEditor.refresh();
     player.setPlaybackRate(1); player.setLoop(false);
     $('playbackRate').value = '1'; $('playbackRateOut').value = '1.00×'; $('loopSong').checked = false;
     renderer.focusVoice(null);
@@ -403,14 +385,7 @@ function mountMidiphoria() {
     await pending;
     if (!disposed && !usesMixer() && currentSongId === id) reflectPlayer();
   }
-  mixer = mountMidiMixer($('midiMixerView'), { onState: reflectPlayer, onOriginal: playOriginal,
-    getDrawing: () => drawing.model.count ? drawing.model.score() : null,
-    performanceHost: $('creativeControlsHost'), creativeVisualizerHost: $('creativeVisualizerHost'),
-    automataHost: $('automataMidiTools'), creativeHost: $('midiCreativeView'),
-    creativeTempo: { input: $('creativeTempo'), output: $('creativeTempoOut') } });
-  const rulePlay = $('automataMidiGenerate');
-  rulePlay.classList.add('mini-action'); rulePlay.hidden = true;
-  $('creativeActionHost').append(rulePlay);
+  mixer = mountMidiMixer($('midiMixerView'), { onState: reflectPlayer, onOriginal: playOriginal });
   mixer.setActive(false);
   mixer.setVolume(Number($('outputLevel').value));
   on($('editMidiButton'), 'click', async () => {
@@ -450,8 +425,6 @@ function mountMidiphoria() {
   // This labelled recovery action stays beside Play when the phone masthead is
   // offscreen. The existing Audio handler still owns activation and recovery.
   on($('startAudioButton'), 'click', () => { if (!player.state.audioEnabled) $('audioButton').click(); });
-  on($('creativeAudioStart'), 'click', () => { if (!activeEngine().state.audioEnabled) $('audioButton').click(); });
-  on($('creativeStop'), 'click', () => mixer.stopSamples());
   on($('outputLevel'), 'input', () => {
     player.setVolume(Number($('outputLevel').value));
     mixer.setVolume(Number($('outputLevel').value));
@@ -510,8 +483,6 @@ function mountMidiphoria() {
   on($('playButton'), 'click', () => {
     originalPlaySongId = '';
     retainedPlayIntent = false; pendingPlayIntent = null;
-    if (stageMode === 'draw') { playDrawing(); return; }
-    if (stageMode === 'automata') { $('automataMidiGenerate').click(); return; }
     if (stageMode === 'mixer') {
       if (mixer.state.playing) mixer.pause(); else mixer.play();
       reflectPlayer(); return;
@@ -540,7 +511,7 @@ function mountMidiphoria() {
     $('downloadTextMidi').href = textDownloadUrl;
     $('downloadTextMidi').download = filename;
     $('downloadTextMidi').hidden = false;
-    setDrawingView(false);
+    void setStageMode('visual');
     await pending;
   }
   on($('textMidiForm'), 'submit', async event => {
@@ -552,18 +523,6 @@ function mountMidiphoria() {
         attribution: 'Generated from your text in this browser.' });
     } catch (error) { $('textMidiStatus').textContent = error.message || 'Could not create this MIDI.'; }
   });
-  function playDrawing() {
-    try {
-      const score = mixer.playDrawing();
-      if (!score?.buffer) return;
-      if (drawingDownloadUrl) URL.revokeObjectURL(drawingDownloadUrl);
-      drawingDownloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));
-      $('downloadDrawingMidi').href = drawingDownloadUrl;
-      $('downloadDrawingMidi').hidden = false;
-    } catch (error) { $('mixerSampleStatus').textContent = error.message || 'Could not play this drawing.'; }
-  }
-  on($('generateDrawingMidi'), 'click', playDrawing);
-
   const reflectControls = () => {
     for (const [key, value] of Object.entries(settings)) {
       const control = $(key);
@@ -598,26 +557,30 @@ function mountMidiphoria() {
     presetController?.refresh();
   };
 
-  function accept(message) {
+  function accept(message, live = false) {
     const now = clock();
-    if (learning && !message.sourceId?.startsWith('midiphoria:file') && !message.synthetic && ((message.type === 'noteOn' && message.velocity > 0) || message.type === 'controlChange')) {
+    if (learning && !message.sourceId?.startsWith('midiphoria:pads') && !message.sourceId?.startsWith('midiphoria:file') && !message.synthetic && ((message.type === 'noteOn' && message.velocity > 0) || message.type === 'controlChange')) {
       learning = false;
       settings = { ...settings, trigger: 'mapped', channel: -1,
         mappedType: message.type === 'noteOn' ? 'note' : 'cc',
         mappedNumber: message.note ?? message.controller, mappedChannel: message.channel };
-      model.configure(settings, now);
+      model.configure(settings, now); liveRouting.configure(settings, now);
       renderer.clear();
       $('learnButton').setAttribute('aria-pressed', 'false');
       $('learnButton').textContent = 'Learn next note / CC';
       $('learnStatus').textContent = `Mapped ${settings.mappedType === 'note' ? nameFor(settings.mappedNumber) : `CC ${settings.mappedNumber}`} · channel ${settings.mappedChannel + 1}`;
       reflectControls();
     }
-    const accepted = model.handleMessage(message, now);
+    if (live) {
+      liveRouting.configure(settings, now); liveRouting.handleMessage(message, now);
+      if (message.type !== 'controlChange') return;
+    }
+    const accepted = model.handleMessage(message, now, { routed: message.sourceId === 'midiphoria:pads' });
     if (accepted && message.type === 'noteOn' && message.velocity > 0) renderer.setVoiceMetadata(message);
   }
 
   function releasePads() {
-    player?.releasePads();
+    liveRouting.panic(clock()); player?.releasePads();
     liveAudioNotes.clear();
     for (const timer of padTimers.values()) clearTimeout(timer);
     padTimers.clear();
@@ -658,17 +621,17 @@ function mountMidiphoria() {
       if (usesMixer()) return;
       if (padHeld.has(sourceId)) return;
       const channel = settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel);
-      padHeld.set(sourceId, { note, channel });
       const velocity = Number($('padVelocity').value);
-      player.padNoteOn(sourceId, note, velocity);
-      accept({ type: 'noteOn', note, velocity, channel, sourceId });
+      const audible = player.padNoteOn(sourceId, note, velocity);
+      padHeld.set(sourceId, { note, channel, audible });
+      if (!audible) accept({ type: 'noteOn', note, velocity, channel, sourceId });
     };
     const end = sourceId => {
       const held = padHeld.get(sourceId);
       if (!held) return;
       padHeld.delete(sourceId);
       player.padNoteOff(sourceId);
-      accept({ type: 'noteOff', ...held, velocity: 0, sourceId });
+      if (!held.audible) accept({ type: 'noteOff', ...held, velocity: 0, sourceId });
     };
     on(pad, 'pointerdown', event => {
       if (event.button !== 0) return;
@@ -709,7 +672,7 @@ function mountMidiphoria() {
         if (key === 'mappedNumber') value = Math.round(value);
       }
       settings[key] = value;
-      model.configure({ [key]: value }, clock());
+      liveRouting.configure({ [key]: value }, clock()); model.configure({ [key]: value }, clock());
       if (['trigger', 'channel', 'mappedType', 'mappedNumber', 'mappedChannel'].includes(key)) renderer.clear();
       reflectControls();
     });
@@ -725,12 +688,12 @@ function mountMidiphoria() {
   on($('resetButton'), 'click', () => {
     originalPlaySongId = ''; retainedPlayIntent = false; pendingPlayIntent = false;
     if (usesMixer()) { mixer.reset(); return; }
-    setDrawingView(false);
+    void setStageMode('visual');
     $('showTextScore').checked = false;
     resumeAfterSelection = false; pendingPresetSong = false; player.stop(); player.setPlaybackRate(1); player.setLoop(false);
     $('playbackRate').value = '1'; $('playbackRateOut').value = '1.00×'; $('loopSong').checked = false;
     clear(); learning = false; settings = { ...DEFAULT_VISUALS };
-    model.configure(settings, clock());
+    liveRouting.configure(settings, clock()); model.configure(settings, clock());
     renderer.configure(DEFAULT_RENDER_OPTIONS);
     $('padVelocity').value = '100'; $('padVelocityOut').value = '100';
     $('learnButton').setAttribute('aria-pressed', 'false');
@@ -765,14 +728,11 @@ function mountMidiphoria() {
     id: 'midiphoria', computerKeyboard: { layout: 'piano', baseNote: 48, velocity: 100 },
     onMessage: message => {
       if (usesMixer()) return;
-      receivingLiveMidi = true;
-      try {
-        accept(message.virtual ? {
-          ...message, channel: settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel),
-        } : message);
-      } finally { receivingLiveMidi = false; }
+      accept(message.virtual ? {
+        ...message, channel: settings.trigger === 'mapped' ? settings.mappedChannel : Math.max(0, settings.channel),
+      } : message, true);
     },
-    onEnabledChange: enabled => { if (!enabled) { model.panic(clock()); renderer.clear(); } },
+    onEnabledChange: enabled => { if (!enabled) { liveRouting.panic(clock()); model.panic(clock()); renderer.clear(); } },
   });
   const unsubscribe = manager.subscribeStatus(status => {
     $('inputStatus').textContent = !status.enabled ? 'MIDI is off · pads ready'
@@ -819,18 +779,17 @@ function mountMidiphoria() {
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     disposed = true; modeVersion++; clear(); songRequest?.abort();
-    player.pause(); mixer.pause(); void player.dispose(); void mixer.dispose();
+    player.pause(); mixer.pause(); noteEffectEditor.destroy(); void player.dispose(); void mixer.dispose();
     if (textDownloadUrl) URL.revokeObjectURL(textDownloadUrl);
     if (frame !== null) cancelAnimationFrame(frame);
-    if (drawingDownloadUrl) URL.revokeObjectURL(drawingDownloadUrl);
-    resize.disconnect(); drawing.destroy(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
+    resize.disconnect(); envelopeEditor.destroy(); presetController?.destroy(); unsubscribe(); manager.disable(); unregister(); events.abort();
   });
   function registerVisualPresets() {
     if (presetController) { presetController.activate(); return; }
     presetController = registerHeaderPresets({ id: 'midiphoria', host: $('visualPresetHost'), label: 'Visual presets', presets: MIDIPHORIA_PRESETS,
       capture: () => captureMidiphoriaPreset(settings, renderer.options),
       apply: snapshot => {
-        setDrawingView(false);
+        void setStageMode('visual');
         $('showTextScore').checked = false;
         applyMidiphoriaPreset(model, renderer, snapshot, clock());
         settings = { ...model.options }; reflectControls(); choosePresetSong();

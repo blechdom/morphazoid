@@ -11,7 +11,8 @@ an AudioWorklet. The same note and controller events drive Canvas graphics.
 The **Visual presets** bank belongs to Visualize; **MIDI mix presets** belong to
 MIDI Mixer. Each remembers its own selection and Next position when changing
 tabs. Visual presets change the light, while mix presets change decks, tempo
-and effects. BLECH MIDI and Automatapoeia do not receive hidden preset shortcuts.
+and effects. Drawing, black MIDI/geometric stamps and MIDI Automatapoeia now
+live on the separate [Blech MIDI page](../blech-midi.html).
 
 Mute leaves the transport and graphics running. Color, velocity weighting,
 ADSR, invert, hue and view changes stay live during playback.
@@ -58,59 +59,15 @@ Live hardware and file notes retain source/channel ownership, including MIDI
 ports within files. MIDI Learn ignores file playback so a running song cannot
 capture a hardware mapping.
 
-## Automatapoeia rules as MIDI
+## Drawing and MIDI rules
 
-Select the **Automatapoeia** tab. Its rule picker contains all 256 elementary
-rules and all 64 radius-2 totalistic rules from the same engine as
-[Automatapoeia](../automatapoeia.html). Enable **Audio**, choose a rule, then
-**Play rule** to hear and visualize it without leaving the tab. **Download MIDI**
-saves its full `.mid` file. With Audio off, Play rule runs a silent preview.
-Preview edits alone do not replace or interrupt a playing pattern.
+[Blech MIDI](../blech-midi.html) contains the preparation canvas, black MIDI and
+geometric stamp collections, and the Automatapoeia MIDI rule editor. See its
+[drawing, pattern and playback controls](blech-midi.md). It has its own audio
+session; navigating between pages does not transfer a running mix or draft.
+Download a generated MIDI and open it in Midiophilia to visualize or mix it.
 
-Columns map directly to chromatic MIDI pitches. The centered or seeded random
-row plays first, followed by each generated row. **Retrigger** produces a new
-attack for every active cell; **Hold** joins consecutive active cells at the
-same pitch. Both preserve every cell without scale snapping or note thinning.
-The selected preview uses the actual seed, boundary and transform settings;
-rule-menu thumbnails use Automatapoeia's fixed random preview with wraparound.
-
-Pattern controls expose 8–128 pitches, 8–128 generations, ⅛–1 beat per row,
-lowest note, velocity, seed density, reproducible seed, fixed/wrap boundaries,
-and post-step shifts, reflection or inversion. Pitch ranges stay within MIDI
-0–127. The bounded generator produces at most 16,384 notes and 128 beats per
-pattern. Dense scores still share the player's finite synthesis and rendering
-budgets. These are MIDI cell patterns, not Automatapoeia's separate synthesis modes.
-
-Draw, Automatapoeia and MIDI Mixer share one sound engine and tempo. Rule
-stamps can play over running decks; switching among these tabs keeps playback
-and the current rule settings. **Loop**, **Sync to tempo**, sample sound, level,
-key gate and **Stamp MIDI** edits apply to rules too. Source settings affect
-the next launch. Switching to Visualize stops stamps and transfers Audio to
-its independent file player.
-
-## Draw, words and symbols
-
-**BLECH MIDI** opens a 48-column × 32-row pixel score beside the black MIDI
-and generated stamp bank. Enable **Audio**, draw or choose a shape, then press
-**Play drawing**. Playback stays in Draw and appears in the small live flow.
-**Stop stamps** releases it; **Loop** repeats it. **Download MIDI** saves the
-last played drawing. Neither drawing nor Play drawing turns Audio on.
-Pitch increases left to right. The top of the drawing enters the live flow first,
-then rises so the complete picture stays upright.
-Drag to draw, or enable **Eraser**. Fast drags fill the crossed cells, and
-**Undo** reverses one complete stroke, stamp or Clear action. Keyboard users
-can move with arrow keys, paint with Space/Enter, erase with Delete/Backspace,
-and undo with Ctrl/Cmd+Z. A cancelled pointer finishes its current stroke
-without leaving painting active. History retains the last 32 edits.
-
-Smile, star, heart, diamond, spiral, wave and zigzag stamps replace the drawing
-with an editable pattern. These are original pixel/geometry patterns; no
-platform emoji font is rasterized. Each filled column is a chromatic pitch,
-and adjacent vertical cells sustain the same note. Defaults are acoustic piano,
-MIDI notes 48–95 and ¼ beat per row: four seconds at 120 BPM. Pitch span can
-cover all 128 MIDI notes; the lowest-note and row-length controls are in
-**Stamp MIDI**. **Sync to tempo** follows the visible shared tempo knob.
-There is no automatic scale or pentatonic snapping.
+## Words and symbols
 
 In **Words & symbols**, type up to 32 characters and choose **Make MIDI**.
 Original 5×7 block glyphs map horizontal position to MIDI pitch and vertical
@@ -126,14 +83,14 @@ The generated MIDI appears in the session song list. When Audio is already on,
 **Make MIDI** auditions the new score, including after the previous score ends.
 With Audio off, generation stays muted; enable Audio and press Play to hear it
 through the existing SoundFont player. This Words & symbols action belongs to
-Visualize; Draw also has a message field that launches letters as stamps.
+Visualize; Blech MIDI also has a message field that launches letters as stamps.
 
 **Pattern score** shows the actual pitches and durations from the generated
 MIDI, following the file's audio clock. Long scores scroll vertically; seek,
 speed and Loop use the same player. Every text phrase ends with one silent row.
 Turn Pattern score off to watch the light graphics, or choose a visual preset.
 **Download MIDI** exports the exact Standard MIDI File played in the browser.
-Drawings, text and generated files stay in this browser session.
+Text and generated files stay in this browser session.
 
 Whole-word text lasts at most eight seconds at 1×, with 40 simultaneous pitches
 and 640 note runs. One-letter mode lasts at most 64 seconds with five simultaneous
@@ -334,3 +291,29 @@ velocity and volume response, independent same-pitch file notes, stop/seek,
 invalid-file recovery, and pagehide/BFCache cleanup. The pad synth uses the
 piano sample's own release without reverb/chorus, preventing old effect tails
 from returning on quick Audio off/on. File effects remain unchanged.
+
+## MIDI note effects
+
+Open **MIDI effects**, turn the layer on, then shape new notes with transpose
+(±24 semitones), velocity, single/octave/fifth/major/minor chords, note delay,
+a gate limit, and up to four echoes with their own spacing and velocity decay.
+Drum pitches stay unchanged unless **Transpose & harmonize drums too** is on.
+Pitches outside MIDI 0–127 are omitted rather than folded onto the endpoints.
+
+Timing is in beats: the file player follows the file's current tempo and speed;
+Mixer and Blech MIDI use the shared tempo. A gate limit shortens key holds;
+source sustain pedals still apply. Edits and bypass affect new attacks, while
+held notes and pending echoes finish with their captured settings. Stop, seek,
+source replacement cancel the affected pending notes. Audio off releases pads
+and stamps; song transports keep moving.
+
+The layer runs before synthesis on the audio thread, and the visualizer receives
+the resulting notes. Playing, Audio permission, source MIDI bytes and download
+files remain independent. Mixer scenes include the layer; visualizer presets
+continue to own appearance only. These are MIDI note effects, separate from
+SoundFont reverb/chorus and the audio filter/delay controls.
+
+The shared scheduler bounds each engine to 512 source-note families and 4,096
+reserved events. Under extreme black-MIDI load it removes added voices before
+stealing the oldest family; each sounded child retains a matched release.
+Existing native synthesis and display polyphony limits still apply.

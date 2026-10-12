@@ -1,6 +1,6 @@
 # SPARTIAL
 
-**SPARTIAL** is a surround additive and granular synthesizer built on Surround for Safety's output layouts. It starts with sixteen stationary partials and supports up to thirty-two per note. Hold sustains the selected single note or chord; a chromatic keyboard and MIDI supply independent note gates. Sixteen instrument presets and eight harmonic fingerprints have Next and parameter dice controls. Frequency spacing compresses or expands the harmonic series, while seeded inharmonicity offsets upper partials; held frequencies glide and ultrasonic partials fade out. Spatial turns distribute the whole bank once around the speakers at 1, squeeze it into an arc below 1, or wrap it repeatedly above 1. Across speakers offers rotation by dragging; One speaker replaces the colored partial field with one highlighted destination selected by click or drag. Optional clockwise, counterclockwise, and opposite-direction motion follows BPM and beats per turn while rotation Play is active; motion starts off. Rotation Play/Pause never starts or releases a note. Starting rotation from Off selects clockwise movement. Hold and Silence control notes independently. The Shape-style panel places presets, note/chord selection and chromatic keys above the labelled Rotation Play/Pause and tempo knob on the right. The knob keeps its 30–240 BPM range, keyboard adjustment and Tap control. On mobile, the graphic stays fixed while the fingerprint and parameter controls share one scroll pane; landscape places that pane beside the graphic. The current master knob, next-instrument link, square Audio button and MIDI-in-Settings presentation preserve the existing native controls. Cascade delay and initial wait use exact millisecond entry with 1 ms steps. An accelerating/slowing curve and seeded variation reshape the gaps while preserving total span; the timing strip previews scheduled entrances, including silent partial slots. Restart cascade briefly fades only the held note or chord before replaying it with the new timing, leaving other notes and transport intact. An eight-voice sample-clock engine renders the numbered discrete patch when it fits, with a labeled left/right stereo fallback and LFE omitted by default. Artwork is generated from the instrument's canvas. Routing follows the [Web Audio channel contracts](https://www.w3.org/TR/webaudio-1.0/); physical channel assignments and spatial feel still need a hardware listening pass.
+**SPARTIAL** is a surround additive and granular synthesizer built on Surround for Safety's output layouts. It starts with sixteen stationary partials and supports up to thirty-two per note. Hold sustains the selected single note or chord; a chromatic keyboard and MIDI supply independent note gates. Instrument presets and eight harmonic fingerprints have Next and parameter dice controls. Frequency spacing compresses or expands the harmonic series, while seeded inharmonicity offsets upper partials; held frequencies glide and ultrasonic partials fade out. Spatial turns distribute the whole bank once around the speakers at 1, squeeze it into an arc below 1, or wrap it repeatedly above 1. Across speakers offers rotation by dragging; One speaker replaces the colored partial field with one highlighted destination selected by click or drag. Optional clockwise, counterclockwise, and opposite-direction motion follows BPM and beats per turn while rotation Play is active; motion starts off. Rotation Play/Pause never starts or releases a note. Starting rotation from Off selects clockwise movement. Hold and Silence control notes independently. The Shape-style panel places presets, note/chord selection and chromatic keys above the labelled Rotation Play/Pause and tempo knob on the right. The knob keeps its 30–240 BPM range, keyboard adjustment and Tap control. On mobile, the graphic stays fixed while the fingerprint and parameter controls share one scroll pane; landscape places that pane beside the graphic. The current master knob, next-instrument link, square Audio button and MIDI-in-Settings presentation preserve the existing native controls. Cascade delay and initial wait use exact millisecond entry with 1 ms steps. An accelerating/slowing curve and seeded variation reshape the gaps while preserving total span; the timing strip previews scheduled entrances, including silent partial slots. Restart cascade briefly fades only the held note or chord before replaying it with the new timing, leaving other notes and transport intact. An eight-voice sample-clock engine renders the numbered discrete patch when it fits, with a labeled left/right stereo fallback and LFE omitted by default. Artwork is generated from the instrument's canvas. Routing follows the [Web Audio channel contracts](https://www.w3.org/TR/webaudio-1.0/); physical channel assignments and spatial feel still need a hardware listening pass.
 
 
 ## Chords and clusters
@@ -24,6 +24,64 @@ eight voices, so overlapping chords can steal older notes at that limit.
 Chords enter the live granular buffer as part of the additive sound. A loaded
 audio file still uses one transposition from the latest note; it does not create
 a separate grain cloud for every chord tone.
+
+## Partial modulation
+
+**Pitch movement** adds vibrato in cents; **Amplitude movement** adds tremolo by
+attenuating each partial. Both start at zero. Set a shared rate in hertz and a
+sine or triangle wave. **Ripple across partials** offsets the modulation phase
+through the bank: zero moves every partial together, positive values travel
+from low to high, and negative values reverse that direction. One turn spans
+one modulation cycle across the bank. The colored monitor follows the engine's
+partial modulation. These movements run independently of Rotation Play/Pause.
+
+## One fingerprint bank, three mappings
+
+The **Mapping** menu in Harmonic fingerprint changes what its single slider bank
+controls. **Custom partials** starts selected and retains the original individual
+partial levels. **Tonewheel** maps the bank to nine sine drawbars; **Pipe organ**
+maps it to nine voiced stops. The same preset menu, Next and dice follow the
+selected mapping. Switching back to Custom partials restores its remembered
+painting; organ mappings use neutral partial gains, with no hidden partial trims.
+
+In either organ mapping, the sliders run from 0 (off) to 8, with footages **16′,
+5⅓′, 8′, 4′, 2⅔′, 2′, 1⅗′, 1⅓′, 1′**. The 8′ stop follows the played note; 16′
+sounds an octave below it. All stops off silences the sustained organ tone.
+Frequency spacing and inharmonicity remain available beneath the bank; partial
+count and rolloff apply to Custom partials.
+
+Pipe voices include **Flute**, **Stopped flute**, **Principal**, **String pipe**
+and **Reed**. Their controls appear beneath the same bank. Brightness changes
+their harmonic balance; Pipe chiff adds an optional breath-like attack.
+**Click, chiff & percussion** is available beneath the bank in every mapping.
+It contains the chiff amount, a short key transient and decaying second- or
+third-harmonic percussion with its own level and decay. Chiff, click and
+percussion start off. Registration presets, Next
+and dice offer additional starting points while preserving master Volume.
+
+The stops share the existing 32-partial bank, so high stops have fewer available
+overtones. These are original additive approximations inspired by organ
+construction and the Sormena Project tutorial's public description. They do
+not reproduce a sampled pipe, tonewheel mechanism or vintage drawbar gain law.
+See the [research sources and model limits](spartial-organ-research.md), including
+the distinction between the accessible video description and its unavailable
+transcript.
+
+## Rotary and drive
+
+**Rotary** starts Off. Slow and Fast glide between speeds; Brake lets the motion
+coast to a stop. Separate bass-drum and treble-horn movement processes both
+additive and granular layers. Mix, spread and transition time control its
+presence, width and acceleration. **One speaker** still gathers the result into
+the selected output. Rotary motion is independent of the main Rotation control.
+
+**Drive** adds saturation and starts at zero. It changes the shared output's
+timbre without changing the Volume setting. The rotary and drive models are
+compact effects inspired by Leslie features, not a cabinet or valve-circuit
+emulation; physical surround placement and subjective tone still need listening
+on the intended system. Partial modulation, Rotary & drive, and Click, chiff &
+percussion start collapsed. The mobile graphic remains fixed above or beside
+the scrolling controls.
 
 ## Granular layer and mixer
 
@@ -139,3 +197,38 @@ mix. This is ordinary source routing, without a bass-management or subwoofer
 filter. The option is disabled for layouts without LFE. Presets and dice
 preserve this output setting, and toggling it retains the selected physical
 speaker when that speaker remains available.
+
+## Multitrack recording
+
+Turn Audio on, then use **Record multitrack** above the instrument preset menu.
+Stop opens the export window. The same take supports both:
+
+- **Save tracks to folder** in browsers with folder access, or **Download tracks
+  ZIP** everywhere recording is supported. The ZIP contains a named take folder
+  with one numbered, labelled mono WAV per physical output and `channel-map.txt`.
+- **Download multichannel WAV** for a single file with all output channels in
+  numbered patch order. Import it as discrete channels in your DAW.
+
+All files use 24-bit PCM at the instrument's audio sample rate. Every channel
+starts on the same sample and has exactly the same length. Both additive and
+granular layers are captured after their mixer and Volume control, before
+stereo monitoring. Headphones still record the complete selected speaker layout.
+Omitted LFE remains a silent numbered channel; the other tracks never shift.
+The 7:4:1 patch keeps LS/RS at 5–6 and LRS/RRS at 7–8.
+
+The speaker layout and Omit LFE controls are fixed during a take; notes, presets,
+rotation, layer mix and volume remain playable. The separate masthead Record
+button continues to capture the stereo monitoring mix.
+
+The available time appears beside the multitrack control. Capture uses a bounded
+128 MiB buffer: at 48 kHz, approximately 3:53 for four channels, 1:56 for eight,
+1:17 for twelve, or 0:58 for sixteen. At the limit, capture stops and preserves
+the take for export. Audio off or an interrupted audio context also finalizes
+the captured portion. Save cancellation or failure keeps the original take;
+**Discard take** frees it for a new recording. Export before closing the page.
+
+The multichannel WAV uses WAVEFORMATEXTENSIBLE with an unspecified speaker mask
+because SPARTIAL supports custom patches. Its channel order is the numbered
+speaker patch, not a DAW's automatic surround order; the separate-track export
+includes the exact map. Recording controls are browser-only and hidden in the
+WAX artifact, where the DAW owns recording.

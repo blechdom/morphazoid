@@ -1552,6 +1552,10 @@ export function initializeSharedNavigation(doc = globalThis.document, runtime = 
       capability,
     });
   }
+  // Audio-only utility pages share the performer controls without a MIDI client.
+  if (!navigation.activeTool && doc?.querySelector?.(".masthead[data-audio-output-meter]")) {
+    initializeMidiToolbars(doc, runtime, getSharedMidiManager(runtime), { routeId: null });
+  }
   initializeSettingsMenus(doc, runtime);
   initializeOutputRecording(doc, runtime, { routeId: navigation.activeTool?.id });
   initializeAudioTransportContract(doc, runtime);

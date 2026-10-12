@@ -1,9 +1,10 @@
+import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from './midi-mixer-engine.js';
 import { GM_PROGRAM_NAMES, defaultDeckConfig } from './midi-mixer-model.js';
 import { MidiMixerRenderer, mixerVoiceColor } from './midi-mixer-renderer.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { MIDI_MIXER_PRESETS, captureMixerPreset, applyMixerPreset, randomizeMixerPreset } from './midi-mixer-presets.js';
-import { mountMixerPerformance } from './midi-mixer-performance.js';
+import { mountMixerMonitor } from './midi-mixer-monitor.js';
 import { mountMixerKnobs } from './midi-mixer-knobs.js';
 import { mountMidiParameterEditor, mountMidiSynthEffectEditor } from './midi-mixer-midi-editor.js';
 
@@ -11,7 +12,7 @@ const asset = path => new URL(`../../../assets/midiphoria/${path}`, import.meta.
 const time = seconds => `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
 const noteName = note => note === null ? '—' : `${['C', 'C♯', 'D', 'E♭', 'E', 'F', 'F♯', 'G', 'A♭', 'A', 'B♭', 'B'][note % 12]}${Math.floor(note / 12) - 1}`;
 const labelFor = song => `${song.artist || song.composer || ''}${song.artist || song.composer ? ' · ' : ''}${song.title}`;
-export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawing, performanceHost, creativeVisualizerHost, automataHost, creativeHost, creativeTempo } = {}) {
+export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   host.classList.add('mixer-shell');
   host.innerHTML = `<div class="mixer-main-row">
     <div class="mixer-transport">
@@ -40,7 +41,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   </section>
   <div class="mixer-readout"><output id="mixerPosition">Beat 1</output><span id="mixerFontName">TimGM6mb</span><button id="mixerReset" class="mini-action" type="button">Reset mix</button></div>
   <p class="mixer-status" id="mixerStatus" role="status"></p>
-  <div id="mixerPerformanceHost"></div>
   <div id="mixerDeckHost" class="mixer-decks"></div>
   <details class="mixer-effects"><summary>SoundFont & live effects</summary><div class="mixer-effects-controls">
     <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open mixer SoundFont"></label><button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
@@ -68,19 +68,15 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   host.querySelector('.mixer-mix-row').remove();
   topControls.append(transport, secondary, host.querySelector('.mixer-readout'), $('mixerStatus'));
   host.querySelector('.mixer-main-row').prepend(topControls);
-  host.insertBefore($('mixerDeckHost'), $('mixerPerformanceHost'));
-  host.insertBefore(host.querySelector('.mixer-effects'), $('mixerPerformanceHost'));
   const events = new AbortController(), requests = [null, null], serial = [0, 0], selectedIds = ['', ''], originals = [null, null];
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
-  let disposed = false, active = false, view = 'mixer', frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, collectionPromise = null, defaultsInitialized = false;
+  let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, collectionPromise = null, defaultsInitialized = false;
   const deckUIs = [], renderers = [];
-  let engine, performanceView, presetController, synthEffectEditor, knobs, creativeKnobs, fontSerial = 0, fontRequest = null, originalBusy = false;
-  const creativeTempoInput = creativeTempo?.input ?? creativeHost?.querySelector('[data-mixer-tempo]');
-  const creativeTempoOutput = creativeTempo?.output ?? creativeHost?.querySelector('[data-mixer-tempo-output]');
+  let engine, performanceView, presetController, synthEffectEditor, noteEffectEditor, knobs, fontSerial = 0, fontRequest = null, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
-  function field(node, value) { if (node && document.activeElement !== node && node.value !== String(value)) { node.value = String(value); knobs?.update(node); creativeKnobs?.update(node); } }
+  function field(node, value) { if (node && document.activeElement !== node && node.value !== String(value)) { node.value = String(value); knobs?.update(node); } }
   for (let index = 0; index < 2; index++) {
     const letter = index ? 'B' : 'A', section = document.createElement('section');
     section.className = 'mixer-deck'; section.dataset.deck = String(index); section.setAttribute('aria-label', `MIDI deck ${letter}`);
@@ -306,7 +302,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     const state = engine.state; reflectWeave(state);
     $('mixerPlay').disabled = !state.decks.some(deck => deck.analysis); $('mixerPlay').setAttribute('aria-pressed', String(state.playing)); $('mixerPlay').setAttribute('aria-label', state.playing ? 'Pause MIDI mix' : 'Play MIDI mix');
     field($('masterTempo'), state.tempo); $('masterTempoOut').value = `${state.tempo.toFixed(1)} BPM`;
-    field(creativeTempoInput, state.tempo); if (creativeTempoOutput) creativeTempoOutput.value = `${state.tempo.toFixed(1)} BPM`; field($('mixerCrossfade'), state.crossfade);
+    field($('mixerCrossfade'), state.crossfade);
     $('crossfadeOut').value = state.crossfade === 0 ? 'A + B' : `${Math.round(Math.abs(state.crossfade) * 100)}% ${state.crossfade < 0 ? 'A' : 'B'}`;
     $('mixerStatus').textContent = error || state.error || (loading.some(Boolean) ? 'Loading MIDI…' : state.loading ? 'Loading SoundFont…' : state.skippedEvents ? `${state.skippedEvents.toLocaleString()} dense-score events skipped to keep audio running.` : '');
     $('mixerFontName').textContent = state.soundfontName || 'TimGM6mb';
@@ -318,7 +314,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       field($('mixerFilterExact'), Math.round(effects.filterHz)); field($('mixerEchoExact'), effects.delayBeats);
       $('mixerFilterOut').value = effects.filterHz >= 19000 ? 'Open' : `${Math.round(effects.filterHz)} Hz`; $('mixerEchoOut').value = `${Math.round(effects.delayMix * 100)}%`; $('mixerFeedbackOut').value = `${Math.round(effects.feedback * 100)}%`;
     }
-    synthEffectEditor?.refresh();
+    synthEffectEditor?.refresh(); noteEffectEditor?.refresh();
     state.decks.forEach((deck, index) => {
       $(`deckOriginal${index}`).disabled = !onOriginal || !originals[index] || loading[index] || originalBusy;
       const ui = deckUIs[index]; if (ui.analysis !== deck.analysis) makeInfo(index, deck.analysis);
@@ -344,14 +340,11 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     onState({ ...state, ready: state.decks.some(deck => deck.analysis) });
   }
   engine = new MidiMixerEngine({ onState: reflect });
-  performanceView = mountMixerPerformance(performanceHost ?? $('mixerPerformanceHost'), {
-    engine, getDrawing, visualizerHost: $('mixerVisualizerHost'), automataHost,
-    volumeHost: performanceHost ? undefined : sourceLevels,
-  });
-  $('mixerPerformanceHost').hidden = Boolean(performanceHost);
-  // Separate DOM roots share musical state, but each native range has one owner.
-  knobs = mountMixerKnobs(creativeHost?.contains(host) ? creativeHost : host);
-  if (creativeHost && !host.contains(creativeHost) && !creativeHost.contains(host)) creativeKnobs = mountMixerKnobs(creativeHost);
+  performanceView = mountMixerMonitor($('mixerVisualizerHost'), { engine });
+  const noteEffectHost = document.createElement('div'); host.querySelector('.mixer-effects').before(noteEffectHost);
+  noteEffectEditor = mountMidiNoteEffectEditor(noteEffectHost, { id: 'mixerNoteFx',
+    getValue: () => engine.state.noteEffects, onChange: value => engine.setNoteEffects(value) });
+  knobs = mountMixerKnobs(host);
   synthEffectEditor = mountMidiSynthEffectEditor($('mixerSynthEffects'), {
     label: 'SoundFont effects', getValue: () => engine.state.effects.synth,
     onChange: synth => { custom(); engine.configureEffects({ synth }); },
@@ -400,7 +393,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     collectionPromise = (async () => {
       const response = await fetch(asset('collection.json'), { signal: events.signal }); if (!response.ok) throw new Error('Could not load the MIDI collection. Open a local MIDI to mix.');
       collection = await response.json(); if (disposed) return;
-      performanceView.setCollection(collection);
       for (const index of [0, 1]) {
         const groups = new Map(), select = $(`deckSong${index}`);
         for (const song of collection) {
@@ -415,8 +407,8 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   async function initialize() {
     try {
       await loadCollection();
-      // Draw and Automata need the stamp library, not two invisible backing files.
-      if (disposed || !active || view !== 'mixer' || defaultsInitialized) return;
+      // Load backing files only after the mixer becomes active.
+      if (disposed || !active || defaultsInitialized) return;
       defaultsInitialized = true;
       const a = collection.find(song => song.id === 'new-order-blue-monday') || collection[0];
       const b = collection.find(song => /enjoy.*silence/.test(song.id)) || collection[1];
@@ -424,10 +416,10 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     } catch (cause) { fail(cause); }
   }
   function play() { pendingPlay = true; resumePending(); }
-  function pause() { pendingPlay = false; performanceView.cancelPending(); engine.pause(); }
-  function reset() { cancelReversals(); pendingPlay = false; error = ''; performanceView.cancelPending(); engine.stop(); applyMixerPreset(engine, MIDI_MIXER_PRESETS[0].snapshot); presetController?.refresh(); }
+  function pause() { pendingPlay = false; engine.pause(); }
+  function reset() { cancelReversals(); pendingPlay = false; error = ''; engine.stop(); applyMixerPreset(engine, MIDI_MIXER_PRESETS[0].snapshot); presetController?.refresh(); }
   on($('mixerPlay'), 'click', () => engine.state.playing ? pause() : play());
-  on($('mixerStop'), 'click', () => { pendingPlay = false; performanceView.cancelPending(); engine.stop(); }); on($('mixerReset'), 'click', reset);
+  on($('mixerStop'), 'click', () => { pendingPlay = false; engine.stop(); }); on($('mixerReset'), 'click', reset);
   on($('mixerWeaveToggle'), 'click', () => setWeave({ enabled: !engine.state.weave.enabled }));
   for (const [id, key] of [['mixerWeaveLength', 'length'], ['mixerWeaveBarBeats', 'barBeats'], ['mixerWeaveUnit', 'unit'], ['mixerWeaveAdvance', 'advance']]) on($(id), 'change', event => {
     if (!event.target.validity.valid) return;
@@ -447,7 +439,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   });
   function setTempo(value) { custom(); return engine.setTempo(value); }
   on($('masterTempo'), 'input', event => setTempo(Number(event.target.value)));
-  if (creativeTempoInput) on(creativeTempoInput, 'input', event => setTempo(Number(event.target.value)));
   on($('mixerCrossfade'), 'input', event => { custom(); engine.setCrossfade(Number(event.target.value)); });
   for (const index of [0, 1]) on($('tempoFrom' + (index ? 'B' : 'A')), 'click', () => { custom(); engine.setTempo(engine.state.decks[index].analysis?.initialTempo ?? 120); });
   function mountPresets() {
@@ -477,7 +468,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     } catch (cause) { if (ticket === fontSerial) fail(cause); }
   });
   function draw(now) {
-    frame = null; if (!active || view !== 'mixer' || disposed || document.hidden) return;
+    frame = null; if (!active || disposed || document.hidden) return;
     if (now - lastFrame >= 40) {
       lastFrame = now; const state = engine.state; reflectWeave(state); renderers.forEach(renderer => renderer.draw(state));
       $('mixerPosition').value = `Beat ${(state.beat + 1).toFixed(1)} · ${state.audioEnabled ? 'Audio on' : 'Audio off'}`;
@@ -485,12 +476,11 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
     }
     frame = requestAnimationFrame(draw);
   }
-  on(document, 'visibilitychange', () => { if (!document.hidden && active && view === 'mixer' && frame === null) frame = requestAnimationFrame(draw); });
+  on(document, 'visibilitychange', () => { if (!document.hidden && active && frame === null) frame = requestAnimationFrame(draw); });
   function reflectView() {
     if (disposed) return;
-    performanceView.setView(view, view === 'mixer' ? $('mixerVisualizerHost') : creativeVisualizerHost ?? $('mixerVisualizerHost'));
     performanceView.setActive(active);
-    if (active && view === 'mixer') {
+    if (active) {
       mountPresets();
       if (frame === null && !document.hidden) frame = requestAnimationFrame(draw);
     } else {
@@ -501,12 +491,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
   reflect();
   return {
     get state() { const state = engine.state; return { ...state, ready: state.decks.some(deck => deck.analysis), playing: state.playing || pendingPlay }; },
-    setView(value) {
-      const next = ['draw', 'automata', 'mixer'].includes(value) ? value : 'mixer';
-      if (disposed || next === view) return;
-      view = next; reflectView();
-      if (active) void initialize();
-    },
     setActive(value) {
       if (disposed) return;
       const next = Boolean(value), changed = next !== active; active = next;
@@ -514,12 +498,10 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal, getDrawin
       reflectView();
       if (active) { void initialize(); resumePending(); }
     },
-    async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); performanceView.cancelPending(); return engine.setAudioEnabled(false); },
+    async setAudioEnabled(value) { error = ''; if (value) return engine.enableAudio(); return engine.setAudioEnabled(false); },
     setVolume(value) { engine.setVolume(value); }, setTempo,
-    playDrawing() { return performanceView.playDrawing(); },
-    stopSamples() { return performanceView.stopSamples(); },
     resumeAudioClock() { return engine.context?.state === 'suspended' ? engine.context.resume() : Promise.resolve(); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); synthEffectEditor?.destroy(); knobs?.destroy(); creativeKnobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); noteEffectEditor?.destroy(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }

@@ -1,8 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { createQuadrupedState, deriveQuadrupedPose, QUADRUPED_ANIMALS } from "../src/instruments/quadruped/quadruped.js";
+import { createQuadrupedState, deriveQuadrupedPose, QUADRUPED_ANIMALS, QUADRUPED_LANES, quadrupedFlightTrajectory, quadrupedClockAtPosition, quadrupedPositionAtClock } from "../src/instruments/quadruped/quadruped.js";
 import { deriveQuadrupedVisualRig, QUADRUPED_VISUAL_SKINS } from "../src/instruments/quadruped/quadruped-visual-skins.js";
-import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture } from "../src/instruments/quadruped/quadruped-gestures.js";
+import { quadrupedGestureTargets, createQuadrupedGesture, advanceQuadrupedGesture, liftQuadrupedJumpPose } from "../src/instruments/quadruped/quadruped-gestures.js";
 
 const contains = (rect, point) => point.x >= rect.x && point.x <= rect.x + rect.width && point.y >= rect.y && point.y <= rect.y + rect.height;
 const bodyGesture = options => createQuadrupedGesture({ x: 100, y: 150, time: 0, width: 400, height: 260, part: "body", actorIndex: 1, ...options });
@@ -101,5 +101,112 @@ test("non-finite samples preserve finite state and never move time backwards", (
   for (const value of Object.values(invalid)) if (typeof value === "number") assert.ok(Number.isFinite(value));
   for (const target of Object.values(quadrupedGestureTargets({}, { offsetX: Infinity, laneLeft: NaN, laneWidth: -1 }))) {
     assert.ok(Object.values(target).every(Number.isFinite)); assert.equal(target.width, 1);
+  }
+});
+
+// Discover actual unsupported intervals instead of hard-coding touchdown frames.
+function jumpFlights(score) {
+  const flights = new Map();
+  for (let position = 0.125; position < 16; position += 0.25) {
+    const flight = quadrupedFlightTrajectory(score, position);
+    if (flight) flights.set(flight.start.toFixed(6), flight);
+  }
+  return [...flights.values()].sort((a, b) => (b.end - b.start) - (a.end - a.start));
+}
+
+function jumpFlightSample(score, flight, progress = 0.5) {
+  const start = quadrupedClockAtPosition(score, flight.start);
+  const end = quadrupedClockAtPosition(score, flight.end);
+  const position = quadrupedPositionAtClock(score, start + (end - start) * progress);
+  const arc = quadrupedFlightTrajectory(score, position);
+  assert.ok(arc, `expected unsupported Jump frame ${position}`);
+  return { position, flight: arc, pose: deriveQuadrupedPose(score, position) };
+}
+
+test("temporary Jump raises the complete animal without changing contacts, anatomy or inputs", () => {
+  const score = { ...createQuadrupedState("elephant", "jump"), tempoBpm: 96 };
+  const sample = jumpFlightSample(score, jumpFlights(score)[0]);
+  const before = structuredClone({ score, ...sample });
+  const raised = liftQuadrupedJumpPose(sample.pose, sample.flight, score);
+  const ordinaryRig = deriveQuadrupedVisualRig(sample.pose, 1000, 400, 296, score);
+  const raisedRig = deriveQuadrupedVisualRig(raised, 1000, 400, 296, score);
+  const upward = ordinaryRig.center.y - raisedRig.center.y;
+  assert.ok(upward > ordinaryRig.scale * 0.3, "Jump has a clearly visible apex");
+  assert.equal(raised.headLift, sample.pose.headLift, "do not additionally stretch the neck");
+  assert.deepEqual(raised.legs.tail, sample.pose.legs.tail, "the tail is not a fifth jumping foot");
+  for (const [original, next] of [[ordinaryRig.center, raisedRig.center], [ordinaryRig.head, raisedRig.head]]) {
+    assert.ok(Math.abs(next.x - original.x) < 1e-8);
+    assert.ok(Math.abs(original.y - next.y - upward) < 1e-8);
+  }
+  for (let index = 0; index < ordinaryRig.legs.length; index++) {
+    const original = ordinaryRig.legs[index], next = raisedRig.legs[index];
+    const { lift: originalLift, ...originalContact } = sample.pose.legs[original.id];
+    const { lift: raisedLift, ...raisedContact } = raised.legs[original.id];
+    assert.ok(raisedLift > originalLift);
+    assert.deepEqual(raisedContact, originalContact, "all contact and support metadata remain intact");
+    for (let point = 0; point < original.points.length; point++) {
+      assert.ok(Math.abs(next.points[point].x - original.points[point].x) < 1e-7);
+      assert.ok(Math.abs(original.points[point].y - next.points[point].y - upward) < 1e-7,
+        `${original.id}/${point} translates with the body instead of stretching a planted leg`);
+    }
+  }
+  assert.deepEqual({ score, ...sample }, before);
+});
+
+test("temporary Jump remains visible at fast tempos and zero spring, with the same phase-shaped flight", () => {
+  const heights = [];
+  for (const tempoBpm of [96, 500, 1000]) {
+    const score = { ...createQuadrupedState("elephant", "jump"), tempoBpm, spring: 0, gravity: 3 };
+    const flight = jumpFlights(score)[0];
+    const samples = [0.15, 0.5, 0.85].map(progress => jumpFlightSample(score, flight, progress));
+    const normalizedLift = samples.map(sample => {
+      const raised = liftQuadrupedJumpPose(sample.pose, sample.flight, score);
+      return (raised.bodyLift - sample.pose.bodyLift) * 0.38;
+    });
+    assert.ok(normalizedLift[1] > 0.2, `${tempoBpm} BPM still leaves the ground visibly`);
+    assert.ok(normalizedLift[1] > normalizedLift[0] && normalizedLift[1] > normalizedLift[2]);
+    assert.ok(Math.abs(normalizedLift[0] - normalizedLift[2]) < 1e-8);
+    heights.push(normalizedLift);
+  }
+  for (let tempo = 1; tempo < heights.length; tempo++) for (let phase = 0; phase < heights[0].length; phase++) {
+    assert.ok(Math.abs(heights[tempo][phase] - heights[0][phase]) < 1e-8,
+      "score phase, rather than seconds or animation frame rate, determines the added height");
+  }
+});
+
+test("temporary Jump preserves launch and landing, scales strength, and keeps the short recovery hop small", () => {
+  const score = { ...createQuadrupedState("elephant", "jump"), tempoBpm: 96, spring: 0, gravity: 1 };
+  const flights = jumpFlights(score);
+  assert.ok(flights.length >= 2, "the real Jump includes its smaller recovery interval");
+  const main = jumpFlightSample(score, flights[0]);
+  const short = jumpFlightSample(score, flights.at(-1));
+  assert.equal(liftQuadrupedJumpPose(main.pose, null, score), main.pose);
+  for (const progress of [0, 1]) {
+    assert.deepEqual(liftQuadrupedJumpPose(main.pose, { ...main.flight, progress }, score), main.pose,
+      "extra presentation lift is zero at both exact arc boundaries");
+  }
+  const grounded = deriveQuadrupedPose(score, 0.0001);
+  assert.ok(grounded.groundSupportCount > 0);
+  assert.equal(liftQuadrupedJumpPose(grounded, main.flight, score), grounded);
+  const weak = liftQuadrupedJumpPose(main.pose, main.flight, score, 0.2);
+  const strong = liftQuadrupedJumpPose(main.pose, main.flight, score, 1);
+  assert.ok(strong.bodyLift > weak.bodyLift, "a stronger upward drag produces a higher Jump");
+  const capped = liftQuadrupedJumpPose(main.pose, main.flight, score, 1, 0.1);
+  assert.ok(Math.abs((capped.bodyLift - main.pose.bodyLift) * 0.38 - 0.1) < 1e-8);
+  for (const { id } of QUADRUPED_LANES) {
+    assert.ok(Math.abs((capped.legs[id].lift - main.pose.legs[id].lift) * 0.46 - 0.1) < 1e-8);
+  }
+  assert.equal(liftQuadrupedJumpPose(main.pose, main.flight, score, 1, 0), main.pose);
+  const recovery = liftQuadrupedJumpPose(short.pose, short.flight, score, 1);
+  assert.ok(recovery.bodyLift - short.pose.bodyLift < (strong.bodyLift - main.pose.bodyLift) / 2,
+    "the shorter recovery arc does not become a second full jump");
+  for (const [tempoBpm, spring, gravity] of [[25, 2.5, 0.1], [1000, 0, 3]]) {
+    const extreme = { ...score, tempoBpm, spring, gravity };
+    const sample = jumpFlightSample(extreme, jumpFlights(extreme)[0]);
+    const result = liftQuadrupedJumpPose(sample.pose, sample.flight, extreme, 1);
+    assert.ok(Number.isFinite(result.bodyLift));
+    assert.ok(result.bodyLift >= sample.pose.bodyLift, "the action must never lower an existing high arc");
+    assert.ok((result.bodyLift - 0.05) * 0.38 <= 0.700001,
+      "combined ordinary and action lift stays within the intended stage-scale ceiling");
   }
 });

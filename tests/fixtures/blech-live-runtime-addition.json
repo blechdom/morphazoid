@@ -1,0 +1,10 @@
+{
+  "baseCommit": "80a6196093de65feaa64ce0945b85601d88dd2e5",
+  "description": "Exactly one reviewed live automata runtime module; preserves prior inventory bytes and historical hashes.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "ba6ea1d3a6588f293d5fa3e197103a27400aeda13e378df35a8cb71edb1f1cc9",
+  "rows": [
+    "copy+require\tsrc/instruments/midi-mixer/midi-mixer-automata.js\n"
+  ],
+  "addition": "\n# Blech MIDI continuous automata source and captured performance history.\ncopy+require\tsrc/instruments/midi-mixer/midi-mixer-automata.js\n"
+}

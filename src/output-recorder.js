@@ -5,39 +5,73 @@ export const MAX_MEMORY_BYTES = 128 * 1024 * 1024;
 // bytes. Keep both RIFF and the data chunk representable by unsigned 32 bits.
 export const MAX_FILE_BYTES = WAV_HEADER_BYTES + Math.floor((0xffff_ffff - 36) / BYTES_PER_FRAME) * BYTES_PER_FRAME;
 
-export function wavHeader({ sampleRate, frames }) {
+function validateChannelCount(channelCount) {
+  if (!Number.isInteger(channelCount) || channelCount < 1 || channelCount > 32) {
+    throw new RangeError("WAV channel count must be an integer from 1 to 32.");
+  }
+  return channelCount;
+}
+
+export function wavHeaderBytes(channelCount = 2) {
+  return validateChannelCount(channelCount) > 2 ? 68 : WAV_HEADER_BYTES;
+}
+
+function fileBytes(frames, headerBytes, bytesPerFrame) {
+  const dataBytes = frames * bytesPerFrame;
+  return headerBytes + dataBytes + dataBytes % 2;
+}
+
+function frameCapacity(maxBytes, headerBytes, bytesPerFrame) {
+  let frames = Math.max(0, Math.floor((maxBytes - headerBytes) / bytesPerFrame));
+  if (fileBytes(frames, headerBytes, bytesPerFrame) > maxBytes) frames -= 1;
+  return frames;
+}
+
+/** Header only; callers append PCM data and one zero byte if its length is odd. */
+export function wavHeader({ sampleRate, frames, channelCount = 2 }) {
+  const headerBytes = wavHeaderBytes(channelCount);
+  const bytesPerFrame = channelCount * 3;
   if (!Number.isInteger(sampleRate) || sampleRate <= 0 || sampleRate > 768_000) {
     throw new RangeError("Invalid WAV sample rate.");
   }
-  const dataBytes = frames * BYTES_PER_FRAME;
-  if (!Number.isSafeInteger(frames) || frames < 0 || dataBytes > MAX_FILE_BYTES - WAV_HEADER_BYTES) {
+  const dataBytes = frames * bytesPerFrame;
+  const riffBytes = fileBytes(frames, headerBytes, bytesPerFrame) - 8;
+  if (!Number.isSafeInteger(frames) || frames < 0 || riffBytes > 0xffff_ffff) {
     throw new RangeError("This take exceeds the WAV size limit.");
   }
-  const bytes = new Uint8Array(WAV_HEADER_BYTES);
+  const bytes = new Uint8Array(headerBytes);
   const view = new DataView(bytes.buffer);
   const tag = (offset, value) => {
     for (let index = 0; index < value.length; index += 1) bytes[offset + index] = value.charCodeAt(index);
   };
   tag(0, "RIFF");
-  view.setUint32(4, 36 + dataBytes, true);
+  view.setUint32(4, riffBytes, true);
   tag(8, "WAVE");
   tag(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 2, true);
+  view.setUint32(16, channelCount > 2 ? 40 : 16, true);
+  view.setUint16(20, channelCount > 2 ? 0xfffe : 1, true);
+  view.setUint16(22, channelCount, true);
   view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * BYTES_PER_FRAME, true);
-  view.setUint16(32, BYTES_PER_FRAME, true);
+  view.setUint32(28, sampleRate * bytesPerFrame, true);
+  view.setUint16(32, bytesPerFrame, true);
   view.setUint16(34, 24, true);
-  tag(36, "data");
-  view.setUint32(40, dataBytes, true);
+  if (channelCount > 2) {
+    view.setUint16(36, 22, true);
+    view.setUint16(38, 24, true);
+    // Arbitrary instrument channels have no standard speaker mask. Preserve
+    // their order and document speaker names in the instrument's channel map.
+    view.setUint32(40, 0, true);
+    bytes.set([1, 0, 0, 0, 0, 0, 0x10, 0, 0x80, 0, 0, 0xaa, 0, 0x38, 0x9b, 0x71], 44);
+  }
+  tag(headerBytes - 8, "data");
+  view.setUint32(headerBytes - 4, dataBytes, true);
   return bytes;
 }
 
-function limitBytes(value, maximum) {
+function limitBytes(value, maximum, minimum) {
   const requested = Number(value);
   return Number.isFinite(requested)
-    ? Math.max(WAV_HEADER_BYTES + BYTES_PER_FRAME, Math.min(maximum, Math.floor(requested)))
+    ? Math.max(minimum, Math.min(maximum, Math.floor(requested)))
     : maximum;
 }
 
@@ -55,13 +89,19 @@ function message(error, fallback) {
   return error?.message || String(error || fallback);
 }
 
-/** Captures the final stereo mix on the instrument's own audio clock. */
+/** Captures a manager-provided output bus on the instrument's own audio clock. */
 export class OutputRecorder {
-  constructor({ manager, runtime = globalThis, onchange, maxMemoryBytes, maxFileBytes, stopTimeoutMs = 1_000, writeTimeoutMs = 15_000 } = {}) {
+  constructor({ manager, runtime = globalThis, onchange, channelCount = 2, maxMemoryBytes, maxFileBytes, stopTimeoutMs = 1_000, writeTimeoutMs = 15_000 } = {}) {
     this.manager = manager;
     this.runtime = runtime;
-    this.maxMemoryBytes = limitBytes(maxMemoryBytes, MAX_MEMORY_BYTES);
-    this.maxFileBytes = limitBytes(maxFileBytes, MAX_FILE_BYTES);
+    this.channelCount = validateChannelCount(channelCount);
+    this.headerBytes = wavHeaderBytes(channelCount);
+    this.bytesPerFrame = channelCount * 3;
+    const minimum = fileBytes(1, this.headerBytes, this.bytesPerFrame);
+    const maximumFrames = frameCapacity(0xffff_ffff + 8, this.headerBytes, this.bytesPerFrame);
+    const maximum = fileBytes(maximumFrames, this.headerBytes, this.bytesPerFrame);
+    this.maxMemoryBytes = limitBytes(maxMemoryBytes, MAX_MEMORY_BYTES, minimum);
+    this.maxFileBytes = limitBytes(maxFileBytes, maximum, minimum);
     this.stopTimeoutMs = stopTimeoutMs;
     this.writeTimeoutMs = writeTimeoutMs;
     this.state = "idle";
@@ -81,10 +121,14 @@ export class OutputRecorder {
       mode: take?.writable ? "file" : "memory",
       frames,
       sampleRate,
+      channelCount: this.channelCount,
+      headerBytes: this.headerBytes,
+      dataBytes: frames * this.bytesPerFrame,
+      padBytes: (frames * this.bytesPerFrame) % 2,
       seconds: frames / sampleRate,
-      bytes: take ? WAV_HEADER_BYTES + frames * BYTES_PER_FRAME : 0,
+      bytes: take ? fileBytes(frames, this.headerBytes, this.bytesPerFrame) : 0,
       maxBytes,
-      maxSeconds: Math.floor((maxBytes - WAV_HEADER_BYTES) / BYTES_PER_FRAME) / sampleRate,
+      maxSeconds: frameCapacity(maxBytes, this.headerBytes, this.bytesPerFrame) / sampleRate,
       filename: take?.filename || "",
       reason: take?.reason || "",
       error: take?.error || "",
@@ -146,7 +190,7 @@ export class OutputRecorder {
       context.addEventListener?.("statechange", take.handleStateChange);
       const loaded = context.audioWorklet.addModule(new URL("./output-recorder-processor.js", import.meta.url));
       if (writable) {
-        take.writeChain = this.fileOperation(take, () => writable.write(wavHeader({ sampleRate: take.sampleRate, frames: 0 }))).catch((error) => {
+        take.writeChain = this.fileOperation(take, () => writable.write(wavHeader({ sampleRate: take.sampleRate, frames: 0, channelCount: this.channelCount }))).catch((error) => {
           take.writeError = error;
         });
       }
@@ -157,12 +201,14 @@ export class OutputRecorder {
       if (!started || take.finishing) return take.done.promise;
       if (take.writeError) throw take.writeError;
       if (context.state !== "running") throw new Error("Audio stopped before recording could start.");
-      const maxFrames = Math.floor((take.maxBytes - WAV_HEADER_BYTES) / BYTES_PER_FRAME);
+      const maxFrames = frameCapacity(take.maxBytes, this.headerBytes, this.bytesPerFrame);
       const node = new this.runtime.AudioWorkletNode(context, "morphazoid-output-recorder", {
         numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2],
-        channelCount: 2, channelCountMode: "explicit", channelInterpretation: "speakers",
+        channelCount: this.channelCount, channelCountMode: "explicit",
+        channelInterpretation: this.channelCount === 2 ? "speakers" : "discrete",
         processorOptions: {
           maxFrames,
+          channelCount: this.channelCount,
           chunkFrames: Math.max(16_384, Math.ceil(take.sampleRate / 4 / 128) * 128),
           credits: 8,
         },
@@ -215,8 +261,8 @@ export class OutputRecorder {
 
   acceptChunk(take, { buffer, frames }) {
     if (!(buffer instanceof ArrayBuffer) || !Number.isInteger(frames) || frames <= 0
-      || buffer.byteLength !== frames * BYTES_PER_FRAME
-      || WAV_HEADER_BYTES + (take.frames + frames) * BYTES_PER_FRAME > take.maxBytes) {
+      || buffer.byteLength !== frames * this.bytesPerFrame
+      || fileBytes(take.frames + frames, this.headerBytes, this.bytesPerFrame) > take.maxBytes) {
       take.error = "The recorder returned an invalid audio chunk.";
       void this.stop("processor-error");
       return;
@@ -321,7 +367,9 @@ export class OutputRecorder {
     await take.writeChain;
     take.frames = take.persistedFrames;
     try {
-      const header = wavHeader({ sampleRate: take.sampleRate, frames: take.frames });
+      const header = wavHeader({ sampleRate: take.sampleRate, frames: take.frames, channelCount: this.channelCount });
+      const dataBytes = take.frames * this.bytesPerFrame;
+      const padding = new Uint8Array(dataBytes % 2);
       if (take.writable && !take.frames && take.reason === "start-error") {
         if (take.writeTimedOut) throw take.writeError;
         await this.fileOperation(take, () => take.writable.abort?.());
@@ -330,12 +378,15 @@ export class OutputRecorder {
         // the fully written prefix, if the browser still allows the stream to
         // be committed. An errored disk stream cannot promise recoverability.
         await this.fileOperation(take, () => take.writable.write({ type: "write", position: 0, data: header }));
-        await this.fileOperation(take, () => take.writable.truncate?.(WAV_HEADER_BYTES + take.frames * BYTES_PER_FRAME));
+        if (padding.length) {
+          await this.fileOperation(take, () => take.writable.write({ type: "write", position: this.headerBytes + dataBytes, data: padding }));
+        }
+        await this.fileOperation(take, () => take.writable.truncate?.(this.headerBytes + dataBytes + padding.length));
         await this.fileOperation(take, () => take.writable.close());
         take.saved = true;
       } else if (take.frames > 0 || !take.error) {
         const BlobConstructor = this.runtime.Blob ?? globalThis.Blob;
-        take.blob = new BlobConstructor([header, ...take.chunks], { type: "audio/wav" });
+        take.blob = new BlobConstructor([header, ...take.chunks, padding], { type: "audio/wav" });
       }
       this.state = take.blob || take.saved ? "ready" : "error";
     } catch (error) {

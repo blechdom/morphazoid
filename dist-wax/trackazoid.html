@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en" class="trackazoid-document">
+<head>
+<meta charset="utf-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Trackazoid · Morphazoid" />
+    <meta property="og:description" content="Two local-file DJ decks with waveforms, tempo, cues, beat loops and a mixer. Drop your tracks or open a local music folder. Audio stays on your device." />
+    <meta property="og:url" content="https://morphazoid.com/trackazoid.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Trackazoid · Morphazoid" />
+    <meta name="twitter:description" content="Two local-file DJ decks with waveforms, tempo, cues, beat loops and a mixer. Drop your tracks or open a local music folder. Audio stays on your device." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<meta name="theme-color" content="#0b1119" />
+<title>Trackazoid · Morphazoid</title>
+<meta name="description" content="Two local-file DJ decks with waveforms, tempo, cues, beat loops and a mixer. Drop your tracks or open a local music folder. Audio stays on your device." />
+<link rel="icon" href="favicon.svg" type="image/svg+xml" />
+<link rel="stylesheet" href="style.css" />
+<link rel="stylesheet" href="src/instruments/trackazoid/style.css" />
+</head>
+<body class="trackazoid-page" data-space-key-owner>
+<header class="masthead" data-audio-output-meter="db">
+  <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+  <nav class="tabs" aria-label="Instrument"><a class="tab active" href="trackazoid.html" aria-current="page">Trackazoid</a><a class="tab" href="loopini.html">Loopini</a></nav>
+  <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="trackazoid.html" selected>Trackazoid</option><option value="loopini.html">Loopini</option></select></label>
+  <div id="audioSlot"><button id="audioButton" type="button" aria-pressed="false" disabled>Audio off · JavaScript required</button></div>
+</header>
+<main class="trackazoid-shell" id="trackazoid">
+  <section class="tz-stage" aria-label="Trackazoid mixing workspace">
+    <div class="tz-heading"><h1>trackazoid</h1><p id="sessionStatus" role="status" aria-live="polite">Drop your tracks. Find the next mix.</p><button id="demoPair" type="button">Try demo pair</button><details class="tz-help"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck · <b>Space</b> play/pause · <b>1–4</b> hot cues · <b>L</b> loop · <b>Esc</b> pause both.</p><p>Shift-click a cue to clear it. Tempo and beats are detected on load. Play one deck, enable Sync on the other, then Play. Use Adjust only if the estimate needs correcting. Drag the waveform to seek; drag loop edges to trim.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href="docs/trackazoid.md">Trackazoid guide</a></div></details></div>
+    <div class="tz-decks">
+
+<section class="tz-deck tz-deck-a" id="deckA" aria-label="Deck A">
+  <div class="tz-deck-heading"><span class="tz-deck-letter">A</span><div class="tz-track-heading"><h2 id="aTitle">Load a track</h2><p id="aInfo">Drop a file or choose one from your library</p></div><button id="aLoad" type="button" class="tz-load" aria-label="Choose file for deck A">Load</button></div>
+  <div class="tz-pending" id="aPending" hidden><span id="aPendingName"></span><button id="aReplace" type="button">Load replacement</button><button id="aCancel" type="button" aria-label="Cancel replacement for deck A">×</button></div>
+  <div class="tz-time-row"><output id="aPosition" aria-label="Deck A elapsed time">00:00.0</output><span id="aState">EMPTY</span><output id="aRemaining" aria-label="Deck A remaining time">−00:00.0</output></div>
+  <canvas id="aWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck A waveform position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Use Left and Right to seek by a beat, Shift for ten seconds.</canvas>
+  <canvas id="aOverview" class="tz-overview" role="slider" tabindex="0" aria-label="Deck A overview position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Full track overview.</canvas>
+  <div class="tz-transport">
+    <button id="aPlay" class="tz-play" data-primary-transport type="button" aria-label="Play deck A" aria-pressed="false" disabled>▶ <span>Play</span></button>
+    <button id="aCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
+    <button id="aSync" type="button" aria-pressed="false" title="Follow the master tempo and beats" disabled>Sync</button>
+  </div>
+  <div class="tz-tempo-row">
+    <span id="aSyncInfo" class="tz-sync-info"></span>
+    <div class="tz-effective"><output id="aEffective">—</output><span>PLAYING BPM</span></div>
+    <button id="aKeyLock" type="button" aria-pressed="true" title="Preserve musical pitch when changing tempo">Key lock</button>
+  </div>
+  <label class="tz-tempo" for="aTempo"><span>Tempo <output id="aTempoOut" for="aTempo">+0.0%</output></span><input id="aTempo" type="range" min="-16" max="16" step="0.1" value="0" aria-label="Deck A tempo adjustment" /><button id="aTempoReset" type="button" aria-label="Reset deck A tempo">0</button></label>
+  <div class="tz-performance-row">
+    <div class="tz-cues" role="group" aria-label="Deck A hot cues"><button id="aHotCue1" type="button" title="Set or jump to cue 1; Shift-click to clear" aria-label="Deck A hot cue 1" disabled>1</button><button id="aHotCue2" type="button" title="Set or jump to cue 2; Shift-click to clear" aria-label="Deck A hot cue 2" disabled>2</button><button id="aHotCue3" type="button" title="Set or jump to cue 3; Shift-click to clear" aria-label="Deck A hot cue 3" disabled>3</button><button id="aHotCue4" type="button" title="Set or jump to cue 4; Shift-click to clear" aria-label="Deck A hot cue 4" disabled>4</button></div>
+    <div class="tz-loop-controls"><label for="aLoopBeats" class="sr-only">Deck A loop length</label><select id="aLoopBeats" aria-label="Deck A loop length"><option value="1">1 beat</option><option value="2">2 beats</option><option value="4" selected>4 beats</option><option value="8">8 beats</option><option value="16">16 beats</option></select><button id="aLoop" type="button" aria-pressed="false" disabled>Loop</button></div>
+  </div>
+  <p id="aAnalysisStatus" class="tz-analysis-status">Tempo detected when you load a track</p>
+  <details id="aAdjust" class="tz-adjust">
+    <summary>Adjust</summary>
+    <div class="tz-adjust-controls">
+      <div class="tz-grid-row"><label class="tz-source-bpm" for="aBpm">Source BPM <input id="aBpm" type="number" min="40" max="240" step="0.1" placeholder="Auto" disabled aria-label="Deck A source BPM" /></label><button id="aHalfBpm" type="button" aria-label="Halve deck A source BPM" disabled>½</button><button id="aDoubleBpm" type="button" aria-label="Double deck A source BPM" disabled>×2</button></div>
+      <div class="tz-grid-row"><button id="aGrid" type="button" disabled>Set downbeat here</button><button id="aGridBack" type="button" aria-label="Move deck A beat grid earlier" title="Move beat grid 10 ms earlier" disabled>Grid −</button><button id="aGridForward" type="button" aria-label="Move deck A beat grid later" title="Move beat grid 10 ms later" disabled>Grid +</button></div>
+      <p id="aGridInfo" class="tz-grid-info">Set BPM to enable the beat grid</p>
+      <div class="tz-grid-row"><button id="aNudgeBack" type="button" aria-label="Nudge deck A earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
+    <button id="aNudgeForward" type="button" aria-label="Nudge deck A later" title="Move forward 20 milliseconds" disabled>+ Nudge</button></div>
+      <div class="tz-grid-row"><button id="aAnalyze" type="button" title="Analyze again; your manual corrections are kept" disabled>Reanalyze</button><button id="aUseAuto" type="button" title="Replace your BPM and grid corrections with the automatic estimate" hidden>Use automatic grid</button></div>
+      <p class="tz-adjust-hint">Corrections save with the track. Nudging or seeking releases Sync.</p>
+    </div>
+  </details>
+</section>
+    <section class="tz-mixer" aria-label="Mixer">
+      <h2>Mixer</h2>
+      <div class="tz-channels"><div class="tz-channel tz-channel-a"><span class="tz-channel-label">A</span><label for="ahigh">high<input id="ahigh" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck A high EQ" /><output for="ahigh">0 dB</output></label><label for="amid">mid<input id="amid" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck A mid EQ" /><output for="amid">0 dB</output></label><label for="alow">low<input id="alow" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck A low EQ" /><output for="alow">0 dB</output></label><label for="aFilter">Filter<input id="aFilter" type="range" min="-1" max="1" step="0.01" value="0" aria-label="Deck A filter" /><output for="aFilter">Open</output></label><label class="tz-channel-fader" for="aGain">Level<input id="aGain" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Deck A channel level" /><output for="aGain">80%</output></label><button id="aMonitor" type="button" aria-pressed="false" title="Send this deck to the cue output in Split cue mode">Cue A</button></div><div class="tz-channel tz-channel-b"><span class="tz-channel-label">B</span><label for="bhigh">high<input id="bhigh" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck B high EQ" /><output for="bhigh">0 dB</output></label><label for="bmid">mid<input id="bmid" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck B mid EQ" /><output for="bmid">0 dB</output></label><label for="blow">low<input id="blow" type="range" min="-24" max="12" step="0.5" value="0" aria-label="Deck B low EQ" /><output for="blow">0 dB</output></label><label for="bFilter">Filter<input id="bFilter" type="range" min="-1" max="1" step="0.01" value="0" aria-label="Deck B filter" /><output for="bFilter">Open</output></label><label class="tz-channel-fader" for="bGain">Level<input id="bGain" type="range" min="0" max="1" step="0.01" value="0.8" aria-label="Deck B channel level" /><output for="bGain">80%</output></label><button id="bMonitor" type="button" aria-pressed="false" title="Send this deck to the cue output in Split cue mode">Cue B</button></div></div>
+      <label class="tz-crossfader" for="crossfader"><span>A <span>Crossfader</span> B</span><input id="crossfader" type="range" min="-1" max="1" step="0.01" value="0" aria-label="Crossfader between decks A and B" /></label>
+      <button id="resetMixer" type="button" data-reset-all data-reset-in-place>Reset mixer</button>
+      <label class="tz-routing" for="outputMode">Monitoring<select id="outputMode"><option value="stereo">Stereo master</option><option value="split">Split cue · L master / R cue</option></select></label>
+      <label class="tz-cue-volume" for="cueLevel">Cue level<input id="cueLevel" type="range" min="0" max="1" step="0.01" value="0.6" /></label>
+    </section>
+
+<section class="tz-deck tz-deck-b" id="deckB" aria-label="Deck B">
+  <div class="tz-deck-heading"><span class="tz-deck-letter">B</span><div class="tz-track-heading"><h2 id="bTitle">Load a track</h2><p id="bInfo">Drop a file or choose one from your library</p></div><button id="bLoad" type="button" class="tz-load" aria-label="Choose file for deck B">Load</button></div>
+  <div class="tz-pending" id="bPending" hidden><span id="bPendingName"></span><button id="bReplace" type="button">Load replacement</button><button id="bCancel" type="button" aria-label="Cancel replacement for deck B">×</button></div>
+  <div class="tz-time-row"><output id="bPosition" aria-label="Deck B elapsed time">00:00.0</output><span id="bState">EMPTY</span><output id="bRemaining" aria-label="Deck B remaining time">−00:00.0</output></div>
+  <canvas id="bWaveform" class="tz-waveform" role="slider" tabindex="0" aria-label="Deck B waveform position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Track waveform. Use Left and Right to seek by a beat, Shift for ten seconds.</canvas>
+  <canvas id="bOverview" class="tz-overview" role="slider" tabindex="0" aria-label="Deck B overview position" aria-valuemin="0" aria-valuemax="1" aria-valuenow="0">Full track overview.</canvas>
+  <div class="tz-transport">
+    <button id="bPlay" class="tz-play"  type="button" aria-label="Play deck B" aria-pressed="false" disabled>▶ <span>Play</span></button>
+    <button id="bCue" type="button" title="Return to the first cue and pause" disabled>Cue</button>
+    <button id="bSync" type="button" aria-pressed="false" title="Follow the master tempo and beats" disabled>Sync</button>
+  </div>
+  <div class="tz-tempo-row">
+    <span id="bSyncInfo" class="tz-sync-info"></span>
+    <div class="tz-effective"><output id="bEffective">—</output><span>PLAYING BPM</span></div>
+    <button id="bKeyLock" type="button" aria-pressed="true" title="Preserve musical pitch when changing tempo">Key lock</button>
+  </div>
+  <label class="tz-tempo" for="bTempo"><span>Tempo <output id="bTempoOut" for="bTempo">+0.0%</output></span><input id="bTempo" type="range" min="-16" max="16" step="0.1" value="0" aria-label="Deck B tempo adjustment" /><button id="bTempoReset" type="button" aria-label="Reset deck B tempo">0</button></label>
+  <div class="tz-performance-row">
+    <div class="tz-cues" role="group" aria-label="Deck B hot cues"><button id="bHotCue1" type="button" title="Set or jump to cue 1; Shift-click to clear" aria-label="Deck B hot cue 1" disabled>1</button><button id="bHotCue2" type="button" title="Set or jump to cue 2; Shift-click to clear" aria-label="Deck B hot cue 2" disabled>2</button><button id="bHotCue3" type="button" title="Set or jump to cue 3; Shift-click to clear" aria-label="Deck B hot cue 3" disabled>3</button><button id="bHotCue4" type="button" title="Set or jump to cue 4; Shift-click to clear" aria-label="Deck B hot cue 4" disabled>4</button></div>
+    <div class="tz-loop-controls"><label for="bLoopBeats" class="sr-only">Deck B loop length</label><select id="bLoopBeats" aria-label="Deck B loop length"><option value="1">1 beat</option><option value="2">2 beats</option><option value="4" selected>4 beats</option><option value="8">8 beats</option><option value="16">16 beats</option></select><button id="bLoop" type="button" aria-pressed="false" disabled>Loop</button></div>
+  </div>
+  <p id="bAnalysisStatus" class="tz-analysis-status">Tempo detected when you load a track</p>
+  <details id="bAdjust" class="tz-adjust">
+    <summary>Adjust</summary>
+    <div class="tz-adjust-controls">
+      <div class="tz-grid-row"><label class="tz-source-bpm" for="bBpm">Source BPM <input id="bBpm" type="number" min="40" max="240" step="0.1" placeholder="Auto" disabled aria-label="Deck B source BPM" /></label><button id="bHalfBpm" type="button" aria-label="Halve deck B source BPM" disabled>½</button><button id="bDoubleBpm" type="button" aria-label="Double deck B source BPM" disabled>×2</button></div>
+      <div class="tz-grid-row"><button id="bGrid" type="button" disabled>Set downbeat here</button><button id="bGridBack" type="button" aria-label="Move deck B beat grid earlier" title="Move beat grid 10 ms earlier" disabled>Grid −</button><button id="bGridForward" type="button" aria-label="Move deck B beat grid later" title="Move beat grid 10 ms later" disabled>Grid +</button></div>
+      <p id="bGridInfo" class="tz-grid-info">Set BPM to enable the beat grid</p>
+      <div class="tz-grid-row"><button id="bNudgeBack" type="button" aria-label="Nudge deck B earlier" title="Move back 20 milliseconds" disabled>− Nudge</button>
+    <button id="bNudgeForward" type="button" aria-label="Nudge deck B later" title="Move forward 20 milliseconds" disabled>+ Nudge</button></div>
+      <div class="tz-grid-row"><button id="bAnalyze" type="button" title="Analyze again; your manual corrections are kept" disabled>Reanalyze</button><button id="bUseAuto" type="button" title="Replace your BPM and grid corrections with the automatic estimate" hidden>Use automatic grid</button></div>
+      <p class="tz-adjust-hint">Corrections save with the track. Nudging or seeking releases Sync.</p>
+    </div>
+  </details>
+</section>
+    </div>
+  </section>
+  <section class="tz-library" aria-labelledby="libraryTitle" id="libraryDrop">
+    <div class="tz-library-toolbar"><h2 id="libraryTitle">Library <span id="trackCount">0 tracks</span></h2><label class="tz-search" for="librarySearch"><span class="sr-only">Search tracks</span><input id="librarySearch" type="search" placeholder="Search tracks or folders…" autocomplete="off" /></label><button id="addFiles" type="button">Add files</button><button id="openFolder" type="button">Open folder</button><button id="cancelImport" type="button" hidden>Cancel scan</button></div>
+    <div class="tz-library-content">
+      <aside class="tz-folders" aria-label="Music folders"><button id="allTracks" type="button" aria-pressed="true">All tracks</button><div id="folderList"></div><p>Local files.<br />Your music stays here.</p></aside>
+      <div class="tz-track-area"><div class="tz-library-empty" id="libraryEmpty"><svg viewBox="0 0 80 48" aria-hidden="true"><path d="M5 24h10l5-14 8 29 8-37 9 42 8-29 6 9h16" /></svg><h3>Your next mix starts here</h3><p>Drop audio files, add tracks, or open a music folder.</p></div><div class="tz-table-scroll" id="libraryTableWrap" hidden><table><thead><tr><th scope="col">Track</th><th scope="col">Folder</th><th scope="col">BPM</th><th scope="col">Time</th><th scope="col">Load</th></tr></thead><tbody id="trackRows"></tbody></table></div><button id="showMore" type="button" hidden>Show more tracks</button></div>
+    </div>
+    <div class="tz-library-footer"><span id="libraryStatus" role="status" aria-live="polite">Choose files to begin. WAV, MP3 and other browser-supported audio.</span><span id="libraryVisible"></span></div>
+  </section>
+  <p class="tz-error" id="errorMessage" role="alert" hidden></p>
+  <noscript><p>Trackazoid needs JavaScript for local audio playback. Your files stay on your device.</p></noscript>
+</main>
+<input id="filePicker" type="file" accept="audio/*,.mp3,.wav,.flac,.ogg,.opus,.m4a,.aac,.aif,.aiff,.webm" multiple hidden />
+<input id="folderPicker" type="file" webkitdirectory multiple hidden />
+<script type="module" src="src/instruments/trackazoid/app.js"></script>
+<script type="module" src="nav.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

@@ -1,5 +1,18 @@
 # Morphazoid
 
+**[Sound Fonts](sound-fonts.html)** collects free downloadable banks, imported SF2s,
+and source links, with favorites, notes, preset previews, and browser-local storage.
+Its workshop turns synthesized sounds or uploaded audio samples into downloadable
+SF2s. Audio starts off. [Controls, sources and limits](docs/sound-fonts.md).
+
+**[Trackazoid](trackazoid.html)** is a desktop browser DJ workspace inside Morphazoid.
+Drop local audio onto two decks or open a music folder, then mix with waveforms,
+automatic BPM and beat grids, persistent Sync, key lock, four hot cues per deck, beat loops,
+EQ, filters and a crossfader. File loading leaves Audio off; replacing a playing
+track requires an explicit Load replacement action. Source BPM and grid corrections
+save locally under Adjust. Split output provides mono master/cue channels while recording
+keeps the stereo master. [Controls, local files and the next stages](docs/trackazoid.md).
+
 **[Vector Fractals](vector-fractals.html#explorer)** is a work in progress: Contour Explorer reveals freshly calculated Mandelbrot and Julia vectors as you zoom. Choose named Julia coefficients such as Douady rabbit, Airplane and the golden-mean Siegel disk, then explore three detail layers with Trace, Radar, Scan, tone voices and drum beads. Shape changes preserve your musical settings. The original Julia Vectors, Mandelbrot Contours and Bulb Voyager demos remain available. Audio starts off. [Mathematics, controls and limits](docs/vector-fractals.md).
 
 **Main output recording** captures stereo 24-bit WAV from the red Record button
@@ -24,10 +37,15 @@ SoundFont in the browser: enable Audio, then Play. With Audio on, the on-screen
 pads and enabled computer/MIDI keys also play piano, independently of the song.
 Speed, loop, seek and live visual
 tweaks include axis reflections and travel from or toward the center, with sixteen visual presets, Next and parameter dice.
-Type a word to create and download a playable letter-shaped MIDI score. Song
+The MIDI Mixer view combines two songs with per-voice controls and synchronized tempo. Song
 Next/Random keeps playback active; the light ADSR has draggable envelope nodes. Independently implemented
 for the browser, inspired by [Nicholas C. Stanley’s Midiphoria](https://github.com/NicholasCStanley/midiphoria).
 See [setup, collection credits and feature gaps](docs/midiphoria.md).
+
+**[Blech MIDI](blech-midi.html)** is the separate drawing and generated-MIDI instrument.
+Prepare a drawing, launch black MIDI or geometric stamps, or play messages and
+cellular-automata rules. SoundFont audio and moving note trails share Loop and
+Sync to tempo controls. Audio starts off. [Drawing, stamps and rules](docs/blech-midi.md).
 
 **[L-system Delay Rust](l-mic-rust.html)** combines all 29 rule modes and 210
 complete presets in one instrument. Its classic and stochastic grammars now sit
