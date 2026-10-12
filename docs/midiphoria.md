@@ -33,7 +33,7 @@ results without changing Audio. Clicking the selected song again preserves its
 position. Arrow keys, Home/End and Page Up/Down browse the list without selecting;
 Enter or Space selects the focused file. Imports and generated text clear the
 filter so their new rows remain visible.
-Speed is 0.5–4×, with the shared Tap control (120 BPM = 1×), seek and looping.
+Speed is 0.5–8×, with the shared Tap control (120 BPM = 1×), seek and looping.
 Seeking restores MIDI programs/controllers and resumes subsequent note events;
 it does not reconstruct notes whose attacks precede the seek point.
 
@@ -224,7 +224,7 @@ bundled. Matching capabilities does not imply identical defaults or pixels.
 | Export FPS, resolution, crop, duration, tails and channel subsets | Missing |
 | Shutter samples, averaging/max blending, start/center/end sampling | Missing |
 | Original keyboard shortcuts | Partial; browser controls and shared note keyboard differ |
-| Torch/CUDA and OpenGL renderer | Replaced by browser Canvas/Web Audio |
+| Torch/CUDA and OpenGL renderer | Browser Canvas 2D/Web Audio; Black MIDI adds WebGL2 |
 
 The browser adds note trails, audible on-screen piano pads, two-row computer keys, sustain,
 source/channel isolation, disconnect recovery, a curated menu, local MIDI
