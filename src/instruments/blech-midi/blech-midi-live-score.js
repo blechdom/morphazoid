@@ -59,9 +59,9 @@ export function createBlechLiveProjector() {
   const samples = new WeakMap();
   let evolution = null, automataEpoch = 0, lastAutomataBeat = 0, wasAutomataPlaying = false, sawAutomata = false, automataHistoryFloor = 0, effectRevision = 0, effectKey = '';
   const history = createBlechNoteHistory(), effectFamilies = new Map();
-  let effectTimeline = [];
+  let effectTimeline = [], automataFamilies = new Map(), automataFamilyKey = null;
   return function project(state, { lookAhead = 6, pastSeconds = 0, now = state?.sampleTime ?? 0, limit = BLECH_LIVE_NOTE_LIMIT } = {}) {
-    if (!state) { history.clear(); effectFamilies.clear(); effectTimeline = []; evolution = null; wasAutomataPlaying = false; sawAutomata = false; }
+    if (!state) { history.clear(); effectFamilies.clear(); effectTimeline = []; automataFamilies.clear(); automataFamilyKey = null; evolution = null; wasAutomataPlaying = false; sawAutomata = false; }
     pastSeconds = bound(pastSeconds, 0, 30, 0);
     lookAhead = bound(lookAhead, .25, 60, 6);
     limit = Math.floor(bound(limit, 0, BLECH_LIVE_NOTE_LIMIT, BLECH_LIVE_NOTE_LIMIT));
@@ -85,11 +85,30 @@ export function createBlechLiveProjector() {
     const automata = state?.automata;
     const hasAutomata = automata?.playing && automata.generation >= 0 && automata.row?.length;
     if (hasAutomata && (!wasAutomataPlaying || automata.beat < lastAutomataBeat)) {
-      automataEpoch++;
+      automataEpoch++; automataFamilies.clear(); automataFamilyKey = null;
       automataHistoryFloor = sawAutomata && automata.beat >= lastAutomataBeat ? automata.beat : 0;
     }
     if (automata) { lastAutomataBeat = automata.beat; sawAutomata = true; }
     wasAutomataPlaying = Boolean(hasAutomata);
+    if (hasAutomata) {
+      const rows = (automata.history ?? []).slice(-BLECH_AUTOMATA_ROW_LIMIT);
+      const key = `${automataEpoch}:${rows[0]?.generation}:${automata.generation}`;
+      if (key !== automataFamilyKey) {
+        const next = new Map(); let previous = null;
+        for (const row of rows) {
+          if (row.endBeat < automataHistoryFloor) continue;
+          const cached = automataFamilies.get(row.generation), families = new Map();
+          for (let column = 0; column < row.row.length; column++) if (row.row[column]) {
+            const pitch = row.lowestNote + column;
+            const family = cached?.get(pitch) ?? (row.articulation === 'hold' ? previous?.get(pitch) : null)
+              ?? { id: `automata:${automataEpoch}:${Math.max(row.startBeat, automataHistoryFloor)}:${pitch}`, start: Math.max(row.startBeat, automataHistoryFloor) };
+            families.set(pitch, family);
+          }
+          next.set(row.generation, families); previous = families;
+        }
+        automataFamilies = next; automataFamilyKey = key;
+      }
+    }
     const pastIds = new Set(), pastSourceCounts = new Map();
     const historyPerSource = Math.max(1, Math.floor(BLECH_LIVE_NOTE_LIMIT / Math.max(1, sourceList.length + Number(Boolean(hasAutomata)))));
     const perSource = Math.max(1, Math.floor(limit / Math.max(1, activeSamples.length + Number(Boolean(hasAutomata)))));
@@ -98,12 +117,14 @@ export function createBlechLiveProjector() {
       // The audio effects layer snapshots a note family at its attack. Editing
       // chords/transpose/echo does not retrigger already held notes; preserve the
       // same family in both forecast and history until this gate has finished.
-      let family = effectFamilies.get(note.id);
+      const effectId = note.effectId ?? note.id;
+      let family = effectFamilies.get(effectId);
       if (!family) {
-        const epoch = effectTimeline.findLast(item => item.at <= now + note.start) ?? effectTimeline[0];
+        const epoch = effectTimeline.findLast(item => item.at <= now + (note.effectStart ?? note.start)) ?? effectTimeline[0];
         family = { ...epoch, expires: now + note.end + tail };
-        if (note.start <= 0) { effectFamilies.set(note.id, family); while (effectFamilies.size > BLECH_LIVE_NOTE_LIMIT) effectFamilies.delete(effectFamilies.keys().next().value); }
+        if (note.start <= 0) { effectFamilies.set(effectId, family); while (effectFamilies.size > BLECH_LIVE_NOTE_LIMIT) effectFamilies.delete(effectFamilies.keys().next().value); }
       }
+      family.expires = Math.max(family.expires, now + note.end + tail);
       let childIndex = 0;
       for (const child of midiNoteEffectChildren(family.effects, note.pitch, note.velocity, { drums })) {
         const id = `${note.id}:${family.revision}:${childIndex++}`;
@@ -191,7 +212,10 @@ export function createBlechLiveProjector() {
       sources.push(source);
       for (const note of evolution.notes) {
         scanned++;
-        emit({ ...note, id: `automata:${automataEpoch}:${note.start}:${note.pitch}`, start: (Math.max(note.start, automataHistoryFloor) - automata.beat) * 60 / tempo, end: (note.end - automata.beat) * 60 / tempo }, source, sourceLimit);
+        const family = note.start === automata.rowStart ? automataFamilies.get(automata.generation)?.get(note.pitch) : null;
+        emit({ ...note, id: family?.id ?? `automata:${automataEpoch}:${note.start}:${note.pitch}`,
+          start: ((family?.start ?? Math.max(note.start, automataHistoryFloor)) - automata.beat) * 60 / tempo,
+          end: (note.end - automata.beat) * 60 / tempo }, source, sourceLimit);
         if (notes.length >= sourceLimit) { truncated = true; break; }
       }
     }
@@ -209,8 +233,10 @@ export function createBlechLiveProjector() {
         if (end <= -pastSeconds) break;
         for (let column = 0; column < row.row.length && visited < BLECH_LIVE_NOTE_LIMIT; column++) if (row.row[column]) {
           visited++;
-          emit({ id: `row:${automataEpoch}:${row.generation}:${column}`, revision: automataEpoch, pitch: row.lowestNote + column, velocity: row.velocity,
-            channel: 0, track: 196608, gain: row.gain, start, end }, 'automata', limit, false, true);
+          const pitch = row.lowestNote + column, family = automataFamilies.get(row.generation)?.get(pitch);
+          emit({ id: family?.id ?? `row:${automataEpoch}:${row.generation}:${column}`, revision: automataEpoch, pitch, velocity: row.velocity,
+            channel: 0, track: 196608, gain: row.gain,
+            start: family ? sampleSecondsAt(tempoMap, family.start) - present : start, end }, 'automata', limit, false, true);
         }
       }
     }

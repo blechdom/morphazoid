@@ -151,3 +151,21 @@ test('clock-confirmed completion recovers final subframe gates but explicit stop
   assert.ok(Math.abs(result.pastNotes[0].start - -.035) < 1e-12);
   assert.ok(Math.abs(result.pastNotes[0].end - -.015) < 1e-12);
 });
+
+
+test('Automata Hold carries the original effect family through row boundaries', () => {
+  const clock = new MidiAutomataClock(); clock.configure({ columns: 8, lowestNote: 60, rowBeats: .25, rule: 255, articulation: 'hold' }); clock.setPlaying(true);
+  clock.advance(.125, 120);
+  const heldPitch = clock.snapshot(true).notes[0].note, project = createBlechLiveProjector();
+  project(state([], .0625, { automata: clock.snapshot() }), { pastSeconds: 4 });
+  // Change effects while the initial cell is held. Rule255 preserves it while
+  // introducing seven new source attacks at the next row.
+  project(state([], .0625, { automata: clock.snapshot(), noteEffects: { enabled: true, transpose: 12 } }), { pastSeconds: 4 });
+  clock.advance(.25, 120);
+  const result = project(state([], .1875, { automata: clock.snapshot(), noteEffects: { enabled: true, transpose: 12 } }), { pastSeconds: 4 });
+  assert.ok(result.notes.some(item => item.pitch === heldPitch && item.start < 0));
+  assert.ok(!result.notes.some(item => item.pitch === heldPitch + 12 && item.start <= 0));
+  assert.ok(result.pastNotes.some(item => item.pitch === heldPitch && item.end === 0));
+  assert.ok(!result.pastNotes.some(item => item.pitch === heldPitch + 12));
+  assert.ok(result.notes.some(item => item.pitch >= 72 && item.pitch !== heldPitch + 12));
+});
