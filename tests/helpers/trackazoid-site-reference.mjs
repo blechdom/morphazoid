@@ -4,6 +4,7 @@ import { readFileSync } from 'node:fs';
 import { restoreSoundFontsSite } from './sound-fonts-site-reference.mjs';
 import { restoreBlechLiveRuntime } from './blech-live-runtime-reference.mjs';
 import { restoreMidiNoteEffectsRuntime } from './midi-note-effects-runtime-reference.mjs';
+import { restoreBlackMidiArtRuntime } from './black-midi-art-runtime-reference.mjs';
 
 export const trackazoidSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/trackazoid-site-amendments.json', import.meta.url), 'utf8',
@@ -12,6 +13,7 @@ export const trackazoidSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the Trackazoid registration before comparing historical bytes. */
 export function restoreTrackazoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });
   source = restoreTrackazoidBeatmatchingSite(source, file, { allowRestored: true });
   source = restoreBlechLiveRuntime(source, file, { allowRestored: true });
   source = restoreMidiNoteEffectsRuntime(source, file, { allowRestored: true });

@@ -1939,3 +1939,36 @@ copy+require	src/instruments/midiphoria/midiphoria-processor.js
 
 # Blech MIDI continuous automata source and captured performance history.
 copy+require	src/instruments/midi-mixer/midi-mixer-automata.js
+
+# Black MIDI complete decorative scores, GPU falling view and bespoke MIDI art.
+copy+require	src/instruments/midiphoria/midiphoria-black-score.js
+copy+require	src/instruments/midiphoria/midiphoria-black-loader.js
+copy+require	src/instruments/midiphoria/midiphoria-black-worker.js
+copy+require	src/instruments/midiphoria/midiphoria-black-renderer.js
+copy+require	src/instruments/midiphoria/midiphoria-score-view.js
+copy+require	src/instruments/blech-midi/blech-midi-art.js
+copy+require	src/instruments/blech-midi/blech-midi-art-controls.js
+copy+require	assets/midiphoria/midi/artists/black-hans-stereo-madness.mid.gz
+copy+require	assets/midiphoria/midi/artists/black-hans-yiay-final2.mid.gz
+copy+require	assets/midiphoria/midi/artists/black-hans-yiay-one-million.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-a-soul-of-steel-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-chasing-wind-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-dnca-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-five-pebbles-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-fmk30tp-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-jbsmg-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-judgement-day-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-lightstorm-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-looking-to-the-moon-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-mournful-camaraderie-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-seven-red-suns-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-sliver-of-straw-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-swmg-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-twin-nemesis-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-unparalleled-innocence-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-update-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-uvb-76-the-buzzer-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-winter-s-pain-full.mid.gz
+copy+require	assets/midiphoria/midi/decorative/black-bleed-winter-s-rage-full.mid.gz
+copy+require	assets/midiphoria/ARTWORK-SOURCES.md
+copy+require	assets/midiphoria/licenses/HANS5958-CC-BY-4.0.md
