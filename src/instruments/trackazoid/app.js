@@ -1,4 +1,5 @@
 import { createAudioStrip } from "../../ui/patterns/audio-strip.js";
+import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { TrackazoidAudio } from "./audio.js";
 import { TrackLibrary } from "./library.js";
 import { WaveformView, formatTime, beatLoop } from "./waveform.js";
@@ -9,6 +10,7 @@ import { DEMO_TRACKS, createDemoFile } from "./demo-tracks.js";
 const $ = (id) => document.getElementById(id);
 const abort = new AbortController();
 const on = (target, event, fn, options = {}) => target.addEventListener(event, fn, { ...options, signal: abort.signal });
+const eqKnobs = [];
 const decks = Object.fromEntries(["a", "b"].map((id) => [id, {
   entry: null, metadata: normalizeTrackMetadata(), buffer: null,
   analyzer: createBeatAnalyzer(), analyzing: false, analysisRevision: 0, analysisError: "",
@@ -257,12 +259,21 @@ function hotCue(id, index, clear = false) {
   if (!decks[id].entry || decks[id].loading) return;
   const deck = decks[id], pad = deck.metadata.pads[index];
   deck.selectedPad = index; selectDeck(id);
-  if (clear) writePad(id, index, null);
+  if (clear) clearPad(id, index);
   else if (!pad) storePad(id, index);
   else if (pad.type === "loop") {
     engine.triggerLoop(id, pad); setSelection(id, { start: pad.start, end: pad.end });
-  } else engine.triggerCue(id, pad.position);
+    status(`Deck ${id.toUpperCase()} · recalled loop ${index + 1}. Use Loop to exit looping.`);
+  } else {
+    engine.triggerCue(id, pad.position);
+    status(`Deck ${id.toUpperCase()} · recalled cue ${index + 1} at ${formatTime(pad.position)}.`);
+  }
   updateDecks();
+}
+function clearPad(id, index) {
+  if (!decks[id].entry || decks[id].loading || !decks[id].metadata.pads[index]) return;
+  writePad(id, index, null);
+  status(`Deck ${id.toUpperCase()} · cleared saved pad ${index + 1}. Playback and any active loop are unchanged.`);
 }
 function writePad(id, index, pad) {
   if (!decks[id].entry || decks[id].loading) return;
@@ -274,8 +285,10 @@ function storePad(id, index, type) {
   if (!deck.entry || deck.loading) return;
   const loop = deck.selection ?? engine.snapshot(id).loop, name = deck.metadata.pads[index]?.name || "";
   if (type === "loop" && !loop) { status("Select a chunk or activate a loop before storing it."); return; }
-  writePad(id, index, type !== "cue" && loop ? { type: "loop", ...loop, name }
-    : { type: "cue", position: editPosition(id, engine.snapshot(id).position), name });
+  const pad = type !== "cue" && loop ? { type: "loop", ...loop, name }
+    : { type: "cue", position: editPosition(id, engine.snapshot(id).position), name };
+  writePad(id, index, pad);
+  status(`Deck ${id.toUpperCase()} · saved ${pad.type} in pad ${index + 1}. Click it to recall; Clear pad removes it.`);
 }
 function performanceAction(id, method, value) {
   if (!decks[id].entry || decks[id].loading) return;
@@ -344,7 +357,7 @@ function addMarker(id, time = editPosition(id, engine.snapshot(id).position)) {
   const deck = decks[id];
   if (!deck.entry || deck.loading) return;
   const index = deck.metadata.pads.indexOf(null);
-  if (index < 0) { status("All eight pads are set. Shift-click a pad or use Edit pads to clear a slot."); return; }
+  if (index < 0) { status("All eight pads are set. Shift-click a pad or use Clear pad to empty a slot."); return; }
   moveMarker(id, index, time);
 }
 function selectionIsLoop(id, loop = engine.snapshot(id).loop) {
@@ -452,16 +465,22 @@ function updateDecks() {
       const pad = deck.metadata.pads[index], button = $(`${id}HotCue${index + 1}`);
       button.disabled = !editable;
       button.classList.toggle("has-cue", Boolean(pad)); button.classList.toggle("has-loop", pad?.type === "loop");
-      button.setAttribute("aria-pressed", String(Boolean(pad) && deck.selectedPad === index));
-      const label = pad ? pad.name || (pad.type === "loop" ? "Loop" : "Cue") : "Set";
-      const text = `${index + 1} ${label}`;
-      if (button.textContent !== text) button.textContent = text;
-      button.setAttribute("aria-label", `Deck ${letter} hot cue ${index + 1}: ${pad ? `${pad.type}${pad.name ? ` ${pad.name}` : ""}` : "Set empty pad"}`);
-      button.title = pad ? `${pad.type === "loop" ? "Recall loop" : "Jump to cue"} ${index + 1}${pad.name ? ` · ${pad.name}` : ""}; Shift-click to clear`
+      const label = `${index + 1} ${pad ? pad.type === "loop" ? "Loop" : "Cue" : "Save"}`;
+      const time = pad ? pad.type === "loop" ? `${formatTime(pad.start)} → ${formatTime(pad.end)}` : formatTime(pad.position) : "";
+      const detail = pad ? pad.name || time : "Empty";
+      const labelNode = button.querySelector(".tz-pad-label"), detailNode = button.querySelector(".tz-pad-detail");
+      if (labelNode.textContent !== label) labelNode.textContent = label;
+      if (detailNode.textContent !== detail) detailNode.textContent = detail;
+      button.setAttribute("aria-label", `Deck ${letter} pad ${index + 1}: ${pad ? `${pad.type === "loop" ? "recall saved loop" : "jump to saved cue"}${pad.name ? ` ${pad.name}` : ""}, ${time}` : "save cue or loop"}`);
+      button.title = pad ? `${pad.type === "loop" ? "Recall saved loop" : "Jump to saved cue"} ${index + 1}${pad.name ? ` · ${pad.name}` : ""} · ${time}; Shift-click to clear`
         : "Save selection or active loop here; otherwise save a cue at the playhead";
     }
     const chosenPad = deck.metadata.pads[deck.selectedPad];
     $(`${id}PadSlot`).value = String(deck.selectedPad);
+    const clearLabel = `Clear pad ${deck.selectedPad + 1}`;
+    if ($(`${id}PadClear`).textContent !== clearLabel) $(`${id}PadClear`).textContent = clearLabel;
+    const padInfo = chosenPad ? `Saved ${chosenPad.type}${chosenPad.name ? ` · ${chosenPad.name}` : ""}` : "Empty slot";
+    if ($(`${id}PadInfo`).textContent !== padInfo) $(`${id}PadInfo`).textContent = padInfo;
     const nameField = $(`${id}PadName`), padKey = JSON.stringify([deck.entry, deck.selectedPad, chosenPad?.name || ""]);
     if (nameField.dataset.padKey !== padKey) { nameField.value = chosenPad?.name || ""; nameField.dataset.padKey = padKey; }
     for (const key of ["PadSlot", "PadStoreCue"]) $(`${id}${key}`).disabled = !editable;
@@ -499,7 +518,7 @@ for (const id of ["a", "b"]) {
   });
   on($(`${id}PadStoreCue`), "click", () => storePad(id, decks[id].selectedPad, "cue"));
   on($(`${id}PadStoreLoop`), "click", () => storePad(id, decks[id].selectedPad, "loop"));
-  on($(`${id}PadClear`), "click", () => writePad(id, decks[id].selectedPad, null));
+  on($(`${id}PadClear`), "click", () => clearPad(id, decks[id].selectedPad));
   on($(`${id}Demo`), "change", (event) => {
     const demoId = event.target.value; event.target.value = "";
     if (demoId) act(() => loadDemo(id, demoId));
@@ -546,10 +565,22 @@ for (const id of ["a", "b"]) {
     decks[id].monitor = !decks[id].monitor; engine.setCue(id, decks[id].monitor); updateDecks();
     if (decks[id].monitor && $("outputMode").value === "stereo") status("Cue selected. Choose Split cue monitoring to hear it on the right output.");
   });
-  for (const band of ["high", "mid", "low"]) on($(`${id}${band}`), "input", (event) => {
-    const value = Number(event.target.value); engine.setEQ(id, band, value);
-    event.target.parentElement.querySelector("output").value = `${value > 0 ? "+" : ""}${value} dB`; saveSettings();
-  });
+  for (const band of ["high", "mid", "low"]) {
+    const field = $(`${id}${band}`);
+    eqKnobs.push(enhanceRangeKnob(field));
+    field.setAttribute("aria-valuetext", "0 dB");
+    on(field, "input", () => {
+      const value = Number(field.value); engine.setEQ(id, band, value);
+      const readout = `${value > 0 ? "+" : ""}${value} dB`;
+      field.parentElement.querySelector("output").value = readout;
+      field.setAttribute("aria-valuetext", readout); saveSettings();
+    });
+    on(field, "dblclick", () => {
+      field.value = "0";
+      field.dispatchEvent(new Event("input", { bubbles: true }));
+      field.dispatchEvent(new Event("change", { bubbles: true }));
+    });
+  }
   on($(`${id}Gain`), "input", (event) => { const value = Number(event.target.value); engine.setGain(id, value); event.target.parentElement.querySelector("output").value = `${Math.round(value * 100)}%`; saveSettings(); });
   on($(`${id}Filter`), "input", (event) => {
     const value = Number(event.target.value); engine.setFilter(id, value);
@@ -715,10 +746,15 @@ async function dispose() {
   disposed = true; audioAttempt++; decks.a.revision++; decks.b.revision++;
   cancelAnimationFrame(frame); cancelAnimationFrame(libraryRender); clearTimeout(settingsTimer);
   abort.abort(); views.a.destroy(); views.b.destroy(); library.dispose(); strip.destroy();
+  for (const knob of eqKnobs) knob.destroy();
   for (const deck of Object.values(decks)) { deck.analyzer.dispose(); deck.analyzing = false; deck.buffer = null; }
   await engine.dispose();
 }
 on(window, "pagehide", () => { void dispose(); });
+on(window, "blur", () => { for (const knob of eqKnobs) knob.cancelGesture(); });
+on(document, "visibilitychange", () => {
+  if (document.hidden) for (const knob of eqKnobs) knob.cancelGesture();
+});
 // This listener must survive teardown to recover a restored back/forward page.
 window.addEventListener("pageshow", (event) => { if (event.persisted && disposed) location.reload(); });
 globalThis.__trackazoid = Object.freeze({

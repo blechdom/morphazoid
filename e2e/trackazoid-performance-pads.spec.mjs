@@ -163,7 +163,8 @@ test("all eight typed pads persist names and moved saved loops without changing 
   await editor(page, "a", 7); await page.locator("#aPadName").fill(name);
   await page.waitForTimeout(150); await expect(page.locator("#aPadName")).toHaveValue(name);
   await page.locator("#aPadRename").click(); await expect(page.locator("#aHotCue8")).toContainText(name);
-  await expect(page.locator("#aHotCue8")).toHaveAccessibleName(`Deck A hot cue 8: loop ${name}`);
+  await expect(page.locator("#aHotCue8")).toHaveAccessibleName(/^Deck A pad 8: recall saved loop/);
+  expect(await page.locator("#aHotCue8").getAttribute("aria-label")).toContain(name);
   await expect(page.locator("#aHotCue8 img")).toHaveCount(0);
   await page.locator("#aFit").click();
   const canvas = page.locator("#aWaveform"); await canvas.scrollIntoViewIfNeeded(); const box = await canvas.boundingBox();

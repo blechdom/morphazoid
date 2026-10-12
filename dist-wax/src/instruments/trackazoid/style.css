@@ -66,13 +66,20 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
 .tz-tempo { display: grid; grid-template-columns: 94px minmax(0,1fr) 30px; gap: 10px; align-items: center; margin-top: 12px; color: #a4b4c0; font-size: 11px; }
 .tz-tempo output { margin-left: 4px; color: var(--deck-color); font-variant-numeric: tabular-nums; }
 .tz-tempo button { padding: 3px; }
-.tz-performance-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 16px; }
-.tz-cues { display: grid; grid-template-columns: repeat(8, minmax(0, 1fr)); gap: 5px; width: 100%; }
+.tz-performance-row { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 7px; margin-top: 16px; }
+.tz-cues { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 5px; width: 100%; }
 .tz-loop-controls { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; width: 100%; }
-.tz-cues button { min-width: 0; color: #9bafbc; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding-inline: 5px; font-size: 10px; }
-.tz-cues button.has-cue { color: var(--deck-color); border-color: var(--deck-color); background: #1c343c; }
-.tz-cues button.has-loop { color: #c5ed91; border-color: #91b66b; background: #253524; }
-.tz-cues button[aria-pressed="true"] { box-shadow: inset 0 -2px currentColor; }
+.tz-cues button { min-width: 0; color: #9bafbc; padding: 6px; font-size: 11px; text-align: left; }
+.tz-cues button > span { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tz-cues .tz-pad-detail { margin-top: 3px; font-size: 9px; font-weight: 400; color: #b5c4ce; font-variant-numeric: tabular-nums; }
+.tz-cues button.has-cue { color: var(--deck-color); border-color: #467c76; background: #17292f; }
+.tz-cues button.has-loop { color: #c5ed91; border-color: #6c8553; background: #202c22; }
+.tz-pad-heading { width: 100%; margin: 0 !important; color: #dce6ed; font-size: 11px; font-weight: 600; }
+.tz-pad-hint { width: 100%; margin: 0 !important; color: #adbecb; font-size: 10px; line-height: 1.5; }
+.tz-pad-actions { width: 100%; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 0; }
+.tz-pad-actions select { width: auto; }
+.tz-pad-actions button, .tz-pad-actions select { font-size: 10px; min-height: 32px; padding: 5px 7px; }
+.tz-pad-actions > span { min-width: 0; flex: 1 1 90px; overflow-wrap: anywhere; color: #adbecb; font-size: 10px; }
 .tz-loop-controls select { max-width: 95px; }
 .tz-loop-controls select, .tz-move-controls select, .tz-pad-editor select { width: auto; }
 .tz-loop-controls output { color: #bdcbd5; font-size: 10px; }
@@ -107,6 +114,11 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
 .tz-channel > label { display: grid; grid-template-columns: 1fr auto; gap: 3px; color: #becad2; font-size: 10px; text-transform: capitalize; }
 .tz-channel input { grid-row: 2; grid-column: 1 / -1; height: 20px; }
 .tz-channel output { grid-column: 2; grid-row: 1; color: #9faeba; font-size: 9px; font-variant-numeric: tabular-nums; }
+.tz-channel > .tz-eq-knob { --accent: var(--deck-color); align-self: center; display: block; width: 62px; min-width: 62px; height: 76px; text-align: center; }
+.tz-channel .tz-eq-knob > .tz-eq-label { top: 0; bottom: auto; color: #c5d3dc; font-size: 10px; }
+.tz-channel .tz-eq-knob > input[type="range"] { inset: 14px 0 auto; width: 100%; height: 44px; }
+.tz-eq-knob > .mz-range-knob__dial { top: 20px; width: 34px; height: 34px; background: #0c151e; }
+.tz-eq-knob > output { position: absolute; left: 0; right: 0; bottom: 3px; color: #c0ced8; font-size: 10px; }
 .tz-channel .tz-channel-fader { padding-top: 8px; }
 .tz-channel > button { font-size: 10px; }
 .tz-crossfader { display: block; margin: 14px 6px 4px; }
@@ -163,6 +175,9 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
   .trackazoid-shell { padding: 10px; }.tz-heading { gap: 6px; }.tz-heading h1 { font-size: 25px; }.tz-heading > button { font-size: 10px; padding-inline: 6px; }.tz-help summary { font-size: 10px; padding-inline: 3px; }.tz-decks { grid-template-columns: minmax(0,1fr); grid-template-areas: "a" "mixer" "b"; }.tz-deck { padding: 12px; }.tz-waveform { height: 110px; }.tz-transport button { font-size: 11px; }.tz-tempo-row { gap: 14px; }.tz-source-bpm { max-width: 152px; }.tz-effective output { font-size: 24px; }.tz-grid-row span { font-size: 10px; }.tz-library-toolbar { flex-wrap: wrap; padding: 10px; }.tz-library-toolbar h2 { flex: 1; }.tz-search { order: 2; flex-basis: 100%; margin: 0; }.tz-search input { width: 100%; }.tz-library-content { grid-template-columns: minmax(0,1fr); }.tz-folders { border-right: 0; border-bottom: 1px solid #283641; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }.tz-folders > button { width: auto; }.tz-folders p { display: none; }#folderList { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }.tz-folder { margin: 0; max-width: 200px; }.tz-table-scroll { max-height: 330px; }.tz-library th:nth-child(3), .tz-library td:nth-child(3) { display: none; }.tz-library th:nth-child(5) { width: 30%; }.tz-library td > button { padding-inline: 9px; }.tz-library-footer { font-size: 9px; flex-direction: column; gap: 3px; }.tz-pending { flex-wrap: wrap; }.tz-pending span { flex-basis: 100%; }
 }
 @media (pointer: coarse) {
+  .tz-channel > .tz-eq-knob { height: 80px; }
+  .tz-channel .tz-eq-knob > input[type="range"] { height: 48px; }
+  .tz-pad-actions button, .tz-pad-actions select { min-height: 44px; }
   .trackazoid-shell .tz-play { min-height: 48px; min-width: 70px; }.tz-waveform, .tz-overview { touch-action: pan-y; }.tz-transport button { min-height: 44px; }.tz-cues button { min-height: 42px; }
   .tz-wave-tools button, .tz-selection-controls button { min-width: 44px; min-height: 44px; padding: 6px 9px; }.tz-wave-tools label { min-height: 44px; }
   .tz-cues { grid-template-columns: repeat(4, minmax(0, 1fr)); }.tz-cues button, .tz-move-controls button, .tz-move-controls select, .tz-loop-controls button, .tz-loop-controls select, .tz-pad-editor button, .tz-pad-editor input, .tz-pad-editor select, .tz-demo-picker select { min-height: 44px; }
