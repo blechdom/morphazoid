@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { readAudioStatus } from "./helpers/audio-probe.mjs";
 
 const state = (page) => page.evaluate(() => window.__trackazoid.snapshot());
 const deck = async (page, id) => (await state(page)).decks[id];
@@ -266,6 +267,76 @@ test("cancelled range and cue drags restore the last committed edit", async ({ p
   await gesture(page, "a", 0.69, 0.91);
   expect((await deck(page, "a")).selection).not.toEqual(selection);
   await remainsSilent(page, errors);
+});
+
+test("armed PCM output continues through selection, pan, zoom and applying a range loop", async ({ page }) => {
+  const errors = diagnostics(page); await ready(page);
+  await page.locator("#aLoop").click(); await page.locator("#aPlay").click();
+  await page.locator("#audioButton").click();
+  await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await readAudioStatus(page)).rms).toBeGreaterThan(0.001);
+  await page.locator("#aFit").click();
+  // Inspect each real render quantum on the recording tap, independently of
+  // transport/UI state. The probe's output is silent and its lifetime is bounded.
+  await page.evaluate(async () => {
+    const { getSharedAudioOutputManager } = await import("/src/audio-output-manager.js");
+    const manager = getSharedAudioOutputManager(globalThis), context = manager.recordingContext();
+    const source = `class EditProbe extends AudioWorkletProcessor {
+      constructor() { super(); this.blocks = []; this.frames = 0; this.done = false; }
+      process(inputs, outputs) {
+        for (const channel of outputs[0] || []) channel.fill(0);
+        if (this.done) return true;
+        const input = inputs[0]; let energy = 0, peak = 0, invalid = 0, samples = 0;
+        for (const channel of input || []) for (const value of channel) {
+          invalid += Number(!Number.isFinite(value)); energy += value * value;
+          peak = Math.max(peak, Math.abs(value)); samples++;
+        }
+        const frames = input?.[0]?.length || 128;
+        this.blocks.push({ time: this.frames / sampleRate, duration: frames / sampleRate, energy: samples ? energy / samples : 0, peak, invalid });
+        this.frames += frames;
+        if (this.frames >= sampleRate * 6) { this.done = true; this.port.postMessage(this.blocks); }
+        return true;
+      }
+    } registerProcessor("trackazoid-edit-probe", EditProbe);`;
+    const url = URL.createObjectURL(new Blob([source], { type: "text/javascript" }));
+    try { await context.audioWorklet.addModule(url); } finally { URL.revokeObjectURL(url); }
+    const node = new AudioWorkletNode(context, "trackazoid-edit-probe", { numberOfInputs: 1, numberOfOutputs: 1, outputChannelCount: [2] });
+    const release = manager.tapInto(context, node);
+    window.__waveEditCapture = new Promise((resolve, reject) => {
+      const timeout = setTimeout(() => { release(); node.disconnect(); node.port.close(); reject(new Error("Editing PCM capture timed out")); }, 10_000);
+      node.port.onmessage = ({ data }) => { clearTimeout(timeout); release(); node.disconnect(); node.port.close(); resolve(data); };
+    });
+    node.connect(context.destination);
+  });
+  const originalLoop = (await deck(page, "a")).loop;
+  await gesture(page, "a", 0.3, 0.65);
+  const selection = (await deck(page, "a")).selection;
+  await page.locator("#aZoomIn").click();
+  await gesture(page, "a", 0.75, 0.25, { modifiers: ["Shift"] });
+  await page.locator("#aZoomOut").click();
+  expect((await deck(page, "a")).loop).toEqual(originalLoop);
+  expect((await deck(page, "a")).selection).toEqual(selection);
+  await page.locator("#aSelectionLoop").click();
+  await expect.poll(async () => {
+    const a = await deck(page, "a"); return a.playing && a.position >= selection.start && a.position < selection.end;
+  }).toBe(true);
+  expect((await deck(page, "a")).loop).toEqual(selection);
+  const blocks = await page.evaluate(() => window.__waveEditCapture);
+  expect(blocks.every(block => block.invalid === 0 && Number.isFinite(block.energy))).toBe(true);
+  expect(Math.max(...blocks.map(block => block.peak))).toBeLessThanOrEqual(1);
+  for (let halfSecond = 0; halfSecond < 12; halfSecond++) {
+    const window = blocks.filter(block => block.time >= halfSecond * 0.5 && block.time < (halfSecond + 1) * 0.5);
+    expect(window.length).toBeGreaterThan(0);
+    expect(Math.sqrt(window.reduce((sum, block) => sum + block.energy, 0) / window.length), `RMS in interval ${halfSecond}`).toBeGreaterThan(0.001);
+  }
+  let silentRun = 0, longestSilence = 0;
+  for (const block of blocks) { silentRun = block.peak < 1e-7 ? silentRun + block.duration : 0; longestSilence = Math.max(longestSilence, silentRun); }
+  expect(longestSilence).toBeLessThan(0.075);
+  expect((await deck(page, "a")).playing).toBe(true);
+  expect((await readAudioStatus(page)).connectionCount).toBe(1);
+  await page.evaluate(() => window.__trackazoid.dispose());
+  await expect.poll(async () => (await readAudioStatus(page)).connectionCount).toBe(0);
+  expect(errors).toEqual([]);
 });
 
 async function assertHeaderHit(page) {
