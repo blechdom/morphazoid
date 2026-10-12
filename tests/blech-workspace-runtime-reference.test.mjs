@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readBlechNoteHistoryRuntimeReference as readFile } from './helpers/blech-note-history-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blechWorkspaceRuntimeChange as change, restoreBlechWorkspaceRuntime, readBlechWorkspaceRuntimeReference } from './helpers/blech-workspace-runtime-reference.mjs';

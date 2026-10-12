@@ -1,0 +1,15 @@
+{
+  "baseCommit": "d6c8a5a04f93acbd785737a073d64ee17ca28b80",
+  "description": "Exact additive BLECH MIDI note-history runtime registration. Historical inventory hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "0765f368a9ef29d2d01e01f969ef0fc0da59fe5e50cb68eadb492a843d944d7d",
+  "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-generators.css\n",
+  "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-generators.css\n\n# BLECH MIDI bounded playback history for the shared falling stage.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-note-history.js\n",
+  "addition": "\n# BLECH MIDI bounded playback history for the shared falling stage.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-note-history.js\n",
+  "path": "src/instruments/blech-midi/blech-midi-note-history.js",
+  "row": "copy+require\tsrc/instruments/blech-midi/blech-midi-note-history.js\n",
+  "markers": [
+    "# BLECH MIDI bounded playback history for the shared falling stage.",
+    "src/instruments/blech-midi/blech-midi-note-history.js"
+  ]
+}

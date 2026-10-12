@@ -2006,3 +2006,6 @@ copy+require	src/instruments/blech-midi/blech-midi-frames.js
 copy+require	src/instruments/blech-midi/blech-midi-frames-controls.js
 copy+require	src/instruments/blech-midi/blech-midi-generator-preview.js
 copy+require	src/instruments/blech-midi/blech-midi-generators.css
+
+# BLECH MIDI bounded playback history for the shared falling stage.
+copy+require	src/instruments/blech-midi/blech-midi-note-history.js

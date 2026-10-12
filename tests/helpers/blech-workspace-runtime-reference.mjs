@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechNoteHistoryRuntime } from './blech-note-history-runtime-reference.mjs';
 
 export const blechWorkspaceRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-workspace-runtime-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blechWorkspaceRuntimeChange = JSON.parse(readFileSync(
 export function restoreBlechWorkspaceRuntime(source, file, { allowRestored = false } = {}) {
   const change = blechWorkspaceRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechNoteHistoryRuntime(source, file, { allowRestored: true });
   const counts = change.paths.map(path => source.split(path).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact BLECH MIDI workspace runtime addition`;
