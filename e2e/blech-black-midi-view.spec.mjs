@@ -78,13 +78,20 @@ test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, 
   await page.locator('#blackMidiControls [data-color-by]').selectOption('channel');
   await input(page, '#blackMidiControls input[type="color"]', '#ff2244');
   expect(Object.values((await state(page)).options.trackColors)).toContain('#ff2244');
-  await page.locator('#blackMidiControls input[type="checkbox"]').uncheck();
+  await page.locator('#blackMidiControls input[data-track][type="checkbox"]').uncheck();
   await expect.poll(async () => (await state(page)).stats.visible).toBe(0);
   await expect(total(page)).toHaveText('128'); await audible(page); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
-  await page.locator('#blackMidiControls input[type="checkbox"]').check();
+  await page.locator('#blackMidiControls input[data-track][type="checkbox"]').check();
   await expect.poll(async () => (await state(page)).stats.visible).toBeGreaterThan(0);
   await page.locator('#blackMidiControls [data-alignment]').selectOption('equal');
   expect((await state(page)).options.alignment).toBe('equal');
+  await input(page, '#blackMidiControls [data-past]', 8);
+  await input(page, '#blackMidiControls [data-present]', 45);
+  await page.locator('#blackMidiControls [data-trails]').uncheck();
+  expect((await state(page)).options).toMatchObject({ pastSeconds: 8, keyboardPosition: .45, trails: false });
+  await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
+  await audible(page);
+  await page.locator('#blackMidiControls [data-trails]').check();
   await page.locator('#blackPlayButton').click(); await input(page, '#blackSongPosition', .3);
   await expect.poll(async () => (await state(page)).stats.position).toBe(.3);
   const starts = patternAnalysis.notes.map(note => beatsToSeconds(note.beat, patternAnalysis.tempoMap));
@@ -165,6 +172,11 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
     return { keyboard: { top: keyboard.top, bottom: keyboard.bottom, height: keyboard.height }, top: box.top, bottom: box.bottom, seekBottom: seek.bottom, liveTop: live.top, liveBottom: live.bottom, transport, overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
   });
   expect(layout.transport).toEqual([true, true]); expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 48 : 100); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
+  if (viewport.width >= 1000) {
+    expect(layout.width).toBeLessThan(viewport.width * .7);
+    expect(layout.height).toBeGreaterThan(400);
+  }
+  if (viewport.width < 500) expect(layout.height).toBeGreaterThan(210);
   expect(layout.keyboard.height).toBeGreaterThan(8); expect(layout.keyboard.top).toBeGreaterThanOrEqual(layout.top); expect(layout.keyboard.bottom).toBeLessThanOrEqual(layout.bottom + 1);
   expect(layout.seekBottom).toBeLessThanOrEqual(layout.liveTop + 1); expect(layout.liveBottom).toBeLessThanOrEqual(viewport.height + 1);
   await page.screenshot({ path: testInfo.outputPath('black-midi.png') });

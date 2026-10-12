@@ -7,7 +7,7 @@ mixer remain in [Midiophilia](../midiphoria.html).
 
 ## Black MIDI file player
 
-The persistent falling-note stage stays above the preparation tabs. **MIDI Files**
+The persistent falling-note stage stays beside the preparation tabs on laptops and above them on phones. **MIDI Files**
 contains a native collection-grouped menu, Next, Random and local imports.
 Play/Pause, Stop, Loop file and File volume belong only to this player.
 Changing tabs, preparing another drawing, changing colors, or pausing
@@ -43,6 +43,18 @@ keyboard. Track checkboxes isolate only the picture, and per-track color
 selectors, five palettes and track/channel/pitch/velocity mappings differentiate
 voices. Switching away from Visuals preserves the file clock.
 
+The keyboard is the **present**: upcoming notes descend above it, and played
+notes continue below it as fading **past trails** in the same voice colors.
+In Visuals, **Future** sets the visible forecast and fall speed, **Trail lifetime**
+sets the maximum age of a trail (it may leave the picture sooner), and
+**Keyboard position** divides the stage. **Past trails** can be switched off.
+A note keeps the same downward speed on either side of the keys. File history
+follows its playhead: pause freezes it and seeking replaces it with history at
+the new position. Generated layers keep their own bounded history, including
+recent notes after a pad ends or stops. These are note-gate trails, not measured
+SoundFont release tails. Dropping a pad still starts it immediately; the view
+does not introduce an audio delay.
+
 This view uses **WebGL2**, with Canvas 2D fallback after GPU unavailability or
 context loss. Generated pads and live evolution are composited into this same stage; Midiophilia light/trail views remain Canvas 2D. It does not use
 WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
@@ -74,7 +86,7 @@ The complete scores are kept out of the bounded mixer/stamp selectors.
 See [artist sources and Nancarrow findings](../assets/midiphoria/ARTWORK-SOURCES.md)
 for provenance, redistribution terms and exact independently checked counts.
 
-Black MIDI displays the original source score before MIDI effects. Generated pads, their upcoming loop cycles, and projected Automatapoeia rows share the same stage and 128-key keyboard. Forecasts use the current source clocks; switching tabs never changes them. Generated forecasts also show source notes before note-effect expansion. Full-file statistics remain file statistics, separate from generated layers.
+Black MIDI displays the original source score before MIDI effects. Generated pads, their upcoming loop cycles, and projected Automatapoeia rows share the same stage and 128-key keyboard. Forecasts use the current source clocks; switching tabs never changes them. Generated forecasts include the current note effects. Full-file statistics remain file statistics, separate from generated layers.
 
 
 ## Prepare and send
@@ -140,8 +152,9 @@ pad and eight saved pad limits.
 ## Performance workspace design
 
 The laptop workspace fits one viewport: permanent stage/transport, active
-layers, tabs, and a scrolling preparation area. Short landscape screens place
-the stage beside the preparation controls. The title includes an original
+layers, tabs, and a scrolling preparation area. The stage occupies the taller
+left column, with a narrower preparation column on the right. Portrait phones
+stack a taller stage above the controls; short landscape screens use two columns. The title includes an original
 SVG MIDI-cable/bat-wing mark; no third-party logo artwork was reused.
 
 The interaction borrows stable transport placement from

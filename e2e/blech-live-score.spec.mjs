@@ -42,13 +42,13 @@ test('Canvas fallback paints future pad rectangles and highlights the same keybo
     const view = createBlackMidiVisualizer({ mount, forceCanvas: true, getTransport: () => ({ position: 0, playing: false }), getLiveState: () => state });
     globalThis.__liveCanvas = { view, state, layout: blackMidiKeyLayout() }; view.render();
     const surfaces = mount.querySelectorAll('canvas'), key = blackMidiKeyLayout()[60], keyboard = surfaces[1];
-    const pixel = [...keyboard.getContext('2d').getImageData((key.x + key.width / 2) * keyboard.width, keyboard.height - 12, 1, 1).data];
+    const pixel = [...keyboard.getContext('2d').getImageData((key.x + key.width / 2) * keyboard.width, (view.stats.keyboardTop + view.stats.keyboardBottom) / 2 * keyboard.height, 1, 1).data];
     const image = surfaces[0].getContext('2d').getImageData(0, 0, surfaces[0].width, surfaces[0].height).data;
     let bright = 0; for (let at = 0; at < image.length; at += 4) if (image[at] + image[at + 1] + image[at + 2] > 150) bright++;
     return { pixel, bright, stats: view.stats, renderer: view.renderer };
   });
   expect(initial.renderer).toBe('Canvas2D'); expect(initial.bright).toBeGreaterThan(100);
-  expect(initial.stats.liveHeld).toBe(1); expect(initial.pixel.slice(0, 3)).not.toEqual([215, 219, 229]);
+  expect(initial.stats.liveHeld).toBe(1); expect(initial.pixel[3]).toBe(255); expect(initial.pixel.slice(0, 3)).not.toEqual([215, 219, 229]);
   await page.evaluate(() => { __liveCanvas.state.samples[0].positionBeats = 1.5; });
   await expect(page.locator('#liveCanvasProbe .midiphoria-black-stage')).toHaveAttribute('data-live-held', '0');
   await page.evaluate(() => { __liveCanvas.view.setLiveSource(null); });
