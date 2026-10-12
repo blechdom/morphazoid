@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { restoreBlackMidiArtRuntime } from './black-midi-art-runtime-reference.mjs';
 import { restoreSoundFontsShared } from './sound-fonts-shared-reference.mjs';
 import { restoreTrackazoidPadsSite } from './trackazoid-pads-site-reference.mjs';
+import { restoreBlechBlackMidiTap } from './blech-black-midi-tap-reference.mjs';
 
 export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
   new URL('../fixtures/fractal-delay-impulse-runtime-addition.json', import.meta.url), 'utf8',
@@ -11,6 +12,7 @@ export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
 /** Peel only exact reviewed additions; unknown or altered bytes remain visible. */
 export function restoreFractalImpulseRuntime(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreBlechBlackMidiTap(source, file, { allowRestored: true });
   source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });
   source = restoreSoundFontsShared(source, file, { allowRestored: true });
   source = restoreTrackazoidPadsSite(source, file, { allowRestored: true });

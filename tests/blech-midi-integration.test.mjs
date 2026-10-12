@@ -24,6 +24,7 @@ test('Blech MIDI is a separate browseable Graphic-UI lab with its own tempo owne
   assert.ok(CANONICAL_PAGE_ROUTES.includes(item.href));
   assert.deepEqual(TAP_TEMPO_TARGETS.filter(({ route }) => route === item.href), [
     { route: item.href, selector: '#creativeTempo', mapping: { unit: 'bpm' } },
+    { route: item.href, selector: '#blackPlaybackRate', mapping: { unit: 'multiplier', referenceBpm: 120 }, title: 'Tap Black MIDI speed (120 BPM = 1×)' },
   ]);
   assert.ok(!TAP_TEMPO_TARGETS.some(({ route, selector }) => route === 'midiphoria.html' && selector === '#creativeTempo'));
 });

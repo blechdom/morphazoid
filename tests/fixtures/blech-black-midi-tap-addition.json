@@ -1,0 +1,13 @@
+{
+  "baseCommit": "1f86e7c1483836cf2bd4c326965bad304697b2ff",
+  "file": "src/site/tap-tempo-targets.js",
+  "sha256": "e5dfda8b2152ea1380e5d39c40aca4f52ea9dcecf95291e6ee1ba43998ae5fd7",
+  "description": "One reviewed Black MIDI speed Tap target beside the existing Blech shared-tempo target; earlier target hashes stay unchanged.",
+  "before": "  {\"route\": \"blech-midi.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n  {\"route\": \"minimax.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+  "after": "  {\"route\": \"blech-midi.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n  {\"route\": \"blech-midi.html\", \"selector\": \"#blackPlaybackRate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceBpm\": 120}, \"title\": \"Tap Black MIDI speed (120 BPM = 1\u00d7)\"},\n  {\"route\": \"minimax.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+  "addition": "  {\"route\": \"blech-midi.html\", \"selector\": \"#blackPlaybackRate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceBpm\": 120}, \"title\": \"Tap Black MIDI speed (120 BPM = 1\u00d7)\"},\n",
+  "markers": [
+    "#blackPlaybackRate",
+    "Tap Black MIDI speed (120 BPM = 1\u00d7)"
+  ]
+}
