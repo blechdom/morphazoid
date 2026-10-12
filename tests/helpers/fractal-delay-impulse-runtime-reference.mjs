@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlackMidiArtRuntime } from './black-midi-art-runtime-reference.mjs';
+import { restoreSoundFontsShared } from './sound-fonts-shared-reference.mjs';
 import { restoreTrackazoidPadsSite } from './trackazoid-pads-site-reference.mjs';
 
 export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
@@ -11,6 +12,7 @@ export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
 export function restoreFractalImpulseRuntime(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
   source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });
+  source = restoreSoundFontsShared(source, file, { allowRestored: true });
   source = restoreTrackazoidPadsSite(source, file, { allowRestored: true });
   for (const { addition } of fractalImpulseRuntimeChanges.changes.filter(change => change.file === file)) {
     const count = source.split(addition).length - 1;

@@ -1,3 +1,4 @@
+import { mountSoundFontChooser } from '../../sound-fonts/chooser.js';
 import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from './midi-mixer-engine.js';
 import { GM_PROGRAM_NAMES, defaultDeckConfig } from './midi-mixer-model.js';
@@ -43,7 +44,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   <p class="mixer-status" id="mixerStatus" role="status"></p>
   <div id="mixerDeckHost" class="mixer-decks"></div>
   <details class="mixer-effects"><summary>SoundFont & live effects</summary><div class="mixer-effects-controls">
-    <label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open mixer SoundFont"></label><button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
+    <div id="mixerBankChooser"></div><label class="deck-file">Open SoundFont<input id="mixerSoundFont" type="file" accept=".sf2,.sf3" aria-label="Open mixer SoundFont"></label><button id="mixerDefaultFont" class="mini-action" type="button">TimGM6mb</button>
     <label class="control"><span><b>Low-pass filter</b><output id="mixerFilterOut">Open</output></span><input id="mixerFilter" type="range" min="1.7781512504" max="4.30103" step=".01" value="4.30103" aria-label="Mixer low-pass filter"><input id="mixerFilterExact" type="number" min="60" max="20000" step="1" value="20000" aria-label="Mixer filter frequency in Hz"></label>
     <label class="control"><span><b>Echo</b><output id="mixerEchoOut">0%</output></span><input id="mixerEcho" type="range" min="0" max=".75" step=".01" value="0" aria-label="Mixer echo mix"></label>
     <label class="control"><span><b>Echo time</b></span><select id="mixerEchoTime"><option value="0.125">⅛ beat</option><option value="0.25">¼ beat</option><option value="0.5" selected>½ beat</option><option value="0.75">¾ beat</option><option value="1">1 beat</option><option value="1.5">1½ beats</option><option value="2">2 beats</option><option value="4">4 beats</option></select><input id="mixerEchoExact" type="number" min=".125" max="4" step=".001" value=".5" aria-label="Mixer exact echo time in beats"></label>
@@ -72,7 +73,7 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   const on = (node, type, fn, options = {}) => node.addEventListener(type, fn, { ...options, signal: events.signal });
   let disposed = false, active = false, frame = null, lastFrame = 0, collection = [], loading = [false, false], error = '', pendingPlay = false, collectionPromise = null, defaultsInitialized = false;
   const deckUIs = [], renderers = [];
-  let engine, performanceView, presetController, synthEffectEditor, noteEffectEditor, knobs, fontSerial = 0, fontRequest = null, originalBusy = false;
+  let engine, performanceView, presetController, synthEffectEditor, noteEffectEditor, knobs, bankChooser, originalBusy = false;
   function custom() { queueMicrotask(() => presetController?.refresh()); }
   function attempt(fn) { try { const result = fn(); if (result?.catch) result.catch(fail); return result; } catch (cause) { fail(cause); } }
   function fail(cause) { if (!disposed && cause?.name !== 'AbortError') { error = cause.message || String(cause); reflect(); } }
@@ -449,23 +450,10 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
   }
   for (const [id, key, transform] of [['mixerFilter', 'filterHz', value => 10 ** value], ['mixerEcho', 'delayMix', Number], ['mixerEchoTime', 'delayBeats', Number], ['mixerFeedback', 'feedback', Number]]) on($(id), id === 'mixerEchoTime' ? 'change' : 'input', event => { custom(); engine.configureEffects({ [key]: transform(Number(event.target.value)) }); });
   for (const [id, key] of [['mixerFilterExact', 'filterHz'], ['mixerEchoExact', 'delayBeats']]) on($(id), 'change', event => { if (!event.target.validity.valid) return; custom(); engine.configureEffects({ [key]: Number(event.target.value) }); });
-  on($('mixerSoundFont'), 'change', async event => {
-    const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-    const ticket = ++fontSerial; fontRequest?.abort(); error = '';
-    try {
-      if (file.size > 32 * 1024 * 1024) throw new Error('SoundFonts must be 32 MB or smaller.');
-      const buffer = await file.arrayBuffer(); if (disposed || ticket !== fontSerial) return;
-      await engine.loadSoundFont(buffer, file.name); if (ticket === fontSerial) reflect();
-    } catch (cause) { if (ticket === fontSerial) fail(cause); }
-  });
-  on($('mixerDefaultFont'), 'click', async () => {
-    const ticket = ++fontSerial; fontRequest?.abort(); fontRequest = new AbortController(); error = '';
-    try {
-      const response = await fetch(asset('soundfont/TimGM6mb.sf2'), { signal: fontRequest.signal });
-      if (!response.ok) throw new Error('Could not load TimGM6mb.');
-      const buffer = await response.arrayBuffer(); if (disposed || ticket !== fontSerial) return;
-      await engine.loadSoundFont(buffer, 'TimGM6mb'); if (ticket === fontSerial) reflect();
-    } catch (cause) { if (ticket === fontSerial) fail(cause); }
+  bankChooser = mountSoundFontChooser($('mixerBankChooser'), {
+    fileInput: $('mixerSoundFont'), defaultButton: $('mixerDefaultFont'),
+    async onLoad({ bytes, name }) { await engine.loadSoundFont(bytes, name); if (!disposed) reflect(); },
+    onStatus(state) { if (!disposed) { error = state.error?.message || ''; reflect(); } },
   });
   function draw(now) {
     frame = null; if (!active || disposed || document.hidden) return;
@@ -502,6 +490,6 @@ export function mountMidiMixer(host, { onState = () => {}, onOriginal } = {}) {
     setVolume(value) { engine.setVolume(value); }, setTempo,
     resumeAudioClock() { return engine.context?.state === 'suspended' ? engine.context.resume() : Promise.resolve(); },
     suspendAudio() { return engine.context?.suspend().catch(() => {}); }, play, pause, reset, editMidi,
-    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); noteEffectEditor?.destroy(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); fontRequest?.abort(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; pendingPlay = false; performanceView.dispose(); noteEffectEditor?.destroy(); synthEffectEditor?.destroy(); knobs?.destroy(); presetController?.destroy(); events.abort(); bankChooser?.dispose(); requests.forEach(request => request?.abort()); cancelAnimationFrame(frame); renderers.forEach(renderer => renderer.dispose()); deckUIs.forEach(ui => { if (ui.exportUrl) URL.revokeObjectURL(ui.exportUrl); ui.channelEvents.abort(); ui.midiEditor?.destroy(); for (const row of ui.rows.values()) row.editor?.destroy(); }); originals.fill(null); void engine.dispose(); host.replaceChildren(); },
   };
 }

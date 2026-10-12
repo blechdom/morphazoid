@@ -1,0 +1,52 @@
+{
+  "baseCommit": "98bdd239757195367921d30c57e7457238ec8f87",
+  "description": "Add complete GM banks, retained license notices, and the shared SoundFont service, chooser and player without replacing historical evidence.",
+  "evidence": [
+    "tests/sound-font-gm-banks.test.mjs",
+    "tests/sound-font-service.test.mjs",
+    "tests/sound-font-player.test.mjs",
+    "e2e/sound-font-shared.spec.mjs"
+  ],
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "baseSha256": "bc8d833e7d79c20b4badf8e7798a91e9ae2323fc6017d85d9e7d05ec5d59479d",
+      "approvedSha256": "f8348ef0fa346a9d6490a1fc41c30ab405368b127dd1f70e3878d667768fcc67",
+      "addition": "\n# Shared SoundFont library, playback and complete GM banks.\ncopy+require\tassets/sound-fonts/fluidr3-gm/FluidR3_GM.sf3\ncopy+require\tassets/sound-fonts/fluidr3-gm/LICENSE.txt\ncopy+require\tassets/sound-fonts/fluidr3-gm/README.md\ncopy+require\tassets/sound-fonts/fluidr3-gm/UPSTREAM-README.txt\ncopy+require\tassets/sound-fonts/fluidr3-gm/convert-to-sf3.mjs\ncopy+require\tassets/sound-fonts/fluidr3mono-gm/FluidR3Mono_GM.sf3\ncopy+require\tassets/sound-fonts/fluidr3mono-gm/LICENSE.md\ncopy+require\tassets/sound-fonts/fluidr3mono-gm/README.md\ncopy+require\tassets/sound-fonts/generaluser-gs/GeneralUser-GS.sf2\ncopy+require\tassets/sound-fonts/generaluser-gs/LICENSE.txt\ncopy+require\tassets/sound-fonts/generaluser-gs/README.md\ncopy+require\tassets/sound-fonts/generaluser-gs/UPSTREAM-CHANGELOG.md\ncopy+require\tassets/sound-fonts/generaluser-gs/UPSTREAM-README.md\ncopy+require\tdocs/shared-sound-fonts.md\ncopy+require\tsrc/sound-fonts/bank-format.js\ncopy+require\tsrc/sound-fonts/bank-service.js\ncopy+require\tsrc/sound-fonts/chooser.js\ncopy+require\tsrc/sound-fonts/library.js\ncopy+require\tsrc/sound-fonts/player-processor.js\ncopy+require\tsrc/sound-fonts/player.js\n",
+      "markers": [
+        "# Shared SoundFont library, playback and complete GM banks.\n",
+        "copy+require\tassets/sound-fonts/fluidr3-gm/FluidR3_GM.sf3\n",
+        "copy+require\tassets/sound-fonts/fluidr3-gm/LICENSE.txt\n",
+        "copy+require\tassets/sound-fonts/fluidr3-gm/README.md\n",
+        "copy+require\tassets/sound-fonts/fluidr3-gm/UPSTREAM-README.txt\n",
+        "copy+require\tassets/sound-fonts/fluidr3-gm/convert-to-sf3.mjs\n",
+        "copy+require\tassets/sound-fonts/fluidr3mono-gm/FluidR3Mono_GM.sf3\n",
+        "copy+require\tassets/sound-fonts/fluidr3mono-gm/LICENSE.md\n",
+        "copy+require\tassets/sound-fonts/fluidr3mono-gm/README.md\n",
+        "copy+require\tassets/sound-fonts/generaluser-gs/GeneralUser-GS.sf2\n",
+        "copy+require\tassets/sound-fonts/generaluser-gs/LICENSE.txt\n",
+        "copy+require\tassets/sound-fonts/generaluser-gs/README.md\n",
+        "copy+require\tassets/sound-fonts/generaluser-gs/UPSTREAM-CHANGELOG.md\n",
+        "copy+require\tassets/sound-fonts/generaluser-gs/UPSTREAM-README.md\n",
+        "copy+require\tdocs/shared-sound-fonts.md\n",
+        "copy+require\tsrc/sound-fonts/bank-format.js\n",
+        "copy+require\tsrc/sound-fonts/bank-service.js\n",
+        "copy+require\tsrc/sound-fonts/chooser.js\n",
+        "copy+require\tsrc/sound-fonts/library.js\n",
+        "copy+require\tsrc/sound-fonts/player-processor.js\n",
+        "copy+require\tsrc/sound-fonts/player.js\n"
+      ]
+    },
+    {
+      "file": "docs/THIRD_PARTY_NOTICES.md",
+      "baseSha256": "bf34514bb3536f0b591d642ee1a2beff89e92b132e3addf5cae862f741c68438",
+      "approvedSha256": "5475094f9ef3ca671bb510e089a722a1f81b5def5bf22aad83fa54f28bca4b96",
+      "addition": "\nGeneralUser GS 2.0.3 by S. Christian Collins is distributed unmodified under\nits GeneralUser GS License v2.0, which permits software integration and music\ncreation and records uncertainty about some historical sample origins. The\noriginal license, release changelog and source record accompany the bank in\n`assets/sound-fonts/generaluser-gs/`.\n\nFluidR3Mono GM 2.312 retains the original MuseScore 2.1 SF3 and MIT license,\ncrediting Frank Wen, Michael Cowgill, Ethan Winer and Michael Schorsch. Its\naccompanying license explicitly permits redistribution despite a stale\nrestrictive comment embedded in the upstream asset; both are preserved.\nFluidR3 GM 3.1 by Frank Wen and contributors is distributed under its original\nMIT license as a Vorbis-compressed SF3, with all 189 presets and 1,418 sample\nmappings preserved. Its original SF2/archive hashes and reproducible conversion\nscript are retained in `assets/sound-fonts/fluidr3-gm/` and the shared provenance\nrecord. SF3 compression is lossy. The original Fluid notices and contributors\nremain beside both banks; the application license does not replace them.\n",
+      "markers": [
+        "GeneralUser GS 2.0.3 by S. Christian Collins is distributed unmodified under\n",
+        "FluidR3Mono GM 2.312 retains the original MuseScore 2.1 SF3 and MIT license,\n",
+        "FluidR3 GM 3.1 by Frank Wen and contributors is distributed under its original\n"
+      ]
+    }
+  ]
+}

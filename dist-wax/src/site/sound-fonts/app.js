@@ -3,20 +3,22 @@ import { enhanceChooseSelect } from '../../ui/patterns/choose-select.js';
 import { encodeSoundFont, parseSoundFont, generateSample } from './soundfont.js';
 import { SoundFontPreview, chooseAuditionNote } from './preview-audio.js';
 import { openLibrary, temporaryLibrary, safeSourceUrl, waveformPeaks } from './library.js';
+import { createSoundFontService } from '../../sound-fonts/bank-service.js';
 
 const $ = id => document.getElementById(id);
-const audio = new SoundFontPreview();
+const audio = new SoundFontPreview({ onError: showError });
 const colors = ['#a6eeb4', '#dfb5fb', '#f2bc7b', '#84d7e0'];
 const sampleNames = {glass:'Glass bell',warm:'Warm wave',pluck:'Wire pluck',sample:'Your sample'};
-let library, entries = [], selectedId = null, selectedFont = null, selectedBytes = null;
+let library, bankService, unsubscribeLibrary, entries = [], selectedId = null, selectedFont = null, selectedBytes = null;
 let view = 'explore', filter = 'all', selectionVersion = 0, busy = false, disposed = false;
 let sourceSample = null, sampleVersion = 0, previewTimer = null, drawingFrame = null;
 let activeFont = null, presetIndex = 0, auditionNote = null;
-let navigationVersion = 0;
+let navigationVersion = 0, auditionVersion = 0;
 const pressed = new Map();
 let bundledFonts = [];
 const bankLoads = new Map();
 const assetUrl = path => new URL(`../../../${path}`, import.meta.url);
+const readFont = bytes => ({ ...parseSoundFont(bytes, { metadataOnly: true }), bytes });
 const isPlayerView = () => view === 'collection' || view === 'explore';
 
 function status(message) { $('status').textContent = message; }
@@ -29,7 +31,7 @@ function selectedEntry() { return entries.find(entry => entry.id === selectedId)
 function sizeLabel(bytes) { return bytes < 1048576 ? `${Math.ceil(bytes / 1024)} KB` : `${(bytes / 1048576).toFixed(1)} MB`; }
 function element(tag, className, text) { const node = document.createElement(tag); node.className = className; if (text !== undefined) node.textContent = text; return node; }
 function resetKeys() { pressed.clear(); document.querySelectorAll('.sf-key.is-playing').forEach(key => key.classList.remove('is-playing')); }
-function stop() { clearTimeout(previewTimer); auditionNote=null; audio.stopAll(); resetKeys(); $('playbackStatus').textContent=audio.enabled?'Ready to play':'Audio off'; }
+function stop() { auditionVersion++; clearTimeout(previewTimer); auditionNote=null; audio.stopAll(); resetKeys(); $('playbackStatus').textContent=audio.enabled?'Ready to play':'Audio off'; }
 
 const audioStrip = createAudioStrip({
   buttonId:'audioButton', levelId:'output', level:.6,
@@ -63,7 +65,7 @@ function showView(next) {
   $('exploreBrowser').hidden=next!=='explore'; $('collectionBrowser').hidden=next!=='collection';
   document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === next)));
   stop();
-  if (isPlayerView() && selectedFont && activeFont !== selectedFont) { audio.setFont(selectedFont); audio.setPreset(presetIndex); activeFont = selectedFont; }
+  if (isPlayerView() && selectedFont && activeFont !== selectedFont) { void audio.setFont(selectedFont).then(updateKeyboard).catch(showError); audio.setPreset(presetIndex); activeFont = selectedFont; }
   if (next === 'workshop') updateDraft();
   updateKeyboard();
 }
@@ -96,7 +98,7 @@ function renderList() {
     copy.append(element('strong','',`${entry.name}${entry.favorite ? ' ★' : ''}`));
     const origin = entry.kind==='created'?'Made here':entry.kind==='imported'?'Imported':entry.kind==='factory'?'Morphazoid originals':'Source link';
     copy.append(element('small','',`${entry.author || origin} · ${entry.kind==='link'?'Saved for later':`${entry.presetCount} preset${entry.presetCount===1?'':'s'} · ${sizeLabel(entry.size)}`}`));
-    button.append(miniWave(entry.peaks || [],entry.color || colors[0]),copy,element('span','sf-format',entry.kind==='link'?'LINK':'SF2'));
+    button.append(miniWave(entry.peaks || [],entry.color || colors[0]),copy,element('span','sf-format',entry.kind==='link'?'LINK':(entry.format || 'sf2').toUpperCase()));
     button.addEventListener('click',() => select(entry.id).catch(showError));
     return button;
   }));
@@ -128,6 +130,7 @@ function renderDetails() {
   $('favoriteButton').textContent=entry.favorite?'★':'☆';
   $('favoriteButton').setAttribute('aria-pressed',String(Boolean(entry.favorite)));
   $('favoriteButton').setAttribute('aria-label',entry.favorite?'Remove from favorites':'Add to favorites');
+  $('downloadButton').textContent=`↓ Download ${(entry.format || 'sf2').toUpperCase()}`;
   $('downloadButton').hidden=entry.kind==='link'; $('downloadButton').disabled=!selectedBytes;
   $('playableDetails').hidden=!selectedFont; $('linkOnlyNotice').hidden=entry.kind!=='link';
   $('sourceLink').hidden=!entry.source;
@@ -152,12 +155,14 @@ async function select(id, preset = null) {
   const entry=selectedEntry(); if(!entry || entry.kind==='link') return;
   const bytes=await library.file(id);
   if(serial!==selectionVersion || disposed) return;
-  if(!bytes) throw new Error('The font file is missing. Import the original SF2 again.');
-  const font=parseSoundFont(bytes);
+  if(!bytes) throw new Error('The font file is missing. Import the original SoundFont again.');
+  const font=readFont(bytes);
   if(serial!==selectionVersion) return;
   selectedBytes=bytes; selectedFont=font;
   if(preset) presetIndex=Math.max(0,font.presets.findIndex(value=>value.bank===preset.bank && value.program===preset.program));
-  audio.setFont(font); audio.setPreset(presetIndex); activeFont=font;
+  const ready=audio.setFont(font); audio.setPreset(presetIndex); activeFont=font;
+  await ready;
+  if(serial!==selectionVersion || disposed) return false;
   renderDetails(); return true;
 }
 async function refresh() { entries=(await library.list()).sort((a,b)=>b.createdAt-a.createdAt); renderList(); renderBundledFonts(); renderPresets(); }
@@ -168,7 +173,7 @@ function changePreset(index) {
   stop(); presetIndex=index; audio.setPreset(index); $('presetSelect').value=String(index);
   presetPicker.refresh();
   paintSelectedWave(); updateKeyboard(); renderPresets();
-  if(audio.enabled) previewSelected();
+  if(audio.enabled) void action(previewSelected);
 }
 $('presetSelect').addEventListener('change',()=>changePreset(Number($('presetSelect').value)));
 $('nextPreset').addEventListener('click',()=>{
@@ -179,12 +184,12 @@ $('nextPreset').addEventListener('click',()=>{
 });
 
 async function action(handler) { clearError(); try { await handler(); } catch(error) { showError(error); } }
-function download(bytes,name) {
+function download(bytes,name,format='sf2') {
   const blob=new Blob([bytes],{type:'application/octet-stream'}), url=URL.createObjectURL(blob);
-  const link=document.createElement('a'); link.href=url; link.download=(name.replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'') || 'sound-font')+'.sf2';
+  const link=document.createElement('a'); link.href=url; link.download=(name.replace(/[^a-z0-9_-]+/gi,'-').replace(/^-|-$/g,'') || 'sound-font')+'.'+format;
   document.body.append(link); link.click(); link.remove(); setTimeout(()=>URL.revokeObjectURL(url),1000);
 }
-$('downloadButton').addEventListener('click',()=>{ if(selectedBytes) download(selectedBytes,selectedEntry().name); });
+$('downloadButton').addEventListener('click',()=>{ if(selectedBytes) download(selectedBytes,selectedEntry().name,selectedEntry().format || selectedFont?.format || 'sf2'); });
 $('favoriteButton').addEventListener('click',()=>action(async()=>{
   const entry=selectedEntry(); if(!entry) return;
   await library.put({...entry,favorite:!entry.favorite}); await refresh(); renderDetails();
@@ -193,7 +198,7 @@ $('editForm').addEventListener('submit',event=>{ event.preventDefault(); void ac
   const entry=selectedEntry(); if(!entry) return;
   const name=$('editName').value.trim(); if(!name) throw new Error('Give this sound a name.');
   await library.put({...entry,name,author:$('editAuthor').value.trim(),source:safeSourceUrl($('editSource').value),license:$('editLicense').value.trim(),notes:$('editNotes').value.trim()});
-  await refresh(); renderDetails(); status('Details saved. Downloaded original SF2 files retain their embedded credits.');
+  await refresh(); renderDetails(); status('Details saved. Downloaded originals retain their embedded credits.');
 }); });
 let deletingId=null;
 $('deleteButton').addEventListener('click',()=>{ deletingId=selectedId; $('deleteDialog').returnValue='cancel'; $('deleteMessage').textContent=`Remove “${selectedEntry().name}” from this browser? Download it first if you need a backup.`; $('deleteDialog').showModal(); });
@@ -210,7 +215,7 @@ $('linkForm').addEventListener('submit',event=>{ event.preventDefault(); void ac
 }); });
 
 function metadata(font,bytes,{name=font.name,kind='imported',...rest}={}) {
-  return {id:crypto.randomUUID(),name,kind,author:font.author || '',license:font.license || '',notes:'',source:'',createdAt:Date.now(),size:bytes.byteLength,presetCount:font.presets.length,sampleCount:font.samples.length,peaks:waveformPeaks(font.samples[0]?.data),color:colors[entries.length%colors.length],...rest};
+  return {id:crypto.randomUUID(),name,kind,format:font.format || 'sf2',author:font.author || '',license:font.license || '',notes:'',source:'',createdAt:Date.now(),size:bytes.byteLength,presetCount:font.presets.length,sampleCount:font.samples.length,peaks:waveformPeaks(font.samples[0]?.data),color:colors[entries.length%colors.length],...rest};
 }
 function allPresets() {
   const originals=entries.filter(entry=>entry.kind==='factory').map(entry=>({id:entry.id,displayName:entry.name,family:'Morphazoid',bankName:'Originals'}));
@@ -250,6 +255,7 @@ async function explorePreset(preset) {
   selectionVersion++;
   // A new selection releases the previous sound immediately, including while a bank downloads.
   stop();
+  const downloadAuditionIntent=auditionVersion;
   let id=preset.id;
   if(!id) {
     const bank=bundledFonts.find(value=>value.id===preset.bundleId);
@@ -257,11 +263,12 @@ async function explorePreset(preset) {
     if(!entry || disposed || intent!==navigationVersion) return;
     id=entry.id;
   }
-  const selection=select(id,preset), serial=selectionVersion;
+  const mayPreview=downloadAuditionIntent===auditionVersion;
+  const selection=select(id,preset), serial=selectionVersion, loadAuditionIntent=auditionVersion;
   const selected=await selection;
   if(!selected || serial!==selectionVersion || disposed || selectedId!==id || !isPlayerView()) return;
   status('');
-  if(audio.enabled) previewSelected();
+  if(mayPreview && loadAuditionIntent===auditionVersion && audio.enabled) void action(previewSelected);
 }
 $('presetSearch').addEventListener('input',renderPresets);
 $('familySelect').addEventListener('change',renderPresets);
@@ -274,7 +281,7 @@ function renderBundledFonts() {
     const add=element('button','sf-button sf-primary',bankLoads.has(bank.id)?'Loading…':saved?'Open in collection':'Add to collection');
     add.type='button'; add.disabled=bankLoads.has(bank.id); add.setAttribute('aria-label',`${saved?'Open':'Add'} ${bank.name}${saved?'':' to collection'}`);
     add.addEventListener('click',()=>action(()=>addBundledFont(bank)));
-    const downloadLink=element('a','sf-button','Download SF2'); downloadLink.href=assetUrl(bank.file); downloadLink.download=bank.file.split('/').pop();
+    const downloadLink=element('a','sf-button',`Download ${(bank.format || 'sf2').toUpperCase()}`); downloadLink.href=assetUrl(bank.file); downloadLink.download=bank.file.split('/').pop();
     actions.append(add,downloadLink); card.append(actions);
     const links=element('div','sf-bank-links');
     for(const [label,url] of [['Source ↗',bank.sourceUrl],['Credits',assetUrl(bank.creditFile)],['License',assetUrl(bank.licenseFile)]]) {
@@ -293,11 +300,8 @@ async function ensureBundledFont(bank) {
     const timer=setTimeout(()=>controller.abort(),60000);
     status(`Loading ${bank.name}…`);
     try {
-      const response=await fetch(assetUrl(bank.file),{signal:controller.signal});
-      if(!response.ok) throw new Error(`Could not load ${bank.name} (${response.status}). Try again.`);
-      const bytes=await response.arrayBuffer();
-      if(bytes.byteLength!==bank.bytes) throw new Error(`The ${bank.name} download is incomplete. Try again.`);
-      const font=parseSoundFont(bytes);
+      const {bytes}=await bankService.resolve(`bundled-${bank.id}`,{signal:controller.signal});
+      const font=readFont(bytes);
       if(disposed) return null;
       const entry=metadata(font,bytes,{id:`bundled-${bank.id}`,bundleId:bank.id,name:bank.name,author:bank.author,license:bank.license,source:bank.sourceUrl,notes:`${bank.description}\n${bank.attribution}\nCredits and license: ${assetUrl(bank.licenseFile)}`});
       await library.put(entry,bytes); await refresh();
@@ -305,7 +309,7 @@ async function ensureBundledFont(bank) {
     } catch(error) {
       if(disposed) return null;
       if(error.name==='AbortError') throw new Error(`Loading ${bank.name} timed out. Try again.`);
-      throw error;
+      throw new Error(`Could not load ${bank.name}. ${error.message}`);
     } finally {
       clearTimeout(timer); bankLoads.delete(bank.id);
       if(!disposed) {
@@ -342,9 +346,9 @@ $('fontFiles').addEventListener('change',()=>action(async()=>{
   try {
     for(const file of files) {
       try {
-        if(file.size>128*1024*1024) throw new Error('SF2 files must be 128 MB or smaller.');
+        if(file.size>128*1024*1024) throw new Error('SoundFont files must be 128 MiB or smaller.');
         status(`Importing ${file.name}…`);
-        const bytes=await file.arrayBuffer(), font=parseSoundFont(bytes), entry=metadata(font,bytes,{name:font.name || file.name.replace(/\.sf2$/i,'')});
+        const bytes=await file.arrayBuffer(), font=readFont(bytes), entry=metadata(font,bytes,{name:font.name || file.name.replace(/\.sf[23]$/i,'')});
         await library.put(entry,bytes); imported++; last=entry.id;
       } catch(error) { failures.push(`${file.name}: ${error.message}`); }
     }
@@ -363,7 +367,7 @@ const noteNames=['C','C♯','D','D♯','E','F','F♯','G','G♯','A','A♯','B']
 function startKey(code,note,button) {
   if(pressed.has(code) || !selectedFont || !isPlayerView() || button.disabled) return;
   if(!audio.enabled) { $('playbackStatus').textContent='Enable audio to play'; audioStrip.setAttention(true); return; }
-  if(activeFont!==selectedFont) { audio.setFont(selectedFont); audio.setPreset(presetIndex); activeFont=selectedFont; }
+  if(activeFont!==selectedFont) { void audio.setFont(selectedFont).then(updateKeyboard).catch(showError); audio.setPreset(presetIndex); activeFont=selectedFont; }
   if(audio.noteOn(note)!==null) { pressed.set(code,note); button.classList.add('is-playing'); $('playbackStatus').textContent='Playing'; }
 }
 function endKey(code,button) {
@@ -400,7 +404,7 @@ function updateKeyboard() {
   $('nextPreset').disabled=view==='explore'?!visiblePresets().length:!playable || selectedFont.presets.length<2;
   $('enableAudio').hidden=audio.enabled;
   $('enableAudio').disabled=audioStrip.audioButton.disabled;
-  $('keyboardHint').textContent=`Audio ${audio.enabled?'on':'off'} · ${playable?'click keys or use your computer keyboard':'select an SF2 to play'}`;
+  $('keyboardHint').textContent=`Audio ${audio.enabled?'on':'off'} · ${playable?'click keys or use your computer keyboard':'select a SoundFont to play'}`;
 }
 window.addEventListener('keydown',event=>{
   if(event.code==='Escape') { stop(); return; }
@@ -411,11 +415,14 @@ window.addEventListener('keydown',event=>{
 window.addEventListener('keyup',event=>{ const key=keyMap.get(event.code); if(key) endKey(event.code,key.button); });
 window.addEventListener('blur',stop);
 document.addEventListener('visibilitychange',()=>{ if(document.hidden) stop(); });
-function audition(font,note=60) {
+async function audition(font,note=60) {
+  const intent=navigationVersion, auditionIntent=++auditionVersion;
   if(!audio.enabled) { $('playbackStatus').textContent='Enable audio to preview'; audioStrip.setAttention(true); return; }
   clearTimeout(previewTimer);
   if(auditionNote!==null) audio.noteOff(auditionNote);
-  if(activeFont!==font) { audio.setFont(font); if(font===selectedFont) audio.setPreset(presetIndex); activeFont=font; }
+  if(activeFont!==font) { const ready=audio.setFont(font); if(font===selectedFont) audio.setPreset(presetIndex); activeFont=font; await ready; }
+  else await audio.prepareBank();
+  if(disposed || intent!==navigationVersion || auditionIntent!==auditionVersion || document.hidden || !audio.enabled || activeFont!==font) return;
   auditionNote=audio.noteOn(note);
   if(auditionNote===null) { $('playbackStatus').textContent='No playable note in this preset'; return; }
   $('playbackStatus').textContent=`Playing ${font===selectedFont?(selectedPresetInfo()?.displayName || font.presets[presetIndex].name):font.name}`;
@@ -428,9 +435,9 @@ function previewSelected() {
   const preset=selectedFont.presets[presetIndex], suggested=selectedPresetInfo()?.previewNote;
   const note=Number.isInteger(suggested) && preset.zones.some(zone=>suggested>=zone.lowKey && suggested<=zone.highKey && 95>=zone.lowVelocity && 95<=zone.highVelocity)?suggested:chooseAuditionNote(preset);
   if(note===null) { $('playbackStatus').textContent='No playable note in this preset'; return; }
-  audition(selectedFont,note);
+  return audition(selectedFont,note);
 }
-$('auditionButton').addEventListener('click',previewSelected);
+$('auditionButton').addEventListener('click',()=>action(previewSelected));
 $('stopButton').addEventListener('click',stop);
 
 function sourceKind() { return document.querySelector('[name=sourceKind]:checked').value; }
@@ -483,11 +490,11 @@ $('sampleFile').addEventListener('change',()=>action(async()=>{
     status('Sample ready. Match its root note, then create your font.'); updateDraft();
   } catch(error) { if(version===sampleVersion) { $('sampleInfo').textContent='Sample not loaded. Choose another audio file.'; updateDraft(); } throw error; }
 }));
-$('previewDraft').addEventListener('click',()=>action(async()=>{ if(!audio.enabled) { status('Turn Audio on in the header to hear the draft.'); return; } const bytes=draftBytes(); audition(parseSoundFont(bytes),Number($('rootKey').value)); }));
+$('previewDraft').addEventListener('click',()=>action(async()=>{ if(!audio.enabled) { status('Turn Audio on in the header to hear the draft.'); return; } const bytes=draftBytes(); await audition(readFont(bytes),Number($('rootKey').value)); }));
 $('workshopForm').addEventListener('submit',event=>{ event.preventDefault(); void action(async()=>{
   if(busy) return; busy=true; $('saveFont').disabled=true;
   try {
-    const bytes=draftBytes(), font=parseSoundFont(bytes);
+    const bytes=draftBytes(), font=readFont(bytes);
     const entry=metadata(font,bytes,{kind:'created',name:$('fontName').value.trim(),notes:$('fontNotes').value.trim() || `${sampleNames[sourceKind()]} · root ${noteNames[Number($('rootKey').value)%12]}${Math.floor(Number($('rootKey').value)/12)-1}`});
     await library.put(entry,bytes); await refresh(); $('search').value=''; setFilter('all'); showView('collection'); await select(entry.id);
     status(`“${entry.name}” created. Play it here or download its SF2.`);
@@ -498,21 +505,23 @@ async function initialize() {
   let storageError = null;
   try { library=await openLibrary(); }
   catch(error) { library=temporaryLibrary(); $('storageStatus').textContent='Temporary session · storage unavailable'; storageError=new Error(`${error.message} Download anything you create before closing this tab.`); }
+  bankService=createSoundFontService({library});
   if(library.persistent) $('storageStatus').textContent='Saved in this browser · no account needed';
   if(!await library.setting('initialized')) {
     const demos=[['Glass Signals','glass','Ringing, inharmonic bell tones. A bright place to begin.'],['Soft Circuit','warm','A rounded, gently moving synthetic tone.'],['Copper Wire','pluck','A dry, textured pluck with a fading harmonic tail.']];
     for(let i=0;i<demos.length;i++) {
       const [name,kind,notes]=demos[i];
       const bytes=encodeSoundFont({name,author:'Morphazoid',license:'Original synthesized sample; free to use and modify',samples:[{name,data:generateSample({kind,rootKey:60,duration:2.5,brightness:.55,sampleRate:22050}),sampleRate:22050,rootKey:60,lowKey:0,highKey:127}]});
-      await library.put(metadata(parseSoundFont(bytes),bytes,{id:`original-${kind}`,name,kind:'factory',notes,color:colors[i],createdAt:3-i}),bytes);
+      await library.put(metadata(readFont(bytes),bytes,{id:`original-${kind}`,name,kind:'factory',notes,color:colors[i],createdAt:3-i}),bytes);
     }
     await library.setSetting('initialized',true);
   }
   await refresh(); await select(entries[0]?.id || null); updateDraft();
   void loadBundledCatalog();
+  unsubscribeLibrary=library.subscribe?.(()=>{ if(!disposed) void refresh().catch(showError); });
   status('');
   if(storageError) showError(storageError);
 }
-window.addEventListener('pagehide',()=>{ disposed=true; for(const {controller} of bankLoads.values()) controller.abort(); stop(); cancelAnimationFrame(drawingFrame); void audio.dispose(); library?.close(); audioStrip.destroy(); presetPicker.destroy(); });
+window.addEventListener('pagehide',()=>{ disposed=true; for(const {controller} of bankLoads.values()) controller.abort(); stop(); cancelAnimationFrame(drawingFrame); void audio.dispose(); unsubscribeLibrary?.(); bankService?.dispose(); library?.close(); audioStrip.destroy(); presetPicker.destroy(); });
 window.addEventListener('pageshow',event=>{ if(event.persisted) location.reload(); });
 void initialize().catch(showError);

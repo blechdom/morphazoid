@@ -1973,3 +1973,25 @@ copy+require	assets/midiphoria/midi/decorative/black-bleed-winter-s-pain-full.mi
 copy+require	assets/midiphoria/midi/decorative/black-bleed-winter-s-rage-full.mid.gz
 copy+require	assets/midiphoria/ARTWORK-SOURCES.md
 copy+require	assets/midiphoria/licenses/HANS5958-CC-BY-4.0.md
+
+# Shared SoundFont library, playback and complete GM banks.
+copy+require	assets/sound-fonts/fluidr3-gm/FluidR3_GM.sf3
+copy+require	assets/sound-fonts/fluidr3-gm/LICENSE.txt
+copy+require	assets/sound-fonts/fluidr3-gm/README.md
+copy+require	assets/sound-fonts/fluidr3-gm/UPSTREAM-README.txt
+copy+require	assets/sound-fonts/fluidr3-gm/convert-to-sf3.mjs
+copy+require	assets/sound-fonts/fluidr3mono-gm/FluidR3Mono_GM.sf3
+copy+require	assets/sound-fonts/fluidr3mono-gm/LICENSE.md
+copy+require	assets/sound-fonts/fluidr3mono-gm/README.md
+copy+require	assets/sound-fonts/generaluser-gs/GeneralUser-GS.sf2
+copy+require	assets/sound-fonts/generaluser-gs/LICENSE.txt
+copy+require	assets/sound-fonts/generaluser-gs/README.md
+copy+require	assets/sound-fonts/generaluser-gs/UPSTREAM-CHANGELOG.md
+copy+require	assets/sound-fonts/generaluser-gs/UPSTREAM-README.md
+copy+require	docs/shared-sound-fonts.md
+copy+require	src/sound-fonts/bank-format.js
+copy+require	src/sound-fonts/bank-service.js
+copy+require	src/sound-fonts/chooser.js
+copy+require	src/sound-fonts/library.js
+copy+require	src/sound-fonts/player-processor.js
+copy+require	src/sound-fonts/player.js

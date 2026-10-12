@@ -193,8 +193,9 @@ Audio activation; Stop or Reset cancels that pending play request.
 - Click a deck's map to jump to a section; drag to set its loop. Position controls
   and arrow keys also seek through the score. Muting a voice greys its map row while
   keeping its original density visible for comparison.
-- Choose a local SF2 or SF3 SoundFont, up to 32 MB, to change the available
-  instrument sounds. Shared filter and delay controls shape the mixed output
+- In **SoundFont & live effects**, choose a bundled bank or a font saved on the
+  **Sound Fonts** page, or import a local SF2/SF3 file up to 128 MiB. Accepted
+  imports are saved in the shared browser library. Shared filter and delay controls shape the mixed output
   without creating another audio context. The import applies to both mixer decks;
   Visualize keeps its own SoundFont.
 
@@ -258,7 +259,8 @@ No new song collection is bundled for the mixer. See the
 [collection and arrangement credits](midiphoria.md#collection-and-arrangement-quality)
 for the popular-song, experimental, Black MIDI and orchestral sources.
 
-Sound comes from the same bundled TimGM6mb SoundFont. Its unmodified editable
+The default sound comes from the bundled TimGM6mb SoundFont. Other banks use
+the [shared SoundFont utility](shared-sound-fonts.md). Its unmodified editable
 SF2, copyright record and GPL-2.0 license are under
 [`assets/midiphoria/soundfont/`](../assets/midiphoria/soundfont/COPYRIGHT.txt).
 The owned mixer uses SpessaSynth Core 4.3.22 and stb-vorbis 0.0.6 under

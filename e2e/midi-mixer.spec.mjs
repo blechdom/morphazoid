@@ -214,7 +214,7 @@ test('local SoundFont selection stays silent, and mix presets and reset provide 
   await open(page);
   await page.locator('.mixer-effects > summary').click();
   await page.locator('#mixerSoundFont').setInputFiles(fileURLToPath(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url)));
-  await expect(page.locator('#mixerFontName')).toHaveText('TimGM6mb.sf2');
+  await expect(page.locator('#mixerFontName')).toHaveText('TimGM6mb1.sf2');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   await expect(page.locator('#mixerPlay')).toHaveAttribute('aria-pressed', 'false');
   expect(await page.evaluate(() => globalThis.__mixerQAContexts.length)).toBe(0);

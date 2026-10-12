@@ -1,5 +1,6 @@
 import { connectAudioOutput } from '../../audio-output-manager.js';
 import { resumeAudioContext } from '../../audio-startup.js';
+import { SoundFontPlayer } from '../../sound-fonts/player.js';
 
 export const MAX_PREVIEW_VOICES = 16;
 export const MAX_PREVIEW_SECONDS = 15;
@@ -24,9 +25,10 @@ export function chooseAuditionNote(preset, velocity = 95) {
   return null;
 }
 
-/** A deliberately small PCM SoundFont audition engine, armed only by Audio. */
+/** Full-bank audition with a PCM fallback for generated in-memory samples. */
 export class SoundFontPreview {
-  constructor() {
+  constructor({ onError = () => {} } = {}) {
+    this.onError = onError;
     this.context = null;
     this.analyser = null;
     this.master = null;
@@ -42,6 +44,9 @@ export class SoundFontPreview {
     this.disposed = false;
     this.armSerial = 0;
     this.releaseOutput = null;
+    this.bankPlayer = null;
+    this.bankPromise = null;
+    this.preparedBank = null;
   }
 
   get enabled() { return this._enabled && this.context?.state === 'running'; }
@@ -56,6 +61,8 @@ export class SoundFontPreview {
       return false;
     }
     if (this.context?.state === 'closed') {
+      this.bankPlayer?.dispose();
+      this.bankPlayer = this.bankPromise = this.preparedBank = null;
       for (const voice of this.voices) this.removeVoice(voice);
       this.releaseOutput?.();
       disconnect(this.master);
@@ -106,6 +113,7 @@ export class SoundFontPreview {
     }
     try {
       await resumeAudioContext(this.context);
+      await this.prepareBank();
     } catch (error) {
       if (serial === this.armSerial) {
         this._enabled = false;
@@ -138,12 +146,39 @@ export class SoundFontPreview {
     this.cachedFrames = 0;
     this.font = font;
     this.presetIndex = 0;
+    this.bankPlayer?.dispose(); this.bankPlayer = null;
+    this.bankPromise = null; this.preparedBank = null;
+    return this.prepareBank();
+  }
+
+  prepareBank() {
+    if (!this.context || !this.font?.bytes || this.disposed) return Promise.resolve();
+    if (this.bankPromise) return this.bankPromise;
+    const font = this.font;
+    const player = this.bankPlayer = new SoundFontPlayer(this.context, this.compressor, { onError: error => {
+      if (this.bankPlayer !== player || this.disposed) return;
+      this.bankPlayer = this.bankPromise = this.preparedBank = null;
+      player.dispose();
+      // Keep Audio's explicit user state. A later Preview/Audio action can
+      // prepare a fresh source; an error never creates or resumes one itself.
+      this.onError(error);
+    } });
+    this.bankPromise = player.load(font.bytes).then(() => {
+      if (this.font !== font || this.bankPlayer !== player || this.disposed) return;
+      this.preparedBank = font; this.setPreset(this.presetIndex);
+    }).catch(error => {
+      if (this.bankPlayer !== player || this.disposed) return;
+      this.bankPromise = null; player.dispose(); this.bankPlayer = null;
+      throw error;
+    });
+    return this.bankPromise;
   }
 
   setPreset(index) {
     const next = Math.round(clamp(index, 0, Math.max(0, (this.font?.presets?.length ?? 0) - 1)));
     // Existing notes retain their timbre and release normally after selection.
     this.presetIndex = next;
+    this.bankPlayer?.setPreset(this.font?.presets?.[next]);
     return next;
   }
 
@@ -178,6 +213,7 @@ export class SoundFontPreview {
     if (!Number.isInteger(note) || note < 0 || note > 127) return null;
     const strength = clamp(velocity, 0, 1, 0.75);
     if (!strength) { this.noteOff(note); return null; }
+    if (this.font?.bytes) return this.preparedBank === this.font ? this.bankPlayer?.noteOn(note, strength) ?? null : null;
     const velocityByte = Math.max(1, Math.round(strength * 127));
     const zones = this.font?.presets?.[this.presetIndex]?.zones ?? [];
     let started = false;
@@ -249,6 +285,7 @@ export class SoundFontPreview {
 
   noteOff(note) {
     if (!this.context || this.disposed) return;
+    this.bankPlayer?.noteOff(note);
     for (const voice of this.voices) {
       if (voice.note === note && voice.releasedAt === null) this.releaseVoice(voice, voice.release);
     }
@@ -256,6 +293,7 @@ export class SoundFontPreview {
 
   stopAll() {
     if (!this.context || this.context.state === 'closed') return;
+    this.bankPlayer?.stopAll();
     for (const voice of this.voices) this.releaseVoice(voice, FADE_SECONDS);
   }
 
@@ -268,6 +306,7 @@ export class SoundFontPreview {
   }
 
   async dispose() {
+    this.bankPlayer?.dispose(); this.bankPlayer = null;
     if (this.disposed) return;
     this.disposed = true;
     this._enabled = false;

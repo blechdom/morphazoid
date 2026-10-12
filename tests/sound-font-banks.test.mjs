@@ -5,10 +5,10 @@ import { createHash } from 'node:crypto';
 import { parseSoundFont } from '../src/site/sound-fonts/soundfont.js';
 
 const root=new URL('../',import.meta.url);
-const catalog=JSON.parse(await readFile(new URL('assets/sound-fonts/catalog.json',root),'utf8'));
+const catalog=JSON.parse(await readFile(new URL('assets/sound-fonts/catalog.json',root),'utf8')).filter(bank=>!['generaluser-gs','fluidr3mono-gm','fluidr3-gm'].includes(bank.id));
 const provenance=JSON.parse(await readFile(new URL('assets/sound-fonts/provenance.json',root),'utf8'));
 
-test('shipped banks retain exact upstream bytes, playable zones and distribution notices',async()=>{
+test('the five starter banks retain exact upstream bytes, playable zones and distribution notices',async()=>{
   assert.equal(new Set(catalog.map(bank=>bank.id)).size,catalog.length);
   for(const bank of catalog) {
     const data=await readFile(new URL(bank.file,root));

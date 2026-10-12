@@ -7,9 +7,12 @@ import { readFractalImpulseRuntimeReference, restoreFractalImpulseRuntime } from
 import { restoreTrackazoidBeatmatchingSite, trackazoidBeatmatchingChanges } from './helpers/trackazoid-beatmatching-site-reference.mjs';
 import { restoreTrackazoidSite } from './helpers/trackazoid-site-reference.mjs';
 import { restoreBlackMidiArtRuntime } from './helpers/black-midi-art-runtime-reference.mjs';
+import { restoreSoundFontsShared, soundFontsSharedChanges } from './helpers/sound-fonts-shared-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
-const read = file => readFile(new URL(`../${file}`, import.meta.url), 'utf8');
+// The independent SoundFont registration postdates the captured pad baseline.
+// Peel only its reviewed bytes before exercising the unchanged pad guards.
+const read = async file => restoreSoundFontsShared(await readFile(new URL(`../${file}`, import.meta.url), 'utf8'), file);
 
 test('pad and demo amendments restore exact captured main bytes without rewriting historical fixtures', async () => {
   assert.equal(trackazoidPadsChanges.baseCommit, '98bdd239757195367921d30c57e7457238ec8f87');
@@ -79,6 +82,24 @@ test('shared historical reading peels this addition without weakening the old be
     for (const marker of previous.markers) for (const options of [{}, { allowRestored: true }]) {
       assert.throws(() => restoreTrackazoidBeatmatchingSite(historical.replace(marker, ''), change.file, options), /exact Trackazoid beatmatching/);
       assert.throws(() => restoreTrackazoidBeatmatchingSite(historical + marker, change.file, options), /exact Trackazoid beatmatching/);
+    }
+  }
+});
+
+test('independent SoundFont and pad amendments commute while retaining their exact captured hashes', async () => {
+  for (const change of soundFontsSharedChanges.changes) {
+    const source = restoreBlackMidiArtRuntime(await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8'), change.file);
+    const soundFontsOnly = restoreTrackazoidPadsSite(source, change.file);
+    assert.equal(digest(soundFontsOnly), change.approvedSha256, change.file);
+    const restored = restoreSoundFontsShared(soundFontsOnly, change.file);
+    assert.equal(digest(restored), change.baseSha256, change.file);
+    assert.equal(restored, restoreTrackazoidPadsSite(restoreSoundFontsShared(source, change.file), change.file));
+    const drift = '\n// unreviewed change\n';
+    assert.equal(restoreSoundFontsShared(restoreTrackazoidPadsSite(source + drift, change.file), change.file), restored + drift);
+    for (const marker of change.markers) {
+      for (const malformed of [source.replace(marker, ''), source + marker, source.replace(marker, marker.replace(/\S/, '?'))]) {
+        assert.throws(() => restoreFractalImpulseRuntime(malformed, change.file, { allowRestored: true }), /exact shared Sound Fonts/);
+      }
     }
   }
 });

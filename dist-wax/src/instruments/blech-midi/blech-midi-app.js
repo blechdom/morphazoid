@@ -1,3 +1,4 @@
+import { mountSoundFontChooser } from '../../sound-fonts/chooser.js';
 import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from '../midi-mixer/midi-mixer-engine.js';
 import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
@@ -16,7 +17,7 @@ function mountBlechMidi() {
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator;
-  let fontSerial = 0, fontRequest = null, fontBusy = false, effectsSignature = '';
+  let bankChooser, effectsSignature = '';
   let seedPicking = false;
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
   const value = (node, next) => {
@@ -41,7 +42,6 @@ function mountBlechMidi() {
     $('blechMidi').dataset.audio = String(enabled);
     $('blechMidi').dataset.samples = String(state.samples.length);
     field($('mixerFontName'), state.soundfontName || 'TimGM6mb');
-    $('mixerSoundFont').disabled = fontBusy; $('mixerDefaultFont').disabled = fontBusy;
     const signature = JSON.stringify(state.effects);
     if (signature !== effectsSignature) {
       effectsSignature = signature;
@@ -172,32 +172,11 @@ function mountBlechMidi() {
     on($(id), 'change', event => { if (event.target.validity.valid) engine.configureEffects({ [key]: Number(event.target.value) }); });
   }
   on($('mixerEffectsReset'), 'click', () => engine.configureEffects({ filterHz: 20000, delayMix: 0, delayBeats: .5, feedback: .3, synth: null }));
-  async function selectFont(read, name) {
-    const ticket = ++fontSerial; fontRequest?.abort(); fontRequest = new AbortController();
-    fontBusy = true; field($('mixerFontStatus'), `Loading ${name}…`); reflect();
-    try {
-      const buffer = await read(fontRequest.signal);
-      if (disposed || ticket !== fontSerial) return;
-      await engine.loadSoundFont(buffer, name);
-      if (!disposed && ticket === fontSerial) field($('mixerFontStatus'), `Using ${engine.state.soundfontName}`);
-    } catch (error) {
-      if (!disposed && ticket === fontSerial && error.name !== 'AbortError') field($('mixerFontStatus'), error.message || 'Could not load this SoundFont.');
-    } finally {
-      if (!disposed && ticket === fontSerial) { fontBusy = false; fontRequest = null; reflect(); }
-    }
-  }
-  on($('mixerSoundFont'), 'change', event => {
-    const file = event.target.files?.[0]; event.target.value = ''; if (!file) return;
-    void selectFont(() => {
-      if (file.size > 32 * 1024 * 1024) throw new Error('SoundFonts must be 32 MB or smaller.');
-      return file.arrayBuffer();
-    }, file.name);
+  bankChooser = mountSoundFontChooser($('mixerBankChooser'), {
+    fileInput: $('mixerSoundFont'), defaultButton: $('mixerDefaultFont'),
+    async onLoad({ bytes, name }) { await engine.loadSoundFont(bytes, name); if (!disposed) reflect(); },
+    onStatus(state) { if (!disposed) field($('mixerFontStatus'), state.error?.message || (state.loading ? 'Loading SoundFont…' : state.current ? `Using ${state.current.name}` : '')); },
   });
-  on($('mixerDefaultFont'), 'click', () => void selectFont(async signal => {
-    const response = await fetch(new URL('../../../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url), { signal });
-    if (!response.ok) throw new Error('Could not load TimGM6mb.');
-    return response.arrayBuffer();
-  }, 'TimGM6mb'));
   on($('audioButton'), 'click', async () => {
     audioIntent = !(starting ? audioIntent : engine.state.audioEnabled);
     if (!audioIntent) { starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); reflect(); return; }
@@ -221,7 +200,7 @@ function mountBlechMidi() {
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     retainedDraft = drawing.model.pixels.map(row => [...row]);
-    disposed = true; audioIntent = false; fontSerial++; fontRequest?.abort(); revokeDownload(); events.abort();
+    disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
     artCreator.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();

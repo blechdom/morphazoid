@@ -122,7 +122,7 @@ export function encodeSoundFont({ name = 'Morphazoid', author = '', license = ''
 }
 
 /** Read SF2 PCM and flatten playable preset/instrument zones for a basic preview. */
-export function parseSoundFont(input) {
+export function parseSoundFont(input, { metadataOnly = false } = {}) {
   const bytes = input instanceof ArrayBuffer ? new Uint8Array(input) : ArrayBuffer.isView(input) ? new Uint8Array(input.buffer, input.byteOffset, input.byteLength) : null;
   if (!bytes) fail('expected an ArrayBuffer containing an .sf2 file.');
   if (bytes.byteLength > MAX_SOUNDFONT_BYTES) fail('file exceeds the 128 MiB limit.');
@@ -167,11 +167,13 @@ export function parseSoundFont(input) {
   const version = info.get('ifil');
   if (!version || version.size !== 4) fail('missing or invalid ifil version.');
   const majorVersion = u16(version.offset);
-  if (majorVersion === 3) fail('compressed SF3 is not supported. Export an uncompressed SF2 bank first.');
-  if (majorVersion !== 2) fail(`unsupported SoundFont version ${majorVersion}.`);
+  if (majorVersion === 3 && !metadataOnly) fail('compressed SF3 is not supported by the PCM reader. Use the shared SoundFont player.');
+  if (majorVersion !== 2 && majorVersion !== 3) fail(`unsupported SoundFont version ${majorVersion}.`);
   const smpl = sdta.get('smpl');
-  if (!smpl || smpl.size < 2 || smpl.size % 2) fail('missing or invalid 16-bit PCM sample data.');
-  if (ascii(bytes, smpl.offset, Math.min(4, smpl.size)) === 'OggS') fail('compressed SF3 is not supported. Export an uncompressed SF2 bank first.');
+  if (!smpl || smpl.size < 2) fail('missing or invalid sample data.');
+  const compressed = majorVersion === 3 || ascii(bytes, smpl.offset, Math.min(4, smpl.size)) === 'OggS';
+  if (compressed && !metadataOnly) fail('compressed SF3 is not supported by the PCM reader. Use the shared SoundFont player.');
+  if (!compressed && smpl.size % 2) fail('invalid 16-bit PCM sample data.');
   const sm24 = sdta.get('sm24');
   if (sm24) warn('24-bit sample low bytes are omitted in this 16-bit preview; the original file is unchanged.');
   function table(id, recordSize, minimum = 1) {
@@ -203,17 +205,31 @@ export function parseSoundFont(input) {
   const sampleMeta = [], totalFrames = smpl.size / 2;
   for (let i = 0; i < sh.count - 1; i += 1) {
     const at = sh.offset + i * 46, type = u16(at + 44);
-    if (type & 0x10) fail('compressed SF3 samples are not supported. Export an uncompressed SF2 bank first.');
+    if (type & 0x10 && !metadataOnly) fail('compressed SF3 samples are not supported by the PCM reader.');
     const start = u32(at + 20), stop = u32(at + 24), rate = u32(at + 36);
-    const supported = !(type & 0x8000) && [1, 2, 4].includes(type);
-    if (supported && (start >= stop || stop > totalFrames || rate < 400 || rate > 192000)) fail(`invalid bounds or sample rate for sample ${i + 1}.`);
+    const supported = !(type & 0x8000) && [1, 2, 4].includes(type & ~0x10);
+    if (supported && (start >= stop || stop > (type & 0x10 ? smpl.size : totalFrames) || rate < 400 || rate > 192000)) fail(`invalid bounds or sample rate for sample ${i + 1}.`);
     if (!supported) warn('ROM and unsupported linked samples are omitted from the preview.');
     sampleMeta.push({ name: ascii(bytes, at, 20) || `Sample ${i + 1}`, start, stop, sampleRate: rate, rootKey: bytes[at + 40] <= 127 ? bytes[at + 40] : 60, correction: view.getInt8(at + 41), loopStart: u32(at + 28) - start, loopEnd: u32(at + 32) - start, type, supported });
   }
   // Decode the pool once: repeated and overlapping shdr ranges share the array.
-  const pool = new Float32Array(totalFrames);
-  for (let i = 0; i < totalFrames; i += 1) pool[i] = s16(smpl.offset + i * 2) / 32768;
-  const samples = sampleMeta.map((sample) => ({ name: sample.name, data: sample.supported ? pool.subarray(sample.start, sample.stop) : new Float32Array(0), sampleRate: sample.sampleRate, rootKey: sample.rootKey, loopStart: sample.loopStart, loopEnd: sample.loopEnd }));
+  const pool = metadataOnly ? null : new Float32Array(totalFrames);
+  if (pool) for (let i = 0; i < totalFrames; i += 1) pool[i] = s16(smpl.offset + i * 2) / 32768;
+  const samples = sampleMeta.map((sample) => {
+    let data;
+    return { name: sample.name, sampleRate: sample.sampleRate, rootKey: sample.rootKey, loopStart: sample.loopStart, loopEnd: sample.loopEnd,
+      get data() {
+        if (data) return data;
+        if (!sample.supported || sample.type & 0x10) return data = new Float32Array(0);
+        if (pool) return data = pool.subarray(sample.start, sample.stop);
+        // A bounded waveform only; the shared audio engine owns full decoding.
+        const count = Math.min(4096, sample.stop - sample.start);
+        data = new Float32Array(count);
+        for (let i = 0; i < count; i++) data[i] = s16(smpl.offset + 2 * (sample.start + Math.floor(i * (sample.stop - sample.start) / count))) / 32768;
+        return data;
+      },
+    };
+  });
   const supportedGenerators = new Set([0, 1, 2, 3, 4, 12, 17, 34, 38, 41, 43, 44, 45, 48, 50, 51, 52, 53, 54, 58]);
   const unsupported = new Set();
   function zoneMap(bags, generators, index, terminal) {
@@ -259,7 +275,7 @@ export function parseSoundFont(input) {
         const sampleIndex = z.get(53), sample = sampleMeta[sampleIndex];
         if (!sample) fail('instrument refers to a missing sample.');
         if (!sample.supported) continue;
-        if ([0, 1, 4, 12].some((op) => (z.get(op) ?? 0) !== 0)) {
+        if (!metadataOnly && [0, 1, 4, 12].some((op) => (z.get(op) ?? 0) !== 0)) {
           warn('Zones with sample start/end offsets are omitted from the preview.');
           continue;
         }
@@ -286,7 +302,7 @@ export function parseSoundFont(input) {
   }
   if (unsupported.size) warn('Some filter, envelope, LFO, tuning or effect generators are not rendered in the preview.');
   if (!presets.some((preset) => preset.zones.length)) fail('this bank has no supported playable PCM zones.');
-  return { name: infoText('INAM', 'Untitled SoundFont'), author: infoText('IENG'), license: infoText('ICOP'), presets, samples, warnings: [...warningSet] };
+  return { name: infoText('INAM', 'Untitled SoundFont'), author: infoText('IENG'), license: infoText('ICOP'), format: compressed ? 'sf3' : 'sf2', presets, samples, warnings: metadataOnly ? [] : [...warningSet] };
 }
 
 /** Original deterministic additive samples; not recordings or instrument emulations. */
