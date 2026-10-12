@@ -131,13 +131,15 @@ function patternPixels(id, density, seed) {
 }
 
 /** Raw trails carry earlier notes upward, so emit each picture's top row first.
- * The Draw editor's stationary score/playhead still uses its original direction.
+ * Falling-note stages instead retain bottom-row-first playback; pass
+ * orientation: 'falling' to preserve the drawing above a keyboard. The default
+ * remains byte-for-byte compatible with existing upward trails.
  * Text phrases stay in reading order and retain their final silent row.
  * An optional pitch span resizes the drawing's columns and fits its complete
  * pitch window inside MIDI 0–127. Offset moves that fitted window as a whole;
  * height stretches its total temporal extent without changing the bitmap.
  */
-export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote, span, heightBeats, offset } = {}) {
+export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRow: rowTime, lowestNote: baseNote, span, heightBeats, offset, orientation = 'rising' } = {}) {
   if (!score?.buffer || !Array.isArray(score.notes) || !score.notes.length
     || !Number.isInteger(score.rows) || score.rows < 1 || score.rows > 256
     || !Number.isInteger(score.columns) || score.columns < 1 || score.columns > 128
@@ -158,7 +160,7 @@ export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRo
     }
     const phraseStart = phraseRows ? Math.floor(from / phraseRows) * phraseRows : 0;
     const pictureRows = phraseRows ? phraseRows - 1 : rows;
-    const start = phraseStart + pictureRows - (from - phraseStart) - length;
+    const start = orientation === 'falling' ? from : phraseStart + pictureRows - (from - phraseStart) - length;
     if (start < phraseStart) throw new Error('Invalid message score.');
     return { column, start, length };
   });
@@ -187,7 +189,7 @@ export function mixerPerformanceScore(score, { trimLeading = false, secondsPerRo
   const ticksPerBeat = heightBeats === undefined ? score.ticksPerBeat ?? 480 : gridResolution(outputRowTime);
   const generated = generateGridMidi(pixels, { title: score.text, secondsPerRow: outputRowTime, lowestNote: outputBase, ticksPerBeat });
   return { ...score, ...generated, heightBeats: generated.duration * 2, appliedOffset: outputBase - fittedBase,
-    pixels: pixels.map(row => row.slice()).reverse() };
+    pixels: orientation === 'falling' ? pixels.map(row => row.slice()) : pixels.map(row => row.slice()).reverse() };
 }
 
 export function mixerStampScore(id, options) {
@@ -222,7 +224,7 @@ export function mixerStampScore(id, options) {
   if (!pixels.some(row => row.some(Boolean))) pixels[15][Math.floor(normalized.span / 2)] = 1;
   const lowestNote = Math.round(72 - normalized.span / 2) + normalized.transpose, secondsPerRow = normalized.beats / 64;
   const score = generateGridMidi(pixels, { title: stamp.label, secondsPerRow, lowestNote, ticksPerBeat: gridResolution(secondsPerRow) });
-  return { ...mixerPerformanceScore(score, { trimLeading: true, offset: normalized.offset }),
+  return { ...mixerPerformanceScore(score, { trimLeading: true, offset: normalized.offset, orientation: options?.orientation }),
     patternOptions: { ...normalized, beats: score.duration * 2 }, group: stamp.group };
 }
 
@@ -234,18 +236,18 @@ export function nextMixerStampVariation(id, options) {
   if (!stamp) throw new Error('Choose a sample from the bank.');
   const normalized = patternOptions(options);
   if (FIXED_SEED_PATTERNS.has(id) || ((stamp.glyph || id === 'square') && normalized.density >= .5)) return null;
-  const previous = mixerStampScore(id, normalized);
+  const previous = mixerStampScore(id, { ...normalized, orientation: options?.orientation });
   for (let offset = 1; offset <= 16; offset++) {
-    const next = mixerStampScore(id, { ...normalized, seed: (normalized.seed + offset) >>> 0 });
+    const next = mixerStampScore(id, { ...normalized, seed: (normalized.seed + offset) >>> 0, orientation: options?.orientation });
     if (next.pixels.some((row, y) => row.some((value, x) => value !== previous.pixels[y][x]))) return next;
   }
   return null;
 }
 
-export function mixerMessageScore(input, { mode = 'word' } = {}) {
+export function mixerMessageScore(input, { mode = 'word', orientation = 'rising' } = {}) {
   if (typeof input !== 'string' || !input.trim()) throw new Error('Type a message or a symbol first.');
   const score = generateTextMidi(input, { mode });
-  return { ...mixerPerformanceScore(score), name: score.text };
+  return { ...mixerPerformanceScore(score, { orientation }), name: score.text };
 }
 
 /** Distinct stable renderer hues for each deck/channel and each sample instance. */
