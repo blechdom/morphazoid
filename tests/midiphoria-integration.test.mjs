@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readVectorFractalsSiteReference as readFile } from "./helpers/vector-fractals-site-reference.mjs";
 import test from "node:test";
 import { createHash } from "node:crypto";
+import { readFile as readRawFile } from 'node:fs/promises';
 import { midiphoriaSiteAdditions, restoreMidiphoriaSite } from "./helpers/midiphoria-site-reference.mjs";
 import { restoreFractalDelaySite } from './helpers/fractal-delay-site-reference.mjs';
 
@@ -86,7 +87,9 @@ test("Midiphoria publishes the accessible visual page and complete runtime asset
 test("the grouped library ships complete attributed arrangements and all nine geometric patterns", async () => {
   const base = new URL('../assets/midiphoria/', import.meta.url);
   const songs = JSON.parse(await readFile(new URL('collection.json', base), 'utf8'));
-  const inventory = await readFile(new URL('../scripts/site/runtime-files.tsv', import.meta.url), 'utf8');
+  // This checks the current published library; historical catalogue restoration
+  // above must not remove newly reviewed artwork assets from this inventory.
+  const inventory = await readRawFile(new URL('../scripts/site/runtime-files.tsv', import.meta.url), 'utf8');
   assert.equal(new Set(songs.map(song => song.id)).size, songs.length);
   assert.ok(songs.filter(song => song.webArrangement).length >= 40);
   assert.equal(songs.filter(song => song.collection === 'Geometric patterns').length, 9);
@@ -101,11 +104,24 @@ test("the grouped library ships complete attributed arrangements and all nine ge
       assert.ok(song.hasDrums, song.id);
       assert.match(song.downloadUrl, /^https:\/\//);
     }
-    assert.match(song.file, /^midi\/[a-z0-9-]+\.mid$/);
+    assert.match(song.file, /^midi\/(?:[a-z0-9-]+\/)*[a-z0-9-]+\.mid(?:\.gz)?$/);
     assert.ok(song.title && song.attribution && song.license && song.sourceUrl);
     assert.ok(song.collection, song.id);
     const midi = await readFile(new URL(song.file, base));
-    assert.equal(midi.toString('ascii', 0, 4), 'MThd', song.id);
+    if (song.compression === 'gzip') {
+      assert.equal(song.visualOnly, true, song.id);
+      assert.equal(midi[0], 0x1f, song.id);
+      assert.equal(midi[1], 0x8b, song.id);
+      assert.ok(song.uncompressedBytes > 0 && song.uncompressedSha256, song.id);
+      // Full streamed decompression, raw hashes and SMF headers are checked in
+      // midiphoria-artwork-collection.test.mjs without holding giant files twice.
+    } else {
+      assert.equal(song.compression, undefined, song.id);
+      assert.match(song.file, /^midi\/[a-z0-9-]+\.mid$/);
+      assert.equal(midi.toString('ascii', 0, 4), 'MThd', song.id);
+      assert.ok(midi.byteLength <= 10 * 1024 * 1024, `${song.id}: ordinary audio import limit`);
+    }
+    assert.equal(midi.byteLength, song.bytes, song.id);
     assert.equal(createHash('sha256').update(midi).digest('hex'), song.sha256, song.id);
     assert.ok(inventory.split('\n').includes(`copy+require\tassets/midiphoria/${song.file}`), song.id);
     if (song.demo) assert.match(song.composer, /original/i);
