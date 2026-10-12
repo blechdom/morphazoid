@@ -1,0 +1,24 @@
+{
+  "baseCommit": "98bdd239757195367921d30c57e7457238ec8f87",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "bc8d833e7d79c20b4badf8e7798a91e9ae2323fc6017d85d9e7d05ec5d59479d",
+      "markers": [
+        "copy+require\tsrc/instruments/trackazoid/demo-tracks.js\n"
+      ],
+      "before": "copy+require\tsrc/instruments/trackazoid/beat-analysis-client.js\n",
+      "after": "copy+require\tsrc/instruments/trackazoid/beat-analysis-client.js\ncopy+require\tsrc/instruments/trackazoid/demo-tracks.js\n"
+    },
+    {
+      "file": "README.md",
+      "sha256": "d08f247b6f8cd474e92cc0391c67fb85449086b74eae6dee7865a79c6a91426b",
+      "markers": [
+        "automatic BPM and beat grids, persistent Sync, key lock, eight cue/loop pads per deck,\n",
+        "Quantize, beat jumps, EQ, filters and a crossfader. Each deck has a demo-track menu.\n"
+      ],
+      "before": "**[Trackazoid](trackazoid.html)** is a desktop browser DJ workspace inside Morphazoid.\nDrop local audio onto two decks or open a music folder, then mix with waveforms,\nautomatic BPM and beat grids, persistent Sync, key lock, four hot cues per deck, beat loops,\nEQ, filters and a crossfader. File loading leaves Audio off; replacing a playing\ntrack requires an explicit Load replacement action. Source BPM and grid corrections\nsave locally under Adjust. Split output provides mono master/cue channels while recording\nkeeps the stereo master. [Controls, local files and the next stages](docs/trackazoid.md).\n",
+      "after": "**[Trackazoid](trackazoid.html)** is a desktop browser DJ workspace inside Morphazoid.\nDrop local audio onto two decks or open a music folder, then mix with waveforms,\nautomatic BPM and beat grids, persistent Sync, key lock, eight cue/loop pads per deck,\nQuantize, beat jumps, EQ, filters and a crossfader. Each deck has a demo-track menu.\nFile loading leaves Audio off; replacing a playing track requires an explicit\nLoad replacement action. Source BPM and grid corrections save locally under Adjust.\nSplit output provides mono master/cue channels while recording keeps the stereo master.\n[Controls, local files and the next stages](docs/trackazoid.md).\n"
+    }
+  ]
+}

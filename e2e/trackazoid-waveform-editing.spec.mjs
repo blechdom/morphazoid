@@ -169,7 +169,8 @@ test("focused waveform shortcuts edit the selected deck while text and native co
   await page.keyboard.press("l"); expect((await deck(page, "b")).loop).toBeNull();
   await page.keyboard.press("m"); b = await deck(page, "b"); expect(b.metadata.cues[0]).toBeCloseTo(b.position, 5);
   await page.keyboard.press("Shift+Digit1"); expect((await deck(page, "b")).metadata.cues[0]).toBeNull();
-  await page.keyboard.press("1"); expect((await deck(page, "b")).metadata.cues[0]).not.toBeNull();
+  await page.keyboard.press("1");
+  expect((await deck(page, "b")).metadata.pads[0]).toEqual({ type: "loop", ...b.selection, name: "" });
   await page.keyboard.press("Delete"); expect((await deck(page, "b")).selection).toBeNull();
   await page.keyboard.press("Space"); expect((await deck(page, "b")).playing).toBe(true);
   expect((await deck(page, "a")).playing).toBe(false);
@@ -179,7 +180,7 @@ test("focused waveform shortcuts edit the selected deck while text and native co
   await page.keyboard.type(" ioml1234 "); await page.keyboard.press("Backspace");
   await expect(page.locator("#librarySearch")).toHaveValue("mix ioml1234");
   const untouched = await deck(page, "b"); expect(untouched.playing).toBe(false); expect(untouched.selection).toBeNull();
-  expect(untouched.metadata.cues.slice(1)).toEqual([null, null, null]);
+  expect(untouched.metadata.cues.slice(1)).toEqual(Array(7).fill(null));
   await page.locator("#bPlay").focus(); await page.keyboard.press("Space");
   expect((await deck(page, "b")).playing).toBe(true);
   await page.keyboard.press("Space"); expect((await deck(page, "b")).playing).toBe(false);
@@ -195,7 +196,7 @@ test("double-click and bottom cue flags edit persistent markers while selection 
   const { canvas, box } = await canvasGeometry(page, "a");
   await canvas.dblclick({ position: { x: box.width * 0.25, y: box.height * 0.42 } });
   let a = await deck(page, "a"); expect(a.metadata.cues[0]).not.toBeNull();
-  expect(a.metadata.cues.slice(1)).toEqual([null, null, null]);
+  expect(a.metadata.cues.slice(1)).toEqual(Array(7).fill(null));
   const first = a.metadata.cues[0], playhead = a.position;
   await gesture(page, "a", (first - a.viewport.start) / a.viewport.span + 3 / box.width, 0.59, { y: 1 - 12 / box.height });
   a = await deck(page, "a"); expect(a.metadata.cues[0]).toBeGreaterThan(first + 1);

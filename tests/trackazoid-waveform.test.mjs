@@ -48,6 +48,16 @@ test("beat loops respect file boundaries and the engine’s 50 ms minimum", () =
   near(beatLoop(2 - 1e-8, 120, 0, 1, 30).start, 2, 1e-12);
 });
 
+test("performance loop lengths span one eighth to 32 beats with the same grid anchor", () => {
+  for (const count of [0.125, 0.25, 0.5, 1, 2, 4, 8, 16, 32]) {
+    const loop = beatLoop(2.3, 120, 0.125, count, 60);
+    near(loop.start, 2.125);
+    near(loop.end - loop.start, count / 2);
+  }
+  assert.equal(beatLoop(2, 240, 0, 0.125, 60), null, "A 31 ms subdivision cannot become a playable loop");
+  near(beatLoop(2, 240, 0, 0.25, 60).end, 2.0625);
+});
+
 test("sync matches effective tempo and beat phase across source BPMs and manual offsets", () => {
   const scenarios = [
     { bpm: 120, offset: 0, otherBpm: 126, otherOffset: 0.12, otherRate: 0.98 },

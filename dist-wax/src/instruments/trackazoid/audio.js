@@ -1,6 +1,7 @@
 import SignalsmithStretch from "../../../vendor/signalsmith-stretch/SignalsmithStretch.mjs";
 import { connectAudioOutput } from "../../audio-output-manager.js";
-import { DeckTransport, clamp, crossfadeGains, normalizeLoop, beatPhase, phaseDifference, alignedPosition, matchingRate, MIN_RATE, MAX_RATE } from "./transport.js";
+import { DeckTransport, clamp, crossfadeGains, normalizeLoop, beatPhase, phaseDifference, alignedPosition, matchingRate,
+  beatJumpPosition, quantizedPosition, wholeBeatLoop, shiftedLoop, resizedLoop, MIN_RATE, MAX_RATE } from "./transport.js";
 
 const FADE = 0.012;
 const SAMPLE_RATE = 48_000;
@@ -68,7 +69,7 @@ export class TrackazoidAudio {
     this.decks = Object.fromEntries(DECK_IDS.map(id => [id, {
       id, transport: new DeckTransport(), buffer: null, generation: 0,
       keyLock: defaultKeyLock, gain: 0.8, eq: { low: 0, mid: 0, high: 0 }, filter: 0,
-      grid: { bpm: null, beatOffset: 0 }, sync: false, syncError: null, playOrder: 0,
+      grid: { bpm: null, beatOffset: 0 }, sync: false, syncError: null, quantize: true, playOrder: 0,
       cue: false, graph: null, source: null, retiring: new Set(), stretch: null,
       stretchBuffer: null, stretchPending: null, latency: 0,
     }]));
@@ -91,7 +92,7 @@ export class TrackazoidAudio {
     const now = this._now(), deck = this._deck(id), masterId = this._masterAt(now);
     const current = deck.transport.snapshot(now), state = deck.transport.intent(now);
     const reference = masterId ? this.decks[masterId] : null;
-    return { ...state, keyLock: deck.keyLock, sync: deck.sync, isMaster: masterId === id,
+    return { ...state, keyLock: deck.keyLock, sync: deck.sync, quantize: deck.quantize, isMaster: masterId === id,
       ...deck.grid, effectiveBpm: deck.grid.bpm ? deck.grid.bpm * state.rate : null,
       syncError: deck.syncError,
       phaseError: reference && current.playing && reference.transport.snapshot(now).playing
@@ -107,8 +108,8 @@ export class TrackazoidAudio {
   }
   _when() { return this._now() + this._lead(); }
 
-  _commit(deck, changes, when, now = this._now()) {
-    deck.transport.schedule(when, changes, now);
+  _commit(deck, changes, when, now = this._now(), relativePosition = false) {
+    deck.transport.schedule(when, changes, now, { relativePosition });
     this._render(deck, when);
   }
 
@@ -124,11 +125,7 @@ export class TrackazoidAudio {
   }
 
   _beatLoop(deck, time) {
-    const loop = deck.transport.intent(time).loop;
-    if (!loop) return true;
-    if (!deck.grid.bpm) return false;
-    const beats = (loop.end - loop.start) * deck.grid.bpm / 60;
-    return Math.abs(beats - Math.round(beats)) <= 1e-4;
+    return wholeBeatLoop(deck.transport.intent(time).loop, deck.grid);
   }
 
   _syncFailure(deck, message, report = true) {
@@ -155,7 +152,13 @@ export class TrackazoidAudio {
       const intent = deck.transport.intent(now);
       const pendingLaunch = intent.playing && !deck.transport.snapshot(now).playing;
       const boundary = pendingLaunch ? this._nextBeatTime(master, when) : when;
-      const current = deck.transport.snapshot(boundary);
+      let current;
+      try { current = deck.transport.projected(boundary, now); }
+      catch (error) {
+        if (!(error instanceof RangeError)) throw error;
+        this._syncFailure(deck, "The pending beat action reaches the track edge. Sync is off; pause or choose another point.");
+        continue;
+      }
       const changes = { rate };
       if (align && intent.playing) changes.position = alignedPosition(
         pendingLaunch ? deck.transport.pendingChanges?.position ?? current.position : current.position,
@@ -538,6 +541,96 @@ export class TrackazoidAudio {
     this._notify(); return this.snapshot(id);
   }
 
+  setQuantize(id, enabled) {
+    if (this.disposed) return this.snapshot(id);
+    this._deck(id).quantize = Boolean(enabled);
+    this._notify(); return this.snapshot(id);
+  }
+
+  _actionState(id, needsGrid = false) {
+    const deck = this._deck(id), now = this._now();
+    if (!deck.buffer) throw new Error("Load a track before using cue or loop actions.");
+    if (needsGrid && !deck.grid.bpm) throw new Error("Analyze this track or enter its BPM before using beat actions.");
+    // A prepared Sync launch keeps its later, quantized start. Repeated actions
+    // compose against one pending destination rather than growing an event queue.
+    const when = Math.max(now + this._lead(), deck.transport.pending?.time ?? now);
+    const state = deck.transport.projected(when, now);
+    const reference = deck.transport.snapshot(now).playing ? deck.transport.predecessorPosition(when, now) : state.position;
+    return { deck, now, when, state, reference };
+  }
+
+  _actionCommit({ deck, now, when }, changes, { preserveSync, relativePosition = false }) {
+    this.masterId = this._masterAt(now);
+    this._commit(deck, changes, when, now, relativePosition);
+    if (!preserveSync && deck.sync && this.masterId !== deck.id) { deck.sync = false; deck.syncError = null; }
+    if (deck.sync && !this._beatLoop(deck, now)) this._syncFailure(deck, "A free-length loop overrides beat Sync.", false);
+    if (this.masterId === deck.id) this._follow(when);
+    this._notify(); return this.snapshot(deck.id);
+  }
+
+  triggerCue(id, time) {
+    if (this.disposed) return this.snapshot(id);
+    const action = this._actionState(id), { deck, state } = action;
+    if (!Number.isFinite(time) || time < 0 || time > state.duration) throw new RangeError("This cue lies outside the track.");
+    const quantized = deck.quantize && Boolean(deck.grid.bpm);
+    const position = quantized && state.playing ? quantizedPosition(time, action.reference, deck.grid, state.duration) : time;
+    if (position === null) throw new RangeError("This track has no playable point at the current beat phase.");
+    // Cue recall outside a loop exits it atomically; inside it keeps the loop.
+    const loop = state.loop && position >= state.loop.start && position < state.loop.end ? state.loop : null;
+    return this._actionCommit(action, { position, loop }, { preserveSync: quantized,
+      relativePosition: quantized && state.playing });
+  }
+
+  triggerLoop(id, range) {
+    if (this.disposed) return this.snapshot(id);
+    const action = this._actionState(id), { deck, state } = action;
+    if (!range || !Number.isFinite(range.start) || !Number.isFinite(range.end) || range.start < 0 ||
+      range.end > state.duration || range.end - range.start < 0.05) throw new RangeError("A saved loop needs at least 50 ms within the track.");
+    const loop = { start: range.start, end: range.end };
+    const quantized = deck.quantize && Boolean(deck.grid.bpm);
+    const aligned = quantized && state.playing ? quantizedPosition(loop.start, action.reference, deck.grid, state.duration, loop) : null;
+    // A sub-beat/free loop may contain no point with the current full-beat
+    // phase. It still recalls exactly, but cannot promise persistent beat Sync.
+    const position = aligned ?? loop.start;
+    return this._actionCommit(action, { position, loop }, { preserveSync: quantized && wholeBeatLoop(loop, deck.grid),
+      relativePosition: aligned !== null });
+  }
+
+  beatJump(id, beats) {
+    if (this.disposed) return this.snapshot(id);
+    const action = this._actionState(id, true), { deck, state } = action;
+    if (!Number.isInteger(beats) || !beats || Math.abs(beats) > 32) throw new RangeError("Choose a whole-beat jump from 1 to 32 beats in either direction.");
+    const position = beatJumpPosition(state.position, beats, deck.grid, state.duration);
+    if (position === null) throw new RangeError("That beat jump would leave the track.");
+    const loop = state.loop && position >= state.loop.start && position < state.loop.end ? state.loop : null;
+    return this._actionCommit(action, { position, loop }, { preserveSync: true, relativePosition: true });
+  }
+
+  moveLoop(id, beats) {
+    if (this.disposed) return this.snapshot(id);
+    const action = this._actionState(id, true), { deck, state } = action;
+    if (!state.loop) throw new Error("Activate a loop before moving it.");
+    if (!Number.isInteger(beats) || !beats || Math.abs(beats) > 32) throw new RangeError("Move a loop by 1 to 32 whole beats in either direction.");
+    const loop = shiftedLoop(state.loop, beats, deck.grid, state.duration);
+    if (!loop) throw new RangeError("That loop move would leave the track.");
+    let position = state.position;
+    if (position >= state.loop.start && position < state.loop.end) position += beats * 60 / deck.grid.bpm;
+    else if (position >= loop.end) position = quantizedPosition(loop.start, state.position, deck.grid, state.duration, loop) ?? loop.start;
+    return this._actionCommit(action, { loop, position }, { preserveSync: wholeBeatLoop(loop, deck.grid), relativePosition: true });
+  }
+
+  resizeLoop(id, factor) {
+    if (this.disposed) return this.snapshot(id);
+    const action = this._actionState(id, true), { deck, state } = action;
+    if (!state.loop) throw new Error("Activate a loop before changing its size.");
+    if (![0.5, 2].includes(factor)) throw new RangeError("A loop can be halved or doubled.");
+    const loop = resizedLoop(state.loop, factor, deck.grid, state.duration);
+    if (!loop) throw new RangeError("Loop size must stay between ⅛ and 32 beats, at least 50 ms, and inside the track.");
+    let position = state.position;
+    if (position >= loop.end) position = loop.start + (position - loop.start) % (loop.end - loop.start);
+    return this._actionCommit(action, { loop, position }, { preserveSync: wholeBeatLoop(loop, deck.grid), relativePosition: true });
+  }
+
   setRate(id, rate) {
     if (this.disposed) return this.snapshot(id);
     const deck = this._deck(id), now = this._now(), when = this._when();
@@ -569,7 +662,15 @@ export class TrackazoidAudio {
     const deck = this._deck(id); deck.keyLock = Boolean(enabled); this._notify();
     try {
       if (deck.keyLock && this.graph) await this._prepareStretch(deck);
-      if (!this.disposed) this._render(deck);
+      if (!this.disposed) {
+        const now = this._now(), when = this._when();
+        if (deck.transport.pendingPositionOffset !== null && deck.transport.pending?.time > now && deck.transport.pending.time < when) {
+          // Increasing DSP lead replaces the not-yet-audible command as well as
+          // its render source; the model must move to that same output boundary.
+          this._commit(deck, {}, when, now);
+          if (deck.sync || this._masterAt(now) === id) this._follow(when);
+        } else this._render(deck, when);
+      }
       return deck.keyLock;
     } catch (error) {
       deck.keyLock = false; this._render(deck); this._notify();

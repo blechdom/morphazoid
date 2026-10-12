@@ -9,7 +9,8 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
 
 ## First mix
 
-1. Use **Add files**, **Open folder**, or drop audio files into the library.
+1. Choose a **Demo track** from each deck's menu to start immediately, or use
+   **Add files**, **Open folder**, or drop audio files into the library.
    Drop a file directly onto Deck A or B to load it there.
 2. Enable **Audio** in the Morphazoid menubar, then press a deck's **Play**.
    Loading, seeking and playing never enable Audio for you. Space controls
@@ -40,6 +41,7 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | Waveform | Click to seek; drag to select a chunk; drag selection edges to trim. Shift-click extends a selection. |
 | Waveform view | Shift-drag pans; − / + zoom; Fit shows the whole file; Follow returns to the moving playhead. |
 | Snap | Align selection and marker edits to beats. Hold Alt to bypass snapping for a pointer edit. |
+| Quantize | Keep cue and loop recalls at the current beat phase during playback (Q). Starts on; separate from Snap. |
 | In / Out | Set selection boundaries at the playhead (I / O). Out must be at least 50 ms after In. |
 | Loop selection | Repeat the selected chunk (L). Click again to stop that same loop. No detected BPM is required. |
 | Clear selection | Clear the range or pending In point (Delete / Backspace), preserving any playing loop. |
@@ -49,8 +51,11 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. Overrides the automatic estimate; available under Adjust. |
 | Set downbeat here | Place the beat-grid anchor at the cursor. |
 | Sync | Follow the master tempo and beat phase until disabled; the ±16% range still applies. |
-| Hot cues 1–4 | Store a position in an empty slot or jump to its saved position. Shift-click or Shift+1–4 clears a slot. |
-| Beat loop | With no selection, Loop / L repeats 1, 2, 4, 8 or 16 beats using the BPM/grid. The length menu resizes an active loop. |
+| Pads 1–8 | An empty pad saves the selection, then the active loop, or otherwise the playhead as a cue. A filled pad recalls it. Shift-click or Shift+1–8 clears a pad. |
+| Edit pads | Select a slot, name it, explicitly store a cue or loop, or clear it. Names and ranges save with the track. |
+| Beat loop | With no selection, Loop / L repeats the chosen length from ⅛ to 32 beats. The length menu resizes an active loop; ½ / ×2 halves or doubles it. Loops must last at least 50 ms. |
+| Beat jump | Jump backward or forward by 1, 4, 8, 16 or 32 beats without losing beat phase. Use [ / ] for the selected size. |
+| Move loop | Move the active loop backward or forward by the selected jump size (Shift+[ / Shift+]). |
 | EQ and filter | Shape the deck before it reaches the master and cue mixes. |
 | Crossfader | Blend the two decks. |
 
@@ -62,6 +67,26 @@ The overview remains a full-track seek control. Arrow keys seek by one beat
 track ends. **Space** plays/pauses the selected deck; **Esc** pauses both.
 Selection and viewport reset when a new track loads; cue markers are saved with
 the track. These controls never edit the original audio file.
+
+Quantize uses the deck's beat phase at the audible transition, so a recall stays
+in time without waiting for the next whole beat. A stopped deck recalls the exact
+saved position and stays stopped. Turn Quantize off for free cueing; a free cue
+jump releases follower Sync. Beat jumps retain phase with either setting.
+Jumps outside a playing loop leave it. Moving a loop carries the playhead with
+it; shortening a loop wraps the playhead into the new range. A move beyond a
+track boundary is rejected. Off-grid and sub-beat loops can release Sync.
+
+Saved loop pads appear as green flags marked L. Dragging a flag moves the saved
+range without changing its length or name. Existing four-cue tracks migrate to
+eight pads automatically. Recalls preserve Play/Pause and never enable Audio.
+
+Each deck's demo menu contains six locally generated tracks: Mint Transmission
+(120 BPM), Amber Circuit (126), Broken Orbit (110), Velvet Current (90), Chrome
+Parade (116), and Cobalt Rush (174). **Try demo pair** loads the first two. The
+menus can be used independently; choosing a demo on a playing deck stages a
+replacement for **Load replacement**. Demos use the same saved preparation as
+local files and need no download. Widely separated tempos still exceed Sync's
+±16% range; the 120/126 pair is a convenient first mix.
 
 This version does not implement vinyl scratching, slip mode, automatic
 key detection, variable beat grids or DJ-controller profiles. Key lock is a
@@ -110,7 +135,7 @@ file extensions or an audio MIME type; actual decoding depends on the browser.
 An unsupported or damaged file reports a load error. The library's search and folder controls help narrow large
 collections before loading a deck.
 
-Saved cues, source BPM and grid information live in browser storage. Identity
+Saved cue/loop pads, source BPM and grid information live in browser storage. Identity
 includes source, relative path, size and modification time, so same-named files
 in different folders remain distinct. A changed file requires a refresh and
 receives fresh track metadata. Saved entries never store the audio bytes. They do
@@ -145,7 +170,7 @@ One Web Audio clock drives both decks; graphics follow transport state. Native
 Web Audio mixer nodes provide EQ, filtering and gain. Optional key lock uses
 the existing MIT-licensed Signalsmith Stretch WebAssembly/AudioWorklet engine;
 see [third-party notices](THIRD_PARTY_NOTICES.md). No Rust toolchain, runtime Node
-process, external audio service or new framework is required. The demo pair is
+process, external audio service or new framework is required. The demo catalog is
 synthesized locally from deterministic oscillators and percussion; the catalogue
 icon is original procedural Canvas artwork.
 
