@@ -8,6 +8,7 @@ import { blechBrandSiteChanges, restoreBlechBrandSite, readBlechBrandSiteReferen
 import { restoreBlechMidiSite } from './helpers/blech-midi-site-reference.mjs';
 import { restoreFractalImpulseRuntime, readFractalImpulseRuntimeReference } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 import { restoreTrackazoidSite, readTrackazoidSiteReference } from './helpers/trackazoid-site-reference.mjs';
+import { restoreMidiFavesSite } from './helpers/midi-faves-site-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
 const urlFor = change => new URL(`../${change.file}`, import.meta.url);
@@ -54,8 +55,9 @@ test('duplicated, partial, mixed and altered brand amendments cannot bypass hist
       }
     }
     const unknown = source.replace(change.after, change.after.replace('blech-midi', 'unreviewed-midi'));
-    assert.equal(restoreBlechBrandSite(unknown, change.file, { allowRestored: true }), unknown);
-    assert.notEqual(digest(unknown), change.sha256);
+    const withoutLaterFaves = restoreMidiFavesSite(unknown, change.file, { allowRestored: true });
+    assert.equal(restoreBlechBrandSite(unknown, change.file, { allowRestored: true }), withoutLaterFaves);
+    assert.notEqual(digest(withoutLaterFaves), change.sha256);
   }
 });
 

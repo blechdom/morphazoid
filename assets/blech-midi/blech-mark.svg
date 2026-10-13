@@ -3,7 +3,7 @@
   <desc>An angular pair of bat wings surrounds a five-pin MIDI connector, with a bent cable below.</desc>
   <!-- Original Morphazoid artwork. No third-party shapes, fonts, or assets. -->
   <defs>
-    <path id="wing" fill-rule="evenodd" d="M100 62 80 39 68 18 65 36 8 5 27 44 2 34 29 80 43 67 55 96 67 75 85 97 83 73 103 81 100 62ZM23 20 63 43 81 63 57 54 23 20ZM28 56 44 59 52 78 40 64 28 56ZM68 56 88 68 80 80 79 66 68 56Z"/>
+    <path id="wing" fill-rule="evenodd" d="M100 62 68 27 8 8 29 47 10 38 38 81 51 64 67 94 78 73 103 81Z"/>
   </defs>
   <g fill="#96f4cc">
     <use href="#wing"/>

@@ -1,0 +1,8 @@
+{
+  "baseCommit": "02760d94dd645855eb5abe30dd16d3f837eabc6f",
+  "description": "Owner-requested October 12 addition of BLECH MIDI followed by Midiophilia to Faves; preserve all prior registry bytes and catalogue evidence.",
+  "file": "src/site/instrument-registry.js",
+  "sha256": "86238e9ac9c75a6f004eede50aa4fb56072362cef196b469ca8febba16b6c44a",
+  "before": "  \"simd-chiptune\"\n]);",
+  "after": "  \"simd-chiptune\",\n  \"blech-midi\",\n  \"midiphoria\"\n]);"
+}

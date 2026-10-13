@@ -1773,7 +1773,9 @@
       "cellular-automata",
       "lattice",
       "gesticulating-hand",
-      "simd-chiptune"
+      "simd-chiptune",
+      "blech-midi",
+      "midiphoria"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",
