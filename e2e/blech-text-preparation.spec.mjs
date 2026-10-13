@@ -127,6 +127,7 @@ test('text keeps its own loop and geometry after drawing and file stamp edits, w
   await tab(page, 'drawing'); await page.locator('#mixerSampleLoop').uncheck();
   await tab(page, 'stamps'); await page.locator('[data-mixer-sample="mirror-spiral"]').click();
   await expect(page.locator('#mixerStampSpan')).toBeDisabled();
+  await expect.poll(async () => (await samples(page)).length).toBe(3);
   await tab(page, 'text');
   await expect(page.locator('#blechTextSpan')).toBeEnabled(); await expect(page.locator('#blechTextBeats')).toBeEnabled();
   await expect(page.locator('#blechTextPosition')).toHaveValue('12');

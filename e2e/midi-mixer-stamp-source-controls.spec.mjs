@@ -25,6 +25,7 @@ async function open(page) {
         for(const sample of state.samples)sample.midi=sanitizeMidiParameters(patch.midi,sample.midi)}
         if(patch.gain!==undefined)for(const sample of state.samples)sample.gain=patch.gain},
       sendSampleController(controller,value){qa.actions.push({controller,value});return true},sendSampleParameter(action){qa.actions.push(action);return true},
+      stopSample(id){const before=state.samples.length;state.samples=state.samples.filter(sample=>sample.id!==id);return state.samples.length!==before},
       stopSamples(){state.samples=[];qa.stops++}};
     const pixels=Array.from({length:32},(_,y)=>Array.from({length:48},(_,x)=>Number(y>3&&y<24&&x===12)));
     const drawing=generateGridMidi(pixels,{secondsPerRow:.125,lowestNote:48});
