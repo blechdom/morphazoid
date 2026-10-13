@@ -17,10 +17,11 @@ export function createBlechNoteHistory() {
       const seen = new Set();
       for (const note of notes) {
         if (!note.id || !(note.start < 0) || !(note.end > -seconds)) continue;
-        let source = sources.get(note.source);
+        const sourceKey = `${note.source}:${note.scoreVersion ?? 0}`;
+        let source = sources.get(sourceKey);
         if (!source || source.revision !== note.revision) {
           source = { revision: note.revision, since: source ? previousTime ?? now : -Infinity, last: now };
-          sources.set(note.source, source);
+          sources.set(sourceKey, source);
         }
         source.last = now;
         const start = Math.max(now + note.start, source.since);
@@ -39,9 +40,10 @@ export function createBlechNoteHistory() {
         // A source can pause and resume between display frames. Clock evidence
         // clips its old epoch at the actual release, leaving resumed gates and
         // other independently playing sources untouched.
-        const release = sourceReleases?.get(note.source);
-        if (release && note.playbackEpoch <= release.epoch) {
-          if (note.start >= release.at) { records.delete(id); continue; }
+        const releases = sourceReleases?.get(note.source);
+        for (const release of Array.isArray(releases) ? releases : releases ? [releases] : []) {
+          if (note.playbackEpoch > release.epoch) continue;
+          if (note.start >= release.at) { records.delete(id); break; }
           note.end = Math.min(note.active ? Math.min(now, note.expectedEnd) : note.end, release.at); note.active = false;
         }
         if (note.active && !seen.has(id)) { note.end = Math.min(now, note.expectedEnd); note.active = false; }
