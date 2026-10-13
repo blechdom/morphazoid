@@ -65,7 +65,7 @@ test('BLECH MIDI keeps one falling stage while independent source tabs preserve 
   await view(page, 'automata');
   await expect(page.locator('#automataMidiTools .midiphoria-automata')).toHaveAttribute('open', '');
   await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed', 'false'); await expect(page.locator('#automataMidiCapture')).toBeVisible();
-  await expect(page.locator('#blechLiveLayers button')).toBeVisible();
+  await expect(page.locator('#blechLiveLayers [data-layer-stop]')).toBeVisible();
   await expect(page.locator('.mixer-sample-bank')).toBeHidden();
   await expect(page.locator('#mixerSampleLoop')).toBeChecked(); await expect(page.locator('#mixerSampleSync')).toBeChecked(); await expect(page.locator('#mixerSampleProgram')).toHaveValue('16');
   await view(page, 'draw'); await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
