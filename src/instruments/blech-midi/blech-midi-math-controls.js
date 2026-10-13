@@ -9,12 +9,13 @@ export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview }
   host.innerHTML = `<div class="blech-generator blech-math">
     <div class="blech-generator-toolbar"><label>Pattern<select id="blechMathPreset">${MATH_PRESETS.map(preset => `<option value="${preset.id}">${preset.name}</option>`).join('')}<option value="custom" hidden>Custom</option></select></label>
     <label>Graph<select id="blechMathMode"><option value="function">y = f(x)</option><option value="parametric">x(t), y(t)</option></select></label>
-    <button id="blechMathDrop" class="mini-action" type="button">Drop pattern</button><label class="blech-generator-check"><input id="blechMathLoop" type="checkbox" checked>Loop</label></div>
+    <button id="blechMathDrop" class="mini-action" type="button">Drop pattern</button><label class="blech-generator-check"><input id="blechMathLoop" type="checkbox" checked>Loop new pattern</label></div>
     <div class="blech-math-equations"><label id="blechMathFunctionRow">y =<input id="blechMathEquation" type="text" value="sin(3*x)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Math expression y equals"></label>
     <label id="blechMathParamXRow" hidden>x(t) =<input id="blechMathEquationX" type="text" value="sin(3*t)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Parametric time x of t"></label>
     <label id="blechMathParamYRow" hidden>y(t) =<input id="blechMathEquationY" type="text" value="sin(4*t)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Parametric pitch y of t"></label></div>
     <div class="blech-generator-work"><canvas id="blechMathPreview" width="800" height="256" aria-label="Prepared math notes: pitch left to right, time bottom to top">Equation samples become MIDI notes.</canvas>
     <div class="blech-generator-controls">${range('Beats', 'Length · beats', .25, 128, .25, 8)}${range('Width', 'Width · notes', 1, 16, 1, 1)}${range('Samples', 'Samples', 8, 1024, 1, 256)}${range('Gate', 'Note length', .05, 4, .05, .9)}${range('Low', 'Lowest pitch', 0, 127, 1, 0)}${range('High', 'Highest pitch', 0, 127, 1, 127)}${range('Velocity', 'Velocity', 1, 127, 1, 96)}</div></div>
+    <p class="blech-generator-hint">Each Drop adds a separate layer. Use Layers above to pause, stop or change its loop.</p>
     <output id="blechMathStatistics"></output><output id="blechMathStatus" role="status"></output>
     <details class="blech-generator-settings"><summary>Graph bounds &amp; functions</summary><div class="blech-generator-bounds">
     ${bound('DomainMin', 'Input start', 0)}${bound('DomainMax', 'Input end', 6.28318530718)}${bound('YMin', 'Y minimum', -1)}${bound('YMax', 'Y maximum', 1)}
@@ -50,7 +51,7 @@ export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview }
   });
   const getScore = () => { update(); if (error) throw new Error(error); return encodeMath({ ...options(), name: currentName }, getTempo()); };
   on($('Drop'), 'click', async () => {
-    try { const score = getScore(); await onDrop?.(score, { name: currentName, program: 'original', loop: $('Loop').checked }); if (!disposed) $('Status').value = `${score.analysis.noteCount.toLocaleString()} notes dropped to an independent pad.`; }
+    try { const score = getScore(); await onDrop?.(score, { name: currentName, program: 'original', loop: $('Loop').checked }); if (!disposed) $('Status').value = `${score.analysis.noteCount.toLocaleString()} notes added to Layers. Pause or Stop that layer above.`; }
     catch (caught) { if (!disposed) $('Status').value = caught.message; }
   });
   on($('Score'), 'click', async () => { try { await onPreview?.(getScore()); } catch (caught) { if (!disposed) $('Status').value = caught.message; } });

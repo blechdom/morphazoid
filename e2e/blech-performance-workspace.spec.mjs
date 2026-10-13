@@ -85,7 +85,7 @@ test('math Drop creates an audible independent layer on the shared falling canva
   await tab(page, 'stamps'); await expect(page.locator('#mixerSavedPads [data-pad-loop]')).toBeChecked();
   await tab(page, 'text'); await audible(page);
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(1);
-  await page.locator('#blechLiveLayers button').click();
+  await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
   await expect.poll(() => sources(page)).toEqual([]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
@@ -139,7 +139,7 @@ test('file and looped pad playback survive all preparation tabs and pause indepe
   const padAfter = (await samples(page))[0];
   expect(padAfter.cycle * padAfter.duration + padAfter.position).toBeGreaterThan(padBefore.cycle * padBefore.duration + padBefore.position);
   await audible(page);
-  await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers button').click();
+  await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
   await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true'); await audible(page);
   await page.locator('#creativeStop').click(); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'false');
@@ -170,7 +170,7 @@ test('editing and dropping an asymmetric saved drawing preserves its falling pit
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(0);
 });
 
-test('factory pad loop changes in the persistent live strip survive stopping and retriggering', async ({ page }) => {
+test('factory pad loop changes in the persistent layer rack survive stopping and retriggering', async ({ page }) => {
   await open(page); await tab(page, 'stamps'); await input(page, 'mixerStampBeats', 16);
   const pad = page.locator('[data-mixer-sample="heart"]'), loop = page.locator('[data-stamp-loop="heart"]');
   await expect(loop).not.toBeChecked(); await pad.click();
@@ -178,12 +178,12 @@ test('factory pad loop changes in the persistent live strip survive stopping and
   const first = (await samples(page))[0]; expect(first.loop).toBe(false);
   await page.locator('#blechLiveLayers input').check(); await expect(loop).toBeChecked();
   expect((await samples(page))[0]).toMatchObject({ id: first.id, loop: true });
-  await tab(page, 'math'); await page.locator('#blechLiveLayers button').click();
+  await tab(page, 'math'); await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
   await tab(page, 'stamps'); await expect(loop).toBeChecked(); await pad.click();
   const replay = (await samples(page))[0]; expect(replay.loop).toBe(true); expect(replay.id).not.toBe(first.id);
   await page.locator('#blechLiveLayers input').uncheck(); await expect(loop).not.toBeChecked();
-  await page.locator('#blechLiveLayers button').click(); await pad.click();
+  await page.locator('#blechLiveLayers [data-layer-stop]').click(); await pad.click();
   const oneShot = (await samples(page))[0]; expect(oneShot.loop).toBe(false); expect(oneShot.id).not.toBe(replay.id);
   expect(await page.evaluate(() => __workspaceQA.contexts.length)).toBe(0);
 });

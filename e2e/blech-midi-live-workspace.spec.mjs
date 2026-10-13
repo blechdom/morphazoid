@@ -41,7 +41,9 @@ async function open(page) {
         return qaRender.call(this,event);};` });
   });
   await page.goto('/blech-midi.html');
+  await tab(page, 'automata');
   await expect(page.locator('#automataMidiPlayPause')).toBeVisible();
+  await tab(page, 'drawing');
   await expect(page.locator('#drawingCanvas')).toBeVisible();
   await expect(page.locator('[data-mixer-sample]')).toHaveCount(58);
 }
@@ -57,7 +59,9 @@ async function input(page, id, value) {
   await page.locator(`#${id}`).evaluate((node,value)=>{node.value=String(value);node.dispatchEvent(new Event('input',{bubbles:true}));node.dispatchEvent(new Event('change',{bubbles:true}));},value);
 }
 async function expand(locator) { if (await locator.getAttribute('open') === null) await locator.locator(':scope > summary').click(); }
+async function tab(page, name) { await page.locator(`#blechTab-${name}`).click(); await expect(page.locator(`#blechPanel-${name}`)).toBeVisible(); }
 async function configure(page, { rule=204, rate=2, tempo=120, width=8, lowest=60 } = {}) {
+  await tab(page, 'automata');
   await expand(page.locator('.automata-midi-rule-details'));
   await expand(page.locator('#automataMidiParameters'));
   await page.locator('#automataMidiFamily').selectOption('elementary');
@@ -68,7 +72,7 @@ async function configure(page, { rule=204, rate=2, tempo=120, width=8, lowest=60
   await page.locator('#automataMidiRestart').click();
 }
 async function arm(page) { await page.locator('#audioButton').click();await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true',{timeout:20000}); }
-async function play(page) { await page.locator('#automataMidiPlayPause').click();await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed','true'); }
+async function play(page) { await tab(page, 'automata');await page.locator('#automataMidiPlayPause').click();await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed','true'); }
 async function audible(page) {
   await expect.poll(async()=>(await readAudioStatus(page)).rms,{timeout:10000}).toBeGreaterThan(.001);
   const {summary}=await sampleAudioEnvelope(page,{durationMs:350,intervalMs:30});
@@ -132,16 +136,19 @@ test('native generation clock survives UI stalls, tempo changes and live rule ed
 
 test('pausing the live source freezes only its phase while independent pads keep playing',async({page})=>{
   test.setTimeout(60000);await open(page);await configure(page,{tempo:240});
+  await tab(page,'stamps');
   await page.locator('[data-stamp-loop="square"]').check();await arm(page);await page.locator('[data-mixer-sample="square"]').click();await play(page);await audible(page);
   await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(4);
   await page.locator('#automataMidiPlayPause').click();await expect.poll(async()=>(await state(page)).automata.playing).toBe(false);
   const paused=await state(page),pad=paused.samples[0];expect(pad.loop).toBe(true);
+  await tab(page,'drawing');
   await page.locator('#mixerSampleLoop').check();await page.locator('#mixerSampleLoop').uncheck();
   await page.waitForTimeout(450);const later=await state(page);
   expect(later.automata.generation).toBe(paused.automata.generation);expect(later.automata.beat).toBeCloseTo(paused.automata.beat,8);
   expect(later.samples[0].id).toBe(pad.id);expect(later.samples[0].loop).toBe(true);
   expect(later.samples[0].cycle*pad.duration+later.samples[0].beat).toBeGreaterThan(pad.cycle*pad.duration+pad.beat+.25);await audible(page);
   await play(page);await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(paused.automata.generation+2);
+  await tab(page,'stamps');
   await page.locator('[data-mixer-sample="square"]').click();expect((await state(page)).samples).toEqual([]);await audible(page);
   await page.locator('#creativeStop').click();await silent(page);expect((await state(page)).automata.playing).toBe(false);
 });

@@ -8,7 +8,7 @@ export function createBlechNoteHistory() {
   const records = new Map(), sources = new Map();
   let previousTime = null;
   return {
-    update(notes, now, { seconds = 4, limit = BLECH_HISTORY_LIMIT } = {}) {
+    update(notes, now, { seconds = 4, limit = BLECH_HISTORY_LIMIT, sourceReleases } = {}) {
       now = Number.isFinite(now) ? now : 0;
       seconds = Math.max(0, Math.min(30, Number(seconds) || 0));
       limit = Math.max(0, Math.min(BLECH_HISTORY_LIMIT, Math.floor(limit)));
@@ -36,6 +36,14 @@ export function createBlechNoteHistory() {
         }
       }
       for (const [id, note] of records) {
+        // A source can pause and resume between display frames. Clock evidence
+        // clips its old epoch at the actual release, leaving resumed gates and
+        // other independently playing sources untouched.
+        const release = sourceReleases?.get(note.source);
+        if (release && note.playbackEpoch <= release.epoch) {
+          if (note.start >= release.at) { records.delete(id); continue; }
+          note.end = Math.min(note.active ? Math.min(now, note.expectedEnd) : note.end, release.at); note.active = false;
+        }
         if (note.active && !seen.has(id)) { note.end = Math.min(now, note.expectedEnd); note.active = false; }
         if (note.end <= now - seconds) records.delete(id);
       }

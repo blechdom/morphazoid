@@ -23,27 +23,51 @@ function mountBlechMidi() {
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools;
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
-  let seedPicking = false;
+  let seedPicking = false, automataSeen = false;
   const layerNodes = new Map();
   function reflectLayers(state) {
     const ids = new Set(state.samples.map(sample => sample.id));
-    for (const [id, node] of layerNodes) if (!ids.has(id)) { node.remove(); layerNodes.delete(id); }
+    for (const [id, node] of layerNodes) if (!ids.has(id)) {
+      const focused = node.contains(document.activeElement);
+      node.remove(); layerNodes.delete(id);
+      if (focused) (layerNodes.values().next().value?.querySelector('[data-layer-pause]') ?? $('creativeStop')).focus({ preventScroll: true });
+    }
     for (const sample of state.samples) {
       let node = layerNodes.get(sample.id);
       if (!node) {
         node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
-        const name = document.createElement('span'), loopLabel = document.createElement('label'), loop = document.createElement('input'), stop = document.createElement('button');
-        name.textContent = sample.name || 'Pattern'; name.title = name.textContent;
+        const copy = document.createElement('div'), name = document.createElement('span'), status = document.createElement('small');
+        const loopLabel = document.createElement('label'), loop = document.createElement('input'), pause = document.createElement('button'), stop = document.createElement('button');
+        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = '';
+        name.textContent = `${sample.name || 'Pattern'} · ${sample.id}`; name.title = name.textContent;
+        node.setAttribute('role', 'group'); node.setAttribute('aria-label', name.textContent);
         loop.type = 'checkbox'; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
-        loopLabel.append(loop, 'Loop'); stop.type = 'button'; stop.textContent = '■'; stop.setAttribute('aria-label', `Stop ${name.textContent}`);
+        loop.title = 'Turn off to finish this pass. Stop ends this layer immediately.';
+        loopLabel.append(loop, 'Loop');
+        pause.type = stop.type = 'button'; pause.dataset.layerPause = ''; stop.dataset.layerStop = '';
+        stop.textContent = 'Stop'; stop.setAttribute('aria-label', `Stop ${name.textContent}`); stop.title = 'Stop only this layer';
         loop.addEventListener('change', () => engine.configureSample(sample.id, { loop: loop.checked }));
+        pause.addEventListener('click', () => {
+          const current = engine.state.samples.find(item => item.id === sample.id);
+          if (current) engine.setSamplePaused(sample.id, !current.paused);
+        });
         stop.addEventListener('click', () => engine.stopSample(sample.id));
-        node.append(name, loopLabel, stop); layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
+        copy.append(name, status); node.append(copy, loopLabel, pause, stop);
+        layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
       }
       node.querySelector('input').checked = sample.loop;
+      node.dataset.paused = String(Boolean(sample.paused));
+      const pause = node.querySelector('[data-layer-pause]'), action = sample.paused ? 'Resume' : 'Pause';
+      field(pause, action); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
+      pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
+      pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
+      field(node.querySelector('[data-layer-status]'), sample.paused ? 'Paused' : sample.pending ? 'Queued' : sample.loop ? 'Looping' : 'Finishing this pass');
     }
+    $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
-    toggle.hidden = !state.automata?.playing;
+    automataSeen ||= Boolean(state.automata?.playing);
+    toggle.hidden = !automataSeen;
+    field(toggle, state.automata?.playing ? 'Pause evolution' : 'Resume evolution');
     toggle.setAttribute('aria-pressed', String(Boolean(state.automata?.playing)));
   }
   const field = (node, value) => { if (node.textContent !== value) node.textContent = value; };
@@ -65,8 +89,8 @@ function mountBlechMidi() {
     field($('creativeAudioStart'), starting ? 'Starting audio…' : state.error ? 'Retry audio' : 'Turn audio on');
     $('previewDrawingMidi').disabled = !drawing?.model.count;
     $('captureDrawingFrame').disabled = !drawing?.model.count;
-    const playing = state.samples.length;
-    field($('creativePlaybackStatus'), `${playing} pad${playing === 1 ? '' : 's'}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
+    const paused = state.samples.filter(sample => sample.paused).length, playing = state.samples.length - paused;
+    field($('creativePlaybackStatus'), `${playing} playing${paused ? ` · ${paused} paused` : ''}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
     $('blechMidi').dataset.samples = String(state.samples.length);
     field($('mixerFontName'), state.soundfontName || 'TimGM6mb');
@@ -136,12 +160,12 @@ function mountBlechMidi() {
   artCreator = mountMidiArtCreator($('midiArtCreator'), {
     getDrawingScore: () => { const score = performanceView.getDrawingScore(); return { ...score, analysis: score.analysis ?? parseMidi(score.buffer) }; },
     getTempo: () => engine.state.tempo,
-    onSend: (score, options) => performanceView.sendScore(score, options),
+    onSend: (score, options) => performanceView.sendScore(score, { ...options, name: `Art · ${options?.name || 'MIDI artwork'}` }),
     onPreview: score => filePlayer.previewScore(score),
   });
-  const onDrop = (score, options) => performanceView.sendScore(score, options);
-  mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop });
-  frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop, onEditDrawing: loadDrawingCopy });
+  const onDrop = source => (score, options) => performanceView.sendScore(score, { ...options, name: `${source} · ${options.name}` });
+  mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop: onDrop('Math') });
+  frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop: onDrop('Animation'), onEditDrawing: loadDrawingCopy });
   on($('captureDrawingFrame'), 'click', () => { try { const index = frameTools.capture(); field($('creativeStatus'), `Frame ${index + 1} captured. Open Frames to arrange and drop the sequence.`); } catch (error) { field($('creativeStatus'), error.message); } });
   const textLayout = $('mixerStampTextMode').closest('label');
   $('drawingMessageHost').prepend(textLayout);
@@ -151,7 +175,7 @@ function mountBlechMidi() {
   function activateTab(name, focus = false) {
     const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];
     name = selected.dataset.blechTab;
-    if ($('blechMidi').dataset.tab !== name) selected.closest('.blech-workbench').scrollTop = 0;
+    if ($('blechMidi').dataset.tab !== name) selected.closest('.blech-preparation').scrollTop = 0;
     for (const tab of tabs) {
       const active = tab === selected;
       tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;

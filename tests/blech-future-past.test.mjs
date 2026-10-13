@@ -186,3 +186,106 @@ test('Automata can start, restart and change tempo before its first tempo-histor
   const restarted = project(state([], .0625, { tempo: 240, automata: clock.snapshot() }), { pastSeconds: 4 });
   assert.ok(restarted.notes.every(item => Number.isFinite(item.start) && Number.isFinite(item.end)));
 });
+
+test('pausing one live layer releases its history while another layer and Automata keep advancing', () => {
+  const clock = new MidiAutomataClock(); clock.configure({ columns: 8, lowestNote: 90, rowBeats: 4 }); clock.setPlaying(true);
+  clock.advance(1.5, 120);
+  const project = createBlechLiveProjector(), first = sample({ positionBeats: 1.5 }), second = sample({ id: 2, slot: 1, positionBeats: 1.5 });
+  project(state([first, second], .75, { automata: clock.snapshot(), playing: true, beat: 7 }), { pastSeconds: 4 });
+  clock.advance(.5, 120);
+  const paused = project(state([{ ...first, paused: true }, { ...second, positionBeats: 2 }], 1, { automata: clock.snapshot(), playing: true, beat: 7.5 }), { pastSeconds: 4 });
+  assert.deepEqual(paused.sources, ['sample:2', 'automata']);
+  assert.ok(paused.pastNotes.some(item => item.source === 'sample:1' && item.pitch === 80 && item.end === 0));
+  assert.ok(paused.notes.some(item => item.source === 'sample:2'));
+  assert.ok(paused.notes.some(item => item.source === 'automata'));
+  clock.advance(2, 120);
+  const later = project(state([{ ...first, paused: true }, { ...second, positionBeats: 0, cycle: 1 }], 2, { automata: clock.snapshot(), playing: true, beat: 9.5 }), { pastSeconds: 4 });
+  assert.ok(later.pastNotes.filter(item => item.source === 'sample:1').every(item => item.end <= -1));
+});
+
+test('resumed layer history starts at its frozen beat and never reconnects across the pause', () => {
+  const project = createBlechLiveProjector(), source = sample({ positionBeats: 1.5 });
+  const before = project(state([source], .75), { pastSeconds: 4 });
+  project(state([{ ...source, paused: true }], 1), { pastSeconds: 4 });
+  const resumedSource = { ...source, playbackEpoch: 1, resumedPositionBeats: 1.5, resumedCycle: 0 };
+  const resumed = project(state([resumedSource], 3), { pastSeconds: 4 });
+  const oldId = before.pastNotes.find(item => item.pitch === 80).id;
+  assert.ok(resumed.notes.some(item => item.pitch === 80 && item.start === 0));
+  assert.ok(resumed.pastNotes.every(item => before.pastNotes.some(old => old.id === item.id)));
+  const advanced = project(state([{ ...resumedSource, positionBeats: 1.75 }], 3.125), { pastSeconds: 4 });
+  const samePitch = advanced.pastNotes.filter(item => item.pitch === 80);
+  assert.equal(samePitch.length, 2);
+  assert.equal(samePitch.find(item => item.id === oldId).end, -2.125);
+  assert.equal(samePitch.find(item => item.id !== oldId).start, -.125);
+  assert.equal(samePitch.find(item => item.id !== oldId).end, 0);
+});
+
+test('resume metadata prevents old attacks from entering history when the first frame arrives after resume', () => {
+  const project = createBlechLiveProjector();
+  const resumed = sample({ positionBeats: 1.75, playbackEpoch: 1, resumedPositionBeats: 1.5, resumedCycle: 0 });
+  const result = project(state([resumed], 20), { pastSeconds: 4 });
+  assert.equal(result.pastNotes.length, 1);
+  assert.equal(result.pastNotes[0].pitch, 80);
+  assert.equal(result.pastNotes[0].start, -.125);
+});
+
+test('completion after resume retains its performed gates without replaying the earlier pass', () => {
+  const project = createBlechLiveProjector(), source = sample({ loop: false, positionBeats: 1.5 });
+  project(state([source], .75), { pastSeconds: 4 });
+  project(state([{ ...source, paused: true }], 1), { pastSeconds: 4 });
+  const resumed = { ...source, playbackEpoch: 1, resumedPositionBeats: 1.5, resumedCycle: 0 };
+  project(state([resumed], 10), { pastSeconds: 4 });
+  const completed = project(state([], 12, { finishedSamples: [{ ...resumed, positionBeats: 4, finishedAt: 11.25, tempo: 120 }] }), { pastSeconds: 4 });
+  assert.equal(completed.notes.length, 0);
+  assert.equal(completed.pastNotes.length, 1);
+  assert.equal(completed.pastNotes[0].pitch, 80);
+  assert.equal(completed.pastNotes[0].start, -2);
+  assert.equal(completed.pastNotes[0].end, -1.75);
+});
+
+test('a skipped pause frame cannot stretch held history through a silent gap', () => {
+  const project = createBlechLiveProjector();
+  const source = sample({ positionBeats: 1, analysis: { notes: [note(0, 16)], durationBeats: 16, tempoMap: [{ beat: 0, bpm: 120 }] } });
+  const before = project(state([source], .5), { pastSeconds: 4 });
+  const resumedSource = { ...source, positionBeats: 2.5, playbackEpoch: 1, resumedPositionBeats: 2, resumedCycle: 0, pausedAt: 1 };
+  const resumed = project(state([resumedSource], 3.25), { pastSeconds: 4 });
+  assert.equal(resumed.pastNotes.length, 2);
+  const old = resumed.pastNotes.find(item => item.id === before.pastNotes[0].id);
+  const current = resumed.pastNotes.find(item => item.id !== old.id);
+  assert.equal(old.end, -2.25);
+  assert.equal(current.start, -.25);
+  assert.equal(current.end, 0);
+  const next = project(state([{ ...resumedSource, positionBeats: 3 }], 3.5), { pastSeconds: 4 });
+  assert.equal(next.pastNotes.find(item => item.id === old.id).end, -2.5);
+  assert.equal(next.pastNotes.find(item => item.id === current.id).end, 0);
+});
+
+test('paused clock evidence recovers subframe gates and keeps them fixed at their played time', () => {
+  const project = createBlechLiveProjector();
+  const source = sample({ loop: false, positionBeats: .9,
+    analysis: { notes: [note(.95, .04)], durationBeats: 4, tempoMap: [{ beat: 0, bpm: 120 }] } });
+  project(state([source], .45), { pastSeconds: 4 });
+  const paused = { ...source, paused: true, pausedAt: .5, positionBeats: 1, playbackEpoch: 0 };
+  const result = project(state([paused], .6), { pastSeconds: 4 });
+  assert.equal(result.notes.length, 0);
+  assert.equal(result.pastNotes.length, 1);
+  assert.ok(Math.abs(result.pastNotes[0].start + .125) < 1e-12);
+  assert.ok(Math.abs(result.pastNotes[0].end + .105) < 1e-12);
+  const later = project(state([paused], 1), { pastSeconds: 4 });
+  assert.ok(Math.abs(later.pastNotes[0].start + .525) < 1e-12);
+  assert.ok(Math.abs(later.pastNotes[0].end + .505) < 1e-12);
+  assert.equal(project(state([paused], 5), { pastSeconds: 4 }).pastNotes.length, 0);
+});
+
+test('pause telemetry and edits to a paused layer do not duplicate or recolor its performed tail', () => {
+  const project = createBlechLiveProjector(), source = sample({ positionBeats: 1.5, revision: 0 });
+  const before = project(state([source], .75), { pastSeconds: 4 });
+  const paused = { ...source, paused: true, pausedAt: .8, positionBeats: 1.6, revision: 1, playbackEpoch: 0 };
+  const first = project(state([paused], .9), { pastSeconds: 4 });
+  assert.equal(first.pastNotes.length, before.pastNotes.length);
+  assert.deepEqual(first.pastNotes.map(item => item.id), before.pastNotes.map(item => item.id));
+  const edited = project(state([{ ...paused, revision: 2, midi: { transpose: 12 } }], 1), { pastSeconds: 4 });
+  assert.equal(edited.pastNotes.length, before.pastNotes.length);
+  assert.deepEqual(edited.pastNotes.map(item => item.pitch), before.pastNotes.map(item => item.pitch));
+  assert.ok(Math.abs(edited.pastNotes.find(item => item.pitch === 80).end + .2) < 1e-12);
+});
