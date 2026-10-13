@@ -80,6 +80,42 @@ export function closestMotifCenter(result, pathIndex, worldPoint) {
   return phase;
 }
 
+/** Hit-test the actual displayed contour levels in world units, retaining the
+ * source and its arc-length position so a broad curve cannot select a fine speck. */
+export function pickMotifContour(results, worldPoint, radius) {
+  if (!Number.isFinite(worldPoint?.x) || !Number.isFinite(worldPoint?.y) || !Number.isFinite(radius) || radius < 0) return null;
+  let best = radius * radius, picked = null;
+  for (let layerIndex = 0; layerIndex < Math.min(3, results?.length ?? 0); layerIndex++) {
+    const result = results[layerIndex], view = result?.view;
+    if (!result?.points || !result.offsets || !result.closed || !view || ![view.x, view.y, view.width].every(Number.isFinite) || view.width <= 0) continue;
+    const x = (worldPoint.x - view.x) / view.width, y = (worldPoint.y - view.y) / view.width;
+    for (let pathIndex = 0; pathIndex < result.closed.length; pathIndex++) {
+      const begin = result.offsets[pathIndex], end = result.offsets[pathIndex + 1], count = end - begin;
+      if (!Number.isInteger(begin) || !Number.isInteger(end) || begin < 0 || end > result.points.length / 2 || count < 2 || count > 262144) continue;
+      const segments = count - Number(!result.closed[pathIndex]);
+      let length = 0, distance = best, along = 0, valid = true, hit = false;
+      for (let i = 0; i < segments; i++) {
+        const a = (begin + i) * 2, b = (begin + (i + 1) % count) * 2;
+        const ax = result.points[a], ay = result.points[a + 1];
+        const dx = result.points[b] - ax, dy = result.points[b + 1] - ay;
+        if (![ax, ay, dx, dy].every(Number.isFinite)) { valid = false; break; }
+        const squared = dx * dx + dy * dy, segmentLength = Math.sqrt(squared);
+        if (squared > 0) {
+          const t = clamp(((x - ax) * dx + (y - ay) * dy) / squared, 0, 1);
+          const residual = ((x - ax - t * dx) ** 2 + (y - ay - t * dy) ** 2) * view.width ** 2;
+          if (residual <= distance) { distance = residual; along = length + t * segmentLength; hit = true; }
+        }
+        length += segmentLength;
+      }
+      if (valid && hit && length > 0) {
+        best = distance;
+        picked = { result, pathIndex, layerIndex, center: along / length };
+      }
+    }
+  }
+  return picked;
+}
+
 function capturePath(path, source, options) {
   const span = clamp(finite(options.span, .25), .02, 1);
   const center = path.closed ? wrap(finite(options.center, .5)) : clamp(finite(options.center, .5), span / 2, 1 - span / 2);

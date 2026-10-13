@@ -131,3 +131,5 @@ html:has(> .vector-fractals-page) { height: auto; min-height: 100%; overflow-y: 
 }
 
 .traveler-readout { display: block; margin: 2px 4px 12px; color: #80d9ff; font: 11px/1.4 monospace; font-variant-numeric: tabular-nums; }
+.vector-stage-wrap #contourStage.is-picking-motif { cursor: crosshair; }
+#motifSelectionStatus { color: #c5dce7; }

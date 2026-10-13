@@ -10,7 +10,7 @@ const sample = (values, phase) => {
   return values[i] + (values[Math.min(i + 1, values.length - 1)] - values[i]) * (at - i);
 };
 
-export function mountMotifControls({ getState, update, getContour, getSelectedPath, getBank, getView, onStatus }) {
+export function mountMotifControls({ getState, update, getContour, getSearchContour = getContour, getSelectedPath, getBank, onStatus }) {
   const abort = new AbortController(), fields = new Map(), knobs = [];
   const listen = (node, event, fn) => node.addEventListener(event, fn, { signal: abort.signal });
   const host = document.createElement('div'); host.id = 'motifTools';
@@ -21,6 +21,7 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
       <div id="motifSelectionKnobs" class="vector-knobs"></div>
       <label class="vector-select">Pick on border<select id="motifPick"><option value="none">Navigate / select strand</option><option value="a">Capture A on next click</option><option value="b">Capture B on next click</option><option value="c">Capture C on next click</option></select></label>
       <div class="motif-actions"><button id="motifCaptureA" type="button">Capture A</button><button id="motifCaptureB" type="button">Capture B</button><button id="motifCaptureC" type="button">Capture C</button></div>
+      <output id="motifSelectionStatus" class="motif-note" role="status">Click a contour to choose the stretch, then Capture A, B or C.</output>
       <output id="motifCaptureStatus" class="motif-note" aria-live="polite">Choose a border and capture a stretch.</output>
       <div class="motif-actions"><button id="motifFind" type="button">Find similar in view</button><button id="motifClear" type="button">Clear captures</button></div>
       <label class="vector-select">Candidates<select id="motifMatches" aria-label="Similar motif candidates"><option value="">Search the visible border</option></select></label>
@@ -39,7 +40,7 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
         <label class="vector-select">Example<select id="motifExample"><option value="copy">Rotated / smaller copy</option><option value="resampled">Unevenly sampled copy</option><option value="mirror">Mirror image</option><option value="different">Different shape</option></select></label>
         <button id="motifLoadExample" class="contour-next" type="button">Compare with example</button>
       </details>
-      <p class="motif-note">A, B and C stay captured while you zoom. Center and span choose the next capture. Use the layer Tone / Drum switches and voices below.</p>
+      <p class="motif-note">Click any contour layer to choose a stretch. A, B and C stay captured while you zoom. Center and span choose the next capture. Use the layer Tone / Drum switches and voices below.</p>
     </details>`;
   document.getElementById('travelerControls').append(host);
   const drum = document.createElement('div');
@@ -69,16 +70,26 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
   for (const key of checks) listen($(key), 'change', () => update({ [key]: $(key).checked }));
   let worker = null, serial = 0, searching = false, matches = [], lastSearchKey = '', lastResult = null, lastBank = null, previousMode = 'path', selection = null, selectionKey = '', lastDraw = 0;
 
-  function snapshot(pathIndex = getSelectedPath(), point = null) {
-    const result = getContour(), s = getState();
+  function notice(message) { $('motifSelectionStatus').textContent = message; onStatus(message); }
+  listen($('motifPick'), 'change', () => {
+    const slot = $('motifPick').value;
+    notice(slot === 'none' ? 'Click a contour to choose the stretch, then Capture A, B or C.' : `Click a contour to capture ${slot.toUpperCase()}. Drag to pan; an empty click keeps capture armed.`);
+    $('contourStage').classList.toggle('is-picking-motif', slot !== 'none');
+  });
+  function snapshot(pathIndex = getSelectedPath(), point = null, result = getContour()) {
+    const s = getState();
     if (!result || pathIndex < 0) return null;
     return captureMotif(result, pathIndex, { center: point ? closestMotifCenter(result, pathIndex, point) : s.motifCenter, span: s.motifSpan, samples: 512 });
   }
-  function capture(index, pathIndex, point) {
-    const captured = snapshot(pathIndex, point);
-    if (!captured) { onStatus('Wait for a completed border, then capture a stretch.'); return false; }
+  function capture(index, pathIndex, point, result) {
+    const captured = snapshot(pathIndex, point, result);
+    if (!captured) { notice('Wait for a completed border, then capture a stretch.'); return false; }
     const captures = Array.from({ length: 3 }, (_, i) => getState().motifCaptures[i] ?? null); captures[index] = captured;
-    update({ motifCaptures: captures }); onStatus(`Captured motif ${'ABC'[index]}.`); return true;
+    const mode = getState().travelerMode === 'path' ? index === 2 ? 'choir' : 'compare' : getState().travelerMode;
+    update({ motifCaptures: captures, travelerMode: mode, motifCenter: captured.source.center,
+      ...(point ? { strandX: point.x, strandY: point.y } : {}) });
+    notice(`Captured ${'ABC'[index]} · ${Math.round(captured.source.span * 100)}% of the selected contour at ${Math.round(captured.source.center * 100)}%.`);
+    return true;
   }
   for (let i = 0; i < 3; i++) listen($(`motifCapture${'ABC'[i]}`), 'click', () => capture(i));
   function cancelSearch(clear = false) {
@@ -86,10 +97,13 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
     if (clear) { matches = []; $('motifMatches').replaceChildren(new Option('Search the visible border', '')); $('motifSearchStatus').textContent = ''; }
   }
   function search() {
-    const result = getContour(), reference = getState().motifCaptures[0] ?? snapshot();
-    if (!result || !reference) { onStatus('Capture a reference on a completed border first.'); return; }
+    const result = getSearchContour(), reference = getState().motifCaptures[0] ?? snapshot();
+    if (!result || !reference) { notice('Capture a reference on a completed border first.'); return; }
     cancelSearch(true);
-    if (!getState().motifCaptures[0]) update({ motifCaptures: [reference, ...getState().motifCaptures.slice(1)] });
+    if (!getState().motifCaptures[0] || getState().travelerMode === 'path') update({
+      motifCaptures: [reference, ...getState().motifCaptures.slice(1)],
+      travelerMode: getState().travelerMode === 'path' ? 'compare' : getState().travelerMode,
+    });
     lastResult = result; const id = ++serial, s = getState(); searching = true; $('motifFind').disabled = true;
     $('motifSearchStatus').textContent = 'Comparing stretches across sizes…';
     worker = new Worker(new URL('./motif-worker.js', import.meta.url), { type: 'module' });
@@ -116,7 +130,7 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
     const match = matches[Number($('motifMatches').value)];
     if (match) update({ motifCaptures: [getState().motifCaptures[0], match.snapshot, getState().motifCaptures[2] ?? null] });
   });
-  listen($('motifClear'), 'click', () => { cancelSearch(true); update({ motifCaptures: [] }); });
+  listen($('motifClear'), 'click', () => { cancelSearch(true); update({ motifCaptures: [] }); notice('Captures cleared. Click a contour to choose a new stretch.'); });
   listen($('motifLoadExample'), 'click', () => {
     const reference = getState().motifCaptures[0] ?? snapshot();
     if (!reference) { onStatus('Wait for a completed border before loading an example.'); return; }
@@ -129,6 +143,7 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
     const s = getState(), visible = s.mode === 'explorer' && s.contourReader === 'traveler';
     host.hidden = !visible; overlay.hidden = !visible;
     if (!visible) $('motifPick').value = 'none';
+    $('contourStage').classList.toggle('is-picking-motif', visible && $('motifPick').value !== 'none');
     for (const key of selects) $(key).value = s[key];
     for (const key of checks) $(key).checked = s[key];
     for (const [key, field] of fields) field.setValue(s[key]);
@@ -145,7 +160,7 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
 
   function draw(phase, view) {
     const s = getState(), result = getContour(), bank = getBank();
-    if (lastResult && result !== lastResult) { cancelSearch(true); lastResult = null; $('motifSearchStatus').textContent = 'View changed. Search again when refinement finishes.'; }
+    if (lastResult && getSearchContour() !== lastResult) { cancelSearch(true); lastResult = null; $('motifSearchStatus').textContent = 'View changed. Search again when refinement finishes.'; }
     if (overlay.hidden) return;
     const now = performance.now(); if (now - lastDraw < 1000 / 30) return; lastDraw = now;
     const ctx = sizeCanvas(overlay), width = overlay.clientWidth, height = overlay.clientHeight;
@@ -233,15 +248,23 @@ export function mountMotifControls({ getState, update, getContour, getSelectedPa
     });
     ctx.strokeStyle = '#e5edf055'; ctx.beginPath(); ctx.moveTo(w * .52 + phase * w * .45, 20); ctx.lineTo(w * .52 + phase * w * .45, h - 4); ctx.stroke();
   }
-  return { sync, draw, select(point, pathIndex) {
+  return { sync, draw, notice, select(point, pathIndex, result = getContour()) {
     if (getState().mode !== 'explorer' || getState().contourReader !== 'traveler') return false;
     const index = ['a', 'b', 'c'].indexOf($('motifPick').value);
-    if (index < 0) return false;
-    if (capture(index, pathIndex, point)) $('motifPick').value = 'none';
+    if (index < 0) {
+      const center = closestMotifCenter(result, pathIndex, point);
+      if (center == null) { notice('Click near a visible contour to choose a stretch.'); return true; }
+      update({ motifCenter: center, strandX: point.x, strandY: point.y });
+      notice(`Stretch selected at ${Math.round(center * 100)}% of the contour. Adjust span, then Capture A, B or C.`);
+      return true;
+    }
+    if (capture(index, pathIndex, point, result)) {
+      $('motifPick').value = 'none'; $('contourStage').classList.remove('is-picking-motif');
+    }
     return true;
   }, diagnosticSnapshot() { return { mode: getState().travelerMode, captures: [0, 1, 2].map(i => Boolean(getState().motifCaptures[i])), searching, matches: matches.length,
     bankActive: Boolean(getBank()?.motif), analysis: getBank()?.motifComparisons?.map(c => c ? { similarity: c.similarity, geometryError: c.geometryError, turnError: c.turnError, mirrored: c.mirrored, reversed: c.reversed, stability: c.stability, samplingStability: c.samplingStability } : null) ?? [] }; },
-  destroy() { cancelSearch(); abort.abort(); knobs.forEach(knob => knob.destroy()); fields.forEach(field => field.destroy()); host.remove(); drum.remove(); overlay.remove(); } };
+  destroy() { cancelSearch(); abort.abort(); knobs.forEach(knob => knob.destroy()); fields.forEach(field => field.destroy()); $('contourStage').classList.remove('is-picking-motif'); host.remove(); drum.remove(); overlay.remove(); } };
 }
 
 function sizeCanvas(canvas) {

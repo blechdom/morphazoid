@@ -14,6 +14,17 @@ const shape = (scale = 1, angle = 0, closed = false) => ({ closed,
 const resultFor = points => ({ points: Float64Array.from(points), offsets: new Uint32Array([0, points.length / 2]), closed: new Uint8Array([1]),
   view: { x: 0, y: 0, width: 1, aspect: 1 }, domain: 'julia', cReal: 0, cImag: 0, depth: 12 });
 
+test('live motif previews use the selected visible contour level and center', () => {
+  const results = [1.3, 1.1, 1].map((scale, i) => ({ ...resultFor(shape(scale, 0, true).points), depth: 4 + i * 4 }));
+  const bank = createMotifBank(results, { travelerMode: 'compare', motifSourceLayer: 0, motifPath: 0, motifCenter: .2, motifSpan: .1 });
+  const captured = bank.motifCaptures[0];
+  assert.equal(captured.source.depth, 4);
+  assert.ok(Math.abs(captured.source.center - .2) < 1e-10);
+  const i = 2 * Math.floor(captured.points.length / 4);
+  assert.ok(Math.abs(Math.hypot(captured.points[i], captured.points[i + 1]) - 1.3) < .001);
+  assert.equal(createMotifBank(results, {}).motifCaptures[0].source.depth, 12);
+});
+
 test('motif presets and captured examples round-trip through finite JSON without losing seam provenance', () => {
   const captured = captureMotif(resultFor(shape(1, 0, true).points), 0, { center: 0, span: .3, samples: 128 });
   const state = sanitizeState({ motifCaptures: [captured, shape(.5, .3)], travelerMode: 'compare' });

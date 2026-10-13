@@ -13,9 +13,9 @@ const empty = () => ({ x: new Float32Array(0), y: new Float32Array(0), bend: new
 
 /** A phrase bank shares the existing bounded audio-clock reader and voice controls. */
 export function createMotifBank(results, options = {}) {
-  const mode = options.travelerMode ?? 'compare', source = results?.[2] ?? results?.find(Boolean);
+  const mode = options.travelerMode ?? 'compare', source = results?.[options.motifSourceLayer ?? 2] ?? results?.[2] ?? results?.find(Boolean);
   const captures = Array.from({ length: 3 }, (_, i) => options.motifCaptures?.[i] || null);
-  const chosen = options.finePath >= 0 ? options.finePath : 0;
+  const chosen = options.motifPath >= 0 ? options.motifPath : options.finePath >= 0 ? options.finePath : 0;
   if (!captures[0] && source) captures[0] = captureMotif(source, chosen, { center: options.motifCenter, span: options.motifSpan, samples: 512 });
   // Unpinned previews keep new complete presets immediately playable.
   for (let i = 1; i < 3; i++) if (!captures[i] && source) {

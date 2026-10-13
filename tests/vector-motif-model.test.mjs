@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { captureMotif, closestMotifCenter, describeMotif, compareMotifs, findMotifs, sampleMotifDescriptor,
+import { captureMotif, closestMotifCenter, pickMotifContour, describeMotif, compareMotifs, findMotifs, sampleMotifDescriptor,
   MOTIF_SAMPLE_LIMIT, MOTIF_CAPTURE_LIMIT, MOTIF_SEARCH_LIMIT } from '../src/instruments/vector-fractals/motif-model.js';
 
 const TAU = 2 * Math.PI;
@@ -49,6 +49,39 @@ test('closed captures preserve a crossing-seam excerpt without an artificial cho
   const whole = captureMotif(source, 0, { center: .5, span: 1 });
   assert.equal(whole.closed, true); near(describeMotif(whole).turn.at(-1), TAU, 1e-6);
   assert.equal(describeMotif(whole).totalTurn, TAU);
+});
+
+test('picking a displayed contour preserves its level and the clicked arc-length position', () => {
+  const layers = [0, .04, .08].map((height, i) => ({
+    ...result([[[0, height], [.4, height], [1, height]]]), depth: 4 + i * 4,
+  }));
+  // A tiny fine strand is near the broad outline but must not steal its click.
+  layers[2] = { ...result([[[0, .08], [1, .08]], [[.799, .002], [.801, .002]]]), depth: 12 };
+  for (let i = 0; i < layers.length; i++) {
+    const point = { x: .8, y: i * .04 };
+    const picked = pickMotifContour(layers, point, .03);
+    assert.equal(picked.layerIndex, i); assert.equal(picked.pathIndex, 0);
+    assert.equal(picked.result, layers[i]); near(picked.center, .8);
+    const captured = captureMotif(picked.result, picked.pathIndex, { center: picked.center, span: .1, samples: 65 });
+    assert.equal(captured.source.depth, 4 + i * 4);
+    near(captured.points[64], point.x); near(captured.points[65], point.y);
+  }
+});
+
+test('contour picking uses world distance across views and includes closed seams', () => {
+  const broad = result([[[0, 0], [1, 0], [1, 1], [0, 1]]], [true], { x: -2, y: 1, width: 2, aspect: 1 });
+  const fine = result([[[0, 0], [1, 0]]], [false], { x: -3, y: 2.6, width: 2, aspect: 1 });
+  const picked = pickMotifContour([broad, null, fine], { x: -2.01, y: 2 }, .02);
+  assert.equal(picked.result, broad); near(picked.center, .875);
+  assert.equal(pickMotifContour([broad, fine], { x: -2.1, y: 2 }, .02), null);
+});
+
+test('malformed and empty curves cannot create a capture hit', () => {
+  const invalid = result([[[0, 0], [NaN, 1]]]);
+  const repeated = result([[[0, 0], [0, 0]]]);
+  assert.equal(pickMotifContour([invalid, repeated, null], { x: 0, y: 0 }, .1), null);
+  assert.equal(pickMotifContour([], { x: 0, y: 0 }, .1), null);
+  assert.equal(pickMotifContour([result([motif])], { x: NaN, y: 0 }, .1), null);
 });
 
 test('turning fingerprints survive translation, rotation, uniform scale and source subdivisions', () => {

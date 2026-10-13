@@ -166,9 +166,14 @@ independent Cycle rate and continuous Turn → pitch mapping.
 
 Uncaptured slots use live stretches of the selected visible path. These previews
 make presets immediately playable, but are not claimed to be discovered matches.
-**Capture center** and **Capture span** set the next stretch. Select a strand,
-then use Capture A/B/C, or arm **Pick on border** and click a location. A drag
-continues to navigate. Captures hold their world-coordinate geometry through
+**Capture center** and **Capture span** set the next stretch. Click a visible
+Broad, Curl or Fine contour to set the center at that location, then use
+Capture A/B/C, or arm **Pick on border** and click a location. Capture uses the
+actual selected contour level. The nearby message confirms selection or explains
+when a click misses or the border is still refining. A drag continues to
+navigate. Capturing A/B or searching from Whole path opens Compare; capturing C
+from Whole path opens Choir. Audio and Play retain their current states.
+Captures hold their world-coordinate geometry through
 zoom and refinement; the dashed stretch previews the next capture. Captures and
 musical options are included in saved presets. **Clear captures** returns to live
 previews. The native capture buttons and controls also work from the keyboard.

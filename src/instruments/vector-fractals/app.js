@@ -9,6 +9,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { createAudioStrip } from '../../ui/patterns/audio-strip.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { mountMotifControls } from './motif-controls.js';
+import { pickMotifContour } from './motif-model.js';
 
 const $ = id => document.getElementById(id);
 const initialMode = MODES.some(m => m.id === location.hash.slice(1)) ? location.hash.slice(1) : 'julia';
@@ -22,6 +23,7 @@ let contourLayers = null, traceLayers = null, traceBank = null, tracePhase = 0;
 let readerRequest = 0, readerInFlight = null, readerQueued = null, readerTimer = 0;
 let traceTravel = 0, shepardTravel = 0, travelerState = null, drumHits = [];
 let motifControls = null;
+let motifSelection = null;
 const isTrace = () => state.mode === 'explorer' && state.contourReader !== 'xy';
 const playbackLabel = () => isTrace() ? 'Playing · synced detail layers' : 'Playing · shared XY oscillator';
 const noContour = () => isTrace() ? !traceBank?.layers.some(layer => layer.x.length) : selectedPath < 0;
@@ -169,7 +171,9 @@ function queueSelectedSound() {
 }
 function updateTraceBank() {
   if (!contourLayers || contourPhase !== 'complete') return;
+  const motifSource = selectedMotifSource();
   readerQueued = { id: ++readerRequest, layers: contourLayers, options: { ...state,
+    motifSourceLayer: motifSource?.layerIndex ?? 2, motifPath: motifSource?.pathIndex ?? selectedPath,
     finePath: selectedPath, featureSize: state.featureSize, contourReader: state.contourReader, travelerDirection: state.travelerDirection,
     drumSpacing: state.drumSpacing, radarX: state.radarX, radarY: state.radarY, scanAngle: state.scanAngle,
     anchor: state.strandX == null ? null : { x: state.strandX, y: state.strandY },
@@ -207,6 +211,7 @@ function drawContours() {
 }
 function selectStrand(index, remember = true, anchor = null) {
   if (contourBusy || contourTimer || contourPhase !== 'complete' || !contourResult || index < 0 || index >= contourResult.closed.length) return;
+  motifSelection = null;
   selectedPath = index;
   if (remember) {
     const vertex = Math.floor((contourResult.offsets[index] + contourResult.offsets[index + 1]) / 2) * 2;
@@ -350,9 +355,15 @@ const presets = registerHeaderPresets({ id: 'vector-fractals', presets: PRESETS.
   randomize: (snapshot, random) => randomizeState(snapshot, random),
 });
 
+function selectedMotifSource() {
+  if (contourPhase !== 'complete' || contourBusy || contourTimer || !contourResult) return null;
+  return motifSelection && contourLayers?.[motifSelection.layerIndex] === motifSelection.result
+    ? motifSelection : { result: contourResult, pathIndex: selectedPath, layerIndex: 2 };
+}
 motifControls = mountMotifControls({ getState: () => state, update,
-  getContour: () => contourPhase === 'complete' && !contourBusy ? contourResult : null,
-  getSelectedPath: () => selectedPath, getBank: () => traceBank, getView: explorerView, onStatus: status });
+  getContour: () => selectedMotifSource()?.result ?? null,
+  getSearchContour: () => contourPhase === 'complete' && !contourBusy && !contourTimer ? contourResult : null,
+  getSelectedPath: () => selectedMotifSource()?.pathIndex ?? -1, getBank: () => traceBank, onStatus: status });
 
 function sync() {
   const mode = MODES.find(m => m.id === state.mode);
@@ -561,7 +572,24 @@ listen(window, 'pagehide', event => { if (!event.persisted) void dispose(); });
 navigation = new ContourNavigation($('contourStage'), {
   view: explorerView(), homeView: wholeExplorerView(),
   isActive: () => state.mode === 'explorer', onViewChange: updateExplorerView,
-  onSelect(point) { if (contourBusy || contourTimer || contourPhase !== 'complete') return; const index = contourRenderer.pick(point, explorerView()); if (index >= 0 && !motifControls?.select(point, index)) selectStrand(index, true, point); },
+  onSelect(point) {
+    if (contourBusy || contourTimer || contourPhase !== 'complete') {
+      if (state.contourReader === 'traveler') motifControls?.notice('The border is still refining. Click again when it finishes.');
+      return;
+    }
+    if (state.contourReader === 'traveler') {
+      const rect = $('contourStage').getBoundingClientRect();
+      const picked = pickMotifContour(contourLayers, point, 12 * explorerView().width / Math.max(1, rect.width));
+      if (!picked) { motifControls?.notice('Click near a visible contour to choose a stretch.'); return; }
+      motifSelection = picked;
+      if (picked.layerIndex === 2) selectedPath = picked.pathIndex;
+      motifControls?.select(point, picked.pathIndex, picked.result);
+      queueSelectedSound();
+      return;
+    }
+    const index = contourRenderer.pick(point, explorerView());
+    if (index >= 0) selectStrand(index, true, point);
+  },
 });
 const resizeObserver = new ResizeObserver(() => {
   if (state.mode !== 'explorer' || disposed) return;
