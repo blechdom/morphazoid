@@ -115,6 +115,26 @@ function writeWindow(destination, size, shape) {
   }
   return Math.max(1e-9, sum);
 }
+function resynthesisConfiguration(configuration, sampleRate) {
+  const requestedSize = clamp(Math.round(finite(configuration.fftSize, 1_024)), 256, MAX_FFT_SIZE);
+  const fftSize = requestedSize < 384 ? 256 : requestedSize < 768 ? 512
+    : requestedSize < 1_536 ? 1_024 : requestedSize < 3_072 ? 2_048 : 4_096;
+  const fftLowFrequency = clamp(finite(configuration.fftLowFrequency, 70), 20, sampleRate * 0.22);
+  return {
+    fftSize,
+    fftWindow: clamp(Math.round(finite(configuration.fftWindow, 0)), 0, 3),
+    fftHopSize: clamp(Math.round(finite(configuration.fftHopSize, fftSize * 0.25) / 32) * 32, 32, fftSize),
+    fftBandCount: Math.max(16, aligned(configuration.fftBandCount, 96, MAX_FFT_BANDS)),
+    fftLowFrequency,
+    fftHighFrequency: clamp(finite(configuration.fftHighFrequency, 12_000), fftLowFrequency * 2, sampleRate * 0.45),
+    fftResponseSeconds: clamp(finite(configuration.fftResponseSeconds, 0.038), 0.004, 0.8),
+    fftDetail: clamp(finite(configuration.fftDetail, 0.9), 0, 1),
+    fftMix: clamp(finite(configuration.fftMix, 0.94), 0, 1),
+    fftInputGain: clamp(finite(configuration.fftInputGain, 1.4), 0.25, 4),
+    fftGateDb: clamp(finite(configuration.fftGateDb, -72), -96, -30),
+  };
+}
+
 function arrayLength(key) {
   if (key === "input" || key === "outputLeft" || key === "outputRight") return BLOCK_SIZE;
   if (key === "grainSource") return GRAIN_SOURCE_SIZE;
@@ -170,6 +190,220 @@ function copyState(source, destination) {
   for (const key of STATE_KEYS) destination[key].set(source[key]);
 }
 
+class FftResynthesisBank {
+  constructor(sampleRate) {
+    this.sampleRate = sampleRate;
+    this.fftSize = 1_024;
+    this.fftWindow = 0;
+    this.fftHopSize = 256;
+    this.fftBandCount = 96;
+    this.fftResponseSeconds = 0.038;
+    this.fftLowFrequency = 70;
+    this.fftHighFrequency = 12_000;
+    this.fftDetail = 0.9;
+    this.fftMix = 0.94;
+    this.fftInputGain = 1.4;
+    this.fftGateDb = -72;
+    this.fftWindowSum = 1;
+    this.fftAnalysisRing = new Float64Array(MAX_FFT_SIZE);
+    this.fftReal = new Float64Array(MAX_FFT_SIZE);
+    this.fftImaginary = new Float64Array(MAX_FFT_SIZE);
+    this.fftWindowValues = new Float64Array(MAX_FFT_SIZE);
+    this.fftOla = new Float64Array(OLA_BUFFER_SIZE);
+    this.fftOlaNormalization = new Float64Array(OLA_BUFFER_SIZE);
+    this.fftBandPower = new Float64Array(MAX_FFT_BANDS);
+    this.fftBandWeight = new Float64Array(MAX_FFT_BANDS);
+    this.fftBandMagnitude = new Float64Array(MAX_FFT_BANDS);
+    this.fftBandEnvelope = new Float64Array(MAX_FFT_BANDS);
+    this.fftInputTelemetry = new Float32Array(MAX_FFT_BANDS);
+    this.fftOutputTelemetry = new Float32Array(MAX_FFT_BANDS);
+    this.fftAnalysisWrite = 0;
+    this.fftAnalysisFill = 0;
+    this.fftHopCounter = 0;
+    this.fftOlaRead = 0;
+    this.fftAnalysisMicros = 0;
+    this.fftAnalysisFrames = 0;
+    this.fftConfigured = false;
+    this.fftOutputAge = 0;
+    this.fftHasFrame = false;
+    this.fftNormalizationFloor = 0.05;
+    this.fftCurrentDetail = this.fftDetail;
+    this.fftCurrentResponseSeconds = this.fftResponseSeconds;
+    this.fftCurrentGateDb = this.fftGateDb;
+    this.fftCurrentInputGain = this.fftInputGain;
+    this.fftInputGainStep = 1 - Math.exp(-1 / (sampleRate * 0.012));
+  }
+
+  resetResynthesis() {
+    this.fftAnalysisRing.fill(0);
+    this.fftReal.fill(0);
+    this.fftImaginary.fill(0);
+    this.fftOla.fill(0);
+    this.fftOlaNormalization.fill(0);
+    this.fftBandPower.fill(0);
+    this.fftBandWeight.fill(0);
+    this.fftBandMagnitude.fill(0);
+    this.fftBandEnvelope.fill(0);
+    this.fftInputTelemetry.fill(0);
+    this.fftOutputTelemetry.fill(0);
+    this.fftAnalysisWrite = 0;
+    this.fftAnalysisFill = 0;
+    this.fftHopCounter = 0;
+    this.fftOlaRead = 0;
+    this.fftAnalysisMicros = 0;
+    this.fftAnalysisFrames = 0;
+    this.fftOutputAge = 0;
+    this.fftHasFrame = false;
+  }
+
+  configureResynthesis(configuration) {
+    const next = resynthesisConfiguration(configuration, this.sampleRate);
+    const rebuild = !this.fftConfigured || !this.matches(next);
+    Object.assign(this, next);
+    if (rebuild) {
+      this.fftWindowSum = writeWindow(this.fftWindowValues, this.fftSize, this.fftWindow);
+      this.resetResynthesis();
+      // The first overlap is incomplete; never divide a filtered inverse FFT
+      // by a near-zero window edge. A small floor also bounds 100%-hop windows.
+      this.fftCurrentDetail = this.fftDetail;
+      this.fftCurrentResponseSeconds = this.fftResponseSeconds;
+      this.fftCurrentGateDb = this.fftGateDb;
+      this.fftCurrentInputGain = this.fftInputGain;
+    }
+    this.fftConfigured = true;
+  }
+
+  analyzeResynthesisFrame() {
+    if (this.fftAnalysisFill < this.fftSize) return;
+    const started = globalThis.performance?.now?.() ?? 0;
+    const size = this.fftSize;
+    const halfSize = size >> 1;
+    const bandCount = this.fftBandCount;
+    for (let index = 0; index < size; index += 1) {
+      const sourceIndex = (this.fftAnalysisWrite + index) % size;
+      this.fftReal[index] = this.fftAnalysisRing[sourceIndex] * this.fftWindowValues[index];
+      this.fftImaginary[index] = 0;
+    }
+    fftInPlace(this.fftReal, this.fftImaginary, size);
+    this.fftBandPower.fill(0, 0, bandCount);
+    this.fftBandWeight.fill(0, 0, bandCount);
+    const logLow = Math.log(this.fftLowFrequency);
+    const logScale = (bandCount - 1) / Math.log(this.fftHighFrequency / this.fftLowFrequency);
+    for (let bin = 1; bin < halfSize; bin += 1) {
+      const frequency = bin * this.sampleRate / size;
+      if (frequency < this.fftLowFrequency || frequency > this.fftHighFrequency) continue;
+      const position = clamp((Math.log(frequency) - logLow) * logScale, 0, bandCount - 1);
+      const leftBand = Math.floor(position); const rightBand = Math.min(bandCount - 1, leftBand + 1);
+      const rightWeight = position - leftBand; const leftWeight = 1 - rightWeight;
+      const power = this.fftReal[bin] * this.fftReal[bin] + this.fftImaginary[bin] * this.fftImaginary[bin];
+      this.fftBandPower[leftBand] += power * leftWeight; this.fftBandWeight[leftBand] += leftWeight;
+      if (rightBand !== leftBand) {
+        this.fftBandPower[rightBand] += power * rightWeight; this.fftBandWeight[rightBand] += rightWeight;
+      }
+    }
+    const parameterStep = 1 - Math.exp(-this.fftHopSize / (this.sampleRate * 0.02));
+    this.fftCurrentDetail += (this.fftDetail - this.fftCurrentDetail) * parameterStep;
+    this.fftCurrentResponseSeconds += (this.fftResponseSeconds - this.fftCurrentResponseSeconds) * parameterStep;
+    this.fftCurrentGateDb += (this.fftGateDb - this.fftCurrentGateDb) * parameterStep;
+    const attackRetention = Math.exp(-this.fftHopSize / (this.sampleRate * 0.004));
+    const releaseRetention = Math.exp(-this.fftHopSize / (this.sampleRate * this.fftCurrentResponseSeconds));
+    for (let band = 0; band < bandCount; band += 1) {
+      const magnitude = this.fftBandWeight[band] > 1e-9
+        ? Math.sqrt(this.fftBandPower[band] / this.fftBandWeight[band]) : 0;
+      const normalized = magnitude * 2 / this.fftWindowSum;
+      const db = 20 * Math.log10(Math.max(1e-12, normalized));
+      const gatePosition = clamp((db - (this.fftCurrentGateDb - 4)) / 8, 0, 1);
+      const gate = gatePosition * gatePosition * (3 - 2 * gatePosition);
+      const target = magnitude * gate;
+      const previous = this.fftBandEnvelope[band];
+      const retention = target > previous ? attackRetention : releaseRetention;
+      const envelope = target + (previous - target) * retention;
+      this.fftBandMagnitude[band] = magnitude;
+      this.fftBandEnvelope[band] = envelope;
+      this.fftInputTelemetry[band] = clamp((db + 84) / 72, 0, 1);
+      const outputDb = 20 * Math.log10(Math.max(1e-12, envelope * 2 / this.fftWindowSum));
+      this.fftOutputTelemetry[band] = clamp((outputDb + 84) / 72, 0, 1);
+    }
+    this.fftInputTelemetry.fill(0, bandCount);
+    this.fftOutputTelemetry.fill(0, bandCount);
+    this.fftReal[0] = 0; this.fftImaginary[0] = 0;
+    this.fftReal[halfSize] = 0; this.fftImaginary[halfSize] = 0;
+    for (let bin = 1; bin < halfSize; bin += 1) {
+      const frequency = bin * this.sampleRate / size;
+      if (frequency < this.fftLowFrequency || frequency > this.fftHighFrequency) {
+        this.fftReal[bin] = 0; this.fftImaginary[bin] = 0;
+      } else {
+        const position = clamp((Math.log(frequency) - logLow) * logScale, 0, bandCount - 1);
+        const leftBand = Math.floor(position); const rightBand = Math.min(bandCount - 1, leftBand + 1);
+        const rightWeight = position - leftBand; const leftWeight = 1 - rightWeight;
+        const rawBand = this.fftBandMagnitude[leftBand] * leftWeight + this.fftBandMagnitude[rightBand] * rightWeight;
+        const envelope = this.fftBandEnvelope[leftBand] * leftWeight + this.fftBandEnvelope[rightBand] * rightWeight;
+        const real = this.fftReal[bin]; const imaginary = this.fftImaginary[bin];
+        const magnitude = Math.hypot(real, imaginary);
+        const detailedMagnitude = magnitude * envelope / Math.max(1e-12, rawBand);
+        const targetMagnitude = detailedMagnitude * this.fftCurrentDetail + envelope * (1 - this.fftCurrentDetail);
+        const gain = magnitude > 1e-12 ? targetMagnitude / magnitude : 0;
+        this.fftReal[bin] = real * gain; this.fftImaginary[bin] = imaginary * gain;
+      }
+      this.fftReal[size - bin] = this.fftReal[bin];
+      this.fftImaginary[size - bin] = -this.fftImaginary[bin];
+    }
+    fftInPlace(this.fftReal, this.fftImaginary, size, true);
+    const writeStart = (this.fftOlaRead + 1) & OLA_BUFFER_MASK;
+    for (let index = 0; index < size; index += 1) {
+      const destination = (writeStart + index) & OLA_BUFFER_MASK;
+      const windowValue = this.fftWindowValues[index];
+      this.fftOla[destination] += this.fftReal[index] * windowValue;
+      this.fftOlaNormalization[destination] += windowValue * windowValue;
+    }
+    this.fftHasFrame = true;
+    const finished = globalThis.performance?.now?.() ?? started;
+    if (finished >= started) { this.fftAnalysisMicros += (finished - started) * 1_000; this.fftAnalysisFrames += 1; }
+  }
+
+  processResynthesisSample(input) {
+    this.fftCurrentInputGain += (this.fftInputGain - this.fftCurrentInputGain) * this.fftInputGainStep;
+    this.fftAnalysisRing[this.fftAnalysisWrite] = input * this.fftCurrentInputGain;
+    this.fftAnalysisWrite = (this.fftAnalysisWrite + 1) % this.fftSize;
+    if (this.fftAnalysisFill < this.fftSize) this.fftAnalysisFill += 1;
+    this.fftHopCounter += 1;
+    if (this.fftAnalysisFill === this.fftSize && this.fftHopCounter >= this.fftHopSize) {
+      this.fftHopCounter = 0;
+      this.analyzeResynthesisFrame();
+    }
+    const normalization = this.fftOlaNormalization[this.fftOlaRead];
+    const output = this.fftOla[this.fftOlaRead] / Math.max(this.fftNormalizationFloor, normalization);
+    if (this.fftHasFrame) this.fftOutputAge = Math.min(this.fftSize, this.fftOutputAge + 1);
+    const warm = this.fftOutputAge / this.fftSize;
+    const startupGain = warm * warm * (3 - 2 * warm);
+    this.fftOla[this.fftOlaRead] = 0;
+    this.fftOlaNormalization[this.fftOlaRead] = 0;
+    this.fftOlaRead = (this.fftOlaRead + 1) & OLA_BUFFER_MASK;
+    return clamp(finite(output * startupGain, 0), -2, 2);
+  }
+
+  primeInput(history, write, fill) {
+    const count = Math.min(this.fftSize, fill);
+    const start = (write - count + MAX_FFT_SIZE) % MAX_FFT_SIZE;
+    for (let index = 0; index < count; index += 1) {
+      this.fftAnalysisRing[index] = history[(start + index) % MAX_FFT_SIZE] * this.fftInputGain;
+    }
+    this.fftAnalysisFill = count;
+    this.fftAnalysisWrite = count % this.fftSize;
+    this.fftHopCounter = this.fftHopSize - 1;
+    // Analysis is primed, but synthesis is not. The caller retains the old
+    // bank until a complete window of overlapping output has accumulated.
+  }
+
+  matches(configuration) {
+    return this.fftSize === configuration.fftSize && this.fftWindow === configuration.fftWindow
+      && this.fftHopSize === configuration.fftHopSize && this.fftBandCount === configuration.fftBandCount
+      && this.fftLowFrequency === configuration.fftLowFrequency && this.fftHighFrequency === configuration.fftHighFrequency;
+  }
+
+  get warmed() { return this.fftOutputAge >= this.fftSize; }
+}
+
 class SimdAudioProcessor extends AudioWorkletProcessor {
   constructor() {
     super();
@@ -222,193 +456,100 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
     this.lastRms = 0;
     this.telemetryEnergy = new Float32Array(MAX_MODES);
     this.telemetryState = new Float32Array(MAX_MODES);
-    this.fftSize = 1_024;
-    this.fftWindow = 0;
-    this.fftHopSize = 256;
-    this.fftBandCount = 96;
-    this.fftResponseSeconds = 0.038;
-    this.fftLowFrequency = 70;
-    this.fftHighFrequency = 12_000;
-    this.fftDetail = 0.9;
-    this.fftMix = 0.94;
-    this.fftInputGain = 1.4;
-    this.fftGateDb = -72;
-    this.fftWindowSum = 1;
-    this.fftAnalysisRing = new Float64Array(MAX_FFT_SIZE);
-    this.fftReal = new Float64Array(MAX_FFT_SIZE);
-    this.fftImaginary = new Float64Array(MAX_FFT_SIZE);
-    this.fftWindowValues = new Float64Array(MAX_FFT_SIZE);
-    this.fftOla = new Float64Array(OLA_BUFFER_SIZE);
-    this.fftOlaNormalization = new Float64Array(OLA_BUFFER_SIZE);
-    this.fftBandPower = new Float64Array(MAX_FFT_BANDS);
-    this.fftBandWeight = new Float64Array(MAX_FFT_BANDS);
-    this.fftBandMagnitude = new Float64Array(MAX_FFT_BANDS);
-    this.fftBandEnvelope = new Float64Array(MAX_FFT_BANDS);
-    this.fftInputTelemetry = new Float32Array(MAX_FFT_BANDS);
-    this.fftOutputTelemetry = new Float32Array(MAX_FFT_BANDS);
+    this.fftCurrent = new FftResynthesisBank(this.sampleRate);
+    this.fftSpare = new FftResynthesisBank(this.sampleRate);
+    this.fftTransition = false;
+    this.fftCrossfade = 0;
+    this.fftCrossfadeLength = Math.round(this.sampleRate * 0.024);
+    this.fftQueuedConfiguration = null;
+    this.resonatorConfiguration = null;
+    this.fftInputHistory = new Float32Array(MAX_FFT_SIZE);
+    this.fftHistoryWrite = 0;
+    this.fftHistoryFill = 0;
     this.fftResynthBlock = new Float32Array(BLOCK_SIZE);
-    this.fftAnalysisWrite = 0;
-    this.fftAnalysisFill = 0;
-    this.fftHopCounter = 0;
-    this.fftOlaRead = 0;
-    this.fftAnalysisMicros = 0;
-    this.fftAnalysisFrames = 0;
-    this.fftConfigured = false;
+    this.resonatorInputMode = false;
+    this.fftMix = 0.94;
+    this.fftCurrentMix = 0;
+    this.fftMixStep = 1 - Math.exp(-1 / (this.sampleRate * 0.012));
     this.port.onmessage = (event) => this.handleMessage(event.data || {});
     this.post("boot");
   }
 
   post(type, value = {}) { this.port.postMessage({ type, ...value }); }
 
+  get fftSize() { return (this.fftQueuedConfiguration || (this.fftTransition ? this.fftSpare : this.fftCurrent)).fftSize; }
+  get fftHopSize() { return (this.fftQueuedConfiguration || (this.fftTransition ? this.fftSpare : this.fftCurrent)).fftHopSize; }
+  get fftBandCount() { return (this.fftQueuedConfiguration || (this.fftTransition ? this.fftSpare : this.fftCurrent)).fftBandCount; }
+  get fftAnalysisFill() { return this.fftCurrent.fftAnalysisFill; }
+  get fftInputTelemetry() { return this.fftCurrent.fftInputTelemetry; }
+  get fftOutputTelemetry() { return this.fftCurrent.fftOutputTelemetry; }
+  get fftAnalysisMicros() { return this.fftCurrent.fftAnalysisMicros + this.fftSpare.fftAnalysisMicros; }
+  get fftAnalysisFrames() { return this.fftCurrent.fftAnalysisFrames + this.fftSpare.fftAnalysisFrames; }
+
   resetResynthesis() {
-    this.fftAnalysisRing.fill(0);
-    this.fftReal.fill(0);
-    this.fftImaginary.fill(0);
-    this.fftOla.fill(0);
-    this.fftOlaNormalization.fill(0);
-    this.fftBandPower.fill(0);
-    this.fftBandWeight.fill(0);
-    this.fftBandMagnitude.fill(0);
-    this.fftBandEnvelope.fill(0);
-    this.fftInputTelemetry.fill(0);
-    this.fftOutputTelemetry.fill(0);
+    this.fftCurrent.resetResynthesis();
+    this.fftSpare.resetResynthesis();
+    this.fftTransition = false;
+    this.fftCrossfade = 0;
+    this.fftQueuedConfiguration = null;
+    this.fftInputHistory.fill(0);
+    this.fftHistoryFill = this.fftHistoryWrite = 0;
     this.fftResynthBlock.fill(0);
-    this.fftAnalysisWrite = 0;
-    this.fftAnalysisFill = 0;
-    this.fftHopCounter = 0;
-    this.fftOlaRead = 0;
-    this.fftAnalysisMicros = 0;
-    this.fftAnalysisFrames = 0;
+    this.resonatorInputMode = this.micActive;
+    this.fftCurrentMix = this.resonatorInputMode ? this.fftMix : 0;
+    if (this.configuration?.engine === "resonator") this.fftCurrent.configureResynthesis(this.configuration);
   }
 
   configureResynthesis(configuration) {
-    const requestedSize = clamp(Math.round(finite(configuration.fftSize, 1_024)), 256, MAX_FFT_SIZE);
-    const nextSize = requestedSize < 384 ? 256 : requestedSize < 768 ? 512
-      : requestedSize < 1_536 ? 1_024 : requestedSize < 3_072 ? 2_048 : 4_096;
-    const nextWindow = clamp(Math.round(finite(configuration.fftWindow, 0)), 0, 3);
-    const nextHop = clamp(Math.round(finite(configuration.fftHopSize, nextSize * 0.25) / 32) * 32, 32, nextSize);
-    const nextBandCount = Math.max(16, aligned(configuration.fftBandCount, 96, MAX_FFT_BANDS));
-    const nextLow = clamp(finite(configuration.fftLowFrequency, 70), 20, this.sampleRate * 0.22);
-    const nextHigh = clamp(finite(configuration.fftHighFrequency, 12_000), nextLow * 2, this.sampleRate * 0.45);
-    const rebuild = !this.fftConfigured || nextSize !== this.fftSize || nextWindow !== this.fftWindow
-      || nextHop !== this.fftHopSize || nextBandCount !== this.fftBandCount
-      || nextLow !== this.fftLowFrequency || nextHigh !== this.fftHighFrequency;
-    this.fftSize = nextSize;
-    this.fftWindow = nextWindow;
-    this.fftHopSize = nextHop;
-    this.fftBandCount = nextBandCount;
-    this.fftResponseSeconds = clamp(finite(configuration.fftResponseSeconds, 0.038), 0.004, 0.8);
-    this.fftLowFrequency = nextLow;
-    this.fftHighFrequency = nextHigh;
-    this.fftDetail = clamp(finite(configuration.fftDetail, 0.9), 0, 1);
-    this.fftMix = clamp(finite(configuration.fftMix, 0.94), 0, 1);
-    this.fftInputGain = clamp(finite(configuration.fftInputGain, 1.4), 0.25, 4);
-    this.fftGateDb = clamp(finite(configuration.fftGateDb, -72), -96, -30);
-    if (rebuild) {
-      this.fftWindowSum = writeWindow(this.fftWindowValues, this.fftSize, this.fftWindow);
-      this.resetResynthesis();
+    const next = resynthesisConfiguration(configuration, this.sampleRate);
+    this.fftMix = next.fftMix;
+    if (!this.fftCurrent.fftConfigured || !this.fftHistoryFill) {
+      this.fftCurrent.configureResynthesis(next);
+      this.fftQueuedConfiguration = null;
+      return;
     }
-    this.fftConfigured = true;
+    const destination = this.fftTransition ? this.fftSpare : this.fftCurrent;
+    if (destination.matches(next)) {
+      destination.configureResynthesis(next);
+      this.fftQueuedConfiguration = null;
+    } else {
+      // At most two banks and one latest request, even while dragging frame,
+      // band or frequency controls faster than a transition can complete.
+      this.fftQueuedConfiguration = next;
+      this.beginResynthesisTransition();
+    }
   }
 
-  analyzeResynthesisFrame() {
-    if (this.fftAnalysisFill < this.fftSize) return;
-    const started = globalThis.performance?.now?.() ?? 0;
-    const size = this.fftSize;
-    const halfSize = size >> 1;
-    const bandCount = this.fftBandCount;
-    for (let index = 0; index < size; index += 1) {
-      const sourceIndex = (this.fftAnalysisWrite + index) % size;
-      this.fftReal[index] = this.fftAnalysisRing[sourceIndex] * this.fftWindowValues[index];
-      this.fftImaginary[index] = 0;
-    }
-    fftInPlace(this.fftReal, this.fftImaginary, size);
-    this.fftBandPower.fill(0, 0, bandCount);
-    this.fftBandWeight.fill(0, 0, bandCount);
-    const logLow = Math.log(this.fftLowFrequency);
-    const logScale = (bandCount - 1) / Math.log(this.fftHighFrequency / this.fftLowFrequency);
-    for (let bin = 1; bin < halfSize; bin += 1) {
-      const frequency = bin * this.sampleRate / size;
-      if (frequency < this.fftLowFrequency || frequency > this.fftHighFrequency) continue;
-      const position = clamp((Math.log(frequency) - logLow) * logScale, 0, bandCount - 1);
-      const leftBand = Math.floor(position); const rightBand = Math.min(bandCount - 1, leftBand + 1);
-      const rightWeight = position - leftBand; const leftWeight = 1 - rightWeight;
-      const power = this.fftReal[bin] * this.fftReal[bin] + this.fftImaginary[bin] * this.fftImaginary[bin];
-      this.fftBandPower[leftBand] += power * leftWeight; this.fftBandWeight[leftBand] += leftWeight;
-      if (rightBand !== leftBand) {
-        this.fftBandPower[rightBand] += power * rightWeight; this.fftBandWeight[rightBand] += rightWeight;
-      }
-    }
-    const attackRetention = Math.exp(-this.fftHopSize / (this.sampleRate * 0.004));
-    const releaseRetention = Math.exp(-this.fftHopSize / (this.sampleRate * this.fftResponseSeconds));
-    for (let band = 0; band < bandCount; band += 1) {
-      const magnitude = this.fftBandWeight[band] > 1e-9
-        ? Math.sqrt(this.fftBandPower[band] / this.fftBandWeight[band]) : 0;
-      const normalized = magnitude * 2 / this.fftWindowSum;
-      const db = 20 * Math.log10(Math.max(1e-12, normalized));
-      const gatePosition = clamp((db - (this.fftGateDb - 4)) / 8, 0, 1);
-      const gate = gatePosition * gatePosition * (3 - 2 * gatePosition);
-      const target = magnitude * gate;
-      const previous = this.fftBandEnvelope[band];
-      const retention = target > previous ? attackRetention : releaseRetention;
-      const envelope = target + (previous - target) * retention;
-      this.fftBandMagnitude[band] = magnitude;
-      this.fftBandEnvelope[band] = envelope;
-      this.fftInputTelemetry[band] = clamp((db + 84) / 72, 0, 1);
-      const outputDb = 20 * Math.log10(Math.max(1e-12, envelope * 2 / this.fftWindowSum));
-      this.fftOutputTelemetry[band] = clamp((outputDb + 84) / 72, 0, 1);
-    }
-    this.fftInputTelemetry.fill(0, bandCount);
-    this.fftOutputTelemetry.fill(0, bandCount);
-    this.fftReal[0] = 0; this.fftImaginary[0] = 0;
-    this.fftReal[halfSize] = 0; this.fftImaginary[halfSize] = 0;
-    for (let bin = 1; bin < halfSize; bin += 1) {
-      const frequency = bin * this.sampleRate / size;
-      if (frequency < this.fftLowFrequency || frequency > this.fftHighFrequency) {
-        this.fftReal[bin] = 0; this.fftImaginary[bin] = 0;
-      } else {
-        const position = clamp((Math.log(frequency) - logLow) * logScale, 0, bandCount - 1);
-        const leftBand = Math.floor(position); const rightBand = Math.min(bandCount - 1, leftBand + 1);
-        const rightWeight = position - leftBand; const leftWeight = 1 - rightWeight;
-        const rawBand = this.fftBandMagnitude[leftBand] * leftWeight + this.fftBandMagnitude[rightBand] * rightWeight;
-        const envelope = this.fftBandEnvelope[leftBand] * leftWeight + this.fftBandEnvelope[rightBand] * rightWeight;
-        const real = this.fftReal[bin]; const imaginary = this.fftImaginary[bin];
-        const magnitude = Math.hypot(real, imaginary);
-        const detailedMagnitude = magnitude * envelope / Math.max(1e-12, rawBand);
-        const targetMagnitude = detailedMagnitude * this.fftDetail + envelope * (1 - this.fftDetail);
-        const gain = magnitude > 1e-12 ? targetMagnitude / magnitude : 0;
-        this.fftReal[bin] = real * gain; this.fftImaginary[bin] = imaginary * gain;
-      }
-      this.fftReal[size - bin] = this.fftReal[bin];
-      this.fftImaginary[size - bin] = -this.fftImaginary[bin];
-    }
-    fftInPlace(this.fftReal, this.fftImaginary, size, true);
-    const writeStart = (this.fftOlaRead + 1) & OLA_BUFFER_MASK;
-    for (let index = 0; index < size; index += 1) {
-      const destination = (writeStart + index) & OLA_BUFFER_MASK;
-      const windowValue = this.fftWindowValues[index];
-      this.fftOla[destination] += this.fftReal[index] * windowValue;
-      this.fftOlaNormalization[destination] += windowValue * windowValue;
-    }
-    const finished = globalThis.performance?.now?.() ?? started;
-    if (finished >= started) { this.fftAnalysisMicros += (finished - started) * 1_000; this.fftAnalysisFrames += 1; }
+  beginResynthesisTransition() {
+    if (this.fftTransition || !this.fftQueuedConfiguration) return;
+    const next = this.fftQueuedConfiguration;
+    this.fftQueuedConfiguration = null;
+    this.fftSpare.configureResynthesis(next);
+    this.fftSpare.resetResynthesis();
+    this.fftSpare.primeInput(this.fftInputHistory, this.fftHistoryWrite, this.fftHistoryFill);
+    this.fftTransition = true;
+    this.fftCrossfade = 0;
   }
 
   processResynthesisSample(input) {
-    this.fftAnalysisRing[this.fftAnalysisWrite] = input * this.fftInputGain;
-    this.fftAnalysisWrite = (this.fftAnalysisWrite + 1) % this.fftSize;
-    if (this.fftAnalysisFill < this.fftSize) this.fftAnalysisFill += 1;
-    this.fftHopCounter += 1;
-    if (this.fftAnalysisFill === this.fftSize && this.fftHopCounter >= this.fftHopSize) {
-      this.fftHopCounter = 0;
-      this.analyzeResynthesisFrame();
+    this.fftInputHistory[this.fftHistoryWrite] = input;
+    this.fftHistoryWrite = (this.fftHistoryWrite + 1) % MAX_FFT_SIZE;
+    this.fftHistoryFill = Math.min(MAX_FFT_SIZE, this.fftHistoryFill + 1);
+    const previous = this.fftCurrent.processResynthesisSample(input);
+    if (!this.fftTransition) return previous;
+    const next = this.fftSpare.processResynthesisSample(input);
+    if (!this.fftSpare.warmed) return previous;
+    this.fftCrossfade += 1;
+    const fraction = Math.min(1, this.fftCrossfade / this.fftCrossfadeLength);
+    const blend = fraction * fraction * (3 - 2 * fraction);
+    const output = previous + (next - previous) * blend;
+    if (fraction >= 1) {
+      const old = this.fftCurrent;
+      this.fftCurrent = this.fftSpare;
+      this.fftSpare = old;
+      this.fftTransition = false;
     }
-    const normalization = this.fftOlaNormalization[this.fftOlaRead];
-    const output = normalization > 1e-8 ? this.fftOla[this.fftOlaRead] / normalization : 0;
-    this.fftOla[this.fftOlaRead] = 0;
-    this.fftOlaNormalization[this.fftOlaRead] = 0;
-    this.fftOlaRead = (this.fftOlaRead + 1) & OLA_BUFFER_MASK;
-    return clamp(finite(output, 0), -2, 2);
+    return output;
   }
 
   install(message) {
@@ -481,7 +622,11 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
         : configuration;
       return;
     }
-    this.applyConfiguration(configuration);
+    if (this.ready && this.engine === "resonator" && (!configuration.engine || configuration.engine === "resonator")) {
+      this.resonatorConfiguration = configuration;
+    } else {
+      this.applyConfiguration(configuration);
+    }
   }
 
   setBackend(requested) {
@@ -515,6 +660,7 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
       this.irDemoRemaining = Math.round(this.sampleRate * 0.66);
       this.irDemoNoiseState = 0x51f15e3d;
     } else {
+      if (this.engine === "resonator" && !this.micActive) this.resonatorInputMode = false;
       this.pendingImpulse = clamp(this.pendingImpulse + finite(strength, 0.75), -2, 2);
     }
   }
@@ -534,6 +680,7 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
     this.spatialEnvelope = 0;
     this.spatialPulse = 0;
     this.pendingConfiguration = null;
+    this.resonatorConfiguration = null;
     this.transitionGain = 1;
     this.resetResynthesis();
     this.kernels.scalar?.exports.reset();
@@ -552,8 +699,10 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
       case "gate": this.gate = Boolean(message.active); break;
       case "mic": {
         const active = Boolean(message.active);
-        if (active !== this.micActive) this.resetResynthesis();
         this.micActive = active;
+        // A loading gap or Stop must not erase overlap or suddenly expose the
+        // modal tail hidden by FFT Mix. A stopped-input pluck restores Body.
+        if (active && this.engine === "resonator") this.resonatorInputMode = true;
         break;
       }
       case "reset": this.reset(); break;
@@ -665,8 +814,8 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
     this.telemetryBlocks = 0;
     this.telemetryMicros = 0;
     this.telemetrySamples = 0;
-    this.fftAnalysisMicros = 0;
-    this.fftAnalysisFrames = 0;
+    this.fftCurrent.fftAnalysisMicros = this.fftSpare.fftAnalysisMicros = 0;
+    this.fftCurrent.fftAnalysisFrames = this.fftSpare.fftAnalysisFrames = 0;
   }
 
   runKernel(frames) {
@@ -723,6 +872,12 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
     const output = outputs[0];
     if (!this.running) { this.clearOutput(output); return false; }
     if (!this.ready || !this.kernel || !output?.[0]) { this.clearOutput(output); return true; }
+    if (this.resonatorConfiguration) {
+      const configuration = this.resonatorConfiguration;
+      this.resonatorConfiguration = null;
+      this.applyConfiguration(configuration);
+    }
+    if (this.engine === "resonator") this.beginResynthesisTransition();
     const left = output[0];
     const right = output[1] || left;
     const frames = Math.min(BLOCK_SIZE, left.length, right.length);
@@ -736,7 +891,7 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
         this.irDemoBlockActive = true;
       }
       this.kernel.input[frame] = inputSample;
-      this.fftResynthBlock[frame] = this.engine === "resonator" && this.micActive && frame < frames
+      this.fftResynthBlock[frame] = this.engine === "resonator" && frame < frames
         ? this.processResynthesisSample(rawInput) : 0;
     }
 
@@ -781,8 +936,10 @@ class SimdAudioProcessor extends AudioWorkletProcessor {
       }
       let kernelLeft = finite(this.kernel.outputLeft[frame], 0);
       let kernelRight = finite(this.kernel.outputRight[frame], 0);
-      if (this.engine === "resonator" && this.micActive) {
-        const mixAngle = this.fftMix * Math.PI * 0.5;
+      if (this.engine === "resonator") {
+        const mixTarget = this.resonatorInputMode ? this.fftMix : 0;
+        this.fftCurrentMix += (mixTarget - this.fftCurrentMix) * this.fftMixStep;
+        const mixAngle = this.fftCurrentMix * Math.PI * 0.5;
         const modalGain = Math.cos(mixAngle);
         const resynthGain = Math.sin(mixAngle) * 0.5;
         const spectral = this.fftResynthBlock[frame] * resynthGain;

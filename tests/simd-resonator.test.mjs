@@ -376,6 +376,8 @@ test("backend state copies without restarting the resonator", async () => {
 test("lowering the mode count clears inactive worklet state", async () => {
   const previousProcessor = globalThis.AudioWorkletProcessor;
   const previousRegister = globalThis.registerProcessor;
+  const previousSampleRate = globalThis.sampleRate;
+  globalThis.sampleRate = 48_000;
   let Processor;
   globalThis.AudioWorkletProcessor = class {
     constructor() {
@@ -415,6 +417,7 @@ test("lowering the mode count clears inactive worklet state", async () => {
       ...reducedConfiguration,
       modeCount: reducedConfiguration.settings.modeCount,
     });
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
     for (const kernel of Object.values(processor.kernels)) {
       if (!kernel) continue;
       assert.equal(kernel.real[96], 0);
@@ -441,6 +444,8 @@ test("lowering the mode count clears inactive worklet state", async () => {
     else globalThis.AudioWorkletProcessor = previousProcessor;
     if (previousRegister === undefined) delete globalThis.registerProcessor;
     else globalThis.registerProcessor = previousRegister;
+    if (previousSampleRate === undefined) delete globalThis.sampleRate;
+    else globalThis.sampleRate = previousSampleRate;
   }
 });
 
@@ -502,9 +507,11 @@ test("FFT band resynthesis reconstructs separated speech-band energy with bounde
     assert.ok(Math.max(...processor.fftOutputTelemetry) > 0.5, "resynthesized bands report energy");
 
     processor.configure(createSimdResonatorConfiguration({ ...configuration.settings, fftSize: 2_048 }, 48_000));
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
     assert.equal(processor.fftSize, 2_048);
-    assert.equal(processor.fftAnalysisFill, 0, "changing the FFT frame resets only the spectral history");
+    assert.equal(processor.fftAnalysisFill, 256, "the old FFT remains warm while the next frame accumulates overlap");
     processor.configure({ ...configuration, fftSize: 330, fftHopSize: 127, fftBandCount: 3 });
+    processor.process([], [[new Float32Array(128), new Float32Array(128)]]);
     assert.equal(processor.fftSize, 256, "the worklet independently snaps hostile frame sizes to radix-2");
     assert.equal(processor.fftHopSize, 128);
     assert.equal(processor.fftBandCount, 16);

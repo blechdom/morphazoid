@@ -69,6 +69,46 @@ test("sample feeds the FFT while preset, Next, dice and tweaks preserve its sour
   await expect.poll(async () => (await read(page)).input.playing).toBe(false);
 });
 
+test("a preset and immediate overrides send one final audio configuration without restarting input", async ({ page }) => {
+  await page.addInitScript(() => {
+    globalThis.__resonatorConfigurations = [];
+    globalThis.__resonatorMessageTypes = [];
+    const post = MessagePort.prototype.postMessage;
+    MessagePort.prototype.postMessage = function (message, ...rest) {
+      if (message?.type === "configure" && message.configuration?.engine === "resonator") {
+        const { fftSize, fftMix, fftDetail, fftResponseSeconds } = message.configuration;
+        globalThis.__resonatorConfigurations.push({ fftSize, fftMix, fftDetail, fftResponseSeconds });
+        globalThis.__resonatorMessageTypes.push("configure");
+      }
+      if (message?.type === "trigger" && message.engine === "resonator") globalThis.__resonatorMessageTypes.push("trigger");
+      return post.call(this, message, ...rest);
+    };
+  });
+  await page.goto("simd-resonator.html");
+  await page.locator("#inputSource").selectOption("sample-file");
+  await page.locator("#audioButton").click();
+  await expect.poll(async () => (await read(page)).input.playing).toBe(true);
+  const before = await read(page);
+  await page.evaluate(() => {
+    globalThis.__resonatorConfigurations.length = 0;
+    document.querySelector('button[data-preset-id="resonator:spectral-fog"]').click();
+    for (const [id, value] of [["fftMix", 1], ["fftDetail", .3], ["fftResponseMs", 150]]) {
+      const control = document.getElementById(id);
+      control.value = String(value);
+      control.dispatchEvent(new Event("input", { bubbles: true }));
+    }
+  });
+  expect(await page.evaluate(() => globalThis.__resonatorConfigurations)).toEqual([
+    { fftSize: 4096, fftMix: 1, fftDetail: .3, fftResponseSeconds: .15 },
+  ]);
+  const after = await read(page);
+  expect(after.inputPlaybackRevision).toBe(before.inputPlaybackRevision);
+  expect(after.input).toMatchObject({ playing: true, loop: true });
+  await page.evaluate(() => { globalThis.__resonatorMessageTypes.length = 0; });
+  await page.locator('canvas[role="application"]').click({ position: { x: 100, y: 70 } });
+  expect(await page.evaluate(() => globalThis.__resonatorMessageTypes)).toEqual(["configure", "trigger"]);
+});
+
 test("pending sample fetches cannot restart after Stop, source change or Audio off", async ({ page }) => {
   let release;
   const gate = new Promise(resolve => { release = resolve; });

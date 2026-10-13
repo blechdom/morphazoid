@@ -412,8 +412,23 @@ function renderTelemetry() {
   else { const load = state.kernelMicros / state.budgetMicros * 100; elements.budgetMetric.value = (load < 0.1 ? "<0.1" : load.toFixed(1)) + "%"; }
 }
 
+let resonatorConfigurationTask = null;
 function sendConfiguration({ includeSource = false } = {}) {
   if (!state.node || !state.audioReady) return;
+  if (state.engine === "resonator") {
+    // A preset plus same-task knob overrides is one audible state. Build the
+    // arrays once from the final settings before posting to the audio thread.
+    if (resonatorConfigurationTask) return;
+    const node = state.node;
+    const task = resonatorConfigurationTask = () => {
+      if (resonatorConfigurationTask !== task) return;
+      resonatorConfigurationTask = null;
+      if (state.node !== node || !state.audioReady || state.engine !== "resonator") return;
+      node.port.postMessage({ type: "configure", configuration: configurationFor("resonator") });
+    };
+    queueMicrotask(task);
+    return;
+  }
   state.node.port.postMessage({ type: "configure", configuration: configurationFor(state.engine, { includeSource }) });
 }
 function updateSettings(patch, { send = true, preservePreset = false } = {}) {
@@ -757,6 +772,9 @@ if (!isLabSurface) {
 
 function trigger(strength = 0.78) {
   if (!state.audioReady || !state.node) { showError("Turn on Audio first."); return false; }
+  // Canvas gestures set strike position/hardness before their attack. Keep
+  // that order even when configuration was batched in this same task.
+  resonatorConfigurationTask?.();
   showError(); state.node.port.postMessage({ type: "trigger", engine: state.engine, strength: clamp(strength, 0.1, 1.3) });
   elements.canvasCue.textContent = state.engine === "granular" ? "GRAINS"
     : state.engine === "swarm" ? "SWARM"
