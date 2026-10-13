@@ -104,7 +104,7 @@ for (const id of ["tape-worm", "loop-soup"]) {
     await expect(a.locator(".loop-play")).toHaveAttribute("data-glyph", "play");
     await a.getByRole("button", { name: "Resume loop A", exact: true }).click();
     await expect.poll(async () => (await state(page)).loops[0].paused).toBe(false);
-    // Muting may dim the waveform, but must never expose the grid/routes through the disc.
+    // Muting may dim the waveform, but must never expose the grid through the disc.
     await a.getByRole("button", { name: "Mute loop A", exact: true }).click();
     await expect(a.locator(".loop-wave")).toHaveCSS("opacity", "1");
     await expect(a.locator(".loop-rim")).toHaveCSS("opacity", "1");

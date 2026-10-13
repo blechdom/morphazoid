@@ -8,6 +8,7 @@ import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/m
 import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
 import { mountMidiArtCreator } from './blech-midi-art-controls.js';
 import { mountBlechFilePlayer } from './blech-midi-file-player.js';
+import { mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
 
@@ -20,7 +21,7 @@ function mountBlechMidi() {
   $('mixerFontStatus').textContent = ''; $('creativeStatus').textContent = '';
   $('blechLiveLayers').replaceChildren();
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
-  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools;
+  let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
   let seedPicking = false, automataSeen = false;
@@ -130,7 +131,7 @@ function mountBlechMidi() {
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
     showVisualizer: false, orientation: 'falling', volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
-    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: $('drawingMessageHost'), onEditDrawing: loadDrawingCopy });
+    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: false, onEditDrawing: loadDrawingCopy });
   const sound = $('automataSound'); sound.replaceChildren();
   GM_PROGRAM_NAMES.forEach((name, program) => sound.add(new Option(`${program + 1}. ${name}`, String(program))));
   sound.value = '0';
@@ -167,10 +168,9 @@ function mountBlechMidi() {
   mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop: onDrop('Math') });
   frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop: onDrop('Animation'), onEditDrawing: loadDrawingCopy });
   on($('captureDrawingFrame'), 'click', () => { try { const index = frameTools.capture(); field($('creativeStatus'), `Frame ${index + 1} captured. Open Frames to arrange and drop the sequence.`); } catch (error) { field($('creativeStatus'), error.message); } });
-  const textLayout = $('mixerStampTextMode').closest('label');
-  $('drawingMessageHost').prepend(textLayout);
-  $('mixerSendMessage').textContent = 'Drop ↓';
-  $('mixerSampleMessage').placeholder = 'Write a word, 🙂 ⭐ ❤ …';
+  textTools = mountBlechText($('drawingMessageHost'), { getTempo: () => engine.state.tempo,
+    getProgram: () => $('mixerSampleProgram').value,
+    onDrop: (score, options) => performanceView.sendScore(score, options) });
   const tabs = [...document.querySelectorAll('[data-blech-tab]')];
   function activateTab(name, focus = false) {
     const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];
@@ -182,7 +182,7 @@ function mountBlechMidi() {
       $(tab.getAttribute('aria-controls')).hidden = !active;
     }
     $('blechMidi').dataset.tab = name;
-    $('drawingShapeControls').hidden = !['stamps', 'drawing', 'text'].includes(name);
+    $('drawingShapeControls').hidden = !['stamps', 'drawing'].includes(name);
     if (focus) { selected.focus({ preventScroll: true }); selected.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
     if (name === 'drawing') drawing.render();
   }
@@ -260,6 +260,7 @@ function mountBlechMidi() {
   on($('creativeTempo'), 'input', () => {
     const tempo = engine.setTempo(Number($('creativeTempo').value));
     $('creativeTempoOut').value = `${Number(tempo.toFixed(1))} BPM`;
+    textTools.refreshTempo();
     filePlayer.setTempo();
   });
   on($('outputLevel'), 'input', () => { engine.setVolume(Number($('outputLevel').value)); $('outputLevelOut').value = `${Math.round(engine.state.volume * 100)}%`; });
@@ -330,7 +331,7 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);

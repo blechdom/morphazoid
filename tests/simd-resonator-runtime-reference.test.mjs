@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readFile as readCurrentFile } from 'node:fs/promises';
+import { restoreBlechTextRuntime, readBlechTextRuntimeReference as readFile } from './helpers/blech-text-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { simdResonatorRuntimeChange as change, restoreSimdResonatorRuntime, readSimdResonatorRuntimeReference } from './helpers/simd-resonator-runtime-reference.mjs';
 import { restoreVectorMotifRuntime, readVectorMotifRuntimeReference } from './helpers/vector-motif-runtime-reference.mjs';
@@ -13,7 +14,7 @@ const digest = source => createHash('sha256').update(source).digest('hex');
 test('SIMD preset packaging restores the exact prior manifest and preserves historical guards', async () => {
   const source = await readFile(url, 'utf8'), restored = restoreSimdResonatorRuntime(source, change.file);
   assert.equal(digest(restored), change.sha256);
-  assert.equal(restored, await readSimdResonatorRuntimeReference(url, 'utf8'));
+  assert.equal(restored, restoreBlechTextRuntime(await readSimdResonatorRuntimeReference(url, 'utf8'), change.file));
   const current = parseRuntimeManifest(source).entries, previous = parseRuntimeManifest(restored).entries;
   const added = current.filter(entry => !previous.some(old => old.path === entry.path));
   assert.deepEqual(added.map(entry => entry.path), [change.path]);
@@ -50,4 +51,14 @@ test('SIMD restoration leaves unrelated edits, unknown replacements and binary r
   assert.equal(restoreSimdResonatorRuntime(binary, change.file), binary);
   assert.deepEqual(await readSimdResonatorRuntimeReference(url), binary);
   assert.equal(restoreSimdResonatorRuntime(source, 'unrelated.js'), source);
+});
+
+test('independent SIMD and BLECH text additions commute without hiding other manifest changes', async () => {
+  const source = await readCurrentFile(url, 'utf8');
+  const simdFirst = restoreBlechTextRuntime(restoreSimdResonatorRuntime(source, change.file), change.file);
+  const textFirst = restoreSimdResonatorRuntime(restoreBlechTextRuntime(source, change.file), change.file);
+  assert.equal(simdFirst, textFirst);
+  assert.equal(digest(simdFirst), change.sha256);
+  const extra = '\ncopy+require\tsrc/unreviewed-parallel-addition.js\n';
+  assert.equal(restoreBlechTextRuntime(restoreSimdResonatorRuntime(source + extra, change.file), change.file), simdFirst + extra);
 });

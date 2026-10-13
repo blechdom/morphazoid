@@ -145,9 +145,18 @@ move to the front. **Edit** copies a pad into the 48 × 32 drawing grid. This
 raster draft simplifies source timing and pitch detail; the original MIDI pad
 is unchanged. Sending the draft creates another pad.
 
-**Text** prepares words and curated symbols; Drop layers a playable copy.
-The shared shape controls belong to Drawing, MIDI Stamps and Text. The old
-live trail canvas and Paint flow gesture remain in Midiophilia.
+**Text** has its own message, note preview, geometry and **Loop new text** switch.
+**Drop text** layers an independent copy; later draft edits leave that copy alone.
+**Total duration** sets the entire message length in beats and shows its time at
+the shared tempo. **Keyboard width** stretches the letters across 12–128 keys;
+**Keyboard position** moves that window and shows its actual MIDI range. At 128
+keys it covers the full keyboard, so position is fixed. The preview is parsed
+from the same MIDI bytes that Drop sends. Preparation never starts playback or
+arms Audio. Errors and unsupported symbols are shown beside the text controls.
+The stamp Density/seed/Key gate and Drawing Loop controls do not affect Text;
+shared Sound / FX processing still applies during playback.
+The shared shape controls belong to Drawing and MIDI Stamps. The old live trail
+canvas and Paint flow gesture remain in Midiophilia.
 
 ## MIDI Math and Frames
 
@@ -192,7 +201,8 @@ documents resource/security considerations for arbitrary expressions.
 
 All sources follow the **30–300 BPM** tempo knob and its shared Tap control.
 Each pad retains its own position and Loop setting. **Loop drawing** sets only
-the next drawing/message Send; it never changes existing pads. Turning an
+the next drawing Send; Text has its own **Loop new text** switch. Neither changes
+existing pads. Turning an
 individual pad's Loop off finishes its current pass. Tapping a looping pad
 stops it immediately without interrupting the other sources.
 
@@ -310,10 +320,11 @@ scale snapping. Shape buttons replace the draft with editable original pixel
 patterns; they do not rasterize platform emoji fonts. Undo retains 32 edits.
 
 Messages use the existing original 5×7 letters and curated 🙂 😀 ⭐ ❤ ◆ symbols.
-Whole words fit up to eight characters alongside each other and continue in
-phrases; One letter at a time uses a separate window for each letter. Up to
+**Rows of text** fits up to eight characters alongside each other and continues in
+rows; **Letters in sequence** uses a separate time window for each character. Up to
 32 characters are supported, lowercase becomes uppercase, and skipped symbols
-are reported. Submitting Drop in the Text tab launches its score. The separate
+are reported in the draft preview. **Drop text** launches the prepared score and
+adds it to Layers and Your pads. The separate
 Words & symbols file-generation feature remains in Midiophilia's visualizer.
 
 Automatapoeia maps each column to one chromatic pitch. Its seed row plays first.

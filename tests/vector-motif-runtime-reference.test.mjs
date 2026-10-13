@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readSimdResonatorRuntimeReference as readFile } from './helpers/simd-resonator-runtime-reference.mjs';
+import { readSimdResonatorRuntimeReference } from './helpers/simd-resonator-runtime-reference.mjs';
+import { restoreBlechTextRuntime } from './helpers/blech-text-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { vectorMotifRuntimeChange as change, restoreVectorMotifRuntime, readVectorMotifRuntimeReference } from './helpers/vector-motif-runtime-reference.mjs';
 import { restoreBlechNoteHistoryRuntime, readBlechNoteHistoryRuntimeReference } from './helpers/blech-note-history-runtime-reference.mjs';
@@ -9,6 +10,7 @@ import { restoreVectorFractalsSite } from './helpers/vector-fractals-site-refere
 
 const url = new URL(`../${change.file}`, import.meta.url);
 const digest = source => createHash('sha256').update(source).digest('hex');
+const readFile = async (file, encoding) => restoreBlechTextRuntime(await readSimdResonatorRuntimeReference(file, encoding), change.file);
 
 test('motif module packaging restores exact pre-feature bytes and preserves historical guards', async () => {
   assert.equal(change.baseCommit, '02760d94dd645855eb5abe30dd16d3f837eabc6f');
