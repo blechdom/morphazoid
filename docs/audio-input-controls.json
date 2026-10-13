@@ -23,13 +23,13 @@
       "label": "Sandy Syrup Delay",
       "route": "sandy-syrup-delay.html",
       "owner": "src/families/barber-delay/barber-delay-app.js",
-      "mode": "mic/file"
+      "mode": "samples/mic/file"
     },
     {
       "label": "Candy Coil Delay",
       "route": "candy-coil-delay.html",
       "owner": "src/families/barber-delay/barber-delay-app.js",
-      "mode": "mic/file"
+      "mode": "samples/mic/file"
     },
     {
       "label": "L-Systems",
@@ -125,7 +125,7 @@
       "label": "Slippery Resynthesis",
       "route": "slippery-resynthesis.html",
       "owner": "src/instruments/slippery-resynthesis/slippery-resynthesis-app.js",
-      "mode": "mic/file"
+      "mode": "samples/mic/file"
     },
     {
       "label": "Gesturama",

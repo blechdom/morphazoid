@@ -2025,3 +2025,7 @@ copy+require	src/instruments/blech-midi/blech-midi-timing.js
 # BLECH MIDI prepared drops and compact stamp selection.
 copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
 copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js
+copy+require	src/processor-sample-player.js
+copy+require	src/processor-sample-player.css
+copy+require	src/families/barber-delay/full-presets.js
+copy+require	src/instruments/slippery-resynthesis/full-presets.js

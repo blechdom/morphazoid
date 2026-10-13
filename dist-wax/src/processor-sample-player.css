@@ -1,0 +1,16 @@
+.processor-sample-player { display: grid; gap: 10px; min-width: 0; }
+.processor-sample-player[hidden] { display: none; }
+.processor-sample-choice { display: flex; gap: 6px; min-width: 0; }
+.processor-sample-choice select { width: 0; min-width: 0; flex: 1; }
+.processor-sample-choice button { flex: 0 0 40px; }
+.processor-sample-player button { background: #121119; color: #f3f0f8; border: 1px solid #514c63; }
+.processor-sample-player button[aria-pressed="true"] { background: #322743; border-color: #bc91fc; color: #fff; }
+.processor-sample-player button:hover:not(:disabled) { background: #292137; }
+.processor-sample-player button:disabled { opacity: 0.55; }
+.candy-coil-page .header-preset-picker summary strong { color: #ff8490; }
+.processor-sample-transport { display: flex; gap: 6px; }
+.processor-sample-transport button { min-height: 40px; }
+.processor-sample-transport button:first-child { flex: 1; }
+.processor-sample-player p, .processor-sample-player a { font-size: 11px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
+.processor-sample-player a { color: var(--muted, #a4a6b5); }
+@media (pointer: coarse) { .processor-sample-transport button, .processor-sample-choice button { min-height: 48px; } }

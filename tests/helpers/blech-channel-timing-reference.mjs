@@ -21,7 +21,7 @@ export function restoreBlechChannelTiming(source, file, { allowRestored = false 
 }
 
 export async function readBlechChannelTimingReference(file, encoding) {
-  const { readFile } = await import('node:fs/promises');
+  const { readProcessorSamplesSiteReference: readFile } = await import('./processor-samples-site-reference.mjs');
   const { fileURLToPath } = await import('node:url');
   const { relative } = await import('node:path');
   const source = await readFile(file, encoding);

@@ -186,16 +186,17 @@ export function createAudioInputStrip(options = {}, doc = globalThis.document) {
   const setSource = (value) => {
     source = String(value ?? "mic");
     const file = /file|upload/i.test(source);
-    const nextIcon = file ? "file" : "mic";
-    if (paintedSource !== nextIcon) { icon.innerHTML = file ? FILE_ICON : MIC_ICON; paintedSource = nextIcon; }
-    root.setAttribute("data-input-source", file ? "file" : "mic");
+    const recorded = file || /sample/i.test(source);
+    const nextIcon = recorded ? "file" : "mic";
+    if (paintedSource !== nextIcon) { icon.innerHTML = recorded ? FILE_ICON : MIC_ICON; paintedSource = nextIcon; }
+    root.setAttribute("data-input-source", recorded ? "file" : "mic");
     if (sourceSelect && options.sources) sourceSelect.value = source;
     if (fileButton) fileButton.hidden = !file;
   };
   const setInputState = ({ active = false, pending = false, supported = true } = {}) => {
     keepIcon();
     const file = /file|upload/i.test(source);
-    const name = file ? "file input" : "microphone input";
+    const name = /sample/i.test(source) ? "sample input" : file ? "file input" : "microphone input";
     button.disabled = !supported;
     retry.disabled = !supported;
     button.setAttribute("aria-pressed", String(Boolean(active)));

@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import test from 'node:test';
 import { restoreTrackazoidPadsSite, trackazoidPadsChanges } from './helpers/trackazoid-pads-site-reference.mjs';
 import { readFractalImpulseRuntimeReference, restoreFractalImpulseRuntime } from './helpers/fractal-delay-impulse-runtime-reference.mjs';

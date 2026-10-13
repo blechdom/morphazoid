@@ -23,6 +23,19 @@ suite. These check complete recall, all-field dice variation, explicit Audio,
 nonzero FFT input/output, source continuity, pending-load cancellation, file
 replay and desktop/phone layout. They establish mechanical behavior;
 human listening and physical microphone/touch acceptance remain separate.
+## October 12 — Candy Coil, Sandy Syrup and Slippery Resynthesis
+
+The three requested processors now use the shared Choose/Next/Dice row. All
+authored scenes remain: twelve per barber delay and fourteen for Slippery.
+Complete-state dice varies every musical setting with bounded feedback and
+voice counts. Candy’s speed/range lock and Slippery’s spectral Hold are part of
+the patch. Source selection, sample/file Loop, playback position, live delay
+memory, microphone connection, input trim, Audio and output level remain session
+state. Sample loops use the existing bounded recorded-input loader and retain
+its source credits; Audio and sample Play remain separate explicit actions.
+
+See [processor samples and presets](processor-samples-presets.md) for controls
+and automated acceptance scope.
 
 ## October 10 — Midiophilia mixer view
 

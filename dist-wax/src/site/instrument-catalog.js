@@ -560,9 +560,9 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "slippery-resynthesis": define(
     "Spectral resynthesizer",
-    "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
-    "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
-    ["Mic input", "Local file input", "Speech-detail resynthesis"],
+    "Tracks bundled samples, microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
+    "Turn on Audio and play a bundled sample, or choose Mic or File. Presets, Next and dice shape the slipping spectrum while preserving the input loop.",
+    ["Mic input", "Local file input", "Sample loops", "Presets", "Speech-detail resynthesis"],
   ),
   "simd-resonator": define(
     "SIMD modal instrument",
@@ -608,15 +608,15 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "sandy-syrup-delay": define(
     "Delay instrument",
-    "Processes microphone or file audio with staggered grains that can hold their rates or glide together.",
-    "Choose microphone or a file, start the source, then move between Sand and Syrup behavior.",
-    ["Mic input", "File input"],
+    "Processes bundled samples, microphone or file audio with staggered grains that can hold their rates or glide together.",
+    "Turn on Audio, play a sample or connect Mic/File input, then explore presets or move between Sand and Syrup.",
+    ["Mic input", "File input", "Sample loops", "Presets"],
   ),
   "candy-coil-delay": define(
     "Delay instrument",
     "Uses staggered centered-hump delay heads that pass below, through, and above the source pitch.",
-    "Choose microphone or a file, start the source, then tap a range or lock its reciprocal relationship with head speed.",
-    ["Mic input", "File input"],
+    "Turn on Audio, play a sample or connect Mic/File input, then explore presets, tap a range or lock its reciprocal relationship with head speed.",
+    ["Mic input", "File input", "Sample loops", "Presets"],
   ),
 
   "l-system": define(
