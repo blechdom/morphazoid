@@ -128,6 +128,12 @@ export class MidiMixerEngine {
     this._post({ type: 'automataRestart', revision: ++this._automataRevision });
     this._publish(); return this.state.automata;
   }
+  reseedAutomata() {
+    if (this._disposed) return false;
+    this._advanceAutomata(); this._automata.reseed();
+    this._post({ type: 'automataReseed', revision: ++this._automataRevision });
+    this._publish(); return this.state.automata;
+  }
   async captureAutomata(beats = 4) {
     if (this._disposed) throw new Error('Automatapoeia has closed.');
     this._advanceAutomata();

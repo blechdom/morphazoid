@@ -307,6 +307,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     onChange: settings => engine.configureAutomata(settings),
     onPlayPause: () => engine.setAutomataPlaying(!engine.state.automata.playing),
     onRestart: () => engine.restartAutomata(),
+    onReseed: () => engine.reseedAutomata(),
     onCapture: async beats => {
       const score = await engine.captureAutomata(beats);
       if (disposed) return null;

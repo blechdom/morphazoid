@@ -82,6 +82,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
       case 'automataConfigure': this.automataRevision = message.revision; this.automata.configure(message.settings); break;
       case 'automataPlaying': this.automataRevision = message.revision; this.automata.setPlaying(message.playing); break;
       case 'automataRestart': this.automataRevision = message.revision; this.automata.restart(); break;
+      case 'automataReseed': this.automataRevision = message.revision; this.automata.reseed(); break;
       case 'automataCapture': this.port.postMessage({ type: 'automataCapture', token: message.token, state: this.automata.snapshot(true) }); break;
       case 'sampleClock': this.sampleClock.beat = Math.max(0, Number(message.beat) || 0); this.sampleClock.seconds = Math.max(0, Number(message.seconds) || 0); break;
       case 'sample': {

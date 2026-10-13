@@ -8,6 +8,20 @@ const sample = (notes = [note(0, 1), note(3, 1, 72)], extra = {}) => ({ id: 1, s
   analysis: { notes, durationBeats: 4, tempoMap: [{ beat: 0, bpm: 120 }], ...extra.analysis }, ...extra });
 const state = (samples, extra = {}) => ({ tempo: 120, samples, ...extra });
 const sorted = result => result.notes.toSorted((a, b) => a.start - b.start || a.pitch - b.pitch);
+
+test('reseeding splits a held visual gate while retaining its earlier performed notes', () => {
+  const clock = new MidiAutomataClock(), project = createBlechLiveProjector();
+  clock.configure({ columns: 8, lowestNote: 60, rule: 204, articulation: 'hold', rowBeats: .25 });
+  clock.setPlaying(true); clock.advance(.5);
+  const before = project(state([], { automata: clock.snapshot() }), { now: .25, lookAhead: 1, pastSeconds: 4 });
+  const old = before.notes.find(item => item.pitch === 64);
+  clock.configure({ seedRow: [1, 0, 0, 0, 1, 0, 0, 0] }); clock.reseed();
+  const after = project(state([], { automata: clock.snapshot() }), { now: .25, lookAhead: 1, pastSeconds: 4 });
+  const current = after.notes.find(item => item.pitch === 64);
+  assert.equal(current.start, 0); assert.notEqual(current.id, old.id);
+  assert.ok(after.pastNotes.some(item => item.pitch === 64 && item.start < 0));
+  assert.ok(after.notes.some(item => item.pitch === 60));
+});
 const coordinates = result => sorted(result).map(({ pitch, start, end }) => [pitch, start, end]);
 
 test('full live scores project held and upcoming notes, including successive loop cycles', () => {

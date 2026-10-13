@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
+import { automataMidiSeedRow } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
 import { readAudioStatus, sampleAudioEnvelope } from './helpers/audio-probe.mjs';
 
 const errors = new WeakMap();
@@ -271,4 +272,59 @@ test('silent Rule 204 holds one visual note across generations and preserves it 
   expect((await graphics()).slice(events).map(event=>[event.type,event.note])).toEqual([['noteOff',64]]);
   expect((await state(page)).contexts).toEqual([]);expect((await state(page)).samples).toEqual([]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','false');
+});
+
+test('New seed creates a fresh pattern at full density, keeps played history and stages while paused', async ({ page }) => {
+  await open(page); await configure(page);
+  await input(page, 'automataMidiDensity', 1); await page.locator('#automataMidiRestart').click(); await play(page);
+  await expect.poll(async () => (await state(page)).automata.generation).toBeGreaterThan(2);
+  const before = (await state(page)).automata;
+  expect(before.row).toEqual(Array(8).fill(1));
+  await page.locator('#automataMidiNextSeed').click();
+  const changed = (await state(page)).automata;
+  expect(changed.playing).toBe(true); expect(changed.generation).toBeGreaterThan(before.generation);
+  expect(changed.beat).toBeGreaterThanOrEqual(before.beat);
+  expect(changed.history[0].row).toEqual(before.history[0].row);
+  expect(changed.row).not.toEqual(before.row); expect(changed.row.some(Boolean)).toBe(true);
+  await expect(page.locator('#automataMidiDensity')).toHaveValue('0.5');
+  await expect(page.locator('#automataMidiStatus')).toContainText('Earlier rows are kept');
+  await page.locator('#automataMidiPlayPause').click(); const paused = (await state(page)).automata;
+  await page.locator('#automataMidiNextSeed').click();
+  await expect(page.locator('#automataMidiLiveStatus')).toContainText('new seed ready');
+  await expect(page.locator('#automataMidiStatus')).toContainText('Press Play');
+  const queued = (await state(page)).automata;
+  expect(queued.playing).toBe(false); expect(queued.seedPending).toBe(true);
+  expect(queued.row).toEqual(paused.row); expect(queued.history).toEqual(paused.history);
+  expect(queued.beat).toBe(paused.beat);
+  await input(page, 'automataMidiSeed', 928);
+  await expect(page.locator('#automataMidiStatus')).toContainText('Seed prepared');
+  const desired = automataMidiSeedRow((await state(page)).automata.settings);
+  await play(page);
+  await expect.poll(async () => (await state(page)).automata.row).toEqual(desired);
+  expect((await state(page)).automata.seedPending).toBe(false);
+  expect((await state(page)).contexts).toEqual([]); expect((await state(page)).audio).toBe(false);
+});
+
+test('native New seed replaces only live automata notes and Restart alone clears its history', async ({ page }) => {
+  test.setTimeout(60000); await open(page); await configure(page);
+  await page.locator('#automataMidiArticulation').selectOption('hold');
+  await tab(page, 'stamps'); await page.locator('[data-stamp-loop="square"]').check();
+  await arm(page); await page.locator('[data-mixer-sample="square"]').click(); await play(page); await audible(page);
+  await expect.poll(async () => (await state(page)).automata.generation).toBeGreaterThan(3);
+  const before = await state(page), pad = before.samples[0].id;
+  await page.locator('#automataMidiNextSeed').click();
+  await expect.poll(async () => (await state(page)).automata.history.some(row => row.reseed)).toBe(true);
+  const current = await state(page), fresh = current.automata.history.find(row => row.reseed);
+  expect(current.automata.generation).toBeGreaterThan(before.automata.generation);
+  expect(current.samples[0].id).toBe(pad); expect(current.audio).toBe(true); expect(current.contexts).toHaveLength(1);
+  await expect.poll(async () => (await notes(page)).filter(note => note.generation === fresh.generation).map(note => note.note).sort((a,b) => a-b))
+    .toEqual(fresh.row.flatMap((cell, index) => cell ? [fresh.lowestNote + index] : []));
+  await audible(page);
+  await page.locator('#automataMidiPlayPause').click(); await page.locator('#automataMidiNextSeed').click();
+  const paused = await state(page), mark = (await notes(page)).length;
+  await page.waitForTimeout(250); expect((await notes(page)).length).toBe(mark);
+  expect((await state(page)).automata.beat).toBe(paused.automata.beat); await audible(page);
+  await page.locator('#automataMidiRestart').click();
+  await expect.poll(async () => (await state(page)).automata.history.length).toBe(0);
+  expect((await state(page)).automata.playing).toBe(false); expect((await state(page)).samples[0].id).toBe(pad);
 });

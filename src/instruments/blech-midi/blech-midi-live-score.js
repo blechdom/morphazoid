@@ -138,7 +138,7 @@ export function createBlechLiveProjector() {
           const cached = automataFamilies.get(row.generation), families = new Map();
           for (let column = 0; column < row.row.length; column++) if (row.row[column]) {
             const pitch = row.lowestNote + column;
-            const family = cached?.get(pitch) ?? (row.articulation === 'hold' ? previous?.get(pitch) : null)
+            const family = cached?.get(pitch) ?? (row.articulation === 'hold' && !row.reseed ? previous?.get(pitch) : null)
               ?? { id: `automata:${automataEpoch}:${Math.max(row.startBeat, automataHistoryFloor)}:${pitch}`, start: Math.max(row.startBeat, automataHistoryFloor) };
             families.set(pitch, family);
           }
