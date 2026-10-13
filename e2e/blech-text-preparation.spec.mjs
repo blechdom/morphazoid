@@ -200,8 +200,10 @@ test('editing one live text layer queues its next loop and paused edits retain t
   const replacement = await preview(page);
   expect(await sample(page, first.id)).toMatchObject({ duration: first.duration, notes: first.notes });
   // Apply just after a wrap, leaving a full pass in which to observe the old
-  // score and prove the pending update is not an immediate restart.
-  await expect.poll(async () => { const current = await sample(page, first.id); return current.position > .1 && current.position < .7; }, { timeout: 6000 }).toBe(true);
+  // score and prove the pending update is not an immediate restart. Poll
+  // faster than a beat so the default one-second interval cannot miss every
+  // early-loop observation window at 60 BPM.
+  await expect.poll(async () => { const current = await sample(page, first.id); return current.position > .1 && current.position < .7; }, { timeout: 6000, intervals: [50] }).toBe(true);
   const before = await sample(page, first.id), otherBefore = await sample(page, other.id);
   await page.locator('#blechTextApply').click();
   expect(await sample(page, first.id)).toMatchObject({ id: first.id, pendingReplacement: true, duration: first.duration, notes: first.notes });
@@ -243,7 +245,7 @@ test('editing one live text layer queues its next loop and paused edits retain t
   await expect(page.locator('#blechTextSpan')).toHaveValue('24');
   await expect(page.locator('#blechTextPosition')).toHaveValue('12');
   await row(page, first.id).locator('[data-layer-pause]').click();
-  await expect.poll(async () => { const current = await sample(page, first.id); return current.position > .1 && current.position < .5; }).toBe(true);
+  await expect.poll(async () => { const current = await sample(page, first.id); return current.position > .1 && current.position < .5; }, { intervals: [50] }).toBe(true);
   await page.locator('#blechTextMessage').fill('DISCARD STOP'); await input(page, 'blechTextBeats', 16);
   await page.locator('#blechTextApply').click();
   expect(await sample(page, first.id)).toMatchObject({ pendingReplacement: true });
