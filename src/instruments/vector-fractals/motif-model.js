@@ -152,11 +152,14 @@ function turning(points, closed) {
 function normalizedPoints(points) {
   const n = points.length / 2, firstX = points[0], firstY = points[1];
   let x = 0, y = 0;
-  for (let i = 0; i < n; i++) { x += (points[i * 2] - firstX) / n; y += (points[i * 2 + 1] - firstY) / n; }
+  for (let i = 0; i < n; i++) {
+    const weight = (i === 0 || i === n - 1 ? .5 : 1) / (n - 1);
+    x += (points[i * 2] - firstX) * weight; y += (points[i * 2 + 1] - firstY) * weight;
+  }
   const center = { x: firstX + x, y: firstY + y }, normalized = new Float64Array(points.length);
   let sum = 0;
-  for (let i = 0; i < n; i++) { normalized[i * 2] = points[i * 2] - center.x; normalized[i * 2 + 1] = points[i * 2 + 1] - center.y; sum += normalized[i * 2] ** 2 + normalized[i * 2 + 1] ** 2; }
-  const scale = Math.sqrt(sum / n);
+  for (let i = 0; i < n; i++) { normalized[i * 2] = points[i * 2] - center.x; normalized[i * 2 + 1] = points[i * 2 + 1] - center.y; sum += (normalized[i * 2] ** 2 + normalized[i * 2 + 1] ** 2) * (i === 0 || i === n - 1 ? .5 : 1); }
+  const scale = Math.sqrt(sum / (n - 1));
   if (!(scale > 0)) return null;
   for (let i = 0; i < normalized.length; i++) normalized[i] /= scale;
   return { normalized, center, scale };
@@ -257,7 +260,7 @@ function transformed(descriptor, reversed, mirrored, shift = 0) {
   }
   return { ...descriptor, points: packed('points'), sourcePoints: packed('sourcePoints'), normalized: packed('normalized'),
     sourceT, sourcePositions: series(descriptor.sourcePositions, true, false), originalPhase, turn, bands,
-    orientation: descriptor.orientation + (reversed ? Math.PI : 0), totalTurn: descriptor.totalTurn * (reversed ? -1 : 1) * (mirrored ? -1 : 1), reversed, mirrored, shift: shift / period };
+    orientation: descriptor.orientation + scalarAt(descriptor.turn, reversed ? 1 - shift / period : shift / period) + (reversed ? Math.PI : 0), totalTurn: descriptor.totalTurn * (reversed ? -1 : 1) * (mirrored ? -1 : 1), reversed, mirrored, shift: shift / period };
 }
 
 function fitRotation(a, b, map) {
@@ -343,6 +346,25 @@ function descriptorFor(input, options) {
   return describeMotif(input?.snapshot || input, options);
 }
 
+/** Repeat the descriptor measurement at different output sample counts using
+ * the SAME captured polyline. This probes discretization of our fingerprint;
+ * it cannot reveal features absent from the capture or certify the fractal grid.
+ */
+function resamplingStability(a, b, detail, samples) {
+  const lowSamples = Math.max(32, Math.floor(samples / 2)), highSamples = Math.min(MOTIF_SAMPLE_LIMIT, samples * 2);
+  const errorsByCurve = [a, b].map(descriptor => {
+    const low = describeMotif(descriptor.snapshot, { detail, samples: lowSamples });
+    const high = describeMotif(descriptor.snapshot, { detail, samples: highSamples });
+    return errors(high, low, null, fitRotation(high, low));
+  });
+  const error = Math.max(...errorsByCurve.map(item => item.error));
+  const value = Math.exp(-4 * error);
+  return { value, error, geometryError: Math.max(...errorsByCurve.map(item => item.geometryError)),
+    turnError: Math.max(...errorsByCurve.map(item => item.turnError)), lowSamples, highSamples,
+    label: value > .92 ? 'stable under resampling' : value > .7 ? 'sampling-sensitive' : 'strongly sampling-sensitive',
+    basis: 'same captured geometry; not independent grid refinement' };
+}
+
 /** Translation/uniform-scale/rotation invariant comparison. Scores are bounded
  * visual-audio ranking aids. Reflection and bounded timing changes are opt-in. */
 export function compareMotifs(reference, candidate, options = {}) {
@@ -358,6 +380,7 @@ export function compareMotifs(reference, candidate, options = {}) {
   return { a, b: match.b, mirrored: match.mirrored, reversed: match.reversed, shift: match.b.shift,
     correspondence: match.correspondence, overlay: { a: a.normalized, b: match.overlay }, rotation: match.angle,
     geometryError: match.geometryError, turnError: match.turnError, error: match.error, similarity: Math.exp(-3 * match.error),
+    samplingStability: options.samplingStability === false ? null : resamplingStability(a, rawB, detail, samples),
     stability: { value: stability, fineError: match.error, coarseError: coarse.error,
       label: stability > .85 ? 'stable across smoothing' : stability > .55 ? 'detail-sensitive' : 'strongly detail-sensitive' } };
 }
@@ -397,7 +420,7 @@ export function findMotifs(reference, result, options = {}) {
     const candidateSource = { view: { ...result.view }, domain: result.domain || 'mandelbrot', cReal: finite(result.cReal, 0), cImag: finite(result.cImag, 0), depth: result.depth, pathIndex };
     if (sameSource(source, candidateSource) && overlap({ center: finite(source.center, wrap(source.start + source.span / 2)), span: source.span }, { center, span }, path.closed)) return;
     const snapshot = capturePath(path, candidateSource, { center, span, samples: 512 });
-    const comparison = compareMotifs(reference, snapshot, { ...options, samples: countFor(options.samples, 96, MOTIF_SAMPLE_LIMIT) });
+    const comparison = compareMotifs(reference, snapshot, { ...options, samplingStability: false, samples: countFor(options.samples, 96, MOTIF_SAMPLE_LIMIT) });
     examined++;
     if (comparison) candidates.push({ snapshot, comparison, pathIndex, center: snapshot.source.center, span: snapshot.source.span });
   };

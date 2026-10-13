@@ -177,3 +177,28 @@ test('a whole closed circle has no residual turn after removing its one revoluti
   assert.equal(circle.totalTurn, TAU);
   for (let i = 0; i < circle.samples; i++) near(circle.turn[i] - circle.totalTurn * i / (circle.samples - 1), 0, 1e-5);
 });
+
+test('resampling stability detects undersampled turn phrases even when the pair matches perfectly', () => {
+  const smooth = snap(curve(u => [u, .2 * Math.sin(TAU * u)], 2049));
+  const busy = snap(curve(u => [u, .018 * Math.sin(80 * Math.PI * u)], 2049));
+  const stable = compareMotifs(smooth, smooth, { detail: .002, samples: 64 });
+  const aliased = compareMotifs(busy, busy, { detail: .002, samples: 64 });
+  near(stable.similarity, 1); near(aliased.similarity, 1);
+  assert.ok(stable.samplingStability.value > .97, stable.samplingStability.value);
+  assert.ok(aliased.samplingStability.value < .5, aliased.samplingStability.value);
+  assert.equal(aliased.samplingStability.lowSamples, 32);
+  assert.equal(aliased.samplingStability.highSamples, 128);
+  assert.equal(aliased.samplingStability.label, 'strongly sampling-sensitive');
+  assert.equal(aliased.samplingStability.basis, 'same captured geometry; not independent grid refinement');
+  assert.ok(aliased.samplingStability.turnError > stable.samplingStability.turnError * 10);
+});
+
+test('resampling stability is distinct from changing the observation scale and can be omitted for bounded search', () => {
+  const a = snap(motif);
+  const measured = compareMotifs(a, a, { samples: MOTIF_SAMPLE_LIMIT });
+  assert.equal(measured.samplingStability.lowSamples, MOTIF_SAMPLE_LIMIT / 2);
+  assert.equal(measured.samplingStability.highSamples, MOTIF_SAMPLE_LIMIT);
+  assert.equal(measured.stability.label, 'stable across smoothing');
+  assert.notEqual(measured.samplingStability.label, measured.stability.label);
+  assert.equal(compareMotifs(a, a, { samplingStability: false }).samplingStability, null);
+});
