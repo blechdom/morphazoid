@@ -62,6 +62,13 @@ export class NetworkView {
     marker.append(svg("path", { d: "M0 1L9 5L0 9", fill: "none", stroke: "#bfd0dc", "stroke-width": 2 }));
     defs.append(marker); this.routesSvg.append(defs); surface.append(this.routesSvg);
     this.nodeLayer = document.createElement("div"); this.nodeLayer.className = "network-nodes"; surface.append(this.nodeLayer);
+    // Tape connectors stay visible over every loop. Keep their wider hit paths
+    // underneath the loops so crossing a control never steals its pointer input.
+    this.routeDrawing = this.routesSvg;
+    if (tape) {
+      this.routeDrawing = svg("svg", { class: "network-routes network-route-overlay", viewBox: `0 0 ${NETWORK_SIZE.width} ${NETWORK_SIZE.height}`, "aria-hidden": "true" });
+      surface.append(this.routeDrawing);
+    }
     this.routeLayer = document.createElement("div"); this.routeLayer.className = "network-route-controls"; surface.append(this.routeLayer);
   }
   on(node, event, handler) { node.addEventListener(event, handler, { signal: this.signal }); }
@@ -109,7 +116,7 @@ export class NetworkView {
     const path = svg("path", { fill: "none", stroke: "#92adba", "stroke-width": 2, "marker-end": "url(#networkArrow)" });
     const hit = svg("path", { fill: "none", stroke: "transparent", "stroke-width": 18, class: "route-hit" });
     this.on(hit, "click", () => this.handlers.selectRoute(route.id));
-    this.routesSvg.append(path, hit);
+    this.routeDrawing.append(path); this.routesSvg.append(hit);
     const select = this.button(this.routeLayer, "→", "Select route", () => this.handlers.selectRoute(route.id), "network-route-label");
     let out, entry;
     if (this.tape) {
