@@ -11,7 +11,11 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
     <label class="blech-text-message" for="blechTextMessage">Write text
       <textarea id="blechTextMessage" rows="3" maxlength="128" placeholder="Write a word, message or symbol…&#10;HELLO ❤" autocomplete="off" spellcheck="false" aria-describedby="blechTextHint">BLECH</textarea>
     </label>
-    <div class="blech-generator-toolbar"><button id="blechTextClear" type="button">Clear text</button><span id="blechTextHint" class="blech-generator-hint">Enter starts a new line. Up to 32 characters, including ❤ ⭐ 🙂.</span></div>
+    <div class="blech-generator-toolbar blech-text-actions"><button id="blechTextApply" type="button" hidden>Apply next loop</button><button id="blechTextDrop" type="submit">Drop text</button>
+      <button id="blechTextClear" type="button">Clear text</button><label class="blech-generator-check"><input id="blechTextLoop" type="checkbox">Loop new text</label>
+    </div>
+    <output id="blechTextStatus" role="status"></output>
+    <p id="blechTextHint" class="blech-generator-hint">Enter starts a new line. Up to 32 characters, including ❤ ⭐ 🙂.</p>
     <div class="blech-generator-toolbar"><label for="blechTextMode">Arrange
       <select id="blechTextMode"><option value="word">Rows of text</option><option value="letter">Letters in sequence</option></select>
     </label><label class="blech-generator-check"><input id="blechTextFit" type="checkbox" checked>Fit to line</label>
@@ -21,10 +25,6 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
       <figcaption><span>Low notes ← Keyboard → High notes</span><span>First line plays from the bottom</span></figcaption>
     </figure>
     <output id="blechTextStatistics"></output>
-    <div class="blech-generator-toolbar blech-text-actions"><button id="blechTextApply" type="button" hidden>Apply next loop</button><button id="blechTextDrop" type="submit">Drop text</button>
-      <label class="blech-generator-check"><input id="blechTextLoop" type="checkbox">Loop new text</label>
-    </div>
-    <output id="blechTextStatus" role="status"></output>
     <div class="blech-generator-controls blech-text-size">
       ${generatorRange('blechText', 'Beats', 'Total duration', .25, 64, .25, 8)}
       ${generatorRange('blechText', 'Span', 'Keyboard width', 12, 128, 1, 48)}

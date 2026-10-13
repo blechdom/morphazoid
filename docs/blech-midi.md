@@ -141,18 +141,35 @@ current pass. **Remove** stops and removes just that saved pad. Stop all leaves
 the bank available to replay. The bank holds eight sends for this page session;
 a ninth replaces the oldest stopped pad. Navigation/reload clears it. The single
 filter searches both factory and saved pads; playing pads remain visible and
-move to the front. **Edit** copies a pad into the 48 × 32 drawing grid. This
+move to the front. **Edit** reopens Text pads in the Text editor. For other pads it copies into the 48 × 32 drawing grid. This
 raster draft simplifies source timing and pitch detail; the original MIDI pad
 is unchanged. Sending the draft creates another pad.
 
-**Text** has its own message, note preview, geometry and **Loop new text** switch.
-**Drop text** layers an independent copy; later draft edits leave that copy alone.
-**Total duration** sets the entire message length in beats and shows its time at
-the shared tempo. **Keyboard width** stretches the letters across 12–128 keys;
-**Keyboard position** moves that window and shows its actual MIDI range. At 128
-keys it covers the full keyboard, so position is fixed. The preview is parsed
-from the same MIDI bytes that Drop sends. Preparation never starts playback or
-arms Audio. Errors and unsupported symbols are shown beside the text controls.
+**Text** has a multiline **Write text** box, **Clear text**, an exact MIDI preview,
+and its own **Loop new text** switch. Enter inserts a deliberate line break;
+longer lines wrap at word boundaries, splitting long words only when necessary.
+The numbered list shows the actual prepared lines and why each breaks. The first
+line plays first, from the bottom of the upright preview; there are no generic
+grid dividers. Messages use up to 32 normalized characters, including line breaks.
+Unsupported characters and truncation are reported beside the controls.
+
+**Fit to line** gives all lines the same letter scale, fitting the longest one to
+the pitch window. Turn it off for **Letter size** (5, 10, 15 or 20 keys per letter,
+bounded by the window). Left/Center/Right align shorter lines within that window.
+**Keyboard width** selects 12–128 pitches; **Keyboard position** moves that window
+and shows its actual MIDI range. Full width fixes the position to MIDI 0–127.
+**Total duration** sets the entire message length in beats and shows seconds at
+the shared tempo. Preview and Drop use the same parsed MIDI bytes and layout.
+Preparation and Clear never start playback, stop layers or arm Audio.
+
+**Drop text** adds an independent copy. **Edit** beside a Text layer or saved Text
+pad restores its message and layout. Change width, duration, position, lettering
+or text, then **Apply next loop**: the current pass finishes and the new version
+starts on that layer's next loop. Repeated Apply replaces the queued update.
+Queued layers can update before starting; paused layers update while staying
+paused. Playing one-shots offer **Restart this layer**. Turning off Loop cancels
+a pending update and finishes the current pass. **Drop new text** layers another
+copy instead. Other sources keep their positions and play/pause states.
 The stamp Density/seed/Key gate and Drawing Loop controls do not affect Text;
 shared Sound / FX processing still applies during playback.
 The shared shape controls belong to Drawing and MIDI Stamps. The old live trail
@@ -251,10 +268,27 @@ width changes center-fit the evolving row, while Lowest MIDI note transposes
 its pitch window at the next generation.
 
 **Restart** returns to the chosen seed without changing Play/Pause.
-**Reseed** chooses a reproducible random seed and restarts; from a single
-centered seed, it sets density to 50% so reseeding produces a different row.
+**New seed** (Reseed) prepares a distinct reproducible seed. While playing, its
+fresh lineage starts at the next generation and preserves performed history;
+while paused, the visible seed is queued and the status says to press Play.
+At 0% or 100% density it uses 50%, since uniform seeds cannot produce a distinct
+pattern. **Restart** alone clears the history and repeats the chosen seed.
 The exact seed number and density remain editable. These seed edits prepare the
-next Restart; they do not replace the current evolving row.
+next Restart (or the queued seed's next Play); they do not silently replace an
+already evolving row. Play/Pause, Restart and New seed preserve other sources
+and do not arm Audio.
+
+Compared with the original Automatapoeia instrument:
+
+| Feature | BLECH MIDI behavior |
+| --- | --- |
+| Rule catalog and thumbnails | Same 256 elementary and 64 totalistic rules, search, symmetry filters, Previous/Next, boundaries and transforms. |
+| Play/Pause, Restart and New seed | Independent MIDI transport. New seed now preserves history like the original; Restart clears it. Paused actions prepare a seed until Play. |
+| Width | 8–128 MIDI pitches; original uses odd widths of 25–127 cells. |
+| Generation speed | 1–8 rows per shared beat; original uses 1–24 generations per second. |
+| Sound generation | SoundFont instruments, MIDI velocity/articulation, shared note and audio effects. The original's seven synthesis models, ADSR, cell polarity and connected-form sound objects are not direct MIDI equivalents. |
+| Sound mappings and presets | Original pitch-response/frequency curves, timbre/contour mappings, phrase spread/swing/gate and complete sound presets are not mirrored one-for-one. MIDI effects supply some timing and pitch transformations. |
+| MIDI-specific additions | Editable numeric seed, drawing-row seed, performed-history capture to a pad, and downloadable MIDI. |
 
 **Pick seed row** changes the preparation canvas gesture from painting to
 choosing a horizontal row. The adjacent slider and arrow keys also select the

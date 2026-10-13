@@ -162,6 +162,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     for (const record of saved.values()) {
       const sample = playing.get(padSamples.get(record.id));
       if (sample) record.loop = sample.loop;
+      if (sample && record.pendingTextEdit && !sample.pendingReplacement) {
+        const pending = record.pendingTextEdit;
+        if (sample.scoreVersion !== pending.token) updateSavedScore(record, pending.score, pending.label);
+        record.pendingTextEdit = null;
+      }
       record.card.dataset.playing = String(Boolean(sample));
       record.card.hidden = !sample && record.button.dataset.filtered === 'true';
       record.loopInput.checked = record.loop;
@@ -535,13 +540,18 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const snapshot = structuredClone(score), label = String(name ?? record.label).slice(0, 128);
     const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
     if (!result) return false;
-    record.score = snapshot; record.label = label;
+    const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };
+    record.pendingTextEdit = result.pendingReplacement ? { ...previous, token: result.pendingReplacement.token } : null;
+    updateSavedScore(record, snapshot, label); reflectPads();
+    return result;
+  }
+  function updateSavedScore(record, score, label) {
+    record.score = score; record.label = label;
     record.button.querySelector('[data-pad-name]').textContent = label;
     record.button.setAttribute('aria-label', label); record.loopInput.setAttribute('aria-label', `Loop ${label}`);
     record.card.querySelector('[data-pad-edit]').setAttribute('aria-label', `Edit ${label}`);
     record.card.querySelector('[data-pad-remove]').setAttribute('aria-label', `Remove ${label}`);
-    thumbnail(record.button, snapshot); reflectPads();
-    return result;
+    thumbnail(record.button, score);
   }
   function stopSamples() {
     if (disposed) return;

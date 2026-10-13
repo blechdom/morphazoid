@@ -280,7 +280,6 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-midi-workspace .automata-midi-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
 #drawingMessageHost { margin: 0; min-width: 0; }
 .blech-text-message { display: grid; gap: 6px; font-size: 12px; }
-.blech-text-message input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 16px; }
 .blech-text-preview { margin: 0; min-width: 0; }
 .blech-text-preview canvas { display: block; width: 100%; aspect-ratio: 25 / 8; border-radius: 0; }
 .blech-text-preview figcaption { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 5px; font-size: 10px; color: #a1b4ae; }
@@ -388,3 +387,11 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 @media (pointer: coarse) {
   .blech-text button, .blech-text-align label, .blech-layer-copy [data-layer-edit] { min-height: 48px; }
 }
+
+.blech-text-actions button, #blechTextDone { border: 1px solid #3a4b42; border-radius: 0; background: #111916; color: #d5e1df; min-height: 36px; padding: 6px 12px; font: inherit; font-size: 11px; cursor: pointer; }
+.blech-text-actions button:disabled { opacity: .4; cursor: default; }
+.blech-text-actions #blechTextDrop { background: #96f4cc; color: #07110b; }
+#blechTextApply { border-color: #96f4cc; }
+#blechTextHint { margin: 0; }
+#blechTextStatus:empty { display: none; }
+@media (pointer: coarse) { .blech-text-actions button, #blechTextDone { min-height: 48px; } }
