@@ -145,6 +145,33 @@ test('signed turning drums change upper-partial color with identical explicit fu
   }
 });
 
+test('A/B comparison links to voice A by default, permits independent voices, and smooths live link changes', () => {
+  const input = bank([contact({ turn: values(0) }), contact({ turn: values(0) }), contact({ turn: values(0) })]);
+  const voices = ['shepard', 'reed', 'glass'];
+  for (const same of [undefined, true]) {
+    const dsp = make(input, { travelerMode: 'compare', motifSameVoice: same, layerVoices: voices });
+    assert.deepEqual(Array.from(dsp.voiceTargets), [3, 3, 2]);
+  }
+  const dsp = make(input, { travelerMode: 'compare', motifSameVoice: false, layerVoices: voices });
+  render(dsp, .3, false);
+  assert.deepEqual(Array.from(dsp.voiceTargets), [3, 1, 2]);
+  const weights = Array.from(dsp.voiceWeights), phase = dsp.phase, carriers = Array.from(dsp.carriers);
+  dsp.setState({ ...state, travelerMode: 'compare', motifSameVoice: true, layerVoices: voices });
+  assert.deepEqual(Array.from(dsp.voiceWeights), weights, 'link edits retain current weights until their smooth transition');
+  assert.deepEqual(Array.from(dsp.carriers), carriers); assert.equal(dsp.phase, phase);
+  render(dsp, .02, false);
+  assert.ok(dsp.voiceWeights[7] > .5 && dsp.voiceWeights[7] < .9, 'B is fading toward A’s Shepard voice');
+  assert.ok(dsp.voiceWeights[5] > .1 && dsp.voiceWeights[5] < .5);
+  render(dsp, .4, false); close(dsp.voiceWeights[7], 1);
+  dsp.setState({ ...state, travelerMode: 'compare', motifSameVoice: false, layerVoices: voices });
+  render(dsp, .4, false); close(dsp.voiceWeights[5], 1);
+  assert.deepEqual(Array.from(dsp.voiceTargets), [3, 1, 2], 'unlink restores the retained B voice');
+  for (const [reader, mode] of [['traveler', 'path'], ['traveler', 'choir'], ['traveler', 'detail'], ['trace', 'compare']]) {
+    dsp.setState({ ...state, contourReader: reader, travelerMode: mode, motifSameVoice: true, layerVoices: voices });
+    assert.deepEqual(Array.from(dsp.voiceTargets), [3, 1, 2], `${reader}/${mode} keeps separate layer voices`);
+  }
+});
+
 test('motif worklet startup uses phrase pitch and cues immediately despite an old path snapshot', async () => {
   const keys = ['AudioWorkletProcessor', 'registerProcessor', 'sampleRate', 'currentTime'];
   const original = Object.fromEntries(keys.map(key => [key, globalThis[key]])); let Processor;

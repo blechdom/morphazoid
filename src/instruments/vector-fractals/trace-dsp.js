@@ -161,12 +161,14 @@ export class TraceDSP {
       shepardDirection: state.shepardDirection === 'fall' ? -1 : 1,
       travelerOctaves: clamp(state.travelerOctaves, 0, 4, 1) };
     this.drumDecay = clamp(state.drumDecay, .02, 1.5, .18); this.drumPitch = clamp(state.drumPitch, 30, 1800, 120);
+    const compareVoices = this.reader === 'traveler' && state.travelerMode === 'compare' && state.motifSameVoice !== false;
     for (let layer = 0; layer < LAYERS; layer++) {
       this.enabled[layer] = state.layerEnabled?.[layer] === false ? 0 : 1;
       this.sustain[layer] = state.layerSustain?.[layer] === false ? 0 : 1;
       this.drums[layer] = state.layerDrums?.[layer] === true ? 1 : 0;
-      const voice = state.layerVoices?.[layer] === 'shepard' ? 3 : VOICES.indexOf(state.layerVoices?.[layer]);
-      this.voiceTargets[layer] = voice < 0 ? layer : voice;
+      const voiceLayer = compareVoices && layer === 1 ? 0 : layer;
+      const voice = state.layerVoices?.[voiceLayer] === 'shepard' ? 3 : VOICES.indexOf(state.layerVoices?.[voiceLayer]);
+      this.voiceTargets[layer] = voice < 0 ? voiceLayer : voice;
       const drum = DRUM_VOICES.indexOf(state.layerDrumVoices?.[layer]);
       this.drumVoiceTargets[layer] = drum < 0 ? layer : drum;
     }
