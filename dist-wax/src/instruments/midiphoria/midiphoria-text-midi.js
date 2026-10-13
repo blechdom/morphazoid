@@ -187,4 +187,88 @@ export function generateTextMidi(input, { mode = 'word' } = {}) {
   return { ...score, text, phrases, rowsPerPhrase: ROWS_PER_PHRASE, unsupported, mode: mode === 'letter' ? 'letter' : 'word' };
 }
 
+/** BLECH's editable text document. Keep the legacy eight-character generator
+ * above byte-compatible; this layout preserves deliberate lines and wraps words.
+ * All geometry is a single bounded raster shared by the preview and MIDI file.
+ */
+export function generateLaidOutTextMidi(input, { mode = 'word', span = 48, lowestNote = 40,
+  beats = 8, fit = true, scale = 1, align = 'center' } = {}) {
+  const bounded = (value, low, high, fallback) => Number.isFinite(Number(value))
+    ? Math.max(low, Math.min(high, Number(value))) : fallback;
+  span = Math.round(bounded(span, GLYPH_COLUMNS, 128, 48));
+  lowestNote = Math.round(bounded(lowestNote, 0, 128 - span, Math.min(40, 128 - span)));
+  beats = Math.round(bounded(beats, .25, 64, 8) * 4) / 4;
+  mode = mode === 'letter' ? 'letter' : 'word'; fit = Boolean(fit);
+  scale = Math.min(Math.round(bounded(scale, 1, 4, 1)), Math.floor(span / GLYPH_COLUMNS));
+  align = ['left', 'center', 'right'].includes(align) ? align : 'center';
+  const source = normalizedInput(input).replace(/\r\n?/g, '\n');
+  const unsupported = [...new Set([...source].filter(character => !glyphFor(character) && !/\s/.test(character)))].slice(0, 8);
+  // Unsupported symbols separate words. Explicit line endings retain blank
+  // lines, while horizontal whitespace does not consume an invisible margin.
+  const cleanLines = text => text.split('\n').map(line => line.replace(/ +/g, ' ').trim()).join('\n');
+  const normalized = cleanLines([...source].map(character => glyphFor(character) ? character : character === '\n' ? '\n' : ' ').join(''));
+  const characters = [...normalized], text = cleanLines(characters.slice(0, MAX_TEXT_MIDI_GLYPHS).join(''));
+  let truncated = characters.length > MAX_TEXT_MIDI_GLYPHS || typeof input === 'string' && input.length > INPUT_SCAN_LIMIT;
+  if (![...text].some(glyphFor)) throw new Error('Type letters, numbers or punctuation, or try 🙂 😀 ⭐ ❤ ◆.');
+  const capacity = Math.max(1, Math.floor((span + (fit ? 1 : scale)) / (GLYPH_STRIDE * (fit ? 1 : scale))));
+  const lines = [], paragraphs = text.split('\n');
+  const append = (content, breakReason, sourceLine) => {
+    if (lines.length >= 32) { truncated = true; return; }
+    lines.push({ text: content, breakReason, sourceLine });
+  };
+  paragraphs.forEach((paragraph, sourceLine) => {
+    const ending = sourceLine < paragraphs.length - 1 ? 'explicit' : 'end';
+    if (!paragraph) { append('', ending, sourceLine); return; }
+    if (mode === 'letter') {
+      const glyphs = [...paragraph];
+      glyphs.forEach((character, index) => append(character === ' ' ? '' : character,
+        index === glyphs.length - 1 ? ending : 'letter', sourceLine));
+      return;
+    }
+    let current = '';
+    for (const token of paragraph.split(' ')) {
+      let word = [...token];
+      if (current && [...current].length + 1 + word.length <= capacity) { current += ` ${token}`; continue; }
+      if (current) { append(current, 'wrap', sourceLine); current = ''; }
+      while (word.length > capacity) {
+        append(word.slice(0, capacity).join(''), 'hard-wrap', sourceLine); word = word.slice(capacity);
+      }
+      current = word.join('');
+    }
+    if (current) append(current, ending, sourceLine);
+  });
+  const nativeWidth = line => Math.max(0, [...line.text].length * GLYPH_STRIDE - 1);
+  const longestWidth = Math.max(...lines.map(nativeWidth));
+  const pitchScale = fit ? span / longestWidth : scale;
+  const pixels = Array.from({ length: lines.length * ROWS_PER_PHRASE }, () => Array(span).fill(0));
+  lines.forEach((line, index) => {
+    const width = nativeWidth(line); if (!width) return;
+    // Every line uses the longest line's fit ratio, so a short word retains the
+    // same letter size. Scale mode expands each pitch pixel by an integer.
+    const outputWidth = Math.max(1, Math.round(width * pitchScale));
+    const offset = align === 'left' ? 0 : align === 'right' ? span - outputWidth : Math.floor((span - outputWidth) / 2);
+    const glyphs = [...line.text];
+    for (let row = 0; row < ROWS; row++) for (let column = 0; column < outputWidth; column++) {
+      const original = Math.floor((column + .5) / pitchScale);
+      const glyph = glyphFor(glyphs[Math.floor(original / GLYPH_STRIDE)]);
+      if (glyph?.[row][original % GLYPH_STRIDE] === '1') {
+        // Input lines are in reading/playback order; each upright line enters
+        // from the bottom and completes before the line above it starts.
+        pixels[pixels.length - (index + 1) * ROWS_PER_PHRASE + 1 + row][offset + column] = 1;
+      }
+    }
+  });
+  const gcd = (a, b) => b ? gcd(b, a % b) : a;
+  const rowTicks = beats * TICKS_PER_BEAT / pixels.length;
+  // A fixed high PPQ still drifts on, for example, seven lines. This bounded
+  // LCM exactly represents quarter-beat totals for every 1–32-line document.
+  const denominator = pixels.length * 4;
+  const ticksPerBeat = Number.isInteger(rowTicks) ? TICKS_PER_BEAT : TICKS_PER_BEAT / gcd(TICKS_PER_BEAT, denominator) * denominator;
+  const score = generateGridMidi(pixels, { title: `Text: ${text}`, lowestNote,
+    secondsPerRow: beats / (pixels.length * 2), ticksPerBeat });
+  return { ...score, text, lines, phrases: lines.map(line => line.text), rowsPerPhrase: ROWS_PER_PHRASE,
+    pixels, unsupported, truncated, mode, layout: { mode, span, lowestNote, beats, fit, scale, align,
+      capacity, lineCount: lines.length, glyphWidth: GLYPH_COLUMNS * pitchScale } };
+}
+
 export function midiIconPixels(icon) { return ICONS[icon]?.map(row => [...row].map(Number)) ?? null; }

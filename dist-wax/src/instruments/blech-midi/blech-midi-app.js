@@ -39,7 +39,7 @@ function mountBlechMidi() {
         node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
         const copy = document.createElement('div'), name = document.createElement('span'), status = document.createElement('small');
         const loopLabel = document.createElement('label'), loop = document.createElement('input'), pause = document.createElement('button'), stop = document.createElement('button');
-        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = '';
+        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = ''; name.dataset.layerName = '';
         name.textContent = `${sample.name || 'Pattern'} · ${sample.id}`; name.title = name.textContent;
         node.setAttribute('role', 'group'); node.setAttribute('aria-label', name.textContent);
         loop.type = 'checkbox'; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
@@ -56,13 +56,24 @@ function mountBlechMidi() {
         copy.append(name, status); node.append(copy, loopLabel, pause, stop);
         layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
       }
+      const name = `${sample.name || 'Pattern'} · ${sample.id}`;
+      field(node.querySelector('[data-layer-name]'), name); node.querySelector('[data-layer-name]').title = name;
+      node.setAttribute('aria-label', name);
+      node.querySelector('input').setAttribute('aria-label', `Loop ${name}`);
+      node.querySelector('[data-layer-stop]').setAttribute('aria-label', `Stop ${name}`);
+      if (!node.querySelector('[data-layer-edit]') && performanceView?.getTextLayer(sample.id)) {
+        const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.layerEdit = ''; edit.textContent = 'Edit';
+        edit.addEventListener('click', () => loadTextLayer(performanceView.getTextLayer(sample.id)));
+        node.querySelector('.blech-layer-copy').append(edit);
+      }
+      node.querySelector('[data-layer-edit]')?.setAttribute('aria-label', `Edit ${name}`);
       node.querySelector('input').checked = sample.loop;
       node.dataset.paused = String(Boolean(sample.paused));
       const pause = node.querySelector('[data-layer-pause]'), action = sample.paused ? 'Resume' : 'Pause';
       field(pause, action); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
       pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
       pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
-      field(node.querySelector('[data-layer-status]'), sample.paused ? 'Paused' : sample.pending ? 'Queued' : sample.loop ? 'Looping' : 'Finishing this pass');
+      field(node.querySelector('[data-layer-status]'), sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? 'Queued' : sample.loop ? 'Looping' : 'Finishing this pass');
     }
     $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
@@ -113,6 +124,7 @@ function mountBlechMidi() {
     noteEffectEditor?.refresh();
     performanceView?.refresh(state);
     reflectLayers(state);
+    textTools?.refresh();
     if (state.error) field($('creativeStatus'), state.error);
   }
   drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
@@ -131,7 +143,7 @@ function mountBlechMidi() {
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
     showVisualizer: false, orientation: 'falling', volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
-    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: false, onEditDrawing: loadDrawingCopy });
+    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: false, onEditDrawing: loadDrawingCopy, onEditText: loadTextLayer });
   const sound = $('automataSound'); sound.replaceChildren();
   GM_PROGRAM_NAMES.forEach((name, program) => sound.add(new Option(`${program + 1}. ${name}`, String(program))));
   sound.value = '0';
@@ -170,7 +182,13 @@ function mountBlechMidi() {
   on($('captureDrawingFrame'), 'click', () => { try { const index = frameTools.capture(); field($('creativeStatus'), `Frame ${index + 1} captured. Open Frames to arrange and drop the sequence.`); } catch (error) { field($('creativeStatus'), error.message); } });
   textTools = mountBlechText($('drawingMessageHost'), { getTempo: () => engine.state.tempo,
     getProgram: () => $('mixerSampleProgram').value,
-    onDrop: (score, options) => performanceView.sendScore(score, options) });
+    onDrop: (score, options) => performanceView.sendScore(score, options),
+    onApply: (id, score, options) => performanceView.replaceScore(id, score, options),
+    getLayer: id => engine.state.samples.find(sample => sample.id === id) });
+  function loadTextLayer(detail) {
+    if (!detail) return;
+    activateTab('text'); textTools.edit(detail);
+  }
   const tabs = [...document.querySelectorAll('[data-blech-tab]')];
   function activateTab(name, focus = false) {
     const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];

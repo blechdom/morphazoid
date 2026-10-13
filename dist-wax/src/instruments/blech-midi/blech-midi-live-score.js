@@ -78,6 +78,14 @@ export function createBlechLiveProjector() {
     let truncated = false, scanned = 0, held = 0;
     const availableSamples = (state?.samples ?? []).slice(0, 4).filter(sample => sample.analysis?.notes?.length);
     const activeSamples = availableSamples.filter(sample => !sample.pending && !sample.paused);
+    const playbackKey = sample => `${sample.id}:${sample.scoreVersion ?? 0}`;
+    const replacementForecasts = activeSamples.filter(sample => sample.pendingReplacement).map(sample => {
+      const remaining = sample.sync !== false ? (sample.analysis.durationBeats - sample.positionBeats) * 60 / tempo
+        : (() => { const data = { tempoMap: compileSampleTempoMap(sample.analysis.tempoMap) }; return sampleSecondsAt(data, sample.analysis.durationBeats) - sampleSecondsAt(data, sample.positionBeats); })();
+      return { ...sample, ...sample.pendingReplacement, scoreVersion: sample.pendingReplacement.token, scoreRevision: sample.pendingReplacement.token,
+        pendingReplacement: null, playbackEpoch: (sample.playbackEpoch ?? 0) + 1, resumedPositionBeats: 0, resumedCycle: (sample.cycle ?? 0) + 1,
+        cycle: (sample.cycle ?? 0) + 1, positionBeats: 0, forecastOnly: true, forecastOffset: remaining };
+    });
     // Completion evidence comes from the source clock. Absence alone may mean
     // an explicit stop, and must never turn an unplayed forecast into history.
     const finishedSamples = (state?.finishedSamples ?? []).slice(-8).filter(sample => sample.analysis?.notes?.length && Number.isFinite(sample.finishedAt) && now - sample.finishedAt <= pastSeconds)
@@ -86,14 +94,14 @@ export function createBlechLiveProjector() {
     // ends performed gates without forgetting their tails. A resumed source
     // chases its held notes, so it needs a new segment at the frozen position;
     // neither earlier attacks nor canceled effect echoes should replay.
-    const observedSamples = [...availableSamples, ...finishedSamples], observedIds = new Set(), sourceReleases = new Map();
+    const observedSamples = [...availableSamples, ...replacementForecasts, ...finishedSamples], observedIds = new Set(), sourceReleases = new Map();
     for (const sample of observedSamples) {
-      observedIds.add(sample.id);
-      let playback = samplePlayback.get(sample.id);
+      observedIds.add(playbackKey(sample));
+      let playback = samplePlayback.get(playbackKey(sample));
       const epoch = Number.isInteger(sample.playbackEpoch) ? sample.playbackEpoch : null;
       if (!playback) {
         playback = { epoch: epoch ?? 0, paused: Boolean(sample.paused), floorPosition: 0, floorCycle: 0 };
-        samplePlayback.set(sample.id, playback);
+        samplePlayback.set(playbackKey(sample), playback);
       } else if (epoch !== null && epoch !== playback.epoch || playback.paused && !sample.paused) {
         playback.epoch = epoch ?? playback.epoch + 1;
         playback.floorPosition = sample.positionBeats;
@@ -108,18 +116,22 @@ export function createBlechLiveProjector() {
       // A pause bumps the engine revision to reject stale worklet messages;
       // it does not create a new performance. Keep the last played voice data
       // while paused so its fixed history cannot be duplicated or recolored.
-      if (!sample.paused || !playback.voice) playback.voice = { midi: sample.midi, gain: sample.gain, revision: sample.revision, sync: sample.sync, tempo: sample.tempo ?? tempo };
+      if (!sample.paused || !playback.voice) playback.voice = { midi: sample.midi, gain: sample.gain, revision: sample.revision, scoreRevision: sample.scoreRevision, sync: sample.sync, tempo: sample.tempo ?? tempo };
       playback.paused = Boolean(sample.paused);
-      if (Number.isFinite(sample.pausedAt)) sourceReleases.set(`sample:${sample.id}`, {
-        at: sample.pausedAt, epoch: playback.epoch - Number(!sample.paused),
-      });
+      if (!sample.completed && !sample.forecastOnly) {
+        const releases = [];
+        if (Number.isFinite(sample.pausedAt)) releases.push({ at: sample.pausedAt, epoch: sample.pausedEpoch ?? playback.epoch - Number(!sample.paused) });
+        if (Number.isFinite(sample.replacedAt)) releases.push({ at: sample.replacedAt, epoch: sample.replacedEpoch ?? playback.epoch - 1 });
+        if (releases.length) sourceReleases.set(`sample:${sample.id}`, releases);
+      }
     }
     for (const id of samplePlayback.keys()) if (!observedIds.has(id)) samplePlayback.delete(id);
     // A frozen position plus an exact pause time can recover short gates that
     // sounded between display frames. Its score remains anchored at that time.
-    const pausedSamples = availableSamples.filter(sample => sample.paused && !sample.pending && Number.isFinite(sample.pausedAt))
-      .map(sample => ({ ...sample, ...samplePlayback.get(sample.id).voice }));
-    const sourceList = [...activeSamples, ...pausedSamples, ...finishedSamples];
+    const pausedSamples = availableSamples.filter(sample => sample.paused && !sample.pending && Number.isFinite(sample.pausedAt)
+      && !(sample.positionBeats === 0 && sample.replacedAt >= sample.pausedAt))
+      .map(sample => ({ ...sample, ...samplePlayback.get(playbackKey(sample)).voice }));
+    const sourceList = [...activeSamples, ...replacementForecasts, ...pausedSamples, ...finishedSamples];
     const automata = state?.automata;
     const hasAutomata = automata?.playing && automata.generation >= 0 && automata.row?.length;
     if (hasAutomata && (!wasAutomataPlaying || automata.beat < lastAutomataBeat)) {
@@ -138,7 +150,7 @@ export function createBlechLiveProjector() {
           const cached = automataFamilies.get(row.generation), families = new Map();
           for (let column = 0; column < row.row.length; column++) if (row.row[column]) {
             const pitch = row.lowestNote + column;
-            const family = cached?.get(pitch) ?? (row.articulation === 'hold' ? previous?.get(pitch) : null)
+            const family = cached?.get(pitch) ?? (row.articulation === 'hold' && !row.reseed ? previous?.get(pitch) : null)
               ?? { id: `automata:${automataEpoch}:${Math.max(row.startBeat, automataHistoryFloor)}:${pitch}`, start: Math.max(row.startBeat, automataHistoryFloor) };
             families.set(pitch, family);
           }
@@ -166,8 +178,8 @@ export function createBlechLiveProjector() {
       let childIndex = 0;
       for (const child of midiNoteEffectChildren(family.effects, note.pitch, note.velocity, { drums })) {
         const id = `${note.id}:${family.revision}:${childIndex++}`;
-        const start = note.start + child.delaySeconds, end = start + Math.min(note.end - note.start, child.gateSeconds);
-        if (end <= -pastSeconds || start > lookAhead) continue;
+        const start = note.start + child.delaySeconds, end = Math.min(start + Math.min(note.end - note.start, child.gateSeconds), note.releaseAt ?? Infinity);
+        if (end <= start || end <= -pastSeconds || start > lookAhead) continue;
         const value = { ...note, id, pitch: child.note, velocity: child.velocity, start, end, source };
         if ((source !== 'automata' || historyOnly) && start < 0 && !pastIds.has(id) && (pastSourceCounts.get(source) ?? 0) < historyPerSource) {
           past.push(value); pastIds.add(id); pastSourceCounts.set(source, (pastSourceCounts.get(source) ?? 0) + 1);
@@ -182,21 +194,21 @@ export function createBlechLiveProjector() {
       let indexed = samples.get(analysis);
       if (!indexed) { indexed = indexSample(analysis); samples.set(analysis, indexed); }
       const sync = sample.sync !== false, scale = sync ? 60 / (sample.completed || sample.paused ? bound(sample.tempo, 30, 300, tempo) : tempo) : 1;
-      const timeOffset = sample.completed ? sample.finishedAt - now : sample.paused ? sample.pausedAt - now : 0;
+      const timeOffset = sample.completed ? sample.finishedAt - now : sample.paused ? sample.pausedAt - now : sample.forecastOffset ?? 0;
       const position = sync ? sample.positionBeats : sampleSecondsAt(indexed.tempo, sample.positionBeats);
       const length = sync ? analysis.durationBeats : indexed.durationSeconds;
-      const playback = samplePlayback.get(sample.id), epoch = playback?.epoch ?? 0;
-      const revision = `${sample.revision ?? 0}:${epoch}`;
+      const playback = samplePlayback.get(playbackKey(sample)), epoch = playback?.epoch ?? 0;
+      const revision = `${sample.scoreRevision ?? sample.revision ?? 0}:${epoch}`;
       const floorPosition = sync ? playback?.floorPosition ?? 0 : sampleSecondsAt(indexed.tempo, playback?.floorPosition ?? 0);
       const historyFloor = (floorPosition + ((playback?.floorCycle ?? 0) - Number(sample.cycle || 0)) * length - position) * scale + timeOffset;
       if (!(length > 0) || !Number.isFinite(position)) continue;
       const firstCycle = sample.loop ? Math.max(-Number(sample.cycle || 0), Math.floor((position - tail / scale) / length)) : 0;
-      const finalCycle = sample.loop ? Math.max(0, Math.floor((position + lookAhead / scale) / length)) : 0;
+      const finalCycle = sample.loop && !sample.pendingReplacement ? Math.max(0, Math.floor((position + (lookAhead - timeOffset) / scale) / length)) : 0;
       const lastCycle = Math.min(finalCycle, firstCycle + BLECH_LIVE_CYCLE_LIMIT - 1);
       if (lastCycle < finalCycle) truncated = true;
       if (!sample.completed && !sample.paused) sources.push(source);
       for (let cycle = firstCycle; !sample.completed && !sample.paused && cycle <= lastCycle && notes.length < sourceLimit; cycle++) {
-        const offset = cycle * length - position, from = Math.max(0, -offset - tail / scale), to = Math.min(length, lookAhead / scale - offset);
+        const offset = cycle * length - position, from = Math.max(0, -offset - (tail + timeOffset) / scale), to = Math.min(length, (lookAhead - timeOffset) / scale - offset);
         if (to < from) continue;
         let low = 0, high = indexed.notes.length;
         const at = index => sync ? indexed.notes[index].beat : indexed.seconds[index];
@@ -212,16 +224,17 @@ export function createBlechLiveProjector() {
           if (end <= from) continue;
           const note = transformMidiNote(original, sample.midi), midi = sample.midi ?? {};
           if (!note.velocity || midi.controllers?.[7] === 0 || midi.controllers?.[11] === 0) continue;
-          emit({ id: `${source}:${Number(sample.cycle || 0) + cycle}:${index}:${revision}`, revision, playbackEpoch: epoch, pitch: note.note, velocity: note.velocity, channel: note.channel % 16,
+          emit({ id: `${source}:${Number(sample.cycle || 0) + cycle}:${index}:${revision}`, revision, scoreVersion: sample.scoreVersion ?? 0, playbackEpoch: epoch, pitch: note.note, velocity: note.velocity, channel: note.channel % 16,
             track: 65536 + sample.slot * 4096 + note.track, gain: sample.gain * (midi.gain ?? 1),
-            start: Math.max((at(index) + offset) * scale, historyFloor), end: (end + offset) * scale }, source, sourceLimit, note.channel % 16 === 9);
+            releaseAt: sample.pendingReplacement ? (length - position) * scale : undefined,
+            start: Math.max((at(index) + offset) * scale + timeOffset, historyFloor), end: (end + offset) * scale + timeOffset }, source, sourceLimit, note.channel % 16 === 9);
           if (notes.length >= sourceLimit) { truncated = true; break; }
         }
         if (visited >= perSource * 4) truncated = true;
       }
       // History has its own bounded interval query. A dense forecast must not
       // consume every visit before we get to the gates that actually passed.
-      if (pastSeconds > 0) {
+      if (pastSeconds > 0 && !sample.forecastOnly) {
         const begin = sample.loop ? Math.max(-Number(sample.cycle || 0), Math.floor((position - (pastSeconds + timeOffset + tail) / scale) / length)) : 0;
         const finish = sample.loop ? Math.floor(position / length) : 0;
         let visited = 0;
@@ -239,8 +252,9 @@ export function createBlechLiveProjector() {
             const note = transformMidiNote(original, sample.midi), midi = sample.midi ?? {};
             if (!note.velocity || midi.controllers?.[7] === 0 || midi.controllers?.[11] === 0) continue;
             emit({ id: `${source}:${Number(sample.cycle || 0) + cycle}:${index}:${revision}`,
-              revision, playbackEpoch: epoch, pitch: note.note, velocity: note.velocity, channel: note.channel % 16,
+              revision, scoreVersion: sample.scoreVersion ?? 0, playbackEpoch: epoch, pitch: note.note, velocity: note.velocity, channel: note.channel % 16,
               track: 65536 + sample.slot * 4096 + note.track, gain: sample.gain * (midi.gain ?? 1),
+              releaseAt: sample.replaced ? timeOffset : undefined,
               start: Math.max((at(index) + offset) * scale + timeOffset, historyFloor), end: (end + offset) * scale + timeOffset }, source, limit, note.channel % 16 === 9, true);
           }
         }
