@@ -57,9 +57,9 @@ test('equal A/B turns have equal frequency at corresponding phrase positions and
   const dsp = make(bank([a, b]));
   for (const phase of [.125, .25, .375]) {
     settleAt(dsp, phase); const frequency = dsp.frequencies[0];
-    assert.ok(dsp.gains[0] > .999); assert.ok(dsp.gains[1] < 1e-10);
+    assert.ok(dsp.gains[0] * dsp.phraseGates[0] > .999); assert.equal(dsp.phraseGates[1], 0);
     settleAt(dsp, phase + .5); close(dsp.frequencies[1], frequency);
-    assert.ok(dsp.gains[1] > .999); assert.ok(dsp.gains[0] < 1e-10);
+    assert.ok(dsp.gains[1] * dsp.phraseGates[1] > .999); assert.equal(dsp.phraseGates[0], 0);
   }
   settleAt(dsp, .5); assert.ok(rms(render(dsp, .1, false).left) < 1e-10);
 });

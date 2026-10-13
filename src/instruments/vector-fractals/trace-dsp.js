@@ -117,6 +117,7 @@ export class TraceDSP {
     this.voiceTargets = new Uint8Array([0, 1, 2]); this.drumVoiceTargets = new Uint8Array([0, 1, 2]);
     this.voiceWeights = new Float64Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]);
     this.gains = new Float64Array(SLOTS); this.drumGains = new Float64Array(LAYERS);
+    this.phraseGates = new Float64Array(SLOTS).fill(1);
     this.pans = new Float64Array(SLOTS); this.heights = new Float64Array(SLOTS);
     this.bends = new Float64Array(SLOTS); this.folds = new Float64Array(SLOTS);
     this.registers = Float64Array.from({ length: SLOTS }, (_, index) => Math.log2(REGISTERS[index % LAYERS]));
@@ -379,9 +380,9 @@ export class TraceDSP {
     this.smoothTravelerPitch(slot, this.travelerPitch[slot], this.travelerSmoothedPitch, this.travelerPositions, this.travelerPhases);
   }
 
-  smoothTravelerPitch(slot, target, smoothed, positions, phases) {
+  smoothTravelerPitch(slot, target, smoothed, positions, phases, immediate = false) {
     const previous = smoothed[slot];
-    const pitch = previous + (target - previous) * this.smoothing;
+    const pitch = immediate ? target : previous + (target - previous) * this.smoothing;
     smoothed[slot] = pitch;
     positions[slot] = ((pitch % 1) + 1) % 1;
     const shift = Math.floor(pitch) - Math.floor(previous), offset = slot * SHEPARD_PARTIALS;
@@ -470,9 +471,15 @@ export class TraceDSP {
         const oldPresent = this.previous ? readContact(this.previous.layers[layer].contacts[contact], this.phase, this.previous, this.oldPoint, this.travel) : 0;
         let pan = this.pans[slot], height = this.heights[slot], bend = this.bends[slot], fold = this.folds[slot];
         let register = this.registers[slot], color = this.colors[slot];
-        let presence = present;
         const hasCurrent = present > 0 || (this.bank.motif && this.bank.layers[layer].contacts[contact].x.length > 0);
         const hasPrevious = oldPresent > 0 || (this.previous?.motif && this.previous.layers[layer].contacts[contact].x.length > 0);
+        let presence = this.bank.motif ? Number(hasCurrent) : present;
+        const oldPresence = this.previous?.motif ? Number(hasPrevious) : oldPresent;
+        const gate = this.bank.motif ? present : 1, oldGate = this.previous?.motif ? oldPresent : 1;
+        // Phrase banks already carry smooth onset/release ramps. An additional
+        // envelope tail would leak the closing pitch into the next phrase and
+        // make identical A/B excerpts audibly differ at their entries.
+        this.phraseGates[slot] = this.previous ? oldGate + (gate - oldGate) * blend : gate;
         if (hasPrevious && hasCurrent) {
           pan = this.oldPoint[0] + (this.point[0] - this.oldPoint[0]) * blend;
           height = this.oldPoint[1] + (this.point[1] - this.oldPoint[1]) * blend;
@@ -485,7 +492,7 @@ export class TraceDSP {
           pan = point[0]; height = point[1]; bend = point[2]; fold = point[3];
           register = point[5]; color = point[6];
         }
-        if (this.previous) presence = oldPresent + (present - oldPresent) * blend;
+        if (this.previous) presence = oldPresence + (presence - oldPresence) * blend;
         this.pans[slot] += (pan - this.pans[slot]) * this.smoothing;
         this.heights[slot] += (height - this.heights[slot]) * this.smoothing;
         this.bends[slot] += (bend - this.bends[slot]) * this.smoothing;
@@ -509,10 +516,10 @@ export class TraceDSP {
             const turn = currentMotif && previousMotif ? this.oldPoint[4] + (this.point[4] - this.oldPoint[4]) * blend
               : currentMotif ? this.point[4] : this.oldPoint[4];
             this.motifPitch[slot] = -turn / TAU * this.params.travelerOctaves;
-            this.smoothTravelerPitch(slot, this.motifPitch[slot], this.motifSmoothedPitch, this.motifPositions, this.motifPhases);
+            this.smoothTravelerPitch(slot, this.motifPitch[slot], this.motifSmoothedPitch, this.motifPositions, this.motifPhases, this.phraseGates[slot] === 0);
           }
         }
-        contactGain += this.gains[slot];
+        contactGain += this.gains[slot] * this.phraseGates[slot];
       }
       for (let contact = 0; contact < CONTACTS; contact++) {
         const slot = contact * LAYERS + layer;
@@ -528,7 +535,7 @@ export class TraceDSP {
         const color = clamp(this.bends[slot] * this.params.bendTimbre * 2 + this.colors[slot], 0, 2), fold = this.folds[slot] * this.params.foldTimbre;
         const glassIndex = slot * 3;
         let signal = 0;
-        if (this.gains[slot] > 1e-10) for (let voice = 0; voice < COLORS; voice++) {
+        if (this.gains[slot] * this.phraseGates[slot] > 1e-10) for (let voice = 0; voice < COLORS; voice++) {
           const weight = this.voiceWeights[layer * COLORS + voice];
           if (weight < 1e-8) continue;
           let value;
@@ -562,7 +569,7 @@ export class TraceDSP {
           signal += value * weight;
         }
         const angle = (this.pans[slot] * this.params.panWidth + 1) * Math.PI / 4;
-        const gain = this.gains[slot] * .3 / Math.max(1, contactGain) * this.params.toneLevel;
+        const gain = this.gains[slot] * this.phraseGates[slot] * .3 / Math.max(1, contactGain) * this.params.toneLevel;
         out[0] += signal * gain * Math.cos(angle); out[1] += signal * gain * Math.sin(angle);
         this.carriers[slot] = (this.carriers[slot] + frequency / this.sampleRate) % 1;
         for (let partial = 0; partial < 3; partial++) {
