@@ -1,0 +1,15 @@
+{
+  "baseCommit": "477cdaea040308077fac1c9c3ef209b719bddb85",
+  "description": "Exact additive BLECH MIDI text preparation runtime registration. Historical inventory hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "b94f6811c1632e20b9c5379f49ac4cbf1e72c3fe1da44398e4137921195d76e7",
+  "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-note-history.js\n",
+  "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-note-history.js\n\n# BLECH MIDI independent text preparation and falling-note preview.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
+  "addition": "\n# BLECH MIDI independent text preparation and falling-note preview.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
+  "path": "src/instruments/blech-midi/blech-midi-text-controls.js",
+  "row": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
+  "markers": [
+    "# BLECH MIDI independent text preparation and falling-note preview.",
+    "src/instruments/blech-midi/blech-midi-text-controls.js"
+  ]
+}

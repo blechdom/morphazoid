@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readBlechTextRuntimeReference as readFile } from './helpers/blech-text-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { vectorMotifRuntimeChange as change, restoreVectorMotifRuntime, readVectorMotifRuntimeReference } from './helpers/vector-motif-runtime-reference.mjs';
 import { restoreBlechNoteHistoryRuntime, readBlechNoteHistoryRuntimeReference } from './helpers/blech-note-history-runtime-reference.mjs';
