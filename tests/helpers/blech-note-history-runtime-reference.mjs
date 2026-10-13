@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreVectorMotifRuntime } from './vector-motif-runtime-reference.mjs';
 
 export const blechNoteHistoryRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-note-history-runtime-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blechNoteHistoryRuntimeChange = JSON.parse(readFileSync(
 export function restoreBlechNoteHistoryRuntime(source, file, { allowRestored = false } = {}) {
   const change = blechNoteHistoryRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreVectorMotifRuntime(source, file, { allowRestored: true });
   const counts = change.markers.map(marker => source.split(marker).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact BLECH MIDI note-history runtime addition`;

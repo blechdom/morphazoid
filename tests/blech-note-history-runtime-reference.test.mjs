@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readVectorMotifRuntimeReference as readFile } from './helpers/vector-motif-runtime-reference.mjs';
 import { createHash } from 'node:crypto';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blechNoteHistoryRuntimeChange as change, restoreBlechNoteHistoryRuntime, readBlechNoteHistoryRuntimeReference } from './helpers/blech-note-history-runtime-reference.mjs';

@@ -146,9 +146,108 @@ rearming resumes from that pitch at the current playhead position.
 
 Traveler replaces Height → pitch for sustained voices. Pan, bend/fold timbre,
 layer mutes, Tone/Drum switches, voice selection, and drum spacing remain active.
-Traveler drums use Drum pitch with the layer's low/middle/high register; no hidden
+Whole-path Traveler drums use Drum pitch with the layer's low/middle/high register; no hidden
 height mapping affects them. Shepard's time-based rise/fall and travel-per-cycle
 controls are hidden in Traveler; Octave spread still shapes the Shepard sound.
+
+### Traveler motif exploration
+
+Start with **Explorer · Compare curls**, **Explorer · Motif choir**,
+**Explorer · Shape and ornament**, or **Explorer · Turning footsteps**.
+In Traveler, **Listen to** chooses the following readings. All retain the
+independent Cycle rate and continuous Turn → pitch mapping.
+
+| Reading | What plays |
+| --- | --- |
+| Whole path | The existing border traveler, with optional drift removal. |
+| Compare A then B | Two local stretches alternate as pitch phrases. By default they share A's voice, reference pitch and duration. |
+| Matched motif choir | A, B and C begin together, with independently selectable voices, Tone/Drum switches and mutes. |
+| Broad shape + detail | A's broad turning contour plus two finer turning residuals, as three voices. Fine turn gain controls the ornament. |
+
+Uncaptured slots use live stretches of the selected visible path. These previews
+make presets immediately playable, but are not claimed to be discovered matches.
+**Capture center** and **Capture span** set the next stretch. Select a strand,
+then use Capture A/B/C, or arm **Pick on border** and click a location. A drag
+continues to navigate. Captures hold their world-coordinate geometry through
+zoom and refinement; the dashed stretch previews the next capture. Captures and
+musical options are included in saved presets. **Clear captures** returns to live
+previews. The native capture buttons and controls also work from the keyboard.
+
+**Find similar in view** captures A if necessary, then searches stretches at
+different sizes on up to eight of the longest visible fine contours. This is a
+bounded worker search (192 candidate budget, up to six returned choices), not an
+exhaustive search of the fractal. The best candidates populate B and C; the menu
+can replace B. Changing the reference, comparison settings or completed view
+invalidates search results. Captured stretches remain available after zooming.
+
+The comparison uses an entry-relative turning fingerprint
+`T(u) = theta(Lu) - theta(0)`, alongside the normalized curve, where `u` is
+fractional arc length. Translation, rotation and uniform size are removed.
+Coordinates are smoothed before arc length and unwrapped heading are measured;
+**Detail scale** is the smoothing width as a fraction of the motif. Relative
+distances between turns matter: a square and rectangle both have four right
+angles and one net full turn, but their phrases differ. Total turning alone
+cannot identify a shape.
+
+**Allow mirrors** and **Allow reverse** optionally compare reflected or
+backward-traversed curves. **Time flexibility** permits bounded monotonic
+alignment (up to 12% displacement); Strict preserves relative timing. When a
+transform is selected, the readout reports it. Stage heads remain on the actual
+captured paths, while the normalized overlay shows the comparison transform.
+The turning graph and visible heads follow the same playback tables as audio.
+
+**Equal phrase duration** places motifs on the same time basis. **Same travel
+speed** instead weights durations by captured physical length; shorter choir
+parts finish and wait for the shared cycle. A 4% minimum cycle share prevents
+extreme size ratios from becoming unplayably short, and the readout reports when
+this limit applies. Small fades and silent gaps separate phrases without
+inventing a closing edge. Every phrase starts from its entry-relative pitch;
+the repeated A/B comparison does not accumulate pitch from earlier phrases.
+Disable **Use A voice for both** to restore B's independent saved voice.
+
+Optional **Size → register** makes smaller motifs higher; **Size → brightness**
+colors them instead. **Size amount** sets the strength. **Orientation → pan**
+uses the motif's entry direction. These cues default off so they do not obscure
+shape comparison. The Detail reading separates turning at three smoothing
+scales on the *same captured curve*. This differs from the three Whole-path
+contours, which are distinct equipotential levels, not literal recursion
+generations. Raising Fine turn gain cannot recover geometry absent from the
+original contour sampling.
+
+**Remove closed-loop pitch drift** subtracts the linear net-turn progression
+over a closed curve, leaving its local deviations. A circle consequently holds
+a steady pitch. Open stretches retain their entry-relative turning. This is an
+optional musical transform; the geometric turning used by drums is preserved.
+
+**Bead placement → Equal turning** accumulates absolute turning and places a
+hit at each **Turn per hit** increment. Tight bends therefore receive more
+beads than straight stretches. The left/right color switch changes overtone
+color while preserving the chosen drum fundamental. Equal distance remains
+available. Both placements work in Trace, Traveler, Radar and Scan, where the
+reader determines when each bead is crossed. Schedules are bounded to 256 beads
+per layer. Drift removal and Fine turn gain do not change the angular drum
+schedule. Motif voices and drums share a reference register by default; the
+optional size cue can offset it.
+
+The normalized shape and turning panels include heuristic resemblance, shape
+error and RMS turn error in degrees. The resemblance percentage is
+`100 * exp(-3 * hypot(shapeError, 2 * turnErrorInRevolutions))`, not a probability
+that two motifs are mathematically identical. **Analysis stability** checks a
+second smoothing width; **sampling stability** checks half/double descriptor
+sample counts on the same captured polyline. Neither independently refines the
+fractal grid or detects missing filaments. Exact fractal boundaries may lack a
+regular tangent or finite perimeter: these tools compare finite-scale sampled
+curves, not an asserted exact boundary invariant.
+
+**Comparison examples** construct a rotated/smaller copy, an unevenly resampled
+copy, a mirror or a different curve from A. Their provenance is labeled in the
+capture readout. They help isolate what normalization and alignment do; they
+are not additional fractal discoveries. Related shape-analysis references:
+[turning-function metrics](https://doi.org/10.1109/34.75509),
+[curvature scale space](https://www.cs.ubc.ca/~mack/Publications/IEEE-PAMI86.pdf),
+and [shape contexts](https://www2.eecs.berkeley.edu/Research/Projects/CS/vision/shape/belongie-pami02.pdf).
+This implementation uses turning and positional residuals, not a trained
+recognizer or a complete implementation of those methods.
 
 ### Shapes-inspired layered readers
 

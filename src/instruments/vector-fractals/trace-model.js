@@ -179,7 +179,7 @@ function traceLayer(path, result, anchor, featureSize, traveler = false) {
  * `anchor`, when provided, is an absolute complex-plane point (Y upwards).
  * Missing levels stay empty; we never duplicate a finer contour to fill them.
  */
-export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015, contourReader = 'trace', travelerDirection = 'clockwise', drumSpacing = .04, radarX = 0, radarY = 0, scanAngle = 0 } = {}) {
+export function createTraceBank(results, { finePath = -1, anchor = null, featureSize = .015, contourReader = 'trace', travelerDirection = 'clockwise', travelerDetrend = false, drumPlacement = 'distance', drumTurnStep = 30, drumTurnColor = true, drumSpacing = .04, radarX = 0, radarY = 0, scanAngle = 0 } = {}) {
   const sources = Array.isArray(results) ? results.slice(0, 3) : [null, null, results];
   while (sources.length < 3) sources.push(null);
   const sourceView = sources[2]?.view || sources.find(result => result?.view)?.view;
@@ -208,7 +208,13 @@ export function createTraceBank(results, { finePath = -1, anchor = null, feature
   };
   bank.layers = sources.map((result, index) => {
     const path = selected[index], layerAnchor = traveler && !explicitAnchor ? canonicalAnchor(path, true) : target;
-    if (traveler && path) path.turning = turningSignal(path, size);
+    if (traveler && path) {
+      path.turning = turningSignal(path, size);
+      if (travelerDetrend && path.closed) {
+        const original = path.turning;
+        path.turning = { turnPerLap: 0, at: distance => original.at(distance) - distance / path.total * original.turnPerLap };
+      }
+    }
     const layer = traceLayer(path, result, layerAnchor, size, traveler);
     const followsPath = reader === 'trace' || traveler;
     const activePaths = followsPath ? path ? [path] : [] : boundedPaths(paths[index]);
@@ -217,12 +223,52 @@ export function createTraceBank(results, { finePath = -1, anchor = null, feature
       ? layer.x.length ? [{ x: layer.x, y: layer.y, bend: layer.bend, fold: layer.fold,
         ...(traveler ? { turn: layer.turn, turnPerLap: layer.turnPerLap } : {}), presence: new Float32Array(TRACE_TABLE_SIZE).fill(1) }] : []
       : projectedContacts(activePaths, bank, size);
-    const percussion = percussionFor(activePaths, bank, layerAnchor, size, clamp(finite(drumSpacing, .04), .006, .2));
+    const percussion = drumPlacement === 'turn'
+      ? turningPercussion(activePaths, bank, layerAnchor, size, clamp(finite(drumTurnStep, 30), 5, 180), drumTurnColor)
+      : percussionFor(activePaths, bank, layerAnchor, size, clamp(finite(drumSpacing, .04), .006, .2));
     layer.beads = percussion.beads; layer.events = percussion.events;
     layer.beadSpacing = percussion.spacing;
     return layer;
   });
   return bank;
+}
+
+// Angular-distance beads are computed in the worker, then crossed by the audio
+// clock. Subdividing a straight segment never manufactures extra drum attacks.
+function turningPercussion(paths, bank, anchor, featureSize, degrees, color) {
+  const curves = paths.map(path => path.original || path).map(path => {
+    const signal = turningSignal(path, featureSize), seam = path.closed ? nearest(path, anchor).distance : 0;
+    const positions = [], turns = [], distances = [0];
+    const count = TRACE_TABLE_SIZE;
+    for (let i = 0; i <= count; i++) {
+      const distance = seam + path.total * i / count;
+      positions.push(distance); turns.push(signal.at(distance));
+      if (i) distances.push(distances[i - 1] + Math.abs(turns[i] - turns[i - 1]));
+    }
+    return { path, positions, turns, distances, total: distances[count] };
+  });
+  const total = curves.reduce((sum, curve) => sum + curve.total, 0);
+  const step = Math.max(degrees * TAU / 360, total / (READER_BEAD_LIMIT - 1));
+  const beads = [], events = [];
+  for (const curve of curves) {
+    let next = step, cursor = 1;
+    while (next < curve.total - 1e-9 && beads.length < READER_BEAD_LIMIT) {
+      while (cursor < curve.distances.length - 1 && curve.distances[cursor] < next) cursor++;
+      const delta = curve.distances[cursor] - curve.distances[cursor - 1];
+      const mix = delta > 1e-15 ? (next - curve.distances[cursor - 1]) / delta : 0;
+      const fraction = (cursor - 1 + mix) / TRACE_TABLE_SIZE;
+      const distance = curve.positions[cursor - 1] * (1 - mix) + curve.positions[cursor] * mix;
+      const point = featuresAt(curve.path, distance, featureSize);
+      const sign = Math.sign(curve.turns[cursor] - curve.turns[cursor - 1]);
+      const phases = eventPhases(point, bank, curve.path.closed, fraction), id = beads.length;
+      beads.push({ id, ...point, pathIndex: curve.path.pathIndex, phases });
+      for (const phase of phases) events.push({ phase, bead: id, ...point,
+        ...(color ? { turnSign: sign * (!curve.path.closed && ['trace', 'traveler'].includes(bank.reader) && phase > .5 ? -1 : 1) } : {}) });
+      next += step;
+    }
+  }
+  events.sort((a, b) => a.phase - b.phase || a.bead - b.bead);
+  return { beads, events, spacing: step * 360 / TAU };
 }
 
 /** Positions wrap; Traveler's accumulated turn preserves its winding per lap. */

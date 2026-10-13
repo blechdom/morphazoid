@@ -1,4 +1,5 @@
 import { MANDELBROT_COEFFICIENTS } from './mandelbrot-coefficients.js';
+import { MOTIF_DEFAULTS, sanitizeMotifState, randomMotifState } from './motif-state.js';
 
 export const TAU = Math.PI * 2;
 export const TABLE_SIZE = 2048;
@@ -26,7 +27,7 @@ export const EXPLORER_JULIA_PRESETS = Object.freeze([
   { id: 'listening', label: 'Listening default', cReal: -.788, cImag: .1191 },
   { id: 'circle', label: 'Unit circle', cReal: 0, cImag: 0 },
 ].map(Object.freeze));
-export const DEFAULT_STATE = Object.freeze({ mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
+export const DEFAULT_STATE = Object.freeze({ ...MOTIF_DEFAULTS, mode: 'julia', shape: 'basilica', radius: 1.075, detail: 256, depth: .88, angle: .22, component: 1, speed: .06, pitch: 110, rotation: 0, traversal: 'angle', readout: 'xy', vectors: true, reference: true,
   contourDomain: 'mandelbrot', cReal: -1, cImag: 0,
   viewX: -.5, viewY: 0, viewWidth: 3.4, contourBias: 0, contourQuality: 'live', strandX: null, strandY: null,
   contourReader: 'trace', traceRate: .1, featureSize: .015,
@@ -49,6 +50,7 @@ export const wrap = v => ((v % 1) + 1) % 1;
 export function sanitizeState(input = {}) {
   const s = { ...DEFAULT_STATE, ...input };
   return {
+    ...sanitizeMotifState(s),
     mode: MODES.some(m => m.id === s.mode) ? s.mode : 'julia',
     shape: Object.hasOwn(SHAPES, s.shape) ? s.shape : 'basilica',
     radius: clamp(s.radius, 1.025, 1.8, DEFAULT_STATE.radius),
@@ -228,7 +230,7 @@ export function randomizeState(_previous, random = Math.random) {
     layerEnabled[i] = true;
     pick([layerSustain, layerDrums])[i] = true;
   }
-  return sanitizeState({ mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
+  return sanitizeState({ ...randomMotifState(random), mode: pick(MODES).id, shape: pick(Object.keys(SHAPES)),
     contourDomain, cReal: julia.cReal, cImag: julia.cImag,
     radius: 1.03 + random() ** 2 * .65, detail: pick([32, 64, 128, 256, 512]),
     depth: random() * .96, angle: random(), component: pick([1, 2]), speed: .005 + random() ** 2 * .395,
@@ -272,5 +274,9 @@ export const PRESETS = Object.freeze([
   ['scan-mixed', 'Explorer · Scan and shimmer', { mode: 'explorer', contourReader: 'scan', pitch: 147, traceRate: .08, scanAngle: 35, layerVoices: ['sine', 'reed', 'glass'], layerSustain: [true, false, true], layerDrums: [true, true, true], toneLevel: .65, drumLevel: .4, drumSpacing: .07, drumDecay: .3, drumPitch: 180, pitchDepth: 1.2, bendTimbre: .65, foldTimbre: .6 }],
   ['shepard-rise', 'Explorer · Endless ascent', { mode: 'explorer', contourReader: 'radar', pitch: 110, traceRate: .055, layerVoices: ['shepard', 'shepard', 'shepard'], layerEnabled: [true, true, false], toneLevel: .7, bendTimbre: .3, foldTimbre: .5, pitchDepth: .4, panWidth: .75, shepardDirection: 'rise', shepardCycles: 1.5, shepardWidth: 1.25 }],
   ['traveler', 'Explorer · Border traveler', { mode: 'explorer', contourReader: 'traveler', pitch: 110, traceRate: .075, featureSize: .012, layerVoices: ['shepard', 'shepard', 'shepard'], toneLevel: .7, bendTimbre: .35, foldTimbre: .2, travelerOctaves: 1, shepardWidth: 1.2 }],
+  ['motif-compare', 'Explorer · Compare curls', { mode: 'explorer', contourReader: 'traveler', travelerMode: 'compare', pitch: 165, traceRate: .08, layerVoices: ['sine', 'sine', 'sine'], toneLevel: .65, bendTimbre: 0, foldTimbre: 0, panWidth: 0 }],
+  ['motif-choir', 'Explorer · Motif choir', { mode: 'explorer', contourReader: 'traveler', travelerMode: 'choir', pitch: 110, traceRate: .1, layerVoices: ['reed', 'glass', 'sine'], toneLevel: .6, bendTimbre: .25, motifOrientation: .6 }],
+  ['motif-detail', 'Explorer · Shape and ornament', { mode: 'explorer', contourReader: 'traveler', travelerMode: 'detail', pitch: 147, traceRate: .075, layerVoices: ['sine', 'reed', 'glass'], toneLevel: .6, bendTimbre: .4, motifDetailGain: 3 }],
+  ['turn-drums', 'Explorer · Turning footsteps', { mode: 'explorer', contourReader: 'traveler', travelerDetrend: true, drumPlacement: 'turn', drumTurnStep: 35, layerDrums: [true, true, true], layerVoices: ['sine', 'reed', 'glass'], toneLevel: .4, drumLevel: .55, traceRate: .09 }],
   ['explore-xy', 'Explorer · XY waveform', { mode: 'explorer', pitch: 82, contourReader: 'xy' }],
 ].map(([id, label, patch]) => ({ id, label, snapshot: sanitizeState({ ...DEFAULT_STATE, ...patch }) })));

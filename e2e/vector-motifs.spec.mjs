@@ -97,11 +97,13 @@ test('motifs capture by keyboard, survive refinements, and compare without armin
   await page.keyboard.press('+');
   await ready(page);
   expect((await snapshot(page)).state.motifCaptures[0]).toEqual(original);
+  await (await reveal(page, 'motifPick')).selectOption('b');
   await page.locator('#contourReader').selectOption('scan');
   await ready(page);
   await expect(page.locator('#motifTools')).toBeHidden();
   await page.locator('#contourReader').selectOption('traveler');
   await ready(page);
+  await expect(page.locator('#motifPick')).toHaveValue('none');
   expect((await snapshot(page)).state.motifCaptures[0]).toEqual(original);
   expect(errors).toEqual([]);
 });
@@ -187,6 +189,10 @@ test('motif playback, optional cues, and turn drums keep the audio clock and rel
       expect((await snapshot(page)).state.motifSameVoice).toBe(true);
       expect((await snapshot(page)).playing && (await snapshot(page)).armed).toBe(true);
     } else await expect(page.locator('#layerVoice1')).toBeEnabled();
+    if (mode === 'detail') {
+      await expect(page.locator('#motifAnalysis')).toContainText('share one captured curve');
+      await expect(page.locator('#motifComparison')).not.toHaveAttribute('aria-label', /A \/ B/);
+    }
   }
   await (await reveal(page, 'travelerMode')).selectOption('choir');
   await (await reveal(page, 'motifTiming')).selectOption('original');

@@ -1,10 +1,12 @@
 import { createTraceBank } from './trace-model.js';
+import { createMotifBank } from './motif-bank.js';
 
 // Reader trajectories and bead crossings are built away from both the UI and
 // the audio thread. The controller retains only its newest waiting request.
 self.onmessage = ({ data }) => {
   try {
-    const bank = createTraceBank(data.layers, data.options);
+    const bank = data.options?.contourReader === 'traveler' && data.options?.travelerMode !== 'path' && data.options?.travelerMode
+      ? createMotifBank(data.layers, data.options) : createTraceBank(data.layers, data.options);
     bank.id = data.id;
     const buffers = new Set();
     const collect = value => {

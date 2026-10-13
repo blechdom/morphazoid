@@ -10,9 +10,9 @@ const WOOD_RATIOS = [1, 2.75, 5.1], METAL_RATIOS = [1, 1.59, 2.17, 3.81, 5.43, 7
 const SHEPARD_PARTIALS = 11, SHEPARD_CENTER = 5;
 const DRUM_SLOTS = 24, HIT_HISTORY = 64, COLORS = 4;
 const PARAMS = ['toneLevel', 'drumLevel', 'bendTimbre', 'foldTimbre', 'pitchDepth', 'panWidth', 'shepardCycles', 'shepardWidth', 'shepardDirection', 'travelerOctaves'];
-const EMPTY_CONTACT = Object.freeze({ x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), fold: new Float32Array(0), presence: new Float32Array(0), turn: new Float32Array(0), turnPerLap: 0, turnOffset: 0 });
+const EMPTY_CONTACT = Object.freeze({ x: new Float32Array(0), y: new Float32Array(0), bend: new Float32Array(0), fold: new Float32Array(0), presence: new Float32Array(0), turn: new Float32Array(0), turnPerLap: 0, turnOffset: 0, registerOctaves: 0, pan: 0, color: 0 });
 
-function boundedContact(contact) {
+function boundedContact(contact, motif, layer) {
   const length = contact?.x?.length;
   if (!Number.isInteger(length) || length < 2 || length > TABLE_SIZE
     || contact.y?.length !== length || contact.bend?.length !== length
@@ -21,7 +21,9 @@ function boundedContact(contact) {
     || (contact.presence && contact.presence.length !== length)) return EMPTY_CONTACT;
   const result = { x: new Float32Array(length), y: new Float32Array(length), bend: new Float32Array(length),
     fold: new Float32Array(length), presence: new Float32Array(length), turn: new Float32Array(length),
-    turnPerLap: clamp(contact.turnPerLap, -TABLE_SIZE * TAU, TABLE_SIZE * TAU, 0), turnOffset: 0 };
+    turnPerLap: motif ? 0 : clamp(contact.turnPerLap, -TABLE_SIZE * TAU, TABLE_SIZE * TAU, 0), turnOffset: 0,
+    registerOctaves: motif ? clamp(contact.registerOctaves, -4, 4, 0) : Math.log2(REGISTERS[layer]),
+    pan: clamp(contact.pan, -1, 1, 0), color: motif ? clamp(contact.color, 0, 1, 0) : 0 };
   for (let i = 0; i < length; i++) {
     if (!Number.isFinite(contact.x[i]) || !Number.isFinite(contact.y[i]) || !Number.isFinite(contact.bend[i])
       || (contact.fold && !Number.isFinite(contact.fold[i]))
@@ -36,24 +38,26 @@ function boundedContact(contact) {
 }
 
 function boundedBank(bank) {
+  const motif = bank?.reader === 'traveler' && bank?.motif === true;
   const aspect = clamp(bank?.view?.aspect, .1, 10, 1);
   const radarX = clamp(bank?.radarX, -.5, .5, 0), radarY = clamp(bank?.radarY, -.5, .5, 0);
-  return { id: Number.isSafeInteger(bank?.id) ? bank.id : 0,
+  return { id: Number.isSafeInteger(bank?.id) ? bank.id : 0, motif,
     reader: ['radar', 'scan', 'traveler'].includes(bank?.reader) ? bank.reader : 'trace', aspect, radarX, radarY,
     radarRadius: Math.hypot(.5 + Math.abs(radarX), .5 / aspect + Math.abs(radarY)),
     layers: Array.from({ length: LAYERS }, (_, index) => {
       const layer = bank?.layers?.[index];
       const contacts = Array(CONTACTS).fill(EMPTY_CONTACT);
-      (Array.isArray(layer?.contacts) ? layer.contacts : [layer]).slice(0, CONTACTS).forEach((contact, index) => {
-        const slot = Number.isInteger(contact?.slot) && contact.slot >= 0 && contact.slot < CONTACTS ? contact.slot : index;
-        contacts[slot] = boundedContact(contact);
+      (Array.isArray(layer?.contacts) ? layer.contacts : [layer]).slice(0, CONTACTS).forEach((contact, contactIndex) => {
+        const slot = Number.isInteger(contact?.slot) && contact.slot >= 0 && contact.slot < CONTACTS ? contact.slot : contactIndex;
+        contacts[slot] = boundedContact(contact, motif, index);
       });
       const events = (Array.isArray(layer?.events) ? layer.events : []).slice(0, 512)
         .filter(event => Number.isFinite(event?.phase) && event.phase >= 0 && event.phase < 1
           && Number.isFinite(event.x) && Number.isFinite(event.y))
         .map(event => ({ phase: event.phase, bead: Number.isSafeInteger(event.bead) ? event.bead : -1,
           x: clamp(event.x, -4, 4), y: clamp(event.y, -4, 4),
-          bend: clamp(event.bend, 0, 1), fold: clamp(event.fold, 0, 1) }))
+          bend: clamp(event.bend, 0, 1), fold: clamp(event.fold, 0, 1),
+          turnSign: event.turnSign === -1 || event.turnSign === 1 ? event.turnSign : 0 }))
         .sort((a, b) => a.phase - b.phase);
       return { contacts, events };
     }) };
@@ -81,10 +85,11 @@ function readContact(contact, phase, bank, out, travel = phase) {
   const next = (index + 1) % contact.x.length, fraction = position - index;
   const x = contact.x[index] + (contact.x[next] - contact.x[index]) * fraction;
   const y = contact.y[index] + (contact.y[next] - contact.y[index]) * fraction;
-  out[0] = clamp(2 * x, -1, 1); out[1] = pitchPosition(x, y, bank);
+  out[0] = bank.motif ? contact.pan : clamp(2 * x, -1, 1); out[1] = pitchPosition(x, y, bank);
   out[2] = contact.bend[index] + (contact.bend[next] - contact.bend[index]) * fraction;
   out[3] = contact.fold[index] + (contact.fold[next] - contact.fold[index]) * fraction;
-  out[4] = bank.reader === 'traveler' ? readTurn(contact, phase, travel) : 0;
+  out[4] = bank.reader === 'traveler' ? readTurn(contact, phase, bank.motif ? phase : travel) : 0;
+  out[5] = contact.registerOctaves; out[6] = contact.color;
   return contact.presence[index] + (contact.presence[next] - contact.presence[index]) * fraction;
 }
 
@@ -112,8 +117,11 @@ export class TraceDSP {
     this.voiceTargets = new Uint8Array([0, 1, 2]); this.drumVoiceTargets = new Uint8Array([0, 1, 2]);
     this.voiceWeights = new Float64Array([1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1, 0]);
     this.gains = new Float64Array(SLOTS); this.drumGains = new Float64Array(LAYERS);
+    this.phraseGates = new Float64Array(SLOTS).fill(1);
     this.pans = new Float64Array(SLOTS); this.heights = new Float64Array(SLOTS);
     this.bends = new Float64Array(SLOTS); this.folds = new Float64Array(SLOTS);
+    this.registers = Float64Array.from({ length: SLOTS }, (_, index) => Math.log2(REGISTERS[index % LAYERS]));
+    this.colors = new Float64Array(SLOTS);
     this.frequencies = new Float64Array(SLOTS); this.frequencies.set([55, 110, 220]);
     this.carriers = new Float64Array(SLOTS); this.glassPhases = new Float64Array(SLOTS * 3);
     this.shepardPhases = new Float64Array(SLOTS * SHEPARD_PARTIALS);
@@ -122,7 +130,12 @@ export class TraceDSP {
     this.travelerSmoothedPitch = new Float64Array(SLOTS); this.travelerPositions = new Float64Array(SLOTS);
     this.travelerInitialized = new Uint8Array(SLOTS); this.travelerMix = 0;
     this.travelerPhases = new Float64Array(SLOTS * SHEPARD_PARTIALS);
-    this.point = new Float64Array(5); this.oldPoint = new Float64Array(5);
+    // Normalized phrases return to their reference note every pass, independently
+    // of the cumulative path traveler. Keep both histories through mode edits.
+    this.motifPitch = new Float64Array(SLOTS); this.motifSmoothedPitch = new Float64Array(SLOTS);
+    this.motifPositions = new Float64Array(SLOTS); this.motifMix = 0;
+    this.motifPhases = new Float64Array(SLOTS * SHEPARD_PARTIALS);
+    this.point = new Float64Array(7); this.oldPoint = new Float64Array(7);
     this.params = { toneLevel: 1, drumLevel: .55, bendTimbre: .5, foldTimbre: 0, pitchDepth: 2,
       panWidth: 1, shepardCycles: 1, shepardWidth: 1, shepardDirection: 1, travelerOctaves: 1 };
     this.targets = { ...this.params }; this.drumDecay = .18; this.drumPitch = 120;
@@ -131,7 +144,7 @@ export class TraceDSP {
     this.hitTravel = new Float64Array(HIT_HISTORY); this.hitBanks = new Float64Array(HIT_HISTORY);
     this.hitWrite = 0; this.hitCount = 0;
     this.drumVoices = Array.from({ length: DRUM_SLOTS }, () => ({ active: false, layer: 0, voice: 0,
-      phases: new Float64Array(6), age: 0, frequency: 120, decay: .18, bend: 0, fold: 0, pan: 0,
+      phases: new Float64Array(6), age: 0, frequency: 120, decay: .18, bend: 0, fold: 0, pan: 0, turnSign: 0,
       lastLeft: 0, lastRight: 0, residualLeft: 0, residualRight: 0, strength: 1 }));
     this.drumPair = new Float64Array(2);
   }
@@ -148,12 +161,14 @@ export class TraceDSP {
       shepardDirection: state.shepardDirection === 'fall' ? -1 : 1,
       travelerOctaves: clamp(state.travelerOctaves, 0, 4, 1) };
     this.drumDecay = clamp(state.drumDecay, .02, 1.5, .18); this.drumPitch = clamp(state.drumPitch, 30, 1800, 120);
+    const compareVoices = this.reader === 'traveler' && state.travelerMode === 'compare' && state.motifSameVoice !== false;
     for (let layer = 0; layer < LAYERS; layer++) {
       this.enabled[layer] = state.layerEnabled?.[layer] === false ? 0 : 1;
       this.sustain[layer] = state.layerSustain?.[layer] === false ? 0 : 1;
       this.drums[layer] = state.layerDrums?.[layer] === true ? 1 : 0;
-      const voice = state.layerVoices?.[layer] === 'shepard' ? 3 : VOICES.indexOf(state.layerVoices?.[layer]);
-      this.voiceTargets[layer] = voice < 0 ? layer : voice;
+      const voiceLayer = compareVoices && layer === 1 ? 0 : layer;
+      const voice = state.layerVoices?.[voiceLayer] === 'shepard' ? 3 : VOICES.indexOf(state.layerVoices?.[voiceLayer]);
+      this.voiceTargets[layer] = voice < 0 ? voiceLayer : voice;
       const drum = DRUM_VOICES.indexOf(state.layerDrumVoices?.[layer]);
       this.drumVoiceTargets[layer] = drum < 0 ? layer : drum;
     }
@@ -179,12 +194,12 @@ export class TraceDSP {
   }
 
   activateBank(next) {
-    if (next.reader === 'traveler') for (let layer = 0; layer < LAYERS; layer++) {
+    if (next.reader === 'traveler' && !next.motif) for (let layer = 0; layer < LAYERS; layer++) {
       for (let contact = 0; contact < CONTACTS; contact++) {
         const slot = contact * LAYERS + layer, target = next.layers[layer].contacts[contact];
         if (!target.x.length) continue;
         const source = this.bank.layers[layer].contacts[contact];
-        if (this.bank.reader === 'traveler' && source.x.length) {
+        if (this.bank.reader === 'traveler' && !this.bank.motif && source.x.length) {
           target.turnOffset += readTurn(source, this.phase, this.travel) - readTurn(target, this.phase, this.travel);
         } else if (this.travelerInitialized[slot]) {
           target.turnOffset += this.travelerTurns[slot] - readTurn(target, this.phase, this.travel);
@@ -203,7 +218,7 @@ export class TraceDSP {
   }
 
   anchorTraveler() {
-    for (const bank of [this.bank, this.previous]) if (bank?.reader === 'traveler') {
+    for (const bank of [this.bank, this.previous]) if (bank?.reader === 'traveler' && !bank.motif) {
       for (let layer = 0; layer < LAYERS; layer++) for (let contact = 0; contact < CONTACTS; contact++) {
         const slot = contact * LAYERS + layer, point = bank.layers[layer].contacts[contact];
         if (point.x.length && this.travelerInitialized[slot]) {
@@ -230,12 +245,33 @@ export class TraceDSP {
       this.travelerSmoothedPitch[slot] = snapshot.smoothedPitch[slot];
       this.travelerPositions[slot] = ((snapshot.smoothedPitch[slot] % 1) + 1) % 1;
       const point = this.bank.layers[layer].contacts[contact];
-      if (this.bank.reader === 'traveler' && point.x.length && this.travelerInitialized[slot]) {
+      if (this.bank.reader === 'traveler' && !this.bank.motif && point.x.length && this.travelerInitialized[slot]) {
         // Audio off holds its last note. Visual transport and geometry can move
         // independently, so join the current position without replaying turns.
         point.turnOffset += snapshot.turns[slot] - readTurn(point, this.phase, this.travel);
       }
     }
+  }
+
+  primeMotif() {
+    if (!this.bank.motif) return;
+    // Audio rearm joins this phrase position directly, including a silent gap;
+    // saved path accumulation must not become a startup glide into the motif.
+    this.motifMix = 1;
+    for (let layer = 0; layer < LAYERS; layer++) for (let contact = 0; contact < CONTACTS; contact++) {
+      const slot = contact * LAYERS + layer, point = this.bank.layers[layer].contacts[contact];
+      if (!point.x.length) continue;
+      readContact(point, this.phase, this.bank, this.point, this.travel);
+      const pitch = -this.point[4] / TAU * this.params.travelerOctaves;
+      this.motifPitch[slot] = pitch; this.motifSmoothedPitch[slot] = pitch;
+      this.motifPositions[slot] = ((pitch % 1) + 1) % 1;
+      this.registers[slot] = this.point[5]; this.colors[slot] = this.point[6];
+      this.pans[slot] = this.point[0]; this.heights[slot] = this.point[1];
+      this.bends[slot] = this.point[2]; this.folds[slot] = this.point[3];
+    }
+    // Initial bank activation fades from an empty bank. It contains no previous
+    // musical identity, so keep the motif mix anchored during that envelope.
+    if (this.previous && this.previous.layers.every(layer => layer.contacts.every(contact => !contact.x.length))) this.previous = null;
   }
 
   reset() {
@@ -275,9 +311,12 @@ export class TraceDSP {
     chosen.active = true; chosen.age = 0; chosen.phases.fill(0); chosen.strength = 1;
     chosen.layer = layer; chosen.voice = this.drumVoiceTargets[layer];
     const pitch = this.eventBank.reader === 'traveler' ? 0 : this.params.pitchDepth * pitchPosition(event.x, event.y, this.eventBank);
-    chosen.frequency = clamp(this.drumPitch * REGISTERS[layer] * 2 ** pitch, 12, this.sampleRate * .15, 120);
+    const contact = this.eventBank.layers[layer].contacts[0];
+    const register = this.eventBank.motif ? 2 ** contact.registerOctaves : REGISTERS[layer];
+    chosen.frequency = clamp(this.drumPitch * register * 2 ** pitch, 12, this.sampleRate * .15, 120);
     chosen.decay = this.drumDecay; chosen.bend = event.bend; chosen.fold = event.fold;
-    chosen.pan = clamp(2 * event.x, -1, 1);
+    chosen.pan = this.eventBank.motif ? contact.pan : clamp(2 * event.x, -1, 1);
+    chosen.turnSign = event.turnSign === -1 || event.turnSign === 1 ? event.turnSign : 0;
   }
 
   crossEvents(nextPhase, nextTravel) {
@@ -340,19 +379,23 @@ export class TraceDSP {
     // a small live edit race through many octaves; zero instead holds the note.
     this.travelerPitch[slot] -= (turn - this.travelerTurns[slot]) / TAU * this.params.travelerOctaves;
     this.travelerTurns[slot] = turn;
-    const previous = this.travelerSmoothedPitch[slot];
-    const pitch = previous + (this.travelerPitch[slot] - previous) * this.smoothing;
-    this.travelerSmoothedPitch[slot] = pitch;
-    this.travelerPositions[slot] = ((pitch % 1) + 1) % 1;
+    this.smoothTravelerPitch(slot, this.travelerPitch[slot], this.travelerSmoothedPitch, this.travelerPositions, this.travelerPhases);
+  }
+
+  smoothTravelerPitch(slot, target, smoothed, positions, phases, immediate = false) {
+    const previous = smoothed[slot];
+    const pitch = immediate ? target : previous + (target - previous) * this.smoothing;
+    smoothed[slot] = pitch;
+    positions[slot] = ((pitch % 1) + 1) % 1;
     const shift = Math.floor(pitch) - Math.floor(previous), offset = slot * SHEPARD_PARTIALS;
     // Each layer can turn either way independently. Re-index phases so all
     // audible partials keep their frequency/phase through either octave seam.
     // A hostile jump is bounded by eleven writes, never by elapsed lap count.
     if (shift > 0) for (let i = SHEPARD_PARTIALS - 1; i >= 0; i--) {
-      this.travelerPhases[offset + i] = i >= shift ? this.travelerPhases[offset + i - shift] : 0;
+      phases[offset + i] = i >= shift ? phases[offset + i - shift] : 0;
     }
     else if (shift < 0) for (let i = 0; i < SHEPARD_PARTIALS; i++) {
-      this.travelerPhases[offset + i] = i - shift < SHEPARD_PARTIALS ? this.travelerPhases[offset + i - shift] : 0;
+      phases[offset + i] = i - shift < SHEPARD_PARTIALS ? phases[offset + i - shift] : 0;
     }
   }
 
@@ -387,10 +430,13 @@ export class TraceDSP {
       let value = 0;
       const count = voice.voice === 2 ? 6 : voice.voice === 1 ? 3 : 2;
       for (let i = 0; i < count; i++) {
-        const ratio = voice.voice === 2 ? METAL_RATIOS[i] : voice.voice === 1 ? WOOD_RATIOS[i] : i + 1;
+        const baseRatio = voice.voice === 2 ? METAL_RATIOS[i] : voice.voice === 1 ? WOOD_RATIOS[i] : i + 1;
+        // Optional left/right color changes upper partials, never the explicit
+        // drum fundamental or timing. Ordinary distance beads retain their voice.
+        const ratio = baseRatio * (i === 0 ? 1 : 1 + .16 * voice.turnSign);
         const pitchDrop = voice.voice === 0 ? 1 + 1.4 * Math.exp(-age / .025) : 1;
         const frequency = voice.frequency * ratio * pitchDrop;
-        const weight = i === 0 ? .8 : (.25 + .3 * color + .2 * fold) / i * Math.exp(-age * i / decay);
+        const weight = i === 0 ? .8 : (.25 + .3 * color + .2 * fold) * (1 + .3 * voice.turnSign) / i * Math.exp(-age * i / decay);
         value += Math.sin(voice.phases[i] * TAU) * weight * partialGain(frequency, this.sampleRate);
         voice.phases[i] = (voice.phases[i] + frequency / this.sampleRate) % 1;
       }
@@ -412,6 +458,8 @@ export class TraceDSP {
     for (const key of PARAMS) this.params[key] += (this.targets[key] - this.params[key]) * this.smoothing;
     this.travelerMix += ((this.reader === 'traveler' ? 1 : 0) - this.travelerMix) * this.smoothing;
     const blend = this.fade * this.fade * (3 - 2 * this.fade);
+    const motifMix = this.previous ? Number(this.previous.motif) + (Number(this.bank.motif) - Number(this.previous.motif)) * blend : Number(this.bank.motif);
+    this.motifMix += (motifMix - this.motifMix) * this.smoothing;
     for (let layer = 0; layer < LAYERS; layer++) {
       for (let voice = 0; voice < COLORS; voice++) {
         const index = layer * COLORS + voice;
@@ -424,48 +472,72 @@ export class TraceDSP {
         const present = readContact(this.bank.layers[layer].contacts[contact], this.phase, this.bank, this.point, this.travel);
         const oldPresent = this.previous ? readContact(this.previous.layers[layer].contacts[contact], this.phase, this.previous, this.oldPoint, this.travel) : 0;
         let pan = this.pans[slot], height = this.heights[slot], bend = this.bends[slot], fold = this.folds[slot];
-        let presence = present;
-        if (oldPresent > 0 && present > 0) {
+        let register = this.registers[slot], color = this.colors[slot];
+        const hasCurrent = present > 0 || (this.bank.motif && this.bank.layers[layer].contacts[contact].x.length > 0);
+        const hasPrevious = oldPresent > 0 || (this.previous?.motif && this.previous.layers[layer].contacts[contact].x.length > 0);
+        let presence = this.bank.motif ? Number(hasCurrent) : present;
+        const oldPresence = this.previous?.motif ? Number(hasPrevious) : oldPresent;
+        const gate = this.bank.motif ? present : 1, oldGate = this.previous?.motif ? oldPresent : 1;
+        // Phrase banks already carry smooth onset/release ramps. An additional
+        // envelope tail would leak the closing pitch into the next phrase and
+        // make identical A/B excerpts audibly differ at their entries.
+        this.phraseGates[slot] = this.previous ? oldGate + (gate - oldGate) * blend : gate;
+        if (hasPrevious && hasCurrent) {
           pan = this.oldPoint[0] + (this.point[0] - this.oldPoint[0]) * blend;
           height = this.oldPoint[1] + (this.point[1] - this.oldPoint[1]) * blend;
           bend = this.oldPoint[2] + (this.point[2] - this.oldPoint[2]) * blend;
           fold = this.oldPoint[3] + (this.point[3] - this.oldPoint[3]) * blend;
-        } else if (present > 0 || oldPresent > 0) {
-          const point = present > 0 ? this.point : this.oldPoint;
+          register = this.oldPoint[5] + (this.point[5] - this.oldPoint[5]) * blend;
+          color = this.oldPoint[6] + (this.point[6] - this.oldPoint[6]) * blend;
+        } else if (hasCurrent || hasPrevious) {
+          const point = hasCurrent ? this.point : this.oldPoint;
           pan = point[0]; height = point[1]; bend = point[2]; fold = point[3];
+          register = point[5]; color = point[6];
         }
-        if (this.previous) presence = oldPresent + (present - oldPresent) * blend;
+        if (this.previous) presence = oldPresence + (presence - oldPresence) * blend;
         this.pans[slot] += (pan - this.pans[slot]) * this.smoothing;
         this.heights[slot] += (height - this.heights[slot]) * this.smoothing;
         this.bends[slot] += (bend - this.bends[slot]) * this.smoothing;
         this.folds[slot] += (fold - this.folds[slot]) * this.smoothing;
+        this.registers[slot] += (register - this.registers[slot]) * this.smoothing;
+        this.colors[slot] += (color - this.colors[slot]) * this.smoothing;
         this.gains[slot] += (presence * this.enabled[layer] * this.sustain[layer] - this.gains[slot]) * this.smoothing;
         if (this.reader === 'traveler') {
-          const currentTurn = present > 0 && this.bank.reader === 'traveler';
-          const previousTurn = oldPresent > 0 && this.previous?.reader === 'traveler';
+          const currentTurn = present > 0 && this.bank.reader === 'traveler' && !this.bank.motif;
+          const previousTurn = oldPresent > 0 && this.previous?.reader === 'traveler' && !this.previous.motif;
           if (currentTurn || previousTurn) {
             const turn = currentTurn && previousTurn ? this.oldPoint[4] + (this.point[4] - this.oldPoint[4]) * blend
               : currentTurn ? this.point[4] : this.oldPoint[4];
             this.updateTraveler(slot, turn);
           }
+          // Update throughout silent phrase gaps so the reference pitch can
+          // settle before the next entry. Presence still owns the envelope.
+          const currentMotif = this.bank.motif && this.bank.layers[layer].contacts[contact].x.length > 0;
+          const previousMotif = this.previous?.motif && this.previous.layers[layer].contacts[contact].x.length > 0;
+          if (currentMotif || previousMotif) {
+            const turn = currentMotif && previousMotif ? this.oldPoint[4] + (this.point[4] - this.oldPoint[4]) * blend
+              : currentMotif ? this.point[4] : this.oldPoint[4];
+            this.motifPitch[slot] = -turn / TAU * this.params.travelerOctaves;
+            this.smoothTravelerPitch(slot, this.motifPitch[slot], this.motifSmoothedPitch, this.motifPositions, this.motifPhases, this.phraseGates[slot] === 0);
+          }
         }
-        contactGain += this.gains[slot];
+        contactGain += this.gains[slot] * this.phraseGates[slot];
       }
       for (let contact = 0; contact < CONTACTS; contact++) {
         const slot = contact * LAYERS + layer;
         // Ordinary voices smoothly reach a four-octave excursion limit. The
         // Shepard voice uses wrapped pitch with a fixed spectral center instead.
         const spatialPitch = this.params.pitchDepth * this.heights[slot];
-        const travelerPitch = clamp(this.travelerSmoothedPitch[slot], -4, 4);
+        const travelerPitch = clamp(this.travelerSmoothedPitch[slot] * (1 - this.motifMix) + this.motifSmoothedPitch[slot] * this.motifMix, -4, 4);
         const pitch = spatialPitch + (travelerPitch - spatialPitch) * this.travelerMix;
-        const reference = clamp(baseFrequency * REGISTERS[layer], 8, this.sampleRate * .2, 110);
+        const reference = clamp(baseFrequency * 2 ** this.registers[slot], 8, this.sampleRate * .2, 110);
         const frequency = clamp(reference * 2 ** pitch, 8, this.sampleRate * .2, 110);
         this.frequencies[slot] = frequency;
         const theta = this.carriers[slot] * TAU, fundamental = Math.sin(theta);
-        const color = this.bends[slot] * this.params.bendTimbre * 2, fold = this.folds[slot] * this.params.foldTimbre;
+        const color = clamp(this.bends[slot] * this.params.bendTimbre * 2 + this.colors[slot], 0, 2), fold = this.folds[slot] * this.params.foldTimbre;
         const glassIndex = slot * 3;
         let signal = 0;
-        if (this.gains[slot] > 1e-10) for (let voice = 0; voice < COLORS; voice++) {
+        if (this.gains[slot] * this.phraseGates[slot] > 1e-10) for (let voice = 0; voice < COLORS; voice++) {
           const weight = this.voiceWeights[layer * COLORS + voice];
           if (weight < 1e-8) continue;
           let value;
@@ -484,7 +556,11 @@ export class TraceDSP {
           } else {
             const spatialFrequency = clamp(reference * 2 ** spatialPitch, 8, this.sampleRate * .2, 110);
             const usual = this.travelerMix < 1 - 1e-8 ? this.shepard(slot, spatialFrequency, color, fold) : 0;
-            const traveler = this.travelerMix > 1e-8 ? this.shepard(slot, reference, color, fold, this.travelerPositions[slot], this.travelerPhases) : 0;
+            const pathTraveler = this.travelerMix > 1e-8 && this.motifMix < 1 - 1e-8
+              ? this.shepard(slot, reference, color, fold, this.travelerPositions[slot], this.travelerPhases) : 0;
+            const motifTraveler = this.travelerMix > 1e-8 && this.motifMix > 1e-8
+              ? this.shepard(slot, reference, color, fold, this.motifPositions[slot], this.motifPhases) : 0;
+            const traveler = pathTraveler * (1 - this.motifMix) + motifTraveler * this.motifMix;
             value = usual * (1 - this.travelerMix) + traveler * this.travelerMix;
           }
           // Fold (deviation from a broader local curve) adds an independently
@@ -495,7 +571,7 @@ export class TraceDSP {
           signal += value * weight;
         }
         const angle = (this.pans[slot] * this.params.panWidth + 1) * Math.PI / 4;
-        const gain = this.gains[slot] * .3 / Math.max(1, contactGain) * this.params.toneLevel;
+        const gain = this.gains[slot] * this.phraseGates[slot] * .3 / Math.max(1, contactGain) * this.params.toneLevel;
         out[0] += signal * gain * Math.cos(angle); out[1] += signal * gain * Math.sin(angle);
         this.carriers[slot] = (this.carriers[slot] + frequency / this.sampleRate) % 1;
         for (let partial = 0; partial < 3; partial++) {

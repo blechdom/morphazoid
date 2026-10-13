@@ -1,0 +1,21 @@
+{
+  "baseCommit": "02760d94dd645855eb5abe30dd16d3f837eabc6f",
+  "file": "scripts/site/runtime-files.tsv",
+  "sha256": "5c7b340e3f85c067200ff32ee3ff02be833dbefcef7f948ada442c4d0f47a928",
+  "paths": [
+    "src/instruments/vector-fractals/motif-state.js",
+    "src/instruments/vector-fractals/motif-model.js",
+    "src/instruments/vector-fractals/motif-bank.js",
+    "src/instruments/vector-fractals/motif-worker.js",
+    "src/instruments/vector-fractals/motif-controls.js"
+  ],
+  "rows": [
+    "copy+require\tsrc/instruments/vector-fractals/motif-state.js\n",
+    "copy+require\tsrc/instruments/vector-fractals/motif-model.js\n",
+    "copy+require\tsrc/instruments/vector-fractals/motif-bank.js\n",
+    "copy+require\tsrc/instruments/vector-fractals/motif-worker.js\n",
+    "copy+require\tsrc/instruments/vector-fractals/motif-controls.js\n"
+  ],
+  "before": "copy+require\tsrc/instruments/vector-fractals/reader-worker.js\ncopy+require\tsrc/instruments/vector-fractals/trace-dsp.js\n",
+  "after": "copy+require\tsrc/instruments/vector-fractals/reader-worker.js\ncopy+require\tsrc/instruments/vector-fractals/motif-state.js\ncopy+require\tsrc/instruments/vector-fractals/motif-model.js\ncopy+require\tsrc/instruments/vector-fractals/motif-bank.js\ncopy+require\tsrc/instruments/vector-fractals/motif-worker.js\ncopy+require\tsrc/instruments/vector-fractals/motif-controls.js\ncopy+require\tsrc/instruments/vector-fractals/trace-dsp.js\n"
+}
