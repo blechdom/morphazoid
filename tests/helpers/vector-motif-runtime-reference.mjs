@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreSimdResonatorRuntime } from './simd-resonator-runtime-reference.mjs';
 
 export const vectorMotifRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/vector-motif-runtime-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const vectorMotifRuntimeChange = JSON.parse(readFileSync(
 export function restoreVectorMotifRuntime(source, file, { allowRestored = false } = {}) {
   const change = vectorMotifRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreSimdResonatorRuntime(source, file, { allowRestored: true });
   const counts = change.paths.map(path => source.split(path).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact Vector Traveler motif runtime addition`;

@@ -54,6 +54,19 @@ test('upload decodes with output muted and retains exact PCM for subsequent expl
   await f.input.restart(); assert.equal(f.sources.length, 2); assert.equal(f.input.snapshot().ended, false);
   f.input.dispose(); assert.equal(f.sources[1].stopped, true);
 });
+test('recorded loop endpoints never round past the last frame', async () => {
+  const f = fixture(), frames = 111661, rate = 48000;
+  const pcm = buffer(1, frames, rate); f.context.decodeAudioData = async () => pcm;
+  assert.ok((frames / rate) * rate > frames, 'fixture exposes the floating-point endpoint regression');
+  await f.input.loadFile(file('speech-length.wav')); f.arm(); await f.input.start();
+  const source = f.sources[0];
+  assert.ok(source.loopEnd * rate <= frames);
+  assert.ok(frames - source.loopEnd * rate < 1e-8, 'correction must not trim even one sample');
+  assert.deepEqual(source.buffer.getChannelData(0), pcm.getChannelData(0));
+  f.input.setLoop(false); f.input.setLoop(true);
+  assert.equal(source.loop, true); assert.ok(source.loopEnd * rate <= frames);
+  f.input.dispose();
+});
 test('uploads bound retained PCM to two channels and 120 seconds and disclose the excerpt', async () => {
   const f = fixture(); f.context.decodeAudioData = async () => buffer(4, 1500, 10);
   await f.input.loadFile(file('long.wav')); f.arm(); await f.input.start();

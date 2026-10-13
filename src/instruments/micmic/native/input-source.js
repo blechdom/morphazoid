@@ -54,6 +54,11 @@ export function createInputSource({ prepare, getContext, getTarget, canPlay,
     const context = getContext(), target = getTarget();
     if (!buffer || !target || !context || context.state === 'closed') return snapshot();
     const next = context.createBufferSource(); next.buffer = buffer; next.loop = loop;
+    // Some browser builds stop looping if seconds → frames rounds just beyond
+    // the buffer (for example 111661 / 48000). Keep the explicit end inside it,
+    // within floating-point precision, without changing PCM or trimming a frame.
+    const duration = buffer.length / buffer.sampleRate;
+    next.loopEnd = duration * buffer.sampleRate > buffer.length ? duration * (1 - Number.EPSILON) : duration;
     next.onended = () => {
       if (source !== next) return;
       source = null; next.onended = null; next.disconnect(); next.buffer = null; ended = true; changed();

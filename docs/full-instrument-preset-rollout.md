@@ -1,5 +1,29 @@
 # Full-instrument preset rollout
 
+## October 13 — SIMD Resonator presets and recorded input
+
+SIMD Resonator has twelve complete body/FFT scenes in the shared
+preset/Next/Dice row: all four existing materials and eight new resynthesis
+settings. Bounded pure dice covers all seventeen body and FFT parameters.
+The independent **Body only** selector retains the current FFT settings.
+Mic/line, the shared recorded-sample bank and uploaded audio feed the existing
+resonator and FFT display. Source selection, sample Play/Loop, device, input
+trim, Audio and output level stay session-owned across preset changes.
+Selecting a source never requests microphone permission or arms Audio;
+an uploaded file may decode into a muted graph before explicit Audio activation.
+The shared SIMD Lab page keeps its existing engine and focused preset controls.
+Recorded input also sets an explicit, precision-corrected loop endpoint: this
+prevents Chrome 152 from falling silent when converting a buffer duration back
+to frames rounds beyond the buffer. The PCM is unchanged.
+
+Focused coverage lives in `tests/simd-resonator-presets.test.mjs`, the existing
+`tests/l-system-delay-input-source.test.mjs`, and
+`e2e/simd-resonator-input-presets.spec.mjs`, alongside the original SIMD browser
+suite. These check complete recall, all-field dice variation, explicit Audio,
+nonzero FFT input/output, source continuity, pending-load cancellation, file
+replay and desktop/phone layout. They establish mechanical behavior;
+human listening and physical microphone/touch acceptance remain separate.
+
 ## October 10 — Midiophilia mixer view
 
 The owner-requested mixer remains a view of Midiophilia. It has twelve complete

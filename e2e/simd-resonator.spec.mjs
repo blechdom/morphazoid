@@ -4,6 +4,9 @@ test.describe("SIMD Audio", () => {
   test.skip(({ browserName }) => browserName !== "chromium", "WebAssembly SIMD POC targets Chromium first");
 
   test("keeps Audio explicit and selects its Wasm backend automatically", async ({ page }) => {
+    await page.addInitScript(() => {
+      navigator.mediaDevices.getUserMedia = async () => { throw new DOMException("Microphone access denied", "NotAllowedError"); };
+    });
     await page.goto("simd-resonator.html", { waitUntil: "networkidle" });
 
     const readState = () => page.evaluate(() => (
@@ -20,9 +23,11 @@ test.describe("SIMD Audio", () => {
     await expect(page.locator("#audioError")).toHaveText("Turn on Audio first.");
 
     await page.locator("#micButton").click();
+    // The shared input strip may prepare a muted graph; it never arms output.
+    await expect(page.locator("#micButton")).toHaveAttribute("aria-busy", "false");
     expect((await readState()).micOn).toBe(false);
     expect((await readState()).audioOn).toBe(false);
-    await expect(page.locator("#audioError")).toHaveText("Turn on Audio first.");
+    await expect(page.locator(".mz-input-error")).toContainText("Mic blocked");
 
     await page.locator("#audioButton").click();
     await expect.poll(async () => (await readState()).audioOn).toBe(true);
@@ -233,7 +238,8 @@ test.describe("SIMD Audio", () => {
     await page.locator("#audioButton").click();
     await expect.poll(async () => (await readState()).audioOn).toBe(true);
     await page.locator("#micButton").click();
-    await expect(page.locator("#micButton")).toBeDisabled();
+    await expect(page.locator("#micButton")).toHaveAttribute("aria-busy", "true");
+    await expect(page.locator("#micButton")).toHaveAccessibleName("Cancel microphone input request");
 
     await page.locator("#audioButton").click();
     await expect.poll(async () => (await readState()).audioOn).toBe(false);
@@ -242,6 +248,6 @@ test.describe("SIMD Audio", () => {
       globalThis.__SIMD_MIC_TEST__.track.stopped
     ))).toBe(true);
     expect((await readState()).micOn).toBe(false);
-    await expect(page.locator("#micButton")).toHaveAttribute("aria-label", /Enable microphone/);
+    await expect(page.locator("#micButton")).toHaveAccessibleName("Activate microphone input");
   });
 });

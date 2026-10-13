@@ -439,6 +439,7 @@ copy+require	assets/instruments/slippery-resynthesis.webp
 copy+require	simd-resonator.html
 copy+require	src/families/simd-resonator/simd-resonator.css
 copy+require	src/families/simd-resonator/simd-resonator-app.js
+copy+require	src/families/simd-resonator/simd-resonator-presets.js
 copy+require	src/simd-resonator.js
 copy+require	src/simd-resonator-processor.js
 copy+require	src/simd-audio-worker.js

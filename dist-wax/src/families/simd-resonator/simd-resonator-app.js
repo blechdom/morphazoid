@@ -1,6 +1,12 @@
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { audioInputConstraints } from "../../audio-input-settings.js";
+import { registerHeaderPresets, presetStateKey } from "../../site/header-presets.js";
+import { createInputSource, SAMPLE_INPUT_OPTIONS } from "../../instruments/micmic/native/input-source.js";
+import {
+  SIMD_RESONATOR_FULL_PRESETS, captureSimdResonatorPreset,
+  validateSimdResonatorPreset, randomizeSimdResonatorPreset,
+} from "./simd-resonator-presets.js";
 import {
   SIMD_GRANULAR_DEFAULTS,
   SIMD_FREEZE_DEFAULTS,
@@ -50,6 +56,10 @@ const elements = {
   stageEngineName: document.querySelector("#stageEngineName"), micButton: document.querySelector("#micButton"),
   micButtonLabel: document.querySelector("#micButtonLabel"), micButtonHint: document.querySelector("#micButtonHint"),
   pluckButton: document.querySelector("#pluckButton"), inputSummary: document.querySelector("#inputSummary"),
+  inputSource: document.querySelector("#inputSource"), inputSample: document.querySelector("#inputSample"),
+  inputSampleControl: document.querySelector("#inputSampleControl"), inputFile: document.querySelector("#inputFile"),
+  recordedInputControls: document.querySelector("#recordedInputControls"), inputPlay: document.querySelector("#inputPlay"),
+  inputLoop: document.querySelector("#inputLoop"), inputStatus: document.querySelector("#inputStatus"), inputCredit: document.querySelector("#inputCredit"),
   resonatorEngineButton: document.querySelector("#resonatorEngineButton"),
   granularEngineButton: document.querySelector("#granularEngineButton"),
   swarmEngineButton: document.querySelector("#swarmEngineButton"),
@@ -155,6 +165,8 @@ const CONTROL_SCHEMA = Object.freeze({
 const canvasContext = elements.canvas.getContext("2d", { alpha: false });
 const forceScalar = new URLSearchParams(globalThis.location.search).get("scalar") === "1";
 const AudioContextConstructor = globalThis.AudioContext || globalThis.webkitAudioContext;
+let presetController = null;
+let recordedInput = null;
 const state = {
   engine: INITIAL_ENGINE,
   settings: {
@@ -166,6 +178,7 @@ const state = {
   context: null, node: null, limiter: null, masterGain: null, releaseOutput: null,
   audioReady: false, outputArmed: false, audioStarting: false, workletBooted: false, suspendedForVisibility: false,
   micStream: null, micSource: null, micGain: null, micStarting: false, micRequestGeneration: 0,
+  recordedGain: null, inputPlaybackRevision: 0, inputWasPlaying: false,
   worker: null, workerMode: "idle", workerControl: null, workerError: "",
   signalEnergy: new Float32Array(SIMD_RESONATOR_MAX_MODES), signalState: new Float32Array(SIMD_RESONATOR_MAX_MODES),
   fftInput: new Float32Array(SIMD_RESONATOR_MAX_MODES), fftOutput: new Float32Array(SIMD_RESONATOR_MAX_MODES),
@@ -333,6 +346,7 @@ function renderSettings() {
     control.output.value = definition.format(settings[definition.key]);
   }
   for (const engine of AVAILABLE_ENGINES) elements[engine + "EngineButton"]?.setAttribute("aria-pressed", String(engine === state.engine));
+  presetController?.refresh();
 }
 
 function renderBackend() {
@@ -349,6 +363,41 @@ function renderAudioState() {
   elements.audioState.textContent = state.audioStarting ? "loading" : state.suspendedForVisibility ? "paused" : audioOn ? "on" : "off";
   inputControl.refresh();
   elements.inputSummary.textContent = !micSupported ? "gesture only" : micOn ? "mic live" : audioOn ? (SOURCE_ENGINES.has(state.engine) ? "built-in or mic" : "trigger or mic") : "Audio first";
+  renderRecordedInput();
+}
+
+function inputIsLive() { return Boolean(state.micStream || recordedInput?.snapshot().playing); }
+function syncExternalInput() { state.node?.port.postMessage({ type: "mic", active: inputIsLive() }); }
+function renderRecordedInput() {
+  if (!recordedInput) return;
+  const input = recordedInput.snapshot();
+  elements.recordedInputControls.hidden = input.mode === "mic";
+  elements.inputSampleControl.hidden = input.mode !== "samples";
+  elements.inputSample.value = input.sampleId;
+  elements.inputLoop.checked = input.loop;
+  elements.inputPlay.textContent = input.pending ? "Cancel loading" : input.playing ? "Stop input" : "Play input";
+  elements.inputPlay.setAttribute("aria-pressed", String(input.playing));
+  elements.inputPlay.setAttribute("aria-busy", String(input.pending));
+  elements.inputStatus.textContent = input.pending ? `Loading ${input.label}…`
+    : `${input.label}${input.playing ? " · playing" : input.ended ? " · ended" : " · stopped"}`;
+  elements.inputCredit.hidden = !input.credit;
+  if (elements.inputCredit.dataset.credit !== input.credit) {
+    elements.inputCredit.dataset.credit = input.credit;
+    elements.inputCredit.replaceChildren();
+    if (input.creditUrl) {
+      const link = document.createElement("a"); link.href = input.creditUrl; link.textContent = input.credit;
+      link.target = "_blank"; link.rel = "noopener noreferrer"; elements.inputCredit.append(link);
+    } else elements.inputCredit.textContent = input.credit;
+  }
+  if (input.mode !== "mic") elements.inputSummary.textContent = input.pending ? "loading" : input.playing ? "sample live" : "input stopped";
+}
+
+function applyFullPreset(snapshot) {
+  const settings = validateSimdResonatorPreset(snapshot);
+  state.settings.resonator = settings;
+  const focused = presetsForSimdEngine("resonator").find(preset => presetStateKey(preset.settings) === presetStateKey(settings));
+  state.presetId = focused?.id ?? null;
+  renderSettings(); sendConfiguration();
 }
 function renderTelemetry() {
   elements.kernelMetric.value = state.kernelMicros === null ? "— µs" : Math.round(state.kernelMicros) + " µs";
@@ -578,13 +627,15 @@ function stopMicrophone({ announce = true } = {}) {
   state.micRequestGeneration += 1;
   try { state.micSource?.disconnect(); } catch {}
   try { state.micGain?.disconnect(); } catch {}
+  if (state.micGain === state.recordedGain) state.recordedGain = null;
   for (const track of state.micStream?.getTracks?.() || []) track.stop();
   state.micSource = null; state.micStream = null; state.micGain = null; state.micStarting = false;
-  state.node?.port.postMessage({ type: "mic", active: false });
+  syncExternalInput();
   renderAudioState(); if (announce) setLiveStatus("Microphone is off.");
 }
 async function stopAudio({ preserveError = false } = {}) {
   stopAudition();
+  recordedInput?.stop();
   stopMicrophone({ announce: false });
   stopWorkerPrep();
   const context = state.context;
@@ -592,14 +643,21 @@ async function stopAudio({ preserveError = false } = {}) {
   state.node?.port.postMessage({ type: "dispose" });
   try { state.node?.disconnect(); state.limiter?.disconnect(); state.masterGain?.disconnect(); } catch {}
   state.releaseOutput?.();
-  state.releaseOutput = null; state.node = null; state.limiter = null; state.masterGain = null; state.context = null;
+  state.releaseOutput = null; state.node = null; state.limiter = null; state.masterGain = null; state.context = null; state.recordedGain = null;
   state.backend = "none"; state.laneWidth = 0; state.simdAvailable = null; state.kernelMicros = null; state.budgetMicros = null;
   state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null;
   if (context && context.state !== "closed") { try { await context.close(); } catch {} }
   if (!preserveError) showError();
   setLiveStatus("Audio is off. Microphone is off."); renderAudioState(); renderBackend(); renderTelemetry();
 }
-async function toggleAudio() { if (!state.audioStarting) { if (state.outputArmed) await stopAudio(); else await startAudio(); } }
+async function toggleAudio() {
+  if (state.audioStarting) return;
+  if (state.outputArmed) await stopAudio();
+  else {
+    await startAudio();
+    if (state.outputArmed) await changeRecordedInput(() => recordedInput?.start());
+  }
+}
 
 async function startMicrophone() {
   if (!MIC_ENGINES.has(state.engine) || state.micStarting || state.micStream) return;
@@ -634,10 +692,68 @@ async function startMicrophone() {
 const inputControl = mountAudioInputControl({
   container: elements.micButton.parentElement, before: elements.micButton.nextElementSibling,
   button: elements.micButton,
-  onStart: startMicrophone, onStop: stopMicrophone,
-  getState: () => ({ active: Boolean(state.micStream), pending: state.micStarting, supported: MIC_ENGINES.has(state.engine) }),
-  getSignal: () => ({ node: state.micGain, stream: state.micStream }),
+  ...(!isLabSurface ? {
+    sourceSelect: elements.inputSource, sources: [{ value: "mic" }, { value: "sample-file" }, { value: "file" }],
+    sourceValue: "mic", fileInput: elements.inputFile,
+    onSourceChange: value => {
+      stopMicrophone({ announce: false });
+      void changeRecordedInput(() => recordedInput.selectMode(value === "sample-file" ? "samples" : value), { start: true });
+    },
+  } : {}),
+  onStart: () => !recordedInput || recordedInput.snapshot().mode === "mic" ? startMicrophone() : startRecordedInput(),
+  onStop: () => !recordedInput || recordedInput.snapshot().mode === "mic" ? stopMicrophone() : recordedInput.stop(),
+  getState: () => ({ active: inputIsLive(), pending: state.micStarting || Boolean(recordedInput?.snapshot().pending),
+    supported: MIC_ENGINES.has(state.engine),
+    ...(!isLabSurface ? { source: recordedInput?.snapshot().mode === "samples" ? "sample-file" : recordedInput?.snapshot().mode ?? "mic" } : {}),
+  }),
+  getSignal: () => state.micStream ? { node: state.micGain, stream: state.micStream } : { node: state.recordedGain, channels: 2 },
 });
+
+async function prepareRecordedInput() {
+  if (!state.audioReady) await startAudio({ arm: false });
+  if (state.disposed || !state.audioReady || !state.context || !state.node) throw new Error("The input processor could not start.");
+  // The shared strip owns one trim node per context. Reconnect it exactly once
+  // after a mic/source change; never touch it during body or FFT preset recall.
+  const gain = inputControl.createGain(state.context);
+  if (state.recordedGain !== gain) gain.connect(state.node);
+  state.recordedGain = gain;
+}
+async function changeRecordedInput(change, { start = false } = {}) {
+  if (!recordedInput) return;
+  showError();
+  try { await change(); if (start) await recordedInput.start(); }
+  catch (error) { if (!state.disposed) showError(error?.message || "Input could not start."); }
+}
+async function startRecordedInput() {
+  if (!state.outputArmed) { showError("Turn on Audio first."); return; }
+  await changeRecordedInput(() => recordedInput.start());
+}
+if (!isLabSurface) {
+  recordedInput = createInputSource({
+    prepare: prepareRecordedInput, getContext: () => state.context, getTarget: () => state.recordedGain,
+    canPlay: () => state.outputArmed && state.audioReady && !state.disposed && !document.hidden,
+    onChange: input => {
+      if (input.playing && !state.inputWasPlaying) state.inputPlaybackRevision += 1;
+      state.inputWasPlaying = input.playing;
+      syncExternalInput();
+      if (!state.disposed) renderAudioState();
+    },
+    onError: error => { if (!state.disposed) showError(error?.message || "Input could not load."); },
+  });
+  elements.inputSample.replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample · /, ""), option.id)));
+  elements.inputSample.addEventListener("change", () => void changeRecordedInput(() => recordedInput.selectSample(elements.inputSample.value), { start: true }));
+  elements.inputLoop.addEventListener("change", () => recordedInput.setLoop(elements.inputLoop.checked));
+  elements.inputPlay.addEventListener("click", () => {
+    const input = recordedInput.snapshot();
+    if (input.playing || input.pending) recordedInput.stop(); else void startRecordedInput();
+  });
+  elements.inputFile.addEventListener("change", () => {
+    const file = elements.inputFile.files?.[0]; if (!file) return;
+    stopMicrophone({ announce: false });
+    void changeRecordedInput(() => recordedInput.loadFile(file));
+    elements.inputFile.value = "";
+  });
+}
 
 function trigger(strength = 0.78) {
   if (!state.audioReady || !state.node) { showError("Turn on Audio first."); return false; }
@@ -785,7 +901,7 @@ function drawCursor(context, x, y, top, bottom) {
   context.fillStyle = "#ffd166"; context.beginPath(); context.arc(x, y, state.pointerActive ? 6 : 4, 0, Math.PI * 2); context.fill();
 }
 function drawFftResynthesis(context, left, right, top, bottom) {
-  if (!state.micStream) return;
+  if (!inputIsLive()) return;
   const bandCount = Math.min(state.settings.resonator.fftBandCount, state.fftTelemetryBands);
   const span = right - left;
   const heightScale = (bottom - top) * 0.78;
@@ -1042,6 +1158,7 @@ globalThis.addEventListener("blur", () => {
   state.keyboardGate = false; state.pointerActive = false; state.pointerId = null;
 });
 document.addEventListener("visibilitychange", () => {
+  if (document.hidden && recordedInput?.snapshot().pending) recordedInput.stop();
   if (!state.context || !state.audioReady) return;
   if (document.hidden) {
     setGate(false); stopMicrophone({ announce: false }); state.suspendedForVisibility = true;
@@ -1050,16 +1167,27 @@ document.addEventListener("visibilitychange", () => {
     state.context.resume().then(() => { state.suspendedForVisibility = false; renderAudioState(); setLiveStatus("Audio resumed. Microphone remains off."); }).catch(() => {});
   }
 });
-globalThis.addEventListener("pagehide", () => { state.disposed = true; globalThis.cancelAnimationFrame(state.frameRequest); inputControl.destroy(); void stopAudio(); }, { once: true });
+globalThis.addEventListener("pagehide", () => { state.disposed = true; globalThis.cancelAnimationFrame(state.frameRequest); recordedInput?.dispose(); presetController?.destroy(); inputControl.destroy(); void stopAudio(); }, { once: true });
+
+if (!isLabSurface) presetController = registerHeaderPresets({
+  id: "simd-resonator", presets: SIMD_RESONATOR_FULL_PRESETS,
+  capture: () => captureSimdResonatorPreset(state.settings.resonator),
+  apply: applyFullPreset, randomize: randomizeSimdResonatorPreset,
+});
 
 const testApi = Object.freeze({
   getState() {
     return Object.freeze({
-      audioOn: state.audioReady, audioStarting: state.audioStarting, contextState: state.context?.state || "none",
+      audioOn: state.outputArmed && state.audioReady, audioReady: state.audioReady, audioStarting: state.audioStarting, contextState: state.context?.state || "none",
       workletBooted: state.workletBooted, micOn: Boolean(state.micStream), surface, engine: state.engine,
       availableEngines: [...AVAILABLE_ENGINES],
       backend: state.backend, simdAvailable: state.simdAvailable, workCount: currentWorkCount(),
       settings: Object.freeze({ ...currentSettings() }), presetId: state.presetId,
+      fullPresetId: presetController?.selectedId ?? null,
+      input: recordedInput ? Object.freeze(recordedInput.snapshot()) : null,
+      inputPlaybackRevision: state.inputPlaybackRevision, contextTime: state.context?.currentTime ?? 0,
+      inputGain: Number(inputControl.gainInput.value), outputLevel: Number(elements.outputLevel.value),
+      fftInputPeak: Math.max(...state.fftInput), fftOutputPeak: Math.max(...state.fftOutput),
       workerMode: state.workerMode, workerError: state.workerError,
       kernelMicros: state.kernelMicros, fftAnalysisMicros: state.fftAnalysisMicros, peak: state.peak, rms: state.rms,
     });

@@ -12,6 +12,15 @@
   grid-template-columns: minmax(0, 1fr) clamp(330px, 26vw, 390px);
 }
 
+.simd-recorded-input { display: grid; gap: 10px; min-width: 0; }
+.simd-recorded-input[hidden] { display: none; }
+.simd-recorded-input > label { display: grid; gap: 6px; min-width: 0; }
+.simd-recorded-input select { width: 100%; min-width: 0; }
+.simd-input-transport { display: flex; align-items: center; gap: 14px; }
+.simd-input-transport button { min-height: 44px; flex: 1; }
+.simd-input-transport label { display: inline-flex; align-items: center; gap: 6px; }
+.simd-recorded-input .simd-note { overflow-wrap: anywhere; margin: 0; }
+
 .simd-resonator-stage {
   position: relative;
   padding: clamp(18px, 2.7vw, 38px);
@@ -632,6 +641,7 @@
 @media (pointer: coarse) {
   .simd-primary-action,
   .simd-secondary-action,
+  .simd-input-transport button,
   .simd-engine-choices button,
   .simd-panel-footer button {
     min-height: 48px;
