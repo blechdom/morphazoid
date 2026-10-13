@@ -167,9 +167,9 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
   const layout = await page.evaluate(() => {
     const stage = document.querySelector('#blackMidiViewport'), box = stage.getBoundingClientRect();
     const keyboard = stage.querySelector('canvas[aria-label="MIDI keyboard"]').getBoundingClientRect();
-    const seek = document.querySelector('.blech-file-position').getBoundingClientRect(), live = document.querySelector('.blech-live-strip').getBoundingClientRect();
+    const seek = document.querySelector('.blech-file-position').getBoundingClientRect();
     const transport = ['#blackLoopSong', '#blackSyncTempo'].map(selector => { const node = document.querySelector(selector), rect = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); });
-    return { keyboard: { top: keyboard.top, bottom: keyboard.bottom, height: keyboard.height }, top: box.top, bottom: box.bottom, seekBottom: seek.bottom, liveTop: live.top, liveBottom: live.bottom, transport, overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
+    return { keyboard: { top: keyboard.top, bottom: keyboard.bottom, height: keyboard.height }, top: box.top, bottom: box.bottom, seekBottom: seek.bottom, transport, overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
   });
   expect(layout.transport).toEqual([true, true]); expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 48 : 100); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
   if (viewport.width >= 1000) {
@@ -178,7 +178,7 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
   }
   if (viewport.width < 500) expect(layout.height).toBeGreaterThan(210);
   expect(layout.keyboard.height).toBeGreaterThan(8); expect(layout.keyboard.top).toBeGreaterThanOrEqual(layout.top); expect(layout.keyboard.bottom).toBeLessThanOrEqual(layout.bottom + 1);
-  expect(layout.seekBottom).toBeLessThanOrEqual(layout.liveTop + 1); expect(layout.liveBottom).toBeLessThanOrEqual(viewport.height + 1);
+  expect(layout.seekBottom).toBeLessThanOrEqual(viewport.height + 1); await expect(page.locator('#blechLiveLayers')).toBeAttached();
   await page.screenshot({ path: testInfo.outputPath('black-midi.png') });
 });
 
@@ -199,7 +199,7 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
   expect(icon.visible).not.toBe('none'); expect(icon.stroke).not.toBe(icon.background);
   await page.locator('#blackPlayButton').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1'); await expect(page.locator('#automataMidiPlayPause')).toHaveAttribute('aria-pressed', 'true'); await audible(page);
-  await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers button').click();
+  await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await tab(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await audible(page);
   await page.locator('#blackSyncTempo').check(); await input(page, '#creativeTempo', 240);
