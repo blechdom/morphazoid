@@ -7,7 +7,7 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   const sequence = new MidiFrameSequence();
   host.innerHTML = `<div class="blech-generator blech-frames">
-    <div class="blech-generator-toolbar"><button id="blechFramesCapture" class="mini-action" type="button">Capture drawing</button><button id="blechFramesBlank" class="mini-action" type="button">Add rest</button><button id="blechFramesDrop" class="mini-action" type="button" disabled>Drop sequence</button><label class="blech-generator-check"><input id="blechFramesLoop" type="checkbox" checked>Loop</label></div>
+    <div class="blech-generator-toolbar"><button id="blechFramesCapture" class="mini-action" type="button">Capture drawing</button><button id="blechFramesBlank" class="mini-action" type="button">Add rest</button><button id="blechFramesDrop" class="mini-action" type="button" disabled>Drop sequence</button><label class="blech-generator-check"><input id="blechFramesLoop" type="checkbox" checked>Loop new sequence</label></div>
     <div id="blechFramesList" class="blech-frame-list" role="group" aria-label="Animation frames"></div>
     <div class="blech-generator-toolbar blech-frame-edit"><button id="blechFramesBack" class="mini-action" type="button" aria-label="Move selected frame earlier">← Earlier</button><button id="blechFramesForward" class="mini-action" type="button" aria-label="Move selected frame later">Later →</button><button id="blechFramesDuplicate" class="mini-action" type="button">Duplicate</button><button id="blechFramesDelete" class="mini-action" type="button">Delete</button><button id="blechFramesEdit" class="mini-action" type="button" ${onEditDrawing ? '' : 'hidden'}>Edit drawing</button></div>
     <div class="blech-generator-work"><canvas id="blechFramesPreview" width="800" height="256" aria-label="Prepared animation sequence: pitch left to right, time bottom to top">Capture drawings as successive MIDI frames.</canvas>
@@ -80,7 +80,7 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   });
   const getScore = () => sequence.score(beats(), tempo());
   on($('Drop'), 'click', async () => {
-    try { const score = getScore(); await onDrop?.(score, { name: `Frames ${sequence.count}`, program: 'original', loop: $('Loop').checked }); if (!disposed) $('Status').value = 'Sequence dropped to an independent pad.'; }
+    try { const score = getScore(); await onDrop?.(score, { name: `Frames ${sequence.count}`, program: 'original', loop: $('Loop').checked }); if (!disposed) $('Status').value = 'Sequence added to Layers. Pause or Stop it above.'; }
     catch (caught) { if (!disposed) $('Status').value = caught.message; }
   });
   on($('Score'), 'click', async () => { try { await onPreview?.(getScore()); } catch (caught) { if (!disposed) $('Status').value = caught.message; } });

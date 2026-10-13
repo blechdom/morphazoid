@@ -89,12 +89,31 @@ for provenance, redistribution terms and exact independently checked counts.
 Black MIDI displays the original source score before MIDI effects. Generated pads, their upcoming loop cycles, and projected Automatapoeia rows share the same stage and 128-key keyboard. Forecasts use the current source clocks; switching tabs never changes them. Generated forecasts include the current note effects. Full-file statistics remain file statistics, separate from generated layers.
 
 
+## Independent layer transports
+
+The **Layers** rack stays above the preparation tabs. Each Drop creates its own
+named layer with a distinct number, even when two drops use the same equation.
+**Pause** freezes only that layer's position and releases its notes; **Resume**
+continues it from that position. **Stop** ends that layer immediately. Other
+layers, the MIDI file and Automatapoeia keep running. The saved pad remains in
+MIDI Stamps so it can be played again after stopping.
+
+Each active layer has its own **Loop** switch: switching it off finishes the
+current pass. The Math **Loop new pattern**, Animation **Loop new sequence** and
+Drawing **Loop drawing** controls apply to the next Drop, not to layers already
+playing. To end a running loop now, use its **Stop** button in Layers.
+
+The rack holds up to four active or paused layers. A fifth Drop replaces the
+oldest playing layer; paused layers are retained. If all four are paused, stop
+one before adding another. A paused stamp or saved pad resumes when tapped.
+**Stop all** remains the page-wide way to stop every source.
+
 ## Prepare and send
 
 Turn **Audio** on. Open **Drawing**, draw or choose a shape, then press
 **Drop ↓**. The sent score is a snapshot: edits prepare the next drawing while
 that pad keeps playing. **Loop drawing** affects the next drop. Stop or change
-Loop for an active pad in the persistent layer strip, or open **MIDI Stamps**
+Loop for an active pad in the persistent Layers rack, or open **MIDI Stamps**
 to replay, edit or remove its saved pad. **Load as file** explicitly replaces
 the file-player selection instead of layering. **Download MIDI** saves the
 last dropped drawing; editing hides that stale link.

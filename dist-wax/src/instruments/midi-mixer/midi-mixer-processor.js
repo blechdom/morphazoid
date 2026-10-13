@@ -95,12 +95,13 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.prepareSourceChannels(source, message.data.channels);
         const channels = message.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : message.program }));
         const timing = message.timing ? { ...message.timing } : undefined;
-        if (timing && message.quantize && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat);
-        this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, config, channels }); break;
+        if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat);
+        this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, config, channels }); break;
       }
       case 'sampleParameters': {
         const sample = this.sampleClock.samples[message.slot];
         if (!sample || sample.id !== message.id) break;
+        if (Number.isInteger(message.revision) && message.revision < sample.revision) break;
         this.sampleClock.setOptions(message.slot, message);
         const previous = sample.config.midi;
         sample.config = { ...sample.config, gain: message.gain ?? sample.config.gain, midi: sanitizeMidiParameters(message.midi) };
@@ -109,6 +110,20 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         break;
       }
       case 'noteEffects': this.noteFx.configure({ ...message.config, tempo: this.clock.tempo }); break;
+      case 'samplePaused': {
+        if (!Number.isInteger(message.slot) || message.slot < 0 || message.slot >= 4) break;
+        const sample = this.sampleClock.samples[message.slot];
+        if (sample && sample.id === message.id && Number.isInteger(message.revision) && message.revision > (sample.revision ?? -1)) {
+          this.sampleClock.setPaused(message.slot, message.paused, message.revision);
+        } else if (!sample && Number.isInteger(message.revision)) {
+          // A one-shot may end between the UI gesture and this audio quantum.
+          // Acknowledge its absence at the requested revision, without making
+          // a canceled or expired source look like newly performed history.
+          if (this.sampleClock.completed.length >= 4) this.sampleClock.completed.shift();
+          this.sampleClock.completed.push({ id: message.id, revision: message.revision, ended: true, unavailable: true });
+        }
+        break;
+      }
       case 'effects': this.applyEffects(message.synth); break;
       case 'midiAction': this.midiAction(message); break;
       case 'stopSample': {
