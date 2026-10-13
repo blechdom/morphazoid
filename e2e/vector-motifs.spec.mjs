@@ -33,7 +33,35 @@ async function traveler(page) {
   await ready(page);
   await page.locator('#contourReader').selectOption('traveler');
   await ready(page);
+  await expect.poll(async () => (await snapshot(page)).trace.reader).toBe('traveler');
   await expect(page.locator('#motifTools')).toBeVisible();
+}
+
+async function displayedHead(page, layer) {
+  await expect.poll(async () => (await snapshot(page)).contours.renderer.traceHeads
+    .some(head => head.index === layer && head.pathIndex >= 0)).toBe(true);
+  const s = await snapshot(page);
+  return { point: s.contours.renderer.traceHeads.find(head => head.index === layer),
+    source: s.contours.renderer.layers[layer] };
+}
+
+async function clickWorldPoint(page, point) {
+  const canvas = page.locator('#contourStage');
+  await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox(), view = (await snapshot(page)).contours.navigation.view;
+  await page.mouse.click(
+    box.x + (.5 + (point.x - view.x) / view.width) * box.width,
+    box.y + (.5 - (point.y - view.y) / view.width * view.aspect) * box.height,
+  );
+  return box.width / view.width;
+}
+
+function midpointDistancePixels(capture, point, pixelsPerUnit) {
+  // Captures have even sample counts: interpolate the two central samples.
+  const count = capture.points.length / 2, before = Math.floor((count - 1) / 2), after = Math.ceil((count - 1) / 2);
+  const x = (capture.points[before * 2] + capture.points[after * 2]) / 2;
+  const y = (capture.points[before * 2 + 1] + capture.points[after * 2 + 1]) / 2;
+  return Math.hypot(x - point.x, y - point.y) * pixelsPerUnit;
 }
 
 async function capture(page, name, center = .3) {
@@ -54,6 +82,75 @@ async function example(page, value) {
 }
 
 const hits = s => s.trace.drumTriggerCounts.reduce((sum, count) => sum + count, 0);
+
+test('a normal border click places the next capture at that shape and starts comparison', async ({ page }) => {
+  await traveler(page);
+  const before = await snapshot(page), { point, source } = await displayedHead(page, 2);
+  expect(before.state.travelerMode).toBe('path');
+  const pixelsPerUnit = await clickWorldPoint(page, point);
+  await ready(page);
+  const selected = await snapshot(page);
+  expect(Math.abs(selected.state.motifCenter - before.state.motifCenter)).toBeGreaterThan(.05);
+  expect(selected.state.motifCaptures).toEqual(before.state.motifCaptures);
+  await (await reveal(page, 'motifCaptureA')).click();
+  await ready(page);
+  await expect.poll(async () => (await snapshot(page)).trace.motif).toBe(true);
+  const s = await snapshot(page), captured = s.state.motifCaptures[0];
+  expect(captured.source.center).toBeCloseTo(selected.state.motifCenter, 6);
+  expect(captured.source.pathIndex).toBe(point.pathIndex);
+  expect(captured.source.depth).toBe(source.depth);
+  expect(midpointDistancePixels(captured, point, pixelsPerUnit)).toBeLessThan(2);
+  expect(s.state.travelerMode).toBe('compare');
+  expect(s.motifs.bankActive).toBe(true);
+  expect(s.armed).toBe(false);
+  expect(s.audioTime).toBeNull();
+  // The center knob can still deliberately move the next capture away from
+  // the clicked location without altering the already pinned phrase.
+  await range(page, 'motifCenter', .7);
+  await (await reveal(page, 'motifCaptureB')).click();
+  await ready(page);
+  const adjusted = await snapshot(page);
+  expect(adjusted.state.motifCaptures[1].source.center).toBeCloseTo(.7, 6);
+  expect(adjusted.state.motifCaptures[0]).toEqual(captured);
+});
+
+for (const [layer, name, slot, mode] of [[0, 'Broad', 'b', 'compare'], [1, 'Curl', 'c', 'choir']]) {
+  test(`armed capture grabs the displayed ${name} outline from its own source`, async ({ page }) => {
+    await traveler(page);
+    const { point, source } = await displayedHead(page, layer);
+    await (await reveal(page, 'motifPick')).selectOption(slot);
+    const pixelsPerUnit = await clickWorldPoint(page, point);
+    await ready(page);
+    await expect.poll(async () => Boolean((await snapshot(page)).state.motifCaptures['abc'.indexOf(slot)])).toBe(true);
+    await expect.poll(async () => (await snapshot(page)).trace.motif).toBe(true);
+    const s = await snapshot(page), captured = s.state.motifCaptures['abc'.indexOf(slot)];
+    expect(captured.source.depth).toBe(source.depth);
+    expect(captured.source.depth).not.toBe(s.contours.depth);
+    expect(captured.source.pathIndex).toBe(point.pathIndex);
+    expect(midpointDistancePixels(captured, point, pixelsPerUnit)).toBeLessThan(2);
+    expect(s.state.travelerMode).toBe(mode);
+    expect(s.armed).toBe(false);
+    expect(s.audioTime).toBeNull();
+    await expect(page.locator('#motifPick')).toHaveValue('none');
+  });
+}
+
+test('an armed capture miss explains the next action and stays armed', async ({ page }) => {
+  await traveler(page);
+  await (await reveal(page, 'motifPick')).selectOption('a');
+  const armedMessage = await page.locator('#motifSelectionStatus').textContent();
+  const before = await snapshot(page), canvas = page.locator('#contourStage');
+  await canvas.scrollIntoViewIfNeeded();
+  const box = await canvas.boundingBox();
+  await page.mouse.click(box.x + box.width - 30, box.y + box.height - 30);
+  await expect(page.locator('#motifSelectionStatus')).not.toHaveText(armedMessage);
+  await expect(page.locator('#motifSelectionStatus')).toContainText(/near.*(?:border|outline|curve|contour)/i);
+  await expect(page.locator('#motifPick')).toHaveValue('a');
+  const s = await snapshot(page);
+  expect(s.state.motifCaptures).toEqual(before.state.motifCaptures);
+  expect(s.state.travelerMode).toBe('path');
+  expect(s.armed).toBe(false);
+});
 
 test('motifs capture by keyboard, survive refinements, and compare without arming Audio', async ({ page }) => {
   test.setTimeout(110000);
