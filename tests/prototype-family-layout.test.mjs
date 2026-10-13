@@ -9,6 +9,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { localPath, referencesIn } from "../scripts/inspect-instrument.mjs";
 import { currentSourcePath } from "./helpers/relocated-sources.mjs";
+import { restoreTapeWormConnectors } from "./helpers/tape-worm-connectors-reference.mjs";
 import { CANONICAL_PAGE_ROUTES, pageSourcePath } from "../src/pages/manifest.js";
 
 const root = new URL("../", import.meta.url);
@@ -33,11 +34,12 @@ test("the prototype family has one new home and retains its exact packaging poli
   }
 });
 
-test("all runtime/styles/page bytes reverse exactly except the two requested group labels", async () => {
+test("runtime/styles/page bytes reverse after the explicit connector and group label amendments", async () => {
   assert.equal(proof.baseCommit, plan.baseCommit);
   for (const record of proof.files) {
     const current = await readFile(new URL(sourcePathFor(record.after), root), "utf8");
-    let restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
+    const historical = restoreTapeWormConnectors(current, sourcePathFor(record.after));
+    let restored = rewriteRepositoryPaths(rewriteModulePaths(historical, record.after, inverse), inverse);
     if (plan.pages.includes(record.after)) {
       for (const change of plan.visibleTextChanges) {
         assert.equal(restored.split(change.after).length - 1, 1, `${record.after}: ${change.after}`);
