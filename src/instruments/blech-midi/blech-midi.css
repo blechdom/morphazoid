@@ -369,3 +369,22 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
   .blech-file-player .blech-file-position { flex-basis: 36px; min-height: 36px; }
   .blech-file-position input { min-height: 36px; }
 }
+
+.blech-text-message { font-size: 14px; font-weight: 600; }
+.blech-text-message textarea { width: 100%; min-width: 0; min-height: 92px; box-sizing: border-box; resize: vertical; padding: 12px; border: 1px solid #779d8b; border-radius: 0; background: #080d10; color: #effff6; font: 18px/1.5 monospace; }
+.blech-text-message textarea:focus { outline: 2px solid #96f4cc; outline-offset: 2px; }
+.blech-text-align { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin: 0; padding: 0; border: 0; font-size: 11px; }
+.blech-text-align legend { font-size: 10px; color: #a1b4ae; margin-bottom: 4px; }
+.blech-text-align label { display: flex; align-items: center; gap: 3px; min-height: 32px; }
+.blech-text-align input { margin: 0; accent-color: #96f4cc; }
+.blech-text-layout { min-width: 0; }
+#blechTextLines { margin: 6px 0 0; padding-left: 28px; max-height: 112px; overflow-y: auto; font: 13px/1.7 monospace; }
+#blechTextLines li { padding-left: 5px; }
+#blechTextLines li > span { white-space: pre; }
+#blechTextLines small { margin-left: 12px; color: #a1b4ae; font: 10px system-ui; }
+.blech-text-editing { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; color: #96f4cc; font-size: 12px; }
+.blech-text-editing[hidden], #blechTextApply[hidden], #blechTextScaleControl[hidden] { display: none; }
+.blech-layer-copy [data-layer-edit] { justify-self: start; min-height: 26px; padding: 2px 8px; font-size: 10px; }
+@media (pointer: coarse) {
+  .blech-text button, .blech-text-align label, .blech-layer-copy [data-layer-edit] { min-height: 48px; }
+}

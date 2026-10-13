@@ -11,7 +11,7 @@ const clock = () => performance.now() / 1000;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing, showVisualizer = true, orientation = 'rising' } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing, onEditText, showVisualizer = true, orientation = 'rising' } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -212,9 +212,13 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       reflectPads();
     });
     listen(card.querySelector('[data-pad-remove]'), 'click', () => { forgetPad(record); reflectPads(); });
-    const edit = card.querySelector('[data-pad-edit]'); edit.hidden = !onEditDrawing;
+    const edit = card.querySelector('[data-pad-edit]'); edit.hidden = score.textSettings ? !onEditText : !onEditDrawing;
     edit.setAttribute('aria-label', `Edit ${label}`);
-    listen(edit, 'click', () => { cancelEdit(); onEditDrawing?.(record.score, record.label); });
+    listen(edit, 'click', () => {
+      cancelEdit();
+      if (record.score.textSettings) onEditText?.({ sampleId: padSamples.get(record.id) ?? null, settings: structuredClone(record.score.textSettings) });
+      else onEditDrawing?.(record.score, record.label);
+    });
     saved.set(id, record); savedPads.querySelector('.mixer-saved-bank').append(card); savedPads.hidden = false;
     thumbnail(button, score); filterStamps(); return record;
   }
@@ -517,6 +521,27 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     return playScore(snapshot, String(name).slice(0, 128), '', program,
       { saveKind: 'art', loop: Boolean(loop), applyGate: false });
   }
+  function textRecord(sampleId) {
+    return [...saved.values()].find(record => padSamples.get(record.id) === sampleId && record.score.textSettings);
+  }
+  function getTextLayer(sampleId) {
+    const record = textRecord(sampleId);
+    return record ? { sampleId, settings: structuredClone(record.score.textSettings) } : null;
+  }
+  function replaceScore(sampleId, score, { name, when = 'next-loop' } = {}) {
+    const record = textRecord(sampleId);
+    if (disposed || !record || !score?.textSettings) return false;
+    const snapshot = structuredClone(score), label = String(name ?? record.label).slice(0, 128);
+    const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
+    if (!result) return false;
+    record.score = snapshot; record.label = label;
+    record.button.querySelector('[data-pad-name]').textContent = label;
+    record.button.setAttribute('aria-label', label); record.loopInput.setAttribute('aria-label', `Loop ${label}`);
+    record.card.querySelector('[data-pad-edit]').setAttribute('aria-label', `Edit ${label}`);
+    record.card.querySelector('[data-pad-remove]').setAttribute('aria-label', `Remove ${label}`);
+    thumbnail(record.button, snapshot); reflectPads();
+    return result;
+  }
   function stopSamples() {
     if (disposed) return;
     cancelPending(); engine.stopSamples(); reflectPads(); $('mixerSampleStatus').textContent = 'Samples stopped';
@@ -528,7 +553,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, sendScore, stopSamples, getDrawingScore, refresh,
+    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, getTextLayer, stopSamples, getDrawingScore, refresh,
     setAutomataSeed: row => automata.setSeedRow(row),
     setView(mode, nextVisualizerHost) {
       if (disposed) return;

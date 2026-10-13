@@ -1,16 +1,16 @@
 const COLORS = ['#96f4cc', '#e9a1ff', '#ffd878', '#79beff', '#ff969d', '#c0e883', '#cea6ff', '#80e4e7'];
 
 /** Prepared-score monitor; never owns playback or an audio clock. */
-export function drawGeneratorPreview(canvas, artwork, { frame = -1, frames = 0 } = {}) {
+export function drawGeneratorPreview(canvas, artwork, { frame = -1, frames = 0, grid = true } = {}) {
   const ctx = canvas.getContext('2d'), ratio = Math.min(canvas.ownerDocument.defaultView?.devicePixelRatio || 1, 2);
   const width = Math.max(256, Math.min(1200, Math.round(canvas.clientWidth * ratio))), height = Math.round(width * .32);
   if (canvas.width !== width || canvas.height !== height) { canvas.width = width; canvas.height = height; }
   ctx.fillStyle = '#080d10'; ctx.fillRect(0, 0, width, height);
   const duration = Math.max(.25, artwork?.durationBeats || 1), notes = artwork?.notes ?? [];
   ctx.strokeStyle = '#263133'; ctx.lineWidth = 1;
-  for (let x = 0; x <= 128; x += 12) { ctx.beginPath(); ctx.moveTo(x / 128 * width, 0); ctx.lineTo(x / 128 * width, height); ctx.stroke(); }
+  if (grid) for (let x = 0; x <= 128; x += 12) { ctx.beginPath(); ctx.moveTo(x / 128 * width, 0); ctx.lineTo(x / 128 * width, height); ctx.stroke(); }
   const rows = frames || 8;
-  for (let y = 0; y <= rows; y++) { ctx.beginPath(); ctx.moveTo(0, y / rows * height); ctx.lineTo(width, y / rows * height); ctx.stroke(); }
+  if (grid) for (let y = 0; y <= rows; y++) { ctx.beginPath(); ctx.moveTo(0, y / rows * height); ctx.lineTo(width, y / rows * height); ctx.stroke(); }
   for (const note of notes) {
     ctx.fillStyle = COLORS[(note.layer ?? 0) % COLORS.length];
     ctx.globalAlpha = frame >= 0 && note.layer !== frame ? .2 : .95;
