@@ -12,9 +12,10 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   host.innerHTML = `
     <div class="blech-file-layout">
       <div class="blech-file-stage">
-        <div class="blech-file-transport">
-          <button id="blackPlayButton" data-primary-transport class="play-button" type="button" aria-pressed="false" aria-label="Play Black MIDI" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
-          <button id="blackStopButton" type="button" class="mini-action" aria-label="Stop and rewind Black MIDI" disabled>■</button>
+        <div class="blech-file-transport" role="group" aria-label="MIDI file playback">
+          <span class="blech-file-transport-label">MIDI file</span>
+          <button id="blackPlayButton" data-primary-transport class="play-button" type="button" aria-pressed="false" aria-label="Play MIDI file" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+          <button id="blackStopButton" type="button" class="mini-action" aria-label="Stop and rewind MIDI file" title="Stop only the MIDI file" disabled>Stop</button>
           <label class="control" for="blackPlaybackRate"><span><b>Speed</b><output id="blackPlaybackRateOut">1.00×</output></span><input id="blackPlaybackRate" type="range" min=".5" max="8" step=".05" value="1"></label>
           <label class="control" for="blackFileLevel"><span><b>File volume</b><output id="blackFileLevelOut">75%</output></span><input id="blackFileLevel" type="range" min="0" max="1" step=".01" value=".75"></label>
           <label class="blech-art-check"><input id="blackLoopSong" type="checkbox">Loop file</label>
@@ -58,7 +59,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     const state = player.state;
     $('blackPlayButton').disabled = !ready || !state.ready || loading || state.loading;
     $('blackPlayButton').setAttribute('aria-pressed', String(state.playing));
-    $('blackPlayButton').setAttribute('aria-label', state.playing ? 'Pause Black MIDI' : 'Play Black MIDI');
+    $('blackPlayButton').setAttribute('aria-label', state.playing ? 'Pause MIDI file' : 'Play MIDI file');
     $('blackStopButton').disabled = !selected;
     $('blackSongPosition').disabled = !ready || !state.ready || loading;
     $('blackSongPosition').max = String(state.duration || 1);

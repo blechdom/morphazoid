@@ -143,7 +143,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     set('aria-pressed', String(Boolean(sample))); set('aria-busy', String(pending));
     if (button.dataset.pending !== String(pending)) button.dataset.pending = String(pending);
     const status = button.querySelector('[data-pad-state]');
-    const text = pending ? 'Loading · tap to cancel' : sample ? sample.loop ? 'Looping · tap to stop' : 'Playing · tap to retrigger' : loop ? 'Loop · tap to start' : 'One shot';
+    const text = pending ? 'Loading · tap to cancel' : sample?.paused ? 'Paused · tap to resume' : sample ? sample.loop ? 'Looping · tap to stop' : 'Playing · tap to retrigger' : loop ? 'Loop · tap to start' : 'One shot';
     if (status && status.textContent !== text) status.textContent = text;
   }
   function reflectPads(state = engine.state) {
@@ -170,7 +170,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   function launchScore(score, label, program, padId, loop = $('mixerSampleLoop').checked) {
     const previous = padSamples.get(padId);
     if (previous !== undefined) engine.stopSample(previous);
-    const sample = engine.triggerSample(score.buffer, { name: label, program: null, gain: Number($('mixerSampleLevel').value),
+    const sample = engine.triggerSample(score.buffer, { name: liveAutomata && stamps.has(padId) ? `Stamp · ${label}` : label, program: null, gain: Number($('mixerSampleLevel').value),
       loop, sync: liveAutomata || $('mixerSampleSync').checked,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });
     if (sample && padId) padSamples.set(padId, sample.id);
@@ -199,6 +199,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const listen = (node, type, listener) => node.addEventListener(type, listener, { signal: record.events.signal });
     listen(button, 'click', () => safely(() => {
       const sample = engine.state.samples.find(sample => sample.id === padSamples.get(id));
+      if (sample?.paused) { engine.setSamplePaused(sample.id, false); reflectPads(); return; }
       if (sample?.loop) { engine.stopSample(sample.id); reflectPads(); return; }
       launchScore(record.score, record.label, record.program, id, record.loop);
     }));
@@ -377,6 +378,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (loadingSample && pendingPad === id) { cancelPending(); return; }
     const sample = engine.state.samples.find(sample => sample.id === padSamples.get(id));
     selectStamp(id);
+    if (sample?.paused) { engine.setSamplePaused(sample.id, false); reflectPads(); return; }
     if (sample?.loop) { engine.stopSample(sample.id); reflectPads(); return; }
     safely(() => stampSelected(0, id));
   }
