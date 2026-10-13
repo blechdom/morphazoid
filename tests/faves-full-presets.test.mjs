@@ -55,7 +55,7 @@ test("Faves retain implemented batch coverage and explicitly track the newly pro
   // Synthesaurus has a shared preset adapter with dedicated coverage.
   // SIMD Chiptune still keeps its page-owned preset bank.
   const faveLabs = FAVE_TOOL_IDS.filter(id => catalogueItemById(id)?.entryType === "lab");
-  assert.deepEqual(faveLabs, ["synthesis"]);
+  assert.deepEqual(faveLabs, ["synthesis", "blech-midi", "midiphoria"]);
   const pending = FAVE_TOOL_IDS.filter(id => !implemented.has(id) && !faveLabs.includes(id));
   assert.deepEqual(pending, ["simd-chiptune"]);
   const rollout = JSON.parse(await readFile(new URL("../docs/preset-rollout-status.json", import.meta.url), "utf8"));

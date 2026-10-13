@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreMidiFavesSite } from './midi-faves-site-reference.mjs';
 
 export const blechBrandSiteChanges = JSON.parse(readFileSync(
   new URL('../fixtures/blech-brand-site-amendment.json', import.meta.url), 'utf8',
@@ -8,6 +9,7 @@ export const blechBrandSiteChanges = JSON.parse(readFileSync(
 /** Restore only the reviewed label and catalogue copy; preserve unknown bytes. */
 export function restoreBlechBrandSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreMidiFavesSite(source, file, { allowRestored: true });
   const change = blechBrandSiteChanges.changes.find(change => change.file === file);
   if (!change) return source;
   const markerCount = source.split(change.marker).length - 1;

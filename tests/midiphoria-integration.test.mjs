@@ -35,7 +35,7 @@ test("Midiphoria is a browseable visual lab with one native MIDI client and opti
   assert.equal(item.entryType, "lab");
   assert.equal(item.href, "midiphoria.html");
   assert.equal(item.imageHref, "assets/instruments/midiphoria.webp");
-  assert.deepEqual(item.tags.map(({ id }) => id), ["graphic-ui", "2d"]);
+  assert.deepEqual(item.tags.map(({ id }) => id), ["graphic-ui", "2d", "faves"]);
   assert.ok(item.features.includes("MIDI"));
   assert.ok(item.features.includes("Computer keys"));
   assert.match(item.description, /SoundFont audio/);

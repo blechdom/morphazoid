@@ -20,7 +20,7 @@ test('Blech MIDI is a separate browseable Graphic-UI lab with its own tempo owne
   assert.equal(item.browse, true);
   assert.equal(item.entryType, 'lab');
   assert.equal(instrumentById(item.id), null);
-  assert.deepEqual(catalogueItemById(item.id).tags.map(tag => tag.id), ['graphic-ui', '2d', 'sequencer', 'algorithmic']);
+  assert.deepEqual(catalogueItemById(item.id).tags.map(tag => tag.id), ['graphic-ui', '2d', 'sequencer', 'algorithmic', 'faves']);
   assert.ok(CANONICAL_PAGE_ROUTES.includes(item.href));
   assert.deepEqual(TAP_TEMPO_TARGETS.filter(({ route }) => route === item.href), [
     { route: item.href, selector: '#creativeTempo', mapping: { unit: 'bpm' } },

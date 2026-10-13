@@ -76,6 +76,8 @@ export const expectedFaveToolIds = Object.freeze([
   "gesticulating-hand",
   // Owner follow-up on September 27: promote SIMD Chiptune into Faves.
   "simd-chiptune",
+  // Owner follow-up October 12: BLECH MIDI and Midiophilia join Faves.
+  "blech-midi", "midiphoria",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {
