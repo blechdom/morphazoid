@@ -168,7 +168,8 @@ or text, then **Apply next loop**: the current pass finishes and the new version
 starts on that layer's next loop. Repeated Apply replaces the queued update.
 Queued layers can update before starting; paused layers update while staying
 paused. Playing one-shots offer **Restart this layer**. Turning off Loop cancels
-a pending update and finishes the current pass. **Drop new text** layers another
+a pending update and finishes the current pass. Stop also cancels a queued edit;
+the saved pad retains its last applied text. **Drop new text** layers another
 copy instead. Other sources keep their positions and play/pause states.
 The stamp Density/seed/Key gate and Drawing Loop controls do not affect Text;
 shared Sound / FX processing still applies during playback.

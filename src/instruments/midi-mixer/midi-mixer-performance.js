@@ -162,9 +162,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     for (const record of saved.values()) {
       const sample = playing.get(padSamples.get(record.id));
       if (sample) record.loop = sample.loop;
-      if (sample && record.pendingTextEdit && !sample.pendingReplacement) {
+      if (record.pendingTextEdit && (!sample?.pendingReplacement || sample.id !== record.pendingTextEdit.sampleId)) {
         const pending = record.pendingTextEdit;
-        if (sample.scoreVersion !== pending.token) updateSavedScore(record, pending.score, pending.label);
+        if (!sample || sample.id !== pending.sampleId || sample.scoreVersion !== pending.token) updateSavedScore(record, pending.score, pending.label);
         record.pendingTextEdit = null;
       }
       record.card.dataset.playing = String(Boolean(sample));
@@ -541,7 +541,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
     if (!result) return false;
     const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };
-    record.pendingTextEdit = result.pendingReplacement ? { ...previous, token: result.pendingReplacement.token } : null;
+    record.pendingTextEdit = result.pendingReplacement ? { ...previous, sampleId, token: result.pendingReplacement.token } : null;
     updateSavedScore(record, snapshot, label); reflectPads();
     return result;
   }
