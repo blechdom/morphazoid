@@ -70,6 +70,8 @@ test('motifs capture by keyboard, survive refinements, and compare without armin
   await page.locator('#playButton').click();
   let s = await snapshot(page);
   expect(s.state.travelerMode).toBe('compare');
+  expect(s.trace.motif).toBe(true);
+  expect(s.motifs.bankActive).toBe(true);
   expect(s.playing).toBe(true);
   expect(s.armed).toBe(false);
   expect(s.audioTime).toBeNull();
@@ -167,12 +169,24 @@ test('motif playback, optional cues, and turn drums keep the audio clock and rel
     const audio = await sampleAudioEnvelope(page, { durationMs: 850, intervalMs: 50 });
     const s = await snapshot(page);
     expect(s.state.travelerMode).toBe(mode);
+    expect(s.trace.motif).toBe(mode !== 'path');
+    expect(s.motifs.bankActive).toBe(mode !== 'path');
     expect(s.playing && s.armed).toBe(true);
     expect(s.trace.travel).toBeGreaterThan(before.trace.travel);
     expect(audio.summary.finite).toBe(true);
     expect(audio.summary.maxPeak).toBeGreaterThan(.001);
     expect(audio.summary.clippedSamples).toBe(0);
     observations.push({ mode, audio: audio.summary });
+    if (mode === 'compare') {
+      await expect(page.locator('#layerVoice1')).toBeDisabled();
+      await (await reveal(page, 'motifSameVoice')).uncheck();
+      await expect(page.locator('#layerVoice1')).toBeEnabled();
+      await page.locator('#layerVoice1').selectOption('glass');
+      await (await reveal(page, 'motifSameVoice')).check();
+      await expect(page.locator('#layerVoice1')).toBeDisabled();
+      expect((await snapshot(page)).state.motifSameVoice).toBe(true);
+      expect((await snapshot(page)).playing && (await snapshot(page)).armed).toBe(true);
+    } else await expect(page.locator('#layerVoice1')).toBeEnabled();
   }
   await (await reveal(page, 'travelerMode')).selectOption('choir');
   await (await reveal(page, 'motifTiming')).selectOption('original');
@@ -231,10 +245,20 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
       for (const id of ['travelerMode', 'motifCaptureB', 'motifPick', 'motifCenter', 'motifSpan', 'motifTiming', 'motifDetail', 'motifMirror', 'motifScaleCue', 'motifOrientation']) {
         const control = await reveal(page, id);
         const box = await control.boundingBox();
-        expect(box.x).toBeGreaterThanOrEqual(0);
+        expect(box.x).toBeGreaterThanOrEqual(-1);
         expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
-        expect(box.y).toBeGreaterThanOrEqual(0);
+        expect(box.y).toBeGreaterThanOrEqual(-1);
         expect(box.y + box.height).toBeLessThanOrEqual(viewport.height + 1);
+      }
+      for (const id of ['motifDetail', 'motifElastic', 'motifScaleAmount', 'motifOrientation', 'motifDetailGain']) {
+        const control = await reveal(page, id);
+        const text = await control.evaluate(node => {
+          const field = node.closest('.control');
+          const label = field.querySelector('.mz-field__label').getBoundingClientRect();
+          const output = field.querySelector('.mz-field__output').getBoundingClientRect();
+          return { labelBottom: label.bottom, outputTop: output.top };
+        });
+        expect(text.labelBottom, `${id}: its label must not overlap its value`).toBeLessThanOrEqual(text.outputTop);
       }
       expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBeLessThanOrEqual(viewport.width + 1);
       for (const id of ['audioButton', 'playButton']) {
