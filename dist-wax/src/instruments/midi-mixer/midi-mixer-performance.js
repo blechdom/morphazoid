@@ -92,7 +92,10 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   }
   const shapeControls = section.querySelector('.mixer-stamp-shape-controls'), messageForm = section.querySelector('.mixer-sample-message');
   if (shapeHost) shapeHost.append(shapeControls);
-  if (messageHost) messageHost.append(messageForm);
+  if (messageHost === false) {
+    // A dedicated text preparation tool can replace this legacy message form.
+    messageForm.remove(); $('mixerStampTextMode').closest('label').remove();
+  } else if (messageHost) messageHost.append(messageForm);
   const events = new AbortController();
   const on = (node, type, listener) => node.addEventListener(type, listener, { signal: events.signal });
   let active = false, disposed = false;

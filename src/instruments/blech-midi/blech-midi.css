@@ -278,9 +278,22 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #blackMidiControls .midiphoria-score-stats, #blackMidiControls details { margin: 0; }
 #blackMidiControls .midiphoria-score-stats, #blackMidiControls > h2, #blackMidiControls > p, #blackMidiControls > details { grid-column: 1 / -1; }
 .blech-midi-workspace .automata-midi-body { display: grid; grid-template-columns: minmax(0, 1fr); gap: 20px; }
-#drawingMessageHost { margin: 0; max-width: 850px; display: grid; gap: 16px; }
-#drawingMessageHost > label { display: flex; align-items: center; gap: 12px; font-size: 12px; }
-.blech-midi-workspace #mixerSendMessage { background: #96f4cc; color: #07110b; }
+#drawingMessageHost { margin: 0; min-width: 0; }
+.blech-text-message { display: grid; gap: 6px; font-size: 12px; }
+.blech-text-message input { width: 100%; min-width: 0; box-sizing: border-box; font: inherit; font-size: 16px; }
+.blech-text-preview { margin: 0; min-width: 0; }
+.blech-text-preview canvas { display: block; width: 100%; aspect-ratio: 25 / 8; border-radius: 0; }
+.blech-text-preview figcaption { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px 12px; margin-top: 5px; font-size: 10px; color: #a1b4ae; }
+.blech-text-size { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.blech-text-position { display: grid; gap: 8px; font-size: 11px; }
+.blech-text-position > span { display: flex; justify-content: space-between; flex-wrap: wrap; gap: 4px; }
+.blech-text-position input { width: 100%; min-width: 0; margin: 0; accent-color: #96f4cc; }
+.blech-text-actions { align-items: center; }
+#blechTextDrop { background: #96f4cc; color: #07110b; min-height: 40px; padding-inline: 18px; }
+@media (pointer: coarse) {
+  #blechTextDrop, .blech-text .blech-generator-check { min-height: 48px; }
+  .blech-text-position input { min-height: 32px; }
+}
 @media (max-width: 700px) {
   .blech-midi-workspace.mixer-shell { padding: 4px 10px 8px; grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(330px, 62%) minmax(0, 1fr); gap: 6px; }
   .blech-workbench { grid-column: 1; grid-row: 2; gap: 6px; }
