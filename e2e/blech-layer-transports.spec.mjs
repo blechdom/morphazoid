@@ -98,6 +98,7 @@ test('each dropped equation has identifiable pause, resume and stop controls wit
   await tab(page, 'stamps');
   await row(page, first.id).locator('[data-layer-stop]').click();
   await expect(row(page, first.id)).toHaveCount(0);
+  await expect(row(page, second.id).locator('[data-layer-pause]')).toBeFocused();
   expect((await snapshot(page)).samples.map(item => item.id)).toEqual([second.id]);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
   expect((await snapshot(page)).contexts).toBe(0);
