@@ -100,3 +100,42 @@ test('pathological short loops and long automata forecasts cannot allocate unbou
   assert.equal(dense.truncated, true); assert.ok(dense.notes.length <= BLECH_LIVE_NOTE_LIMIT);
   assert.ok(dense.scanned <= BLECH_AUTOMATA_ROW_LIMIT * 128);
 });
+
+test('paused samples claim no held notes or forecast budget while other clocks keep playing', () => {
+  const notes = Array.from({ length: 100 }, (_, index) => note(index / 25, 1, index % 128));
+  const running = sample(notes, { id: 4, slot: 3 });
+  const paused = [1, 2, 3].map(id => sample(notes, { id, slot: id - 1, paused: true }));
+  const project = createBlechLiveProjector();
+  const alone = project(state([running]), { limit: 100 });
+  const together = project(state([...paused, running]), { limit: 100 });
+  assert.deepEqual(together, alone);
+  assert.deepEqual(together.sources, ['sample:4']);
+  assert.ok(together.held > 0);
+});
+
+test('resumed free-time samples chase from frozen phase across source tempo and loop changes', () => {
+  const project = createBlechLiveProjector();
+  const source = sample([note(0, .25), note(1, 3, 72)], { sync: false, positionBeats: 2.5, cycle: 3,
+    analysis: { notes: [note(0, .25), note(1, 3, 72)], durationBeats: 4, tempoMap: [{ beat: 0, bpm: 120 }, { beat: 2, bpm: 60 }] } });
+  project(state([source]), { now: 10, pastSeconds: 4, lookAhead: 1 });
+  project(state([{ ...source, paused: true }]), { now: 10.1, pastSeconds: 4, lookAhead: 1 });
+  const resumed = project(state([{ ...source, playbackEpoch: 1, resumedPositionBeats: 2.5, resumedCycle: 3 }]), { now: 15, pastSeconds: 4, lookAhead: 1 });
+  assert.deepEqual(coordinates(resumed), [[72, 0, 1.5]]);
+  assert.equal(resumed.pastNotes.length, 0);
+  const advanced = project(state([{ ...source, positionBeats: 3, playbackEpoch: 1, resumedPositionBeats: 2.5, resumedCycle: 3 }]), { now: 15.5, pastSeconds: 4, lookAhead: 2 });
+  assert.deepEqual(coordinates(advanced), [[72, -.5, 1], [60, 1, 1.125], [72, 1.5, 4]]);
+  assert.equal(advanced.pastNotes.length, 1);
+  assert.equal(advanced.pastNotes[0].start, -.5);
+});
+
+test('resuming a held gate applies current effects without replaying canceled prior echoes', () => {
+  const project = createBlechLiveProjector();
+  const source = sample([note(0, .1), note(.5, 2, 72)], { loop: false, positionBeats: 1 });
+  project(state([source], { noteEffects: { enabled: true, echoCount: 1, echoBeats: 2 } }), { now: .5, pastSeconds: 4 });
+  project(state([{ ...source, paused: true }]), { now: .6, pastSeconds: 4 });
+  const resumed = project(state([{ ...source, playbackEpoch: 1, resumedPositionBeats: 1, resumedCycle: 0 }], {
+    noteEffects: { enabled: true, transpose: 12, echoCount: 1, echoBeats: 2 },
+  }), { now: 3, pastSeconds: 4 });
+  assert.deepEqual(coordinates(resumed), [[84, 0, .75], [84, 1, 1.75]]);
+  assert.ok(resumed.pastNotes.every(item => item.pitch !== 84));
+});
