@@ -17,6 +17,7 @@ class VectorFractalProcessor extends AudioWorkletProcessor {
     Object.assign(this.dsp.trace.params, this.dsp.trace.targets);
     this.dsp.setTraceBank(initial.traceBank); this.dsp.tracePhase = initial.traceTravel ?? initial.tracePhase ?? 0;
     this.dsp.trace.restoreTraveler(initial.travelerState);
+    this.dsp.trace.primeMotif();
     this.dsp.trace.shepardTravel = Number.isFinite(initial.shepardTravel) ? initial.shepardTravel
       : this.dsp.trace.travel * this.dsp.trace.targets.shepardCycles * this.dsp.trace.targets.shepardDirection;
     this.dsp.trace.shepardPosition = ((this.dsp.trace.shepardTravel % 1) + 1) % 1;
