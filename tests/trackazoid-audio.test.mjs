@@ -219,10 +219,128 @@ async function beatmatchingHarness(options = {}) {
   return h;
 }
 
+for (const keyLock of [false, true]) for (const follower of ["a", "b"]) {
+  test(`Trackazoid 110/174 BPM Sync changes the clicked deck with ${keyLock ? "key lock" : "varispeed"}, follower ${follower}`, async () => {
+    const h = await beatmatchingHarness({ defaultKeyLock: keyLock }), { engine, context } = h;
+    const reference = follower === "a" ? "b" : "a";
+    engine.setBeatGrid("a", { bpm: 110, beatOffset: 0.137 });
+    engine.setBeatGrid("b", { bpm: 174, beatOffset: 0.271 });
+    await engine.setAudio(true);
+    engine.play(follower); context.currentTime = 6; engine.play(reference); context.currentTime = 8;
+    assert.equal(engine.master, follower, "clicked deck starts as master");
+    const originalReferenceRate = engine.snapshot(reference).rate;
+    engine.setSync(follower, true);
+    assert.equal(engine.master, reference); assert.equal(engine.snapshot(follower).sync, true);
+    assert.equal(engine.snapshot(reference).sync, false);
+    near(engine.snapshot(reference).rate, originalReferenceRate);
+    near(engine.snapshot(follower).effectiveBpm, engine.snapshot(reference).effectiveBpm);
+    assert.equal(engine.snapshot("a").bpm, 110); assert.equal(engine.snapshot("b").bpm, 174);
+    const rate = follower === "a" ? 174 / 110 : 110 / 174;
+    near(engine.snapshot(follower).rate, rate);
+    if (keyLock) {
+      const command = engine.decks[follower].stretch.schedules.at(-1);
+      near(command.rate, rate); assert.equal(command.semitones, 0);
+    } else near(engine.decks[follower].source.node.playbackRate.value, rate);
+    context.currentTime = 9; near(engine.snapshot(follower).phaseError, 0);
+    engine.setRate(reference, 1.1); context.currentTime = 10;
+    near(engine.snapshot(follower).effectiveBpm, engine.snapshot(reference).effectiveBpm);
+    near(engine.snapshot(follower).phaseError, 0);
+    engine.setSync(reference, true);
+    assert.equal(engine.master, follower); assert.equal(engine.snapshot(follower).sync, false);
+    assert.equal(engine.snapshot(reference).sync, true, "changing direction clears the previous follower flag");
+    context.currentTime = 11; near(engine.snapshot(reference).phaseError, 0);
+    await engine.dispose();
+  });
+
+  for (const followerFirst of [false, true]) test(`Trackazoid stopped Sync matches 110/174 immediately, ${keyLock ? "key lock" : "varispeed"}, follower ${follower}, ${followerFirst ? "follower" : "reference"} first`, async () => {
+    const h = await beatmatchingHarness({ defaultKeyLock: keyLock }), { engine, context } = h;
+    const reference = follower === "a" ? "b" : "a";
+    engine.setBeatGrid("a", { bpm: 110, beatOffset: 0.137 });
+    engine.setBeatGrid("b", { bpm: 174, beatOffset: 0.271 });
+    engine.seek("a", 3.127); engine.seek("b", 4.277);
+    engine.setSync(follower, true);
+    near(engine.snapshot(follower).effectiveBpm, engine.snapshot(reference).effectiveBpm);
+    assert.equal(engine.master, reference); assert.equal(h.creates, 0); assert.equal(engine.armed, false);
+    near(engine.snapshot("a").position, 3.127); near(engine.snapshot("b").position, 4.277);
+    assert.equal(engine.snapshot("a").playing, false); assert.equal(engine.snapshot("b").playing, false);
+    await engine.setAudio(true);
+    engine.play(followerFirst ? follower : reference); context.currentTime = 6;
+    assert.equal(engine.master, reference, "starting the follower cannot steal the prepared reference");
+    engine.play(followerFirst ? reference : follower); context.currentTime = 8;
+    near(engine.snapshot(follower).phaseError, 0);
+    near(engine.snapshot(follower).effectiveBpm, engine.snapshot(reference).effectiveBpm);
+    engine.pause(reference); assert.equal(engine.master, follower);
+    engine.play(reference); assert.equal(engine.master, follower, "normal handoff resumes after the reference's first Play");
+    await engine.dispose();
+  });
+}
+
+test("Trackazoid a running clicked master can follow a stopped reference without moving its paused playhead", async () => {
+  const h = await beatmatchingHarness(), { engine } = h;
+  engine.play("a"); h.setWall(12); engine.seek("b", 17.137);
+  engine.setSync("a", true);
+  assert.equal(engine.master, "b"); near(engine.snapshot("a").effectiveBpm, 126);
+  near(engine.snapshot("b").position, 17.137); assert.equal(engine.snapshot("b").playing, false);
+  h.setWall(14); near(engine.snapshot("b").position, 17.137); assert.equal(engine.snapshot("a").phaseError, null);
+  engine.play("b"); h.setWall(15); near(engine.snapshot("a").phaseError, 0);
+  assert.equal(h.creates, 0); await engine.dispose();
+});
+
+test("Trackazoid stopped reference ownership releases on disable, manual override or replacement", async () => {
+  for (const action of ["disable", "rate", "seek", "cue", "replace-reference", "replace-follower"]) {
+    const h = await beatmatchingHarness(), { engine } = h;
+    engine.setSync("b", true); engine.play("b"); assert.equal(engine.master, "a");
+    if (action === "disable") engine.setSync("b", false);
+    if (action === "rate") engine.setRate("b", 1);
+    if (action === "seek") engine.seek("b", 10);
+    if (action === "cue") { engine.setQuantize("b", false); engine.triggerCue("b", 20); }
+    if (action === "replace-reference") await engine.load("a", audioBuffer());
+    if (action === "replace-follower") await engine.load("b", audioBuffer());
+    assert.equal(engine.waitingForMaster, false, action);
+    assert.equal(engine.master, action === "replace-follower" ? null : "b", action);
+    await engine.dispose();
+  }
+});
+
+for (const keyLock of [false, true]) test(`Trackazoid widest speed endpoints reach ${keyLock ? "key lock" : "native playback"} and retain beat phase`, async () => {
+  const h = await beatmatchingHarness({ defaultKeyLock: keyLock }), { engine, context } = h;
+  engine.setBeatGrid("a", { bpm: 120 }); engine.setBeatGrid("b", { bpm: 120 });
+  engine.setLoop("a", 0, 16); engine.setLoop("b", 0, 16);
+  await engine.setAudio(true); engine.play("a"); engine.setSync("b", true); engine.play("b");
+  for (const rate of [0.125, 8]) {
+    context.currentTime += 2; engine.setRate("a", rate);
+    near(engine.snapshot("a").rate, rate); near(engine.snapshot("b").rate, rate);
+    if (keyLock) near(engine.decks.b.stretch.schedules.at(-1).rate, rate);
+    else near(engine.decks.b.source.node.playbackRate.value, rate);
+    context.currentTime += 1; near(engine.snapshot("b").phaseError, 0);
+    assert.equal(engine.snapshot("b").sync, true);
+  }
+  await engine.dispose();
+});
+
+test("Trackazoid switching Sync direction during a queued launch adopts its future reference and rate", async () => {
+  const h = await beatmatchingHarness({ defaultKeyLock: true }), { engine, context } = h;
+  engine.setBeatGrid("a", { bpm: 110 }); engine.setBeatGrid("b", { bpm: 174 });
+  await engine.setAudio(true); await engine.setKeyLock("b", false);
+  engine.play("a"); context.currentTime = 5.2; engine.setRate("a", 1.1);
+  engine.setSync("b", true); engine.play("b");
+  assert.ok(engine.decks.b.source.startTime > context.currentTime + engine._lead());
+  engine.seek("a", 20.137);
+  const launch = engine.decks.b.source.startTime;
+  engine.setSync("a", true);
+  assert.equal(engine.master, "b"); assert.equal(engine.snapshot("b").sync, false);
+  near(engine.decks.a.stretch.schedules.at(-1).output, launch);
+  near(engine.snapshot("a").effectiveBpm, engine.snapshot("b").effectiveBpm);
+  context.currentTime = launch + 1; near(engine.snapshot("a").phaseError, 0);
+  assert.ok(h.sources.filter(source => !source.disconnected).length <= 2);
+  await engine.dispose();
+});
+
 test("Trackazoid Sync before Play launches with the master, and tempo follows without polling", async () => {
   const h = await beatmatchingHarness(); const { engine, context } = h;
   engine.setSync("b", true);
-  assert.equal(engine.master, null);
+  assert.equal(engine.master, "a");
+  near(engine.snapshot("b").effectiveBpm, 114);
   await engine.setAudio(true); engine.play("a");
   context.currentTime = 5.4;
   engine.play("b");
@@ -265,18 +383,23 @@ test("Trackazoid manual follower edits override Sync while pause/relaunch preser
   await engine.dispose();
 });
 
-test("Trackazoid rejects unknown/out-of-range Sync and preserves explicitly selected master", async () => {
+test("Trackazoid rejects unknown/out-of-range Sync and preserves the last valid reference", async () => {
   const h = harness(); const { engine } = h;
   await engine.load("a", audioBuffer());
   assert.throws(() => engine.setSync("a", true), /source BPM/);
-  engine.setBeatGrid("a", { bpm: 120 }); engine.play("a");
-  await engine.load("b", audioBuffer()); engine.setBeatGrid("b", { bpm: 60 });
-  assert.throws(() => engine.setSync("b", true), /±16%/);
+  engine.setBeatGrid("a", { bpm: 240 });
+  assert.throws(() => engine.setSync("a", true), /other deck/);
+  engine.play("a");
+  await engine.load("b", audioBuffer());
+  assert.throws(() => engine.setSync("a", true), /other track/);
+  engine.setBeatGrid("b", { bpm: 40 }); engine.setRate("a", 8);
+  assert.throws(() => engine.setSync("b", true), /0.125×–8×/);
   assert.equal(engine.snapshot("b").sync, false);
-  engine.setBeatGrid("b", { bpm: 110 }); engine.setSync("b", true); engine.play("b");
-  engine.setRate("a", 1.16);
+  engine.setRate("a", 1); engine.setSync("b", true); engine.play("b");
+  near(engine.snapshot("b").rate, 6);
+  engine.setRate("a", 8);
   assert.equal(engine.snapshot("b").sync, false);
-  assert.match(engine.snapshot("b").syncError, /±16%/);
+  assert.match(engine.snapshot("b").syncError, /0.125×–8×/);
   assert.equal(engine.master, "a");
   await engine.dispose();
 });
@@ -345,7 +468,8 @@ test("Trackazoid grid corrections persist as overrides and free loops release be
   assert.equal(engine.snapshot("b").sync, false);
   engine.clearLoop("a"); engine.setSync("b", true);
   assert.doesNotThrow(() => engine.setBeatGrid("b", { bpm: 63, beatOffset: 0.2 }));
-  assert.equal(engine.snapshot("b").bpm, 63); assert.equal(engine.snapshot("b").sync, false);
+  assert.equal(engine.snapshot("b").bpm, 63); assert.equal(engine.snapshot("b").sync, true);
+  near(engine.snapshot("b").effectiveBpm, 114);
   await engine.dispose();
 });
 
@@ -439,6 +563,7 @@ test("Trackazoid beat actions reject out-of-track targets transactionally and ma
 test("Trackazoid loop moves shift range and inside playhead together; resize preserves playing and valid Sync", async () => {
   const h = harness(), { engine } = h;
   await engine.load("a", audioBuffer()); engine.setBeatGrid("a", { bpm: 120 });
+  await engine.load("b", audioBuffer()); engine.setBeatGrid("b", { bpm: 120 });
   engine.triggerLoop("a", { start: 10, end: 12 }); engine.seek("a", 11.23); engine.play("a"); engine.setSync("a", true);
   engine.moveLoop("a", 4); near(engine.snapshot("a").position, 13.23);
   assert.deepEqual(engine.snapshot("a").loop, { start: 12, end: 14 });
