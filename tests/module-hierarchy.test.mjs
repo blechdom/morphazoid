@@ -18,6 +18,7 @@ import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { restoreShapesSoundBanks, shapesSoundBankChanges as shapeBankChanges } from "./helpers/shapes-sound-banks-reference.mjs";
 import { restorePointerExtraction } from "./helpers/pointer-extraction-reference.mjs";
 import { restoreRubixColorKit, rubixColorKitChanges } from "./helpers/rubix-color-kit-reference.mjs";
+import { restoreRubixMobile, rubixMobileChanges } from "./helpers/rubix-mobile-reference.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
@@ -72,6 +73,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreRubixMobile(current, record.after);
     current = restoreRubixColorKit(current, record.after);
     current = restoreTapTempo(current, record.after);
     current = restoreFabricFilter(current, record.after);
@@ -146,6 +148,25 @@ test("Color kit amendments are limited to its native model, controller, renderer
     assert.deepEqual(change.regressionTests, ["tests/rubix-color-kit.test.mjs", "e2e/rubix-color-kit.spec.mjs"]);
     for (const file of change.regressionTests) assert.ok(existsSync(path.join(root, file)), file);
   }
+});
+
+test("Rubix mobile amendments are limited to its pointer lifecycle and require exact reviewed bytes", async () => {
+  assert.deepEqual(rubixMobileChanges.map(change => change.file), ["src/instruments/rubix/rubix-app.js"]);
+  for (const change of rubixMobileChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.equal(change.replacements.length, 2);
+    assert.deepEqual(change.regressionTests, ["e2e/rubix-mobile.spec.mjs"]);
+    for (const file of change.regressionTests) assert.ok(existsSync(path.join(root, file)), file);
+    const source = await readFile(path.join(root, change.file), "utf8");
+    assert.notEqual(restoreRubixMobile(source, change.file), source);
+    for (const replacement of change.replacements) {
+      assert.ok(replacement.before.length > 0);
+      assert.ok(replacement.after.length > 0);
+      assert.throws(() => restoreRubixMobile(source.replace(replacement.after, ""), change.file), /exact Rubix mobile amendment/);
+      assert.throws(() => restoreRubixMobile(source + replacement.after, change.file), /exact Rubix mobile amendment/);
+    }
+  }
+  assert.equal(restoreRubixMobile("untouched", "unrelated.js"), "untouched");
 });
 
 test("Rust delay branching amendment is limited to its local grammar registry with original-output and parity evidence", () => {

@@ -1,0 +1,22 @@
+{
+  "baseCommit": "a2cfc3b184cb167c6fd97f510563c49e934a11b6",
+  "changes": [
+    {
+      "file": "src/instruments/rubix/rubix-app.js",
+      "reason": "Preserve the active Rubix gesture when an extra finger touches the canvas, ignore nonprimary buttons, and cancel unfinished gestures when pointer capture is lost. Original Color kit and relocation hashes remain unchanged.",
+      "regressionTests": [
+        "e2e/rubix-mobile.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "canvas.addEventListener(\"pointerdown\", (event) => {\n  if (turnAnimation || turnQueue.length) return;\n",
+          "after": "canvas.addEventListener(\"pointerdown\", (event) => {\n  if (pointerGesture || event.isPrimary === false || event.button > 0 || turnAnimation || turnQueue.length) return;\n"
+        },
+        {
+          "before": "canvas.addEventListener(\"pointerup\", (event) => endPointerGesture(event));\ncanvas.addEventListener(\"pointercancel\", (event) => endPointerGesture(event, true));\ncanvas.addEventListener(\"contextmenu\", (event) => event.preventDefault());\n",
+          "after": "canvas.addEventListener(\"pointerup\", (event) => endPointerGesture(event));\ncanvas.addEventListener(\"pointercancel\", (event) => endPointerGesture(event, true));\ncanvas.addEventListener(\"lostpointercapture\", (event) => endPointerGesture(event, true));\ncanvas.addEventListener(\"contextmenu\", (event) => event.preventDefault());\n"
+        }
+      ]
+    }
+  ]
+}
