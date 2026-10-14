@@ -190,8 +190,14 @@ export class NetworkView {
       for (const [el, p] of [[v.select, labelPoint], [v.out, g.p], [v.entry, g.q]]) if (el) {
         el.style.left = `${p.x}px`; el.style.top = `${p.y}px`;
       }
-      if (v.out) describeButton(v.out, `Route ${a.label} to ${b.label} exit`);
-      if (v.entry) describeButton(v.entry, `Route ${a.label} to ${b.label} entry`);
+      if (v.out) {
+        describeButton(v.out, `Route ${a.label} to ${b.label} exit`);
+        v.out.setAttribute("aria-pressed", String(selectedRoute === route.id));
+      }
+      if (v.entry) {
+        describeButton(v.entry, `Route ${a.label} to ${b.label} entry`);
+        v.entry.setAttribute("aria-pressed", String(selectedRoute === route.id));
+      }
     }
   }
   focus(id) { this.nodes.get(id)?.node.scrollIntoView({ block: "nearest", inline: "nearest", behavior: "smooth" }); }

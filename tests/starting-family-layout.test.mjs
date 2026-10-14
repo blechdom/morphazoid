@@ -10,6 +10,7 @@ import { runtimeSourceFiles } from "../scripts/check-runtime-source.mjs";
 import { localPath, referencesIn } from "../scripts/inspect-instrument.mjs";
 import { currentSourcePath } from "./helpers/relocated-sources.mjs";
 import { restoreTapeWormConnectors } from "./helpers/tape-worm-connectors-reference.mjs";
+import { restoreLoopNetworkPointers } from "./helpers/loop-network-pointer-reference.mjs";
 
 const root = new URL("../", import.meta.url);
 const plan = JSON.parse(await readFile(new URL("../docs/starting-family-layout.json", import.meta.url)));
@@ -33,12 +34,12 @@ test("starting runtime has one family owner without changing optional copy polic
   }
 });
 
-test("family bytes survive path reversal after the explicit connector rendering amendment", async () => {
+test("family bytes survive path reversal after the explicit connector and pointer amendments", async () => {
   assert.equal(proof.baseCommit, plan.baseCommit);
   for (const record of proof.files) {
     const file = currentSourcePath(record.after);
     const current = await readFile(new URL(file, root), "utf8");
-    const historical = restoreTapeWormConnectors(current, file);
+    const historical = restoreTapeWormConnectors(restoreLoopNetworkPointers(current, file), file);
     const beforeRename = rewriteRepositoryPaths(rewriteModulePaths(historical, file, renameInverse), renameInverse);
     const restored = rewriteRepositoryPaths(rewriteModulePaths(beforeRename, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);

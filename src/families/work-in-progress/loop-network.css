@@ -72,6 +72,7 @@ body.loop-network-page {
 .network-route-label[aria-pressed="true"] { color: #fff0b3; border-color: #fff0b3; }
 .network-port { touch-action: none; border-radius: 50%; background: #17261f; color: #bceec7; min-width: 30px; min-height: 28px; padding: 3px; }
 .network-port-in { border-radius: 4px; background: #292336; color: #d4b7fa; }
+.network-port[aria-pressed="true"] { z-index: 1; border-color: #fff0b3; }
 .network-viewport :focus-visible { outline: 3px solid #f4bb7e; outline-offset: 3px; }
 .network-viewport:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
 .network-tools { display: flex; flex-wrap: wrap; gap: 7px; }

@@ -253,7 +253,13 @@ function activate(loopId) {
   else send({ type: "mode", loopId, value: loop.mode === "hold" ? "overdub" : "hold" });
 }
 function point(e) {
-  const rect = $("networkSurface").getBoundingClientRect(); return { x: e.clientX - rect.left, y: e.clientY - rect.top };
+  const surface = $("networkSurface"), rect = surface.getBoundingClientRect();
+  // Client coordinates include the view's translation/scale and both scrollers.
+  // Convert back to the native network units used by loops and route phases.
+  return {
+    x: (e.clientX - rect.left) * (rect.width ? surface.offsetWidth / rect.width : 1),
+    y: (e.clientY - rect.top) * (rect.height ? surface.offsetHeight / rect.height : 1),
+  };
 }
 function startDrag(e, loopId) {
   if (e.button > 0 || e.isPrimary === false || drag || connecting) return;
