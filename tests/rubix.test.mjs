@@ -690,7 +690,7 @@ test("Rubix page exposes cube gestures, mutually exclusive banks across all six 
   ].map((match) => match[1] ?? match[2]);
   assert.deepEqual(
     registeredSoundBanks,
-    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303"],
+    ["soft-fm", "color-kit", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303"],
   );
   assert.match(defaultsDefinition, /\bsoundBank\s*:\s*"soft-fm"/);
   assert.doesNotMatch(defaultsDefinition, /\bpercEngine\b/);

@@ -17,6 +17,7 @@ import { rewriteModulePaths, rewriteRepositoryPaths, relocateReference } from ".
 import { readRuntimeManifest } from "../scripts/site/runtime-manifest.mjs";
 import { restoreShapesSoundBanks, shapesSoundBankChanges as shapeBankChanges } from "./helpers/shapes-sound-banks-reference.mjs";
 import { restorePointerExtraction } from "./helpers/pointer-extraction-reference.mjs";
+import { restoreRubixColorKit, rubixColorKitChanges } from "./helpers/rubix-color-kit-reference.mjs";
 
 const root = fileURLToPath(new URL("../", import.meta.url));
 const plan = JSON.parse(await readFile(new URL("../docs/source-module-layout.json", import.meta.url)));
@@ -71,6 +72,7 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
   ]);
   for (const record of proof.files) {
     let current = await readFile(path.join(root, record.after), "utf8");
+    current = restoreRubixColorKit(current, record.after);
     current = restoreTapTempo(current, record.after);
     current = restoreFabricFilter(current, record.after);
     current = restoreVoicesaurus(current, record.after);
@@ -130,6 +132,19 @@ test("runtime modules reverse exactly after explicit runtime fixes and documente
     }
     const restored = rewriteRepositoryPaths(rewriteModulePaths(current, record.after, inverse), inverse);
     assert.equal(sha(restored), record.sha256, record.after);
+  }
+});
+
+test("Color kit amendments are limited to its native model, controller, renderer recipe and presets", () => {
+  assert.deepEqual(rubixColorKitChanges.map(change => change.file), [
+    "src/instruments/rubix/full-presets.js", "src/instruments/rubix/rubix-app.js",
+    "src/instruments/rubix/rubix-percussion.js", "src/instruments/rubix/rubix.js",
+  ]);
+  for (const change of rubixColorKitChanges) {
+    assert.ok(proof.files.some(record => record.after === change.file));
+    assert.ok(change.replacements.length);
+    assert.deepEqual(change.regressionTests, ["tests/rubix-color-kit.test.mjs", "e2e/rubix-color-kit.spec.mjs"]);
+    for (const file of change.regressionTests) assert.ok(existsSync(path.join(root, file)), file);
   }
 });
 

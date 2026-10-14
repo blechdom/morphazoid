@@ -16,7 +16,7 @@ const numeric = {
   stickerModulation: [0, 1], visibilityDynamics: [0, 1], randomTwistSpeed: [0, 100],
 };
 const shapes = ["cube", "morphix", "diamond", "stella", "orb"];
-const banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), "soft-fm", "analog", "modal", "noise", "acid-303", "rattlesnake", "pitched-morph", "karplus-strong"];
+const banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), "soft-fm", "color-kit", "analog", "modal", "noise", "acid-303", "rattlesnake", "pitched-morph", "karplus-strong"];
 function arrangedCube(size, count, seed) {
   const solved = createSolvedRubixCube(size);
   let cube = solved;
@@ -45,6 +45,8 @@ function fullScene(id, label, shapeId, size, readingMode, settings, turns = 0, s
 }
 export const RUBIX_FULL_PRESETS = Object.freeze([
   ...Object.values(RUBIX_FACTORY_PRESETS).map(p => fullScene(p.id, p.label, p.shapeId, p.size, p.readingMode, p.settings)),
+  fullScene("color-kit", "Color kit · Six sounds", "cube", 3, "snake",
+    { tempo: 158, swing: .08, soundBank: "color-kit", randomTwists: false }, 11, 2),
   fullScene("sweet-stella", "Stella · Sweet bells", "stella", 3, "snake",
     { tempo: 76, swing: 0.1, soundBank: "modal", drumLevel: 0.4, output: 0.44, randomTwists: false }, 5, 1),
   fullScene("acid-diamond", "Diamond · Acid conversation", "diamond", 3, "face",

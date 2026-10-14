@@ -43,7 +43,9 @@ for (const owner of ['rubix', 'rubixoids/rubix']) {
   });
   test(`${owner}: factory scores retain their pre-fix notes and arrangements`, async () => {
     const { RUBIX_FULL_PRESETS } = await import(`../src/instruments/${owner}/full-presets.js`);
-    const scores = JSON.stringify(RUBIX_FULL_PRESETS.map(preset => [preset.id, preset.snapshot.cube]));
+    // Color kit is a later addition with its own legal-turn/mapping regressions.
+    const legacyPresets = RUBIX_FULL_PRESETS.filter(preset => preset.id !== 'color-kit');
+    const scores = JSON.stringify(legacyPresets.map(preset => [preset.id, preset.snapshot.cube]));
     // Captured before correcting live middle-slice movement, including Sweet Stella.
     assert.equal(createHash('sha256').update(scores).digest('hex'), 'ef5348163e46a54916d6bbbbb54264aacb22eefa54fb8680db4faef2a07ec06c');
   });

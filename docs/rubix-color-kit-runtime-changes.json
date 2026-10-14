@@ -1,0 +1,129 @@
+{
+  "baseCommit": "4a742a111207ed65e7ee38f37bdbf112585aa9b2",
+  "changes": [
+    {
+      "file": "src/instruments/rubix/full-presets.js",
+      "reason": "Color kit has one native FM sound per sticker color across all faces, with short individual envelopes and a complete 3×3 preset; original banks and historical source hashes remain unchanged.",
+      "regressionTests": [
+        "tests/rubix-color-kit.test.mjs",
+        "e2e/rubix-color-kit.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), \"soft-fm\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  const solved = createSolvedRubixCube(size);\n",
+          "after": "};\nconst shapes = [\"cube\", \"morphix\", \"diamond\", \"stella\", \"orb\"];\nconst banks = [...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`), \"soft-fm\", \"color-kit\", \"analog\", \"modal\", \"noise\", \"acid-303\", \"rattlesnake\", \"pitched-morph\", \"karplus-strong\"];\nfunction arrangedCube(size, count, seed) {\n  const solved = createSolvedRubixCube(size);\n"
+        },
+        {
+          "before": "export const RUBIX_FULL_PRESETS = Object.freeze([\n  ...Object.values(RUBIX_FACTORY_PRESETS).map(p => fullScene(p.id, p.label, p.shapeId, p.size, p.readingMode, p.settings)),\n  fullScene(\"sweet-stella\", \"Stella · Sweet bells\", \"stella\", 3, \"snake\",\n    { tempo: 76, swing: 0.1, soundBank: \"modal\", drumLevel: 0.4, output: 0.44, randomTwists: false }, 5, 1),\n",
+          "after": "export const RUBIX_FULL_PRESETS = Object.freeze([\n  ...Object.values(RUBIX_FACTORY_PRESETS).map(p => fullScene(p.id, p.label, p.shapeId, p.size, p.readingMode, p.settings)),\n  fullScene(\"color-kit\", \"Color kit · Six sounds\", \"cube\", 3, \"snake\",\n    { tempo: 158, swing: .08, soundBank: \"color-kit\", randomTwists: false }, 11, 2),\n  fullScene(\"sweet-stella\", \"Stella · Sweet bells\", \"stella\", 3, \"snake\",\n    { tempo: 76, swing: 0.1, soundBank: \"modal\", drumLevel: 0.4, output: 0.44, randomTwists: false }, 5, 1),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix-app.js",
+      "reason": "Color kit has one native FM sound per sticker color across all faces, with short individual envelopes and a complete 3×3 preset; original banks and historical source hashes remain unchanged.",
+      "regressionTests": [
+        "tests/rubix-color-kit.test.mjs",
+        "e2e/rubix-color-kit.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from \"./rubix-mix.js\";\nimport {\n  RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer,\n} from \"./rubix-percussion.js\";\nimport { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from \"./rubix-simd-surface.js\";\n",
+          "after": "import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from \"./rubix-mix.js\";\nimport {\n  RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer, rubixSourceVoice,\n} from \"./rubix-percussion.js\";\nimport { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from \"./rubix-simd-surface.js\";\n"
+        },
+        {
+          "before": "  RUBIX_ACID_MIDI_BY_COLOR,\n  RUBIX_COLOR_ORDER,\n  RUBIX_DRUM_LEFT_VOICE_BY_COLOR,\n  RUBIX_DRUM_RIGHT_VOICE_BY_COLOR,\n  RUBIX_FACE_DEFINITIONS,\n  RUBIX_READ_MODES,\n",
+          "after": "  RUBIX_ACID_MIDI_BY_COLOR,\n  RUBIX_COLOR_ORDER,\n  rubixDrumVoiceForColor,\n  RUBIX_FACE_DEFINITIONS,\n  RUBIX_READ_MODES,\n"
+        },
+        {
+          "before": "    detail: \"rounded carrier + modulation\",\n    role: \"percussion\",\n  }),\n  analog: Object.freeze({\n",
+          "after": "    detail: \"rounded carrier + modulation\",\n    role: \"percussion\",\n  }),\n  \"color-kit\": Object.freeze({\n    id: \"color-kit\", label: \"Color kit · Six sounds\",\n    detail: \"one contrasting sound per color on every face\", role: \"percussion\",\n  }),\n  analog: Object.freeze({\n"
+        },
+        {
+          "before": "    if (!OfflineContext) throw new Error(\"Offline audio rendering is unavailable.\");\n    const params = { ...rubixBankParams(bankId, this.sharedSettings?.bankParams, this.sharedSettings) };\n    const sourceVoices = this.voices.map(voice => sanitizeFmDrumVoice(voice));\n    const key = JSON.stringify([sourceVoices, rubixRenderedParams(bankId, params)]);\n    const result = await this.kitCache.request(bankId, key, async current => {\n      const buffers = [];\n      const usedVoices = new Set([\n        ...Object.values(RUBIX_DRUM_LEFT_VOICE_BY_COLOR),\n        ...Object.values(RUBIX_DRUM_RIGHT_VOICE_BY_COLOR),\n      ]);\n      for (const voiceIndex of usedVoices) {\n        if (!current() || this.context !== liveContext) return null;\n",
+          "after": "    if (!OfflineContext) throw new Error(\"Offline audio rendering is unavailable.\");\n    const params = { ...rubixBankParams(bankId, this.sharedSettings?.bankParams, this.sharedSettings) };\n    const sourceVoices = this.voices.map((voice, index) => sanitizeFmDrumVoice(rubixSourceVoice(voice, index, bankId)));\n    const key = JSON.stringify([sourceVoices, rubixRenderedParams(bankId, params)]);\n    const result = await this.kitCache.request(bankId, key, async current => {\n      const buffers = [];\n      const usedVoices = new Set(RUBIX_COLOR_ORDER.flatMap(color =>\n        [\"drumLeft\", \"drumRight\"].map(role => rubixDrumVoiceForColor(color, role, bankId))));\n      for (const voiceIndex of usedVoices) {\n        if (!current() || this.context !== liveContext) return null;\n"
+        },
+        {
+          "before": "          const method = {\n            analog: \"scheduleAnalogDrum\", modal: \"scheduleModalDrum\",\n            noise: \"scheduleNoiseDrum\", \"soft-fm\": \"scheduleFmDrum\",\n          }[bankId];\n          renderer[method](voice, 0, 1, context.destination);\n",
+          "after": "          const method = {\n            analog: \"scheduleAnalogDrum\", modal: \"scheduleModalDrum\",\n            noise: \"scheduleNoiseDrum\", \"soft-fm\": \"scheduleFmDrum\", \"color-kit\": \"scheduleFmDrum\",\n          }[bankId];\n          renderer[method](voice, 0, 1, context.destination);\n"
+        },
+        {
+          "before": "});\n\nlet sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);\nstate.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;\nlet performanceSnapshots = Object.freeze([sequenceSnapshot]);\n",
+          "after": "});\n\nlet sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank);\nstate.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;\nlet performanceSnapshots = Object.freeze([sequenceSnapshot]);\n"
+        },
+        {
+          "before": "  auditionCube = turnRubixLayer(state.cube, move);\n  auditionMoveKey = moveKey;\n  const destination = createRubixSequenceSnapshot(auditionCube, state.camera);\n  setPerformanceSnapshots([sequenceSnapshot, destination]);\n}\n",
+          "after": "  auditionCube = turnRubixLayer(state.cube, move);\n  auditionMoveKey = moveKey;\n  const destination = createRubixSequenceSnapshot(auditionCube, state.camera, state.soundBank);\n  setPerformanceSnapshots([sequenceSnapshot, destination]);\n}\n"
+        },
+        {
+          "before": "  auditionMoveKey = \"\";\n  setPerformanceSnapshots([\n    createRubixSequenceSnapshot(state.cube, state.camera),\n  ], { render: false });\n}\n",
+          "after": "  auditionMoveKey = \"\";\n  setPerformanceSnapshots([\n    createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank),\n  ], { render: false });\n}\n"
+        },
+        {
+          "before": "    if (RUBIX_FACE_ROLES[face] !== role) continue;\n    const sticker = stickers[frame.cellIndex];\n    const drumMap = role === \"drumRight\"\n      ? RUBIX_DRUM_RIGHT_VOICE_BY_COLOR : RUBIX_DRUM_LEFT_VOICE_BY_COLOR;\n    const value = state.soundBank === \"acid-303\"\n      ? RUBIX_ACID_MIDI_BY_COLOR[sticker.color] : drumMap[sticker.color];\n    bySticker.set(sticker.id, {\n      sticker, value, face, gain: stickerDynamicsGain(sticker), snapshot,\n",
+          "after": "    if (RUBIX_FACE_ROLES[face] !== role) continue;\n    const sticker = stickers[frame.cellIndex];\n    const value = state.soundBank === \"acid-303\"\n      ? RUBIX_ACID_MIDI_BY_COLOR[sticker.color] : rubixDrumVoiceForColor(sticker.color, role, state.soundBank);\n    bySticker.set(sticker.id, {\n      sticker, value, face, gain: stickerDynamicsGain(sticker), snapshot,\n"
+        },
+        {
+          "before": "\nfunction renderColorKey() {\n  if ($(\"colorKey\").hidden) return;\n  const soundBank = currentSoundBank();\n  const fragment = document.createDocumentFragment();\n  for (const color of RUBIX_COLOR_ORDER) {\n    const leftVoice = voices[RUBIX_DRUM_LEFT_VOICE_BY_COLOR[color]];\n    const rightVoice = voices[RUBIX_DRUM_RIGHT_VOICE_BY_COLOR[color]];\n    const item = document.createElement(\"span\");\n    item.style.setProperty(\"--key-color\", COLOR_HEX[color]);\n    const swatch = document.createElement(\"i\");\n",
+          "after": "\nfunction renderColorKey() {\n  const colorKey = $(\"colorKey\");\n  colorKey.hidden = state.soundBank !== \"color-kit\";\n  if (colorKey.hidden) return;\n  const soundBank = currentSoundBank();\n  const fragment = document.createDocumentFragment();\n  for (const color of RUBIX_COLOR_ORDER) {\n    const leftIndex = rubixDrumVoiceForColor(color, \"drumLeft\", soundBank.id);\n    const rightIndex = rubixDrumVoiceForColor(color, \"drumRight\", soundBank.id);\n    const leftVoice = voices[leftIndex];\n    const rightVoice = voices[rightIndex];\n    const item = document.createElement(\"span\");\n    item.dataset.color = color;\n    if (leftIndex === rightIndex) item.dataset.voiceIndex = String(leftIndex);\n    item.style.setProperty(\"--key-color\", COLOR_HEX[color]);\n    const swatch = document.createElement(\"i\");\n"
+        },
+        {
+          "before": "        ? `${color} · ${Math.round(midiFrequency(RUBIX_ACID_MIDI_BY_COLOR[color]) * simd303ParamsFromControls().fundamental / 440)} Hz`\n        : `${color} · ${midiLabel(RUBIX_ACID_MIDI_BY_COLOR[color] + 12)}`\n      : `${color} · ${leftVoice.name} / ${rightVoice.name}`;\n    item.append(swatch, copy);\n    fragment.append(item);\n  }\n  const colorKey = $(\"colorKey\");\n  colorKey.dataset.soundBank = soundBank.id;\n  colorKey.setAttribute(\"aria-label\", `${soundBank.label} sticker color mapping`);\n",
+          "after": "        ? `${color} · ${Math.round(midiFrequency(RUBIX_ACID_MIDI_BY_COLOR[color]) * simd303ParamsFromControls().fundamental / 440)} Hz`\n        : `${color} · ${midiLabel(RUBIX_ACID_MIDI_BY_COLOR[color] + 12)}`\n      : leftIndex === rightIndex ? `${color} · ${leftVoice.name}` : `${color} · ${leftVoice.name} / ${rightVoice.name}`;\n    item.append(swatch, copy);\n    fragment.append(item);\n  }\n  colorKey.dataset.soundBank = soundBank.id;\n  colorKey.setAttribute(\"aria-label\", `${soundBank.label} sticker color mapping`);\n"
+        },
+        {
+          "before": "  const previousFaces = sequenceSnapshot.faceNames;\n  const readConfig = currentReadConfig();\n  sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);\n  auditionCube = null;\n  auditionMoveKey = \"\";\n",
+          "after": "  const previousFaces = sequenceSnapshot.faceNames;\n  const readConfig = currentReadConfig();\n  sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank);\n  auditionCube = null;\n  auditionMoveKey = \"\";\n"
+        },
+        {
+          "before": "  }\n  state.soundBank = requested;\n  if (markCustom) markPresetCustom();\n  audio.setSoundBank(requested, state);\n",
+          "after": "  }\n  state.soundBank = requested;\n  updateSnapshot();\n  if (markCustom) markPresetCustom();\n  audio.setSoundBank(requested, state);\n"
+        },
+        {
+          "before": "    visibility: { ...visibilityProfile },\n    events: currentReadFrame().activeRoles.flatMap((role) => performanceEventsForRole(role))\n      .map(({ sticker, face, value, gain }) => ({ id: sticker.id, face, value, gain })),\n    gates: audio.stickerMixer ? [...audio.stickerMixer.gates].flatMap(([id, buses]) =>\n      [...buses.values()].map((gate) => ({\n",
+          "after": "    visibility: { ...visibilityProfile },\n    events: currentReadFrame().activeRoles.flatMap((role) => performanceEventsForRole(role))\n      .map(({ sticker, face, value, gain }) => ({ id: sticker.id, color: sticker.color, face, value, gain })),\n    gates: audio.stickerMixer ? [...audio.stickerMixer.gates].flatMap(([id, buses]) =>\n      [...buses.values()].map((gate) => ({\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix-percussion.js",
+      "reason": "Color kit has one native FM sound per sticker color across all faces, with short individual envelopes and a complete 3×3 preset; original banks and historical source hashes remain unchanged.",
+      "regressionTests": [
+        "tests/rubix-color-kit.test.mjs",
+        "e2e/rubix-color-kit.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "import { LinearDrumAudio, LINEAR_DRUM_DEFAULTS } from \"../linear-drums/linear-drums.js\";\n\nexport const RUBIX_EXTRA_KITS = Object.freeze({\n",
+          "after": "import { LinearDrumAudio, LINEAR_DRUM_DEFAULTS } from \"../linear-drums/linear-drums.js\";\nimport { DEFAULT_FM_DRUM_VOICES } from \"../fm-drums/fm-drums.js\";\nimport { RUBIX_COLOR_KIT_VOICE_BY_COLOR } from \"./rubix.js\";\n\nconst colorKitDecay = Object.freeze({ red: .30, green: .16, yellow: .05, blue: .15, white: .22, orange: .20 });\n\n/** Short individual envelopes leave room between Color kit hits. Saved voice edits remain proportional. */\nexport function rubixSourceVoice(voice, voiceIndex, bankId) {\n  if (bankId !== \"color-kit\") return voice;\n  const color = Object.keys(RUBIX_COLOR_KIT_VOICE_BY_COLOR)\n    .find(key => RUBIX_COLOR_KIT_VOICE_BY_COLOR[key] === voiceIndex);\n  if (!color) return voice;\n  return { ...voice, decay: voice.decay * colorKitDecay[color] / DEFAULT_FM_DRUM_VOICES[voiceIndex].decay };\n}\n\nexport const RUBIX_EXTRA_KITS = Object.freeze({\n"
+        }
+      ]
+    },
+    {
+      "file": "src/instruments/rubix/rubix.js",
+      "reason": "Color kit has one native FM sound per sticker color across all faces, with short individual envelopes and a complete 3×3 preset; original banks and historical source hashes remain unchanged.",
+      "regressionTests": [
+        "tests/rubix-color-kit.test.mjs",
+        "e2e/rubix-color-kit.spec.mjs"
+      ],
+      "replacements": [
+        {
+          "before": "  red: 1,\n  orange: 5,\n});\n\n",
+          "after": "  red: 1,\n  orange: 5,\n});\n\n/** Color kit keeps one contrasting voice per sticker color on every face. */\nexport const RUBIX_COLOR_KIT_VOICE_BY_COLOR = Object.freeze({\n  white: 11,\n  yellow: 7,\n  green: 2,\n  blue: 10,\n  red: 0,\n  orange: 14,\n});\n\n"
+        },
+        {
+          "before": "}\n\nconst readOrderCache = new Map([\n  [`row-major:${RUBIX_ROW_MAJOR_ORDER.length}`, RUBIX_ROW_MAJOR_ORDER],\n",
+          "after": "}\n\n/** Resolve the sounding drum identity without coupling it to camera position. */\nexport function rubixDrumVoiceForColor(color, role = \"drumLeft\", bankId = \"soft-fm\") {\n  const safeColor = assertColor(color);\n  if (!RUBIX_SEQUENCE_ROLES.includes(role)) throw new RangeError(\"Unknown Rubix sequence role.\");\n  if (bankId === \"color-kit\") return RUBIX_COLOR_KIT_VOICE_BY_COLOR[safeColor];\n  return rubixDrumVoiceIndexForColor(safeColor, role === \"drumRight\" ? \"drum-right\" : \"drum-left\");\n}\n\nconst readOrderCache = new Map([\n  [`row-major:${RUBIX_ROW_MAJOR_ORDER.length}`, RUBIX_ROW_MAJOR_ORDER],\n"
+        },
+        {
+          "before": " * Each visible face is a lane; all derived audio arrays preserve row-major order.\n */\nexport function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA) {\n  const source = assertCube(cube);\n  const visibleFaces = visibleRubixFaces(camera);\n",
+          "after": " * Each visible face is a lane; all derived audio arrays preserve row-major order.\n */\nexport function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA, bankId = \"soft-fm\") {\n  const source = assertCube(cube);\n  const visibleFaces = visibleRubixFaces(camera);\n"
+        },
+        {
+          "before": "        RUBIX_ACID_NORMALIZED_BY_COLOR[color]\n      ))),\n      drumLeftVoiceIndices: Object.freeze(drumLeft.map(({ color }) => (\n        RUBIX_DRUM_LEFT_VOICE_BY_COLOR[color]\n      ))),\n      drumRightVoiceIndices: Object.freeze(drumRight.map(({ color }) => (\n        RUBIX_DRUM_RIGHT_VOICE_BY_COLOR[color]\n      ))),\n    }),\n",
+          "after": "        RUBIX_ACID_NORMALIZED_BY_COLOR[color]\n      ))),\n      drumTopVoiceIndices: Object.freeze(acid.map(({ color }) => (\n        rubixDrumVoiceForColor(color, \"acid\", bankId)\n      ))),\n      drumLeftVoiceIndices: Object.freeze(drumLeft.map(({ color }) => (\n        rubixDrumVoiceForColor(color, \"drumLeft\", bankId)\n      ))),\n      drumRightVoiceIndices: Object.freeze(drumRight.map(({ color }) => (\n        rubixDrumVoiceForColor(color, \"drumRight\", bankId)\n      ))),\n    }),\n"
+        }
+      ]
+    }
+  ]
+}

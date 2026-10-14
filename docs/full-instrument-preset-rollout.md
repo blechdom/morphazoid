@@ -227,7 +227,7 @@ control for **24 of 157 regular instruments** (451 full-state presets):
 | Solid | 20 |
 | Hyper | 20 |
 | Shapes (2D/3D/4D app) | 106 |
-| Rubix Cube Sequencer | 12 |
+| Rubix Cube Sequencer | 13 |
 | Hybrinx | 12 |
 | Jaw Harp | 16 |
 | Hyper Rubix | 12 |

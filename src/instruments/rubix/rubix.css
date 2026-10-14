@@ -746,7 +746,7 @@
   grid-template-columns: 9px minmax(0, 1fr);
   align-items: center;
   gap: 6px;
-  font-size: 7px;
+  font-size: 11px;
   text-transform: uppercase;
 }
 

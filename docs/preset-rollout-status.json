@@ -5,7 +5,7 @@
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
     "implemented": 48,
-    "fullPresets": 1978,
+    "fullPresets": 1979,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 129
@@ -305,7 +305,7 @@
       "href": "rubix.html",
       "category": "sequencer",
       "scope": "fave",
-      "presets": 12,
+      "presets": 13,
       "status": "implemented-verification-pending"
     },
     {
