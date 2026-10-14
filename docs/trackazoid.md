@@ -16,11 +16,13 @@ browser instrument inspired by familiar DJ workflows, not a Traktor port.
    Loading, seeking and playing never enable Audio for you. Space controls
    the selected deck (A/B), including when its waveform is focused. Fields, buttons and menus keep their native keys.
 3. Tempo and beats are detected in the background when a deck loads a new track.
-   The first playing deck becomes the **MASTER**. Enable **Sync** on the other
-   deck, then press its **Play**: it matches the master's tempo and launches on
-   a matching beat. Sync stays enabled and follows master tempo changes.
-4. Use the deck faders, three-band EQ, filters and crossfader to mix. **Key lock**
-   starts on to preserve pitch while changing tempo.
+   Press **Sync** on the deck you want to change: it matches the other deck's
+   tempo immediately, even while paused. Start either deck first; when both are
+   playing, their beat grids align. The other deck is marked **MASTER** and its
+   tempo changes continue to update the synced deck.
+4. Use the deck faders, three-band EQ, filters and crossfader to mix. **Keep pitch**
+   starts on. Click it to choose **Pitch follows tempo** for that deck, or use
+   **Pitch · both decks** in the mixer to apply either choice to A and B.
 
 Use **Adjust** only when an estimate needs correcting. Enter Source BPM or Tap,
 use **½ / ×2**, shift the grid with **Grid − / +**, or place the cursor on a
@@ -46,11 +48,11 @@ replaces it, keeping an accidental drop from cutting off the current track.
 | Loop selection | Repeat the selected chunk (L). Click again to stop that same loop. No detected BPM is required. |
 | Clear selection | Clear the range or pending In point (Delete / Backspace), preserving any playing loop. |
 | Mark | Add the next empty cue marker at the playhead (M), or double-click the waveform to seek and place one. Drag a numbered flag to move it. |
-| Tempo | Change playback speed from −16% to +16%. |
-| Key lock | Preserve pitch while changing tempo through Signalsmith Stretch. It starts on; turn it off for native playback. |
+| Tempo | Change playback speed from 0.125× to 8× (−87.5% to +700%). Arrow keys make 0.1% adjustments; 0 resets the original speed. |
+| Pitch | **Keep pitch** preserves the original pitch through Signalsmith Stretch. Click to switch to **Pitch follows tempo**, which raises or lowers pitch naturally with native playback speed. Each deck can use a different mode; the mixer menu sets both. |
 | Source BPM / Tap | Set the unmodified track tempo, between 40 and 240 BPM. Overrides the automatic estimate; available under Adjust. |
 | Set downbeat here | Place the beat-grid anchor at the cursor. |
-| Sync | Follow the master tempo and beat phase until disabled; the ±16% range still applies. |
+| Sync | Match this deck to the other deck, then follow its tempo and beat phase until disabled. Works paused or playing, within 0.125×–8× speed. |
 | Saved cues & loops (1–8) | An empty pad saves the selection, then the active loop, or otherwise the playhead as a cue. A filled pad recalls it. Color means a marker is saved, not that a switch is on. Choose a slot beside **Clear pad** to remove it without recalling it, or Shift-click / Shift+1–8. Clearing a saved loop leaves any currently playing loop intact; use **Loop** to stop looping. |
 | Edit pads | Name the selected slot or explicitly store a cue or loop. Names and ranges save with the track. |
 | Beat loop | With no selection, Loop / L repeats the chosen length from ⅛ to 32 beats. The length menu resizes an active loop; ½ / ×2 halves or doubles it. Loops must last at least 50 ms. |
@@ -85,13 +87,16 @@ Each deck's demo menu contains six locally generated tracks: Mint Transmission
 Parade (116), and Cobalt Rush (174). **Try demo pair** loads the first two. The
 menus can be used independently; choosing a demo on a playing deck stages a
 replacement for **Load replacement**. Demos use the same saved preparation as
-local files and need no download. Widely separated tempos still exceed Sync's
-±16% range; the 120/126 pair is a convenient first mix.
+local files and need no download. All demo pairs can sync at their original
+reference tempo, including Broken Orbit (110) and Cobalt Rush (174). Press Sync
+on Cobalt Rush to match 110, or on Broken Orbit to match 174.
 
 This version does not implement vinyl scratching, slip mode, automatic
-key detection, variable beat grids or DJ-controller profiles. Key lock is a
+key detection, variable beat grids or DJ-controller profiles. Keep pitch is a
 musical processing option: audition its transient quality and cue responsiveness
-on your own tracks before relying on it for a performance. With key lock on,
+on your own tracks before relying on it for a performance. The wide range is
+intentional: extreme stretching can smear transients or distort the sound.
+**Pitch follows tempo** trades pitch preservation for native playback. With Keep pitch on,
 commands are scheduled roughly 100 ms ahead to allow the stretch engine to process;
 native playback is the more immediate option for cueing.
 
@@ -112,11 +117,16 @@ entire folder at once. No audio is uploaded and no model download is required.
 
 Both decks use one audio clock. Play and synchronized tempo changes are scheduled
 at a common future time so native and key-locked playback can align despite
-different processing delays. The first playing deck leads; stopping it hands
-master status to the remaining playing deck. A paused synced deck keeps its Sync
-setting for its next launch. Beat loops preserve Sync; trimming a loop off-grid
-releases it. Sync cannot exceed the existing ±16% tempo range: correct a possible
-half/double BPM estimate or change the master tempo when the range is exceeded.
+different processing delays. Pressing Sync explicitly chooses the other deck as
+reference, including when that reference is paused; tempo matches immediately,
+and beat alignment happens once the reference plays. After that first launch,
+stopping it hands master status to the remaining playing deck. A paused synced
+deck keeps its Sync setting for its next launch. Beat loops preserve Sync;
+trimming a loop off-grid releases it. The 0.125×–8× range covers all supported
+40–240 BPM source pairs at the reference's original speed. If an already sped-up
+or slowed-down reference would put the follower outside that range, Sync reports
+the limit beside the deck controls; adjust the reference tempo to bring it back
+within range. Source BPM and beat-grid metadata are never relabeled to force a match.
 
 ## Local library
 
@@ -174,8 +184,11 @@ process, external audio service or new framework is required. The demo catalog i
 synthesized locally from deterministic oscillators and percussion; the catalogue
 icon is original procedural Canvas artwork.
 
-Desktop Chrome/Edge are the initial target. Controls remain reachable on small
-screens, but the two-deck workspace is designed for a desktop display. Real
+Desktop Chrome/Edge are the initial target. Narrow screens stack the workspace;
+**Deck A / Mixer / Deck B / Library** shortcuts stay below the Morphazoid menubar,
+with **Pause both** always reachable. The menubar and shortcut heights are measured
+again when the window or orientation changes. Touch controls have larger targets;
+horizontal waveform drags select audio and vertical gestures scroll the page. Real
 headphone routing, physical-controller behavior, long-session stability and
 subjective time-stretch quality require device/listening verification; source
 and browser tests cannot establish those properties.

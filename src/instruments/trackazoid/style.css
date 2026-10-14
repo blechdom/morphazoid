@@ -1,6 +1,6 @@
 @import url("../../ui/index.css");
 
-html.trackazoid-document { --tz-header-clearance: 70px; height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; scroll-padding-top: var(--tz-header-clearance); }
+html.trackazoid-document { --tz-menubar-height: 70px; --tz-nav-height: 0px; --tz-header-clearance: calc(var(--tz-menubar-height) + var(--tz-nav-height) + 8px); height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; scroll-padding-top: var(--tz-header-clearance); }
 body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; display: block; background: #0b1016; color: #e5edf2; }
 /* The shared header has no background. Keep scrolled decks behind an opaque
    surface without clipping its fixed Settings panel or Choose popover. */
@@ -169,7 +169,7 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
   .trackazoid-shell { padding: 12px; }.tz-decks { gap: 10px; grid-template-columns: minmax(0, 1fr) 185px minmax(0, 1fr); }.tz-deck { padding: 10px; }.tz-transport { gap: 3px; }.tz-transport button { font-size: 10px; }.tz-transport .tz-play { min-width: 56px; }.tz-tempo-row { gap: 6px; }.tz-source-bpm { max-width: 132px; }.tz-effective output { font-size: 20px; }.tz-tempo-row > button { font-size: 10px; padding: 6px; }.tz-channels { gap: 14px; }.tz-grid-row { flex-wrap: wrap; }
 }
 @media (max-width: 950px) {
-  .tz-decks { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "a b" "mixer mixer"; }.tz-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }.tz-mixer > h2 { grid-column: 1 / -1; margin: 0; }.tz-channels { grid-column: 1; grid-row: 2 / 7; gap: 25px; }.tz-channel { gap: 3px; }.tz-heading > p { display: none; }.tz-heading h1 { flex: 1; }.tz-library-content { grid-template-columns: 145px minmax(0,1fr); }.tz-library td, .tz-library th { padding-inline: 7px; }.tz-library th:nth-child(2), .tz-library td:nth-child(2) { display: none; }.tz-library th:nth-child(1) { width: 45%; }.tz-library th:nth-child(5) { width: 24%; }
+  .tz-decks { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); grid-template-areas: "a b" "mixer mixer"; }.tz-mixer { display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px; }.tz-mixer > h2 { grid-column: 1 / -1; margin: 0; }.tz-channels { grid-column: 1; grid-row: 2 / 7; gap: 25px; }.tz-channel { gap: 3px; }.tz-heading { flex-wrap: wrap; }.tz-heading > p { flex: 1 1 100%; order: 2; line-height: 1.5; }.tz-heading h1 { flex: 1; }.tz-library-content { grid-template-columns: 145px minmax(0,1fr); }.tz-library td, .tz-library th { padding-inline: 7px; }.tz-library th:nth-child(2), .tz-library td:nth-child(2) { display: none; }.tz-library th:nth-child(1) { width: 45%; }.tz-library th:nth-child(5) { width: 24%; }
 }
 @media (max-width: 650px) {
   .trackazoid-shell { padding: 10px; }.tz-heading { gap: 6px; }.tz-heading h1 { font-size: 25px; }.tz-heading > button { font-size: 10px; padding-inline: 6px; }.tz-help summary { font-size: 10px; padding-inline: 3px; }.tz-decks { grid-template-columns: minmax(0,1fr); grid-template-areas: "a" "mixer" "b"; }.tz-deck { padding: 12px; }.tz-waveform { height: 110px; }.tz-transport button { font-size: 11px; }.tz-tempo-row { gap: 14px; }.tz-source-bpm { max-width: 152px; }.tz-effective output { font-size: 24px; }.tz-grid-row span { font-size: 10px; }.tz-library-toolbar { flex-wrap: wrap; padding: 10px; }.tz-library-toolbar h2 { flex: 1; }.tz-search { order: 2; flex-basis: 100%; margin: 0; }.tz-search input { width: 100%; }.tz-library-content { grid-template-columns: minmax(0,1fr); }.tz-folders { border-right: 0; border-bottom: 1px solid #283641; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; }.tz-folders > button { width: auto; }.tz-folders p { display: none; }#folderList { display: flex; flex-wrap: wrap; gap: 5px; min-width: 0; }.tz-folder { margin: 0; max-width: 200px; }.tz-table-scroll { max-height: 330px; }.tz-library th:nth-child(3), .tz-library td:nth-child(3) { display: none; }.tz-library th:nth-child(5) { width: 30%; }.tz-library td > button { padding-inline: 9px; }.tz-library-footer { font-size: 9px; flex-direction: column; gap: 3px; }.tz-pending { flex-wrap: wrap; }.tz-pending span { flex-basis: 100%; }
@@ -183,6 +183,34 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
   .tz-cues { grid-template-columns: repeat(4, minmax(0, 1fr)); }.tz-cues button, .tz-move-controls button, .tz-move-controls select, .tz-loop-controls button, .tz-loop-controls select, .tz-pad-editor button, .tz-pad-editor input, .tz-pad-editor select, .tz-demo-picker select { min-height: 44px; }
 }
 @media (max-width: 650px) { .tz-cues { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
-@media (max-width: 520px) {
-  html.trackazoid-document { --tz-header-clearance: 122px; }
+
+
+.tz-mobile-nav { display: none; }
+.tz-pitch-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 10px; color: #b9cbd7; font-size: 11px; }
+.tz-pitch-row button { min-width: 150px; }
+.tz-sync-error { color: #ffd1b4; font-size: 11px; line-height: 1.5; margin-top: 8px !important; }
+.tz-tempo { grid-template-columns: 108px minmax(0, 1fr) 36px; }
+@media (max-width: 950px) {
+  .tz-mobile-nav { display: flex; position: sticky; top: var(--tz-menubar-height); z-index: 30; gap: 4px; padding: 5px 0; margin-bottom: 10px; background: #0b1016; box-shadow: 0 5px 10px #0003; }
+  .tz-mobile-nav a { display: flex; flex: 1; align-items: center; justify-content: center; color: #dce7ef; text-decoration: none; font-size: 11px; font-weight: 600; min-height: 44px; border-radius: 4px; }
+  .tz-mobile-nav a:hover, .tz-mobile-nav a:focus-visible { background: #293645; }
+  .tz-mobile-nav button { font-size: 10px; padding-inline: 7px; }
+  .tz-mobile-nav a[href="#deckA"] { color: #72e1cd; }
+  .tz-mobile-nav a[href="#deckB"] { color: #f6b57c; }
+  .tz-mixer { min-width: 0; }
+  .tz-routing { min-width: 0; }
+  .tz-heading > p { display: block; }
+}
+@media (pointer: coarse) {
+  .trackazoid-shell button, .trackazoid-shell select, .trackazoid-shell summary { min-height: 44px; }
+  .trackazoid-shell input[type="range"] { min-height: 44px; }
+  .trackazoid-shell input[type="number"], .trackazoid-shell input[type="search"], .tz-pad-editor input { font-size: 16px; min-height: 44px; }
+  .tz-tempo { grid-template-columns: 108px minmax(0, 1fr) 44px; }
+  .tz-library td:last-child { overflow: visible; white-space: normal; }
+  .tz-library td > button { min-width: 44px; min-height: 44px; margin: 2px 0; }
+}
+@media (max-width: 360px) {
+  .tz-deck { padding: 10px; }
+  .tz-tempo-row { gap: 6px; }
+  .tz-library th:nth-child(5) { width: 38%; }
 }

@@ -1,3 +1,5 @@
+import { matchingRate } from "./transport.js";
+
 /** Compact, stereo-safe waveform envelopes; this module also runs as a Worker. */
 export function peakEnvelope(channels, bins = 8192) {
   const length = channels[0]?.length ?? 0;
@@ -31,8 +33,8 @@ export function beatLoop(position, bpm, offset, beats, duration) {
 }
 
 export function syncTarget({ position, duration = Infinity, bpm, offset = 0, otherPosition, otherBpm, otherRate, otherOffset = 0 }) {
-  const rate = otherBpm * otherRate / bpm;
-  if (!Number.isFinite(rate) || rate < 0.84 || rate > 1.16) return null;
+  const rate = matchingRate(bpm, otherBpm, otherRate);
+  if (rate === null) return null;
   const otherBeat = (otherPosition - otherOffset) * otherBpm / 60;
   const fraction = ((otherBeat % 1) + 1) % 1;
   const thisBeat = (position - offset) * bpm / 60;

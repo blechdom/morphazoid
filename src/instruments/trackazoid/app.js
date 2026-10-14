@@ -390,11 +390,42 @@ function sync(id) {
   if (!decks[id].entry || !decks[other].entry) { status("Load both decks before syncing."); return; }
   if (!hasBeatGrid(decks[id].metadata) || !hasBeatGrid(decks[other].metadata)) { status("Wait for tempo analysis, or set BPM in Adjust."); return; }
   clearError();
-  const enabled = !engine.snapshot(id).sync;
-  engine.setSync(id, enabled);
-  status(enabled ? `Deck ${id.toUpperCase()} Sync on · follows the master.${engine.snapshot(id).playing ? "" : " Press Play when ready."}` : `Deck ${id.toUpperCase()} Sync off · manual control.`);
+  engine.setSync(id, true);
+  const state = engine.snapshot(id);
+  status(state.sync ? `Deck ${id.toUpperCase()} matches ${other.toUpperCase()} · ${state.effectiveBpm.toFixed(1)} BPM.${state.playing ? "" : " Press Play when ready."}` : state.syncError || "Sync could not align these decks.");
   updateDecks();
 }
+
+async function setPitchMode(ids, keepPitch) {
+  if (disposed || ids.some((id) => decks[id].keyPending)) return;
+  for (const id of ids) decks[id].keyPending = true;
+  updateDecks();
+  try {
+    const results = await Promise.allSettled(ids.map((id) => engine.setKeyLock(id, keepPitch)));
+    const failed = results.find((result) => result.status === "rejected");
+    if (failed) throw failed.reason;
+    status(`${ids.length === 2 ? "Both decks" : `Deck ${ids[0].toUpperCase()}`} · ${keepPitch ? "keep original pitch" : "pitch follows tempo"}.`);
+  } finally {
+    for (const id of ids) decks[id].keyPending = false;
+    updateDecks();
+  }
+}
+on($("pitchBoth"), "change", (event) => {
+  const mode = event.target.value; event.target.value = "";
+  if (mode) act(() => setPitchMode(["a", "b"], mode === "keep"));
+});
+on($("pauseBoth"), "click", () => { engine.pause("a"); engine.pause("b"); updateDecks(); });
+
+// Measure the shared menubar after it mounts and on orientation changes.
+// Anchor navigation and focused controls must clear both sticky rows.
+const header = document.querySelector(".masthead"), deckNavigation = $("deckNavigation");
+const updateHeaderClearance = () => {
+  document.documentElement.style.setProperty("--tz-menubar-height", `${Math.ceil(header.getBoundingClientRect().height)}px`);
+  document.documentElement.style.setProperty("--tz-nav-height", `${Math.ceil(deckNavigation.getBoundingClientRect().height)}px`);
+};
+const headerObserver = new ResizeObserver(updateHeaderClearance);
+headerObserver.observe(header); headerObserver.observe(deckNavigation);
+updateHeaderClearance();
 
 function updateDecks() {
   if (disposed) return;
@@ -416,14 +447,20 @@ function updateDecks() {
     $(`${id}Effective`).value = gridReady ? (deck.metadata.bpm * state.rate).toFixed(1) : "—";
     $(`${id}Sync`).setAttribute("aria-pressed", String(state.sync));
     $(`${id}Sync`).disabled = !state.sync && (!entry || deck.loading || !gridReady || !hasBeatGrid(decks[other].metadata) || decks[other].loading);
-    $(`${id}Sync`).title = state.sync ? "Turn Sync off for manual control" : "Follow the master tempo and beats, including when you press Play";
+    $(`${id}Sync`).title = state.sync ? "Turn Sync off for manual control" : `Match deck ${other.toUpperCase()} tempo and beats, even while paused`;
     $(`${id}SyncInfo`).textContent = state.syncError ? "CHECK SYNC" : state.isMaster ? "MASTER" : state.sync ? state.pending ? "ALIGNING" : state.playing ? "SYNCED" : "SYNC READY" : "";
-    $(`${id}SyncInfo`).title = state.syncError || (Number.isFinite(state.phaseError) ? `Beat offset: ${state.phaseError.toFixed(3)} beats` : "The first playing deck leads the tempo");
+    $(`${id}SyncInfo`).title = state.syncError || (Number.isFinite(state.phaseError) ? `Beat offset: ${state.phaseError.toFixed(3)} beats` : `Sync matches the other deck; ${state.isMaster ? "this deck leads" : "the selected reference leads"}`);
+    $(`${id}SyncError`).hidden = !state.syncError;
+    $(`${id}SyncError`).textContent = state.syncError || "";
     $(`${id}AnalysisStatus`).textContent = analysisLabel(deck);
     $(`${id}TempoOut`).value = `${state.rate >= 1 ? "+" : ""}${((state.rate - 1) * 100).toFixed(1)}%`;
     if (document.activeElement !== $(`${id}Tempo`)) $(`${id}Tempo`).value = String((state.rate - 1) * 100);
     $(`${id}KeyLock`).setAttribute("aria-pressed", String(state.keyLock));
     $(`${id}KeyLock`).disabled = deck.keyPending;
+    const pitchLabel = deck.keyPending ? "Switching…" : state.keyLock ? "Keep pitch" : "Pitch follows tempo";
+    if ($(`${id}KeyLock`).textContent !== pitchLabel) $(`${id}KeyLock`).textContent = pitchLabel;
+    $(`${id}KeyLock`).title = state.keyLock ? "Keep original pitch. Click to let pitch follow tempo." : "Pitch rises or falls with tempo. Click to keep original pitch.";
+    $(`${id}Tempo`).setAttribute("aria-valuetext", `${((state.rate - 1) * 100).toFixed(1)} percent, ${state.effectiveBpm?.toFixed(1) || "unknown"} BPM`);
     $(`${id}Loop`).setAttribute("aria-pressed", String(Boolean(state.loop)));
     $(`${id}Loop`).disabled = !entry || deck.loading || (!gridReady && !deck.selection && !state.loop);
     const editable = Boolean(entry && !deck.loading), viewport = views[id].getViewport();
@@ -491,6 +528,10 @@ function updateDecks() {
     $(`${id}PendingName`).textContent = deck.pending ? entryById(deck.pending)?.name || "Track ready" : "";
     $(`${id}Monitor`).setAttribute("aria-pressed", String(deck.monitor));
   }
+  $("pitchBoth").disabled = decks.a.keyPending || decks.b.keyPending;
+  const modes = [engine.snapshot("a").keyLock, engine.snapshot("b").keyLock];
+  const pitchSummary = modes.every(Boolean) ? "Keep pitch · A + B" : modes.every((keep) => !keep) ? "Follows tempo · A + B" : "Different per deck";
+  if ($("pitchBoth").options[0].textContent !== pitchSummary) $("pitchBoth").options[0].textContent = pitchSummary;
   $("demoPair").disabled = !libraryInitialized || demoPairPending || decks.a.demoPending || decks.b.demoPending;
 }
 
@@ -545,11 +586,7 @@ for (const id of ["a", "b"]) {
   on($(`${id}UseAuto`), "click", () => act(() => {
     saveMetadata(id, withBeatAnalysis(decks[id].metadata, decks[id].metadata.analysis, { useAutomatic: true })); updateDecks();
   }));
-  on($(`${id}KeyLock`), "click", () => act(async () => {
-    decks[id].keyPending = true; updateDecks();
-    try { await engine.setKeyLock(id, !engine.snapshot(id).keyLock); }
-    finally { decks[id].keyPending = false; updateDecks(); }
-  }));
+  on($(`${id}KeyLock`), "click", () => act(() => setPitchMode([id], !engine.snapshot(id).keyLock)));
   for (let index = 0; index < PAD_COUNT; index++) on($(`${id}HotCue${index + 1}`), "click", (event) => act(() => hotCue(id, index, event.shiftKey)));
   on($(`${id}Loop`), "click", () => act(() => toggleLoop(id)));
   on($(`${id}LoopBeats`), "change", () => { if (engine.snapshot(id).loop) act(() => toggleLoop(id, true)); });
@@ -745,6 +782,7 @@ async function dispose() {
   if (disposed) return;
   disposed = true; audioAttempt++; decks.a.revision++; decks.b.revision++;
   cancelAnimationFrame(frame); cancelAnimationFrame(libraryRender); clearTimeout(settingsTimer);
+  headerObserver.disconnect();
   abort.abort(); views.a.destroy(); views.b.destroy(); library.dispose(); strip.destroy();
   for (const knob of eqKnobs) knob.destroy();
   for (const deck of Object.values(decks)) { deck.analyzer.dispose(); deck.analyzing = false; deck.buffer = null; }
