@@ -2368,7 +2368,7 @@ function gestureMoveForDelta(hit, deltaX, deltaY) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (turnAnimation || turnQueue.length) return;
+  if (pointerGesture || event.isPrimary === false || event.button > 0 || turnAnimation || turnQueue.length) return;
   const point = pointFromEvent(event);
   const hit = hitSticker(point);
   const kind = hit ? "twist" : "orbit";
@@ -2444,6 +2444,7 @@ function endPointerGesture(event, cancelled = false) {
 
 canvas.addEventListener("pointerup", (event) => endPointerGesture(event));
 canvas.addEventListener("pointercancel", (event) => endPointerGesture(event, true));
+canvas.addEventListener("lostpointercapture", (event) => endPointerGesture(event, true));
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
 function turnSelected(dimension, directionSign) {
