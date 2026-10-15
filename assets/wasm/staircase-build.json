@@ -2,13 +2,13 @@
   "abi": 3,
   "target": "wasm32-unknown-unknown",
   "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 80790,
-  "wasmSha256": "8af8b2e48b9f51ceab3e629880f30e73e81aef85cec23d49bdc03e9db53a4cc0",
+  "bytes": 80862,
+  "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
   "sourceHashes": {
     "scripts/build-staircase-wasm.mjs": "b55a86bf6caef3d55bb57f5824d3325f5d87d7cc0b1691d97fe3d5430c0c0647",
     "src/instruments/striped-staircase-rust/rust/Cargo.lock": "61dd0e24aa6c8af25aed60017082a96e79dbbc143dd479feb801245bce144126",
     "src/instruments/striped-staircase-rust/rust/Cargo.toml": "9be1a2fb0154ddb1b248da7143888dfd70904fb7b8b449764e872eafb6e80817",
-    "src/instruments/striped-staircase-rust/rust/src/lib.rs": "ac9caca4128e398f58753dc241f647223d1c684fa5b852e6709d4d45bb5d1d0f"
+    "src/instruments/striped-staircase-rust/rust/src/lib.rs": "cda71171a437a36f8132cc30dae167b65ff0799b3138e75b12819f10da56ddaa"
   },
   "imports": [],
   "exports": [

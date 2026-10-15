@@ -308,6 +308,27 @@ test('an offshoot can inherit a parent whose physical voice slot has been reused
   } finally { f.close(); }
 });
 
+test('a white onset at an identity boundary inherits the parent previous note before any stale-identity update', () => {
+  const table = new Float32Array(3 * STRIDE);
+  for (let frame = 0; frame < 3; frame++) {
+    const at = frame * STRIDE;
+    table[at + 532] = 1; table[at + 534] = frame * 2; table[at + 535] = 2;
+    table.set(frame < 2 ? [1, frame * .5, .5, .3, 1, 0] : [1, .5, .3, .3, 2, 1], at + 544);
+  }
+  const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+  try {
+    // White onsets occur at samples 24000 and 72000, just before the following
+    // 32-sample geometry refresh. The second onset also switches the nearest
+    // categorical identity from the parent to its child in the same slot.
+    f.render(24064 / 48000); const parent = voice(f, 1);
+    closeTo(parent[1], 110 * 2 ** -.375, 1e-6);
+    f.render(48000 / 48000); const child = voice(f, 2);
+    closeTo(child[1], parent[1], 1e-6, 'the child establishes its first heading without an invented turn');
+    closeTo(child[2], .25, 1e-6); closeTo(child[3], .5, 1e-6);
+    assert.equal(child[4], 1); assert.equal(child[5], 1);
+  } finally { f.close(); }
+});
+
 test('Relative Turns clamps accumulated pitch offsets to four octaves around the register', () => {
   const table = movementGeometry(frame => [1, .5 + .25 * Math.cos(frame * Math.PI / 4), .5 + .25 * Math.sin(frame * Math.PI / 4), .3, 1, 0]);
   const f = fixture({ mode: 2, mapping: 2, span: 6, table, depth: 0, seconds: 2 });

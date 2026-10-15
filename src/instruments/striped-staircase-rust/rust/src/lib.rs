@@ -567,7 +567,17 @@ impl Engine {
                 }
             }
             self.table_mix = (self.table_mix + 1. / (self.rate * 0.06)).min(1.);
-            let refreshed = self.sample_clock % 32 == 0;
+            // Evaluate the gate before refreshing branch geometry. An onset
+            // must read identities/coordinates from this exact sample, rather
+            // than first noting a stale parent and then treating its successor
+            // as a child on the next periodic refresh.
+            let threshold = Self::table_value(&self.table, self.frames, self.depth, 534);
+            let period =
+                Self::table_value(&self.table, self.frames, self.depth, 535).max(0.000_001);
+            let bucket = (threshold / period * 2.).floor() as i64;
+            let white = self.frames > 0 && bucket.rem_euclid(2) == 1;
+            let onset = white && !self.white_gate;
+            let refreshed = self.sample_clock % 32 == 0 || onset;
             if refreshed {
                 self.refresh();
             }
@@ -605,16 +615,8 @@ impl Engine {
                     );
             }
 
-            // White is on and black is off, matching the original shader.
-            // Evaluate every sample, independently of render block/UI timing.
-            // Use the new scene's threshold directly: blending unrelated depth
-            // units during a scene change would create fictitious stripe runs.
-            let threshold = Self::table_value(&self.table, self.frames, self.depth, 534);
-            let period =
-                Self::table_value(&self.table, self.frames, self.depth, 535).max(0.000_001);
-            let bucket = (threshold / period * 2.).floor() as i64;
-            let white = self.frames > 0 && bucket.rem_euclid(2) == 1;
-            let onset = white && !self.white_gate;
+            // White sustains; black releases. The gate uses incoming scene
+            // thresholds directly, without inventing runs between scene depths.
             if onset && self.playing && valid > 0.5 && self.table_mix >= 1. {
                 self.white_onsets += 1;
             }
