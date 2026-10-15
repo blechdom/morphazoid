@@ -1,3 +1,4 @@
+import { clamp, MAX_MIDI_MIXER_TEMPO } from './midi-mixer-model.js';
 import { MidiNoteEffects } from '../../midi-note-effects.js';
 import { SpessaSynthProcessor, SoundBankLoader, SpessaLog } from './vendor/spessasynth-core.js';
 import { mergeMidiParameters, sanitizeMidiParameters, sanitizeMidiSynthEffects, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS } from './midi-mixer-parameters.js';
@@ -97,7 +98,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.prepareSourceChannels(source, message.data.channels);
         const channels = message.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : message.program }));
         const timing = message.timing ? { ...message.timing } : undefined;
-        if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat);
+        if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat) + Math.max(0, Math.min(512, Number(message.delayBeats) || 0));
         this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, pausedEpoch: message.pausedEpoch, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, scoreVersion: message.scoreVersion, replacedAt: message.replacedAt, replacedEpoch: message.replacedEpoch, config, channels });
         if (message.pendingReplacement) this.sampleClock.replaceScore(slot, this.sampleReplacement(message.pendingReplacement, message.program), { revision: message.revision });
         break;
@@ -192,7 +193,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         break;
       }
       case 'transport': if (!message.playing) this.sampleClock.stopAll(); this.clock.setTransport(message.playing, message.beat); break;
-      case 'tempo': this.clock.tempo = Math.max(30, Math.min(300, message.tempo)); this.noteFx.configure({ tempo: this.clock.tempo }); break;
+      case 'tempo': this.clock.tempo = clamp(message.tempo, 30, MAX_MIDI_MIXER_TEMPO, this.clock.tempo); this.noteFx.configure({ tempo: this.clock.tempo }); break;
       case 'weave': this.clock.setWeave(message.config, message.phase); break;
       case 'deck': this.clock.setDeck(message.index, message.config, message.channels); break;
       case 'crossfade':

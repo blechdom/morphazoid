@@ -18,6 +18,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "micromorph",
     "slippery-resynthesis",
     "simd-resonator",
+    "simd-resonator-rust",
     "moire-drone",
     "crab-loom",
     "freeze-point",
@@ -182,6 +183,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "escape-dust",
     "linebreaker",
     "striped-staircase",
+    "striped-staircase-rust",
     "enveloper",
     "orbital-ferris",
     "yoyodyne",
@@ -206,6 +208,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "striped-staircase-rust",
   "trackazoid",
   "graph-delay-rust",
   "synthesis",
@@ -244,6 +247,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
   "spartial",
   "gesturama",
   "simd-resonator",
+  "simd-resonator-rust",
   "simd-synth",
   "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
   "graph-3d",
@@ -314,6 +318,7 @@ const audioInputIds = new Set([
   "micromorph",
   "slippery-resynthesis",
   "simd-resonator",
+  "simd-resonator-rust",
   "sandy-syrup-delay",
   "candy-coil-delay",
   "recursion",
@@ -339,6 +344,7 @@ const midiOutputExtraIds = new Set([
 ]);
 const noMidiOutputIds = new Set([
   "graphonic-calculator",
+  "striped-staircase-rust",
   "vector-fractals",
   "domino-run",
   "fractal-signals",

@@ -1,7 +1,7 @@
 # Bundled processing inputs
 
-Rust L-system Delay and Synthesaurus share 34 local demo inputs: the original
-nine choices, the 24 expanded inputs and a synthetic spoken phrase. Choose
+Rust L-system Delay and Synthesaurus share 38 local demo inputs: the original
+nine choices, 28 expanded inputs and a synthetic spoken phrase. Choose
 **Built-in samples** in L-system Delay, or **Sample loops** in Synthesaurus,
 then select a sound. Enable Audio explicitly;
 Synthesaurus also uses Play. Selecting a sample with Audio off does not fetch or
@@ -10,6 +10,10 @@ server or Freesound account.
 
 The additions are:
 
+- Two isolated sung vocal stems (Madam Snowflake and Rhiannon Delpero / WolfFly),
+  saxophone split tones (jacksonsandre), and unusual alto fingerings (soulthom).
+  Candy Coil, Sandy Syrup and Slippery Resynthesis feature these four recordings
+  and the existing tabla rhythm first in their sample menu.
 - **Curling a bit more (synthetic voice)**: “it's curling a bit more than i'm
   comfortable for”, rendered locally with eSpeak NG.
 - Nature recordings: coyote howls, frog chorus, humpback whale song, house cricket.
@@ -35,6 +39,8 @@ are bundled with the media:
   [excerpt provenance](../assets/input-samples/nature/sources.json).
 - [Recorded effects and instruments](../assets/input-samples/recorded/SOURCES.md)
   and [source provenance](../assets/input-samples/recorded/provenance.json).
+- [Acapella and extended sax credits](../assets/input-samples/expressive/CREDITS.md)
+  and [excerpt provenance](../assets/input-samples/expressive/provenance.json).
 - [Original music credits](../assets/synthesis/extra-loops/CREDITS.md) and
   [complete render recipes](../assets/synthesis/extra-loops/renders.json).
 - [Synthetic speech credits](../assets/input-samples/synthetic/CREDITS.md) and
@@ -48,9 +54,9 @@ input/output gain, microphone permissions and delay voice allocation remain unde
 their existing owners. No additional realtime synthesizer or delay voice is
 allocated to play a prerecorded sample.
 
-Synthesaurus also includes one complete processing scene for each of the 24
+Synthesaurus also includes one complete processing scene for each of the 28
 expanded inputs and **Curling voice echoes** for the spoken clip, bringing its
-sample-processing scenes to 37. These recall their sample and processor settings
+sample-processing scenes to 41. These recall their sample and processor settings
 while leaving Audio, Play and master output under the
 performer's control. The L-system tree presets remain independent of input.
 

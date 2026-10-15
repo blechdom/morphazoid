@@ -107,7 +107,9 @@ function monoHeader(sampleRate, frames) {
 export async function buildSpartialTracks(capture, metadata = {}) {
   const data = await pcmData(capture);
   const { blob, frames, sampleRate, channelCount } = capture;
-  const name = safeName(metadata.name, `spartial-${timestamp(metadata.createdAt)}`);
+  const namePrefix = safeName(metadata.namePrefix, 'spartial');
+  const name = safeName(metadata.name, `${namePrefix}-${timestamp(metadata.createdAt)}`);
+  const instrumentName = String(metadata.instrumentName || 'SPARTIAL').replace(/[\r\n]+/g, ' ');
   const speakers = new Map();
   for (const speaker of metadata.speakers ?? []) {
     if (!Number.isInteger(speaker.channel) || speaker.channel < 1 || speaker.channel > channelCount || speakers.has(speaker.channel)) {
@@ -133,7 +135,7 @@ export async function buildSpartialTracks(capture, metadata = {}) {
     }
   }
   const lines = [
-    "Morphazoid SPARTIAL multitrack recording",
+    `Morphazoid ${instrumentName} multitrack recording`,
     `Take: ${name}`,
     `Layout: ${metadata.layoutName || metadata.layoutId || "Custom"}`,
     `Layout ID: ${metadata.layoutId || "custom"}`,

@@ -16,7 +16,7 @@ class Events {
   emit(type, data) { for (const [key, callback] of this.callbacks) if (key.startsWith(`${type}:`)) callback(data); }
 }
 
-function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock, getAudioContext } = {}) {
+function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock, getAudioContext, minPlaybackRate, maxPlaybackRate } = {}) {
   const calls = [], messages = [], clears = [], states = [], contexts = [], synths = [], sequencers = [];
   const timers = new Map(), windowEvents = new Map();
   let nextTimer = 0, releaseLibrary;
@@ -106,7 +106,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
     addEventListener(type, callback) { windowEvents.set(type, callback); },
     removeEventListener(type, callback) { if (windowEvents.get(type) === callback) windowEvents.delete(type); },
   };
-  const player = new MidiphoriaPlayer({ runtime, clock, getAudioContext, loadLibrary: () => { calls.push('import'); return libraryPromise; },
+  const player = new MidiphoriaPlayer({ runtime, clock, getAudioContext, minPlaybackRate, maxPlaybackRate, loadLibrary: () => { calls.push('import'); return libraryPromise; },
     connectOutput: (context, source) => { context.outputSource = source; calls.push('output-connect'); return () => calls.push('output-release'); },
     onMidi: message => messages.push(message), onClear: (...args) => clears.push(args), onState: state => states.push(state),
   });
@@ -540,6 +540,44 @@ test('rate, loop, volume and seeks clamp finite values without creating audio', 
   await h.player.dispose();
 });
 
+test('an opt-in lower rate reaches the sequencer without pausing or seeking the file', async () => {
+  const h = harness({ minPlaybackRate: .01 });
+  assert.equal(h.player.setPlaybackRate(.125), .125);
+  const seq = await ready(h);
+  assert.equal(seq.options.initialPlaybackRate, .125);
+  assert.equal(h.player.play(), true); seq.currentTime = 4;
+  const before = h.calls.length;
+  assert.equal(h.player.setPlaybackRate(.0625), .0625);
+  assert.equal(seq.playbackRate, .0625); assert.equal(h.player.state.time, 4);
+  assert.equal(h.player.state.playing, true); assert.equal(seq.paused, false);
+  assert.equal(h.calls.slice(before).includes('pause'), false);
+  assert.equal(h.player.setPlaybackRate(0), .01); assert.equal(h.player.setPlaybackRate(99), 8);
+  await h.player.dispose();
+});
+
+test('slow decorative rates keep continuous phase through rate changes and pause', async () => {
+  let now = 0; const h = harness({ clock: () => now, minPlaybackRate: .01 });
+  await h.player.loadVisualTimeline(60, 'Slow artwork'); h.player.play();
+  now = 3; h.player.setPlaybackRate(.125);
+  assert.equal(h.player.state.time, 3);
+  now = 11; assert.equal(h.player.state.time, 4);
+  h.player.setPlaybackRate(.25); now = 15;
+  assert.equal(h.player.state.time, 5); assert.equal(h.player.state.playing, true);
+  h.player.pause(); now = 25; h.player.setPlaybackRate(.5);
+  assert.equal(h.player.state.time, 5); assert.equal(h.player.state.playing, false);
+  h.player.play(); now = 27; assert.equal(h.player.state.time, 6);
+  assert.equal(h.contexts.length, 0); await h.player.dispose();
+});
+
+test('playback-rate floor is validated and legacy consumers retain their half-speed minimum', async () => {
+  for (const [minimum, expected] of [[undefined, .5], [NaN, .5], [Infinity, .5], ['.01', .5], [9, .5], [-1, .001], [0, .001], [.01, .01]]) {
+    const h = harness({ minPlaybackRate: minimum });
+    assert.equal(h.player.setPlaybackRate(-1), expected);
+    assert.equal(h.player.setPlaybackRate(NaN), expected);
+    assert.equal(h.contexts.length, 0); await h.player.dispose();
+  }
+});
+
 test('the complete mix is boosted before compression; volume and the final guard remain downstream', async () => {
   const h = harness(); await ready(h);
   const context = h.contexts[0];
@@ -741,4 +779,23 @@ test('effected pad notes reach graphics without a file and clear independently f
   h.synths[1].eventHandler.emit('noteOn', { channel: 0, midiNote: 74, velocity: 88 });
   assert.equal(h.messages.length, 2, 'late muted attacks cannot revive pad graphics');
   await h.player.dispose();
+});
+
+
+test('BLECH opts into 64× file playback while the default player retains 8× and continuous phase', async () => {
+  const ordinary = harness(); assert.equal(ordinary.player.setPlaybackRate(64), 8); await ordinary.player.dispose();
+  const h = harness({ minPlaybackRate: .01, maxPlaybackRate: 64 });
+  assert.equal(h.player.setPlaybackRate(40), 40);
+  const seq = await ready(h); assert.equal(seq.options.initialPlaybackRate, 40);
+  h.player.play(); seq.currentTime = 4; const before = h.calls.length;
+  assert.equal(h.player.setPlaybackRate(64), 64); assert.equal(seq.playbackRate, 64);
+  assert.equal(h.player.state.time, 4); assert.equal(h.player.state.playing, true);
+  assert.equal(h.calls.slice(before).includes('pause'), false);
+  assert.equal(h.player.setPlaybackRate(640), 64); assert.equal(h.player.setPlaybackRate(NaN), 64);
+  await h.player.dispose();
+  let now = 0; const visual = harness({ maxPlaybackRate: 64, clock: () => now });
+  await visual.player.loadVisualTimeline(600, 'Fast artwork'); visual.player.play(); now = 1;
+  visual.player.setPlaybackRate(64); assert.equal(visual.player.state.time, 1);
+  now = 2; assert.equal(visual.player.state.time, 65);
+  visual.player.pause(); now = 3; assert.equal(visual.player.state.time, 65); await visual.player.dispose();
 });

@@ -1,6 +1,6 @@
 import { automatapoeiaNextRow, automatapoeiaTransformRow } from '../cellular-automata/automatapoeia.js';
 import { sanitizeAutomataMidiSettings, automataMidiSeedRow } from '../midiphoria/midiphoria-automata-midi.js';
-import { parseMidi, clamp } from './midi-mixer-model.js';
+import { parseMidi, clamp, MAX_MIDI_MIXER_TEMPO } from './midi-mixer-model.js';
 
 export const AUTOMATA_SOURCE = 6;
 export const AUTOMATA_HISTORY_BEATS = 16;
@@ -89,7 +89,7 @@ export class MidiAutomataClock {
   }
   advance(beats, tempo = 120, frameAt = () => 0) {
     if (!this.playing || !(beats > 0)) return;
-    tempo = clamp(tempo, 30, 300, 120);
+    tempo = clamp(tempo, 30, MAX_MIDI_MIXER_TEMPO, 120);
     if (this.tempos.at(-1)?.bpm !== tempo) this.tempos.push({ beat: this.beat, bpm: tempo });
     const start = this.beat, end = start + beats;
     while (this.rowStart + this.rowLength < end - EPSILON) {

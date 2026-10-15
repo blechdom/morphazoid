@@ -1,6 +1,7 @@
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
 
 export const blechTextRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-text-runtime-addition.json', import.meta.url), 'utf8',
@@ -11,6 +12,7 @@ export function restoreBlechTextRuntime(source, file, { allowRestored = false } 
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechTextRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechChannelTiming(source, file, { allowRestored: true });
   const counts = change.markers.map(marker => source.split(marker).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact BLECH MIDI text preparation runtime addition`;
@@ -20,7 +22,7 @@ export function restoreBlechTextRuntime(source, file, { allowRestored = false } 
 }
 
 export async function readBlechTextRuntimeReference(file, encoding) {
-  const { readFile } = await import('node:fs/promises');
+  const { readProcessorSamplesSiteReference: readFile } = await import('./processor-samples-site-reference.mjs');
   const { fileURLToPath } = await import('node:url');
   const { relative } = await import('node:path');
   const source = await readFile(file, encoding);

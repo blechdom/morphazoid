@@ -469,6 +469,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "julia": [
     "sonification"
   ],
+  "striped-staircase-rust": ["fractal", "sonification"],
   "striped-staircase": [
     "sonification"
   ],
@@ -594,6 +595,9 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "escher-tessellation": [],
   "plasma-ball": [],
   "simd-resonator": [
+    "resonator"
+  ],
+  "simd-resonator-rust": [
     "resonator"
   ],
   "order-tones": [],

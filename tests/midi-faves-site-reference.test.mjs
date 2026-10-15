@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readGraphonicCalculatorSiteReference as readFile } from './helpers/graphonic-calculator-site-reference.mjs';
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import test from 'node:test';
 import { FAVE_TOOL_IDS } from '../src/site/instrument-registry.js';
 import { catalogueItemById } from '../src/site/instrument-catalog.js';

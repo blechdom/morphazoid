@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readGraphonicCalculatorSiteReference as readFile } from './helpers/graphonic-calculator-site-reference.mjs';
+import { readBlechChannelTimingReference as readFile } from './helpers/blech-channel-timing-reference.mjs';
 import { createHash } from 'node:crypto';
 import { blechBlackMidiTapChange as change, restoreBlechBlackMidiTap } from './helpers/blech-black-midi-tap-reference.mjs';
 import { restoreFractalImpulseRuntime, readFractalImpulseRuntimeReference } from './helpers/fractal-delay-impulse-runtime-reference.mjs';

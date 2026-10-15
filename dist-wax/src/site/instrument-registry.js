@@ -94,6 +94,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "simd-chiptune", label: "SIMD Chiptune", href: "simd-chiptune.html" },
     { id: "simd-synth", label: "SIMD Synth", href: "simd-synth.html" },
     { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
+    { id: "simd-resonator-rust", label: "Rezoidinator", href: "simd-resonator-rust.html", imageHref: "assets/instruments/simd-resonator.webp" },
   ]),
   freezeGroup("physical-model", "Physical Model", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },
@@ -173,6 +174,7 @@ export const TOOL_GROUPS = Object.freeze([
   ]),
   freezeGroup("wip", "Work in Progress", [
     { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
+    { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
     { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },
     { id: "vocal-effects-room", label: "Vocal Effects Room", href: "vocal-effects-room.html", catalogue: false },

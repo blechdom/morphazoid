@@ -1,3 +1,4 @@
+import { MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 import { compileSampleTempoMap, sampleSecondsAt } from '../midi-mixer/midi-mixer-clock.js';
 import { transformMidiNote } from '../midi-mixer/midi-mixer-parameters.js';
 import { midiNoteEffectChildren, sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
@@ -65,7 +66,7 @@ export function createBlechLiveProjector() {
     pastSeconds = bound(pastSeconds, 0, 30, 0);
     lookAhead = bound(lookAhead, .25, 60, 6);
     limit = Math.floor(bound(limit, 0, BLECH_LIVE_NOTE_LIMIT, BLECH_LIVE_NOTE_LIMIT));
-    const notes = [], past = [], sources = [], tempo = bound(state?.tempo, 30, 300, 120);
+    const notes = [], past = [], sources = [], tempo = bound(state?.tempo, 30, MAX_MIDI_MIXER_TEMPO, 120);
     const effects = sanitizeMidiNoteEffects({ ...state?.noteEffects, tempo });
     const nextEffectKey = JSON.stringify(effects);
     if (nextEffectKey !== effectKey || !effectTimeline.length) {
@@ -78,6 +79,11 @@ export function createBlechLiveProjector() {
     let truncated = false, scanned = 0, held = 0;
     const availableSamples = (state?.samples ?? []).slice(0, 4).filter(sample => sample.analysis?.notes?.length);
     const activeSamples = availableSamples.filter(sample => !sample.pending && !sample.paused);
+    // A positioned drop has not reached the keyboard yet. Forecast it at the
+    // remaining launch delay without advancing its source phase or inventing
+    // performed history. The same IDs continue when the audio clock starts it.
+    const pendingForecasts = availableSamples.filter(sample => sample.pending && !sample.paused && Number.isFinite(sample.pendingBeats) && sample.pendingBeats > 0)
+      .map(sample => ({ ...sample, forecastOnly: true, forecastOffset: sample.pendingBeats * 60 / tempo }));
     const playbackKey = sample => `${sample.id}:${sample.scoreVersion ?? 0}`;
     const replacementForecasts = activeSamples.filter(sample => sample.pendingReplacement).map(sample => {
       const remaining = sample.sync !== false ? (sample.analysis.durationBeats - sample.positionBeats) * 60 / tempo
@@ -131,7 +137,7 @@ export function createBlechLiveProjector() {
     const pausedSamples = availableSamples.filter(sample => sample.paused && !sample.pending && Number.isFinite(sample.pausedAt)
       && !(sample.positionBeats === 0 && sample.replacedAt >= sample.pausedAt))
       .map(sample => ({ ...sample, ...samplePlayback.get(playbackKey(sample)).voice }));
-    const sourceList = [...activeSamples, ...replacementForecasts, ...pausedSamples, ...finishedSamples];
+    const sourceList = [...activeSamples, ...pendingForecasts, ...replacementForecasts, ...pausedSamples, ...finishedSamples];
     const automata = state?.automata;
     const hasAutomata = automata?.playing && automata.generation >= 0 && automata.row?.length;
     if (hasAutomata && (!wasAutomataPlaying || automata.beat < lastAutomataBeat)) {
@@ -161,7 +167,7 @@ export function createBlechLiveProjector() {
     }
     const pastIds = new Set(), pastSourceCounts = new Map();
     const historyPerSource = Math.max(1, Math.floor(BLECH_LIVE_NOTE_LIMIT / Math.max(1, sourceList.length + Number(Boolean(hasAutomata)))));
-    const perSource = Math.max(1, Math.floor(limit / Math.max(1, activeSamples.length + Number(Boolean(hasAutomata)))));
+    const perSource = Math.max(1, Math.floor(limit / Math.max(1, activeSamples.length + pendingForecasts.length + Number(Boolean(hasAutomata)))));
     function emit(note, source, sourceLimit, drums = false, historyOnly = false) {
       if (!(note.gain > .0001) || !Number.isInteger(note.pitch) || note.pitch < 0 || note.pitch > 127 || !(note.end > note.start)) return;
       // The audio effects layer snapshots a note family at its attack. Editing
@@ -193,7 +199,7 @@ export function createBlechLiveProjector() {
       const source = `sample:${sample.id}`, sourceLimit = Math.min(limit, notes.length + perSource), analysis = sample.analysis;
       let indexed = samples.get(analysis);
       if (!indexed) { indexed = indexSample(analysis); samples.set(analysis, indexed); }
-      const sync = sample.sync !== false, scale = sync ? 60 / (sample.completed || sample.paused ? bound(sample.tempo, 30, 300, tempo) : tempo) : 1;
+      const sync = sample.sync !== false, scale = sync ? 60 / (sample.completed || sample.paused ? bound(sample.tempo, 30, MAX_MIDI_MIXER_TEMPO, tempo) : tempo) : 1;
       const timeOffset = sample.completed ? sample.finishedAt - now : sample.paused ? sample.pausedAt - now : sample.forecastOffset ?? 0;
       const position = sync ? sample.positionBeats : sampleSecondsAt(indexed.tempo, sample.positionBeats);
       const length = sync ? analysis.durationBeats : indexed.durationSeconds;

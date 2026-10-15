@@ -446,6 +446,23 @@ copy+require	src/simd-audio-worker.js
 copy+require	assets/wasm/simd-resonator-scalar.wasm
 copy+require	assets/wasm/simd-resonator-simd.wasm
 copy+require	assets/instruments/simd-resonator.webp
+
+# Rezoidinator: Rust modal/FFT instrument with spatial output and recording.
+copy+require	simd-resonator-rust.html
+copy+require	src/instruments/simd-resonator-rust/app.js
+copy+require	src/instruments/simd-resonator-rust/model.js
+copy+require	src/instruments/simd-resonator-rust/presets.js
+copy+require	src/instruments/simd-resonator-rust/processor.js
+copy+require	src/instruments/simd-resonator-rust/fft-resynth.js
+copy+require	src/instruments/simd-resonator-rust/spatial-model.js
+copy+require	src/instruments/simd-resonator-rust/surround-output.js
+copy+require	src/instruments/simd-resonator-rust/recording.js
+copy+require	src/instruments/simd-resonator-rust/style.css
+copy+require	assets/wasm/rust-resonator-scalar.wasm
+copy+require	assets/wasm/rust-resonator-simd.wasm
+copy+require	docs/simd-resonator-rust.md
+copy+require	docs/rezoidinator-surround-measurements.json
+
 copy+require	simd-303.html
 copy+require	src/instruments/simd-303/simd-303.css
 copy+require	src/instruments/simd-303/simd-303-app.js
@@ -2029,9 +2046,39 @@ copy+require	src/instruments/graphonic-calculator/app.js
 copy+require	src/instruments/graphonic-calculator/audio.js
 copy+require	src/instruments/graphonic-calculator/camera.js
 copy+require	src/instruments/graphonic-calculator/expressions.js
+copy+require	src/instruments/graphonic-calculator/formulas.js
 copy+require	src/instruments/graphonic-calculator/geometry.js
 copy+require	src/instruments/graphonic-calculator/model.js
 copy+require	src/instruments/graphonic-calculator/parser.js
+copy+require	src/instruments/graphonic-calculator/readers.js
 copy+require	src/instruments/graphonic-calculator/renderer.js
 copy+require	src/instruments/graphonic-calculator/sampler.js
 copy+require	src/instruments/graphonic-calculator/style.css
+
+# BLECH MIDI independent file tempo and linked playback ratios.
+copy+require	src/instruments/blech-midi/blech-midi-timing.js
+
+# BLECH MIDI prepared drops and compact stamp selection.
+copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
+copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js
+
+# Staircase Studies
+copy+require	src/instruments/striped-staircase-rust/app.js
+copy+require	src/instruments/striped-staircase-rust/engine.js
+copy+require	src/instruments/striped-staircase-rust/processor.js
+copy+require	src/instruments/striped-staircase-rust/field.js
+copy+require	src/instruments/striped-staircase-rust/worker.js
+copy+require	src/instruments/striped-staircase-rust/studies.css
+copy+require	assets/wasm/staircase.wasm
+copy+require	assets/wasm/staircase-build.json
+copy+require	docs/staircase-studies.md
+copy+require	src/processor-sample-player.js
+copy+require	src/processor-sample-player.css
+copy+require	src/families/barber-delay/full-presets.js
+copy+require	src/instruments/slippery-resynthesis/full-presets.js
+copy+require	assets/input-samples/expressive/snowflake-scat.mp3
+copy+require	assets/input-samples/expressive/rhiannon-holding-tighter.mp3
+copy+require	assets/input-samples/expressive/sax-multiphonic.mp3
+copy+require	assets/input-samples/expressive/weird-sax.mp3
+copy+require	assets/input-samples/expressive/CREDITS.md
+copy+require	assets/input-samples/expressive/provenance.json

@@ -1264,7 +1264,8 @@ test("the page and app expose accessible controls and explicit lifecycle cleanup
   assert.match(appSource, /URL\.createObjectURL\(file\)/);
   assert.match(appSource, /URL\.revokeObjectURL\(state\.fileUrl\)/);
   assert.match(appSource, /audio\.close\(\)/);
-  assert.match(appSource, /button\.append\(label\)/);
+  assert.match(appSource, /registerHeaderPresets\(/);
+  assert.match(html, /data-instrument-preset-host/);
   assert.doesNotMatch(appSource, /detail\.textContent/);
   assert.match(appSource, /event\.key\s*===\s*"ArrowUp"/);
   assert.match(appSource, /event\.key\s*===\s*" "\)/);

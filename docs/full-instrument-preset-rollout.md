@@ -16,6 +16,25 @@ tempo, loop/ping-pong, direction, 1–12 playheads with a draggable spacing trac
 per-head axis or direction toggles) and Points heads ride every connected branch of
 a curve. Status is `implemented-verification-pending` until the owner's listening
 pass; the WIP category keeps it out of the primary control-inventory audits.
+## October 14 — Rezoidinator spatial output
+
+Rezoidinator is the owner-requested display name for the Rust Resonator copy;
+its `simd-resonator-rust` route, catalogue ID and saved-state identity stay stable.
+The same twenty full presets remain. Their musical state includes the modal
+body, FFT controls and spatial target, pattern, span, offset, motion and rate.
+The target selects modal waves, FFT bands or both; ascending, descending,
+alternating and scattered patterns distribute that material around the field.
+Spatial span allows zero to four turns, offset zero to one turn, and motion rate
+−1 to +1 turns per second. Bounded Dice includes these musical controls.
+Surround enable, speaker layout, stereo preview and recording stay session-owned,
+alongside Audio, live input selection/playback, microphone gain and output level.
+
+The microphone strip stays compact in the menubar (beside presets on mobile).
+Input source, sample/file transport and looping live in the side panel. Microphone
+trim controls capture only, leaving recorded input at its own level.
+Multichannel routing and exports are described in
+[Rezoidinator](simd-resonator-rust.md). Human surround listening and physical-device
+acceptance remain unperformed.
 
 ## October 13 — SIMD Resonator presets and recorded input
 
@@ -40,6 +59,19 @@ suite. These check complete recall, all-field dice variation, explicit Audio,
 nonzero FFT input/output, source continuity, pending-load cancellation, file
 replay and desktop/phone layout. They establish mechanical behavior;
 human listening and physical microphone/touch acceptance remain separate.
+## October 12 — Candy Coil, Sandy Syrup and Slippery Resynthesis
+
+The three requested processors now use the shared Choose/Next/Dice row. All
+authored scenes remain: twelve per barber delay and fourteen for Slippery.
+Complete-state dice varies every musical setting with bounded feedback and
+voice counts. Candy’s speed/range lock and Slippery’s spectral Hold are part of
+the patch. Source selection, sample/file Loop, playback position, live delay
+memory, microphone connection, input trim, Audio and output level remain session
+state. Sample loops use the existing bounded recorded-input loader and retain
+its source credits; Audio and sample Play remain separate explicit actions.
+
+See [processor samples and presets](processor-samples-presets.md) for controls
+and automated acceptance scope.
 
 ## October 10 — Midiophilia mixer view
 

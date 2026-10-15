@@ -55,7 +55,6 @@ const audioStrip = createAudioStrip({
 $('audioControl').replaceWith(audioStrip);
 await import('../../../nav.js');
 const presetPicker=enhanceChooseSelect($('presetSelect'),{label:'Preset',placeholder:'Find a preset'});
-$('enableAudio').addEventListener('click',()=>audioStrip.audioButton.click());
 
 function showView(next) {
   navigationVersion++;
@@ -63,6 +62,7 @@ function showView(next) {
   view = next;
   for (const name of ['collection','workshop','sources']) $(name + 'View').hidden = name === 'collection' ? !isPlayerView() : name !== next;
   $('exploreBrowser').hidden=next!=='explore'; $('collectionBrowser').hidden=next!=='collection';
+  $('gmSpotlight').hidden=next!=='explore';
   document.querySelectorAll('[data-view]').forEach(button => button.setAttribute('aria-pressed', String(button.dataset.view === next)));
   stop();
   if (isPlayerView() && selectedFont && activeFont !== selectedFont) { void audio.setFont(selectedFont).then(updateKeyboard).catch(showError); audio.setPreset(presetIndex); activeFont = selectedFont; }
@@ -123,15 +123,20 @@ function renderDetails() {
   if (!entry) return;
   $('selectedName').textContent=entry.name;
   $('selectedAuthor').textContent=entry.author || 'Creator not specified';
-  $('selectedKind').textContent=({factory:'MORPHAZOID ORIGINAL',created:'CREATED SOUND FONT',imported:'IMPORTED SOUNDFONT',link:'SAVED SOURCE'})[entry.kind];
+  const gm=isGmBank(selectedFont || bundledFonts.find(bank=>bank.id===entry.bundleId));
+  $('selectedKind').textContent=entry.kind==='link'?'SAVED SOURCE':gm?'COMPLETE GM BANK':entry.presetCount===1?'SINGLE INSTRUMENT':'SOUNDFONT BANK';
   $('selectedLicense').textContent=entry.license || 'Not specified';
   $('selectedNotes').textContent=entry.notes || '';
-  $('selectedStats').textContent=entry.kind==='link'?'Source link':`${entry.presetCount} presets · ${entry.sampleCount} samples · ${sizeLabel(entry.size)}`;
+  $('selectedStats').textContent=entry.kind==='link'?'Source link':`${entry.presetCount} preset${entry.presetCount===1?'':'s'} · ${entry.sampleCount} sample${entry.sampleCount===1?'':'s'} · ${sizeLabel(entry.size)}`;
   $('favoriteButton').textContent=entry.favorite?'★':'☆';
   $('favoriteButton').setAttribute('aria-pressed',String(Boolean(entry.favorite)));
   $('favoriteButton').setAttribute('aria-label',entry.favorite?'Remove from favorites':'Add to favorites');
   $('downloadButton').textContent=`↓ Download ${(entry.format || 'sf2').toUpperCase()}`;
   $('downloadButton').hidden=entry.kind==='link'; $('downloadButton').disabled=!selectedBytes;
+  $('downloadHelp').hidden=entry.kind==='link';
+  $('downloadHelp').textContent=entry.presetCount===1
+    ? `Downloads one playable instrument and its samples as an ${(entry.format || 'sf2').toUpperCase()} file. Load it in a SoundFont player to play notes or chords.`
+    : `Downloads the whole bank: all ${entry.presetCount} presets and their samples in one ${(entry.format || 'sf2').toUpperCase()} file, including the sound you are previewing.`;
   $('playableDetails').hidden=!selectedFont; $('linkOnlyNotice').hidden=entry.kind!=='link';
   $('sourceLink').hidden=!entry.source;
   if(entry.source) { try { $('sourceLink').href=safeSourceUrl(entry.source); } catch { $('sourceLink').hidden=true; } }
@@ -221,9 +226,37 @@ function allPresets() {
   const originals=entries.filter(entry=>entry.kind==='factory').map(entry=>({id:entry.id,displayName:entry.name,family:'Morphazoid',bankName:'Originals'}));
   return [...originals,...bundledFonts.flatMap(bank=>(bank.presets || []).map(preset=>({...preset,bundleId:bank.id,bankName:bank.name})))];
 }
+function isGmBank(bank) {
+  const presets=bank?.presets || [];
+  const programs=new Set(presets.filter(preset=>preset.bank===0 && preset.program>=0 && preset.program<128).map(preset=>preset.program));
+  return programs.size===128 && presets.some(preset=>preset.bank===128 && preset.program===0);
+}
+function renderBankChoices() {
+  const selected=$('bankSelect').value;
+  const gmBanks=bundledFonts.filter(isGmBank), singles=bundledFonts.filter(bank=>!isGmBank(bank));
+  const groups=[['Complete GM banks',gmBanks],['Single instruments',singles]].map(([label,banks])=>{
+    const group=document.createElement('optgroup'); group.label=label;
+    group.append(...banks.map(bank=>new Option(bank.name,bank.id))); return group;
+  });
+  $('bankSelect').replaceChildren(new Option('All SoundFonts',''),...groups,new Option('Morphazoid originals','originals'));
+  $('bankSelect').value=selected;
+  $('gmBankChoices').replaceChildren(...gmBanks.map(bank=>{
+    const button=element('button','sf-gm-choice'); button.type='button'; button.dataset.gmBank=bank.id;
+    button.setAttribute('aria-pressed',String(selected===bank.id));
+    button.setAttribute('aria-label',`Explore ${bank.name} GM bank`);
+    button.append(element('span','sf-eyebrow','COMPLETE GM'),element('strong','',bank.name),element('small','',`${bank.presetCount} presets · ${(bank.format || 'sf2').toUpperCase()} · ${sizeLabel(bank.bytes)}`),element('span','sf-gm-action','Explore presets →'));
+    button.addEventListener('click',()=>{
+      $('bankSelect').value=bank.id; $('presetSearch').value=''; $('familySelect').value='';
+      renderPresets(); updateKeyboard();
+      const presets=visiblePresets(), first=presets.find(preset=>preset.bank===0 && preset.program===0) || presets[0];
+      if(first) void action(()=>explorePreset(first));
+    });
+    return button;
+  }));
+}
 function visiblePresets() {
-  const query=$('presetSearch').value.trim().toLowerCase(), family=$('familySelect').value;
-  return allPresets().filter(preset=>(!family || preset.family===family) && `${preset.displayName} ${preset.name || ''} ${preset.family} ${preset.bankName}`.toLowerCase().includes(query));
+  const query=$('presetSearch').value.trim().toLowerCase(), family=$('familySelect').value, bank=$('bankSelect').value;
+  return allPresets().filter(preset=>(!bank || (bank==='originals'?Boolean(preset.id):preset.bundleId===bank)) && (!family || preset.family===family) && `${preset.displayName} ${preset.name || ''} ${preset.family} ${preset.bankName}`.toLowerCase().includes(query));
 }
 function isCurrentPreset(preset) {
   if(preset.id) return selectedId===preset.id;
@@ -239,6 +272,7 @@ function renderPresets() {
   $('familySelect').replaceChildren(new Option('All families',''),...[...new Set(presets.map(preset=>preset.family))].sort().map(value=>new Option(value,value)));
   $('familySelect').value=family;
   $('presetCount').textContent=String(presets.length);
+  for(const button of document.querySelectorAll('[data-gm-bank]')) button.setAttribute('aria-pressed',String(button.dataset.gmBank===$('bankSelect').value));
   const visible=visiblePresets(); $('presetEmpty').hidden=visible.length>0;
   $('presetList').replaceChildren(...visible.map(preset=>{
     const button=element('button','sf-preset-card'); button.type='button';
@@ -272,10 +306,12 @@ async function explorePreset(preset) {
 }
 $('presetSearch').addEventListener('input',renderPresets);
 $('familySelect').addEventListener('change',renderPresets);
+$('bankSelect').addEventListener('change',()=>{ renderPresets(); updateKeyboard(); });
 function renderBundledFonts() {
-  $('bundledFonts').replaceChildren(...bundledFonts.map(bank => {
+  const cards=bundledFonts.map(bank => {
     const card=element('article','sf-bank'); card.dataset.bankId=bank.id;
-    card.append(element('span','sf-source-number',`${bank.presetCount} PRESETS · ${sizeLabel(bank.bytes)}`),element('h3','',bank.name),element('p','',bank.description),element('p','sf-small',`${bank.author} · ${bank.license}`));
+    card.dataset.bankType=isGmBank(bank)?'gm':'single';
+    card.append(element('span','sf-source-number',`${isGmBank(bank)?'COMPLETE GM BANK':'SINGLE INSTRUMENT'} · ${(bank.format || 'sf2').toUpperCase()} · ${sizeLabel(bank.bytes)}`),element('h3','',bank.name),element('p','',bank.description),element('p','sf-small',`${bank.presetCount} preset${bank.presetCount===1?'':'s'} · ${bank.author} · ${bank.license}`));
     const actions=element('div','sf-actions');
     const saved=entries.find(entry=>entry.bundleId===bank.id);
     const add=element('button','sf-button sf-primary',bankLoads.has(bank.id)?'Loading…':saved?'Open in collection':'Add to collection');
@@ -288,7 +324,9 @@ function renderBundledFonts() {
       const link=element('a','',label); link.href=url; link.target='_blank'; link.rel='noopener noreferrer'; links.append(link);
     }
     card.append(links); return card;
-  }));
+  });
+  $('bundledFonts').replaceChildren(...cards.filter(card=>card.dataset.bankType==='gm'));
+  $('singleInstrumentFonts').replaceChildren(...cards.filter(card=>card.dataset.bankType==='single'));
 }
 async function ensureBundledFont(bank) {
   const saved=entries.find(value=>value.bundleId===bank.id);
@@ -333,7 +371,7 @@ async function loadBundledCatalog() {
     if(!response.ok) throw new Error('Could not load the free banks. Reload to try again.');
     bundledFonts=await response.json();
     if(disposed) return;
-    renderBundledFonts(); renderPresets(); updateKeyboard();
+    renderBankChoices(); renderBundledFonts(); renderPresets(); renderDetails(); updateKeyboard();
     $('catalogStatus').textContent=`${bundledFonts.length} free banks · files load when you explore a preset, add a bank, or download it.`;
   } catch(error) { if(!disposed) $('catalogStatus').textContent=error.message; }
 }
@@ -402,8 +440,6 @@ function updateKeyboard() {
   }
   $('auditionButton').disabled=!playable;
   $('nextPreset').disabled=view==='explore'?!visiblePresets().length:!playable || selectedFont.presets.length<2;
-  $('enableAudio').hidden=audio.enabled;
-  $('enableAudio').disabled=audioStrip.audioButton.disabled;
   $('keyboardHint').textContent=`Audio ${audio.enabled?'on':'off'} · ${playable?'click keys or use your computer keyboard':'select a SoundFont to play'}`;
 }
 window.addEventListener('keydown',event=>{

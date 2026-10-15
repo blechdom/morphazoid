@@ -35,21 +35,37 @@ async function open(page) {
         return sample;
       };` });
   });
-  await page.route('**/src/instruments/midiphoria/midiphoria-renderer.js', async route => {
+  await page.route('**/src/instruments/blech-midi/blech-midi-live-score.js', async route => {
     const response = await route.fetch();
     await route.fulfill({ response, body: `${await response.text()}
-      const qaCapture = MidiphoriaRenderer.prototype.captureEvent;
-      MidiphoriaRenderer.prototype.captureEvent = function(event) {
-        __padsQA.graphics.push({ ...event });
+      const qaProject = createBlechLiveProjector;
+      createBlechLiveProjector = function(...args) { const project = qaProject(...args); return function(...args) {
+        const result = project(...args); __padsQA.graphics.push(...result.notes.map(note => ({ ...note })));
         if (__padsQA.graphics.length > 20000) __padsQA.graphics.splice(0, __padsQA.graphics.length - 20000);
-        return qaCapture.call(this, event);
-      };` });
+        return result;
+      }; };` });
   });
   await page.goto('/blech-midi.html');
-  await expect(page.locator('[data-mixer-sample]')).toHaveCount(58);
+  await expect(page.locator('#blechStampPicker [data-stamp-id]')).toHaveCount(58);
+  await frameTab(page, 'stamps');
+  await input(page, 'blechDropDelay', 0, 'change');
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 }
-const pad = (page, id) => page.locator(`[data-mixer-sample="${id}"]`);
+const layer = (page, id) => page.locator(`#blechLiveLayers [data-sample-id="${id}"]`);
+async function frameTab(page, id) {
+  await page.locator('#blechTab-frames').click(); await page.locator(`#blechTab-${id}`).click();
+  await expect(page.locator(`#blechPanel-${id}`)).toBeVisible();
+}
+async function chooseStamp(page, id, wait = true) {
+  await frameTab(page, 'stamps');
+  await page.locator('#blechStampPicker summary').click();
+  await page.locator(`#blechStampPicker [data-stamp-id="${id}"]`).click();
+  if (wait) await expect(page.locator('#blechDropSend')).toBeEnabled();
+}
+async function drop(page, loop = true) {
+  await page.locator(loop ? '#blechDropLoop' : '#blechDropOnce').click();
+  return launch(page, () => page.locator('#blechDropSend').click());
+}
 const saved = page => page.locator('#mixerSavedPads [data-saved-pad]');
 const launches = page => page.evaluate(() => __padsQA.launches);
 const state = page => page.evaluate(() => ({
@@ -59,10 +75,10 @@ const state = page => page.evaluate(() => ({
 }));
 const sample = async (page, id) => (await state(page)).samples.find(item => item.id === id);
 const progress = async (page, id) => { const current = await sample(page, id); return current ? current.cycle * current.duration + current.position : -1; };
-async function input(page, id, value) {
-  await page.locator(`#${id}`).evaluate((node, value) => {
-    node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true }));
-  }, value);
+async function input(page, id, value, event = 'input') {
+  await page.locator(`#${id}`).evaluate((node, detail) => {
+    node.value = String(detail.value); node.dispatchEvent(new Event(detail.event, { bubbles: true }));
+  }, { value, event });
 }
 async function launch(page, action) {
   const before = (await launches(page)).length; await action();
@@ -81,7 +97,7 @@ async function audible(page) {
   return summary;
 }
 async function silent(page) { await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 8000 }).toBeLessThan(.0001); }
-async function drawing(page, glyph = '❤') { await page.locator(`[data-drawing-stamp="${glyph}"]`).click(); await expect(page.locator('#generateDrawingMidi')).toBeEnabled(); }
+async function drawing(page, glyph = '❤') { await frameTab(page, 'drawing'); await page.locator(`[data-drawing-stamp="${glyph}"]`).click(); await expect(page.locator('#blechDropSend')).toBeEnabled(); }
 async function download(page) {
   const pending = page.waitForEvent('download'); await page.locator('#downloadDrawingMidi').click();
   return readFile(await (await pending).path());
@@ -95,73 +111,67 @@ function transformed(first, next, { stretch, offset }) {
   });
 }
 
-test('native loop pads toggle independently and restarting one never duplicates or resets the other', async ({ page }, testInfo) => {
+test('dropped native loops stop independently while another layer keeps its phase and sound', async ({ page }, testInfo) => {
   test.setTimeout(60000); await open(page);
-  await expect(page.locator('[data-mixer-sample][aria-pressed="true"]')).toHaveCount(0);
-  await expect(pad(page, 'heart')).toHaveAttribute('data-selected', 'true');
+  expect((await launches(page)).length).toBe(0);
   await input(page, 'mixerStampBeats', 4); await input(page, 'mixerStampSpan', 12); await input(page, 'creativeTempo', 240);
-  await page.locator('#mixerSampleProgram').selectOption('16');
-  await page.locator('[data-stamp-loop="heart"]').check(); await page.locator('[data-stamp-loop="square"]').check(); await arm(page);
-  const heart = await launch(page, () => pad(page, 'heart').click());
-  const square = await launch(page, () => pad(page, 'square').click());
-  await expect(pad(page, 'heart')).toHaveAttribute('aria-pressed', 'true'); await expect(pad(page, 'square')).toHaveAttribute('aria-pressed', 'true');
-  await expect(pad(page, 'square')).toHaveAttribute('data-selected', 'true');
+  await page.locator('#blechDropProgram').selectOption('16'); await arm(page);
+  await chooseStamp(page, 'heart'); const heart = await drop(page);
+  await chooseStamp(page, 'square'); const square = await drop(page);
   expect((await state(page)).samples.map(item => item.id)).toEqual([heart.id, square.id]);
-  await page.locator('#mixerStampFilter').fill('noise');
-  await expect(pad(page, 'heart')).toBeVisible(); await expect(pad(page, 'square')).toBeVisible();
-  await expect(pad(page, 'spiral')).toBeHidden(); await page.locator('#mixerStampFilter').fill('');
+  await page.locator('#blechStampPicker summary').click();
+  await page.locator('#blechStampPicker input[type="search"]').fill('noise');
+  await expect(page.locator('#blechStampPicker [data-stamp-id="heart"]')).toBeHidden();
+  await expect(layer(page, heart.id)).toBeVisible(); await expect(layer(page, square.id)).toBeVisible();
+  await page.locator('#blechStampPicker input[type="search"]').press('Escape');
   await expect.poll(async () => (await sample(page, square.id))?.cycle).toBeGreaterThanOrEqual(1); await audible(page);
-  const before = await progress(page, square.id); await pad(page, 'heart').click();
-  await expect(pad(page, 'heart')).toHaveAttribute('aria-pressed', 'false');
-  await expect(pad(page, 'square')).toHaveAttribute('aria-pressed', 'true');
+  const before = await progress(page, square.id); await layer(page, heart.id).locator('[data-layer-stop]').click();
+  await expect(layer(page, heart.id)).toHaveCount(0);
   expect((await state(page)).samples.map(item => item.id)).toEqual([square.id]); expect((await launches(page)).length).toBe(2);
   await expect.poll(() => progress(page, square.id)).toBeGreaterThan(before + .25);
   const remaining = await audible(page);
-  const restarted = await launch(page, () => pad(page, 'heart').click()); expect(restarted.id).not.toBe(heart.id);
+  await chooseStamp(page, 'heart'); const restarted = await drop(page); expect(restarted.id).not.toBe(heart.id);
   expect((await state(page)).samples.map(item => item.id).sort()).toEqual([square.id, restarted.id].sort());
-  await pad(page, 'heart').click(); expect((await launches(page)).length).toBe(3);
-  expect((await state(page)).samples.map(item => item.id)).toEqual([square.id]);
-  await pad(page, 'square').click(); await silent(page);
+  await layer(page, restarted.id).locator('[data-layer-stop]').click();
+  expect((await launches(page)).length).toBe(3); expect((await state(page)).samples.map(item => item.id)).toEqual([square.id]);
+  await layer(page, square.id).locator('[data-layer-stop]').click(); await silent(page);
   expect((await state(page)).samples).toEqual([]); expect((await state(page)).playing).toBe(false);
-  await expect(page.locator('[data-mixer-sample][aria-pressed="true"]')).toHaveCount(0);
   await testInfo.attach('remaining-pad-native-audio', { body: JSON.stringify(remaining), contentType: 'application/json' });
 });
 
-test('one-shot retrigger replaces only its pad and natural completion clears active state while retaining selection', async ({ page }) => {
-  await open(page); await input(page, 'mixerStampBeats', 16); await input(page, 'creativeTempo', 240);
-  await expect(page.locator('[data-stamp-loop="heart"]')).not.toBeChecked(); await expect(page.locator('[data-stamp-loop="square"]')).not.toBeChecked();
-  const first = await launch(page, () => pad(page, 'heart').click()), other = await launch(page, () => pad(page, 'square').click());
-  const again = await launch(page, () => pad(page, 'heart').click());
-  expect(again.id).not.toBe(first.id); expect(again.loop).toBe(false);
-  expect((await state(page)).samples.map(item => item.id).sort()).toEqual([other.id, again.id].sort());
-  await expect(pad(page, 'heart')).toHaveAttribute('aria-pressed', 'true');
-  await expect.poll(async () => (await state(page)).samples.length, { timeout: 10000 }).toBe(0);
-  await expect(page.locator('[data-mixer-sample][aria-pressed="true"]')).toHaveCount(0);
-  await expect(pad(page, 'heart')).toHaveAttribute('data-selected', 'true');
+test('repeated one-shot drops create independent immutable copies and each finishes naturally', async ({ page }) => {
+  await open(page); await input(page, 'mixerStampBeats', 32); await input(page, 'creativeTempo', 300);
+  await chooseStamp(page, 'heart'); const first = await drop(page, false);
+  await chooseStamp(page, 'square'); const other = await drop(page, false);
+  await chooseStamp(page, 'heart'); const again = await drop(page, false);
+  expect(again.id).not.toBe(first.id); expect(again.loop).toBe(false); expect(again.bytes).toEqual(first.bytes);
+  expect((await state(page)).samples.map(item => item.id).sort()).toEqual([first.id, other.id, again.id].sort());
+  await expect(layer(page, first.id)).toBeVisible(); await expect(layer(page, again.id)).toBeVisible();
+  await expect.poll(async () => (await state(page)).samples.length, { timeout: 12000 }).toBe(0);
+  await expect(page.locator('#blechLiveLayers [data-sample-id]')).toHaveCount(0);
+  await expect(page.locator('#blechStampPicker summary')).toContainText('Heart');
+  await expect(saved(page)).toHaveCount(3);
   expect((await launches(page)).length).toBe(3); expect((await state(page)).contexts).toBe(0);
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'false');
 });
 
-test('sent drawings become immutable thumbnail pads with individual loop, stop, replay and remove controls', async ({ page }) => {
+test('sent drawings retain immutable thumbnail pads with independent loop, replay and remove controls', async ({ page }) => {
   await open(page); await input(page, 'mixerStampBeats', 4); await input(page, 'mixerStampSpan', 12); await input(page, 'creativeTempo', 240);
-  await page.locator('#mixerSampleLoop').check(); await drawing(page);
-  const first = await launch(page, () => page.locator('#generateDrawingMidi').click());
-  await expect(saved(page)).toHaveCount(1); const firstCard = saved(page).first();
-  const firstKey = await firstCard.getAttribute('data-saved-pad'); expect(firstKey).toBeTruthy();
+  await drawing(page); const first = await drop(page);
+  await frameTab(page, 'stamps'); await expect(saved(page)).toHaveCount(1);
+  const firstKey = await saved(page).first().getAttribute('data-saved-pad'); expect(firstKey).toBeTruthy();
   const card = page.locator(`#mixerSavedPads [data-saved-pad="${firstKey}"]`);
-  await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'true');
-  await expect(card.locator('[data-pad-loop]')).toBeChecked();
+  await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'true'); await expect(card.locator('[data-pad-loop]')).toBeChecked();
   expect(await card.locator('canvas').evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0))).toBe(true);
   const thumbnail = await card.locator('canvas').evaluate(canvas => canvas.toDataURL());
-  await drawing(page, 'spiral'); const second = await launch(page, () => page.locator('#generateDrawingMidi').click());
-  await expect(saved(page)).toHaveCount(2); expect(second.bytes).not.toEqual(first.bytes);
+  await drawing(page, 'spiral'); const second = await drop(page);
+  await frameTab(page, 'stamps'); await expect(saved(page)).toHaveCount(2); expect(second.bytes).not.toEqual(first.bytes);
   expect(await saved(page).last().locator('canvas').evaluate(canvas => canvas.toDataURL())).not.toBe(thumbnail);
   const secondKey = await saved(page).last().getAttribute('data-saved-pad');
   const other = page.locator(`#mixerSavedPads [data-saved-pad="${secondKey}"]`);
-  await input(page, 'mixerStampBeats', 6); await input(page, 'mixerStampOffset', 12); await drawing(page, '⭐');
-  expect(await card.locator('canvas').evaluate(canvas => canvas.toDataURL())).toBe(thumbnail);
-  expect((await launches(page))[0].bytes).toEqual(first.bytes);
-  await page.waitForFunction(id => { const current = __padsQA.engine.state.samples.find(item => item.id === id); return current && current.positionBeats > .1 && current.positionBeats < 2; }, first.id);
+  await drawing(page, '⭐'); await input(page, 'mixerStampBeats', 6); await input(page, 'mixerStampOffset', 12);
+  await frameTab(page, 'stamps');
+  expect(await card.locator('canvas').evaluate(canvas => canvas.toDataURL())).toBe(thumbnail); expect((await launches(page))[0].bytes).toEqual(first.bytes);
   await card.locator('[data-pad-loop]').uncheck();
   expect((await sample(page, first.id))?.loop).toBe(false); expect((await sample(page, second.id))?.loop).toBe(true);
   await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'false', { timeout: 8000 });
@@ -175,66 +185,62 @@ test('sent drawings become immutable thumbnail pads with individual loop, stop, 
   expect((await state(page)).samples).toEqual([]); expect((await state(page)).contexts).toBe(0);
 });
 
-test('height and horizontal offset transform stamps and drawing exports, with matching native audio and graphics', async ({ page }, testInfo) => {
+test('height and horizontal offset transform stamps and drawing exports, matching native audio and the falling-note projector', async ({ page }, testInfo) => {
   test.setTimeout(60000); await open(page);
   expect(await page.locator('#mixerStampBeats').evaluate(node => Number(node.min))).toBe(.25); expect(await page.locator('#mixerStampBeats').evaluate(node => Number(node.max))).toBe(64);
   await expect(page.locator('#mixerStampBeats')).toHaveAccessibleName(/height.*beats/i);
   await expect(page.locator('#mixerStampOffset')).toHaveAttribute('min', '-127'); await expect(page.locator('#mixerStampOffset')).toHaveAttribute('max', '127');
   await input(page, 'mixerStampSpan', 12); await input(page, 'mixerStampBeats', 2); await input(page, 'mixerStampOffset', 0);
-  const original = await launch(page, () => pad(page, 'square').click()); await page.locator('#mixerStopSamples').click();
+  await chooseStamp(page, 'square'); const original = await drop(page, false); await page.locator('#blechDropStop').click();
   await input(page, 'mixerStampBeats', 6); await input(page, 'mixerStampOffset', 12);
-  const moved = await launch(page, () => pad(page, 'square').click()); transformed(original, moved, { stretch: 3, offset: 12 });
-  await page.locator('#mixerStopSamples').click(); await drawing(page, 'wave');
+  const moved = await drop(page, false); transformed(original, moved, { stretch: 3, offset: 12 });
+  await page.locator('#blechDropStop').click(); await drawing(page, 'wave');
   const pixels = await page.locator('#drawingCanvas').getAttribute('data-pixels');
   await input(page, 'mixerStampBeats', 2); await input(page, 'mixerStampOffset', 0);
-  const draft = await launch(page, () => page.locator('#generateDrawingMidi').click());
-  expect(Array.from(await download(page))).toEqual(draft.bytes); await page.locator('#mixerStopSamples').click();
+  const draft = await drop(page, false);
+  expect(Array.from(await download(page))).toEqual(draft.bytes); await page.locator('#blechDropStop').click();
   await input(page, 'mixerStampBeats', 6); await input(page, 'mixerStampOffset', 12); await input(page, 'creativeTempo', 300);
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#mixerSampleProgram').selectOption('16'); await arm(page);
-  const sounding = await launch(page, () => page.locator('#generateDrawingMidi').click());
+  await page.locator('#blechDropProgram').selectOption('16'); await arm(page); const sounding = await drop(page);
   transformed(draft, sounding, { stretch: 3, offset: 12 });
   const bytes = await download(page); expect(Array.from(bytes)).toEqual(sounding.bytes);
   expect(parseMidi(bytes).notes.map(({ note, beat, duration, velocity }) => ({ note, beat, duration, velocity }))).toEqual(sounding.notes);
   await expect(page.locator('#drawingCanvas')).toHaveAttribute('data-pixels', pixels);
   const expected = pitches(sounding.notes);
   await expect.poll(() => page.evaluate(id => [...new Set(__padsQA.notes.filter(note => note.type === 'noteOn' && note.sampleId === id).map(note => note.note))].sort((a, b) => a - b), sounding.id)).toEqual(expected);
-  await expect.poll(() => page.evaluate(id => [...new Set(__padsQA.graphics.filter(note => note.type === 'noteOn' && note.sourceId === `sample:${id}`).map(note => note.note))].sort((a, b) => a - b), sounding.id)).toEqual(expected);
+  await expect.poll(() => page.evaluate(id => [...new Set(__padsQA.graphics.filter(note => note.source === `sample:${id}`).map(note => note.pitch))].sort((a, b) => a - b), sounding.id)).toEqual(expected);
   const audio = await audible(page); await page.locator('#creativeStop').click(); await silent(page);
   await testInfo.attach('transformed-drawing-native-audio', { body: JSON.stringify(audio), contentType: 'application/json' });
 });
 
-test('tapping a pending file pad again cancels its fetch without stopping another loop or launching later', async ({ page }) => {
-  test.setTimeout(60000); await open(page); await page.locator('[data-stamp-loop="square"]').check();
-  const other = await launch(page, () => pad(page, 'square').click());
+test('selecting another stamp cancels a pending file fetch without stopping a loop or launching late notes', async ({ page }) => {
+  test.setTimeout(60000); await open(page); await chooseStamp(page, 'square'); const other = await drop(page);
   let ready, release, done, pending;
   const started = new Promise(resolve => { ready = resolve; }), gate = new Promise(resolve => { release = resolve; }), finished = new Promise(resolve => { done = resolve; });
-  const file = pad(page, 'black-pattern-3-beat-funnel-128');
   await page.route('**/assets/midiphoria/midi/black-pattern-3-beat-funnel-128.mid', async route => {
     pending = route.request(); const response = await route.fetch(); ready(); await gate;
-    try { await route.fulfill({ response }); } finally { done(); }
+    try { await route.fulfill({ response }); } catch { /* The requested cancellation may already have closed it. */ } finally { done(); }
   });
   try {
-    await file.click(); await started;
-    await expect(file).toHaveAttribute('data-pending', 'true'); await expect(file).toHaveAttribute('aria-busy', 'true');
-    await expect(file).toHaveAttribute('aria-pressed', 'false'); const before = await progress(page, other.id);
-    await file.click(); release(); await finished;
-    await expect.poll(() => Boolean(pending.failure()), { message: 'canceled pad fetch was aborted' }).toBe(true);
-    await expect(file).not.toHaveAttribute('data-pending', 'true'); await expect(file).not.toHaveAttribute('aria-busy', 'true');
+    await chooseStamp(page, 'black-pattern-3-beat-funnel-128', false); await started;
+    await expect(page.locator('#blechStampPicker summary')).toContainText(/funnel/i);
+    const before = await progress(page, other.id);
+    await chooseStamp(page, 'heart'); release(); await finished;
+    await expect.poll(() => Boolean(pending.failure()), { message: 'changing the selected source aborts its old fetch' }).toBe(true);
     await expect.poll(() => progress(page, other.id)).toBeGreaterThan(before + .25);
-    await expect(pad(page, 'square')).toHaveAttribute('aria-pressed', 'true');
+    await expect(layer(page, other.id)).toBeVisible(); await expect(page.locator('#blechDropName')).toContainText('Heart');
     expect((await launches(page)).map(item => item.id)).toEqual([other.id]); expect((await state(page)).samples.map(item => item.id)).toEqual([other.id]);
     expect((await state(page)).contexts).toBe(0); await page.locator('#creativeStop').click();
   } finally { release(); }
 });
 
 for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
-  test(`pad controls, saved loops and geometry are reachable by touch and keyboard at ${viewport.width}×${viewport.height}`, async ({ browser }, testInfo) => {
+  test(`shared Drop, saved loops and frame geometry remain touch and keyboard reachable at ${viewport.width}×${viewport.height}`, async ({ browser }, testInfo) => {
     const context = await browser.newContext({ baseURL: testInfo.project.use.baseURL, viewport, isMobile: true, hasTouch: true });
     const page = await context.newPage(), failures = []; page.on('pageerror', error => failures.push(error.message));
     try {
-      await open(page); await page.locator('#mixerSampleLoop').check(); await drawing(page);
-      await launch(page, () => page.locator('#generateDrawingMidi').click()); const card = saved(page).first();
-      for (const control of [pad(page, 'heart'), card.locator('[data-pad-play]'), card.locator('[data-pad-loop]').locator('..'), card.locator('[data-pad-remove]')]) {
+      await open(page); await drawing(page); await drop(page);
+      await frameTab(page, 'stamps'); const card = saved(page).first();
+      for (const control of [page.locator('#blechDropSend'), card.locator('[data-pad-play]'), card.locator('[data-pad-loop]').locator('..'), card.locator('[data-pad-remove]')]) {
         await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible(); const box = await control.boundingBox();
         expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
         expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
@@ -243,11 +249,12 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
         const control = page.locator(`#${id}`); await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible();
         const box = await control.boundingBox(); expect(box.x).toBeGreaterThanOrEqual(-1); expect(box.x + box.width).toBeLessThanOrEqual(viewport.width + 1);
       }
-      await card.locator('[data-pad-play]').focus(); await page.keyboard.press('Space');
-      await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'false');
+      await card.locator('[data-pad-play]').focus(); await page.keyboard.press('Space'); await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'false');
       await card.locator('[data-pad-loop]').focus(); await page.keyboard.press('Space'); await expect(card.locator('[data-pad-loop]')).not.toBeChecked();
       await input(page, 'mixerStampOffset', 0); await page.locator('#mixerStampOffset').focus(); await page.keyboard.press('ArrowRight');
       await expect(page.locator('#mixerStampOffset')).toHaveValue('1');
+      await page.locator('#blechStampPicker summary').focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Escape');
+      await expect(page.locator('#blechStampPicker summary')).toBeFocused();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       expect(await page.locator('#mixerSavedPads').evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
       expect((await state(page)).contexts).toBe(0); expect(failures).toEqual([]);

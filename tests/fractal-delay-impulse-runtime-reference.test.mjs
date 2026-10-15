@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import test from 'node:test';
 import { fractalImpulseRuntimeChanges, restoreFractalImpulseRuntime } from './helpers/fractal-delay-impulse-runtime-reference.mjs';
 const digest = source => createHash('sha256').update(source).digest('hex');

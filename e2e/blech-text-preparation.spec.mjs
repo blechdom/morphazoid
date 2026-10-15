@@ -42,6 +42,7 @@ async function open(page) {
 }
 
 async function tab(page, name) {
+  if (['drawing','stamps','art','scripts','sequence'].includes(name)) await page.locator('#blechTab-frames').click();
   await page.locator(`#blechTab-${name}`).click();
   await expect(page.locator(`#blechPanel-${name}`)).toBeVisible();
 }
@@ -116,7 +117,7 @@ test('text preparation maps keyboard width, position and total duration to the e
 test('text keeps its own loop and geometry after drawing and file stamp edits, while invalid drafts stay local', async ({ page }) => {
   await open(page); await tab(page, 'drawing');
   await input(page, 'mixerStampSpan', 128); await input(page, 'mixerStampBeats', 25.5);
-  await page.locator('#mixerSampleLoop').check();
+  await page.locator('#blechDropLoop').click();
   await tab(page, 'text');
   await expect(page.locator('#blechTextSpan')).toHaveValue('48'); await expect(page.locator('#blechTextBeats')).toHaveValue('8');
   await expect(page.locator('#blechTextLoop')).not.toBeChecked();
@@ -127,8 +128,8 @@ test('text keeps its own loop and geometry after drawing and file stamp edits, w
   await page.locator('#blechTextMessage').fill('NEW'); await input(page, 'blechTextPosition', 12);
   await page.locator('#blechTextLoop').uncheck();
   expect((await samples(page)).find(sample => sample.id === loop.id)).toMatchObject({ loop: true, notes: loop.notes });
-  await tab(page, 'drawing'); await page.locator('#mixerSampleLoop').uncheck();
-  await tab(page, 'stamps'); await page.locator('[data-mixer-sample="mirror-spiral"]').click();
+  await tab(page, 'drawing'); await page.locator('#blechDropOnce').click();
+  await tab(page, 'stamps'); await page.locator('#blechStampPicker summary').click(); await page.locator('#blechStampPicker [data-stamp-id="mirror-spiral"]').click(); await page.locator('#blechDropSend').click();
   await expect(page.locator('#mixerStampSpan')).toBeDisabled();
   await expect.poll(async () => (await samples(page)).length).toBe(3);
   await tab(page, 'text');

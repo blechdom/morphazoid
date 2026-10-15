@@ -1,0 +1,29 @@
+{
+  "abi": 2,
+  "target": "wasm32-unknown-unknown",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "bytes": 73674,
+  "wasmSha256": "1437d885875b1661e9982f693bfb912587ebc282aa77e35371b2136022208d2d",
+  "sourceHashes": {
+    "scripts/build-staircase-wasm.mjs": "05ad648ccde4854a70f9f8a93b16f73fcf9fb331b03b77e4ac37ae5ab15359f2",
+    "src/instruments/striped-staircase-rust/rust/Cargo.lock": "61dd0e24aa6c8af25aed60017082a96e79dbbc143dd479feb801245bce144126",
+    "src/instruments/striped-staircase-rust/rust/Cargo.toml": "9be1a2fb0154ddb1b248da7143888dfd70904fb7b8b449764e872eafb6e80817",
+    "src/instruments/striped-staircase-rust/rust/src/lib.rs": "f7f0d8286014db76fd331143ab7643d75b47842d350a7f5b855257fd93fb7b79"
+  },
+  "imports": [],
+  "exports": [
+    "memory",
+    "stair_abi_version",
+    "stair_alloc",
+    "stair_controls",
+    "stair_drop",
+    "stair_free",
+    "stair_new",
+    "stair_process",
+    "stair_seek",
+    "stair_state",
+    "stair_state_len",
+    "stair_table",
+    "stair_transport"
+  ]
+}

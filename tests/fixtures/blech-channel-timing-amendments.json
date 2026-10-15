@@ -1,0 +1,31 @@
+{
+  "baseCommit": "37872ac6361123d75a08d676a1ad0133db110cb4",
+  "description": "Exact independent BLECH file timing runtime and physical Tap owner amendments. Earlier target and inventory hashes remain unchanged.",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
+      "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n\n# BLECH MIDI independent file tempo and linked playback ratios.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-timing.js\n",
+      "addition": "\n# BLECH MIDI independent file tempo and linked playback ratios.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-timing.js\n",
+      "path": "src/instruments/blech-midi/blech-midi-timing.js",
+      "row": "copy+require\tsrc/instruments/blech-midi/blech-midi-timing.js\n",
+      "markers": [
+        "# BLECH MIDI independent file tempo and linked playback ratios.",
+        "src/instruments/blech-midi/blech-midi-timing.js"
+      ],
+      "sha256": "701ef8a5f76a9f2c29241b709d929eb1ce40488c3c23e26561b6b2d8fdda48f4"
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "before": "  {\"route\": \"blech-midi.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n  {\"route\": \"blech-midi.html\", \"selector\": \"#blackPlaybackRate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceBpm\": 120}, \"title\": \"Tap Black MIDI speed (120 BPM = 1×)\"},\n  {\"route\": \"minimax.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+      "after": "  {\"route\": \"blech-midi.html\", \"selector\": \"#creativeTempo\", \"mapping\": {\"unit\": \"bpm\"}},\n  {\"route\": \"blech-midi.html\", \"selector\": \"#blackFileTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap independent MIDI file tempo\"},\n  {\"route\": \"blech-midi.html\", \"selector\": \"#blackPlaybackRate\", \"mapping\": {\"unit\": \"multiplier\", \"referenceSelector\": \"#blackTempoReference\"}, \"title\": \"Tap MIDI file speed relative to its current base tempo\"},\n  {\"route\": \"minimax.html\", \"selector\": \"#tempo\", \"mapping\": {\"unit\": \"bpm\"}},\n",
+      "markers": [
+        "#blackFileTempo",
+        "#blackTempoReference",
+        "Tap independent MIDI file tempo",
+        "Tap MIDI file speed relative to its current base tempo"
+      ],
+      "sha256": "83d34cc54c998e8846a7e44a867dbddb61c08bd9c379109fc590a660c80c81d2"
+    }
+  ]
+}

@@ -1,9 +1,9 @@
 {
-  "baseCommit": "6fdd612f2cd53757243fcdc4970282b43da4ec95",
+  "baseCommit": "eaa70f1c1c9b2a3c10539a8eac7ba176f1f79c45",
   "changes": [
     {
       "file": "src/pages/manifest.js",
-      "sha256": "a1cbae8e928495c6c0369329375f388b730ae16aa99eeab6d217b6e3d235db0a",
+      "sha256": "2777338198cf35c64b65577f99a67d4b95f93ec0fcb307aed493d67df2541e6b",
       "replacements": [
         {
           "before": "  \"graph-synth.html\",\n",
@@ -13,7 +13,7 @@
     },
     {
       "file": "src/site/instrument-registry.js",
-      "sha256": "3d557c71f94db431862b9ac7dcf83aca6e3bfbf6550acb993586d9b3382e76c9",
+      "sha256": "a2c03ccc64037330068964dd96f62a61efc39fee63e38b4d3c8564fdff8ac80f",
       "replacements": [
         {
           "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
@@ -27,7 +27,7 @@
     },
     {
       "file": "src/site/instrument-catalog.js",
-      "sha256": "5abf57831bcef52e64f0a9f0cd860a94324063164f429dc38912df0821387802",
+      "sha256": "e695883968515df87df5aa5a4d07c65560ce3842e851269eb227420090e0cf96",
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
@@ -37,7 +37,7 @@
     },
     {
       "file": "src/site/catalogue-taxonomy.js",
-      "sha256": "9b994a6567d1bd436fd9678abd98aa1528931b346a3bffb0bc962741e4b74d6f",
+      "sha256": "b3eabf0928b6754ec278bc4a07ca8bb2404d64642678877c079207ed5ca407f9",
       "replacements": [
         {
           "before": "  \"vector-fractals\": [\"fractal\", \"geometric\", \"synthesizer\"],\n",
@@ -47,7 +47,7 @@
     },
     {
       "file": "src/site/instrument-midi-capabilities.js",
-      "sha256": "dafd0e9e3d4c7b8098f14ac10ed02baaacfd2992fe93cc1aa7f81801876d5951",
+      "sha256": "353ca7bc1faef12b792305672cbbd1f78e7aa0e2b9c305ce1f9d8b78612c36f3",
       "replacements": [
         {
           "before": "  sequence: Object.freeze([\n",
@@ -65,7 +65,7 @@
     },
     {
       "file": "src/site/tap-tempo-targets.js",
-      "sha256": "83d34cc54c998e8846a7e44a867dbddb61c08bd9c379109fc590a660c80c81d2",
+      "sha256": "dcd22cbb4e98f1899b7bd5e840ee25c734c875c276c56a560614535581eb0e7e",
       "replacements": [
         {
           "before": "export const TAP_TEMPO_TARGETS = [\n",
@@ -75,17 +75,17 @@
     },
     {
       "file": "scripts/site/runtime-files.tsv",
-      "sha256": "701ef8a5f76a9f2c29241b709d929eb1ce40488c3c23e26561b6b2d8fdda48f4",
+      "sha256": "6b9e17d6f83653fc67cd2026c0703dd97c8acef7e160e2e32dfaae989a5d1812",
       "replacements": [
         {
           "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
-          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n\n# Graphonic Calculator: Desmos-style expressions with a sonified trace playhead.\ncopy+require\tgraphonic-calculator.html\ncopy+require\tdocs/graphonic-calculator.md\ncopy+require\tdocs/graphonic-calculator-research.md\ncopy+require\tdocs/graphonic-calculator-roadmap.md\ncopy+require\tassets/instruments/graphonic-calculator.webp\ncopy+require\tsrc/instruments/graphonic-calculator/app.js\ncopy+require\tsrc/instruments/graphonic-calculator/audio.js\ncopy+require\tsrc/instruments/graphonic-calculator/camera.js\ncopy+require\tsrc/instruments/graphonic-calculator/expressions.js\ncopy+require\tsrc/instruments/graphonic-calculator/geometry.js\ncopy+require\tsrc/instruments/graphonic-calculator/model.js\ncopy+require\tsrc/instruments/graphonic-calculator/parser.js\ncopy+require\tsrc/instruments/graphonic-calculator/renderer.js\ncopy+require\tsrc/instruments/graphonic-calculator/sampler.js\ncopy+require\tsrc/instruments/graphonic-calculator/style.css\n"
+          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n\n# Graphonic Calculator: Desmos-style expressions with a sonified trace playhead.\ncopy+require\tgraphonic-calculator.html\ncopy+require\tdocs/graphonic-calculator.md\ncopy+require\tdocs/graphonic-calculator-research.md\ncopy+require\tdocs/graphonic-calculator-roadmap.md\ncopy+require\tassets/instruments/graphonic-calculator.webp\ncopy+require\tsrc/instruments/graphonic-calculator/app.js\ncopy+require\tsrc/instruments/graphonic-calculator/audio.js\ncopy+require\tsrc/instruments/graphonic-calculator/camera.js\ncopy+require\tsrc/instruments/graphonic-calculator/expressions.js\ncopy+require\tsrc/instruments/graphonic-calculator/formulas.js\ncopy+require\tsrc/instruments/graphonic-calculator/geometry.js\ncopy+require\tsrc/instruments/graphonic-calculator/model.js\ncopy+require\tsrc/instruments/graphonic-calculator/parser.js\ncopy+require\tsrc/instruments/graphonic-calculator/readers.js\ncopy+require\tsrc/instruments/graphonic-calculator/renderer.js\ncopy+require\tsrc/instruments/graphonic-calculator/sampler.js\ncopy+require\tsrc/instruments/graphonic-calculator/style.css\n"
         }
       ]
     },
     {
       "file": "README.md",
-      "sha256": "53b8bd0ba913fcef8e15d7447972dc31e7eb4ded7d4a92ed0c2eebc7eea12b38",
+      "sha256": "be555ca0d7c1c4d3e03e1f19d2928f91a07fd5f01ffe5538f741ece48c86352a",
       "replacements": [
         {
           "before": "# Morphazoid\n\n",

@@ -34,7 +34,8 @@ function validateMidi(buffer) {
  */
 export class MidiphoriaPlayer {
   constructor({ onMidi, onState, onClear, runtime = globalThis, clock = () => performance.now() / 1000,
-    loadLibrary = () => import(LIBRARY_URL.href), connectOutput = connectAudioOutput, getAudioContext } = {}) {
+    loadLibrary = () => import(LIBRARY_URL.href), connectOutput = connectAudioOutput, getAudioContext,
+    minPlaybackRate = 0.5, maxPlaybackRate = 8 } = {}) {
     this.onMidi = onMidi; this.onState = onState; this.onClear = onClear;
     this.runtime = runtime; this._loadLibrary = loadLibrary; this._connectOutput = connectOutput;
     this._getAudioContext = getAudioContext; this._ownsContext = false;
@@ -49,6 +50,8 @@ export class MidiphoriaPlayer {
     this._file = null; this._queued = null; this._activeLoad = null; this._loadTimer = null;
     this._serial = 0; this._readyToken = null; this._playing = false; this._audioEnabled = false;
     this._desiredAudio = false; this._volume = 0.5; this._rate = 1; this._loop = false;
+    this._minPlaybackRate = clamp(minPlaybackRate, 0.001, 0.5, 0.5);
+    this._maxPlaybackRate = clamp(maxPlaybackRate, 1, 64, 8);
     this._noteEffects = sanitizeMidiNoteEffects({});
     this._time = 0; this._duration = 0; this._seekTime = null; this._error = null; this._disposed = false;
     this._onPageHide = () => { void this.dispose(); };
@@ -315,7 +318,7 @@ export class MidiphoriaPlayer {
 
   setPlaybackRate(value) {
     if (this._visual) { this._visualTime(); this._visual.at = this._clock(); }
-    this._rate = clamp(value, 0.5, 8, this._rate);
+    this._rate = clamp(value, this._minPlaybackRate, this._maxPlaybackRate, this._rate);
     if (this._sequencer) this._sequencer.playbackRate = this._rate;
     this._publish(); return this._rate;
   }

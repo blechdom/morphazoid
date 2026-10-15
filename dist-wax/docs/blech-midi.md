@@ -2,17 +2,70 @@
 
 [Open BLECH MIDI](../blech-midi.html). Drawing, black MIDI and geometric stamps,
 words, MIDI artwork, the Black MIDI file player and live Automatapoeia evolution
-share one page. The light-trail visualizer, ordinary file player and two-deck
+share one falling-note stage. The light-trail visualizer, ordinary file player and two-deck
 mixer remain in [Midiophilia](../midiphoria.html).
+
+## Prepare, position, Drop
+
+The five generator views are **Files**, **Frames**, **Math**, **Text** and
+**Automata**. **FX** and **Visualizer** are separate output settings. Credits,
+reference material and setup information live at the bottom of the page.
+Changing views preserves drafts and keeps the other sources playing.
+
+Each generator uses the same **Send Drop** strip: choose **1** for a one-shot or
+**Loop**, then press **Drop ↓**. Preparation is silent. Selecting a stamp or
+preset shows a movable copy over the visualizer; it does not launch that copy.
+Drag left/right to transpose the entire phrase and up/down to set its start
+delay in master beats. The numeric Pitch and Delay controls do the same thing.
+The default delay is two beats; zero starts immediately. Delay is bounded to
+0–64 beats in quarter-beat steps. Pitch movement stops at the keyboard's edges
+without folding notes together. Full-width shapes have no room to transpose.
+Arrow keys move a focused preview; Shift makes larger moves.
+
+The small **Channel** menu retains Original routing or sends the copy to MIDI
+channel 1–16; channel 10 is percussion. **Instrument** retains Original programs
+or selects a GM instrument. **Volume** sets that new layer's gain. These settings
+are independent of the GM SoundFont bank, master output volume and existing
+layers. Frames subviews share their next-drop settings. Choosing a channel does
+not request an external MIDI device.
+
+After Drop, the prepared overlay hides and the new layer appears in **Layers**,
+queued until its delay expires. The falling forecast then reaches the keyboard
+when its notes sound. A one-shot leaves Layers when finished; a loop remains
+until stopped. Edit another draft while that snapshot plays. The floating Loop
+and Drop controls perform the same actions as the strip. **Stop** in Send Drop
+ends that generator's layers; Frames includes all its subviews. Files Stop also
+stops the full-file transport, and Automata Stop pauses live evolution. Use an
+individual layer's Stop to end only one copy, or **Stop all** for everything.
+None of these actions arms Audio: use the masthead Audio control explicitly.
+
+**Frames** contains **Stamps**, **Drawing**, **Images**, **Scripts** and
+**Sequence**. Stamps uses a searchable thumbnail pulldown showing one selected
+stamp when closed. Drawing prepares freehand geometry. Images converts local
+images into notes. Scripts copies the selected stamp, drawing or image for
+processing; **Use source** adds a copied source, while choosing Image reuses the
+latest image layer without duplicating it. Images and Scripts share the same
+prepared artwork. Sequence arranges captured drawings and rests into a clip.
 
 ## Black MIDI file player
 
-The persistent falling-note stage stays beside the preparation tabs on laptops and above them on phones. **MIDI Files**
+The persistent falling-note stage stays beside the preparation tabs on laptops and above them on phones. **Files**
 contains a native collection-grouped menu, Next, Random and local imports.
-Play/Pause, Stop, Loop file and File volume belong only to this player.
+The shallow horizontal MIDI-file strip keeps Play/Pause, Stop, Volume, File BPM,
+Link, Ratio, Speed, Loop and Original together. On narrow screens it scrolls
+sideways. Volume also controls the playable keyboard; Stop ends only the file.
 Changing tabs, preparing another drawing, changing colors, or pausing
 Automatapoeia does not stop the file. **Stop all** stops every source.
 Changing files preserves an already-running file transport.
+
+Files has two playback routes. Its channel strip plays the complete selected
+file independently. Shared **Drop** instead makes a separate finite layer when
+the source fits the layer limits: 2 MiB, 32,768 notes, 131,072 events, 16 channels
+and 512 beats. An oversized source reports why Drop is unavailable; the full
+file player remains available. A layer uses the selected score itself, including
+decorative notes, rather than substituting a separate AUDIO edition. Layer
+drops share Master tempo; the full-file strip retains its Link/File BPM/Ratio
+settings. Local uploads join the Files menu for this session.
 
 **Preview score ↓** beside a prepared drawing or in the MIDI art creator loads
 an independent snapshot into the falling-note player. It does not send a pad,
@@ -22,16 +75,29 @@ turning Audio on. Sending and previewing have separate transport ownership.
 The file synthesizer borrows Blech's AudioContext and feeds the same filter,
 delay, master volume and final peak limiter as the pads and Automatapoeia.
 The SoundFont picker and MIDI note effects apply to file playback too. File
-volume balances this source before the shared output. Audio remains an
+volume balances the file and keyboard before the shared output. Audio remains an
 explicit page-wide action; stopping a file does not close the shared context.
 Synthesizer-specific live-pad parameter edits remain with their pad source.
 
-By default, Speed preserves the file's own tempo map. **Sync to tempo** scales
-that map by the shared tempo divided by its initial BPM, multiplied by Speed.
-Changes are continuous and bounded to 0.5–8×. Variable-tempo files retain their
-tempo changes: this is a tempo ratio, not a rewritten constant-tempo score or
-a bar-alignment system. The status explains a clamped ratio. SMPTE-timed files
-have no initial musical BPM and retain speed-only playback.
+By default, the file uses its original tempo. Edit **File BPM** for an independent
+tempo, or enable **Link** to follow Master. **Ratio** offers exact eighth, quarter,
+third, half, two-thirds and faster multiples through 64×; **Speed** adjusts that
+same multiplier continuously. The status shows the resulting initial BPM after
+the ratio. **Original** unlinks and restores the source tempo at 1× without
+stopping playback. The Tap buttons follow their displayed tempo or ratio base.
+The combined playback rate is limited to 0.01–64×, with clipping shown explicitly.
+File BPM accepts up to 4,800. A 120 BPM file at 64× runs at an initial 7,680 BPM;
+Link and Ratio share the same combined 64× limit.
+Variable-tempo files retain their tempo changes: this scales the original tempo
+map rather than rewriting it or aligning bars. SMPTE-timed files have no musical
+BPM; Link and File BPM are disabled while the speed ratio remains available.
+
+With Audio on, moving the mouse across the piano plays its keys. Touch and pen
+use press-and-drag. The keyboard uses the selected SoundFont's piano; its volume
+is the MIDI strip's Volume knob. Leaving the keys, releasing a touch, losing focus,
+Audio off or Stop all releases held notes. Keyboard focus supports arrow keys
+(semitones or octaves), Home/End and Enter to play. Fast movement uses the actual
+pointer samples received; it does not insert unobserved notes between them.
 
 Local import accepts up to 20 files and 200 MiB total per session. Scores above
 10 MiB use silent visual playback unless the collection supplies a separate
@@ -52,14 +118,24 @@ A note keeps the same downward speed on either side of the keys. File history
 follows its playhead: pause freezes it and seeking replaces it with history at
 the new position. Generated layers keep their own bounded history, including
 recent notes after a pad ends or stops. These are note-gate trails, not measured
-SoundFont release tails. Dropping a pad still starts it immediately; the view
-does not introduce an audio delay.
+SoundFont release tails. Shared Drop uses the chosen start delay; a zero-delay
+drop starts immediately. The visualizer follows that timing rather than adding
+its own delay.
 
 This view uses **WebGL2**, with Canvas 2D fallback after GPU unavailability or
 context loss. Generated pads and live evolution are composited into this same stage; Midiophilia light/trail views remain Canvas 2D. It does not use
 WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
 tools such as Wasabi; our browser GPU path is WebGL2. This is an original
 Piano From Above-style presentation, not a port of that application.
+
+The persistent header shows **File notes** passed / total and **Generated notes**.
+The file count follows its playhead, including seeks and each loop. Generated
+notes accumulate across layer loops, live Automata and keyboard attacks; stopping
+a layer keeps its count. The reset arrow clears only the generated counter and
+does not interrupt playback. Pending drops and held-note rejoins add no attacks.
+These are source-note counts before MIDI effects and synthesizer voice limits;
+they do not depend on how many rectangles fit on screen. If a file exceeds the
+preview limit, its total remains visible but its passed count is unavailable.
 
 A module worker parses the complete SMF into indexed typed arrays. Total notes
 count every positive-velocity Note On, including quiet/decorative channels.
@@ -81,7 +157,7 @@ Sixteen decorative entries play the separately supplied AUDIO edition on its
 original timeline. Different editions can have different note/end times; no
 duration-based stretching is applied. Unpaired scores at or below the 10 MiB
 audio-loader limit use the original MIDI; larger unpaired scores have an
-explicitly silent visual transport with pause, seek, loop and 0.5–8× speed.
+explicitly silent visual transport with pause, seek, loop and adjustable speed.
 The complete scores are kept out of the bounded mixer/stamp selectors.
 See [artist sources and Nancarrow findings](../assets/midiphoria/ARTWORK-SOURCES.md)
 for provenance, redistribution terms and exact independently checked counts.
@@ -91,62 +167,55 @@ Black MIDI displays the original source score before MIDI effects. Generated pad
 
 ## Independent layer transports
 
-The **Layers** rack stays above the preparation tabs. Each Drop creates its own
-named layer with a distinct number, even when two drops use the same equation.
-**Pause** freezes only that layer's position and releases its notes; **Resume**
-continues it from that position. **Stop** ends that layer immediately. Other
-layers, the MIDI file and Automatapoeia keep running. The saved pad remains in
-MIDI Stamps so it can be played again after stopping.
+The **Layers** rack stays with the visualizer. Each Drop creates a named layer
+with a distinct number, even when two drops use the same equation. **Pause**
+freezes only that layer's position and releases its notes; **Resume** continues
+from that position. **Stop** ends that layer immediately. Its saved snapshot
+remains in Frames → Stamps. Other layers, the full-file player and live Automata
+keep their own transport states.
+Each row also shows a compressed note-activity timeline, playhead and its own
+volume control.
 
-Each active layer has its own **Loop** switch: switching it off finishes the
-current pass. The Math **Loop new pattern**, Animation **Loop new sequence** and
-Drawing **Loop drawing** controls apply to the next Drop, not to layers already
-playing. To end a running loop now, use its **Stop** button in Layers.
+Each active layer has a **Loop** switch: switching it off finishes the current
+pass. **1 / Loop** in Send Drop sets the next copy's playback without changing
+existing layers. Stop ends a loop immediately.
 
-The rack holds up to four active or paused layers. A fifth Drop replaces the
+The rack holds four active, queued or paused layers. A fifth Drop replaces the
 oldest playing layer; paused layers are retained. If all four are paused, stop
-one before adding another. A paused stamp or saved pad resumes when tapped.
-**Stop all** remains the page-wide way to stop every source.
+one before adding another. **Stop all** remains the page-wide recovery action.
 
-## Prepare and send
+## Drawing, stamps and Text
 
-Turn **Audio** on. Open **Drawing**, draw or choose a shape, then press
-**Drop ↓**. The sent score is a snapshot: edits prepare the next drawing while
-that pad keeps playing. **Loop drawing** affects the next drop. Stop or change
-Loop for an active pad in the persistent Layers rack, or open **MIDI Stamps**
-to replay, edit or remove its saved pad. **Load as file** explicitly replaces
-the file-player selection instead of layering. **Download MIDI** saves the
-last dropped drawing; editing hides that stale link.
+Open **Frames → Drawing**, draw or choose a shape, position its prepared overlay,
+then use shared Drop. Editing prepares the next drawing while the sent copy
+keeps playing. **Load as file** explicitly replaces the file-player selection.
+**Download MIDI** saves the last dropped drawing; editing hides that stale link.
 
-The upper file Play/Pause is the primary transport. Space outside editable
-controls toggles that file; it never arms Audio. Inside the drawing canvas,
-arrow keys move, Space or Enter paints, Delete erases, and Ctrl/Cmd+Z undoes.
-One captured freehand stroke is one undo action. Tabs use Left/Right and
-Home/End navigation and preserve all prepared contents.
+The full-file Play/Pause remains the primary Space transport outside editable
+controls and never arms Audio. Inside the drawing canvas, arrows move, Space or
+Enter paints, Delete erases, and Ctrl/Cmd+Z undoes. One captured stroke is one
+undo action. Both generator and Frames tabs support Left/Right and Home/End.
 
-The stamp bank contains the existing generated textures plus the bundled black
-MIDI and geometric file stamps. Its single filter searches names and collections.
-Each pad has its own **Loop** switch. With it on, tap a pad to start it and tap again to stop only that pad.
-With Loop off, a tap plays once; another tap retriggers that pad from the start
-without stopping other pads. Green means playing; the dashed outline means the
-shape selected for editing or painting. A loading file says **Loading · tap to
-cancel** and does not count as playing. Selecting another file cancels the old
-download; it does not stop already-playing pads.
+The stamp pulldown combines generated textures and bundled black MIDI/geometric
+files. Its filter searches names and collections; each result
+has a thumbnail. Selecting prepares a copy. Shared Drop launches it. Selecting
+another file cancels an unfinished preparation download without stopping
+already-playing layers.
 
-Each Drop creates a thumbnail in the **MIDI Stamps** bank. Drawings,
-captured evolution, messages and painted copies retain their exact MIDI, independent of
-the preparation canvas. Tap a looping saved pad to stop or restart it; its own
-**Loop** switch changes only that pad. Turning this switch off finishes the
-current pass. **Remove** stops and removes just that saved pad. Stop all leaves
-the bank available to replay. The bank holds eight sends for this page session;
-a ninth replaces the oldest stopped pad. Navigation/reload clears it. The single
-filter searches both factory and saved pads; playing pads remain visible and
-move to the front. **Edit** reopens Text pads in the Text editor. For other pads it copies into the 48 × 32 drawing grid. This
-raster draft simplifies source timing and pitch detail; the original MIDI pad
-is unchanged. Sending the draft creates another pad.
+Each Drop saves an independent snapshot in the Stamps bank, including drawings,
+messages, equations and captured evolution. The saved cards below the pulldown
+retain direct replay: tap to start or stop a
+loop, resume a paused pad, or retrigger a one-shot. Their Loop switches affect
+that saved pad and its current playback.
+**Remove** stops and removes only that saved pad; **Stop all** leaves the bank
+available. The bank holds eight sends for this page session. A ninth replaces
+the oldest stopped pad; navigation/reload clears the bank. **Edit** reopens Text
+pads in Text. Other pads copy into the 48 × 32 drawing grid, simplifying timing
+and pitch detail while retaining the original saved MIDI. Dropping that draft
+creates another layer.
 
-**Text** has a multiline **Write text** box, **Clear text**, an exact MIDI preview,
-and its own **Loop new text** switch. Enter inserts a deliberate line break;
+**Text** has a multiline **Write text** box, **Clear text** and an exact MIDI
+preview; shared **1 / Loop** chooses the next drop's playback. Enter inserts a deliberate line break;
 longer lines wrap at word boundaries, splitting long words only when necessary.
 The numbered list shows the actual prepared lines and why each breaks. The first
 line plays first, from the bottom of the upright preview; there are no generic
@@ -162,38 +231,45 @@ and shows its actual MIDI range. Full width fixes the position to MIDI 0–127.
 the shared tempo. Preview and Drop use the same parsed MIDI bytes and layout.
 Preparation and Clear never start playback, stop layers or arm Audio.
 
-**Drop text** adds an independent copy. **Edit** beside a Text layer or saved Text
+Shared **Drop** adds an independent Text copy. **Edit** beside a Text layer or saved Text
 pad restores its message and layout. Change width, duration, position, lettering
 or text, then **Apply next loop**: the current pass finishes and the new version
 starts on that layer's next loop. Repeated Apply replaces the queued update.
 Queued layers can update before starting; paused layers update while staying
 paused. Playing one-shots offer **Restart this layer**. Turning off Loop cancels
 a pending update and finishes the current pass. Stop also cancels a queued edit;
-the saved pad retains its last applied text. **Drop new text** layers another
+the saved pad retains its last applied text. Shared **Drop** layers another
 copy instead. Other sources keep their positions and play/pause states.
-The stamp Density/seed/Key gate and Drawing Loop controls do not affect Text;
-shared Sound / FX processing still applies during playback.
-The shared shape controls belong to Drawing and MIDI Stamps. The old live trail
+The stamp Density/seed/Key gate controls do not affect Text;
+shared FX processing still applies during playback.
+The shared shape controls belong to Frames → Drawing and Stamps. The old live trail
 canvas and Paint flow gesture remain in Midiophilia.
 
-## MIDI Math and Frames
+## Math and frame sequences
 
-**MIDI Math** prepares `y = f(x)` or parametric `x(t), y(t)` curves. Six presets
-cover sine blades, interference, staircases and parametric shapes. Edit the
-expression, domain, duration, sample density, stroke width, gate, pitch range
-and velocity, then Drop an independent pad. Loop defaults on. Preparing,
-selecting a preset and changing equations do not launch notes or arm Audio.
-Expressions use a bounded arithmetic parser, not JavaScript evaluation: no
-assignment, property access or dynamic code. Limits: 256 characters, 192 tokens,
-24 nesting levels, 1,024 samples and 16 notes per sample. Invalid expressions disable Drop. Non-finite or out-of-bounds samples are omitted and counted; an empty result also disables Drop. No external graphing service is required.
+**Math** prepares `y = f(x, t)` or parametric `x(t), y(t)` curves. The bank has
+54 presets: the original six plus 48 new waves, steps, folds, knots, flowers and
+spirals. Sixteen are marked **evolves**: they grow, shrink, accelerate or morph
+through one drop. In function mode, `t` and `phase` run from 0 to 1 across the
+output duration, independently of the input domain. In parametric mode, `t`
+retains the domain parameter and `phase` measures traversal from 0 to 1.
+Changing Length stretches the complete score and its evolution together.
+These are prepared note patterns; live playback does not reevaluate formulas.
 
-**Frames** takes up to eight immutable drawing snapshots. Use **Capture frame**
-inside Drawing, or **Capture drawing** inside Frames. Arrange, duplicate, remove
-or insert rests, set beats per frame, and Drop the sequence as an independent
-loopable pad. Edit drawing opens a copy; playing sequences retain their old
-snapshots. Animate preview runs a silent preparation preview. It never changes
-the source transport. All generated scores remain subject to the four active
-pad and eight saved pad limits.
+Edit the expression, domain, duration, samples, stroke width, note length,
+pitch range and velocity, then use shared Drop. Selecting presets and editing
+equations only prepare the preview. The bounded arithmetic parser allows no
+assignments, property access or dynamic code. Limits are 256 characters, 192
+tokens, 24 nesting levels, 1,024 samples and 16 notes per sample. Invalid
+expressions disable Drop; non-finite/out-of-bounds samples are omitted and
+counted. An empty result also disables Drop. No external graph service is used.
+
+**Frames → Sequence** holds up to eight immutable drawing snapshots. **Capture
+frame** in Drawing or **Capture drawing** in Sequence adds a frame. Arrange,
+duplicate, remove or insert rests, set beats per frame, then use shared Drop.
+Edit drawing opens a copy; playing sequences keep their old snapshots.
+Animate preview is silent and does not alter the source transport. A sequence
+uses one of the four live layer slots and one saved-pad slot.
 
 ## Performance workspace design
 
@@ -217,12 +293,11 @@ documents resource/security considerations for arbitrary expressions.
 
 ## Timing and sound
 
-All sources follow the **30–300 BPM** tempo knob and its shared Tap control.
-Each pad retains its own position and Loop setting. **Loop drawing** sets only
-the next drawing Send; Text has its own **Loop new text** switch. Neither changes
-existing pads. Turning an
-individual pad's Loop off finishes its current pass. Tapping a looping pad
-stops it immediately without interrupting the other sources.
+Generated layers and Automatapoeia follow the **30–4,800 BPM Master** knob,
+exact BPM field and shared Tap control. The MIDI file follows Master only while **Link** is enabled.
+Each layer retains its own position and Loop setting. Shared **1 / Loop** sets
+only the next Drop. Turning an individual layer's Loop off finishes its current
+pass; its Stop button ends it immediately without interrupting other sources.
 
 **Stop all** stops the file, removes active pads and pauses Automatapoeia. **Audio off** releases
 pad playback but keeps the live automata transport evolving silently. Enabling
@@ -233,14 +308,17 @@ snapshot remains available. Stopping a source cancels its own pending
 MIDI-effect echoes and leaves other sources moving.
 
 Generated drawings, patterns and rules default to piano; file stamps can retain
-their original instruments. The **Pads** volume controls the stamp bus; Automatapoeia has its own volume
-and instrument selector. Masthead Output controls the final mix. **Stamp MIDI**
-retains program, controller, pitch, velocity and envelope parameters supported by
-the existing MIDI stamp engine. Source settings apply to future sends; live
-parameters update active voices where supported.
+their original instruments. **Drop volume** sets the next copy, and each Layers
+row has its own volume. Automata has its own live volume and instrument
+selector. Masthead Output controls the final mix. Source programs,
+controllers, pitch and velocity are retained where supported; selecting a
+channel or instrument changes that new copy's routing or voice.
 
-The collapsed **SoundFont & live effects** section keeps the stamp sound controls
-on this page. Choose a bundled bank or a font saved on **Sound Fonts**, import a
+**GM SoundFonts** is visible in Files. Its General MIDI group offers
+TimGM6mb, GeneralUser GS 2.0.3, FluidR3Mono GM and FluidR3 GM, each with all 128
+instruments; specialist banks and saved imports appear separately. **Browse &
+preview** opens the Sound Fonts library. **FX** retains live effects and
+a shortcut to the bank chooser. Choose a bundled bank or a saved font, import a
 local SF2/SF3 file up to 128 MiB, or restore TimGM6mb. Accepted imports join the
 [shared browser library](shared-sound-fonts.md). Choosing a bank preserves the
 current Audio state; enable Audio explicitly to hear it. Banks stay in this browser;
@@ -252,12 +330,22 @@ without stopping the patterns or changing Audio, output level or the SoundFont.
 
 ## Live Automatapoeia
 
-Automatapoeia runs in its own preparation tab with an independent **Play/Pause**
-and the same master tempo as the pads. Every row is computed from the previous
-row on the audio clock, without repeatedly launching sample clips. Pause
+The **Automata** generator contains live Automatapoeia with an independent
+**Play/Pause** and the same Master tempo as the layers. **New seed** and Restart
+sit near the rule/transport controls so the starting pattern is easy to change.
+Every row is computed from the previous row on the audio clock, without repeatedly
+launching sample clips. Pause
 releases only its notes and pending effects, retaining the generation and
 within-row phase. Resume continues that row's remaining time. The output shows
 its notes alongside every playing pad, with a distinct source color.
+
+Shared **Drop** is a separate action: it generates a finite clip from the
+prepared rule, seed, width, row count and articulation. That clip can be moved,
+assigned a channel/instrument and played once or looped in Layers without
+starting, pausing or resetting live evolution. It begins from the prepared
+seed, not from the current live row. To keep an actual performed passage,
+use Capture to pad instead. Automata **Stop** in Send Drop stops its finite
+layers and pauses its live stream; a layer's Stop affects only that clip.
 
 The original thumbnail rule menu, search, symmetry filters, Previous and Next
 remain available. All 256 elementary rules and 64 radius-2 totalistic codes
@@ -358,15 +446,15 @@ Messages use the existing original 5×7 letters and curated 🙂 😀 ⭐ ❤ �
 **Rows of text** fits up to eight characters alongside each other and continues in
 rows; **Letters in sequence** uses a separate time window for each character. Up to
 32 characters are supported, lowercase becomes uppercase, and skipped symbols
-are reported in the draft preview. **Drop text** launches the prepared score and
-adds it to Layers and Your pads. The separate
+are reported in the draft preview. Shared **Drop** launches the prepared Text score and
+adds it to Layers and the saved stamp bank. The separate
 Words & symbols file-generation feature remains in Midiophilia's visualizer.
 
 Automatapoeia maps each column to one chromatic pitch. Its seed row plays first.
 Retrigger attacks every active cell; Hold joins consecutive cells at the same
-pitch. Captured pads retain the performed note gates. The older finite MIDI
-rule generator remains available to other consumers without changing its
-published default MIDI bytes.
+pitch. Captured pads retain the performed note gates. Shared Drop uses the
+existing finite MIDI rule generator without changing its published default
+MIDI bytes; live evolution remains an independent source.
 
 ## Ownership and limits
 
@@ -383,7 +471,7 @@ fresh owners with Audio off and restores the prepared drawing without restarting
 playback. No microphone, MIDI input, MIDI output or device permission is requested.
 
 The existing sample limits remain: at most four clips, 32,768 notes, 16 channels,
-512 beats and 2 MB per generated/excerpted sample. Dense file stamps use bounded
+512 beats, 131,072 events and 2 MiB per generated/excerpted sample. Dense file stamps use bounded
 windows; **Whole file** can shorten an oversized source to fit those limits.
 The preparation grid is 48 by 32 cells, mapped across up to all 128 MIDI pitches.
 
@@ -398,10 +486,13 @@ will become a separately visible mark or simultaneous sounding voice.
 
 ### Bespoke MIDI artwork creator
 
-Open **MIDI artwork creator** below the drawing and Automata workbenches. Import
-a local raster image (up to 16 MiB), copy the current drawing, or generate a
-ribbon/cloud. The image is mapped into at most 128 pitch columns and 256 time
-rows, reading upward from the bottom. Threshold, inversion, dimensions, pitch
+Open **Frames → Images** to import a local raster image (up to 16 MiB).
+**Frames → Scripts** selects Drawing, Stamp or Image as the input for processing.
+Use source copies the drawing/stamp; Image reuses the latest original image
+layer. Both views share their layers and processing settings. The script menu
+can also generate a ribbon/cloud without an image. The image maps into at most
+128 pitch columns and 256 time rows, reading upward from the bottom. Threshold,
+inversion, dimensions, pitch
 range, duration and brightness-to-velocity determine the actual MIDI notes.
 Images stay in the browser; animated formats use the decoded first frame.
 
@@ -416,9 +507,10 @@ Randomization is reproducible from its seed.
 Pitch paths, velocity and note-length curves alter individual MIDI notes. They
 are discrete score transformations, not continuous pitch-bend or CC automation.
 Export produces a type-1 SMF with separate layer channels and piano programs.
-**Send** captures an immutable score into the playable pad bank, with its own
-Loop checkbox and tap-to-stop behavior; clearing/editing the creator leaves
-already sent pads intact. It shares Blech's tempo and explicitly armed Audio.
+Shared **Drop** captures an immutable score into Layers and the saved stamp
+bank, using the chosen channel, instrument, volume, position and **1 / Loop**
+setting. Clearing/editing the creator leaves sent copies intact. It shares
+Master tempo and explicitly armed Audio.
 Limits are 32,768 notes and 512 beats; exceeding them produces an error instead
 of silently deleting notes.
 

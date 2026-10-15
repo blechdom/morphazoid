@@ -92,7 +92,7 @@ test('the main tour keeps one deterministic shuffled order across reloads and in
 });
 
 test('sample performances cover bundled loops and recall processing without devices or sequencing', () => {
-  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 37);
+  assert.equal(SAMPLE_INSTRUMENT_PRESETS.length, 41);
   assert.deepEqual(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.routing.selection)),
     new Set(inputsForCategory('samples').map(input => input.id)));
   assert.ok(new Set(SAMPLE_INSTRUMENT_PRESETS.map(p => p.snapshot.sound.methodId)).size >= 10);

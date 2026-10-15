@@ -190,6 +190,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
   assert.equal(instrumentMidiCapabilityForId("simd-synth").noteMode, "pitched");
   assert.equal(instrumentMidiCapabilityForId("simd-synth").computerKeyboardMode, "page");
   assert.deepEqual(PAGE_KEYBOARD_INSTRUMENT_IDS, [
+    "striped-staircase-rust",
     "trackazoid",
     "graph-delay-rust",
     "synthesis",
@@ -228,6 +229,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "spartial",
     "gesturama",
     "simd-resonator",
+    "simd-resonator-rust",
     "simd-synth",
     "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
     "graph-3d",

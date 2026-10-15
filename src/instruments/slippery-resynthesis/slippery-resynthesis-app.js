@@ -1,3 +1,6 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { mountProcessorSamplePlayer } from "../../processor-sample-player.js";
+import { SLIPPERY_FULL_PRESETS, captureSlipperyPreset, validateSlipperyPreset, randomizeSlipperyPreset } from "./full-presets.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import {
   SLIPPERY_RESYNTHESIS_DEFAULTS,
@@ -32,7 +35,7 @@ const state = {
     }),
   },
   preset: firstPreset.id,
-  source: "microphone",
+  source: "samples",
   loopFile: true,
   fileUrl: null,
   fileLabel: null,
@@ -53,26 +56,32 @@ let lastDrawTime = 0;
 let sourceTransition = false;
 let disposed = false;
 let inputError = "";
+let samplePlayer = null;
+let presetController = null;
 const inputControl = mountAudioInputControl({
   container: $("sourceChoice").parentElement,
   before: $("sourceChoice"),
   gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
   onGainInput: value => setParameter("inputGain", value),
   gainMultiplier: () => state.settings.inputGain,
-  sources: [{ value: "microphone", label: "Mic" }, { value: "file", label: "File" }],
+  sources: [{ value: "samples", label: "Samples" }, { value: "microphone", label: "Mic" }, { value: "file", label: "File" }],
   sourceValue: state.source,
   fileInput: $("filePicker"),
   onSourceChange: source => { inputError = ""; void chooseSource(source); },
   onStart: async () => {
     inputError = "";
     clearAudioError();
+    if (state.source === "samples") {
+      if (!state.audioOn) throw new Error("Switch Audio on before playing a sample.");
+      return samplePlayer.start();
+    }
     updateAudioParameters();
     await audio.start(selectedSource());
     updateInterface();
   },
-  onStop: () => { inputError = ""; return audio.stop(); },
-  getState: () => ({ active: audio.enabled, pending: audio.pending, error: inputError, source: state.source }),
-  getSignal: () => ({ node: audio.sourceNode, stream: audio.mediaStream, channels: audio.sourceKind === "file" ? 2 : undefined }),
+  onStop: () => { inputError = ""; samplePlayer?.stop(); return audio.stop(); },
+  getState: () => ({ active: state.source === "samples" ? Boolean(samplePlayer?.snapshot().playing) : audio.enabled, pending: audio.pending || Boolean(samplePlayer?.snapshot().pending), error: inputError, source: state.source }),
+  getSignal: () => ({ node: state.source === "samples" ? samplePlayer?.getSignal() : audio.sourceNode, stream: audio.mediaStream, channels: state.source !== "microphone" ? 2 : undefined }),
   hide: [$("sourceChoice"), $("sourceNote"), $("inputGain").closest("label"), $("fileName").closest("label"), $("sourceChoice").previousElementSibling],
 });
 
@@ -149,7 +158,7 @@ function updateAudioParameters() {
 function updateInterface({ drawNow = true } = {}) {
   const settings = state.settings;
   const rising = settings.direction > 0;
-  const sourceLabel = state.source === "microphone" ? "MIC" : "FILE";
+  const sourceLabel = state.source === "samples" ? "SAMPLE" : state.source === "microphone" ? "MIC" : "FILE";
   const oscillatorCount = settings.bandCount * settings.bankWidth;
 
   setPressed($("audioButton"), state.audioOn);
@@ -266,7 +275,7 @@ function updateInterface({ drawNow = true } = {}) {
     `${Math.round(settings.dryWet * 100)}% slip`,
     `${Math.round(settings.inputGain * 100)}% input`,
   ].join(" · ");
-  $("sourceSummary").textContent = state.source === "microphone"
+  $("sourceSummary").textContent = state.source === "samples" ? "sample loops" : state.source === "microphone"
     ? "microphone · headphones"
     : state.fileLabel
       ? `file · ${state.loopFile ? "loop" : "once"}`
@@ -275,12 +284,6 @@ function updateInterface({ drawNow = true } = {}) {
   inputControl.refresh();
   $("fileControls").hidden = state.source !== "file";
   $("fileName").textContent = state.fileLabel ?? "Choose local audio…";
-
-  const preset = SLIPPERY_RESYNTHESIS_PRESETS.find(({ id }) => id === state.preset);
-  $("presetSummary").textContent = preset?.label ?? "Custom";
-  for (const button of $("presetGrid").querySelectorAll("[data-preset]")) {
-    setPressed(button, button.dataset.preset === state.preset);
-  }
 
   $("stageReadout").textContent = [
     sourceLabel,
@@ -295,27 +298,13 @@ function updateInterface({ drawNow = true } = {}) {
     : `${coherenceLabel(settings.coherence)} spectrum → moving octave banks`;
   canvas.setAttribute(
     "aria-label",
-    `A logarithmic ${state.source === "microphone" ? "microphone" : "file"} spectrum and its ${settings.bandCount}-band Shepard resynthesis moving ${rising ? "upward" : "downward"} at ${settings.slipRate.toFixed(2)} octaves per second. Spectral tracking ${settings.hold ? "held" : "live"}. Audio ${state.audioOn ? "on" : "off"}.`,
+    `A logarithmic ${state.source === "samples" ? "sample" : state.source === "microphone" ? "microphone" : "file"} spectrum and its ${settings.bandCount}-band Shepard resynthesis moving ${rising ? "upward" : "downward"} at ${settings.slipRate.toFixed(2)} octaves per second. Spectral tracking ${settings.hold ? "held" : "live"}. Audio ${state.audioOn ? "on" : "off"}.`,
   );
 
   updateAudioParameters();
+  samplePlayer?.refresh();
+  presetController?.refresh();
   if (drawNow) draw(performance.now(), true);
-}
-
-function renderPresets() {
-  const fragment = document.createDocumentFragment();
-  for (const preset of SLIPPERY_RESYNTHESIS_PRESETS) {
-    const button = document.createElement("button");
-    const label = document.createElement("b");
-    button.type = "button";
-    button.dataset.preset = preset.id;
-    button.setAttribute("aria-pressed", String(preset.id === state.preset));
-    label.textContent = preset.label;
-    button.append(label);
-    button.addEventListener("click", () => applyPreset(preset.id));
-    fragment.append(button);
-  }
-  $("presetGrid").replaceChildren(fragment);
 }
 
 function markCustom() {
@@ -333,22 +322,23 @@ function setParameter(key, value) {
   updateInterface();
 }
 
-function applyPreset(id) {
-  const preset = SLIPPERY_RESYNTHESIS_PRESETS.find((candidate) => candidate.id === id);
-  if (!preset) return;
+function applyPresetSnapshot(snapshot) {
+  validateSlipperyPreset(snapshot);
   const { inputGain, outputLevel } = state.settings;
-  state.settings = {
-    ...sanitizeSlipperyResynthesisParams({
-      ...SLIPPERY_RESYNTHESIS_DEFAULTS,
-      ...preset.settings,
-      inputGain,
-      outputLevel,
-      hold: false,
-    }),
-  };
-  state.preset = preset.id;
+  state.settings = { ...sanitizeSlipperyResynthesisParams({ ...snapshot.settings, inputGain, outputLevel }) };
+  state.preset = null;
   updateInterface();
-  announce(`${preset.label} preset loaded.`);
+}
+
+async function prepareSampleInput() {
+  await audio.initialize();
+  if (!state.audioOn || state.source !== "samples") return;
+  audio.clearSuspendTimer();
+  await audio.context.resume();
+  if (!state.audioOn || state.source !== "samples") return;
+  audio.node.port.postMessage({ type: "active", value: true });
+  audio.enabled = true;
+  audio.setOutputArmed(true);
 }
 
 async function startAudio() {
@@ -360,6 +350,7 @@ async function startAudio() {
 }
 
 async function stopAudio() {
+  samplePlayer?.stop();
   audio.setOutputArmed(false);
   state.audioOn = false;
 }
@@ -393,10 +384,11 @@ async function chooseSource(source) {
   inputError = "";
   clearAudioError();
   try {
+    samplePlayer?.stop();
     await audio.stop();
     state.source = source;
     updateInterface();
-    announce(`${source === "microphone" ? "Microphone" : "File"} source selected.`);
+    announce(`${source === "samples" ? "Samples" : source === "microphone" ? "Microphone" : "File"} source selected.`);
   } catch (error) {
     state.audioOn = false;
     audio.setOutputArmed(false);
@@ -489,7 +481,7 @@ $("fileAudio").addEventListener("error", () => {
 });
 
 document.querySelector("[data-reset-all]").addEventListener("click", () => {
-  state.settings = { ...SLIPPERY_RESYNTHESIS_DEFAULTS };
+  state.settings = { ...SLIPPERY_RESYNTHESIS_DEFAULTS, inputGain: state.settings.inputGain, outputLevel: state.settings.outputLevel };
   state.preset = null;
   updateInterface();
   announce("All Slippery Resynthesis parameters reset.");
@@ -729,6 +721,8 @@ document.addEventListener("visibilitychange", () => {
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
+  samplePlayer?.destroy();
+  presetController?.destroy();
   inputControl.destroy();
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
@@ -736,7 +730,18 @@ globalThis.addEventListener("pagehide", () => {
   audio.close();
 }, { once: true });
 
-renderPresets();
+samplePlayer = mountProcessorSamplePlayer({
+  container: $("sampleControls"), prepare: prepareSampleInput,
+  getContext: () => audio.context, getTarget: () => audio.inputAnalyser,
+  isArmed: () => state.audioOn, isSelected: () => state.source === "samples",
+  onChange: snapshot => { if (snapshot.playing) inputError = ""; inputControl.refresh(); },
+  onError: error => { inputError = error?.message || String(error); inputControl.refresh(); },
+});
+presetController = registerHeaderPresets({
+  id: "slippery-resynthesis", presets: SLIPPERY_FULL_PRESETS,
+  capture: () => captureSlipperyPreset(state.settings), apply: applyPresetSnapshot,
+  randomize: randomizeSlipperyPreset,
+});
 updateInterface({ drawNow: false });
 resizeCanvas();
 animationFrame = requestAnimationFrame(animate);

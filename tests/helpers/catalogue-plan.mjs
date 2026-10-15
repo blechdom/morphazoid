@@ -12,6 +12,13 @@ export const mainAdditions = [
   { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp',
     categoryId: 'wip', categoryLabel: 'Work in Progress',
     tags: [{ id: '2d', label: '2D' }, { id: 'sonification', label: 'Sonification' }, { id: 'graphic-ui', label: 'Graphic-UI' }] },
+  // October 14 owner request: compare Rust readings of Striped Staircase.
+  { id: 'striped-staircase-rust', label: 'Staircase Studies', href: 'striped-staircase-rust.html', imageHref: 'assets/instruments/striped-staircase.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'fractal', label: 'Fractal' }, { id: 'sonification', label: 'Sonification' }] },
+  // October 14 owner rename preserves the frozen October 13 addition and its route.
+  ...JSON.parse(readFileSync(new URL("../fixtures/catalogue-simd-resonator-rust.json", import.meta.url), "utf8")).additions
+    .map(item => item.id === "simd-resonator-rust" ? { ...item, label: "Rezoidinator" } : item),
   // October 11 owner request: a browser DJ workspace inside Morphazoid.
   { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
     categoryId: 'app', categoryLabel: 'App',

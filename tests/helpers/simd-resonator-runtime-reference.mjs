@@ -1,5 +1,6 @@
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
+import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
 
 const path = 'src/families/simd-resonator/simd-resonator-presets.js';
 const row = `copy+require\t${path}\n`;
@@ -16,6 +17,7 @@ export function restoreSimdResonatorRuntime(source, file, { allowRestored = fals
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = simdResonatorRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechChannelTiming(source, file, { allowRestored: true });
   // Recognize the path independently of its policy so altered policies fail.
   const count = source.split(change.path).length - 1;
   if (allowRestored && count === 0) return source;
@@ -26,7 +28,7 @@ export function restoreSimdResonatorRuntime(source, file, { allowRestored = fals
 }
 
 export async function readSimdResonatorRuntimeReference(file, encoding) {
-  const { readFile } = await import('node:fs/promises');
+  const { readProcessorSamplesSiteReference: readFile } = await import('./processor-samples-site-reference.mjs');
   const { fileURLToPath } = await import('node:url');
   const { relative } = await import('node:path');
   const source = await readFile(file, encoding);
