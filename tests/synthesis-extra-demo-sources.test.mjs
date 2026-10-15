@@ -34,13 +34,14 @@ function stats(buffer) {
   return { peak, rms: Math.sqrt(energy / (buffer.length * buffer.numberOfChannels)) };
 }
 
-test('24 additional demos preserve existing choices and include the requested sound families', () => {
+test('28 additional demos preserve existing choices and include recorded vocals and extended sax', () => {
   const demos = PROCESSING_INPUT_OPTIONS.filter(option => option.kind === 'demo');
-  assert.equal(EXTRA_DEMO_SOURCES.length, 24);
-  assert.equal(demos.length, originalIds.length + 24 + 1);
+  assert.equal(EXTRA_DEMO_SOURCES.length, 28);
+  assert.equal(demos.length, originalIds.length + 28 + 1);
   assert.deepEqual(demos.slice(0, originalIds.length).map(option => option.id), originalIds);
   for (const id of ['speech-curling', 'nature-coyote-howl', 'fx-sad-trombone', 'fx-record-scratch', 'music-unicorn-sparkles',
-    'music-tabla', 'music-toy-gamelan', 'music-clockwork-chamber', 'music-rockabilly-drive', 'music-country-front-porch', 'music-neon-synth-pop']) {
+    'music-tabla', 'music-toy-gamelan', 'music-clockwork-chamber', 'music-rockabilly-drive', 'music-country-front-porch', 'music-neon-synth-pop',
+    'music-vocal-scat', 'music-vocal-phrase', 'music-sax-multiphonic', 'music-sax-fingerings']) {
     assert.ok(demos.some(option => option.id === id), id);
   }
   for (const demo of EXTRA_DEMO_SOURCES) {
@@ -54,6 +55,7 @@ test('every additional asset is small, unique, credited and declared for both re
   const inventory = readFileSync(new URL('scripts/site/runtime-files.tsv', root), 'utf8').split('\n');
   const nature = json('assets/input-samples/nature/sources.json').recordings;
   const recorded = json('assets/input-samples/recorded/provenance.json').samples;
+  const expressive = json('assets/input-samples/expressive/provenance.json').samples;
   const rendered = json('assets/synthesis/extra-loops/renders.json').loops;
   const signatures = new Set();
   let bytesTotal = 0;
@@ -67,6 +69,7 @@ test('every additional asset is small, unique, credited and declared for both re
     }
     const provenance = demo.id.startsWith('nature-') ? nature.find(entry => `nature-${entry.id}` === demo.id)
       : demo.paths[0].startsWith('input-samples/recorded/') ? recorded.find(entry => entry.id === demo.id)
+      : demo.paths[0].startsWith('input-samples/expressive/') ? expressive.find(entry => entry.id === demo.id)
       : rendered.find(entry => entry.publicId === demo.id);
     assert.ok(provenance, `${demo.id}: provenance`);
     assert.equal(hash(bytes), provenance.sha256);
@@ -74,6 +77,14 @@ test('every additional asset is small, unique, credited and declared for both re
       assert.equal(hash(readFileSync(new URL(provenance.sourcePath, root))), provenance.sourceSha256);
       assert.match(provenance.licenseUrl, /^https:\/\/creativecommons.org\//);
       assert.ok(provenance.author && provenance.modifications);
+    } else if (demo.paths[0].startsWith('input-samples/expressive/')) {
+      assert.ok(['CC BY 3.0', 'CC0 1.0'].includes(provenance.license));
+      assert.match(provenance.licenseUrl, /^https:\/\/creativecommons.org\//);
+      assert.ok(provenance.title && provenance.creator && provenance.modifications);
+      assert.match(provenance.sourceUrl, /^https:\/\/(?:ccmixter|freesound)\.org\//);
+      assert.match(provenance.sourceSha256, /^[a-f0-9]{64}$/);
+      assert.ok(provenance.durationSeconds > 8 && provenance.durationSeconds <= 12);
+      assert.ok(provenance.truePeakDbtp < -3);
     } else if (demo.paths[0].endsWith('.mp3')) {
       assert.equal(provenance.license, 'CC0-1.0');
       assert.ok(provenance.sources.length >= 1 && provenance.modifications.length >= 1);
@@ -84,7 +95,7 @@ test('every additional asset is small, unique, credited and declared for both re
       }
     }
   }
-  assert.equal(signatures.size, 24, 'different labels contain different audio');
+  assert.equal(signatures.size, 28, 'different labels contain different audio');
   assert.ok(bytesTotal < 18 * 1024 * 1024, 'the entire added bank stays compact and loads lazily');
 });
 

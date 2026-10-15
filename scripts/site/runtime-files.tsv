@@ -2029,3 +2029,9 @@ copy+require	src/processor-sample-player.js
 copy+require	src/processor-sample-player.css
 copy+require	src/families/barber-delay/full-presets.js
 copy+require	src/instruments/slippery-resynthesis/full-presets.js
+copy+require	assets/input-samples/expressive/snowflake-scat.mp3
+copy+require	assets/input-samples/expressive/rhiannon-holding-tighter.mp3
+copy+require	assets/input-samples/expressive/sax-multiphonic.mp3
+copy+require	assets/input-samples/expressive/weird-sax.mp3
+copy+require	assets/input-samples/expressive/CREDITS.md
+copy+require	assets/input-samples/expressive/provenance.json

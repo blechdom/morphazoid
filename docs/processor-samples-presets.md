@@ -2,11 +2,15 @@
 
 Candy Coil Delay, Sandy Syrup Delay and Slippery Resynthesis start with Samples
 selected and Audio off. Turn on Audio, then **Play sample**. The sample menu and
-its next arrow browse the existing bundled musical phrases, percussion, speech,
-recordings and effects. **Loop** switches between repeat and one-shot playback;
+its next arrow start with two real acapella stems, two extended-technique sax
+recordings and a tabla rhythm, then browse the other bundled inputs.
+**Loop** switches between repeat and one-shot playback;
 **Stop** releases the input while the effect can finish its tail. Source credits
 appear below the player after loading. Samples use the same bounded decoder and
-assets as L-system Delay and Fractal Delay; no new recordings are bundled.
+assets as L-system Delay and Fractal Delay. The four new short recordings total
+about 1 MB; the tabla reuses an existing asset. Their
+[licenses, performers and excerpt credits](../assets/input-samples/expressive/CREDITS.md)
+travel with the files. CC BY recordings require credits when sharing a video.
 
 The input strip also offers **Mic** and **File**. Switching modes releases the
 previous source. Selecting Mic never requests permission until its input button

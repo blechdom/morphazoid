@@ -31,10 +31,16 @@
             "src/processor-sample-player.js",
             "src/processor-sample-player.css",
             "src/families/barber-delay/full-presets.js",
-            "src/instruments/slippery-resynthesis/full-presets.js"
+            "src/instruments/slippery-resynthesis/full-presets.js",
+            "assets/input-samples/expressive/snowflake-scat.mp3",
+            "assets/input-samples/expressive/rhiannon-holding-tighter.mp3",
+            "assets/input-samples/expressive/sax-multiphonic.mp3",
+            "assets/input-samples/expressive/weird-sax.mp3",
+            "assets/input-samples/expressive/CREDITS.md",
+            "assets/input-samples/expressive/provenance.json"
           ],
           "before": "",
-          "after": "copy+require\tsrc/processor-sample-player.js\ncopy+require\tsrc/processor-sample-player.css\ncopy+require\tsrc/families/barber-delay/full-presets.js\ncopy+require\tsrc/instruments/slippery-resynthesis/full-presets.js\n"
+          "after": "copy+require\tsrc/processor-sample-player.js\ncopy+require\tsrc/processor-sample-player.css\ncopy+require\tsrc/families/barber-delay/full-presets.js\ncopy+require\tsrc/instruments/slippery-resynthesis/full-presets.js\ncopy+require\tassets/input-samples/expressive/snowflake-scat.mp3\ncopy+require\tassets/input-samples/expressive/rhiannon-holding-tighter.mp3\ncopy+require\tassets/input-samples/expressive/sax-multiphonic.mp3\ncopy+require\tassets/input-samples/expressive/weird-sax.mp3\ncopy+require\tassets/input-samples/expressive/CREDITS.md\ncopy+require\tassets/input-samples/expressive/provenance.json\n"
         }
       ]
     },

@@ -1,5 +1,9 @@
 import { createInputSource, SAMPLE_INPUT_OPTIONS } from './instruments/micmic/native/input-source.js';
 
+const featured = ['music-vocal-scat', 'music-vocal-phrase', 'music-sax-multiphonic', 'music-sax-fingerings', 'music-tabla'];
+const choices = [...featured.map(id => SAMPLE_INPUT_OPTIONS.find(option => option.id === id)),
+  ...SAMPLE_INPUT_OPTIONS.filter(option => !featured.includes(option.id))];
+
 /** Recorded input controls shared by the barber delays and Slippery Resynthesis.
  * The instrument owns arming and the effect graph; the existing bounded loader
  * owns decoding, cancellation, one live buffer source and sample attribution. */
@@ -17,10 +21,16 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
     <p id="sampleStatus" role="status">Switch Audio on, then play a sample.</p>
     <a id="sampleCredit" target="_blank" rel="noopener" hidden></a>`;
   const $ = id => container.querySelector(`#${id}`);
-  for (const option of SAMPLE_INPUT_OPTIONS) {
+  const groups = new Map();
+  for (const option of choices) {
+    const group = featured.includes(option.id) ? 'Voices, sax & tabla' : option.group;
+    if (!groups.has(group)) {
+      const element = doc.createElement('optgroup'); element.label = group;
+      $('sampleSelect').append(element); groups.set(group, element);
+    }
     const element = doc.createElement('option');
     element.value = option.id; element.textContent = option.label;
-    $('sampleSelect').append(element);
+    groups.get(group).append(element);
   }
   let bridge = null, player;
   const refresh = () => {
@@ -54,7 +64,7 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
     onChange: refresh, onError,
   });
   player.selectMode('samples');
-  player.selectSample('music-plucks');
+  player.selectSample(featured[0]);
   const run = task => Promise.resolve(task).catch(onError);
   const listen = (id, type, handler) => $(id).addEventListener(type, handler, { signal: abort.signal });
   listen('sampleSelect', 'change', () => {
@@ -63,7 +73,7 @@ export function mountProcessorSamplePlayer({ container, prepare, getContext, get
     if (playing) void run(player.start());
   });
   listen('sampleNext', 'click', () => {
-    $('sampleSelect').selectedIndex = ($('sampleSelect').selectedIndex + 1) % SAMPLE_INPUT_OPTIONS.length;
+    $('sampleSelect').selectedIndex = ($('sampleSelect').selectedIndex + 1) % choices.length;
     $('sampleSelect').dispatchEvent(new Event('change', { bubbles: true }));
   });
   listen('samplePlay', 'click', () => { void run(player.restart()); });
