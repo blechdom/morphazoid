@@ -215,8 +215,12 @@ export function readStaircaseRhythm(field, progress) {
       ?? field.overlays[high].branches.find(branch => branch.slot === slot);
     branches.push({ slot, presence, cx: read(index + 1), cy: read(index + 2), length: read(index + 3), points: trace?.points });
   }
-  return { branches, count: branches.filter(branch => branch.presence >= .5).length,
-    omitted: nearest.omitted, threshold: read(534), white: Math.floor(read(534) / Math.max(.000001, read(535)) * 2) % 2 === 1 };
+  const width = (field.overlays[low].bandHigh - field.overlays[low].bandLow) * (1 - mix)
+    + (field.overlays[high].bandHigh - field.overlays[high].bandLow) * mix;
+  const threshold = read(534);
+  return { branches, count: branches.filter(branch => branch.presence > .5).length,
+    omitted: nearest.omitted, threshold, bandLow: threshold - width / 2, bandHigh: threshold + width / 2,
+    white: Math.floor(threshold / Math.max(.000001, read(535)) * 2) % 2 === 1 };
 }
 
 /** 64 original staircase slide frames, each with a 672-float Rust ABI record:

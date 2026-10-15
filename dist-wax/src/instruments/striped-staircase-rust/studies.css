@@ -42,6 +42,8 @@
 .study-section summary { font-size: 12px; color: #b0c2c7; cursor: pointer; }
 #liveStatus, .playing-notes, .studies-panel > a { margin: 0; font-size: 11px; line-height: 1.5; color: #a8bdc4; }
 #liveStatus { min-height: 17px; }
+.studies-panel #resetAll { flex-shrink: 0; min-height: 44px; padding: 10px 14px; color: #dcece3; background: #13231d; border: 1px solid #30443d; border-radius: 7px; cursor: pointer; }
+.studies-panel #resetAll:focus-visible { outline: 2px solid #b9f5ce; outline-offset: 3px; }
 #renderError { position: absolute; inset: 40% 10% auto; padding: 20px; background: #171318; color: #ffd4d4; }
 @media (max-width: 960px) { html:has(.staircase-studies-page) { height: auto; min-height: 100%; overflow: auto; } body.staircase-studies-page { height: auto; min-height: 100dvh; overflow: visible; } }
 @media (max-width: 800px) { .studies-shell { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: start; height: auto; min-height: 0; padding: 12px; gap: 20px; } #stageWrap { height: 52dvh; min-height: 260px; } .studies-panel { overflow: visible; padding: 0 4px 24px; } .studies-heading { top: 18px; left: 18px; } .field-readout { flex-direction: column; gap: 3px; } }

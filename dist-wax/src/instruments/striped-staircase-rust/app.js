@@ -148,15 +148,19 @@ function render(now) {
   if (state.disposed) return;
   const delta = previousTime ? Math.min(.1, (now - previousTime) / 1000) : 0; previousTime = now;
   if (!engine && state.playing && !state.hold) Object.assign(state, advancePingPong(state.progress, state.direction, delta * state.speed));
-  const frame = createStaircaseFrame(state.progress, state.settings, 'slide');
+  const rhythm = field?.revision === state.revision ? readStaircaseRhythm(field, state.progress) : null;
+  const frame = { ...createStaircaseFrame(state.progress, state.settings, 'slide') };
+  // The DSP interpolates prepared depths. The exact nonlinear staircase curve
+  // can cross a stripe slightly earlier, so the visible sweep follows the same
+  // prepared threshold as the sound instead of running a second depth clock.
+  if (rhythm) { frame.renderLow = rhythm.bandLow; frame.renderHigh = rhythm.bandHigh; }
   renderer?.render({ ...frame, stepPhase: .5 }, state.settings, state.camera, state.direction, state.palette);
   overlayContext.clearRect(0, 0, overlay.width, overlay.height);
   state.rhythm = null;
-  if (field?.revision === state.revision) {
-    const rhythm = readStaircaseRhythm(field, state.progress);
+  if (rhythm) {
     state.rhythm = { white: rhythm.white, count: rhythm.count, omitted: rhythm.omitted,
       voices: rhythm.branches.map(({ slot, cx, cy, presence }) => ({ slot, cx, cy, presence })) };
-    $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} voices${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
+    $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} ${rhythm.count === 1 ? 'voice' : 'voices'}${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
     const traces = state.mode === 2 ? rhythm.branches : [{ points: field.overlays[Math.round(state.progress * (field.frames - 1))]?.points }];
     for (const branch of traces) {
       const path = branch.points;
