@@ -1,9 +1,9 @@
-const BLOCK = 128, STRIDE = 672;
+const BLOCK = 128, STRIDE = 3616;
 class StaircaseProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(); this.dead = false; this.blocks = 0; this.revision = 0;
     this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
-    if (this.api.stair_abi_version() !== 2) throw new Error('Unsupported staircase engine.');
+    if (this.api.stair_abi_version() !== 3 || this.api.stair_voice_capacity() !== 512) throw new Error('Unsupported staircase engine.');
     this.handle = this.api.stair_new(sampleRate);
     this.leftPtr = this.api.stair_alloc(BLOCK * 4); this.rightPtr = this.api.stair_alloc(BLOCK * 4);
     this.tablePtr = this.api.stair_alloc(64 * STRIDE * 4);
@@ -19,6 +19,7 @@ class StaircaseProcessor extends AudioWorkletProcessor {
           this.revision = data.revision;
         } else if (data.type === 'controls') {
           this.api.stair_controls(this.handle, data.mode, data.base, data.brightness, data.body, data.gain, data.seconds);
+          this.api.stair_pitch(this.handle, data.pitchMapping, data.pitchSpan);
         } else if (data.type === 'transport') {
           this.api.stair_transport(this.handle, Number(data.playing), Number(data.enabled), Number(data.hold));
         } else if (data.type === 'seek') this.api.stair_seek(this.handle, data.depth, data.direction);
@@ -54,8 +55,9 @@ class StaircaseProcessor extends AudioWorkletProcessor {
       }
       if (++this.blocks % 16 === 0) {
         this.api.stair_state(this.handle);
+        const voices = new Float64Array(this.api.memory.buffer, this.api.stair_voice_state(this.handle), 512 * 6).slice();
         this.port.postMessage({ type: 'state', clock: this.values[0], depth: this.values[1],
-          direction: this.values[2], revision: this.revision, branches: this.values[10], white: Boolean(this.values[11]) });
+          direction: this.values[2], revision: this.revision, branches: this.values[10], white: Boolean(this.values[11]), voices }, [voices.buffer]);
       }
       return true;
     } catch (error) {

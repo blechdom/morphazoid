@@ -9,21 +9,26 @@ const $ = id => document.getElementById(id);
 const descriptions = [
   ['Contour', 'The measured outline becomes a repeating stereo wave. Detail brings out its sharper bends.'],
   ['Harmonics', 'The band’s vertical distribution weights sixteen harmonics. Hold depth to hear the same shape as a sustained spectrum.'],
-  ['Stripe rhythm', 'White holds a note for each traced branch; black releases it. Height sets pitch, left/right sets pan. Hold freezes the chord or rest.'],
+  ['Stripe rhythm', 'White holds a note for each traced branch; black releases it. Left/right sets pan. Hold freezes the chord or rest.'],
   ['Resonant body', 'Contour length and bends tune and excite a bank of resonances. Body lengthens their response.'],
 ];
+const pitchDescriptions = [
+  'Height sets pitch across the selected span. Higher branches sound higher.',
+  'X and Y set pitch from the frame center. Moving right or up raises it.',
+  'Each tendril remembers its previous note. Turns change pitch; nearby offshoots inherit that history. Lines show the previous-note reference.',
+];
 const defaults = { progress: .175, direction: 1, speed: .035, baseFrequency: 73, brightness: .55, body: .35,
-  level: .48, mode: 2, palette: 3, hold: false, view: 'seahorse' };
+  level: .48, mode: 2, palette: 3, hold: false, view: 'seahorse', pitchMapping: 1, pitchSpan: 3, voiceLimit: 256 };
 const state = { ...defaults, audio: false, playing: false, camera: cameraFromView(viewById('seahorse')),
   settings: normalizeStaircaseSettings(STRIPED_STAIRCASE_DEFAULTS), clock: 0, revision: 0, acceptedRevision: 0,
-  audioRevision: 0, ready: false, disposed: false, rhythm: null, audioBranches: 0, audioWhite: false };
+  audioRevision: 0, ready: false, disposed: false, rhythm: null, audioBranches: 0, audioWhite: false, audioVoices: new Float64Array(0) };
 const signalOwner = new AbortController();
 const on = (target, name, fn, options = {}) => target.addEventListener(name, fn, { ...options, signal: signalOwner.signal });
 const canvas = $('stage'), overlay = $('contourOverlay'), overlayContext = overlay.getContext('2d');
 let renderer, worker, field, context, engine, starting = false, audioEpoch = 0, renderFrame = 0, previousTime = 0;
 let rebuildTimer = 0, pendingJob = null, workerBusy = false, observer, aspect = 1;
 const status = text => { $('liveStatus').textContent = text; };
-const keys = ['progress', 'speed', 'baseFrequency', 'brightness', 'body', 'level'];
+const keys = ['progress', 'speed', 'baseFrequency', 'brightness', 'body', 'level', 'pitchSpan', 'voiceLimit'];
 const structureKeys = ['startIteration', 'maxIterations', 'steps', 'stripePeriod'];
 const rangeKnobs = new Map();
 let progressGesture = null;
@@ -44,6 +49,8 @@ function updateControls() {
     $(key).value = state[key];
     $(key + 'Out').textContent = key === 'progress' ? state[key].toFixed(3)
       : key === 'speed' ? `${(1 / state.speed).toFixed(1)} s / journey`
+      : key === 'pitchSpan' ? `${state.pitchSpan.toFixed(1)} oct`
+      : key === 'voiceLimit' ? String(state.voiceLimit)
       : key === 'baseFrequency' ? `${Math.round(state[key])} Hz` : `${Math.round(state[key] * 100)}%`;
   }
   for (const key of structureKeys) { $(key).value = state.settings[key]; $(key + 'Out').textContent = Number(state.settings[key].toFixed(1)); }
@@ -59,6 +66,9 @@ function updateControls() {
   $('body').disabled = state.mode < 2;
   document.querySelector('label[for="body"] b').textContent = state.mode === 2 ? 'Release' : 'Body';
   $('rhythmReadout').hidden = state.mode !== 2;
+  $('pitchControls').hidden = state.mode !== 2;
+  $('pitchMapping').value = state.pitchMapping;
+  $('pitchDescription').textContent = pitchDescriptions[state.pitchMapping];
   for (const knob of rangeKnobs.values()) knob.update();
 }
 function sendControls() { engine?.controls(state); }
@@ -77,7 +87,7 @@ function queueField(delay = 65) {
   status('Preparing this view…');
   rebuildTimer = setTimeout(() => {
     renderer?.renderField(state.camera, state.settings.maxIterations);
-    pendingJob = { type: 'analyze', revision: state.revision, camera: { ...state.camera }, settings: { ...state.settings }, aspect, resolution: 112 };
+    pendingJob = { type: 'analyze', revision: state.revision, camera: { ...state.camera }, settings: { ...state.settings }, aspect, resolution: 112, voiceLimit: state.voiceLimit };
     drainWorker();
   }, delay);
 }
@@ -127,6 +137,7 @@ async function toggleAudio() {
         if (state.disposed || epoch !== audioEpoch) return;
         state.progress = data.depth; state.direction = data.direction; state.clock = data.clock; state.audioRevision = data.revision;
         state.audioBranches = data.branches; state.audioWhite = data.white;
+        state.audioVoices = data.voices;
       }, onError: error => { if (epoch === audioEpoch && !state.disposed) audioFailure(error); },
     });
     await resumed;
@@ -159,7 +170,7 @@ function render(now) {
   state.rhythm = null;
   if (rhythm) {
     state.rhythm = { white: rhythm.white, count: rhythm.count, omitted: rhythm.omitted,
-      voices: rhythm.branches.map(({ slot, cx, cy, presence }) => ({ slot, cx, cy, presence })) };
+      voices: rhythm.branches.map(({ slot, id, parentId, cx, cy, presence }) => ({ slot, id, parentId, cx, cy, presence })) };
     $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} ${rhythm.count === 1 ? 'voice' : 'voices'}${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
     const traces = state.mode === 2 ? rhythm.branches : [{ points: field.overlays[Math.round(state.progress * (field.frames - 1))]?.points }];
     for (const branch of traces) {
@@ -175,6 +186,13 @@ function render(now) {
       }
       overlayContext.stroke();
       if (state.mode === 2) {
+        const at = branch.slot * 6, voices = state.audioVoices;
+        if (state.pitchMapping === 2 && state.audioRevision === field.revision && voices[at] === branch.id && voices[at + 4]) {
+          const x = voices[at + 2] * overlay.width, y = voices[at + 3] * overlay.height;
+          overlayContext.save(); overlayContext.globalAlpha *= .55; overlayContext.setLineDash([3, 4]);
+          overlayContext.beginPath(); overlayContext.moveTo(x, y); overlayContext.lineTo(branch.cx * overlay.width, branch.cy * overlay.height); overlayContext.stroke();
+          overlayContext.setLineDash([]); overlayContext.beginPath(); overlayContext.arc(x, y, 2, 0, Math.PI * 2); overlayContext.stroke(); overlayContext.restore();
+        }
         overlayContext.beginPath(); overlayContext.arc(branch.cx * overlay.width, branch.cy * overlay.height, rhythm.white ? 4 : 3, 0, Math.PI * 2);
         overlayContext.fillStyle = overlayContext.strokeStyle;
         if (rhythm.white) overlayContext.fill(); else overlayContext.stroke();
@@ -210,8 +228,12 @@ on($('holdButton'), 'click', () => { state.hold = !state.hold; transport(); });
 on($('resetAll'), 'click', reset);
 for (const key of keys) on($(key), 'input', () => {
   const value = Number($(key).value); if (!Number.isFinite(value)) return;
-  if (key === 'progress') seek(value); else { state[key] = value; updateControls(); sendControls(); }
+  if (key === 'progress') seek(value); else {
+    state[key] = value; updateControls(); sendControls();
+    if (key === 'voiceLimit') queueField();
+  }
 });
+on($('pitchMapping'), 'change', () => { state.pitchMapping = Number($('pitchMapping').value); sendControls(); updateControls(); });
 for (const key of structureKeys) on($(key), 'input', () => {
   state.settings = normalizeStaircaseSettings({ ...state.settings, [key]: Number($(key).value) }); updateControls(); queueField();
 });

@@ -2,7 +2,7 @@ import assert from 'node:assert/strict';
 import test from 'node:test';
 import {
   buildStaircaseField, staircaseFieldContours, matchStaircaseBranches, readStaircaseRhythm,
-  STAIRCASE_BRANCH_LIMIT as BRANCHES, STAIRCASE_BRANCH_OFFSET as BRANCH_OFFSET,
+  STAIRCASE_BRANCH_LIMIT as BRANCHES, STAIRCASE_BRANCH_OFFSET as BRANCH_OFFSET, STAIRCASE_BRANCH_STRIDE as BRANCH_STRIDE,
   STAIRCASE_FIELD_FRAMES as FRAMES, STAIRCASE_FIELD_STRIDE as STRIDE,
 } from '../src/instruments/striped-staircase-rust/field.js';
 import { createStaircaseFrame, cameraFromView, viewById } from '../src/instruments/striped-staircase/striped-staircase.js';
@@ -14,7 +14,7 @@ const silentFrame = (field, index) => field.table.subarray(index * STRIDE, index
 test('original default detail provides finite real contours with the fixed Rust ABI', () => {
   assert.equal(defaultField.frames, FRAMES);
   assert.equal(defaultField.stride, STRIDE);
-  assert.equal(defaultField.table.length, 64 * 672);
+  assert.equal(defaultField.table.length, 64 * 3616);
   assert.ok(defaultField.stats.activeFrames > FRAMES / 2);
   assert.ok(defaultField.table.every(Number.isFinite));
   assert.ok(defaultField.overlays[Math.round(.12 * (FRAMES - 1))].points.length > 0);
@@ -32,12 +32,15 @@ test('original default detail provides finite real contours with the fixed Rust 
     assert.ok(record[533] >= 0 && record[533] <= 1);
     if (record[528] > 0) assert.ok(Math.abs(record.subarray(512, 528).reduce((sum, value) => sum + value, 0) - 1) < 1e-6);
     assert.ok(record.subarray(536, BRANCH_OFFSET).every(value => value === 0));
-    assert.equal(overlay.branches.length, Math.min(BRANCHES, overlay.contours));
-    assert.equal(overlay.omitted, Math.max(0, overlay.contours - BRANCHES));
+    assert.equal(overlay.branches.length, Math.min(defaultField.voiceLimit, overlay.contours));
+    assert.equal(overlay.omitted, Math.max(0, overlay.contours - defaultField.voiceLimit));
     assert.equal(new Set(overlay.branches.map(branch => branch.slot)).size, overlay.branches.length);
     for (const branch of overlay.branches) {
-      const offset = BRANCH_OFFSET + branch.slot * 4;
+      const offset = BRANCH_OFFSET + branch.slot * BRANCH_STRIDE;
       assert.equal(record[offset], 1);
+      assert.equal(record[offset + 4], branch.id);
+      assert.equal(record[offset + 5], branch.parentId);
+      assert.ok(branch.id > 0 && branch.id <= BRANCHES * FRAMES);
       assert.ok(Math.abs(record[offset + 1] - branch.cx) < 1e-7);
       assert.ok(Math.abs(record[offset + 2] - branch.cy) < 1e-7);
       assert.ok(record[offset + 3] > 0);
@@ -68,7 +71,7 @@ test('unescaped interior is censored and silent instead of an artificial maximum
     assert.ok(silentFrame(field, index));
     assert.equal(field.overlays[index].points.length, 0);
     assert.equal(field.overlays[index].branches.length, 0);
-    for (let branch = 0; branch < BRANCHES; branch++) assert.equal(field.table[index * STRIDE + BRANCH_OFFSET + branch * 4], 0);
+    for (let branch = 0; branch < BRANCHES; branch++) assert.equal(field.table[index * STRIDE + BRANCH_OFFSET + branch * BRANCH_STRIDE], 0);
   }
   // A cell between known exterior and unescaped interior cannot locate a
   // threshold crossing, even if replacing NaN by maxIterations would do so.
@@ -154,7 +157,7 @@ test('separate measured contours become separate voice records, including real d
   const overlay = defaultField.overlays[frame];
   const record = defaultField.table.subarray(frame * STRIDE, (frame + 1) * STRIDE);
   assert.equal(overlay.branches.length, overlay.contours);
-  assert.equal(Array.from({ length: BRANCHES }, (_, slot) => record[BRANCH_OFFSET + slot * 4]).filter(Boolean).length, overlay.contours);
+  assert.equal(Array.from({ length: BRANCHES }, (_, slot) => record[BRANCH_OFFSET + slot * BRANCH_STRIDE]).filter(Boolean).length, overlay.contours);
   assert.ok(new Set(overlay.branches.map(branch => branch.cy.toFixed(3))).size > 1, 'separated heights yield distinct pitches');
 });
 
@@ -165,7 +168,7 @@ test('branch matching preserves voices through length reordering and allocates s
   assert.equal(next[0].slot, first[1].slot);
   assert.equal(next[1].slot, first[0].slot);
   assert.equal(new Set(next.map(branch => branch.slot)).size, 3);
-  assert.equal(matchStaircaseBranches(Array.from({ length: 80 }, (_, index) => line(index / 80, .2, .1))).length, BRANCHES);
+  assert.equal(matchStaircaseBranches(Array.from({ length: 700 }, (_, index) => line(index / 700, .2, .1))).length, BRANCHES);
 });
 
 test('rhythm feedback reads the audio table and distinguishes white notes from black rests', () => {
@@ -189,5 +192,42 @@ test('display sweep remains on the audio stripe between prepared frames at narro
     const reading = readStaircaseRhythm(field, (index + .37) / 1000);
     const sweep = (reading.bandLow + reading.bandHigh) / 2;
     assert.equal(Math.floor(sweep / field.settings.stripePeriod * 2) % 2 === 1, reading.white);
+  }
+});
+
+test('nearby offshoots inherit a parent reference while disconnected births get a fresh reference', () => {
+  const line = (x, y, height) => ({ points: [{ x, y }, { x, y: y + height / 2 }, { x, y: y + height }], length: height, closed: false });
+  const identity = { nextId: 1 };
+  const first = matchStaircaseBranches([line(.4, .2, .6)], [], 1, { identity });
+  const split = matchStaircaseBranches([line(.39, .2, .3), line(.41, .55, .25), line(.95, .9, .04)], first, 1, { identity });
+  assert.equal(new Set(split.map(branch => branch.id)).size, 3);
+  assert.equal(split.filter(branch => branch.id === first[0].id).length, 1);
+  assert.equal(split.filter(branch => branch.parentId === first[0].id).length, 1);
+  assert.equal(split[2].parentId, 0, 'unrelated component does not inherit a fabricated parent');
+  const next = matchStaircaseBranches([line(.4, .22, .3), line(.42, .57, .25), line(.94, .9, .04)], split, 1, { identity });
+  assert.deepEqual(next.map(branch => [branch.id, branch.parentId]), split.map(branch => [branch.id, branch.parentId]));
+});
+
+test('expanded voice selection retains hundreds of actual components and reports smaller requested budgets', () => {
+  const camera = cameraFromView(viewById('double-spiral'));
+  const expanded = buildStaircaseField({ camera, resolution: 112, voiceLimit: 512 });
+  const reduced = buildStaircaseField({ camera, resolution: 112, voiceLimit: 16 });
+  assert.ok(expanded.stats.maxContours > 256);
+  assert.ok(expanded.overlays.some(frame => frame.branches.length > 256));
+  assert.ok(reduced.overlays.every(frame => frame.branches.length <= 16));
+  assert.equal(expanded.stats.maxContours, reduced.stats.maxContours);
+  for (const frame of expanded.overlays) assert.equal(frame.omitted, Math.max(0, frame.contours - 512));
+  for (const frame of reduced.overlays) assert.equal(frame.omitted, Math.max(0, frame.contours - 16));
+});
+
+test('different branch identities never interpolate a fictional reference position between them', () => {
+  const field = buildStaircaseField({ resolution: 32, voiceLimit: 1 });
+  for (let frame = 0; frame < FRAMES; frame++) {
+    field.table.set([1, frame % 2 ? .9 : .1, .4, .1, frame + 1, 0], frame * STRIDE + BRANCH_OFFSET);
+  }
+  for (const mix of [.25, .75]) {
+    const reading = readStaircaseRhythm(field, mix / (FRAMES - 1));
+    assert.equal(reading.branches[0].cx, mix < .5 ? Math.fround(.1) : Math.fround(.9));
+    assert.equal(reading.branches[0].id, mix < .5 ? 1 : 2);
   }
 });
