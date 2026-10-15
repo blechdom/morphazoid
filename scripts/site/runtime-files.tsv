@@ -461,6 +461,7 @@ copy+require	src/instruments/simd-resonator-rust/style.css
 copy+require	assets/wasm/rust-resonator-scalar.wasm
 copy+require	assets/wasm/rust-resonator-simd.wasm
 copy+require	docs/simd-resonator-rust.md
+copy+require	docs/rezoidinator-surround-measurements.json
 
 copy+require	simd-303.html
 copy+require	src/instruments/simd-303/simd-303.css

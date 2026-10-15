@@ -45,7 +45,7 @@
     {
       "file": "scripts/site/runtime-files.tsv",
       "sha256": "9d6491b088e64529e6beb10eea8386373543789fefbfcf94216913cc7e817642",
-      "approvedSha256": "bc14b88088f31d62e546b753ad237031a667b40db061a33b1a3db0d00e0f9b2a",
+      "approvedSha256": "a2e51f0f0113805fc3eb7b57c6dda48dc0242bfdff05d5abf1267449c360cdeb",
       "markers": [
         {
           "text": "Rezoidinator",
@@ -62,12 +62,21 @@
         {
           "text": "src/instruments/simd-resonator-rust/recording.js",
           "count": 1
+        },
+        {
+          "text": "docs/rezoidinator-surround-measurements.json",
+          "count": 1
         }
       ],
       "replacements": [
         {
           "before": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\n\n# Rust Resonator: expanded modal instrument, retaining the original SIMD page.\ncopy+require\tsimd-resonator-rust.html\ncopy+require\tsrc/instruments/simd-resonator-rust/app.js\ncopy+require\tsrc/instruments/simd-resonator-rust/model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/presets.js\ncopy+require\tsrc/instruments/simd-resonator-rust/processor.js\ncopy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/style.css\ncopy+require\tassets/wasm/rust-resonator-scalar.wasm\ncopy+require\tassets/wasm/rust-resonator-simd.wasm\n",
           "after": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\n\n# Rezoidinator: Rust modal/FFT instrument with spatial output and recording.\ncopy+require\tsimd-resonator-rust.html\ncopy+require\tsrc/instruments/simd-resonator-rust/app.js\ncopy+require\tsrc/instruments/simd-resonator-rust/model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/presets.js\ncopy+require\tsrc/instruments/simd-resonator-rust/processor.js\ncopy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/spatial-model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/surround-output.js\ncopy+require\tsrc/instruments/simd-resonator-rust/recording.js\ncopy+require\tsrc/instruments/simd-resonator-rust/style.css\ncopy+require\tassets/wasm/rust-resonator-scalar.wasm\ncopy+require\tassets/wasm/rust-resonator-simd.wasm\n",
+          "beforeCount": 0
+        },
+        {
+          "before": "copy+require\tdocs/simd-resonator-rust.md\n\ncopy+require\tsimd-303.html\n",
+          "after": "copy+require\tdocs/simd-resonator-rust.md\ncopy+require\tdocs/rezoidinator-surround-measurements.json\n\ncopy+require\tsimd-303.html\n",
           "beforeCount": 0
         }
       ]

@@ -42,7 +42,7 @@ test('Rezoidinator packaging explicitly requires its own runtime and keeps the o
   const inventory = parseRuntimeManifest(await readFile(urlFor('scripts/site/runtime-files.tsv'), 'utf8'));
   const paths = [`${id}.html`,
     ...['app.js', 'model.js', 'presets.js', 'processor.js', 'fft-resynth.js', 'spatial-model.js', 'surround-output.js', 'recording.js', 'style.css'].map(name => `src/instruments/${id}/${name}`),
-    'assets/wasm/rust-resonator-scalar.wasm', 'assets/wasm/rust-resonator-simd.wasm', 'docs/simd-resonator-rust.md'];
+    'assets/wasm/rust-resonator-scalar.wasm', 'assets/wasm/rust-resonator-simd.wasm', 'docs/simd-resonator-rust.md', 'docs/rezoidinator-surround-measurements.json'];
   for (const file of paths) {
     const entries = inventory.entries.filter(entry => entry.path === file);
     assert.equal(entries.length, 1, file);

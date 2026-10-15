@@ -10,6 +10,10 @@ import { rezoidinatorSiteChanges, restoreRezoidinatorSite, readRezoidinatorSiteR
 
 const urlFor = file => new URL(`../${file}`, import.meta.url);
 const digest = source => createHash('sha256').update(source).digest('hex');
+const spatialRuntimePaths = [
+  ...['spatial-model', 'surround-output', 'recording'].map(module => `src/instruments/simd-resonator-rust/${module}.js`),
+  'docs/rezoidinator-surround-measurements.json',
+];
 
 test('Rezoidinator retains its catalogue identity and advertises the spatial/recording surface', async () => {
   const item = instrumentById('simd-resonator-rust');
@@ -45,8 +49,7 @@ test('the rename and spatial registration reverse exactly to merged fresh main',
 test('spatial runtime paths are required once while independent BLECH additions remain intact', async () => {
   const file = 'scripts/site/runtime-files.tsv', source = await readFile(urlFor(file), 'utf8');
   const entries = parseRuntimeManifest(source).entries;
-  for (const module of ['spatial-model', 'surround-output', 'recording']) {
-    const path = `src/instruments/simd-resonator-rust/${module}.js`;
+  for (const path of spatialRuntimePaths) {
     const rows = entries.filter(entry => entry.path === path);
     assert.equal(rows.length, 1, path);
     assert.equal(rows[0].policy, 'copy+require', path);
@@ -83,8 +86,8 @@ test('partial, relocated, duplicate and policy-altered amendments cannot hide be
     }
   }
   const file = 'scripts/site/runtime-files.tsv', source = await readFile(urlFor(file), 'utf8');
-  for (const module of ['spatial-model', 'surround-output', 'recording']) {
-    const row = `copy+require\tsrc/instruments/simd-resonator-rust/${module}.js`;
+  for (const path of spatialRuntimePaths) {
+    const row = `copy+require\t${path}`;
     for (const policy of ['copy', 'require']) {
       assert.throws(() => restoreRezoidinatorSite(source.replace(row, row.replace('copy+require', policy)), file), /exact Rezoidinator/);
     }
