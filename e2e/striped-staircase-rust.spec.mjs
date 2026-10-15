@@ -249,10 +249,25 @@ for (const viewport of [
           expect(box.width).toBeGreaterThanOrEqual(48);
           expect(box.height).toBeGreaterThanOrEqual(48);
         }
+        // scrollIntoView can move overflow:hidden ancestors programmatically.
+        // A touch drag outside the stage must also scroll the actual page.
+        const client = await page.context().newCDPSession(page);
+        const notes = page.locator('.mode-description');
+        await notes.scrollIntoViewIfNeeded();
+        const notesBox = await notes.boundingBox();
+        const scrollBefore = await page.evaluate(() => document.documentElement.scrollTop + document.body.scrollTop);
+        const touchX = Math.round(notesBox.x + notesBox.width / 2);
+        const touchY = Math.round(notesBox.y + notesBox.height / 2);
+        await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: touchX, y: touchY }] });
+        for (let step = 1; step <= 6; step++) {
+          await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: touchX, y: touchY - step * 16 }] });
+          await page.waitForTimeout(20);
+        }
+        await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+        await expect.poll(() => page.evaluate(() => document.documentElement.scrollTop + document.body.scrollTop)).toBeGreaterThan(scrollBefore + 30);
         const stage = page.locator('#stage');
         await stage.scrollIntoViewIfNeeded();
         const box = await stage.boundingBox(), before = await snapshot(page);
-        const client = await page.context().newCDPSession(page);
         const y = Math.round(box.y + box.height / 2), x = Math.round(box.x + box.width / 2);
         await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x: x - 25, y }, { x: x + 25, y }] });
         await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: x - 50, y }, { x: x + 50, y }] });
