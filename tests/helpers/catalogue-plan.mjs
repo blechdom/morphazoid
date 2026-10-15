@@ -8,6 +8,7 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  ...JSON.parse(readFileSync(new URL("../fixtures/catalogue-simd-resonator-rust.json", import.meta.url), "utf8")).additions,
   // October 11 owner request: a browser DJ workspace inside Morphazoid.
   { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
     categoryId: 'app', categoryLabel: 'App',

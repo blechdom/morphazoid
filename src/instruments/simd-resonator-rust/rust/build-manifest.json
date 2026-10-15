@@ -1,0 +1,96 @@
+{
+  "abi": 1,
+  "target": "wasm32-unknown-unknown",
+  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
+  "commonFlags": [
+    "--edition=2021",
+    "--crate-type=cdylib",
+    "--crate-name=rust_resonator",
+    "--target=wasm32-unknown-unknown",
+    "-Copt-level=3",
+    "-Cpanic=abort",
+    "-Clto=fat",
+    "-Ccodegen-units=1",
+    "-Cstrip=symbols",
+    "-Clink-arg=--stack-first",
+    "-Clink-arg=-zstack-size=65536",
+    "-Clink-arg=--initial-memory=262144",
+    "-Clink-arg=--max-memory=262144"
+  ],
+  "sourceHashes": {
+    "scripts/build-rust-resonator-wasm.mjs": "db83edb5625adb341857013dd5fbb55bedf653a3963d5dca7f2d39080e13231a",
+    "src/instruments/simd-resonator-rust/rust/kernel.rs": "8b7d9c576db8b943870b931a05f8e81cda0007d07ed7c76990be31c8ec1b6c7e"
+  },
+  "builds": {
+    "scalar": {
+      "output": "assets/wasm/rust-resonator-scalar.wasm",
+      "flags": [
+        "-Ctarget-feature=-simd128,-relaxed-simd",
+        "-Cno-vectorize-loops",
+        "-Cno-vectorize-slp"
+      ],
+      "bytes": 2618,
+      "wasmSha256": "decde509ce49e92e451841256069fcfcb668a9a35c3b18f36548169329529639",
+      "imports": [],
+      "exports": [
+        "abi_version",
+        "block_size",
+        "cosine_ptr",
+        "decay_ptr",
+        "energy_ptr",
+        "gain_ptr",
+        "imaginary_ptr",
+        "input_ptr",
+        "lane_width",
+        "max_modes",
+        "memory",
+        "output_left_ptr",
+        "output_right_ptr",
+        "pan_left_ptr",
+        "pan_right_ptr",
+        "process_resonator",
+        "real_ptr",
+        "reset",
+        "reset_resonator",
+        "sine_ptr",
+        "strike_ptr"
+      ],
+      "simdLocals": 0
+    },
+    "simd": {
+      "output": "assets/wasm/rust-resonator-simd.wasm",
+      "flags": [
+        "--cfg",
+        "feature=\"simd\"",
+        "-Ctarget-feature=+simd128"
+      ],
+      "bytes": 2675,
+      "wasmSha256": "aca54395f1ca8a3f7edd14f6299675aaf9509be91db11121de8866cc194ce43c",
+      "imports": [],
+      "exports": [
+        "abi_version",
+        "block_size",
+        "cosine_ptr",
+        "decay_ptr",
+        "energy_ptr",
+        "gain_ptr",
+        "imaginary_ptr",
+        "input_ptr",
+        "lane_width",
+        "max_modes",
+        "memory",
+        "output_left_ptr",
+        "output_right_ptr",
+        "pan_left_ptr",
+        "pan_right_ptr",
+        "process_resonator",
+        "real_ptr",
+        "reset",
+        "reset_resonator",
+        "sine_ptr",
+        "strike_ptr"
+      ],
+      "simdLocals": 22
+    }
+  }
+}

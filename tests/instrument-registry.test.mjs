@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readRustResonatorSiteReference as readFile } from './helpers/simd-resonator-rust-site-reference.mjs';
 import test from "node:test";
 
 import * as registry from "../src/site/instrument-registry.js";

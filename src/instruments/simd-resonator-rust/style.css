@@ -1,0 +1,26 @@
+@import '../../families/simd-resonator/simd-resonator.css';
+.rust-resonator-page .simd-stage-heading h1 { color: var(--accent); font-weight: 550; }
+.rust-resonator-page .simd-control-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 8px; }
+.rust-resonator-page .simd-control-list label { min-width: 0; align-content: start; text-align: center; }
+.rust-resonator-page .simd-control-list label > span { display: grid; justify-content: center; gap: 3px; }
+.rust-resonator-page .simd-frequency-pair { display: contents; }
+.rust-resonator-page .simd-control-list label.mz-range-knob { width: 100%; min-width: 0; height: 76px; margin: 0; }
+.rust-resonator-page .simd-control-list label.mz-range-knob > span:not(.mz-range-knob__dial) {
+  top: 0; bottom: auto; display: block; line-height: 12px; text-align: center;
+}
+.rust-resonator-page .simd-control-list label.mz-range-knob > .mz-range-knob__dial { top: 26px; width: 30px; height: 30px; }
+.rust-resonator-page .simd-control-list label.mz-range-knob output { position: absolute; top: 61px; left: 0; right: 0; line-height: 12px; }
+.rust-diagnostics { padding: 12px 16px; color: var(--muted); font-size: 11px; }
+.rust-diagnostics label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.rust-diagnostics dl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rust-diagnostics dd { margin: 0; text-align: right; }
+.rust-resonator-page .simd-canvas-wrap { border: 0; }
+@media (max-width: 960px) {
+  .rust-resonator-page .simd-resonator-shell { grid-template-rows: minmax(220px, 36dvh) minmax(0, 1fr); }
+  .rust-resonator-page .simd-stage-heading { display: flex; }
+  .rust-resonator-page .simd-stage-heading h1 { font-size: 19px; }
+}
+@media (max-width: 960px) and (max-height: 560px) {
+  .rust-resonator-page .simd-resonator-shell { grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: minmax(0, 1fr); }
+  .rust-resonator-page .simd-stage-heading { margin-bottom: 8px; }
+}

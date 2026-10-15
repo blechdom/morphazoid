@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile as readCurrentFile } from 'node:fs/promises';
+import { readRustResonatorSiteReference as readCurrentFile } from './helpers/simd-resonator-rust-site-reference.mjs';
 import { restoreBlechTextRuntime, readBlechTextRuntimeReference as readFile } from './helpers/blech-text-runtime-reference.mjs';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { simdResonatorRuntimeChange as change, restoreSimdResonatorRuntime, readSimdResonatorRuntimeReference } from './helpers/simd-resonator-runtime-reference.mjs';

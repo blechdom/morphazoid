@@ -446,6 +446,19 @@ copy+require	src/simd-audio-worker.js
 copy+require	assets/wasm/simd-resonator-scalar.wasm
 copy+require	assets/wasm/simd-resonator-simd.wasm
 copy+require	assets/instruments/simd-resonator.webp
+
+# Rust Resonator: expanded modal instrument, retaining the original SIMD page.
+copy+require	simd-resonator-rust.html
+copy+require	src/instruments/simd-resonator-rust/app.js
+copy+require	src/instruments/simd-resonator-rust/model.js
+copy+require	src/instruments/simd-resonator-rust/presets.js
+copy+require	src/instruments/simd-resonator-rust/processor.js
+copy+require	src/instruments/simd-resonator-rust/fft-resynth.js
+copy+require	src/instruments/simd-resonator-rust/style.css
+copy+require	assets/wasm/rust-resonator-scalar.wasm
+copy+require	assets/wasm/rust-resonator-simd.wasm
+copy+require	docs/simd-resonator-rust.md
+
 copy+require	simd-303.html
 copy+require	src/instruments/simd-303/simd-303.css
 copy+require	src/instruments/simd-303/simd-303-app.js

@@ -595,6 +595,9 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "simd-resonator": [
     "resonator"
   ],
+  "simd-resonator-rust": [
+    "resonator"
+  ],
   "order-tones": [],
   "bell-square": [],
   "entanglement-dance": [],
