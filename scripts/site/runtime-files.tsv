@@ -2025,3 +2025,14 @@ copy+require	src/instruments/blech-midi/blech-midi-timing.js
 # BLECH MIDI prepared drops and compact stamp selection.
 copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
 copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js
+
+# Staircase Studies
+copy+require	src/instruments/striped-staircase-rust/app.js
+copy+require	src/instruments/striped-staircase-rust/engine.js
+copy+require	src/instruments/striped-staircase-rust/processor.js
+copy+require	src/instruments/striped-staircase-rust/field.js
+copy+require	src/instruments/striped-staircase-rust/worker.js
+copy+require	src/instruments/striped-staircase-rust/studies.css
+copy+require	assets/wasm/staircase.wasm
+copy+require	assets/wasm/staircase-build.json
+copy+require	docs/staircase-studies.md

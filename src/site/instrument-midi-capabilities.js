@@ -181,6 +181,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "escape-dust",
     "linebreaker",
     "striped-staircase",
+    "striped-staircase-rust",
     "enveloper",
     "orbital-ferris",
     "yoyodyne",
@@ -205,6 +206,7 @@ export const NATIVE_INSTRUMENT_MIDI_IDS = Object.freeze([
 ]);
 
 export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
+  "striped-staircase-rust",
   "trackazoid",
   "graph-delay-rust",
   "synthesis",
@@ -336,6 +338,7 @@ const midiOutputExtraIds = new Set([
   "julia",
 ]);
 const noMidiOutputIds = new Set([
+  "striped-staircase-rust",
   "vector-fractals",
   "domino-run",
   "fractal-signals",

@@ -1,0 +1,39 @@
+.staircase-studies-page { --accent: #b9f5ce; background: #080c12; }
+.studies-shell { display: grid; flex-shrink: 0; grid-template-columns: minmax(0, 1fr) 310px; gap: 20px; padding: 20px; height: calc(100dvh - 84px); min-height: 480px; }
+.studies-stage { min-width: 0; min-height: 0; }
+#stageWrap { position: relative; width: 100%; height: 100%; overflow: hidden; border-radius: 18px; background: #080c12; }
+.staircase-studies-page #stage { display: block; width: 100%; height: 100%; touch-action: none; cursor: grab; }
+.staircase-studies-page #stage:active { cursor: grabbing; }
+.staircase-studies-page #stage:focus-visible { outline: 2px solid #b9f5ce; outline-offset: -4px; }
+#contourOverlay { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; }
+.studies-heading { position: absolute; top: 24px; left: 24px; pointer-events: none; text-shadow: 0 2px 12px #000; }
+.studies-heading h1 { margin: 0; font: 700 clamp(22px, 3.4vw, 48px)/1.05 var(--font-display, sans-serif); letter-spacing: -.04em; color: #e4ffee; }
+.studies-heading p { color: #b9f5ce; margin: 10px 0; font-size: 13px; }
+.view-actions { position: absolute; bottom: 50px; right: 14px; display: flex; gap: 5px; }
+.view-actions button { width: 40px; height: 40px; font-size: 20px; background: #0a121dda; }
+.field-readout { position: absolute; bottom: 14px; left: 18px; right: 18px; display: flex; justify-content: space-between; gap: 10px; font-size: 11px; color: #c1d2d4; pointer-events: none; text-shadow: 0 1px 4px #000; }
+.studies-panel { min-width: 0; min-height: 0; overflow-y: auto; padding: 0 8px 16px 0; display: flex; flex-direction: column; gap: 20px; background: transparent; border: 0; border-radius: 0; }
+.study-section { display: grid; flex-shrink: 0; gap: 14px; }
+.study-section h2 { margin: 0; color: #b9f5ce; font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+.study-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.study-modes button, #holdButton { min-height: 40px; border: 1px solid #30443d; background: #13231d; border-radius: 7px; font-size: 12px; cursor: pointer; }
+.study-modes button:hover, #holdButton:hover { border-color: #b9f5ce; }
+.study-modes button:focus-visible, #holdButton:focus-visible { outline: 2px solid #b9f5ce; outline-offset: 3px; }
+.staircase-studies-page .control:has(input:disabled) { opacity: .4; }
+.study-modes button[aria-pressed="true"], #holdButton[aria-pressed="true"] { background: #b9f5ce; color: #10231a; border-color: #b9f5ce; }
+.mode-description { margin: 0; min-height: 48px; font-size: 12px; color: #b0c2c7; line-height: 1.5; }
+.transport-row { display: flex; align-items: center; gap: 12px; }
+.staircase-studies-page .control { display: grid; gap: 7px; min-width: 0; }
+.staircase-studies-page .control > span { display: flex; align-items: center; justify-content: space-between; gap: 8px; font-size: 12px; }
+.staircase-studies-page .control output { color: #b9f5ce; font-variant-numeric: tabular-nums; }
+.staircase-studies-page .control input, .staircase-studies-page .control select { width: 100%; min-width: 0; }
+.study-section details { display: grid; gap: 12px; }
+.study-section details .control { margin-top: 16px; }
+.study-section summary { font-size: 12px; color: #b0c2c7; cursor: pointer; }
+#liveStatus, .playing-notes, .studies-panel > a { margin: 0; font-size: 11px; line-height: 1.5; color: #a8bdc4; }
+#liveStatus { min-height: 17px; }
+#renderError { position: absolute; inset: 40% 10% auto; padding: 20px; background: #171318; color: #ffd4d4; }
+@media (max-width: 960px) { html:has(.staircase-studies-page) { height: auto; min-height: 100%; overflow: auto; } body.staircase-studies-page { height: auto; min-height: 100dvh; overflow: visible; } }
+@media (max-width: 800px) { .studies-shell { grid-template-columns: 1fr; grid-template-rows: auto auto; align-content: start; height: auto; min-height: 0; padding: 12px; gap: 20px; } #stageWrap { height: 52dvh; min-height: 260px; } .studies-panel { overflow: visible; padding: 0 4px 24px; } .studies-heading { top: 18px; left: 18px; } .field-readout { flex-direction: column; gap: 3px; } }
+@media (max-height: 500px) and (min-width: 700px) { .studies-shell { height: auto; min-height: 0; } #stageWrap { height: calc(100dvh - 110px); min-height: 240px; } .studies-stage { position: sticky; top: 12px; } .studies-panel { overflow: visible; } }
+@media (pointer: coarse) { .view-actions button, .study-modes button, #holdButton { min-width: 48px; min-height: 48px; } }

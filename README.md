@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Staircase Studies](striped-staircase-rust.html)** revisits Striped Staircase in a separate Rust/WebAssembly instrument. Compare contour waves, area-weighted harmonics, stripe-crossing strikes and contour resonances while retaining the same depth. Enable Audio, then Play; Hold depth freezes the view while continuous studies keep sounding. [Mappings and limits](docs/staircase-studies.md).
+
 **[Sound Fonts](sound-fonts.html)** collects free downloadable banks, imported SF2s,
 and source links, with favorites, notes, preset previews, and browser-local storage.
 Its workshop turns synthesized sounds or uploaded audio samples into downloadable

@@ -31,7 +31,7 @@
     "analyze:presets": "node scripts/presets/inventory.mjs",
     "analyze:cascade-rhythm": "node scripts/presets/cascade-rhythm-analysis.mjs",
     "analyze:architecture": "npm run analyze:duplicates && npm run analyze:dependencies",
-    "check": "node scripts/check-runtime-source.mjs && npm run check:simd-wasm && npm run check:l-system-wasm && npm run check:fractal-delay-wasm && npm run check:graph-delay-wasm",
+    "check": "node scripts/check-runtime-source.mjs && npm run check:simd-wasm && npm run check:l-system-wasm && npm run check:fractal-delay-wasm && npm run check:graph-delay-wasm && npm run check:staircase-wasm",
     "test": "node --test --test-concurrency=2 tests/*.test.mjs",
     "test:release-manifest": "node --test tests/release-manifest.test.mjs",
     "verify": "npm run check && npm test && npm run check:xyflow && npm run check:wax-dist",
@@ -54,7 +54,9 @@
     "check:storybook-dist": "node scripts/check-storybook-artifact.mjs dist/storybook",
     "build:synthesis-wasm": "node scripts/build-synthesis-wasm.mjs",
     "test:synthesis": "node --test tests/synthesis-*.test.mjs",
-    "calibrate:synthesis": "node scripts/calibrate-synthesis-levels.mjs"
+    "calibrate:synthesis": "node scripts/calibrate-synthesis-levels.mjs",
+    "build:staircase-wasm": "node scripts/build-staircase-wasm.mjs",
+    "check:staircase-wasm": "node scripts/build-staircase-wasm.mjs --check"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.13.0",

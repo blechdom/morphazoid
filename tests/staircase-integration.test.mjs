@@ -25,7 +25,9 @@ test('Staircase Studies has a separate WIP route, original icon, and declared co
   assert.equal(midi.computerKeyboardMode, 'page');
   assert.equal(midi.midiInput, true);
   assert.equal(midi.midiOutput, false);
-  assert.equal(midi.startsAudio, false);
+  // The shared explicit MIDI-enable gesture may prepare sequence audio;
+  // ordinary Play and canvas gestures remain independent from Audio.
+  assert.equal(midi.startsAudio, true);
   assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href).map(({ selector, mapping }) => ({ selector, mapping })), [
     { selector: '#speed', mapping: { unit: 'hz', cycleUnit: 'journey' } },
   ]);

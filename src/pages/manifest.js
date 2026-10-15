@@ -182,6 +182,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "spring-choir.html",
   "srtuss.html",
   "striped-staircase.html",
+  "striped-staircase-rust.html",
   "surround-field.html",
   "synaptic-resonance.html",
   "synthesis.html",

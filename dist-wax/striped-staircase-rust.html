@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="en"><head><meta charset="UTF-8">
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Staircase Studies — Morphazoid" />
+    <meta property="og:description" content="Four ways to hear Striped Staircase: contours, harmonics, stripe strikes and resonant bodies. A Rust-powered sonification instrument." />
+    <meta property="og:url" content="https://morphazoid.com/striped-staircase-rust.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Staircase Studies — Morphazoid" />
+    <meta name="twitter:description" content="Four ways to hear Striped Staircase: contours, harmonics, stripe strikes and resonant bodies. A Rust-powered sonification instrument." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end --><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080c12">
+<title>Staircase Studies — Morphazoid</title><meta name="description" content="Four ways to hear Striped Staircase: contours, harmonics, stripe strikes and resonant bodies. A Rust-powered sonification instrument.">
+<link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="src/instruments/striped-staircase-rust/studies.css"></head>
+<body class="staircase-studies-page"><header class="masthead">
+<a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+<nav class="tabs" aria-label="Morphazoid main menu"><a class="tab" href="striped-staircase.html">Striped Staircase</a><a class="tab active" href="striped-staircase-rust.html" aria-current="page">Staircase Studies</a></nav>
+<label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="striped-staircase-rust.html" selected>Staircase Studies</option><option value="striped-staircase.html">Striped Staircase</option></select></label>
+<div class="audio-strip" aria-label="Audio controls"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
+<label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">48%</output></span><input id="level" type="range" min="0" max="1" step="0.01" value="0.48"></label></div></header>
+<main class="studies-shell"><section class="studies-stage" aria-label="Striped Mandelbrot field"><div id="stageWrap">
+<canvas id="stage" tabindex="0" aria-label="Striped Mandelbrot. Drag to pan, wheel or pinch to zoom. Arrow keys pan; plus and minus zoom; Home resets the view." aria-describedby="canvasInstructions">Striped Mandelbrot escape depths.</canvas>
+<canvas id="contourOverlay" aria-hidden="true"></canvas><div class="studies-heading"><h1>Staircase Studies</h1><p id="modeHeading">Contour</p></div>
+<div class="view-actions"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="homeView" type="button" aria-label="Reset current view">⌂</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+<div class="field-readout"><span id="depthReadout">Depth</span><span id="coordinateReadout"></span></div>
+<div id="renderError" role="alert" hidden></div></div></section>
+<aside class="panel studies-panel" aria-label="Staircase Studies controls">
+<section class="study-section"><h2>Listen through</h2><div class="study-modes" role="group" aria-label="Sonification">
+<button data-mode="0" type="button" aria-pressed="true">Contour</button><button data-mode="1" type="button" aria-pressed="false">Harmonics</button><button data-mode="2" type="button" aria-pressed="false">Stripe strikes</button><button data-mode="3" type="button" aria-pressed="false">Resonant body</button></div><p id="modeDescription" class="mode-description">The measured outline becomes a repeating wave.</p></section>
+<section class="study-section"><div class="transport-row"><button id="playButton" class="play-button" data-primary-transport type="button" aria-pressed="false" aria-label="Play depth motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z"/></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12"/></svg></button><button id="holdButton" type="button" aria-pressed="false">Hold depth</button></div>
+<label class="control" for="progress"><span><b>Depth position</b><output id="progressOut" for="progress">0.12</output></span><input id="progress" type="range" min="0" max="1" step="0.001" value="0.12"></label>
+<label class="control" for="speed"><span><b>Depth speed</b><output id="speedOut" for="speed">0.035</output></span><input id="speed" type="range" min="0.005" max="0.5" step="0.001" value="0.035"></label></section><section class="study-section"><h2>Voice</h2><label class="control" for="baseFrequency"><span><b>Register</b><output id="baseFrequencyOut" for="baseFrequency">73</output></span><input id="baseFrequency" type="range" min="30" max="440" step="1" value="73"></label>
+<label class="control" for="brightness"><span><b>Detail</b><output id="brightnessOut" for="brightness">0.55</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.55"></label>
+<label class="control" for="body"><span><b>Body</b><output id="bodyOut" for="body">0.5</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.5"></label></section>
+<section class="study-section"><h2>Explore</h2><label class="control" for="viewPreset"><span>Fractal location</span><select id="viewPreset"><option value="seahorse">Seahorse</option></select></label><label class="control" for="palette"><span>Palette</span><select id="palette"><option value="0">Glass</option><option value="1">Ember</option><option value="2">Ultraviolet</option><option value="3">Ink</option></select></label>
+<details><summary>Stripe structure</summary><label class="control" for="startIteration"><span><b>First depth</b><output id="startIterationOut" for="startIteration">12</output></span><input id="startIteration" type="range" min="0" max="100" step="1" value="12"></label>
+<label class="control" for="maxIterations"><span><b>Field detail</b><output id="maxIterationsOut" for="maxIterations">260</output></span><input id="maxIterations" type="range" min="32" max="384" step="1" value="260"></label>
+<label class="control" for="steps"><span><b>Depth bands</b><output id="stepsOut" for="steps">24</output></span><input id="steps" type="range" min="4" max="48" step="1" value="24"></label>
+<label class="control" for="stripePeriod"><span><b>Stripe width</b><output id="stripePeriodOut" for="stripePeriod">7</output></span><input id="stripePeriod" type="range" min="1" max="24" step="0.1" value="7"></label></details></section>
+<button id="resetAll" class="reset-button" type="button" data-reset-all data-reset-in-place>Reset study</button><p id="liveStatus" role="status" aria-live="polite">Preparing the field…</p>
+<p id="canvasInstructions" class="playing-notes">Drag to roam · wheel or pinch to dive. Hold a depth, then switch studies to compare it.</p><a href="docs/staircase-studies.md">Mappings &amp; listening notes</a><a href="striped-staircase.html">Original Striped Staircase</a></aside></main>
+<script type="module" src="nav.js"></script><script type="module" src="src/instruments/striped-staircase-rust/app.js"></script>  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body></html>

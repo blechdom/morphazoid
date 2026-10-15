@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "striped-staircase-rust": define(
+    "Fractal sonification studies",
+    "Compares measured contours, area-weighted harmonics, depth-stripe strikes and contour resonances in the Striped Staircase Mandelbrot field.",
+    "Enable Audio, then Play. Hold depth and switch studies, or drag and zoom to hear another region.",
+    ["Pointer", "WebGL", "WebAssembly", "MIDI input"],
+  ),
   "trackazoid": define(
     "Two-deck local audio mixer",
     "Mix local tracks with two waveforms, automatic BPM and beat grids, persistent Sync, key lock, hot cues, beat loops, EQ and a crossfader. Drop files or open a folder; music stays on your computer.",

@@ -468,6 +468,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   "julia": [
     "sonification"
   ],
+  "striped-staircase-rust": ["fractal", "sonification"],
   "striped-staircase": [
     "sonification"
   ],
