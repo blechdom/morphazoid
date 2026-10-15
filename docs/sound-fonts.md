@@ -7,13 +7,17 @@ server, account, cloud library, or a new catalogue instrument.
 ## Collect and play
 
 **Explore** opens with 814 searchable presets: 811 from the eight bundled banks
-and three Morphazoid originals. Filter by instrument family or search for an
-instrument. Selecting a preset downloads its bank once and saves it to the
+and three Morphazoid originals. The **Complete GM banks** choices appear first:
+TimGM6mb, GeneralUser GS, FluidR3Mono GM and FluidR3 GM. Each supplies all 128 GM
+instruments and standard drums. Choosing a bank filters its presets and opens
+its first GM piano. Use **SoundFont → All SoundFonts** to return to every sound;
+combine the SoundFont, instrument-family and search filters to explore.
+Selecting a preset downloads its bank once and saves it to the
 collection. Presets are identified by bank/program, independent of their SoundFont
 storage order. **Next preset** steps through the filtered results.
 
-**Find sounds** includes eight free banks: TimGM6mb (136 presets), FreePats
-Kalimba, Ocarina, Jaw Harp and Lately Bass, plus three complete GM banks:
+**Find sounds** groups complete GM banks before single-instrument fonts.
+The complete banks are TimGM6mb (136 presets) and these three larger banks:
 
 | Bank | Format | Download | Presets |
 | --- | --- | --- | --- |
@@ -27,6 +31,15 @@ saves the bank in browser storage; subsequent clicks open the saved entry.
 **Download SF2/SF3** exports the exact bundled file. Banks load on demand.
 Credits and license links accompany every bank. Jaw Harp maps different
 articulations to keys, rather than transposing a single pitched sound.
+Kalimba, Ocarina, Jaw Harp and Lately Bass appear under **Single-instrument
+fonts**. A single-instrument font contains one preset, which can still play
+melodies and chords; it does not mean one-note polyphony.
+
+The selected font is labelled **Complete GM bank**, **Single instrument**, or
+**SoundFont bank**. The download description states whether the file contains
+one instrument or every preset in a bank. Previewing one GM preset does not
+extract it: downloading saves the complete original SF2/SF3, with its samples
+and instrument settings. Created fonts export their single instrument as SF2.
 
 Import SF2 or compressed SF3 (up to 128 MiB each, eight files per import), or
 save an HTTP/HTTPS source link to revisit later. Search names, creators, and
@@ -50,6 +63,17 @@ intact. Fonts created or imported here are also available in Midiophilia's
 **MIDI Mixer** and **Blech MIDI**, under **SoundFont & live effects → SoundFont
 bank**. Accepted imports in either instrument appear here too. Other instruments
 can adopt the [shared picker, library service and playback adapter](shared-sound-fonts.md).
+
+MIDI Mixer supports choosing a program from the active bank for each MIDI
+channel. Both consumers currently load one SoundFont bank for the whole
+instrument; they do not assign separate SF2/SF3 files per channel or layer a
+single-instrument font over the GM bank. With a single-preset bank, missing
+programs and drum kits can fall back to that same sound. Use a complete GM bank
+to retain a full MIDI arrangement's instrument roles. A player that supports
+fonts per track/channel, or an editor that adds the custom preset to a GM bank,
+can combine a single-instrument font with other sounds. Downloading itself does
+not assign any channel. The page's **Using SoundFonts: MIDI channels and
+downloads** guide explains these distinctions alongside the collection.
 
 ## Create a Sound Font
 

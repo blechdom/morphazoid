@@ -53,10 +53,15 @@
       <p id="error" class="sf-error" role="alert" hidden></p>
 
       <section id="collectionView" aria-label="Sound font collection">
+        <section id="gmSpotlight" class="sf-gm-spotlight" aria-labelledby="gmTitle">
+          <h2 id="gmTitle">Complete GM banks</h2>
+          <p class="sf-muted">All 128 General MIDI instruments plus drums. Start here for a whole MIDI arrangement.</p>
+          <div id="gmBankChoices" class="sf-gm-choices" aria-label="Explore complete GM banks"></div>
+        </section>
         <div class="sf-library-layout">
           <div class="sf-library">
             <div id="exploreBrowser">
-              <div class="sf-explore-tools"><label class="sf-search"><span class="sr-only">Search presets</span><input id="presetSearch" type="search" placeholder="Search piano, bass, strings, drums…" /></label><label class="sf-field">Family<select id="familySelect"><option value="">All families</option></select></label></div>
+              <div class="sf-explore-tools"><label class="sf-search"><span class="sr-only">Search presets</span><input id="presetSearch" type="search" placeholder="Search piano, bass, strings, drums…" /></label><label class="sf-field">SoundFont<select id="bankSelect"><option value="">All SoundFonts</option></select></label><label class="sf-field">Family<select id="familySelect"><option value="">All families</option></select></label></div>
               <div id="presetList" class="sf-preset-list" aria-label="Preset instruments"></div>
               <p id="presetEmpty" class="sf-muted" hidden>No matching presets.</p>
             </div>
@@ -80,6 +85,7 @@
               <dl class="sf-details"><div><dt>Contents</dt><dd id="selectedStats"></dd></div><div><dt>License</dt><dd id="selectedLicense"></dd></div></dl>
               <p id="selectedNotes" class="sf-muted"></p><p id="fontWarnings" class="sf-muted sf-small"></p>
               <div class="sf-actions"><button id="downloadButton" type="button" class="sf-button">↓ Download SF2</button><a id="sourceLink" class="sf-source-link" target="_blank" rel="noopener noreferrer" hidden>Visit source ↗</a></div>
+              <p id="downloadHelp" class="sf-muted sf-download-help"></p>
               <details class="sf-edit"><summary>Edit details</summary><form id="editForm"><label class="sf-field">Name<input id="editName" required maxlength="100" /></label><label class="sf-field">Creator<input id="editAuthor" maxlength="100" /></label><label class="sf-field">Source URL<input id="editSource" type="url" placeholder="https://" maxlength="2000" /></label><label class="sf-field">License<input id="editLicense" maxlength="300" /></label><label class="sf-field">Notes<textarea id="editNotes" rows="3" maxlength="2000"></textarea></label><button type="submit" class="sf-button">Save details</button></form></details>
               <button id="deleteButton" class="sf-delete" type="button">Remove from collection</button>
             </div>
@@ -104,11 +110,22 @@
       </section>
 
       <section id="sourcesView" aria-labelledby="sourcesTitle" hidden>
-        <div class="sf-section-intro"><p class="sf-eyebrow">FREE SOUNDFONTS</p><h2 id="sourcesTitle">Find your next sound.</h2><p class="sf-muted">Ready to play, with original credits and licenses. Add a bank to your collection to preview its presets, or download the bank.</p></div>
-        <div id="bundledFonts" class="sf-source-grid" aria-label="Free soundfont banks"></div>
+        <div class="sf-section-intro"><p class="sf-eyebrow">FREE SOUNDFONTS</p><h2 id="sourcesTitle">Complete GM banks</h2><p class="sf-muted">All 128 General MIDI instruments plus drums in each bank. Choose one to play a complete MIDI arrangement.</p></div>
+        <div id="bundledFonts" class="sf-source-grid" aria-label="Complete GM soundfont banks"></div>
+        <div class="sf-section-intro"><h2>Single-instrument fonts</h2><p class="sf-muted">One sound for playing a melody or chords. These contain one instrument preset; they do not contain the complete GM set.</p></div>
+        <div id="singleInstrumentFonts" class="sf-source-grid" aria-label="Single-instrument soundfonts"></div>
         <p id="catalogStatus" class="sf-muted sf-small" role="status">Loading free banks…</p>
         <p class="sf-muted sf-small">Looking for more? Explore <a href="https://schristiancollins.com/generaluser" target="_blank" rel="noopener noreferrer">GeneralUser GS</a> or the <a href="https://www.polyphone.io/" target="_blank" rel="noopener noreferrer">Polyphone repository</a>. Check the license of each additional download.</p>
       </section>
+      <details class="sf-usage-guide">
+        <summary>Using SoundFonts: MIDI channels and downloads</summary>
+        <dl>
+          <div><dt>Which kind should I use?</dt><dd>A complete GM bank supplies the instruments and drums for a MIDI song. A single-instrument font gives you one sound to play across the keyboard, including chords.</dd></div>
+          <div><dt>Can I assign a font to a MIDI channel?</dt><dd>In a player that supports fonts per channel or track, yes. Morphazoid currently loads one bank for the whole instrument. MIDI Mixer lets you choose a preset from that bank per channel. Loading a single-instrument font replaces the bank, so multiple parts can play the same sound, including drums.</dd></div>
+          <div><dt>What does Download save?</dt><dd>The complete SF2 or SF3 file, with its samples and instrument settings. A GM download includes every preset, even when you preview just one. Created fonts contain your single instrument. Load the file in a compatible SoundFont player; downloading does not assign a MIDI channel.</dd></div>
+          <div><dt>How do I use my collection in Morphazoid?</dt><dd>Open <a href="midiphoria.html">Midiophilia’s MIDI Mixer</a> or <a href="blech-midi.html">Blech MIDI</a>, then choose <strong>SoundFont &amp; live effects → SoundFont bank</strong>. Your saved fonts appear there in this browser.</dd></div>
+        </dl>
+      </details>
       <footer class="sf-footer"><span id="storageStatus">Saved on this device</span><span>Download your fonts to back up or share. Your files stay in this browser.</span></footer>
       <noscript><p>This page needs JavaScript for importing, saving, and playing sound fonts.</p></noscript>
     </main>
