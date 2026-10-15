@@ -1,0 +1,13 @@
+{
+  "baseCommit": "5fdf3e975e1f50d1ac8ef9f17cbc6edb5fc3f731",
+  "file": "scripts/site/runtime-files.tsv",
+  "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n",
+  "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n\n# BLECH MIDI live spigots and direct canvas performance.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigots.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigots.css\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigot-engine.js\n",
+  "addition": "\n# BLECH MIDI live spigots and direct canvas performance.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigots.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigots.css\ncopy+require\tsrc/instruments/blech-midi/blech-midi-spigot-engine.js\n",
+  "paths": [
+    "src/instruments/blech-midi/blech-midi-spigots.js",
+    "src/instruments/blech-midi/blech-midi-spigots.css",
+    "src/instruments/blech-midi/blech-midi-spigot-engine.js"
+  ],
+  "sha256": "0ae94ef9ea50c068cef710d49ead279060b92487002fd214786dcfeaac189230"
+}

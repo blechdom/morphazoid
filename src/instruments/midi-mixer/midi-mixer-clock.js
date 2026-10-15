@@ -116,13 +116,26 @@ export class MidiSampleClock {
     if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
     if (revision !== undefined) sample.revision = revision;
   }
-  replaceScore(slot, replacement, { restart = false, revision } = {}) {
+  replaceScore(slot, replacement, { restart = false, defer = false, revision } = {}) {
     const sample = this.samples[slot]; if (!sample) return false;
     if (revision !== undefined) sample.revision = revision;
-    if (restart || sample.paused || sample.timing.pendingBeats > 0 || sample.timing.positionBeats === 0 && sample.timing.cycle === 0) {
+    if (defer && sample.loop) sample.pendingReplacement = replacement;
+    else if (restart || sample.paused || sample.timing.pendingBeats > 0 || sample.timing.positionBeats === 0 && sample.timing.cycle === 0) {
       this.applyReplacement(slot, replacement, 0, this.seconds, sample.timing.pendingBeats);
     } else if (sample.loop) sample.pendingReplacement = replacement;
     else return false;
+    return true;
+  }
+  appendScore(slot, data, revision) {
+    const sample = this.samples[slot];
+    if (!sample || sample.loop || sample.paused || sample.timing.cycle || data.durationBeats <= sample.timing.positionBeats) return false;
+    // No release, restore or replay: existing note IDs/gates remain owned by this
+    // source. A stalled producer never catches up overdue newly added attacks.
+    const oldIds = new Set(sample.data.held.ids);
+    const late = new Set(data.events.filter(event => event.kind === 9 && !oldIds.has(event.noteId) && event.beat < sample.timing.positionBeats).map(event => event.noteId));
+    sample.data = late.size ? { ...data, events: data.events.filter(event => !late.has(event.noteId)) } : data;
+    sample.cursor = lowerBound(sample.data.events, sample.timing.positionBeats);
+    sample.revision = revision;
     return true;
   }
   confirmScore(slot, version) {
@@ -142,7 +155,7 @@ export class MidiSampleClock {
     sample.scoreVersion = replacement.token; sample.replacedAt = at; sample.replacedEpoch = sample.playbackEpoch ?? 0;
     sample.pendingReplacement = null; sample.playbackEpoch = (sample.playbackEpoch ?? 0) + 1;
     sample.resumedPositionBeats = 0; sample.resumedCycle = sample.timing.cycle;
-    sample.timing = { positionBeats: 0, cycle: sample.timing.cycle, pendingBeats, ended: false };
+    sample.timing = { positionBeats: 0, cycle: sample.timing.cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false };
     sample.cursor = 0; sample.wrapPending = sample.needsResync = false;
     this.replace(slot + 2, sample.data, frame);
     if (restore) this.resync(slot, frame); else sample.needsResync = true;
@@ -225,6 +238,7 @@ export class MidiSampleClock {
           initial = { ...sample.timing };
           final = advanceSampleTiming(initial, sample.data, sample, Math.max(0, frames - frameStart) * beatIncrement, Math.max(0, frames - frameStart) / sampleRate);
           length = coordinate(sample.data.durationBeats); position = 0;
+          frameStart += initial.pendingBeats / beatIncrement;
           if (!restore) { sample.cursor = lowerBound(sample.data.events, final.positionBeats); break; }
           continue;
         }

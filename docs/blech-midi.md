@@ -25,7 +25,11 @@ edge or corner grips to resize the prepared block. **Width** compresses or
 expands its pitch span; **Height** stretches the complete MIDI timeline in
 beats. The numeric fields offer the same controls. Resizing changes the next
 copy, preserves note attacks and controller messages, and leaves playing
-layers alone. **Reset block** restores its natural size and initial position.
+layers alone. **Rotation** turns the pitch/time coordinates before encoding the
+MIDI: a horizontal chord can become a time sequence, and a half turn reverses
+both pitch contour and attack order. The result fits within the chosen Width
+and Height; it is not a CSS rotation. **Reset block** restores its natural size
+and initial position.
 
 The small **Channel** menu retains Original routing or sends the copy to MIDI
 channel 1–16; channel 10 is percussion. **Instrument** retains Original programs
@@ -36,13 +40,35 @@ not request an external MIDI device.
 
 After Drop, the prepared overlay hides and the new layer appears in **Layers**,
 queued until its delay expires. The falling forecast then reaches the keyboard
-when its notes sound. A one-shot leaves Layers when finished; a loop remains
-until stopped. Edit another draft while that snapshot plays. The floating Loop
+when its notes sound. A finished one-shot keeps its closed spigot and layer
+controls for replay; a loop continues until closed or stopped. Edit another
+draft while that snapshot plays. The floating Loop
 and Drop controls perform the same actions as the strip. **Stop** in Send Drop
 ends that generator's layers; Frames includes all its subviews. Files Stop also
 stops the full-file transport, and Automata Stop pauses live evolution. Use an
 individual layer's **×** to remove only one copy, or **Stop all** for everything.
 None of these actions arms Audio: use the masthead Audio control explicitly.
+
+## Spigots and the playable falling canvas
+
+The stage has three gesture modes: **Select**, **Stamp** and **Draw**. Select
+keeps preparation and layer editing available. Stamp places the current
+prepared pattern directly above the keyboard. Draw makes a stream of notes as
+you hold and move the pointer; holding still repeats the same pitch. These
+gestures start a source without a second Drop action. A higher placement gives
+notes more time to fall before sounding. The keyboard remains a separate
+playable surface.
+
+Each source has a persistent **spigot** on the stage. Select one to move its
+pitch and delay, resize its pitch span and phrase length, or rotate its actual
+MIDI. Multiple spigots can share the same stage. A loop edit takes effect on the
+next pass, preserving the current pass. Closing Loop lets that pass finish;
+Play can start the source again. Pause freezes its transport. Removing a
+source with **×**, or using **Stop all**, stops it immediately.
+
+Spigots retain their original source score, so repeated edits do not repeatedly
+round or distort the previous result. Instrument, channel, gain and pan remain
+per-layer controls. The shared tempo and explicit Audio control still apply.
 
 **Frames** contains **Stamps**, **Drawing**, **Images**, **Scripts** and
 **Sequence**. Stamps uses a searchable thumbnail pulldown showing one selected

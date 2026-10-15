@@ -197,7 +197,7 @@ export class MidiMixerEngine {
     sample.analysis = replacement.analysis; sample.compiled = replacement.compiled; sample.name = replacement.name;
     sample.scoreVersion = sample.scoreRevision = replacement.token; sample.replacedAt = seconds; sample.replacedEpoch = sample.playbackEpoch; sample.pendingReplacement = null;
     sample.playbackEpoch++; sample.resumedPositionBeats = 0; sample.resumedCycle = cycle;
-    sample.timing = { positionBeats: 0, cycle, pendingBeats, ended: false }; sample.timingBeat = beat; sample.timingTime = seconds;
+    sample.timing = { positionBeats: 0, cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false }; sample.timingBeat = beat; sample.timingTime = seconds;
     this._sampleNoteLedger.set(sample, { firstCycle: cycle, counted: 0 });
   }
   // Completion metadata is display-only. Explicit stops and stolen slots never
@@ -272,7 +272,7 @@ export class MidiMixerEngine {
     this._sampleBuffers.set(sample, sourceBuffer);
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
-  replaceSample(id, buffer, { name, when = 'next-loop' } = {}) {
+  replaceSample(id, buffer, { name, when = 'next-loop', delayBeats = 0 } = {}) {
     if (this._disposed) return false;
     const sample = this._samples.find(item => item.id === id); if (!sample) return false;
     if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('MIDI stamps must be 2 MB or smaller.');
@@ -283,12 +283,45 @@ export class MidiMixerEngine {
     if (timing.ended || !sample.loop && !sample.paused && !timing.pendingBeats && timing.positionBeats > 0 && when !== 'restart') return false;
     sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
     const previousScoreVersion = sample.scoreVersion;
-    const replacement = { sourceBuffer, analysis, compiled, name: String(name ?? sample.name).slice(0, 128), token: ++sample.revision };
-    const immediate = when === 'restart' || sample.paused || timing.pendingBeats > 0 || timing.positionBeats === 0 && timing.cycle === 0;
+    const replacement = { sourceBuffer, analysis, compiled, name: String(name ?? sample.name).slice(0, 128), token: ++sample.revision, delayBeats: clamp(delayBeats, 0, 64, 0) };
+    const immediate = when !== 'cycle-boundary' && (when === 'restart' || sample.paused || timing.pendingBeats > 0 || timing.positionBeats === 0 && timing.cycle === 0);
     if (immediate) this._applySampleReplacement(sample, replacement, state.sampleBeat, state.sampleTime, timing.pendingBeats);
     else sample.pendingReplacement = replacement;
     if (sample.sent) this._post({ type: 'sampleReplacement', slot: sample.slot, id: sample.id, revision: sample.revision, scoreVersion: previousScoreVersion,
-      replacement: { data: compiled, name: replacement.name, token: replacement.token }, program: sample.program, restart: immediate });
+      replacement: { data: compiled, name: replacement.name, token: replacement.token, delayBeats: replacement.delayBeats }, program: sample.program, restart: immediate, defer: when === 'cycle-boundary' });
+    this._publish(); return this.state.samples.find(item => item.id === id) ?? false;
+  }
+  /** Grow a first-pass live drawing without releasing held notes or replaying its past.
+   * Existing notes/controllers are immutable; only future attacks may be added. */
+  appendSample(id, buffer) {
+    if (this._disposed) return false;
+    const sample = this._samples.find(item => item.id === id); if (!sample) return false;
+    const state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
+    if (sample.loop || sample.paused || timing.ended || timing.cycle || sample.pendingReplacement) return false;
+    if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('MIDI stamps must be 2 MB or smaller.');
+    const sourceBuffer = buffer instanceof ArrayBuffer ? buffer.slice(0) : buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength);
+    const analysis = sample.channel == null ? parseMidi(sourceBuffer) : transformMidiStamp(sourceBuffer, { channel: sample.channel }).analysis;
+    if (analysis.notes.length > MIDI_SAMPLE_LIMITS.notes || analysis.events.length > MIDI_SAMPLE_LIMITS.events || analysis.channels.length > MIDI_SAMPLE_LIMITS.channels || analysis.durationBeats > MIDI_SAMPLE_LIMITS.beats) throw new Error('This drawing reached its MIDI limit.');
+    if (analysis.durationBeats <= timing.positionBeats || analysis.channels.map(channel => channel.channel).join(',') !== sample.analysis.channels.map(channel => channel.channel).join(',')) return false;
+    const controls = value => value.events.filter(event => event.kind !== 8 && event.kind !== 9).map(({ beat, kind, channel, a, b }) => [beat, kind, channel, a, b]);
+    if (JSON.stringify(controls(analysis)) !== JSON.stringify(controls(sample.analysis))) return false;
+    const key = note => [note.channel, note.note, note.beat, note.duration, note.velocity].join(':');
+    const previous = new Map(); let serial = 0;
+    for (const note of sample.analysis.notes) { const signature = key(note); if (!previous.has(signature)) previous.set(signature, []); previous.get(signature).push(note.id); serial = Math.max(serial, note.id + 1); }
+    const ids = new Map();
+    for (const note of analysis.notes) {
+      const retained = previous.get(key(note));
+      if (!retained?.length && note.beat < timing.positionBeats + 1e-9 && !timing.pendingBeats) return false;
+      ids.set(note.id, retained?.length ? retained.shift() : serial++);
+    }
+    if ([...previous.values()].some(remaining => remaining.length)) return false;
+    for (const note of analysis.notes) note.id = ids.get(note.id);
+    for (const event of analysis.events) if (event.noteId !== undefined) event.noteId = ids.get(event.noteId);
+    const compiled = compileDeck(analysis);
+    sample.analysis = analysis; sample.compiled = compiled; this._sampleBuffers.set(sample, sourceBuffer);
+    sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
+    sample.scoreRevision = ++sample.revision;
+    if (sample.sent) this._post({ type: 'sampleAppend', slot: sample.slot, id: sample.id, revision: sample.revision, data: compiled });
     this._publish(); return this.state.samples.find(item => item.id === id) ?? false;
   }
   configureSamples({ midi, gain, loop, sync } = {}) {
@@ -334,7 +367,7 @@ export class MidiMixerEngine {
         pendingReplacement = { ...pendingReplacement, analysis: next, compiled: compileDeck(next) };
       }
       sample.channel = nextChannel; sample.analysis = analysis; sample.compiled = compiled; sample.pendingReplacement = pendingReplacement;
-      routing = { data: compiled, pendingReplacement: pendingReplacement ? { data: pendingReplacement.compiled, name: pendingReplacement.name, token: pendingReplacement.token } : null };
+      routing = { data: compiled, pendingReplacement: pendingReplacement ? { data: pendingReplacement.compiled, name: pendingReplacement.name, token: pendingReplacement.token, delayBeats: pendingReplacement.delayBeats } : null };
     }
     sample.scoreRevision = ++sample.revision;
     if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi,
@@ -387,7 +420,7 @@ export class MidiMixerEngine {
     const state = this.state;
     this._samples = this._samples.filter(sample => !this._sampleTiming(sample, state.sampleBeat, state.sampleTime).ended);
     for (const sample of this._samples) if (!sample.sent) {
-      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, timing: this._sampleTiming(sample, state.sampleBeat, state.sampleTime), loop: sample.loop, sync: sample.sync, paused: sample.paused, pausedAt: sample.pausedAt, pausedEpoch: sample.pausedEpoch, revision: sample.revision, scoreVersion: sample.scoreVersion, replacedAt: sample.replacedAt, replacedEpoch: sample.replacedEpoch, pendingReplacement: sample.pendingReplacement ? { data: sample.pendingReplacement.compiled, name: sample.pendingReplacement.name, token: sample.pendingReplacement.token } : null, playbackEpoch: sample.playbackEpoch, resumedPositionBeats: sample.resumedPositionBeats, resumedCycle: sample.resumedCycle, quantize: sample.quantize, delayBeats: sample.delayBeats, muted: sample.muted, solo: sample.solo, pan: sample.pan, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
+      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, timing: this._sampleTiming(sample, state.sampleBeat, state.sampleTime), loop: sample.loop, sync: sample.sync, paused: sample.paused, pausedAt: sample.pausedAt, pausedEpoch: sample.pausedEpoch, revision: sample.revision, scoreVersion: sample.scoreVersion, replacedAt: sample.replacedAt, replacedEpoch: sample.replacedEpoch, pendingReplacement: sample.pendingReplacement ? { data: sample.pendingReplacement.compiled, name: sample.pendingReplacement.name, token: sample.pendingReplacement.token, delayBeats: sample.pendingReplacement.delayBeats } : null, playbackEpoch: sample.playbackEpoch, resumedPositionBeats: sample.resumedPositionBeats, resumedCycle: sample.resumedCycle, quantize: sample.quantize, delayBeats: sample.delayBeats, muted: sample.muted, solo: sample.solo, pan: sample.pan, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
     }
   }
   async loadDeck(index, buffer, name = 'MIDI file', { reverse } = {}) {

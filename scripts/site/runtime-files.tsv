@@ -2062,6 +2062,11 @@ copy+require	src/instruments/blech-midi/blech-midi-timing.js
 copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
 copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js
 
+# BLECH MIDI live spigots and direct canvas performance.
+copy+require	src/instruments/blech-midi/blech-midi-spigots.js
+copy+require	src/instruments/blech-midi/blech-midi-spigots.css
+copy+require	src/instruments/blech-midi/blech-midi-spigot-engine.js
+
 # Staircase Studies
 copy+require	src/instruments/striped-staircase-rust/app.js
 copy+require	src/instruments/striped-staircase-rust/engine.js
