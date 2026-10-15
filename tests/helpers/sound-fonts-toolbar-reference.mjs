@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const soundFontsToolbarAmendment = JSON.parse(readFileSync(
 
 /** Peel only the exact audio-only toolbar opt-in before frozen navigation proofs. */
 export function restoreSoundFontsToolbar(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = soundFontsToolbarAmendment;
   if (typeof source !== 'string' || file !== change.file) return source;
   const count = source.split(change.addition).length - 1;

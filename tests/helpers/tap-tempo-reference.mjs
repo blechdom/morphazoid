@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -5,6 +6,7 @@ const changes = JSON.parse(readFileSync(new URL("../../docs/tap-tempo-runtime-ch
 
 /** Reverse only the documented owner hooks for frozen historical layout proofs. */
 export function restoreTapTempo(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact Tap owner hook`);

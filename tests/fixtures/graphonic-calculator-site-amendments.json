@@ -1,0 +1,97 @@
+{
+  "baseCommit": "eaa70f1c1c9b2a3c10539a8eac7ba176f1f79c45",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "2777338198cf35c64b65577f99a67d4b95f93ec0fcb307aed493d67df2541e6b",
+      "replacements": [
+        {
+          "before": "  \"graph-synth.html\",\n",
+          "after": "  \"graph-synth.html\",\n  \"graphonic-calculator.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "a2c03ccc64037330068964dd96f62a61efc39fee63e38b4d3c8564fdff8ac80f",
+      "replacements": [
+        {
+          "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"graphonic-calculator\", label: \"Graphonic Calculator\", href: \"graphonic-calculator.html\", imageHref: \"assets/instruments/graphonic-calculator.webp\" },\n"
+        },
+        {
+          "before": "  \"midiphoria\"\n]);",
+          "after": "  \"midiphoria\",\n  \"graphonic-calculator\"\n]);"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "e695883968515df87df5aa5a4d07c65560ce3842e851269eb227420090e0cf96",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"graphonic-calculator\": define(\n    \"Desmos-style graphing calculator\",\n    \"Type functions of x or y, implicit relations, polar and parametric curves, points and shaded regions. Sliders animate parameters, points drag their sliders, and a playhead reads every visible curve as pitch and stereo position.\",\n    \"Type y = x^2 or choose a preset. Drag sliders and points, pan and zoom the plane, then enable Audio and press Play to hear the curves.\",\n    [\"Built-in synth\", \"Pointer\", \"Touch\", \"Presets\", \"Sliders\", \"Sonification\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "b3eabf0928b6754ec278bc4a07ca8bb2404d64642678877c079207ed5ca407f9",
+      "replacements": [
+        {
+          "before": "  \"vector-fractals\": [\"fractal\", \"geometric\", \"synthesizer\"],\n",
+          "after": "  \"vector-fractals\": [\"fractal\", \"geometric\", \"synthesizer\"],\n  \"graphonic-calculator\": [\"2d\", \"sonification\", \"graphic-ui\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "353ca7bc1faef12b792305672cbbd1f78e7aa0e2b9c305ce1f9d8b78612c36f3",
+      "replacements": [
+        {
+          "before": "  sequence: Object.freeze([\n",
+          "after": "  sequence: Object.freeze([\n    \"graphonic-calculator\",\n"
+        },
+        {
+          "before": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n",
+          "after": "export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([\n  \"graphonic-calculator\",\n"
+        },
+        {
+          "before": "const noMidiOutputIds = new Set([\n",
+          "after": "const noMidiOutputIds = new Set([\n  \"graphonic-calculator\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "dcd22cbb4e98f1899b7bd5e840ee25c734c875c276c56a560614535581eb0e7e",
+      "replacements": [
+        {
+          "before": "export const TAP_TEMPO_TARGETS = [\n",
+          "after": "export const TAP_TEMPO_TARGETS = [\n  {\"route\": \"graphonic-calculator.html\", \"selector\": \"#sweepTempo\", \"mapping\": {\"unit\": \"bpm\"}, \"title\": \"Tap one complete sweep\"},\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "6b9e17d6f83653fc67cd2026c0703dd97c8acef7e160e2e32dfaae989a5d1812",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n",
+          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-text-controls.js\n\n# Graphonic Calculator: Desmos-style expressions with a sonified trace playhead.\ncopy+require\tgraphonic-calculator.html\ncopy+require\tdocs/graphonic-calculator.md\ncopy+require\tdocs/graphonic-calculator-research.md\ncopy+require\tdocs/graphonic-calculator-roadmap.md\ncopy+require\tassets/instruments/graphonic-calculator.webp\ncopy+require\tsrc/instruments/graphonic-calculator/app.js\ncopy+require\tsrc/instruments/graphonic-calculator/audio.js\ncopy+require\tsrc/instruments/graphonic-calculator/camera.js\ncopy+require\tsrc/instruments/graphonic-calculator/expressions.js\ncopy+require\tsrc/instruments/graphonic-calculator/formulas.js\ncopy+require\tsrc/instruments/graphonic-calculator/geometry.js\ncopy+require\tsrc/instruments/graphonic-calculator/model.js\ncopy+require\tsrc/instruments/graphonic-calculator/parser.js\ncopy+require\tsrc/instruments/graphonic-calculator/readers.js\ncopy+require\tsrc/instruments/graphonic-calculator/renderer.js\ncopy+require\tsrc/instruments/graphonic-calculator/sampler.js\ncopy+require\tsrc/instruments/graphonic-calculator/style.css\n"
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "be555ca0d7c1c4d3e03e1f19d2928f91a07fd5f01ffe5538f741ece48c86352a",
+      "replacements": [
+        {
+          "before": "# Morphazoid\n\n",
+          "after": "# Morphazoid\n\n**[Graphonic Calculator](graphonic-calculator.html)** is a Desmos-style work in progress: type functions of x or y, implicit relations, polar and parametric curves, points and shaded regions; sliders animate with Desmos loop modes, points drag their sliders, and Shape-style Points, Line and Radar readers with up to twelve heads turn every curve they meet into pitch and stereo position at a tap tempo. Audio starts off. [Syntax, playback, sound and limits](docs/graphonic-calculator.md); [research brief](docs/graphonic-calculator-research.md); [Desmos feature roadmap](docs/graphonic-calculator-roadmap.md).\n\n"
+        }
+      ]
+    }
+  ]
+}

@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { restoreBlechLiveRuntime } from './blech-live-runtime-reference.mjs';
 import { readFileSync } from 'node:fs';
@@ -11,6 +12,7 @@ export const midiNoteEffectsRuntimeChange = JSON.parse(readFileSync(
 
 /** Remove only the three reviewed note-effects runtime rows before older guards. */
 export function restoreMidiNoteEffectsRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = midiNoteEffectsRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   const counts = change.rows.map(row => source.split(row).length - 1);

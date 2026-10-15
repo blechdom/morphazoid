@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const blechLiveRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the exact live automata addition; leave every unknown byte visible. */
 export function restoreBlechLiveRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechLiveRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   const counts = change.rows.map(row => source.split(row).length - 1);

@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 49,
-    "fullPresets": 1999,
+    "implemented": 50,
+    "fullPresets": 2129,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 130
@@ -966,6 +966,15 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "graphonic-calculator",
+      "label": "Graphonic Calculator",
+      "href": "graphonic-calculator.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 130,
+      "status": "implemented-verification-pending"
+    },
+    {
       "id": "striped-staircase-rust",
       "label": "Staircase Studies",
       "href": "striped-staircase-rust.html",
@@ -1794,7 +1803,8 @@
       "gesticulating-hand",
       "simd-chiptune",
       "blech-midi",
-      "midiphoria"
+      "midiphoria",
+      "graphonic-calculator"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",
@@ -1861,6 +1871,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "graphonic-calculator",
       "striped-staircase-rust",
       "vector-fractals",
       "room-lobby",

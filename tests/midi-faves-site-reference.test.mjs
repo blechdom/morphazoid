@@ -11,8 +11,8 @@ const digest = source => createHash('sha256').update(source).digest('hex');
 const source = await readFile(new URL(`../${change.file}`, import.meta.url), 'utf8');
 
 test('BLECH MIDI and Midiophilia append to Faves and retain their Graphic-UI lab identity', () => {
-  assert.deepEqual(FAVE_TOOL_IDS.slice(-2), ['blech-midi', 'midiphoria']);
-  for (const id of FAVE_TOOL_IDS.slice(-2)) {
+  assert.deepEqual(FAVE_TOOL_IDS.slice(-3), ['blech-midi', 'midiphoria', 'graphonic-calculator']);
+  for (const id of FAVE_TOOL_IDS.slice(-3, -1)) {
     assert.equal(FAVE_TOOL_IDS.filter(value => value === id).length, 1);
     const entry = catalogueItemById(id);
     assert.equal(entry.entryType, 'lab');

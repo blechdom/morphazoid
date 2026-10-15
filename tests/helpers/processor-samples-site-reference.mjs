@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readStaircaseSiteReference as readFile } from './staircase-site-reference.mjs';
@@ -11,6 +12,7 @@ export const processorSamplesSiteChanges = JSON.parse(readFileSync(new URL('../f
  * Existing historical hashes and their unknown-drift guards remain intact. */
 export function restoreProcessorSamplesSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of processorSamplesSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after, marker, markers } of [...change.replacements].reverse()) {
       const count = source.split(after).length - 1;

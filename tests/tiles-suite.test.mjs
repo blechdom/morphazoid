@@ -229,5 +229,5 @@ test("Tiles lives in the Morphazoid Apps section", async () => {
   assert.match(nav, /freezeGroup\("app", "App", \[[\s\S]*id: "tesselation", label: "Tesselation", href: "tesselation\.html"/);
   assert.match(catalog, /"tesselation": define\(/);
   assert.match(catalog, /Lattice, Lattice Drums, Spiral, or Spiral Drums/);
-  assert.match(midi, /sequence: Object\.freeze\(\[\s*"vector-fractals",\s*"l-systems",\s*"graphs",\s*"tesselation"/);
+  assert.match(midi, /sequence: Object\.freeze\(\[\s*"graphonic-calculator",\s*"vector-fractals",\s*"l-systems",\s*"graphs",\s*"tesselation"/);
 });

@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { readFile } from 'node:fs/promises';
+import { readGraphonicCalculatorSiteReference as readFile } from './helpers/graphonic-calculator-site-reference.mjs';
 import { quadrupedAudioQueueRuntimeRow, restoreQuadrupedAudioQueueRuntime } from './helpers/quadruped-audio-queue-runtime-reference.mjs';
 import { QUADRUPED_AUDIO_COHORT_SECONDS, quadrupedAudioBucket, quadrupedAudioCutover, quadrupedAudioHorizon, groupQuadrupedContactOnsets } from '../src/instruments/quadruped/quadruped-audio-queue.js';
 

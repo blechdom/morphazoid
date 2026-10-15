@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
@@ -13,6 +14,7 @@ export const staircaseSiteChanges = JSON.parse(readFileSync(
  */
 export function restoreStaircaseSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = staircaseSiteChanges.changes.find(item => item.file === file);
   if (!change) return source;
   const marker = /striped-staircase-rust|staircase-wasm|staircase\.wasm|staircase-build\.json|staircase-studies\.md/;

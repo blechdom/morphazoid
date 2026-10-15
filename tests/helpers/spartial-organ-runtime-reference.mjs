@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const spartialOrganRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only the reviewed organ helper and research document before older evidence. */
 export function restoreSpartialOrganRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = spartialOrganRuntimeChanges;
   if (typeof source !== 'string' || file !== change.file) return source;
   const counts = change.replacements.map(({ addition }) => source.split(addition).length - 1);

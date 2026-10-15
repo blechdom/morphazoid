@@ -463,6 +463,7 @@ export const ADDITIONAL_TAG_IDS = Object.freeze(Object.fromEntries(Object.entrie
   ],
   "fractal-signals": ["fractal"],
   "vector-fractals": ["fractal", "geometric", "synthesizer"],
+  "graphonic-calculator": ["2d", "sonification", "graphic-ui"],
   "recursion": [],
   "enveloper": [],
   "julia": [

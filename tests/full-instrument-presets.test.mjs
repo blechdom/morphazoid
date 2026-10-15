@@ -30,7 +30,7 @@ test("Shapes leads Faves while individual geometry instruments remain category-o
     "shapes", "rubix", "hiccup-head", "synthesis",
     "creaturazoid", "hybrinx", "jaw-harp", "fractal-signals", "hyper-rubix", "puggler", "micmic", "micmic-rust",
     "fractal-delay", "l-system", "graph-delay", "graph-synth", "cellular-automata", "lattice",
-    "gesticulating-hand", "simd-chiptune", "blech-midi", "midiphoria",
+    "gesticulating-hand", "simd-chiptune", "blech-midi", "midiphoria", "graphonic-calculator",
   ]);
 });
 

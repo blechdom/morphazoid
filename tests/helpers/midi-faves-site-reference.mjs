@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreStaircaseSite } from './staircase-site-reference.mjs';
@@ -8,6 +9,7 @@ export const midiFavesSiteChange = JSON.parse(readFileSync(
 
 /** Reverse only the two approved Faves entries before older registry checks. */
 export function restoreMidiFavesSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreStaircaseSite(source, file, { allowRestored: true });
   if (typeof source !== 'string' || file !== midiFavesSiteChange.file) return source;
   const change = midiFavesSiteChange;

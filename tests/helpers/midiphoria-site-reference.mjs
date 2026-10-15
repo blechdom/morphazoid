@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ export const midiphoriaSiteAdditions = JSON.parse(readFileSync(new URL('../fixtu
 
 // Peel only the exact new lab records; retain every earlier catalogue byte.
 export function restoreMidiphoriaSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });
   source = restoreSpartialSite(source, file, { allowRestored: true });
   source = restoreAmInstrumentAdditions(source, file, { allowRestored: true });

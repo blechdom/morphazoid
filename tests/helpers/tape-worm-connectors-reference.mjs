@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 
 const file = "src/families/work-in-progress/network-view.js";
@@ -18,6 +19,7 @@ const replacements = [
 
 /** Reverse only the reviewed foreground connector change; keep layout hashes frozen. */
 export function restoreTapeWormConnectors(source, relative) {
+  source = restoreGraphonicCalculatorSite(source, relative, { allowRestored: true });
   if (relative !== file) return source;
   for (const { before, after } of replacements) {
     assert.equal(source.split(after).length - 1, 1, `${file}: exact foreground connector amendment`);

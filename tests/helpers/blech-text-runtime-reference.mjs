@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
@@ -8,6 +9,7 @@ export const blechTextRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the complete, uniquely anchored text preparation registration. */
 export function restoreBlechTextRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechTextRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreBlechChannelTiming(source, file, { allowRestored: true });

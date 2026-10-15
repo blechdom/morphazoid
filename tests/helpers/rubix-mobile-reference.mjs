@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -5,6 +6,7 @@ export const rubixMobileChanges = JSON.parse(readFileSync(new URL("../../docs/ru
 
 /** Reverse only the reviewed touch fixes before applying older frozen proofs. */
 export function restoreRubixMobile(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of rubixMobileChanges.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact Rubix mobile amendment`);

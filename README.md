@@ -1,5 +1,7 @@
 # Morphazoid
 
+**[Graphonic Calculator](graphonic-calculator.html)** is a Desmos-style work in progress: type functions of x or y, implicit relations, polar and parametric curves, points and shaded regions; sliders animate with Desmos loop modes, points drag their sliders, and Shape-style Points, Line and Radar readers with up to twelve heads turn every curve they meet into pitch and stereo position at a tap tempo. Audio starts off. [Syntax, playback, sound and limits](docs/graphonic-calculator.md); [research brief](docs/graphonic-calculator-research.md); [Desmos feature roadmap](docs/graphonic-calculator-roadmap.md).
+
 **[Staircase Studies](striped-staircase-rust.html)** revisits Striped Staircase in a separate Rust/WebAssembly instrument. Compare contour waves, area-weighted harmonics, white/black branch rhythms and contour resonances while retaining the same depth. Enable Audio, then Play; Hold depth freezes the view while continuous studies keep sounding. [Mappings and limits](docs/staircase-studies.md).
 
 **[Sound Fonts](sound-fonts.html)** collects free downloadable banks, imported SF2s,

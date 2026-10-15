@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,6 +15,7 @@ export const blechMidiSiteChanges = JSON.parse(readFileSync(
 
 /** Reverse only the reviewed standalone-page registration, packaging and moved tempo. */
 export function restoreBlechMidiSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   source = restoreBlechBrandSite(source, file, { allowRestored: true });
   source = restoreBlechBlackMidiTap(source, file, { allowRestored: true });

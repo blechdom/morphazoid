@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlechNoteHistoryRuntime } from './blech-note-history-runtime-reference.mjs';
@@ -8,6 +9,7 @@ export const blechWorkspaceRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only this complete, uniquely anchored set of public runtime paths. */
 export function restoreBlechWorkspaceRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechWorkspaceRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreBlechNoteHistoryRuntime(source, file, { allowRestored: true });

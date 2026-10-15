@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreVectorMotifRuntime } from './vector-motif-runtime-reference.mjs';
@@ -8,6 +9,7 @@ export const blechNoteHistoryRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the complete, uniquely anchored note-history registration. */
 export function restoreBlechNoteHistoryRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechNoteHistoryRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreVectorMotifRuntime(source, file, { allowRestored: true });

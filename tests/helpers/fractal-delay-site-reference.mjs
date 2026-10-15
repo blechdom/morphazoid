@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { readVectorFractalsSiteReference as readFileAsync } from './vector-fractals-site-reference.mjs';
@@ -21,6 +22,7 @@ export const fractalDelaySiteChanges = JSON.parse(readFileSync(
  * and their original negative guards remain authoritative for all other bytes.
  */
 export function restoreFractalDelaySite(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreFractalDelayFaves(source, file, { allowRestored: true });
   source = restoreGraphDelayRustSite(source, file, { allowRestored: true });
   for (const change of fractalDelaySiteChanges.changes.filter(change => change.file === file)) {

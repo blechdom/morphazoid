@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreSimdResonatorRuntime } from './simd-resonator-runtime-reference.mjs';
@@ -9,6 +10,7 @@ export const vectorMotifRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the complete, uniquely anchored motif module addition. */
 export function restoreVectorMotifRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = vectorMotifRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreSimdResonatorRuntime(source, file, { allowRestored: true });

@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
@@ -12,6 +13,7 @@ import { restoreProcessorSamplesSite } from './processor-samples-site-reference.
  */
 export function restoreStaircaseConcurrentMain(source, file) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreProcessorSamplesSite(restoreRustResonatorSite(source, file, { allowRestored: true }), file, { allowRestored: true });
   if (file === 'package.json') {
     const rows = '    "build:rust-resonator-wasm": "node scripts/build-rust-resonator-wasm.mjs",\n'

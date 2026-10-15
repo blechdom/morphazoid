@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -11,6 +12,7 @@ const sha256 = source => createHash("sha256").update(source).digest("hex");
 
 /** Independently reverse recording hooks on either approved UI baseline. */
 export function restoreOutputRecordingHooks(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreSoundFontsToolbar(source, file, { allowRestored: true });
   for (const change of outputRecordingAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
@@ -23,6 +25,7 @@ export function restoreOutputRecordingHooks(source, file) {
 
 /** Retain the original proof: accept only its exact baseline or approved UI. */
 export function restoreVoiceControls(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of voiceControlAmendments.changes.filter(change => change.file === file)) {
     const digest = sha256(source);
     if (digest === change.baseSha256) continue;
@@ -38,6 +41,7 @@ export function restoreVoiceControls(source, file) {
 
 /** Reverse only the exact live-flow extension; preserve both prior baselines. */
 export function restoreLiveFlow(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of liveFlowAmendments.changes.filter(change => change.file === file)) {
     const digest = sha256(source), historical = voiceControlAmendments.changes.find(change => change.file === file)?.baseSha256;
     if (digest === change.baseSha256 || digest === historical) continue;
@@ -53,6 +57,7 @@ export function restoreLiveFlow(source, file) {
 
 /** Compose approved runtime extensions without changing historical hashes. */
 export function restoreOutputRecording(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreFractalNavigation(source, file, { allowRestored: true });
   return restoreVoiceControls(restoreLiveFlow(restoreOutputRecordingHooks(source, file), file), file);
 }

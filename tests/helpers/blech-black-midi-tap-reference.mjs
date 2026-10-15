@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
@@ -8,6 +9,7 @@ export const blechBlackMidiTapChange = JSON.parse(readFileSync(
 
 /** Remove this complete, uniquely placed owner registration before old proofs. */
 export function restoreBlechBlackMidiTap(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechBlackMidiTapChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreBlechChannelTiming(source, file, { allowRestored: true });

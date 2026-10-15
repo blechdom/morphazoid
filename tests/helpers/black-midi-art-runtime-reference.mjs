@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlechBlackMidiRuntime } from './blech-black-midi-runtime-reference.mjs';
@@ -8,6 +9,7 @@ export const blackMidiArtRuntimeChange = JSON.parse(readFileSync(
 
 /** Remove this exact reviewed block, never unknown paths or broad asset globs. */
 export function restoreBlackMidiArtRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blackMidiArtRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreBlechBlackMidiRuntime(source, file, { allowRestored: true });

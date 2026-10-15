@@ -15,6 +15,12 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 });
 
 const CATALOG_DETAILS = Object.freeze({
+  "graphonic-calculator": define(
+    "Desmos-style graphing calculator",
+    "Type functions of x or y, implicit relations, polar and parametric curves, points and shaded regions. Sliders animate parameters, points drag their sliders, and a playhead reads every visible curve as pitch and stereo position.",
+    "Type y = x^2 or choose a preset. Drag sliders and points, pan and zoom the plane, then enable Audio and press Play to hear the curves.",
+    ["Built-in synth", "Pointer", "Touch", "Presets", "Sliders", "Sonification"],
+  ),
   "striped-staircase-rust": define(
     "Fractal sonification studies",
     "Compares measured contours, area-weighted harmonics, rhythmic branch voices and contour resonances in the Striped Staircase Mandelbrot field.",

@@ -2036,6 +2036,25 @@ copy+require	src/instruments/blech-midi/blech-midi-note-history.js
 # BLECH MIDI independent text preparation and falling-note preview.
 copy+require	src/instruments/blech-midi/blech-midi-text-controls.js
 
+# Graphonic Calculator: Desmos-style expressions with a sonified trace playhead.
+copy+require	graphonic-calculator.html
+copy+require	docs/graphonic-calculator.md
+copy+require	docs/graphonic-calculator-research.md
+copy+require	docs/graphonic-calculator-roadmap.md
+copy+require	assets/instruments/graphonic-calculator.webp
+copy+require	src/instruments/graphonic-calculator/app.js
+copy+require	src/instruments/graphonic-calculator/audio.js
+copy+require	src/instruments/graphonic-calculator/camera.js
+copy+require	src/instruments/graphonic-calculator/expressions.js
+copy+require	src/instruments/graphonic-calculator/formulas.js
+copy+require	src/instruments/graphonic-calculator/geometry.js
+copy+require	src/instruments/graphonic-calculator/model.js
+copy+require	src/instruments/graphonic-calculator/parser.js
+copy+require	src/instruments/graphonic-calculator/readers.js
+copy+require	src/instruments/graphonic-calculator/renderer.js
+copy+require	src/instruments/graphonic-calculator/sampler.js
+copy+require	src/instruments/graphonic-calculator/style.css
+
 # BLECH MIDI independent file tempo and linked playback ratios.
 copy+require	src/instruments/blech-midi/blech-midi-timing.js
 

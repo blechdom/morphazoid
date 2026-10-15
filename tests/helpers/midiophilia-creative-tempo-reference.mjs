@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -10,6 +11,7 @@ export const creativeTempoRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only the reviewed creative-tab target before historical runtime guards. */
 export function restoreMidiophiliaCreativeTempo(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreTrackazoidSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;

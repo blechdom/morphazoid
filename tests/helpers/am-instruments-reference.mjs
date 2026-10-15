@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreChaoticAmRouting } from "./chaotic-am-routing-reference.mjs";
 import { restoreRecursivePresets } from "./recursive-presets-reference.mjs";
 import assert from "node:assert/strict";
@@ -10,6 +11,7 @@ export const amSharedAmendments = JSON.parse(readFileSync(
 
 // Reverse only reviewed AM additions; historical source hashes stay frozen.
 export function restoreAmInstrumentAdditions(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreGraphDelayRustSite(source, file, { allowRestored: true });
   source = restoreChaoticAmRouting(source, file, { allowRestored: true });
   source = restoreRecursivePresets(source, file, { allowRestored: true });

@@ -57,6 +57,7 @@ instrument. Some advanced controls appear only in their relevant mode.
 | [graph delay](../graph-delay.html) | `#micMotionSpeed`, `#nodeMotionSpeed` |
 | [Graph Drum Machine](../graph-drum-machine.html) | `#nodeMotionSpeed`, `#tempo` |
 | [Graph Synth](../graph-synth.html) | `#nodeMotionSpeed`, `#tempo` |
+| [Graphonic Calculator](../graphonic-calculator.html) | `#sweepTempo` (sweeps per minute; one complete playhead sweep per tap) |
 | [Graphs](../graphs.html) | `#nodeMotionSpeed`, `#tempo` |
 | [Gravity Lens](../gravity-lens.html) | `#lensRate` |
 | [Gravity Walk](../gravity-walk.html) | `#physics-timeScale` |

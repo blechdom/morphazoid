@@ -28,7 +28,8 @@ export const FAVE_TOOL_IDS = Object.freeze([
   "gesticulating-hand",
   "simd-chiptune",
   "blech-midi",
-  "midiphoria"
+  "midiphoria",
+  "graphonic-calculator"
 ]);
 
 export const TOOL_GROUPS = Object.freeze([
@@ -172,6 +173,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "dijkstra", label: "DJ Dijkstra", href: "dijkstra.html" },
   ]),
   freezeGroup("wip", "Work in Progress", [
+    { id: "graphonic-calculator", label: "Graphonic Calculator", href: "graphonic-calculator.html", imageHref: "assets/instruments/graphonic-calculator.webp" },
     { id: "striped-staircase-rust", label: "Staircase Studies", href: "striped-staircase-rust.html", imageHref: "assets/instruments/striped-staircase.webp" },
     { id: "vector-fractals", label: "Vector Fractals", href: "vector-fractals.html" },
     { id: "room-lobby", label: "Music Rooms", href: "music-rooms.html", catalogue: false },
