@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import test from "node:test";
 
 import * as registry from "../src/site/instrument-registry.js";

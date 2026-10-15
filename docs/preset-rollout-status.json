@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 48,
-    "fullPresets": 1979,
+    "implemented": 49,
+    "fullPresets": 1999,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 129
@@ -433,6 +433,16 @@
       "scope": "regular",
       "presets": null,
       "status": "unmigrated"
+    },
+    {
+      "id": "simd-resonator-rust",
+      "label": "Rezoidinator",
+      "href": "simd-resonator-rust.html",
+      "category": "simd-audio",
+      "scope": "regular",
+      "presets": 20,
+      "status": "implemented-verification-pending",
+      "evidence": "Twenty complete modal/FFT presets: twelve classic bodies and input responses plus eight dense demonstrations. Waves, spectrum span and spatial target/pattern/span/offset/motion/rate belong to each scene and bounded full-state dice. Audio, output/input levels, source, microphone permission and input playback stay live. Rezoidinator retains the simd-resonator-rust route and saved-state identity. Surround enable, speaker layout, stereo preview and recording are session controls. Human listening and physical-device acceptance remain pending."
     },
     {
       "id": "throatazoid",

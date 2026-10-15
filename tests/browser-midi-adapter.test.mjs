@@ -228,6 +228,7 @@ test("one acyclic capability registry covers every playable catalog instrument a
     "spartial",
     "gesturama",
     "simd-resonator",
+    "simd-resonator-rust",
     "simd-synth",
     "tempo-tantrum", "tape-worm", "loop-soup", "habit-habitat", "hollowphonic",
     "graph-3d",

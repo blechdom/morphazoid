@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Rezoidinator &amp;mdash; Morphazoid" />
+    <meta property="og:description" content="A Rust WebAssembly resonator with up to 4,096 simultaneous modes, adjustable spectral density and FFT input resynthesis." />
+    <meta property="og:url" content="https://morphazoid.com/simd-resonator-rust.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Rezoidinator &amp;mdash; Morphazoid" />
+    <meta name="twitter:description" content="A Rust WebAssembly resonator with up to 4,096 simultaneous modes, adjustable spectral density and FFT input resynthesis." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#071011" />
+    <meta name="description" content="A Rust WebAssembly resonator with up to 4,096 simultaneous modes, adjustable spectral density and FFT input resynthesis." />
+    <title>Rezoidinator &mdash; Morphazoid</title>
+    <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+    <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/instruments/simd-resonator-rust/style.css" />
+  </head>
+  <body class="simd-resonator-page rust-resonator-page" data-simd-surface="rust-resonator">
+    <header class="masthead">
+      <a class="wordmark" href="./" aria-label="Morphazoid home">
+        <span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span>
+        <span>morphazoid</span>
+      </a>
+      <nav class="tabs" aria-label="Instrument">
+        <a class="tab active" href="simd-resonator-rust.html" aria-current="page">rezoidinator</a>
+        <a class="tab" href="simd-lab.html">simd lab</a>
+      </nav>
+      <label class="mobile-instrument-nav">
+        <span class="sr-only">Instrument</span>
+        <select class="mobile-instrument-select" aria-label="Instrument">
+          <option value="simd-resonator-rust.html" selected>rezoidinator</option>
+          <option value="simd-resonator.html">simd resonator</option>
+          <option value="simd-lab.html">simd audio lab</option>
+        </select>
+      </label>
+      <div class="audio-strip" aria-label="Audio controls">
+        <button class="audio-button" id="audioButton" type="button" aria-pressed="false">
+          <span class="audio-glyph simd-audio-glyph" aria-hidden="true">&#9654;</span>
+          <span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span>
+        </button>
+        <label class="header-level" for="outputLevel">
+          <span><b>Output</b><output id="outputLevelOut" for="outputLevel">24%</output></span>
+          <input id="outputLevel" aria-label="SIMD audio output level" type="range" min="0" max="0.65" step="0.01" value="0.24" />
+        </label>
+      </div>
+    </header>
+
+    <main class="shell simd-resonator-shell" id="simd-resonator-rust">
+      <section class="stage simd-resonator-stage" aria-label="Rezoidinator instrument">
+        <div class="simd-stage-heading">
+          <h1>Rezoidinator</h1>
+        </div>
+        <div class="simd-canvas-wrap" id="canvasWrap">
+          <canvas
+            id="resonatorCanvas"
+            tabindex="0"
+            role="application"
+            aria-label="Playable resonator. Drag to set strike position and brightness. Arrow keys move; Enter or Space plays when Audio is on."
+            aria-describedby="canvasCue liveStatus"
+            aria-keyshortcuts="ArrowLeft ArrowRight ArrowUp ArrowDown Enter Space"
+          >Playable SIMD audio visualization.</canvas>
+          <p class="simd-canvas-cue" id="canvasCue">DRAG TO PLUCK</p>
+          <span class="simd-strike-label" id="strikeReadout">38% &middot; bright</span>
+        </div>
+        <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
+      </section>
+
+      <aside class="panel simd-resonator-panel" data-instrument-preset-host aria-label="Rezoidinator controls">
+        <details class="group control-section simd-input" data-section="play" open>
+          <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
+          <div class="group-body rezo-input-controls">
+            <div class="rezo-excitation-row"><button id="pluckButton" data-primary-transport class="mini-action rezo-pluck" type="button">Pluck</button></div>
+            <label class="rezo-choice" for="inputSource"><span>Source</span><select id="inputSource" aria-label="Input source">
+              <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">Audio file</option>
+            </select></label>
+            <div id="recordedInputControls" class="simd-recorded-input" hidden>
+              <label id="inputSampleControl" class="rezo-choice" for="inputSample"><span>Sample</span><select id="inputSample"></select></label>
+              <div id="inputFileControl" hidden><button id="chooseInputFile" class="mini-action" type="button">Choose audio file</button></div>
+              <div class="rezo-input-transport">
+                <button id="inputPlay" class="rezo-round-transport" type="button" aria-pressed="false" aria-label="Play input" title="Play input"><span aria-hidden="true">▶</span></button>
+                <label class="rezo-toggle" for="inputLoop"><input id="inputLoop" type="checkbox" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Loop</span></label>
+              </div>
+              <p id="inputCredit" class="simd-note" hidden></p>
+            </div>
+            <input id="inputFile" type="file" accept="audio/*" hidden />
+            <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
+              <span class="simd-mic-mark" aria-hidden="true"></span>
+              <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>
+            </button>
+            <p class="audio-error" id="audioError" role="alert" hidden></p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-engine" data-section="sound" open>
+          <summary class="group-summary"><h2 class="group-title">Material</h2><span class="section-state" id="engineSummary">resonator</span></summary>
+          <div class="group-body">
+            <label class="simd-preset" for="presetSelect"><span>Body only</span><select id="presetSelect" aria-label="Resonator material preset"></select></label>
+            <p class="simd-preset-description" id="presetDescription">Choose a material, then strike the body.</p>
+          </div>
+        </details>
+
+        <details class="group control-section simd-body" data-section="mapping" open>
+          <summary class="group-summary"><h2 class="group-title" id="soundTitle">Body</h2><span class="section-state" id="bodySummary">512 waves</span></summary>
+          <div class="group-body simd-control-list">
+            <label for="controlA"><span><span id="controlALabel">Modes</span><output id="controlAOut" for="controlA">128</output></span><input id="controlA" type="range" min="32" max="4096" step="4" value="512" /></label>
+            <label for="controlB"><span><span id="controlBLabel">Base</span><output id="controlBOut" for="controlB">82 Hz</output></span><input id="controlB" type="range" min="42" max="220" step="1" value="82" /></label>
+            <label for="controlC"><span><span id="controlCLabel">Decay</span><output id="controlCOut" for="controlC">2.8 s</output></span><input id="controlC" type="range" min="0.35" max="6" step="0.05" value="2.8" /></label>
+            <label for="controlD"><span><span id="controlDLabel">Spread</span><output id="controlDOut" for="controlD">34%</output></span><input id="controlD" type="range" min="0" max="1" step="0.01" value="0.34" /></label>
+            <label for="spectralSpan"><span>Spectrum span<output id="spectralSpanOut" for="spectralSpan">128</output></span><input id="spectralSpan" type="range" min="8" max="512" step="0.25" value="128" title="Modal orders spanned by the bank. More waves in the same span make a denser spectrum." /></label>
+            <label for="strikePosition"><span>Strike position<output id="strikePositionOut" for="strikePosition">38%</output></span><input id="strikePosition" type="range" min="0.04" max="0.96" step="0.01" value="0.38" /></label>
+            <label for="hardness"><span>Hardness<output id="hardnessOut" for="hardness">62%</output></span><input id="hardness" type="range" min="0" max="1" step="0.01" value="0.62" /></label>
+          </div>
+        </details>
+
+        <details class="group control-section simd-resynthesis" data-section="analysis" open>
+          <summary class="group-summary"><h2 class="group-title">FFT Resynth</h2><span class="section-state" id="fftSummary">96 bands · 21.3 ms</span></summary>
+          <div class="group-body">
+            <div class="simd-fft-selects">
+              <label for="fftSize"><span>Frame</span><select id="fftSize" aria-label="FFT frame size">
+                <option value="256">256</option><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option><option value="4096">4096</option>
+              </select><output id="fftSizeOut" for="fftSize">21.3 ms</output></label>
+              <label for="fftWindow"><span>Window</span><select id="fftWindow" aria-label="FFT window shape">
+                <option value="0" selected>Hann</option><option value="1">Blackman</option><option value="2">Sine</option><option value="3">Rectangular</option>
+              </select></label>
+            </div>
+            <div class="simd-control-list simd-resynth-controls">
+              <label for="fftHopRatio"><span><span>Step</span><output id="fftHopRatioOut" for="fftHopRatio">5.3 ms · 75% overlap</output></span><input id="fftHopRatio" type="range" min="0.125" max="1" step="0.125" value="0.25" /></label>
+              <label for="fftBandCount"><span><span>Bands</span><output id="fftBandCountOut" for="fftBandCount">96</output></span><input id="fftBandCount" type="range" min="16" max="128" step="4" value="96" /></label>
+              <label for="fftResponseMs"><span><span>Memory</span><output id="fftResponseMsOut" for="fftResponseMs">38 ms</output></span><input id="fftResponseMs" type="range" min="4" max="800" step="1" value="38" /></label>
+              <label for="fftDetail"><span><span>Bin detail</span><output id="fftDetailOut" for="fftDetail">90%</output></span><input id="fftDetail" type="range" min="0" max="1" step="0.01" value="0.9" /></label>
+              <label for="fftMix"><span><span>Resynth</span><output id="fftMixOut" for="fftMix">94%</output></span><input id="fftMix" type="range" min="0" max="1" step="0.01" value="0.94" /></label>
+              <label for="fftInputGain"><span><span>FFT drive</span><output id="fftInputGainOut" for="fftInputGain">140%</output></span><input id="fftInputGain" type="range" min="0.25" max="4" step="0.05" value="1.4" /></label>
+              <label for="fftGateDb"><span><span>Gate</span><output id="fftGateDbOut" for="fftGateDb">−72 dB</output></span><input id="fftGateDb" type="range" min="-96" max="-30" step="1" value="-72" /></label>
+              <div class="simd-frequency-pair">
+                <label for="fftLowFrequency"><span><span>Low band</span><output id="fftLowFrequencyOut" for="fftLowFrequency">70 Hz</output></span><input id="fftLowFrequency" type="range" min="20" max="1000" step="5" value="70" /></label>
+                <label for="fftHighFrequency"><span><span>High band</span><output id="fftHighFrequencyOut" for="fftHighFrequency">12 kHz</output></span><input id="fftHighFrequency" type="range" min="2000" max="20000" step="250" value="12000" /></label>
+              </div>
+            </div>
+          </div>
+        </details>
+
+        <a class="simd-lab-link" href="simd-lab.html"><b>SIMD AUDIO LAB</b><span>grains · freeze · IR · mesh · strings · space →</span></a>
+        <details class="group rust-diagnostics"><summary>Engine details</summary><div class="group-body">
+          <label for="backendSelect">Rust backend <select id="backendSelect"><option value="simd">SIMD</option><option value="scalar">Scalar</option></select></label>
+          <dl><dt>Active backend</dt><dd id="backendMetric">not loaded</dd><dt>Audio callback</dt><dd id="callbackMetric">—</dd><dt>Modal kernel</dt><dd id="kernelMetric">—</dd></dl>
+          <p class="simd-note">Capacity depends on the device. Reduce Waves if audio breaks up. <a href="docs/simd-resonator-rust.md">Model and measurements</a></p>
+        </div></details>
+        <details class="group control-section rezo-surround" id="surroundSection" open>
+          <summary class="group-summary"><h2 class="group-title">Surround</h2><span class="section-state" id="surroundSummary">Stereo</span></summary>
+          <div class="group-body">
+            <label class="rezo-toggle" for="surroundEnabled"><input id="surroundEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Surround</span></label>
+            <div id="surroundOptions" hidden>
+              <label class="rezo-choice" for="surroundLayout"><span>Speakers</span><select id="surroundLayout" aria-label="Speaker layout">
+                <option value="4-ring">4 · Ring</option><option value="8-circle" selected>8 · Circle</option><option value="16-ring">16 · Ring</option><option value="4-1">4.1</option><option value="7-4-1">7:4:1</option><option value="8-cube">8 · Cube</option>
+              </select></label>
+              <label class="rezo-choice" for="spaceTarget"><span>Spread</span><select id="spaceTarget" aria-label="Spatial sound source"><option value="both">Body + FFT</option><option value="modes">Body modes</option><option value="fft">FFT frequencies</option></select></label>
+              <label class="rezo-choice" for="spacePattern"><span>Order</span><select id="spacePattern" aria-label="Spatial frequency order"><option value="ascending">Low to high</option><option value="descending">High to low</option><option value="alternate">Alternating</option><option value="scatter">Scattered</option></select></label>
+              <div class="simd-control-list">
+                <label for="spaceSpan"><span>Spread turns<output id="spaceSpanOut" for="spaceSpan">1</output></span><input id="spaceSpan" type="range" min="0" max="4" step="0.01" value="1" /></label>
+                <label for="spaceOffset"><span>Position<output id="spaceOffsetOut" for="spaceOffset">0°</output></span><input id="spaceOffset" type="range" min="0" max="1" step="0.005" value="0" /></label>
+                <label for="spaceRate"><span>Turns / sec<output id="spaceRateOut" for="spaceRate">0.05</output></span><input id="spaceRate" type="range" min="-1" max="1" step="0.005" value="0.05" /></label>
+              </div>
+              <div class="rezo-surround-toggles">
+                <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
+                <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
+              </div>
+              <p id="surroundStatus" class="simd-note" role="status"></p>
+              <div id="surroundMeters" class="rezo-channel-meters" aria-label="Surround channel levels"></div>
+              <details class="rezo-channel-map"><summary>Channel order</summary><p id="surroundChannelMap" class="simd-note"></p></details>
+            </div>
+            <div id="multitrackControls" class="rezo-recording" aria-label="Multichannel recording">
+              <div><button id="multitrackRecord" class="mini-action" type="button" aria-pressed="false" disabled>Record multitrack</button><output id="multitrackTime" aria-label="Recording duration">00:00</output></div>
+              <p id="multitrackHint" class="simd-note">Turn on Audio and Surround to record speaker channels.</p>
+            </div>
+          </div>
+        </details>
+        <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><a href="simd-resonator.html">Original resonator</a></div>
+      </aside>
+    </main>
+    <dialog id="multitrackDialog" class="rezo-recording-dialog" aria-labelledby="multitrackTitle">
+      <h2 id="multitrackTitle">Multichannel recording</h2>
+      <p id="multitrackSummary"></p><p id="multitrackMessage" role="status"></p>
+      <details><summary>Channel order</summary><p id="multitrackChannelMap"></p></details>
+      <div class="rezo-export-actions"><button id="multitrackFolder" class="mini-action" type="button">Save tracks to folder</button><button id="multitrackZip" class="mini-action" type="button">Download tracks ZIP</button><button id="multitrackWav" class="mini-action" type="button">Download multichannel WAV</button></div>
+      <div class="rezo-export-actions"><button id="multitrackDiscard" class="mini-action" type="button">Discard take</button><button id="multitrackClose" class="mini-action" type="button">Close</button></div>
+    </dialog>
+    <script type="module" src="nav.js"></script>
+    <script type="module" src="src/instruments/simd-resonator-rust/app.js"></script>
+    <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

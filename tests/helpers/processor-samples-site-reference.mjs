@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { relative } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { restoreRustResonatorSite } from './simd-resonator-rust-site-reference.mjs';
 
 export const processorSamplesSiteChanges = JSON.parse(readFileSync(new URL('../fixtures/processor-samples-site-amendments.json', import.meta.url), 'utf8'));
 
@@ -27,5 +28,7 @@ export function restoreProcessorSamplesSite(source, file, { allowRestored = fals
 export async function readProcessorSamplesSiteReference(file, encoding) {
   const source = await readFile(file, encoding);
   const root = fileURLToPath(new URL('../../', import.meta.url));
-  return restoreProcessorSamplesSite(source, relative(root, file instanceof URL ? fileURLToPath(file) : file), { allowRestored: true });
+  const path = relative(root, file instanceof URL ? fileURLToPath(file) : file);
+  // Independent branches both extend the catalogue and explicit runtime list.
+  return restoreProcessorSamplesSite(restoreRustResonatorSite(source, path, { allowRestored: true }), path, { allowRestored: true });
 }

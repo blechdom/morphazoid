@@ -1,0 +1,68 @@
+@import '../../families/simd-resonator/simd-resonator.css';
+.rust-resonator-page .simd-stage-heading h1 { color: var(--accent); font-weight: 550; }
+.rust-resonator-page .simd-control-list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px 8px; }
+.rust-resonator-page .simd-control-list label { min-width: 0; align-content: start; text-align: center; }
+.rust-resonator-page .simd-control-list label > span { display: grid; justify-content: center; gap: 3px; }
+.rust-resonator-page .simd-frequency-pair { display: contents; }
+.rust-resonator-page .simd-control-list label.mz-range-knob { width: 100%; min-width: 0; height: 76px; margin: 0; }
+.rust-resonator-page .simd-control-list label.mz-range-knob > span:not(.mz-range-knob__dial) {
+  top: 0; bottom: auto; display: block; line-height: 12px; text-align: center;
+}
+.rust-resonator-page .simd-control-list label.mz-range-knob > .mz-range-knob__dial { top: 26px; width: 30px; height: 30px; }
+.rust-resonator-page .simd-control-list label.mz-range-knob output { position: absolute; top: 61px; left: 0; right: 0; line-height: 12px; }
+.rust-diagnostics { padding: 12px 16px; color: var(--muted); font-size: 11px; }
+.rust-diagnostics label { display: flex; justify-content: space-between; gap: 10px; align-items: center; }
+.rust-diagnostics dl { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+.rust-diagnostics dd { margin: 0; text-align: right; }
+.rust-resonator-page .simd-canvas-wrap { border: 0; }
+.rezo-input-controls { display: grid; gap: 12px; }
+.rezo-excitation-row, .rezo-input-transport { display: flex; align-items: center; gap: 12px; }
+.rust-resonator-page .rezo-input-controls .mini-action { min-height: 32px; height: 32px; padding: 0 12px; font: inherit; font-size: 11px; }
+.rust-resonator-page .rezo-pluck { color: var(--accent); border-color: color-mix(in srgb, var(--accent) 45%, transparent); background: transparent; min-width: 72px; }
+.rezo-choice { display: grid; grid-template-columns: 56px minmax(0, 1fr); align-items: center; gap: 8px; min-width: 0; }
+.rezo-choice > span { color: var(--muted); font-size: 10px; }
+.rezo-choice .synthesis-choose { min-width: 0; }
+.rust-resonator-page .rezo-round-transport { flex: none; width: 32px; height: 32px; min-height: 32px; padding: 0; border-radius: 50%; display: inline-grid; place-items: center; color: var(--accent); background: transparent; font-size: 12px; }
+.rezo-toggle { position: relative; display: inline-flex; align-items: center; gap: 7px; min-height: 28px; font-size: 11px; cursor: pointer; }
+.rezo-toggle input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.rezo-toggle-track { width: 26px; height: 14px; border-radius: 8px; background: #46505c; position: relative; flex: none; }
+.rezo-toggle-track::after { content: ''; position: absolute; top: 2px; left: 2px; width: 10px; height: 10px; border-radius: 50%; background: #cdd6de; transition: transform .12s; }
+.rezo-toggle input:checked + .rezo-toggle-track { background: #397565; }
+.rezo-toggle input:checked + .rezo-toggle-track::after { transform: translateX(12px); background: var(--accent); }
+.rezo-toggle input:focus-visible + .rezo-toggle-track { outline: 2px solid var(--accent); outline-offset: 3px; }
+.rezo-toggle:has(input:disabled) { opacity: .5; cursor: default; }
+.rezo-surround { --space-accent: #c0a1ff; }
+.rezo-surround .group-title { color: var(--space-accent); }
+.rezo-surround .group-body, #surroundOptions:not([hidden]) { display: grid; gap: 12px; }
+.rezo-surround-toggles, .rezo-recording > div { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.rezo-surround p { margin: 0; }
+.rezo-channel-meters { display: flex; align-items: end; gap: 4px; height: 48px; }
+.rezo-channel-meter { position: relative; flex: 1; min-width: 0; height: 100%; background: #c0a1ff10; }
+.rezo-channel-meter i { display: block; position: absolute; bottom: 14px; left: 0; right: 0; height: 30px; background: var(--space-accent); transform-origin: bottom; transform: scaleY(0); }
+.rezo-channel-meter span { position: absolute; bottom: 0; width: 100%; text-align: center; font-size: 9px; color: var(--muted); }
+.rezo-channel-map { font-size: 10px; color: var(--muted); }
+.rezo-channel-map p { padding-top: 8px; line-height: 1.7; }
+.rust-resonator-page .rezo-recording .mini-action { height: 32px; min-height: 32px; padding: 0 10px; font-size: 11px; }
+.rezo-recording output { color: var(--muted); font-size: 11px; }
+.rezo-recording p { margin-top: 8px; }
+.rezo-recording [data-state="recording"] { color: #ff8faa; border-color: #ff8faa; }
+.rezo-recording-dialog { width: min(480px, calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto; box-sizing: border-box; border: 1px solid var(--line-strong); padding: 22px; color: var(--ink); background: var(--panel-high); font: 12px/1.6 var(--mono); }
+.rezo-recording-dialog::backdrop { background: #0009; }
+.rezo-recording-dialog h2 { margin: 0 0 12px; font-size: 16px; font-weight: 500; }
+.rezo-recording-dialog p { overflow-wrap: anywhere; }
+.rezo-export-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 16px; }
+.rezo-export-actions button { white-space: normal; }
+@media (pointer: coarse) {
+  .rust-resonator-page .rezo-input-controls .rezo-pluck, .rust-resonator-page .rezo-round-transport { min-height: 48px; height: 48px; }
+  .rust-resonator-page .rezo-round-transport { width: 48px; }
+  .rezo-toggle { min-height: 44px; }
+}
+@media (max-width: 960px) {
+  .rust-resonator-page .simd-resonator-shell { grid-template-rows: minmax(220px, 36dvh) minmax(0, 1fr); }
+  .rust-resonator-page .simd-stage-heading { display: flex; }
+  .rust-resonator-page .simd-stage-heading h1 { font-size: 19px; }
+}
+@media (max-width: 960px) and (max-height: 560px) {
+  .rust-resonator-page .simd-resonator-shell { grid-template-columns: minmax(0, 1fr) 330px; grid-template-rows: minmax(0, 1fr); }
+  .rust-resonator-page .simd-stage-heading { margin-bottom: 8px; }
+}

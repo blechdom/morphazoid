@@ -1,5 +1,25 @@
 # Full-instrument preset rollout
 
+## October 14 — Rezoidinator spatial output
+
+Rezoidinator is the owner-requested display name for the Rust Resonator copy;
+its `simd-resonator-rust` route, catalogue ID and saved-state identity stay stable.
+The same twenty full presets remain. Their musical state includes the modal
+body, FFT controls and spatial target, pattern, span, offset, motion and rate.
+The target selects modal waves, FFT bands or both; ascending, descending,
+alternating and scattered patterns distribute that material around the field.
+Spatial span allows zero to four turns, offset zero to one turn, and motion rate
+−1 to +1 turns per second. Bounded Dice includes these musical controls.
+Surround enable, speaker layout, stereo preview and recording stay session-owned,
+alongside Audio, live input selection/playback, microphone gain and output level.
+
+The microphone strip stays compact in the menubar (beside presets on mobile).
+Input source, sample/file transport and looping live in the side panel. Microphone
+trim controls capture only, leaving recorded input at its own level.
+Multichannel routing and exports are described in
+[Rezoidinator](simd-resonator-rust.md). Human surround listening and physical-device
+acceptance remain unperformed.
+
 ## October 13 — SIMD Resonator presets and recorded input
 
 SIMD Resonator has twelve complete body/FFT scenes in the shared

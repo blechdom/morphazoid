@@ -1,0 +1,18 @@
+{
+  "additions": [
+    {
+      "id": "simd-resonator-rust",
+      "label": "Rust Resonator",
+      "href": "simd-resonator-rust.html",
+      "categoryId": "simd-audio",
+      "categoryLabel": "SIMD Audio",
+      "imageHref": "assets/instruments/simd-resonator.webp",
+      "tags": [
+        {
+          "id": "resonator",
+          "label": "Resonator"
+        }
+      ]
+    }
+  ]
+}

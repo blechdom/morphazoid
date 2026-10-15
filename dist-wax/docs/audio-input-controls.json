@@ -74,6 +74,12 @@
       "mode": "live"
     },
     {
+      "label": "Rezoidinator",
+      "route": "simd-resonator-rust.html",
+      "owner": "src/instruments/simd-resonator-rust/app.js",
+      "mode": "live"
+    },
+    {
       "label": "SIMD Audio Lab",
       "route": "simd-lab.html",
       "owner": "src/families/simd-resonator/simd-resonator-app.js",

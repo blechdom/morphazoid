@@ -1,0 +1,177 @@
+{
+  "baseCommit": "a88b25955b508ae6b729f2a35646b41c77177560",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "a1cbae8e928495c6c0369329375f388b730ae16aa99eeab6d217b6e3d235db0a",
+      "approvedSha256": "c7538984ead4e27b89012542ffa295a55dbc73f8e3c04f6d2ea86886c9b1c144",
+      "markers": [
+        {
+          "text": "simd-resonator-rust",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "  \"simd-chiptune.html\",\n  \"simd-lab.html\",\n  \"simd-resonator.html\",\n  \"simd-synth.html\",\n",
+          "after": "  \"simd-chiptune.html\",\n  \"simd-lab.html\",\n  \"simd-resonator-rust.html\",\n  \"simd-resonator.html\",\n  \"simd-synth.html\",\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "3d557c71f94db431862b9ac7dcf83aca6e3bfbf6550acb993586d9b3382e76c9",
+      "approvedSha256": "1ee7908e34aea96891f1a0a7f4293efeb2dc8e945db12236fd6b1f55a74756a9",
+      "markers": [
+        {
+          "text": "simd-resonator-rust",
+          "count": 2
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"simd-synth\", label: \"SIMD Synth\", href: \"simd-synth.html\" },\n    { id: \"simd-resonator\", label: \"SIMD Resonator\", href: \"simd-resonator.html\" },\n  ]),\n  freezeGroup(\"physical-model\", \"Physical Model\", [\n",
+          "after": "    { id: \"simd-synth\", label: \"SIMD Synth\", href: \"simd-synth.html\" },\n    { id: \"simd-resonator\", label: \"SIMD Resonator\", href: \"simd-resonator.html\" },\n    { id: \"simd-resonator-rust\", label: \"Rust Resonator\", href: \"simd-resonator-rust.html\", imageHref: \"assets/instruments/simd-resonator.webp\" },\n  ]),\n  freezeGroup(\"physical-model\", \"Physical Model\", [\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "5abf57831bcef52e64f0a9f0cd860a94324063164f429dc38912df0821387802",
+      "approvedSha256": "e98952130351d04a7f8ef7835a009735897491568af9e8bf0c6ba27e9d95683e",
+      "markers": [
+        {
+          "text": "simd-resonator-rust",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    [\"Modal synthesis\", \"Mic input\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"moire-drone\": define(\n    \"Spectral fabric filter\",\n",
+          "after": "    [\"Modal synthesis\", \"Mic input\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"simd-resonator-rust\": define(\n    \"Rust modal instrument\",\n    \"Expands the struck SIMD Resonator into a Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, and the original microphone, file, sample, and FFT-resynthesis controls.\",\n    \"Turn on Audio, choose a preset, then tap or drag the body. Increase Modes for denser waves, use Spectral span to spread them, or feed the body with microphone, file, or sample input.\",\n    [\"Modal synthesis\", \"Mic input\", \"Local file input\", \"Sample input\", \"Rust WebAssembly\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"moire-drone\": define(\n    \"Spectral fabric filter\",\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "9b994a6567d1bd436fd9678abd98aa1528931b346a3bffb0bc962741e4b74d6f",
+      "approvedSha256": "00051a236fdfc8a6c8c7836131db6c56d36df4725304e2d8e6368e0d6f39792c",
+      "markers": [
+        {
+          "text": "simd-resonator-rust",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    \"resonator\"\n  ],\n  \"order-tones\": [],\n  \"bell-square\": [],\n",
+          "after": "    \"resonator\"\n  ],\n  \"simd-resonator-rust\": [\n    \"resonator\"\n  ],\n  \"order-tones\": [],\n  \"bell-square\": [],\n",
+          "beforeCount": 1
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "dafd0e9e3d4c7b8098f14ac10ed02baaacfd2992fe93cc1aa7f81801876d5951",
+      "approvedSha256": "6eb0deed9e20b80a558bbf4df9b6d0d83ee43fdb7715e456766e09b787b78e43",
+      "markers": [
+        {
+          "text": "simd-resonator-rust",
+          "count": 3
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    \"slippery-resynthesis\",\n    \"simd-resonator\",\n    \"moire-drone\",\n    \"crab-loom\",\n",
+          "after": "    \"slippery-resynthesis\",\n    \"simd-resonator\",\n    \"simd-resonator-rust\",\n    \"moire-drone\",\n    \"crab-loom\",\n",
+          "beforeCount": 0
+        },
+        {
+          "before": "  \"gesturama\",\n  \"simd-resonator\",\n  \"simd-synth\",\n  \"tempo-tantrum\", \"tape-worm\", \"loop-soup\", \"habit-habitat\", \"hollowphonic\",\n",
+          "after": "  \"gesturama\",\n  \"simd-resonator\",\n  \"simd-resonator-rust\",\n  \"simd-synth\",\n  \"tempo-tantrum\", \"tape-worm\", \"loop-soup\", \"habit-habitat\", \"hollowphonic\",\n",
+          "beforeCount": 0
+        },
+        {
+          "before": "  \"slippery-resynthesis\",\n  \"simd-resonator\",\n  \"sandy-syrup-delay\",\n  \"candy-coil-delay\",\n",
+          "after": "  \"slippery-resynthesis\",\n  \"simd-resonator\",\n  \"simd-resonator-rust\",\n  \"sandy-syrup-delay\",\n  \"candy-coil-delay\",\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "701ef8a5f76a9f2c29241b709d929eb1ce40488c3c23e26561b6b2d8fdda48f4",
+      "approvedSha256": "c4b53aac54cf0f6f941fa0193b5af93d200111019a44ae1d02e37c36a55085b9",
+      "markers": [
+        {
+          "text": "simd-resonator-rust.html",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/app.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/model.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/presets.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/processor.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/fft-resynth.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/style.css",
+          "count": 1
+        },
+        {
+          "text": "assets/wasm/rust-resonator-scalar.wasm",
+          "count": 1
+        },
+        {
+          "text": "assets/wasm/rust-resonator-simd.wasm",
+          "count": 1
+        },
+        {
+          "text": "docs/simd-resonator-rust.md",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\ncopy+require\tsimd-303.html\ncopy+require\tsrc/instruments/simd-303/simd-303.css\n",
+          "after": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\n\n# Rust Resonator: expanded modal instrument, retaining the original SIMD page.\ncopy+require\tsimd-resonator-rust.html\ncopy+require\tsrc/instruments/simd-resonator-rust/app.js\ncopy+require\tsrc/instruments/simd-resonator-rust/model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/presets.js\ncopy+require\tsrc/instruments/simd-resonator-rust/processor.js\ncopy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/style.css\ncopy+require\tassets/wasm/rust-resonator-scalar.wasm\ncopy+require\tassets/wasm/rust-resonator-simd.wasm\ncopy+require\tdocs/simd-resonator-rust.md\n\ncopy+require\tsimd-303.html\ncopy+require\tsrc/instruments/simd-303/simd-303.css\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "53b8bd0ba913fcef8e15d7447972dc31e7eb4ded7d4a92ed0c2eebc7eea12b38",
+      "approvedSha256": "a7e0677e99c3d34d41dd357746b698d1c31802fa6661fcfcb3fc4469b9e80123",
+      "markers": [
+        {
+          "text": "**[Rust Resonator]",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "**SIMD Resonator** is a dedicated 128-mode playable body. A tap or drag places and hardens the strike while material presets move between glass, wood, bent metal, and pinned wire without changing the instrument's established modal DSP. Four-lane `f32x4` runs automatically where available and preserves scalar Wasm as its silent fallback.\n\n**SIMD SYNTH** turns the WebGPU Shader Synth and Modular Shader Synth vocabulary into one immediately playable semi-modular rack. Eight polyphonic voices run as two `f32x4` Wasm packs through two interchangeable generators, six combine modes, a reorderable shaper and dual-filter path, six filter topologies, two reorderable time-effect slots, and four per-voice/global modulation routes. The fixed patch-wide topology avoids a cable canvas while still letting presets recombine vector, FM, wavefold, modal, particle, additive, formant, and bytebeat sources. A real-output scope, press-to-play X/Y surface, chromatic keyboard, browser MIDI, 16-step pitch/gate/accent/slide sequencer, one-tap Init/Undo/Panic, and browser-local preset recall keep experiments recoverable. SIMD loads automatically with an explicit scalar Wasm fallback; Audio arming remains independent from transport.\n\n",
+          "after": "**SIMD Resonator** is a dedicated 128-mode playable body. A tap or drag places and hardens the strike while material presets move between glass, wood, bent metal, and pinned wire without changing the instrument's established modal DSP. Four-lane `f32x4` runs automatically where available and preserves scalar Wasm as its silent fallback.\n\n**[Rust Resonator](simd-resonator-rust.html)** keeps the original SIMD Resonator beside a Rust WebAssembly copy with up to 4,096 independently ringing modes. It opens at 512 modes across a 128-order spectral span; Modes controls density while Spectral span controls the frequency range. Twenty complete presets include twelve classic body/FFT states and eight dense modal demonstrations. The modal core uses four-lane `f32x4` with a Rust scalar fallback; the existing JavaScript FFT input path retains its 128-band ceiling. Microphone, local file, and looping sample input remain separate from presets and Audio arming. [Controls, bounds, and implementation](docs/simd-resonator-rust.md).\n\n**SIMD SYNTH** turns the WebGPU Shader Synth and Modular Shader Synth vocabulary into one immediately playable semi-modular rack. Eight polyphonic voices run as two `f32x4` Wasm packs through two interchangeable generators, six combine modes, a reorderable shaper and dual-filter path, six filter topologies, two reorderable time-effect slots, and four per-voice/global modulation routes. The fixed patch-wide topology avoids a cable canvas while still letting presets recombine vector, FM, wavefold, modal, particle, additive, formant, and bytebeat sources. A real-output scope, press-to-play X/Y surface, chromatic keyboard, browser MIDI, 16-step pitch/gate/accent/slide sequencer, one-tap Init/Undo/Panic, and browser-local preset recall keep experiments recoverable. SIMD loads automatically with an explicit scalar Wasm fallback; Audio arming remains independent from transport.\n\n",
+          "beforeCount": 0
+        }
+      ]
+    }
+  ]
+}

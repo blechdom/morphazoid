@@ -570,6 +570,12 @@ const CATALOG_DETAILS = Object.freeze({
     "Turn on Audio, choose a material, then tap or drag the body. Microphone input can excite the same resonator.",
     ["Modal synthesis", "Mic input", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
   ),
+  "simd-resonator-rust": define(
+    "Spatial modal instrument",
+    "A Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, microphone and recorded input, and spatial modal/FFT resynthesis across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.",
+    "Turn on Audio, choose a preset, then tap or drag the body. Use Waves and Spectrum span to shape its density, choose input in the side panel, and open Surround below the synthesis controls to distribute modes or FFT bands around speakers.",
+    ["Modal synthesis", "Mic input", "Local file input", "Sample input", "Surround output", "Multichannel recording", "Rust WebAssembly", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
+  ),
   "moire-drone": define(
     "Spectral fabric filter",
     "Sends built-in colored noise or live microphone and audio-interface input through interacting two-dimensional wave fields, a Shepard-wrapped Q/FFT lattice, and a visible damped mass-spring frequency fabric shaped by direct grabs and user-triggered propagation.",
