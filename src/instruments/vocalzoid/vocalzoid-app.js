@@ -20,6 +20,10 @@ import {
   vocalzoidRenderPlan,
   vocalzoidSequenceBeats,
 } from "./vocalzoid.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  VOCALZOID_FULL_PRESETS, captureVocalzoidPreset, randomizeVocalzoidPreset, validateVocalzoidPreset,
+} from "./full-presets.js";
 import { VocalzoidAudio } from "./vocalzoid-audio.js";
 import {
   SPELLING_PRONUNCIATION_PHONE_CATALOG,
@@ -985,3 +989,33 @@ updateControlUi();
 updateSourceUi();
 renderScore();
 drawSpectrum();
+
+registerHeaderPresets({
+  id: "vocalzoid", presets: VOCALZOID_FULL_PRESETS, randomize: randomizeVocalzoidPreset,
+  capture: () => captureVocalzoidPreset(state),
+  apply(snapshot) {
+    validateVocalzoidPreset(snapshot);
+    const wasPlaying = state.playing;
+    state.scoreRequest += 1;
+    haltPlayback();
+    const notes = snapshot.notes.map((note) => updateVocalzoidNote(note));
+    Object.assign(state, {
+      word: snapshot.word,
+      style: snapshot.style,
+      bpm: snapshot.bpm,
+      vibrato: snapshot.vibrato,
+      glide: snapshot.glide,
+      scoreBeats: snapshot.scoreBeats,
+      randomScore: snapshot.randomScore,
+      notes,
+      selectedId: notes[0]?.id ?? "",
+    });
+    audio.setStyle(state.style);
+    $("buildScore").disabled = false;
+    $("buildScore").textContent = "Set lyric";
+    updateControlUi();
+    updateSourceUi();
+    renderScore();
+    if (wasPlaying) void playSequence();
+  },
+});
