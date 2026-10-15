@@ -26,6 +26,13 @@ import {
 } from "../../articulation.js";
 import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  HYPER_DRUM_FULL_PRESETS,
+  captureHyperDrumPreset,
+  randomizeHyperDrumPreset,
+  validateHyperDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1172,3 +1179,35 @@ updateMappingSummary();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 reset();
+
+function applyHyperDrumPreset(snapshot) {
+  validateHyperDrumPreset(snapshot);
+  state.shapeType = snapshot.shapeType;
+  $("hyperShape").value = state.shapeType;
+  $("formSummary").textContent = SHAPE_LABELS[state.shapeType];
+  for (const key of [
+    "hyperScaleX", "hyperScaleY", "hyperScaleZ", "hyperScaleW",
+    "rotationXWSpeed", "rotationYWSpeed", "rotationZWSpeed",
+    "speed", "subdivisions", "pitchDepth", "characterDepth", "strikeLimit",
+  ]) bridgeRange(key, snapshot[key]);
+  for (const key of ["rotationXWPlaying", "rotationYWPlaying", "rotationZWPlaying", "playing"]) state[key] = snapshot[key];
+  state.traversalDirection = snapshot.traversalDirection;
+  setMotionMode(snapshot.motionMode, false);
+  if (!snapshot.playing) bridgeRange("position", 0.5);
+  state.mappingMode = snapshot.mappingMode;
+  $("mappingMode").value = state.mappingMode;
+  paintTraversalControls();
+  paintRotation();
+  updateMappingSummary();
+  paintSubdivisionHelp();
+  suppressHyperDrumContacts();
+  lastFrameTime = performance.now();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "hyper-drum-machine", presets: HYPER_DRUM_FULL_PRESETS,
+  capture: () => captureHyperDrumPreset(state),
+  apply: applyHyperDrumPreset,
+  randomize: randomizeHyperDrumPreset,
+});
