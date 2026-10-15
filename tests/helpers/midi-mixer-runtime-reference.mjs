@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ export const midiMixerRuntimeChanges = JSON.parse(readFileSync(
 
 /** Remove only the embedded mixer's reviewed runtime rows and tempo target. */
 export function restoreMidiMixerRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreFractalMotionRuntime(source, file, { allowRestored: true });
   source = restoreSpartialGranularSite(source, file, { allowRestored: true });

@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
@@ -13,6 +14,7 @@ import { restoreProcessorSamplesSite } from './processor-samples-site-reference.
  */
 export function restoreStaircaseConcurrentMain(source, file) {
   if (typeof source !== 'string') return source;
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreProcessorSamplesSite(restoreRustResonatorSite(source, file, { allowRestored: true }), file, { allowRestored: true });
   if (file === 'package.json') {

@@ -1,3 +1,10 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  OUROBOROS_FULL_PRESETS,
+  captureOuroborosPreset,
+  randomizeOuroborosPreset,
+  validateOuroborosPreset,
+} from "./full-presets.js";
 import {
   OUROBOROS_DEFAULTS,
   OUROBOROS_PRESETS,
@@ -1214,3 +1221,16 @@ globalThis.addEventListener("pageshow", handlePageShow);
 renderPresetGrid();
 updateInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "ouroboros",
+  presets: OUROBOROS_FULL_PRESETS,
+  capture: () => captureOuroborosPreset(state.coil),
+  apply: (snapshot) => {
+    validateOuroborosPreset(snapshot);
+    synchronizeVisualClock();
+    state.coil = createMemory(snapshot);
+    updateInterface({ rebuildPresets: true });
+  },
+  randomize: randomizeOuroborosPreset,
+});

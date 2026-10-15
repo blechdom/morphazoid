@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -9,6 +10,7 @@ export const spartialSiteChanges = JSON.parse(readFileSync(
 
 /** Remove only SPARTIAL's exact records before checking older frozen evidence. */
 export function restoreSpartialSite(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreGraphDelayRustSite(source, file, { allowRestored: true });
   for (const change of spartialSiteChanges.changes.filter(change => change.file === file)) {

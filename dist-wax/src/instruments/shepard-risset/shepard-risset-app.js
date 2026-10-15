@@ -9,6 +9,8 @@ import {
   sanitizeMorphismaSweepParams,
   sanitizeShepardParams,
 } from "./shepard-risset.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { SHEPARD_FULL_PRESETS, captureShepardPreset, randomizeShepardPreset, validateShepardPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new ShepardRissetAudio(globalThis);
@@ -762,3 +764,17 @@ globalThis.addEventListener("pagehide", handlePageHide, { once: true });
 renderPresetGrid();
 updateInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "shepard-risset", presets: SHEPARD_FULL_PRESETS,
+  capture: () => captureShepardPreset(state),
+  apply: snapshot => {
+    validateShepardPreset(snapshot);
+    state.mode = snapshot.mode;
+    state.octave = { ...snapshot.octave, presetId: null };
+    state.morphisma = { ...snapshot.morphisma, presetId: null };
+    clearAudioError();
+    updateInterface({ rebuildPresets: true });
+  },
+  randomize: randomizeShepardPreset,
+});

@@ -7,6 +7,10 @@ import {
   digestazoidState,
   sanitizeDigestazoidState,
 } from "./digestazoid.js?v=digestazoid-model-20260902-3";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  DIGESTAZOID_FULL_PRESETS, applyDigestazoidPresetState, captureDigestazoidPreset, randomizeDigestazoidPreset, validateDigestazoidPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
@@ -1308,3 +1312,15 @@ updateUI();
 resizeCanvas();
 paint(performance.now());
 animationFrame = requestAnimationFrame(animate);
+
+registerHeaderPresets({
+  id: "digestazoid", presets: DIGESTAZOID_FULL_PRESETS, randomize: randomizeDigestazoidPreset,
+  capture: () => captureDigestazoidPreset(state),
+  apply(snapshot) {
+    validateDigestazoidPreset(snapshot);
+    state = applyDigestazoidPresetState(snapshot, state);
+    updateUI();
+    postConfiguration();
+    graph?.sourceNode?.port.postMessage({ type: "reset", state });
+  },
+});

@@ -20,6 +20,13 @@ import {
 } from "./linear-drums.js";
 import { KARPLUS_STRONG_PRESETS } from "../karplus-strong/karplus-strong.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  LINEAR_DRUM_FULL_PRESETS,
+  captureLinearDrumPreset,
+  randomizeLinearDrumPreset,
+  validateLinearDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -1341,4 +1348,30 @@ window.addEventListener("pagehide", () => {
   audioLifecycleGeneration += 1;
   setAudioState(false);
   void audio.close();
+});
+
+function applyLinearDrumFullPreset(snapshot) {
+  validateLinearDrumPreset(snapshot);
+  const { sweepMode, ...settings } = JSON.parse(JSON.stringify(snapshot));
+  Object.assign(state, settings, { sweepMode });
+  if (sweepMode !== "pendulum") state.sweepDirection = sweepMode === "up" ? 1 : -1;
+  for (const specification of CONTROL_SPECS) refreshControl(specification);
+  $("rangeMax").value = String(linearDrumPositionAtFrequency(state.rangeMax, 4_000, 20_000));
+  paintKnobControl($("rangeMax"));
+  const modelInput = document.querySelector(`input[name="bodyModel"][value="${state.model}"]`);
+  if (modelInput) modelInput.checked = true;
+  paintedScaleMaximum = 0;
+  renderMappingLanes();
+  paintKarplusMorphPath();
+  paintSweepDirectionControls();
+  markPresetCustom();
+  paintReadouts();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "linear-drums", presets: LINEAR_DRUM_FULL_PRESETS,
+  capture: () => captureLinearDrumPreset(state),
+  apply: applyLinearDrumFullPreset,
+  randomize: randomizeLinearDrumPreset,
 });

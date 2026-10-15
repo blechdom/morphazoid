@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { restoreRezoidinatorSite } from './rezoidinator-site-reference.mjs';
@@ -13,6 +14,7 @@ export const rustResonatorSiteChanges = JSON.parse(readFileSync(
 /** Peel only this copy's exact registration; retain older bytes and guards. */
 export function restoreRustResonatorSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreRezoidinatorSite(source, file, { allowRestored: true });
   const change = rustResonatorSiteChanges.changes.find(change => change.file === file);

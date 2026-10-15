@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -6,6 +7,7 @@ export const borrowedContextAmendments = JSON.parse(readFileSync(new URL("../../
 
 /** Reverse only the shared-clock APIs before checking historical layouts. */
 export function restoreBorrowedAudioContext(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of borrowedContextAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,6 +10,7 @@ export const blechWorkspaceRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only this complete, uniquely anchored set of public runtime paths. */
 export function restoreBlechWorkspaceRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechWorkspaceRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;

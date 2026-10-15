@@ -1,6 +1,9 @@
 import { rubixoidsClock } from "../clock.js";
 import { nativeInstrumentContext } from "../native-context.js";
 import {
+  SLIDING_FULL_PRESETS, captureSlidingPreset, randomizeSlidingPreset, validateSlidingPreset,
+} from "./full-presets.js";
+import {
   DEFAULT_FM_DRUM_VOICES,
   FM_DRUM_STORAGE_KEY,
   sanitizeFmDrumVoice,
@@ -1868,12 +1871,13 @@ function bindControls() {
   });
   $("soundBank").addEventListener("change", async (event) => {
     const selectionGeneration = ++audio.voiceSelectionGeneration;
-    const requested = Object.hasOwn(SOUND_BANKS, event.target.value) ? event.target.value : DEFAULTS.soundBank;
+    const select = $("soundBank");
+    const requested = Object.hasOwn(SOUND_BANKS, select.value) ? select.value : DEFAULTS.soundBank;
     if (requested.startsWith("shared-") && audio.context) {
-      event.target.setAttribute("aria-busy", "true");
+      select.setAttribute("aria-busy", "true");
       try { await audio.sharedVoices.prepare(audio.context, audio.compressor); }
-      catch (error) { announce(error.message); event.target.value = state.soundBank; return; }
-      finally { event.target.removeAttribute("aria-busy"); }
+      catch (error) { announce(error.message); select.value = state.soundBank; return; }
+      finally { select.removeAttribute("aria-busy"); }
     }
     if (selectionGeneration !== audio.voiceSelectionGeneration) return;
     audio.sharedVoices.stop();
@@ -2071,3 +2075,34 @@ export const rubixoidsNative = {
   },
 };
 if (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;
+
+const SLIDING_PRESET_CONTROL_KEYS = [
+  "tempo", "swing", "pulseDivision", "playbackDirection", "soundBank", "scale", "brightness", "decay", "colorDepth",
+  "stereoWidth", "pitchSpan", "positionInfluence", "filterInfluence", "neighborResponse", "disorderInfluence",
+  "microStrum", "autoSlideSpeed",
+];
+
+async function applyFullPreset(snapshot) {
+  validateSlidingPreset(snapshot);
+  setAutoSlide(false, { announce: false });
+  cancelMotionSequence();
+  await rubixoidsNative.applySettings(Object.fromEntries(SLIDING_PRESET_CONTROL_KEYS.map(key => [key, snapshot[key]])));
+  const puzzle = Object.freeze({ ...createSolvedSlidingPuzzle(snapshot.rows, snapshot.columns), tiles: Object.freeze([...snapshot.tiles]) });
+  Object.assign(state, {
+    puzzle, history: Object.freeze([...snapshot.history]), squareLock: snapshot.squareLock,
+    rotationTurns: snapshot.rotationTurns, playbackMode: snapshot.playbackMode, pathId: snapshot.pathId,
+  });
+  previousAutoTile = null;
+  createBoardDom();
+  updateSequenceSnapshot();
+  restartLoop({ announce: false });
+  renderControls();
+  renderAll();
+  if (snapshot.autoSlide) setAutoSlide(true, { announce: false });
+}
+
+mountContext?.registerPresets({
+  id: "sliding-puzzle", presets: SLIDING_FULL_PRESETS, randomize: randomizeSlidingPreset,
+  capture: () => captureSlidingPreset(state),
+  apply: applyFullPreset,
+});

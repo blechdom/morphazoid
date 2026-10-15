@@ -1,3 +1,10 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  OUROBOROUSEL_FULL_PRESETS,
+  captureOuroborouselPreset,
+  randomizeOuroborouselPreset,
+  validateOuroborouselPreset,
+} from "./full-presets.js";
 import {
   OUROBOROUSEL_DEFAULTS,
   OUROBOROUSEL_PHASE_SEED,
@@ -1415,3 +1422,16 @@ globalThis.addEventListener("pageshow", handlePageShow);
 renderPresetGrid();
 updateInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "ourorourobouroboros",
+  presets: OUROBOROUSEL_FULL_PRESETS,
+  capture: () => captureOuroborouselPreset(state.parameters),
+  apply: (snapshot) => {
+    validateOuroborouselPreset(snapshot);
+    synchronizeVisualClock();
+    state.parameters = createMemory({ ...snapshot, level: state.parameters.level });
+    updateInterface({ rebuildPresets: true });
+  },
+  randomize: randomizeOuroborouselPreset,
+});

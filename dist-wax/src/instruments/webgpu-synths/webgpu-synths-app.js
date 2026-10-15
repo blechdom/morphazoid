@@ -22,6 +22,13 @@ import {
   varyWebGpuSynthSequence,
   webGpuSynthSupport,
 } from "./webgpu-synths.js?v=20260826-phase-safe-presets";
+import { presetStateKey, registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  captureWebGpuSynthsPreset,
+  randomizeWebGpuSynthsPreset,
+  validateWebGpuSynthsPreset,
+  webGpuSynthsPresetEntry,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -1269,4 +1276,31 @@ animationFrame = requestAnimationFrame(draw);
 globalThis.addEventListener?.("pagehide", () => {
   cancelAnimationFrame(animationFrame);
   void stopAudio({ quiet: true });
+});
+
+const fullPresetBank = PRESETS.map((definition) => webGpuSynthsPresetEntry(definition));
+registerHeaderPresets({
+  id: "webgpu-synths", presets: fullPresetBank,
+  capture: () => captureWebGpuSynthsPreset(state),
+  apply: (snapshot) => {
+    validateWebGpuSynthsPreset(snapshot);
+    const key = presetStateKey(snapshot);
+    state.params = sanitizeWebGpuSynthParams(snapshot.params);
+    state.sequence = sanitizeWebGpuSynthSequence(snapshot.sequence);
+    state.laneRoutes = sanitizeWebGpuSynthLaneRoutes(snapshot.laneRoutes);
+    state.modelLayers = sanitizeWebGpuSynthModelLayers(snapshot.modelLayers);
+    state.organRanks = sanitizeWebGpuSynthOrganRanks(snapshot.organRanks);
+    state.techniqueId = snapshot.techniqueId;
+    state.presetId = fullPresetBank.find((preset) => presetStateKey(preset.snapshot) === key)?.id ?? "custom";
+    engine?.updateParams(state.params);
+    engine?.updateSequence(state.sequence);
+    engine?.updateLaneRoutes(state.laneRoutes);
+    engine?.updateModelLayers(state.modelLayers);
+    engine?.updateOrganRanks(state.organRanks);
+    renderModelLayers();
+    syncOrganRankInputs();
+    syncReadouts();
+    syncPressedStates();
+  },
+  randomize: randomizeWebGpuSynthsPreset,
 });

@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -8,6 +9,7 @@ export const spartialRecordingRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only SPARTIAL's two reviewed recording modules before historical guards. */
 export function restoreSpartialRecordingRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = spartialRecordingRuntimeChanges;
   if (typeof source !== 'string' || file !== change.file) return source;

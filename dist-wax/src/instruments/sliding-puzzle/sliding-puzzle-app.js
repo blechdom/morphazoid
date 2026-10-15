@@ -14,6 +14,14 @@ import {
   rubixTwistIntervalMs,
   rubixTwistSpeedMultiplier,
 } from "../rubix/rubix.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SLIDING_PUZZLE_FULL_PRESETS,
+  SLIDING_PUZZLE_PRESET_KEYS,
+  captureSlidingPuzzlePreset,
+  randomizeSlidingPuzzlePreset,
+  validateSlidingPuzzlePreset,
+} from "./full-presets.js";
 import {
   SLIDING_PLAYBACK_MODES,
   SLIDING_PUZZLE_SIZE,
@@ -23,6 +31,7 @@ import {
   createSlidingPuzzlePlaybackFrames,
   createSlidingPuzzleScramble,
   createSlidingPuzzleSequence,
+  createSlidingPuzzleFromTiles,
   createSolvedSlidingPuzzle,
   invertSlidingMoves,
   isSlidingPuzzleSolved,
@@ -1882,6 +1891,48 @@ bindControls();
 renderControls();
 renderAll();
 
+function applySlidingPuzzlePreset(snapshot) {
+  validateSlidingPuzzlePreset(snapshot);
+  const { settings, puzzle } = snapshot;
+  const commit = () => {
+    setAutoSlide(false, { announce: false });
+    cancelMotionSequence();
+    audio.voiceSelectionGeneration += 1;
+    audio.sharedVoices.stop();
+    const previous = slidingPuzzleDimensions(state.puzzle);
+    for (const key of SLIDING_PUZZLE_PRESET_KEYS) if (key !== "autoSlide") state[key] = settings[key];
+    state.puzzle = createSlidingPuzzleFromTiles(puzzle.rows, puzzle.columns, puzzle.tiles);
+    state.history = Object.freeze([...(puzzle.moves ?? [])]);
+    previousAutoTile = null;
+    if (previous.rows !== puzzle.rows || previous.columns !== puzzle.columns) createBoardDom();
+    updateSequenceSnapshot();
+    const length = Math.max(1, sequenceSnapshot.length);
+    transportStep %= length;
+    state.currentStep %= length;
+    randomTransportOrder = [];
+    randomTransportIndex = 0;
+    renderControls();
+    renderAll();
+    if (state.playing) resyncRunningScheduler();
+    else reconcileTransportCursor();
+    if (settings.autoSlide) setAutoSlide(true, { announce: false });
+  };
+  if (settings.soundBank.startsWith("shared-") && audio.context) {
+    return audio.sharedVoices.prepare(audio.context, audio.compressor).then(commit);
+  }
+  commit();
+  return undefined;
+}
+
+registerHeaderPresets({
+  id: "sliding-puzzle", presets: SLIDING_PUZZLE_FULL_PRESETS,
+  capture: () => captureSlidingPuzzlePreset({
+    ...state, puzzle: { rows: state.puzzle.rows, columns: state.puzzle.columns, tiles: [...state.puzzle.tiles] },
+    history: [...state.history],
+  }),
+  apply: applySlidingPuzzlePreset,
+  randomize: randomizeSlidingPuzzlePreset,
+});
 
 /** Rubixoids mount: keep the native tile, transport and synthesis state. */
 export const rubixoidsNative = {

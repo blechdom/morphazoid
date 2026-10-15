@@ -56,6 +56,8 @@ import { PARAM_GROUPS, PARAM_MODES, PARAM_SPECIAL, PARAM_LABELS, PARAM_NOTES } f
 import { createSimdControlDeck, createSequenceKnob, createSequenceScrollbar } from "../../instruments/simd-chiptune/control-deck.js";
 import { SKINS, drawSimdChiptuneDancer, normalizeChiptuneSkin } from "../../instruments/simd-chiptune/skins.js";
 import { createSimdPresetPicker, drawNoiseSweep } from "../../instruments/simd-chiptune/ui.js";
+import { registerHeaderPresets, presetStateKey } from "../../site/header-presets.js";
+import { chiptuneFullPresets } from "./full-presets.js";
 
 const simdBackend = document.body.dataset.audioBackend === "simd";
 const instrumentId = simdBackend ? "simd-chiptune" : "webgpu-chiptune";
@@ -6357,6 +6359,57 @@ globalThis.addEventListener("pageshow", (event) => {
   if (!resizeObserver) globalThis.addEventListener("resize", syncResponsiveLayout);
   setSynthPlayButtonState();
   animationFrame = requestAnimationFrame(draw);
+});
+
+const fullPresets = chiptuneFullPresets(simdBackend);
+const fullPresetBank = presets.map(fullPresets.entry);
+const fullPresetState = () => ({
+  params: state.params, sequence: state.sequence, songSequence: state.songSequence,
+  patternSequence: state.patternSequence, patternBaseline: state.patternBaseline,
+  voicePerformance: state.voicePerformance, drumMix: state.drumMix,
+  patternSection: state.patternSection, patternSections: state.patternSections,
+});
+
+function applyFullPreset(snapshot) {
+  fullPresets.validate(snapshot);
+  preserveVisualBeatAtTempo(snapshot.params.tempo);
+  state.params = sanitizeWebGpuChiptuneParams(snapshot.params);
+  state.voicePerformance = sanitizeWebGpuChiptunePerformance(snapshot.voicePerformance);
+  state.drumMix = sanitizeWebGpuChiptuneDrumMix(snapshot.drumMix);
+  state.songSequence = sanitizeWebGpuChiptuneSequence(snapshot.songSequence);
+  state.patternSequence = sanitizeWebGpuChiptuneSequence(snapshot.patternSequence);
+  state.patternBaseline = sanitizeWebGpuChiptuneSequence(snapshot.patternBaseline);
+  if (simdBackend) {
+    state.patternSection = snapshot.patternSection;
+    state.patternSections = {};
+    for (const [key, section] of Object.entries(snapshot.patternSections)) {
+      state.patternSections[key] = {
+        sequence: sanitizeWebGpuChiptuneSequence(section.sequence),
+        baseline: sanitizeWebGpuChiptuneSequence(section.baseline),
+      };
+    }
+  }
+  state.sequence = snapshot.sequenceMode === "song" ? state.songSequence : state.patternSequence;
+  const key = presetStateKey(snapshot);
+  state.presetId = fullPresetBank.find((preset) => presetStateKey(preset.snapshot) === key)?.id ?? "custom";
+  trackerCacheParams = null;
+  trackerCacheSequence = null;
+  trackerNoteCache.clear();
+  if (simdBackend) updateEffectiveVoiceParams();
+  syncParamOutputs();
+  if (!simdBackend) updateEffectiveVoiceParams();
+  engine?.updateSequence(state.sequence, { deferDrums: false });
+  syncSequenceControls();
+  syncCharacterPerformanceControls();
+  notifyWaxState();
+}
+
+registerHeaderPresets({
+  id: instrumentId,
+  presets: fullPresetBank,
+  capture: () => fullPresets.capture(fullPresetState()),
+  apply: applyFullPreset,
+  randomize: fullPresets.randomize,
 });
 
 /** Read-only state capture for parity and performance regression checks. */

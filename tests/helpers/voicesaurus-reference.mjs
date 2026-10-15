@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -11,6 +12,7 @@ const sha = source => createHash('sha256').update(source).digest('hex');
 
 /** Restore the pre-Voicesaurus source before applying earlier frozen amendments. */
 export function restoreVoicesaurus(source, file, readShared = readImplementation) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of voicesaurusAmendments.changes.filter(change => change.file === file)) {
     for (const testFile of change.regressionTests) {

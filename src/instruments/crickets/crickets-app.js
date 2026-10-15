@@ -6,11 +6,6 @@ import {
   renderCricketModel,
 } from "./crickets.js";
 import { encodeMonoWav } from "../../families/acoustic/birdsong-analysis.js";
-import { registerHeaderPresets } from "../../site/header-presets.js";
-import {
-  CRICKET_CONTROL_KEYS, CRICKET_CONTROL_SPECS, CRICKET_FULL_PRESETS, CRICKET_LOCAL_SOURCE, captureCricketPreset,
-  randomizeCricketPreset, validateCricketPreset,
-} from "./full-presets.js";
 import { createMediaElementOutput } from "../../media-element-output.js";
 
 const $ = (id) => document.getElementById(id);
@@ -937,6 +932,12 @@ window.addEventListener("beforeunload", () => {
 updateControlOutputs();
 drawStage();
 requestAnimationFrame(loadDemo);
+
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  CRICKET_CONTROL_KEYS, CRICKET_CONTROL_SPECS, CRICKET_FULL_PRESETS, CRICKET_LOCAL_SOURCE, captureCricketPreset,
+  randomizeCricketPreset, validateCricketPreset,
+} from "./full-presets.js";
 
 registerHeaderPresets({
   id: "crickets", presets: CRICKET_FULL_PRESETS, randomize: randomizeCricketPreset,

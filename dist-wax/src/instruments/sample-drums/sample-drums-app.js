@@ -1,5 +1,12 @@
 import { fmDrumMidiAction } from "../fm-drums/fm-drums-midi.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SAMPLE_DRUM_FULL_PRESETS,
+  captureSampleDrumPreset,
+  randomizeSampleDrumPreset,
+  validateSampleDrumPreset,
+} from "./full-presets.js";
 import {
   SAMPLE_DRUM_STORAGE_KEY,
   SampleDrumAudio,
@@ -522,3 +529,16 @@ window.addEventListener("pageshow", (event) => {
 });
 
 registerMidiClient();
+
+registerHeaderPresets({
+  id: "sample-drums", presets: SAMPLE_DRUM_FULL_PRESETS,
+  capture: () => captureSampleDrumPreset(state.voices),
+  apply: snapshot => {
+    validateSampleDrumPreset(snapshot);
+    const byId = new Map(snapshot.voices.map(voice => [voice.id, voice]));
+    state.voices = state.voices.map(voice => sanitizeSampleDrumVoice({ ...voice, ...byId.get(voice.id) }));
+    renderPads();
+    renderEditor();
+  },
+  randomize: randomizeSampleDrumPreset,
+});
