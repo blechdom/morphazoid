@@ -49,7 +49,7 @@ async function input(page, selector, value) { await page.locator(selector).evalu
 const state = page => page.evaluate(() => ({ player: __blackQA.player?.state, stats: __blackQA.view?.stats, contexts: __blackQA.contexts.length, options: __blackQA.options }));
 const total = page => page.locator('#blackMidiControls [data-total]');
 const black = page => expect(page.locator('#blackMidiViewport')).toBeVisible();
-async function tab(page, name) { await page.locator(`[data-blech-tab="${name}"]`).click(); await expect(page.locator(`#blechPanel-${name}`)).toBeVisible(); }
+async function tab(page, name) { if (name === 'info') { await page.locator('#blechPanel-info').scrollIntoViewIfNeeded(); return; } if (['drawing','stamps','art','scripts','sequence'].includes(name)) await page.locator('#blechTab-frames').click(); await page.locator(`#blechTab-${name}`).click(); await expect(page.locator(`#blechPanel-${name}`)).toBeVisible(); }
 async function arm(page) { await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 }); }
 async function audible(page) {
   await expect.poll(async () => (await readAudioStatus(page)).rms, { timeout: 12000 }).toBeGreaterThan(.001);
@@ -171,21 +171,26 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
     const transport = ['#blackLoopSong', '#blackSyncTempo'].map(selector => { const node = document.querySelector(selector), rect = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); });
     return { keyboard: { top: keyboard.top, bottom: keyboard.bottom, height: keyboard.height }, top: box.top, bottom: box.bottom, seekBottom: seek.bottom, transport, overflow: document.documentElement.scrollWidth - innerWidth, width: box.width, height: box.height, left: box.left, right: box.right, nested: [...document.querySelectorAll('#blackMidiControls, .midiphoria-score-track')].map(node => node.scrollWidth - node.clientWidth) };
   });
-  expect(layout.transport).toEqual([true, true]); expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 48 : 100); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
+  expect(layout.overflow).toBeLessThanOrEqual(1); expect(Math.max(...layout.nested)).toBeLessThanOrEqual(1); expect(layout.width).toBeGreaterThan(250); expect(layout.height).toBeGreaterThanOrEqual(viewport.height < 500 ? 48 : 100); expect(layout.left).toBeGreaterThanOrEqual(0); expect(layout.right).toBeLessThanOrEqual(viewport.width);
   if (viewport.width >= 1000) {
     expect(layout.width).toBeLessThan(viewport.width * .7);
     expect(layout.height).toBeGreaterThan(400);
   }
   if (viewport.width < 500) expect(layout.height).toBeGreaterThan(210);
   expect(layout.keyboard.height).toBeGreaterThan(8); expect(layout.keyboard.top).toBeGreaterThanOrEqual(layout.top); expect(layout.keyboard.bottom).toBeLessThanOrEqual(layout.bottom + 1);
-  expect(layout.seekBottom).toBeLessThanOrEqual(viewport.height + 1); await expect(page.locator('#blechLiveLayers')).toBeAttached();
+  // The shallow channel strip scrolls horizontally; every transport stays reachable.
+  for (const selector of ['#blackLoopSong', '#blackSyncTempo', '#blackSongPosition']) {
+    const control = page.locator(selector); await control.scrollIntoViewIfNeeded();
+    expect(await control.evaluate(node => { const rect = node.getBoundingClientRect(); return node.contains(document.elementFromPoint(rect.x + rect.width / 2, rect.y + rect.height / 2)); })).toBe(true);
+  }
+  await expect(page.locator('#blechLiveLayers')).toBeAttached();
   await page.screenshot({ path: testInfo.outputPath('black-midi.png') });
 });
 
 test('drawing preview is an independent snapshot and file, pad and evolution transports coexist on one audio clock', async ({ page }) => {
   test.setTimeout(60000); await open(page); await tab(page, 'drawing');
   await page.getByRole('button', { name: 'Heart stamp', exact: true }).click();
-  await page.locator('#mixerSampleLoop').check(); await page.locator('#generateDrawingMidi').click();
+  await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
   const download = page.waitForEvent('download'); await page.locator('#downloadDrawingMidi').click();
   const drawing = parseMidi(await readFile(await (await download).path()));
@@ -205,7 +210,7 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
   await page.locator('#blackSyncTempo').check(); await input(page, '#creativeTempo', 240);
   expect((await state(page)).player.rate).toBeCloseTo(2, 6);
   await input(page, '#blackPlaybackRate', 8); expect((await state(page)).player.rate).toBe(8);
-  await expect(page.locator('#blackTempoStatus')).toContainText('limited to 0.5–8×');
+  await expect(page.locator('#blackTempoStatus')).toContainText('rate limited to 0.01–8×');
   await input(page, '#outputLevel', 0); await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
   await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await input(page, '#outputLevel', .5); await audible(page);
@@ -259,7 +264,7 @@ test('Audio retries a failed file processor but never revives an older file afte
 test('a failed shared SoundFont change restores both consumers and the next choice preserves file playback', async ({ page }) => {
   test.setTimeout(90000); await open(page); await select(page, pattern); await page.locator('#blackLoopSong').check(); await arm(page);
   await page.locator('#blackPlayButton').click(); await audible(page);
-  await tab(page, 'sound'); await page.locator('#mixerEffects > summary').click();
+  await tab(page, 'files');
   const bank = await readFile(new URL('../assets/midiphoria/soundfont/TimGM6mb.sf2', import.meta.url));
   const names = () => page.evaluate(() => [__blackQA.engine.state.soundfontName, __blackQA.player.state.soundfontName]);
   for (const failure of ['failFileBank', 'failPadBank']) {

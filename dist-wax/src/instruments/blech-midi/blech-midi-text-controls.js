@@ -4,7 +4,7 @@ import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 import { drawGeneratorPreview, generatorRange } from './blech-midi-generator-preview.js';
 
 /** Draft geometry never mutates a performing layer until Apply or Drop. */
-export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, getTempo = () => 120, getProgram = () => '0' } = {}) {
+export function mountBlechText(host, { onDrop, onApply, onPrepare, getLayer = () => null, getTempo = () => 120, getProgram = () => '0' } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `<form class="blech-generator blech-text">
     <div class="blech-text-editing" id="blechTextEditing" hidden><output id="blechTextEditingName"></output><button id="blechTextDone" type="button">Done editing</button></div>
@@ -40,6 +40,7 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
   const render = () => { if (!disposed) drawGeneratorPreview($('Preview'), score?.analysis, { grid: false }); };
   const format = value => Number(value.toFixed(2));
   const label = prepared => `Text · ${prepared.text.replace(/\n/g, ' / ')}`;
+  const dropSettings = () => ({ name: score ? label(score) : 'Text', program: getProgram(), loop: $('Loop').checked });
   function refreshTempo() {
     const beats = Number($('Beats').value), seconds = beats * 60 / getTempo();
     $('BeatsOut').value = `${beats} beats · ${format(seconds)} s`;
@@ -55,7 +56,7 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
     $('Apply').disabled = !score || !layer;
     $('Drop').textContent = editing ? 'Drop new text' : 'Drop text';
   }
-  function update() {
+  function update(notify = true) {
     if (disposed) return;
     const span = Number($('Span').value), position = $('Position'), maximum = 128 - span;
     position.max = String(maximum); position.value = String(Math.min(Number(position.value), maximum));
@@ -89,11 +90,15 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
       $('Status').value = $('Message').value.trim() ? error.message : 'Type a message to prepare its notes.';
     }
     $('Drop').disabled = !score; refresh(); render();
+    if (notify && onPrepare) onPrepare({ score: score ? structuredClone(score) : null, settings: dropSettings(), error: score ? '' : $('Status').value });
   }
   function queue() { if (queued === null) queued = requestAnimationFrame(() => { queued = null; update(); }); }
-  function flush() { if (queued !== null) { cancelAnimationFrame(queued); queued = null; } update(); }
+  function flush(notify = true) { if (queued !== null) { cancelAnimationFrame(queued); queued = null; } update(notify); }
+  function getScore() { flush(false); if (!score) throw new Error($('Status').value); return structuredClone(score); }
+  function getSettings() { flush(false); return dropSettings(); }
   for (const key of ['Message', 'Span', 'Beats', 'Position', 'Scale']) on($(key), 'input', queue);
   for (const key of ['Mode', 'Fit']) on($(key), 'change', queue);
+  on($('Loop'), 'change', queue);
   for (const radio of host.querySelectorAll('[name="blechTextAlign"]')) on(radio, 'change', queue);
   on($('Clear'), 'click', () => { $('Message').value = ''; flush(); $('Message').focus(); });
   on($('Done'), 'click', () => { editingId = null; refresh(); $('Status').value = ''; });
@@ -101,7 +106,7 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
     event.preventDefault(); flush(); if (!score) return;
     const prepared = score;
     try {
-      await onDrop?.(prepared, { name: label(prepared), program: getProgram(), loop: $('Loop').checked });
+      await onDrop?.(prepared, dropSettings());
       if (!disposed) $('Status').value = 'Text added to Layers. Pause, stop or edit it there.';
     } catch (error) { if (!disposed) $('Status').value = error.message; }
   });
@@ -118,7 +123,7 @@ export function mountBlechText(host, { onDrop, onApply, getLayer = () => null, g
   });
   const resize = new ResizeObserver(render); resize.observe($('Preview'));
   update(); knobs = mountMixerKnobs(host);
-  return { refreshTempo, refresh, edit({ sampleId = null, settings } = {}) {
+  return { getScore, getSettings, refreshTempo, refresh, edit({ sampleId = null, settings } = {}) {
     if (!settings || disposed) return;
     editingId = sampleId;
     for (const [key, value] of Object.entries({ Message: settings.message, Mode: settings.mode, Span: settings.span, Beats: settings.beats, Position: settings.lowestNote, Scale: settings.scale })) {

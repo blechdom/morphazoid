@@ -221,7 +221,6 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #blackCurrentSong { position: absolute; right: 50px; bottom: 36px; z-index: 1; max-width: 45%; margin: 0; font-size: 10px; pointer-events: none; padding: 3px 5px; background: #07100ce0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .blech-file-stage { position: relative; }
 #blackTempoStatus, #blackPlayerStatus { margin: 0; }
-#blackAudioStart { display: none; }
 .blech-live-strip { display: flex; flex-direction: column; gap: 6px; flex: 0 0 auto; min-width: 0; min-height: 0; max-height: 224px; padding: 4px 0 10px; border-bottom: 1px solid #293831; overflow: hidden; }
 .blech-layers-heading { display: flex; flex: none; justify-content: space-between; align-items: center; gap: 10px; }
 .blech-layers-heading h2 { margin: 0; font-size: 12px; font-weight: 600; }
@@ -265,7 +264,7 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #drawingShapeControls .mixer-range-knob { grid-column: 2; grid-row: 1 / 3; width: 36px; height: 36px; min-height: 36px; }
 #drawingShapeControls .mixer-stamp-offset input { grid-column: 1 / -1; width: 140px; }
 #drawingShapeControls #mixerStampHint { display: none; }
-.blech-midi-workspace:not([data-tab="stamps"]) #drawingShapeControls .mixer-stamp-actions { display: none; }
+.blech-midi-workspace:not([data-frame="stamps"]) #drawingShapeControls .mixer-stamp-actions { display: none; }
 .blech-midi-workspace .midiphoria-drawing-viewport { height: clamp(150px, 26vh, 250px); }
 .blech-midi-workspace #creativeControlsHost { display: grid; grid-template-columns: minmax(0, 1fr); gap: 24px; }
 .blech-midi-effects { margin: 0; }
@@ -303,7 +302,6 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
   .blech-midi-heading h1 img { width: 48px; height: 30px; }
   .blech-midi-transport { gap: 8px; width: 100%; justify-content: space-between; }
   .blech-midi-transport .control { width: 96px; }
-  #creativeAudioStart { display: none; }
   .blech-file-transport { gap: 6px; flex-wrap: wrap; }
   .blech-file-transport .control { width: 94px; }
   .blech-file-transport .blech-art-check { min-height: 24px; font-size: 10px; }
@@ -324,7 +322,6 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
   .blech-midi-heading h1 { font-size: 21px; }
   .blech-midi-heading h1 img { width: 48px; height: 28px; }
   .blech-midi-transport { gap: 6px; }
-  #creativeAudioStart { display: none; }
   .blech-file-transport { flex-wrap: wrap; gap: 4px; }
   .blech-file-transport .control { width: 92px; }
   .blech-midi-transport .control { width: 96px; }
@@ -395,3 +392,123 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 #blechTextHint { margin: 0; }
 #blechTextStatus:empty { display: none; }
 @media (pointer: coarse) { .blech-text-actions button, #blechTextDone { min-height: 48px; } }
+
+/* A shallow, persistent MIDI channel; narrow screens scroll controls sideways. */
+.blech-file-channel { flex: 0 0 auto; min-width: 0; overflow-x: auto; overscroll-behavior-x: contain; padding: 3px 0; border-bottom: 1px solid #293831; scrollbar-width: thin; }
+.blech-file-channel .blech-file-transport { width: max-content; min-width: 100%; min-height: 36px; flex-wrap: nowrap; gap: 8px; }
+.blech-file-channel .blech-file-transport .control { width: 98px; flex: 0 0 98px; }
+.blech-file-channel .blech-file-transport .play-button { width: 34px; height: 34px; flex: 0 0 34px; }
+.blech-file-channel .mini-action { min-height: 30px; padding: 4px 7px; font-size: 10px; white-space: nowrap; }
+.blech-file-channel .mz-tap-tempo { width: 30px; min-width: 30px; min-height: 30px; height: 30px; padding: 2px; font-size: 9px; }
+.blech-file-channel .blech-art-check { min-height: 30px; white-space: nowrap; font-size: 10px; gap: 4px; }
+.blech-file-channel .blech-art-check input { margin: 0; }
+.blech-file-bpm, .blech-file-ratio { display: grid; gap: 2px; flex: 0 0 62px; font-size: 10px; color: #a1b4ae; }
+.blech-file-channel .blech-file-bpm input, .blech-file-channel .blech-file-ratio select { box-sizing: border-box; width: 62px; min-width: 0; height: 26px; min-height: 26px; padding: 2px 4px; border: 1px solid #324037; border-radius: 0; background: #111916; color: #d5e1df; font: inherit; font-size: 11px; }
+.blech-file-bpm input:disabled { opacity: .7; }
+.blech-file-link:has(input:checked) { color: #96f4cc; }
+.blech-file-channel #blackTempoStatus { min-height: 14px; font-size: 10px; line-height: 14px; white-space: nowrap; }
+.blech-gm-banks { margin-top: 20px; display: grid; gap: 8px; }
+.blech-banks-heading { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; }
+.blech-banks-heading a { font-size: 11px; white-space: nowrap; }
+.blech-gm-banks .blech-banks-heading h2 { margin: 0; }
+.blech-gm-banks > .midiphoria-help, .blech-gm-banks #mixerFontStatus { margin: 0; }
+.blech-gm-banks #mixerFontStatus:empty { display: none; }
+.blech-gm-banks #mixerBankChooser { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: end; gap: 6px; }
+.blech-gm-banks #mixerBankChooser > p { grid-column: 1 / -1; margin: 0; }
+.blech-gm-banks #mixerBankChooser > p:empty { display: none; }
+.blech-gm-banks #mixerBankChooser > button { min-height: 32px; padding: 4px 7px; font-size: 10px; }
+.blech-midi-heading #creativeVolumeHost .control { width: 128px; }
+@media (pointer: coarse) {
+  .blech-file-channel .blech-file-transport #blackPlayButton { width: 48px; height: 48px; flex-basis: 48px; }
+  .blech-file-channel .mini-action, .blech-file-channel .blech-art-check { min-height: 48px; }
+  .blech-file-channel .blech-file-bpm input, .blech-file-channel .blech-file-ratio select { height: 32px; min-height: 32px; }
+}
+
+/* Preparation is separate from live output; active layers sit beneath the stage. */
+.blech-section-label { font-size: 10px; color: #9bafa5; text-transform: uppercase; letter-spacing: .09em; margin: 4px 0; }
+.blech-settings-tabs { justify-content: flex-end; border-bottom: 0; margin: 4px 0; }
+.blech-settings-tabs [role="tab"] { font-size: 10px; min-height: 28px; padding: 4px 10px; }
+.blech-preparation { overflow-y: auto; display: block; overscroll-behavior: contain; scrollbar-gutter: stable; padding-right: 4px; }
+.blech-preparation > [role="tabpanel"] { overflow: visible; padding: 12px 0 20px; }
+.blech-frame-tabs { margin-bottom: 10px; }
+.blech-frame-tabs [role="tab"] { padding: 7px 9px; font-size: 10px; }
+.blech-info { border-top: 1px solid #293831; margin-top: 40px; padding: 14px 0 30px; }
+.blech-midi-stage > .blech-live-strip { max-height: 182px; border-bottom: 0; border-top: 1px solid #293831; margin-top: 5px; padding: 6px 0 0; }
+.blech-live-layer { grid-template-columns: minmax(100px, 1fr) minmax(50px, 90px) auto 54px 42px; gap: 8px; }
+.blech-layer-level { min-width: 0; width: 100%; }
+.blech-layer-timeline { position: relative; height: 12px; width: 100%; background: #15201b; overflow: hidden; }
+.blech-layer-timeline canvas { width: 100%; height: 12px; display: block; opacity: .6; }
+.blech-layer-timeline > i { position: absolute; top: 0; bottom: 0; width: 2px; background: #e5fff5; left: 0; }
+.blech-live-layer[data-paused="true"] .blech-layer-timeline { opacity: .4; }
+#blechDropControls { margin: 4px 0 8px; padding: 8px 0 10px; border-bottom: 1px solid #293831; display: grid; gap: 9px; }
+.blech-drop-heading { display: flex; gap: 12px; justify-content: space-between; align-items: baseline; min-width: 0; font-size: 11px; }
+.blech-drop-heading output { font-size: 10px; color: #a1b4ae; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.blech-drop-transport, .blech-drop-transport [role="group"] { display: flex; gap: 5px; align-items: center; }
+.blech-drop-transport > button:last-child { margin-left: auto; }
+#blechDropControls button { min-height: 32px; font-size: 11px; padding: 5px 10px; border: 1px solid #34493c; border-radius: 0; background: #111916; color: #d5e1df; }
+#blechDropControls #blechDropSend { min-width: 90px; background: #96f4cc; color: #07110b; border-color: #96f4cc; }
+#blechDropControls button[aria-pressed="true"] { color: #96f4cc; border-color: #96f4cc; background: #1b3025; }
+#blechDropControls button:disabled { opacity: .4; }
+.blech-drop-sound { display: grid; grid-template-columns: 66px minmax(90px, 1fr) 104px; gap: 9px; align-items: end; }
+.blech-drop-sound label, .blech-drop-position label { display: grid; min-width: 0; gap: 3px; font-size: 10px; color: #a1b4ae; }
+.blech-drop-sound select, .blech-drop-position input { width: 100%; min-width: 0; height: 28px; background: #111916; color: #d5e1df; border: 1px solid #34493c; border-radius: 0; padding: 3px; box-sizing: border-box; font: inherit; }
+.blech-drop-sound .control { grid-template-columns: 1fr 32px; align-items: center; }
+.blech-drop-sound .control span { display: grid; gap: 3px; font-size: 10px; }
+.blech-drop-sound .mixer-range-knob { width: 32px; height: 32px; min-height: 32px; }
+.blech-drop-position { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; }
+#blechDropControls .blech-drop-position button { font-size: 10px; min-height: 28px; }
+#blechDropStatus { font-size: 10px; color: #a1b4ae; }
+#blechDropStatus:empty { display: none; }
+#blackMidiViewport { position: absolute; inset: 0; }
+.blech-drop-overlay { position: absolute; inset: 0; pointer-events: none; z-index: 2; overflow: hidden; }
+.blech-drop-overlay > canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.blech-drop-handle { position: absolute; pointer-events: auto; cursor: move; touch-action: none; background: #96f4cc08; border: 1px dashed #96f4cc; border-radius: 0; padding: 0; min-width: 24px; min-height: 24px; }
+.blech-drop-handle:hover { background: #96f4cc16; }
+.blech-drop-handle:focus-visible { outline: 2px solid #fff; outline-offset: -3px; }
+.blech-drop-floating { position: absolute; display: flex; align-items: center; gap: 5px; background: #07110bee; padding: 2px 4px; max-width: 100%; box-sizing: border-box; pointer-events: auto; font-size: 10px; }
+.blech-drop-floating span { white-space: nowrap; }
+.blech-drop-floating button { border: 1px solid #34493c; border-radius: 0; background: #111916; color: #d5e1df; padding: 3px 6px; font-size: 10px; min-height: 26px; }
+.blech-drop-floating button[aria-pressed="true"] { background: #96f4cc; color: #07110b; }
+.blech-stamp-current { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.blech-stamp-thumbnail { width: 64px; height: 32px; flex: 0 0 64px; object-fit: contain; }
+.blech-stamp-current-label { overflow: hidden; text-overflow: ellipsis; }
+.blech-stamp-choice-copy { display: grid; gap: 2px; }
+.blech-stamp-choice-copy small { color: #a1b4ae; font-size: 10px; }
+#blechStampPicker { margin: 8px 0 14px; }
+#blechStampPicker summary { max-width: 100%; box-sizing: border-box; }
+/* These source-local sends are represented by the shared Send Drop strip. */
+.blech-midi-workspace :is(#blechMathDrop, #blechFramesDrop, #artSend, #generateDrawingMidi),
+.blech-midi-workspace :is(label:has(#blechMathLoop), label:has(#blechFramesLoop), label:has(#artLoop)),
+.blech-midi-workspace #drawingPlaybackOptions { display: none; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-pads-inline { display: block; }
+.blech-midi-workspace #creativePadsHost .mixer-saved-bank { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); }
+.blech-midi-workspace .automata-midi-seed-actions { display: flex; gap: 8px; margin: 8px 0; }
+@media (max-width: 700px) {
+  .blech-midi-stage > .blech-live-strip { max-height: 148px; }
+  .blech-live-layer { grid-template-columns: minmax(80px, 1fr) 42px auto 45px 36px; gap: 4px; padding-left: 4px; }
+  .blech-drop-position { grid-template-columns: 1fr 1fr auto; }
+}
+@media (pointer: coarse) {
+  #blechDropControls .blech-drop-transport button, .blech-drop-floating button, .blech-live-layer button { min-height: 48px; }
+  #blechDropControls .blech-drop-transport button { min-width: 48px; }
+}
+
+#blechDropControls .blech-drop-sound label.control { display: grid; grid-template-columns: 1fr 44px; min-height: 34px; gap: 4px; }
+#blechDropControls .blech-drop-sound label.control > span:first-child { display: grid; gap: 3px; }
+#blechDropControls .blech-drop-sound label.control > .mixer-range-knob { display: inline-block; margin: 0; }
+.blech-midi-workspace #creativePadsHost .mixer-stamp-palette { display: none !important; }
+.blech-midi-workspace #creativeControlsHost > .mixer-performance > .mixer-sample-controls { display: none; }
+.blech-frame-advanced { margin-top: 18px; font-size: 11px; color: #a1b4ae; }
+.blech-frame-advanced summary { cursor: pointer; padding: 8px 0; }
+.blech-frame-advanced .mixer-stamp-source-controls { display: grid; gap: 12px; }
+.blech-frame-advanced input, .blech-frame-advanced select { max-width: 100%; }
+
+@media (max-height: 500px) and (min-width: 701px) {
+  .blech-midi-stage { overflow-y: auto; overscroll-behavior: contain; }
+  .blech-midi-stage > .blech-file-player { flex: 1 0 240px; min-height: 240px; }
+  .blech-file-viewport { min-height: 120px; }
+  .blech-midi-stage > .blech-live-strip { flex: 0 0 auto; max-height: 150px; }
+}
+@media (max-width: 700px) {
+  .blech-midi-workspace.mixer-shell { grid-template-rows: minmax(340px, 64%) minmax(0, 1fr); }
+}

@@ -133,5 +133,49 @@ test('native quantized launch and source-tempo loop emit at physical frames and 
     assert.ok(attacks.length >= 3); assert.ok(Math.abs((attacks[2].at - attacks[1].at) * 48000 - 72000) <= 2);
     await processor.command({ type: 'stopSamples' }); assert.equal(processor.sampleClock.samples.filter(Boolean).length, 0); assert.equal(processor.sampleVisualCount, 0);
     renderNative(48000); assert.equal(processor.synth.voiceCount, 0);
+    const delayedAt = globalThis.currentTime;
+    await processor.command({ type: 'sample', slot: 0, id: 5, data, timing: { positionBeats: 0, pendingBeats: 2, cycle: 0, ended: false }, quantize: false, delayBeats: 2, loop: false, sync: true, gain: .8, program: 16 });
+    const attacksBeforeDelay = telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).filter(note => note.type === 'noteOn').length;
+    renderNative(47900);
+    assert.equal(telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).filter(note => note.type === 'noteOn').length, attacksBeforeDelay);
+    renderNative(2100);
+    const delayedAttack = telemetry.flatMap(message => message.type === 'notes' ? message.notes : []).filter(note => note.type === 'noteOn')[attacksBeforeDelay];
+    assert.ok(Math.abs((delayedAttack.at - delayedAt) * 48000 - 48000) <= 2, 'a positioned drop starts at its physical audio frame');
+    await processor.command({ type: 'sample', slot: 1, id: 6, data, timing: { positionBeats: 0, pendingBeats: 2, cycle: 0, ended: false }, quantize: true, delayBeats: 2, loop: false, sync: true, gain: .8, program: 16 });
+    const alignedDelay = 2 + Math.max(0, Math.ceil(processor.clock.beat - 1e-9) - processor.clock.beat);
+    assert.equal(processor.sampleClock.samples[1].timing.pendingBeats, alignedDelay, 'legacy next-beat alignment retains additional position delay');
   } finally { await processor.command({ type: 'dispose' }); delete globalThis.AudioWorkletProcessor; delete globalThis.registerProcessor; delete globalThis.currentTime; delete globalThis.sampleRate; }
+});
+
+test('positioned drops wait exact master beats without hidden quantization or arming audio', async () => {
+  let now = 0, contexts = 0;
+  const engine = new MidiMixerEngine({ runtime: { performance: { now: () => now }, AudioContext: class { constructor() { contexts++; } } } });
+  await engine.loadDeck(0, changing()); engine.play(); now = 100;
+  const drop = engine.triggerSample(changing(), { delayBeats: 2, quantize: false, loop: true, source: 'frames', channel: 4, gain: .35, midi: { program: 81 } });
+  assert.equal(drop.pendingBeats, 2); assert.equal(drop.source, 'frames'); assert.equal(drop.channel, 4);
+  assert.equal(drop.gain, .35); assert.equal(drop.midi.program, 81);
+  now = 600; assert.equal(engine.state.samples[0].pendingBeats, 1);
+  engine.setTempo(60); now = 1599; assert.ok(engine.state.samples[0].pending);
+  now = 1600; assert.equal(engine.state.samples[0].pending, false); assert.equal(engine.state.samples[0].positionBeats, 0);
+  now = 2100; assert.equal(engine.state.samples[0].positionBeats, .5);
+  const other = engine.triggerSample(changing(), { loop: true, quantize: false });
+  engine.configureSample(drop.id, { gain: .2, midi: { program: 16 } });
+  assert.equal(engine.state.samples[0].gain, .2); assert.equal(engine.state.samples[0].midi.program, 16);
+  assert.equal(engine.state.samples[1].gain, .8); assert.equal(engine.state.samples[1].id, other.id);
+  engine.stopSample(drop.id); assert.deepEqual(engine.state.samples.map(sample => sample.id), [other.id]);
+  assert.equal(contexts, 0); await engine.dispose();
+});
+
+test('delayed one shots finish and loop delays apply only to the first pass', () => {
+  const data = compileDeck(parseMidi(changing())), attacks = [];
+  let absolute = 0;
+  const clock = new MidiSampleClock({ emit: (source, event, frame) => { if (event.kind === 9) attacks.push([source, event.a, absolute + frame]); } });
+  const timing = { positionBeats: 0, pendingBeats: 2, cycle: 0, ended: false };
+  clock.load(0, sample(data, { loop: false, sync: true, timing: { ...timing } }));
+  clock.load(1, sample(data, { id: 2, loop: true, sync: true, timing: { ...timing } }));
+  render(clock, 150000, () => 120, frame => { absolute = frame; });
+  assert.deepEqual(attacks.filter(([source, pitch]) => source === 2 && pitch === 60).map(([, , at]) => at), [48000]);
+  assert.deepEqual(attacks.filter(([source, pitch]) => source === 3 && pitch === 60).map(([, , at]) => at), [48000, 96000, 144000]);
+  assert.equal(clock.samples[0], null); assert.ok(clock.samples[1]);
+  clock.stop(1); assert.equal(clock.samples[1], null);
 });

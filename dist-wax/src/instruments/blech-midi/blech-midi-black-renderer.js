@@ -22,6 +22,42 @@ export function blackMidiKeyLayout(alignment = 'piano') {
   });
 }
 
+const keyboardLayouts = { piano: blackMidiKeyLayout(), equal: blackMidiKeyLayout('equal') };
+
+/** Coordinates are relative to the visible keyboard band, not the note field. */
+export function blackMidiKeyboardPitch(x, y, alignment = 'piano') {
+  if (![x, y].every(Number.isFinite) || x < 0 || x > 1 || y < 0 || y > 1) return null;
+  if (alignment === 'equal') return Math.min(127, Math.floor(x * 128));
+  const layout = keyboardLayouts.piano;
+  // The short black keys sit in front of the full-height white keys.
+  for (const black of y <= .63 ? [true, false] : [false]) {
+    const pitch = layout.findIndex(key => key.black === black && x >= key.x && (x < key.x + key.width || x === 1 && key.x + key.width === 1));
+    if (pitch >= 0) return pitch;
+  }
+  return null;
+}
+
+/** Pointer ownership is separate from audio: the app decides whether Audio is armed. */
+export function createBlackMidiKeyboardState({ onNoteOn, onNoteOff, onChange } = {}) {
+  const held = new Map();
+  const release = sourceId => {
+    if (!held.has(sourceId)) return;
+    const note = held.get(sourceId); held.delete(sourceId);
+    safe(onNoteOff, { sourceId, note }); safe(onChange);
+  };
+  return {
+    play(sourceId, note) {
+      if (!Number.isInteger(note) || note < 0 || note > 127) { release(sourceId); return; }
+      if (held.get(sourceId) === note || (!held.has(sourceId) && held.size >= 16)) return;
+      release(sourceId); held.set(sourceId, note);
+      safe(onNoteOn, { sourceId, note, velocity: 100 }); safe(onChange);
+    },
+    release,
+    releaseAll() { for (const sourceId of [...held.keys()]) release(sourceId); },
+    get notes() { return [...held.values()]; },
+  };
+}
+
 export function blackMidiColor({ pitch, velocity, channel, track }, options = {}) {
   const custom = options.trackColors?.[track];
   if (/^#[0-9a-f]{6}$/i.test(custom)) return [1, 3, 5].map(at => parseInt(custom.slice(at, at + 2), 16) / 255);
@@ -124,7 +160,7 @@ function createCpu(canvas) {
  * are separately reported. Generated layers use their independent engine clocks
  * and share the same falling-note stage without owning any audio scheduling.
  */
-export function createBlackMidiVisualizer({ mount, getTransport = () => ({ position: 0 }), getLiveState = null, onStats, onStatus, forceCanvas = false } = {}) {
+export function createBlackMidiVisualizer({ mount, getTransport = () => ({ position: 0 }), getLiveState = null, onStats, onStatus, onNoteOn, onNoteOff, forceCanvas = false } = {}) {
   if (!mount?.ownerDocument) throw new Error('Falling notes requires a mount element.');
   const document = mount.ownerDocument, window = document.defaultView;
   const wrapper = document.createElement('div'); wrapper.className = 'midiphoria-black-stage';
@@ -148,9 +184,68 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   let colorCache = new Map();
   const projectLive = createBlechLiveProjector();
   let dimensions = { width: 1, height: 1, cssWidth: 1, cssHeight: 1 };
+  const keyboardSurface = document.createElement('div'), keyboardEvents = new window.AbortController();
+  const keyboardState = createBlackMidiKeyboardState({ onNoteOn, onNoteOff, onChange: () => { dirty = true; } });
+  const pressedPointers = new Set();
+  let selectedPitch = 60, enterHeld = false;
+  const noteName = pitch => `${['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'][pitch % 12]}${Math.floor(pitch / 12) - 1}`;
+  keyboardSurface.className = 'blech-playable-keyboard'; keyboardSurface.tabIndex = 0;
+  keyboardSurface.setAttribute('role', 'slider'); keyboardSurface.setAttribute('aria-label', 'Play MIDI keyboard. Arrow keys choose pitch; hold Enter to play.');
+  keyboardSurface.setAttribute('aria-valuemin', '0'); keyboardSurface.setAttribute('aria-valuemax', '127');
+  keyboardSurface.title = 'Move over the keys to play. Touch and drag on a screen. Arrow keys choose pitch; hold Enter to play.';
+  Object.assign(keyboardSurface.style, { position: 'absolute', left: '0', width: '100%', touchAction: 'none', cursor: 'crosshair', outlineOffset: '-2px' });
+  wrapper.append(keyboardSurface);
+  const selectPitch = note => {
+    selectedPitch = note; keyboardSurface.setAttribute('aria-valuenow', String(note)); keyboardSurface.setAttribute('aria-valuetext', `${noteName(note)}, MIDI ${note}`);
+  };
+  selectPitch(selectedPitch);
+  function releaseKeyboard() { pressedPointers.clear(); enterHeld = false; keyboardState.releaseAll(); }
+  const listenKeyboard = (node, type, listener) => node.addEventListener(type, listener, { signal: keyboardEvents.signal });
+  const pointerSource = event => `blech:keyboard:pointer:${event.pointerId}`;
+  const movePointer = event => {
+    const rect = keyboardSurface.getBoundingClientRect();
+    const note = blackMidiKeyboardPitch((event.clientX - rect.left) / rect.width, (event.clientY - rect.top) / rect.height, options.alignment);
+    keyboardState.play(pointerSource(event), note);
+    if (note !== null) selectPitch(note);
+  };
+  listenKeyboard(keyboardSurface, 'pointerenter', event => { if (event.pointerType === 'mouse') movePointer(event); });
+  listenKeyboard(keyboardSurface, 'pointerdown', event => {
+    if (event.button !== 0 || pressedPointers.size >= 16) return;
+    event.preventDefault(); keyboardSurface.focus({ preventScroll: true }); pressedPointers.add(event.pointerId);
+    keyboardSurface.setPointerCapture?.(event.pointerId); movePointer(event);
+  });
+  listenKeyboard(keyboardSurface, 'pointermove', event => {
+    if (event.pointerType !== 'mouse' && !pressedPointers.has(event.pointerId)) return;
+    // Coalesced samples are real pointer observations. Never invent skipped
+    // attacks with zero-duration gates or schedule audio from rendering frames.
+    const samples = event.getCoalescedEvents?.() ?? [];
+    for (const sample of samples.slice(-16)) movePointer(sample);
+    movePointer(event);
+  });
+  const releasePointer = event => { pressedPointers.delete(event.pointerId); keyboardState.release(pointerSource(event)); };
+  for (const type of ['pointerleave', 'pointerup', 'pointercancel', 'lostpointercapture']) listenKeyboard(keyboardSurface, type, releasePointer);
+  listenKeyboard(window, 'pointerup', releasePointer); listenKeyboard(window, 'pointercancel', releasePointer);
+  listenKeyboard(keyboardSurface, 'keydown', event => {
+    if (event.altKey || event.ctrlKey || event.metaKey || event.isComposing) return;
+    if (event.key === 'Enter') {
+      event.preventDefault(); if (!event.repeat) { enterHeld = true; keyboardState.play('blech:keyboard:enter', selectedPitch); }
+      return;
+    }
+    const delta = { ArrowLeft: -1, ArrowRight: 1, ArrowDown: -12, ArrowUp: 12 }[event.key];
+    if (delta === undefined && !['Home', 'End'].includes(event.key)) return;
+    event.preventDefault();
+    selectPitch(event.key === 'Home' ? 0 : event.key === 'End' ? 127 : clamp(selectedPitch + delta, 0, 127, selectedPitch));
+    if (enterHeld) keyboardState.play('blech:keyboard:enter', selectedPitch);
+    dirty = true;
+  });
+  listenKeyboard(keyboardSurface, 'keyup', event => { if (event.key === 'Enter') { event.preventDefault(); enterHeld = false; keyboardState.release('blech:keyboard:enter'); } });
+  listenKeyboard(keyboardSurface, 'focus', () => { keyboardSurface.style.outline = '2px solid #b4ffdf'; dirty = true; });
+  listenKeyboard(keyboardSurface, 'blur', () => { keyboardSurface.style.outline = ''; releaseKeyboard(); dirty = true; });
+  listenKeyboard(window, 'blur', releaseKeyboard);
   const status = (state, message) => safe(onStatus, { state, message, renderer: backend.name });
   const resize = () => {
     if (disposed) return;
+    releaseKeyboard();
     dimensions = canvasSizing(wrapper.getBoundingClientRect(), window.devicePixelRatio, { maxPixelRatio: 2, pixelBudget: 2_000_000 });
     for (const surface of [canvas, keyboard]) { if (surface.width !== dimensions.width) surface.width = dimensions.width; if (surface.height !== dimensions.height) surface.height = dimensions.height; }
     dirty = true;
@@ -161,6 +256,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     if (!context) return;
     const { width, height, cssHeight } = dimensions, geometry = blackMidiTimeGeometry(options, cssHeight);
     const strike = geometry.keyboardTop * height, keyHeight = (geometry.keyboardBottom - geometry.keyboardTop) * height;
+    keyboardSurface.style.top = `${geometry.keyboardTop * 100}%`; keyboardSurface.style.height = `${(geometry.keyboardBottom - geometry.keyboardTop) * 100}%`;
     context.clearRect(0, 0, width, height);
     context.fillStyle = '#11131a'; context.fillRect(0, strike, width, keyHeight);
     const draw = black => {
@@ -171,6 +267,10 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
       }
     };
     draw(false); draw(true);
+    if (document.activeElement === keyboardSurface) {
+      const key = layout[selectedPitch]; context.strokeStyle = '#b4ffdf'; context.lineWidth = 2 * width / dimensions.cssWidth;
+      context.strokeRect(key.x * width + 1, strike + 2, Math.max(1, key.width * width - 2), keyHeight * (key.black && options.alignment === 'piano' ? .63 : 1) - 3);
+    }
     context.fillStyle = '#aebbd3'; context.fillRect(0, strike, width, 1);
     if (dimensions.cssHeight >= 180) {
       context.font = `${Math.max(9, 10 * (width / dimensions.cssWidth))}px sans-serif`;
@@ -186,7 +286,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   function render(position = getTransport()?.position ?? 0) {
     if (disposed) return latestStats;
     const time = Math.max(0, Number(position) || 0), geometry = blackMidiTimeGeometry(options, dimensions.cssHeight);
-    const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .125, 8, 1);
+    const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .01, 8, 1);
     const frameLimit = Math.max(Math.floor(backend.limit / 8), Math.floor(backend.limit / Math.max(1, speed)));
     let liveState = null;
     try { liveState = getLiveState?.(); } catch { /* Display failure cannot affect sound. */ }
@@ -227,7 +327,9 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
         hiddenTracks: options.hiddenTracks, visit(index, track) { if (rectangle(fileNote(index, track), true)) filePastVisible++; } });
       for (let index = Math.max(0, live.pastNotes.length - livePastLimit); index < live.pastNotes.length; index++) rectangle(live.pastNotes[index], true);
     }
+    for (const pitch of keyboardState.notes) lit[pitch] = blackMidiColor({ pitch, velocity: 100, channel: 0, track: 0 }, { ...options, colorBy: 'pitch' });
     backend.draw(data, count); drawKeyboard();
+    wrapper.dataset.keyboardHeld = keyboardState.notes.join(',');
     latestStats = { ...blackMidiStatistics(score, time, { ...options, lookAhead: options.lookAhead * speed }), visible: fileVisible, scanned: queried.scanned,
       liveVisible: live.notes.length, liveHeld: live.held, liveSources: live.sources, liveTruncated: live.truncated,
       pastVisible, filePastVisible, livePastVisible: pastVisible - filePastVisible, futureVisible, keyboardTop: geometry.keyboardTop, keyboardBottom: geometry.keyboardBottom,
@@ -251,10 +353,11 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     frame = window.requestAnimationFrame(tick);
   }
   const schedule = () => { if (!disposed && visible && !document.hidden && frame === null) frame = window.requestAnimationFrame(tick); };
-  const visibility = () => { if (document.hidden) { if (frame !== null) window.cancelAnimationFrame(frame); frame = null; } else { dirty = true; schedule(); } };
+  const visibility = () => { if (document.hidden) { releaseKeyboard(); if (frame !== null) window.cancelAnimationFrame(frame); frame = null; } else { dirty = true; schedule(); } };
   document.addEventListener('visibilitychange', visibility);
   const contextLost = event => {
     event.preventDefault(); if (disposed || backend.name !== 'WebGL2') return;
+    releaseKeyboard();
     backend.destroy(); canvas.removeEventListener('webglcontextlost', contextLost);
     const replacement = makeCanvas('Future MIDI notes, present 128-key keyboard, and fading past trails', true); canvas.replaceWith(replacement); canvas = replacement; backend = createCpu(canvas);
     resize(); dirty = true; status('ready', 'Using Canvas fallback after the GPU context was lost.'); schedule();
@@ -263,6 +366,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   function cancelLoad() { serial++; controller?.abort(); controller = null; }
   function dispose() {
     if (disposed) return; disposed = true; cancelLoad();
+    releaseKeyboard(); keyboardEvents.abort();
     if (frame !== null) window.cancelAnimationFrame(frame); frame = null;
     resizeObserver?.disconnect(); window.removeEventListener('resize', resize); document.removeEventListener('visibilitychange', visibility);
     window.removeEventListener('pagehide', dispose); canvas.removeEventListener('webglcontextlost', contextLost); backend.destroy(); wrapper.remove(); score = null; getLiveState = null; projectLive(null);
@@ -285,6 +389,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
     setScore(value) { cancelLoad(); score = value; dirty = true; schedule(); },
     setLiveSource(value) { getLiveState = typeof value === 'function' ? value : null; dirty = true; schedule(); },
     setOptions(value = {}) {
+      if (['alignment', 'keyboardPosition', 'keyboardHeight'].some(key => value[key] !== undefined && value[key] !== options[key])) releaseKeyboard();
       options = { ...options, ...value,
         lookAhead: clamp(value.lookAhead ?? options.lookAhead, .25, 60, 6), keyboardHeight: clamp(value.keyboardHeight ?? options.keyboardHeight, .04, .2, .08),
         keyboardPosition: clamp(value.keyboardPosition ?? options.keyboardPosition, .3, .8, .6),
@@ -296,7 +401,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
       };
       layout = blackMidiKeyLayout(options.alignment); colorCache = new Map(); dirty = true; schedule();
     },
-    setVisible(value) { visible = Boolean(value); wrapper.hidden = !visible; if (!visible && frame !== null) { window.cancelAnimationFrame(frame); frame = null; } else { resize(); dirty = true; schedule(); } },
-    get score() { return score; }, get stats() { return latestStats; }, get renderer() { return backend.name; }, render, dispose,
+    setVisible(value) { visible = Boolean(value); wrapper.hidden = !visible; if (!visible) { releaseKeyboard(); if (frame !== null) window.cancelAnimationFrame(frame); frame = null; } else { resize(); dirty = true; schedule(); } },
+    get score() { return score; }, get stats() { return latestStats; }, get renderer() { return backend.name; }, releaseKeyboard, render, dispose,
   };
 }

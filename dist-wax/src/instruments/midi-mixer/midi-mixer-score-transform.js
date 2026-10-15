@@ -16,17 +16,22 @@ function trackChunk(events) {
   return chunk;
 }
 
-/** Shorten key gates, keeping every attack, channel/port, controller, SysEx and
+/** Move pitch/channel routing or shorten key gates, keeping every attack, controller, SysEx and
  * metadata message. Pedal-held sound still follows the source pedal messages.
  * Compression is FIFO-safe for repeated pitches: each paired on and off moves
  * by the same convex interpolation, so releases cannot cross one another.
  */
-export function transformMidiStamp(input, { gateScale = 1 } = {}) {
+export function transformMidiStamp(input, { gateScale = 1, channel = null, transpose = 0 } = {}) {
   const source = bytesOf(input?.buffer && !ArrayBuffer.isView(input) ? input.buffer : input);
   if (!source) throw new Error('Choose a MIDI stamp first.');
   const analysis = parseMidi(source), gate = clamp(gateScale, .01, 1, 1);
+  const targetChannel = channel == null ? null : Math.round(clamp(channel, 0, 15, 0));
+  const requestedTranspose = Math.round(clamp(transpose, -127, 127, 0));
+  const low = analysis.notes.reduce((value, note) => Math.min(value, note.note), 127);
+  const high = analysis.notes.reduce((value, note) => Math.max(value, note.note), 0);
+  const appliedTranspose = analysis.notes.length ? clamp(requestedTranspose, -low, 127 - high, 0) : 0;
   const buffer = source.buffer.slice(source.byteOffset, source.byteOffset + source.byteLength);
-  if (gate === 1) return { buffer, analysis, gateScale: gate, adjustedNoteCount: 0, warnings: [] };
+  if (gate === 1 && targetChannel === null && !appliedTranspose) return { buffer, analysis, gateScale: gate, appliedTranspose, channel: targetChannel, adjustedNoteCount: 0, warnings: [] };
 
   const notes = new Map(analysis.notes.map(note => [note.id, note]));
   const releases = new Map(), paired = new Set();
@@ -51,6 +56,10 @@ export function transformMidiStamp(input, { gateScale = 1 } = {}) {
       if (status === 255) {
         running = 0; const type = source[cursor++], size = readVlq();
         bytes = [status, type, ...vlq(size), ...source.subarray(cursor, cursor + size)]; cursor += size;
+        // A selected channel is a GM channel in port zero, including files
+        // whose original tracks use explicit MIDI port metadata.
+        if (type === 33 && size === 1 && targetChannel !== null) bytes[3] = 0;
+        if (type === 32 && size === 1 && targetChannel !== null) bytes[3] = targetChannel;
         events.push({ tick, order: sequence, bytes });
         if (type === 47) { cursor = end; break; }
         continue;
@@ -59,7 +68,8 @@ export function transformMidiStamp(input, { gateScale = 1 } = {}) {
         running = 0; const size = readVlq(); bytes = [status, ...vlq(size), ...source.subarray(cursor, cursor + size)]; cursor += size;
       } else {
         running = status; const size = (status >> 4) === 12 || (status >> 4) === 13 ? 1 : 2;
-        bytes = [status, ...source.subarray(cursor, cursor + size)]; cursor += size;
+        bytes = [targetChannel === null ? status : (status & 240) | targetChannel, ...source.subarray(cursor, cursor + size)]; cursor += size;
+        if ([8, 9, 10].includes(status >> 4)) bytes[1] = clamp(bytes[1] + appliedTranspose, 0, 127, bytes[1]);
       }
       const movedTick = releases.get(sequence) ?? tick;
       if (movedTick !== tick) adjustedNoteCount++;
@@ -70,11 +80,11 @@ export function transformMidiStamp(input, { gateScale = 1 } = {}) {
   // A malformed-but-playable source may omit note-offs. Add complete releases
   // in explicit-port tracks without rewriting the source track's port changes.
   const missing = new Map();
-  for (const note of analysis.notes) if (!paired.has(note.id)) {
-    const port = Math.floor(note.channel / 16);
+  for (const note of analysis.notes) if (gate !== 1 && !paired.has(note.id)) {
+    const port = targetChannel === null ? Math.floor(note.channel / 16) : 0;
     if (!missing.has(port)) missing.set(port, [{ tick: 0, order: -1, bytes: [255, 33, 1, port] }]);
     missing.get(port).push({ tick: Math.max(Math.round(note.beat * analysis.ppq) + 1, Math.round((note.beat + note.duration * gate) * analysis.ppq)), order: note.id,
-      bytes: [128 + note.channel % 16, note.note, 0] }); adjustedNoteCount++;
+      bytes: [128 + (targetChannel ?? note.channel % 16), note.note + appliedTranspose, 0] }); adjustedNoteCount++;
   }
   for (const events of missing.values()) {
     events.push({ tick: Math.round(analysis.durationBeats * analysis.ppq), order: Infinity, bytes: [255, 47, 0] }); chunks.push(trackChunk(events));
@@ -89,6 +99,6 @@ export function transformMidiStamp(input, { gateScale = 1 } = {}) {
   const transformed = parseMidi(output);
   if (transformed.noteCount !== analysis.noteCount) throw new Error('Could not preserve every note in the edited stamp.');
   if (transformed.events.length > MIDI_SAMPLE_LIMITS.events) throw new Error('The edited stamp exceeds the MIDI sample event limit; no notes were removed.');
-  return { buffer: output.buffer, analysis: transformed, gateScale: gate, adjustedNoteCount,
+  return { buffer: output.buffer, analysis: transformed, gateScale: gate, appliedTranspose, channel: targetChannel, adjustedNoteCount,
     warnings: missing.size ? ['Missing note-offs were completed at the chosen gate length.'] : [] };
 }

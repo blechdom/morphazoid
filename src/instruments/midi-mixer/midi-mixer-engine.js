@@ -91,7 +91,7 @@ export class MidiMixerEngine {
         const timing = this._sampleTiming(sample, sampleBeat, sampleTime);
         if (timing.ended) { this._rememberFinishedSample(sample, timing, sampleBeat, sampleTime); return []; }
         const { compiled, sent, timing: stored, timingBeat, timingTime, quantize, pendingReplacement, ...visible } = sample;
-        return [{ ...visible, ...(pendingReplacement ? { pendingReplacement: { name: pendingReplacement.name, analysis: pendingReplacement.analysis, token: pendingReplacement.token } } : {}), midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
+        return [{ ...visible, ...(pendingReplacement ? { pendingReplacement: { name: pendingReplacement.name, analysis: pendingReplacement.analysis, token: pendingReplacement.token } } : {}), midi: sanitizeMidiParameters(sample.midi), positionBeats: timing.positionBeats, cycle: timing.cycle, pendingBeats: timing.pendingBeats, pending: timing.pendingBeats > 1e-9, tempo: sample.sync ? this._tempo : sampleTempoAt(compiled, timing.positionBeats) }];
       }), finishedSamples: this._finishedSamples.map(sample => ({ ...sample, midi: sanitizeMidiParameters(sample.midi) })), sampleMidi: sanitizeMidiParameters(this._sampleMidi), noteEffects: { ...this._noteEffects }, effects: { ...this._effects, synth: sanitizeMidiSynthEffects(this._effects.synth) }, soundfontName: this._fontName, volume: this._volume, crossfade: this._crossfade, error: this._error,
       skippedEvents: this._skippedEvents, voices: this._voices, droppedVisualEvents: this._droppedVisualEvents,
       decks: this._decks.map((deck, index) => ({ ...deck, config: { ...deck.config, midi: sanitizeMidiParameters(deck.config.midi) }, channels: deck.channels.map(channel => ({ ...channel, midi: sanitizeMidiParameters(channel.midi) })), weaveActive: weave.active[index], positionBeats: deckPosition(weave.deckBeats[index], deck.analysis, deck.config), sourcePositionBeats: deck.config.reverse === 'off' ? deckPosition(weave.deckBeats[index], deck.analysis, deck.config) : Math.max(0, (deck.sourceAnalysis?.durationBeats ?? 0) - deckPosition(weave.deckBeats[index], deck.analysis, deck.config)), loopBeats: loopBounds(deck.analysis, deck.config).length, loopStartBeats: loopBounds(deck.analysis, deck.config).start, loopEndBeats: loopBounds(deck.analysis, deck.config).end })) };
@@ -213,14 +213,16 @@ export class MidiMixerEngine {
       }
     }
   }
-  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {}, loop = false, sync = true } = {}) {
+  triggerSample(buffer, { name = 'MIDI sample', program = null, gain = 0.8, midi = {}, loop = false, sync = true, delayBeats = 0, quantize = true, source = '', channel = null, transpose = 0 } = {}) {
     if (this._disposed) return false;
     if ((buffer?.byteLength ?? 0) > MIDI_SAMPLE_LIMITS.fileBytes) throw new Error('MIDI stamps must be 2 MB or smaller.');
     const analysis = parseMidi(buffer);
     if (analysis.notes.length > MIDI_SAMPLE_LIMITS.notes || analysis.events.length > MIDI_SAMPLE_LIMITS.events || analysis.channels.length > MIDI_SAMPLE_LIMITS.channels || analysis.durationBeats > MIDI_SAMPLE_LIMITS.beats) throw new Error('Use a stamp of at most 512 beats, 32,768 notes and 16 channels.');
     const compiled = compileDeck(analysis), state = this.state, startBeat = state.sampleBeat;
     sync = Boolean(sync); loop = Boolean(loop);
-    const pendingBeats = sync && state.playing ? Math.max(0, Math.ceil(state.beat - 1e-9) - state.beat) : 0;
+    delayBeats = clamp(delayBeats, 0, 512, 0);
+    const quantizedBeats = quantize && sync && state.playing ? Math.max(0, Math.ceil(state.beat - 1e-9) - state.beat) : 0;
+    const pendingBeats = delayBeats + quantizedBeats;
     this._samples = this._samples.filter(sample => !this._sampleTiming(sample, state.sampleBeat, state.sampleTime).ended);
     const used = new Set(this._samples.map(sample => sample.slot));
     let slot = Array.from({ length: MIDI_SAMPLE_LIMITS.clips }, (_, index) => index).find(index => !used.has(index));
@@ -229,7 +231,7 @@ export class MidiMixerEngine {
       if (oldestPlaying < 0) throw new Error('All four layers are paused. Stop a layer before dropping another.');
       slot = this._samples.splice(oldestPlaying, 1)[0].slot;
     }
-    const sample = { id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(pendingBeats && state.audioEnabled), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
+    const sample = { id: ++this._serial, slot, name: String(name).slice(0, 128), analysis, compiled, startBeat, loop, sync, paused: false, pausedAt: null, revision: 0, scoreVersion: 0, scoreRevision: 0, playbackEpoch: 0, resumedPositionBeats: 0, resumedCycle: 0, quantize: Boolean(quantizedBeats && state.audioEnabled), delayBeats, source: String(source).slice(0, 64), channel: channel == null ? null : Math.round(clamp(channel, 0, 15, 0)), transpose: Math.round(clamp(transpose, -127, 127, 0)), timing: { positionBeats: 0, cycle: 0, pendingBeats, ended: false }, timingBeat: state.sampleBeat, timingTime: state.sampleTime, gain: clamp(gain, 0, 1, 0.8), midi: mergeMidiParameters(this._sampleMidi, midi), program: program == null ? null : Math.round(clamp(program, 0, 127)), sent: false };
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
   replaceSample(id, buffer, { name, when = 'next-loop' } = {}) {
@@ -265,7 +267,7 @@ export class MidiMixerEngine {
     }
     this._publish(); return sanitizeMidiParameters(this._sampleMidi);
   }
-  configureSample(id, { loop, sync } = {}) {
+  configureSample(id, { loop, sync, gain, midi } = {}) {
     if (this._disposed) return false;
     const sample = this._samples.find(item => item.id === id); if (!sample) return false;
     const state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
@@ -275,6 +277,8 @@ export class MidiMixerEngine {
     sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
     if (loop !== undefined) { sample.loop = Boolean(loop); if (!sample.loop) sample.pendingReplacement = null; }
     if (sync !== undefined) { sample.sync = Boolean(sync); if (!sample.sync) sample.timing.pendingBeats = 0; }
+    if (gain !== undefined) sample.gain = clamp(gain, 0, 1, sample.gain);
+    if (midi !== undefined) sample.midi = sanitizeMidiParameters(midi, sample.midi);
     sample.scoreRevision = ++sample.revision;
     if (sample.sent) this._post({ type: 'sampleParameters', slot: sample.slot, id: sample.id, midi: sample.midi,
       gain: sample.gain, loop: sample.loop, sync: sample.sync, revision: sample.revision, ...(sample.scoreVersion ? { scoreVersion: sample.scoreVersion } : {}) });
@@ -324,7 +328,7 @@ export class MidiMixerEngine {
     const state = this.state;
     this._samples = this._samples.filter(sample => !this._sampleTiming(sample, state.sampleBeat, state.sampleTime).ended);
     for (const sample of this._samples) if (!sample.sent) {
-      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, timing: this._sampleTiming(sample, state.sampleBeat, state.sampleTime), loop: sample.loop, sync: sample.sync, paused: sample.paused, pausedAt: sample.pausedAt, pausedEpoch: sample.pausedEpoch, revision: sample.revision, scoreVersion: sample.scoreVersion, replacedAt: sample.replacedAt, replacedEpoch: sample.replacedEpoch, pendingReplacement: sample.pendingReplacement ? { data: sample.pendingReplacement.compiled, name: sample.pendingReplacement.name, token: sample.pendingReplacement.token } : null, playbackEpoch: sample.playbackEpoch, resumedPositionBeats: sample.resumedPositionBeats, resumedCycle: sample.resumedCycle, quantize: sample.quantize, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
+      this._post({ type: 'sample', id: sample.id, slot: sample.slot, name: sample.name, data: sample.compiled, startBeat: sample.startBeat, timing: this._sampleTiming(sample, state.sampleBeat, state.sampleTime), loop: sample.loop, sync: sample.sync, paused: sample.paused, pausedAt: sample.pausedAt, pausedEpoch: sample.pausedEpoch, revision: sample.revision, scoreVersion: sample.scoreVersion, replacedAt: sample.replacedAt, replacedEpoch: sample.replacedEpoch, pendingReplacement: sample.pendingReplacement ? { data: sample.pendingReplacement.compiled, name: sample.pendingReplacement.name, token: sample.pendingReplacement.token } : null, playbackEpoch: sample.playbackEpoch, resumedPositionBeats: sample.resumedPositionBeats, resumedCycle: sample.resumedCycle, quantize: sample.quantize, delayBeats: sample.delayBeats, gain: sample.gain, program: sample.program, midi: sample.midi }); sample.sent = true;
     }
   }
   async loadDeck(index, buffer, name = 'MIDI file', { reverse } = {}) {

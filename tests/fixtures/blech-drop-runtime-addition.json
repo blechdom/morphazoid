@@ -1,0 +1,18 @@
+{
+  "baseCommit": "37872ac6361123d75a08d676a1ad0133db110cb4",
+  "description": "Exact BLECH prepared-drop and stamp-picker registrations layered after the independent channel-timing amendment. Existing frozen runtime hashes remain unchanged.",
+  "file": "scripts/site/runtime-files.tsv",
+  "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-timing.js\n",
+  "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-timing.js\n\n# BLECH MIDI prepared drops and compact stamp selection.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-drop-stage.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n",
+  "addition": "\n# BLECH MIDI prepared drops and compact stamp selection.\ncopy+require\tsrc/instruments/blech-midi/blech-midi-drop-stage.js\ncopy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n",
+  "paths": [
+    "src/instruments/blech-midi/blech-midi-drop-stage.js",
+    "src/instruments/blech-midi/blech-midi-stamp-picker.js"
+  ],
+  "markers": [
+    "# BLECH MIDI prepared drops and compact stamp selection.",
+    "src/instruments/blech-midi/blech-midi-drop-stage.js",
+    "src/instruments/blech-midi/blech-midi-stamp-picker.js"
+  ],
+  "sha256": "9b948614c5eac13ef149211c23e5b05bfebbdb33a5d8e059f6a8e19ac8215d64"
+}
