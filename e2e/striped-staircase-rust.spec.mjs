@@ -226,15 +226,22 @@ for (const viewport of [
     test('controls remain reachable and stage input stays usable', async ({ page }, info) => {
       await open(page);
       expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(2);
-      for (const id of ['audioButton', 'playButton', 'holdButton', 'progress', 'speed', 'baseFrequency', 'brightness', 'body', 'viewPreset', 'resetAll']) {
-        const control = page.locator(`#${id}`);
+      await page.locator('.study-section details > summary').click();
+      const selectors = [
+        ...['audioButton', 'playButton', 'holdButton', 'progress', 'speed', 'baseFrequency', 'brightness', 'body',
+          'viewPreset', 'palette', 'startIteration', 'maxIterations', 'steps', 'stripePeriod', 'resetAll',
+          'zoomIn', 'zoomOut', 'homeView'].map(id => `#${id}`),
+        ...[0, 1, 2, 3].map(mode => `[data-mode="${mode}"]`),
+      ];
+      for (const selector of selectors) {
+        const control = page.locator(selector);
         await control.scrollIntoViewIfNeeded();
         await expect(control).toBeVisible();
         expect(await control.evaluate(element => {
           const box = element.getBoundingClientRect();
           const hit = document.elementFromPoint(box.left + box.width / 2, box.top + box.height / 2);
           return box.left >= -2 && box.right <= innerWidth + 2 && (element === hit || element.contains(hit));
-        }), `${id} is reachable at ${viewport.width}×${viewport.height}`).toBe(true);
+        }), `${selector} is reachable at ${viewport.width}×${viewport.height}`).toBe(true);
       }
       if (viewport.width !== 1440) {
         for (const id of ['audioButton', 'playButton']) {
