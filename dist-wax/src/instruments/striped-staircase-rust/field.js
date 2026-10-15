@@ -4,9 +4,11 @@ import {
 } from '../striped-staircase/striped-staircase.js';
 
 export const STAIRCASE_FIELD_FRAMES = 64;
-export const STAIRCASE_BRANCH_LIMIT = 32;
+export const STAIRCASE_BRANCH_LIMIT = 512;
+export const STAIRCASE_DEFAULT_VOICES = 256;
 export const STAIRCASE_BRANCH_OFFSET = 544;
-export const STAIRCASE_FIELD_STRIDE = STAIRCASE_BRANCH_OFFSET + STAIRCASE_BRANCH_LIMIT * 4;
+export const STAIRCASE_BRANCH_STRIDE = 6;
+export const STAIRCASE_FIELD_STRIDE = STAIRCASE_BRANCH_OFFSET + STAIRCASE_BRANCH_LIMIT * STAIRCASE_BRANCH_STRIDE;
 export const STAIRCASE_CONTOUR_SAMPLES = 256;
 export const STAIRCASE_FIELD_METADATA = Object.freeze({
   mass: 528, perimeter: 529, centroidX: 530, centroidY: 531, valid: 532, roughness: 533,
@@ -169,14 +171,18 @@ function resampleContour(path, aspect, count = STAIRCASE_CONTOUR_SAMPLES) {
 /** Match measured components between adjacent depths, with one slot per path.
  * This proximity heuristic preserves oscillator identity, not mathematical
  * ancestry: clipping, grid resolution and censored cells can also split paths.
- * Keep the longest 32 components when a frame exceeds the bounded voice budget.
+ * Keep the longest components when a frame exceeds the selected voice budget.
+ * IDs survive ordinary motion; an offshoot gets its own ID and a nearby parent
+ * reference. This is a bounded geometric hypothesis, not proven spiral ancestry.
  */
-export function matchStaircaseBranches(paths, previous = [], aspect = 1) {
-  const branches = paths.slice(0, STAIRCASE_BRANCH_LIMIT).map(path => {
+export function matchStaircaseBranches(paths, previous = [], aspect = 1, options = {}) {
+  const limit = Math.round(bounded(options.limit, STAIRCASE_BRANCH_LIMIT, 1, STAIRCASE_BRANCH_LIMIT));
+  const identity = options.identity ?? { nextId: Math.max(0, ...previous.map(branch => branch.id ?? 0)) + 1 };
+  const branches = paths.slice(0, limit).map(path => {
     const points = resampleContour(path, aspect, 64);
     let cx = 0, cy = 0;
     for (let index = 0; index < points.length; index += 2) { cx += points[index]; cy += points[index + 1]; }
-    return { points, cx: cx / 64, cy: cy / 64, length: path.length, closed: path.closed, slot: -1 };
+    return { points, cx: cx / 64, cy: cy / 64, length: path.length, closed: path.closed, slot: -1, id: 0, parentId: 0 };
   });
   const candidates = [];
   for (const branch of branches) for (const prior of previous) {
@@ -188,11 +194,24 @@ export function matchStaircaseBranches(paths, previous = [], aspect = 1) {
   candidates.sort((a, b) => a.cost - b.cost);
   const used = new Set();
   for (const { branch, prior } of candidates) {
-    if (branch.slot < 0 && !used.has(prior.slot)) { branch.slot = prior.slot; used.add(prior.slot); }
+    if (branch.slot < 0 && !used.has(prior.slot)) {
+      branch.slot = prior.slot; branch.id = prior.id; branch.parentId = prior.parentId;
+      used.add(prior.slot);
+    }
   }
   for (const branch of branches) if (branch.slot < 0) {
     let slot = 0; while (used.has(slot)) slot++;
-    branch.slot = slot; used.add(slot);
+    branch.slot = slot; branch.id = identity.nextId++; used.add(slot);
+    // A close centroid alone can join unrelated shapes. Require nearby sampled
+    // outline points too before offering an inheritance link to the audio model.
+    for (const candidate of candidates.filter(candidate => candidate.branch === branch)) {
+      const prior = candidate.prior;
+      let near = false;
+      for (let a = 0; a < branch.points.length && !near; a += 8) for (let b = 0; b < prior.points.length; b += 8) {
+        if (Math.hypot((branch.points[a] - prior.points[b]) * aspect, branch.points[a + 1] - prior.points[b + 1]) < .08) { near = true; break; }
+      }
+      if (near) { branch.parentId = prior.id; break; }
+    }
   }
   return branches;
 }
@@ -206,14 +225,19 @@ export function readStaircaseRhythm(field, progress) {
   const low = Math.floor(at), high = Math.min(field.frames - 1, low + 1), mix = at - low;
   const read = index => field.table[low * field.stride + index] * (1 - mix) + field.table[high * field.stride + index] * mix;
   const nearest = field.overlays[Math.round(at)];
-  const branches = [];
+  const branches = [], traces = new Map();
+  for (const overlay of [field.overlays[high], field.overlays[low], nearest]) for (const branch of overlay.branches) traces.set(branch.id, branch);
   for (let slot = 0; slot < STAIRCASE_BRANCH_LIMIT; slot++) {
-    const index = STAIRCASE_BRANCH_OFFSET + slot * 4, presence = read(index);
+    const index = STAIRCASE_BRANCH_OFFSET + slot * STAIRCASE_BRANCH_STRIDE;
+    const a = low * field.stride + index, b = high * field.stride + index;
+    const sameIdentity = field.table[a + 4] === field.table[b + 4];
+    const selected = (mix < .5 ? low : high) * field.stride + index;
+    const value = offset => sameIdentity ? read(index + offset) : field.table[selected + offset];
+    const presence = value(0);
     if (presence <= .001) continue;
-    const trace = nearest.branches.find(branch => branch.slot === slot)
-      ?? field.overlays[low].branches.find(branch => branch.slot === slot)
-      ?? field.overlays[high].branches.find(branch => branch.slot === slot);
-    branches.push({ slot, presence, cx: read(index + 1), cy: read(index + 2), length: read(index + 3), points: trace?.points });
+    const id = field.table[selected + 4], parentId = field.table[selected + 5];
+    const trace = traces.get(id);
+    branches.push({ slot, id, parentId, presence, cx: value(1), cy: value(2), length: value(3), points: trace?.points });
   }
   const width = (field.overlays[low].bandHigh - field.overlays[low].bandLow) * (1 - mix)
     + (field.overlays[high].bandHigh - field.overlays[high].bandLow) * mix;
@@ -223,11 +247,11 @@ export function readStaircaseRhythm(field, progress) {
     white: Math.floor(threshold / Math.max(.000001, read(535)) * 2) % 2 === 1 };
 }
 
-/** 64 original staircase slide frames, each with a 672-float Rust ABI record:
+/** 64 original staircase slide frames, each with a 3616-float Rust ABI record:
  * 256 mean-centered contour x, 256 mean-centered contour y; 16 vertical band
  * density bins (sum 1); mass, perimeter/8, signed cx/cy, valid, turn roughness,
- * threshold mu, stripePeriod; eight reserved zeros; 32 branch records containing
- * presence, screen cx/cy, length/8. Absent branch positions are held for smooth
+ * threshold mu, stripePeriod; eight reserved zeros; 512 branch records containing
+ * presence, screen cx/cy, length/8, integer ID and parent ID. Absent positions are held for smooth
  * fades, but presence is zero. Unescaped interior never creates a voice.
  */
 export function buildStaircaseField(options = {}) {
@@ -240,9 +264,11 @@ export function buildStaircaseField(options = {}) {
     .map(key => [key, bounded(source.settings?.[key], STRIPED_STAIRCASE_DEFAULTS[key], -1e6, 1e6)]));
   const settings = normalizeStaircaseSettings(safeSettings);
   const aspect = bounded(source.aspect, 1.5, .25, 4);
+  const voiceLimit = Math.round(bounded(source.voiceLimit, STAIRCASE_DEFAULT_VOICES, 1, STAIRCASE_BRANCH_LIMIT));
   const field = sampleDepths(camera, settings, aspect, source.resolution);
   const table = new Float32Array(STAIRCASE_FIELD_FRAMES * STAIRCASE_FIELD_STRIDE), overlays = [];
   let activeFrames = 0, maxContours = 0, previousBranches = [];
+  const identity = { nextId: 1 };
   for (let index = 0; index < STAIRCASE_FIELD_FRAMES; index++) {
     const frame = createStaircaseFrame(index / (STAIRCASE_FIELD_FRAMES - 1), settings, 'slide');
     const threshold = (frame.renderLow + frame.renderHigh) / 2;
@@ -250,10 +276,10 @@ export function buildStaircaseField(options = {}) {
     table[offset + 534] = threshold;
     table[offset + 535] = settings.stripePeriod;
     const paths = staircaseFieldContours(field, threshold, aspect);
-    const branches = matchStaircaseBranches(paths, previousBranches, aspect);
+    const branches = matchStaircaseBranches(paths, previousBranches, aspect, { limit: voiceLimit, identity });
     previousBranches = branches;
-    for (const branch of branches) table.set([1, branch.cx, branch.cy, Math.min(1, branch.length / 8)],
-      offset + STAIRCASE_BRANCH_OFFSET + branch.slot * 4);
+    for (const branch of branches) table.set([1, branch.cx, branch.cy, Math.min(1, branch.length / 8), branch.id, branch.parentId],
+      offset + STAIRCASE_BRANCH_OFFSET + branch.slot * STAIRCASE_BRANCH_STRIDE);
     const path = paths[0];
     const points = path ? resampleContour(path, aspect) : new Float32Array(0);
     overlays.push({ threshold, bandLow: frame.renderLow, bandHigh: frame.renderHigh,
@@ -295,17 +321,17 @@ export function buildStaircaseField(options = {}) {
   // across the screen/register. Carry the nearest measured position through
   // empty slots; the independent presence value still releases their sound.
   for (let slot = 0; slot < STAIRCASE_BRANCH_LIMIT; slot++) {
-    const at = STAIRCASE_BRANCH_OFFSET + slot * 4;
+    const at = STAIRCASE_BRANCH_OFFSET + slot * STAIRCASE_BRANCH_STRIDE;
     const occupied = overlays.flatMap((_, index) => table[index * STAIRCASE_FIELD_STRIDE + at] ? [index] : []);
     for (let index = 0; index < STAIRCASE_FIELD_FRAMES && occupied.length; index++) {
       const offset = index * STAIRCASE_FIELD_STRIDE + at;
       if (table[offset]) continue;
       const nearest = occupied.reduce((best, candidate) => Math.abs(candidate - index) < Math.abs(best - index) ? candidate : best);
       const source = nearest * STAIRCASE_FIELD_STRIDE + at;
-      table.set(table.subarray(source + 1, source + 4), offset + 1);
+      table.set(table.subarray(source + 1, source + STAIRCASE_BRANCH_STRIDE), offset + 1);
     }
   }
-  return { table, frames: STAIRCASE_FIELD_FRAMES, stride: STAIRCASE_FIELD_STRIDE, overlays, camera, settings, aspect,
+  return { table, frames: STAIRCASE_FIELD_FRAMES, stride: STAIRCASE_FIELD_STRIDE, overlays, camera, settings, aspect, voiceLimit,
     stats: { columns: field.columns, rows: field.rows, samples: field.depth.length, escaped: field.escaped,
       censored: field.depth.length - field.escaped, activeFrames, maxContours } };
 }

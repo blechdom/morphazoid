@@ -44,7 +44,8 @@ export class StaircaseEngine {
     const copy = table.slice(); this.send({ type: 'field', table: copy, frames, revision }, [copy.buffer]);
   }
   controls(state) { this.send({ type: 'controls', mode: state.mode, base: state.baseFrequency,
-    brightness: state.brightness, body: state.body, gain: state.level, seconds: 1 / state.speed }); }
+    brightness: state.brightness, body: state.body, gain: state.level, seconds: 1 / state.speed,
+    pitchMapping: state.pitchMapping, pitchSpan: state.pitchSpan }); }
   transport(state) { this.send({ type: 'transport', playing: state.playing, enabled: state.audio, hold: state.hold }); }
   seek(depth, direction = 1) { this.send({ type: 'seek', depth, direction }); }
   dispose() {

@@ -28,6 +28,7 @@
 .staircase-studies-page .control output { color: #b9f5ce; font-variant-numeric: tabular-nums; }
 .staircase-studies-page .control input, .staircase-studies-page .control select { width: 100%; min-width: 0; }
 .study-knobs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px 6px; }
+.study-knobs--pitch { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 .study-knobs--depth { grid-template-columns: 104px minmax(0, 1fr); }
 .study-knobs--structure { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 16px; }
 .staircase-studies-page .study-knob.mz-range-knob { width: 100%; min-width: 0; height: 88px; margin: 0; }
