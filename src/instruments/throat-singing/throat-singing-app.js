@@ -16,6 +16,14 @@ import {
   vocalFryModulationSupercycle,
 } from "./throat-singing.js";
 import { glottalHarmonics } from "../../families/tract/throatazoid.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  THROAT_SINGING_FULL_PRESETS,
+  captureThroatSingingPreset,
+  randomizeThroatSingingPreset,
+  splitThroatSingingPreset,
+  throatSingingStyleIdForPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
@@ -1761,3 +1769,23 @@ resizeCanvas();
 updateReadouts();
 setAudioPresentation("off");
 animationFrame = requestAnimationFrame(draw);
+
+registerHeaderPresets({
+  id: "throat-singing", presets: THROAT_SINGING_FULL_PRESETS,
+  capture: () => captureThroatSingingPreset(state, extras),
+  apply: snapshot => {
+    const { model, extras: nextExtras } = splitThroatSingingPreset(snapshot);
+    const styleId = throatSingingStyleIdForPreset(snapshot);
+    performSilentModelSwap((immediate) => {
+      state = sanitizedAppState({ ...model, styleId: styleId ?? state.styleId, level: state.level }, state);
+      extras = { ...nextExtras };
+      activeStyleId = state.styleId;
+      modelProvenance = styleId ? { kind: "preset", id: styleId } : { kind: "custom", fromId: state.styleId };
+      performanceStartedAt = performance.now();
+      lastTractSignature = "";
+      updateReadouts();
+      applyAudioParameters(immediate);
+    });
+  },
+  randomize: randomizeThroatSingingPreset,
+});
