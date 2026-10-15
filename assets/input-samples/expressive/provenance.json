@@ -72,13 +72,15 @@
       "license": "CC BY 3.0",
       "licenseUrl": "https://creativecommons.org/licenses/by/3.0/",
       "licenseRechecked": "2026-10-14",
-      "durationSeconds": 10.919184,
+      "durationSeconds": 10.8629375,
       "sourceStartSeconds": 0,
-      "modifications": "Excerpt; mono conversion; resampled to 48 kHz; static gain only; 10 ms fade in and 25 ms fade out. No synthesis, compression, denoising, or other effects.",
+      "modifications": "Complete decoded recording; mono conversion; resampled to 48 kHz; static gain only; 10 ms fade in. The requested 25 ms fade out began after the decoded audio ended and had no effect; the original quiet tail is retained. No synthesis, compression, denoising, or other effects.",
       "staticGainDb": -10.69,
       "encoding": "MP3, 192 kbps, mono, 48 kHz",
       "integratedLufs": -18.18,
-      "truePeakDbtp": -7.61
+      "truePeakDbtp": -7.61,
+      "sourceContainerDurationSeconds": 10.919184,
+      "requestedExcerptDurationSeconds": 10.919184
     }
   ]
 }

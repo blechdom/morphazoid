@@ -24,7 +24,7 @@ These recordings retain the licenses below; they are not covered by the code's M
 
 `weird-sax.mp3` — soulthom. [Original source](https://ccmixter.org/files/soulthom/56711) · [CC BY 3.0](https://creativecommons.org/licenses/by/3.0/).
 
-10.919-second excerpt starting at 0.00 seconds. Excerpt; mono conversion; resampled to 48 kHz; static gain only; 10 ms fade in and 25 ms fade out. No synthesis, compression, denoising, or other effects. Encoded as MP3, 192 kbps, mono, 48 kHz.
+10.863-second complete decoded recording, starting at 0.00 seconds. Mono conversion; resampled to 48 kHz; static gain; 10 ms fade in. The requested 25 ms fade out began after decoded audio ended and had no effect; the original quiet tail is retained. Encoded as MP3, 192 kbps, mono, 48 kHz.
 
 These are real isolated vocal and saxophone recordings. The vocals use the separate “flac vocal scat” and “LeadVox” stems. The split-tone sax uses the official Freesound HQ preview; “Weird sax” is the creator’s alto recording with unusual fingerings. Excerpts need not align to musical bars. File hashes and transformations are in [provenance.json](provenance.json).
 
