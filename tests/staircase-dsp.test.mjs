@@ -4,7 +4,7 @@ import test from 'node:test';
 import { buildStaircaseField } from '../src/instruments/striped-staircase-rust/field.js';
 
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/staircase.wasm', import.meta.url)));
-const BLOCK = 128, FRAMES = 64, STRIDE = 672;
+const BLOCK = 128, FRAMES = 64, STRIDE = 3616;
 const actual = buildStaircaseField();
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
 const energy = values => values.reduce((sum, value) => sum + value * value, 0) / values.length;
@@ -22,13 +22,13 @@ function geometry() {
     }
     for (let index = 0; index < 16; index++) data[at + 512 + index] = (index % 3 + 1) / 31;
     data.set([.1 + depth * .2, .15 + depth * .25, -.2 + depth * .4, .1, 1, .3 + depth * .4, 3 + depth * 120, 7], at + 528);
-    data.set([1, .15, .25, .15, 1, .85, .75, .15], at + 544);
+    data.set([1, .15, .25, .15, 1, 0, 1, .85, .75, .15, 2, 0], at + 544);
   }
   return data;
 }
 
 function fixture({ rate = 48000, mode = 0, base = 110, brightness = .55, body = .5, gain = .5, seconds = 4,
-  depth = .2, table = geometry(), playing = true, enabled = true, hold = false } = {}) {
+  depth = .2, mapping = 0, span = 3, table = geometry(), playing = true, enabled = true, hold = false } = {}) {
   const api = new WebAssembly.Instance(module).exports, engine = api.stair_new(rate);
   assert.ok(engine);
   const pointers = [api.stair_alloc(BLOCK * 4), api.stair_alloc(BLOCK * 4)];
@@ -48,6 +48,7 @@ function fixture({ rate = 48000, mode = 0, base = 110, brightness = .55, body = 
   };
   if (table) install(table);
   controls({}); transport({}); api.stair_seek(engine, depth, 1);
+  api.stair_pitch(engine, mapping, span);
   const render = (secondsToRender, blockSize = BLOCK) => {
     const count = Math.round(secondsToRender * rate), result = [new Float32Array(count), new Float32Array(count)];
     for (let at = 0; at < count; at += blockSize) {
@@ -59,6 +60,8 @@ function fixture({ rate = 48000, mode = 0, base = 110, brightness = .55, body = 
   };
   return { api, engine, render, controls, transport, install,
     seek: (depth, direction = 1) => api.stair_seek(engine, depth, direction),
+    pitch: (mapping, span = 3) => api.stair_pitch(engine, mapping, span),
+    voices: () => new Float64Array(api.memory.buffer, api.stair_voice_state(engine), api.stair_voice_capacity() * 6).slice(),
     state: () => new Float64Array(api.memory.buffer, api.stair_state(engine), api.stair_state_len()).slice(),
     close() { api.stair_drop(engine); for (const pointer of pointers) api.stair_free(pointer, BLOCK * 4); } };
 }
@@ -67,7 +70,7 @@ test('staircase Rust raw ABI is import-free, versioned, and rejects invalid buff
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const f = fixture();
   try {
-    assert.equal(f.api.stair_abi_version(), 2); assert.equal(f.api.stair_state_len(), 12);
+    assert.equal(f.api.stair_abi_version(), 3); assert.equal(f.api.stair_state_len(), 12);
     for (const rate of [0, 7999, NaN, Infinity, 192001]) assert.equal(f.api.stair_new(rate), 0);
     assert.equal(f.api.stair_table(f.engine, 0, STRIDE, 1), 0);
     assert.equal(f.api.stair_table(f.engine, 0, 0, 65), 0);
@@ -117,7 +120,7 @@ function branchGeometry({ branches = [[1, .15, .25, .15], [1, .85, .75, .15]], t
     table[at + 534] = threshold;
     table[at + 535] = period;
     table.fill(0, at + 544, at + STRIDE);
-    for (let branch = 0; branch < branches.length; branch++) table.set(branches[branch], at + 544 + branch * 4);
+    for (let branch = 0; branch < branches.length; branch++) table.set([...branches[branch].slice(0, 4), branches[branch][4] ?? branch + 1, branches[branch][5] ?? 0], at + 544 + branch * 6);
   }
   return table;
 }
@@ -181,19 +184,166 @@ test('separate branches produce separate unquantized pitches at their own stereo
   assert.ok(toneEnergy(recordings[1][1], frequencies[1]) > toneEnergy(recordings[0][1], frequencies[1]) * 1000);
 });
 
-test('all 32 branch voices remain finite and bounded; absent or zero-length branches stay silent', () => {
-  const branches = Array.from({ length: 32 }, (_, i) => [1, i / 31, i / 31, .6]);
+test('all 512 branch voices remain finite and bounded; absent or zero-length branches stay silent', () => {
+  const branches = Array.from({ length: 512 }, (_, i) => [1, i / 511, i / 511, .6]);
   const f = fixture({ mode: 2, gain: 1, brightness: 1, hold: true, table: branchGeometry({ branches }) });
   try {
     for (const channel of f.render(.7)) {
       assert.ok(channel.every(Number.isFinite)); assert.ok(peak(channel) < 1); assert.ok(energy(channel) > 1e-5);
     }
-    assert.equal(f.state()[10], 32);
+    assert.equal(f.state()[10], 512);
     for (const branches of [[], [[0, .5, .5, .8]], [[1, .5, .5, 0]]]) {
       f.install(branchGeometry({ branches }));
       assert.ok(peak(f.render(.7)[0].subarray(-4800)) < 1e-8);
       assert.equal(f.state()[10], 0);
     }
+  } finally { f.close(); }
+});
+
+function movementGeometry(position, branches = 1) {
+  const source = geometry(), table = source.slice(0, 17 * STRIDE);
+  for (let frame = 0; frame < 17; frame++) {
+    const at = frame * STRIDE;
+    table[at + 534] = frame; table[at + 535] = 2;
+    table.fill(0, at + 544, at + STRIDE);
+    for (let slot = 0; slot < branches; slot++) table.set(position(frame, slot), at + 544 + slot * 6);
+  }
+  return table;
+}
+const voice = (f, id) => {
+  const voices = f.voices();
+  for (let at = 0; at < voices.length; at += 6) if (voices[at] === id) return voices.slice(at, at + 6);
+  assert.fail(`voice ${id} is present`);
+};
+const closeTo = (actual, expected, tolerance = 1e-3) => assert.ok(Math.abs(actual - expected) < tolerance, `${actual} is close to ${expected}`);
+
+test('Frame XY pitch responds to horizontal and vertical location; Height preserves the original mapping', () => {
+  const results = [];
+  for (const mapping of [0, 1]) {
+    const frequencies = [];
+    for (const [x, y] of [[.25, .25], [.75, .25], [.75, .75]]) {
+      const f = fixture({ mode: 2, mapping, hold: true, table: branchGeometry({ branches: [[1, x, y, .3]] }) });
+      try { f.render(.2); frequencies.push(voice(f, 1)[1]); } finally { f.close(); }
+    }
+    results.push(frequencies);
+  }
+  closeTo(results[0][0], results[0][1]);
+  closeTo(results[0][0] / results[0][2], 2 ** 1.5);
+  closeTo(results[1][0], 110);
+  closeTo(results[1][1] / results[1][0], 2 ** .75);
+  closeTo(results[1][0], results[1][2]);
+});
+
+test('Relative Turns uses each voice previous note, establishes heading, and ignores stationary Hold', () => {
+  const table = movementGeometry(frame => {
+    const x = frame <= 5 ? .15 + frame * .05 : .4;
+    const y = frame <= 5 ? .5 : .5 - (frame - 5) * .05;
+    return [1, x, y, .3, 1, 0];
+  });
+  const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+  try {
+    f.render(.13); const first = voice(f, 1);
+    closeTo(first[1], 110 * 2 ** -.45, .03); assert.equal(first[4], 0);
+    f.render(.25); const second = voice(f, 1);
+    closeTo(second[1], first[1], .01); assert.equal(second[4], 1);
+    closeTo(second[2], .2, .001); closeTo(second[3], .5);
+    f.render(.25); const third = voice(f, 1);
+    closeTo(third[1], second[1], .01, 'straight movement adds no interval');
+    f.render(.25); const turn = voice(f, 1);
+    closeTo(turn[1] / third[1], 2 ** -1.2, .005);
+    closeTo(turn[2], .4, .001); closeTo(turn[3], .5, .001);
+    f.transport({ hold: true }); const depth = f.state()[1]; f.render(.5);
+    assert.equal(f.state()[1], depth); assert.deepEqual(voice(f, 1), turn);
+    const beforeClock = f.state()[0]; f.controls({ base: 220, brightness: .9 }); f.render(.4);
+    closeTo(voice(f, 1)[1] / turn[1], 2, .001);
+    assert.deepEqual(voice(f, 1).slice(2), turn.slice(2), 'ordinary timbre/register edits preserve the note reference');
+    assert.ok(f.state()[0] > beforeClock);
+    f.pitch(2, 0); f.render(.1); closeTo(voice(f, 1)[1], 220);
+    assert.deepEqual(voice(f, 1).slice(2), turn.slice(2), 'Span zero preserves the note reference');
+    f.pitch(2, 1.5); f.render(.1);
+    closeTo(voice(f, 1)[1] / 220, Math.sqrt(turn[1] / 110), .001);
+  } finally { f.close(); }
+});
+
+test('a new offshoot inherits its parent previous pitch and heading without slot-order bias', () => {
+  const results = [];
+  for (const reverse of [false, true]) {
+    const table = movementGeometry((frame, slot) => {
+      const parent = [1, .15 + frame * .05, .5, .3, 1, 0];
+      const child = [frame <= 6 ? 0 : 1, .4, .4, .3, 2, 1];
+      return (slot === 0) !== reverse ? parent : child;
+    }, 2);
+    const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+    try {
+      f.render(.88); const parent = voice(f, 1), child = voice(f, 2);
+      closeTo(child[1] / parent[1], 2 ** -1.2, .005);
+      assert.equal(child[4], 1); assert.equal(child[5], 1);
+      closeTo(child[2], .4, .001); closeTo(child[3], .5);
+      results.push(child);
+    } finally { f.close(); }
+  }
+  assert.deepEqual(results[0], results[1]);
+});
+
+test('slot reuse chooses categorical identity and never interpolates a fictitious branch or inherits unrelated history', () => {
+  const table = movementGeometry(frame => frame < 8 ? [1, .15 + frame * .05, .5, .3, 1, 0] : [1, .8, .3, .3, 99, 0]);
+  const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+  try {
+    f.render(.95); const replacement = voice(f, 99);
+    closeTo(replacement[1], 110 * 2 ** .75, .001);
+    assert.equal(replacement[4], 0, 'a replacement has no reference to the old occupant');
+    closeTo(replacement[2], .8); closeTo(replacement[3], .3);
+  } finally { f.close(); }
+});
+
+test('an offshoot can inherit a parent whose physical voice slot has been reused', () => {
+  const table = movementGeometry(frame => frame < 8 ? [1, .15 + frame * .05, .5, .3, 1, 0] : [1, .5, .4, .3, 2, 1]);
+  const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+  try {
+    f.render(.89); const parent = voice(f, 1);
+    f.render(.06); const child = voice(f, 2);
+    closeTo(child[1] / parent[1], 2 ** -1.2, .005);
+    assert.equal(child[4], 1); assert.equal(child[5], 1);
+    closeTo(child[2], .5, .001); closeTo(child[3], .5);
+  } finally { f.close(); }
+});
+
+test('Relative Turns clamps accumulated pitch offsets to four octaves around the register', () => {
+  const table = movementGeometry(frame => [1, .5 + .25 * Math.cos(frame * Math.PI / 4), .5 + .25 * Math.sin(frame * Math.PI / 4), .3, 1, 0]);
+  const f = fixture({ mode: 2, mapping: 2, span: 6, table, depth: 0, seconds: 2 });
+  try {
+    let highest = 0;
+    for (let note = 0; note < 8; note++) {
+      f.render(note === 0 ? .13 : .25);
+      const frequency = voice(f, 1)[1]; highest = Math.max(highest, frequency);
+      assert.ok(frequency <= 110 * 16 + 1e-9 && frequency >= 110 / 16 - 1e-9);
+    }
+    closeTo(highest, 110 * 16);
+  } finally { f.close(); }
+});
+
+test('seek, replacement, and mapping changes reset note references without stopping clocks', () => {
+  const table = movementGeometry(frame => [1, .15 + frame * .04, .5, .3, 1, 0]);
+  const f = fixture({ mode: 2, mapping: 2, table, depth: 0, seconds: 2 });
+  try {
+    f.render(.4); assert.equal(voice(f, 1)[4], 1);
+    const before = f.state()[0];
+    f.seek(7.2 / 16); f.transport({ hold: true }); f.render(.1);
+    assert.equal(voice(f, 1)[4], 0); assert.ok(f.state()[0] > before);
+    f.pitch(1); f.render(.1); f.pitch(2); f.render(.1);
+    assert.equal(voice(f, 1)[4], 0);
+    f.install(table); f.render(.1); assert.equal(voice(f, 1)[4], 0);
+    closeTo(voice(f, 1)[1], 110 * 2 ** (3 * ((.15 + 7.2 * .04) - .5) / 2), .001);
+  } finally { f.close(); }
+});
+
+test('stationary repeated notes do not accumulate intervals and Relative Turns remains bounded with 512 voices', () => {
+  const table = movementGeometry((frame, slot) => [1, slot / 511, .4, .2, slot + 1, 0], 512);
+  const f = fixture({ mode: 2, mapping: 2, span: 6, table, depth: 0, seconds: 2, gain: 1 });
+  try {
+    f.render(.15); const initial = Array.from({ length: 512 }, (_, slot) => voice(f, slot + 1)[1]);
+    for (const channel of f.render(1)) { assert.ok(channel.every(Number.isFinite)); assert.ok(peak(channel) < 1); }
+    for (let slot = 0; slot < 512; slot++) closeTo(voice(f, slot + 1)[1], initial[slot], 1e-9);
   } finally { f.close(); }
 });
 
@@ -209,11 +359,11 @@ test('sample clock progresses during absent UI updates and pingpongs without dep
 });
 
 test('phase and events do not depend on render block size', () => {
-  for (const mode of [0, 2, 3]) {
-    const a = fixture({ mode }), b = fixture({ mode });
+  for (const [mode, mapping] of [[0, 0], [2, 0], [2, 2], [3, 0]]) {
+    const a = fixture({ mode, mapping }), b = fixture({ mode, mapping });
     try {
       const x = a.render(.5, 128), y = b.render(.5, 17);
-      assert.deepEqual(x, y); assert.deepEqual(a.state(), b.state());
+      assert.deepEqual(x, y); assert.deepEqual(a.state(), b.state()); assert.deepEqual(a.voices(), b.voices());
     } finally { a.close(); b.close(); }
   }
 });

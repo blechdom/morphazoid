@@ -6,19 +6,34 @@
 
 use std::{
     alloc::{alloc_zeroed, dealloc, Layout},
-    f64::consts::TAU,
+    f64::consts::{PI, TAU},
     slice,
 };
 
 const POINTS: usize = 256;
-const BRANCHES: usize = 32;
-const STRIDE: usize = 544 + BRANCHES * 4;
+const BRANCHES: usize = 512;
+const MAX_IDS: usize = 32768;
+const STRIDE: usize = 544 + BRANCHES * 6;
 const MAX_FRAMES: usize = 64;
 const SINE_SIZE: usize = 4096;
 const MODES: usize = 4;
 const BODIES: usize = 8;
 const MAX_BLOCK: usize = 4096;
 type Table = Vec<[f32; STRIDE]>;
+
+#[derive(Clone, Copy, Default)]
+struct Note {
+    epoch: u64,
+    x: f64,
+    y: f64,
+    heading_x: f64,
+    heading_y: f64,
+    has_heading: bool,
+    offset: f64,
+    reference_x: f64,
+    reference_y: f64,
+    has_reference: bool,
+}
 
 fn bounded(value: f64, low: f64, high: f64, fallback: f64) -> f64 {
     if value.is_finite() {
@@ -73,6 +88,19 @@ pub struct Engine {
     branch_target: [f64; BRANCHES],
     branch_frequency: [f64; BRANCHES],
     branch_pan: [f64; BRANCHES],
+    branch_y: [f64; BRANCHES],
+    branch_note_x: [f64; BRANCHES],
+    branch_note_y: [f64; BRANCHES],
+    branch_presence: [f64; BRANCHES],
+    branch_id: [usize; BRANCHES],
+    branch_parent: [usize; BRANCHES],
+    pitch_mapping: u32,
+    pitch_span: f64,
+    note_epoch: u64,
+    notes: Vec<Note>,
+    pending_notes: [Note; BRANCHES],
+    pending_ids: [usize; BRANCHES],
+    voice_state: Vec<f64>,
     branch_count: usize,
     branch_attack: f64,
     branch_decay: f64,
@@ -132,6 +160,19 @@ impl Engine {
             branch_target: [0.; BRANCHES],
             branch_frequency: [0.; BRANCHES],
             branch_pan: [0.; BRANCHES],
+            branch_y: [0.; BRANCHES],
+            branch_note_x: [0.; BRANCHES],
+            branch_note_y: [0.; BRANCHES],
+            branch_presence: [0.; BRANCHES],
+            branch_id: [0; BRANCHES],
+            branch_parent: [0; BRANCHES],
+            pitch_mapping: 0,
+            pitch_span: 3.,
+            note_epoch: 1,
+            notes: vec![Note::default(); MAX_IDS + 1],
+            pending_notes: [Note::default(); BRANCHES],
+            pending_ids: [0; BRANCHES],
+            voice_state: vec![0.; BRANCHES * 6],
             branch_count: 0,
             branch_attack: 1. - (-1. / (rate * 0.004)).exp(),
             branch_decay: 0.,
@@ -181,6 +222,24 @@ impl Engine {
         )
     }
 
+    fn branch_value(table: &Table, count: usize, depth: f64, slot: usize, attribute: usize) -> f64 {
+        if count == 0 {
+            return 0.;
+        }
+        let at = depth * (count - 1) as f64;
+        let a = at.floor() as usize;
+        let b = (a + 1).min(count - 1);
+        let offset = 544 + slot * 6;
+        if table[a][offset + 4] != table[b][offset + 4] {
+            return table[at.round() as usize][offset + attribute] as f64;
+        }
+        lerp(
+            table[a][offset + attribute] as f64,
+            table[b][offset + attribute] as f64,
+            at - a as f64,
+        )
+    }
+
     fn contour(&self, phase: f64, channel: usize) -> f64 {
         let at = phase * POINTS as f64;
         let index = at.floor() as usize;
@@ -201,6 +260,121 @@ impl Engine {
             self.sine[(index + 1) % SINE_SIZE],
             at - index as f64,
         )
+    }
+
+    fn reset_note_references(&mut self) {
+        // The epoch invalidates references without clearing a large ledger on
+        // the audio thread. Identity storage is allocated only at construction.
+        self.note_epoch = self.note_epoch.wrapping_add(1).max(1);
+    }
+
+    fn frame_offset(&self, x: f64, y: f64) -> f64 {
+        self.pitch_span * ((0.5 - y) + (x - 0.5)) * 0.5
+    }
+
+    fn update_branch_frequencies(&mut self) {
+        for index in 0..BRANCHES {
+            if self.branch_target[index] == 0. && self.branch_envelope[index] == 0. {
+                continue;
+            }
+            let note = self.notes[self.branch_id[index]];
+            let offset = match self.pitch_mapping {
+                0 => self.pitch_span * (0.5 - self.branch_y[index]),
+                2 if self.branch_id[index] > 0 && note.epoch == self.note_epoch => {
+                    (note.offset * self.pitch_span).clamp(-4., 4.)
+                }
+                _ => self.frame_offset(self.branch_pan[index], self.branch_y[index]),
+            };
+            self.branch_frequency[index] = (self.base * 2_f64.powf(offset)).min(self.rate * 0.42);
+        }
+    }
+
+    fn note_events(&mut self, onset: bool) {
+        if self.pitch_mapping != 2 {
+            return;
+        }
+        // Read every parent before committing any note from this same onset.
+        // A child therefore inherits the parent's previous note regardless of
+        // which slot the worker assigned either voice.
+        let mut count = 0;
+        for index in 0..BRANCHES {
+            let id = self.branch_id[index];
+            if id == 0 || self.branch_presence[index] <= 0.001 || self.branch_target[index] == 0. {
+                continue;
+            }
+            let previous = self.notes[id];
+            if !onset && previous.epoch == self.note_epoch {
+                continue;
+            }
+            let parent = self.notes[self.branch_parent[index]];
+            let reference = if previous.epoch == self.note_epoch {
+                previous
+            } else if self.branch_parent[index] > 0 && parent.epoch == self.note_epoch {
+                parent
+            } else {
+                Note::default()
+            };
+            let x = self.branch_note_x[index];
+            let y = self.branch_note_y[index];
+            let mut next = reference;
+            next.epoch = self.note_epoch;
+            next.x = x;
+            next.y = y;
+            next.has_reference = reference.epoch == self.note_epoch;
+            next.reference_x = if next.has_reference { reference.x } else { x };
+            next.reference_y = if next.has_reference { reference.y } else { y };
+            if next.has_reference {
+                let dx = x - reference.x;
+                let dy = y - reference.y;
+                let distance = dx.hypot(dy);
+                if distance > 1e-6 {
+                    if reference.has_heading {
+                        let cross = reference.heading_x * dy - reference.heading_y * dx;
+                        let dot = reference.heading_x * dx + reference.heading_y * dy;
+                        let turn = cross.atan2(dot);
+                        if self.pitch_span > 0. {
+                            let current = (reference.offset * self.pitch_span).clamp(-4., 4.);
+                            next.offset = (current
+                                + turn / PI * (8. * distance).min(1.) * self.pitch_span)
+                                .clamp(-4., 4.)
+                                / self.pitch_span;
+                        }
+                    }
+                    next.heading_x = dx / distance;
+                    next.heading_y = dy / distance;
+                    next.has_heading = true;
+                }
+            } else {
+                // Store span-normalized pitch history so live Span edits also
+                // retune a held note. Span zero collapses to the register.
+                next.offset = ((0.5 - y) + (x - 0.5)) * 0.5;
+            }
+            self.pending_ids[count] = id;
+            self.pending_notes[count] = next;
+            count += 1;
+        }
+        for index in 0..count {
+            self.notes[self.pending_ids[index]] = self.pending_notes[index];
+        }
+        if count > 0 {
+            self.update_branch_frequencies();
+        }
+    }
+
+    fn observe_voices(&mut self) {
+        for index in 0..BRANCHES {
+            let at = index * 6;
+            let id = self.branch_id[index];
+            let note = self.notes[id];
+            self.voice_state[at] = id as f64;
+            self.voice_state[at + 1] = self.branch_frequency[index];
+            self.voice_state[at + 2] = note.reference_x;
+            self.voice_state[at + 3] = note.reference_y;
+            self.voice_state[at + 4] = (self.pitch_mapping == 2
+                && note.epoch == self.note_epoch
+                && note.has_reference) as u8 as f64;
+            self.voice_state[at + 5] = self.branch_parent[index] as f64;
+        }
     }
 
     fn install(&mut self, data: &[f32], count: usize) -> bool {
@@ -227,6 +401,7 @@ impl Engine {
                     0..=511 | 530..=531 => (-1., 1.),
                     534 => (0., 1_000_000.),
                     535 => (0.000_001, 1_000_000.),
+                    index if index >= 544 && (index - 544) % 6 >= 4 => (0., MAX_IDS as f64),
                     _ => (0., 1.),
                 };
                 self.table[frame][index] = bounded(*value as f64, low, high, 0.) as f32;
@@ -234,6 +409,7 @@ impl Engine {
         }
         self.frames = count;
         self.table_mix = 0.;
+        self.reset_note_references();
         true
     }
 
@@ -294,14 +470,49 @@ impl Engine {
         let mut branch_weight = 0.;
         self.branch_count = 0;
         for index in 0..BRANCHES {
-            let at = 544 + index * 4;
-            let presence = self.value(at);
-            let length = self.value(at + 3);
+            let at = 544 + index * 6;
+            let raw: [f64; 4] = std::array::from_fn(|attribute| {
+                Self::branch_value(&self.table, self.frames, self.depth, index, attribute)
+            });
+            let shape: [f64; 4] = if self.table_mix >= 1. {
+                raw
+            } else {
+                std::array::from_fn(|attribute| {
+                    lerp(
+                        Self::branch_value(
+                            &self.previous,
+                            self.previous_frames,
+                            self.depth,
+                            index,
+                            attribute,
+                        ),
+                        raw[attribute],
+                        self.table_mix,
+                    )
+                })
+            };
+            let presence = shape[0];
+            let length = shape[3];
             self.branch_target[index] = presence * length;
             branch_weight += self.branch_target[index];
-            self.branch_frequency[index] =
-                (self.base * 2_f64.powf((0.5 - self.value(at + 2)) * 3.)).min(self.rate * 0.42);
-            self.branch_pan[index] = self.value(at + 1);
+            self.branch_pan[index] = shape[1];
+            self.branch_y[index] = shape[2];
+            self.branch_note_x[index] = raw[1];
+            self.branch_note_y[index] = raw[2];
+            self.branch_presence[index] = raw[0];
+            // Identity is categorical, never interpolated with geometry or
+            // across a scene replacement. Zero is the empty/unknown identity.
+            let frame = (self.depth * self.frames.saturating_sub(1) as f64).round() as usize;
+            self.branch_id[index] = if self.frames > 0 {
+                self.table[frame][at + 4] as usize
+            } else {
+                0
+            };
+            self.branch_parent[index] = if self.frames > 0 {
+                self.table[frame][at + 5] as usize
+            } else {
+                0
+            };
             self.branch_count += (presence > 0.5 && length > 0.) as usize;
         }
         // Length controls relative prominence without amplifying a vanishing
@@ -309,6 +520,7 @@ impl Engine {
         for target in &mut self.branch_target {
             *target /= branch_weight.max(0.08);
         }
+        self.update_branch_frequencies();
         // Release is the time to -80 dB, keeping black stripes perceptible even
         // at the longest setting. Attack remains a short 4 ms smoothing time.
         self.branch_decay = (-9.210_340_372 / (self.rate * (0.008 + self.body * 0.152))).exp();
@@ -355,7 +567,8 @@ impl Engine {
                 }
             }
             self.table_mix = (self.table_mix + 1. / (self.rate * 0.06)).min(1.);
-            if self.sample_clock % 32 == 0 {
+            let refreshed = self.sample_clock % 32 == 0;
+            if refreshed {
                 self.refresh();
             }
             let valid = self.metadata[4].clamp(0., 1.);
@@ -401,13 +614,20 @@ impl Engine {
                 Self::table_value(&self.table, self.frames, self.depth, 535).max(0.000_001);
             let bucket = (threshold / period * 2.).floor() as i64;
             let white = self.frames > 0 && bucket.rem_euclid(2) == 1;
-            if white && !self.white_gate && self.playing && valid > 0.5 && self.table_mix >= 1. {
+            let onset = white && !self.white_gate;
+            if onset && self.playing && valid > 0.5 && self.table_mix >= 1. {
                 self.white_onsets += 1;
+            }
+            if white && self.playing && (onset || refreshed) {
+                self.note_events(onset);
             }
             self.white_gate = white;
             let mut rhythm = [0.; 2];
             for index in 0..BRANCHES {
                 let target = if white { self.branch_target[index] } else { 0. };
+                if target == 0. && self.branch_envelope[index] == 0. {
+                    continue;
+                }
                 if target > self.branch_envelope[index] {
                     self.branch_envelope[index] +=
                         (target - self.branch_envelope[index]) * self.branch_attack;
@@ -489,11 +709,36 @@ impl Engine {
 
 #[no_mangle]
 pub extern "C" fn stair_abi_version() -> u32 {
-    2
+    3
 }
 #[no_mangle]
 pub extern "C" fn stair_state_len() -> usize {
     12
+}
+#[no_mangle]
+pub extern "C" fn stair_voice_capacity() -> usize {
+    BRANCHES
+}
+#[no_mangle]
+pub unsafe extern "C" fn stair_voice_state(engine: *mut Engine) -> *const f64 {
+    let Some(engine) = engine.as_mut() else {
+        return std::ptr::null();
+    };
+    engine.observe_voices();
+    engine.voice_state.as_ptr()
+}
+#[no_mangle]
+pub unsafe extern "C" fn stair_pitch(engine: *mut Engine, mapping: u32, span: f64) -> u32 {
+    let Some(engine) = engine.as_mut() else {
+        return 0;
+    };
+    let mapping = mapping.min(2);
+    if mapping != engine.pitch_mapping {
+        engine.pitch_mapping = mapping;
+        engine.reset_note_references();
+    }
+    engine.pitch_span = bounded(span, 0., 6., 3.);
+    1
 }
 #[no_mangle]
 pub extern "C" fn stair_alloc(bytes: usize) -> *mut u8 {
@@ -586,6 +831,7 @@ pub unsafe extern "C" fn stair_seek(engine: *mut Engine, depth: f64, direction: 
     } else {
         1.
     };
+    engine.reset_note_references();
     engine.observe();
     1
 }
@@ -650,18 +896,36 @@ mod tests {
         let mut table = vec![0.; MAX_FRAMES * STRIDE];
         for frame in 0..MAX_FRAMES {
             table[frame * STRIDE + 532] = 1.;
+            table[frame * STRIDE + 534] = frame as f32 * 4.;
+            table[frame * STRIDE + 535] = 1.;
+            for index in 0..BRANCHES {
+                let at = frame * STRIDE + 544 + index * 6;
+                table[at] = if index % 2 == 0 || frame >= 16 {
+                    1.
+                } else {
+                    0.
+                };
+                table[at + 1] = index as f32 / BRANCHES as f32;
+                table[at + 2] = frame as f32 / MAX_FRAMES as f32;
+                table[at + 3] = 0.2;
+                table[at + 4] = (index + 1) as f32;
+                table[at + 5] = if index % 2 == 1 { index as f32 } else { 0. };
+            }
         }
         let mut left = [0.; 128];
         let mut right = [0.; 128];
         OPS.with(|n| n.set(0));
         TRACK.with(|t| t.set(true));
         engine.install(&table, MAX_FRAMES);
-        engine.controls(3, 220., 0.8, 0.6, 0.5, 5.);
+        engine.controls(2, 220., 0.8, 0.6, 0.5, 2.);
+        engine.pitch_mapping = 2;
         engine.playing = true;
         engine.enabled = true;
         for _ in 0..1000 {
             engine.process(&mut left, &mut right);
         }
+        engine.observe_voices();
+        engine.reset_note_references();
         engine.install(&table, MAX_FRAMES);
         TRACK.with(|t| t.set(false));
         assert_eq!(OPS.with(Cell::get), 0);
