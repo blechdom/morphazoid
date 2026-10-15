@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
     <meta name="theme-color" content="#071011" />
     <meta name="description" content="A Rust WebAssembly resonator with up to 4,096 simultaneous modes, adjustable spectral density and FFT input resynthesis." />
-    <title>Rust Resonator &mdash; Morphazoid</title>
+    <title>Rezoidinator &mdash; Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
     <link rel="stylesheet" href="src/instruments/simd-resonator-rust/style.css" />
@@ -17,13 +17,13 @@
         <span>morphazoid</span>
       </a>
       <nav class="tabs" aria-label="Instrument">
-        <a class="tab active" href="simd-resonator-rust.html" aria-current="page">rust resonator</a>
+        <a class="tab active" href="simd-resonator-rust.html" aria-current="page">rezoidinator</a>
         <a class="tab" href="simd-lab.html">simd lab</a>
       </nav>
       <label class="mobile-instrument-nav">
         <span class="sr-only">Instrument</span>
         <select class="mobile-instrument-select" aria-label="Instrument">
-          <option value="simd-resonator-rust.html" selected>rust resonator</option>
+          <option value="simd-resonator-rust.html" selected>rezoidinator</option>
           <option value="simd-resonator.html">simd resonator</option>
           <option value="simd-lab.html">simd audio lab</option>
         </select>
@@ -41,9 +41,9 @@
     </header>
 
     <main class="shell simd-resonator-shell" id="simd-resonator-rust">
-      <section class="stage simd-resonator-stage" aria-label="Rust Resonator instrument">
+      <section class="stage simd-resonator-stage" aria-label="Rezoidinator instrument">
         <div class="simd-stage-heading">
-          <h1>Rust Resonator</h1>
+          <h1>Rezoidinator</h1>
         </div>
         <div class="simd-canvas-wrap" id="canvasWrap">
           <canvas
@@ -60,21 +60,21 @@
         <p id="liveStatus" class="sr-only" aria-live="polite">Audio is off. Microphone is off.</p>
       </section>
 
-      <aside class="panel simd-resonator-panel" data-instrument-preset-host aria-label="Rust Resonator controls">
+      <aside class="panel simd-resonator-panel" data-instrument-preset-host aria-label="Rezoidinator controls">
         <details class="group control-section simd-input" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
-          <div class="group-body">
-            <button id="pluckButton" data-primary-transport class="simd-primary-action simd-demo-action" type="button">PLUCK BODY</button>
-            <select id="inputSource" aria-label="Input source">
-              <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">File</option>
-            </select>
+          <div class="group-body rezo-input-controls">
+            <div class="rezo-excitation-row"><button id="pluckButton" data-primary-transport class="mini-action rezo-pluck" type="button">Pluck</button></div>
+            <label class="rezo-choice" for="inputSource"><span>Source</span><select id="inputSource" aria-label="Input source">
+              <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">Audio file</option>
+            </select></label>
             <div id="recordedInputControls" class="simd-recorded-input" hidden>
-              <label id="inputSampleControl" for="inputSample"><span>Sample</span><select id="inputSample"></select></label>
-              <div class="simd-input-transport">
-                <button id="inputPlay" type="button" aria-pressed="false">Play input</button>
-                <label for="inputLoop"><input id="inputLoop" type="checkbox" checked /> Loop</label>
+              <label id="inputSampleControl" class="rezo-choice" for="inputSample"><span>Sample</span><select id="inputSample"></select></label>
+              <div id="inputFileControl" hidden><button id="chooseInputFile" class="mini-action" type="button">Choose audio file</button></div>
+              <div class="rezo-input-transport">
+                <button id="inputPlay" class="rezo-round-transport" type="button" aria-pressed="false" aria-label="Play input" title="Play input"><span aria-hidden="true">▶</span></button>
+                <label class="rezo-toggle" for="inputLoop"><input id="inputLoop" type="checkbox" checked /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Loop</span></label>
               </div>
-              <p id="inputStatus" class="simd-note" role="status"></p>
               <p id="inputCredit" class="simd-note" hidden></p>
             </div>
             <input id="inputFile" type="file" accept="audio/*" hidden />
@@ -82,7 +82,6 @@
               <span class="simd-mic-mark" aria-hidden="true"></span>
               <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>
             </button>
-            <p class="simd-note">Mic stays local. Use headphones to prevent feedback.</p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
           </div>
         </details>
@@ -141,9 +140,45 @@
           <dl><dt>Active backend</dt><dd id="backendMetric">not loaded</dd><dt>Audio callback</dt><dd id="callbackMetric">—</dd><dt>Modal kernel</dt><dd id="kernelMetric">—</dd></dl>
           <p class="simd-note">Capacity depends on the device. Reduce Waves if audio breaks up. <a href="docs/simd-resonator-rust.md">Model and measurements</a></p>
         </div></details>
+        <details class="group control-section rezo-surround" id="surroundSection" open>
+          <summary class="group-summary"><h2 class="group-title">Surround</h2><span class="section-state" id="surroundSummary">Stereo</span></summary>
+          <div class="group-body">
+            <label class="rezo-toggle" for="surroundEnabled"><input id="surroundEnabled" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Surround</span></label>
+            <div id="surroundOptions" hidden>
+              <label class="rezo-choice" for="surroundLayout"><span>Speakers</span><select id="surroundLayout" aria-label="Speaker layout">
+                <option value="4-ring">4 · Ring</option><option value="8-circle" selected>8 · Circle</option><option value="16-ring">16 · Ring</option><option value="4-1">4.1</option><option value="7-4-1">7:4:1</option><option value="8-cube">8 · Cube</option>
+              </select></label>
+              <label class="rezo-choice" for="spaceTarget"><span>Spread</span><select id="spaceTarget" aria-label="Spatial sound source"><option value="both">Body + FFT</option><option value="modes">Body modes</option><option value="fft">FFT frequencies</option></select></label>
+              <label class="rezo-choice" for="spacePattern"><span>Order</span><select id="spacePattern" aria-label="Spatial frequency order"><option value="ascending">Low to high</option><option value="descending">High to low</option><option value="alternate">Alternating</option><option value="scatter">Scattered</option></select></label>
+              <div class="simd-control-list">
+                <label for="spaceSpan"><span>Spread turns<output id="spaceSpanOut" for="spaceSpan">1</output></span><input id="spaceSpan" type="range" min="0" max="4" step="0.01" value="1" /></label>
+                <label for="spaceOffset"><span>Position<output id="spaceOffsetOut" for="spaceOffset">0°</output></span><input id="spaceOffset" type="range" min="0" max="1" step="0.005" value="0" /></label>
+                <label for="spaceRate"><span>Turns / sec<output id="spaceRateOut" for="spaceRate">0.05</output></span><input id="spaceRate" type="range" min="-1" max="1" step="0.005" value="0.05" /></label>
+              </div>
+              <div class="rezo-surround-toggles">
+                <label class="rezo-toggle" for="spaceMotion"><input id="spaceMotion" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Rotate</span></label>
+                <label class="rezo-toggle" for="surroundPreview"><input id="surroundPreview" type="checkbox" /><span class="rezo-toggle-track" aria-hidden="true"></span><span>Stereo preview</span></label>
+              </div>
+              <p id="surroundStatus" class="simd-note" role="status"></p>
+              <div id="surroundMeters" class="rezo-channel-meters" aria-label="Surround channel levels"></div>
+              <details class="rezo-channel-map"><summary>Channel order</summary><p id="surroundChannelMap" class="simd-note"></p></details>
+            </div>
+            <div id="multitrackControls" class="rezo-recording" aria-label="Multichannel recording">
+              <div><button id="multitrackRecord" class="mini-action" type="button" aria-pressed="false" disabled>Record multitrack</button><output id="multitrackTime" aria-label="Recording duration">00:00</output></div>
+              <p id="multitrackHint" class="simd-note">Turn on Audio and Surround to record speaker channels.</p>
+            </div>
+          </div>
+        </details>
         <div class="simd-panel-footer"><button id="resetButton" type="button">Reset</button><a href="simd-resonator.html">Original resonator</a></div>
       </aside>
     </main>
+    <dialog id="multitrackDialog" class="rezo-recording-dialog" aria-labelledby="multitrackTitle">
+      <h2 id="multitrackTitle">Multichannel recording</h2>
+      <p id="multitrackSummary"></p><p id="multitrackMessage" role="status"></p>
+      <details><summary>Channel order</summary><p id="multitrackChannelMap"></p></details>
+      <div class="rezo-export-actions"><button id="multitrackFolder" class="mini-action" type="button">Save tracks to folder</button><button id="multitrackZip" class="mini-action" type="button">Download tracks ZIP</button><button id="multitrackWav" class="mini-action" type="button">Download multichannel WAV</button></div>
+      <div class="rezo-export-actions"><button id="multitrackDiscard" class="mini-action" type="button">Discard take</button><button id="multitrackClose" class="mini-action" type="button">Close</button></div>
+    </dialog>
     <script type="module" src="nav.js"></script>
     <script type="module" src="src/instruments/simd-resonator-rust/app.js"></script>
   </body>

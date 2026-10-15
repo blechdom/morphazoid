@@ -74,10 +74,10 @@
       "mode": "live"
     },
     {
-      "label": "Rust Resonator",
+      "label": "Rezoidinator",
       "route": "simd-resonator-rust.html",
       "owner": "src/instruments/simd-resonator-rust/app.js",
-      "mode": "mic/file"
+      "mode": "live"
     },
     {
       "label": "SIMD Audio Lab",

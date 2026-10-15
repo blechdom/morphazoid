@@ -7,9 +7,15 @@ const time = seconds => `${Math.floor(seconds / 60).toString().padStart(2, "0")}
 
 /** One clock, one immutable physical patch, and both exports from the same take. */
 export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = document, runtime = globalThis }) {
+  return mountChannelRecording({ audio, getPatch, onLockChange, doc, runtime });
+}
+
+/** Shared by instruments with the same physical speaker patch and capture UI. */
+export function mountChannelRecording({ audio, getPatch, onLockChange, doc = document, runtime = globalThis,
+  instrumentName = 'SPARTIAL', namePrefix = 'spartial', labels = {}, Recorder = OutputRecorder }) {
   const $ = id => doc.getElementById(id);
   const row = $("multitrackControls");
-  if (runtime.MorphazoidWAX) { row.hidden = true; return { locked: false, update() {}, stop() {}, destroy() {} }; }
+  if (runtime.MorphazoidWAX) { row.hidden = true; return { locked: false, update() {}, stop() {}, destroy() {}, getStatus: () => ({ state: 'idle' }) }; }
   const button = $("multitrackRecord");
   const clock = $("multitrackTime");
   const hint = $("multitrackHint");
@@ -26,15 +32,18 @@ export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = do
   let busy = false, destroyed = false, exported = false, lastState = "idle";
   let tracksPromise = null;
   const urls = new Map();
+  const listeners = [];
+  const listen = (target, event, handler) => { target.addEventListener(event, handler); listeners.push(() => target.removeEventListener(event, handler)); };
   const open = () => { if (!destroyed && !dialog.open) dialog.showModal(); };
   function update() {
+    if (destroyed) return;
     const locked = active(status.state);
     const ready = Boolean(status.blob);
     const patch = getPatch();
     const count = spartialLayout(patch.layoutId).speakers.length;
     const maxSeconds = (locked || ready) ? status.maxSeconds : Math.floor((MAX_MEMORY_BYTES - 68) / (count * 3)) / audio.recordingSampleRate();
     button.textContent = status.state === "starting" ? "Cancel recording" : status.state === "stopping" ? "Finishing…"
-      : locked ? "Stop multitrack" : ready ? "Export multitrack" : "Record multitrack";
+      : locked ? labels.stop || "Stop multitrack" : ready ? labels.export || "Export multitrack" : labels.record || "Record multitrack";
     button.setAttribute("aria-pressed", String(locked));
     button.dataset.state = status.state;
     button.disabled = !supported || status.state === "stopping" || busy || (!locked && !ready && !audio.canRecord());
@@ -42,12 +51,13 @@ export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = do
     hint.textContent = !supported ? "Recording needs a browser with AudioWorklet support."
       : ready ? `${status.channelCount} tracks · 24-bit WAV · take ready`
       : locked ? `${status.channelCount} tracks · stops at ${time(maxSeconds)} · speaker setup locked`
-      : !audio.canRecord() ? "Turn Audio on to record all speaker channels."
+      : !audio.canRecord() ? labels.unavailable || "Turn Audio on to record all speaker channels."
       : `${count} tracks · up to ${time(maxSeconds)} per take · folder / ZIP + multichannel WAV`;
     for (const control of [folder, zip, wav, discard]) control.disabled = busy || !ready;
     onLockChange?.(locked);
   }
   function changed(next) {
+    if (destroyed) return;
     status = next;
     update();
     if (next.state === "ready" && lastState !== "ready") {
@@ -62,17 +72,20 @@ export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = do
     }
     lastState = next.state;
   }
-  button.addEventListener("click", async () => {
+  listen(button, "click", async () => {
     if (active(status.state)) { await recorder.stop(); return; }
     if (status.blob) { open(); return; }
-    const patch = getPatch();
+    if (!audio.canRecord()) { update(); return; }
+    // Musical controls may continue changing during a take. Capture plain
+    // metadata now instead of retaining references to their mutable objects.
+    const patch = JSON.parse(JSON.stringify(getPatch()));
     const layout = spartialLayout(patch.layoutId);
     const createdAt = new Date();
-    metadata = { ...patch, layoutName: layout.name, speakers: layout.speakers.map(speaker => ({ ...speaker })), createdAt,
-      name: `spartial-${createdAt.toISOString().replace(/[:.]/g, "-")}` };
+    metadata = { ...patch, instrumentName, namePrefix, layoutName: layout.name, speakers: layout.speakers.map(speaker => ({ ...speaker })), createdAt,
+      name: `${namePrefix}-${createdAt.toISOString().replace(/[:.]/g, "-")}` };
     exported = false; tracksPromise = null;
     void recorder?.destroy();
-    recorder = new OutputRecorder({ manager: audio, channelCount: layout.speakers.length, runtime, onchange: changed });
+    recorder = new Recorder({ manager: audio, channelCount: layout.speakers.length, runtime, onchange: changed });
     try { await recorder.start({ filename: `${metadata.name}.wav` }); }
     catch (error) { hint.textContent = error.message; }
   });
@@ -95,7 +108,7 @@ export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = do
     catch (error) { message.textContent = error.name === "AbortError" ? "Save cancelled. Your take is still available." : `Could not save: ${error.message}. Your take is still available.`; }
     finally { busy = false; tracksPromise = null; update(); }
   }
-  folder.addEventListener("click", () => {
+  listen(folder, "click", () => {
     if (busy || !status.blob) return;
     // The picker must begin in this click, before any encoding/await.
     let selection;
@@ -108,32 +121,37 @@ export function mountSpartialRecording({ audio, getPatch, onLockChange, doc = do
       message.textContent = `Saved tracks and channel map in ${name}.`;
     });
   });
-  zip.addEventListener("click", () => void save(async () => {
+  listen(zip, "click", () => void save(async () => {
     const take = await tracks();
     download(await createSpartialZip(take.files, take.name), `${take.name}.zip`);
     message.textContent = "Tracks ZIP download started. Extract it to get the take folder.";
   }));
-  wav.addEventListener("click", () => void save(async () => {
+  listen(wav, "click", () => void save(async () => {
     download(status.blob, `${metadata.name}-multichannel.wav`);
     message.textContent = "Multichannel WAV download started. Channels follow the numbered speaker patch; the tracks export includes a channel map.";
   }));
-  discard.addEventListener("click", () => {
+  listen(discard, "click", () => {
     if (busy) return;
     recorder.discard(); tracksPromise = null; metadata = null; exported = false; dialog.close();
   });
-  $("multitrackClose").addEventListener("click", () => dialog.close());
-  dialog.addEventListener("cancel", event => { if (busy) event.preventDefault(); });
+  listen($("multitrackClose"), "click", () => dialog.close());
+  listen(dialog, "cancel", event => { if (busy) event.preventDefault(); });
   function beforeUnload(event) {
     if (active(status.state) || (status.blob && status.frames > 0 && !exported) || busy) { event.preventDefault(); event.returnValue = ""; }
   }
-  runtime.addEventListener("beforeunload", beforeUnload);
+  listen(runtime, "beforeunload", beforeUnload);
   update();
   return {
     get locked() { return active(status.state); },
+    getStatus() {
+      const { blob, ...plain } = status;
+      return { ...plain, hasTake: Boolean(blob), metadata: metadata ? JSON.parse(JSON.stringify(metadata)) : null };
+    },
     update,
     stop(reason = "interrupted") { return recorder?.stop(reason); },
     destroy() {
-      destroyed = true; runtime.removeEventListener("beforeunload", beforeUnload);
+      if (destroyed) return;
+      destroyed = true; for (const remove of listeners) remove();
       for (const [url, timer] of urls) { runtime.clearTimeout(timer); runtime.URL.revokeObjectURL(url); }
       urls.clear(); tracksPromise = null; void recorder?.destroy();
     },

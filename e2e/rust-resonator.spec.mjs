@@ -1,6 +1,96 @@
 import { expect, test } from "@playwright/test";
+import { readFile } from "node:fs/promises";
 
 const read = page => page.evaluate(() => globalThis.__MORPHAZOID_RUST_RESONATOR__.getState());
+
+test('Rezoidinator places only microphone controls in the menubar and keeps compact source controls beside the body', async ({ page }) => {
+  await page.goto('simd-resonator-rust.html');
+  await expect(page.locator('h1')).toHaveText('Rezoidinator');
+  await expect(page.locator('.masthead #micButton')).toHaveCount(1);
+  await expect(page.locator('.panel #inputSource')).toHaveCount(1);
+  await expect(page.locator('.panel [data-select-id="inputSource"]')).toBeVisible();
+  await expect(page.locator('#inputStatus')).toHaveCount(0);
+  await expect(page.getByText('Mic stays local. Use headphones to prevent feedback.', { exact: true })).toHaveCount(0);
+  const pluck = await page.locator('#pluckButton').boundingBox();
+  expect(pluck.height).toBeLessThanOrEqual(36); expect(pluck.width).toBeLessThan(120);
+  await choose(page, 'inputSource', 'file');
+  await expect(page.locator('#chooseInputFile')).toBeVisible();
+  const input = await page.locator('#inputPlay').boundingBox();
+  expect(input.width).toBe(input.height); expect(input.height).toBeLessThanOrEqual(36);
+});
+
+test('surround presets and routing preserve live input, output level and recording channels', async ({ page }, info) => {
+  const errors = []; page.on('pageerror', error => errors.push(error.message));
+  await page.goto('simd-resonator-rust.html');
+  await choose(page, 'inputSource', 'sample-file'); await choose(page, 'inputSample', 'music-arp');
+  await toggle(page, 'surroundEnabled'); await choose(page, 'surroundLayout', '7-4-1');
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await read(page)).input.playing).toBe(true);
+  await expect.poll(async () => (await read(page)).spatialEnabled).toBe(true);
+  await expect.poll(async () => (await read(page)).spatialPeaks.filter(value => value > .00001).length).toBeGreaterThan(3);
+  await setRange(page, 'outputLevel', .35);
+  const before = await read(page);
+  await choose(page, 'surroundLayout', '16-ring');
+  await expect.poll(async () => (await read(page)).surround.channelCount).toBe(16);
+  await choose(page, 'surroundLayout', '7-4-1');
+  await expect.poll(async () => (await read(page)).surround.channelCount).toBe(12);
+  await page.locator('#multitrackRecord').click();
+  await expect.poll(async () => (await read(page)).recording.state).toBe('recording');
+  await expect(page.locator('#surroundEnabled')).toBeDisabled(); await expect(page.locator('#surroundLayout')).toBeDisabled();
+  await toggle(page, 'surroundPreview');
+  await page.locator('.header-preset-random').click(); await preset(page, 'vowel-glass');
+  const after = await read(page);
+  expect(after.inputPlaybackRevision).toBe(before.inputPlaybackRevision);
+  expect(after.surround).toMatchObject({ enabled: true, layoutId: '7-4-1', forcePreview: true, channelCount: 12 });
+  expect(after.recording.state).toBe('recording'); expect(after.outputLevel).toBeCloseTo(.35);
+  await expect.poll(async () => (await read(page)).recording.seconds).toBeGreaterThan(.4);
+  await page.locator('#multitrackRecord').click();
+  await expect(page.locator('#multitrackDialog')).toBeVisible();
+  const downloadPromise = page.waitForEvent('download'); await page.locator('#multitrackWav').click();
+  const download = await downloadPromise; const path = info.outputPath('rezoidinator-12ch.wav'); await download.saveAs(path);
+  const bytes = await readFile(path);
+  expect(bytes.readUInt16LE(22)).toBe(12); expect(bytes.readUInt16LE(34)).toBe(24);
+  let data = 12;
+  while (bytes.toString('ascii', data, data + 4) !== 'data') data += 8 + bytes.readUInt32LE(data + 4);
+  const size = bytes.readUInt32LE(data + 4); data += 8;
+  const layout = await page.evaluate(async () => (await import('./src/instruments/spartial/spartial-audio.js')).spartialLayout('7-4-1'));
+  const lfe = layout.speakers.find(speaker => speaker.kind === 'lfe').channel - 1;
+  const peaks = new Array(12).fill(0), signatures = new Array(12).fill(0);
+  for (let offset = data, frame = 0; offset < data + size; offset += 36, frame++) for (let channel = 0; channel < 12; channel++) {
+    const value = bytes.readIntLE(offset + channel * 3, 3); peaks[channel] = Math.max(peaks[channel], Math.abs(value));
+    signatures[channel] += value * (1 + frame % 13);
+  }
+  expect(peaks[lfe]).toBe(0); expect(peaks.filter(peak => peak > 10).length).toBeGreaterThan(3);
+  expect(new Set(signatures).size).toBeGreaterThan(4); expect(download.suggestedFilename()).toMatch(/^rezoidinator-.*multichannel\.wav$/);
+  await page.locator('#multitrackDiscard').click();
+  await page.locator('#multitrackRecord').click();
+  await expect.poll(async () => (await read(page)).recording.state).toBe('recording');
+  await page.locator('#audioButton').click();
+  await expect.poll(async () => (await read(page)).contextState).toBe('none');
+  await expect.poll(async () => (await read(page)).recording.state).toBe('ready');
+  expect(errors).toEqual([]);
+});
+
+test('surround controls and recording remain reachable on coarse-pointer phone layouts', async ({ browser }) => {
+  for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }]) {
+    const context = await browser.newContext({ viewport, hasTouch: true, isMobile: true });
+    const page = await context.newPage();
+    await page.goto(test.info().project.use.baseURL + 'simd-resonator-rust.html');
+    await toggle(page, 'surroundEnabled'); await choose(page, 'surroundLayout', '16-ring');
+    await page.locator('#spaceRate').scrollIntoViewIfNeeded(); await expect(page.locator('#spaceRate')).toBeVisible();
+    await page.locator('#multitrackRecord').scrollIntoViewIfNeeded(); await expect(page.locator('#multitrackRecord')).toBeVisible();
+    await page.locator('#pluckButton').scrollIntoViewIfNeeded();
+    const pluck = await page.locator('#pluckButton').boundingBox(); expect(pluck.height).toBeGreaterThanOrEqual(48);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
+    await context.close();
+  }
+});
+async function choose(page, id, value) {
+  const index = await page.locator('#' + id).evaluate((select, next) => [...select.options].findIndex(option => option.value === next), value);
+  await page.locator(`[data-select-id="${id}"] > summary`).click();
+  await page.locator(`[data-select-id="${id}"] button[data-option-index="${index}"]`).click();
+}
+async function toggle(page, id) { await page.locator(`label[for="${id}"]`).click(); }
 async function preset(page, id) {
   await page.locator(".header-preset-picker > summary").click();
   await page.locator(`button[data-preset-id="classic:resonator:${id}"]`).click();
@@ -10,13 +100,15 @@ async function setRange(page, id, value) {
     input.value = String(next); input.dispatchEvent(new Event("input", { bubbles: true }));
   }, value);
 }
-function wav(seconds = .12) {
-  const rate = 48000, frames = Math.round(rate * seconds), bytes = Buffer.alloc(44 + frames * 2);
+function wav(seconds = .12, channels = 1) {
+  const rate = 48000, frames = Math.round(rate * seconds), bytes = Buffer.alloc(44 + frames * channels * 2);
   bytes.write("RIFF", 0); bytes.writeUInt32LE(bytes.length - 8, 4); bytes.write("WAVEfmt ", 8);
-  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(1, 22);
-  bytes.writeUInt32LE(rate, 24); bytes.writeUInt32LE(rate * 2, 28); bytes.writeUInt16LE(2, 32); bytes.writeUInt16LE(16, 34);
-  bytes.write("data", 36); bytes.writeUInt32LE(frames * 2, 40);
-  for (let index = 0; index < frames; index++) bytes.writeInt16LE(Math.round(Math.sin(index * 440 * Math.PI * 2 / rate) * 8000), 44 + index * 2);
+  bytes.writeUInt32LE(16, 16); bytes.writeUInt16LE(1, 20); bytes.writeUInt16LE(channels, 22);
+  bytes.writeUInt32LE(rate, 24); bytes.writeUInt32LE(rate * channels * 2, 28); bytes.writeUInt16LE(channels * 2, 32); bytes.writeUInt16LE(16, 34);
+  bytes.write("data", 36); bytes.writeUInt32LE(frames * channels * 2, 40);
+  // Stereo fixture has sound only on the right: both input channels must reach
+  // mono FFT analysis even though the separate output bank is discrete.
+  for (let index = 0; index < frames; index++) bytes.writeInt16LE(Math.round(Math.sin(index * 440 * Math.PI * 2 / rate) * 8000), 44 + (index * channels + channels - 1) * 2);
   return bytes;
 }
 
@@ -33,8 +125,8 @@ test("full presets, dice and source choices leave Audio off and never request mi
   await page.locator(".header-preset-next").click();
   await page.locator(".header-preset-random").click();
   await expect(page.locator(".header-preset-controls")).toHaveAttribute("data-preset-id", "custom");
-  await page.locator("#inputSource").selectOption("sample-file");
-  await page.locator("#inputSample").selectOption("music-plucks");
+  await choose(page, "inputSource", "sample-file");
+  await choose(page, "inputSample", "music-plucks");
   await page.locator("#inputPlay").click();
   expect((await read(page)).audioOn).toBe(false);
   expect((await read(page)).input.playing).toBe(false);
@@ -43,8 +135,8 @@ test("full presets, dice and source choices leave Audio off and never request mi
 
 test("sample feeds the FFT while preset, Next, dice and tweaks preserve its source and levels", async ({ page }) => {
   await page.goto("simd-resonator-rust.html");
-  await page.locator("#inputSource").selectOption("sample-file");
-  await page.locator("#inputSample").selectOption("music-arp");
+  await choose(page, "inputSource", "sample-file");
+  await choose(page, "inputSample", "music-arp");
   await page.locator("#audioButton").click();
   await expect.poll(async () => (await read(page)).input.playing).toBe(true);
   await expect.poll(async () => (await read(page)).fftInputPeak).toBeGreaterThan(.0001);
@@ -77,8 +169,8 @@ test("pending sample fetches cannot restart after Stop, source change or Audio o
     await route.fulfill({ contentType: "audio/wav", body: wav() }).catch(() => {});
   });
   await page.goto("simd-resonator-rust.html");
-  await page.locator("#inputSource").selectOption("sample-file");
-  await page.locator("#inputSample").selectOption("music-plucks");
+  await choose(page, "inputSource", "sample-file");
+  await choose(page, "inputSample", "music-plucks");
   await page.locator("#audioButton").click();
   await expect.poll(async () => (await read(page)).audioOn).toBe(true);
   await expect.poll(async () => (await read(page)).input.pending).toBe(true);
@@ -86,9 +178,9 @@ test("pending sample fetches cannot restart after Stop, source change or Audio o
   expect((await read(page)).input.pending).toBe(false);
   await page.locator("#inputPlay").click();
   await expect.poll(async () => (await read(page)).input.pending).toBe(true);
-  await page.locator("#inputSource").selectOption("mic");
+  await choose(page, "inputSource", "mic");
   expect((await read(page)).input).toMatchObject({ mode: "mic", playing: false, pending: false });
-  await page.locator("#inputSource").selectOption("sample-file");
+  await choose(page, "inputSource", "sample-file");
   await expect.poll(async () => (await read(page)).input.pending).toBe(true);
   await page.locator("#audioButton").click();
   release();
@@ -99,8 +191,8 @@ test("pending sample fetches cannot restart after Stop, source change or Audio o
 
 test("short speech input repeats past its third loop without restarting its source", async ({ page }) => {
   await page.goto("simd-resonator-rust.html");
-  await page.locator("#inputSource").selectOption("sample-file");
-  await page.locator("#inputSample").selectOption("speech");
+  await choose(page, "inputSource", "sample-file");
+  await choose(page, "inputSample", "speech");
   await page.locator("#audioButton").click();
   await expect.poll(async () => (await read(page)).input.playing).toBe(true);
   const initial = await read(page);
@@ -113,15 +205,16 @@ test("short speech input repeats past its third loop without restarting its sour
   expect(repeated.input).toMatchObject({ sampleId: "speech", playing: true, loop: true });
 });
 
-test("uploaded audio stays muted until Audio is armed, ends once, and can replay", async ({ page }) => {
+test("uploaded stereo audio reaches mono analysis, stays muted until Audio is armed, ends once, and can replay", async ({ page }) => {
   await page.goto("simd-resonator-rust.html");
-  await page.locator("#inputSource").selectOption("file");
-  await page.locator("#inputFile").setInputFiles({ name: "short-tone.wav", mimeType: "audio/wav", buffer: wav() });
+  await choose(page, "inputSource", "file");
+  await page.locator("#inputFile").setInputFiles({ name: "short-tone.wav", mimeType: "audio/wav", buffer: wav(.5, 2) });
   await expect.poll(async () => (await read(page)).input.pending).toBe(false);
   expect((await read(page)).audioOn).toBe(false);
   expect((await read(page)).input).toMatchObject({ hasFile: true, playing: false });
-  await page.locator("#inputLoop").uncheck();
+  await toggle(page, "inputLoop");
   await page.locator("#audioButton").click();
+  await expect.poll(async () => (await read(page)).fftInputPeak).toBeGreaterThan(.01);
   await expect.poll(async () => (await read(page)).input.ended).toBe(true);
   expect((await read(page)).inputPlaybackRevision).toBe(1);
   await page.locator("#inputPlay").click();
@@ -133,11 +226,11 @@ test("new controls remain reachable at desktop and phone sizes; Lab keeps its fo
   for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 }, { width: 844, height: 390 }]) {
     await page.setViewportSize(viewport); await page.goto("simd-resonator-rust.html");
     await expect(page.locator(".header-preset-picker")).toBeVisible();
-    await page.locator("#inputSource").selectOption("sample-file");
+    await choose(page, "inputSource", "sample-file");
     await page.locator("#inputPlay").scrollIntoViewIfNeeded();
     await expect(page.locator("#inputPlay")).toBeVisible();
-    await page.locator("#inputSample").scrollIntoViewIfNeeded();
-    await expect(page.locator("#inputSample")).toBeVisible();
+    await page.locator('[data-select-id="inputSample"] > summary').scrollIntoViewIfNeeded();
+    await expect(page.locator('[data-select-id="inputSample"] > summary')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth)).toBeLessThanOrEqual(1);
   }
   await page.goto("simd-lab.html");
@@ -149,8 +242,8 @@ test("new controls remain reachable at desktop and phone sizes; Lab keeps its fo
 test('all twenty presets retain live input; maximum bank keeps rendering through a UI stall', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await page.goto('simd-resonator-rust.html');
-  await page.locator('#inputSource').selectOption('sample-file');
-  await page.locator('#inputSample').selectOption('music-arp');
+  await choose(page, "inputSource", 'sample-file');
+  await choose(page, "inputSample", 'music-arp');
   await page.locator('#audioButton').click();
   await expect.poll(async () => (await read(page)).input.playing).toBe(true);
   const initial = await read(page);
@@ -164,6 +257,9 @@ test('all twenty presets retain live input; maximum bank keeps rendering through
   await expect(page.locator('.header-preset-controls')).toHaveAttribute('data-preset-id', bank[0].id);
   await setRange(page, 'controlA', 4096); await setRange(page, 'spectralSpan', 128);
   await page.locator('#fftSize').selectOption('4096'); await setRange(page, 'fftHopRatio', .125);
+  await toggle(page, 'surroundEnabled'); await choose(page, 'surroundLayout', '16-ring');
+  await toggle(page, 'spaceMotion'); await setRange(page, 'spaceRate', .2);
+  await expect.poll(async () => (await read(page)).spatialEnabled).toBe(true);
   await expect.poll(async () => (await read(page)).renderedModeCount).toBe(4096);
   const before = await read(page);
   await page.evaluate(() => { const until = performance.now() + 450; while (performance.now() < until) {} });
@@ -171,6 +267,7 @@ test('all twenty presets retain live input; maximum bank keeps rendering through
   const after = await read(page);
   expect(after.inputPlaybackRevision).toBe(initial.inputPlaybackRevision);
   expect(after.audioOn).toBe(true); expect(after.input.playing).toBe(true);
+  expect(after.spatialPeaks.every(value => Number.isFinite(value) && value <= .951)).toBe(true);
   await expect.poll(async () => (await read(page)).fftOutputPeak).toBeGreaterThan(.01);
   expect(errors).toEqual([]);
 });
@@ -284,7 +381,7 @@ for (const viewport of [{ width: 1440, height: 900 }, { width: 390, height: 844 
     }
     await page.locator('#controlA').scrollIntoViewIfNeeded();
     const geometry = await page.evaluate(() => {
-      const labels = [...document.querySelectorAll('.simd-control-list label.mz-range-knob')];
+      const labels = [...document.querySelectorAll('.simd-control-list label.mz-range-knob')].filter(label => label.getClientRects().length);
       return labels.map(label => {
         const field = label.getBoundingClientRect(), dial = label.querySelector('.mz-range-knob__dial').getBoundingClientRect(), output = label.querySelector('output').getBoundingClientRect();
         return { width: field.width, height: field.height, separated: output.top >= dial.bottom };

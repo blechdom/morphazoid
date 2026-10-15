@@ -1,0 +1,140 @@
+{
+  "generatedAt": "2026-10-15T04:22:36.971662+00:00",
+  "environment": {
+    "commit": "fc13ed4d1df771e038a1cb7e4feab84cd19af93a",
+    "node": "v22.23.2",
+    "platform": "linux",
+    "architecture": "arm64",
+    "cpuModel": "not reported by node:os",
+    "cpuAffinity": "not pinned",
+    "sourcesSha256": {
+      "src/instruments/simd-resonator-rust/rust/kernel.rs": "c456b7855a72737bd1f79027891bcf348277d24cba5c730ca30cd88542aac9b0",
+      "src/instruments/simd-resonator-rust/model.js": "6aab1cacc872cbe11425d1849c827ea297293a118c3812ba911c6d40b6f41e6b",
+      "src/instruments/simd-resonator-rust/spatial-model.js": "1bdff1b7e6e1d4e4cbcbf0c4add37dc80f16109889f84789f3943d587be06731",
+      "src/instruments/simd-resonator-rust/processor.js": "f1a35bcdeda99d06639f2d478cacacfb3e9b2309fda45a9f3fbd9467a494c155",
+      "src/instruments/simd-resonator-rust/fft-resynth.js": "3a750a0c3f062668efc65ca60ab54d9a0a9b897b5c690666c3dde15401d51680",
+      "assets/wasm/rust-resonator-scalar.wasm": "efeafca01e5913125420a97a9b69059d10da6197f5977540c7933b879a1551b2",
+      "assets/wasm/rust-resonator-simd.wasm": "aecc9fee0c552997b7593c13f725998edfdade26258d0ffeeff8f8fae59d55e7"
+    }
+  },
+  "method": {
+    "sampleRate": 48000,
+    "blockFrames": 128,
+    "blockBudgetMicros": 2666.6666666666665,
+    "warmupBlocks": 256,
+    "measuredBlocks": 512,
+    "outputChannels": [
+      2,
+      16
+    ],
+    "scope": "Warm synchronous AudioWorklet processor.process call in Node. Includes modal kernel, route updates, mono and surround FFT processing, output mixing and meter calculations. postMessage is a no-op.",
+    "excluded": [
+      "Browser scheduling and message serialization",
+      "Real output device, speaker wiring and recording",
+      "DOM, graphics and UI activity",
+      "Initial startup and FFT topology transitions",
+      "Human listening and physical-device acceptance"
+    ],
+    "input": "One repeated 128-frame Float32Array: 0.2*sin(frame*0.042)+0.13*cos(frame*0.419). Mic-active state stays true throughout; no strikes. Input and output arrays are reused.",
+    "configuration": "createConfiguration({...DEFAULTS,modeCount,fftSize,fftHopRatio:fftSize===4096?0.125:0.25})",
+    "spatial": {
+      "enabled": true,
+      "speakerCount": 16,
+      "target": "both",
+      "pattern": "ascending",
+      "span": 1,
+      "offset": 0,
+      "motion": true,
+      "rate": 0.05
+    },
+    "timing": "performance.now before/after each call, converted to microseconds. 512 timings sorted; median is index 256, p95 index 486, maximum index 511. Final reported run; repeated runs vary with host scheduling."
+  },
+  "scenarios": [
+    {
+      "backend": "simd",
+      "modeCount": 512,
+      "fftSize": 1024,
+      "hopFrames": 256,
+      "medianMicros": 337.874,
+      "p95Micros": 388.961,
+      "maximumMicros": 517.922,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "simd",
+      "modeCount": 512,
+      "fftSize": 4096,
+      "hopFrames": 512,
+      "medianMicros": 140.497,
+      "p95Micros": 1062.261,
+      "maximumMicros": 1286.358,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "simd",
+      "modeCount": 4096,
+      "fftSize": 1024,
+      "hopFrames": 256,
+      "medianMicros": 1143.765,
+      "p95Micros": 1230.725,
+      "maximumMicros": 1385.67,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "simd",
+      "modeCount": 4096,
+      "fftSize": 4096,
+      "hopFrames": 512,
+      "medianMicros": 951.029,
+      "p95Micros": 1916.6,
+      "maximumMicros": 2263.402,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "scalar",
+      "modeCount": 512,
+      "fftSize": 1024,
+      "hopFrames": 256,
+      "medianMicros": 482.594,
+      "p95Micros": 532.755,
+      "maximumMicros": 734.324,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "scalar",
+      "modeCount": 512,
+      "fftSize": 4096,
+      "hopFrames": 512,
+      "medianMicros": 284.017,
+      "p95Micros": 1209.893,
+      "maximumMicros": 1328.102,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "scalar",
+      "modeCount": 4096,
+      "fftSize": 1024,
+      "hopFrames": 256,
+      "medianMicros": 2279.386,
+      "p95Micros": 2386.17,
+      "maximumMicros": 2639.228,
+      "p95ExceedsQuantum": false
+    },
+    {
+      "backend": "scalar",
+      "modeCount": 4096,
+      "fftSize": 4096,
+      "hopFrames": 512,
+      "medianMicros": 2121.513,
+      "p95Micros": 3092.573,
+      "maximumMicros": 3454.975,
+      "p95ExceedsQuantum": true
+    }
+  ],
+  "interpretation": [
+    "The default 512-mode configuration has headroom on this development host.",
+    "SIMD 4096 modes/4096 FFT/16 channels had 1.917 ms p95 in this run. Earlier repeated runs had occasional scheduling outliers above the audio quantum; this is not a real-time guarantee.",
+    "Scalar 4096 modes/4096 FFT/16 channels had 3.093 ms p95 and exceeded the 2.667 ms quantum. Reduce Waves, FFT frame size/overlap, or speaker count when using scalar or slower hardware.",
+    "The enabled surround path preserves individual modes; no grouped-mode fallback is used. Speaker inverse transforms are mathematically paired into complex transforms."
+  ]
+}

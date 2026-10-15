@@ -1,7 +1,9 @@
-# Rust Resonator
+# Rezoidinator
 
-Rust Resonator is an independent copy of the SIMD Resonator's struck modal body
+Rezoidinator is an independent development of the SIMD Resonator's struck modal body
 and FFT input instrument. Find it beside **SIMD Resonator** in **SIMD Audio**.
+The display name changed from Rust Resonator; its `simd-resonator-rust` URL,
+catalogue ID and saved-state keys stay compatible.
 Audio starts off. Enable Audio and pluck or drag the body; horizontal position
 sets excitation position and vertical position sets hardness. Arrow keys edit
 the position/hardness, and Enter or Space plucks. The original instrument and
@@ -24,8 +26,10 @@ normalization uses audible coefficients rather than the number of muted modes.
 When `waves = span <= 128`, the original coefficients and normalization match.
 
 Twenty full presets include twelve original scenes and eight dense scenes up
-to 4,096 waves. Preset/Next/Dice controls preserve Audio, output level, input
-trim, selected source, and an already playing sample. The separate **Body only**
+to 4,096 waves. Presets and Dice also include spatial target, pattern, span,
+offset, motion and rate. Preset/Next/Dice controls preserve Audio, output level,
+input trim, selected source, an already playing sample, Surround enable, speaker
+layout, stereo preview and recording. The separate **Body only**
 menu retains FFT settings. Reset restores the default body and clears its tail;
 it retains live input and Audio. Changing modes clears removed oscillator states
 so increasing the count cannot revive an old tail.
@@ -35,7 +39,13 @@ through that transition.
 
 ## Input and processing
 
-Mic/line, the shared sample menu, and local audio files feed the original
+The shared microphone gain → meters → mic strip sits in the menubar on desktop
+and beside presets on mobile. Input-source selection, the sample menu, file
+chooser, Play/Stop and looping controls live in the side panel. Microphone trim
+affects capture only; it does not change file or sample gain. The compact Pluck
+action and direct body gesture excite the modal bank independently of input.
+
+Mic/line, the shared sample menu, and local audio files feed the
 phase-preserving FFT/overlap-add path and the modal body. Audio gates output
 independently of microphone capture. Sample playback can loop. Audio off, page
 departure, and hidden-page handling cancel pending input work; microphone tracks
@@ -48,13 +58,65 @@ FFT operations remain JavaScript in the AudioWorklet; the oscillator bank is
 Rust. JavaScript prepares coefficients outside the render callback. No server,
 CPAL, shared memory, or browser audio worker threads are required.
 
+The FFT path includes the original instrument’s later continuity improvements:
+a bounded overlap-normalization floor and startup ramp, smoothed gain/detail/
+gate changes, and a warmed spare FFT bank with a 24 ms crossfade when frame,
+window, hop, band or frequency topology changes. Stopping input preserves the
+existing overlap tail. Two banks and one latest queued configuration bound
+rapid edits.
+
+## Surround
+
+Surround distributes sound before it becomes a finished stereo mix. The Rust
+kernel routes each modal oscillator into a neighboring pair of logical buses
+with equal-power gains. The FFT maps each shaped complex bin by its logarithmic
+position among the analysis bands, then performs a separate inverse FFT and
+overlap-add reconstruction for each bus. Two real speaker transforms are packed
+into each complex inverse transform, preserving independent outputs while
+reducing the transform count. Up to sixteen logical buses carry
+independent material; the physical output layout determines the speaker count.
+The ordinary stereo render remains available independently. A shared gain
+bound preserves relative speaker levels, limits each bus to 0.95, and limits
+their absolute sum to 0.95×√2; the 0.7-gain stereo preview remains below full scale
+at unity master volume.
+
+**Target** chooses the modal body, FFT reconstruction or both. The unselected
+component remains audible at a stationary position. **Pattern** sets ascending,
+descending, alternating or scattered placement; **Span** covers zero to four
+turns around the field and **Offset** rotates it by zero to one turn. **Motion**
+enables rotation at **Rate**, from −1 to +1 turns per second. These are musical
+parameters included in presets and Dice. Surround enable, physical layout,
+monitoring and recording remain session settings.
+
+The speaker layouts reuse SPARTIAL’s four-speaker ring, eight-speaker circle,
+sixteen-speaker ring, 4:1 surround, 7:4:1 surround and eight-speaker cube. LFE channels remain in
+the physical layout but are silent. Speaker routing requires an output device
+that exposes enough channels to the browser. If it does not, or **Stereo
+preview** is selected, an azimuth-based stereo preview keeps the field audible.
+Stereo remains the default. Physical speaker wiring and surround listening have
+not been tested in this implementation pass.
+
+## Multichannel recording
+
+The Surround section records its channel output independently of the shared
+menubar stereo recorder. It reuses SPARTIAL’s output-recorder and export path:
+24-bit multichannel PCM WAV, matching mono stems in a ZIP or supported folder
+export, and channel-map metadata. The recording uses the selected speaker
+layout even when the hardware is playing its stereo preview. Speaker
+layout and channel metadata remain fixed for a take. The shared OutputRecorder
+128 MiB memory cap and corresponding channel-count/sample-rate duration bound
+apply; recording does not create an unbounded buffer.
+
 ## Implementation and capacity
 
 `src/instruments/simd-resonator-rust/rust/kernel.rs` ports the original
 AssemblyScript recurrence, using four-frame tiles and `f32x4` operations to keep
 mode state in registers. The original scalar implementation is the parity
 reference; Volumetric Rain's existing Rust modal bank informed the tiled loop.
-Both builds have a fixed 256 KiB memory and no imports or render allocations.
+Both ABI v2 builds have fixed 384 KiB memory per kernel instance and no imports
+or render allocations. The FFT path uses two preallocated JavaScript banks,
+each with sixteen channel overlap-add buffers (about 4 MiB total for those
+buffers). Audio processing does not allocate per sample.
 Unsupported SIMD falls back to the Rust scalar build. **Engine details** also
 allows selecting scalar explicitly; `?scalar=1` loads only that build.
 
@@ -65,7 +127,8 @@ spectral mapping. Real-time performance remains device-dependent. Start with
 1.5 pixel ratio and 40 representative strands; all selected modes still render
 on the audio thread.
 
-On the development ARM64 host, warm Node v22 kernel measurements at 48 kHz
+Before the surround extension, on the development ARM64 host, warm Node v22
+stereo kernel measurements at 48 kHz
 were approximately 8 µs per 128-frame block for 128 Rust SIMD modes, 247 µs for
 4,096 Rust SIMD modes, and 1,010 µs for 4,096 Rust scalar modes. The original
 128-mode SIMD kernel was approximately 8 µs. These measurements exclude FFT,
@@ -74,14 +137,30 @@ mobile real-time guarantee. The browser's Engine details measures FFT and modal
 processing time as well as the modal kernel alone. Where a high-resolution worklet
 clock is unavailable, the readout is explicitly approximate.
 
-A separate full-processor run on Node v22.23.2/Linux ARM64 used continuous input,
+A separate pre-surround full-processor run on Node v22.23.2/Linux ARM64 used continuous input,
 repeated strikes, a 4,096-sample FFT and 512-sample hop at 48 kHz. Across 1,024
 measured callbacks after warmup, 4,096-wave SIMD averaged 297 µs, with 467 µs at
 the 99th percentile and a 1,011 µs maximum. Scalar averaged 1,064 µs, with a
 1,719 µs maximum. All measured callbacks fit the 2,667 µs block budget and all
 output samples were finite. This measures the complete synchronous processor
 call, including telemetry cloning, but excludes browser scheduling, actual
-message transport, devices, UI and configuration-message preparation.
+message transport, devices, UI and configuration-message preparation. These
+figures describe the earlier stereo engine and do not establish the added
+multichannel workload’s performance.
+
+The [surround callback measurements](rezoidinator-surround-measurements.json)
+cover the complete synchronous processor with continuous input, spatial motion,
+its independent stereo output and sixteen surround channels. On Node 22.23.2/
+Linux ARM64, 512 modes with a 1,024-sample FFT had a 389 µs 95th percentile using
+SIMD. At 4,096 modes, a 4,096-sample FFT and 512-sample hop, SIMD measured 951 µs
+median, 1,917 µs 95th percentile and 2,263 µs maximum in the reported run. Scalar
+measured 2,122 µs median, 3,093 µs 95th percentile and 3,455 µs maximum for that same
+largest configuration: **scalar exceeded the 2,667 µs audio-block budget**.
+Reduce Waves, FFT frame size/overlap or speaker count when playback breaks up,
+especially with scalar. The default remains 512 waves. These measurements
+exclude browser scheduling, message serialization, devices, UI, recording and
+FFT topology transitions; repeated runs showed occasional scheduling outliers.
+They do not establish physical-device real-time performance.
 
 ## Build and verification
 

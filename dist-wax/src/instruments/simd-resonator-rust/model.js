@@ -5,6 +5,7 @@ import {
 
 export const MAX_MODES = 4096;
 export const BLOCK_SIZE = 128;
+export const MAX_SPATIAL_CHANNELS = 16;
 export const COEFFICIENT_KEYS = Object.freeze(['cosine', 'sine', 'decay', 'strike', 'gain', 'panLeft', 'panRight']);
 export const DEFAULTS = Object.freeze({ ...SIMD_RESONATOR_DEFAULTS, modeCount: 512, spectralSpan: 128 });
 export const LIMITS = Object.freeze({ ...SIMD_RESONATOR_LIMITS, modeCount: [32, MAX_MODES], spectralSpan: [8, 512] });
@@ -59,11 +60,21 @@ export const POINTERS = Object.freeze({ input: 'input_ptr', outputLeft: 'output_
   real: 'real_ptr', imaginary: 'imaginary_ptr', energy: 'energy_ptr',
   ...Object.fromEntries(COEFFICIENT_KEYS.map(key => [key, key.replace(/[A-Z]/g, letter => '_' + letter.toLowerCase()) + '_ptr'])),
 });
+export const SPATIAL_POINTERS = Object.freeze(Object.fromEntries(['A', 'B', 'C', 'D'].flatMap(id => [
+  ['routeIndex' + id, 'route_index_' + id.toLowerCase() + '_ptr'],
+  ['routeGain' + id, 'route_gain_' + id.toLowerCase() + '_ptr'],
+])));
 export function kernelViews(exports) {
   if (!(exports.memory instanceof WebAssembly.Memory) || exports.max_modes?.() !== MAX_MODES
-    || exports.block_size?.() !== BLOCK_SIZE || exports.abi_version?.() !== 1) throw new Error('Unexpected Rust resonator ABI.');
+    || exports.block_size?.() !== BLOCK_SIZE || exports.abi_version?.() !== 2 || exports.max_spatial_channels?.() !== MAX_SPATIAL_CHANNELS
+    || typeof exports.process_resonator_spatial !== 'function') throw new Error('Unexpected Rust resonator ABI.');
   return { exports, ...Object.fromEntries(Object.entries(POINTERS).map(([key, pointer]) => {
     if (typeof exports[pointer] !== 'function') throw new Error('Missing Rust resonator array: ' + key);
     return [key, new Float32Array(exports.memory.buffer, exports[pointer](), ['input', 'outputLeft', 'outputRight'].includes(key) ? BLOCK_SIZE : MAX_MODES)];
+  })), spatialOutput: new Float32Array(exports.memory.buffer, exports.spatial_output_ptr(), MAX_SPATIAL_CHANNELS * BLOCK_SIZE),
+  ...Object.fromEntries(Object.entries(SPATIAL_POINTERS).map(([key, pointer]) => {
+    if (typeof exports[pointer] !== 'function') throw new Error('Missing Rust spatial array: ' + key);
+    const ArrayType = key.startsWith('routeIndex') ? Uint32Array : Float32Array;
+    return [key, new ArrayType(exports.memory.buffer, exports[pointer](), MAX_MODES)];
   })) };
 }
