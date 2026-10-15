@@ -174,10 +174,20 @@ test('rhythm feedback reads the audio table and distinguishes white notes from b
     const at = progress * (FRAMES - 1), low = Math.floor(at), mix = at - low;
     const threshold = defaultField.table[low * STRIDE + 534] * (1 - mix) + defaultField.table[(low + 1) * STRIDE + 534] * mix;
     assert.equal(reading.threshold, threshold);
+    assert.ok(Math.abs((reading.bandLow + reading.bandHigh) / 2 - threshold) < 1e-12);
     assert.equal(reading.white, Math.floor(threshold / defaultField.settings.stripePeriod * 2) % 2 === 1);
     assert.ok(reading.branches.length <= BRANCHES);
     for (const branch of reading.branches) assert.ok(branch.points?.length);
   }
   assert.equal(readStaircaseRhythm(defaultField, .175).white, true);
   assert.equal(readStaircaseRhythm(defaultField, .19).white, false);
+});
+
+test('display sweep remains on the audio stripe between prepared frames at narrow stripe widths', () => {
+  const field = buildStaircaseField({ settings: { steps: 48, stripePeriod: .5 }, resolution: 64 });
+  for (let index = 0; index < 1000; index++) {
+    const reading = readStaircaseRhythm(field, (index + .37) / 1000);
+    const sweep = (reading.bandLow + reading.bandHigh) / 2;
+    assert.equal(Math.floor(sweep / field.settings.stripePeriod * 2) % 2 === 1, reading.white);
+  }
 });
