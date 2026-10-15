@@ -81,11 +81,13 @@ Synthesizer-specific live-pad parameter edits remain with their pad source.
 
 By default, the file uses its original tempo. Edit **File BPM** for an independent
 tempo, or enable **Link** to follow Master. **Ratio** offers exact eighth, quarter,
-third, half, two-thirds and faster multiples through 8×; **Speed** adjusts that
+third, half, two-thirds and faster multiples through 64×; **Speed** adjusts that
 same multiplier continuously. The status shows the resulting initial BPM after
 the ratio. **Original** unlinks and restores the source tempo at 1× without
 stopping playback. The Tap buttons follow their displayed tempo or ratio base.
-The combined playback rate is limited to 0.01–8×, with clipping shown explicitly.
+The combined playback rate is limited to 0.01–64×, with clipping shown explicitly.
+File BPM accepts up to 4,800. A 120 BPM file at 64× runs at an initial 7,680 BPM;
+Link and Ratio share the same combined 64× limit.
 Variable-tempo files retain their tempo changes: this scales the original tempo
 map rather than rewriting it or aligning bars. SMPTE-timed files have no musical
 BPM; Link and File BPM are disabled while the speed ratio remains available.
@@ -125,6 +127,15 @@ context loss. Generated pads and live evolution are composited into this same st
 WebGPU or Vulkan. [Vulkan](https://www.vulkan.org/) is a native GPU API, used by
 tools such as Wasabi; our browser GPU path is WebGL2. This is an original
 Piano From Above-style presentation, not a port of that application.
+
+The persistent header shows **File notes** passed / total and **Generated notes**.
+The file count follows its playhead, including seeks and each loop. Generated
+notes accumulate across layer loops, live Automata and keyboard attacks; stopping
+a layer keeps its count. The reset arrow clears only the generated counter and
+does not interrupt playback. Pending drops and held-note rejoins add no attacks.
+These are source-note counts before MIDI effects and synthesizer voice limits;
+they do not depend on how many rectangles fit on screen. If a file exceeds the
+preview limit, its total remains visible but its passed count is unavailable.
 
 A module worker parses the complete SMF into indexed typed arrays. Total notes
 count every positive-velocity Note On, including quiet/decorative channels.
@@ -282,8 +293,8 @@ documents resource/security considerations for arbitrary expressions.
 
 ## Timing and sound
 
-Generated layers and Automatapoeia follow the **30–300 BPM Master** knob and its
-shared Tap control. The MIDI file follows Master only while **Link** is enabled.
+Generated layers and Automatapoeia follow the **30–4,800 BPM Master** knob,
+exact BPM field and shared Tap control. The MIDI file follows Master only while **Link** is enabled.
 Each layer retains its own position and Loop setting. Shared **1 / Loop** sets
 only the next Drop. Turning an individual layer's Loop off finishes its current
 pass; its Stop button ends it immediately without interrupting other sources.

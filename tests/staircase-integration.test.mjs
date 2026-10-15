@@ -1,13 +1,13 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readStaircaseConcurrentReference as readFile, readMergedStaircaseSiteReference as readStaircaseSiteReference } from './helpers/staircase-merge-reference.mjs';
 import test from 'node:test';
 import { instrumentById } from '../src/site/instrument-catalog.js';
 import { TOOL_GROUPS } from '../src/site/instrument-registry.js';
 import { instrumentMidiCapabilityForId } from '../src/site/instrument-midi-capabilities.js';
 import { TAP_TEMPO_TARGETS } from '../src/site/tap-tempo-targets.js';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
-import { staircaseSiteChanges, restoreStaircaseSite, readStaircaseSiteReference } from './helpers/staircase-site-reference.mjs';
+import { staircaseSiteChanges, restoreStaircaseSite } from './helpers/staircase-site-reference.mjs';
 
 const digest = bytes => createHash('sha256').update(bytes).digest('hex');
 const error = /exact Staircase Studies site amendment/;

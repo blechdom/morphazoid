@@ -29,7 +29,7 @@ export function restoreFractalImpulseRuntime(source, file, { allowRestored = fal
 
 /** Read current files through only this new amendment before older proofs. */
 export async function readFractalImpulseRuntimeReference(file, encoding) {
-  const { readFile } = await import('node:fs/promises');
+  const { readProcessorSamplesSiteReference: readFile } = await import('./processor-samples-site-reference.mjs');
   const { fileURLToPath } = await import('node:url');
   const { relative } = await import('node:path');
   const source = await readFile(file, encoding);

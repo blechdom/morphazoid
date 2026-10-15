@@ -143,7 +143,7 @@ test('previously silent presets preview on selection and with the Preview button
     };
   });
   await open(page);
-  await page.locator('#enableAudio').click();
+  await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed','true');
   const peak=()=>page.evaluate(()=>{
     const analyser=window.previewAnalysers[0],data=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(data);

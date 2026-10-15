@@ -566,15 +566,21 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "slippery-resynthesis": define(
     "Spectral resynthesizer",
-    "Tracks microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
-    "Choose Mic or File, turn on audio, then shape the glide, transpose, spectral tilt, carrier color, consonant detail, stereo spread, and dry/slip mix.",
-    ["Mic input", "Local file input", "Speech-detail resynthesis"],
+    "Tracks bundled samples, microphone or local-file audio across logarithmic FFT bands, then rebuilds it through endlessly slipping Shepard glissando banks with adaptive consonant excitation.",
+    "Turn on Audio and play a bundled sample, or choose Mic or File. Presets, Next and dice shape the slipping spectrum while preserving the input loop.",
+    ["Mic input", "Local file input", "Sample loops", "Presets", "Speech-detail resynthesis"],
   ),
   "simd-resonator": define(
     "SIMD modal instrument",
     "Turns one strike into a 128-mode resonant body whose material, position, hardness, tuning, decay, and inharmonic spread remain directly playable while WebAssembly SIMD accelerates the parallel modes.",
     "Turn on Audio, choose a material, then tap or drag the body. Microphone input can excite the same resonator.",
     ["Modal synthesis", "Mic input", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
+  ),
+  "simd-resonator-rust": define(
+    "Spatial modal instrument",
+    "A Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, microphone and recorded input, and spatial modal/FFT resynthesis across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.",
+    "Turn on Audio, choose a preset, then tap or drag the body. Use Waves and Spectrum span to shape its density, choose input in the side panel, and open Surround below the synthesis controls to distribute modes or FFT bands around speakers.",
+    ["Modal synthesis", "Mic input", "Local file input", "Sample input", "Surround output", "Multichannel recording", "Rust WebAssembly", "WebAssembly SIMD", "AudioWorklet", "Pointer"],
   ),
   "moire-drone": define(
     "Spectral fabric filter",
@@ -614,15 +620,15 @@ const CATALOG_DETAILS = Object.freeze({
   ),
   "sandy-syrup-delay": define(
     "Delay instrument",
-    "Processes microphone or file audio with staggered grains that can hold their rates or glide together.",
-    "Choose microphone or a file, start the source, then move between Sand and Syrup behavior.",
-    ["Mic input", "File input"],
+    "Processes bundled samples, microphone or file audio with staggered grains that can hold their rates or glide together.",
+    "Turn on Audio, play a sample or connect Mic/File input, then explore presets or move between Sand and Syrup.",
+    ["Mic input", "File input", "Sample loops", "Presets"],
   ),
   "candy-coil-delay": define(
     "Delay instrument",
     "Uses staggered centered-hump delay heads that pass below, through, and above the source pitch.",
-    "Choose microphone or a file, start the source, then tap a range or lock its reciprocal relationship with head speed.",
-    ["Mic input", "File input"],
+    "Turn on Audio, play a sample or connect Mic/File input, then explore presets, tap a range or lock its reciprocal relationship with head speed.",
+    ["Mic input", "File input", "Sample loops", "Presets"],
   ),
 
   "l-system": define(

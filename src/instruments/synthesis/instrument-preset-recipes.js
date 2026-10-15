@@ -39,6 +39,10 @@ export const SAMPLE_PROCESSING_RECIPES = Object.freeze([
   ['acid-six-stage', 'Acid six stage', 'music-acid-circuit', 'fx-phaser', 'six-stage-sweep', .5],
   ['bossa-wide-sunrise', 'Bossa wide sunrise', 'music-bossa-sunrise', 'fx-modulated-delay', 'slow-wide-chorus', .5],
   ['curling-voice-echoes', 'Curling voice echoes', 'speech-curling', 'fx-delay', 'dark-tape-like-repeats', .4],
+  ['scat-slapback', 'Scat slapback', 'music-vocal-scat', 'fx-delay', 'slapback', .4],
+  ['holding-tighter-chamber', 'Holding Tighter chamber', 'music-vocal-phrase', 'fx-reverb', 'bright-chamber', .4],
+  ['sax-split-sidebands', 'Sax split sidebands', 'music-sax-multiphonic', 'fx-frequency-shifter', 'slow-beating', .5],
+  ['alto-fingering-echoes', 'Alto fingering echoes', 'music-sax-fingerings', 'fx-delay', 'stereo-eighth-echo', .4],
 ]);
 
 // Synth columns: id, label, method, sound, sequence, variation, tuning, BPM, voicing, insert.

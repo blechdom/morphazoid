@@ -6,7 +6,7 @@ import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 import { mountMidiSynthEffectEditor } from '../midi-mixer/midi-mixer-midi-editor.js';
 import { mountMidiDrawing, DRAWING_COLUMNS, DRAWING_ROWS } from '../midiphoria/midiphoria-drawing.js';
-import { GM_PROGRAM_NAMES, parseMidi } from '../midi-mixer/midi-mixer-model.js';
+import { GM_PROGRAM_NAMES, parseMidi, MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 import { mountMidiArtCreator } from './blech-midi-art-controls.js';
 import { mountBlechFilePlayer } from './blech-midi-file-player.js';
 import { mountBlechText } from './blech-midi-text-controls.js';
@@ -31,6 +31,7 @@ function mountBlechMidi() {
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
   let seedPicking = false, automataSeen = false;
+  let keyboardNoteCount = 0;
   const layerNodes = new Map();
   const activeKey = () => $('blechMidi').dataset.tab === 'frames' ? frameMode : $('blechMidi').dataset.tab;
   const groupFor = key => ['stamps', 'drawing', 'art', 'scripts', 'sequence'].includes(key) ? 'frames' : key;
@@ -140,6 +141,7 @@ function mountBlechMidi() {
   function reflect() {
     if (disposed || !engine) return;
     const state = engine.state, enabled = state.audioEnabled;
+    $('blechGeneratedNotes').value = Math.round((state.generatedNoteCount ?? 0) + keyboardNoteCount).toLocaleString();
     $('audioButton').setAttribute('aria-pressed', String(enabled));
     $('audioButton').classList.toggle('is-loading', starting);
     field($('audioState'), starting ? 'starting' : enabled ? 'on' : state.error ? 'retry' : 'off');
@@ -187,7 +189,7 @@ function mountBlechMidi() {
     $('drawingStatus').value = `${drawing.model.count} pixels`; $('drawingCanvas').dataset.pixels = String(drawing.model.count);
     drawing.render(); retainedDraft = null;
   }
-  engine = new MidiMixerEngine({ onState: reflect });
+  engine = new MidiMixerEngine({ onState: reflect, maxTempo: MAX_MIDI_MIXER_TEMPO });
   engine.setVolume(Number($('outputLevel').value));
   engine.setTempo(Number($('creativeTempo').value));
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
@@ -215,7 +217,10 @@ function mountBlechMidi() {
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Layer volume';
   $('mixerSampleLevel').setAttribute('aria-label', 'Generated layer volume');
   $('mixerSampleLevel').closest('label').title = 'Volume of stamps, drawings, text, math and frame layers. Automatapoeia has its own volume.';
-  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), onPrepare: detail => preparedChanged('files', detail) });
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), onPrepare: detail => preparedChanged('files', detail),
+    onNoteCount: ({ passed, total }) => { $('blechFileNotes').value = passed == null ? '—' : passed.toLocaleString(); $('blechFileTotal').value = total == null ? '—' : total.toLocaleString(); },
+    onKeyboardNote: () => { keyboardNoteCount++; reflect(); },
+  });
   dropStage = mountBlechDropStage($('blechDropControls'), $('blackMidiViewport'), {
     getTempo: () => engine.state.tempo,
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
@@ -370,13 +375,21 @@ function mountBlechMidi() {
     catch (error) { field($('creativeStatus'), error.message); }
   });
   on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); reflect(); });
+  on($('blechResetNoteCount'), 'click', () => { engine.resetNoteCount(); keyboardNoteCount = 0; reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
   on($('creativeTempo'), 'input', () => {
     const tempo = engine.setTempo(Number($('creativeTempo').value));
     $('creativeTempoOut').value = `${Number(tempo.toFixed(1))} BPM`;
-    textTools.refreshTempo();
+    if (document.activeElement !== $('creativeTempoExact')) $('creativeTempoExact').value = String(Number(tempo.toFixed(1)));
+    textTools.refreshTempo(); frameTools.refreshTempo();
     filePlayer.setTempo(); dropStage.refresh();
   });
+  on($('creativeTempoExact'), 'input', event => {
+    if (!event.target.validity.valid || event.target.value === '') return;
+    $('creativeTempo').value = event.target.value;
+    $('creativeTempo').dispatchEvent(new Event('input', { bubbles: true }));
+  });
+  on($('creativeTempoExact'), 'change', () => { $('creativeTempoExact').value = String(Number(engine.state.tempo.toFixed(1))); });
   on($('outputLevel'), 'input', () => { engine.setVolume(Number($('outputLevel').value)); $('outputLevelOut').value = `${Math.round(engine.state.volume * 100)}%`; });
   for (const [id, key, convert] of [['mixerFilter', 'filterHz', number => 10 ** number], ['mixerEcho', 'delayMix', Number], ['mixerEchoTime', 'delayBeats', Number], ['mixerFeedback', 'feedback', Number]]) {
     on($(id), id === 'mixerEchoTime' ? 'change' : 'input', event => engine.configureEffects({ [key]: convert(Number(event.target.value)) }));

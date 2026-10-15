@@ -31,6 +31,7 @@
     <title>Slippery Resynthesis — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/processor-sample-player.css" />
     <link rel="stylesheet" href="src/instruments/slippery-resynthesis/slippery-resynthesis.css" />
   </head>
   <body class="slippery-resynthesis-page">
@@ -109,11 +110,11 @@
         </div>
       </section>
 
-      <aside class="panel slippery-resynthesis-panel" aria-label="Slippery Resynthesis controls">
+      <aside data-instrument-preset-host class="panel slippery-resynthesis-panel" aria-label="Slippery Resynthesis controls">
         <details class="group control-section slipper-source" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Source</h2>
-            <span class="section-state" id="sourceSummary">microphone · headphones</span>
+            <span class="section-state" id="sourceSummary">sample loops</span>
           </summary>
           <div class="group-body">
             <span class="field-label">Input</span>
@@ -144,27 +145,13 @@
                 ↻
               </button>
             </div>
+            <div id="sampleControls"></div>
             <audio id="fileAudio" loop preload="metadata"></audio>
 
             <p class="slipper-control-note" id="sourceNote">
               Switch Audio on to allow microphone access. Use headphones; the resynthesized signal can feed back through speakers.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
-          </div>
-        </details>
-
-        <details class="group control-section slipper-presets" data-section="form" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Presets</h2>
-            <span class="section-state" id="presetSummary">Gentle lift</span>
-          </summary>
-          <div class="group-body">
-            <div
-              class="slipper-preset-grid"
-              id="presetGrid"
-              role="group"
-              aria-label="Slippery Resynthesis presets"
-            ></div>
           </div>
         </details>
 

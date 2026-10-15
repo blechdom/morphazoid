@@ -6,7 +6,7 @@ import { restoreMainOutputRouting } from './main-output-routing-reference.mjs';
 import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { readFile as readFileAsync } from "node:fs/promises";
+import { readProcessorSamplesSiteReference as readFileAsync } from "./processor-samples-site-reference.mjs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 

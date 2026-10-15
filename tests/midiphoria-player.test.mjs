@@ -16,7 +16,7 @@ class Events {
   emit(type, data) { for (const [key, callback] of this.callbacks) if (key.startsWith(`${type}:`)) callback(data); }
 }
 
-function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock, getAudioContext, minPlaybackRate } = {}) {
+function harness({ manualSongs = false, bankFailure = false, fetchFailure = false, deferredLibrary = false, clock, getAudioContext, minPlaybackRate, maxPlaybackRate } = {}) {
   const calls = [], messages = [], clears = [], states = [], contexts = [], synths = [], sequencers = [];
   const timers = new Map(), windowEvents = new Map();
   let nextTimer = 0, releaseLibrary;
@@ -106,7 +106,7 @@ function harness({ manualSongs = false, bankFailure = false, fetchFailure = fals
     addEventListener(type, callback) { windowEvents.set(type, callback); },
     removeEventListener(type, callback) { if (windowEvents.get(type) === callback) windowEvents.delete(type); },
   };
-  const player = new MidiphoriaPlayer({ runtime, clock, getAudioContext, minPlaybackRate, loadLibrary: () => { calls.push('import'); return libraryPromise; },
+  const player = new MidiphoriaPlayer({ runtime, clock, getAudioContext, minPlaybackRate, maxPlaybackRate, loadLibrary: () => { calls.push('import'); return libraryPromise; },
     connectOutput: (context, source) => { context.outputSource = source; calls.push('output-connect'); return () => calls.push('output-release'); },
     onMidi: message => messages.push(message), onClear: (...args) => clears.push(args), onState: state => states.push(state),
   });
@@ -779,4 +779,23 @@ test('effected pad notes reach graphics without a file and clear independently f
   h.synths[1].eventHandler.emit('noteOn', { channel: 0, midiNote: 74, velocity: 88 });
   assert.equal(h.messages.length, 2, 'late muted attacks cannot revive pad graphics');
   await h.player.dispose();
+});
+
+
+test('BLECH opts into 64× file playback while the default player retains 8× and continuous phase', async () => {
+  const ordinary = harness(); assert.equal(ordinary.player.setPlaybackRate(64), 8); await ordinary.player.dispose();
+  const h = harness({ minPlaybackRate: .01, maxPlaybackRate: 64 });
+  assert.equal(h.player.setPlaybackRate(40), 40);
+  const seq = await ready(h); assert.equal(seq.options.initialPlaybackRate, 40);
+  h.player.play(); seq.currentTime = 4; const before = h.calls.length;
+  assert.equal(h.player.setPlaybackRate(64), 64); assert.equal(seq.playbackRate, 64);
+  assert.equal(h.player.state.time, 4); assert.equal(h.player.state.playing, true);
+  assert.equal(h.calls.slice(before).includes('pause'), false);
+  assert.equal(h.player.setPlaybackRate(640), 64); assert.equal(h.player.setPlaybackRate(NaN), 64);
+  await h.player.dispose();
+  let now = 0; const visual = harness({ maxPlaybackRate: 64, clock: () => now });
+  await visual.player.loadVisualTimeline(600, 'Fast artwork'); visual.player.play(); now = 1;
+  visual.player.setPlaybackRate(64); assert.equal(visual.player.state.time, 1);
+  now = 2; assert.equal(visual.player.state.time, 65);
+  visual.player.pause(); now = 3; assert.equal(visual.player.state.time, 65); await visual.player.dispose();
 });

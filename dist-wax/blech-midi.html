@@ -47,8 +47,14 @@
       <section class="blech-midi-stage" id="creativeStage" aria-labelledby="blechMidiTitle">
         <div class="blech-midi-heading">
           <h1 id="blechMidiTitle"><img src="assets/blech-midi/blech-mark.svg" width="86" height="50" alt="" aria-hidden="true">BLECH MIDI</h1>
+          <div id="blechNoteCounters" class="blech-note-counters" aria-label="Live note counts" aria-live="off">
+            <div title="Source note attacks passed in the current MIDI file. Follows its playhead, including seeks and loops."><span>File notes</span><span><output id="blechFileNotes" aria-label="File notes passed">0</output><small> / <output id="blechFileTotal" aria-label="Total file notes">—</output></small></span></div>
+            <div title="Generated layer, live Automata and keyboard note attacks since reset. Includes repeated loops; counts source notes before effects and voice limits."><span>Generated notes</span><output id="blechGeneratedNotes" aria-label="Generated notes passed">0</output></div>
+            <button id="blechResetNoteCount" type="button" class="mini-action" aria-label="Reset generated note count" title="Reset the generated count without stopping playback">↺</button>
+          </div>
           <div class="blech-midi-transport">
-            <label class="control" for="creativeTempo"><span><b>Master</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="BLECH MIDI master tempo" type="range" min="30" max="300" step=".1" value="120" /></label>
+            <label class="control" for="creativeTempo"><span><b>Master</b><output id="creativeTempoOut" for="creativeTempo">120 BPM</output></span><input id="creativeTempo" aria-label="BLECH MIDI master tempo" type="range" min="30" max="4800" step=".1" value="120" /></label>
+            <label class="blech-master-exact" for="creativeTempoExact"><span>BPM</span><input id="creativeTempoExact" type="number" min="30" max="4800" step=".1" value="120" aria-label="Exact BLECH MIDI master tempo" /></label>
             <div id="creativeVolumeHost" hidden></div>
             <button id="creativeStop" class="mini-action" type="button" title="Stop the MIDI file, every layer and evolution">Stop all</button>
           </div>

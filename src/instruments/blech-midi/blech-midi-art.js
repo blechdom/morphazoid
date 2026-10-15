@@ -1,4 +1,4 @@
-import { parseMidi } from '../midi-mixer/midi-mixer-model.js';
+import { parseMidi, MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 
 export const ART_LIMITS = Object.freeze({ notes: 32768, layers: 8, beats: 512, imageBytes: 16 * 1024 * 1024 });
 const clamp = (value, lo, hi, fallback = lo) => Math.max(lo, Math.min(hi, Number.isFinite(Number(value)) ? Number(value) : fallback));
@@ -123,7 +123,7 @@ export function encodeArtwork(input, { title = 'MIDI artwork', tempo = 120, dura
   const notes = validNotes(input);
   if (!notes.length) throw new Error('Add an image, drawing or generated ribbon first.');
   const end = Math.max(clamp(durationBeats, 0, ART_LIMITS.beats), ...notes.map(n => n.beat + n.duration));
-  const micros = Math.round(60000000 / clamp(tempo, 30, 300, 120)), chunks = [];
+  const micros = Math.round(60000000 / clamp(tempo, 30, MAX_MIDI_MIXER_TEMPO, 120)), chunks = [];
   const layers = [...new Set(notes.map(n => n.layer))].sort((a, b) => a - b);
   for (const [index, layer] of layers.entries()) {
     const name = [...new TextEncoder().encode(`${String(title).slice(0, 100)} · ${layer + 1}`)], channel = index;

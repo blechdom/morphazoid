@@ -166,6 +166,7 @@ export const CANONICAL_PAGE_ROUTES = Object.freeze([
   "simd-303.html",
   "simd-chiptune.html",
   "simd-lab.html",
+  "simd-resonator-rust.html",
   "simd-resonator.html",
   "simd-synth.html",
   "sliding-puzzle.html",
