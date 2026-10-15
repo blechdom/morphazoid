@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
-import { readFile } from 'node:fs/promises';
+import { readStaircaseSiteReference as readFile } from './helpers/staircase-site-reference.mjs';
 import test from 'node:test';
 import { FAVE_TOOL_IDS } from '../src/site/instrument-registry.js';
 import { catalogueItemById } from '../src/site/instrument-catalog.js';

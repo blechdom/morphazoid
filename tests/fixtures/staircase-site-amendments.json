@@ -1,0 +1,123 @@
+{
+  "baseCommit": "4bb3575463ff8a6ab34a2a9f3fe9dce544b7e711",
+  "changes": [
+    {
+      "file": "src/pages/manifest.js",
+      "sha256": "a1cbae8e928495c6c0369329375f388b730ae16aa99eeab6d217b6e3d235db0a",
+      "replacements": [
+        {
+          "before": "  \"striped-staircase.html\",\n",
+          "after": "  \"striped-staircase.html\",\n  \"striped-staircase-rust.html\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "3d557c71f94db431862b9ac7dcf83aca6e3bfbf6550acb993586d9b3382e76c9",
+      "replacements": [
+        {
+          "before": "  freezeGroup(\"wip\", \"Work in Progress\", [\n",
+          "after": "  freezeGroup(\"wip\", \"Work in Progress\", [\n    { id: \"striped-staircase-rust\", label: \"Staircase Studies\", href: \"striped-staircase-rust.html\", imageHref: \"assets/instruments/striped-staircase.webp\" },\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "5abf57831bcef52e64f0a9f0cd860a94324063164f429dc38912df0821387802",
+      "replacements": [
+        {
+          "before": "const CATALOG_DETAILS = Object.freeze({\n",
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"striped-staircase-rust\": define(\n    \"Fractal sonification studies\",\n    \"Compares measured contours, area-weighted harmonics, depth-stripe strikes and contour resonances in the Striped Staircase Mandelbrot field.\",\n    \"Enable Audio, then Play. Hold depth and switch studies, or drag and zoom to hear another region.\",\n    [\"Pointer\", \"WebGL\", \"WebAssembly\", \"MIDI input\"],\n  ),\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/catalogue-taxonomy.js",
+      "sha256": "9b994a6567d1bd436fd9678abd98aa1528931b346a3bffb0bc962741e4b74d6f",
+      "replacements": [
+        {
+          "before": "  \"julia\": [\n    \"sonification\"\n  ],\n",
+          "after": "  \"julia\": [\n    \"sonification\"\n  ],\n  \"striped-staircase-rust\": [\"fractal\", \"sonification\"],\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-midi-capabilities.js",
+      "sha256": "dafd0e9e3d4c7b8098f14ac10ed02baaacfd2992fe93cc1aa7f81801876d5951",
+      "replacements": [
+        {
+          "before": "    \"striped-staircase\",\n",
+          "after": "    \"striped-staircase\",\n    \"striped-staircase-rust\",\n"
+        },
+        {
+          "before": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n",
+          "after": "export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([\n  \"striped-staircase-rust\",\n"
+        },
+        {
+          "before": "const noMidiOutputIds = new Set([\n",
+          "after": "const noMidiOutputIds = new Set([\n  \"striped-staircase-rust\",\n"
+        }
+      ]
+    },
+    {
+      "file": "src/site/tap-tempo-targets.js",
+      "sha256": "ac2e30e6a97f9cd062e7c7e1f8c2b75e8d8060d1502de43fedd462fc79d88914",
+      "replacements": [
+        {
+          "before": "  {\"route\": \"striped-staircase.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"cycleUnit\": \"T-unit\"}},\n",
+          "after": "  {\"route\": \"striped-staircase.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"cycleUnit\": \"T-unit\"}},\n  {\"route\": \"striped-staircase-rust.html\", \"selector\": \"#speed\", \"mapping\": {\"unit\": \"hz\", \"cycleUnit\": \"journey\"}},\n"
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "ea5fa6cea06aa5f01c102c63a8261bb3ddd4b92dff5d1df48892ad6c65277893",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n",
+          "after": "copy+require\tsrc/instruments/blech-midi/blech-midi-stamp-picker.js\n\n# Staircase Studies\ncopy+require\tsrc/instruments/striped-staircase-rust/app.js\ncopy+require\tsrc/instruments/striped-staircase-rust/engine.js\ncopy+require\tsrc/instruments/striped-staircase-rust/processor.js\ncopy+require\tsrc/instruments/striped-staircase-rust/field.js\ncopy+require\tsrc/instruments/striped-staircase-rust/worker.js\ncopy+require\tsrc/instruments/striped-staircase-rust/studies.css\ncopy+require\tassets/wasm/staircase.wasm\ncopy+require\tassets/wasm/staircase-build.json\ncopy+require\tdocs/staircase-studies.md\n"
+        }
+      ]
+    },
+    {
+      "file": "package.json",
+      "sha256": "22c93a67d348fb40e26e37fb13f32b881c6c96b28925ed69b21e2bb48a791c01",
+      "replacements": [
+        {
+          "before": "    \"check\": \"node scripts/check-runtime-source.mjs && npm run check:simd-wasm && npm run check:l-system-wasm && npm run check:fractal-delay-wasm && npm run check:graph-delay-wasm\",\n",
+          "after": "    \"check\": \"node scripts/check-runtime-source.mjs && npm run check:simd-wasm && npm run check:l-system-wasm && npm run check:fractal-delay-wasm && npm run check:graph-delay-wasm && npm run check:staircase-wasm\",\n"
+        },
+        {
+          "before": "    \"calibrate:synthesis\": \"node scripts/calibrate-synthesis-levels.mjs\"\n",
+          "after": "    \"calibrate:synthesis\": \"node scripts/calibrate-synthesis-levels.mjs\",\n    \"build:staircase-wasm\": \"node scripts/build-staircase-wasm.mjs\",\n    \"check:staircase-wasm\": \"node scripts/build-staircase-wasm.mjs --check\"\n"
+        }
+      ]
+    }
+  ],
+  "originalFiles": [
+    {
+      "file": "src/pages/striped-staircase.html",
+      "sha256": "8ed044dcd727ad845bb616f8470e02473f75d356c0c1eae33a6feb80690d30ac"
+    },
+    {
+      "file": "src/instruments/striped-staircase/striped-staircase.js",
+      "sha256": "54348357956bbf57b6cc53010095102523a5c4b283a763c5e225d8d2660755b4"
+    },
+    {
+      "file": "src/instruments/striped-staircase/striped-staircase-app.js",
+      "sha256": "079504e9896d8eb56af27f0fd489889754b7f35654fd95d07a8db8fa84bb461f"
+    },
+    {
+      "file": "src/instruments/striped-staircase/striped-staircase-audio.js",
+      "sha256": "520c8874be09085854ab038e14d17dce794cfb56587448784451e2e3dcd792fa"
+    },
+    {
+      "file": "src/instruments/striped-staircase/striped-staircase.css",
+      "sha256": "bc68073408a95ff39e0c6229477243f996765fb5904987cbc1e5ba558c3fe687"
+    },
+    {
+      "file": "assets/instruments/striped-staircase.webp",
+      "sha256": "ebcb56d3cbbfe0bf8042f90506de7f16ccf67a4645e9cafd6d45a31069dbb9f5"
+    }
+  ]
+}

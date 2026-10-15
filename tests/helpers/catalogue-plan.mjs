@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 14 owner request: compare Rust readings of Striped Staircase.
+  { id: 'striped-staircase-rust', label: 'Staircase Studies', href: 'striped-staircase-rust.html', imageHref: 'assets/instruments/striped-staircase.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: 'fractal', label: 'Fractal' }, { id: 'sonification', label: 'Sonification' }] },
   // October 11 owner request: a browser DJ workspace inside Morphazoid.
   { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
     categoryId: 'app', categoryLabel: 'App',

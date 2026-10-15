@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreStaircaseSite } from './staircase-site-reference.mjs';
 
 export const midiFavesSiteChange = JSON.parse(readFileSync(
   new URL('../fixtures/midi-faves-site-amendment.json', import.meta.url), 'utf8',
@@ -7,6 +8,7 @@ export const midiFavesSiteChange = JSON.parse(readFileSync(
 
 /** Reverse only the two approved Faves entries before older registry checks. */
 export function restoreMidiFavesSite(source, file, { allowRestored = false } = {}) {
+  source = restoreStaircaseSite(source, file, { allowRestored: true });
   if (typeof source !== 'string' || file !== midiFavesSiteChange.file) return source;
   const change = midiFavesSiteChange;
   const blocks = [...source.matchAll(/export const FAVE_TOOL_IDS = Object\.freeze\(\[([\s\S]*?)\]\);/g)];
