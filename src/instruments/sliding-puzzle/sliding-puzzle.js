@@ -107,6 +107,11 @@ export function createSolvedSlidingPuzzle(rows = SLIDING_PUZZLE_SIZE, columns = 
   ]);
 }
 
+export function createSlidingPuzzleFromTiles(rows, columns, tiles) {
+  const dimensions = slidingPuzzleDimensions(rows, columns);
+  return freezePuzzle(dimensions.rows, dimensions.columns, assertPuzzle({ rows, columns, tiles }).tiles);
+}
+
 export function slidingPuzzleBlankIndex(puzzle) {
   const safePuzzle = assertPuzzle(puzzle);
   return safePuzzle.tiles.indexOf(SLIDING_PUZZLE_BLANK);
