@@ -34,7 +34,7 @@ notes; filter imports, creations, links, and favorites. Edit descriptive
 metadata beside the selected font. Metadata edits preserve the original
 download bytes, including their embedded name and credits.
 
-Audio starts off. Use **Enable audio** beside Preview or the masthead speaker,
+Audio starts off. Use the **Audio** speaker button in the masthead,
 then select a preset to hear it, press **Preview sound**, or use the two-row
 computer keyboard. The shared Faves toolbar provides stereo output meters,
 the master volume knob, Audio, and Settings. The visible keys also accept pointer and
