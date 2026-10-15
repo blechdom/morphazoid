@@ -447,13 +447,16 @@ copy+require	assets/wasm/simd-resonator-scalar.wasm
 copy+require	assets/wasm/simd-resonator-simd.wasm
 copy+require	assets/instruments/simd-resonator.webp
 
-# Rust Resonator: expanded modal instrument, retaining the original SIMD page.
+# Rezoidinator: Rust modal/FFT instrument with spatial output and recording.
 copy+require	simd-resonator-rust.html
 copy+require	src/instruments/simd-resonator-rust/app.js
 copy+require	src/instruments/simd-resonator-rust/model.js
 copy+require	src/instruments/simd-resonator-rust/presets.js
 copy+require	src/instruments/simd-resonator-rust/processor.js
 copy+require	src/instruments/simd-resonator-rust/fft-resynth.js
+copy+require	src/instruments/simd-resonator-rust/spatial-model.js
+copy+require	src/instruments/simd-resonator-rust/surround-output.js
+copy+require	src/instruments/simd-resonator-rust/recording.js
 copy+require	src/instruments/simd-resonator-rust/style.css
 copy+require	assets/wasm/rust-resonator-scalar.wasm
 copy+require	assets/wasm/rust-resonator-simd.wasm

@@ -37,7 +37,7 @@ Mic capture can run with master Audio off. Turn Audio on to hear the instrument.
 | [Alien Larynx](http://localhost:4430/alien-larynx.html) | live |
 | [Micromorph](http://localhost:4430/micromorph.html) | live |
 | [SIMD Resonator](http://localhost:4430/simd-resonator.html) | live |
-| [Rust Resonator](../simd-resonator-rust.html) | mic / file / looping samples |
+| [Rezoidinator](../simd-resonator-rust.html) | mic-only toolbar strip; file / looping samples in side panel |
 | [SIMD Audio Lab](http://localhost:4430/simd-lab.html) | live |
 | [Fractal Synthesis](http://localhost:4430/fractal-synthesis.html) | live |
 | [Head Shed](http://localhost:4430/head-shed.html) | sample |
@@ -60,3 +60,8 @@ Mic capture can run with master Audio off. Turn Audio on to hear the instrument.
 Splice Ring, Onset Atlas, and Synaptic Resonance currently use demo audio and have no microphone capture. Strophe Lab, Nightingale Manifolds, and Crickets accept uploaded recordings but have no microphone capture.
 
 Implementation: `src/ui/patterns/audio-input-strip.js` provides pure UI, `src/audio-input-control.js` binds instrument-owned callbacks, and `src/audio-input-meter.js` measures independent channels through a silent tap. The catalogue gear retains device/channel preferences; it does not replace the input strip.
+
+Rezoidinator keeps the shared microphone strip limited to microphone gain, meters
+and capture. Its input-source menu, sample/file transport and loop control live
+in the side panel, matching L-system Delay. Microphone trim does not change the
+level of sample or file playback.

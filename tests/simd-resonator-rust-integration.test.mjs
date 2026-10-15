@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
+import { readRezoidinatorSiteReference } from './helpers/rezoidinator-site-reference.mjs';
+import { restoreBlechChannelTiming } from './helpers/blech-channel-timing-reference.mjs';
 import test from 'node:test';
 import { CANONICAL_PAGE_ROUTES } from '../src/pages/manifest.js';
 import { TOOL_GROUPS, FAVE_TOOL_IDS } from '../src/site/instrument-registry.js';
@@ -12,15 +14,19 @@ import { rustResonatorSiteChanges, restoreRustResonatorSite, readRustResonatorSi
 const id = 'simd-resonator-rust';
 const digest = source => createHash('sha256').update(source).digest('hex');
 const urlFor = file => new URL(`../${file}`, import.meta.url);
+// Independent October 14 BLECH additions compose with the frozen Rust proof.
+const priorRustSource = async file => restoreBlechChannelTiming(
+  await readRezoidinatorSiteReference(urlFor(file), 'utf8'), file, { allowRestored: true },
+);
 
-test('Rust Resonator is a separate instrument immediately beside SIMD Resonator', () => {
+test('Rezoidinator is a separate instrument immediately beside SIMD Resonator', () => {
   const group = TOOL_GROUPS.find(group => group.id === 'simd-audio');
   const original = group.tools.findIndex(tool => tool.id === 'simd-resonator');
   assert.equal(group.tools[original + 1].id, id);
   assert.equal(TOOL_GROUPS.flatMap(group => group.tools).filter(tool => tool.id === id).length, 1);
   assert.equal(FAVE_TOOL_IDS.includes(id), false);
   const item = instrumentById(id);
-  assert.equal(item.label, 'Rust Resonator');
+  assert.equal(item.label, 'Rezoidinator');
   assert.equal(item.href, `${id}.html`);
   assert.equal(item.status, null);
   assert.equal(item.imageHref, instrumentById('simd-resonator').imageHref);
@@ -32,10 +38,10 @@ test('Rust Resonator is a separate instrument immediately beside SIMD Resonator'
   });
 });
 
-test('Rust Resonator packaging explicitly requires its own runtime and keeps the original', async () => {
+test('Rezoidinator packaging explicitly requires its own runtime and keeps the original', async () => {
   const inventory = parseRuntimeManifest(await readFile(urlFor('scripts/site/runtime-files.tsv'), 'utf8'));
   const paths = [`${id}.html`,
-    ...['app.js', 'model.js', 'presets.js', 'processor.js', 'fft-resynth.js', 'style.css'].map(name => `src/instruments/${id}/${name}`),
+    ...['app.js', 'model.js', 'presets.js', 'processor.js', 'fft-resynth.js', 'spatial-model.js', 'surround-output.js', 'recording.js', 'style.css'].map(name => `src/instruments/${id}/${name}`),
     'assets/wasm/rust-resonator-scalar.wasm', 'assets/wasm/rust-resonator-simd.wasm', 'docs/simd-resonator-rust.md'];
   for (const file of paths) {
     const entries = inventory.entries.filter(entry => entry.path === file);
@@ -51,11 +57,11 @@ test('Rust Resonator packaging explicitly requires its own runtime and keeps the
 test('new site additions reverse to exact fresh-main bytes without rewriting old evidence', async () => {
   assert.equal(rustResonatorSiteChanges.baseCommit, 'a88b25955b508ae6b729f2a35646b41c77177560');
   for (const change of rustResonatorSiteChanges.changes) {
-    const url = urlFor(change.file), source = await readFile(url, 'utf8');
+    const url = urlFor(change.file), source = await priorRustSource(change.file);
     const restored = restoreRustResonatorSite(source, change.file);
     assert.equal(digest(source), change.approvedSha256, change.file);
     assert.equal(digest(restored), change.sha256, change.file);
-    assert.equal(await readRustResonatorSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreBlechChannelTiming(await readRustResonatorSiteReference(url, 'utf8'), change.file, { allowRestored: true }), restored);
     assert.equal(restoreRustResonatorSite(restored, change.file, { allowRestored: true }), restored);
     assert.throws(() => restoreRustResonatorSite(restored, change.file), /exact Rust Resonator/);
     let reapplied = restored;
@@ -72,7 +78,7 @@ test('new site additions reverse to exact fresh-main bytes without rewriting old
 
 test('addition guards keep partial, altered and unknown changes visible', async () => {
   for (const change of rustResonatorSiteChanges.changes) {
-    const source = await readFile(urlFor(change.file), 'utf8'), suffix = '\n// unrelated drift\n';
+    const source = await priorRustSource(change.file), suffix = '\n// unrelated drift\n';
     const expected = restoreRustResonatorSite(source, change.file);
     const drift = restoreRustResonatorSite(source + suffix, change.file);
     assert.equal(drift, expected + suffix);
@@ -89,7 +95,7 @@ test('addition guards keep partial, altered and unknown changes visible', async 
     assert.deepEqual(await readRustResonatorSiteReference(urlFor(change.file)), bytes);
     assert.equal(restoreRustResonatorSite(source, 'unrelated.js'), source);
   }
-  const file = 'scripts/site/runtime-files.tsv', source = await readFile(urlFor(file), 'utf8');
+  const file = 'scripts/site/runtime-files.tsv', source = await priorRustSource(file);
   const row = `copy+require\tsrc/instruments/${id}/app.js\n`;
   for (const policy of ['copy', 'require']) for (const options of [{}, { allowRestored: true }]) {
     assert.throws(() => restoreRustResonatorSite(source.replace(row, row.replace('copy+require', policy)), file, options), /exact Rust Resonator/);

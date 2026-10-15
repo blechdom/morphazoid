@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreRezoidinatorSite } from './rezoidinator-site-reference.mjs';
 import { readFileSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import path from 'node:path';
@@ -11,6 +12,7 @@ export const rustResonatorSiteChanges = JSON.parse(readFileSync(
 /** Peel only this copy's exact registration; retain older bytes and guards. */
 export function restoreRustResonatorSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreRezoidinatorSite(source, file, { allowRestored: true });
   const change = rustResonatorSiteChanges.changes.find(change => change.file === file);
   if (!change) return source;
   const counts = change.markers.map(({ text }) => source.split(text).length - 1);

@@ -1,0 +1,94 @@
+{
+  "baseCommit": "0de68cbb6315b67918a8d713fc8acf75865a3cf3",
+  "description": "Owner-requested display rename and spatial/recording registration. The original Rust addition, BLECH timing/drop additions, and historical fixture hashes remain frozen.",
+  "changes": [
+    {
+      "file": "src/site/instrument-registry.js",
+      "sha256": "1ee7908e34aea96891f1a0a7f4293efeb2dc8e945db12236fd6b1f55a74756a9",
+      "approvedSha256": "f16466d04c69af4bcd29c0699e37ce970af128a7a14ac6f8ed95bf48175009db",
+      "markers": [
+        {
+          "text": "Rezoidinator",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    { id: \"simd-chiptune\", label: \"SIMD Chiptune\", href: \"simd-chiptune.html\" },\n    { id: \"simd-synth\", label: \"SIMD Synth\", href: \"simd-synth.html\" },\n    { id: \"simd-resonator\", label: \"SIMD Resonator\", href: \"simd-resonator.html\" },\n    { id: \"simd-resonator-rust\", label: \"Rust Resonator\", href: \"simd-resonator-rust.html\", imageHref: \"assets/instruments/simd-resonator.webp\" },\n  ]),\n  freezeGroup(\"physical-model\", \"Physical Model\", [\n    { id: \"throatazoid\", label: \"Throatazoid\", href: \"throatazoid.html\" },\n",
+          "after": "    { id: \"simd-chiptune\", label: \"SIMD Chiptune\", href: \"simd-chiptune.html\" },\n    { id: \"simd-synth\", label: \"SIMD Synth\", href: \"simd-synth.html\" },\n    { id: \"simd-resonator\", label: \"SIMD Resonator\", href: \"simd-resonator.html\" },\n    { id: \"simd-resonator-rust\", label: \"Rezoidinator\", href: \"simd-resonator-rust.html\", imageHref: \"assets/instruments/simd-resonator.webp\" },\n  ]),\n  freezeGroup(\"physical-model\", \"Physical Model\", [\n    { id: \"throatazoid\", label: \"Throatazoid\", href: \"throatazoid.html\" },\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "src/site/instrument-catalog.js",
+      "sha256": "e98952130351d04a7f8ef7835a009735897491568af9e8bf0c6ba27e9d95683e",
+      "approvedSha256": "75c28b555bc82955fcd5451508d8e32e7d009d89cc6b2f48e8f61097305c9d38",
+      "markers": [
+        {
+          "text": "Spatial modal instrument",
+          "count": 1
+        },
+        {
+          "text": "\"Surround output\", \"Multichannel recording\"",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "    [\"Modal synthesis\", \"Mic input\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"simd-resonator-rust\": define(\n    \"Rust modal instrument\",\n    \"Expands the struck SIMD Resonator into a Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, and the original microphone, file, sample, and FFT-resynthesis controls.\",\n    \"Turn on Audio, choose a preset, then tap or drag the body. Increase Modes for denser waves, use Spectral span to spread them, or feed the body with microphone, file, or sample input.\",\n    [\"Modal synthesis\", \"Mic input\", \"Local file input\", \"Sample input\", \"Rust WebAssembly\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"moire-drone\": define(\n    \"Spectral fabric filter\",\n",
+          "after": "    [\"Modal synthesis\", \"Mic input\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"simd-resonator-rust\": define(\n    \"Spatial modal instrument\",\n    \"A Rust WebAssembly body with up to 4,096 parallel modes, independent spectral span, microphone and recorded input, and spatial modal/FFT resynthesis across up to sixteen output channels. Record a multichannel 24-bit WAV or separate channel stems.\",\n    \"Turn on Audio, choose a preset, then tap or drag the body. Use Waves and Spectrum span to shape its density, choose input in the side panel, and open Surround below the synthesis controls to distribute modes or FFT bands around speakers.\",\n    [\"Modal synthesis\", \"Mic input\", \"Local file input\", \"Sample input\", \"Surround output\", \"Multichannel recording\", \"Rust WebAssembly\", \"WebAssembly SIMD\", \"AudioWorklet\", \"Pointer\"],\n  ),\n  \"moire-drone\": define(\n    \"Spectral fabric filter\",\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "9d6491b088e64529e6beb10eea8386373543789fefbfcf94216913cc7e817642",
+      "approvedSha256": "bc14b88088f31d62e546b753ad237031a667b40db061a33b1a3db0d00e0f9b2a",
+      "markers": [
+        {
+          "text": "Rezoidinator",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/spatial-model.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/surround-output.js",
+          "count": 1
+        },
+        {
+          "text": "src/instruments/simd-resonator-rust/recording.js",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\n\n# Rust Resonator: expanded modal instrument, retaining the original SIMD page.\ncopy+require\tsimd-resonator-rust.html\ncopy+require\tsrc/instruments/simd-resonator-rust/app.js\ncopy+require\tsrc/instruments/simd-resonator-rust/model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/presets.js\ncopy+require\tsrc/instruments/simd-resonator-rust/processor.js\ncopy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/style.css\ncopy+require\tassets/wasm/rust-resonator-scalar.wasm\ncopy+require\tassets/wasm/rust-resonator-simd.wasm\n",
+          "after": "copy+require\tassets/wasm/simd-resonator-simd.wasm\ncopy+require\tassets/instruments/simd-resonator.webp\n\n# Rezoidinator: Rust modal/FFT instrument with spatial output and recording.\ncopy+require\tsimd-resonator-rust.html\ncopy+require\tsrc/instruments/simd-resonator-rust/app.js\ncopy+require\tsrc/instruments/simd-resonator-rust/model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/presets.js\ncopy+require\tsrc/instruments/simd-resonator-rust/processor.js\ncopy+require\tsrc/instruments/simd-resonator-rust/fft-resynth.js\ncopy+require\tsrc/instruments/simd-resonator-rust/spatial-model.js\ncopy+require\tsrc/instruments/simd-resonator-rust/surround-output.js\ncopy+require\tsrc/instruments/simd-resonator-rust/recording.js\ncopy+require\tsrc/instruments/simd-resonator-rust/style.css\ncopy+require\tassets/wasm/rust-resonator-scalar.wasm\ncopy+require\tassets/wasm/rust-resonator-simd.wasm\n",
+          "beforeCount": 0
+        }
+      ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "a7e0677e99c3d34d41dd357746b698d1c31802fa6661fcfcb3fc4469b9e80123",
+      "approvedSha256": "d66d1c18a1852138795705e39633100cdcbd4ef45f56c7dd3794bf26ddac6591",
+      "markers": [
+        {
+          "text": "**[Rezoidinator]",
+          "count": 1
+        }
+      ],
+      "replacements": [
+        {
+          "before": "\n**SIMD Resonator** is a dedicated 128-mode playable body. A tap or drag places and hardens the strike while material presets move between glass, wood, bent metal, and pinned wire without changing the instrument's established modal DSP. Four-lane `f32x4` runs automatically where available and preserves scalar Wasm as its silent fallback.\n\n**[Rust Resonator](simd-resonator-rust.html)** keeps the original SIMD Resonator beside a Rust WebAssembly copy with up to 4,096 independently ringing modes. It opens at 512 modes across a 128-order spectral span; Modes controls density while Spectral span controls the frequency range. Twenty complete presets include twelve classic body/FFT states and eight dense modal demonstrations. The modal core uses four-lane `f32x4` with a Rust scalar fallback; the existing JavaScript FFT input path retains its 128-band ceiling. Microphone, local file, and looping sample input remain separate from presets and Audio arming. [Controls, bounds, and implementation](docs/simd-resonator-rust.md).\n\n**SIMD SYNTH** turns the WebGPU Shader Synth and Modular Shader Synth vocabulary into one immediately playable semi-modular rack. Eight polyphonic voices run as two `f32x4` Wasm packs through two interchangeable generators, six combine modes, a reorderable shaper and dual-filter path, six filter topologies, two reorderable time-effect slots, and four per-voice/global modulation routes. The fixed patch-wide topology avoids a cable canvas while still letting presets recombine vector, FM, wavefold, modal, particle, additive, formant, and bytebeat sources. A real-output scope, press-to-play X/Y surface, chromatic keyboard, browser MIDI, 16-step pitch/gate/accent/slide sequencer, one-tap Init/Undo/Panic, and browser-local preset recall keep experiments recoverable. SIMD loads automatically with an explicit scalar Wasm fallback; Audio arming remains independent from transport.\n\n",
+          "after": "\n**SIMD Resonator** is a dedicated 128-mode playable body. A tap or drag places and hardens the strike while material presets move between glass, wood, bent metal, and pinned wire without changing the instrument's established modal DSP. Four-lane `f32x4` runs automatically where available and preserves scalar Wasm as its silent fallback.\n\n**[Rezoidinator](simd-resonator-rust.html)** keeps the original SIMD Resonator beside a Rust WebAssembly instrument with up to 4,096 independently ringing modes. It opens at 512 modes across a 128-order spectrum span; Waves controls density while Spectrum span controls frequency range. Twenty complete presets include twelve classic body/FFT states and eight dense demonstrations. The modal core uses four-lane `f32x4` with a Rust scalar fallback; the JavaScript FFT input path retains its 128-band ceiling. Microphone controls live in the shared menubar strip, with file and looping sample input in the side panel. Surround distributes individual modal waves or FFT bands across up to sixteen channels, with stereo monitoring and multichannel 24-bit WAV or channel-stem export. [Controls, bounds, and implementation](docs/simd-resonator-rust.md).\n\n**SIMD SYNTH** turns the WebGPU Shader Synth and Modular Shader Synth vocabulary into one immediately playable semi-modular rack. Eight polyphonic voices run as two `f32x4` Wasm packs through two interchangeable generators, six combine modes, a reorderable shaper and dual-filter path, six filter topologies, two reorderable time-effect slots, and four per-voice/global modulation routes. The fixed patch-wide topology avoids a cable canvas while still letting presets recombine vector, FM, wavefold, modal, particle, additive, formant, and bytebeat sources. A real-output scope, press-to-play X/Y surface, chromatic keyboard, browser MIDI, 16-step pitch/gate/accent/slide sequencer, one-tap Init/Undo/Panic, and browser-local preset recall keep experiments recoverable. SIMD loads automatically with an explicit scalar Wasm fallback; Audio arming remains independent from transport.\n\n",
+          "beforeCount": 0
+        }
+      ]
+    }
+  ]
+}

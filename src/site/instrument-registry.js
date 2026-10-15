@@ -93,7 +93,7 @@ export const TOOL_GROUPS = Object.freeze([
     { id: "simd-chiptune", label: "SIMD Chiptune", href: "simd-chiptune.html" },
     { id: "simd-synth", label: "SIMD Synth", href: "simd-synth.html" },
     { id: "simd-resonator", label: "SIMD Resonator", href: "simd-resonator.html" },
-    { id: "simd-resonator-rust", label: "Rust Resonator", href: "simd-resonator-rust.html", imageHref: "assets/instruments/simd-resonator.webp" },
+    { id: "simd-resonator-rust", label: "Rezoidinator", href: "simd-resonator-rust.html", imageHref: "assets/instruments/simd-resonator.webp" },
   ]),
   freezeGroup("physical-model", "Physical Model", [
     { id: "throatazoid", label: "Throatazoid", href: "throatazoid.html" },

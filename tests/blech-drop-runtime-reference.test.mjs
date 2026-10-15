@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readFile } from 'node:fs/promises';
+import { readRustResonatorSiteReference as readFile } from './helpers/simd-resonator-rust-site-reference.mjs';
 import { createHash } from 'node:crypto';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blechDropRuntimeChange as change, restoreBlechDropRuntime, readBlechDropRuntimeReference } from './helpers/blech-drop-runtime-reference.mjs';
