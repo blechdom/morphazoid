@@ -2,6 +2,7 @@ import { STRIPED_STAIRCASE_DEFAULTS, STRIPED_STAIRCASE_VIEWS, advancePingPong,
   cameraFromView, createStaircaseFrame, createStripedStaircaseRenderer, formatComplexCoordinate,
   normalizeStaircaseSettings, panCamera, viewById, zoomCameraAt } from '../striped-staircase/striped-staircase.js';
 import { StaircaseEngine } from './engine.js';
+import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 
 const $ = id => document.getElementById(id);
 const descriptions = [
@@ -23,6 +24,19 @@ let rebuildTimer = 0, pendingJob = null, workerBusy = false, observer, aspect = 
 const status = text => { $('liveStatus').textContent = text; };
 const keys = ['progress', 'speed', 'baseFrequency', 'brightness', 'body', 'level'];
 const structureKeys = ['startIteration', 'maxIterations', 'steps', 'stripePeriod'];
+const rangeKnobs = new Map();
+let progressGesture = null;
+for (const input of document.querySelectorAll('.studies-panel input[type="range"]')) {
+  rangeKnobs.set(input.id, enhanceRangeKnob(input));
+  // Navigation may have mounted Tap before the instrument module ran.
+  input.closest('.mz-tap-tempo-field')?.classList.add('mz-tap-tempo-field--knob');
+}
+on($('progress'), 'pointerdown', event => {
+  if (event.button === 0 && event.isPrimary !== false) progressGesture = event.pointerId;
+});
+for (const name of ['pointerup', 'pointercancel', 'lostpointercapture']) on($('progress'), name, event => {
+  if (event.pointerId === progressGesture) progressGesture = null;
+});
 
 function updateControls() {
   for (const key of keys) {
@@ -43,6 +57,7 @@ function updateControls() {
   $('modeHeading').textContent = descriptions[state.mode][0]; $('modeDescription').textContent = descriptions[state.mode][1];
   $('body').disabled = state.mode < 2;
   document.querySelector('label[for="body"] b').textContent = state.mode === 2 ? 'Ring' : 'Body';
+  for (const knob of rangeKnobs.values()) knob.update();
 }
 function sendControls() { engine?.controls(state); }
 function transport() { engine?.transport(state); updateControls(); }
@@ -145,7 +160,10 @@ function render(now) {
       overlayContext.stroke();
     }
   }
-  if (document.activeElement !== $('progress')) $('progress').value = state.progress;
+  if (progressGesture === null) {
+    $('progress').value = state.progress;
+    rangeKnobs.get('progress').update();
+  }
   $('progressOut').textContent = state.progress.toFixed(3);
   $('depthReadout').textContent = `Depth ${frame.renderLow.toFixed(1)}–${frame.renderHigh.toFixed(1)}`;
   $('coordinateReadout').textContent = formatComplexCoordinate(state.camera.centerX, state.camera.centerY);
@@ -154,6 +172,8 @@ function render(now) {
 function zoom(factor, point = { x: .5, y: .5 }) { state.camera = zoomCameraAt(state.camera, point, factor, aspect); queueField(); }
 function resetView() { state.camera = cameraFromView(viewById(state.view)); queueField(); }
 function reset() {
+  for (const knob of rangeKnobs.values()) knob.cancelGesture();
+  progressGesture = null;
   const level = state.level, audio = state.audio;
   Object.assign(state, defaults, { level, audio, playing: false, settings: normalizeStaircaseSettings(STRIPED_STAIRCASE_DEFAULTS) });
   seek(defaults.progress, 1); resetView(); sendControls(); transport();
@@ -228,6 +248,8 @@ function teardown() {
   if (state.disposed) return;
   state.disposed = true; state.audio = false; state.playing = false; audioEpoch++;
   cancelAnimationFrame(renderFrame); clearTimeout(rebuildTimer); observer?.disconnect(); worker?.terminate(); renderer?.destroy();
+  for (const knob of rangeKnobs.values()) knob.destroy();
+  rangeKnobs.clear(); progressGesture = null;
   signalOwner.abort(); pointers.clear(); void closeAudio();
 }
 on(window, 'pagehide', teardown);
