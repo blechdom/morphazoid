@@ -27,7 +27,7 @@
       "replacements": [
         {
           "before": "const CATALOG_DETAILS = Object.freeze({\n",
-          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"striped-staircase-rust\": define(\n    \"Fractal sonification studies\",\n    \"Compares measured contours, area-weighted harmonics, depth-stripe strikes and contour resonances in the Striped Staircase Mandelbrot field.\",\n    \"Enable Audio, then Play. Hold depth and switch studies, or drag and zoom to hear another region.\",\n    [\"Pointer\", \"WebGL\", \"WebAssembly\", \"MIDI input\"],\n  ),\n"
+          "after": "const CATALOG_DETAILS = Object.freeze({\n  \"striped-staircase-rust\": define(\n    \"Fractal sonification studies\",\n    \"Compares measured contours, area-weighted harmonics, rhythmic branch voices and contour resonances in the Striped Staircase Mandelbrot field.\",\n    \"Enable Audio, then Play. Hold depth and switch studies, or drag and zoom to hear another region.\",\n    [\"Pointer\", \"WebGL\", \"WebAssembly\", \"MIDI input\"],\n  ),\n"
         }
       ]
     },
@@ -99,7 +99,7 @@
       "replacements": [
         {
           "before": "# Morphazoid\n\n",
-          "after": "# Morphazoid\n\n**[Staircase Studies](striped-staircase-rust.html)** revisits Striped Staircase in a separate Rust/WebAssembly instrument. Compare contour waves, area-weighted harmonics, stripe-crossing strikes and contour resonances while retaining the same depth. Enable Audio, then Play; Hold depth freezes the view while continuous studies keep sounding. [Mappings and limits](docs/staircase-studies.md).\n\n"
+          "after": "# Morphazoid\n\n**[Staircase Studies](striped-staircase-rust.html)** revisits Striped Staircase in a separate Rust/WebAssembly instrument. Compare contour waves, area-weighted harmonics, white/black branch rhythms and contour resonances while retaining the same depth. Enable Audio, then Play; Hold depth freezes the view while continuous studies keep sounding. [Mappings and limits](docs/staircase-studies.md).\n\n"
         }
       ]
     }

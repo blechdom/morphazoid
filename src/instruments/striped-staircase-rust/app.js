@@ -160,7 +160,7 @@ function render(now) {
   if (rhythm) {
     state.rhythm = { white: rhythm.white, count: rhythm.count, omitted: rhythm.omitted,
       voices: rhythm.branches.map(({ slot, cx, cy, presence }) => ({ slot, cx, cy, presence })) };
-    $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} voices${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
+    $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} ${rhythm.count === 1 ? 'voice' : 'voices'}${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
     const traces = state.mode === 2 ? rhythm.branches : [{ points: field.overlays[Math.round(state.progress * (field.frames - 1))]?.points }];
     for (const branch of traces) {
       const path = branch.points;

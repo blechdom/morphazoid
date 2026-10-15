@@ -17,7 +17,7 @@ const define = (kind, description, start, features = [], pluginHref = null) => O
 const CATALOG_DETAILS = Object.freeze({
   "striped-staircase-rust": define(
     "Fractal sonification studies",
-    "Compares measured contours, area-weighted harmonics, depth-stripe strikes and contour resonances in the Striped Staircase Mandelbrot field.",
+    "Compares measured contours, area-weighted harmonics, rhythmic branch voices and contour resonances in the Striped Staircase Mandelbrot field.",
     "Enable Audio, then Play. Hold depth and switch studies, or drag and zoom to hear another region.",
     ["Pointer", "WebGL", "WebAssembly", "MIDI input"],
   ),
