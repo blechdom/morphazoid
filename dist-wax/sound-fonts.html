@@ -117,13 +117,43 @@
         <p id="catalogStatus" class="sf-muted sf-small" role="status">Loading free banks…</p>
         <p class="sf-muted sf-small">Looking for more? Explore <a href="https://schristiancollins.com/generaluser" target="_blank" rel="noopener noreferrer">GeneralUser GS</a> or the <a href="https://www.polyphone.io/" target="_blank" rel="noopener noreferrer">Polyphone repository</a>. Check the license of each additional download.</p>
       </section>
+      <section id="soundfont-routing" class="sf-routing-guide" aria-labelledby="routingTitle">
+        <h2 id="routingTitle">Use your sounds in other instruments.</h2>
+        <div class="sf-routing-layout">
+          <div>
+            <h3>Available now: your shared collection</h3>
+            <p>Import or create a SoundFont here, then choose it in another instrument:</p>
+            <ul>
+              <li><a href="blech-midi.html">BLECH MIDI</a> → <strong>Files → GM SoundFonts → SoundFont bank</strong></li>
+              <li><a href="midiphoria.html">Midiophilia</a> → <strong>MIDI Mixer → SoundFont &amp; live effects → SoundFont bank</strong></li>
+            </ul>
+            <p>Saved fonts are shared in this browser, so you can use them without downloading and importing them again. Today, the selected bank supplies the sounds for the whole instrument.</p>
+            <p>The same shared library and picker can be included in more Morphazoid instruments over time.</p>
+          </div>
+          <div>
+            <p class="sf-eyebrow">FUTURE EXAMPLE · NOT AVAILABLE YET</p>
+            <h3>A SoundFont for each MIDI channel</h3>
+            <p>SpessaSynth can load several SoundFonts together and assign their presets to different channels. A future <strong>SoundFont + Preset</strong> choice on each channel could keep a GM arrangement playing while adding your own instrument:</p>
+            <table class="sf-routing-table">
+              <caption>Example setup for BLECH MIDI or Midiophilia</caption>
+              <thead><tr><th scope="col">MIDI channel</th><th scope="col">SoundFont</th><th scope="col">Sound</th></tr></thead>
+              <tbody>
+                <tr><th scope="row">1</th><td>GeneralUser GS</td><td>Piano</td></tr>
+                <tr><th scope="row">2</th><td>Your created SoundFont</td><td>Your sample instrument</td></tr>
+                <tr><th scope="row">10</th><td>GeneralUser GS</td><td>Drums</td></tr>
+              </tbody>
+            </table>
+            <p>The custom sound would play only its assigned part. The other channels would keep their GM sounds. This channel routing still needs to be added to Morphazoid’s shared utility and instrument controls.</p>
+          </div>
+        </div>
+      </section>
       <details class="sf-usage-guide">
         <summary>Using SoundFonts: MIDI channels and downloads</summary>
         <dl>
           <div><dt>Which kind should I use?</dt><dd>A complete GM bank supplies the instruments and drums for a MIDI song. A single-instrument font gives you one sound to play across the keyboard, including chords.</dd></div>
           <div><dt>Can I assign a font to a MIDI channel?</dt><dd>In a player that supports fonts per channel or track, yes. Morphazoid currently loads one bank for the whole instrument. MIDI Mixer lets you choose a preset from that bank per channel. Loading a single-instrument font replaces the bank, so multiple parts can play the same sound, including drums.</dd></div>
           <div><dt>What does Download save?</dt><dd>The complete SF2 or SF3 file, with its samples and instrument settings. A GM download includes every preset, even when you preview just one. Created fonts contain your single instrument. Load the file in a compatible SoundFont player; downloading does not assign a MIDI channel.</dd></div>
-          <div><dt>How do I use my collection in Morphazoid?</dt><dd>Open <a href="midiphoria.html">Midiophilia’s MIDI Mixer</a> or <a href="blech-midi.html">Blech MIDI</a>, then choose <strong>SoundFont &amp; live effects → SoundFont bank</strong>. Your saved fonts appear there in this browser.</dd></div>
+          <div><dt>How do I use my collection in Morphazoid?</dt><dd>In <a href="blech-midi.html">BLECH MIDI</a>, open <strong>Files → GM SoundFonts → SoundFont bank</strong>. In <a href="midiphoria.html">Midiophilia</a>, open <strong>MIDI Mixer → SoundFont &amp; live effects → SoundFont bank</strong>. Your saved fonts appear there in this browser.</dd></div>
         </dl>
       </details>
       <footer class="sf-footer"><span id="storageStatus">Saved on this device</span><span>Download your fonts to back up or share. Your files stay in this browser.</span></footer>
