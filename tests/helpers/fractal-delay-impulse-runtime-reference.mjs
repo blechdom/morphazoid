@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlackMidiArtRuntime } from './black-midi-art-runtime-reference.mjs';
@@ -12,6 +13,7 @@ export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only exact reviewed additions; unknown or altered bytes remain visible. */
 export function restoreFractalImpulseRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   source = restoreBlechBrandSite(source, file, { allowRestored: true });
   source = restoreBlechBlackMidiTap(source, file, { allowRestored: true });

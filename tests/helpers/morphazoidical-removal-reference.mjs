@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 
 // Reverse the October 1 owner-requested removal only for older source proofs.
@@ -29,6 +30,7 @@ const removals = {
 };
 
 export function restoreMorphazoidicalRemoval(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const removal = removals[file];
   if (!removal) return source;
   assert.equal(source.split(removal.anchor).length - 1, 1, `${file}: exact Morphazoidical removal anchor`);

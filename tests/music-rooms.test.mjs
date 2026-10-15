@@ -45,7 +45,8 @@ test("Music Rooms routes live in Works in progress without entering the instrume
   assert.ok(group);
   assert.equal(TOOL_GROUPS.some(({ id }) => id === "music-rooms"), false);
   assert.equal(group.label, "Work in Progress");
-  assert.deepEqual(group.tools.slice(0, 5), [
+  assert.deepEqual(group.tools.slice(0, 6), [
+    { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp' },
     { id: 'vector-fractals', label: 'Vector Fractals', href: 'vector-fractals.html' },
     ...roomTools,
   ]);

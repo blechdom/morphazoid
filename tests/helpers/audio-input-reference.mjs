@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreOutputRecording } from "./output-recording-reference.mjs";
 import { restoreBorrowedAudioContext } from "./borrowed-audio-context-reference.mjs";
 import { restoreSharedInstrumentContext } from "./shared-instrument-context-reference.mjs";
@@ -14,6 +15,7 @@ const root = fileURLToPath(new URL("../../", import.meta.url));
 export const audioInputAmendments = JSON.parse(readFileSync(new URL("../../docs/audio-input-runtime-changes.json", import.meta.url), "utf8"));
 
 export function restoreAudioInput(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of audioInputAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact shared input amendment`);

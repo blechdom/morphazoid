@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -5,6 +6,7 @@ export const gesticulesMetadataAmendments = JSON.parse(readFileSync(new URL("../
 
 /** Reverse only the declared instrument additions; retain the frozen move proof. */
 export function restoreGesticulesMetadata(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of gesticulesMetadataAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact Gesticules metadata amendment`);

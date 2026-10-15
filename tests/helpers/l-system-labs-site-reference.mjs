@@ -1,8 +1,10 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreMidiphoriaSite } from './midiphoria-site-reference.mjs';
 export const labSiteAdditions = JSON.parse(readFileSync(new URL('../fixtures/l-system-labs-site-additions.json', import.meta.url), 'utf8'));
 export function restoreLSystemLabSite(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreMidiphoriaSite(source, file, { allowRestored: true });
   for (const change of labSiteAdditions.filter(change => change.file === file)) {
     for (const replacement of change.replacements ?? []) {

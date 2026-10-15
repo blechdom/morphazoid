@@ -1,0 +1,133 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+    <script src="wax/wax-host-bootstrap.js" data-morphazoid-wax-bootstrap></script>
+    <!-- morphazoid-social-preview:start -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Morphazoid" />
+    <meta property="og:title" content="Graphonic Calculator — Morphazoid" />
+    <meta property="og:description" content="A Desmos-style graphing calculator: type expressions, drag sliders and points, pan and zoom the plane, then let points, lines and radar playheads read every curve as pitch and stereo position." />
+    <meta property="og:url" content="https://morphazoid.com/graphonic-calculator.html" />
+    <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta property="og:image:type" content="image/png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Graphonic Calculator — Morphazoid" />
+    <meta name="twitter:description" content="A Desmos-style graphing calculator: type expressions, drag sliders and points, pan and zoom the plane, then let points, lines and radar playheads read every curve as pitch and stereo position." />
+    <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
+    <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
+    <!-- morphazoid-social-preview:end -->
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <meta name="theme-color" content="#07090b" />
+  <meta name="description" content="A Desmos-style graphing calculator: type expressions, drag sliders and points, pan and zoom the plane, then let points, lines and radar playheads read every curve as pitch and stereo position." />
+  <title>Graphonic Calculator — Morphazoid</title>
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="stylesheet" href="src/instruments/graphonic-calculator/style.css" />
+</head>
+<body class="graphonic-calculator-page">
+  <header class="masthead">
+    <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
+    <nav class="tabs" aria-label="Instrument"><a class="tab active" href="graphonic-calculator.html" aria-current="page">Graphonic Calculator</a></nav>
+    <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="graphonic-calculator.html" selected>Graphonic Calculator</option></select></label>
+    <div id="audioHost"></div>
+  </header>
+  <main class="shell graphing-shell" id="graphonicCalculator">
+    <section class="stage graphing-stage" aria-label="Graph">
+      <div class="stage-wrap graphing-stage-wrap" id="stageWrap">
+        <canvas id="stage" tabindex="0" role="img" aria-label="Graph of the listed expressions. Drag to pan; wheel, pinch, plus or minus zoom; arrow keys pan; Home resets the view; drag a highlighted point to change its sliders." aria-describedby="canvasInstructions">The graph of every expression in the list.</canvas>
+        <div class="graphing-heading"><h1>Graphonic<br />calculator</h1><span>type · drag · zoom · play to hear</span></div>
+        <div class="stage-view-actions" aria-label="View controls"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="homeView" type="button" aria-label="Reset view">⌂</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+        <output id="hoverReadout" class="graphing-hover" aria-live="off"></output>
+      </div>
+    </section>
+    <aside class="panel graphing-panel" aria-label="Graphonic calculator controls" data-instrument-preset-host>
+      <div id="mainPresets"></div>
+      <details class="group control-section performance-group" id="playSection" data-section="play" open>
+        <summary class="group-summary"><h2 class="group-title">Play</h2><span class="section-state" id="playbackSummary">Line · 1 head</span></summary>
+        <div class="group-body">
+          <div class="position-row playhead-position-row">
+            <button class="play-button" id="playButton" type="button" aria-pressed="false" aria-label="Play the reader" data-primary-transport><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
+            <label class="control position-control" for="position"><span><b id="positionLabel">Playhead position</b><output id="positionOut" for="position">0.0%</output></span><input id="position" type="range" min="0" max="1" step="0.0005" value="0" /></label>
+          </div>
+          <div class="rate-control playhead-rate-control" role="group" aria-label="Automatic playhead motion">
+            <span class="rate-heading"><b>Tempo</b><output id="sweepTempoOut" for="sweepTempo">12 /min · 5.0 s</output></span>
+            <div class="rate-row-single transport-rate-row">
+              <input id="sweepTempo" aria-label="Tempo in cycles per minute" type="range" min="1" max="60" step="0.5" value="12" />
+              <div class="transport-button-array" id="playheadMotion" role="group" aria-label="Playhead direction and movement">
+                <button class="direction-toggle" id="directionToggle" type="button" aria-pressed="false" aria-label="Playhead direction: forward"><span id="directionGlyph" aria-hidden="true">→</span><small id="directionText">Forward</small></button>
+                <button id="loopMotion" type="button" data-motion="loop" aria-pressed="true" aria-label="Loop movement" title="Loop"><span aria-hidden="true">⟳</span><small>Loop</small></button>
+                <button id="pingPongMotion" type="button" data-motion="pingpong" aria-pressed="false" aria-label="Back-and-forth movement" title="Back and forth"><span aria-hidden="true">↔</span><small>Ping-pong</small></button>
+              </div>
+            </div>
+          </div>
+          <div class="field-label">Playhead type</div>
+          <div class="choice-switch" id="playbackMode" role="group" aria-label="Reading method"><button type="button" data-playback="points" aria-pressed="false">Points</button><button type="button" data-playback="line" aria-pressed="true">Line</button><button type="button" data-playback="radar" aria-pressed="false">Radar</button></div>
+          <p class="control-note" id="playbackNote">A line sweeps the view; every curve it crosses sounds.</p>
+          <div class="playhead-stepper" id="playheadStepper" role="group" aria-label="Playhead count"><button id="removeHead" type="button" aria-label="Remove one playhead">−</button><span><small>Playheads</small><output id="headCountOut">1</output></span><button id="addHead" type="button" aria-label="Add one playhead">+</button></div>
+          <label class="control mode-control count-range-proxy" id="headsControl" for="heads"><span><b>Playhead number</b><output id="headsOut" for="heads">1 playhead</output></span><input id="heads" type="range" min="1" max="12" step="1" value="1" /></label>
+          <div class="head-layout-control" id="headLayoutControl">
+            <div class="head-layout-heading"><span class="field-label">Relative spacing</span><span class="graphing-layout-actions"><button class="mini-action" id="crossHeadAxes" type="button" title="Alternate vertical and horizontal lines">Crossed</button><button class="mini-action" id="resetHeadSpacing" type="button">Equidistant</button></span></div>
+            <div class="head-layout-track has-head-options" id="headLayoutTrack" role="group" aria-label="Relative playhead spacing"></div>
+            <p class="control-note" id="headOptionsNote">Drag a numbered marker to offset that playhead. The small toggle above each line turns it 90°; above a point or ray it reverses it.</p>
+          </div>
+        </div>
+      </details>
+      <p id="sessionStatus" class="graphing-status" role="status">Type an expression such as y = x^2, or choose a preset.</p>
+      <section class="graphing-expressions" aria-label="Expressions">
+        <ol id="expressionList" class="expression-list"></ol>
+        <form class="expression-new" id="newExpressionForm"><input id="newExpression" type="text" placeholder="y = …  ·  a = 2  ·  r = cos(3θ)" aria-label="New expression" autocomplete="off" autocapitalize="off" spellcheck="false" /><button id="addExpression" type="submit">Add</button></form>
+      </section>
+      <details class="group control-section" data-section="sound" open>
+        <summary class="group-summary"><h2 class="group-title">Sound</h2><span class="section-state" id="soundSummary">Sine · height</span></summary>
+        <div class="group-body">
+          <label class="select-control" for="voice"><span class="field-label">Voice</span><select id="voice"><option value="sine">Sine</option><option value="triangle">Triangle</option><option value="reed">Reed</option><option value="saw">Saw</option><option value="pulse">Pulse</option><option value="fm">FM</option></select></label>
+          <label class="control" for="timbre"><span><b>Timbre</b><output id="timbreOut" for="timbre">50%</output></span><input id="timbre" type="range" min="0" max="1" step="0.01" value="0.5" /></label>
+          <label class="control" for="glide"><span><b>Glide</b><output id="glideOut" for="glide">30 ms</output></span><input id="glide" type="range" min="0.005" max="0.5" step="0.005" value="0.03" /></label>
+          <label class="select-control" for="pitchSource"><span class="field-label">Pitch from</span><select id="pitchSource"><option value="height">Height (y)</option><option value="width">Width (x)</option><option value="radius">Distance from origin</option></select></label>
+          <label class="control" for="traceOctaves"><span><b>Pitch range</b><output id="traceOctavesOut" for="traceOctaves">2.0 oct</output></span><input id="traceOctaves" type="range" min="1" max="4" step="0.1" value="2" /></label>
+          <p class="control-note">Contacts sound while they are inside the view: the chosen source sets pitch above 220 Hz, horizontal position sets stereo place. Timbre brightens Reed and Saw, narrows Pulse and deepens FM. Undefined values and off-screen branches stay silent.</p>
+          <p class="audio-error" id="audioError" role="alert" hidden></p>
+        </div>
+      </details>
+      <details class="group control-section" data-section="view">
+        <summary class="group-summary"><h2 class="group-title">Graph settings</h2><span class="section-state" id="viewSummary">radians</span></summary>
+        <div class="group-body">
+          <div class="choice-switch" id="angleMode" role="group" aria-label="Angle mode"><button type="button" data-angle="radians" aria-pressed="true">Radians</button><button type="button" data-angle="degrees" aria-pressed="false">Degrees</button></div>
+          <label class="graphing-check"><input type="checkbox" id="showGrid" checked />Grid</label>
+          <label class="graphing-check"><input type="checkbox" id="showLabels" checked />Axis numbers</label>
+          <div class="graphing-view-fields">
+            <label>x min<input id="viewXMin" type="number" step="any" value="-10" /></label>
+            <label>x max<input id="viewXMax" type="number" step="any" value="10" /></label>
+            <label>y min<input id="viewYMin" type="number" step="any" value="-7" /></label>
+            <label>y max<input id="viewYMax" type="number" step="any" value="7" /></label>
+          </div>
+          <button id="squareView" type="button" class="graphing-secondary">Square units</button>
+        </div>
+      </details>
+      <details class="group control-section" data-section="help">
+        <summary class="group-summary"><h2 class="group-title">Syntax</h2><span class="section-state">examples</span></summary>
+        <div class="group-body graphing-syntax">
+          <p><code>y = x^2</code>, <code>sin(2x)</code> or <code>f(x) = e^-x cos(x)</code> draw functions of x; <code>x = y^2</code> draws a function of y.</p>
+          <p><code>x^2 + y^2 = 4</code> is an implicit curve. <code>y &lt; x^2</code> shades a region.</p>
+          <p><code>r = cos(3θ)</code> is polar (type <code>theta</code> for θ). <code>(cos t, sin t)</code> is parametric. <code>(a, b)</code> is a point you can drag when a and b are sliders.</p>
+          <p><code>a = 2</code> makes a slider. Using an undefined letter offers to add one. <code>2 + 2</code> just shows its value.</p>
+          <p>Functions: sin cos tan asin acos atan sinh cosh tanh ln log exp sqrt cbrt abs floor ceil round sign min max mod, and <code>!</code>. Constants: π (pi), τ (tau), e.</p>
+        </div>
+      </details>
+      <div class="reset-all-row"><button class="reset-all-button graphing-secondary" id="resetAll" type="button" data-reset-all data-reset-in-place>Reset all parameters</button></div>
+      <p class="graphing-notes"><a href="docs/graphonic-calculator.md">Notes, limits and the sonification plan</a></p>
+    </aside>
+    <p class="sr-only" id="canvasInstructions">Drag to pan. Wheel, pinch, plus or minus zoom around the pointer. Home resets the view. Arrow keys pan. Space plays or pauses the reader. Drag a highlighted point to change the sliders that define it.</p>
+    <p class="sr-only" id="liveStatus" aria-live="polite"></p>
+  </main>
+  <script type="module" src="nav.js"></script>
+  <script type="module" src="src/instruments/graphonic-calculator/app.js"></script>
+  <script type="module" src="wax/wax-universal-adapter.js" data-morphazoid-wax-universal-adapter></script>
+</body>
+</html>

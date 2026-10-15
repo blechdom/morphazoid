@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { restoreLSystemLabSite } from './l-system-labs-site-reference.mjs';
 
@@ -26,6 +27,7 @@ export const blobsSiteChanges = [
 ];
 
 export function restoreBlobsSite(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreLSystemLabSite(source, file);
   for (const { addition } of blobsSiteChanges.filter(change => change.file === file)) {
     assert.equal(source.split(addition).length - 1, 1, `${file}: exact Blobs addition`);

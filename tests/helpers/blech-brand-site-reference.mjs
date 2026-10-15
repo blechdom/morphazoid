@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreMidiFavesSite } from './midi-faves-site-reference.mjs';
@@ -8,6 +9,7 @@ export const blechBrandSiteChanges = JSON.parse(readFileSync(
 
 /** Restore only the reviewed label and catalogue copy; preserve unknown bytes. */
 export function restoreBlechBrandSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   source = restoreMidiFavesSite(source, file, { allowRestored: true });
   const change = blechBrandSiteChanges.changes.find(change => change.file === file);

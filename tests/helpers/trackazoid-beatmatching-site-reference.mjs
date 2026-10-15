@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const trackazoidBeatmatchingChanges = JSON.parse(readFileSync(
 
 /** Restore the published Trackazoid MVP while keeping its original registration. */
 export function restoreTrackazoidBeatmatchingSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   const change = trackazoidBeatmatchingChanges.changes.find(change => change.file === file);
   if (!change) return source;

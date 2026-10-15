@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { restoreBlechWorkspaceRuntime } from './blech-workspace-runtime-reference.mjs';
@@ -8,6 +9,7 @@ export const blechBlackMidiRuntimeChange = JSON.parse(readFileSync(
 
 /** Restore only the complete, uniquely located ownership move before old guards. */
 export function restoreBlechBlackMidiRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blechBlackMidiRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   source = restoreBlechWorkspaceRuntime(source, file, { allowRestored: true });

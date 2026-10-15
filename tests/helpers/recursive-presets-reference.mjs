@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -8,6 +9,7 @@ export const recursivePresetAmendments = JSON.parse(readFileSync(
 // Peel only the reviewed preset UI and FM output-cleanup changes. Earlier
 // preservation hashes continue to describe the exact historical source bytes.
 export function restoreRecursivePresets(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of recursivePresetAmendments.changes.filter(change => change.file === file)) {
     if (allowRestored && change.replacements.every(({ after }) => !source.includes(after))) continue;
     for (const { before, after } of [...change.replacements].reverse()) {

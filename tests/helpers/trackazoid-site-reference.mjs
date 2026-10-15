@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidBeatmatchingSite } from './trackazoid-beatmatching-site-reference.mjs';
 import { restoreTrackazoidPadsSite } from './trackazoid-pads-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -15,6 +16,7 @@ export const trackazoidSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the Trackazoid registration before comparing historical bytes. */
 export function restoreTrackazoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlechBrandSite(source, file, { allowRestored: true });
   source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });
   source = restoreTrackazoidPadsSite(source, file, { allowRestored: true });

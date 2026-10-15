@@ -4,8 +4,8 @@
   "branch": "codex/presets-continue-20260922",
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
-    "implemented": 48,
-    "fullPresets": 1979,
+    "implemented": 49,
+    "fullPresets": 2109,
     "favesImplemented": 17,
     "activeRemaining": 60,
     "regularRemaining": 129
@@ -956,6 +956,15 @@
       "status": "implemented-verification-pending"
     },
     {
+      "id": "graphonic-calculator",
+      "label": "Graphonic Calculator",
+      "href": "graphonic-calculator.html",
+      "category": "wip",
+      "scope": "deferred-wip",
+      "presets": 130,
+      "status": "implemented-verification-pending"
+    },
+    {
       "id": "vector-fractals",
       "label": "Vector Fractals",
       "href": "vector-fractals.html",
@@ -1775,7 +1784,8 @@
       "gesticulating-hand",
       "simd-chiptune",
       "blech-midi",
-      "midiphoria"
+      "midiphoria",
+      "graphonic-calculator"
     ],
     "nonWipUnmigrated": [
       "shape-drum-machine",
@@ -1842,6 +1852,7 @@
       "crickets",
       "midiphoria",
       "blech-midi",
+      "graphonic-calculator",
       "vector-fractals",
       "room-lobby",
       "vocal-effects-room",

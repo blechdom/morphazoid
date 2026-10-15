@@ -1,5 +1,22 @@
 # Full-instrument preset rollout
 
+## October 15 — Graphonic Calculator joins Faves
+
+Graphonic Calculator (`graphonic-calculator`, still listed under Work in Progress)
+was appended to `FAVE_TOOL_IDS` after Midiophilia at the owner's request so the
+Desmos-style sonified calculator is live and reachable from Faves. Its header bank
+holds 130 complete scenes: 20 listening studies plus a 110-formula library
+(`src/instruments/graphonic-calculator/formulas.js`) covering polynomials,
+trigonometry, exponentials, rational and named implicit curves, polar and
+parametric classics, Fourier sums, physical models and calculus demonstrations.
+Every scene round-trips through `sanitizeState`, analyses without error and draws
+something; the randomizer produces a full-state snapshot including the reader and
+voice. The Play section now mirrors Shape's playhead transport (position scrub,
+tempo, loop/ping-pong, direction, 1–12 playheads with a draggable spacing track and
+per-head axis or direction toggles) and Points heads ride every connected branch of
+a curve. Status is `implemented-verification-pending` until the owner's listening
+pass; the WIP category keeps it out of the primary control-inventory audits.
+
 ## October 13 — SIMD Resonator presets and recorded input
 
 SIMD Resonator has twelve complete body/FFT scenes in the shared

@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -7,6 +8,7 @@ export const spartialRecordingRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only SPARTIAL's two reviewed recording modules before historical guards. */
 export function restoreSpartialRecordingRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = spartialRecordingRuntimeChanges;
   if (typeof source !== 'string' || file !== change.file) return source;
   const counts = change.additions.map(row => source.split(row).length - 1);

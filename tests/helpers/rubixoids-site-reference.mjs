@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 
@@ -5,6 +6,7 @@ export const rubixoidsSiteAmendments = JSON.parse(readFileSync(new URL("../../do
 
 /** Remove only Rubixoids' exact additions before applying older frozen proofs. */
 export function restoreRubixoidsSite(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of rubixoidsSiteAmendments.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       assert.equal(source.split(replacement.after).length - 1, 1, `${file}: exact Rubixoids site amendment`);

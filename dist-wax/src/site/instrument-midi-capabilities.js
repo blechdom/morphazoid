@@ -128,6 +128,7 @@ const NOTE_MODE_IDS = Object.freeze({
     "graph-3d",
   ]),
   sequence: Object.freeze([
+    "graphonic-calculator",
     "vector-fractals",
     "l-systems",
     "graphs",
@@ -253,6 +254,7 @@ export const PAGE_KEYBOARD_INSTRUMENT_IDS = Object.freeze([
 // transport, but they have no conservative note action. Do not capture QWERTY
 // piano/drum keys until an explicit page mapping exists.
 export const NO_GENERIC_NOTE_KEYBOARD_IDS = Object.freeze([
+  "graphonic-calculator",
   "vector-fractals",
   "fractal-delay",
   "hocket-loom",
@@ -336,6 +338,7 @@ const midiOutputExtraIds = new Set([
   "julia",
 ]);
 const noMidiOutputIds = new Set([
+  "graphonic-calculator",
   "vector-fractals",
   "domino-run",
   "fractal-signals",

@@ -8,6 +8,10 @@ export const cataloguePlan = { ...originalPlan, rows: originalPlan.rows.filter(r
 const prior = JSON.parse(readFileSync(new URL('../fixtures/catalogue-before-20260918.json', import.meta.url), 'utf8'));
 const byId = new Map(cataloguePlan.rows.flatMap(row => [[row.oldId, row], [row.id, row]]));
 export const mainAdditions = [
+  // October 14 owner request: Desmos-style graphing calculator with a sonified trace playhead.
+  { id: 'graphonic-calculator', label: 'Graphonic Calculator', href: 'graphonic-calculator.html', imageHref: 'assets/instruments/graphonic-calculator.webp',
+    categoryId: 'wip', categoryLabel: 'Work in Progress',
+    tags: [{ id: '2d', label: '2D' }, { id: 'sonification', label: 'Sonification' }, { id: 'graphic-ui', label: 'Graphic-UI' }] },
   // October 11 owner request: a browser DJ workspace inside Morphazoid.
   { id: 'trackazoid', label: 'Trackazoid', href: 'trackazoid.html', imageHref: 'assets/instruments/trackazoid.webp',
     categoryId: 'app', categoryLabel: 'App',
@@ -78,6 +82,8 @@ export const expectedFaveToolIds = Object.freeze([
   "simd-chiptune",
   // Owner follow-up October 12: BLECH MIDI and Midiophilia join Faves.
   "blech-midi", "midiphoria",
+  // Owner follow-up October 15: Graphonic Calculator joins Faves while still filed under WIP.
+  "graphonic-calculator",
 ]);
 const faves = new Set(expectedFaveToolIds);
 export function expectedTagIdsFor(id) {

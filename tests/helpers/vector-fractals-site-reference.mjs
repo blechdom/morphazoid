@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -15,6 +16,7 @@ export const vectorFractalsSiteChanges = JSON.parse(readFileSync(
 
 /** Reverse only the exact reviewed Vector Fractals registration and runtime rows. */
 export function restoreVectorFractalsSite(source, file) {
+  source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreTrackazoidSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });
   source = restoreFractalDelayFaves(source, file, { allowRestored: true });
