@@ -24,6 +24,13 @@ import {
   styledLSystemDrumVoice,
 } from "./l-system-drum-machine.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  L_SYSTEM_DRUM_FULL_PRESETS,
+  captureLSystemDrumPreset,
+  randomizeLSystemDrumPreset,
+  validateLSystemDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -807,3 +814,49 @@ paintStructure();
 paintMapping();
 renderDrumMap();
 scheduleFrame();
+
+function captureLSystemDrumState() {
+  return captureLSystemDrumPreset({
+    ...state,
+    systemId: state.presetId,
+    direction: state.direction,
+    traversalBehavior: state.traversalBehavior,
+  });
+}
+
+function applyLSystemDrumPreset(snapshot) {
+  validateLSystemDrumPreset(snapshot);
+  const { systemId, ...values } = snapshot;
+  Object.assign(state, values, { presetId: systemId });
+  $("preset").value = systemId;
+  paintGrammar();
+  for (const [id, text] of [
+    ["iterations", String(state.iterations)],
+    ["angle", `${formatAngle(state.angle)}°`],
+    ["turnAsymmetry", formatTurnPair(state.turnAsymmetry)],
+    ["lengthScale", `${Math.round(state.lengthScale * 100)}%`],
+    ["subdivisions", String(state.subdivisions)],
+    ["pitchDepth", `${state.pitchDepth} st`],
+    ["anglePitchDepth", `${state.anglePitchDepth} st`],
+    ["angleRange", `±${state.angleRange}°`],
+    ["characterDepth", `${Math.round(state.characterDepth * 100)}%`],
+  ]) {
+    $(id).value = String(state[id]);
+    $(`${id}Out`).textContent = text;
+  }
+  paintGrowthCapabilities();
+  $("structureMode").value = state.structureMode;
+  $("percussionStyle").value = state.percussionStyle;
+  activeEventKeys = new Set();
+  paintTraversalBehavior();
+  renderDrumMap();
+  paintMapping();
+  rebuildTrace();
+}
+
+registerHeaderPresets({
+  id: "l-system-drum-machine", presets: L_SYSTEM_DRUM_FULL_PRESETS,
+  capture: captureLSystemDrumState,
+  apply: applyLSystemDrumPreset,
+  randomize: randomizeLSystemDrumPreset,
+});
