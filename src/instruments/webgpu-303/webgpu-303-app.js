@@ -40,6 +40,8 @@ import {
   SIMD_303_USER_PRESET_LIMIT,
   SIMD_303_USER_PRESET_STORAGE_KEY,
 } from "../../simd-303-user-presets.js";
+import { registerHeaderPresets, presetStateKey } from "../../site/header-presets.js";
+import { FULL_SIMD_303, FULL_WEBGPU_303 } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
@@ -1935,4 +1937,30 @@ globalThis.addEventListener?.("pagehide", () => {
   knobRowsObserver?.disconnect();
   globalThis.removeEventListener?.("resize", balanceKnobRows);
   void stopAudio({ quiet: true });
+});
+
+const fullPresets = isSimdPage ? FULL_SIMD_303 : FULL_WEBGPU_303;
+registerHeaderPresets({
+  id: isSimdPage ? "simd-303" : "webgpu-303",
+  presets: fullPresets.presets,
+  capture: () => fullPresets.capture(state),
+  apply: snapshot => {
+    fullPresets.validate(snapshot);
+    settleActiveMorph();
+    state.params = sanitize303Params({ ...state.params, ...snapshot.params });
+    state.sequence = sanitizeWebGpu303Sequence(snapshot.sequence);
+    if (isSimdPage) {
+      state.xlParams = sanitizeSimd303XlParams(snapshot.xlParams);
+      state.stepExpression = sanitizeSimd303StepExpression(snapshot.stepExpression);
+    }
+    const key = presetStateKey(snapshot);
+    const match = fullPresets.presets.find(preset => presetStateKey(preset.snapshot) === key);
+    state.presetId = presets.some(({ id }) => id === match?.id) ? match.id : "custom";
+    syncParamOutputs();
+    engine?.updateParams(state.params);
+    engine?.updateSequence(state.sequence);
+    engine?.updateXlParams?.(state.xlParams);
+    engine?.updateStepExpression?.(state.stepExpression);
+  },
+  randomize: fullPresets.randomize,
 });
