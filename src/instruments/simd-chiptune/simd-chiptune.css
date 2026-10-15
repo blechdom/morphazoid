@@ -31,6 +31,7 @@
   background: #101920;
 }
 
+.simd-preset-controls[hidden] { display: none; }
 .simd-preset-controls {
   display: flex;
   grid-column: 3;
