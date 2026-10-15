@@ -34,6 +34,14 @@ import {
   voicePresetState,
   waveformLevel,
 } from "../../families/tract/throatazoid.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  THROATAZOID_FULL_PRESETS,
+  captureThroatazoidPreset,
+  randomizeThroatazoidPreset,
+  throatazoidPresetEntryForSnapshot,
+  validateThroatazoidPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import {
@@ -4394,3 +4402,27 @@ new ResizeObserver(resizeStage).observe(stageWrap);
 resizeStage();
 updateUi();
 frameHandle = requestAnimationFrame(frame);
+
+registerHeaderPresets({
+  id: "throatazoid", presets: THROATAZOID_FULL_PRESETS,
+  capture: () => captureThroatazoidPreset(state),
+  apply: snapshot => {
+    validateThroatazoidPreset(snapshot);
+    if (pointerPhonemeTimer) clearTimeout(pointerPhonemeTimer);
+    pointerPhonemeTimer = 0;
+    pointerPhonemeSession = null;
+    const entry = throatazoidPresetEntryForSnapshot(snapshot);
+    loadVoiceProfile(snapshot);
+    for (const key of ["motionEnabled", "motionDepth", "motionMouths", "motionTongues", "motionNoses", "motionPressure"]) {
+      state[key] = snapshot[key];
+    }
+    state.voicePreset = entry?.voicePreset ?? "";
+    if (state.voicePreset) carrierVowel = VOICE_PRESETS[state.voicePreset].phoneme;
+    selectedThroat = 0;
+    selectedTongue = 0;
+    selectedNose = 0;
+    markAudioDirty();
+    updateUi();
+  },
+  randomize: randomizeThroatazoidPreset,
+});
