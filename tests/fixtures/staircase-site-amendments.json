@@ -92,6 +92,16 @@
           "after": "    \"calibrate:synthesis\": \"node scripts/calibrate-synthesis-levels.mjs\",\n    \"build:staircase-wasm\": \"node scripts/build-staircase-wasm.mjs\",\n    \"check:staircase-wasm\": \"node scripts/build-staircase-wasm.mjs --check\"\n"
         }
       ]
+    },
+    {
+      "file": "README.md",
+      "sha256": "53b8bd0ba913fcef8e15d7447972dc31e7eb4ded7d4a92ed0c2eebc7eea12b38",
+      "replacements": [
+        {
+          "before": "# Morphazoid\n\n",
+          "after": "# Morphazoid\n\n**[Staircase Studies](striped-staircase-rust.html)** revisits Striped Staircase in a separate Rust/WebAssembly instrument. Compare contour waves, area-weighted harmonics, stripe-crossing strikes and contour resonances while retaining the same depth. Enable Audio, then Play; Hold depth freezes the view while continuous studies keep sounding. [Mappings and limits](docs/staircase-studies.md).\n\n"
+        }
+      ]
     }
   ],
   "originalFiles": [
