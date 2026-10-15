@@ -22,10 +22,29 @@
 .sf-nav button span { background:#27362b; color:#c6e7cd; border-radius:4px; margin-left:6px; padding:2px 6px; font-size:10px; }
 .sf-status { margin:12px 0 24px; min-height:16px; color:var(--sf-muted); font-size:11px; }
 .sf-error { padding:12px 16px; color:#ffbdb5; background:#321c1c; border-left:3px solid #ffbdb5; font-size:13px; }
+.sf-gm-spotlight { margin:0 0 30px; }
+.sf-gm-spotlight h2 { margin:0; color:var(--sf-accent); font-size:24px; font-weight:500; letter-spacing:-.025em; }
+.sf-gm-spotlight>.sf-muted { margin:8px 0 16px; }
+.sf-gm-choices { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:10px; }
+.sf-gm-choice { display:flex; flex-direction:column; align-items:flex-start; min-width:0; padding:17px; border:1px solid #496c4e; border-radius:5px; background:#16271b; color:var(--sf-ink); font:inherit; text-align:left; cursor:pointer; }
+.sf-gm-choice:hover,.sf-gm-choice[aria-pressed=true] { border-color:var(--sf-accent); background:#243729; }
+.sf-gm-choice .sf-eyebrow { margin-bottom:9px; font-size:9px; }
+.sf-gm-choice strong { font-size:16px; font-weight:500; overflow-wrap:anywhere; }
+.sf-gm-choice small { margin:9px 0 15px; color:var(--sf-muted); font-size:10px; line-height:1.5; }
+.sf-gm-action { margin-top:auto; color:var(--sf-accent); font-size:11px; }
+.sf-download-help { margin:12px 0 0; font-size:11px; }
+.sf-usage-guide { margin-top:30px; padding:18px 0; border-top:1px solid #2b392f; font-size:13px; }
+.sf-usage-guide summary { width:fit-content; max-width:100%; color:var(--sf-accent); cursor:pointer; line-height:1.6; }
+.sf-usage-guide dl { max-width:800px; margin:20px 0 0; }
+.sf-usage-guide dl>div + div { margin-top:18px; }
+.sf-usage-guide dt { font-weight:600; }
+.sf-usage-guide dd { margin:6px 0 0; color:var(--sf-muted); line-height:1.7; }
+.sf-usage-guide a { color:var(--sf-accent); }
 .sf-library-layout { display:grid; grid-template-columns:minmax(0,1fr) 330px; gap:36px; align-items:start; }
 .sf-library-tools { display:flex; gap:6px; align-items:center; margin-bottom:20px; }
-.sf-explore-tools { display:flex; align-items:end; gap:12px; margin-bottom:16px; }
-.sf-explore-tools .sf-field { margin:0; width:150px; }
+.sf-explore-tools { display:flex; flex-wrap:wrap; align-items:end; gap:12px; margin-bottom:16px; }
+.sf-explore-tools .sf-search { flex-basis:100%; }
+.sf-explore-tools .sf-field { margin:0; flex:1; min-width:0; }
 .sf-preset-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; max-height:420px; overflow-y:auto; overscroll-behavior:contain; padding:4px; }
 .sf-preset-card { display:block; min-width:0; min-height:64px; text-align:left; background:#131c16; border:1px solid #2d3d32; border-radius:5px; padding:12px; color:var(--sf-ink); cursor:pointer; }
 .sf-preset-card strong { display:block; font-size:13px; font-weight:500; overflow-wrap:anywhere; }
@@ -132,11 +151,15 @@
 @media(max-width:700px) { .sf-shell { padding:30px 18px 20px; } .sf-intro { display:block; margin-bottom:28px; } .sf-intro h1 { font-size:48px; } .sf-intro>.sf-actions { margin-top:24px; } .sf-lede { font-size:12px; } .sf-library-layout { grid-template-columns:1fr; } .sf-library-tools { flex-wrap:wrap; } .sf-search { flex-basis:100%; } .sf-library-tools .sf-button { padding-left:0; } .sf-inspector { padding:22px; } .sf-font-row { grid-template-columns:62px minmax(0,1fr) auto; gap:13px; } .sf-font-row svg { width:62px; } .sf-keyboard-heading { display:block; } .sf-keyboard-heading span { display:block; margin-top:8px; } .sf-key-row { gap:2px; } .sf-key { height:51px; } .sf-key span { font-size:7px; } .sf-key kbd { font-size:9px; } .sf-workshop-layout { grid-template-columns:1fr; gap:22px; } .sf-workshop-visual { grid-row:1; margin-top:0; } #draftWaveform { height:130px; } .sf-workshop-note { display:none; } .sf-source-grid { grid-template-columns:1fr; gap:16px; } .sf-nav { gap:23px; } .sf-nav button { font-size:12px; } .sf-source-options { gap:8px; } .sf-source-options label { padding:12px 8px; } .sf-two-fields { gap:16px; } }
 @media(pointer:coarse) { .sound-fonts-page .audio-button,.sf-button { min-height:48px; } .sf-filters button { min-height:44px; } .sf-icon-button { min-width:48px; min-height:48px; } }
 @media(max-width:700px) {
-  .sf-nav { gap:16px; overflow-x:auto; }
+  .sf-gm-choices { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; }
+  .sf-gm-choice { padding:13px; }
+  .sf-gm-choice strong { font-size:14px; }
+  .sf-gm-choice small { font-size:10px; }
+  .sf-nav { gap:10px; overflow-x:auto; }
   .sf-nav button { flex-shrink:0; }
   .sf-preset-list { max-height:245px; }
   .sf-explore-tools { gap:8px; }
-  .sf-explore-tools .sf-field { width:120px; flex-shrink:0; }
+  .sf-explore-tools .sf-field { min-width:0; }
   .sf-inspector { grid-row:1; }
   .sf-inspector .sf-details,.sf-inspector #selectedNotes,.sf-inspector #fontWarnings { display:none; }
   .sf-inspector .sf-edit { margin:12px 0; }
