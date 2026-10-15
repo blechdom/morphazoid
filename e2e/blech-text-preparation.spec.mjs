@@ -5,6 +5,12 @@ const failures = new WeakMap();
 test.beforeEach(({ page }) => { failures.set(page, []); page.on('pageerror', error => failures.get(page).push(error.message)); });
 test.afterEach(({ page }) => expect(failures.get(page), 'uncaught browser errors').toEqual([]));
 
+async function openSavedDrops(page) {
+  const shelf = page.locator('#blechSavedDrops');
+  if (!(await shelf.evaluate(node => node.open))) await shelf.locator(':scope > summary').click();
+  await expect(shelf).toHaveAttribute('open', '');
+}
+
 async function open(page) {
   await page.addInitScript(() => {
     globalThis.__textQA = { engine: null, preview: null, contexts: [], notes: [] };
@@ -109,7 +115,7 @@ test('text preparation maps keyboard width, position and total duration to the e
   expect(await samples(page)).toEqual([]);
   const launched = await drop(page);
   expect(launched).toMatchObject({ name: 'Text · HI', loop: false, duration: sequential.duration, notes: sequential.notes });
-  await tab(page, 'stamps');
+  await openSavedDrops(page);
   await expect(page.locator('#mixerSavedPads [data-pad-play]').getByText('Text · HI', { exact: true })).toBeVisible();
   await expectSilentPreparation(page);
 });
@@ -239,7 +245,7 @@ test('editing one live text layer queues its next loop and paused edits retain t
   await page.locator('#blechTextClear').click();
   expect(await sample(page, first.id)).toMatchObject({ paused: true, notes: pausedScore.notes });
   await page.locator('#blechTextDone').click(); await expect(page.locator('#blechTextApply')).toBeHidden();
-  await tab(page, 'stamps');
+  await openSavedDrops(page);
   await page.locator('#mixerSavedPads').getByRole('button', { name: 'Edit Text · PAUSED / WORD', exact: true }).click();
   await expect(page.locator('#blechPanel-text')).toBeVisible();
   await expect(page.locator('#blechTextMessage')).toHaveValue('PAUSED\nWORD');
@@ -252,7 +258,7 @@ test('editing one live text layer queues its next loop and paused edits retain t
   expect(await sample(page, first.id)).toMatchObject({ pendingReplacement: true });
   await row(page, first.id).locator('[data-layer-stop]').click();
   expect((await samples(page)).map(item => item.id)).toEqual([other.id]);
-  await tab(page, 'stamps');
+  await openSavedDrops(page);
   await page.locator('#mixerSavedPads').getByRole('button', { name: 'Text · PAUSED / WORD', exact: true }).click();
   await expect.poll(async () => (await samples(page)).length).toBe(2);
   const replay = (await samples(page)).find(item => item.id !== other.id);

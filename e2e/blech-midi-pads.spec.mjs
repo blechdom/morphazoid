@@ -7,6 +7,12 @@ const errors = new WeakMap();
 test.beforeEach(({ page }) => { errors.set(page, []); page.on('pageerror', error => errors.get(page).push(error.message)); });
 test.afterEach(({ page }) => { expect(errors.get(page), 'uncaught browser errors').toEqual([]); });
 
+async function openSavedDrops(page) {
+  const shelf = page.locator('#blechSavedDrops');
+  if (!(await shelf.evaluate(node => node.open))) await shelf.locator(':scope > summary').click();
+  await expect(shelf).toHaveAttribute('open', '');
+}
+
 async function open(page) {
   await page.addInitScript(() => {
     globalThis.__padsQA = { contexts: [], engine: null, launches: [], notes: [], graphics: [] };
@@ -158,19 +164,19 @@ test('repeated one-shot drops create independent immutable copies and each finis
 test('sent drawings retain immutable thumbnail pads with independent loop, replay and remove controls', async ({ page }) => {
   await open(page); await input(page, 'mixerStampBeats', 4); await input(page, 'mixerStampSpan', 12); await input(page, 'creativeTempo', 240);
   await drawing(page); const first = await drop(page);
-  await frameTab(page, 'stamps'); await expect(saved(page)).toHaveCount(1);
+  await openSavedDrops(page); await expect(saved(page)).toHaveCount(1);
   const firstKey = await saved(page).first().getAttribute('data-saved-pad'); expect(firstKey).toBeTruthy();
   const card = page.locator(`#mixerSavedPads [data-saved-pad="${firstKey}"]`);
   await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed', 'true'); await expect(card.locator('[data-pad-loop]')).toBeChecked();
   expect(await card.locator('canvas').evaluate(canvas => canvas.getContext('2d').getImageData(0, 0, canvas.width, canvas.height).data.some((value, index) => index % 4 === 3 && value > 0))).toBe(true);
   const thumbnail = await card.locator('canvas').evaluate(canvas => canvas.toDataURL());
   await drawing(page, 'spiral'); const second = await drop(page);
-  await frameTab(page, 'stamps'); await expect(saved(page)).toHaveCount(2); expect(second.bytes).not.toEqual(first.bytes);
+  await openSavedDrops(page); await expect(saved(page)).toHaveCount(2); expect(second.bytes).not.toEqual(first.bytes);
   expect(await saved(page).last().locator('canvas').evaluate(canvas => canvas.toDataURL())).not.toBe(thumbnail);
   const secondKey = await saved(page).last().getAttribute('data-saved-pad');
   const other = page.locator(`#mixerSavedPads [data-saved-pad="${secondKey}"]`);
   await drawing(page, '⭐'); await input(page, 'mixerStampBeats', 6); await input(page, 'mixerStampOffset', 12);
-  await frameTab(page, 'stamps');
+  await openSavedDrops(page);
   expect(await card.locator('canvas').evaluate(canvas => canvas.toDataURL())).toBe(thumbnail); expect((await launches(page))[0].bytes).toEqual(first.bytes);
   await card.locator('[data-pad-loop]').uncheck();
   expect((await sample(page, first.id))?.loop).toBe(false); expect((await sample(page, second.id))?.loop).toBe(true);
@@ -239,7 +245,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
     const page = await context.newPage(), failures = []; page.on('pageerror', error => failures.push(error.message));
     try {
       await open(page); await drawing(page); await drop(page);
-      await frameTab(page, 'stamps'); const card = saved(page).first();
+      await openSavedDrops(page); const card = saved(page).first();
       for (const control of [page.locator('#blechDropSend'), card.locator('[data-pad-play]'), card.locator('[data-pad-loop]').locator('..'), card.locator('[data-pad-remove]')]) {
         await control.scrollIntoViewIfNeeded(); await expect(control).toBeVisible(); const box = await control.boundingBox();
         expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
@@ -253,6 +259,7 @@ for (const viewport of [{ width: 390, height: 844 }, { width: 844, height: 390 }
       await card.locator('[data-pad-loop]').focus(); await page.keyboard.press('Space'); await expect(card.locator('[data-pad-loop]')).not.toBeChecked();
       await input(page, 'mixerStampOffset', 0); await page.locator('#mixerStampOffset').focus(); await page.keyboard.press('ArrowRight');
       await expect(page.locator('#mixerStampOffset')).toHaveValue('1');
+      await frameTab(page, 'stamps');
       await page.locator('#blechStampPicker summary').focus(); await page.keyboard.press('ArrowDown'); await page.keyboard.press('Escape');
       await expect(page.locator('#blechStampPicker summary')).toBeFocused();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);

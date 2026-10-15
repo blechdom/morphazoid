@@ -20,6 +20,13 @@ for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
     await expect(page.locator('#blechNoteCounters')).toBeInViewport();
     const [counter, stage] = await Promise.all([page.locator('#blechNoteCounters').boundingBox(), page.locator('#blackMidiViewport').boundingBox()]);
     expect(counter.y + counter.height).toBeLessThanOrEqual(stage.y);
+    if (width >= 1100) {
+      const title = await page.locator('#blechMidiTitle').boundingBox();
+      expect(counter.x).toBeGreaterThanOrEqual(title.x + title.width);
+      expect(Math.min(counter.y + counter.height, title.y + title.height)).toBeGreaterThan(Math.max(counter.y, title.y));
+    }
+    await expect(page.locator('#blackPlayButton')).toBeHidden();
+    await expect(page.locator('#blechMasterPlay')).toBeInViewport();
     expect(stage.height).toBeGreaterThan(100);
     await page.locator('#blechTab-text').click();
     await expect(page.locator('#blechNoteCounters')).toBeInViewport();
@@ -31,6 +38,7 @@ for (const [width, height] of [[1440, 900], [390, 844], [844, 390]]) {
 test('file counter advances above the stage, freezes on pause, follows seeks and keeps the complete total', async ({ page }) => {
   const errors = []; page.on('pageerror', error => errors.push(error.message));
   await open(page);
+  await page.locator('#blechTab-files').click();
   await page.locator('#blackMidiFile').setInputFiles({ name: 'counter.mid', mimeType: 'audio/midi', buffer: Buffer.from(score().buffer) });
   await expect(page.locator('#blechFileTotal')).toHaveText('32');
   await page.locator('#audioButton').click();

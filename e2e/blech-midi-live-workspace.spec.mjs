@@ -8,6 +8,12 @@ const errors = new WeakMap();
 test.beforeEach(({ page }) => { errors.set(page, []); page.on('pageerror', error => errors.get(page).push(error.message)); });
 test.afterEach(({ page }) => { expect(errors.get(page), 'uncaught browser errors').toEqual([]); });
 
+async function openSavedDrops(page) {
+  const shelf = page.locator('#blechSavedDrops');
+  if (!(await shelf.evaluate(node => node.open))) await shelf.locator(':scope > summary').click();
+  await expect(shelf).toHaveAttribute('open', '');
+}
+
 async function open(page) {
   await page.addInitScript(() => {
     globalThis.__liveQA = { contexts: [], engine: null, notes: [], projections: [], launches: [], captures: [] };
@@ -180,7 +186,7 @@ test('Capture saves the last four live beats stopped and replays the exact expor
   await expect(page.locator('#automataMidiCaptureBeats')).toHaveValue('4');
   await expect.poll(async()=>(await state(page)).automata.beat).toBeGreaterThan(5);
   await page.locator('#automataMidiCapture').click();await expect(saved(page)).toHaveCount(1);
-  await tab(page,'stamps'); const card=saved(page).first();await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed','false');
+  await openSavedDrops(page); const card=saved(page).first();await expect(card.locator('[data-pad-play]')).toHaveAttribute('aria-pressed','false');
   expect((await state(page)).samples).toEqual([]);expect(await page.evaluate(()=>__liveQA.launches)).toEqual([]);
   const capture=await page.evaluate(()=>__liveQA.captures.at(-1));expect(capture.duration).toBeCloseTo(4,6);expect(capture.end-capture.start).toBeCloseTo(4,6);
   expect(capture.notes.length).toBeGreaterThanOrEqual(8);expect(capture.notes.every(note=>note.note===64&&note.velocity===73)).toBe(true);
@@ -198,7 +204,7 @@ test('Capture saves the last four live beats stopped and replays the exact expor
     expect(note.beat).toBeCloseTo(expected[index].beat,12);expect(note.duration).toBeCloseTo(expected[index].duration,12);});
   const generation=(await state(page)).automata.generation;await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(generation);
   await page.locator('#automataMidiPlayPause').click();await silent(page);const paused=(await state(page)).automata.generation;
-  await tab(page,'stamps'); await card.locator('[data-pad-loop]').check();await card.locator('[data-pad-play]').click();await audible(page);
+  await openSavedDrops(page); await card.locator('[data-pad-loop]').check();await card.locator('[data-pad-play]').click();await audible(page);
   expect(await page.evaluate(()=>__liveQA.launches.at(-1).bytes)).toEqual(capture.bytes);
   await expect.poll(async()=>(await state(page)).samples[0]?.cycle).toBeGreaterThanOrEqual(1);
   expect((await state(page)).automata.generation).toBe(paused);
@@ -290,9 +296,12 @@ test('silent Rule 204 holds one visual gate across generations and preserves it 
   await page.locator('#automataMidiArticulation').selectOption('hold');
   await expect.poll(async()=>(await state(page)).automata.rowSettings.articulation).toBe('hold');
   await expect(liveStage(page)).toHaveAttribute('data-live-held','1');
-  const transitioned=(await state(page)).automata.generation;
+  const transitioned=(await state(page)).automata.generation, transitionStart=(await projections(page)).length;
   await expect.poll(async()=>(await state(page)).automata.generation).toBeGreaterThan(transitioned+8);
-  const continued=(await projections(page)).filter(frame=>frame.playing&&frame.generation>transitioned+1);
+  // Restart resets generation numbers. Exclude observations from the first
+  // hold run even when its generation number overlaps this later run.
+  const continued=(await projections(page)).slice(transitionStart).filter(frame=>frame.playing&&frame.generation>transitioned+1);
+  expect(continued.length).toBeGreaterThan(3);
   expect(new Set(continued.flatMap(frame=>frame.held.map(note=>note.id))).size).toBe(1);
   expect((await state(page)).automata.row.flatMap((on,i)=>on?[60+i]:[])).toEqual([64]);
   await page.locator('#automataMidiPlayPause').click();await expect(liveStage(page)).toHaveAttribute('data-live-held','0');

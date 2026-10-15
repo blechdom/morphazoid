@@ -8,7 +8,7 @@ const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
 /** Full-score file transport, independent of drawing pads and live evolution. */
-export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, settingsHost, onPrepare, onNoteCount, onKeyboardNote } = {}) {
+export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, settingsHost, transportHost, onPrepare, onNoteCount, onKeyboardNote } = {}) {
   const events = new AbortController();
   const on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `
@@ -46,8 +46,10 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   const $ = id => nodes.get(id);
   if (libraryHost) libraryHost.append(host.querySelector('.blech-file-library'));
   if (settingsHost) settingsHost.append($('blackMidiControls'));
+  if (transportHost) transportHost.append(host.querySelector('.blech-file-channel'), $('blackCurrentSong'), $('blackPlayerStatus'), host.querySelector('.blech-file-position'));
   const songDescription = creditsHost.querySelector('#blackSongDescription');
   const songCredit = creditsHost.querySelector('#blackSongCredit');
+  let transportRevision = 0;
   let disposed = false, frame = null, lastReflect = -Infinity, version = 0, request = null;
   let collection = [], locals = [], visible = [], selected = null, localSerial = 0;
   let loading = false, ready = false, resumeAfterSelection = false, error = '', tempo = null, timingKind = 'unknown', freeTempo = null, tempoChanges = 0, preparedSongId = '';
@@ -206,8 +208,21 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     const others = visible.filter(song => song.id !== selected?.id), choices = others.length ? others : visible;
     if (choices.length) void select(choices[Math.floor(Math.random() * choices.length)]);
   });
-  on($('blackPlayButton'), 'click', () => { if (player.state.playing) player.pause(); else if (ready && !loading) player.play(); reflect(); });
-  function stop() { resumeAfterSelection = false; player.stop(); reflect(); }
+  function getTransportState() {
+    const state = player.state;
+    return { selectionId: selected?.id ?? null, selectionVersion: version, revision: transportRevision,
+      ready: Boolean(ready && state.ready && !loading), loading, playing: state.playing || loading && resumeAfterSelection, time: state.time };
+  }
+  function play(expected = null) {
+    if (disposed || !selected || expected && (expected.selectionVersion !== version || expected.revision !== transportRevision)) return false;
+    if (loading) { resumeAfterSelection = true; transportRevision++; reflect(); return true; }
+    if (!ready || !player.state.ready) return false;
+    const playing = player.play(); if (playing) transportRevision++;
+    reflect(); return playing;
+  }
+  function pause() { if (disposed) return null; resumeAfterSelection = false; transportRevision++; player.pause(); reflect(); return getTransportState(); }
+  on($('blackPlayButton'), 'click', () => { if (getTransportState().playing) pause(); else play(); });
+  function stop() { resumeAfterSelection = false; transportRevision++; player.stop(); reflect(); }
   on($('blackStopButton'), 'click', stop);
   on($('blackLoopSong'), 'change', () => player.setLoop($('blackLoopSong').checked));
   on($('blackPlaybackRate'), 'input', setTempo); on($('blackSyncTempo'), 'change', setTempo);
@@ -216,7 +231,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   on($('blackOriginalTiming'), 'click', () => { freeTempo = null; $('blackSyncTempo').checked = false; $('blackPlaybackRate').value = '1'; $('blackPlaybackRate').dispatchEvent(new Event('input', { bubbles: true })); });
   on($('blackFileLevel'), 'input', () => { player.setVolume(Number($('blackFileLevel').value)); $('blackFileLevelOut').value = `${Math.round(Number($('blackFileLevel').value) * 100)}%`; });
   on($('blackSongPosition'), 'input', () => { $('blackSongTime').value = `${timeLabel(Number($('blackSongPosition').value))} / ${timeLabel(player.state.duration)}`; });
-  on($('blackSongPosition'), 'change', () => { player.seek(Number($('blackSongPosition').value)); reflect(); });
+  on($('blackSongPosition'), 'change', () => { transportRevision++; player.seek(Number($('blackSongPosition').value)); reflect(); });
   on($('blackMidiFile'), 'change', () => {
     const files = [...$('blackMidiFile').files]; $('blackMidiFile').value = '';
     if (!files.length) return;
@@ -247,7 +262,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
   showHash(); view.setVisible(!document.hidden); setTempo(); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   return {
-    stop, reflect, setTempo, getSettings,
+    play, pause, stop, getTransportState, reflect, setTempo, getSettings,
     getPreparedScore: () => preparedScore ? structuredClone(preparedScore) : null,
     setCollection(songs) { collection = songs; renderList(); },
     async enableAudio() {
@@ -268,6 +283,6 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
       const song = { id: 'prepared-art', title, buffer: score.buffer.slice(0), collection: 'Your artwork', attribution: 'Prepared in BLECH MIDI.' };
       locals.unshift(song); open(); await select(song);
     },
-    dispose() { if (disposed) return; disposed = true; version++; request?.abort(); events.abort(); if (frame !== null) cancelAnimationFrame(frame); view.dispose(); void player.dispose(); libraryHost?.replaceChildren(); settingsHost?.replaceChildren(); host.replaceChildren(); },
+    dispose() { if (disposed) return; disposed = true; version++; request?.abort(); events.abort(); if (frame !== null) cancelAnimationFrame(frame); view.dispose(); void player.dispose(); libraryHost?.replaceChildren(); settingsHost?.replaceChildren(); transportHost?.replaceChildren(); host.replaceChildren(); },
   };
 }

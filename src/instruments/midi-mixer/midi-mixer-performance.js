@@ -549,18 +549,26 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (onPrepare) return prepareScore(editScore(score), 'Your drawing', { loop: $('mixerSampleLoop').checked });
     return playScore(score, 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
-  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false } = {}) {
+  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false, widthNotes = null, heightBeats = null } = {}) {
     if (disposed) return null;
     if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
     // Each drop owns a copy: moving or rewriting the preparation never edits a
     // sounding layer. MIDI routing also carries its controllers and note-offs.
+    // Text remains editable as text. Keep its drop resize separately from the
+    // authored layout, so Apply can rebuild glyphs and retain that performance
+    // transform. Duration is a ratio, allowing the text duration control to keep
+    // working; width retains the chosen occupied pitch span for a new message.
+    const textResize = score.textSettings && (widthNotes !== null || heightBeats !== null)
+      ? { pitchWidth: widthNotes === null ? null : Math.round(clamp(widthNotes, 1, 128, 48)),
+        timeScale: heightBeats === null ? 1 : (score.analysis ?? parseMidi(score.buffer)).durationBeats / Math.max(.25, Number(score.textSettings.beats) || 8) }
+      : null;
     const snapshot = structuredClone(score), transformed = transformMidiStamp(snapshot, { channel, transpose });
     Object.assign(snapshot, transformed, { durationBeats: transformed.analysis.durationBeats });
     if (transformed.appliedTranspose || transformed.channel !== null) {
       snapshot.pixels = undefined;
       if (Array.isArray(snapshot.notes)) snapshot.notes = snapshot.notes.map(note => ({ ...note, note: note.note + transformed.appliedTranspose, ...(transformed.channel === null ? {} : { channel: transformed.channel }) }));
     }
-    const playback = { channel: transformed.channel, transpose: transformed.appliedTranspose, delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
+    const playback = { ...(textResize ? { textResize } : {}), channel: transformed.channel, transpose: transformed.appliedTranspose, delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
     snapshot.drop = { ...playback, program, loop: Boolean(loop) };
     cancelPending();
     return playScore(snapshot, String(name).slice(0, 128), '', program,
@@ -594,7 +602,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const record = textRecord(sampleId);
     if (disposed || !record || !score?.textSettings) return false;
     const snapshot = structuredClone(score), label = String(name ?? record.label).slice(0, 128);
-    if (record.playback.channel !== null || record.playback.transpose) Object.assign(snapshot, transformMidiStamp(snapshot, record.playback), { pixels: undefined });
+    if (record.playback.channel !== null || record.playback.transpose || record.playback.textResize) Object.assign(snapshot, transformMidiStamp(snapshot, { ...record.playback, ...record.playback.textResize }), { pixels: undefined });
     const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
     if (!result) return false;
     const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };

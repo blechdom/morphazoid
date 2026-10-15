@@ -94,13 +94,14 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.sourceIds[source] = `sample:${message.id}`; this.sampleIds[source] = message.id;
         this.deckChannels[source] = new Map(message.data.channels.map((channel, index) => [channel.channel, 128 + slot * 16 + index]));
         for (const channel of message.data.channels) this.synth.midiChannels[this.deckChannels[source].get(channel.channel)].setDrums(channel.drums);
-        const config = { gain: Math.max(0, Math.min(1, message.gain)), mute: false, transpose: 0, rate: 1, midi: sanitizeMidiParameters(message.midi) };
+        const config = { gain: clamp(message.gain, 0, 1, .8), muted: Boolean(message.muted), solo: Boolean(message.solo), mute: Boolean(message.muted) || this.sampleClock.samples.some(sample => sample?.config.solo) && !message.solo, pan: clamp(message.pan, -1, 1, 0), transpose: 0, rate: 1, midi: sanitizeMidiParameters(message.midi) };
         this.prepareSourceChannels(source, message.data.channels);
         const channels = message.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : message.program }));
         const timing = message.timing ? { ...message.timing } : undefined;
         if (timing && message.quantize && !message.paused && this.clock.playing) timing.pendingBeats = Math.max(0, Math.ceil(this.clock.beat - 1e-9) - this.clock.beat) + Math.max(0, Math.min(512, Number(message.delayBeats) || 0));
         this.sampleClock.load(slot, { id: message.id, revision: message.revision, data: message.data, startBeat: message.startBeat, timing, loop: message.loop, sync: message.sync, paused: message.paused, pausedAt: message.pausedAt, pausedEpoch: message.pausedEpoch, playbackEpoch: message.playbackEpoch, resumedPositionBeats: message.resumedPositionBeats, resumedCycle: message.resumedCycle, scoreVersion: message.scoreVersion, replacedAt: message.replacedAt, replacedEpoch: message.replacedEpoch, config, channels });
         if (message.pendingReplacement) this.sampleClock.replaceScore(slot, this.sampleReplacement(message.pendingReplacement, message.program), { revision: message.revision });
+        this.updateSampleMix();
         break;
       }
       case 'sampleParameters': {
@@ -110,9 +111,25 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         this.sampleClock.confirmScore(message.slot, message.scoreVersion);
         this.sampleClock.setOptions(message.slot, message);
         const previous = sample.config.midi;
-        sample.config = { ...sample.config, gain: message.gain ?? sample.config.gain, midi: sanitizeMidiParameters(message.midi) };
-        if (this.midiResync(previous, sample.config.midi)) this.sampleClock.load(message.slot, sample);
-        else this.configure(message.slot + 2, sample.config, sample.channels);
+        sample.config = { ...sample.config, gain: clamp(message.gain, 0, 1, sample.config.gain), midi: message.midi === undefined ? previous : sanitizeMidiParameters(message.midi),
+          muted: message.muted === undefined ? sample.config.muted : Boolean(message.muted), solo: message.solo === undefined ? sample.config.solo : Boolean(message.solo),
+          pan: clamp(message.pan, -1, 1, sample.config.pan ?? 0) };
+        const reroute = message.routing?.data?.channels?.length <= 16;
+        if (reroute) {
+          this.release(message.slot + 2, 0, true);
+          sample.data = message.routing.data;
+          sample.channels = this.sampleReplacement({ data: sample.data }, message.program).channels;
+          sample.pendingReplacement = message.routing.pendingReplacement ? this.sampleReplacement(message.routing.pendingReplacement, message.program) : null;
+          this.replaceSampleSource(message.slot + 2, sample.data);
+        }
+        if (message.program !== undefined) {
+          sample.channels = this.sampleReplacement({ data: sample.data }, message.program).channels;
+          if (sample.pendingReplacement) sample.pendingReplacement = this.sampleReplacement(sample.pendingReplacement, message.program);
+        }
+        const remixed = this.updateSampleMix();
+        if ((reroute || this.midiResync(previous, sample.config.midi)) && !(remixed & 1 << message.slot)) {
+          this.release(message.slot + 2, 0, true); this.sampleClock.resync(message.slot);
+        } else if (!(remixed & 1 << message.slot)) this.configure(message.slot + 2, sample.config, sample.channels);
         break;
       }
       case 'noteEffects': this.noteFx.configure({ ...message.config, tempo: this.clock.tempo }); break;
@@ -149,7 +166,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         // An older pad's release must not stop a newer clip that reused its slot.
         if (!Number.isInteger(message.slot) || message.slot < 0 || message.slot >= 4) break;
         const sample = this.sampleClock.samples[message.slot];
-        if (sample && sample.id === message.id) this.sampleClock.stop(message.slot);
+        if (sample && sample.id === message.id) { this.sampleClock.stop(message.slot); this.updateSampleMix(); }
         break;
       }
       case 'stopSamples': this.sampleClock.stopAll(); break;
@@ -205,6 +222,24 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     }
     this.publish();
   }
+  /** Solo belongs to the four dropped layers. Decks and live Automata keep
+   * their independent transports. Rejoin held gates at the existing phase,
+   * without replaying attacks crossed while muted or retaining queued echoes.
+   */
+  updateSampleMix() {
+    const solo = this.sampleClock.samples.some(sample => sample?.config.solo);
+    let changed = 0;
+    this.sampleClock.samples.forEach((sample, slot) => {
+      if (!sample) return;
+      const mute = Boolean(sample.config.muted || solo && !sample.config.solo);
+      if (mute === Boolean(sample.config.mute)) return;
+      sample.config.mute = mute; changed |= 1 << slot;
+      this.release(slot + 2, 0, true);
+      if (mute) this.configure(slot + 2, sample.config, sample.channels);
+      else this.sampleClock.resync(slot);
+    });
+    return changed;
+  }
   sampleReplacement(replacement, program) {
     return { ...replacement, channels: replacement.data.channels.map(channel => ({ channel: channel.channel, mute: false, solo: false, program: channel.drums ? null : program })) };
   }
@@ -223,6 +258,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     if (!restoring && patchEvent && this.patchHeld(midi)) { this.applyMidi(channel, midi, true, 'patch'); return; }
     if (!restoring && event.kind === 10 && midi.polyPressure !== undefined) event = { ...event, b: midi.polyPressure };
     if (event.kind === 9) {
+      if (deck >= 2 && deck < 6 && this.deckConfigs[deck]?.mute) return;
       if (event.sourceBeat === undefined || shadow?.polyPressureAt[event.a] < event.sourceBeat) { shadow.polyPressureValues[event.a] = 0; shadow.polyPressureAt[event.a] = -Infinity; }
       const velocity = Math.max(0, Math.min(127, Math.round(event.b * (midi.velocityScale ?? 1) + (midi.velocityOffset ?? 0))));
       const pitch = event.a + (this.synth.midiChannels[channel].systemParameters.keyShift ?? 0);
@@ -476,6 +512,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     for (const setting of channels) {
       const index = this.deckChannels[deck].get(setting.channel), channel = this.synth.midiChannels[index]; if (!channel) continue;
       const source = this.sourceChannels.get(index), midi = mergeMidiParameters(config.midi, setting.midi);
+      if (config.pan) midi.pan = clamp((midi.pan ?? 0) + config.pan, -1, 1, 0);
       if (source?.sourceDrums && setting.midi?.program === undefined && midi.drums === undefined && midi.bankMSB === undefined && midi.bankLSB === undefined) delete midi.program;
       if (setting.program !== null && setting.program !== undefined) {
         midi.program = setting.program; midi.bankMSB ??= 0; midi.bankLSB ??= 0;
@@ -520,6 +557,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
     if (!this.alive) return false;
     const [left, right] = outputs[0] ?? []; if (!left || !this.ready) return true;
     try {
+      this.updateSampleMix();
       this.actions = [];
       this.clock.process(left.length, sampleRate);
       this.sampleClock.process(left.length, sampleRate, this.clock.tempo);

@@ -83,7 +83,7 @@ test('each dropped equation has identifiable pause, resume and stop controls wit
   expect(first.name).toBe(second.name); expect(first.id).not.toBe(second.id);
   await expect(rows(page)).toHaveCount(2);
   await expect(row(page, first.id).locator('[data-layer-pause]')).toHaveAccessibleName(`Pause ${first.name} · ${first.id}`);
-  await expect(row(page, second.id).locator('[data-layer-stop]')).toHaveAccessibleName(`Stop ${second.name} · ${second.id}`);
+  await expect(row(page, second.id).locator('[data-layer-stop]')).toHaveAccessibleName(`Remove ${second.name} · ${second.id}`);
   await expect(page.locator('#blechDropLoop')).toHaveAccessibleName('Loop');
   await page.locator('#blechDropOnce').click();
   expect((await snapshot(page)).samples.every(item => item.loop)).toBe(true);
@@ -110,13 +110,14 @@ test('each dropped equation has identifiable pause, resume and stop controls wit
 test('pausing and stopping one sounding equation releases its notes while another equation and MIDI file continue', async ({ page }, testInfo) => {
   test.setTimeout(90000);
   await open(page);
+  await tab(page, 'files');
   await page.locator('#blackSongSelect').selectOption('depeche-mode-everything-counts');
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   await expect(page.locator('#blackPlayButton')).toBeEnabled(); await page.locator('#blackPlayButton').click();
   await tab(page, 'math');
   const first = await drop(page);
-  await page.locator('#blechMathPreset').selectOption('heart');
+  await page.locator('#blechMathPreset').selectOption('heart', { force: true });
   const second = await drop(page);
   await expect.poll(() => noteCount(page, first.id)).toBeGreaterThan(4);
   await expect.poll(() => noteCount(page, second.id)).toBeGreaterThan(4);
@@ -150,6 +151,7 @@ test('pausing and stopping one sounding equation releases its notes while anothe
   expect(progress(await sample(page, second.id))).toBeGreaterThan(progress(continuing.samples[0]));
   expect((await snapshot(page)).fileTime).toBeGreaterThan(continuing.fileTime);
   await row(page, second.id).locator('[data-layer-pause]').click();
+  await tab(page, 'files');
   await page.locator('#blackPlayButton').click();
   await expect.poll(() => heldCount(page, second.id)).toBe(0);
   await expect.poll(async () => (await readAudioStatus(page)).peak, { timeout: 12000 }).toBeLessThan(.0001);
