@@ -1,7 +1,7 @@
 //! Four artistic sonifications of worker-sampled Mandelbrot stripe geometry.
 //! This is not a physical simulation. The raw ABI has no imports or runtime
 //! dependencies. Tables are prepared outside process; the sample clock, phase,
-//! stripe-boundary attacks, mode crossfades and release envelopes live here.
+//! white-stripe gates, branch voices, mode crossfades and release envelopes live here.
 #![allow(clippy::missing_safety_doc)]
 
 use std::{
@@ -11,7 +11,8 @@ use std::{
 };
 
 const POINTS: usize = 256;
-const STRIDE: usize = 544;
+const BRANCHES: usize = 32;
+const STRIDE: usize = 544 + BRANCHES * 4;
 const MAX_FRAMES: usize = 64;
 const SINE_SIZE: usize = 4096;
 const MODES: usize = 4;
@@ -67,13 +68,16 @@ pub struct Engine {
     sine: [f64; SINE_SIZE],
     phase: f64,
     scan_phase: f64,
-    strike_phase: [f64; BODIES],
-    strike_envelope: [f64; BODIES],
-    strike_target: [f64; BODIES],
-    strike_decay: [f64; BODIES],
-    strike_frequency: [f64; BODIES],
-    stripe_bucket: Option<i64>,
-    strike_count: u64,
+    branch_phase: [f64; BRANCHES],
+    branch_envelope: [f64; BRANCHES],
+    branch_target: [f64; BRANCHES],
+    branch_frequency: [f64; BRANCHES],
+    branch_pan: [f64; BRANCHES],
+    branch_count: usize,
+    branch_attack: f64,
+    branch_decay: f64,
+    white_gate: bool,
+    white_onsets: u64,
     modal_a: [f64; BODIES],
     modal_b: [f64; BODIES],
     modal_drive: [f64; BODIES],
@@ -88,7 +92,7 @@ pub struct Engine {
     dc_output: [f64; 2],
     filter_coefficient: f64,
     noise: u32,
-    state: [f64; 10],
+    state: [f64; 12],
 }
 
 impl Engine {
@@ -123,13 +127,16 @@ impl Engine {
             sine: std::array::from_fn(|index| (TAU * index as f64 / SINE_SIZE as f64).sin()),
             phase: 0.,
             scan_phase: 0.,
-            strike_phase: [0.; BODIES],
-            strike_envelope: [0.; BODIES],
-            strike_target: [0.; BODIES],
-            strike_decay: [0.; BODIES],
-            strike_frequency: [0.; BODIES],
-            stripe_bucket: None,
-            strike_count: 0,
+            branch_phase: [0.; BRANCHES],
+            branch_envelope: [0.; BRANCHES],
+            branch_target: [0.; BRANCHES],
+            branch_frequency: [0.; BRANCHES],
+            branch_pan: [0.; BRANCHES],
+            branch_count: 0,
+            branch_attack: 1. - (-1. / (rate * 0.004)).exp(),
+            branch_decay: 0.,
+            white_gate: false,
+            white_onsets: 0,
             modal_a: [0.; BODIES],
             modal_b: [0.; BODIES],
             modal_drive: [0.; BODIES],
@@ -144,7 +151,7 @@ impl Engine {
             dc_output: [0.; 2],
             filter_coefficient: 0.,
             noise: 0x71a9_4c23,
-            state: [0.; 10],
+            state: [0.; 12],
         }
     }
 
@@ -227,8 +234,6 @@ impl Engine {
         }
         self.frames = count;
         self.table_mix = 0.;
-        // Scene replacement must not invent attacks between unrelated fields.
-        self.stripe_bucket = None;
         true
     }
 
@@ -285,12 +290,28 @@ impl Engine {
             self.modal_b[index] = radius * radius;
             self.modal_drive[index] =
                 angle.sin() * (1. - radius).sqrt() * (0.4 + self.spectrum[index] * 0.6);
-            self.strike_frequency[index] = self.base
-                * (0.8 + mass * 0.9)
-                * (1. + n * (0.31 + roughness * 0.43) + n * n * 0.019);
-            self.strike_decay[index] =
-                (-1. / (self.rate * (0.025 + self.body * 0.7) / (1. + n * 0.25))).exp();
         }
+        let mut branch_weight = 0.;
+        self.branch_count = 0;
+        for index in 0..BRANCHES {
+            let at = 544 + index * 4;
+            let presence = self.value(at);
+            let length = self.value(at + 3);
+            self.branch_target[index] = presence * length;
+            branch_weight += self.branch_target[index];
+            self.branch_frequency[index] =
+                (self.base * 2_f64.powf((0.5 - self.value(at + 2)) * 3.)).min(self.rate * 0.42);
+            self.branch_pan[index] = self.value(at + 1);
+            self.branch_count += (presence > 0.5 && length > 0.) as usize;
+        }
+        // Length controls relative prominence without amplifying a vanishing
+        // field or increasing maximum output as more branches become visible.
+        for target in &mut self.branch_target {
+            *target /= branch_weight.max(0.08);
+        }
+        // Release is the time to -80 dB, keeping black stripes perceptible even
+        // at the longest setting. Attack remains a short 4 ms smoothing time.
+        self.branch_decay = (-9.210_340_372 / (self.rate * (0.008 + self.body * 0.152))).exp();
         let cutoff = 180. * (60_f64).powf(self.brightness);
         self.filter_coefficient = 1. - (-TAU * cutoff.min(self.rate * 0.4) / self.rate).exp();
     }
@@ -305,8 +326,10 @@ impl Engine {
             self.hold as u8 as f64,
             self.mode as f64,
             self.frames as f64,
-            self.strike_count as f64,
+            self.white_onsets as f64,
             self.table_mix,
+            self.branch_count as f64,
+            self.white_gate as u8 as f64,
         ];
     }
 
@@ -369,39 +392,52 @@ impl Engine {
                     );
             }
 
-            // Attacks occur at actual stripe boundaries in escape-depth units,
-            // independent of animation, musical scales or an arbitrary beat.
-            let threshold = self.value(534);
-            let period = self.value(535).max(0.000_001);
+            // White is on and black is off, matching the original shader.
+            // Evaluate every sample, independently of render block/UI timing.
+            // Use the new scene's threshold directly: blending unrelated depth
+            // units during a scene change would create fictitious stripe runs.
+            let threshold = Self::table_value(&self.table, self.frames, self.depth, 534);
+            let period =
+                Self::table_value(&self.table, self.frames, self.depth, 535).max(0.000_001);
             let bucket = (threshold / period * 2.).floor() as i64;
-            if self.playing && valid > 0.5 && self.table_mix >= 1. {
-                if self.stripe_bucket.is_some_and(|old| old != bucket) {
-                    self.strike_count += 1;
-                    for index in 0..BODIES {
-                        self.strike_target[index] =
-                            (self.strike_target[index] + 0.5 + self.spectrum[index] * 0.7).min(1.5);
-                    }
-                }
-                self.stripe_bucket = Some(bucket);
-            } else {
-                self.stripe_bucket = None;
+            let white = self.frames > 0 && bucket.rem_euclid(2) == 1;
+            if white && !self.white_gate && self.playing && valid > 0.5 && self.table_mix >= 1. {
+                self.white_onsets += 1;
             }
-            let mut strikes = [0.; 2];
-            for index in 0..BODIES {
-                self.strike_target[index] *= self.strike_decay[index];
-                self.strike_envelope[index] +=
-                    (self.strike_target[index] - self.strike_envelope[index]) * 0.025;
+            self.white_gate = white;
+            let mut rhythm = [0.; 2];
+            for index in 0..BRANCHES {
+                let target = if white { self.branch_target[index] } else { 0. };
+                if target > self.branch_envelope[index] {
+                    self.branch_envelope[index] +=
+                        (target - self.branch_envelope[index]) * self.branch_attack;
+                } else {
+                    self.branch_envelope[index] =
+                        target + (self.branch_envelope[index] - target) * self.branch_decay;
+                }
+                if target == 0. && self.branch_envelope[index] < 1e-9 {
+                    self.branch_envelope[index] = 0.;
+                }
                 advance(
-                    &mut self.strike_phase[index],
-                    self.strike_frequency[index].min(self.rate * 0.42) / self.rate,
+                    &mut self.branch_phase[index],
+                    self.branch_frequency[index] / self.rate,
                 );
-                let sample =
-                    self.sinusoid(self.strike_phase[index]) * self.strike_envelope[index] * 0.1
-                        / (1. + index as f64 * (1. - self.brightness));
-                let pan =
-                    (self.metadata[2] * 0.5 + (index as f64 / 7. - 0.5) * 0.5).clamp(-0.8, 0.8);
-                strikes[0] += sample * (1. - pan);
-                strikes[1] += sample * (1. + pan);
+                let phase = self.branch_phase[index];
+                let mut wave = self.sinusoid(phase);
+                for harmonic in 2..=3 {
+                    let antialias = ((self.rate * 0.45
+                        - self.branch_frequency[index] * harmonic as f64)
+                        / (self.rate * 0.05))
+                        .clamp(0., 1.);
+                    wave += self.sinusoid(phase * harmonic as f64) * self.brightness * 0.3
+                        / harmonic as f64
+                        * antialias;
+                }
+                let sample = wave * self.branch_envelope[index] * 0.65;
+                // Linear pan makes each branch's horizontal location legible,
+                // while preserving a bounded sum through branching/merging.
+                rhythm[0] += sample * (1. - self.branch_pan[index]);
+                rhythm[1] += sample * self.branch_pan[index];
             }
 
             let scan = [
@@ -433,7 +469,7 @@ impl Engine {
             for channel in 0..2 {
                 let mixed = trace[channel] * self.weights[0]
                     + harmonic[channel] * self.weights[1]
-                    + strikes[channel] * self.weights[2]
+                    + rhythm[channel] * self.weights[2]
                     + resonant[channel] * self.weights[3] * 8.;
                 self.output_low[channel] +=
                     (mixed - self.output_low[channel]) * self.filter_coefficient;
@@ -453,11 +489,11 @@ impl Engine {
 
 #[no_mangle]
 pub extern "C" fn stair_abi_version() -> u32 {
-    1
+    2
 }
 #[no_mangle]
 pub extern "C" fn stair_state_len() -> usize {
-    10
+    12
 }
 #[no_mangle]
 pub extern "C" fn stair_alloc(bytes: usize) -> *mut u8 {

@@ -4,7 +4,7 @@ import test from 'node:test';
 import { buildStaircaseField } from '../src/instruments/striped-staircase-rust/field.js';
 
 const module = await WebAssembly.compile(await readFile(new URL('../assets/wasm/staircase.wasm', import.meta.url)));
-const BLOCK = 128, FRAMES = 64, STRIDE = 544;
+const BLOCK = 128, FRAMES = 64, STRIDE = 672;
 const actual = buildStaircaseField();
 const peak = values => values.reduce((maximum, value) => Math.max(maximum, Math.abs(value)), 0);
 const energy = values => values.reduce((sum, value) => sum + value * value, 0) / values.length;
@@ -22,6 +22,7 @@ function geometry() {
     }
     for (let index = 0; index < 16; index++) data[at + 512 + index] = (index % 3 + 1) / 31;
     data.set([.1 + depth * .2, .15 + depth * .25, -.2 + depth * .4, .1, 1, .3 + depth * .4, 3 + depth * 120, 7], at + 528);
+    data.set([1, .15, .25, .15, 1, .85, .75, .15], at + 544);
   }
   return data;
 }
@@ -66,7 +67,7 @@ test('staircase Rust raw ABI is import-free, versioned, and rejects invalid buff
   assert.deepEqual(WebAssembly.Module.imports(module), []);
   const f = fixture();
   try {
-    assert.equal(f.api.stair_abi_version(), 1); assert.equal(f.api.stair_state_len(), 10);
+    assert.equal(f.api.stair_abi_version(), 2); assert.equal(f.api.stair_state_len(), 12);
     for (const rate of [0, 7999, NaN, Infinity, 192001]) assert.equal(f.api.stair_new(rate), 0);
     assert.equal(f.api.stair_table(f.engine, 0, STRIDE, 1), 0);
     assert.equal(f.api.stair_table(f.engine, 0, 0, 65), 0);
@@ -84,7 +85,7 @@ for (const rate of [44100, 48000]) test(`four measured-field modes are finite, d
         assert.ok(channel.every(Number.isFinite)); assert.ok(peak(channel) < 1);
         assert.ok(energy(channel.subarray(rate / 3)) > 1e-7, `mode ${mode} has audible energy`);
       }
-      if (mode === 2) assert.ok(f.state()[8] > 2, 'measured stripe depths cause actual attacks');
+      if (mode === 2) assert.ok(f.state()[8] > 2, 'measured white stripes cause note onsets');
       results.push(output[0]);
     } finally { f.close(); }
   }
@@ -109,28 +110,90 @@ test('Audio starts silent, mute preserves clock and depth, and pause releases to
   } finally { f.close(); }
 });
 
-test('Hold sustains the three continuous mappings and lets stripe-strike tails finish', () => {
+function branchGeometry({ branches = [[1, .15, .25, .15], [1, .85, .75, .15]], threshold = 5.25, period = 7 } = {}) {
+  const table = geometry();
+  for (let frame = 0; frame < FRAMES; frame++) {
+    const at = frame * STRIDE;
+    table[at + 534] = threshold;
+    table[at + 535] = period;
+    table.fill(0, at + 544, at + STRIDE);
+    for (let branch = 0; branch < branches.length; branch++) table.set(branches[branch], at + 544 + branch * 4);
+  }
+  return table;
+}
+
+test('Hold sustains all mappings in white and keeps the rhythm silent in black', () => {
   for (let mode = 0; mode < 4; mode++) {
-    const f = fixture({ mode, body: .05 });
+    const f = fixture({ mode, table: branchGeometry(), body: .05 });
     try {
-      f.render(.4); f.transport({ hold: true }); const depth = f.state()[1], attacks = f.state()[8];
+      f.render(.4); f.transport({ hold: true }); const depth = f.state()[1], onsets = f.state()[8];
       const held = f.render(1.5)[0].subarray(-4800);
-      assert.equal(f.state()[1], depth); assert.equal(f.state()[8], attacks);
-      if (mode === 2) assert.ok(peak(held) < 1e-8);
-      else assert.ok(energy(held) > 1e-7);
+      assert.equal(f.state()[1], depth); assert.equal(f.state()[8], onsets);
+      assert.ok(energy(held) > 1e-7, `mode ${mode} sustains on Hold`);
+      assert.equal(f.state()[10], 2); assert.equal(f.state()[11], 1);
+      if (mode === 2) {
+        f.install(branchGeometry({ threshold: 1.75 }));
+        assert.ok(peak(f.render(.5)[0].subarray(-4800)) < 1e-8);
+        assert.equal(f.state()[11], 0); assert.equal(f.state()[10], 2);
+      }
     } finally { f.close(); }
   }
 });
 
-test('threshold crossings follow the field and period, not an independent beat', () => {
-  const constant = geometry();
-  for (let frame = 0; frame < FRAMES; frame++) constant[frame * STRIDE + 534] = 21.25;
-  const f = fixture({ mode: 2, table: constant, seconds: 2 });
+test('white is on, black is off, and onset timing follows stripe depth without stale attacks', () => {
+  const f = fixture({ mode: 2, table: branchGeometry({ threshold: 1.75 }), seconds: 2, body: 1 });
   try {
-    assert.equal(peak(f.render(.8)[0]), 0); assert.equal(f.state()[8], 0);
-    f.install(geometry()); f.render(.8); assert.ok(f.state()[8] >= 8);
-    f.transport({ hold: true }); f.render(1.5); const attacks = f.state()[8];
-    f.seek(.05); f.render(.05); assert.equal(f.state()[8], attacks + 1, 'scrubbing across stripes makes one current attack, not stale bursts');
+    assert.equal(peak(f.render(.8)[0]), 0); assert.equal(f.state()[8], 0); assert.equal(f.state()[11], 0);
+    f.install(branchGeometry()); assert.ok(energy(f.render(.4)[0].subarray(-4800)) > 1e-5);
+    assert.equal(f.state()[11], 1, 'white starts sounding without needing another boundary');
+    f.install(geometry()); f.render(.8); assert.ok(f.state()[8] >= 4);
+    f.transport({ hold: true }); f.seek(.05); f.render(.5); const onsets = f.state()[8];
+    f.seek(.95); f.render(.05);
+    assert.ok(f.state()[8] <= onsets + 1, 'a scrub creates at most one present onset, never stale bursts');
+    f.install(branchGeometry({ threshold: 1.75 }));
+    assert.ok(peak(f.render(.5)[0].subarray(-4800)) < 1e-7, 'even maximum Release leaves a black rest');
+  } finally { f.close(); }
+});
+
+const toneEnergy = (data, frequency, rate = 48000) => {
+  let real = 0, imaginary = 0;
+  for (let i = 0; i < data.length; i++) {
+    real += data[i] * Math.cos(2 * Math.PI * frequency * i / rate);
+    imaginary += data[i] * Math.sin(2 * Math.PI * frequency * i / rate);
+  }
+  return (real * real + imaginary * imaginary) / (data.length * data.length);
+};
+
+test('separate branches produce separate unquantized pitches at their own stereo positions', () => {
+  const frequencies = [110 * 2 ** .75, 110 * 2 ** -.75], recordings = [];
+  for (const branches of [[[1, .05, .25, .2]], [[1, .05, .25, .2], [1, .95, .75, .2]]]) {
+    const f = fixture({ mode: 2, hold: true, brightness: 0, table: branchGeometry({ branches }) });
+    try {
+      const output = f.render(.8).map(channel => channel.subarray(14400)); recordings.push(output);
+      assert.equal(f.state()[10], branches.length);
+      assert.ok(toneEnergy(output[0], frequencies[0]) > toneEnergy(output[1], frequencies[0]) * 100);
+      if (branches.length === 2) {
+        assert.ok(toneEnergy(output[1], frequencies[1]) > toneEnergy(output[0], frequencies[1]) * 100);
+        assert.ok(toneEnergy(output[1], frequencies[1]) > 1e-4);
+      }
+    } finally { f.close(); }
+  }
+  assert.ok(toneEnergy(recordings[1][1], frequencies[1]) > toneEnergy(recordings[0][1], frequencies[1]) * 1000);
+});
+
+test('all 32 branch voices remain finite and bounded; absent or zero-length branches stay silent', () => {
+  const branches = Array.from({ length: 32 }, (_, i) => [1, i / 31, i / 31, .6]);
+  const f = fixture({ mode: 2, gain: 1, brightness: 1, hold: true, table: branchGeometry({ branches }) });
+  try {
+    for (const channel of f.render(.7)) {
+      assert.ok(channel.every(Number.isFinite)); assert.ok(peak(channel) < 1); assert.ok(energy(channel) > 1e-5);
+    }
+    assert.equal(f.state()[10], 32);
+    for (const branches of [[], [[0, .5, .5, .8]], [[1, .5, .5, 0]]]) {
+      f.install(branchGeometry({ branches }));
+      assert.ok(peak(f.render(.7)[0].subarray(-4800)) < 1e-8);
+      assert.equal(f.state()[10], 0);
+    }
   } finally { f.close(); }
 });
 
@@ -172,18 +235,25 @@ test('base frequency and brightness have audible continuous effects', () => {
   assert.ok(crossings(captures[2]) > crossings(captures[0]) * 1.7);
 });
 
-test('body changes strike decay and resonant-body sound', () => {
-  const tails = [], bodies = [];
-  for (const body of [.02, .95]) {
-    const strike = fixture({ mode: 2, body, hold: true });
+test('Release changes black-stripe tails and Detail adds branch harmonics', () => {
+  const tails = [], detail = [], bodies = [];
+  for (const body of [0, 1]) {
+    const rhythm = fixture({ mode: 2, table: branchGeometry(), body, hold: true });
     const resonant = fixture({ mode: 3, body, hold: true });
     try {
-      strike.render(.2); strike.seek(.8); const hit = strike.render(1)[0]; tails.push(energy(hit.subarray(12000)));
+      rhythm.render(.4); rhythm.install(branchGeometry({ threshold: 1.75 }));
+      const release = rhythm.render(.2)[0]; tails.push(energy(release.subarray(2400, 4800)));
       bodies.push(resonant.render(.8)[0].subarray(12000));
-    } finally { strike.close(); resonant.close(); }
+    } finally { rhythm.close(); resonant.close(); }
   }
-  assert.ok(tails[1] > tails[0] * 100, 'longer body yields a substantially longer tail');
+  assert.ok(tails[1] > tails[0] * 100, 'maximum Release extends the black-stripe tail');
   assert.ok(difference(bodies[0], bodies[1]) > 1e-6);
+  for (const brightness of [0, 1]) {
+    const f = fixture({ mode: 2, brightness, hold: true, table: branchGeometry({ branches: [[1, .5, .5, .2]] }) });
+    try { detail.push(f.render(.8)[0].subarray(14400)); } finally { f.close(); }
+  }
+  assert.ok(toneEnergy(detail[1], 220) > toneEnergy(detail[0], 220) * 100);
+  assert.ok(toneEnergy(detail[1], 330) > toneEnergy(detail[0], 330) * 5);
 });
 
 test('live mode, shape, and frequency changes preserve time with bounded transitions', () => {

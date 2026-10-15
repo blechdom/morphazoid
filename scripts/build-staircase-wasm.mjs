@@ -16,18 +16,18 @@ const required = ['memory', 'stair_abi_version', 'stair_alloc', 'stair_free', 's
 async function inspect(bytes) {
   const module = await WebAssembly.compile(bytes), imports = WebAssembly.Module.imports(module), exports = WebAssembly.Module.exports(module).map(item => item.name).sort();
   if (imports.length || required.some(name => !exports.includes(name))) throw new Error('The Rust staircase WASM ABI is invalid.');
-  if (new WebAssembly.Instance(module).exports.stair_abi_version() !== 1) throw new Error('The Rust staircase WASM ABI version is invalid.');
+  if (new WebAssembly.Instance(module).exports.stair_abi_version() !== 2) throw new Error('The Rust staircase WASM ABI version is invalid.');
   return { imports, exports };
 }
 if (process.argv.includes('--check')) {
   const bytes = await readFile(path.join(root, artifact)), manifest = JSON.parse(await readFile(path.join(root, provenance), 'utf8'));
   const checked = await inspect(bytes);
-  if (manifest.abi !== 1 || manifest.target !== 'wasm32-unknown-unknown' || manifest.bytes !== bytes.length
+  if (manifest.abi !== 2 || manifest.target !== 'wasm32-unknown-unknown' || manifest.bytes !== bytes.length
     || manifest.wasmSha256 !== hash(bytes) || JSON.stringify(manifest.sourceHashes) !== JSON.stringify(await sourceHashes())
     || JSON.stringify(manifest.exports) !== JSON.stringify(checked.exports) || JSON.stringify(manifest.imports) !== JSON.stringify(checked.imports)) {
     throw new Error('The Rust staircase WASM build is stale; run node scripts/build-staircase-wasm.mjs.');
   }
-  console.log(`Checked Rust staircase WASM: ${bytes.length} bytes, ABI 1, no imports.`);
+  console.log(`Checked Rust staircase WASM: ${bytes.length} bytes, ABI 2, no imports.`);
 } else {
   const result = spawnSync('cargo', ['build', '--locked', '--manifest-path', path.join(root, rust, 'Cargo.toml'), '--target', 'wasm32-unknown-unknown', '--release'],
     { cwd: root, stdio: 'inherit', env: { ...process.env, RUSTFLAGS: `${process.env.RUSTFLAGS || ''} --remap-path-prefix=${root}=. -C strip=symbols`.trim() } });
@@ -35,8 +35,8 @@ if (process.argv.includes('--check')) {
   await mkdir(path.join(root, 'assets/wasm'), { recursive: true });
   await copyFile(path.join(root, rust, 'target/wasm32-unknown-unknown/release/staircase_wasm.wasm'), path.join(root, artifact));
   const bytes = await readFile(path.join(root, artifact)), inspected = await inspect(bytes);
-  await writeFile(path.join(root, provenance), JSON.stringify({ abi: 1, target: 'wasm32-unknown-unknown',
+  await writeFile(path.join(root, provenance), JSON.stringify({ abi: 2, target: 'wasm32-unknown-unknown',
     compiler: spawnSync('rustc', ['--version'], { encoding: 'utf8' }).stdout.trim(), bytes: bytes.length,
     wasmSha256: hash(bytes), sourceHashes: await sourceHashes(), ...inspected }, null, 2) + '\n');
-  console.log(`Built Rust staircase WASM: ${bytes.length} bytes, ABI 1, no imports.`);
+  console.log(`Built Rust staircase WASM: ${bytes.length} bytes, ABI 2, no imports.`);
 }
