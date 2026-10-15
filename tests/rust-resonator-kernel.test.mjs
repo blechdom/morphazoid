@@ -74,11 +74,11 @@ function assertSignal(kernel) {
 test('Rust scalar and SIMD expose one fixed, aligned, import-free 4,096-mode ABI', async () => {
   for (const variant of ['scalar', 'simd']) {
     const kernel = await load(variant);
-    assert.equal(kernel.e.abi_version(), 1);
+    assert.equal(kernel.e.abi_version(), 2);
     assert.equal(kernel.e.block_size(), blockSize);
     assert.equal(kernel.e.max_modes(), maxModes);
     assert.equal(kernel.e.lane_width(), variant === 'simd' ? 4 : 1);
-    assert.equal(kernel.e.memory.buffer.byteLength, 262144);
+    assert.equal(kernel.e.memory.buffer.byteLength, 393216);
     assert.throws(() => kernel.e.memory.grow(1), RangeError);
     const regions = Object.entries(pointers).map(([key, pointer]) => {
       const start = kernel.e[pointer]();
