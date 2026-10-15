@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -17,6 +18,7 @@ for (const change of changes) {
 
 /** Reverse only documented UI, preset timing and display recoil; keep historical DSP/gesture references frozen. */
 export function restoreJawHarpControls(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

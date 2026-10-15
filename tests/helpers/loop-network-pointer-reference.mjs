@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 
@@ -38,6 +39,7 @@ const amendments = {
 
 /** Reverse only the scaled-pointer/selected-gate fix, proved by loop-network-pointer.spec.mjs. */
 export function restoreLoopNetworkPointers(source, relative) {
+  source = restoreHeaderPresetsBatchSite(source, relative, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, relative, { allowRestored: true });
   for (const { before, after } of amendments[relative] ?? []) {
     assert.equal(source.split(after).length - 1, 1, `${relative}: exact pointer/gate amendment`);

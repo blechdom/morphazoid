@@ -1,3 +1,11 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  HOCKET_FULL_PRESETS,
+  captureHocketPreset,
+  hocketStateFromPreset,
+  randomizeHocketPreset,
+  validateHocketPreset,
+} from "./full-presets.js";
 import { SequencerVoiceBank, appendSequencerVoiceOptions } from "../../sequencer-voices.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
@@ -1430,3 +1438,27 @@ resizeObserver = new ResizeObserver(resizeCanvas);
 resizeObserver.observe(dom.canvasWrap);
 schedulerTimer = window.setInterval(schedulerTick, 24);
 animationFrame = requestAnimationFrame(frame);
+
+function applyHocketPreset(snapshot) {
+  validateHocketPreset(snapshot);
+  const key = JSON.stringify([snapshot.settings, snapshot.patterns, snapshot.phases]);
+  const source = HOCKET_FULL_PRESETS.find(preset => HOCKET_PRESETS.some(item => item.id === preset.id)
+    && JSON.stringify([preset.snapshot.settings, preset.snapshot.patterns, preset.snapshot.phases]) === key);
+  const next = hocketStateFromPreset(snapshot, {
+    presetId: source?.id ?? state.presetId, variation: !source, level: state.level,
+  });
+  const generation = ++engineChangeGeneration;
+  const finish = () => {
+    setTraversal({ direction: snapshot.settings.direction, motionMode: snapshot.settings.motionMode });
+    commit(next, "Preset loaded.");
+  };
+  if (!audio.armed || next.soundEngine === "original") { finish(); return undefined; }
+  return audio.prepareEngine(next).then(() => { if (generation === engineChangeGeneration && !destroyed) finish(); });
+}
+
+registerHeaderPresets({
+  id: "hocket-loom", presets: HOCKET_FULL_PRESETS,
+  capture: () => captureHocketPreset({ ...state, direction: transport.direction, motionMode: transport.motionMode }),
+  apply: applyHocketPreset,
+  randomize: randomizeHocketPreset,
+});

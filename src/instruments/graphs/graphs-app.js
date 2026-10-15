@@ -42,6 +42,19 @@ import { GraphDelayAudio } from "../graph-delay/graph-delay-audio.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
 import { graphDistanceRatioFromTimeScale, graphsModeFor } from "./graphs-suite.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  GRAPHS_FULL_PRESETS, captureGraphsPreset, randomizeGraphsPreset, validateGraphsPreset,
+} from "./full-presets.js";
+import {
+  GRAPH_MODES,
+  MODE_STATE_KEYS,
+  graphInstrumentDefaultState,
+  graphInstrumentPresetState,
+  midiFrequency,
+} from "./graphs-state.js";
+
+export { graphInstrumentDefaultState, graphInstrumentPresetState };
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -67,36 +80,12 @@ const FATAL_AUDIO_ERROR_NAMES = new Set([
 ]);
 const EDGE_SWITCH_HIT_RADIUS = 14;
 const NODE_HIT_RADIUS = 23;
-const DEFAULT_PATCH = "layeredGlass";
 const MAX_GRAPHS_NODES = 24;
-const GRAPH_MODES = Object.freeze(["synth", "drums", "mic"]);
-const MODE_STATE_KEYS = Object.freeze({
-  synth: Object.freeze([
-    "mappingMode", "seedNote", "baseFrequency", "pitchRange", "tuningMode",
-    "edoDivisions", "turnPitchScale", "soundMode", "modulationIndex",
-    "modulationRatio", "articulation", "noteDuration", "attack", "decay",
-    "sustain", "release", "stereoSpread", "triggerScope", "attackLaneCount",
-  ]),
-  drums: Object.freeze([
-    "mappingMode", "seedNote", "baseFrequency", "percussionStyle",
-    "pitchDepth", "turnPitchDepth", "characterDepth", "triggerScope", "attackLaneCount",
-  ]),
-  mic: Object.freeze([
-    "pitchScale", "pitchAsymmetry", "pitchCurve", "pitchSlew", "damping",
-    "wet", "dry", "spread", "inputTrim",
-  ]),
-});
 const MIC_AUDIO_KEYS = new Set([
   "output", "nodePass", "baseDelay", "distanceRatio", "timeCurve", "feedback",
   "pitchScale", "pitchAsymmetry", "pitchCurve", "pitchSlew", "damping", "wet",
   "dry", "spread", "inputTrim", "inputX", "inputY",
 ]);
-const GRAPH_PRESET_STATE_KEYS = Object.freeze([
-  "topology", "nodeCount", "density", "seed", "baseDelay", "distanceRatio",
-  "timeCurve", "nodePass", "feedback", "feedbackTone", "tempo",
-  "triggerScope",
-]);
-
 const clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {
   const number = Number(value);
   return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));
@@ -212,74 +201,6 @@ const SYNTH_MAPPING_DETAILS = Object.freeze({
   }),
 });
 
-export function graphInstrumentPresetState(name, mode = "synth") {
-  const patch = GRAPH_INSTRUMENT_PATCHES[name];
-  if (!patch) return null;
-  const instrumentMode = mode === "drums" ? "drums" : "synth";
-  const state = { graphPatch: name };
-  for (const key of GRAPH_PRESET_STATE_KEYS) {
-    // Attack-point selection is a performance/sound choice on Graph Synth.
-    // Preserving it prevents graph presets from introducing long silent waits.
-    if (instrumentMode === "synth" && key === "triggerScope") continue;
-    if (patch[key] !== undefined) state[key] = patch[key];
-  }
-  const pulseBeats = patch.pulseBeats ?? patch.pulseDivision;
-  if (pulseBeats !== undefined) state.pulseDivision = pulseBeats;
-  if (instrumentMode === "drums") Object.assign(state, patch.drums ?? {});
-  return state;
-}
-
-export function graphInstrumentDefaultState(mode = "synth") {
-  const instrumentMode = mode === "drums" ? "drums" : "synth";
-  const seedNote = instrumentMode === "drums" ? 60 : 57;
-  return {
-    playing: false,
-    audio: false,
-    output: instrumentMode === "drums" ? 0.58 : 0.64,
-    triggerScope: "all",
-    feedbackTone: 0.78,
-    seedNote,
-    nodeMoving: false,
-    nodeMotionMode: "wiggle",
-    nodeMotionSpeed: 0.12,
-    nodeMotionAmount: 0.07,
-    nodeMotionPhase: 0,
-    mappingMode: instrumentMode === "drums" ? "position-grid" : "turn",
-    percussionStyle: "circuit",
-    pitchDepth: 12,
-    turnPitchDepth: 9,
-    characterDepth: 0.72,
-    baseFrequency: midiFrequency(seedNote),
-    pitchRange: 2,
-    tuningMode: "equal",
-    edoDivisions: instrumentMode === "synth" ? 19 : 12,
-    turnPitchScale: 1.1,
-    soundMode: instrumentMode === "synth" ? "fm" : "sine",
-    modulationIndex: 2.8,
-    modulationRatio: 2,
-    articulation: "trigger",
-    attackLaneCount: 1,
-    noteDuration: 210,
-    attack: 8,
-    decay: 90,
-    sustain: 0.34,
-    release: 220,
-    stereoSpread: 0.84,
-    pitchScale: 0.26,
-    pitchAsymmetry: 0,
-    pitchCurve: 1.35,
-    pitchSlew: 165,
-    damping: 4_800,
-    wet: 1.08,
-    dry: 0.18,
-    spread: 0.82,
-    inputTrim: 0.8,
-    inputX: 0.08,
-    inputY: 0.5,
-    ...graphInstrumentPresetState(DEFAULT_PATCH, instrumentMode),
-  };
-}
-
 function loadDrumBank(storage) {
   const fallback = cloneDefaultFmDrumVoices();
   try {
@@ -315,10 +236,6 @@ function noteName(frequency) {
   const names = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
   const cents = Math.round((exactMidi - midi) * 100);
   return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}${Math.abs(cents) >= 1 ? `${cents > 0 ? "+" : ""}${cents}¢` : ""}`;
-}
-
-function midiFrequency(note) {
-  return 440 * 2 ** ((clamp(note, 0, 127, 69) - 69) / 12);
 }
 
 export function graphEdgeSpeedReadout(delayMilliseconds) {
@@ -416,6 +333,8 @@ export function initializeGraphs({
   let lastMicAudioUpdate = -Infinity;
   let modeTransitionGeneration = 0;
   let audioIntent = false;
+  let presetController = null;
+  let presetMode = null;
   const engineClosePromises = new Map();
 
   function closeEngine(engine) {
@@ -1022,6 +941,10 @@ export function initializeGraphs({
   }
 
   function updateModeUi() {
+    if (presetMode !== instrumentMode) {
+      presetMode = instrumentMode;
+      presetController?.refresh();
+    }
     inputControl?.refresh();
     const app = $("graphsApp");
     if (app) app.dataset.playingMode = instrumentMode;
@@ -1965,6 +1888,8 @@ export function initializeGraphs({
     silence = true,
     randomizePositions = false,
     preservePositions = false,
+    positions = null,
+    routes = null,
   } = {}) {
     const previousPositions = preservePositions
       ? new Map(model.nodes.map((node) => [node.id, { x: node.x, y: node.y }]))
@@ -1991,8 +1916,11 @@ export function initializeGraphs({
       $("liveStatus").textContent = `Density limited to ${percent(state.density)} so every mode can use this graph safely.`;
     }
     if (randomizePositions) randomizeModelNodePositions();
+    if (positions) {
+      model.nodes.forEach((node, index) => { [node.x, node.y] = positions[index]; });
+    }
     reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));
-    edgeSwitchStates = new Map(model.edges.map((edge) => [edgeKey(edge), true]));
+    edgeSwitchStates = new Map(model.edges.map((edge, index) => [edgeKey(edge), routes ? routes[index] : true]));
     focusedEdgeId = null;
     hoveredEdgeId = null;
     if (draggingNodeId !== null && draggingNodeId >= model.nodes.length) {
@@ -2940,6 +2868,42 @@ export function initializeGraphs({
   updateModeUi();
   updateUi();
   resizeCanvas();
+
+  const GRAPH_SCENE_KEYS = [
+    "topology", "nodeCount", "density", "seed", "baseDelay", "distanceRatio", "timeCurve",
+    "nodePass", "feedback", "inputX", "inputY",
+  ];
+  if (documentObject.querySelector?.("[data-instrument-preset-host]")) {
+    presetController = registerHeaderPresets({
+      id: "graphs", presets: GRAPHS_FULL_PRESETS, document: documentObject, runtime,
+      isPresetAvailable: (preset) => preset.snapshot.mode === instrumentMode,
+      capture: () => captureGraphsPreset({
+        mode: instrumentMode,
+        state,
+        nodes: model.nodes,
+        routes: model.edges.map(edgeEnabled),
+      }),
+      randomize: (current, random) => randomizeGraphsPreset(current, random, {
+        allowMotion: !reducedMotionQuery?.matches,
+      }),
+      apply(raw) {
+        const snapshot = validateGraphsPreset(raw);
+        if (snapshot.mode !== instrumentMode) throw new Error("This scene belongs to another playing mode");
+        for (const key of GRAPH_SCENE_KEYS) state[key] = snapshot.graph[key];
+        Object.assign(state, snapshot.motion, snapshot.clock ?? {}, snapshot.voice);
+        state.nodeMoving = snapshot.motion.nodeMoving && !reducedMotionQuery?.matches;
+        state.nodeMotionPhase = 0;
+        if (instrumentMode !== "mic") state.baseFrequency = midiFrequency(state.seedNote);
+        lastMotionTemplateTime = -Infinity;
+        markCustom();
+        storeModeState();
+        syncControls();
+        rebuildModel({ silence: false, positions: snapshot.graph.positions, routes: snapshot.graph.routes });
+        if (instrumentMode === "drums") renderDrumMap();
+      },
+    });
+    presetMode = instrumentMode;
+  }
 
   return Object.freeze({
     get mode() { return instrumentMode; },

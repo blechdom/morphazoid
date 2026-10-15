@@ -36,6 +36,13 @@ import {
 } from "./shape-drum-machine.js";
 import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SHAPE_DRUM_FULL_PRESETS,
+  captureShapeDrumPreset,
+  randomizeShapeDrumPreset,
+  validateShapeDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1656,3 +1663,66 @@ populateMappingModes();
 renderDrumMap();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 reset();
+
+function applyShapeDrumPreset(snapshot) {
+  validateShapeDrumPreset(snapshot);
+  const wasPingPong = state.motionMode === "pingpong";
+  state.sides = snapshot.sides;
+  state.closedShapeType = snapshot.closedShapeType;
+  state.starDepth = snapshot.starDepth;
+  $("sides").value = String(snapshot.sides);
+  $("starDepth").value = String(snapshot.starDepth);
+  syncFormTopology();
+  for (const key of ["starDepth", "curvature", "aspect", "skew"]) bridgeRange(key, snapshot[key]);
+  state.heads = snapshot.heads;
+  state.headOffsets = [...snapshot.headOffsets];
+  state.scanLineAxes = [...snapshot.scanLineAxes];
+  state.traceHeadDirections = [...snapshot.traceHeadDirections];
+  state.radialHeadDirections = [...snapshot.radialHeadDirections];
+  if ((snapshot.motionMode === "pingpong") !== wasPingPong) {
+    state.continuousPosition = snapshot.motionMode === "pingpong"
+      ? rebasePingPongPosition(state.continuousPosition, state.position)
+      : rebaseContinuousPosition(state.continuousPosition, wrap01(state.continuousPosition), state.position);
+  }
+  state.motionMode = snapshot.motionMode;
+  for (const button of $("playheadMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.motionMode);
+  }
+  state.playMethod = snapshot.playMethod;
+  alignPointAndRadarDirections();
+  state.speed = snapshot.speed;
+  $("speed").value = String(sliderFromSpeed(state.speed));
+  state.traversalDirection = snapshot.traversalDirection;
+  state.playing = snapshot.playing;
+  setPressed($("playButton"), state.playing);
+  $("playButton").setAttribute("aria-label", state.playing ? "Pause playhead" : "Play playhead");
+  bridgeRange("rotationSpeed", snapshot.rotationSpeed);
+  state.rotationDirection = snapshot.rotationDirection;
+  const clockwise = state.rotationDirection > 0;
+  $("rotationDirectionGlyph").textContent = clockwise ? "→" : "←";
+  $("rotationDirectionText").textContent = clockwise ? "CW" : "CCW";
+  $("rotationDirection").setAttribute("aria-label", `Rotation direction: ${clockwise ? "clockwise" : "counterclockwise"}`);
+  state.rotationMotionMode = snapshot.rotationMotionMode;
+  state.continuousRotation = shapeRotationTravelForAngle(state.rotation, state.rotationMotionMode);
+  for (const button of $("rotationMotion").querySelectorAll("button[data-value]")) {
+    setPressed(button, button.dataset.value === state.rotationMotionMode);
+  }
+  state.autoRotate = snapshot.autoRotate;
+  setPressed($("rotationPlayButton"), state.autoRotate);
+  $("rotationPlayButton").setAttribute("aria-label", state.autoRotate ? "Pause rotation" : "Start rotation");
+  state.mappingMode = snapshot.mappingMode;
+  $("mappingMode").value = state.mappingMode;
+  for (const key of ["sideSubdivisions", "pitchDepth", "characterDepth", "strikeLimit"]) bridgeRange(key, snapshot[key]);
+  updatePlayheadControls();
+  updateHitCapStatus();
+  suppressShapeDrumContacts();
+  lastFrameTime = performance.now();
+  invalidateGeometry();
+}
+
+registerHeaderPresets({
+  id: "shape-drum-machine", presets: SHAPE_DRUM_FULL_PRESETS,
+  capture: () => captureShapeDrumPreset(state),
+  apply: applyShapeDrumPreset,
+  randomize: randomizeShapeDrumPreset,
+});

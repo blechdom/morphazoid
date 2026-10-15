@@ -52,6 +52,10 @@ import {
 } from "../spiral-drum-machine/spiral-drum-machine.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 import { TILES_APP_MODES, tilesModeFor } from "./tesselation-suite.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  TESSELATION_FULL_PRESETS, captureTesselationPreset, randomizeTesselationPreset, validateTesselationPreset,
+} from "./full-presets.js";
 
 const TAU = Math.PI * 2;
 const MIDI_PREVIEW_ROUTE_ID = "tiles-app-preview";
@@ -1687,4 +1691,33 @@ window.addEventListener("pagehide", () => {
   void context?.close().catch(() => {});
 });
 
+function applyFullPreset(snapshot) {
+  validateTesselationPreset(snapshot);
+  const { mode, latticePitchSource, spiralPitchSource, ...rest } = snapshot;
+  Object.assign(state, rest, {
+    parameters: [...snapshot.parameters],
+    edgeCurves: [...snapshot.edgeCurves],
+    pitchSourceByGeometry: { lattice: latticePitchSource, spiral: spiralPitchSource },
+  });
+  state.continuousPosition = state.position;
+  selectedTileEditorVertex = -1;
+  previousContactKeys = new Set();
+  midiPreviewContactKeys = new Set();
+  activeDrumIndex = -1;
+  $("tilingType").value = String(state.tilingType);
+  renderTileControls();
+  invalidateTileGeometry();
+  const modeChange = setMode(mode);
+  renderControls();
+  scheduleFrame();
+  return modeChange;
+}
+
 initialize();
+
+registerHeaderPresets({
+  id: "tesselation", presets: TESSELATION_FULL_PRESETS,
+  capture: () => captureTesselationPreset(state),
+  apply: applyFullPreset,
+  randomize: randomizeTesselationPreset,
+});

@@ -9,6 +9,13 @@ import {
   sanitizeEnveloperState,
   updateEnveloperNode,
 } from "./enveloper.js";
+import { registerHeaderPresets, presetStateKey } from "../../site/header-presets.js";
+import {
+  ENVELOPER_FULL_PRESETS,
+  captureEnveloperPreset,
+  randomizeEnveloperPreset,
+  validateEnveloperPreset,
+} from "./full-presets.js";
 import { appendSequencerVoiceOptions } from "../../sequencer-voices.js";
 import { EnveloperAudio } from "./enveloper-audio.js";
 import {
@@ -1984,3 +1991,24 @@ if (typeof ResizeObserver === "function") new ResizeObserver(resizeCanvas).obser
 else window.addEventListener("resize", resizeCanvas);
 resizeCanvas();
 frameId = requestAnimationFrame(animate);
+
+function applyEnveloperPreset(snapshot) {
+  validateEnveloperPreset(snapshot);
+  const commit = () => {
+    keepPhaseWhileChanging(() => { state.tree = snapshot.tree; });
+    Object.assign(state, { baseMidi: snapshot.baseMidi, pitchSpan: snapshot.pitchSpan, fmAmount: snapshot.fmAmount });
+    const treeKey = presetStateKey(state.tree);
+    state.activePresetId = ENVELOPER_PRESETS.find(preset => presetStateKey(createEnveloperState(preset.id)) === treeKey)?.id ?? null;
+    queueAudioReconciliation({ immediate: true, reason: "preset" });
+    syncUi();
+  };
+  if (snapshot.voice === state.voice) { commit(); return undefined; }
+  return audio.setVoice(snapshot.voice).then(voice => { state.voice = voice; commit(); });
+}
+
+registerHeaderPresets({
+  id: "enveloper", presets: ENVELOPER_FULL_PRESETS,
+  capture: () => captureEnveloperPreset(state),
+  apply: applyEnveloperPreset,
+  randomize: randomizeEnveloperPreset,
+});

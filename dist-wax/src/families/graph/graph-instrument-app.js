@@ -40,6 +40,9 @@ import {
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
 import { registerHeaderPresets } from "../../site/header-presets.js";
 import { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from "../graph-presets/full-presets.js";
+import {
+  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, randomizeGraphDrumPreset,
+} from "../graph-presets/drum-full-presets.js";
 
 const TAU = Math.PI * 2;
 const AUDIO_LOOKAHEAD_SECONDS = 0.09;
@@ -2205,6 +2208,30 @@ export function initializeGraphInstrument({
         invalidatePulseTemplate({ clearRuns: false, silence: false, resetClock: false });
         audio.setOutput?.(state.output);
         syncControls();
+        updateUi();
+        scheduleFrame();
+      },
+    });
+  }
+
+  if (instrumentMode === "drums") {
+    registerHeaderPresets({
+      id: "graph-drum-machine", presets: GRAPH_DRUM_FULL_PRESETS, randomize: randomizeGraphDrumPreset,
+      document: documentObject, runtime,
+      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates),
+      apply(snapshot) {
+        const scene = graphDrumSceneGraph(snapshot);
+        Object.assign(state, snapshot.parameters, { baseFrequency: midiFrequency(snapshot.parameters.seedNote), graphPatch: "" });
+        model = scene.graph;
+        displayModel = model;
+        reverseEdgeKeys = new Set(model.edges.map(edge => `${edge.to}>${edge.from}`));
+        edgeSwitchStates = scene.edgeSwitches;
+        selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);
+        resetNodeWalkState();
+        invalidatePulseTemplate({ clearRuns: false, silence: false, resetClock: false });
+        syncControls();
+        markCustom();
+        renderDrumMap();
         updateUi();
         scheduleFrame();
       },

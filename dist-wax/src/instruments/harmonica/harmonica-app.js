@@ -30,6 +30,13 @@ import {
   randomizeHarmonicaState,
   sanitizeHarmonicaState,
 } from "./harmonica.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  HARMONICA_FULL_PRESETS,
+  captureHarmonicaPreset,
+  harmonicaStateFromPreset,
+  randomizeHarmonicaPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -2773,4 +2780,19 @@ globalThis.addEventListener("pageshow", () => {
   updatePresentation();
   resizeCanvas();
   animationFrame = requestAnimationFrame(tick);
+});
+
+registerHeaderPresets({
+  id: "harmonica", presets: HARMONICA_FULL_PRESETS,
+  capture: () => captureHarmonicaPreset(state),
+  apply: snapshot => {
+    const changedAt = performance.now();
+    const previousPhase = breathCyclePhaseAt(changedAt);
+    state = harmonicaStateFromPreset(snapshot, state);
+    retainBreathCyclePhase(previousPhase, changedAt);
+    updatePresentation();
+    postConfiguration();
+    if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);
+  },
+  randomize: randomizeHarmonicaPreset,
 });

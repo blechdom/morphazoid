@@ -20,6 +20,10 @@ import {
   simplifyPaintPoints,
 } from "./linear-drums-machine.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  RATTLESNAKE_SKIN_FULL_PRESETS, captureRattlesnakeSkinPreset, randomizeRattlesnakeSkinPreset, validateRattlesnakeSkinPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -819,4 +823,33 @@ window.addEventListener("pagehide", () => {
   audioLifecycleGeneration += 1;
   setAudioState(false);
   void audio.close();
+});
+
+function applyFullPreset(snapshot) {
+  validateRattlesnakeSkinPreset(snapshot);
+  pushHistory();
+  preservePlaybackPhase(() => {
+    state.tempo = snapshot.tempo;
+    state.beats = snapshot.beats;
+  });
+  state.glissRate = snapshot.glissRate;
+  state.rangeMax = snapshot.rangeMax;
+  state.items = cloneItems(snapshot.items);
+  state.layers = snapshot.layers.map((layer, index) => ({ ...PAINT_MACHINE_LAYER_DEFAULTS[index], ...layer }));
+  state.draft = null;
+  pulses = [];
+  renderPalette();
+  paintInspector();
+  renderFrequencyAxis();
+  renderTimeAxis();
+  updateControlReadouts();
+  saveState();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "rattlesnake-skin", presets: RATTLESNAKE_SKIN_FULL_PRESETS,
+  capture: () => captureRattlesnakeSkinPreset(state),
+  apply: applyFullPreset,
+  randomize: randomizeRattlesnakeSkinPreset,
 });

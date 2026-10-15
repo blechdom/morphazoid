@@ -25,6 +25,15 @@ import {
   shaderSynthPlaygroundAudioAssetSpec,
 } from "./shader-synth-playground-audio-assets.js?v=20260831-modules125";
 
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SHADER_SYNTH_FULL_PRESETS,
+  captureShaderSynthPreset,
+  randomizeShaderSynthPreset,
+  shaderSynthSnapshotPatch,
+  validateShaderSynthPreset,
+} from "./full-presets.js";
+
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, Number(value) || 0));
 const copy = (value) => globalThis.structuredClone
@@ -3430,3 +3439,23 @@ const initialPanel = new URLSearchParams(globalThis.location?.search ?? "").get(
 if (initialPanel === "execution") {
   $("executionShapeDetails").open = true;
 }
+
+registerHeaderPresets({
+  id: "shader-synth-playground", presets: SHADER_SYNTH_FULL_PRESETS,
+  capture: () => captureShaderSynthPreset(state),
+  apply: (snapshot) => {
+    validateShaderSynthPreset(snapshot);
+    state.patch = sanitizePatch(shaderSynthSnapshotPatch(snapshot));
+    state.presetId = null;
+    state.comboId = null;
+    state.organRanks = sanitizeWebGpuSynthOrganRanks(snapshot.organRanks);
+    state.engine?.updateOrganRanks?.(state.organRanks);
+    state.selectedNodeId = patchNodes()[0]?.id ?? null;
+    state.selectedCableId = null;
+    state.pendingPort = null;
+    syncPatch();
+    fitGraph({ silent: true });
+    syncAllOrganRankControlSurfaces();
+  },
+  randomize: randomizeShaderSynthPreset,
+});

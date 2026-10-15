@@ -1,3 +1,8 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  CHAOTIC_FM_FULL_PRESETS, CHAOTIC_FM_SETTINGS_KEYS, captureChaoticFmPreset,
+  randomizeChaoticFmPreset, validateChaoticFmPreset,
+} from "./full-presets.js";
 import {
   CHAOTIC_FM_DEFAULTS,
   CHAOTIC_FM_LIMITS,
@@ -1092,3 +1097,16 @@ updateAudioInterface();
 resizeCanvas();
 registerSharedMidiClient();
 registerWaxHostAdapter();
+
+registerHeaderPresets({
+  id: "chaotic-fm", presets: CHAOTIC_FM_FULL_PRESETS,
+  capture: () => captureChaoticFmPreset(state),
+  randomize: randomizeChaoticFmPreset,
+  apply(raw) {
+    const snapshot = validateChaoticFmPreset(raw);
+    const matched = CHAOTIC_FM_PRESETS.find(preset => CHAOTIC_FM_SETTINGS_KEYS.every(
+      key => preset.settings[key] === snapshot.settings[key]));
+    applyPerformanceSettings(snapshot.performance);
+    applySettings(snapshot.settings, { presetId: matched?.id ?? null });
+  },
+});

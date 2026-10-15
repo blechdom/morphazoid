@@ -34,6 +34,13 @@ import {
 import { FM_DRUM_MIDI_FIRST_NOTE } from "../fm-drums/fm-drums-midi.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SPIRAL_DRUM_FULL_PRESETS,
+  captureSpiralDrumPreset,
+  randomizeSpiralDrumPreset,
+  validateSpiralDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1637,3 +1644,59 @@ configureTilingControls();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
 reset();
+
+const PRESET_RANGE_READOUTS = {
+  speed: (value) => `${value.toFixed(3)} cyc/s`,
+  loopSpeed: (value) => `${value.toFixed(3)} cyc/s`,
+  readerTurns: (value) => `${value.toFixed(2)} turns`,
+  pitchDepth: (value) => `±${Math.round(value)} st`,
+  characterDepth: (value) => `${Math.round(value * 100)}%`,
+  strikeLimit: (value) => String(Math.round(value)),
+  spiralA: (value) => String(Math.round(value)),
+  spiralB: (value) => String(Math.round(value)),
+  patternScale: (value) => `${value >= 0 ? "+" : ""}${value.toFixed(2)}`,
+  patternRotation: (value) => `${Math.round(value)}°`,
+};
+
+function applySpiralDrumPreset(snapshot) {
+  validateSpiralDrumPreset(snapshot);
+  endAuditions();
+  setMotionMode(snapshot.motionMode, false);
+  Object.assign(state, {
+    tilingType: snapshot.tilingType,
+    parameters: [...snapshot.parameters],
+    edgeCurves: [...snapshot.edgeCurves],
+    timePath: snapshot.timePath,
+    traversalDirection: snapshot.traversalDirection,
+    loopDirection: snapshot.loopDirection,
+    sizeCoupling: snapshot.sizeCoupling,
+    mappingMode: snapshot.mappingMode,
+  });
+  for (const [key, format] of Object.entries(PRESET_RANGE_READOUTS)) {
+    state[key] = snapshot[key];
+    $(key).value = String(state[key]);
+    $(`${key}Out`).textContent = format(state[key]);
+  }
+  tilingSelect.value = String(state.tilingType);
+  $("mappingMode").value = state.mappingMode;
+  configureTilingControls();
+  updateTimeControls();
+  paintLoopPhase();
+  previousContactKeys.clear();
+  lastStrikeTimes.clear();
+  midiPreviewContactKeys.clear();
+  midiPreviewLastStrikeTimes.clear();
+  invalidateGeometry();
+  emitReaderPathPreview();
+  emitReaderDirectionPreview();
+  emitZoomDirectionPreview();
+  emitReaderTimebasePreview();
+  emitZoomTimebasePreview();
+}
+
+registerHeaderPresets({
+  id: "spiral-drum-machine", presets: SPIRAL_DRUM_FULL_PRESETS,
+  capture: () => captureSpiralDrumPreset(state),
+  apply: applySpiralDrumPreset,
+  randomize: randomizeSpiralDrumPreset,
+});

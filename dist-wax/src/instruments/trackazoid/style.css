@@ -214,3 +214,4 @@ body.trackazoid-page { height: auto; min-height: 100dvh; overflow: visible; disp
   .tz-tempo-row { gap: 6px; }
   .tz-library th:nth-child(5) { width: 38%; }
 }
+.tz-preset-host > .instrument-preset-controls { max-width: 460px; margin: 0 0 10px; }

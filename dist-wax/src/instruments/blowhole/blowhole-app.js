@@ -11,6 +11,10 @@ import {
   evaluateBlowholeGesture,
   sanitizeBlowholeState,
 } from "./blowhole.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  BLOWHOLE_FULL_PRESETS, applyBlowholePresetState, captureBlowholePreset, randomizeBlowholePreset, validateBlowholePreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
@@ -2042,3 +2046,25 @@ new ResizeObserver(() => {
   drawTimeline();
 }).observe(stageWrap);
 animationFrame = requestAnimationFrame(animate);
+
+registerHeaderPresets({
+  id: "blowhole", presets: BLOWHOLE_FULL_PRESETS, randomize: randomizeBlowholePreset,
+  capture: () => captureBlowholePreset(state),
+  apply(snapshot) {
+    validateBlowholePreset(snapshot);
+    state = applyBlowholePresetState(snapshot, state);
+    if (playing) {
+      localPlayStart = performance.now();
+      localPhase = 0;
+    } else if (!manualHeld) {
+      localPhase = 0;
+    }
+    $("callSelect").value = state.callId;
+    $("callDescription").textContent = currentCall().description;
+    updateFamilyCopy();
+    buildCallButtons();
+    syncControls();
+    postConfiguration();
+    updateTransportPresentation();
+  },
+});

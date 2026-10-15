@@ -8,6 +8,15 @@ import {
   serializePhysicalModalJson,
   tuneAirflowStateToFrequency,
 } from "../../physical-sounds.js?v=dcb126496595";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  DENTAPHONE_FULL_PRESETS,
+  DENTAPHONE_PITCH_KEYS,
+  DENTAPHONE_SOUND_KEYS,
+  captureDentaphonePreset,
+  randomizeDentaphonePreset,
+  validateDentaphonePreset,
+} from "./full-presets.js";
 import {
   DENTAPHONE_BRUSH_ROUTE,
   DENTAPHONE_DEFAULT_PITCH_STATE,
@@ -3527,3 +3536,28 @@ reducedMotion.addEventListener?.("change", () => {
 });
 
 initialize();
+
+function applyDentaphonePreset(snapshot) {
+  validateDentaphonePreset(snapshot);
+  cancelDentaphonePlayQueue();
+  customBank = null;
+  customBankName = "";
+  state = sanitizePhysicalSoundState(kind, { ...state, ...snapshot.sound, modalJson: "" }, state);
+  dentaphonePitchState = sanitizeDentaphonePitchState(snapshot.pitch, dentaphonePitchState);
+  $("pitchLayout").value = dentaphonePitchState.layout;
+  $("rootPitch").value = String(dentaphonePitchState.root);
+  $("pitchOctave").value = String(dentaphonePitchState.octave);
+  rebuildDentaphonePitchMap({ announceChange: false });
+}
+
+if (isDentaphone) {
+  registerHeaderPresets({
+    id: "object-forge", presets: DENTAPHONE_FULL_PRESETS,
+    capture: () => captureDentaphonePreset({
+      sound: Object.fromEntries(DENTAPHONE_SOUND_KEYS.map(key => [key, state[key]])),
+      pitch: Object.fromEntries(DENTAPHONE_PITCH_KEYS.map(key => [key, dentaphonePitchState[key]])),
+    }),
+    apply: applyDentaphonePreset,
+    randomize: randomizeDentaphonePreset,
+  });
+}

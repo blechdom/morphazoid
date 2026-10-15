@@ -1,3 +1,13 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  LUMBER_FULL_PRESETS,
+  LUMBER_RING_SLOTS,
+  captureLumberPreset,
+  defaultLumberRing,
+  normalizeHeadOffsets,
+  randomizeLumberPreset,
+  validateLumberPreset,
+} from "./full-presets.js";
 import { clamp, levelToGain, unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
@@ -2783,3 +2793,117 @@ window.addEventListener("pageshow", () => {
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 updateUi();
 resizeCanvas();
+
+const presetSpareRings = Array.from({ length: LUMBER_RING_SLOTS }, (_, slot) => defaultLumberRing(slot));
+
+function ringPresetConfig(ring) {
+  return {
+    direction: ring.direction,
+    volume: ring.volume,
+    pan: ring.pan,
+    filterTone: ring.filterTone,
+    filterResonance: ring.filterResonance,
+    depth: ring.depth,
+    shapePitchDepth: ring.shapePitchDepth,
+    radialOffsets: ring.radialOffsets,
+    timingMode: ring.timingMode,
+    lengthRatio: ring.lengthRatio,
+    headCount: ring.headCount,
+    headOffsets: normalizeHeadOffsets(ring.headOffsets, ring.headCount),
+  };
+}
+
+function capturePresetState() {
+  const rings = orderedRings();
+  return captureLumberPreset({
+    rings: presetSpareRings.map((spare, slot) => (rings[slot] ? ringPresetConfig(rings[slot]) : spare)),
+    delay: state.delayRing,
+    depth: {
+      view3d: state.view3d,
+      reverbEnabled: state.reverbEnabled,
+      reverbDirection: state.reverbDirection,
+      fuzzEnabled: state.fuzzEnabled,
+      fuzzDirection: state.fuzzDirection,
+      fuzzLevel: state.fuzzLevel,
+    },
+  });
+}
+
+function sameNumbers(first, second) {
+  return first.length === second.length && first.every((value, index) => value === second[index]);
+}
+
+function applyPresetState(snapshot) {
+  validateLumberPreset(snapshot);
+  if (state.recording || recordChanging) throw new Error("Preset recall is unavailable while recording");
+  const rings = orderedRings();
+  const wasPlaying = state.playing;
+  const timingChanged = rings.some((ring, slot) => {
+    const next = snapshot.rings[slot];
+    return ring.direction !== next.direction || ring.timingMode !== next.timingMode
+      || ring.lengthRatio !== next.lengthRatio || ring.headCount !== next.headCount
+      || !sameNumbers(normalizeHeadOffsets(ring.headOffsets, ring.headCount), next.headOffsets);
+  });
+  if (timingChanged) {
+    for (const ring of recordedRings()) {
+      captureRingPhase(ring);
+      if (wasPlaying) stopRingSource(ring);
+    }
+  }
+  const rebuilds = [];
+  rings.forEach((ring, slot) => {
+    const next = snapshot.rings[slot];
+    const contourChanged = ring.shapePitchDepth !== next.shapePitchDepth
+      || !sameNumbers(ring.radialOffsets, next.radialOffsets);
+    Object.assign(ring, {
+      direction: next.direction,
+      volume: next.volume,
+      pan: next.pan,
+      filterTone: next.filterTone,
+      filterResonance: next.filterResonance,
+      depth: next.depth,
+      shapePitchDepth: next.shapePitchDepth,
+      radialOffsets: [...next.radialOffsets],
+      timingMode: next.timingMode,
+      lengthRatio: next.lengthRatio,
+      headCount: next.headCount,
+      headOffsets: [...next.headOffsets],
+    });
+    if (contourChanged) {
+      ring.preset = "custom";
+      ring.selectedVertex = Math.min(ring.selectedVertex, ring.radialOffsets.length - 1);
+      if (ring.rawSamples) rebuilds.push(ring);
+    }
+  });
+  snapshot.rings.forEach((config, slot) => { presetSpareRings[slot] = structuredClone(config); });
+  for (const ring of rebuilds) rebuildRingAudio(ring, { restart: !timingChanged });
+  Object.assign(state.delayRing, {
+    enabled: snapshot.delay.enabled,
+    radialOffsets: [...snapshot.delay.radialOffsets],
+    rotationPlaying: snapshot.delay.rotationPlaying,
+    rotationSpeed: snapshot.delay.rotationSpeed,
+    spread: snapshot.delay.spread,
+  });
+  lastDelayFrameTime = performance.now();
+  Object.assign(state, snapshot.depth);
+  if (timingChanged) {
+    for (const ring of recordedRings()) {
+      if (ring.timingMode === "sync") alignRingToMaster(ring);
+      else anchorRing(ring, ring.phase);
+      if (wasPlaying) startRingSource(ring);
+    }
+  }
+  refreshRingAudibility();
+  updateAllRingEffects();
+  updateMixDelay();
+  updateUi();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "lumber",
+  presets: LUMBER_FULL_PRESETS,
+  capture: capturePresetState,
+  apply: applyPresetState,
+  randomize: randomizeLumberPreset,
+});

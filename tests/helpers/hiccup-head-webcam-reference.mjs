@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { existsSync, readFileSync } from "node:fs";
@@ -8,6 +9,7 @@ for (const file of changes[0].regressionTests) assert.ok(existsSync(new URL(`../
 
 /** Reverse the documented UI/capture amendment without changing the frozen references. */
 export function restoreHiccupHeadWebcam(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

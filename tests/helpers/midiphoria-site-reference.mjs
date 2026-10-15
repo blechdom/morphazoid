@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -9,6 +10,7 @@ export const midiphoriaSiteAdditions = JSON.parse(readFileSync(new URL('../fixtu
 
 // Peel only the exact new lab records; retain every earlier catalogue byte.
 export function restoreMidiphoriaSite(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });
   source = restoreSpartialSite(source, file, { allowRestored: true });

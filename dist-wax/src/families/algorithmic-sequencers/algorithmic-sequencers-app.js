@@ -1,3 +1,5 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { SORT_FULL_PRESETS, captureSortPreset, randomizeSortPreset, validateSortPreset } from "./full-presets.js";
 import {
   SORT_ALGORITHM_PRESETS,
   deriveSortStepTone,
@@ -663,3 +665,15 @@ function start() {
 }
 
 start();
+
+registerHeaderPresets({
+  id: "sorting-algorithms", presets: SORT_FULL_PRESETS,
+  capture: () => captureSortPreset(state.settings),
+  randomize: randomizeSortPreset,
+  apply(raw) {
+    const snapshot = validateSortPreset(raw);
+    const sameSequence = ["algorithmId", "size", "dataSeed"].every(key => state.settings[key] === snapshot[key]);
+    if (snapshot.voice !== state.settings.voice) voiceBank.stop();
+    setSettings(snapshot, { keepCursor: sameSequence });
+  },
+});

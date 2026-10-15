@@ -1,3 +1,10 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  OUROBOROS_BOREALIS_FULL_PRESETS,
+  captureOuroborosBorealisPreset,
+  randomizeOuroborosBorealisPreset,
+  validateOuroborosBorealisPreset,
+} from "./full-presets.js";
 import {
   OUROBOROS_BOREALIS_DEFAULTS,
   OUROBOROS_BOREALIS_PHASE_SEED,
@@ -1356,3 +1363,21 @@ renderPresetGrid();
 renderRingControls();
 updateInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "ouroboros-borealis",
+  presets: OUROBOROS_BOREALIS_FULL_PRESETS,
+  capture: () => captureOuroborosBorealisPreset(state.parameters),
+  apply: (snapshot) => {
+    validateOuroborosBorealisPreset(snapshot);
+    synchronizeVisualClock();
+    const priorPhaseOffset = Number(state.parameters.phaseOffset) || 0;
+    state.parameters = createMemory(snapshot);
+    state.rings = createRings(state.parameters);
+    state.selectedRing = 0;
+    renderRingControls();
+    shiftRhythmVisualPhases(snapshot.phaseOffset - priorPhaseOffset);
+    updateInterface({ rebuildPresets: true });
+  },
+  randomize: randomizeOuroborosBorealisPreset,
+});

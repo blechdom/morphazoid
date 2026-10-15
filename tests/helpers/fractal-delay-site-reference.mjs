@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -22,6 +23,7 @@ export const fractalDelaySiteChanges = JSON.parse(readFileSync(
  * and their original negative guards remain authoritative for all other bytes.
  */
 export function restoreFractalDelaySite(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreFractalDelayFaves(source, file, { allowRestored: true });
   source = restoreGraphDelayRustSite(source, file, { allowRestored: true });

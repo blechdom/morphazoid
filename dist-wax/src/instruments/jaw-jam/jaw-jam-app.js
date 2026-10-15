@@ -26,6 +26,13 @@ import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 
 import { appendSequencerVoiceOptions } from "../../sequencer-voices.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  JAW_JAM_FULL_PRESETS,
+  captureJawJamPreset,
+  randomizeJawJamPreset,
+  validateJawJamPreset,
+} from "./full-presets.js";
 import { JawJamSharedVoices, jawJamSharedVoice } from "./jaw-jam-shared-voices.js";
 
 const sharedVoices = new JawJamSharedVoices();
@@ -2018,4 +2025,29 @@ globalThis.addEventListener("pageshow", () => {
   setAudioPresentation("off");
   updateGlobalPresentation();
   animationFrame = requestAnimationFrame(tick);
+});
+
+function applyJawJamPreset(snapshot) {
+  validateJawJamPreset(snapshot);
+  const key = JSON.stringify(snapshot.pattern);
+  const source = JAW_JAM_PATTERNS.find(candidate => JSON.stringify(captureJawJamPreset(candidate).pattern) === key);
+  pattern = mutablePattern({
+    ...snapshot.pattern,
+    id: source?.id ?? "custom",
+    label: source?.label ?? "Custom performance",
+    description: source?.description,
+  });
+  selectedStep = clamp(selectedStep, 0, pattern.stepCount - 1);
+  visibleStep = -1;
+  if ($("patternSelect")) $("patternSelect").value = pattern.id;
+  buildSequenceLane();
+  updateGlobalPresentation();
+  rescheduleFuture();
+}
+
+registerHeaderPresets({
+  id: "jaw-jam", presets: JAW_JAM_FULL_PRESETS,
+  capture: () => captureJawJamPreset(pattern),
+  apply: applyJawJamPreset,
+  randomize: randomizeJawJamPreset,
 });

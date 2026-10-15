@@ -1,0 +1,1473 @@
+{
+ "baseCommit": "b5ffe2c2b957c053678597f6bbbe92c96ac4cbb0",
+ "changes": [
+  {
+   "file": "scripts/site/runtime-files.tsv",
+   "sha256": "0ae94ef9ea50c068cef710d49ead279060b92487002fd214786dcfeaac189230",
+   "replacements": [
+    {
+     "before": "copy+require\tsrc/instruments/fm-drums/fm-drums-app.js\ncopy+require\tsrc/instruments/fm-drums/fm-drums.js\ncopy+require\tsample-drums.html\ncopy+require\tsrc/instruments/sample-drums/sample-drums.css\n",
+     "after": "copy+require\tsrc/instruments/fm-drums/fm-drums-app.js\ncopy+require\tsrc/instruments/fm-drums/fm-drums.js\ncopy+require\tsrc/families/algorithmic-sequencers/full-presets.js\ncopy+require\tsrc/families/chaotic/chaotic-full-presets.js\ncopy+require\tsrc/families/chiptune/full-presets.js\ncopy+require\tsrc/families/graph-presets/drum-full-presets.js\ncopy+require\tsrc/families/syrinx/voice-presets.js\ncopy+require\tsrc/instruments/blowhole/full-presets.js\ncopy+require\tsrc/instruments/chaotic-fm/full-presets.js\ncopy+require\tsrc/instruments/chaotic-pm/full-presets.js\ncopy+require\tsrc/instruments/crickets/full-presets.js\ncopy+require\tsrc/instruments/digestazoid/full-presets.js\ncopy+require\tsrc/instruments/drum-roll-please/full-presets.js\ncopy+require\tsrc/instruments/enveloper/full-presets.js\ncopy+require\tsrc/instruments/fm-drums/full-presets.js\ncopy+require\tsrc/instruments/graphs/full-presets.js\ncopy+require\tsrc/instruments/graphs/graphs-state.js\ncopy+require\tsrc/instruments/harmonica/full-presets.js\ncopy+require\tsrc/instruments/hocket-loom/full-presets.js\ncopy+require\tsrc/instruments/hyper-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/jaw-jam/full-presets.js\ncopy+require\tsrc/instruments/julia/full-presets.js\ncopy+require\tsrc/instruments/julie-saw/full-presets.js\ncopy+require\tsrc/instruments/l-system-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/lattice-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/lattice/tile-form-presets.js\ncopy+require\tsrc/instruments/linear-drums/full-presets.js\ncopy+require\tsrc/instruments/lumber/full-presets.js\ncopy+require\tsrc/instruments/monstroid/full-presets.js\ncopy+require\tsrc/instruments/object-forge/full-presets.js\ncopy+require\tsrc/instruments/ouroboros-borealis/full-presets.js\ncopy+require\tsrc/instruments/ouroboros/family-presets.js\ncopy+require\tsrc/instruments/ouroboros/full-presets.js\ncopy+require\tsrc/instruments/ouroborousel/full-presets.js\ncopy+require\tsrc/instruments/ourorourobouroboros/full-presets.js\ncopy+require\tsrc/instruments/pink-trombonazoid/full-presets.js\ncopy+require\tsrc/instruments/rattlesnake-skin/full-presets.js\ncopy+require\tsrc/instruments/rubixoids/sliding-puzzle/full-presets.js\ncopy+require\tsrc/instruments/sample-drums/full-presets.js\ncopy+require\tsrc/instruments/shader-synth-playground/full-presets.js\ncopy+require\tsrc/instruments/shape-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/shepard-risset/full-presets.js\ncopy+require\tsrc/instruments/simd-synth/full-presets.js\ncopy+require\tsrc/instruments/sliding-puzzle/full-presets.js\ncopy+require\tsrc/instruments/solid-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/spartial/full-presets.js\ncopy+require\tsrc/instruments/spiral-drum-machine/full-presets.js\ncopy+require\tsrc/instruments/spiral/full-presets.js\ncopy+require\tsrc/instruments/srtuss/full-presets.js\ncopy+require\tsrc/instruments/striped-staircase/full-presets.js\ncopy+require\tsrc/instruments/surround-field/full-presets.js\ncopy+require\tsrc/instruments/tesselation/full-presets.js\ncopy+require\tsrc/instruments/tesselation/tile-preset-helpers.js\ncopy+require\tsrc/instruments/throat-singing/full-presets.js\ncopy+require\tsrc/instruments/throatazoid/full-presets.js\ncopy+require\tsrc/instruments/trackazoid/full-presets.js\ncopy+require\tsrc/instruments/vocalzoid/full-presets.js\ncopy+require\tsrc/instruments/webgpu-303/full-presets.js\ncopy+require\tsrc/instruments/webgpu-synths/full-presets.js\ncopy+require\tsrc/instruments/weierstrass/full-presets.js\ncopy+require\tsample-drums.html\ncopy+require\tsrc/instruments/sample-drums/sample-drums.css\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/algorithmic-sequencers/algorithmic-sequencers-app.js",
+   "sha256": "4ec607fa51bd09960e79b5f8572040a84e2b0f751e105701bba45ecd2e8e1a52",
+   "replacements": [
+    {
+     "before": "import {\n  SORT_ALGORITHM_PRESETS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { SORT_FULL_PRESETS, captureSortPreset, randomizeSortPreset, validateSortPreset } from \"./full-presets.js\";\nimport {\n  SORT_ALGORITHM_PRESETS,\n"
+    },
+    {
+     "before": "\nstart();\n",
+     "after": "\nstart();\n\nregisterHeaderPresets({\n  id: \"sorting-algorithms\", presets: SORT_FULL_PRESETS,\n  capture: () => captureSortPreset(state.settings),\n  randomize: randomizeSortPreset,\n  apply(raw) {\n    const snapshot = validateSortPreset(raw);\n    const sameSequence = [\"algorithmId\", \"size\", \"dataSeed\"].every(key => state.settings[key] === snapshot[key]);\n    if (snapshot.voice !== state.settings.voice) voiceBank.stop();\n    setSettings(snapshot, { keepCursor: sameSequence });\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/chiptune/chiptune-app.js",
+   "sha256": "4d2e13269cb058ac21a21f924f4da00b68d299546d7a66c1f8bfd6788fa8fa4e",
+   "replacements": [
+    {
+     "before": "import { SKINS, drawSimdChiptuneDancer, normalizeChiptuneSkin } from \"../../instruments/simd-chiptune/skins.js\";\nimport { createSimdPresetPicker, drawNoiseSweep } from \"../../instruments/simd-chiptune/ui.js\";\n\nconst simdBackend = document.body.dataset.audioBackend === \"simd\";\n",
+     "after": "import { SKINS, drawSimdChiptuneDancer, normalizeChiptuneSkin } from \"../../instruments/simd-chiptune/skins.js\";\nimport { createSimdPresetPicker, drawNoiseSweep } from \"../../instruments/simd-chiptune/ui.js\";\nimport { registerHeaderPresets, presetStateKey } from \"../../site/header-presets.js\";\nimport { chiptuneFullPresets } from \"./full-presets.js\";\n\nconst simdBackend = document.body.dataset.audioBackend === \"simd\";\n"
+    },
+    {
+     "before": "});\n\n/** Read-only state capture for parity and performance regression checks. */\nexport function captureChiptuneState() {\n",
+     "after": "});\n\nconst fullPresets = chiptuneFullPresets(simdBackend);\nconst fullPresetBank = presets.map(fullPresets.entry);\nconst fullPresetState = () => ({\n  params: state.params, sequence: state.sequence, songSequence: state.songSequence,\n  patternSequence: state.patternSequence, patternBaseline: state.patternBaseline,\n  voicePerformance: state.voicePerformance, drumMix: state.drumMix,\n  patternSection: state.patternSection, patternSections: state.patternSections,\n});\n\nfunction applyFullPreset(snapshot) {\n  fullPresets.validate(snapshot);\n  preserveVisualBeatAtTempo(snapshot.params.tempo);\n  state.params = sanitizeWebGpuChiptuneParams(snapshot.params);\n  state.voicePerformance = sanitizeWebGpuChiptunePerformance(snapshot.voicePerformance);\n  state.drumMix = sanitizeWebGpuChiptuneDrumMix(snapshot.drumMix);\n  state.songSequence = sanitizeWebGpuChiptuneSequence(snapshot.songSequence);\n  state.patternSequence = sanitizeWebGpuChiptuneSequence(snapshot.patternSequence);\n  state.patternBaseline = sanitizeWebGpuChiptuneSequence(snapshot.patternBaseline);\n  if (simdBackend) {\n    state.patternSection = snapshot.patternSection;\n    state.patternSections = {};\n    for (const [key, section] of Object.entries(snapshot.patternSections)) {\n      state.patternSections[key] = {\n        sequence: sanitizeWebGpuChiptuneSequence(section.sequence),\n        baseline: sanitizeWebGpuChiptuneSequence(section.baseline),\n      };\n    }\n  }\n  state.sequence = snapshot.sequenceMode === \"song\" ? state.songSequence : state.patternSequence;\n  const key = presetStateKey(snapshot);\n  state.presetId = fullPresetBank.find((preset) => presetStateKey(preset.snapshot) === key)?.id ?? \"custom\";\n  trackerCacheParams = null;\n  trackerCacheSequence = null;\n  trackerNoteCache.clear();\n  if (simdBackend) updateEffectiveVoiceParams();\n  syncParamOutputs();\n  if (!simdBackend) updateEffectiveVoiceParams();\n  engine?.updateSequence(state.sequence, { deferDrums: false });\n  syncSequenceControls();\n  syncCharacterPerformanceControls();\n  notifyWaxState();\n}\n\nregisterHeaderPresets({\n  id: instrumentId,\n  presets: fullPresetBank,\n  capture: () => fullPresets.capture(fullPresetState()),\n  apply: applyFullPreset,\n  randomize: fullPresets.randomize,\n});\n\n/** Read-only state capture for parity and performance regression checks. */\nexport function captureChiptuneState() {\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/graph/graph-instrument-app.js",
+   "sha256": "e9e4028904ae46513943e4ea05a72bec01144b1e5fb90d73a3eea158dad6dfd8",
+   "replacements": [
+    {
+     "before": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from \"../graph-presets/full-presets.js\";\n\nconst TAU = Math.PI * 2;\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { graphSynthFullPresets, captureGraphSynthPreset, validateGraphSynthPreset, randomizeGraphSynthPreset } from \"../graph-presets/full-presets.js\";\nimport {\n  GRAPH_DRUM_FULL_PRESETS, captureGraphDrumPreset, graphDrumSceneGraph, randomizeGraphDrumPreset,\n} from \"../graph-presets/drum-full-presets.js\";\n\nconst TAU = Math.PI * 2;\n"
+    },
+    {
+     "before": "  }\n\n  return Object.freeze({\n    get mode() { return instrumentMode; },\n",
+     "after": "  }\n\n  if (instrumentMode === \"drums\") {\n    registerHeaderPresets({\n      id: \"graph-drum-machine\", presets: GRAPH_DRUM_FULL_PRESETS, randomize: randomizeGraphDrumPreset,\n      document: documentObject, runtime,\n      capture: () => captureGraphDrumPreset(state, model, edgeSwitchStates),\n      apply(snapshot) {\n        const scene = graphDrumSceneGraph(snapshot);\n        Object.assign(state, snapshot.parameters, { baseFrequency: midiFrequency(snapshot.parameters.seedNote), graphPatch: \"\" });\n        model = scene.graph;\n        displayModel = model;\n        reverseEdgeKeys = new Set(model.edges.map(edge => `${edge.to}>${edge.from}`));\n        edgeSwitchStates = scene.edgeSwitches;\n        selectedNodeId = Math.min(selectedNodeId, model.nodes.length - 1);\n        resetNodeWalkState();\n        invalidatePulseTemplate({ clearRuns: false, silence: false, resetClock: false });\n        syncControls();\n        markCustom();\n        renderDrumMap();\n        updateUi();\n        scheduleFrame();\n      },\n    });\n  }\n\n  return Object.freeze({\n    get mode() { return instrumentMode; },\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/syrinx/syrinx-app.js",
+   "sha256": "46b9bd95e283b7e23ad892f152e0dc8d32fe5d1b6a0054cafb6e3832037a66a9",
+   "replacements": [
+    {
+     "before": "} from \"../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { HYBRINX_FULL_PRESETS, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, randomizeHybrinxPreset } from \"./full-presets.js\";\n\n",
+     "after": "} from \"../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  PARAMETER_MODULATOR_DEFINITIONS, SYRINX_FULL_PRESETS, TONGUED_BEASTS_FULL_PRESETS, applyVoiceHostState,\n  captureSyrinxPreset, captureTonguedBeastsPreset, randomizeSyrinxPreset, randomizeTonguedBeastsPreset,\n  validateSyrinxPreset, validateTonguedBeastsPreset,\n} from \"./voice-presets.js\";\nimport { HYBRINX_FULL_PRESETS, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, randomizeHybrinxPreset } from \"./full-presets.js\";\n\n"
+    },
+    {
+     "before": "  \"tractLengthM\",\n  \"mouthOpening\",\n]);\nconst PARAMETER_MODULATOR_DEFINITIONS = Object.freeze([\n  { target: \"tonguePosition\", elementId: \"tonguePosition\", family: \"tongue\", rateHz: 1.7, depth: 0.42, shape: \"sine\" },\n  { target: \"tongueHeight\", elementId: \"tongueHeight\", family: \"tongue\", rateHz: 3.1, depth: 0.48, shape: \"triangle\" },\n  { target: \"tongueShape\", elementId: \"tongueShape\", family: \"tongue\", rateHz: 0.73, depth: 0.52, shape: \"sine\" },\n  { target: \"tongueTip\", elementId: \"tongueTip\", family: \"tongue\", rateHz: 7.8, depth: 0.58, shape: \"square\" },\n  { target: \"tongueExtension\", elementId: \"tongueExtension\", family: \"tongue\", rateHz: 1.2, depth: 0.68, shape: \"triangle\" },\n  { target: \"tongueCurl\", elementId: \"tongueCurl\", family: \"tongue\", rateHz: 4.3, depth: 0.62, shape: \"sine\" },\n  { target: \"tongueLateral\", elementId: \"tongueLateral\", family: \"tongue\", rateHz: 2.4, depth: 0.54, shape: \"square\" },\n  { target: \"pressure\", elementId: \"pressure\", family: \"host\", rateHz: 0.82, depth: 0.5, shape: \"triangle\" },\n  { target: \"tension\", elementId: \"tension\", family: \"host\", rateHz: 5.4, depth: 0.34, shape: \"sine\" },\n  { target: \"adduction\", elementId: \"adduction\", family: \"host\", rateHz: 2.6, depth: 0.48, shape: \"square\" },\n  { target: \"sourceScale\", elementId: \"sourceScale\", family: \"host\", rateHz: 0.17, depth: 0.6, shape: \"triangle\" },\n  { target: \"tractLengthM\", elementId: \"tractLength\", family: \"host\", rateHz: 0.13, depth: 0.46, shape: \"sine\" },\n  { target: \"mouthOpening\", elementId: \"mouthOpening\", family: \"host\", rateHz: 3.7, depth: 0.72, shape: \"square\" },\n  { target: \"cavityCoupling\", elementId: \"cavityCoupling\", family: \"host\", rateHz: 0.47, depth: 0.62, shape: \"sine\" },\n  { target: \"asymmetry\", elementId: \"asymmetry\", family: \"host\", rateHz: 1.33, depth: 0.7, shape: \"sample-hold\" },\n  { target: \"sourceBalance\", elementId: \"sourceBalance\", family: \"host\", rateHz: 0.29, depth: 0.82, shape: \"triangle\" },\n  { target: \"roughness\", elementId: \"roughness\", family: \"host\", rateHz: 8.6, depth: 0.66, shape: \"sample-hold\" },\n  { target: \"gestureRate\", elementId: \"gestureRate\", family: \"host\", rateHz: 0.21, depth: 0.58, shape: \"triangle\" },\n  { target: \"loopGapMs\", elementId: \"loopGap\", family: \"host\", rateHz: 0.08, depth: 0.82, shape: \"sample-hold\" },\n]);\n\n",
+     "after": "  \"tractLengthM\",\n  \"mouthOpening\",\n]);\n\n"
+    },
+    {
+     "before": "  },\n});\n",
+     "after": "  },\n});\n\nconst creaturePresetHost = !HYBRINX_MODE && document.querySelector(\"[data-instrument-preset-host]\");\n\nfunction applyCreatureHostScene(hostState) {\n  const previousModel = state.sourceModel;\n  state = applyVoiceHostState(hostState, state);\n  gesturePhase = 0;\n  loopGapRemainingMs = 0;\n  if (gesturePlaying) gestureStartTime = performance.now();\n  performanceState = manualBreath\n    ? { ...state, active: true }\n    : gesturePlaying\n      ? interpolateGesture(activeGesture(), 0, state)\n      : { ...state, active: false };\n  return previousModel;\n}\n\nif (creaturePresetHost && TONGUE_MODE) registerHeaderPresets({\n  id: \"tongued-beasts\", presets: TONGUED_BEASTS_FULL_PRESETS, randomize: randomizeTonguedBeastsPreset,\n  capture: () => captureTonguedBeastsPreset(state, tongueState, tongueMotionId, parameterModulators),\n  apply(snapshot) {\n    validateTonguedBeastsPreset(snapshot);\n    const previousModel = applyCreatureHostScene(snapshot.state);\n    tongueState = sanitizeTongueState(snapshot.tongue);\n    performanceTongueState = tongueState;\n    tongueArticulation = IDLE_TONGUE_ARTICULATION;\n    expandedViewportModulatorTarget = \"\";\n    parameterModulators.forEach((modulator, index) => {\n      Object.assign(modulator, snapshot.wiggles[index]);\n      updateParameterModulatorUI(modulator);\n    });\n    setTongueMotion(snapshot.motion, { announceChange: false, startAudio: false });\n    updateAnimalPresentation();\n    updatePerformancePresentation(performanceState);\n    postConfiguration(performanceState, previousModel !== state.sourceModel);\n    audioDirty = true;\n  },\n});\nelse if (creaturePresetHost && UI_MODE) registerHeaderPresets({\n  id: \"syrinx\", presets: SYRINX_FULL_PRESETS, randomize: randomizeSyrinxPreset,\n  capture: () => captureSyrinxPreset(state, modulators),\n  apply(snapshot) {\n    validateSyrinxPreset(snapshot);\n    const previousModel = applyCreatureHostScene(snapshot.state);\n    snapshot.modulators.forEach((values, index) => setModulator(index, values));\n    updateAnimalPresentation();\n    updateModulationPresentation();\n    updatePerformancePresentation(performanceState);\n    postConfiguration(performanceState, previousModel !== state.sourceModel);\n    audioDirty = true;\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/blowhole/blowhole-app.js",
+   "sha256": "0ba9bc84679d581e357aea4b17a03988da59a172238406fa6f9a3570809fa38d",
+   "replacements": [
+    {
+     "before": "  sanitizeBlowholeState,\n} from \"./blowhole.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  sanitizeBlowholeState,\n} from \"./blowhole.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  BLOWHOLE_FULL_PRESETS, applyBlowholePresetState, captureBlowholePreset, randomizeBlowholePreset, validateBlowholePreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "}).observe(stageWrap);\nanimationFrame = requestAnimationFrame(animate);\n",
+     "after": "}).observe(stageWrap);\nanimationFrame = requestAnimationFrame(animate);\n\nregisterHeaderPresets({\n  id: \"blowhole\", presets: BLOWHOLE_FULL_PRESETS, randomize: randomizeBlowholePreset,\n  capture: () => captureBlowholePreset(state),\n  apply(snapshot) {\n    validateBlowholePreset(snapshot);\n    state = applyBlowholePresetState(snapshot, state);\n    if (playing) {\n      localPlayStart = performance.now();\n      localPhase = 0;\n    } else if (!manualHeld) {\n      localPhase = 0;\n    }\n    $(\"callSelect\").value = state.callId;\n    $(\"callDescription\").textContent = currentCall().description;\n    updateFamilyCopy();\n    buildCallButtons();\n    syncControls();\n    postConfiguration();\n    updateTransportPresentation();\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/chaotic-fm/chaotic-fm-app.js",
+   "sha256": "486c5aa27656e0d18266ae52f3daa6e209cc66c6ca600a2b20cc9a51c2aee901",
+   "replacements": [
+    {
+     "before": "import {\n  CHAOTIC_FM_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  CHAOTIC_FM_FULL_PRESETS, CHAOTIC_FM_SETTINGS_KEYS, captureChaoticFmPreset,\n  randomizeChaoticFmPreset, validateChaoticFmPreset,\n} from \"./full-presets.js\";\nimport {\n  CHAOTIC_FM_DEFAULTS,\n"
+    },
+    {
+     "before": "registerSharedMidiClient();\nregisterWaxHostAdapter();\n",
+     "after": "registerSharedMidiClient();\nregisterWaxHostAdapter();\n\nregisterHeaderPresets({\n  id: \"chaotic-fm\", presets: CHAOTIC_FM_FULL_PRESETS,\n  capture: () => captureChaoticFmPreset(state),\n  randomize: randomizeChaoticFmPreset,\n  apply(raw) {\n    const snapshot = validateChaoticFmPreset(raw);\n    const matched = CHAOTIC_FM_PRESETS.find(preset => CHAOTIC_FM_SETTINGS_KEYS.every(\n      key => preset.settings[key] === snapshot.settings[key]));\n    applyPerformanceSettings(snapshot.performance);\n    applySettings(snapshot.settings, { presetId: matched?.id ?? null });\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/chaotic-pm/chaotic-pm-app.js",
+   "sha256": "2a5cb7014f3ea81e6a879048d246ef4d1ee38812282d7eb4cefa032172a6bc28",
+   "replacements": [
+    {
+     "before": "import {\n  CHAOTIC_PM_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  CHAOTIC_PM_FULL_PRESETS, CHAOTIC_PM_SETTINGS_KEYS, captureChaoticPmPreset,\n  randomizeChaoticPmPreset, validateChaoticPmPreset,\n} from \"./full-presets.js\";\nimport {\n  CHAOTIC_PM_DEFAULTS,\n"
+    },
+    {
+     "before": "beginResizeObservation();\nresizeCanvas();\n",
+     "after": "beginResizeObservation();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"chaotic-pm\", presets: CHAOTIC_PM_FULL_PRESETS,\n  capture: () => captureChaoticPmPreset(state),\n  randomize: randomizeChaoticPmPreset,\n  apply(raw) {\n    const snapshot = validateChaoticPmPreset(raw);\n    const matched = CHAOTIC_PM_PRESETS.find(preset => CHAOTIC_PM_SETTINGS_KEYS.every(\n      key => preset.settings[key] === snapshot.settings[key]));\n    applyPerformanceSettings(snapshot.performance);\n    applySettings(snapshot.settings, { presetId: matched?.id ?? null });\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/crickets/crickets-app.js",
+   "sha256": "f29cc970541731dacf7025a01710cd13f0bc36834f346568a800becade91a75f",
+   "replacements": [
+    {
+     "before": "drawStage();\nrequestAnimationFrame(loadDemo);\n",
+     "after": "drawStage();\nrequestAnimationFrame(loadDemo);\n\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  CRICKET_CONTROL_KEYS, CRICKET_CONTROL_SPECS, CRICKET_FULL_PRESETS, CRICKET_LOCAL_SOURCE, captureCricketPreset,\n  randomizeCricketPreset, validateCricketPreset,\n} from \"./full-presets.js\";\n\nregisterHeaderPresets({\n  id: \"crickets\", presets: CRICKET_FULL_PRESETS, randomize: randomizeCricketPreset,\n  capture: () => captureCricketPreset({\n    sourceId: $(\"source-preset\").value,\n    controls: Object.fromEntries(CRICKET_CONTROL_KEYS.map((key) => [key, Number($(CRICKET_CONTROL_SPECS[key].id).value)])),\n  }),\n  apply(snapshot) {\n    validateCricketPreset(snapshot);\n    const sourceChanged = snapshot.sourceId !== $(\"source-preset\").value;\n    if (sourceChanged && snapshot.sourceId === CRICKET_LOCAL_SOURCE) throw new TypeError(\"An uploaded recording cannot be recalled\");\n    for (const key of CRICKET_CONTROL_KEYS) $(CRICKET_CONTROL_SPECS[key].id).value = String(snapshot[key]);\n    updateControlOutputs();\n    drawStage();\n    if ($(\"fit-state\") && analysis) $(\"fit-state\").textContent = \"fit\";\n    clearTimeout(renderTimer);\n    if (sourceChanged) {\n      $(\"source-preset\").value = snapshot.sourceId;\n      void loadSelectedSource();\n    } else if (analysis?.pulses?.length) {\n      void rerenderModel();\n    }\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/digestazoid/digestazoid-app.js",
+   "sha256": "358dc6ff48774e1cca496eec1f49fbcdc292fd45b99843da80ccafaef106230c",
+   "replacements": [
+    {
+     "before": "  sanitizeDigestazoidState,\n} from \"./digestazoid.js?v=digestazoid-model-20260902-3\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  sanitizeDigestazoidState,\n} from \"./digestazoid.js?v=digestazoid-model-20260902-3\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  DIGESTAZOID_FULL_PRESETS, applyDigestazoidPresetState, captureDigestazoidPreset, randomizeDigestazoidPreset, validateDigestazoidPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "paint(performance.now());\nanimationFrame = requestAnimationFrame(animate);\n",
+     "after": "paint(performance.now());\nanimationFrame = requestAnimationFrame(animate);\n\nregisterHeaderPresets({\n  id: \"digestazoid\", presets: DIGESTAZOID_FULL_PRESETS, randomize: randomizeDigestazoidPreset,\n  capture: () => captureDigestazoidPreset(state),\n  apply(snapshot) {\n    validateDigestazoidPreset(snapshot);\n    state = applyDigestazoidPresetState(snapshot, state);\n    updateUI();\n    postConfiguration();\n    graph?.sourceNode?.port.postMessage({ type: \"reset\", state });\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/drum-roll-please/drum-roll-please-app.js",
+   "sha256": "186c56216fb862b303203a2c3350c79b1619c1162833410a41bdc4674235ef4a",
+   "replacements": [
+    {
+     "before": "  sanitizeDrumRollParams,\n} from \"./drum-roll-please.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  sanitizeDrumRollParams,\n} from \"./drum-roll-please.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { DRUM_ROLL_FULL_PRESETS, captureDrumRollPreset, randomizeDrumRollPreset, validateDrumRollPreset } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"drum-roll-please\", presets: DRUM_ROLL_FULL_PRESETS,\n  capture: () => captureDrumRollPreset(state.roll),\n  apply: snapshot => {\n    validateDrumRollPreset(snapshot);\n    state.roll = { ...createMemory({ ...DRUM_ROLL_DEFAULTS, ...snapshot }), presetId: null };\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeDrumRollPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/enveloper/enveloper-app.js",
+   "sha256": "a09bafe243e26abfad9875d94038b6131ea0ad1cf0560c77925a1acd556cdf2d",
+   "replacements": [
+    {
+     "before": "  updateEnveloperNode,\n} from \"./enveloper.js\";\nimport { appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { EnveloperAudio } from \"./enveloper-audio.js\";\n",
+     "after": "  updateEnveloperNode,\n} from \"./enveloper.js\";\nimport { registerHeaderPresets, presetStateKey } from \"../../site/header-presets.js\";\nimport {\n  ENVELOPER_FULL_PRESETS,\n  captureEnveloperPreset,\n  randomizeEnveloperPreset,\n  validateEnveloperPreset,\n} from \"./full-presets.js\";\nimport { appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { EnveloperAudio } from \"./enveloper-audio.js\";\n"
+    },
+    {
+     "before": "resizeCanvas();\nframeId = requestAnimationFrame(animate);\n",
+     "after": "resizeCanvas();\nframeId = requestAnimationFrame(animate);\n\nfunction applyEnveloperPreset(snapshot) {\n  validateEnveloperPreset(snapshot);\n  const commit = () => {\n    keepPhaseWhileChanging(() => { state.tree = snapshot.tree; });\n    Object.assign(state, { baseMidi: snapshot.baseMidi, pitchSpan: snapshot.pitchSpan, fmAmount: snapshot.fmAmount });\n    const treeKey = presetStateKey(state.tree);\n    state.activePresetId = ENVELOPER_PRESETS.find(preset => presetStateKey(createEnveloperState(preset.id)) === treeKey)?.id ?? null;\n    queueAudioReconciliation({ immediate: true, reason: \"preset\" });\n    syncUi();\n  };\n  if (snapshot.voice === state.voice) { commit(); return undefined; }\n  return audio.setVoice(snapshot.voice).then(voice => { state.voice = voice; commit(); });\n}\n\nregisterHeaderPresets({\n  id: \"enveloper\", presets: ENVELOPER_FULL_PRESETS,\n  capture: () => captureEnveloperPreset(state),\n  apply: applyEnveloperPreset,\n  randomize: randomizeEnveloperPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/fm-drums/fm-drums-app.js",
+   "sha256": "031ebe853eec711c06a4ef951453abc6a7d286a740df18b3bee8b769336bde4e",
+   "replacements": [
+    {
+     "before": "} from \"./fm-drums-midi.js\";\nimport { getSharedMidiManager } from \"../../midi-manager.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "} from \"./fm-drums-midi.js\";\nimport { getSharedMidiManager } from \"../../midi-manager.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  FM_DRUM_FULL_PRESETS,\n  captureFmDrumPreset,\n  randomizeFmDrumPreset,\n  validateFmDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "\nregisterMidiClient();\n",
+     "after": "\nregisterMidiClient();\n\nregisterHeaderPresets({\n  id: \"fm-drums\", presets: FM_DRUM_FULL_PRESETS,\n  capture: () => captureFmDrumPreset(state.voices),\n  apply: snapshot => {\n    validateFmDrumPreset(snapshot);\n    const byId = new Map(snapshot.voices.map(voice => [voice.id, voice]));\n    state.voices = state.voices.map(voice => sanitizeFmDrumVoice({ ...voice, ...byId.get(voice.id) }));\n    renderPads();\n    renderEditor();\n  },\n  randomize: randomizeFmDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/graphs/graphs-app.js",
+   "sha256": "42d1131eca6eb6e196b727301696a8293d23a975f2d7f9d53bff06f148ae7905",
+   "replacements": [
+    {
+     "before": "import { GraphDelayAudio } from \"../graph-delay/graph-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { graphDistanceRatioFromTimeScale, graphsModeFor } from \"./graphs-suite.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst TAU = Math.PI * 2;\nconst AUDIO_LOOKAHEAD_SECONDS = 0.09;\nconst MAX_CLOCK_CATCH_UP = 4;\n",
+     "after": "import { GraphDelayAudio } from \"../graph-delay/graph-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { graphDistanceRatioFromTimeScale, graphsModeFor } from \"./graphs-suite.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  GRAPHS_FULL_PRESETS, captureGraphsPreset, randomizeGraphsPreset, validateGraphsPreset,\n} from \"./full-presets.js\";\nimport {\n  GRAPH_MODES,\n  MODE_STATE_KEYS,\n  graphInstrumentDefaultState,\n  graphInstrumentPresetState,\n  midiFrequency,\n} from \"./graphs-state.js\";\n\nexport { graphInstrumentDefaultState, graphInstrumentPresetState };\n\nconst TAU = Math.PI * 2;\nconst AUDIO_LOOKAHEAD_SECONDS = 0.09;\nconst MAX_CLOCK_CATCH_UP = 4;\n"
+    },
+    {
+     "before": "  \"QuotaExceededError\",\n]);\nconst EDGE_SWITCH_HIT_RADIUS = 14;\nconst NODE_HIT_RADIUS = 23;\nconst DEFAULT_PATCH = \"layeredGlass\";\nconst MAX_GRAPHS_NODES = 24;\nconst GRAPH_MODES = Object.freeze([\"synth\", \"drums\", \"mic\"]);\nconst MODE_STATE_KEYS = Object.freeze({\n  synth: Object.freeze([\n    \"mappingMode\", \"seedNote\", \"baseFrequency\", \"pitchRange\", \"tuningMode\",\n    \"edoDivisions\", \"turnPitchScale\", \"soundMode\", \"modulationIndex\",\n    \"modulationRatio\", \"articulation\", \"noteDuration\", \"attack\", \"decay\",\n    \"sustain\", \"release\", \"stereoSpread\", \"triggerScope\", \"attackLaneCount\",\n  ]),\n  drums: Object.freeze([\n    \"mappingMode\", \"seedNote\", \"baseFrequency\", \"percussionStyle\",\n    \"pitchDepth\", \"turnPitchDepth\", \"characterDepth\", \"triggerScope\", \"attackLaneCount\",\n  ]),\n  mic: Object.freeze([\n    \"pitchScale\", \"pitchAsymmetry\", \"pitchCurve\", \"pitchSlew\", \"damping\",\n    \"wet\", \"dry\", \"spread\", \"inputTrim\",\n  ]),\n});\nconst MIC_AUDIO_KEYS = new Set([\n  \"output\", \"nodePass\", \"baseDelay\", \"distanceRatio\", \"timeCurve\", \"feedback\",\n  \"pitchScale\", \"pitchAsymmetry\", \"pitchCurve\", \"pitchSlew\", \"damping\", \"wet\",\n  \"dry\", \"spread\", \"inputTrim\", \"inputX\", \"inputY\",\n]);\nconst GRAPH_PRESET_STATE_KEYS = Object.freeze([\n  \"topology\", \"nodeCount\", \"density\", \"seed\", \"baseDelay\", \"distanceRatio\",\n  \"timeCurve\", \"nodePass\", \"feedback\", \"feedbackTone\", \"tempo\",\n  \"triggerScope\",\n]);\n\nconst clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {\n  const number = Number(value);\n  return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));\n};\n",
+     "after": "  \"QuotaExceededError\",\n]);\nconst EDGE_SWITCH_HIT_RADIUS = 14;\nconst NODE_HIT_RADIUS = 23;\nconst MAX_GRAPHS_NODES = 24;\nconst MIC_AUDIO_KEYS = new Set([\n  \"output\", \"nodePass\", \"baseDelay\", \"distanceRatio\", \"timeCurve\", \"feedback\",\n  \"pitchScale\", \"pitchAsymmetry\", \"pitchCurve\", \"pitchSlew\", \"damping\", \"wet\",\n  \"dry\", \"spread\", \"inputTrim\", \"inputX\", \"inputY\",\n]);\nconst clamp = (value, minimum = 0, maximum = 1, fallback = minimum) => {\n  const number = Number(value);\n  return Math.min(maximum, Math.max(minimum, Number.isFinite(number) ? number : fallback));\n};\n"
+    },
+    {
+     "before": "    legend: [[\"Horizontal\", \"pitch\"], [\"Node height\", \"stereo\"], [\"Degree\", \"modulation\"], [\"Cycle pass\", \"level + brightness loss\"]],\n  }),\n});\n\nexport function graphInstrumentPresetState(name, mode = \"synth\") {\n  const patch = GRAPH_INSTRUMENT_PATCHES[name];\n  if (!patch) return null;\n  const instrumentMode = mode === \"drums\" ? \"drums\" : \"synth\";\n  const state = { graphPatch: name };\n  for (const key of GRAPH_PRESET_STATE_KEYS) {\n    // Attack-point selection is a performance/sound choice on Graph Synth.\n    // Preserving it prevents graph presets from introducing long silent waits.\n    if (instrumentMode === \"synth\" && key === \"triggerScope\") continue;\n    if (patch[key] !== undefined) state[key] = patch[key];\n  }\n  const pulseBeats = patch.pulseBeats ?? patch.pulseDivision;\n  if (pulseBeats !== undefined) state.pulseDivision = pulseBeats;\n  if (instrumentMode === \"drums\") Object.assign(state, patch.drums ?? {});\n  return state;\n}\n\nexport function graphInstrumentDefaultState(mode = \"synth\") {\n  const instrumentMode = mode === \"drums\" ? \"drums\" : \"synth\";\n  const seedNote = instrumentMode === \"drums\" ? 60 : 57;\n  return {\n    playing: false,\n    audio: false,\n    output: instrumentMode === \"drums\" ? 0.58 : 0.64,\n    triggerScope: \"all\",\n    feedbackTone: 0.78,\n    seedNote,\n    nodeMoving: false,\n    nodeMotionMode: \"wiggle\",\n    nodeMotionSpeed: 0.12,\n    nodeMotionAmount: 0.07,\n    nodeMotionPhase: 0,\n    mappingMode: instrumentMode === \"drums\" ? \"position-grid\" : \"turn\",\n    percussionStyle: \"circuit\",\n    pitchDepth: 12,\n    turnPitchDepth: 9,\n    characterDepth: 0.72,\n    baseFrequency: midiFrequency(seedNote),\n    pitchRange: 2,\n    tuningMode: \"equal\",\n    edoDivisions: instrumentMode === \"synth\" ? 19 : 12,\n    turnPitchScale: 1.1,\n    soundMode: instrumentMode === \"synth\" ? \"fm\" : \"sine\",\n    modulationIndex: 2.8,\n    modulationRatio: 2,\n    articulation: \"trigger\",\n    attackLaneCount: 1,\n    noteDuration: 210,\n    attack: 8,\n    decay: 90,\n    sustain: 0.34,\n    release: 220,\n    stereoSpread: 0.84,\n    pitchScale: 0.26,\n    pitchAsymmetry: 0,\n    pitchCurve: 1.35,\n    pitchSlew: 165,\n    damping: 4_800,\n    wet: 1.08,\n    dry: 0.18,\n    spread: 0.82,\n    inputTrim: 0.8,\n    inputX: 0.08,\n    inputY: 0.5,\n    ...graphInstrumentPresetState(DEFAULT_PATCH, instrumentMode),\n  };\n}\n\nfunction loadDrumBank(storage) {\n  const fallback = cloneDefaultFmDrumVoices();\n  try {\n    const stored = JSON.parse(storage?.getItem?.(FM_DRUM_STORAGE_KEY));\n",
+     "after": "    legend: [[\"Horizontal\", \"pitch\"], [\"Node height\", \"stereo\"], [\"Degree\", \"modulation\"], [\"Cycle pass\", \"level + brightness loss\"]],\n  }),\n});\n\nfunction loadDrumBank(storage) {\n  const fallback = cloneDefaultFmDrumVoices();\n  try {\n    const stored = JSON.parse(storage?.getItem?.(FM_DRUM_STORAGE_KEY));\n"
+    },
+    {
+     "before": "  const midi = Math.round(exactMidi);\n  const names = [\"C\", \"C\u266f\", \"D\", \"E\u266d\", \"E\", \"F\", \"F\u266f\", \"G\", \"A\u266d\", \"A\", \"B\u266d\", \"B\"];\n  const cents = Math.round((exactMidi - midi) * 100);\n  return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}${Math.abs(cents) >= 1 ? `${cents > 0 ? \"+\" : \"\"}${cents}\u00a2` : \"\"}`;\n}\n\nfunction midiFrequency(note) {\n  return 440 * 2 ** ((clamp(note, 0, 127, 69) - 69) / 12);\n}\n\nexport function graphEdgeSpeedReadout(delayMilliseconds) {\n  const milliseconds = Math.round(clamp(delayMilliseconds, 20, 600, 62));\n",
+     "after": "  const midi = Math.round(exactMidi);\n  const names = [\"C\", \"C\u266f\", \"D\", \"E\u266d\", \"E\", \"F\", \"F\u266f\", \"G\", \"A\u266d\", \"A\", \"B\u266d\", \"B\"];\n  const cents = Math.round((exactMidi - midi) * 100);\n  return `${names[((midi % 12) + 12) % 12]}${Math.floor(midi / 12) - 1}${Math.abs(cents) >= 1 ? `${cents > 0 ? \"+\" : \"\"}${cents}\u00a2` : \"\"}`;\n}\n\nexport function graphEdgeSpeedReadout(delayMilliseconds) {\n  const milliseconds = Math.round(clamp(delayMilliseconds, 20, 600, 62));\n"
+    },
+    {
+     "before": "  let draggingInput = false;\n  let lastMicAudioUpdate = -Infinity;\n  let modeTransitionGeneration = 0;\n  let audioIntent = false;\n  const engineClosePromises = new Map();\n\n  function closeEngine(engine) {\n    if (!engine?.close) return Promise.resolve();\n",
+     "after": "  let draggingInput = false;\n  let lastMicAudioUpdate = -Infinity;\n  let modeTransitionGeneration = 0;\n  let audioIntent = false;\n  let presetController = null;\n  let presetMode = null;\n  const engineClosePromises = new Map();\n\n  function closeEngine(engine) {\n    if (!engine?.close) return Promise.resolve();\n"
+    },
+    {
+     "before": "    updateUi();\n  }\n\n  function updateModeUi() {\n    inputControl?.refresh();\n    const app = $(\"graphsApp\");\n    if (app) app.dataset.playingMode = instrumentMode;\n    for (const button of $(\"playingMode\")?.querySelectorAll?.(\"[data-playing-mode]\") ?? []) {\n",
+     "after": "    updateUi();\n  }\n\n  function updateModeUi() {\n    if (presetMode !== instrumentMode) {\n      presetMode = instrumentMode;\n      presetController?.refresh();\n    }\n    inputControl?.refresh();\n    const app = $(\"graphsApp\");\n    if (app) app.dataset.playingMode = instrumentMode;\n    for (const button of $(\"playingMode\")?.querySelectorAll?.(\"[data-playing-mode]\") ?? []) {\n"
+    },
+    {
+     "before": "  function rebuildModel({\n    silence = true,\n    randomizePositions = false,\n    preservePositions = false,\n  } = {}) {\n    const previousPositions = preservePositions\n      ? new Map(model.nodes.map((node) => [node.id, { x: node.x, y: node.y }]))\n      : null;\n",
+     "after": "  function rebuildModel({\n    silence = true,\n    randomizePositions = false,\n    preservePositions = false,\n    positions = null,\n    routes = null,\n  } = {}) {\n    const previousPositions = preservePositions\n      ? new Map(model.nodes.map((node) => [node.id, { x: node.x, y: node.y }]))\n      : null;\n"
+    },
+    {
+     "before": "      $(\"density\").value = String(state.density);\n      $(\"liveStatus\").textContent = `Density limited to ${percent(state.density)} so every mode can use this graph safely.`;\n    }\n    if (randomizePositions) randomizeModelNodePositions();\n    reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));\n    edgeSwitchStates = new Map(model.edges.map((edge) => [edgeKey(edge), true]));\n    focusedEdgeId = null;\n    hoveredEdgeId = null;\n    if (draggingNodeId !== null && draggingNodeId >= model.nodes.length) {\n      draggingNodeId = null;\n",
+     "after": "      $(\"density\").value = String(state.density);\n      $(\"liveStatus\").textContent = `Density limited to ${percent(state.density)} so every mode can use this graph safely.`;\n    }\n    if (randomizePositions) randomizeModelNodePositions();\n    if (positions) {\n      model.nodes.forEach((node, index) => { [node.x, node.y] = positions[index]; });\n    }\n    reverseEdgeKeys = new Set(model.edges.map((edge) => `${edge.to}>${edge.from}`));\n    edgeSwitchStates = new Map(model.edges.map((edge, index) => [edgeKey(edge), routes ? routes[index] : true]));\n    focusedEdgeId = null;\n    hoveredEdgeId = null;\n    if (draggingNodeId !== null && draggingNodeId >= model.nodes.length) {\n      draggingNodeId = null;\n"
+    },
+    {
+     "before": "  updateModeUi();\n  updateUi();\n  resizeCanvas();\n\n  return Object.freeze({\n    get mode() { return instrumentMode; },\n    get state() { return { ...state }; },\n    get model() { return model; },\n",
+     "after": "  updateModeUi();\n  updateUi();\n  resizeCanvas();\n\n  const GRAPH_SCENE_KEYS = [\n    \"topology\", \"nodeCount\", \"density\", \"seed\", \"baseDelay\", \"distanceRatio\", \"timeCurve\",\n    \"nodePass\", \"feedback\", \"inputX\", \"inputY\",\n  ];\n  if (documentObject.querySelector?.(\"[data-instrument-preset-host]\")) {\n    presetController = registerHeaderPresets({\n      id: \"graphs\", presets: GRAPHS_FULL_PRESETS, document: documentObject, runtime,\n      isPresetAvailable: (preset) => preset.snapshot.mode === instrumentMode,\n      capture: () => captureGraphsPreset({\n        mode: instrumentMode,\n        state,\n        nodes: model.nodes,\n        routes: model.edges.map(edgeEnabled),\n      }),\n      randomize: (current, random) => randomizeGraphsPreset(current, random, {\n        allowMotion: !reducedMotionQuery?.matches,\n      }),\n      apply(raw) {\n        const snapshot = validateGraphsPreset(raw);\n        if (snapshot.mode !== instrumentMode) throw new Error(\"This scene belongs to another playing mode\");\n        for (const key of GRAPH_SCENE_KEYS) state[key] = snapshot.graph[key];\n        Object.assign(state, snapshot.motion, snapshot.clock ?? {}, snapshot.voice);\n        state.nodeMoving = snapshot.motion.nodeMoving && !reducedMotionQuery?.matches;\n        state.nodeMotionPhase = 0;\n        if (instrumentMode !== \"mic\") state.baseFrequency = midiFrequency(state.seedNote);\n        lastMotionTemplateTime = -Infinity;\n        markCustom();\n        storeModeState();\n        syncControls();\n        rebuildModel({ silence: false, positions: snapshot.graph.positions, routes: snapshot.graph.routes });\n        if (instrumentMode === \"drums\") renderDrumMap();\n      },\n    });\n    presetMode = instrumentMode;\n  }\n\n  return Object.freeze({\n    get mode() { return instrumentMode; },\n    get state() { return { ...state }; },\n    get model() { return model; },\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/harmonica/harmonica-app.js",
+   "sha256": "5d35469cec9c3c96b5d770d7807a8af20699257fdc9921ad62299fa100bf7367",
+   "replacements": [
+    {
+     "before": "  sanitizeHarmonicaState,\n} from \"./harmonica.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  sanitizeHarmonicaState,\n} from \"./harmonica.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  HARMONICA_FULL_PRESETS,\n  captureHarmonicaPreset,\n  harmonicaStateFromPreset,\n  randomizeHarmonicaPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "  animationFrame = requestAnimationFrame(tick);\n});\n",
+     "after": "  animationFrame = requestAnimationFrame(tick);\n});\n\nregisterHeaderPresets({\n  id: \"harmonica\", presets: HARMONICA_FULL_PRESETS,\n  capture: () => captureHarmonicaPreset(state),\n  apply: snapshot => {\n    const changedAt = performance.now();\n    const previousPhase = breathCyclePhaseAt(changedAt);\n    state = harmonicaStateFromPreset(snapshot, state);\n    retainBreathCyclePhase(previousPhase, changedAt);\n    updatePresentation();\n    postConfiguration();\n    if (manualBreathDirection) sendManualBreath(manualBreathDirection * state.breathPressure);\n  },\n  randomize: randomizeHarmonicaPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/hocket-loom/hocket-loom-app.js",
+   "sha256": "d22fdba70ecb80eae1a2900e142247f7d6e365442d5477d783d9f6dff0ebc9ec",
+   "replacements": [
+    {
+     "before": "import { SequencerVoiceBank, appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  HOCKET_FULL_PRESETS,\n  captureHocketPreset,\n  hocketStateFromPreset,\n  randomizeHocketPreset,\n  validateHocketPreset,\n} from \"./full-presets.js\";\nimport { SequencerVoiceBank, appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n"
+    },
+    {
+     "before": "schedulerTimer = window.setInterval(schedulerTick, 24);\nanimationFrame = requestAnimationFrame(frame);\n",
+     "after": "schedulerTimer = window.setInterval(schedulerTick, 24);\nanimationFrame = requestAnimationFrame(frame);\n\nfunction applyHocketPreset(snapshot) {\n  validateHocketPreset(snapshot);\n  const key = JSON.stringify([snapshot.settings, snapshot.patterns, snapshot.phases]);\n  const source = HOCKET_FULL_PRESETS.find(preset => HOCKET_PRESETS.some(item => item.id === preset.id)\n    && JSON.stringify([preset.snapshot.settings, preset.snapshot.patterns, preset.snapshot.phases]) === key);\n  const next = hocketStateFromPreset(snapshot, {\n    presetId: source?.id ?? state.presetId, variation: !source, level: state.level,\n  });\n  const generation = ++engineChangeGeneration;\n  const finish = () => {\n    setTraversal({ direction: snapshot.settings.direction, motionMode: snapshot.settings.motionMode });\n    commit(next, \"Preset loaded.\");\n  };\n  if (!audio.armed || next.soundEngine === \"original\") { finish(); return undefined; }\n  return audio.prepareEngine(next).then(() => { if (generation === engineChangeGeneration && !destroyed) finish(); });\n}\n\nregisterHeaderPresets({\n  id: \"hocket-loom\", presets: HOCKET_FULL_PRESETS,\n  capture: () => captureHocketPreset({ ...state, direction: transport.direction, motionMode: transport.motionMode }),\n  apply: applyHocketPreset,\n  randomize: randomizeHocketPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/hyper-drum-machine/hyper-drum-machine-app.js",
+   "sha256": "59119690447b5e3e895f2e13f8629270f51bc4b3a8e44ca3df2552f65cbebac3",
+   "replacements": [
+    {
+     "before": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  HYPER_DRUM_FULL_PRESETS,\n  captureHyperDrumPreset,\n  randomizeHyperDrumPreset,\n  validateHyperDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "resizeCanvas();\nreset();\n",
+     "after": "resizeCanvas();\nreset();\n\nfunction applyHyperDrumPreset(snapshot) {\n  validateHyperDrumPreset(snapshot);\n  state.shapeType = snapshot.shapeType;\n  $(\"hyperShape\").value = state.shapeType;\n  $(\"formSummary\").textContent = SHAPE_LABELS[state.shapeType];\n  for (const key of [\n    \"hyperScaleX\", \"hyperScaleY\", \"hyperScaleZ\", \"hyperScaleW\",\n    \"rotationXWSpeed\", \"rotationYWSpeed\", \"rotationZWSpeed\",\n    \"speed\", \"subdivisions\", \"pitchDepth\", \"characterDepth\", \"strikeLimit\",\n  ]) bridgeRange(key, snapshot[key]);\n  for (const key of [\"rotationXWPlaying\", \"rotationYWPlaying\", \"rotationZWPlaying\", \"playing\"]) state[key] = snapshot[key];\n  state.traversalDirection = snapshot.traversalDirection;\n  setMotionMode(snapshot.motionMode, false);\n  if (!snapshot.playing) bridgeRange(\"position\", 0.5);\n  state.mappingMode = snapshot.mappingMode;\n  $(\"mappingMode\").value = state.mappingMode;\n  paintTraversalControls();\n  paintRotation();\n  updateMappingSummary();\n  paintSubdivisionHelp();\n  suppressHyperDrumContacts();\n  lastFrameTime = performance.now();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"hyper-drum-machine\", presets: HYPER_DRUM_FULL_PRESETS,\n  capture: () => captureHyperDrumPreset(state),\n  apply: applyHyperDrumPreset,\n  randomize: randomizeHyperDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/jaw-jam/jaw-jam-app.js",
+   "sha256": "94893e71c8d5ce645ddfc3ddc9236cf440f60d4d8554b97d6027ba213255e077",
+   "replacements": [
+    {
+     "before": "\nimport { appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { JawJamSharedVoices, jawJamSharedVoice } from \"./jaw-jam-shared-voices.js\";\n\n",
+     "after": "\nimport { appendSequencerVoiceOptions } from \"../../sequencer-voices.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  JAW_JAM_FULL_PRESETS,\n  captureJawJamPreset,\n  randomizeJawJamPreset,\n  validateJawJamPreset,\n} from \"./full-presets.js\";\nimport { JawJamSharedVoices, jawJamSharedVoice } from \"./jaw-jam-shared-voices.js\";\n\n"
+    },
+    {
+     "before": "  animationFrame = requestAnimationFrame(tick);\n});\n",
+     "after": "  animationFrame = requestAnimationFrame(tick);\n});\n\nfunction applyJawJamPreset(snapshot) {\n  validateJawJamPreset(snapshot);\n  const key = JSON.stringify(snapshot.pattern);\n  const source = JAW_JAM_PATTERNS.find(candidate => JSON.stringify(captureJawJamPreset(candidate).pattern) === key);\n  pattern = mutablePattern({\n    ...snapshot.pattern,\n    id: source?.id ?? \"custom\",\n    label: source?.label ?? \"Custom performance\",\n    description: source?.description,\n  });\n  selectedStep = clamp(selectedStep, 0, pattern.stepCount - 1);\n  visibleStep = -1;\n  if ($(\"patternSelect\")) $(\"patternSelect\").value = pattern.id;\n  buildSequenceLane();\n  updateGlobalPresentation();\n  rescheduleFuture();\n}\n\nregisterHeaderPresets({\n  id: \"jaw-jam\", presets: JAW_JAM_FULL_PRESETS,\n  capture: () => captureJawJamPreset(pattern),\n  apply: applyJawJamPreset,\n  randomize: randomizeJawJamPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/jaw-jam/jaw-jam.css",
+   "sha256": "e4f11c906a96eedbffc1ab0741ffb59bf394ef511abe4a07c0a19221cdd25986",
+   "replacements": [
+    {
+     "before": "  grid-template-columns: minmax(218px, 0.82fr) minmax(240px, 1fr) minmax(520px, 2fr);\n  align-items: stretch;\n}\n\n",
+     "after": "  grid-template-columns: minmax(218px, 0.82fr) minmax(240px, 1fr) minmax(520px, 2fr);\n  align-items: stretch;\n}\n\n.jaw-jam-preset-host > .instrument-preset-controls {\n  max-width: 460px;\n}\n\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/julia/julia-app.js",
+   "sha256": "0277a7104f3a1d9b4eb768c31c8c9e95c87dbf0697724a859e333c3d5b1d6d5f",
+   "replacements": [
+    {
+     "before": "  samplePitchSignal,\n} from \"./julia-similarity.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  samplePitchSignal,\n} from \"./julia-similarity.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  JULIA_FULL_PRESETS, JULIA_NUMBER_SPECS, captureJuliaPreset, randomizeJuliaPreset, validateJuliaPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "new ResizeObserver(scheduleCanvasResize).observe(stageWrap);\n\nfunction bindRange(id, key, formatter, afterChange) {\n  const input = $(id);\n",
+     "after": "new ResizeObserver(scheduleCanvasResize).observe(stageWrap);\n\nconst rangePainters = new Map();\n\nfunction bindRange(id, key, formatter, afterChange) {\n  const input = $(id);\n"
+    },
+    {
+     "before": "  });\n  paint();\n  return paint;\n}\n",
+     "after": "  });\n  paint();\n  rangePainters.set(key, paint);\n  return paint;\n}\n"
+    },
+    {
+     "before": "scheduleBoundaryRebuild(true);\nscheduleFrame();\n",
+     "after": "scheduleBoundaryRebuild(true);\nscheduleFrame();\n\nfunction applyFullPreset(snapshot) {\n  validateJuliaPreset(snapshot);\n  stopSimilarityAudition();\n  Object.assign(state, snapshot, { viewZoom: 0, viewCenterX: 0, viewCenterY: 0, viewIterationBonus: 0 });\n  for (const key of Object.keys(JULIA_NUMBER_SPECS)) rangePainters.get(key)();\n  $(\"preset\").value = state.presetId;\n  setGeometryControls();\n  updateViewUi();\n  $(\"directionButton\").textContent = `Direction \u00b7 ${state.direction > 0 ? \"forward\" : \"reverse\"}`;\n  updateSynthModeUi();\n  $(\"similarityExperiment\").value = state.similarityExperiment;\n  setPressed($(\"positiveBranch\"), state.similarityBranch > 0);\n  setPressed($(\"negativeBranch\"), state.similarityBranch < 0);\n  audioOctavePosition = null;\n  similarityAudioPositions.clear();\n  pool.silence();\n  invalidateSimilarity();\n  updateSimilarityUi();\n  scheduleBoundaryRebuild(true);\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"julia\", presets: JULIA_FULL_PRESETS,\n  capture: () => captureJuliaPreset(state),\n  apply: applyFullPreset,\n  randomize: randomizeJuliaPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/julie-saw/julie-saw-app.js",
+   "sha256": "69721d1a22766683af6d990371744f313c24662e311f184096f8015275f145ed",
+   "replacements": [
+    {
+     "before": "  techniqueTracksSweetSpot,\n} from \"./julie-saw.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  techniqueTracksSweetSpot,\n} from \"./julie-saw.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  JULIE_SAW_FULL_PRESETS,\n  captureJulieSawPreset,\n  julieSawStateFromPreset,\n  randomizeJulieSawPreset,\n  validateJulieSawPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "resizeCanvas(true);\nanimationFrame = requestAnimationFrame(tick);\n",
+     "after": "resizeCanvas(true);\nanimationFrame = requestAnimationFrame(tick);\n\nregisterHeaderPresets({\n  id: \"julie-saw\", presets: JULIE_SAW_FULL_PRESETS,\n  capture: () => captureJulieSawPreset(state),\n  apply: snapshot => {\n    state = julieSawStateFromPreset(snapshot, state);\n    if (state.autoPlay) transportStartedAt = performance.now();\n    postConfiguration();\n    if (state.autoPlay) postAutomaticState({ triggerCurrent: true });\n    updatePresentation();\n  },\n  randomize: randomizeJulieSawPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/l-system-drum-machine/l-system-drum-machine-app.js",
+   "sha256": "09c117ec57fbc80a084f32d4d518bd53e0f3803cd64e8c246baff9cbec2c4f83",
+   "replacements": [
+    {
+     "before": "} from \"./l-system-drum-machine.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "} from \"./l-system-drum-machine.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  L_SYSTEM_DRUM_FULL_PRESETS,\n  captureLSystemDrumPreset,\n  randomizeLSystemDrumPreset,\n  validateLSystemDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "renderDrumMap();\nscheduleFrame();\n",
+     "after": "renderDrumMap();\nscheduleFrame();\n\nfunction captureLSystemDrumState() {\n  return captureLSystemDrumPreset({\n    ...state,\n    systemId: state.presetId,\n    direction: state.direction,\n    traversalBehavior: state.traversalBehavior,\n  });\n}\n\nfunction applyLSystemDrumPreset(snapshot) {\n  validateLSystemDrumPreset(snapshot);\n  const { systemId, ...values } = snapshot;\n  Object.assign(state, values, { presetId: systemId });\n  $(\"preset\").value = systemId;\n  paintGrammar();\n  for (const [id, text] of [\n    [\"iterations\", String(state.iterations)],\n    [\"angle\", `${formatAngle(state.angle)}\u00b0`],\n    [\"turnAsymmetry\", formatTurnPair(state.turnAsymmetry)],\n    [\"lengthScale\", `${Math.round(state.lengthScale * 100)}%`],\n    [\"subdivisions\", String(state.subdivisions)],\n    [\"pitchDepth\", `${state.pitchDepth} st`],\n    [\"anglePitchDepth\", `${state.anglePitchDepth} st`],\n    [\"angleRange\", `\u00b1${state.angleRange}\u00b0`],\n    [\"characterDepth\", `${Math.round(state.characterDepth * 100)}%`],\n  ]) {\n    $(id).value = String(state[id]);\n    $(`${id}Out`).textContent = text;\n  }\n  paintGrowthCapabilities();\n  $(\"structureMode\").value = state.structureMode;\n  $(\"percussionStyle\").value = state.percussionStyle;\n  activeEventKeys = new Set();\n  paintTraversalBehavior();\n  renderDrumMap();\n  paintMapping();\n  rebuildTrace();\n}\n\nregisterHeaderPresets({\n  id: \"l-system-drum-machine\", presets: L_SYSTEM_DRUM_FULL_PRESETS,\n  capture: captureLSystemDrumState,\n  apply: applyLSystemDrumPreset,\n  randomize: randomizeLSystemDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/lattice-drum-machine/lattice-drum-machine-app.js",
+   "sha256": "b93d9c648bdeb61662a1eb86a92633d1fba60ab18b6b9a30dbd7ffedbe738ac4",
+   "replacements": [
+    {
+     "before": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  LATTICE_DRUM_FULL_PRESETS,\n  captureLatticeDrumPreset,\n  randomizeLatticeDrumPreset,\n  validateLatticeDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "queueLatticeDrumPhasePreview();\npublishLatticeDrumTransportPreview();\n",
+     "after": "queueLatticeDrumPhasePreview();\npublishLatticeDrumTransportPreview();\n\nfunction applyLatticeDrumPreset(snapshot) {\n  validateLatticeDrumPreset(snapshot);\n  const engineChanged = snapshot.drumEngine !== state.drumEngine;\n  setMotionMode(snapshot.motionMode, false);\n  Object.assign(state, {\n    tilingType: snapshot.tilingType,\n    parameters: [...snapshot.parameters],\n    edgeCurves: [...snapshot.edgeCurves],\n    density: snapshot.density,\n    patternAngle: snapshot.patternAngle,\n    lineAngle: snapshot.lineAngle,\n    speed: snapshot.speed,\n    mappingMode: snapshot.mappingMode,\n    drumEngine: snapshot.drumEngine,\n    pitchDepth: snapshot.pitchDepth,\n    characterDepth: snapshot.characterDepth,\n    strikeLimit: snapshot.strikeLimit,\n  });\n  state.traversalDirection = snapshot.traversalDirection;\n  $(\"tilingType\").value = String(state.tilingType);\n  $(\"density\").value = String(state.density);\n  $(\"speed\").value = String(state.speed);\n  $(\"patternAngle\").value = String(state.patternAngle);\n  $(\"lineAngle\").value = String(state.lineAngle);\n  $(\"mappingMode\").value = state.mappingMode;\n  $(\"drumEngine\").value = state.drumEngine;\n  $(\"pitchDepth\").value = String(state.pitchDepth);\n  $(\"characterDepth\").value = String(state.characterDepth);\n  $(\"strikeLimit\").value = String(state.strikeLimit);\n  $(\"speedOut\").textContent = `${state.speed.toFixed(3)} cyc/s`;\n  $(\"patternAngleOut\").textContent = formatDegrees(state.patternAngle);\n  $(\"lineAngleOut\").textContent = formatDegrees(state.lineAngle);\n  $(\"pitchDepthOut\").textContent = `\u00b1${state.pitchDepth} st`;\n  $(\"characterDepthOut\").textContent = `${Math.round(state.characterDepth * 100)}%`;\n  $(\"strikeLimitOut\").textContent = String(state.strikeLimit);\n  updateTraversalControls();\n  if (engineChanged) {\n    lastStrikeTimes.clear();\n    setAudioState(state.audioOn);\n  }\n  updateMappingControls();\n  configureTilingControls();\n  invalidateGeometry();\n  if (engineChanged && state.audioOn) void enableAudio();\n}\n\nregisterHeaderPresets({\n  id: \"lattice-drum-machine\", presets: LATTICE_DRUM_FULL_PRESETS,\n  capture: () => captureLatticeDrumPreset(state),\n  apply: applyLatticeDrumPreset,\n  randomize: randomizeLatticeDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/linear-drums/linear-drums-app.js",
+   "sha256": "8b71d6d19de99cd56a5ed63f049304fa4b748f974ef96045a67aafde584ac518",
+   "replacements": [
+    {
+     "before": "import { KARPLUS_STRONG_PRESETS } from \"../karplus-strong/karplus-strong.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { KARPLUS_STRONG_PRESETS } from \"../karplus-strong/karplus-strong.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  LINEAR_DRUM_FULL_PRESETS,\n  captureLinearDrumPreset,\n  randomizeLinearDrumPreset,\n  validateLinearDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  void audio.close();\n});\n",
+     "after": "  void audio.close();\n});\n\nfunction applyLinearDrumFullPreset(snapshot) {\n  validateLinearDrumPreset(snapshot);\n  const { sweepMode, ...settings } = JSON.parse(JSON.stringify(snapshot));\n  Object.assign(state, settings, { sweepMode });\n  if (sweepMode !== \"pendulum\") state.sweepDirection = sweepMode === \"up\" ? 1 : -1;\n  for (const specification of CONTROL_SPECS) refreshControl(specification);\n  $(\"rangeMax\").value = String(linearDrumPositionAtFrequency(state.rangeMax, 4_000, 20_000));\n  paintKnobControl($(\"rangeMax\"));\n  const modelInput = document.querySelector(`input[name=\"bodyModel\"][value=\"${state.model}\"]`);\n  if (modelInput) modelInput.checked = true;\n  paintedScaleMaximum = 0;\n  renderMappingLanes();\n  paintKarplusMorphPath();\n  paintSweepDirectionControls();\n  markPresetCustom();\n  paintReadouts();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"linear-drums\", presets: LINEAR_DRUM_FULL_PRESETS,\n  capture: () => captureLinearDrumPreset(state),\n  apply: applyLinearDrumFullPreset,\n  randomize: randomizeLinearDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/lumber/lumber-app.js",
+   "sha256": "56ef2c2aefd4ba68b6a9857c6b7e7909fbcd59246a546bc5dd48b0c9563ead56",
+   "replacements": [
+    {
+     "before": "import { clamp, levelToGain, unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  LUMBER_FULL_PRESETS,\n  LUMBER_RING_SLOTS,\n  captureLumberPreset,\n  defaultLumberRing,\n  normalizeHeadOffsets,\n  randomizeLumberPreset,\n  validateLumberPreset,\n} from \"./full-presets.js\";\nimport { clamp, levelToGain, unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\n"
+    },
+    {
+     "before": "updateUi();\nresizeCanvas();\n",
+     "after": "updateUi();\nresizeCanvas();\n\nconst presetSpareRings = Array.from({ length: LUMBER_RING_SLOTS }, (_, slot) => defaultLumberRing(slot));\n\nfunction ringPresetConfig(ring) {\n  return {\n    direction: ring.direction,\n    volume: ring.volume,\n    pan: ring.pan,\n    filterTone: ring.filterTone,\n    filterResonance: ring.filterResonance,\n    depth: ring.depth,\n    shapePitchDepth: ring.shapePitchDepth,\n    radialOffsets: ring.radialOffsets,\n    timingMode: ring.timingMode,\n    lengthRatio: ring.lengthRatio,\n    headCount: ring.headCount,\n    headOffsets: normalizeHeadOffsets(ring.headOffsets, ring.headCount),\n  };\n}\n\nfunction capturePresetState() {\n  const rings = orderedRings();\n  return captureLumberPreset({\n    rings: presetSpareRings.map((spare, slot) => (rings[slot] ? ringPresetConfig(rings[slot]) : spare)),\n    delay: state.delayRing,\n    depth: {\n      view3d: state.view3d,\n      reverbEnabled: state.reverbEnabled,\n      reverbDirection: state.reverbDirection,\n      fuzzEnabled: state.fuzzEnabled,\n      fuzzDirection: state.fuzzDirection,\n      fuzzLevel: state.fuzzLevel,\n    },\n  });\n}\n\nfunction sameNumbers(first, second) {\n  return first.length === second.length && first.every((value, index) => value === second[index]);\n}\n\nfunction applyPresetState(snapshot) {\n  validateLumberPreset(snapshot);\n  if (state.recording || recordChanging) throw new Error(\"Preset recall is unavailable while recording\");\n  const rings = orderedRings();\n  const wasPlaying = state.playing;\n  const timingChanged = rings.some((ring, slot) => {\n    const next = snapshot.rings[slot];\n    return ring.direction !== next.direction || ring.timingMode !== next.timingMode\n      || ring.lengthRatio !== next.lengthRatio || ring.headCount !== next.headCount\n      || !sameNumbers(normalizeHeadOffsets(ring.headOffsets, ring.headCount), next.headOffsets);\n  });\n  if (timingChanged) {\n    for (const ring of recordedRings()) {\n      captureRingPhase(ring);\n      if (wasPlaying) stopRingSource(ring);\n    }\n  }\n  const rebuilds = [];\n  rings.forEach((ring, slot) => {\n    const next = snapshot.rings[slot];\n    const contourChanged = ring.shapePitchDepth !== next.shapePitchDepth\n      || !sameNumbers(ring.radialOffsets, next.radialOffsets);\n    Object.assign(ring, {\n      direction: next.direction,\n      volume: next.volume,\n      pan: next.pan,\n      filterTone: next.filterTone,\n      filterResonance: next.filterResonance,\n      depth: next.depth,\n      shapePitchDepth: next.shapePitchDepth,\n      radialOffsets: [...next.radialOffsets],\n      timingMode: next.timingMode,\n      lengthRatio: next.lengthRatio,\n      headCount: next.headCount,\n      headOffsets: [...next.headOffsets],\n    });\n    if (contourChanged) {\n      ring.preset = \"custom\";\n      ring.selectedVertex = Math.min(ring.selectedVertex, ring.radialOffsets.length - 1);\n      if (ring.rawSamples) rebuilds.push(ring);\n    }\n  });\n  snapshot.rings.forEach((config, slot) => { presetSpareRings[slot] = structuredClone(config); });\n  for (const ring of rebuilds) rebuildRingAudio(ring, { restart: !timingChanged });\n  Object.assign(state.delayRing, {\n    enabled: snapshot.delay.enabled,\n    radialOffsets: [...snapshot.delay.radialOffsets],\n    rotationPlaying: snapshot.delay.rotationPlaying,\n    rotationSpeed: snapshot.delay.rotationSpeed,\n    spread: snapshot.delay.spread,\n  });\n  lastDelayFrameTime = performance.now();\n  Object.assign(state, snapshot.depth);\n  if (timingChanged) {\n    for (const ring of recordedRings()) {\n      if (ring.timingMode === \"sync\") alignRingToMaster(ring);\n      else anchorRing(ring, ring.phase);\n      if (wasPlaying) startRingSource(ring);\n    }\n  }\n  refreshRingAudibility();\n  updateAllRingEffects();\n  updateMixDelay();\n  updateUi();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"lumber\",\n  presets: LUMBER_FULL_PRESETS,\n  capture: capturePresetState,\n  apply: applyPresetState,\n  randomize: randomizeLumberPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/monstroid/monstroid-app.js",
+   "sha256": "93eba5d83a0e0d578d99977cc4b9be814f5b371c5038c9e7377e648080ff2d70",
+   "replacements": [
+    {
+     "before": "  sanitizeColonySyrinxState,\n} from \"./monstroid.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  sanitizeColonySyrinxState,\n} from \"./monstroid.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  MONSTROID_FULL_PRESETS,\n  captureMonstroidPreset,\n  monstroidCallIdForSnapshot,\n  monstroidStateFromPreset,\n  randomizeMonstroidPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "renderTelemetry();\nglobalThis.addEventListener(\"pagehide\", cleanup, { once: true });\n",
+     "after": "renderTelemetry();\nglobalThis.addEventListener(\"pagehide\", cleanup, { once: true });\n\nregisterHeaderPresets({\n  id: \"monstroid\", presets: MONSTROID_FULL_PRESETS,\n  capture: () => captureMonstroidPreset(state),\n  apply: snapshot => {\n    const next = monstroidStateFromPreset(snapshot, state);\n    invalidateSpatialAuditionIntent();\n    if (callActive) {\n      callActive = false;\n      transportPlaying = false;\n      activeCallId = null;\n      activeCallToken = null;\n      graph?.sourceNode?.port.postMessage({ type: \"call\", playing: false });\n    }\n    abandonSpatialAudition({ invalidateIntent: false });\n    selectedCallId = monstroidCallIdForSnapshot(snapshot);\n    state = next;\n    hydrateGraphLayoutFromState();\n    heldRoutes.clear();\n    deferredRouteReleases.clear();\n    syncControlsFromState();\n    setPlaybackPresentation();\n    postConfiguration();\n    syncBreathPresentation();\n    postBreath();\n    updateCallPresentation();\n  },\n  randomize: randomizeMonstroidPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/object-forge/object-forge-app.js",
+   "sha256": "b62f749dc16ba7a4132962cba052739e2e12f030d411787aabf45c348b7e5031",
+   "replacements": [
+    {
+     "before": "  tuneAirflowStateToFrequency,\n} from \"../../physical-sounds.js\";\nimport {\n  DENTAPHONE_BRUSH_ROUTE,\n",
+     "after": "  tuneAirflowStateToFrequency,\n} from \"../../physical-sounds.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  DENTAPHONE_FULL_PRESETS,\n  DENTAPHONE_PITCH_KEYS,\n  DENTAPHONE_SOUND_KEYS,\n  captureDentaphonePreset,\n  randomizeDentaphonePreset,\n  validateDentaphonePreset,\n} from \"./full-presets.js\";\nimport {\n  DENTAPHONE_BRUSH_ROUTE,\n"
+    },
+    {
+     "before": "\ninitialize();\n",
+     "after": "\ninitialize();\n\nfunction applyDentaphonePreset(snapshot) {\n  validateDentaphonePreset(snapshot);\n  cancelDentaphonePlayQueue();\n  customBank = null;\n  customBankName = \"\";\n  state = sanitizePhysicalSoundState(kind, { ...state, ...snapshot.sound, modalJson: \"\" }, state);\n  dentaphonePitchState = sanitizeDentaphonePitchState(snapshot.pitch, dentaphonePitchState);\n  $(\"pitchLayout\").value = dentaphonePitchState.layout;\n  $(\"rootPitch\").value = String(dentaphonePitchState.root);\n  $(\"pitchOctave\").value = String(dentaphonePitchState.octave);\n  rebuildDentaphonePitchMap({ announceChange: false });\n}\n\nif (isDentaphone) {\n  registerHeaderPresets({\n    id: \"object-forge\", presets: DENTAPHONE_FULL_PRESETS,\n    capture: () => captureDentaphonePreset({\n      sound: Object.fromEntries(DENTAPHONE_SOUND_KEYS.map(key => [key, state[key]])),\n      pitch: Object.fromEntries(DENTAPHONE_PITCH_KEYS.map(key => [key, dentaphonePitchState[key]])),\n    }),\n    apply: applyDentaphonePreset,\n    randomize: randomizeDentaphonePreset,\n  });\n}\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/ouroboros-borealis/ouroboros-borealis-app.js",
+   "sha256": "69916984fb94faaf0ccae129bd1c85ac3db7f03e132ad3e928424f4b6d8f1627",
+   "replacements": [
+    {
+     "before": "import {\n  OUROBOROS_BOREALIS_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  OUROBOROS_BOREALIS_FULL_PRESETS,\n  captureOuroborosBorealisPreset,\n  randomizeOuroborosBorealisPreset,\n  validateOuroborosBorealisPreset,\n} from \"./full-presets.js\";\nimport {\n  OUROBOROS_BOREALIS_DEFAULTS,\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"ouroboros-borealis\",\n  presets: OUROBOROS_BOREALIS_FULL_PRESETS,\n  capture: () => captureOuroborosBorealisPreset(state.parameters),\n  apply: (snapshot) => {\n    validateOuroborosBorealisPreset(snapshot);\n    synchronizeVisualClock();\n    const priorPhaseOffset = Number(state.parameters.phaseOffset) || 0;\n    state.parameters = createMemory(snapshot);\n    state.rings = createRings(state.parameters);\n    state.selectedRing = 0;\n    renderRingControls();\n    shiftRhythmVisualPhases(snapshot.phaseOffset - priorPhaseOffset);\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeOuroborosBorealisPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/ouroboros/ouroboros-app.js",
+   "sha256": "19fc03f416189d3a151bd090db3a9ff7c956a9548fcd33b98b40a64f4f504d81",
+   "replacements": [
+    {
+     "before": "import {\n  OUROBOROS_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  OUROBOROS_FULL_PRESETS,\n  captureOuroborosPreset,\n  randomizeOuroborosPreset,\n  validateOuroborosPreset,\n} from \"./full-presets.js\";\nimport {\n  OUROBOROS_DEFAULTS,\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"ouroboros\",\n  presets: OUROBOROS_FULL_PRESETS,\n  capture: () => captureOuroborosPreset(state.coil),\n  apply: (snapshot) => {\n    validateOuroborosPreset(snapshot);\n    synchronizeVisualClock();\n    state.coil = createMemory(snapshot);\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeOuroborosPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/ouroborousel/ouroborousel-app.js",
+   "sha256": "2e494eb212efc51b0cae391d42d36f3f35095dd9e1f1de1b800cf15bfab7d71c",
+   "replacements": [
+    {
+     "before": "import {\n  OUROBOROUSEL_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  OUROBOROUSEL_FULL_PRESETS,\n  captureOuroborouselPreset,\n  randomizeOuroborouselPreset,\n  validateOuroborouselPreset,\n} from \"./full-presets.js\";\nimport {\n  OUROBOROUSEL_DEFAULTS,\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"ouroborousel\",\n  presets: OUROBOROUSEL_FULL_PRESETS,\n  capture: () => captureOuroborouselPreset(state.parameters),\n  apply: (snapshot) => {\n    validateOuroborouselPreset(snapshot);\n    synchronizeVisualClock();\n    state.parameters = createMemory({ ...snapshot, level: state.parameters.level });\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeOuroborouselPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/ourorourobouroboros/ourorourobouroboros-app.js",
+   "sha256": "a271a63710558f7a6753b8279bee842443b26a3f1f9bbd22f5cc5a29a79157a9",
+   "replacements": [
+    {
+     "before": "import {\n  OUROBOROUSEL_DEFAULTS,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  OUROBOROUSEL_FULL_PRESETS,\n  captureOuroborouselPreset,\n  randomizeOuroborouselPreset,\n  validateOuroborouselPreset,\n} from \"./full-presets.js\";\nimport {\n  OUROBOROUSEL_DEFAULTS,\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"ourorourobouroboros\",\n  presets: OUROBOROUSEL_FULL_PRESETS,\n  capture: () => captureOuroborouselPreset(state.parameters),\n  apply: (snapshot) => {\n    validateOuroborouselPreset(snapshot);\n    synchronizeVisualClock();\n    state.parameters = createMemory({ ...snapshot, level: state.parameters.level });\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeOuroborouselPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/pink-trombonazoid/pink-trombonazoid-app.js",
+   "sha256": "8310a4e26f9ef802c2223cca6b12c9f2db9736d14e4e05e2a33720f093830e70",
+   "replacements": [
+    {
+     "before": "} from \"../spelling-synthesizer/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6\";\nimport { SpellingSynthesizerAudio } from \"../spelling-synthesizer/spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "} from \"../spelling-synthesizer/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6\";\nimport { SpellingSynthesizerAudio } from \"../spelling-synthesizer/spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6\";\n\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  PINK_TROMBONAZOID_FULL_PRESETS,\n  capturePinkTrombonazoidPreset,\n  randomizePinkTrombonazoidPreset,\n  validatePinkTrombonazoidPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "await buildWord(\"hello\", { announceBuild: false });\nstate.animationFrame = requestAnimationFrame(animationFrame);\n",
+     "after": "await buildWord(\"hello\", { announceBuild: false });\nstate.animationFrame = requestAnimationFrame(animationFrame);\n\nfunction capturePinkPreset() {\n  const { preset: _preset, ...voice } = voiceSettings();\n  return capturePinkTrombonazoidPreset({\n    text: state.sequence?.text ?? $(\"wordInput\").value,\n    voicePreset: $(\"personality\").value,\n    voice,\n    speechRate: Number($(\"speechRate\").value),\n    wordGap: Number($(\"wordGap\").value),\n    effects: {\n      drive: Number($(\"drive\").value),\n      tone: Number($(\"tone\").value),\n      echo: Number($(\"echo\").value),\n      echoTime: Number($(\"echoTime\").value),\n      bypass: $(\"effectsBypass\").getAttribute(\"aria-pressed\") === \"true\",\n    },\n    loop: state.loop,\n    modulation: {\n      bypass: $(\"modulationBypass\").getAttribute(\"aria-pressed\") === \"true\",\n      lanes: state.laneModulations,\n    },\n  });\n}\n\nasync function applyPinkPreset(snapshot) {\n  validatePinkTrombonazoidPreset(snapshot);\n  const wasPlaying = state.playing;\n  $(\"personality\").value = snapshot.voicePreset;\n  setVoiceControls({ ...snapshot.voice });\n  previousSpeechRate = snapshot.speechRate;\n  const ranges = {\n    speechRate: snapshot.speechRate, wordGap: snapshot.wordGap, drive: snapshot.effects.drive,\n    tone: snapshot.effects.tone, echo: snapshot.effects.echo, echoTime: snapshot.effects.echoTime,\n  };\n  for (const [id, value] of Object.entries(ranges)) {\n    $(id).value = String(value);\n    $(id).dispatchEvent(new Event(\"input\"));\n  }\n  $(\"effectsBypass\").setAttribute(\"aria-pressed\", String(snapshot.effects.bypass));\n  $(\"modulationBypass\").setAttribute(\"aria-pressed\", String(snapshot.modulation.bypass));\n  state.laneModulations = structuredClone(snapshot.modulation.lanes);\n  state.loop = snapshot.loop;\n  updateAudioUi();\n  applyEffects();\n  await buildWord(snapshot.text, { announceBuild: false });\n  if (wasPlaying && state.audioEnabled) await startPlayback();\n}\n\nregisterHeaderPresets({\n  id: \"pink-trombonazoid\", presets: PINK_TROMBONAZOID_FULL_PRESETS,\n  capture: capturePinkPreset,\n  apply: applyPinkPreset,\n  randomize: randomizePinkTrombonazoidPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/rattlesnake-skin/rattlesnake-skin-app.js",
+   "sha256": "42c0aba15ed5d24978aac052aab8d3730bab50d7d68fe5fcecc9c3bb171d72ed",
+   "replacements": [
+    {
+     "before": "} from \"./linear-drums-machine.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "} from \"./linear-drums-machine.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  RATTLESNAKE_SKIN_FULL_PRESETS, captureRattlesnakeSkinPreset, randomizeRattlesnakeSkinPreset, validateRattlesnakeSkinPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  void audio.close();\n});\n",
+     "after": "  void audio.close();\n});\n\nfunction applyFullPreset(snapshot) {\n  validateRattlesnakeSkinPreset(snapshot);\n  pushHistory();\n  preservePlaybackPhase(() => {\n    state.tempo = snapshot.tempo;\n    state.beats = snapshot.beats;\n  });\n  state.glissRate = snapshot.glissRate;\n  state.rangeMax = snapshot.rangeMax;\n  state.items = cloneItems(snapshot.items);\n  state.layers = snapshot.layers.map((layer, index) => ({ ...PAINT_MACHINE_LAYER_DEFAULTS[index], ...layer }));\n  state.draft = null;\n  pulses = [];\n  renderPalette();\n  paintInspector();\n  renderFrequencyAxis();\n  renderTimeAxis();\n  updateControlReadouts();\n  saveState();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"rattlesnake-skin\", presets: RATTLESNAKE_SKIN_FULL_PRESETS,\n  capture: () => captureRattlesnakeSkinPreset(state),\n  apply: applyFullPreset,\n  randomize: randomizeRattlesnakeSkinPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/rattlesnake-skin/rattlesnake-skin.css",
+   "sha256": "830abe6530a27debc597f85aceb3a2b3dce384804e1153e48d220108c589dc38",
+   "replacements": [
+    {
+     "before": "  }\n}\n",
+     "after": "  }\n}\n\n.paint-inspector > [data-instrument-preset-host] {\n  grid-column: 1 / -1;\n}\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/rubixoids/rubixoids-app.js",
+   "sha256": "26c49a8f430e119c1ff156ae03b11e26b7f0b038871f6b64f8027e8afe963bf3",
+   "replacements": [
+    {
+     "before": "  presetController = registerHeaderPresets({\n    ...adapter,\n    apply(snapshot) { adapter.apply(snapshot); syncChrome(); },\n    document, runtime: globalThis, host: instance.root.querySelector('[data-instrument-preset-host]'),\n  });\n",
+     "after": "  presetController = registerHeaderPresets({\n    ...adapter,\n    apply(snapshot) {\n      const result = adapter.apply(snapshot);\n      if (result?.then) return result.then(() => syncChrome());\n      syncChrome();\n    },\n    document, runtime: globalThis, host: instance.root.querySelector('[data-instrument-preset-host]'),\n  });\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/rubixoids/sliding-puzzle/sliding-puzzle-app.js",
+   "sha256": "dae6f404bd9de498ecc5a140deafe66a60a62e870b618d10c68a14e69723b4ee",
+   "replacements": [
+    {
+     "before": "import { rubixoidsClock } from \"../clock.js\";\nimport { nativeInstrumentContext } from \"../native-context.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n",
+     "after": "import { rubixoidsClock } from \"../clock.js\";\nimport { nativeInstrumentContext } from \"../native-context.js\";\nimport {\n  SLIDING_FULL_PRESETS, captureSlidingPreset, randomizeSlidingPreset, validateSlidingPreset,\n} from \"./full-presets.js\";\nimport {\n  DEFAULT_FM_DRUM_VOICES,\n"
+    },
+    {
+     "before": "  $(\"soundBank\").addEventListener(\"change\", async (event) => {\n    const selectionGeneration = ++audio.voiceSelectionGeneration;\n    const requested = Object.hasOwn(SOUND_BANKS, event.target.value) ? event.target.value : DEFAULTS.soundBank;\n    if (requested.startsWith(\"shared-\") && audio.context) {\n      event.target.setAttribute(\"aria-busy\", \"true\");\n      try { await audio.sharedVoices.prepare(audio.context, audio.compressor); }\n      catch (error) { announce(error.message); event.target.value = state.soundBank; return; }\n      finally { event.target.removeAttribute(\"aria-busy\"); }\n    }\n    if (selectionGeneration !== audio.voiceSelectionGeneration) return;\n",
+     "after": "  $(\"soundBank\").addEventListener(\"change\", async (event) => {\n    const selectionGeneration = ++audio.voiceSelectionGeneration;\n    const select = $(\"soundBank\");\n    const requested = Object.hasOwn(SOUND_BANKS, select.value) ? select.value : DEFAULTS.soundBank;\n    if (requested.startsWith(\"shared-\") && audio.context) {\n      select.setAttribute(\"aria-busy\", \"true\");\n      try { await audio.sharedVoices.prepare(audio.context, audio.compressor); }\n      catch (error) { announce(error.message); select.value = state.soundBank; return; }\n      finally { select.removeAttribute(\"aria-busy\"); }\n    }\n    if (selectionGeneration !== audio.voiceSelectionGeneration) return;\n"
+    },
+    {
+     "before": "};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n",
+     "after": "};\nif (RUBIXOIDS_EMBEDDED && !mountContext) globalThis.rubixoidsNative = rubixoidsNative;\n\nconst SLIDING_PRESET_CONTROL_KEYS = [\n  \"tempo\", \"swing\", \"pulseDivision\", \"playbackDirection\", \"soundBank\", \"scale\", \"brightness\", \"decay\", \"colorDepth\",\n  \"stereoWidth\", \"pitchSpan\", \"positionInfluence\", \"filterInfluence\", \"neighborResponse\", \"disorderInfluence\",\n  \"microStrum\", \"autoSlideSpeed\",\n];\n\nasync function applyFullPreset(snapshot) {\n  validateSlidingPreset(snapshot);\n  setAutoSlide(false, { announce: false });\n  cancelMotionSequence();\n  await rubixoidsNative.applySettings(Object.fromEntries(SLIDING_PRESET_CONTROL_KEYS.map(key => [key, snapshot[key]])));\n  const puzzle = Object.freeze({ ...createSolvedSlidingPuzzle(snapshot.rows, snapshot.columns), tiles: Object.freeze([...snapshot.tiles]) });\n  Object.assign(state, {\n    puzzle, history: Object.freeze([...snapshot.history]), squareLock: snapshot.squareLock,\n    rotationTurns: snapshot.rotationTurns, playbackMode: snapshot.playbackMode, pathId: snapshot.pathId,\n  });\n  previousAutoTile = null;\n  createBoardDom();\n  updateSequenceSnapshot();\n  restartLoop({ announce: false });\n  renderControls();\n  renderAll();\n  if (snapshot.autoSlide) setAutoSlide(true, { announce: false });\n}\n\nmountContext?.registerPresets({\n  id: \"sliding-puzzle\", presets: SLIDING_FULL_PRESETS, randomize: randomizeSlidingPreset,\n  capture: () => captureSlidingPreset(state),\n  apply: applyFullPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/sample-drums/sample-drums-app.js",
+   "sha256": "231d2edce23d56231027abf42b9f5a0ad26ee3f244110d98796fe805f666d62d",
+   "replacements": [
+    {
+     "before": "import { fmDrumMidiAction } from \"../fm-drums/fm-drums-midi.js\";\nimport { getSharedMidiManager } from \"../../midi-manager.js\";\nimport {\n  SAMPLE_DRUM_STORAGE_KEY,\n",
+     "after": "import { fmDrumMidiAction } from \"../fm-drums/fm-drums-midi.js\";\nimport { getSharedMidiManager } from \"../../midi-manager.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SAMPLE_DRUM_FULL_PRESETS,\n  captureSampleDrumPreset,\n  randomizeSampleDrumPreset,\n  validateSampleDrumPreset,\n} from \"./full-presets.js\";\nimport {\n  SAMPLE_DRUM_STORAGE_KEY,\n"
+    },
+    {
+     "before": "\nregisterMidiClient();\n",
+     "after": "\nregisterMidiClient();\n\nregisterHeaderPresets({\n  id: \"sample-drums\", presets: SAMPLE_DRUM_FULL_PRESETS,\n  capture: () => captureSampleDrumPreset(state.voices),\n  apply: snapshot => {\n    validateSampleDrumPreset(snapshot);\n    const byId = new Map(snapshot.voices.map(voice => [voice.id, voice]));\n    state.voices = state.voices.map(voice => sanitizeSampleDrumVoice({ ...voice, ...byId.get(voice.id) }));\n    renderPads();\n    renderEditor();\n  },\n  randomize: randomizeSampleDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/shader-synth-playground/shader-synth-playground-app.js",
+   "sha256": "de4bda31833cc27c2a288aa8c5efdd1e2533ffc7717b276eed96d83dc9967cce",
+   "replacements": [
+    {
+     "before": "  shaderSynthPlaygroundAudioAssetSpec,\n} from \"./shader-synth-playground-audio-assets.js?v=20260831-modules125\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  shaderSynthPlaygroundAudioAssetSpec,\n} from \"./shader-synth-playground-audio-assets.js?v=20260831-modules125\";\n\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SHADER_SYNTH_FULL_PRESETS,\n  captureShaderSynthPreset,\n  randomizeShaderSynthPreset,\n  shaderSynthSnapshotPatch,\n  validateShaderSynthPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  $(\"executionShapeDetails\").open = true;\n}\n",
+     "after": "  $(\"executionShapeDetails\").open = true;\n}\n\nregisterHeaderPresets({\n  id: \"shader-synth-playground\", presets: SHADER_SYNTH_FULL_PRESETS,\n  capture: () => captureShaderSynthPreset(state),\n  apply: (snapshot) => {\n    validateShaderSynthPreset(snapshot);\n    state.patch = sanitizePatch(shaderSynthSnapshotPatch(snapshot));\n    state.presetId = null;\n    state.comboId = null;\n    state.organRanks = sanitizeWebGpuSynthOrganRanks(snapshot.organRanks);\n    state.engine?.updateOrganRanks?.(state.organRanks);\n    state.selectedNodeId = patchNodes()[0]?.id ?? null;\n    state.selectedCableId = null;\n    state.pendingPort = null;\n    syncPatch();\n    fitGraph({ silent: true });\n    syncAllOrganRankControlSurfaces();\n  },\n  randomize: randomizeShaderSynthPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/shape-drum-machine/shape-drum-machine-app.js",
+   "sha256": "f30de010e582f1a538b4547702ffafa1e6531cfcc2ef9156c663d293f9efb0cd",
+   "replacements": [
+    {
+     "before": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SHAPE_DRUM_FULL_PRESETS,\n  captureShapeDrumPreset,\n  randomizeShapeDrumPreset,\n  validateShapeDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "new ResizeObserver(resizeCanvas).observe(stageWrap);\nreset();\n",
+     "after": "new ResizeObserver(resizeCanvas).observe(stageWrap);\nreset();\n\nfunction applyShapeDrumPreset(snapshot) {\n  validateShapeDrumPreset(snapshot);\n  const wasPingPong = state.motionMode === \"pingpong\";\n  state.sides = snapshot.sides;\n  state.closedShapeType = snapshot.closedShapeType;\n  state.starDepth = snapshot.starDepth;\n  $(\"sides\").value = String(snapshot.sides);\n  $(\"starDepth\").value = String(snapshot.starDepth);\n  syncFormTopology();\n  for (const key of [\"starDepth\", \"curvature\", \"aspect\", \"skew\"]) bridgeRange(key, snapshot[key]);\n  state.heads = snapshot.heads;\n  state.headOffsets = [...snapshot.headOffsets];\n  state.scanLineAxes = [...snapshot.scanLineAxes];\n  state.traceHeadDirections = [...snapshot.traceHeadDirections];\n  state.radialHeadDirections = [...snapshot.radialHeadDirections];\n  if ((snapshot.motionMode === \"pingpong\") !== wasPingPong) {\n    state.continuousPosition = snapshot.motionMode === \"pingpong\"\n      ? rebasePingPongPosition(state.continuousPosition, state.position)\n      : rebaseContinuousPosition(state.continuousPosition, wrap01(state.continuousPosition), state.position);\n  }\n  state.motionMode = snapshot.motionMode;\n  for (const button of $(\"playheadMotion\").querySelectorAll(\"button[data-value]\")) {\n    setPressed(button, button.dataset.value === state.motionMode);\n  }\n  state.playMethod = snapshot.playMethod;\n  alignPointAndRadarDirections();\n  state.speed = snapshot.speed;\n  $(\"speed\").value = String(sliderFromSpeed(state.speed));\n  state.traversalDirection = snapshot.traversalDirection;\n  state.playing = snapshot.playing;\n  setPressed($(\"playButton\"), state.playing);\n  $(\"playButton\").setAttribute(\"aria-label\", state.playing ? \"Pause playhead\" : \"Play playhead\");\n  bridgeRange(\"rotationSpeed\", snapshot.rotationSpeed);\n  state.rotationDirection = snapshot.rotationDirection;\n  const clockwise = state.rotationDirection > 0;\n  $(\"rotationDirectionGlyph\").textContent = clockwise ? \"\u2192\" : \"\u2190\";\n  $(\"rotationDirectionText\").textContent = clockwise ? \"CW\" : \"CCW\";\n  $(\"rotationDirection\").setAttribute(\"aria-label\", `Rotation direction: ${clockwise ? \"clockwise\" : \"counterclockwise\"}`);\n  state.rotationMotionMode = snapshot.rotationMotionMode;\n  state.continuousRotation = shapeRotationTravelForAngle(state.rotation, state.rotationMotionMode);\n  for (const button of $(\"rotationMotion\").querySelectorAll(\"button[data-value]\")) {\n    setPressed(button, button.dataset.value === state.rotationMotionMode);\n  }\n  state.autoRotate = snapshot.autoRotate;\n  setPressed($(\"rotationPlayButton\"), state.autoRotate);\n  $(\"rotationPlayButton\").setAttribute(\"aria-label\", state.autoRotate ? \"Pause rotation\" : \"Start rotation\");\n  state.mappingMode = snapshot.mappingMode;\n  $(\"mappingMode\").value = state.mappingMode;\n  for (const key of [\"sideSubdivisions\", \"pitchDepth\", \"characterDepth\", \"strikeLimit\"]) bridgeRange(key, snapshot[key]);\n  updatePlayheadControls();\n  updateHitCapStatus();\n  suppressShapeDrumContacts();\n  lastFrameTime = performance.now();\n  invalidateGeometry();\n}\n\nregisterHeaderPresets({\n  id: \"shape-drum-machine\", presets: SHAPE_DRUM_FULL_PRESETS,\n  capture: () => captureShapeDrumPreset(state),\n  apply: applyShapeDrumPreset,\n  randomize: randomizeShapeDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/shepard-risset/shepard-risset-app.js",
+   "sha256": "2b5f228e7657f6b29b0fd782ae4bb9d074311f62ac9c50d157e5bf8fe572e3f2",
+   "replacements": [
+    {
+     "before": "  sanitizeShepardParams,\n} from \"./shepard-risset.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  sanitizeShepardParams,\n} from \"./shepard-risset.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { SHEPARD_FULL_PRESETS, captureShepardPreset, randomizeShepardPreset, validateShepardPreset } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "updateInterface();\nresizeCanvas();\n",
+     "after": "updateInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"shepard-risset\", presets: SHEPARD_FULL_PRESETS,\n  capture: () => captureShepardPreset(state),\n  apply: snapshot => {\n    validateShepardPreset(snapshot);\n    state.mode = snapshot.mode;\n    state.octave = { ...snapshot.octave, presetId: null };\n    state.morphisma = { ...snapshot.morphisma, presetId: null };\n    clearAudioError();\n    updateInterface({ rebuildPresets: true });\n  },\n  randomize: randomizeShepardPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/simd-chiptune/simd-chiptune.css",
+   "sha256": "02282b989f40194a19e26f9db261f73b19e07b7f93d9054f33efb64de340052d",
+   "replacements": [
+    {
+     "before": "}\n\n.simd-preset-controls {\n  display: flex;\n",
+     "after": "}\n\n.simd-preset-controls[hidden] { display: none; }\n.simd-preset-controls {\n  display: flex;\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/simd-synth/simd-synth-app.js",
+   "sha256": "501ba68ce6b6f3b00bfeda83e4ca679b943c7041f52fe8f614d0702f7d409017",
+   "replacements": [
+    {
+     "before": "  persistSimdSynthUserPresets,\n} from \"../../simd-synth-user-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  persistSimdSynthUserPresets,\n} from \"../../simd-synth-user-presets.js\";\nimport { presetStateKey, registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SIMD_SYNTH_FULL_PRESETS,\n  captureSimdSynthPreset,\n  randomizeSimdSynthPreset,\n  validateSimdSynthPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  void disableAudio({ quiet: true });\n}, { once: true });\n",
+     "after": "  void disableAudio({ quiet: true });\n}, { once: true });\n\nregisterHeaderPresets({\n  id: \"simd-synth\", presets: SIMD_SYNTH_FULL_PRESETS,\n  capture: () => captureSimdSynthPreset(state.patch),\n  apply: snapshot => {\n    validateSimdSynthPreset(snapshot);\n    const key = presetStateKey(snapshot);\n    const match = SIMD_SYNTH_FULL_PRESETS.find(preset => presetStateKey(preset.snapshot) === key);\n    setPatch(snapshot, { presetId: match?.id ?? \"custom\", message: match ? `${match.label} loaded.` : \"Patch loaded.\" });\n  },\n  randomize: randomizeSimdSynthPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/sliding-puzzle/sliding-puzzle-app.js",
+   "sha256": "732e335c50518af40772350d5a6ea7d640dfdad114dbb798e5a5b2994b3821a6",
+   "replacements": [
+    {
+     "before": "  rubixTwistSpeedMultiplier,\n} from \"../rubix/rubix.js\";\nimport {\n  SLIDING_PLAYBACK_MODES,\n",
+     "after": "  rubixTwistSpeedMultiplier,\n} from \"../rubix/rubix.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SLIDING_PUZZLE_FULL_PRESETS,\n  SLIDING_PUZZLE_PRESET_KEYS,\n  captureSlidingPuzzlePreset,\n  randomizeSlidingPuzzlePreset,\n  validateSlidingPuzzlePreset,\n} from \"./full-presets.js\";\nimport {\n  SLIDING_PLAYBACK_MODES,\n"
+    },
+    {
+     "before": "  createSlidingPuzzleScramble,\n  createSlidingPuzzleSequence,\n  createSolvedSlidingPuzzle,\n  invertSlidingMoves,\n",
+     "after": "  createSlidingPuzzleScramble,\n  createSlidingPuzzleSequence,\n  createSlidingPuzzleFromTiles,\n  createSolvedSlidingPuzzle,\n  invertSlidingMoves,\n"
+    },
+    {
+     "before": "renderAll();\n\n\n/** Rubixoids mount: keep the native tile, transport and synthesis state. */\n",
+     "after": "renderAll();\n\nfunction applySlidingPuzzlePreset(snapshot) {\n  validateSlidingPuzzlePreset(snapshot);\n  const { settings, puzzle } = snapshot;\n  const commit = () => {\n    setAutoSlide(false, { announce: false });\n    cancelMotionSequence();\n    audio.voiceSelectionGeneration += 1;\n    audio.sharedVoices.stop();\n    const previous = slidingPuzzleDimensions(state.puzzle);\n    for (const key of SLIDING_PUZZLE_PRESET_KEYS) if (key !== \"autoSlide\") state[key] = settings[key];\n    state.puzzle = createSlidingPuzzleFromTiles(puzzle.rows, puzzle.columns, puzzle.tiles);\n    state.history = Object.freeze([...(puzzle.moves ?? [])]);\n    previousAutoTile = null;\n    if (previous.rows !== puzzle.rows || previous.columns !== puzzle.columns) createBoardDom();\n    updateSequenceSnapshot();\n    const length = Math.max(1, sequenceSnapshot.length);\n    transportStep %= length;\n    state.currentStep %= length;\n    randomTransportOrder = [];\n    randomTransportIndex = 0;\n    renderControls();\n    renderAll();\n    if (state.playing) resyncRunningScheduler();\n    else reconcileTransportCursor();\n    if (settings.autoSlide) setAutoSlide(true, { announce: false });\n  };\n  if (settings.soundBank.startsWith(\"shared-\") && audio.context) {\n    return audio.sharedVoices.prepare(audio.context, audio.compressor).then(commit);\n  }\n  commit();\n  return undefined;\n}\n\nregisterHeaderPresets({\n  id: \"sliding-puzzle\", presets: SLIDING_PUZZLE_FULL_PRESETS,\n  capture: () => captureSlidingPuzzlePreset({\n    ...state, puzzle: { rows: state.puzzle.rows, columns: state.puzzle.columns, tiles: [...state.puzzle.tiles] },\n    history: [...state.history],\n  }),\n  apply: applySlidingPuzzlePreset,\n  randomize: randomizeSlidingPuzzlePreset,\n});\n\n/** Rubixoids mount: keep the native tile, transport and synthesis state. */\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/sliding-puzzle/sliding-puzzle.js",
+   "sha256": "338598dbd0963d5182919d1e36c700627eef255bf47234b2e3d66022a01c5597",
+   "replacements": [
+    {
+     "before": "    SLIDING_PUZZLE_BLANK,\n  ]);\n}\n\n",
+     "after": "    SLIDING_PUZZLE_BLANK,\n  ]);\n}\n\nexport function createSlidingPuzzleFromTiles(rows, columns, tiles) {\n  const dimensions = slidingPuzzleDimensions(rows, columns);\n  return freezePuzzle(dimensions.rows, dimensions.columns, assertPuzzle({ rows, columns, tiles }).tiles);\n}\n\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/solid-drum-machine/solid-drum-machine-app.js",
+   "sha256": "f7a15f98b92042eda298cdef13e826c36105080ae3dde38ee64f8576ac1a57d3",
+   "replacements": [
+    {
+     "before": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { installShapesNativeBridge } from \"../../families/geometry/shapes-native-bridge.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SOLID_DRUM_FULL_PRESETS,\n  captureSolidDrumPreset,\n  randomizeSolidDrumPreset,\n  validateSolidDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "new ResizeObserver(resizeCanvas).observe(stageWrap);\nresizeCanvas();\n",
+     "after": "new ResizeObserver(resizeCanvas).observe(stageWrap);\nresizeCanvas();\n\nfunction applySolidDrumPreset(snapshot) {\n  validateSolidDrumPreset(snapshot);\n  state.solidType = snapshot.solidType;\n  $(\"solidType\").value = state.solidType;\n  for (const key of [\n    \"formScaleX\", \"formScaleY\", \"formScaleZ\", \"formSkewX\", \"formSkewZ\",\n    \"rotationXSpeed\", \"rotationYSpeed\", \"rotationZSpeed\", \"planeYawSpeed\", \"planePitchSpeed\",\n    \"speed\", \"subdivisions\", \"pitchDepth\", \"characterDepth\", \"strikeLimit\",\n  ]) bridgeRange(key, snapshot[key]);\n  for (const key of [\n    \"rotationXPlaying\", \"rotationYPlaying\", \"rotationZPlaying\", \"planeYawPlaying\", \"planePitchPlaying\", \"playing\",\n  ]) state[key] = snapshot[key];\n  state.traversalDirection = snapshot.traversalDirection;\n  setMotionMode(snapshot.motionMode, false);\n  if (!snapshot.playing) bridgeRange(\"position\", 0.5);\n  state.mappingMode = snapshot.mappingMode;\n  $(\"mappingMode\").value = state.mappingMode;\n  paintTraversalControls();\n  paintMotionControls();\n  updateSummaries();\n  suppressSolidDrumContacts();\n  lastFrameTime = performance.now();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"solid-drum-machine\", presets: SOLID_DRUM_FULL_PRESETS,\n  capture: () => captureSolidDrumPreset(state),\n  apply: applySolidDrumPreset,\n  randomize: randomizeSolidDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/spartial/spartial-app.js",
+   "sha256": "c0bf9d6000018618a22c954b11824a55da1d995a0845f575179e7fb48ffc54ec",
+   "replacements": [
+    {
+     "before": "import { mountSpartialRecording } from \"./spartial-recording.js\";\nimport { SPARTIAL_ORGAN_STOPS, SPARTIAL_ORGAN_PRESETS, randomOrganRegistration } from \"./spartial-organ.js\";\n\nconst $ = id => document.getElementById(id);\n",
+     "after": "import { mountSpartialRecording } from \"./spartial-recording.js\";\nimport { SPARTIAL_ORGAN_STOPS, SPARTIAL_ORGAN_PRESETS, randomOrganRegistration } from \"./spartial-organ.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { SPARTIAL_FULL_PRESETS, captureSpartialPreset, randomizeSpartialPreset, spartialSettingsPatch, validateSpartialPreset } from \"./full-presets.js\";\n\nconst $ = id => document.getElementById(id);\n"
+    },
+    {
+     "before": "const KEYS = [\"a\", \"w\", \"s\", \"e\", \"d\", \"f\", \"t\", \"g\", \"y\", \"h\", \"u\", \"j\", \"k\"];\nconst NOTE_NAMES = [\"C\", \"C\u266f\", \"D\", \"E\u266d\", \"E\", \"F\", \"F\u266f\", \"G\", \"A\u266d\", \"A\", \"B\u266d\", \"B\"];\nconst PRESETS = [\n  { id: \"still\", name: \"Still harmonics\", spectrum: \"full\", mode: \"single\", motion: \"off\" },\n  { id: \"halo\", name: \"Slow halo\", spectrum: \"soft\", mode: \"single\", motion: \"cw\", beatsPerTurn: 32, attack: .5, release: 2.5, cascade: .06 },\n  { id: \"rise\", name: \"Ascending glass\", spectrum: \"bright\", mode: \"single\", motion: \"off\", partials: 24, cascade: .065, cascadeCurve: -.45, attack: .015, release: .65 },\n  { id: \"fall\", name: \"Falling bells\", spectrum: \"bell\", mode: \"chord\", chord: \"fifth\", motion: \"off\", cascadeOrder: \"down\", cascade: .08, cascadeCurve: .4, release: 2.2 },\n  { id: \"organ\", name: \"Wide organ\", spectrum: \"odd\", mode: \"chord\", chord: \"major\", motion: \"off\", partials: 24, cascade: 0, attack: .02, release: .35 },\n  { id: \"hollow\", name: \"Hollow arc\", spectrum: \"hollow\", mode: \"single\", motion: \"off\", cycles: .35, release: 1.8 },\n  { id: \"counter\", name: \"Counterpoint\", spectrum: \"full\", mode: \"chord\", chord: \"sus\", motion: \"counter\", beatsPerTurn: 16, cascade: .02, pattern: \"alternate\" },\n  { id: \"squeeze\", name: \"Close cluster\", spectrum: \"cluster\", mode: \"single\", motion: \"off\", cycles: .15, partials: 32, attack: .25 },\n  { id: \"double\", name: \"Double spiral\", spectrum: \"even\", mode: \"single\", motion: \"ccw\", beatsPerTurn: 16, cycles: 2, partials: 32, cascade: .015 },\n  { id: \"scatter\", name: \"Scattered metal\", spectrum: \"bell\", mode: \"single\", motion: \"off\", pattern: \"scatter\", partials: 24, cascadeOrder: \"alternate\", cascade: .045, cascadeVariation: .55 },\n  { id: \"soft\", name: \"Soft minor seven\", spectrum: \"soft\", mode: \"chord\", chord: \"minor7\", motion: \"off\", attack: .65, release: 3, cascade: .01 },\n  { id: \"shimmer\", name: \"Expanded shimmer\", spectrum: \"bright\", mode: \"single\", motion: \"cw\", beatsPerTurn: 64, stretch: 1.28, inharmonicity: .18, attack: .3, partials: 24 },\n];\nconst GRAIN_PRESETS = [\n  { id: \"cloud\", name: \"Soft cloud\", grainSize: 180, grainDensity: 24, grainScatter: 160 },\n",
+     "after": "const KEYS = [\"a\", \"w\", \"s\", \"e\", \"d\", \"f\", \"t\", \"g\", \"y\", \"h\", \"u\", \"j\", \"k\"];\nconst NOTE_NAMES = [\"C\", \"C\u266f\", \"D\", \"E\u266d\", \"E\", \"F\", \"F\u266f\", \"G\", \"A\u266d\", \"A\", \"B\u266d\", \"B\"];\nconst GRAIN_PRESETS = [\n  { id: \"cloud\", name: \"Soft cloud\", grainSize: 180, grainDensity: 24, grainScatter: 160 },\n"
+    },
+    {
+     "before": "];\nconst GRAIN_TEXTURE_KEYS = [\"grainSize\", \"grainDensity\", \"grainLookback\", \"grainPosition\", \"grainScatter\", \"grainJitter\", \"grainPitch\", \"grainReverse\", \"grainSpread\", \"grainPattern\"];\nPRESETS.push(\n  { id: \"grain-cloud\", name: \"Surround grain cloud\", spectrum: \"soft\", mode: \"single\", motion: \"off\", granularMix: .65, grainSize: 220, grainDensity: 32, grainScatter: 240, attack: .12 },\n  { id: \"grain-rain\", name: \"Scattered grain rain\", spectrum: \"bright\", mode: \"single\", motion: \"off\", granularMix: 1, grainSize: 25, grainDensity: 15, grainJitter: .5, grainScatter: 600, grainPattern: \"scatter\", cascade: 0 },\n  { id: \"grain-reverse\", name: \"Reverse grain tide\", spectrum: \"full\", mode: \"chord\", chord: \"fifth\", motion: \"off\", granularMix: .85, grainSize: 400, grainDensity: 12, grainReverse: 1, grainLookback: 900, grainScatter: 300, attack: .2 },\n  { id: \"grain-shimmer\", name: \"Grain shimmer\", spectrum: \"bell\", mode: \"single\", motion: \"off\", granularMix: .5, grainSize: 90, grainDensity: 36, grainPitch: 12, grainPattern: \"alternate\", grainScatter: 180 },\n  ...SPARTIAL_ORGAN_PRESETS.map(preset => ({ ...preset.settings, id: `organ-${preset.id}`, name: preset.name, organPreset: preset.id, spectrum: \"full\", mode: \"single\", motion: \"off\" })),\n  { id: \"pitch-ripple\", name: \"Traveling pitch ripple\", spectrum: \"soft\", mode: \"single\", motion: \"off\", pitchDepth: 32, modulationRate: .65, modulationRipple: 1.5, cascade: 0, attack: .15 },\n  { id: \"amplitude-ripple\", name: \"Reverse amplitude ripple\", spectrum: \"full\", mode: \"single\", motion: \"off\", amplitudeDepth: .8, modulationRate: 1.2, modulationRipple: -2, cascade: 0 },\n);\nconst state = {\n  settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: \"single\", root: 48,\n",
+     "after": "];\nconst GRAIN_TEXTURE_KEYS = [\"grainSize\", \"grainDensity\", \"grainLookback\", \"grainPosition\", \"grainScatter\", \"grainJitter\", \"grainPitch\", \"grainReverse\", \"grainSpread\", \"grainPattern\"];\nconst state = {\n  settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: \"single\", root: 48,\n"
+    },
+    {
+     "before": "}\nfunction customPreset(spectrum = false) {\n  $(\"preset\").value = \"custom\";\n  if (spectrum) $(\"spectrumPreset\").value = \"custom\";\n}\n",
+     "after": "}\nfunction customPreset(spectrum = false) {\n  if (spectrum) $(\"spectrumPreset\").value = \"custom\";\n}\n"
+    },
+    {
+     "before": "  updatePerformance();\n}\nfunction spectralPreset(id) { return SPARTIAL_SPECTRAL_PRESETS.find(preset => preset.id === id) ?? SPARTIAL_SPECTRAL_PRESETS[0]; }\nfunction applyPreset(index) {\n  grainSourceRevision += 1;\n  rememberPartialMapping();\n  state.presetIndex = (index + PRESETS.length) % PRESETS.length;\n  const preset = PRESETS[state.presetIndex];\n  const level = state.settings.level;\n  state.mode = preset.mode; state.chord = preset.chord ?? \"minor\";\n  state.chordIntervals = spartialChordIntervals(state.chord);\n  state.motion = preset.motion; state.beatsPerTurn = preset.beatsPerTurn ?? 16;\n  state.routingMode = \"spread\";\n  state.settings = sanitizeSpartialSettings({ ...SPARTIAL_DEFAULTS, ...spectralPreset(preset.spectrum).settings, ...preset, level, speakerCount: speakers().length });\n  patchSettings({}); buildSpectrum(); refreshLatch();\n  $(\"preset\").value = preset.id;\n  $(\"grainPreset\").value = \"custom\";\n  const mappingPreset = preset.organPreset ?? preset.spectrum;\n  state.spectrumIndex = mappingPresets().findIndex(item => item.id === mappingPreset);\n  $(\"spectrumPreset\").value = mappingPreset;\n}\nfunction applySpectrum(index) {\n",
+     "after": "  updatePerformance();\n}\nfunction applyPreset(index) {\n  const count = SPARTIAL_FULL_PRESETS.length;\n  state.presetIndex = (index % count + count) % count;\n  applyFullSnapshot(SPARTIAL_FULL_PRESETS[state.presetIndex].snapshot);\n}\nfunction applyFullSnapshot(snapshot) {\n  validateSpartialPreset(snapshot);\n  grainSourceRevision += 1;\n  rememberPartialMapping();\n  state.mode = snapshot.mode; state.chord = snapshot.chord; state.chordIntervals = [...snapshot.chordIntervals];\n  state.motion = snapshot.motion; state.beatsPerTurn = snapshot.beatsPerTurn; state.routingMode = snapshot.routingMode;\n  patchSettings(spartialSettingsPatch(snapshot)); buildSpectrum(); refreshLatch();\n  $(\"grainPreset\").value = \"custom\";\n  $(\"spectrumPreset\").value = \"custom\"; state.spectrumIndex = -1;\n}\nfunction applySpectrum(index) {\n"
+    },
+    {
+     "before": "  buildSpectrum(); customPreset(true);\n}\nfunction randomInstrument() {\n  grainSourceRevision += 1;\n  rememberPartialMapping();\n  state.randomSeed += 101;\n  const randomized = randomSpartialInstrument(grainAvailability(), state.randomSeed);\n  state.settings = sanitizeSpartialSettings({ ...randomized.settings,\n    ...(randomized.settings.organMode === \"partials\" ? {} : organBankPatch()),\n  });\n  for (const key of [\"mode\", \"chord\", \"chordIntervals\", \"motion\", \"beatsPerTurn\", \"routingMode\"]) state[key] = randomized[key];\n  $(\"grainPreset\").value = \"custom\";\n  patchSettings({});\n  buildSpectrum(); refreshLatch(); customPreset(true);\n}\nfunction populateSelect(element, items, withCustom = true) {\n  element.replaceChildren(...items.map(({ id, name }) => {\n",
+     "after": "  buildSpectrum(); customPreset(true);\n}\nfunction populateSelect(element, items, withCustom = true) {\n  element.replaceChildren(...items.map(({ id, name }) => {\n"
+    },
+    {
+     "before": "  }\n}\npopulateSelect($(\"preset\"), PRESETS); syncMappingMenu(); $(\"spectrumPreset\").value = \"full\"; state.spectrumIndex = 0;\npopulateSelect($(\"grainPreset\"), GRAIN_PRESETS); $(\"grainPreset\").value = \"custom\";\npopulateSelect($(\"chord\"), SPARTIAL_CHORDS, false);\n",
+     "after": "  }\n}\nsyncMappingMenu(); $(\"spectrumPreset\").value = \"full\"; state.spectrumIndex = 0;\npopulateSelect($(\"grainPreset\"), GRAIN_PRESETS); $(\"grainPreset\").value = \"custom\";\npopulateSelect($(\"chord\"), SPARTIAL_CHORDS, false);\n"
+    },
+    {
+     "before": "  releaseManualNotes(); state.keyboardBase = Math.max(24, Math.min(72, state.keyboardBase + direction * 12)); buildPads();\n});\n$(\"preset\").addEventListener(\"change\", () => applyPreset(PRESETS.findIndex(item => item.id === $(\"preset\").value)));\n$(\"nextPreset\").addEventListener(\"click\", () => applyPreset(state.presetIndex + 1));\n$(\"randomPreset\").addEventListener(\"click\", randomInstrument);\n$(\"spectrumPreset\").addEventListener(\"change\", () => applySpectrum(mappingPresets().findIndex(item => item.id === $(\"spectrumPreset\").value)));\n$(\"nextSpectrum\").addEventListener(\"click\", () => applySpectrum(state.spectrumIndex + 1));\n",
+     "after": "  releaseManualNotes(); state.keyboardBase = Math.max(24, Math.min(72, state.keyboardBase + direction * 12)); buildPads();\n});\n$(\"spectrumPreset\").addEventListener(\"change\", () => applySpectrum(mappingPresets().findIndex(item => item.id === $(\"spectrumPreset\").value)));\n$(\"nextSpectrum\").addEventListener(\"click\", () => applySpectrum(state.spectrumIndex + 1));\n"
+    },
+    {
+     "before": "buildModulationMonitor(); buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();\nframe = requestAnimationFrame(draw);\nwindow.addEventListener(\"pagehide\", event => {\n  tempoKnob.cancelGesture();\n",
+     "after": "buildModulationMonitor(); buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();\nframe = requestAnimationFrame(draw);\nregisterHeaderPresets({\n  id: \"spartial\", presets: SPARTIAL_FULL_PRESETS,\n  capture: () => captureSpartialPreset(state),\n  apply: applyFullSnapshot,\n  randomize: randomizeSpartialPreset,\n});\nwindow.addEventListener(\"pagehide\", event => {\n  tempoKnob.cancelGesture();\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/spiral-drum-machine/spiral-drum-machine-app.js",
+   "sha256": "9903f22a3e9a7944c70c99916c3ef30f2056e069afa14969fb261db25f2e9bcf",
+   "replacements": [
+    {
+     "before": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SPIRAL_DRUM_FULL_PRESETS,\n  captureSpiralDrumPreset,\n  randomizeSpiralDrumPreset,\n  validateSpiralDrumPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "resizeCanvas();\nreset();\n",
+     "after": "resizeCanvas();\nreset();\n\nconst PRESET_RANGE_READOUTS = {\n  speed: (value) => `${value.toFixed(3)} cyc/s`,\n  loopSpeed: (value) => `${value.toFixed(3)} cyc/s`,\n  readerTurns: (value) => `${value.toFixed(2)} turns`,\n  pitchDepth: (value) => `\u00b1${Math.round(value)} st`,\n  characterDepth: (value) => `${Math.round(value * 100)}%`,\n  strikeLimit: (value) => String(Math.round(value)),\n  spiralA: (value) => String(Math.round(value)),\n  spiralB: (value) => String(Math.round(value)),\n  patternScale: (value) => `${value >= 0 ? \"+\" : \"\"}${value.toFixed(2)}`,\n  patternRotation: (value) => `${Math.round(value)}\u00b0`,\n};\n\nfunction applySpiralDrumPreset(snapshot) {\n  validateSpiralDrumPreset(snapshot);\n  endAuditions();\n  setMotionMode(snapshot.motionMode, false);\n  Object.assign(state, {\n    tilingType: snapshot.tilingType,\n    parameters: [...snapshot.parameters],\n    edgeCurves: [...snapshot.edgeCurves],\n    timePath: snapshot.timePath,\n    traversalDirection: snapshot.traversalDirection,\n    loopDirection: snapshot.loopDirection,\n    sizeCoupling: snapshot.sizeCoupling,\n    mappingMode: snapshot.mappingMode,\n  });\n  for (const [key, format] of Object.entries(PRESET_RANGE_READOUTS)) {\n    state[key] = snapshot[key];\n    $(key).value = String(state[key]);\n    $(`${key}Out`).textContent = format(state[key]);\n  }\n  tilingSelect.value = String(state.tilingType);\n  $(\"mappingMode\").value = state.mappingMode;\n  configureTilingControls();\n  updateTimeControls();\n  paintLoopPhase();\n  previousContactKeys.clear();\n  lastStrikeTimes.clear();\n  midiPreviewContactKeys.clear();\n  midiPreviewLastStrikeTimes.clear();\n  invalidateGeometry();\n  emitReaderPathPreview();\n  emitReaderDirectionPreview();\n  emitZoomDirectionPreview();\n  emitReaderTimebasePreview();\n  emitZoomTimebasePreview();\n}\n\nregisterHeaderPresets({\n  id: \"spiral-drum-machine\", presets: SPIRAL_DRUM_FULL_PRESETS,\n  capture: () => captureSpiralDrumPreset(state),\n  apply: applySpiralDrumPreset,\n  randomize: randomizeSpiralDrumPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/spiral/spiral-app.js",
+   "sha256": "8bc54f66be2549389a8c8d29c7dc49658fa1a3d72df1734912fbb81764f8e30d",
+   "replacements": [
+    {
+     "before": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SPIRAL_FULL_PRESETS, SPIRAL_NUMBER_SPECS, captureSpiralPreset, randomizeSpiralPreset, validateSpiralPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "}\n\nfunction bindRange(id, key, formatter, afterChange) {\n  const input = $(id);\n",
+     "after": "}\n\nconst rangePainters = new Map();\n\nfunction bindRange(id, key, formatter, afterChange) {\n  const input = $(id);\n"
+    },
+    {
+     "before": "  });\n  paint();\n  return paint;\n}\n",
+     "after": "  });\n  paint();\n  rangePainters.set(key, paint);\n  return paint;\n}\n"
+    },
+    {
+     "before": "emitZoomTransportPreview();\nscheduleFrame();\n",
+     "after": "emitZoomTransportPreview();\nscheduleFrame();\n\nfunction applyFullPreset(snapshot) {\n  validateSpiralPreset(snapshot);\n  const { envelope, ...rest } = snapshot;\n  Object.assign(state, rest, { parameters: [...snapshot.parameters], edgeCurves: [...snapshot.edgeCurves] });\n  state.continuousPosition = state.position;\n  for (const key of Object.keys(SPIRAL_NUMBER_SPECS)) rangePainters.get(key)();\n  tilingSelect.value = String(state.tilingType);\n  configureTilingControls();\n  amplitudeControl.applyState(envelope);\n  $(\"soundMode\").value = state.soundMode;\n  amplitudeControl.setVisible(state.soundMode !== \"percussion\");\n  $(\"percussionArticulation\").hidden = state.soundMode !== \"percussion\";\n  $(\"pitchSource\").value = state.pitchSource;\n  pool.silence();\n  resetContactTracking();\n  suppressContactOnsets();\n  suppressMidiPreviewNotes();\n  updateTimeControls();\n  updateSummaries();\n  paintLoopPhase();\n  invalidateGeometry();\n  scheduleFrame();\n}\n\nregisterHeaderPresets({\n  id: \"spiral\", presets: SPIRAL_FULL_PRESETS,\n  capture: () => captureSpiralPreset(state, amplitudeControl),\n  apply: applyFullPreset,\n  randomize: randomizeSpiralPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/srtuss/srtuss-app.js",
+   "sha256": "faca90ec744942544f97d56184dbd4156fb5923deed26b37d481cb12d6a52673",
+   "replacements": [
+    {
+     "before": "  srtussMasterParts,\n} from \"./srtuss-master.js?v=20260908-voice-card-1\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  srtussMasterParts,\n} from \"./srtuss-master.js?v=20260908-voice-card-1\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  SRTUSS_FULL_PRESETS,\n  captureSrtussPreset,\n  randomizeSrtussPreset,\n  validateSrtussPreset,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "updateTimeline();\nmarkRuntimeReady();\n",
+     "after": "updateTimeline();\nmarkRuntimeReady();\n\nregisterHeaderPresets({\n  id: \"srtuss\", presets: SRTUSS_FULL_PRESETS,\n  capture: () => captureSrtussPreset(state),\n  apply: async (snapshot) => {\n    validateSrtussPreset(snapshot);\n    restoreScene({\n      globals: { ...snapshot.globals, output: state.globals.output },\n      voices: snapshot.voices,\n      selectedVoiceId: state.selectedVoiceId,\n    });\n    sceneRevision += 1;\n    replaceQuery();\n    clearError();\n    renderAll();\n    engine?.setOutput(state.globals.output);\n    await commitScene({ message: \"Loaded the full scene without restarting transport.\" });\n  },\n  randomize: randomizeSrtussPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/striped-staircase/striped-staircase-app.js",
+   "sha256": "079504e9896d8eb56af27f0fd489889754b7f35654fd95d07a8db8fa84bb461f",
+   "replacements": [
+    {
+     "before": "} from \"./striped-staircase.js\";\nimport { VoicePool } from \"../../audio.js\";\nimport {\n  contourVoiceTrajectory,\n",
+     "after": "} from \"./striped-staircase.js\";\nimport { VoicePool } from \"../../audio.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  STAIRCASE_FULL_PRESETS, captureStaircasePreset, randomizeStaircasePreset, validateStaircasePreset,\n} from \"./full-presets.js\";\nimport {\n  contourVoiceTrajectory,\n"
+    },
+    {
+     "before": "  decomposition: \"spatial decomposition\",\n  ink: \"white sound / black silence\",\n});\nconst pool = new VoicePool(24);\n",
+     "after": "  decomposition: \"spatial decomposition\",\n  ink: \"white sound / black silence\",\n});\nconst TIMING_NOTES = Object.freeze({\n  equal: \"Every depth step receives the same amount of time.\",\n  geometry: \"Fine, deep bands receive less time, so the staircase accelerates as its shapes shrink.\",\n  dive: \"The depth clock zooms toward the selected coordinate, then follows the same path back out.\",\n});\nconst PLAYBACK_NOTES = Object.freeze({\n  fill: \"The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.\",\n  edge: \"Each branch of the animated wavy depth contour becomes a continuously changing oscillator.\",\n  drums: \"Depth changes, contour entrances, splits, and merges become contour-weighted attacks.\",\n  ensemble: \"Four synchronized heads read mass, contour, topology/rhythm, and micro-detail from the same moving depth contour.\",\n});\nconst pool = new VoicePool(24);\n"
+    },
+    {
+     "before": "        candidate.setAttribute(\"aria-pressed\", String(candidate === button));\n      }\n      $(\"timingNote\").textContent = state.timingMode === \"geometry\"\n        ? \"Fine, deep bands receive less time, so the staircase accelerates as its shapes shrink.\"\n        : state.timingMode === \"dive\"\n          ? \"The depth clock zooms toward the selected coordinate, then follows the same path back out.\"\n          : \"Every depth step receives the same amount of time.\";\n      $(\"diveOctaves\").disabled = state.timingMode !== \"dive\";\n      if (state.timingMode === \"dive\") {\n",
+     "after": "        candidate.setAttribute(\"aria-pressed\", String(candidate === button));\n      }\n      $(\"timingNote\").textContent = TIMING_NOTES[state.timingMode];\n      $(\"diveOctaves\").disabled = state.timingMode !== \"dive\";\n      if (state.timingMode === \"dive\") {\n"
+    },
+    {
+     "before": "        candidate.setAttribute(\"aria-pressed\", String(candidate === button));\n      }\n      $(\"playbackModeNote\").textContent = state.playbackMode === \"edge\"\n        ? \"Each branch of the animated wavy depth contour becomes a continuously changing oscillator.\"\n        : state.playbackMode === \"drums\"\n          ? \"Depth changes, contour entrances, splits, and merges become contour-weighted attacks.\"\n          : state.playbackMode === \"ensemble\"\n            ? \"Four synchronized heads read mass, contour, topology/rhythm, and micro-detail from the same moving depth contour.\"\n          : \"The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.\";\n      pool.silence();\n      lastDrumTimeSlice = -1;\n",
+     "after": "        candidate.setAttribute(\"aria-pressed\", String(candidate === button));\n      }\n      $(\"playbackModeNote\").textContent = PLAYBACK_NOTES[state.playbackMode];\n      pool.silence();\n      lastDrumTimeSlice = -1;\n"
+    },
+    {
+     "before": "\nrequestRender();\n",
+     "after": "\nrequestRender();\n\nconst SOUND_SLIDER_KEYS = [\n  \"baseFrequency\", \"pitchRange\", \"noiseAmount\", \"durationScale\", \"stereoSpread\", \"massLevel\", \"contourLevel\", \"rhythmLevel\", \"microLevel\",\n];\n\nfunction pressByAttribute(attribute, value) {\n  for (const button of document.querySelectorAll(`[${attribute}]`)) {\n    button.setAttribute(\"aria-pressed\", String(button.getAttribute(attribute) === value));\n  }\n}\n\nfunction applyFullPreset(snapshot) {\n  validateStaircasePreset(snapshot);\n  const camera = Object.freeze({ ...snapshot.camera });\n  const home = cameraFromView(viewById(snapshot.viewId));\n  Object.assign(state, {\n    motionMode: snapshot.motionMode, timingMode: snapshot.timingMode, palette: snapshot.palette,\n    playbackMode: snapshot.playbackMode, soundPolarity: snapshot.soundPolarity, colorSoundMode: snapshot.colorSoundMode,\n    speed: snapshot.speed, diveOctaves: snapshot.diveOctaves, selectedViewId: snapshot.viewId,\n    viewModified: [\"centerX\", \"centerY\", \"scale\"].some((key) => camera[key] !== home[key]),\n    settings: {\n      ...state.settings,\n      startIteration: snapshot.startIteration, maxIterations: snapshot.maxIterations, steps: snapshot.steps,\n      stripePeriod: snapshot.stripePeriod, edgeSoftness: snapshot.edgeSoftness,\n    },\n    ...Object.fromEntries(SOUND_SLIDER_KEYS.map((key) => [key, snapshot[key]])),\n  });\n  diveAnchorCamera = camera;\n  state.camera = camera;\n  syncDiveCamera();\n  for (const key of [\"speed\", \"diveOctaves\", ...SOUND_SLIDER_KEYS]) $(key).value = String(state[key]);\n  for (const key of [\"startIteration\", \"maxIterations\", \"steps\", \"stripePeriod\", \"edgeSoftness\"]) $(key).value = String(state.settings[key]);\n  $(\"diveOctaves\").disabled = state.timingMode !== \"dive\";\n  $(\"colorSoundMode\").value = state.colorSoundMode;\n  $(\"viewPreset\").value = state.selectedViewId;\n  $(\"timingNote\").textContent = TIMING_NOTES[state.timingMode];\n  $(\"playbackModeNote\").textContent = PLAYBACK_NOTES[state.playbackMode];\n  pressByAttribute(\"data-mode\", state.motionMode);\n  pressByAttribute(\"data-timing\", state.timingMode);\n  pressByAttribute(\"data-palette\", state.palette);\n  pressByAttribute(\"data-playback\", state.playbackMode);\n  pressByAttribute(\"data-polarity\", state.soundPolarity);\n  updateViewButtons();\n  buildRail();\n  pool.silence();\n  lastDrumTimeSlice = -1;\n  lastSoundedStep = -1;\n  updateInterface(true);\n  refreshFieldNow();\n  sonifyFrame(currentFrame(), { force: true });\n  requestRender();\n}\n\nregisterHeaderPresets({\n  id: \"striped-staircase\", presets: STAIRCASE_FULL_PRESETS,\n  capture: () => captureStaircasePreset(state, diveAnchorCamera),\n  apply: applyFullPreset,\n  randomize: randomizeStaircasePreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/surround-field/surround-field-app.js",
+   "sha256": "bd0ca9be350dbdc24631b3f2c8bb33f8fa4d582b8938e58508182dc1b90d0746",
+   "replacements": [
+    {
+     "before": "  buildStemArchive,\n} from \"./surround-field-recorder.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  buildStemArchive,\n} from \"./surround-field-recorder.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport { SURROUND_FULL_PRESETS, captureSurroundPreset, randomizeSurroundPreset, validateSurroundPreset } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "}\n\ninitialize();\n",
+     "after": "}\n\nfunction applyFullPreset(snapshot) {\n  validateSurroundPreset(snapshot);\n  state.position = { x: snapshot.x, y: snapshot.y, z: snapshot.z };\n  state.focus = snapshot.focus;\n  state.orbitRate = snapshot.orbitRate;\n  state.voice = snapshot.voice;\n  state.color = snapshot.color;\n  state.release = snapshot.release;\n  state.motion = snapshot.motion;\n  state.motionPhase = 0;\n  state.motionStartedAt = performanceSeconds();\n  $(\"orbitRate\").value = String(state.orbitRate);\n  $(\"focus\").value = String(state.focus);\n  $(\"elevation\").value = String(state.position.z);\n  $(\"color\").value = String(state.color);\n  $(\"release\").value = String(state.release);\n  audio.setColor(state.color);\n  updateSpatialDisplay();\n  syncAudioScheduler();\n  renderControls();\n}\n\ninitialize();\nregisterHeaderPresets({\n  id: \"surround-field\", presets: SURROUND_FULL_PRESETS,\n  capture: () => captureSurroundPreset(state),\n  apply: applyFullPreset,\n  randomize: randomizeSurroundPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/tesselation/tesselation-app.js",
+   "sha256": "e1a630b75291bd3b474377168be63abf744afd2611f8318a23f36b3c2db2cb6f",
+   "replacements": [
+    {
+     "before": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { TILES_APP_MODES, tilesModeFor } from \"./tesselation-suite.js\";\n\nconst TAU = Math.PI * 2;\n",
+     "after": "import { emitMidiOutputPreview } from \"../../midi-output-preview.js\";\nimport { TILES_APP_MODES, tilesModeFor } from \"./tesselation-suite.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  TESSELATION_FULL_PRESETS, captureTesselationPreset, randomizeTesselationPreset, validateTesselationPreset,\n} from \"./full-presets.js\";\n\nconst TAU = Math.PI * 2;\n"
+    },
+    {
+     "before": "});\n\ninitialize();\n",
+     "after": "});\n\nfunction applyFullPreset(snapshot) {\n  validateTesselationPreset(snapshot);\n  const { mode, latticePitchSource, spiralPitchSource, ...rest } = snapshot;\n  Object.assign(state, rest, {\n    parameters: [...snapshot.parameters],\n    edgeCurves: [...snapshot.edgeCurves],\n    pitchSourceByGeometry: { lattice: latticePitchSource, spiral: spiralPitchSource },\n  });\n  state.continuousPosition = state.position;\n  selectedTileEditorVertex = -1;\n  previousContactKeys = new Set();\n  midiPreviewContactKeys = new Set();\n  activeDrumIndex = -1;\n  $(\"tilingType\").value = String(state.tilingType);\n  renderTileControls();\n  invalidateTileGeometry();\n  const modeChange = setMode(mode);\n  renderControls();\n  scheduleFrame();\n  return modeChange;\n}\n\ninitialize();\n\nregisterHeaderPresets({\n  id: \"tesselation\", presets: TESSELATION_FULL_PRESETS,\n  capture: () => captureTesselationPreset(state),\n  apply: applyFullPreset,\n  randomize: randomizeTesselationPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/tesselation/tesselation.css",
+   "sha256": "1206bcc0cc1c3a1035b2e92e820b152d976170f02634ce04ce9d4763308ca818",
+   "replacements": [
+    {
+     "before": "  }\n}\n",
+     "after": "  }\n}\n\n.tiles-panel-header > [data-instrument-preset-host] > .instrument-preset-controls {\n  position: relative;\n  padding: 0 0 10px;\n  border-bottom: 0;\n  background: transparent;\n}\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/throat-singing/throat-singing-app.js",
+   "sha256": "adc4f85a4a5896ad435a2e93f4390708d50197d6f17b0f9020fe12f61863d4c9",
+   "replacements": [
+    {
+     "before": "} from \"./throat-singing.js\";\nimport { glottalHarmonics } from \"../../families/tract/throatazoid.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "} from \"./throat-singing.js\";\nimport { glottalHarmonics } from \"../../families/tract/throatazoid.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  THROAT_SINGING_FULL_PRESETS,\n  captureThroatSingingPreset,\n  randomizeThroatSingingPreset,\n  splitThroatSingingPreset,\n  throatSingingStyleIdForPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "setAudioPresentation(\"off\");\nanimationFrame = requestAnimationFrame(draw);\n",
+     "after": "setAudioPresentation(\"off\");\nanimationFrame = requestAnimationFrame(draw);\n\nregisterHeaderPresets({\n  id: \"throat-singing\", presets: THROAT_SINGING_FULL_PRESETS,\n  capture: () => captureThroatSingingPreset(state, extras),\n  apply: snapshot => {\n    const { model, extras: nextExtras } = splitThroatSingingPreset(snapshot);\n    const styleId = throatSingingStyleIdForPreset(snapshot);\n    performSilentModelSwap((immediate) => {\n      state = sanitizedAppState({ ...model, styleId: styleId ?? state.styleId, level: state.level }, state);\n      extras = { ...nextExtras };\n      activeStyleId = state.styleId;\n      modelProvenance = styleId ? { kind: \"preset\", id: styleId } : { kind: \"custom\", fromId: state.styleId };\n      performanceStartedAt = performance.now();\n      lastTractSignature = \"\";\n      updateReadouts();\n      applyAudioParameters(immediate);\n    });\n  },\n  randomize: randomizeThroatSingingPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/throatazoid/throatazoid-app.js",
+   "sha256": "604cf51e2acc5fd8f6ce69ed24fde4609dc5d969cd6da049e373c39185cd128d",
+   "replacements": [
+    {
+     "before": "  waveformLevel,\n} from \"../../families/tract/throatazoid.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n",
+     "after": "  waveformLevel,\n} from \"../../families/tract/throatazoid.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  THROATAZOID_FULL_PRESETS,\n  captureThroatazoidPreset,\n  randomizeThroatazoidPreset,\n  throatazoidPresetEntryForSnapshot,\n  validateThroatazoidPreset,\n} from \"./full-presets.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\n"
+    },
+    {
+     "before": "updateUi();\nframeHandle = requestAnimationFrame(frame);\n",
+     "after": "updateUi();\nframeHandle = requestAnimationFrame(frame);\n\nregisterHeaderPresets({\n  id: \"throatazoid\", presets: THROATAZOID_FULL_PRESETS,\n  capture: () => captureThroatazoidPreset(state),\n  apply: snapshot => {\n    validateThroatazoidPreset(snapshot);\n    if (pointerPhonemeTimer) clearTimeout(pointerPhonemeTimer);\n    pointerPhonemeTimer = 0;\n    pointerPhonemeSession = null;\n    const entry = throatazoidPresetEntryForSnapshot(snapshot);\n    loadVoiceProfile(snapshot);\n    for (const key of [\"motionEnabled\", \"motionDepth\", \"motionMouths\", \"motionTongues\", \"motionNoses\", \"motionPressure\"]) {\n      state[key] = snapshot[key];\n    }\n    state.voicePreset = entry?.voicePreset ?? \"\";\n    if (state.voicePreset) carrierVowel = VOICE_PRESETS[state.voicePreset].phoneme;\n    selectedThroat = 0;\n    selectedTongue = 0;\n    selectedNose = 0;\n    markAudioDirty();\n    updateUi();\n  },\n  randomize: randomizeThroatazoidPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/trackazoid/app.js",
+   "sha256": "d24e455faecf3d57ce7efd0881a7f32fbd41c13e947f9e23914a8bc3e8dd5a52",
+   "replacements": [
+    {
+     "before": "import { createBeatAnalyzer, BEAT_ANALYSIS_VERSION } from \"./beat-analysis-client.js\";\nimport { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis, withTrackPad, PAD_COUNT } from \"./library-model.js\";\nimport { DEMO_TRACKS, createDemoFile } from \"./demo-tracks.js\";\n\n",
+     "after": "import { createBeatAnalyzer, BEAT_ANALYSIS_VERSION } from \"./beat-analysis-client.js\";\nimport { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis, withTrackPad, PAD_COUNT } from \"./library-model.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  TRACKAZOID_FULL_PRESETS,\n  captureTrackazoidPreset,\n  randomizeTrackazoidPreset,\n  validateTrackazoidPreset,\n} from \"./full-presets.js\";\nimport { DEMO_TRACKS, createDemoFile } from \"./demo-tracks.js\";\n\n"
+    },
+    {
+     "before": "}).catch(showError);\nframe = requestAnimationFrame(animate);\n",
+     "after": "}).catch(showError);\nframe = requestAnimationFrame(animate);\n\nconst DECK_IDS = [\"a\", \"b\"];\nfunction applyTrackazoidPreset(snapshot) {\n  validateTrackazoidPreset(snapshot);\n  const set = (id, value) => { $(id).value = String(value); $(id).dispatchEvent(new Event(\"input\", { bubbles: true })); };\n  const pitchChanges = [];\n  snapshot.decks.forEach((deck, index) => {\n    const id = DECK_IDS[index];\n    set(`${id}Gain`, deck.gain); set(`${id}low`, deck.eqLow); set(`${id}mid`, deck.eqMid); set(`${id}high`, deck.eqHigh);\n    set(`${id}Filter`, deck.filter);\n    engine.setQuantize(id, deck.quantize);\n    if (engine.snapshot(id).keyLock !== deck.keyLock) pitchChanges.push(setPitchMode([id], deck.keyLock));\n  });\n  set(\"crossfader\", snapshot.crossfader);\n  updateDecks();\n  return pitchChanges.length ? Promise.all(pitchChanges).then(() => undefined) : undefined;\n}\n\nregisterHeaderPresets({\n  id: \"trackazoid\", presets: TRACKAZOID_FULL_PRESETS,\n  capture: () => captureTrackazoidPreset({\n    crossfader: engine.crossfader,\n    decks: DECK_IDS.map(id => {\n      const deck = engine.decks[id], snapshot = engine.snapshot(id);\n      return { gain: deck.gain, eqLow: deck.eq.low, eqMid: deck.eq.mid, eqHigh: deck.eq.high, filter: deck.filter,\n        keyLock: snapshot.keyLock, quantize: snapshot.quantize };\n    }),\n  }),\n  apply: applyTrackazoidPreset,\n  randomize: randomizeTrackazoidPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/trackazoid/style.css",
+   "sha256": "8f2d6ddf999a11b99561ca2b14002e7338145285fd36d28642e1f6d9d508fde2",
+   "replacements": [
+    {
+     "before": "  .tz-library th:nth-child(5) { width: 38%; }\n}\n",
+     "after": "  .tz-library th:nth-child(5) { width: 38%; }\n}\n.tz-preset-host > .instrument-preset-controls { max-width: 460px; margin: 0 0 10px; }\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/vocalzoid/vocalzoid-app.js",
+   "sha256": "589fd3261efae128608a77d5f82c1539791b998f1aa594180e748fbad8509f6d",
+   "replacements": [
+    {
+     "before": "  vocalzoidSequenceBeats,\n} from \"./vocalzoid.js\";\nimport { VocalzoidAudio } from \"./vocalzoid-audio.js\";\nimport {\n",
+     "after": "  vocalzoidSequenceBeats,\n} from \"./vocalzoid.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  VOCALZOID_FULL_PRESETS, captureVocalzoidPreset, randomizeVocalzoidPreset, validateVocalzoidPreset,\n} from \"./full-presets.js\";\nimport { VocalzoidAudio } from \"./vocalzoid-audio.js\";\nimport {\n"
+    },
+    {
+     "before": "renderScore();\ndrawSpectrum();\n",
+     "after": "renderScore();\ndrawSpectrum();\n\nregisterHeaderPresets({\n  id: \"vocalzoid\", presets: VOCALZOID_FULL_PRESETS, randomize: randomizeVocalzoidPreset,\n  capture: () => captureVocalzoidPreset(state),\n  apply(snapshot) {\n    validateVocalzoidPreset(snapshot);\n    const wasPlaying = state.playing;\n    state.scoreRequest += 1;\n    haltPlayback();\n    const notes = snapshot.notes.map((note) => updateVocalzoidNote(note));\n    Object.assign(state, {\n      word: snapshot.word,\n      style: snapshot.style,\n      bpm: snapshot.bpm,\n      vibrato: snapshot.vibrato,\n      glide: snapshot.glide,\n      scoreBeats: snapshot.scoreBeats,\n      randomScore: snapshot.randomScore,\n      notes,\n      selectedId: notes[0]?.id ?? \"\",\n    });\n    audio.setStyle(state.style);\n    $(\"buildScore\").disabled = false;\n    $(\"buildScore\").textContent = \"Set lyric\";\n    updateControlUi();\n    updateSourceUi();\n    renderScore();\n    if (wasPlaying) void playSequence();\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/webgpu-303/webgpu-303-app.js",
+   "sha256": "f036233db84632aaa817f9d183766817b276dd2b81ecf430b950b3dd252e459c",
+   "replacements": [
+    {
+     "before": "  SIMD_303_USER_PRESET_STORAGE_KEY,\n} from \"../../simd-303-user-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  SIMD_303_USER_PRESET_STORAGE_KEY,\n} from \"../../simd-303-user-presets.js\";\nimport { registerHeaderPresets, presetStateKey } from \"../../site/header-presets.js\";\nimport { FULL_SIMD_303, FULL_WEBGPU_303 } from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  void stopAudio({ quiet: true });\n});\n",
+     "after": "  void stopAudio({ quiet: true });\n});\n\nconst fullPresets = isSimdPage ? FULL_SIMD_303 : FULL_WEBGPU_303;\nregisterHeaderPresets({\n  id: isSimdPage ? \"simd-303\" : \"webgpu-303\",\n  presets: fullPresets.presets,\n  capture: () => fullPresets.capture(state),\n  apply: snapshot => {\n    fullPresets.validate(snapshot);\n    settleActiveMorph();\n    state.params = sanitize303Params({ ...state.params, ...snapshot.params });\n    state.sequence = sanitizeWebGpu303Sequence(snapshot.sequence);\n    if (isSimdPage) {\n      state.xlParams = sanitizeSimd303XlParams(snapshot.xlParams);\n      state.stepExpression = sanitizeSimd303StepExpression(snapshot.stepExpression);\n    }\n    const key = presetStateKey(snapshot);\n    const match = fullPresets.presets.find(preset => presetStateKey(preset.snapshot) === key);\n    state.presetId = presets.some(({ id }) => id === match?.id) ? match.id : \"custom\";\n    syncParamOutputs();\n    engine?.updateParams(state.params);\n    engine?.updateSequence(state.sequence);\n    engine?.updateXlParams?.(state.xlParams);\n    engine?.updateStepExpression?.(state.stepExpression);\n  },\n  randomize: fullPresets.randomize,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/webgpu-synths/webgpu-synths-app.js",
+   "sha256": "7e5ca11c17e59f1cfb35893163110ec2480d64656089a0a9e5477a38b15094a3",
+   "replacements": [
+    {
+     "before": "  webGpuSynthSupport,\n} from \"./webgpu-synths.js?v=20260826-phase-safe-presets\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  webGpuSynthSupport,\n} from \"./webgpu-synths.js?v=20260826-phase-safe-presets\";\nimport { presetStateKey, registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  captureWebGpuSynthsPreset,\n  randomizeWebGpuSynthsPreset,\n  validateWebGpuSynthsPreset,\n  webGpuSynthsPresetEntry,\n} from \"./full-presets.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  void stopAudio({ quiet: true });\n});\n",
+     "after": "  void stopAudio({ quiet: true });\n});\n\nconst fullPresetBank = PRESETS.map((definition) => webGpuSynthsPresetEntry(definition));\nregisterHeaderPresets({\n  id: \"webgpu-synths\", presets: fullPresetBank,\n  capture: () => captureWebGpuSynthsPreset(state),\n  apply: (snapshot) => {\n    validateWebGpuSynthsPreset(snapshot);\n    const key = presetStateKey(snapshot);\n    state.params = sanitizeWebGpuSynthParams(snapshot.params);\n    state.sequence = sanitizeWebGpuSynthSequence(snapshot.sequence);\n    state.laneRoutes = sanitizeWebGpuSynthLaneRoutes(snapshot.laneRoutes);\n    state.modelLayers = sanitizeWebGpuSynthModelLayers(snapshot.modelLayers);\n    state.organRanks = sanitizeWebGpuSynthOrganRanks(snapshot.organRanks);\n    state.techniqueId = snapshot.techniqueId;\n    state.presetId = fullPresetBank.find((preset) => presetStateKey(preset.snapshot) === key)?.id ?? \"custom\";\n    engine?.updateParams(state.params);\n    engine?.updateSequence(state.sequence);\n    engine?.updateLaneRoutes(state.laneRoutes);\n    engine?.updateModelLayers(state.modelLayers);\n    engine?.updateOrganRanks(state.organRanks);\n    renderModelLayers();\n    syncOrganRankInputs();\n    syncReadouts();\n    syncPressedStates();\n  },\n  randomize: randomizeWebGpuSynthsPreset,\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/weierstrass/weierstrass-app.js",
+   "sha256": "6408e3a5b3b277a5f78073f24afcf8748cd2711a82c95fd1e3db89548415f972",
+   "replacements": [
+    {
+     "before": "import {\n  DEFAULT_WEIERSTRASS_PRESET_ID,\n",
+     "after": "import { registerHeaderPresets } from \"../../site/header-presets.js\";\nimport {\n  WEIERSTRASS_FULL_PRESETS, captureWeierstrassPreset, randomizeWeierstrassPreset, validateWeierstrassPreset,\n} from \"./full-presets.js\";\nimport {\n  DEFAULT_WEIERSTRASS_PRESET_ID,\n"
+    },
+    {
+     "before": "updateAudioInterface();\nresizeCanvas();\n",
+     "after": "updateAudioInterface();\nresizeCanvas();\n\nregisterHeaderPresets({\n  id: \"weierstrass\", presets: WEIERSTRASS_FULL_PRESETS,\n  capture: () => captureWeierstrassPreset(state.settings),\n  randomize: randomizeWeierstrassPreset,\n  apply(raw) {\n    const snapshot = validateWeierstrassPreset(raw);\n    state.fmMemory = { fmDepthHz: snapshot.fmDepthHz, offsetHz: snapshot.offsetHz };\n    state.pmMemory = { pmCarrierFrequencyHz: snapshot.pmCarrierFrequencyHz, pmIndexCycles: snapshot.pmIndexCycles };\n    applySettings(snapshot);\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/algorithmic-sequencers.html",
+   "sha256": "f542a03e64cded7afdba0be774fe01fd4f72acc7e178cf32c252ed5b32915fad",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel algorithmic-sequencers-panel\" aria-label=\"Algorithmic Sequencers controls\">\n        <div class=\"algorithmic-randomize-bar\">\n          <button class=\"mini-action algorithmic-randomize-top\" id=\"randomInput\" type=\"button\">Randomize order</button>\n",
+     "after": "      </section>\n\n      <aside class=\"panel algorithmic-sequencers-panel\" data-instrument-preset-host aria-label=\"Algorithmic Sequencers controls\">\n        <div class=\"algorithmic-randomize-bar\">\n          <button class=\"mini-action algorithmic-randomize-top\" id=\"randomInput\" type=\"button\">Randomize order</button>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/blowhole.html",
+   "sha256": "affe8085e0e753edbfb92669c7dade98001d1eefbc7f293b302e8e07a2ddb7cc",
+   "replacements": [
+    {
+     "before": "\n        <aside class=\"blowhole-console\" aria-label=\"Blowhole controls\">\n          <section class=\"blowhole-transport\" aria-label=\"Call transport\">\n            <button id=\"playButton\" class=\"blowhole-play\" type=\"button\" aria-pressed=\"false\" data-primary-transport>\n",
+     "after": "\n        <aside class=\"blowhole-console\" aria-label=\"Blowhole controls\">\n          <div data-instrument-preset-host></div>\n          <section class=\"blowhole-transport\" aria-label=\"Call transport\">\n            <button id=\"playButton\" class=\"blowhole-play\" type=\"button\" aria-pressed=\"false\" data-primary-transport>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/chaotic-fm.html",
+   "sha256": "5113e959db3c36ed474e7aa630dc456b29db7b7d7ff34dbe833b7f7cb1e999c9",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel chaotic-fm-panel\" aria-label=\"Chaotic FM controls\">\n        <section class=\"plugin-download-callout\" aria-labelledby=\"chaoticFmPluginTitle\">\n          <div class=\"plugin-download-callout-copy\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel chaotic-fm-panel\" data-instrument-preset-host aria-label=\"Chaotic FM controls\">\n        <section class=\"plugin-download-callout\" aria-labelledby=\"chaoticFmPluginTitle\">\n          <div class=\"plugin-download-callout-copy\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/chaotic-pm.html",
+   "sha256": "057c82939651a214832ded3ec016a7b88e81bdc7c25299e4faaaf626231813d6",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel chaotic-pm-panel\" aria-label=\"Chaotic PM controls\">\n        <details class=\"group control-section chaotic-pm-presets\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel chaotic-pm-panel\" data-instrument-preset-host aria-label=\"Chaotic PM controls\">\n        <details class=\"group control-section chaotic-pm-presets\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/crickets.html",
+   "sha256": "f972e2ab065e9df7c625b6df2c189d20d07e1849a416ddc20f08df84111ab494",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel cricket-panel\" aria-label=\"Crickets source and mechanism controls\">\n        <section class=\"cricket-card cricket-source-card\" aria-labelledby=\"cricket-call-title\">\n          <div class=\"cricket-card-heading\">\n",
+     "after": "\n      <aside class=\"panel cricket-panel\" aria-label=\"Crickets source and mechanism controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"cricket-card cricket-source-card\" aria-labelledby=\"cricket-call-title\">\n          <div class=\"cricket-card-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/dentaphone.html",
+   "sha256": "e47483c8a8daeaac32848d41682eff15525eef523a9bd08b5bbb63fa69de04da",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel physical-panel\" aria-label=\"Dentaphone controls\">\n        <section class=\"physical-card\" aria-labelledby=\"objectPresetTitle\">\n          <div class=\"physical-card-heading\">\n",
+     "after": "\n      <aside class=\"panel physical-panel\" aria-label=\"Dentaphone controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"physical-card\" aria-labelledby=\"objectPresetTitle\">\n          <div class=\"physical-card-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/digestazoid.html",
+   "sha256": "dc89c8615b18b35f15dd201fe10af61637874f8b8b721f1a2000f479bbcce5a0",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel digestazoid-panel\" aria-label=\"Digestazoid controls\">\n        <section class=\"digestazoid-preset-deck\" aria-labelledby=\"presetTitle\">\n          <div>\n",
+     "after": "\n      <aside class=\"panel digestazoid-panel\" aria-label=\"Digestazoid controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"digestazoid-preset-deck\" aria-labelledby=\"presetTitle\">\n          <div>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/drum-roll-please.html",
+   "sha256": "9ea42e9d414dbf8c12216ebc78050fbe850afa1d465b06bb1ccbf1eac07f3315",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel\" aria-label=\"Drum Roll Please controls\">\n        <section class=\"group drum-roll-identity\" aria-labelledby=\"engineTitle\">\n          <div class=\"drum-roll-identity-heading\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel\" data-instrument-preset-host aria-label=\"Drum Roll Please controls\">\n        <section class=\"group drum-roll-identity\" aria-labelledby=\"engineTitle\">\n          <div class=\"drum-roll-identity-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/enveloper.html",
+   "sha256": "ebc7fd094a0c5ada8f1487e6b99327db0fa645b98cc723a257f2722c458e9d34",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel enveloper-panel\" aria-label=\"Enveloper controls\">\n        <section class=\"enveloper-tree-card\" aria-labelledby=\"treeStateTitle\">\n          <div class=\"enveloper-tree-card-heading\">\n",
+     "after": "\n      <aside class=\"panel enveloper-panel\" aria-label=\"Enveloper controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"enveloper-tree-card\" aria-labelledby=\"treeStateTitle\">\n          <div class=\"enveloper-tree-card-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/fm-drums.html",
+   "sha256": "47ccce3546d714f804071e7f054b9ec30eba416dd0b1283b8bd8227e454299f3",
+   "replacements": [
+    {
+     "before": "\n    <main class=\"fm-drums-shell\" id=\"fmDrums\">\n      <section class=\"fm-drums-intro\" aria-label=\"FM drum preset actions\">\n        <div class=\"fm-bank-actions\" aria-label=\"Preset bank actions\">\n",
+     "after": "\n    <main class=\"fm-drums-shell\" id=\"fmDrums\">\n      <div data-instrument-preset-host></div>\n      <section class=\"fm-drums-intro\" aria-label=\"FM drum preset actions\">\n        <div class=\"fm-bank-actions\" aria-label=\"Preset bank actions\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/graph-drum-machine.html",
+   "sha256": "652b235085279976facb23916aa694ffe3b46bb6a786798105b5c9e1b61f381b",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel\" aria-label=\"Graph Drum Machine controls\">\n        <details class=\"group control-section\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">paused \u00b7 126 BPM \u00b7 1 beat</span></summary>\n",
+     "after": "      </section>\n\n      <aside class=\"panel\" data-instrument-preset-host aria-label=\"Graph Drum Machine controls\">\n        <details class=\"group control-section\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">paused \u00b7 126 BPM \u00b7 1 beat</span></summary>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/graphs.html",
+   "sha256": "90c252aa1c6ab9aefc8801c0ecc97b1ed226c33f3227df04a400ae5fbba450be",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"graphs-panel\" aria-label=\"Graphs controls\">\n        <header class=\"graphs-panel-header\">\n          <div class=\"graphs-mode-switch\" id=\"playingMode\" role=\"tablist\" aria-label=\"Graphs playing mode\">\n            <button id=\"modeSynth\" type=\"button\" role=\"tab\" data-playing-mode=\"synth\" aria-selected=\"true\" aria-controls=\"synthBank\">Synth</button>\n",
+     "after": "\n      <aside class=\"graphs-panel\" aria-label=\"Graphs controls\">\n        <header class=\"graphs-panel-header\" data-instrument-preset-host>\n          <div class=\"graphs-mode-switch\" id=\"playingMode\" role=\"tablist\" aria-label=\"Graphs playing mode\">\n            <button id=\"modeSynth\" type=\"button\" role=\"tab\" data-playing-mode=\"synth\" aria-selected=\"true\" aria-controls=\"synthBank\">Synth</button>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/harmonica.html",
+   "sha256": "92f26584eadf9930f797de6291313f11f0335161b08f8a8e075622584530737a",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Harmonicazoid controls\">\n        <div class=\"jaw-transport harmonica-transport\" aria-label=\"Harmonicazoid breath transport\">\n          <button id=\"drawButton\" type=\"button\" aria-pressed=\"false\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Harmonicazoid controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"jaw-transport harmonica-transport\" aria-label=\"Harmonicazoid breath transport\">\n          <button id=\"drawButton\" type=\"button\" aria-pressed=\"false\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/hocket-loom.html",
+   "sha256": "136337191f37156ffbbf9fc7e91fdf754238b903d49128ee858317eb13065db4",
+   "replacements": [
+    {
+     "before": "\n        <aside class=\"hocket-console\" aria-label=\"Hocket Luigi controls\">\n          <section class=\"hocket-transport\" aria-label=\"Transport, tempo, direction, and voice audition\">\n            <div class=\"hocket-transport-grid\">\n",
+     "after": "\n        <aside class=\"hocket-console\" aria-label=\"Hocket Luigi controls\">\n          <div data-instrument-preset-host></div>\n          <section class=\"hocket-transport\" aria-label=\"Transport, tempo, direction, and voice audition\">\n            <div class=\"hocket-transport-grid\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/hyper-drum-machine.html",
+   "sha256": "feba839f92b328c5cbc6939664f61a26407b01e69adfc5006bad22e14ec1fe88",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel hyper-drums-panel\" aria-label=\"Hyper Drum Machine controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel hyper-drums-panel\" data-instrument-preset-host aria-label=\"Hyper Drum Machine controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/jaw-jam.html",
+   "sha256": "7a43f4df570e78b5c4fb7d5be6ec7277b2aa734c07d62f393fd98fac47f406a8",
+   "replacements": [
+    {
+     "before": "        </p>\n      </header>\n\n      <section class=\"jaw-jam-command-deck\" aria-label=\"Transport and sequence controls\">\n",
+     "after": "        </p>\n      </header>\n\n      <div class=\"jaw-jam-preset-host\" data-instrument-preset-host></div>\n\n      <section class=\"jaw-jam-command-deck\" aria-label=\"Transport and sequence controls\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/julia.html",
+   "sha256": "1f6667e499a47b9b89720d1f9a9dc7fbee54ace426e5db92e5804450448793a1",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Julia controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">boundary \u00b7 paused</span></summary>\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Julia controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">boundary \u00b7 paused</span></summary>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/julie-saw.html",
+   "sha256": "73fa550b68cde072666801c1a4f29479424c992f0fab846716cd6aa8b31ef6bf",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Julie Saw controls\">\n        <section class=\"julie-top\" aria-label=\"Transport and recovery\">\n          <button id=\"playButton\" class=\"julie-play\" type=\"button\" data-primary-transport aria-pressed=\"false\" aria-label=\"Play automatic saw phrase\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Julie Saw controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"julie-top\" aria-label=\"Transport and recovery\">\n          <button id=\"playButton\" class=\"julie-play\" type=\"button\" data-primary-transport aria-pressed=\"false\" aria-label=\"Play automatic saw phrase\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/l-system-drum-machine.html",
+   "sha256": "adf40cf517851ed03330c8f5d7eaf229b5474360422c9042e7799818e09bca38",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel l-system-drums-panel\" aria-label=\"L-System Drum Machine controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "\n      <aside class=\"panel l-system-drums-panel\" aria-label=\"L-System Drum Machine controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/lattice-drum-machine.html",
+   "sha256": "59fd2a8a92566917b97ae675557b6a9ce73ea28621d9a9a175bed803028f0306",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel lattice-drums-panel\" aria-label=\"Lattice Drum Machine controls\">\n        <section class=\"group control-section always-open\">\n          <div class=\"group-summary static-group-summary\">\n",
+     "after": "\n      <aside class=\"panel lattice-drums-panel\" aria-label=\"Lattice Drum Machine controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"group control-section always-open\">\n          <div class=\"group-summary static-group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/linear-drums.html",
+   "sha256": "3b727794c241dfb53dcd03a4e52792c8c5fbe658de947d86dd67dd461a21a3a3",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"linear-control-panel\" aria-label=\"Linear drum controls\">\n        <section class=\"linear-control-section linear-sweep-section\" data-section=\"play\">\n          <div class=\"linear-section-heading\"><h2>Sweep</h2><output>GLISSANDO</output></div>\n",
+     "after": "\n      <aside class=\"linear-control-panel\" aria-label=\"Linear drum controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"linear-control-section linear-sweep-section\" data-section=\"play\">\n          <div class=\"linear-section-heading\"><h2>Sweep</h2><output>GLISSANDO</output></div>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/lumber.html",
+   "sha256": "e2584ba0d751a52ea9ea2921dcd8a9833f35bc18b24f390fd60b71836faeee8d",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Lumber Loops controls\">\n        <details class=\"group control-section performance-group\" id=\"loopSection\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Lumber Loops controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section performance-group\" id=\"loopSection\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/monstroid.html",
+   "sha256": "b8eb7bba838bca7fe7bb0d3b4be62f99a7e0dfb69e662d198049afb468019d92",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel colony-console control-rail\" aria-label=\"Monstroid controls\">\n        <section class=\"colony-console-section colony-primary-section\" aria-labelledby=\"primaryActionsTitle\">\n          <div class=\"console-heading\"><span>MONSTRO GENERATOR</span><output id=\"seedReadout\">SEED 436F6C6F</output></div>\n",
+     "after": "\n      <aside class=\"panel colony-console control-rail\" aria-label=\"Monstroid controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"colony-console-section colony-primary-section\" aria-labelledby=\"primaryActionsTitle\">\n          <div class=\"console-heading\"><span>MONSTRO GENERATOR</span><output id=\"seedReadout\">SEED 436F6C6F</output></div>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/ouroboros-borealis.html",
+   "sha256": "86cd4f11afd89d0fb8003c1e3e2442b19775a539ae2397e2c23da148d4159e57",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel ouroboros-control-panel borealis-control-panel\" aria-label=\"Ouroboros Borealis controls\">\n        <section class=\"group control-section ouroboros-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n",
+     "after": "\n      <aside class=\"panel ouroboros-control-panel borealis-control-panel\" aria-label=\"Ouroboros Borealis controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"group control-section ouroboros-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/ouroboros.html",
+   "sha256": "2c3863e95776b9309498449175f2cffa12db4ac7c4e4d220261e1a43a354be4b",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel ouroboros-control-panel\" aria-label=\"Ouroboros controls\">\n\n        <section class=\"group control-section ouroboros-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n",
+     "after": "\n      <aside class=\"panel ouroboros-control-panel\" aria-label=\"Ouroboros controls\">\n\n        <div data-instrument-preset-host></div>\n\n        <section class=\"group control-section ouroboros-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/ouroborousel.html",
+   "sha256": "9165ddcd7164b18a6c1dff930b902cf11641ef893cae79f79309101668980e35",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel ouroborousel-control-panel\" aria-label=\"Ouroborousel controls\">\n        <section class=\"group control-section ouroborousel-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n",
+     "after": "\n      <aside class=\"panel ouroborousel-control-panel\" aria-label=\"Ouroborousel controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"group control-section ouroborousel-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/ourorourobouroboros.html",
+   "sha256": "75c63f0145c6d68cd8d0008c4e671dd80666c83cf24efd15837836682f4fcf74",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel ouroborousel-control-panel\" aria-label=\"Ourorourobouroboros controls\">\n        <section class=\"group control-section ouroborousel-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n",
+     "after": "\n      <aside class=\"panel ouroborousel-control-panel\" aria-label=\"Ourorourobouroboros controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"group control-section ouroborousel-play-section\" data-section=\"play\" aria-labelledby=\"playSectionTitle\">\n          <div class=\"group-summary static-group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/pink-trombonazoid.html",
+   "sha256": "ba80ce4bc5b04f84ecf0bdda89afe6944a5714187e85f4adc082bf594942392c",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"ptz-panel\" aria-label=\"Pink Trombonazoid controls\">\n        <details class=\"ptz-panel-section ptz-selected-editor\" aria-labelledby=\"selectedTitle\" open>\n          <summary class=\"ptz-panel-summary\">\n",
+     "after": "\n      <aside class=\"ptz-panel\" aria-label=\"Pink Trombonazoid controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"ptz-panel-section ptz-selected-editor\" aria-labelledby=\"selectedTitle\" open>\n          <summary class=\"ptz-panel-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/rattlesnake-skin.html",
+   "sha256": "bde1225c90cbcbe8f465dc3148cd36db2e6e8fb8a6a1736b81594ff315314be8",
+   "replacements": [
+    {
+     "before": "\n        <aside class=\"paint-inspector\" aria-label=\"Paint and layer controls\">\n          <section class=\"paint-inspector-section\">\n            <div class=\"paint-section-heading\">\n",
+     "after": "\n        <aside class=\"paint-inspector\" aria-label=\"Paint and layer controls\">\n          <div data-instrument-preset-host></div>\n          <section class=\"paint-inspector-section\">\n            <div class=\"paint-section-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/sample-drums.html",
+   "sha256": "96533c8e1ba649aea4d3f717e13d0ac5a3e768358d2c761de1c0ca16f45263c4",
+   "replacements": [
+    {
+     "before": "\n    <main class=\"fm-drums-shell sample-drums-shell\" id=\"sampleDrums\">\n      <section class=\"fm-drums-intro sample-drums-intro\" aria-label=\"Sample drum preset actions\">\n        <div class=\"sample-load-state\" aria-live=\"polite\">\n",
+     "after": "\n    <main class=\"fm-drums-shell sample-drums-shell\" id=\"sampleDrums\">\n      <div data-instrument-preset-host></div>\n      <section class=\"fm-drums-intro sample-drums-intro\" aria-label=\"Sample drum preset actions\">\n        <div class=\"sample-load-state\" aria-live=\"polite\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/shader-synth-playground.html",
+   "sha256": "a78b87662f586091ba43c95ff2a1b1ea092ef184bf729fede902d674293b2350",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"node-inspector\" id=\"nodeInspector\" aria-labelledby=\"inspectorTitle\">\n        <section class=\"inspector-session-controls\" aria-label=\"Patch playback and preset\">\n          <button\n",
+     "after": "      </section>\n\n      <aside class=\"node-inspector\" id=\"nodeInspector\" data-instrument-preset-host aria-labelledby=\"inspectorTitle\">\n        <section class=\"inspector-session-controls\" aria-label=\"Patch playback and preset\">\n          <button\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/shape-drum-machine.html",
+   "sha256": "455a9faa199d4c9f617584272dce583352607f8f6c108c533b8846172cd0e5a2",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel shape-drums-panel\" aria-label=\"Shape Drum Machine controls\">\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel shape-drums-panel\" data-instrument-preset-host aria-label=\"Shape Drum Machine controls\">\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/shepard-risset.html",
+   "sha256": "1beb3dcc0b7889fbaaa8d4565c7555f2a76239ef4bb4caef9427f8a4f6366d78",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel\" aria-label=\"Shepard\u2013Risset controls\">\n        <section class=\"group shepard-mode-section\" aria-labelledby=\"modeTitle\">\n          <div class=\"shepard-mode-heading\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel\" data-instrument-preset-host aria-label=\"Shepard\u2013Risset controls\">\n        <section class=\"group shepard-mode-section\" aria-labelledby=\"modeTitle\">\n          <div class=\"shepard-mode-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/simd-303.html",
+   "sha256": "28214a0bc2115faa212435f3e6774641b4086a957c414742cec2d375f81b6e72",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"SIMD 303 controls\">\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebAssembly</b>\n",
+     "after": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"SIMD 303 controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebAssembly</b>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/simd-chiptune.html",
+   "sha256": "a1a56e82833d125cdef8cdd042a984768fe131d3547fe223edd796bbf4ecfa0e",
+   "replacements": [
+    {
+     "before": "<div class=\"simd-live-deck\" role=\"region\" aria-label=\"Pinned live controls\">\n<div class=\"simd-live-settings\" role=\"region\" aria-label=\"Preset, tempo, and global controls\" tabindex=\"0\">\n<section class=\"simd-performance-controls\" aria-label=\"Live performance controls\">\n  <div class=\"simd-tempo-transport\" aria-label=\"Playback and tempo\"><button\n",
+     "after": "<div class=\"simd-live-deck\" role=\"region\" aria-label=\"Pinned live controls\">\n<div class=\"simd-live-settings\" role=\"region\" aria-label=\"Preset, tempo, and global controls\" tabindex=\"0\">\n<div data-instrument-preset-host></div>\n<section class=\"simd-performance-controls\" aria-label=\"Live performance controls\">\n  <div class=\"simd-tempo-transport\" aria-label=\"Playback and tempo\"><button\n"
+    },
+    {
+     "before": "  </div>\n  </div>\n  <div class=\"simd-preset-controls\" aria-label=\"Instrument preset\">\n    <label class=\"simd-preset-fallback\" for=\"simdPresetSelect\"><span class=\"sr-only\">Preset</span><select id=\"simdPresetSelect\" aria-label=\"Preset\"><option value=\"source\">Source Tracker</option></select></label>\n    <button id=\"nextPreset\" class=\"instrument-picker-next\" type=\"button\" aria-label=\"Next preset\"><span aria-hidden=\"true\">\u25b6</span></button>\n",
+     "after": "  </div>\n  </div>\n  <div class=\"simd-preset-controls\" aria-label=\"Instrument preset\" hidden>\n    <label class=\"simd-preset-fallback\" for=\"simdPresetSelect\"><span class=\"sr-only\">Preset</span><select id=\"simdPresetSelect\" aria-label=\"Preset\"><option value=\"source\">Source Tracker</option></select></label>\n    <button id=\"nextPreset\" class=\"instrument-picker-next\" type=\"button\" aria-label=\"Next preset\"><span aria-hidden=\"true\">\u25b6</span></button>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/simd-synth.html",
+   "sha256": "f24baf7eb363714bb787f048684eb2897039e67c4311ab8f5dbbb6d1308a3d33",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel simd-synth-panel\" aria-label=\"SIMD Synth patch controls\">\n        <section class=\"simd-panel-transport\" aria-label=\"Transport, tempo, and patch recall\">\n          <div class=\"simd-transport-row\">\n",
+     "after": "\n      <aside class=\"panel simd-synth-panel\" aria-label=\"SIMD Synth patch controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"simd-panel-transport\" aria-label=\"Transport, tempo, and patch recall\">\n          <div class=\"simd-transport-row\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/sliding-puzzle.html",
+   "sha256": "f2d02b019a442c6335da07b8999a49ffef45b84b3d8dff24c936a643d850b24d",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel sliding-puzzle-panel\" aria-label=\"Sliding Puzzle controls\">\n        <div class=\"sliding-status-strip\">\n          <b id=\"puzzleState\">Solved \u00b7 4 \u00d7 4 \u00b7 15 notes / one rest</b>\n",
+     "after": "\n      <aside class=\"panel sliding-puzzle-panel\" aria-label=\"Sliding Puzzle controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"sliding-status-strip\">\n          <b id=\"puzzleState\">Solved \u00b7 4 \u00d7 4 \u00b7 15 notes / one rest</b>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/solid-drum-machine.html",
+   "sha256": "823ea10f527227f4c1ff0eab2e3c2040c740440ed6624b888832c199c47f60bf",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel solid-drums-panel\" aria-label=\"Solid Drum Machine controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">surface reader \u00b7 paused \u00b7 loop \u00b7 forward</span></summary>\n",
+     "after": "      </section>\n\n      <aside class=\"panel solid-drums-panel\" data-instrument-preset-host aria-label=\"Solid Drum Machine controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\"><h2 class=\"group-title\">Play</h2><span class=\"section-state\" id=\"playSummary\">surface reader \u00b7 paused \u00b7 loop \u00b7 forward</span></summary>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/spartial.html",
+   "sha256": "ea0e9c9c2ad32b1edd6019dd040dbce4fe492bbf487e2a49e9f3cf5e5c4102b9",
+   "replacements": [
+    {
+     "before": "        <p id=\"multitrackHint\" class=\"control-note\">Turn Audio on to record all speaker channels.</p>\n      </div>\n      <div class=\"preset-row full-preset-row\"><label class=\"sr-only\" for=\"preset\">Instrument preset</label><select id=\"preset\"></select><button id=\"nextPreset\" class=\"mini-action\" type=\"button\" aria-label=\"Next instrument preset\" title=\"Next instrument preset\">\u25b6</button><button id=\"randomPreset\" class=\"mini-action dice-button\" type=\"button\" aria-label=\"Randomize instrument\" title=\"Randomize instrument\"><svg viewBox=\"0 0 24 24\" aria-hidden=\"true\"><rect x=\"4\" y=\"4\" width=\"16\" height=\"16\" rx=\"2\"/><circle cx=\"8\" cy=\"8\" r=\"1\"/><circle cx=\"16\" cy=\"8\" r=\"1\"/><circle cx=\"12\" cy=\"12\" r=\"1\"/><circle cx=\"8\" cy=\"16\" r=\"1\"/><circle cx=\"16\" cy=\"16\" r=\"1\"/></svg></button></div>\n      <section class=\"spartial-mixer\" aria-label=\"Additive and granular mixer\">\n        <label class=\"control\" for=\"granularMix\"><span><b>Layer mix</b><output id=\"granularMixOut\" for=\"granularMix\">100% / 0%</output></span><input id=\"granularMix\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0\" aria-label=\"Additive to granular mix\" /></label>\n",
+     "after": "        <p id=\"multitrackHint\" class=\"control-note\">Turn Audio on to record all speaker channels.</p>\n      </div>\n      <section class=\"spartial-mixer\" aria-label=\"Additive and granular mixer\">\n        <label class=\"control\" for=\"granularMix\"><span><b>Layer mix</b><output id=\"granularMixOut\" for=\"granularMix\">100% / 0%</output></span><input id=\"granularMix\" type=\"range\" min=\"0\" max=\"1\" step=\"0.01\" value=\"0\" aria-label=\"Additive to granular mix\" /></label>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/spiral-drum-machine.html",
+   "sha256": "3143d75103fcbfabdee0e871476087a5e933daa1c170192fca02de2a4d8d8c3b",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel spiral-drums-panel\" aria-label=\"Spiral Drum Machine controls\">\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "\n      <aside class=\"panel spiral-drums-panel\" aria-label=\"Spiral Drum Machine controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/spiral.html",
+   "sha256": "2a566d30518984830189fe1c30e6d57326c41f9b892b0ef977d5a4ae172e564d",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Spiral controls\">\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Spiral controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section performance-group\" id=\"playSection\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/srtuss.html",
+   "sha256": "6bfc21b1eb3acba1971e9d3a94661bb8a2cef2322036a7be891b9ddfa4859f75",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel srtuss-editor\" aria-label=\"Selected song part and source controls\">\n        <section class=\"srtuss-transport\" aria-label=\"Master transport\">\n          <button\n",
+     "after": "      </section>\n\n      <aside class=\"panel srtuss-editor\" data-instrument-preset-host aria-label=\"Selected song part and source controls\">\n        <section class=\"srtuss-transport\" aria-label=\"Master transport\">\n          <button\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/striped-staircase.html",
+   "sha256": "8ed044dcd727ad845bb616f8470e02473f75d356c0c1eae33a6feb80690d30ac",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel striped-staircase-panel\" aria-label=\"Striped Staircase controls\">\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "\n      <aside class=\"panel striped-staircase-panel\" aria-label=\"Striped Staircase controls\">\n        <div data-instrument-preset-host></div>\n        <details class=\"group control-section\" data-section=\"play\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/surround-field.html",
+   "sha256": "33cdeb6a0476abfeef1771acacff677e84d99e5f48782ae1dabef558411e6feb",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel surround-panel\" aria-label=\"Surround for Safety controls\">\n        <section class=\"panel-transport\" id=\"panelTransport\" data-state=\"off\" aria-label=\"Audio-clock transport\">\n          <button class=\"field-play\" id=\"sequenceButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel surround-panel\" data-instrument-preset-host aria-label=\"Surround for Safety controls\">\n        <section class=\"panel-transport\" id=\"panelTransport\" data-state=\"off\" aria-label=\"Audio-clock transport\">\n          <button class=\"field-play\" id=\"sequenceButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/syrinx.html",
+   "sha256": "a9ef2f07c54ab59574d4809efecdcf70b0d6bfdc30a9ed0d199afd027acbe776",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Syrinx controls\">\n        <div class=\"syrinx-call-dock syrinx-panel-transport\" aria-label=\"Call transport\">\n          <button id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Syrinx controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"syrinx-call-dock syrinx-panel-transport\" aria-label=\"Call transport\">\n          <button id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/tesselation.html",
+   "sha256": "ed09e6b4db32a5ecb7c351e5202019a3616b32675dbc956467d086ad2c7d27a3",
+   "replacements": [
+    {
+     "before": "      <aside class=\"tiles-panel\" aria-label=\"Tesselation controls\">\n        <header class=\"tiles-panel-header\">\n          <div class=\"tiles-mode-switch\" id=\"tilesMode\" role=\"tablist\" aria-label=\"Tesselation mode\">\n            <button id=\"modeLattice\" type=\"button\" role=\"tab\" data-tiles-mode=\"lattice\" aria-selected=\"true\" aria-controls=\"synthBank\">Lattice</button>\n",
+     "after": "      <aside class=\"tiles-panel\" aria-label=\"Tesselation controls\">\n        <header class=\"tiles-panel-header\">\n          <div data-instrument-preset-host></div>\n          <div class=\"tiles-mode-switch\" id=\"tilesMode\" role=\"tablist\" aria-label=\"Tesselation mode\">\n            <button id=\"modeLattice\" type=\"button\" role=\"tab\" data-tiles-mode=\"lattice\" aria-selected=\"true\" aria-controls=\"synthBank\">Lattice</button>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/throat-singing.html",
+   "sha256": "59a290ed182777fc1af72d4b41cddce65b138badb1ca1ad0bbd7f0832662c374",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel throat-panel\" aria-label=\"Throat singing controls\">\n        <div class=\"throat-transport\" aria-label=\"Performance transport\">\n          <button id=\"singButton\" type=\"button\" aria-pressed=\"false\" aria-keyshortcuts=\"Space\" data-primary-transport>\n",
+     "after": "\n      <aside class=\"panel throat-panel\" aria-label=\"Throat singing controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"throat-transport\" aria-label=\"Performance transport\">\n          <button id=\"singButton\" type=\"button\" aria-pressed=\"false\" aria-keyshortcuts=\"Space\" data-primary-transport>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/throatazoid.html",
+   "sha256": "3ec50248283f18a75594513365325d6291396a6db14b8bbd8403cd1481a0f4fb",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Throatazoid controls\">\n        <section\n          class=\"throatazoid-performance-presets\"\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Throatazoid controls\">\n        <div data-instrument-preset-host></div>\n        <section\n          class=\"throatazoid-performance-presets\"\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/tongued-beasts.html",
+   "sha256": "d487359658411f05c41eda7707cd1a76a19bb601c6d2de9fce89970d10a34e5b",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel\" aria-label=\"Tongued Beasts controls\">\n        <div class=\"syrinx-call-dock syrinx-panel-transport\" aria-label=\"Call transport\">\n          <button id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n",
+     "after": "\n      <aside class=\"panel\" aria-label=\"Tongued Beasts controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"syrinx-call-dock syrinx-panel-transport\" aria-label=\"Call transport\">\n          <button id=\"playButton\" type=\"button\" data-primary-transport aria-pressed=\"false\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/trackazoid.html",
+   "sha256": "af33de126f4d077f0e55721d11bcbfa4e284dbfc9ce43d85bad4f551d0166174",
+   "replacements": [
+    {
+     "before": "  <section class=\"tz-stage\" aria-label=\"Trackazoid mixing workspace\">\n    <div class=\"tz-heading\"><h1>trackazoid</h1><p id=\"sessionStatus\" role=\"status\" aria-live=\"polite\">Drop your tracks. Find the next mix.</p><button id=\"demoPair\" type=\"button\">Try demo pair</button><details class=\"tz-help\"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck \u00b7 <b>Space</b> play/pause \u00b7 <b>I / O</b> selection In/Out \u00b7 <b>L</b> loop selection (or beat loop) \u00b7 <b>M</b> add marker \u00b7 <b>1\u20138</b> cue/loop pads \u00b7 <b>Q</b> Quantize \u00b7 <b>[ / ]</b> beat jump (Shift moves the loop) \u00b7 <b>Delete</b> clear selection \u00b7 <b>Esc</b> pause both.</p><p>Empty pads save the selected chunk or active loop; otherwise they save a cue. Filled pads recall it. Shift-click a pad or press Shift+1\u20138 to clear it. Edit pads to name or replace a saved point or loop. Click the waveform to seek; drag to select, drag its edges to trim, Shift-drag to pan, or Shift-click to extend. Double-click to seek and add a marker; drag a numbered flag to move it. Snap aligns edits to beats; Alt bypasses it. Quantize keeps cue and loop recalls in time while playing. Zoom, Fit and Follow change only the view. Use Loop selection to apply a chunk; clearing the selection keeps the loop playing.</p><p>Tempo and beats are detected on load. Press Sync on either deck to match the other, even while paused. Start either deck first. Keep pitch preserves the original pitch; switch it off for pitch that follows tempo. Use Adjust only if the estimate needs correcting. Without a selection, drag active loop edges to trim the loop.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href=\"docs/trackazoid.md\">Trackazoid guide</a></div></details></div>\n    <div class=\"tz-decks\">\n\n",
+     "after": "  <section class=\"tz-stage\" aria-label=\"Trackazoid mixing workspace\">\n    <div class=\"tz-heading\"><h1>trackazoid</h1><p id=\"sessionStatus\" role=\"status\" aria-live=\"polite\">Drop your tracks. Find the next mix.</p><button id=\"demoPair\" type=\"button\">Try demo pair</button><details class=\"tz-help\"><summary>Keys &amp; help</summary><div><p><b>A / B</b> select a deck \u00b7 <b>Space</b> play/pause \u00b7 <b>I / O</b> selection In/Out \u00b7 <b>L</b> loop selection (or beat loop) \u00b7 <b>M</b> add marker \u00b7 <b>1\u20138</b> cue/loop pads \u00b7 <b>Q</b> Quantize \u00b7 <b>[ / ]</b> beat jump (Shift moves the loop) \u00b7 <b>Delete</b> clear selection \u00b7 <b>Esc</b> pause both.</p><p>Empty pads save the selected chunk or active loop; otherwise they save a cue. Filled pads recall it. Shift-click a pad or press Shift+1\u20138 to clear it. Edit pads to name or replace a saved point or loop. Click the waveform to seek; drag to select, drag its edges to trim, Shift-drag to pan, or Shift-click to extend. Double-click to seek and add a marker; drag a numbered flag to move it. Snap aligns edits to beats; Alt bypasses it. Quantize keeps cue and loop recalls in time while playing. Zoom, Fit and Follow change only the view. Use Loop selection to apply a chunk; clearing the selection keeps the loop playing.</p><p>Tempo and beats are detected on load. Press Sync on either deck to match the other, even while paused. Start either deck first. Keep pitch preserves the original pitch; switch it off for pitch that follows tempo. Use Adjust only if the estimate needs correcting. Without a selection, drag active loop edges to trim the loop.</p><p>For separate monitoring, choose Split cue and use a DJ splitter cable: master on left, cue on right (both mono). Audio starts off.</p><a href=\"docs/trackazoid.md\">Trackazoid guide</a></div></details></div>\n    <div class=\"tz-preset-host\" data-instrument-preset-host></div>\n    <div class=\"tz-decks\">\n\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/vocalzoid.html",
+   "sha256": "6f88a73e81ae4ca286abc5d7d5eedd9d8f62ae103bbb62ded2f5cd399a1c302b",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"vocalzoid-rail\" aria-label=\"Voice and performance controls\">\n        <section class=\"rail-section voice-source-section\" aria-labelledby=\"voiceSourceTitle\">\n          <header class=\"rail-heading\">\n",
+     "after": "\n      <aside class=\"vocalzoid-rail\" aria-label=\"Voice and performance controls\">\n        <div data-instrument-preset-host></div>\n        <section class=\"rail-section voice-source-section\" aria-labelledby=\"voiceSourceTitle\">\n          <header class=\"rail-heading\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/webgpu-303.html",
+   "sha256": "6fd8f69334b4796edb4da5baf4b5a45bcdeb3b2bfb52a690a3800eb71d69439e",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"WebGPU 303 controls\">\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebGPU</b>\n",
+     "after": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"WebGPU 303 controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebGPU</b>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/webgpu-chiptune.html",
+   "sha256": "10ed91551f4c0ef40575e912c770bbac6366b641627ba4715c3c3513c3714c1f",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"WebGPU Chiptune controls\">\n        <details\n          class=\"group control-section webgpu-303-section chiptune-live-editor\"\n",
+     "after": "\n      <aside class=\"panel webgpu-303-panel\" aria-label=\"WebGPU Chiptune controls\">\n        <div data-instrument-preset-host></div>\n        <details\n          class=\"group control-section webgpu-303-section chiptune-live-editor\"\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/webgpu-synths.html",
+   "sha256": "f20cfb9dc24af4918348cfd4c7a49516c101b91d9fd0b01692bce32b1516630e",
+   "replacements": [
+    {
+     "before": "\n      <aside class=\"panel webgpu-synths-panel\" aria-label=\"GPU Shader Synths controls\">\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebGPU</b>\n",
+     "after": "\n      <aside class=\"panel webgpu-synths-panel\" aria-label=\"GPU Shader Synths controls\">\n        <div data-instrument-preset-host></div>\n        <div class=\"webgpu-status-strip\" aria-live=\"polite\">\n          <b id=\"gpuState\">Checking WebGPU</b>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/weierstrass.html",
+   "sha256": "9616068a8f111f2a2409726197867916eea7ff5fe5a0b82b08f3132ea8d9b392",
+   "replacements": [
+    {
+     "before": "      </section>\n\n      <aside class=\"panel weierstrass-panel\" aria-label=\"Weierstrass controls\">\n        <details class=\"group control-section weierstrass-character\" open>\n          <summary class=\"group-summary\">\n",
+     "after": "      </section>\n\n      <aside class=\"panel weierstrass-panel\" data-instrument-preset-host aria-label=\"Weierstrass controls\">\n        <details class=\"group control-section weierstrass-character\" open>\n          <summary class=\"group-summary\">\n"
+    }
+   ]
+  }
+ ]
+}

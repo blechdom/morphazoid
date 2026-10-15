@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -13,6 +14,7 @@ export const fractalImpulseRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only exact reviewed additions; unknown or altered bytes remain visible. */
 export function restoreFractalImpulseRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   source = restoreBlechBrandSite(source, file, { allowRestored: true });

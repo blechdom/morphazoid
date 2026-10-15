@@ -23,6 +23,14 @@ import {
 } from "../spelling-synthesizer/spelling-pronunciation.js?v=pink-trombonazoid-20260821-6";
 import { SpellingSynthesizerAudio } from "../spelling-synthesizer/spelling-synthesizer-audio.js?v=pink-trombonazoid-20260821-6";
 
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PINK_TROMBONAZOID_FULL_PRESETS,
+  capturePinkTrombonazoidPreset,
+  randomizePinkTrombonazoidPreset,
+  validatePinkTrombonazoidPreset,
+} from "./full-presets.js";
+
 const $ = (id) => document.getElementById(id);
 const SVG_NS = "http://www.w3.org/2000/svg";
 const TIMELINE_MIN_WIDTH = 920;
@@ -2148,3 +2156,57 @@ updateAudioUi();
 applyEffects();
 await buildWord("hello", { announceBuild: false });
 state.animationFrame = requestAnimationFrame(animationFrame);
+
+function capturePinkPreset() {
+  const { preset: _preset, ...voice } = voiceSettings();
+  return capturePinkTrombonazoidPreset({
+    text: state.sequence?.text ?? $("wordInput").value,
+    voicePreset: $("personality").value,
+    voice,
+    speechRate: Number($("speechRate").value),
+    wordGap: Number($("wordGap").value),
+    effects: {
+      drive: Number($("drive").value),
+      tone: Number($("tone").value),
+      echo: Number($("echo").value),
+      echoTime: Number($("echoTime").value),
+      bypass: $("effectsBypass").getAttribute("aria-pressed") === "true",
+    },
+    loop: state.loop,
+    modulation: {
+      bypass: $("modulationBypass").getAttribute("aria-pressed") === "true",
+      lanes: state.laneModulations,
+    },
+  });
+}
+
+async function applyPinkPreset(snapshot) {
+  validatePinkTrombonazoidPreset(snapshot);
+  const wasPlaying = state.playing;
+  $("personality").value = snapshot.voicePreset;
+  setVoiceControls({ ...snapshot.voice });
+  previousSpeechRate = snapshot.speechRate;
+  const ranges = {
+    speechRate: snapshot.speechRate, wordGap: snapshot.wordGap, drive: snapshot.effects.drive,
+    tone: snapshot.effects.tone, echo: snapshot.effects.echo, echoTime: snapshot.effects.echoTime,
+  };
+  for (const [id, value] of Object.entries(ranges)) {
+    $(id).value = String(value);
+    $(id).dispatchEvent(new Event("input"));
+  }
+  $("effectsBypass").setAttribute("aria-pressed", String(snapshot.effects.bypass));
+  $("modulationBypass").setAttribute("aria-pressed", String(snapshot.modulation.bypass));
+  state.laneModulations = structuredClone(snapshot.modulation.lanes);
+  state.loop = snapshot.loop;
+  updateAudioUi();
+  applyEffects();
+  await buildWord(snapshot.text, { announceBuild: false });
+  if (wasPlaying && state.audioEnabled) await startPlayback();
+}
+
+registerHeaderPresets({
+  id: "pink-trombonazoid", presets: PINK_TROMBONAZOID_FULL_PRESETS,
+  capture: capturePinkPreset,
+  apply: applyPinkPreset,
+  randomize: randomizePinkTrombonazoidPreset,
+});

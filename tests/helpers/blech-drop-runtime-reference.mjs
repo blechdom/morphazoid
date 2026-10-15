@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,6 +10,7 @@ export const blechDropRuntimeChange = JSON.parse(readFileSync(
 
 /** Peel only the complete drop block, preserving the preceding timing amendment. */
 export function restoreBlechDropRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreStaircaseSite(source, file, { allowRestored: true });
   const change = blechDropRuntimeChange;

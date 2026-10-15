@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidBeatmatchingSite } from './trackazoid-beatmatching-site-reference.mjs';
 import { restoreTrackazoidPadsSite } from './trackazoid-pads-site-reference.mjs';
@@ -16,6 +17,7 @@ export const trackazoidSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the Trackazoid registration before comparing historical bytes. */
 export function restoreTrackazoidSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlechBrandSite(source, file, { allowRestored: true });
   source = restoreBlackMidiArtRuntime(source, file, { allowRestored: true });

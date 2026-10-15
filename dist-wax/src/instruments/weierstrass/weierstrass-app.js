@@ -1,3 +1,7 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  WEIERSTRASS_FULL_PRESETS, captureWeierstrassPreset, randomizeWeierstrassPreset, validateWeierstrassPreset,
+} from "./full-presets.js";
 import {
   DEFAULT_WEIERSTRASS_PRESET_ID,
   WEIERSTRASS_DEFAULTS,
@@ -1066,3 +1070,15 @@ globalThis.addEventListener("pagehide", () => {
 updateInterface();
 updateAudioInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "weierstrass", presets: WEIERSTRASS_FULL_PRESETS,
+  capture: () => captureWeierstrassPreset(state.settings),
+  randomize: randomizeWeierstrassPreset,
+  apply(raw) {
+    const snapshot = validateWeierstrassPreset(raw);
+    state.fmMemory = { fmDepthHz: snapshot.fmDepthHz, offsetHz: snapshot.offsetHz };
+    state.pmMemory = { pmCarrierFrequencyHz: snapshot.pmCarrierFrequencyHz, pmIndexCycles: snapshot.pmIndexCycles };
+    applySettings(snapshot);
+  },
+});

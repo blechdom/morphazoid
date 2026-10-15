@@ -138,6 +138,10 @@
   align-items: stretch;
 }
 
+.jaw-jam-preset-host > .instrument-preset-controls {
+  max-width: 460px;
+}
+
 .jaw-jam-command-deck > * + * {
   border-left: 1px solid var(--jaw-jam-line);
 }

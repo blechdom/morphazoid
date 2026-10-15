@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -9,6 +10,7 @@ export const blackMidiArtRuntimeChange = JSON.parse(readFileSync(
 
 /** Remove this exact reviewed block, never unknown paths or broad asset globs. */
 export function restoreBlackMidiArtRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = blackMidiArtRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;

@@ -616,3 +616,10 @@ body.tiles-app-page {
     min-height: 48px;
   }
 }
+
+.tiles-panel-header > [data-instrument-preset-host] > .instrument-preset-controls {
+  position: relative;
+  padding: 0 0 10px;
+  border-bottom: 0;
+  background: transparent;
+}
