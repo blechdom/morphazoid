@@ -1,19 +1,19 @@
-const BLOCK = 128;
+const BLOCK = 128, STRIDE = 672;
 class StaircaseProcessor extends AudioWorkletProcessor {
   constructor(options) {
     super(); this.dead = false; this.blocks = 0; this.revision = 0;
     this.api = new WebAssembly.Instance(options.processorOptions.module, {}).exports;
-    if (this.api.stair_abi_version() !== 1) throw new Error('Unsupported staircase engine.');
+    if (this.api.stair_abi_version() !== 2) throw new Error('Unsupported staircase engine.');
     this.handle = this.api.stair_new(sampleRate);
     this.leftPtr = this.api.stair_alloc(BLOCK * 4); this.rightPtr = this.api.stair_alloc(BLOCK * 4);
-    this.tablePtr = this.api.stair_alloc(64 * 544 * 4);
+    this.tablePtr = this.api.stair_alloc(64 * STRIDE * 4);
     if (!this.handle || !this.leftPtr || !this.rightPtr || !this.tablePtr) throw new Error('Could not allocate staircase audio buffers.');
     this.refresh();
     this.port.onmessage = ({ data }) => {
       if (this.dead) return;
       try {
         if (data.type === 'field') {
-          if (!(data.table instanceof Float32Array) || data.table.length !== 64 * 544 || data.frames !== 64) throw new Error('Invalid staircase field.');
+          if (!(data.table instanceof Float32Array) || data.table.length !== 64 * STRIDE || data.frames !== 64) throw new Error('Invalid staircase field.');
           new Float32Array(this.api.memory.buffer, this.tablePtr, data.table.length).set(data.table);
           if (!this.api.stair_table(this.handle, this.tablePtr, data.table.length, data.frames)) throw new Error('The staircase field was rejected.');
           this.revision = data.revision;
@@ -32,13 +32,13 @@ class StaircaseProcessor extends AudioWorkletProcessor {
     this.memory = this.api.memory.buffer;
     this.left = new Float32Array(this.memory, this.leftPtr, BLOCK);
     this.right = new Float32Array(this.memory, this.rightPtr, BLOCK);
-    this.values = new Float64Array(this.memory, this.api.stair_state(this.handle), 8);
+    this.values = new Float64Array(this.memory, this.api.stair_state(this.handle), 12);
   }
   dispose() {
     if (this.dead) return;
     this.dead = true; this.api.stair_drop(this.handle);
     this.api.stair_free(this.leftPtr, BLOCK * 4); this.api.stair_free(this.rightPtr, BLOCK * 4);
-    this.api.stair_free(this.tablePtr, 64 * 544 * 4);
+    this.api.stair_free(this.tablePtr, 64 * STRIDE * 4);
   }
   process(_inputs, outputs) {
     if (this.dead) return false;
@@ -55,7 +55,7 @@ class StaircaseProcessor extends AudioWorkletProcessor {
       if (++this.blocks % 16 === 0) {
         this.api.stair_state(this.handle);
         this.port.postMessage({ type: 'state', clock: this.values[0], depth: this.values[1],
-          direction: this.values[2], revision: this.revision });
+          direction: this.values[2], revision: this.revision, branches: this.values[10], white: Boolean(this.values[11]) });
       }
       return true;
     } catch (error) {
