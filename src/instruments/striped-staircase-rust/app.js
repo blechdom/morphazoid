@@ -3,19 +3,20 @@ import { STRIPED_STAIRCASE_DEFAULTS, STRIPED_STAIRCASE_VIEWS, advancePingPong,
   normalizeStaircaseSettings, panCamera, viewById, zoomCameraAt } from '../striped-staircase/striped-staircase.js';
 import { StaircaseEngine } from './engine.js';
 import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
+import { readStaircaseRhythm } from './field.js';
 
 const $ = id => document.getElementById(id);
 const descriptions = [
   ['Contour', 'The measured outline becomes a repeating stereo wave. Detail brings out its sharper bends.'],
   ['Harmonics', 'The band’s vertical distribution weights sixteen harmonics. Hold depth to hear the same shape as a sustained spectrum.'],
-  ['Stripe strikes', 'Crossing a light/dark depth stripe strikes the current shape. Hold stops new strikes; existing tails finish.'],
+  ['Stripe rhythm', 'White holds a note for each traced branch; black releases it. Height sets pitch, left/right sets pan. Hold freezes the chord or rest.'],
   ['Resonant body', 'Contour length and bends tune and excite a bank of resonances. Body lengthens their response.'],
 ];
-const defaults = { progress: .12, direction: 1, speed: .035, baseFrequency: 73, brightness: .55, body: .5,
-  level: .48, mode: 0, palette: 0, hold: false, view: 'seahorse' };
+const defaults = { progress: .175, direction: 1, speed: .035, baseFrequency: 73, brightness: .55, body: .35,
+  level: .48, mode: 2, palette: 3, hold: false, view: 'seahorse' };
 const state = { ...defaults, audio: false, playing: false, camera: cameraFromView(viewById('seahorse')),
   settings: normalizeStaircaseSettings(STRIPED_STAIRCASE_DEFAULTS), clock: 0, revision: 0, acceptedRevision: 0,
-  audioRevision: 0, ready: false, disposed: false };
+  audioRevision: 0, ready: false, disposed: false, rhythm: null, audioBranches: 0, audioWhite: false };
 const signalOwner = new AbortController();
 const on = (target, name, fn, options = {}) => target.addEventListener(name, fn, { ...options, signal: signalOwner.signal });
 const canvas = $('stage'), overlay = $('contourOverlay'), overlayContext = overlay.getContext('2d');
@@ -56,7 +57,8 @@ function updateControls() {
   for (const button of document.querySelectorAll('[data-mode]')) button.setAttribute('aria-pressed', String(Number(button.dataset.mode) === state.mode));
   $('modeHeading').textContent = descriptions[state.mode][0]; $('modeDescription').textContent = descriptions[state.mode][1];
   $('body').disabled = state.mode < 2;
-  document.querySelector('label[for="body"] b').textContent = state.mode === 2 ? 'Ring' : 'Body';
+  document.querySelector('label[for="body"] b').textContent = state.mode === 2 ? 'Release' : 'Body';
+  $('rhythmReadout').hidden = state.mode !== 2;
   for (const knob of rangeKnobs.values()) knob.update();
 }
 function sendControls() { engine?.controls(state); }
@@ -89,7 +91,7 @@ function initWorker() {
       else if (data.type === 'field') {
         field = data; state.ready = true; state.acceptedRevision = data.revision;
         engine?.field(data.table, data.frames, data.revision);
-        status('Ready · hold a depth and compare the studies.');
+        status('Ready · Audio, then Play. Hold freezes the current depth.');
       }
     }
     drainWorker();
@@ -124,6 +126,7 @@ async function toggleAudio() {
       onState(data) {
         if (state.disposed || epoch !== audioEpoch) return;
         state.progress = data.depth; state.direction = data.direction; state.clock = data.clock; state.audioRevision = data.revision;
+        state.audioBranches = data.branches; state.audioWhite = data.white;
       }, onError: error => { if (epoch === audioEpoch && !state.disposed) audioFailure(error); },
     });
     await resumed;
@@ -148,18 +151,33 @@ function render(now) {
   const frame = createStaircaseFrame(state.progress, state.settings, 'slide');
   renderer?.render({ ...frame, stepPhase: .5 }, state.settings, state.camera, state.direction, state.palette);
   overlayContext.clearRect(0, 0, overlay.width, overlay.height);
+  state.rhythm = null;
   if (field?.revision === state.revision) {
-    const path = field.overlays[Math.round(state.progress * (field.frames - 1))]?.points;
-    if (path?.length) {
-      overlayContext.strokeStyle = '#ddffe6'; overlayContext.lineWidth = 1.6; overlayContext.globalAlpha = .85;
+    const rhythm = readStaircaseRhythm(field, state.progress);
+    state.rhythm = { white: rhythm.white, count: rhythm.count, omitted: rhythm.omitted,
+      voices: rhythm.branches.map(({ slot, cx, cy, presence }) => ({ slot, cx, cy, presence })) };
+    $('rhythmReadout').textContent = `${rhythm.white ? 'White · on' : 'Black · rest'} · ${rhythm.count} voices${rhythm.omitted ? ` · ${rhythm.omitted} unvoiced` : ''}`;
+    const traces = state.mode === 2 ? rhythm.branches : [{ points: field.overlays[Math.round(state.progress * (field.frames - 1))]?.points }];
+    for (const branch of traces) {
+      const path = branch.points;
+      if (!path?.length) continue;
+      overlayContext.strokeStyle = state.mode === 2 ? `hsl(${(branch.slot * 137.5 + 115) % 360} 85% 76%)` : '#ddffe6';
+      overlayContext.lineWidth = state.mode === 2 && rhythm.white ? 2 : 1.3;
+      overlayContext.globalAlpha = state.mode === 2 ? branch.presence * (rhythm.white ? .9 : .4) : .85;
       overlayContext.beginPath();
       for (let i = 0; i < path.length; i += 2) {
         const x = path[i] * overlay.width, y = path[i + 1] * overlay.height;
         if (i === 0) overlayContext.moveTo(x, y); else overlayContext.lineTo(x, y);
       }
       overlayContext.stroke();
+      if (state.mode === 2) {
+        overlayContext.beginPath(); overlayContext.arc(branch.cx * overlay.width, branch.cy * overlay.height, rhythm.white ? 4 : 3, 0, Math.PI * 2);
+        overlayContext.fillStyle = overlayContext.strokeStyle;
+        if (rhythm.white) overlayContext.fill(); else overlayContext.stroke();
+      }
     }
-  }
+  } else $('rhythmReadout').textContent = 'Preparing branch traces…';
+  overlayContext.globalAlpha = 1;
   if (progressGesture === null) {
     $('progress').value = state.progress;
     rangeKnobs.get('progress').update();
