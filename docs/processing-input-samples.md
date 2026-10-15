@@ -54,9 +54,9 @@ input/output gain, microphone permissions and delay voice allocation remain unde
 their existing owners. No additional realtime synthesizer or delay voice is
 allocated to play a prerecorded sample.
 
-Synthesaurus also includes one complete processing scene for each of the 24
+Synthesaurus also includes one complete processing scene for each of the 28
 expanded inputs and **Curling voice echoes** for the spoken clip, bringing its
-sample-processing scenes to 37. These recall their sample and processor settings
+sample-processing scenes to 41. These recall their sample and processor settings
 while leaving Audio, Play and master output under the
 performer's control. The L-system tree presets remain independent of input.
 
