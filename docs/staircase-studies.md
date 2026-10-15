@@ -4,9 +4,12 @@ A separate Rust/WebAssembly instrument built from Striped Staircase's Mandelbrot
 view. Open `/striped-staircase-rust.html`, enable **Audio**, then **Play**.
 The original `/striped-staircase.html` and its sound remain available.
 
-Start with **Contour**, turn on **Hold depth**, then compare **Harmonics** and
-**Resonant body**. Release Hold and try **Stripe strikes**. Adjust **Depth speed**
-to spread the strikes apart; **Register** tunes the sounding voice independently.
+Start with **Stripe rhythm**: white sustains notes, black releases them. Each
+measured connected outline has its own pitch and stereo position. **Hold depth**
+freezes a white chord or a black rest. Adjust **Depth speed** to change the
+journey, **Register** to transpose the voices, and **Release** for the transition
+into each rest. The controls are knobs: drag vertically, use Shift for fine
+adjustment, or focus a knob and use the arrow keys. Tap sets Depth speed.
 Drag to roam, wheel or pinch to zoom, or choose another location. The canvas also
 accepts arrow keys to pan, +/− to zoom and Home to restore the selected view.
 
@@ -16,11 +19,15 @@ accepts arrow keys to pan, +/− to zoom and Home to restore the selected view.
 | --- | --- | --- |
 | Contour | Longest observed contour at the middle of the highlighted depth band | Centered horizontal and vertical contour coordinates become a repeating stereo waveform. Detail reveals sharper bends. |
 | Harmonics | Escaped area in sixteen vertical slices of that depth band | Each slice weights one harmonic; Detail changes the spectral balance. The same field becomes a sustained spectrum. |
-| Stripe strikes | Actual half-stripe crossings of escape depth | Each crossing excites a bounded set of decaying tones shaped by the current contour. Ring changes their decay. Holding depth stops new attacks. |
+| Stripe rhythm | Up to 32 connected contours at the scanned depth, with the original stripe parity | White holds one voice per measured component; black releases them. Vertical centroid maps continuously to pitch, horizontal centroid to pan, and contour length to relative level. Detail adds overtones; Release sets the note-off smoothing. |
 | Resonant body | Contour perimeter, location and turning | Length-derived tuning and geometric excitation drive resonances. Body changes their damping. This is an authored resonator, not a physical object recovered from the fractal. |
 
-The highlighted outline is the measured contour used for sound, at the nearest
-prepared depth. The background retains the original striped renderer. A study
+In Stripe rhythm, colored traces identify the measured voices, with bright dots
+while their white gate is on and rings during a black rest. The readout shows
+the number of voices and any components omitted by the 32-voice limit. In the
+other studies the single highlighted outline is the longest measured contour.
+Traces use the nearest prepared depth; voice position and pitch interpolate.
+The background retains the original striped renderer. A study
 switch preserves the depth, camera, transport and controls, and crossfades the
 sound. These four buttons select algorithms, not complete presets. Body has no
 destination in Contour or Harmonics and is disabled there. Palette is visual.
@@ -40,16 +47,38 @@ quantize the measured geometry to a musical scale.
 
 ## Model and implementation boundaries
 
+### Why branching did not make two notes before
+
+The first Stripe strikes version kept only the longest outline and struck a
+single bank of eight partials together on **both** stripe transitions. It did
+not give the separate tendrils independent notes. Stripe rhythm now retains
+separate measured components and gives each a voice. Neighboring depth samples
+match components by centroid proximity and relative length to preserve voice
+identity where possible. When one measured outline becomes two, both can sound.
+
+All components at the same escape depth have the same stripe color, so they
+share an on/off rhythm: branching creates a changing chord, not independent
+polyrhythms. Different pitches and pan positions make the voices distinguishable.
+Independent rhythmic paths would require a different scanning rule.
+
+A change in component count is not proof of a mathematical bifurcation. Viewport
+clipping, limited sampling and cells touching unescaped points can also separate
+an outline. The matching is a visual continuity heuristic, not a reconstruction
+of the fractal's branch ancestry. If more than 32 components are detected, the
+longest 32 are played and the omitted count is shown.
+
 The worker samples `z ← z² + c` directly, using the original smooth escape-count
-formula. It prepares 64 sliding depth bands and retains the longest measured
-contour in each, sampled at 256 equal-arclength positions. Sixteen area bins,
+formula. It prepares 64 sliding depth bands and retains up to 32 measured
+components per band for rhythm. The longest contour also supplies 256
+equal-arclength positions for the other studies. Sixteen area bins,
 perimeter, centroid and turning descriptors accompany each contour. Unescaped
 samples are censored; they are never assigned an invented terminal contour.
 Open contours retrace their measured path rather than closing across unknown
 space. A view with no observed contour can be silent.
 
-The sound is intentionally a finite interpretation. Small branches are omitted;
-the longest branch can change identity between depth bands. Interpolation joins
+The sound is intentionally a finite interpretation. Sub-grid branches and
+components beyond the voice limit are omitted; the longest branch used by other
+studies can change identity between depth bands. Interpolation joins
 prepared frames without claiming that they are the same object. The browser
 uses a 112-column analysis grid with bounded row count. The GPU background uses
 single precision while the worker uses double precision, so deep zoom can show
