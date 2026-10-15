@@ -24,7 +24,8 @@ for (const id of cases) {
     });
     await page.goto(`/${id}.html`);
     await expect(page.locator('.header-preset-picker summary')).toContainText('Select Preset');
-    await expect(page.locator('#sampleSelect')).toHaveValue('music-plucks');
+    const initialSample = await page.locator('#sampleSelect').inputValue();
+    expect(initialSample).not.toBe('');
     await expect(page.locator('#samplePlay')).toBeDisabled();
     await page.locator('.header-preset-next').click();
     const first = await capture(page);
@@ -51,15 +52,16 @@ for (const id of cases) {
     for (let n = 0; n < first.presetCount; n++) await page.locator('.header-preset-next').click();
     await page.locator('.header-preset-random').click();
     await expect(page.locator('#samplePlay')).toHaveAttribute('aria-pressed', 'true');
-    await expect(page.locator('#sampleSelect')).toHaveValue('music-plucks');
+    await expect(page.locator('#sampleSelect')).toHaveValue(initialSample);
     await expect(page.locator('#sampleLoop')).toHaveAttribute('aria-pressed', 'true');
     await expect(page.locator('#outputLevel')).toHaveValue('0.31');
     await expect(page.locator('#inputGain')).toHaveValue('1.23');
     expect(await page.evaluate(() => window.__sampleQA.starts)).toBe(sourceStarts);
     expect(await page.evaluate(() => window.__sampleQA.requests)).toBe(0);
 
+    const nextSample = await page.locator('#sampleSelect').evaluate(select => select.options[(select.selectedIndex + 1) % select.options.length].value);
     await page.locator('#sampleNext').click();
-    await expect(page.locator('#sampleSelect')).toHaveValue('music-arp');
+    await expect(page.locator('#sampleSelect')).toHaveValue(nextSample);
     await expect(page.locator('#samplePlay')).toHaveAttribute('aria-pressed', 'true');
     expect(await page.evaluate(() => window.__sampleQA.starts)).toBe(sourceStarts + 1);
     await page.locator('#sampleLoop').click();
@@ -158,7 +160,7 @@ for (const id of cases) {
       await expect(page.locator('.header-preset-next')).toBeVisible();
       await page.locator('.header-preset-next').click();
       await expect(page.locator('#sampleSelect')).toBeVisible();
-      await page.locator('#sampleSelect').selectOption('speech');
+      await page.locator('#sampleSelect').selectOption('music-tabla');
       await page.locator('#sampleLoop').click();
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
       for (const selector of ['.header-preset-next', '.header-preset-random', '#sampleSelect', '#samplePlay', '#sampleStop', '#sampleLoop']) {

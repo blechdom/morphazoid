@@ -13,4 +13,31 @@
 .processor-sample-transport button:first-child { flex: 1; }
 .processor-sample-player p, .processor-sample-player a { font-size: 11px; line-height: 1.5; margin: 0; overflow-wrap: anywhere; }
 .processor-sample-player a { color: var(--muted, #a4a6b5); }
-@media (pointer: coarse) { .processor-sample-transport button, .processor-sample-choice button { min-height: 48px; } }
+@media (pointer: coarse) {
+  .processor-sample-transport button,
+  .processor-sample-choice button { min-width: 48px; min-height: 48px; }
+  .processor-sample-choice button { flex-basis: 48px; }
+  .processor-sample-choice select { min-height: 48px; font-size: 16px; }
+  .barber-delay-page .mz-input-preset-row > .instrument-preset-controls,
+  .slippery-resynthesis-page .mz-input-preset-row > .instrument-preset-controls {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(48px, 1fr));
+  }
+  .barber-delay-page .mz-input-preset-row .header-preset-picker,
+  .slippery-resynthesis-page .mz-input-preset-row .header-preset-picker { grid-column: 1 / -1; }
+  /* Keep focused/scrolled controls below the two-row input and preset toolbar. */
+  .barber-delay-page .barber-delay-panel,
+  .slippery-resynthesis-page .slippery-resynthesis-panel { scroll-padding-top: 134px; }
+}
+@media (min-width: 560px) and (max-width: 960px) and (max-height: 560px) and (orientation: landscape) {
+  .barber-delay-page .barber-delay-shell,
+  .slippery-resynthesis-page .slippery-resynthesis-shell {
+    grid-template-columns: minmax(0, 1fr) clamp(300px, 42vw, 360px);
+    grid-template-rows: minmax(0, 1fr);
+  }
+  .barber-delay-page .barber-delay-stage,
+  .slippery-resynthesis-page .slippery-resynthesis-stage {
+    border-right: 1px solid var(--line-strong);
+    border-bottom: 0;
+  }
+}

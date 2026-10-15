@@ -51,12 +51,20 @@ async function inputLevels(page) {
   return page.locator(".mz-input-meter meter").evaluateAll(meters => meters.map(meter => meter.value));
 }
 
+async function selectMicrophoneSource(page, route) {
+  // These processors start with their bundled sample player selected.
+  if (["sandy-syrup-delay.html", "candy-coil-delay.html"].includes(route)) {
+    await page.locator(".mz-input-source").selectOption("microphone");
+  }
+}
+
 for (const route of routes) {
   test(`${route}: explicit input, stereo gain and device release preserve master Audio`, async ({ page }) => {
     const errors = [];
     page.on("pageerror", error => errors.push(error.message));
     await installInput(page);
     await page.goto(`/${route}`);
+    await selectMicrophoneSource(page, route);
     const input = page.locator(".mz-input-toggle");
     await expect(input).toHaveCount(1);
     await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "false");
@@ -106,6 +114,7 @@ for (const route of routes) {
   test(`${route}: a cancelled permission request retires its late grant and can retry`, async ({ page }) => {
     await installInput(page, { channels: 1, delayed: true });
     await page.goto(`/${route}`);
+    await selectMicrophoneSource(page, route);
     const input = page.locator(".mz-input-toggle");
     await input.click();
     await expect.poll(() => page.evaluate(() => __liveInput.requests)).toBe(1);
