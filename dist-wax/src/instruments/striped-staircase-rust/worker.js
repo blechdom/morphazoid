@@ -8,7 +8,8 @@ self.onmessage = ({ data }) => {
   try {
     const result = buildStaircaseField(data);
     self.postMessage({ type: 'field', revision, ...result },
-      [result.table.buffer, ...result.overlays.map(overlay => overlay.points.buffer)]);
+      [result.table.buffer, ...result.overlays.flatMap(overlay =>
+        [overlay.points.buffer, ...overlay.branches.map(branch => branch.points.buffer)])]);
   } catch (error) {
     self.postMessage({ type: 'error', revision, error: String(error?.message || error) });
   }

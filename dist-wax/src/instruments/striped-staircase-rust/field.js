@@ -4,7 +4,9 @@ import {
 } from '../striped-staircase/striped-staircase.js';
 
 export const STAIRCASE_FIELD_FRAMES = 64;
-export const STAIRCASE_FIELD_STRIDE = 544;
+export const STAIRCASE_BRANCH_LIMIT = 32;
+export const STAIRCASE_BRANCH_OFFSET = 544;
+export const STAIRCASE_FIELD_STRIDE = STAIRCASE_BRANCH_OFFSET + STAIRCASE_BRANCH_LIMIT * 4;
 export const STAIRCASE_CONTOUR_SAMPLES = 256;
 export const STAIRCASE_FIELD_METADATA = Object.freeze({
   mass: 528, perimeter: 529, centroidX: 530, centroidY: 531, valid: 532, roughness: 533,
@@ -146,12 +148,12 @@ function canonicalPath(path) {
   return points;
 }
 
-function resampleContour(path, aspect) {
+function resampleContour(path, aspect, count = STAIRCASE_CONTOUR_SAMPLES) {
   const points = canonicalPath(path), cumulative = new Float64Array(points.length);
   for (let index = 1; index < points.length; index++) cumulative[index] = cumulative[index - 1] + distance(points[index - 1], points[index], aspect);
-  const length = cumulative.at(-1), samples = new Float32Array(STAIRCASE_CONTOUR_SAMPLES * 2);
-  for (let index = 0; index < STAIRCASE_CONTOUR_SAMPLES; index++) {
-    const phase = index / STAIRCASE_CONTOUR_SAMPLES;
+  const length = cumulative.at(-1), samples = new Float32Array(count * 2);
+  for (let index = 0; index < count; index++) {
+    const phase = index / count;
     // Open contours retrace their real path, avoiding a fictional closing edge.
     const target = length * (path.closed ? phase : phase <= .5 ? phase * 2 : (1 - phase) * 2);
     let low = 1, high = cumulative.length - 1;
@@ -164,11 +166,65 @@ function resampleContour(path, aspect) {
   return samples;
 }
 
-/** 64 original staircase slide frames, each with a 544-float Rust ABI record:
+/** Match measured components between adjacent depths, with one slot per path.
+ * This proximity heuristic preserves oscillator identity, not mathematical
+ * ancestry: clipping, grid resolution and censored cells can also split paths.
+ * Keep the longest 32 components when a frame exceeds the bounded voice budget.
+ */
+export function matchStaircaseBranches(paths, previous = [], aspect = 1) {
+  const branches = paths.slice(0, STAIRCASE_BRANCH_LIMIT).map(path => {
+    const points = resampleContour(path, aspect, 64);
+    let cx = 0, cy = 0;
+    for (let index = 0; index < points.length; index += 2) { cx += points[index]; cy += points[index + 1]; }
+    return { points, cx: cx / 64, cy: cy / 64, length: path.length, closed: path.closed, slot: -1 };
+  });
+  const candidates = [];
+  for (const branch of branches) for (const prior of previous) {
+    const movement = Math.hypot((branch.cx - prior.cx) * aspect, branch.cy - prior.cy);
+    if (movement > .3) continue;
+    const cost = movement + .025 * Math.abs(Math.log(branch.length / prior.length));
+    candidates.push({ branch, prior, cost });
+  }
+  candidates.sort((a, b) => a.cost - b.cost);
+  const used = new Set();
+  for (const { branch, prior } of candidates) {
+    if (branch.slot < 0 && !used.has(prior.slot)) { branch.slot = prior.slot; used.add(prior.slot); }
+  }
+  for (const branch of branches) if (branch.slot < 0) {
+    let slot = 0; while (used.has(slot)) slot++;
+    branch.slot = slot; used.add(slot);
+  }
+  return branches;
+}
+
+/** Read the same piecewise-linear depth data as Rust for visual feedback.
+ * Traces use the nearest measured outline; their centroids, pitch and opacity
+ * follow interpolated voice records. No display callback schedules a note.
+ */
+export function readStaircaseRhythm(field, progress) {
+  const at = bounded(progress, 0, 0, 1) * (field.frames - 1);
+  const low = Math.floor(at), high = Math.min(field.frames - 1, low + 1), mix = at - low;
+  const read = index => field.table[low * field.stride + index] * (1 - mix) + field.table[high * field.stride + index] * mix;
+  const nearest = field.overlays[Math.round(at)];
+  const branches = [];
+  for (let slot = 0; slot < STAIRCASE_BRANCH_LIMIT; slot++) {
+    const index = STAIRCASE_BRANCH_OFFSET + slot * 4, presence = read(index);
+    if (presence <= .001) continue;
+    const trace = nearest.branches.find(branch => branch.slot === slot)
+      ?? field.overlays[low].branches.find(branch => branch.slot === slot)
+      ?? field.overlays[high].branches.find(branch => branch.slot === slot);
+    branches.push({ slot, presence, cx: read(index + 1), cy: read(index + 2), length: read(index + 3), points: trace?.points });
+  }
+  return { branches, count: branches.filter(branch => branch.presence >= .5).length,
+    omitted: nearest.omitted, threshold: read(534), white: Math.floor(read(534) / Math.max(.000001, read(535)) * 2) % 2 === 1 };
+}
+
+/** 64 original staircase slide frames, each with a 672-float Rust ABI record:
  * 256 mean-centered contour x, 256 mean-centered contour y; 16 vertical band
  * density bins (sum 1); mass, perimeter/8, signed cx/cy, valid, turn roughness,
- * threshold mu, stripePeriod; eight reserved zeros. Without a contour only
- * threshold/stripePeriod remain; the audio geometry and validity flag are zero.
+ * threshold mu, stripePeriod; eight reserved zeros; 32 branch records containing
+ * presence, screen cx/cy, length/8. Absent branch positions are held for smooth
+ * fades, but presence is zero. Unescaped interior never creates a voice.
  */
 export function buildStaircaseField(options = {}) {
   const source = options && typeof options === 'object' ? options : {};
@@ -182,7 +238,7 @@ export function buildStaircaseField(options = {}) {
   const aspect = bounded(source.aspect, 1.5, .25, 4);
   const field = sampleDepths(camera, settings, aspect, source.resolution);
   const table = new Float32Array(STAIRCASE_FIELD_FRAMES * STAIRCASE_FIELD_STRIDE), overlays = [];
-  let activeFrames = 0, maxContours = 0;
+  let activeFrames = 0, maxContours = 0, previousBranches = [];
   for (let index = 0; index < STAIRCASE_FIELD_FRAMES; index++) {
     const frame = createStaircaseFrame(index / (STAIRCASE_FIELD_FRAMES - 1), settings, 'slide');
     const threshold = (frame.renderLow + frame.renderHigh) / 2;
@@ -190,10 +246,15 @@ export function buildStaircaseField(options = {}) {
     table[offset + 534] = threshold;
     table[offset + 535] = settings.stripePeriod;
     const paths = staircaseFieldContours(field, threshold, aspect);
+    const branches = matchStaircaseBranches(paths, previousBranches, aspect);
+    previousBranches = branches;
+    for (const branch of branches) table.set([1, branch.cx, branch.cy, Math.min(1, branch.length / 8)],
+      offset + STAIRCASE_BRANCH_OFFSET + branch.slot * 4);
     const path = paths[0];
     const points = path ? resampleContour(path, aspect) : new Float32Array(0);
     overlays.push({ threshold, bandLow: frame.renderLow, bandHigh: frame.renderHigh,
-      points, closed: path?.closed ?? false, contours: paths.length, totalLength: paths.reduce((sum, item) => sum + item.length, 0) });
+      points, branches, omitted: Math.max(0, paths.length - branches.length),
+      closed: path?.closed ?? false, contours: paths.length, totalLength: paths.reduce((sum, item) => sum + item.length, 0) });
     maxContours = Math.max(maxContours, paths.length);
     if (!path) continue;
     activeFrames++;
@@ -225,6 +286,20 @@ export function buildStaircaseField(options = {}) {
     table[offset + 531] = 1 - cy * 2;
     table[offset + 532] = 1;
     table[offset + 533] = Math.min(1, Math.max(0, (turn / (Math.PI * 2) - 1) / 16));
+  }
+  // Interpolating from zero coordinates would sweep a newly appearing voice
+  // across the screen/register. Carry the nearest measured position through
+  // empty slots; the independent presence value still releases their sound.
+  for (let slot = 0; slot < STAIRCASE_BRANCH_LIMIT; slot++) {
+    const at = STAIRCASE_BRANCH_OFFSET + slot * 4;
+    const occupied = overlays.flatMap((_, index) => table[index * STAIRCASE_FIELD_STRIDE + at] ? [index] : []);
+    for (let index = 0; index < STAIRCASE_FIELD_FRAMES && occupied.length; index++) {
+      const offset = index * STAIRCASE_FIELD_STRIDE + at;
+      if (table[offset]) continue;
+      const nearest = occupied.reduce((best, candidate) => Math.abs(candidate - index) < Math.abs(best - index) ? candidate : best);
+      const source = nearest * STAIRCASE_FIELD_STRIDE + at;
+      table.set(table.subarray(source + 1, source + 4), offset + 1);
+    }
   }
   return { table, frames: STAIRCASE_FIELD_FRAMES, stride: STAIRCASE_FIELD_STRIDE, overlays, camera, settings, aspect,
     stats: { columns: field.columns, rows: field.rows, samples: field.depth.length, escaped: field.escaped,
