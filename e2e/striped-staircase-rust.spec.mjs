@@ -289,7 +289,7 @@ for (const viewport of [
       await page.locator('.study-section details > summary').click();
       const selectors = [
         ...['audioButton', 'playButton', 'holdButton', 'progress', 'speed', 'baseFrequency', 'brightness', 'body',
-          'viewPreset', 'palette', 'startIteration', 'maxIterations', 'steps', 'stripePeriod', 'resetAll',
+          'pitchMapping', 'pitchSpan', 'voiceLimit', 'viewPreset', 'palette', 'startIteration', 'maxIterations', 'steps', 'stripePeriod', 'resetAll',
           'zoomIn', 'zoomOut', 'homeView'].map(id => `#${id}`),
         ...[0, 1, 2, 3].map(mode => `[data-mode="${mode}"]`),
       ];

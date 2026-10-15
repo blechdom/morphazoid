@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test';
 import { pageDiagnosticMessages, watchPageDiagnostics } from './helpers/diagnostics.mjs';
 
-const ids = ['progress', 'speed', 'baseFrequency', 'brightness', 'body', 'startIteration', 'maxIterations', 'steps', 'stripePeriod'];
+const ids = ['progress', 'speed', 'baseFrequency', 'brightness', 'body', 'pitchSpan', 'voiceLimit', 'startIteration', 'maxIterations', 'steps', 'stripePeriod'];
 const diagnostics = new WeakMap();
 const snapshot = page => page.evaluate(() => window.__staircaseStudies.snapshot());
 const values = page => page.locator('.studies-panel input[type="range"]').evaluateAll(inputs => Object.fromEntries(inputs.map(input => [input.id, input.value])));
@@ -27,7 +27,7 @@ test('all parameter knobs retain native drag, keyboard, reset, disabled and Tap 
   await open(page);
   const defaults = await values(page);
   expect(await page.locator('.studies-panel input[type="range"]').evaluateAll(inputs => inputs.every(input => input.parentElement.classList.contains('mz-range-knob')))).toBe(true);
-  await page.locator('[data-mode="3"]').click();
+  await page.locator('[data-mode="2"]').click();
   for (const id of ids) {
     const control = page.locator(`#${id}`), previous = Number(await control.inputValue());
     await control.press('ArrowUp');
@@ -50,6 +50,7 @@ test('all parameter knobs retain native drag, keyboard, reset, disabled and Tap 
 
   await page.locator('[data-mode="0"]').click();
   await expect(page.locator('#body')).toBeDisabled();
+  await expect(page.locator('#pitchControls')).toBeHidden();
   await expect(page.locator('label[for="body"]')).toHaveClass(/is-disabled/);
   await page.locator('[data-mode="3"]').click();
   await expect(page.locator('#body')).toBeEnabled();
@@ -63,6 +64,7 @@ test('all parameter knobs retain native drag, keyboard, reset, disabled and Tap 
   await expectNeedle(page, 'speed');
   expect((await snapshot(page)).audio).toBe(false);
   await page.locator('#resetAll').click();
+  await expect(page.locator('#pitchControls')).toBeVisible();
   expect(await values(page)).toEqual(defaults);
   for (const id of ids) await expectNeedle(page, id);
   expect((await snapshot(page)).audio).toBe(false);
