@@ -103,7 +103,11 @@ function installPresets(instance) {
   if (!adapter) return;
   presetController = registerHeaderPresets({
     ...adapter,
-    apply(snapshot) { adapter.apply(snapshot); syncChrome(); },
+    apply(snapshot) {
+      const result = adapter.apply(snapshot);
+      if (result?.then) return result.then(() => syncChrome());
+      syncChrome();
+    },
     document, runtime: globalThis, host: instance.root.querySelector('[data-instrument-preset-host]'),
   });
   Object.assign(presetController, instance.presetPosition);
