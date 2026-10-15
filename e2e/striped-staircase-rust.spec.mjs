@@ -33,6 +33,8 @@ async function setRange(page, id, value) {
 }
 
 async function playWithAudio(page) {
+  // Contour is continuous; Stripe rhythm intentionally includes black rests.
+  await page.locator('[data-mode="0"]').click();
   await page.locator('#playButton').click();
   await page.locator('#audioButton').click();
   await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true');
@@ -49,6 +51,7 @@ async function expectFieldSettled(page) {
 
 test('Play stays silent until Audio, Hold retains depth, Pause releases, and mute keeps the clock moving', async ({ page }, info) => {
   await open(page);
+  await page.locator('[data-mode="0"]').click();
   const initial = await snapshot(page);
   expect(initial).toMatchObject({ audio: false, playing: false, hold: false });
   await page.locator('#playButton').click();
@@ -87,6 +90,63 @@ test('Play stays silent until Audio, Hold retains depth, Pause releases, and mut
   expect(later.clock).toBeGreaterThan(muted.clock);
   await info.attach('transport-states.json', {
     body: JSON.stringify({ initial, held, stillHeld, muted, later }, null, 2), contentType: 'application/json',
+  });
+});
+
+test('Stripe rhythm holds separate branch voices on white and releases them on black', async ({ page }, info) => {
+  await open(page);
+  expect((await snapshot(page)).mode).toBe(2);
+  await expect(page.locator('#palette')).toHaveValue('3');
+  await expect(page.locator('label[for="body"] > span:not(.mz-range-knob__dial) > b')).toHaveText('Release');
+  await page.locator('#holdButton').click();
+  await setRange(page, 'progress', .175);
+  await page.locator('#playButton').click();
+  expect((await snapshot(page)).audio).toBe(false);
+  await page.locator('#audioButton').click();
+  await waitForAudioState(page, true);
+  await expect.poll(async () => {
+    const state = await snapshot(page);
+    return state.rhythm?.white && state.audioWhite && state.rhythm.count > 1 && state.audioBranches === state.rhythm.count;
+  }).toBe(true);
+  const white = await snapshot(page);
+  expect(white.rhythm.voices.filter(voice => voice.presence >= .5)).toHaveLength(white.rhythm.count);
+  expect(new Set(white.rhythm.voices.map(voice => voice.slot)).size).toBe(white.rhythm.voices.length);
+  expect(white.rhythm.voices.every(voice => [voice.cx, voice.cy, voice.presence].every(value => Number.isFinite(value) && value >= 0 && value <= 1))).toBe(true);
+  await expect(page.locator('#rhythmReadout')).toContainText(`White · on · ${white.rhythm.count} voices`);
+  const sustained = await sampleAudioEnvelope(page, { durationMs: 600 });
+  expect(sustained.summary.maxRms).toBeGreaterThan(.00001);
+  expect(sustained.summary.clippedSamples).toBe(0);
+  const held = await snapshot(page);
+  expect(held.progress).toBeCloseTo(.175, 6);
+  expect(held.clock).toBeGreaterThan(white.clock);
+  await page.screenshot({ path: info.outputPath('held-white-branches.png') });
+
+  // The native depth knob can edit a held rhythm without changing transport.
+  await page.locator('#progress').press('ArrowRight');
+  await expect.poll(async () => (await snapshot(page)).progress).toBeCloseTo(.176, 6);
+  await setRange(page, 'progress', .175);
+  for (const mode of [3, 2]) {
+    const before = await snapshot(page);
+    await page.locator(`[data-mode="${mode}"]`).click();
+    await expect.poll(async () => (await snapshot(page)).clock).toBeGreaterThan(before.clock);
+    expect(await snapshot(page)).toMatchObject({ audio: true, playing: true, hold: true, mode });
+    expect((await snapshot(page)).progress).toBeCloseTo(.175, 6);
+  }
+  await setRange(page, 'progress', .19);
+  await expect.poll(async () => {
+    const state = await snapshot(page);
+    return state.rhythm?.white === false && state.audioWhite === false && state.audioBranches === state.rhythm.count;
+  }).toBe(true);
+  await waitForStableAudioState(page, false);
+  await expect(page.locator('#rhythmReadout')).toContainText('Black · rest');
+  const black = await snapshot(page);
+  await page.waitForTimeout(250);
+  expect((await snapshot(page)).progress).toBeCloseTo(.19, 6);
+  expect((await snapshot(page)).clock).toBeGreaterThan(black.clock);
+  expect((await snapshot(page))).toMatchObject({ audio: true, playing: true, hold: true });
+  await page.screenshot({ path: info.outputPath('held-black-rest.png') });
+  await info.attach('branch-rhythm-white-black.json', {
+    body: JSON.stringify({ white, held, black, sustained: sustained.summary }, null, 2), contentType: 'application/json',
   });
 });
 
