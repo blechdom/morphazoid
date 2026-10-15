@@ -2,6 +2,7 @@ import { MidiFrameSequence } from './blech-midi-frames.js';
 import { encodeArtwork } from './blech-midi-art.js';
 import { drawGeneratorPreview, generatorRange } from './blech-midi-generator-preview.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
+import { MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 
 export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, onDrop, onPreview, onPrepare, onEditDrawing } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
@@ -18,7 +19,7 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   </div>`;
   const $ = key => host.querySelector(`#blechFrames${key}`), canvas = $('Preview');
   let disposed = false, selected = -1, animation = null, lastTime = 0, phase = 0, displayed = -1, animate = false, serial = 0;
-  const beats = () => Number($('Beats').value), tempo = () => Math.max(30, Math.min(300, Number(getTempo()) || 120));
+  const beats = () => Number($('Beats').value), tempo = () => Math.max(30, Math.min(MAX_MIDI_MIXER_TEMPO, Number(getTempo()) || 120));
   const getSettings = () => ({ name: `Frames ${sequence.count}`, program: 'original', loop: $('Loop').checked });
   const getScore = () => sequence.score(beats(), tempo());
   function prepare() {
@@ -95,5 +96,5 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   on($('Edit'), 'click', () => safely(() => { const frame = sequence.frames[selected]; onEditDrawing?.(encodeArtwork(frame.notes, { title: frame.name, durationBeats: frame.durationBeats, tempo: tempo() }), frame.name); }));
   const resize = new ResizeObserver(() => render(animate ? displayed : selected)); resize.observe(canvas);
   reflect(); const knobs = mountMixerKnobs(host);
-  return { getScore, getSettings, capture, dispose() { if (disposed) return; disposed = true; stopAnimation(); events.abort(); resize.disconnect(); knobs.destroy(); sequence.clear(); host.replaceChildren(); } };
+  return { getScore, getSettings, capture, refreshTempo() { render(animate ? displayed : selected); prepare(); }, dispose() { if (disposed) return; disposed = true; stopAnimation(); events.abort(); resize.disconnect(); knobs.destroy(); sequence.clear(); host.replaceChildren(); } };
 }

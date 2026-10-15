@@ -1,3 +1,4 @@
+import { BLECH_MAX_FILE_RATE } from './blech-midi-timing.js';
 import { canvasSizing } from '../../graphics/canvas-sizing.js';
 import { blackMidiStatistics, queryBlackMidiNotes } from './blech-midi-black-score.js';
 import { parseBlackMidi } from './blech-midi-black-loader.js';
@@ -286,7 +287,7 @@ export function createBlackMidiVisualizer({ mount, getTransport = () => ({ posit
   function render(position = getTransport()?.position ?? 0) {
     if (disposed) return latestStats;
     const time = Math.max(0, Number(position) || 0), geometry = blackMidiTimeGeometry(options, dimensions.cssHeight);
-    const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .01, 8, 1);
+    const transport = getTransport() ?? {}, speed = clamp(transport.speed ?? transport.rate, .01, BLECH_MAX_FILE_RATE, 1);
     const frameLimit = Math.max(Math.floor(backend.limit / 8), Math.floor(backend.limit / Math.max(1, speed)));
     let liveState = null;
     try { liveState = getLiveState?.(); } catch { /* Display failure cannot affect sound. */ }

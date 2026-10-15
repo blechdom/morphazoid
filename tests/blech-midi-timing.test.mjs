@@ -19,8 +19,8 @@ test('linked file timing follows master BPM with fractional and multiple ratios'
 });
 
 test('limits report the resulting BPM rather than the unattainable requested BPM', () => {
-  const fast = resolveBlechFileTiming({ sourceTempo: 120, masterTempo: 300, linked: true, ratio: 8 });
-  assert.deepEqual(fast, { requestedRate: 20, rate: 8, effectiveBpm: 960, limited: true });
+  const fast = resolveBlechFileTiming({ sourceTempo: 120, masterTempo: 4800, linked: true, ratio: 8 });
+  assert.deepEqual(fast, { requestedRate: 320, rate: 64, effectiveBpm: 7680, limited: true });
   const slow = resolveBlechFileTiming({ sourceTempo: 300, masterTempo: 30, linked: true, ratio: .01 });
   assert.deepEqual(slow, { requestedRate: .001, rate: .01, effectiveBpm: 3, limited: true });
 });
@@ -37,5 +37,5 @@ test('invalid timing inputs fall back without mutating options or emitting inval
   assert.deepEqual(resolveBlechFileTiming(options), { requestedRate: 1, rate: 1, effectiveBpm: 120, limited: false });
   assert.deepEqual(resolveBlechFileTiming(), { requestedRate: 1, rate: 1, effectiveBpm: null, limited: false });
   assert.equal(resolveBlechFileTiming({ ratio: .125, minRate: NaN, maxRate: -1 }).rate, .125);
-  assert.equal(resolveBlechFileTiming({ ratio: 99, maxRate: 999 }).rate, 8);
+  assert.equal(resolveBlechFileTiming({ ratio: 99, maxRate: 999 }).rate, 64);
 });

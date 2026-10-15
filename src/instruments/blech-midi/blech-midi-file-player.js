@@ -1,14 +1,14 @@
 import { MidiphoriaPlayer } from '../midiphoria/midiphoria-player.js';
 import { mountMidiScoreView, readMidiAsset, MAX_PREVIEW_NOTES } from './blech-midi-score-view.js';
 import { parseMidi, MIDI_SAMPLE_LIMITS } from '../midi-mixer/midi-mixer-model.js';
-import { resolveBlechFileTiming } from './blech-midi-timing.js';
+import { resolveBlechFileTiming, BLECH_MAX_FILE_RATE } from './blech-midi-timing.js';
 
 const MAX_LOCAL_BYTES = 200 * 1024 * 1024;
 const MAX_AUDIO_BYTES = 10 * 1024 * 1024;
 const timeLabel = seconds => `${Math.floor(Math.max(0, seconds) / 60)}:${String(Math.floor(Math.max(0, seconds) % 60)).padStart(2, '0')}`;
 
 /** Full-score file transport, independent of drawing pads and live evolution. */
-export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, settingsHost, onPrepare } = {}) {
+export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, settingsHost, onPrepare, onNoteCount, onKeyboardNote } = {}) {
   const events = new AbortController();
   const on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `
@@ -20,11 +20,11 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
           <button id="blackPlayButton" data-primary-transport class="play-button" type="button" aria-pressed="false" aria-label="Play MIDI file" disabled><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z" /></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12" /></svg></button>
           <button id="blackStopButton" type="button" class="mini-action" aria-label="Stop and rewind MIDI file" title="Stop only the MIDI file" disabled>Stop</button>
           <label class="control" for="blackFileLevel" title="Volume of the MIDI file and the playable keyboard"><span><b>Volume</b><output id="blackFileLevelOut">75%</output></span><input id="blackFileLevel" aria-label="MIDI file and keyboard volume" type="range" min="0" max="1" step=".01" value=".75"></label>
-          <label class="blech-file-bpm" for="blackFileTempo"><span>File BPM</span><input id="blackFileTempo" type="number" min="1" max="999" step=".1" value="120" aria-label="Independent MIDI file tempo" disabled></label>
+          <label class="blech-file-bpm" for="blackFileTempo"><span>File BPM</span><input id="blackFileTempo" type="number" min="1" max="4800" step=".1" value="120" aria-label="Independent MIDI file tempo" disabled></label>
           <label class="blech-art-check blech-file-link" title="Follow the master tempo; ratio still applies"><input id="blackSyncTempo" type="checkbox">Link</label>
-          <label class="blech-file-ratio" for="blackSpeedRatio"><span>Ratio</span><select id="blackSpeedRatio" aria-label="MIDI file speed ratio"><option value="0.125">⅛×</option><option value="0.25">¼×</option><option value="0.3333333333333333">⅓×</option><option value="0.5">½×</option><option value="0.6666666666666666">⅔×</option><option value="1" selected>1×</option><option value="1.5">1½×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option><option value="8">8×</option><option value="custom" disabled>Custom</option></select></label>
+          <label class="blech-file-ratio" for="blackSpeedRatio"><span>Ratio</span><select id="blackSpeedRatio" aria-label="MIDI file speed ratio"><option value="0.125">⅛×</option><option value="0.25">¼×</option><option value="0.3333333333333333">⅓×</option><option value="0.5">½×</option><option value="0.6666666666666666">⅔×</option><option value="1" selected>1×</option><option value="1.5">1½×</option><option value="2">2×</option><option value="3">3×</option><option value="4">4×</option><option value="8">8×</option><option value="16">16×</option><option value="32">32×</option><option value="64">64×</option><option value="custom" disabled>Custom</option></select></label>
           <input id="blackTempoReference" type="hidden" value="120">
-          <label class="control" for="blackPlaybackRate"><span><b>Speed</b><output id="blackPlaybackRateOut">1.00×</output></span><input id="blackPlaybackRate" aria-label="MIDI file speed" type="range" min=".125" max="8" step="any" value="1"></label>
+          <label class="control" for="blackPlaybackRate"><span><b>Speed</b><output id="blackPlaybackRateOut">1.00×</output></span><input id="blackPlaybackRate" aria-label="MIDI file speed" type="range" min=".125" max="64" step="any" value="1"></label>
           <label class="blech-art-check"><input id="blackLoopSong" type="checkbox">Loop</label>
           <button id="blackOriginalTiming" class="mini-action" type="button" title="Unlink and restore the MIDI file's original tempo and speed">Original</button>
         </div>
@@ -71,13 +71,13 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     } catch (caught) { preparationError = caught.message || 'This MIDI cannot be sent as a layer.'; }
     notifyPrepared();
   }
-  const view = mountMidiScoreView({ mount: $('blackMidiViewport'), controls: $('blackMidiControls'), getLiveState: () => engine.state,
-    onNoteOn: ({ sourceId, note, velocity }) => player?.padNoteOn(sourceId, note, velocity),
+  const view = mountMidiScoreView({ mount: $('blackMidiViewport'), controls: $('blackMidiControls'), getLiveState: () => engine.state, onNoteCount,
+    onNoteOn: ({ sourceId, note, velocity }) => { const played = player?.padNoteOn(sourceId, note, velocity); if (played) onKeyboardNote?.(); return played; },
     onNoteOff: ({ sourceId }) => player?.padNoteOff(sourceId),
     getTransport: () => { const state = player?.state; return { position: state?.time ?? 0, playing: state?.playing ?? false, speed: state?.rate ?? 1 }; } });
   // One context and one final effects/volume/peak-control path for the whole page.
   // The file player already supplies an 8× preamp; undo that before Blech's 8× stage.
-  player = new MidiphoriaPlayer({ minPlaybackRate: .01, getAudioContext: () => engine.context,
+  player = new MidiphoriaPlayer({ minPlaybackRate: .01, maxPlaybackRate: BLECH_MAX_FILE_RATE, getAudioContext: () => engine.context,
     connectOutput: (context, node) => engine.connectExternalSource(context, node, { gain: 1 / 8 }),
     onState: () => reflect(),
   });
@@ -111,7 +111,7 @@ export function mountBlechFilePlayer(host, { engine, creditsHost, libraryHost, s
     const bpm = tempo ? `${Number((tempo * rate).toFixed(1))} BPM` : `${rate.toFixed(2)}×`;
     $('blackTempoStatus').textContent = !selected ? 'Choose a MIDI file'
       : timingKind === 'unknown' ? loading ? 'Reading file tempo…' : `Tempo unavailable · ${rate.toFixed(2)}× speed`
-      : `${sync && tempo ? 'Linked' : 'Independent'} · ${bpm}${Math.abs(rate - timing.requestedRate) > .000001 ? ' · rate limited to 0.01–8×' : ''}${tempoChanges ? ' at start · source tempo changes preserved' : ''}${!tempo ? ' · this score uses timecode' : ''}`;
+      : `${sync && tempo ? 'Linked' : 'Independent'} · ${bpm}${Math.abs(rate - timing.requestedRate) > .000001 ? ` · rate limited to 0.01–${BLECH_MAX_FILE_RATE}×` : ''}${tempoChanges ? ' at start · source tempo changes preserved' : ''}${!tempo ? ' · this score uses timecode' : ''}`;
   }
   const label = song => `${song.composer ? `${song.composer} · ` : ''}${song.title}`;
   const group = song => song.collection || 'Your MIDIs';
