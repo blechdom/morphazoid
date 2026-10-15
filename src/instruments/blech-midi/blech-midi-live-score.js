@@ -1,3 +1,4 @@
+import { MAX_MIDI_MIXER_TEMPO } from '../midi-mixer/midi-mixer-model.js';
 import { compileSampleTempoMap, sampleSecondsAt } from '../midi-mixer/midi-mixer-clock.js';
 import { transformMidiNote } from '../midi-mixer/midi-mixer-parameters.js';
 import { midiNoteEffectChildren, sanitizeMidiNoteEffects } from '../../midi-note-effects.js';
@@ -65,7 +66,7 @@ export function createBlechLiveProjector() {
     pastSeconds = bound(pastSeconds, 0, 30, 0);
     lookAhead = bound(lookAhead, .25, 60, 6);
     limit = Math.floor(bound(limit, 0, BLECH_LIVE_NOTE_LIMIT, BLECH_LIVE_NOTE_LIMIT));
-    const notes = [], past = [], sources = [], tempo = bound(state?.tempo, 30, 300, 120);
+    const notes = [], past = [], sources = [], tempo = bound(state?.tempo, 30, MAX_MIDI_MIXER_TEMPO, 120);
     const effects = sanitizeMidiNoteEffects({ ...state?.noteEffects, tempo });
     const nextEffectKey = JSON.stringify(effects);
     if (nextEffectKey !== effectKey || !effectTimeline.length) {
@@ -198,7 +199,7 @@ export function createBlechLiveProjector() {
       const source = `sample:${sample.id}`, sourceLimit = Math.min(limit, notes.length + perSource), analysis = sample.analysis;
       let indexed = samples.get(analysis);
       if (!indexed) { indexed = indexSample(analysis); samples.set(analysis, indexed); }
-      const sync = sample.sync !== false, scale = sync ? 60 / (sample.completed || sample.paused ? bound(sample.tempo, 30, 300, tempo) : tempo) : 1;
+      const sync = sample.sync !== false, scale = sync ? 60 / (sample.completed || sample.paused ? bound(sample.tempo, 30, MAX_MIDI_MIXER_TEMPO, tempo) : tempo) : 1;
       const timeOffset = sample.completed ? sample.finishedAt - now : sample.paused ? sample.pausedAt - now : sample.forecastOffset ?? 0;
       const position = sync ? sample.positionBeats : sampleSecondsAt(indexed.tempo, sample.positionBeats);
       const length = sync ? analysis.durationBeats : indexed.durationSeconds;

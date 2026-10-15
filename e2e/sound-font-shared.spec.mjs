@@ -141,7 +141,7 @@ for (const id of gmBankIds) {
     await expect(page.locator('#downloadButton')).toContainText(`Download ${bank.format.toUpperCase()}`);
     await page.locator('#auditionButton').click();
     await audioOff(page);
-    await page.locator('#enableAudio').click();
+    await page.locator('#audioButton').click();
     await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 60_000 });
     await page.locator('#auditionButton').click();
     const signal = await audible(page);

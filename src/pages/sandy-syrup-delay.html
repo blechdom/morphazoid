@@ -11,6 +11,7 @@
     <title>Sandy Syrup Delay — Morphazoid</title>
     <link rel="icon" href="favicon.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="src/processor-sample-player.css" />
     <link rel="stylesheet" href="src/families/barber-delay/barber-delay.css" />
   </head>
   <body class="barber-delay-page sandy-syrup-page" data-delay-mode="sandy">
@@ -88,11 +89,11 @@
         </div>
       </section>
 
-      <aside class="panel barber-delay-panel" aria-label="Sandy Syrup Delay controls">
+      <aside data-instrument-preset-host class="panel barber-delay-panel" aria-label="Sandy Syrup Delay controls">
         <details class="group control-section barber-delay-source" data-section="play" open>
           <summary class="group-summary">
             <h2 class="group-title">Source</h2>
-            <span class="section-state" id="sourceSummary">microphone · headphones</span>
+            <span class="section-state" id="sourceSummary">sample loops</span>
           </summary>
           <div class="group-body">
             <span class="field-label">Input</span>
@@ -117,27 +118,13 @@
                 ↻
               </button>
             </div>
+            <div id="sampleControls"></div>
             <audio id="fileAudio" loop preload="metadata"></audio>
             <p class="barber-delay-note"><a href="settings.html">Mic / stereo line input setup →</a> Select your interface and mono/stereo capture. File playback keeps its original stereo.</p>
             <p class="barber-delay-note" id="sourceNote">
               Switch Audio on to allow microphone access. Use headphones—speaker-to-microphone feedback can become loud even with the internal loop bounded.
             </p>
             <p class="audio-error" id="audioError" role="alert" hidden></p>
-          </div>
-        </details>
-
-        <details class="group control-section barber-delay-presets" data-section="form" open>
-          <summary class="group-summary">
-            <h2 class="group-title">Presets</h2>
-            <span class="section-state" id="presetSummary">Custom</span>
-          </summary>
-          <div class="group-body">
-            <div
-              class="barber-preset-grid"
-              id="presetGrid"
-              role="group"
-              aria-label="Sandy Syrup built-in presets"
-            ></div>
           </div>
         </details>
 

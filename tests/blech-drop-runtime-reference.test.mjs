@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { readStaircaseSiteReference as readFile } from './helpers/staircase-site-reference.mjs';
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import { createHash } from 'node:crypto';
 import { parseRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { blechDropRuntimeChange as change, restoreBlechDropRuntime, readBlechDropRuntimeReference } from './helpers/blech-drop-runtime-reference.mjs';

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFile } from "node:fs/promises";
+import { readProcessorSamplesSiteReference as readFile } from './helpers/processor-samples-site-reference.mjs';
 import test from "node:test";
 
 import * as registry from "../src/site/instrument-registry.js";
@@ -72,10 +72,11 @@ test("catalogue renaming preserves existing musical descriptions, features, and 
   const spelling = JSON.parse(await readFile(new URL("./fixtures/catalogue-spelling-20260930.json", import.meta.url)));
   const voices = JSON.parse(await readFile(new URL("./fixtures/catalogue-voicesaurus.json", import.meta.url)));
   const fabric = JSON.parse(await readFile(new URL("./fixtures/catalogue-fabric-filter-input.json", import.meta.url)));
+  const processors = JSON.parse(await readFile(new URL("./fixtures/catalogue-processor-samples.json", import.meta.url)));
   for (const previous of before.INSTRUMENTS) {
     if (removedInstrumentIds.has(previous.id)) continue;
     const current = instrumentById(previous.id);
-    const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id], ...spelling.updates[previous.id], ...voices.updates[previous.id], ...fabric.updates[previous.id] };
+    const expected = { ...previous, ...updates[previous.id], ...main.updates[previous.id], ...spelling.updates[previous.id], ...voices.updates[previous.id], ...fabric.updates[previous.id], ...processors.updates[previous.id] };
     assert.ok(current, previous.id);
     for (const key of ["description", "start", "kind", "features", "pluginHref", "imageHref"]) {
       assert.deepEqual(current[key], expected[key], `${previous.id}: ${key}`);

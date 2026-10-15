@@ -12,7 +12,10 @@ import {
   sanitizeBarberDelayParams,
 } from "./barber-delay.js";
 import { mountAudioInputControl } from "../../audio-input-control.js";
-import { audioInputDescription } from "../../audio-input-settings.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { mountProcessorSamplePlayer } from "../../processor-sample-player.js";
+import { BARBER_FULL_PRESETS, captureBarberPreset, validateBarberPreset, randomizeBarberPreset } from "./full-presets.js";
+import { audioInputDescription, configureAudioInputNode } from "../../audio-input-settings.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -41,7 +44,7 @@ const state = {
     ),
   },
   preset: initialPreset?.id ?? null,
-  source: "microphone",
+  source: "samples",
   loopFile: true,
   fileUrl: null,
   fileLabel: null,
@@ -58,6 +61,8 @@ let canvasWidth = 1;
 let canvasHeight = 1;
 let disposed = false;
 let sourceTransition = false;
+let samplePlayer = null;
+let presetController = null;
 
 function setPressed(element, pressed) {
   element?.setAttribute("aria-pressed", String(Boolean(pressed)));
@@ -244,7 +249,7 @@ function updateInterface({ drawNow = true } = {}) {
   $("soundSummary").textContent = isSandy
     ? `${Math.round(settings.blend * 100)}% syrup · ${Math.round(settings.dryWet * 100)}% wet`
     : `${Math.round(settings.feedback * 100)}% feedback · ${Math.round(settings.dryWet * 100)}% wet`;
-  $("sourceSummary").textContent = state.source === "microphone"
+  $("sourceSummary").textContent = state.source === "samples" ? "sample loops" : state.source === "microphone"
     ? audioInputDescription(audio.mediaStream)
     : state.fileLabel
       ? `file · ${state.loopFile ? "loop" : "once"}`
@@ -254,12 +259,6 @@ function updateInterface({ drawNow = true } = {}) {
     : "Pick a local file, then switch Audio on. The file stays in this browser.";
   $("fileControls").hidden = state.source !== "file";
   $("fileName").textContent = state.fileLabel ?? "Choose local audio…";
-
-  const selectedPreset = presets.find((preset) => preset.id === state.preset);
-  $("presetSummary").textContent = selectedPreset?.label ?? "Custom";
-  for (const button of $("presetGrid").querySelectorAll("[data-preset]")) {
-    setPressed(button, button.dataset.preset === state.preset);
-  }
 
   $("stageReadout").textContent = [
     `${settings.numVoices} HEADS`,
@@ -279,45 +278,31 @@ function updateInterface({ drawNow = true } = {}) {
 
   updatePitchReadout();
   updateAudioParameters();
+  samplePlayer?.refresh();
+  presetController?.refresh();
   if (drawNow) draw(performance.now(), true);
 }
 
-function renderPresets() {
-  const fragment = document.createDocumentFragment();
-  for (const preset of presets) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.dataset.preset = preset.id;
-    button.textContent = preset.label;
-    button.setAttribute("aria-pressed", String(preset.id === state.preset));
-    button.title = [
-      `${preset.settings.speed} Hz`,
-      isSandy
-        ? `${preset.settings.pitchOctaves} oct · ${formatMilliseconds(preset.settings.fbDelay)} history`
-        : formatMilliseconds(preset.settings.range),
-      `${preset.settings.numVoices} heads`,
-    ].join(" · ");
-    button.addEventListener("click", () => applyPreset(preset.id));
-    fragment.append(button);
-  }
-  $("presetGrid").replaceChildren(fragment);
-}
-
-function applyPreset(id) {
-  const preset = presets.find((candidate) => candidate.id === id);
-  if (!preset) return;
+function applyPresetSnapshot(snapshot) {
+  validateBarberPreset(snapshot, mode);
   const { inputGain, outputLevel } = state.settings;
-  state.settings = {
-    ...sanitizeBarberDelayParams({
-      ...preset.settings,
-      inputGain,
-      outputLevel,
-    }, mode),
-  };
-  state.preset = preset.id;
+  state.settings = { ...sanitizeBarberDelayParams({ ...snapshot.settings, inputGain, outputLevel }, mode) };
+  state.ratioLock = snapshot.ratioLock ?? false;
+  state.preset = null;
   updateInterface();
   if (isSandy) audio.reseedSandyGrains();
-  announce(`${preset.label} preset loaded.`);
+}
+
+async function prepareSampleInput() {
+  await audio.initialize();
+  if (!state.audioOn || state.source !== "samples") return;
+  audio.clearSuspendTimer();
+  await audio.context.resume();
+  if (!state.audioOn || state.source !== "samples") return;
+  configureAudioInputNode(audio.node, audio.runtime, { inputChannels: 2 });
+  audio.node.port.postMessage({ type: "active", value: true });
+  audio.enabled = true;
+  audio.setOutputEnabled(true);
 }
 
 function setParameter(key, value) {
@@ -462,6 +447,7 @@ async function startAudio() {
 }
 
 async function stopAudio() {
+  samplePlayer?.stop();
   inputRequestGeneration++;
   inputPending = false;
   audio.stopInput();
@@ -498,13 +484,12 @@ async function chooseSource(source) {
   sourceTransition = true;
   inputError = "";
   clearAudioError();
-  const restart = state.audioOn;
   try {
+    samplePlayer?.stop();
     audio.stopInput();
     state.source = source;
     updateInterface();
-    updateInterface();
-    announce(`${source === "microphone" ? "Microphone" : "File"} source selected.`);
+    announce(`${source === "samples" ? "Samples" : source === "microphone" ? "Microphone" : "File"} source selected.`);
   } catch (error) {
     state.audioOn = false;
     await audio.stop().catch(() => {});
@@ -524,18 +509,22 @@ const audioInputControl = mountAudioInputControl({
   container: document.querySelector(".barber-delay-panel"), before: document.querySelector(".barber-delay-source"),
   gainInput: $("inputGain"), gainOutput: $("inputGainOut"),
   onGainInput: (value) => { state.settings.inputGain = value; updateAudioParameters(); },
-  sources: [{ value: "microphone", label: "Mic" }, { value: "file", label: "File" }], sourceValue: state.source,
+  sources: [{ value: "samples", label: "Samples" }, { value: "microphone", label: "Mic" }, { value: "file", label: "File" }], sourceValue: state.source,
   onSourceChange: (value) => { inputRequestGeneration += 1; inputPending = false; inputError = ""; void chooseSource(value); },
   fileInput: $("filePicker"),
   onStart: async () => {
     inputError = "";
+    if (state.source === "samples") {
+      if (!state.audioOn) throw new Error("Switch Audio on before playing a sample.");
+      return samplePlayer.start();
+    }
     const generation = ++inputRequestGeneration; inputPending = true;
     try { await audio.startInput(selectedSource()); }
     finally { if (generation === inputRequestGeneration) inputPending = false; }
   },
-  onStop: () => { inputRequestGeneration += 1; inputPending = false; inputError = ""; audio.stopInput(); },
-  getState: () => ({ active: Boolean(audio.sourceNode), pending: inputPending, error: inputError, source: state.source }),
-  getSignal: () => ({ node: audio.sourceNode, stream: audio.mediaStream, channels: state.source === "file" ? 2 : undefined, multiplier: state.settings.inputGain }),
+  onStop: () => { samplePlayer?.stop(); inputRequestGeneration += 1; inputPending = false; inputError = ""; audio.stopInput(); },
+  getState: () => ({ active: state.source === "samples" ? Boolean(samplePlayer?.snapshot().playing) : Boolean(audio.sourceNode), pending: inputPending || Boolean(samplePlayer?.snapshot().pending), error: inputError, source: state.source }),
+  getSignal: () => ({ node: state.source === "samples" ? samplePlayer?.getSignal() : audio.sourceNode, stream: audio.mediaStream, channels: state.source !== "microphone" ? 2 : undefined, multiplier: state.settings.inputGain }),
   hide: [$("sourceChoice"), $("sourceNote"), $("filePicker").closest("label"), $("inputGain").closest("label")],
 });
 
@@ -552,16 +541,16 @@ $("filePicker").addEventListener("change", async (event) => {
   inputError = "";
   const nextUrl = URL.createObjectURL(file);
   const previousUrl = state.fileUrl;
-  const restart = state.audioOn && state.source === "file";
+  const restart = Boolean(audio.sourceNode) && state.source === "file";
   clearAudioError();
   try {
-    if (restart) await stopAudio();
+    if (restart) audio.stopInput();
     state.fileUrl = nextUrl;
     state.fileLabel = file.name;
     $("fileAudio").src = nextUrl;
     $("fileAudio").load();
     if (previousUrl) URL.revokeObjectURL(previousUrl);
-    if (restart) await startAudio();
+    if (restart) await audio.startInput(selectedSource());
     updateInterface();
     announce(`${file.name} loaded.`);
   } catch (error) {
@@ -580,9 +569,9 @@ $("fileAudio").addEventListener("error", () => {
   audioInputControl.refresh();
 });
 
-$("[data-reset-all]")?.addEventListener("click", () => {
+document.querySelector("[data-reset-all]")?.addEventListener("click", () => {
   state.settings = {
-    ...sanitizeBarberDelayParams(BARBER_DELAY_DEFAULTS[mode], mode),
+    ...sanitizeBarberDelayParams({ ...BARBER_DELAY_DEFAULTS[mode], inputGain: state.settings.inputGain, outputLevel: state.settings.outputLevel }, mode),
   };
   state.preset = null;
   state.ratioLock = false;
@@ -1161,13 +1150,29 @@ document.addEventListener("visibilitychange", () => {
 
 globalThis.addEventListener("pagehide", () => {
   disposed = true;
+  samplePlayer?.destroy();
+  presetController?.destroy();
+  audioInputControl.destroy();
   cancelAnimationFrame(animationFrame);
   resizeObserver?.disconnect();
   if (state.fileUrl) URL.revokeObjectURL(state.fileUrl);
   audio.close();
 }, { once: true });
 
-renderPresets();
+samplePlayer = mountProcessorSamplePlayer({
+  container: $("sampleControls"), prepare: prepareSampleInput,
+  getContext: () => audio.context, getTarget: () => audio.node,
+  isArmed: () => state.audioOn, isSelected: () => state.source === "samples",
+  onChange: snapshot => { if (snapshot.playing) inputError = ""; audioInputControl.refresh(); },
+  onError: error => { inputError = error?.message || String(error); audioInputControl.refresh(); },
+});
+presetController = registerHeaderPresets({
+  id: isCandy ? "candy-coil-delay" : "sandy-syrup-delay",
+  presets: BARBER_FULL_PRESETS[mode],
+  capture: () => captureBarberPreset(state.settings, mode, state.ratioLock),
+  apply: applyPresetSnapshot,
+  randomize: (current, random) => randomizeBarberPreset(current, mode, random),
+});
 updateInterface();
 resizeCanvas();
 animationFrame = requestAnimationFrame(animate);

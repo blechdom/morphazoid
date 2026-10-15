@@ -17,10 +17,19 @@ export function restoreStaircaseSite(source, file, { allowRestored = false } = {
   if (!change) return source;
   const marker = /striped-staircase-rust|staircase-wasm|staircase\.wasm|staircase-build\.json|staircase-studies\.md/;
   if (allowRestored && !marker.test(source)) return source;
+  // Both independent instruments extend the same check command. Recognize
+  // this exact merged variant, peel Staircase, then retain the Rust check.
+  const rustCheck = ' && npm run check:rust-resonator-wasm';
+  const mergedCheck = file === 'package.json' && source.includes(rustCheck);
+  if (mergedCheck) {
+    assert.equal(source.split(rustCheck).length - 1, 1, `${file}: exact independent Rust Resonator check`);
+    source = source.replace(rustCheck, '');
+  }
   for (const { before, after } of [...change.replacements].reverse()) {
     assert.equal(source.split(after).length - 1, 1, `${file}: exact Staircase Studies site amendment`);
     source = source.replace(after, before);
   }
+  if (mergedCheck) source = source.replace(' && npm run check:simd-wasm', ` && npm run check:simd-wasm${rustCheck}`);
   return source;
 }
 

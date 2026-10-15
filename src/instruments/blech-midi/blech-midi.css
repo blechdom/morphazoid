@@ -11,6 +11,8 @@ html.blech-midi-root { height: auto; min-height: 100%; overflow-x: clip; overflo
 .blech-midi-modes a { margin-left: auto; font-size: 11px; }
 .blech-midi-transport { display: flex; align-items: center; flex-wrap: wrap; gap: 10px 16px; margin-bottom: 12px; }
 .blech-midi-transport .control { width: 100px; }
+.blech-master-exact { display: grid; gap: 2px; font-size: 10px; color: #a1b4ae; }
+.blech-master-exact input { width: 76px; min-width: 0; height: 28px; padding: 3px 5px; font-variant-numeric: tabular-nums; }
 .blech-midi-transport .control > span:first-child { flex-direction: column; gap: 4px; }
 .blech-midi-transport #playButton, .blech-midi-preparation-heading #generateDrawingMidi { min-height: 44px; background: #96f4cc; border-color: #96f4cc; color: #07110b; }
 .blech-midi-transport #playButton { min-width: 74px; }
@@ -201,6 +203,15 @@ body.blech-midi-page { height: 100dvh; min-height: 0; overflow: hidden; display:
 .blech-midi-heading { display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 6px 16px; }
 .blech-midi-heading h1 { display: flex; align-items: center; gap: 10px; margin: 0; font-size: clamp(23px, 2.5vw, 34px); font-weight: 800; letter-spacing: -.04em; white-space: nowrap; }
 .blech-midi-heading h1 img { width: 76px; height: 44px; object-fit: contain; }
+.blech-note-counters { order: 3; flex: 1 0 100%; display: flex; align-items: center; flex-wrap: wrap; gap: 6px 18px; min-width: 0; padding: 3px 0 6px; }
+.blech-note-counters > div { display: grid; gap: 1px; min-width: 0; }
+.blech-note-counters > div > span:first-child { font-size: 10px; color: #a1b4ae; }
+.blech-note-counters > div > span:last-child { display: flex; align-items: baseline; flex-wrap: wrap; column-gap: 4px; }
+.blech-note-counters output { color: #96f4cc; font-size: 20px; line-height: 1.15; font-variant-numeric: tabular-nums; }
+.blech-note-counters small, .blech-note-counters small output { color: #a1b4ae; font-size: 12px; }
+#blechResetNoteCount { min-width: 32px; min-height: 32px; margin-left: auto; padding: 4px; font-size: 18px; }
+@media (max-width: 700px) { .blech-note-counters { gap: 6px 10px; } .blech-note-counters output { font-size: 17px; } .blech-note-counters small output { font-size: 11px; } }
+@media (pointer: coarse) { #blechResetNoteCount { min-width: 48px; min-height: 48px; } }
 .blech-midi-transport { margin: 0; flex-wrap: nowrap; gap: 12px; }
 .blech-midi-transport .control { width: 112px; }
 .blech-midi-transport .control, .blech-file-transport .control { display: grid; grid-template-columns: 1fr 36px; gap: 6px; align-items: center; }

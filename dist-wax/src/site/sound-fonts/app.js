@@ -55,7 +55,6 @@ const audioStrip = createAudioStrip({
 $('audioControl').replaceWith(audioStrip);
 await import('../../../nav.js');
 const presetPicker=enhanceChooseSelect($('presetSelect'),{label:'Preset',placeholder:'Find a preset'});
-$('enableAudio').addEventListener('click',()=>audioStrip.audioButton.click());
 
 function showView(next) {
   navigationVersion++;
@@ -402,8 +401,6 @@ function updateKeyboard() {
   }
   $('auditionButton').disabled=!playable;
   $('nextPreset').disabled=view==='explore'?!visiblePresets().length:!playable || selectedFont.presets.length<2;
-  $('enableAudio').hidden=audio.enabled;
-  $('enableAudio').disabled=audioStrip.audioButton.disabled;
   $('keyboardHint').textContent=`Audio ${audio.enabled?'on':'off'} · ${playable?'click keys or use your computer keyboard':'select a SoundFont to play'}`;
 }
 window.addEventListener('keydown',event=>{

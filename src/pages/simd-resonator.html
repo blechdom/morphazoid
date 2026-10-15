@@ -74,11 +74,6 @@
         <details class="group control-section simd-input" data-section="play" open>
           <summary class="group-summary"><h2 class="group-title">Input</h2><span class="section-state" id="inputSummary">Audio first</span></summary>
           <div class="group-body">
-            <div class="simd-demo-card">
-              <small id="demoActionLabel">TAP OR DRAG THE BODY</small>
-              <b id="demoDescription">A strike excites 128 independently ringing modes.</b>
-              <span id="demoInputNote">Microphone input is split into FFT bands and resynthesized through the same body.</span>
-            </div>
             <button id="pluckButton" class="simd-primary-action simd-demo-action" type="button">PLUCK BODY</button>
             <select id="inputSource" aria-label="Input source">
               <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">File</option>
@@ -123,7 +118,6 @@
         <details class="group control-section simd-resynthesis" data-section="analysis" open>
           <summary class="group-summary"><h2 class="group-title">FFT Resynth</h2><span class="section-state" id="fftSummary">96 bands · 21.3 ms</span></summary>
           <div class="group-body">
-            <p class="simd-resynth-note">Phase-preserved band triggers keep words legible. Longer frames resolve pitch; shorter frames follow consonants.</p>
             <div class="simd-fft-selects">
               <label for="fftSize"><span>Frame</span><select id="fftSize" aria-label="FFT frame size">
                 <option value="256">256</option><option value="512">512</option><option value="1024" selected>1024</option><option value="2048">2048</option><option value="4096">4096</option>
