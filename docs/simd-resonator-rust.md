@@ -71,9 +71,14 @@ Surround distributes sound before it becomes a finished stereo mix. The Rust
 kernel routes each modal oscillator into a neighboring pair of logical buses
 with equal-power gains. The FFT maps each shaped complex bin by its logarithmic
 position among the analysis bands, then performs a separate inverse FFT and
-overlap-add reconstruction for each bus. Up to sixteen logical buses carry
+overlap-add reconstruction for each bus. Two real speaker transforms are packed
+into each complex inverse transform, preserving independent outputs while
+reducing the transform count. Up to sixteen logical buses carry
 independent material; the physical output layout determines the speaker count.
-The ordinary stereo render remains available independently.
+The ordinary stereo render remains available independently. A shared gain
+bound preserves relative speaker levels, limits each bus to 0.95, and limits
+their absolute sum to 0.95×√2; the 0.7-gain stereo preview remains below full scale
+at unity master volume.
 
 **Target** chooses the modal body, FFT reconstruction or both. The unselected
 component remains audible at a stationary position. **Pattern** sets ascending,
@@ -142,6 +147,20 @@ call, including telemetry cloning, but excludes browser scheduling, actual
 message transport, devices, UI and configuration-message preparation. These
 figures describe the earlier stereo engine and do not establish the added
 multichannel workload’s performance.
+
+The [surround callback measurements](rezoidinator-surround-measurements.json)
+cover the complete synchronous processor with continuous input, spatial motion,
+its independent stereo output and sixteen surround channels. On Node 22.23.2/
+Linux ARM64, 512 modes with a 1,024-sample FFT had a 389 µs 95th percentile using
+SIMD. At 4,096 modes, a 4,096-sample FFT and 512-sample hop, SIMD measured 951 µs
+median, 1,917 µs 95th percentile and 2,263 µs maximum in the reported run. Scalar
+measured 2,122 µs median, 3,093 µs 95th percentile and 3,455 µs maximum for that same
+largest configuration: **scalar exceeded the 2,667 µs audio-block budget**.
+Reduce Waves, FFT frame size/overlap or speaker count when playback breaks up,
+especially with scalar. The default remains 512 waves. These measurements
+exclude browser scheduling, message serialization, devices, UI, recording and
+FFT topology transitions; repeated runs showed occasional scheduling outliers.
+They do not establish physical-device real-time performance.
 
 ## Build and verification
 
