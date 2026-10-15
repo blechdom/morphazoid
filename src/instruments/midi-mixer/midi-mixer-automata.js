@@ -25,15 +25,22 @@ export class MidiAutomataClock {
   configure(partial = {}) { this.settings = settingsFor(partial, this.settings); return this.settings; }
   restart() {
     this.release(); this.beat = 0; this.generation = -1; this.row = [];
+    this.seedPending = false;
     this.rowStart = 0; this.rowLength = this.settings.rowBeats; this.rowSettings = { ...this.settings };
     this.history = []; this.notes = []; this.tempos = []; this.active = new Map(); this.noteChanges = new Map();
+    if (this.playing) this._next(0);
+  }
+  reseed() {
+    // Keep performed rows and their clock; an explicit new lineage releases
+    // only this source. A paused source stages its seed without sounding it.
+    this._releaseNotes(0); this.release(); this.seedPending = true;
     if (this.playing) this._next(0);
   }
   setPlaying(value) {
     value = Boolean(value); if (value === this.playing) return;
     this.playing = value;
     if (!value) { this._releaseNotes(0); this.release(); }
-    else if (this.generation < 0) this._next(0);
+    else if (this.seedPending || this.generation < 0) this._next(0);
     else if (this.rowStart + this.rowLength <= this.beat + EPSILON) this._next(0);
     else this._soundRow(0, false);
   }
@@ -58,8 +65,8 @@ export class MidiAutomataClock {
   }
   _next(frame) {
     if (this.history.length) this.history.at(-1).endBeat = this.beat;
-    const config = this.settings;
-    if (this.generation < 0) this.row = automataMidiSeedRow(config);
+    const config = this.settings, reseed = this.seedPending;
+    if (reseed || this.generation < 0) this.row = automataMidiSeedRow(config);
     else {
       // Width edits retain the existing center; pitch-window edits move those
       // same cells to new pitches, just as the finite MIDI generator does.
@@ -67,10 +74,11 @@ export class MidiAutomataClock {
       const row = Array.from({ length: config.columns }, (_, column) => this.row[column + offset] ?? 0);
       this.row = automatapoeiaTransformRow(automatapoeiaNextRow(row, config.rule, config.boundary, config.family), config.transform, config.boundary);
     }
+    this.seedPending = false;
     this.generation++; this.rowStart = this.beat; this.rowLength = config.rowBeats; this.rowSettings = { ...config };
     this.history.push({ generation: this.generation, row: [...this.row], startBeat: this.beat, endBeat: this.beat,
-      lowestNote: config.lowestNote, velocity: config.velocity, articulation: config.articulation, program: config.program, gain: config.gain });
-    this._soundRow(frame, config.articulation === 'hold'); this._prune();
+      lowestNote: config.lowestNote, velocity: config.velocity, articulation: config.articulation, program: config.program, gain: config.gain, reseed });
+    this._soundRow(frame, config.articulation === 'hold' && !reseed); this._prune();
   }
   _prune() {
     const start = this.beat - AUTOMATA_HISTORY_BEATS;
@@ -105,7 +113,7 @@ export class MidiAutomataClock {
       beat: this.beat, noteId: note.id, durationBeats: Math.max(0, this.rowStart + this.rowLength - this.beat), generation: this.generation }, 0);
   }
   snapshot(full = false) {
-    const state = { playing: this.playing, generation: this.generation, row: [...this.row], beat: this.beat,
+    const state = { playing: this.playing, generation: this.generation, row: [...this.row], beat: this.beat, seedPending: this.seedPending,
       phase: this.generation < 0 ? 0 : clamp((this.beat - this.rowStart) / this.rowLength, 0, 1),
       rowStart: this.rowStart, rowLength: this.rowLength, rowSettings: { ...this.rowSettings }, settings: { ...this.settings },
       serial: this.serial, tempos: this.tempos.map(tempo => ({ ...tempo })),
@@ -115,6 +123,7 @@ export class MidiAutomataClock {
   }
   restore(state) {
     this.settings = settingsFor(state.settings); this.playing = Boolean(state.playing);
+    this.seedPending = Boolean(state.seedPending);
     this.generation = state.generation; this.row = [...state.row]; this.beat = state.beat;
     this.rowStart = state.rowStart; this.rowLength = state.rowLength; this.rowSettings = settingsFor(state.rowSettings);
     this.history = state.history.map(item => ({ ...item, row: [...item.row] }));

@@ -11,7 +11,7 @@ const clock = () => performance.now() / 1000;
 const clamp = (value, low, high) => Math.max(low, Math.min(high, value));
 
 /** Combined graphic and sample controls. Audio stays exclusively in the engine. */
-export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing, showVisualizer = true, orientation = 'rising' } = {}) {
+export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost, volumeHost, automataHost, drawingButton, padsHost, liveAutomata = false, shapeHost, messageHost, onEditDrawing, onEditText, onPrepare, showVisualizer = true, orientation = 'rising' } = {}) {
   const section = document.createElement('section'); section.className = 'mixer-performance';
   section.setAttribute('aria-label', 'Combined MIDI performance');
   section.innerHTML = `<div class="mixer-performance-toolbar">
@@ -71,6 +71,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
   // These nodes may live in separate view hosts; retain the single instances.
   const nodes = new Map([...section.querySelectorAll('[id]')].map(node => [node.id, node]));
   const $ = id => nodes.get(id), canvas = $('mixerPerformanceCanvas'), automataTools = $('mixerAutomataTools');
+  const fileControls = section.querySelector('.mixer-stamp-file-controls');
   const visualizer = document.createElement('div'); visualizer.className = 'mixer-performance-visualizer';
   visualizer.append(section.querySelector('.mixer-performance-toolbar'), canvas);
   if (showVisualizer) { if (visualizerHost) visualizerHost.append(visualizer); else section.prepend(visualizer); }
@@ -110,7 +111,8 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     $('mixerStampHint').textContent = 'Tap a pad to drop it. Looping pads toggle on and off.';
   }
   const stamps = new Map(), buttons = new Map(), stampCards = new Map(), fileCache = new Map(), padSamples = new Map(), saved = new Map();
-  let savedSerial = 0, drawingSerial = 0, pendingPad = null;
+  let savedSerial = 0, drawingSerial = 0, pendingPad = null, prepared = null;
+  const previewScores = new Map();
   let automataSelected = false, viewMode = 'draw';
   let selected = 'heart', seed = 1, request = null, requestTicket = 0, editRequest = null, editTicket = 0, loadingSample = false, previewFrame = null;
   let patternProgram = '0', fileProgram = 'original', fileStart = null, lastFileStamp = null, nextVariation = null, pointer = null;
@@ -162,6 +164,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     for (const record of saved.values()) {
       const sample = playing.get(padSamples.get(record.id));
       if (sample) record.loop = sample.loop;
+      if (record.pendingTextEdit && (!sample?.pendingReplacement || sample.id !== record.pendingTextEdit.sampleId)) {
+        const pending = record.pendingTextEdit;
+        if (!sample || sample.id !== pending.sampleId || sample.scoreVersion !== pending.token) updateSavedScore(record, pending.score, pending.label);
+        record.pendingTextEdit = null;
+      }
       record.card.dataset.playing = String(Boolean(sample));
       record.card.hidden = !sample && record.button.dataset.filtered === 'true';
       record.loopInput.checked = record.loop;
@@ -170,11 +177,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       if (!sample) status.textContent = record.loop ? 'Loop · tap to start' : 'One shot';
     }
   }
-  function launchScore(score, label, program, padId, loop = $('mixerSampleLoop').checked) {
+  function launchScore(score, label, program, padId, loop = $('mixerSampleLoop').checked, playback = {}) {
     const previous = padSamples.get(padId);
     if (previous !== undefined) engine.stopSample(previous);
-    const sample = engine.triggerSample(score.buffer, { name: liveAutomata && stamps.has(padId) ? `Stamp · ${label}` : label, program: null, gain: Number($('mixerSampleLevel').value),
-      loop, sync: liveAutomata || $('mixerSampleSync').checked,
+    const sample = engine.triggerSample(score.buffer, { name: liveAutomata && stamps.has(padId) ? `Stamp · ${label}` : label, program: null, gain: playback.gain ?? Number($('mixerSampleLevel').value),
+      loop, sync: liveAutomata || $('mixerSampleSync').checked, ...playback,
       midi: { ...(engine.state.sampleMidi ?? {}), program: program === 'original' ? null : Number(program) } });
     if (sample && padId) padSamples.set(padId, sample.id);
     reflectPads(); return sample;
@@ -184,7 +191,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     padSamples.delete(record.id); saved.delete(record.id); record.events.abort(); record.card.remove();
     savedPads.hidden = !saved.size;
   }
-  function saveScore(score, label, program, kind, loop = $('mixerSampleLoop').checked) {
+  function saveScore(score, label, program, kind, loop = $('mixerSampleLoop').checked, playback = {}) {
     // Keep a bounded bank of immutable sends; playing audio retains its own copy.
     if (saved.size >= 8) {
       const activeIds = new Set(engine.state.samples.map(sample => sample.id));
@@ -198,13 +205,13 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const button = card.querySelector('[data-pad-play]'), loopInput = card.querySelector('[data-pad-loop]');
     button.querySelector('[data-pad-name]').textContent = label; button.setAttribute('aria-label', label);
     loopInput.setAttribute('aria-label', `Loop ${label}`); card.querySelector('[data-pad-remove]').setAttribute('aria-label', `Remove ${label}`);
-    const record = { id, card, button, loopInput, score, label, program, events: new AbortController(), loop };
+    const record = { id, card, button, loopInput, score, label, program, events: new AbortController(), loop, playback };
     const listen = (node, type, listener) => node.addEventListener(type, listener, { signal: record.events.signal });
     listen(button, 'click', () => safely(() => {
       const sample = engine.state.samples.find(sample => sample.id === padSamples.get(id));
       if (sample?.paused) { engine.setSamplePaused(sample.id, false); reflectPads(); return; }
       if (sample?.loop) { engine.stopSample(sample.id); reflectPads(); return; }
-      launchScore(record.score, record.label, record.program, id, record.loop);
+      launchScore(record.score, record.label, record.program, id, record.loop, record.playback);
     }));
     listen(loopInput, 'change', () => {
       record.loop = loopInput.checked; const sampleId = padSamples.get(id);
@@ -212,20 +219,36 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       reflectPads();
     });
     listen(card.querySelector('[data-pad-remove]'), 'click', () => { forgetPad(record); reflectPads(); });
-    const edit = card.querySelector('[data-pad-edit]'); edit.hidden = !onEditDrawing;
+    const edit = card.querySelector('[data-pad-edit]'); edit.hidden = score.textSettings ? !onEditText : !onEditDrawing;
     edit.setAttribute('aria-label', `Edit ${label}`);
-    listen(edit, 'click', () => { cancelEdit(); onEditDrawing?.(record.score, record.label); });
+    listen(edit, 'click', () => {
+      cancelEdit();
+      if (record.score.textSettings) onEditText?.({ sampleId: padSamples.get(record.id) ?? null, settings: structuredClone(record.score.textSettings) });
+      else onEditDrawing?.(record.score, record.label);
+    });
     saved.set(id, record); savedPads.querySelector('.mixer-saved-bank').append(card); savedPads.hidden = false;
     thumbnail(button, score); filterStamps(); return record;
   }
-  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked, applyGate = true } = {}) {
+  function playScore(rawScore, label, detail = '', program = $('mixerSampleProgram').value, { padId = null, saveKind = null, loop = $('mixerSampleLoop').checked, applyGate = true, playback = {} } = {}) {
     const score = applyGate ? editScore(rawScore) : rawScore;
     if (!score?.buffer) throw new Error('Draw a score first in BLECH MIDI.');
-    const record = saveKind ? saveScore(score, label, program, saveKind, loop) : null;
-    launchScore(score, record?.label ?? label, program, record?.id ?? padId, loop);
+    const record = saveKind ? saveScore(score, label, program, saveKind, loop, playback) : null;
+    const sample = launchScore(score, record?.label ?? label, program, record?.id ?? padId, loop, playback);
     canvas.dataset.message = label;
     $('mixerSampleStatus').textContent = `${label} · ${engine.state.audioEnabled ? 'sample' : 'silent preview'}${detail ? ` · ${detail}` : ''}${score.unsupported?.length ? ` · skipped ${score.unsupported.join(' ')}` : ''}${score.warnings?.length ? ` · ${score.warnings.join(' ')}` : ''}`;
-    return score;
+    return { ...score, sampleId: sample?.id ?? null };
+  }
+  function prepareScore(rawScore, name, options = {}) {
+    const score = structuredClone(rawScore);
+    if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
+    prepared = { score, options: { name, program: $('mixerSampleProgram').value, source: 'frames', ...options } };
+    $('mixerSampleStatus').textContent = `${name} · ready to position and drop`;
+    onPrepare?.(structuredClone(score), { ...prepared.options });
+    return structuredClone(score);
+  }
+  function invalidatePrepared(name, options = {}, error = '') {
+    prepared = null;
+    onPrepare?.(null, { name, program: $('mixerSampleProgram').value, source: 'frames', ...options, error });
   }
   function fail(error) { if (!disposed && error?.name !== 'AbortError') $('mixerSampleStatus').textContent = error.message || 'Could not play this sample.'; }
   function safely(action) { try { const result = action(); result?.catch(fail); } catch (error) { fail(error); } }
@@ -259,6 +282,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     previewFrame = null;
     for (const stamp of stamps.values()) if (!stamp.file && !(stampCards.get(stamp.id) ?? buttons.get(stamp.id)).hidden) {
       const score = mixerStampScore(stamp.id, options());
+      previewScores.set(stamp.id, score);
       thumbnail(buttons.get(stamp.id), editScore(score));
       if (stamp.id === selected && !automataSelected) {
         const offset = score.appliedOffset;
@@ -292,7 +316,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     for (const button of buttons.values()) button.dataset.selected = 'false';
     for (const name of ['mixerStampDensity', 'mixerStampSpan', 'mixerStampBeats', 'mixerStampSeed', 'mixerStampVariation']) $(name).disabled = true;
     $('mixerStampNextSlice').hidden = true;
-    section.querySelector('.mixer-stamp-file-controls').hidden = true;
+    fileControls.hidden = true;
     $('mixerStampCredit').hidden = true;
     $('mixerStampHint').textContent = 'Drag across the flow to place the selected Automatapoeia rule by pitch.';
     canvas.dataset.stamp = 'automata';
@@ -303,6 +327,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     onChange: settings => engine.configureAutomata(settings),
     onPlayPause: () => engine.setAutomataPlaying(!engine.state.automata.playing),
     onRestart: () => engine.restartAutomata(),
+    onReseed: () => engine.reseedAutomata(),
     onCapture: async beats => {
       const score = await engine.captureAutomata(beats);
       if (disposed) return null;
@@ -329,7 +354,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     for (const [key, button] of buttons) button.dataset.selected = String(key === id);
     for (const name of ['mixerStampDensity', 'mixerStampSpan']) $(name).disabled = Boolean(stamp.file);
     $('mixerStampSeed').disabled = Boolean(stamp.file);
-    section.querySelector('.mixer-stamp-file-controls').hidden = !stamp.file;
+    fileControls.hidden = !stamp.file;
     const mode = $('mixerStampSourceMode').value;
     $('mixerStampStart').disabled = !stamp.file || mode !== 'manual';
     nextVariation = stamp.file ? null : nextMixerStampVariation(id, options());
@@ -339,7 +364,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (stamp.file) { credit.href = stamp.sourceUrl || 'assets/midiphoria/SOURCE.md'; credit.textContent = `${stamp.artist || stamp.composer || 'Source'} · file credits ↗`; }
     canvas.dataset.stamp = id;
   }
-  async function stampSelected(transpose = 0, padId = selected) {
+  async function stampSelected(transpose = 0, padId = selected, prepareOnly = Boolean(onPrepare)) {
     if (!active || disposed) return;
     cancelPending();
     if (automataSelected) {
@@ -349,7 +374,17 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     }
     const ticket = requestTicket, stamp = stamps.get(selected); if (!stamp) return;
     const pad = { padId, saveKind: padId ? null : 'flow', loop: liveAutomata ? stamp.loop : $('mixerSampleLoop').checked };
-    if (!stamp.file) { thumbnail(buttons.get(stamp.id), playScore(mixerStampScore(stamp.id, options(transpose)), stamp.label, '', $('mixerSampleProgram').value, pad)); return; }
+    if (prepareOnly) invalidatePrepared(stamp.label, { stampId: stamp.id, loop: pad.loop }, stamp.file ? 'Loading stamp…' : '');
+    const finish = (score, detail = '', program = $('mixerSampleProgram').value) => {
+      previewScores.set(stamp.id, score);
+      const result = prepareOnly ? prepareScore(editScore(score), stamp.label, { program, stampId: stamp.id, loop: pad.loop })
+        : playScore(score, stamp.label, detail, program, pad);
+      thumbnail(buttons.get(stamp.id), result); return result;
+    };
+    if (!stamp.file) {
+      try { return finish(mixerStampScore(stamp.id, options(transpose))); }
+      catch (error) { if (prepareOnly) invalidatePrepared(stamp.label, { stampId: stamp.id }, error.message); fail(error); return null; }
+    }
     // Switching creative views can select a different source family while this
     // file loads. Keep the sound chosen for this launch without touching others.
     const program = $('mixerSampleProgram').value;
@@ -372,8 +407,11 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
       if (mode === 'manual') $('mixerStampStart').value = String(score.sourceStartBeat);
       const range = `${whole && !score.shortened ? stamp.collection === 'Geometric patterns' ? 'whole pattern' : 'whole file' : 'excerpt'} · source beats ${score.sourceStartBeat.toFixed(1)}–${score.sourceEndBeat.toFixed(1)} · ${score.noteCount.toLocaleString()} notes`;
       if (liveAutomata) pad.loop = stamp.loop;
-      thumbnail(buttons.get(stamp.id), playScore(score, stamp.label, `${range}${score.shortened ? ' · shorter dense slice' : ''}`, program, pad));
-    } catch (error) { if (ticket === requestTicket) fail(error); }
+      return finish(score, `${range}${score.shortened ? ' · shorter dense slice' : ''}`, program);
+    } catch (error) { if (ticket === requestTicket) {
+      if (prepareOnly) invalidatePrepared(stamp.label, { stampId: stamp.id, program }, error.message);
+      fail(error);
+    } }
     finally { if (ticket === requestTicket) { loadingSample = false; pendingPad = null; request = null; reflectPads(); } }
   }
   function triggerPad(id) {
@@ -381,6 +419,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (loadingSample && pendingPad === id) { cancelPending(); return; }
     const sample = engine.state.samples.find(sample => sample.id === padSamples.get(id));
     selectStamp(id);
+    if (onPrepare) { safely(() => stampSelected(0, id, true)); return; }
     if (sample?.paused) { engine.setSamplePaused(sample.id, false); reflectPads(); return; }
     if (sample?.loop) { engine.stopSample(sample.id); reflectPads(); return; }
     safely(() => stampSelected(0, id));
@@ -494,28 +533,82 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     $('mixerStampBeats').value = String(numberInput('mixerStampDrawRow', .0078125, 2, .25) * 32);
     $('mixerStampBeats').dispatchEvent(new Event('input', { bubbles: true }));
   });
-  function getDrawingScore() {
+  function getDrawingScore({ applyGate = false } = {}) {
     drawingPitchRange();
-    return mixerPerformanceScore(getDrawing?.(), {
+    const score = mixerPerformanceScore(getDrawing?.(), {
       orientation, heightBeats: options().beats, offset: options().offset,
       span: numberInput('mixerStampSpan', 12, 128, 48, true),
       lowestNote: Number($('mixerStampDrawBase').value),
     });
+    return applyGate ? editScore(score) : score;
   }
   function playDrawing() {
     if (disposed) return null;
     cancelPending();
-    return playScore(getDrawingScore(), 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
+    const score = getDrawingScore();
+    if (onPrepare) return prepareScore(editScore(score), 'Your drawing', { loop: $('mixerSampleLoop').checked });
+    return playScore(score, 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
-  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false } = {}) {
+  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false } = {}) {
     if (disposed) return null;
     if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
-    // The creator already applies its note curves. Store a separate snapshot so
-    // later edits and the drawing pad's gate control cannot change this send.
-    const snapshot = structuredClone(score);
+    // Each drop owns a copy: moving or rewriting the preparation never edits a
+    // sounding layer. MIDI routing also carries its controllers and note-offs.
+    const snapshot = structuredClone(score), transformed = transformMidiStamp(snapshot, { channel, transpose });
+    Object.assign(snapshot, transformed, { durationBeats: transformed.analysis.durationBeats });
+    if (transformed.appliedTranspose || transformed.channel !== null) {
+      snapshot.pixels = undefined;
+      if (Array.isArray(snapshot.notes)) snapshot.notes = snapshot.notes.map(note => ({ ...note, note: note.note + transformed.appliedTranspose, ...(transformed.channel === null ? {} : { channel: transformed.channel }) }));
+    }
+    const playback = { channel: transformed.channel, transpose: transformed.appliedTranspose, delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
+    snapshot.drop = { ...playback, program, loop: Boolean(loop) };
     cancelPending();
     return playScore(snapshot, String(name).slice(0, 128), '', program,
-      { saveKind: 'art', loop: Boolean(loop), applyGate: false });
+      { saveKind: 'art', loop: Boolean(loop), applyGate: false, playback });
+  }
+  async function prepareStamp(id = selected) {
+    if (disposed || !stamps.has(id)) return null;
+    selectStamp(id);
+    return stampSelected(0, id, true);
+  }
+  function getStamps() {
+    return [...stamps.values()].map(stamp => {
+      const score = previewScores.get(stamp.id) ?? (!stamp.file ? mixerStampScore(stamp.id, options()) : null);
+      const analysis = score?.analysis ?? (score ? parseMidi(score.buffer) : null);
+      const sourceNotes = analysis?.notes ?? [], previewCount = Math.min(sourceNotes.length, 4096);
+      const notes = Array.from({ length: previewCount }, (_, index) => {
+        const { note, beat, duration, velocity, channel } = sourceNotes[Math.floor(index * sourceNotes.length / previewCount)];
+        return { note, beat, duration, velocity, channel };
+      });
+      return { ...stamp, notes, durationBeats: analysis?.durationBeats ?? 0 };
+    });
+  }
+  function textRecord(sampleId) {
+    return [...saved.values()].find(record => padSamples.get(record.id) === sampleId && record.score.textSettings);
+  }
+  function getTextLayer(sampleId) {
+    const record = textRecord(sampleId);
+    return record ? { sampleId, settings: structuredClone(record.score.textSettings) } : null;
+  }
+  function replaceScore(sampleId, score, { name, when = 'next-loop' } = {}) {
+    const record = textRecord(sampleId);
+    if (disposed || !record || !score?.textSettings) return false;
+    const snapshot = structuredClone(score), label = String(name ?? record.label).slice(0, 128);
+    if (record.playback.channel !== null || record.playback.transpose) Object.assign(snapshot, transformMidiStamp(snapshot, record.playback), { pixels: undefined });
+    const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
+    if (!result) return false;
+    const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };
+    record.pendingTextEdit = result.pendingReplacement ? { ...previous, sampleId, token: result.pendingReplacement.token } : null;
+    updateSavedScore(record, snapshot, label); reflectPads();
+    return result;
+  }
+  function updateSavedScore(record, score, label) {
+    record.score = score; record.label = label;
+    record.button.querySelector('[data-pad-name]').textContent = label;
+    record.button.setAttribute('aria-label', label); record.loopInput.setAttribute('aria-label', `Loop ${label}`);
+    record.card.querySelector('[data-pad-edit]').setAttribute('aria-label', `Edit ${label}`);
+    record.card.querySelector('[data-pad-remove]').setAttribute('aria-label', `Remove ${label}`);
+    thumbnail(record.button, score);
   }
   function stopSamples() {
     if (disposed) return;
@@ -528,7 +621,9 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, sendScore, stopSamples, getDrawingScore, refresh,
+    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, getTextLayer, stopSamples, getDrawingScore, refresh, prepareStamp, getStamps,
+    getPreparedScore: () => prepared ? structuredClone(prepared.score) : null,
+    getPreparedDrop: () => prepared ? structuredClone(prepared) : null,
     setAutomataSeed: row => automata.setSeedRow(row),
     setView(mode, nextVisualizerHost) {
       if (disposed) return;

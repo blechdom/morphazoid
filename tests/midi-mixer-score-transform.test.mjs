@@ -63,3 +63,42 @@ test('tiny gates retain every attack and clamp to at least one MIDI tick', () =>
   assert.ok(result.analysis.notes.every(note => Math.abs(note.duration - 1 / 960) < 1e-8));
   assert.deepEqual(transformMidiStamp(original, { gateScale: Infinity }).buffer, original);
 });
+
+test('drop channel reroutes attacks, releases, pressure and controllers while preserving tempo and input bytes', () => {
+  const original = midi([
+    [[0, 255, 81, 3, 7, 161, 32], [0, 255, 33, 1, 2], [0, 192, 48], [0, 176, 64, 127], [0, 144, 60, 80], [1, 160, 60, 70], [2, 224, 0, 65], [3, 128, 60, 0], [4, 176, 64, 0]],
+    [[0, 153, 36, 99], [2, 137, 36, 0]],
+  ]);
+  const bytes = original.slice(0), before = parseMidi(original);
+  const result = transformMidiStamp(original, { channel: 4, transpose: 12 });
+  assert.deepEqual(original, bytes, 'preparing a drop does not mutate the original score');
+  assert.equal(result.channel, 4); assert.equal(result.appliedTranspose, 12);
+  assert.equal(result.analysis.noteCount, before.noteCount);
+  assert.ok(result.analysis.events.every(event => event.channel === 4));
+  assert.deepEqual(result.analysis.notes.map(note => [note.note, note.beat, note.duration, note.velocity]), before.notes.map(note => [note.note + 12, note.beat, note.duration, note.velocity]));
+  assert.deepEqual(result.analysis.tempoMap, before.tempoMap);
+  assert.deepEqual(result.analysis.events.filter(event => event.kind === 10).map(event => event.a), [72]);
+  assert.deepEqual(controls(result.analysis).filter(event => event.kind !== 10), controls(before).filter(event => event.kind !== 10).map(event => ({ ...event, channel: 4 })));
+});
+
+test('drag transposition keeps the entire drawing inside 128 MIDI notes without folding edge notes', () => {
+  const original = midi([[[0, 144, 5, 50], [0, 144, 110, 90], [2, 128, 5, 0], [2, 128, 110, 0]]]);
+  const right = transformMidiStamp(original, { transpose: 127 });
+  assert.equal(right.appliedTranspose, 17);
+  assert.deepEqual(right.analysis.notes.map(note => note.note), [22, 127]);
+  const left = transformMidiStamp(original, { transpose: -127 });
+  assert.equal(left.appliedTranspose, -5);
+  assert.deepEqual(left.analysis.notes.map(note => note.note), [0, 105]);
+  assert.equal(left.analysis.noteCount, 2); assert.equal(right.analysis.noteCount, 2);
+});
+
+test('drop routing uses zero-based MIDI channels including percussion and the final channel', () => {
+  const original = midi([[[0, 144, 60, 90], [1, 128, 60, 0]]]);
+  for (const channel of [0, 6, 9, 15]) {
+    const result = transformMidiStamp(original, { channel });
+    assert.equal(result.channel, channel);
+    assert.deepEqual(result.analysis.channels.map(voice => voice.channel), [channel]);
+    assert.ok(result.analysis.notes.every(note => note.channel === channel));
+    assert.equal(result.analysis.channels[0].drums, channel === 9);
+  }
+});

@@ -233,7 +233,7 @@ test("Rubix puts Shape-style transport, twists, and read path first while retain
   const soundBankOptions = selectOptions(soundBank, "soundBank");
   assert.deepEqual(
     soundBankOptions.map(({ value }) => value),
-    ["soft-fm", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303", ...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`)],
+    ["soft-fm", "color-kit", "analog", "modal", "noise", "rattlesnake", "pitched-morph", "karplus-strong", "acid-303", ...SEQUENCER_VOICES.map(({ id }) => `shared-${id}`)],
     "the top-level selector should retain legacy banks and expose every shared voice engine",
   );
   assert.deepEqual(

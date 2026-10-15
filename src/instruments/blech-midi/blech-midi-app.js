@@ -1,4 +1,5 @@
 import { mountSoundFontChooser } from '../../sound-fonts/chooser.js';
+import { createSoundFontService } from '../../sound-fonts/bank-service.js';
 import { mountMidiNoteEffectEditor } from '../../midi-note-effects-controls.js';
 import { MidiMixerEngine } from '../midi-mixer/midi-mixer-engine.js';
 import { mountMixerPerformance } from '../midi-mixer/midi-mixer-performance.js';
@@ -11,6 +12,9 @@ import { mountBlechFilePlayer } from './blech-midi-file-player.js';
 import { mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
+import { mountBlechDropStage } from './blech-midi-drop-stage.js';
+import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
+import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 
 const $ = id => document.getElementById(id);
 let retainedDraft = null;
@@ -22,10 +26,32 @@ function mountBlechMidi() {
   $('blechLiveLayers').replaceChildren();
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
+  let dropStage, stampPicker, frameMode = 'stamps', automataSignature = '';
+  const prepared = new Map();
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
   let seedPicking = false, automataSeen = false;
   const layerNodes = new Map();
+  const activeKey = () => $('blechMidi').dataset.tab === 'frames' ? frameMode : $('blechMidi').dataset.tab;
+  const groupFor = key => ['stamps', 'drawing', 'art', 'scripts', 'sequence'].includes(key) ? 'frames' : key;
+  function preparedChanged(key, detail) {
+    prepared.set(key, detail);
+    if (key === activeKey()) { showPrepared(key); if (key === 'text' && detail.settings?.loop !== undefined) dropStage?.configure({ loop: detail.settings.loop }); }
+  }
+  function showPrepared(key) {
+    const detail = prepared.get(key) ?? {};
+    dropStage?.prepare(detail.score, { ...detail.settings, source: groupFor(key), error: detail.error,
+      name: detail.settings?.name || ({ files: 'Choose a MIDI file', drawing: 'Your drawing', stamps: 'Choose a stamp', art: 'Your image', scripts: 'Processed frame', sequence: 'Frame sequence', text: 'Your text', math: 'Math pattern', automata: 'Automata' }[key]) });
+  }
+  function prepareDrawing() {
+    try { preparedChanged('drawing', { score: drawing?.model.count ? performanceView?.getDrawingScore({ applyGate: true }) : null, settings: { name: 'Your drawing' } }); }
+    catch (error) { preparedChanged('drawing', { score: null, error: error.message }); }
+  }
+  function sendPrepared(key, score, options = {}) {
+    preparedChanged(key, { score, settings: options }); showPrepared(key);
+    if (options.loop !== undefined) dropStage.configure({ loop: options.loop });
+    return dropStage.send();
+  }
   function reflectLayers(state) {
     const ids = new Set(state.samples.map(sample => sample.id));
     for (const [id, node] of layerNodes) if (!ids.has(id)) {
@@ -39,10 +65,10 @@ function mountBlechMidi() {
         node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
         const copy = document.createElement('div'), name = document.createElement('span'), status = document.createElement('small');
         const loopLabel = document.createElement('label'), loop = document.createElement('input'), pause = document.createElement('button'), stop = document.createElement('button');
-        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = '';
+        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = ''; name.dataset.layerName = '';
         name.textContent = `${sample.name || 'Pattern'} · ${sample.id}`; name.title = name.textContent;
         node.setAttribute('role', 'group'); node.setAttribute('aria-label', name.textContent);
-        loop.type = 'checkbox'; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
+        loop.type = 'checkbox'; loop.dataset.layerLoop = ''; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
         loop.title = 'Turn off to finish this pass. Stop ends this layer immediately.';
         loopLabel.append(loop, 'Loop');
         pause.type = stop.type = 'button'; pause.dataset.layerPause = ''; stop.dataset.layerStop = '';
@@ -53,16 +79,48 @@ function mountBlechMidi() {
           if (current) engine.setSamplePaused(sample.id, !current.paused);
         });
         stop.addEventListener('click', () => engine.stopSample(sample.id));
-        copy.append(name, status); node.append(copy, loopLabel, pause, stop);
+        const timeline = document.createElement('div'), map = document.createElement('canvas'), playhead = document.createElement('i');
+        timeline.className = 'blech-layer-timeline'; map.width = 256; map.height = 12;
+        map.setAttribute('aria-label', 'Note activity across this layer'); timeline.append(map, playhead);
+        const level = document.createElement('input'); level.type = 'range'; level.min = '0'; level.max = '1'; level.step = '.01'; level.className = 'blech-layer-level'; level.dataset.layerGain = ''; level.dataset.keepSlider = '';
+        level.setAttribute('aria-label', `Volume ${name.textContent}`);
+        level.addEventListener('input', () => engine.configureSample(sample.id, { gain: Number(level.value) }));
+        copy.append(name, status, timeline); node.append(copy, level, loopLabel, pause, stop);
         layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
       }
-      node.querySelector('input').checked = sample.loop;
+      const name = `${sample.name || 'Pattern'} · ${sample.id}`;
+      field(node.querySelector('[data-layer-name]'), name); node.querySelector('[data-layer-name]').title = name;
+      node.setAttribute('aria-label', name);
+      node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
+      node.querySelector('[data-layer-stop]').setAttribute('aria-label', `Stop ${name}`);
+      if (!node.querySelector('[data-layer-edit]') && performanceView?.getTextLayer(sample.id)) {
+        const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.layerEdit = ''; edit.textContent = 'Edit';
+        edit.addEventListener('click', () => loadTextLayer(performanceView.getTextLayer(sample.id)));
+        node.querySelector('.blech-layer-copy').append(edit);
+      }
+      node.querySelector('[data-layer-edit]')?.setAttribute('aria-label', `Edit ${name}`);
+      node.querySelector('[data-layer-loop]').checked = sample.loop;
+      const level = node.querySelector('[data-layer-gain]');
+      if (document.activeElement !== level) level.value = String(sample.gain ?? .75);
+      level.setAttribute('aria-label', `Volume ${name}`);
+      const timeline = node.querySelector('.blech-layer-timeline');
+      timeline.querySelector('i').style.left = `${100 * Math.min(1, (sample.positionBeats ?? 0) / Math.max(.001, sample.durationBeats ?? sample.analysis.durationBeats))}%`;
+      if (node._score !== sample.analysis) {
+        node._score = sample.analysis;
+        const map = timeline.querySelector('canvas'), context = map.getContext('2d'), bins = new Uint32Array(128), duration = Math.max(.001, sample.analysis.durationBeats);
+        for (const note of sample.analysis.notes) bins[Math.min(127, Math.floor(note.beat / duration * 128))]++;
+        const max = Math.max(1, ...bins); context.clearRect(0, 0, 256, 12); context.fillStyle = '#96f4cc';
+        bins.forEach((count, x) => { const height = count ? Math.max(1, Math.sqrt(count / max) * 12) : 0; context.fillRect(x * 2, 12 - height, 2, height); });
+      }
       node.dataset.paused = String(Boolean(sample.paused));
       const pause = node.querySelector('[data-layer-pause]'), action = sample.paused ? 'Resume' : 'Pause';
       field(pause, action); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
       pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
       pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
-      field(node.querySelector('[data-layer-status]'), sample.paused ? 'Paused' : sample.pending ? 'Queued' : sample.loop ? 'Looping' : 'Finishing this pass');
+      const stateLabel = sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.loop ? 'Looping' : 'One shot';
+      const channel = sample.channel == null ? 'Original channels' : `Ch ${sample.channel + 1}`;
+      const program = Number.isInteger(sample.midi?.program) && sample.midi.program >= 0 ? GM_PROGRAM_NAMES[sample.midi.program] : 'Original instruments';
+      field(node.querySelector('[data-layer-status]'), `${stateLabel} · ${channel} · ${program}`);
     }
     $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
@@ -85,9 +143,6 @@ function mountBlechMidi() {
     $('audioButton').setAttribute('aria-pressed', String(enabled));
     $('audioButton').classList.toggle('is-loading', starting);
     field($('audioState'), starting ? 'starting' : enabled ? 'on' : state.error ? 'retry' : 'off');
-    $('creativeAudioStart').hidden = enabled;
-    $('creativeAudioStart').disabled = starting;
-    field($('creativeAudioStart'), starting ? 'Starting audio…' : state.error ? 'Retry audio' : 'Turn audio on');
     $('previewDrawingMidi').disabled = !drawing?.model.count;
     $('captureDrawingFrame').disabled = !drawing?.model.count;
     const paused = state.samples.filter(sample => sample.paused).length, playing = state.samples.length - paused;
@@ -113,11 +168,18 @@ function mountBlechMidi() {
     noteEffectEditor?.refresh();
     performanceView?.refresh(state);
     reflectLayers(state);
+    textTools?.refresh();
+    const nextAutomata = JSON.stringify(state.automata.settings);
+    if (automataSignature !== nextAutomata) {
+      automataSignature = nextAutomata;
+      try { preparedChanged('automata', { score: generateAutomataMidi(state.automata.settings), settings: { name: `Automata · rule ${state.automata.settings.rule}`, program: String(state.automata.settings.program ?? 0) } }); }
+      catch (error) { preparedChanged('automata', { score: null, error: error.message }); }
+    }
     if (state.error) field($('creativeStatus'), state.error);
   }
   drawing = mountMidiDrawing({ canvas: $('drawingCanvas'), status: $('drawingStatus'),
     undoButton: $('drawingUndo'), clearButton: $('drawingClear'), eraseButton: $('drawingErase'),
-    onChange: model => { performanceView?.cancelEdit(); $('generateDrawingMidi').disabled = !model.count; refreshSeedBridge(model); revokeDownload(); reflect(); },
+    onChange: model => { performanceView?.cancelEdit(); $('generateDrawingMidi').disabled = !model.count; refreshSeedBridge(model); revokeDownload(); prepareDrawing(); reflect(); },
     onSeedRow: row => { $('drawingSeedRow').value = String(row + 1); refreshSeedBridge(drawing?.model); } });
   if (retainedDraft) {
     drawing.model.pixels = retainedDraft.map(row => [...row]);
@@ -131,7 +193,8 @@ function mountBlechMidi() {
   performanceView = mountMixerPerformance($('creativeControlsHost'), { engine,
     getDrawing: () => drawing.model.count ? drawing.model.score() : null,
     showVisualizer: false, orientation: 'falling', volumeHost: $('creativeVolumeHost'), automataHost: $('automataMidiTools'), padsHost: $('creativePadsHost'),
-    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: false, onEditDrawing: loadDrawingCopy });
+    onPrepare: (score, settings) => preparedChanged('stamps', { score, settings, error: settings?.error }),
+    liveAutomata: true, shapeHost: $('drawingShapeControls'), messageHost: false, onEditDrawing: loadDrawingCopy, onEditText: loadTextLayer });
   const sound = $('automataSound'); sound.replaceChildren();
   GM_PROGRAM_NAMES.forEach((name, program) => sound.add(new Option(`${program + 1}. ${name}`, String(program))));
   sound.value = '0';
@@ -149,50 +212,101 @@ function mountBlechMidi() {
     onChange: synth => engine.configureEffects({ synth }),
   });
   $('drawingPlaybackOptions').append($('creativeControlsHost').querySelector('.mixer-stamp-switches'));
-  $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Pads';
-  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'),
-    onAudioRequest: () => {
-      if (starting) return;
-      if (engine.state.audioEnabled) void filePlayer.enableAudio();
-      else $('audioButton').click();
+  $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Layer volume';
+  $('mixerSampleLevel').setAttribute('aria-label', 'Generated layer volume');
+  $('mixerSampleLevel').closest('label').title = 'Volume of stamps, drawings, text, math and frame layers. Automatapoeia has its own volume.';
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), onPrepare: detail => preparedChanged('files', detail) });
+  dropStage = mountBlechDropStage($('blechDropControls'), $('blackMidiViewport'), {
+    getTempo: () => engine.state.tempo,
+    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
+    onDrop: (score, options) => {
+      const sent = performanceView.sendScore(score, options);
+      if (sent && activeKey() === 'drawing') { revokeDownload(); downloadUrl = URL.createObjectURL(new Blob([sent.buffer], { type: 'audio/midi' })); $('downloadDrawingMidi').href = downloadUrl; $('downloadDrawingMidi').hidden = false; }
+      reflect(); return sent;
     },
+    onSettings: settings => { knobs?.update($('blechDropGain')); if (settings.source === 'text' && $('blechTextLoop')) $('blechTextLoop').checked = settings.loop; },
+    onStop: source => { for (const sample of engine.state.samples) if (sample.source === source) engine.stopSample(sample.id); if (source === 'automata') engine.setAutomataPlaying(false); if (source === 'files') filePlayer.stop(); reflect(); },
   });
+  on($('midiVisualizerTools'), 'input', () => dropStage.refresh());
+  stampPicker = mountBlechStampPicker($('blechStampPicker'), { entries: performanceView.getStamps(), selectedId: 'heart', onSelect: id => { void performanceView.prepareStamp(id).then(() => { if (!disposed) stampPicker.update(performanceView.getStamps()); }).catch(error => field($('creativeStatus'), error.message)); } });
+  $('creativePadsHost').append($('mixerSavedPads'));
+  $('creativePadsHost').querySelector('.mixer-stamp-palette').hidden = true;
+  $('mixerStampAgain').textContent = 'Refresh preview';
+  $('creativeControlsHost').querySelector('.mixer-stamp-midi > summary').textContent = 'Layer MIDI controls';
+  const frameAdvanced = document.createElement('details'); frameAdvanced.className = 'blech-frame-advanced';
+  const frameSummary = document.createElement('summary'); frameSummary.textContent = 'More frame controls';
+  frameAdvanced.append(frameSummary, $('creativeControlsHost').querySelector('.mixer-stamp-source-controls')); $('blechPanel-frames').append(frameAdvanced);
+  for (const type of ['input', 'change']) on(frameAdvanced, type, () => { if (frameMode === 'drawing') prepareDrawing(); else if (frameMode === 'stamps') void performanceView.prepareStamp(stampPicker.value); });
+  const seedActions = $('automataMidiTools').querySelector('.automata-midi-seed-actions');
+  $('automataMidiTools').querySelector('.automata-midi-live-transport').after(seedActions);
+  $('automataMidiTools').querySelector('.automata-midi-live-transport h2').textContent = 'Live evolution';
+  for (const type of ['input', 'change']) on($('drawingShapeControls'), type, () => { if (frameMode === 'drawing') prepareDrawing(); else if (frameMode === 'stamps') void performanceView.prepareStamp(stampPicker.value); });
   knobs = mountMixerKnobs($('blechMidi'));
   artCreator = mountMidiArtCreator($('midiArtCreator'), {
     getDrawingScore: () => { const score = performanceView.getDrawingScore(); return { ...score, analysis: score.analysis ?? parseMidi(score.buffer) }; },
     getTempo: () => engine.state.tempo,
-    onSend: (score, options) => performanceView.sendScore(score, { ...options, name: `Art · ${options?.name || 'MIDI artwork'}` }),
+    getSourceScore: source => source === 'stamp' ? performanceView.getPreparedScore() : performanceView.getDrawingScore(),
+    onPrepare: detail => { preparedChanged('art', detail); preparedChanged('scripts', detail); },
+    onSend: (score, options) => sendPrepared(frameMode === 'scripts' ? 'scripts' : 'art', score, options),
     onPreview: score => filePlayer.previewScore(score),
   });
-  const onDrop = source => (score, options) => performanceView.sendScore(score, { ...options, name: `${source} · ${options.name}` });
-  mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop: onDrop('Math') });
-  frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop: onDrop('Animation'), onEditDrawing: loadDrawingCopy });
+  const onDrop = source => (score, options) => sendPrepared(source, score, options);
+  mathTools = mountBlechMath($('midiMathTools'), { getTempo: () => engine.state.tempo, onDrop: onDrop('math'), onPrepare: detail => preparedChanged('math', detail) });
+  frameTools = mountBlechFrames($('midiFramesTools'), { getDrawingScore: () => performanceView.getDrawingScore(), getTempo: () => engine.state.tempo, onDrop: onDrop('sequence'), onPrepare: detail => preparedChanged('sequence', detail), onEditDrawing: loadDrawingCopy });
   on($('captureDrawingFrame'), 'click', () => { try { const index = frameTools.capture(); field($('creativeStatus'), `Frame ${index + 1} captured. Open Frames to arrange and drop the sequence.`); } catch (error) { field($('creativeStatus'), error.message); } });
   textTools = mountBlechText($('drawingMessageHost'), { getTempo: () => engine.state.tempo,
     getProgram: () => $('mixerSampleProgram').value,
-    onDrop: (score, options) => performanceView.sendScore(score, options) });
+    onDrop: onDrop('text'), onPrepare: detail => preparedChanged('text', detail),
+    onApply: (id, score, options) => performanceView.replaceScore(id, score, options),
+    getLayer: id => engine.state.samples.find(sample => sample.id === id) });
+  function loadTextLayer(detail) {
+    if (!detail) return;
+    activateTab('text'); textTools.edit(detail);
+  }
   const tabs = [...document.querySelectorAll('[data-blech-tab]')];
+  const frameTabs = [...document.querySelectorAll('[data-frame-tab]')];
+  function activateFrame(name, focus = false) {
+    frameMode = name;
+    for (const tab of frameTabs) { const active = tab.dataset.frameTab === name; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; }
+    for (const id of ['stamps', 'drawing', 'art', 'sequence']) $('blechPanel-' + id).hidden = id !== (name === 'scripts' ? 'art' : name);
+    $('blechPanel-art').setAttribute('aria-labelledby', 'blechTab-' + (name === 'scripts' ? 'scripts' : 'art'));
+    $('blechMidi').dataset.frame = name;
+    $('drawingShapeControls').hidden = !['stamps', 'drawing'].includes(name);
+    artCreator?.setMode(name === 'scripts' ? 'scripts' : 'images');
+    if (name === 'drawing') { drawing.render(); prepareDrawing(); }
+    if (name === 'stamps' && !prepared.has('stamps')) void performanceView.prepareStamp(stampPicker.value);
+    if (focus) frameTabs.find(tab => tab.dataset.frameTab === name)?.focus({ preventScroll: true });
+    showPrepared(name);
+  }
   function activateTab(name, focus = false) {
-    const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0];
-    name = selected.dataset.blechTab;
-    if ($('blechMidi').dataset.tab !== name) selected.closest('.blech-preparation').scrollTop = 0;
+    if (['stamps', 'drawing', 'art', 'scripts', 'sequence'].includes(name)) { activateTab('frames'); activateFrame(name, focus); return; }
+    const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0]; name = selected.dataset.blechTab;
     for (const tab of tabs) {
       const active = tab === selected;
       tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1;
       $(tab.getAttribute('aria-controls')).hidden = !active;
     }
+    // Both tab groups retain a keyboard entry point while one panel is active.
+    for (const group of document.querySelectorAll('.blech-preparation > [role="tablist"]')) if (!group.querySelector('[tabindex="0"]')) group.querySelector('[role="tab"]').tabIndex = 0;
     $('blechMidi').dataset.tab = name;
-    $('drawingShapeControls').hidden = !['stamps', 'drawing'].includes(name);
-    if (focus) { selected.focus({ preventScroll: true }); selected.scrollIntoView({ block: 'nearest', inline: 'nearest' }); }
-    if (name === 'drawing') drawing.render();
+    $('blechDropControls').hidden = ['sound', 'visuals'].includes(name);
+    if (name === 'frames') activateFrame(frameMode);
+    else if (['sound', 'visuals'].includes(name)) dropStage.hide();
+    else showPrepared(name);
+    if (focus) selected.focus({ preventScroll: true });
   }
-  tabs.forEach((tab, index) => {
-    on(tab, 'click', () => activateTab(tab.dataset.blechTab));
-    on(tab, 'keydown', event => {
-      const next = { ArrowRight: (index + 1) % tabs.length, ArrowLeft: (index + tabs.length - 1) % tabs.length, Home: 0, End: tabs.length - 1 }[event.key];
-      if (next !== undefined) { event.preventDefault(); activateTab(tabs[next].dataset.blechTab, true); }
+  function wireTabs(list, attribute, activate) {
+    list.forEach(tab => {
+      on(tab, 'click', () => activate(tab.dataset[attribute]));
+      on(tab, 'keydown', event => {
+        const siblings = list.filter(other => other.parentElement === tab.parentElement), index = siblings.indexOf(tab);
+        const next = { ArrowRight: (index + 1) % siblings.length, ArrowLeft: (index + siblings.length - 1) % siblings.length, Home: 0, End: siblings.length - 1 }[event.key];
+        if (next !== undefined) { event.preventDefault(); activate(siblings[next].dataset[attribute], true); }
+      });
     });
-  });
+  }
+  wireTabs(tabs, 'blechTab', activateTab); wireTabs(frameTabs, 'frameTab', activateFrame);
+  activateTab('files');
   const hashTab = () => {
     const name = { '#automata': 'automata', '#automataMidiTools': 'automata', '#drawingEditor': 'drawing', '#midiArtCreator': 'art', '#blackMidiPlayer': 'files', '#black-midi': 'files' }[location.hash];
     if (name) activateTab(name);
@@ -243,7 +357,7 @@ function mountBlechMidi() {
   function sendDrawing() {
     if (disposed || !drawing.model.count) return;
     try {
-      const score = performanceView.playDrawing();
+      const score = sendPrepared('drawing', performanceView.getDrawingScore({ applyGate: true }));
       if (!score?.buffer) return;
       revokeDownload(); downloadUrl = URL.createObjectURL(new Blob([score.buffer], { type: 'audio/midi' }));
       $('downloadDrawingMidi').href = downloadUrl; $('downloadDrawingMidi').hidden = false;
@@ -255,13 +369,13 @@ function mountBlechMidi() {
     try { await filePlayer.previewScore(performanceView.getDrawingScore(), 'Your drawing'); }
     catch (error) { field($('creativeStatus'), error.message); }
   });
-  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); reflect(); });
+  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
   on($('creativeTempo'), 'input', () => {
     const tempo = engine.setTempo(Number($('creativeTempo').value));
     $('creativeTempoOut').value = `${Number(tempo.toFixed(1))} BPM`;
     textTools.refreshTempo();
-    filePlayer.setTempo();
+    filePlayer.setTempo(); dropStage.refresh();
   });
   on($('outputLevel'), 'input', () => { engine.setVolume(Number($('outputLevel').value)); $('outputLevelOut').value = `${Math.round(engine.state.volume * 100)}%`; });
   for (const [id, key, convert] of [['mixerFilter', 'filterHz', number => 10 ** number], ['mixerEcho', 'delayMix', Number], ['mixerEchoTime', 'delayBeats', Number], ['mixerFeedback', 'feedback', Number]]) {
@@ -300,11 +414,16 @@ function mountBlechMidi() {
     });
     bankQueue = pending.catch(() => {}); return pending;
   }
+  const fontService = createSoundFontService();
   bankChooser = mountSoundFontChooser($('mixerBankChooser'), {
+    service: { ...fontService, list: async () => (await fontService.list()).map(entry => ({ ...entry,
+      group: entry.bundleId ? (entry.generalMidi || entry.bundleId === 'timgm6mb' ? 'General MIDI · 128 instruments' : 'Specialist banks') : entry.group,
+    })) },
     fileInput: $('mixerSoundFont'), defaultButton: $('mixerDefaultFont'),
     onLoad: loadSharedBank,
     onStatus(state) { if (!disposed) field($('mixerFontStatus'), state.error?.message || (state.loading ? 'Loading SoundFont…' : state.current ? `Using ${state.current.name}` : '')); },
   });
+  on($('blechShowBanks'), 'click', () => { $('blechTab-files').click(); $('mixerBankChooser').scrollIntoView({ block: 'nearest' }); $('mixerBankChooser').querySelector('summary')?.focus({ preventScroll: true }); });
   on($('audioButton'), 'click', async () => {
     audioIntent = !(starting ? audioIntent : engine.state.audioEnabled);
     if (!audioIntent) { starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return; }
@@ -314,7 +433,6 @@ function mountBlechMidi() {
     try { if (await pending && !disposed && audioIntent) await filePlayer.enableAudio(); }
     finally { if (!disposed) { starting = false; if (!audioIntent) { engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); } reflect(); } }
   });
-  on($('creativeAudioStart'), 'click', () => { if (!engine.state.audioEnabled && !starting) $('audioButton').click(); });
   function tick(now) {
     frame = null; if (disposed || document.hidden) return;
     if (now - lastReflect > 100) { lastReflect = now; reflect(); }
@@ -331,13 +449,13 @@ function mountBlechMidi() {
     disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    dropStage.dispose(); stampPicker.dispose(); frameAdvanced.remove(); prepared.clear(); textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);
   void fetch(new URL('../../../assets/midiphoria/collection.json', import.meta.url), { signal: events.signal })
     .then(response => { if (!response.ok) throw new Error('File stamps could not load. Drawings and generated patterns are ready.'); return response.json(); })
-    .then(collection => { if (!disposed) { performanceView.setCollection(collection); filePlayer.setCollection(collection); } })
+    .then(collection => { if (!disposed) { performanceView.setCollection(collection); filePlayer.setCollection(collection); stampPicker.update(performanceView.getStamps()); } })
     .catch(error => { if (!disposed && error.name !== 'AbortError') field($('creativeStatus'), error.message); });
 }
 

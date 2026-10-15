@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
 
 const path = 'src/families/simd-resonator/simd-resonator-presets.js';
 const row = `copy+require\t${path}\n`;
@@ -14,6 +15,7 @@ export const simdResonatorRuntimeChange = Object.freeze({
 export function restoreSimdResonatorRuntime(source, file, { allowRestored = false } = {}) {
   const change = simdResonatorRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechChannelTiming(source, file, { allowRestored: true });
   // Recognize the path independently of its policy so altered policies fail.
   const count = source.split(change.path).length - 1;
   if (allowRestored && count === 0) return source;

@@ -68,7 +68,7 @@ test("Faves retain implemented batch coverage and explicitly track the newly pro
   }
   assert.equal(FAVE_TOOL_IDS[0], "shapes");
   assert.ok(["shape-synth", "solid-synth", "hyper-synth"].every(id => !FAVE_TOOL_IDS.includes(id)));
-  assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 172);
+  assert.equal(FAVES_PRESET_CASES.reduce((sum, item) => sum + item.bank.length, 0), 173);
 });
 test("dice preserves a muted master on every newly migrated instrument", () => {
   for (const entry of FAVES_PRESET_CASES) {

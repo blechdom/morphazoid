@@ -57,6 +57,7 @@ export class TrackazoidAudio {
     this.context = null; this.armed = false; this.requestedAudio = false; this.disposed = false;
     this.audioGeneration = 0; this.clockIsAudio = false;
     this.masterLevel = 0.7; this.masterId = null; this.playSequence = 0;
+    this.waitingForMaster = false;
     this.crossfader = 0; this.cueLevel = 0.6; this.routing = "stereo";
     this.graph = null; this.release = null; this.armPromise = null;
     this.handleContextState = () => {
@@ -83,6 +84,9 @@ export class TrackazoidAudio {
   _notify() { try { this.onChange(); } catch { /* Observers cannot stop audio. */ } }
   _error(error) { try { this.onError(error); } catch { /* Observers cannot stop audio. */ } }
   _masterAt(now) {
+    // Explicit Sync can choose a stopped reference. Keep that choice until
+    // its first Play, even if the follower is launched first.
+    if (this.waitingForMaster) return this.masterId;
     const playing = Object.values(this.decks).filter(deck => deck.transport.intent(now).playing);
     return playing.find(deck => deck.id === this.masterId)?.id
       ?? playing.sort((a, b) => a.playOrder - b.playOrder)[0]?.id ?? null;
@@ -117,8 +121,17 @@ export class TrackazoidAudio {
     return matchingRate(deck.grid.bpm, master.grid.bpm, master.transport.snapshot(time).rate);
   }
 
+  _releaseMasterWait() {
+    if (!Object.values(this.decks).some(deck => deck.sync && deck.id !== this.masterId)) this.waitingForMaster = false;
+  }
+
+  _disableSync(deck) {
+    deck.sync = false; deck.syncError = null; this._releaseMasterWait();
+  }
+
   _nextBeatTime(master, time) {
     const reference = master.transport.snapshot(time);
+    if (!reference.playing) return time;
     const phase = beatPhase(reference.position, master.grid);
     return phase !== null && phase > 1e-6 && 1 - phase > 1e-6
       ? time + (1 - phase) * 60 / (master.grid.bpm * reference.rate) : time;
@@ -130,28 +143,32 @@ export class TrackazoidAudio {
 
   _syncFailure(deck, message, report = true) {
     deck.sync = false; deck.syncError = message;
+    this._releaseMasterWait();
     if (report) this._error(new Error(message));
   }
 
   _follow(when, { align = true } = {}) {
     const now = this._now(); this.masterId = this._masterAt(now);
     const master = this.decks[this.masterId]; if (!master) return;
+    // If the chosen reference has a queued launch/edit, both decks must use
+    // that future timeline rather than aligning against its paused predecessor.
+    const referenceBoundary = Math.max(when, master.transport.pending?.time ?? when);
     for (const deck of Object.values(this.decks)) {
       if (!deck.sync || deck === master) continue;
       if (!this._beatLoop(master, now) || !this._beatLoop(deck, now)) {
         this._syncFailure(deck, "A free-length loop overrides beat Sync."); continue;
       }
-      const rate = this._syncRate(deck, master, when);
+      const rate = this._syncRate(deck, master, referenceBoundary);
       if (rate === null) {
         this._syncFailure(deck, !deck.grid.bpm || !master.grid.bpm
           ? "Sync needs a known BPM and beat grid on both decks."
-          : `Deck ${deck.id.toUpperCase()} needs more than ±16% tempo to follow the master. Sync is off.`);
+          : `Deck ${deck.id.toUpperCase()} needs a speed outside 0.125×–8× to follow the master. Adjust the master tempo; Sync is off.`);
         continue;
       }
       deck.syncError = null;
       const intent = deck.transport.intent(now);
       const pendingLaunch = intent.playing && !deck.transport.snapshot(now).playing;
-      const boundary = pendingLaunch ? this._nextBeatTime(master, when) : when;
+      const boundary = pendingLaunch ? this._nextBeatTime(master, referenceBoundary) : referenceBoundary;
       let current;
       try { current = deck.transport.projected(boundary, now); }
       catch (error) {
@@ -160,7 +177,7 @@ export class TrackazoidAudio {
         continue;
       }
       const changes = { rate };
-      if (align && intent.playing) changes.position = alignedPosition(
+      if (align && intent.playing && master.transport.snapshot(boundary).playing) changes.position = alignedPosition(
         pendingLaunch ? deck.transport.pendingChanges?.position ?? current.position : current.position,
         deck.grid, beatPhase(master.transport.snapshot(boundary).position, master.grid), current.duration, current.loop);
       this._commit(deck, changes, boundary, now);
@@ -302,6 +319,7 @@ export class TrackazoidAudio {
     deck.buffer = buffer; deck.stretchBuffer = null;
     deck.transport.load(buffer.duration, this._now());
     deck.grid = { bpm: null, beatOffset: 0 }; deck.sync = false; deck.syncError = null;
+    this.waitingForMaster = false;
     this.masterId = this._masterAt(this._now());
     this._notify();
     try {
@@ -480,18 +498,24 @@ export class TrackazoidAudio {
 
   setSync(id, enabled) {
     if (this.disposed) return this.snapshot(id);
-    const now = this._now(), deck = this._deck(id), masterId = this._masterAt(now);
-    if (!enabled) { deck.sync = false; deck.syncError = null; this._notify(); return this.snapshot(id); }
+    const now = this._now(), deck = this._deck(id), master = this.decks[id === "a" ? "b" : "a"];
+    if (!enabled) { this._disableSync(deck); this._notify(); return this.snapshot(id); }
+    const when = Math.max(this._when(), master.transport.pending?.time ?? now);
     let message = !deck.grid.bpm ? "Analyze this track or enter its source BPM before enabling Sync." : null;
-    if (!message && masterId && masterId !== id) {
-      const master = this.decks[masterId];
-      if (!master.grid.bpm) message = "Set the master track’s source BPM before enabling Sync.";
-      else if (this._syncRate(deck, master, this._when()) === null) message = "Sync needs more than ±16% tempo. Correct a half/double BPM or adjust the master tempo.";
+    if (!message) {
+      if (!master.buffer) message = "Load a track on the other deck before enabling Sync.";
+      else if (!master.grid.bpm) message = "Analyze the other track or enter its source BPM before enabling Sync.";
+      else if (this._syncRate(deck, master, when) === null) message = "Sync needs a speed outside 0.125×–8×. Adjust the other deck’s tempo.";
       else if (!this._beatLoop(deck, now) || !this._beatLoop(master, now)) message = "Use a whole-beat loop before enabling Sync.";
     }
     if (message) { this._syncFailure(deck, message, false); this._notify(); throw new Error(message); }
+    // The button always makes the clicked deck follow the other deck, even
+    // when the clicked deck previously owned the master clock.
+    this.masterId = master.id;
+    this.waitingForMaster = !master.transport.intent(now).playing;
+    master.sync = false; master.syncError = null;
     deck.sync = true; deck.syncError = null;
-    this._follow(this._when()); this._notify(); return this.snapshot(id);
+    this._follow(when); this._notify(); return this.snapshot(id);
   }
 
   play(id) {
@@ -504,19 +528,22 @@ export class TrackazoidAudio {
     let position = requestedPosition >= state.duration ? 0 : requestedPosition;
     const changes = { playing: true, position };
     if (deck.sync && master && master !== deck) {
+      when = Math.max(when, master.transport.pending?.time ?? when);
       const rate = this._syncRate(deck, master, when);
       if (rate === null) {
-        this._syncFailure(deck, "Sync cannot match this master within ±16%. Adjust the BPM or disable Sync.", false);
+        this._syncFailure(deck, "Sync cannot match this master within 0.125×–8× speed. Adjust the master tempo or disable Sync.", false);
         this._notify(); throw new Error(deck.syncError);
       }
       // Launch on the next master beat, after enough lead for both render modes.
       when = this._nextBeatTime(master, when);
-      changes.position = alignedPosition(position, deck.grid, beatPhase(master.transport.snapshot(when).position, master.grid), state.duration, state.loop);
+      if (master.transport.snapshot(when).playing) changes.position = alignedPosition(position, deck.grid,
+        beatPhase(master.transport.snapshot(when).position, master.grid), state.duration, state.loop);
       changes.rate = rate;
     }
     deck.playOrder = ++this.playSequence;
     this._commit(deck, changes, when, now);
     if (!this.masterId) this.masterId = id;
+    if (this.masterId === id) this.waitingForMaster = false;
     // A first-playing master also supplies the tempo for stopped Sync followers.
     if (this.masterId === id) this._follow(when);
     this._notify(); return this.snapshot(id);
@@ -535,7 +562,7 @@ export class TrackazoidAudio {
     if (this.disposed) return this.snapshot(id);
     const deck = this._deck(id), now = this._now(), when = this._when();
     this.masterId = this._masterAt(now);
-    if (deck.sync && this.masterId !== id) { deck.sync = false; deck.syncError = null; }
+    if (deck.sync && this.masterId !== id) this._disableSync(deck);
     this._commit(deck, { position: clamp(seconds, 0, deck.buffer?.duration ?? 0) }, when, now);
     if (this.masterId === id) this._follow(when);
     this._notify(); return this.snapshot(id);
@@ -562,7 +589,7 @@ export class TrackazoidAudio {
   _actionCommit({ deck, now, when }, changes, { preserveSync, relativePosition = false }) {
     this.masterId = this._masterAt(now);
     this._commit(deck, changes, when, now, relativePosition);
-    if (!preserveSync && deck.sync && this.masterId !== deck.id) { deck.sync = false; deck.syncError = null; }
+    if (!preserveSync && deck.sync && this.masterId !== deck.id) this._disableSync(deck);
     if (deck.sync && !this._beatLoop(deck, now)) this._syncFailure(deck, "A free-length loop overrides beat Sync.", false);
     if (this.masterId === deck.id) this._follow(when);
     this._notify(); return this.snapshot(deck.id);
@@ -635,7 +662,7 @@ export class TrackazoidAudio {
     if (this.disposed) return this.snapshot(id);
     const deck = this._deck(id), now = this._now(), when = this._when();
     this.masterId = this._masterAt(now);
-    if (deck.sync && this.masterId !== id) { deck.sync = false; deck.syncError = null; }
+    if (deck.sync && this.masterId !== id) this._disableSync(deck);
     this._commit(deck, { rate: clamp(rate, MIN_RATE, MAX_RATE, 1) }, when, now);
     if (this.masterId === id) this._follow(when);
     this._notify(); return this.snapshot(id);

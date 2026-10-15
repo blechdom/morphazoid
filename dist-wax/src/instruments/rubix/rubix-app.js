@@ -16,7 +16,7 @@ import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { RUBIX_FACE_ROLES, RubixStickerMixer, createRubixDynamics } from "./rubix-mix.js";
 import {
-  RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer,
+  RUBIX_EXTRA_KITS, renderRubixExtraDrum, normalizeRubixDrumBuffer, trimRubixDrumBuffer, rubixSourceVoice,
 } from "./rubix-percussion.js";
 import { RubixSurfaceSimd303, createRubixSimdSurfacePatterns } from "./rubix-simd-surface.js";
 import {
@@ -34,8 +34,7 @@ import {
   DEFAULT_RUBIX_CAMERA,
   RUBIX_ACID_MIDI_BY_COLOR,
   RUBIX_COLOR_ORDER,
-  RUBIX_DRUM_LEFT_VOICE_BY_COLOR,
-  RUBIX_DRUM_RIGHT_VOICE_BY_COLOR,
+  rubixDrumVoiceForColor,
   RUBIX_FACE_DEFINITIONS,
   RUBIX_READ_MODES,
   RUBIX_TWIST_SPEED_DEFAULT_POSITION,
@@ -121,6 +120,10 @@ const SOUND_BANKS = Object.freeze({
     label: "Soft FM kit",
     detail: "rounded carrier + modulation",
     role: "percussion",
+  }),
+  "color-kit": Object.freeze({
+    id: "color-kit", label: "Color kit · Six sounds",
+    detail: "one contrasting sound per color on every face", role: "percussion",
   }),
   analog: Object.freeze({
     id: "analog",
@@ -620,14 +623,12 @@ class RubixAudioEngine {
     const OfflineContext = this.runtime.OfflineAudioContext ?? this.runtime.webkitOfflineAudioContext;
     if (!OfflineContext) throw new Error("Offline audio rendering is unavailable.");
     const params = { ...rubixBankParams(bankId, this.sharedSettings?.bankParams, this.sharedSettings) };
-    const sourceVoices = this.voices.map(voice => sanitizeFmDrumVoice(voice));
+    const sourceVoices = this.voices.map((voice, index) => sanitizeFmDrumVoice(rubixSourceVoice(voice, index, bankId)));
     const key = JSON.stringify([sourceVoices, rubixRenderedParams(bankId, params)]);
     const result = await this.kitCache.request(bankId, key, async current => {
       const buffers = [];
-      const usedVoices = new Set([
-        ...Object.values(RUBIX_DRUM_LEFT_VOICE_BY_COLOR),
-        ...Object.values(RUBIX_DRUM_RIGHT_VOICE_BY_COLOR),
-      ]);
+      const usedVoices = new Set(RUBIX_COLOR_ORDER.flatMap(color =>
+        ["drumLeft", "drumRight"].map(role => rubixDrumVoiceForColor(color, role, bankId))));
       for (const voiceIndex of usedVoices) {
         if (!current() || this.context !== liveContext) return null;
         // String generation stays on its original prepared path. Live string
@@ -643,7 +644,7 @@ class RubixAudioEngine {
           const renderer = new MorphazoidDrumRenderer(context, noiseBuffer);
           const method = {
             analog: "scheduleAnalogDrum", modal: "scheduleModalDrum",
-            noise: "scheduleNoiseDrum", "soft-fm": "scheduleFmDrum",
+            noise: "scheduleNoiseDrum", "soft-fm": "scheduleFmDrum", "color-kit": "scheduleFmDrum",
           }[bankId];
           renderer[method](voice, 0, 1, context.destination);
           buffer = await context.startRendering();
@@ -803,7 +804,7 @@ const soundPanel = createRubixSoundPanel(document, (bank, key, value) => {
   if (RUBIX_BANK_CONTROLS[bank].find(control => control.key === key)?.render) audio.refreshKit(bank);
 });
 
-let sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);
+let sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank);
 state.selectedStickerId = sequenceSnapshot.lanes.acid[middleFaceIndex()].id;
 let performanceSnapshots = Object.freeze([sequenceSnapshot]);
 let auditionCube = null;
@@ -1009,7 +1010,7 @@ function auditionTurn(move) {
   if (auditionCube && auditionMoveKey === moveKey) return;
   auditionCube = turnRubixLayer(state.cube, move);
   auditionMoveKey = moveKey;
-  const destination = createRubixSequenceSnapshot(auditionCube, state.camera);
+  const destination = createRubixSequenceSnapshot(auditionCube, state.camera, state.soundBank);
   setPerformanceSnapshots([sequenceSnapshot, destination]);
 }
 
@@ -1024,7 +1025,7 @@ function flushOrbitPerformanceSnapshot() {
   auditionCube = null;
   auditionMoveKey = "";
   setPerformanceSnapshots([
-    createRubixSequenceSnapshot(state.cube, state.camera),
+    createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank),
   ], { render: false });
 }
 
@@ -1036,10 +1037,8 @@ function performanceEventsForRole(role, frame = currentReadFrame()) {
   for (const [face, stickers] of Object.entries(snapshot.faceLanes)) {
     if (RUBIX_FACE_ROLES[face] !== role) continue;
     const sticker = stickers[frame.cellIndex];
-    const drumMap = role === "drumRight"
-      ? RUBIX_DRUM_RIGHT_VOICE_BY_COLOR : RUBIX_DRUM_LEFT_VOICE_BY_COLOR;
     const value = state.soundBank === "acid-303"
-      ? RUBIX_ACID_MIDI_BY_COLOR[sticker.color] : drumMap[sticker.color];
+      ? RUBIX_ACID_MIDI_BY_COLOR[sticker.color] : rubixDrumVoiceForColor(sticker.color, role, state.soundBank);
     bySticker.set(sticker.id, {
       sticker, value, face, gain: stickerDynamicsGain(sticker), snapshot,
     });
@@ -1174,13 +1173,19 @@ function renderStepStrip() {
 }
 
 function renderColorKey() {
-  if ($("colorKey").hidden) return;
+  const colorKey = $("colorKey");
+  colorKey.hidden = state.soundBank !== "color-kit";
+  if (colorKey.hidden) return;
   const soundBank = currentSoundBank();
   const fragment = document.createDocumentFragment();
   for (const color of RUBIX_COLOR_ORDER) {
-    const leftVoice = voices[RUBIX_DRUM_LEFT_VOICE_BY_COLOR[color]];
-    const rightVoice = voices[RUBIX_DRUM_RIGHT_VOICE_BY_COLOR[color]];
+    const leftIndex = rubixDrumVoiceForColor(color, "drumLeft", soundBank.id);
+    const rightIndex = rubixDrumVoiceForColor(color, "drumRight", soundBank.id);
+    const leftVoice = voices[leftIndex];
+    const rightVoice = voices[rightIndex];
     const item = document.createElement("span");
+    item.dataset.color = color;
+    if (leftIndex === rightIndex) item.dataset.voiceIndex = String(leftIndex);
     item.style.setProperty("--key-color", COLOR_HEX[color]);
     const swatch = document.createElement("i");
     const copy = document.createElement("b");
@@ -1188,11 +1193,10 @@ function renderColorKey() {
       ? state.acidEngine === "simd-303"
         ? `${color} · ${Math.round(midiFrequency(RUBIX_ACID_MIDI_BY_COLOR[color]) * simd303ParamsFromControls().fundamental / 440)} Hz`
         : `${color} · ${midiLabel(RUBIX_ACID_MIDI_BY_COLOR[color] + 12)}`
-      : `${color} · ${leftVoice.name} / ${rightVoice.name}`;
+      : leftIndex === rightIndex ? `${color} · ${leftVoice.name}` : `${color} · ${leftVoice.name} / ${rightVoice.name}`;
     item.append(swatch, copy);
     fragment.append(item);
   }
-  const colorKey = $("colorKey");
   colorKey.dataset.soundBank = soundBank.id;
   colorKey.setAttribute("aria-label", `${soundBank.label} sticker color mapping`);
   colorKey.replaceChildren(fragment);
@@ -1458,7 +1462,7 @@ function updateCanvasAriaLabel() {
 function updateSnapshot({ announceChange = false } = {}) {
   const previousFaces = sequenceSnapshot.faceNames;
   const readConfig = currentReadConfig();
-  sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera);
+  sequenceSnapshot = createRubixSequenceSnapshot(state.cube, state.camera, state.soundBank);
   auditionCube = null;
   auditionMoveKey = "";
   orbitSnapshotDirty = false;
@@ -2364,7 +2368,7 @@ function gestureMoveForDelta(hit, deltaX, deltaY) {
 }
 
 canvas.addEventListener("pointerdown", (event) => {
-  if (turnAnimation || turnQueue.length) return;
+  if (pointerGesture || event.isPrimary === false || event.button > 0 || turnAnimation || turnQueue.length) return;
   const point = pointFromEvent(event);
   const hit = hitSticker(point);
   const kind = hit ? "twist" : "orbit";
@@ -2440,6 +2444,7 @@ function endPointerGesture(event, cancelled = false) {
 
 canvas.addEventListener("pointerup", (event) => endPointerGesture(event));
 canvas.addEventListener("pointercancel", (event) => endPointerGesture(event, true));
+canvas.addEventListener("lostpointercapture", (event) => endPointerGesture(event, true));
 canvas.addEventListener("contextmenu", (event) => event.preventDefault());
 
 function turnSelected(dimension, directionSign) {
@@ -2656,6 +2661,7 @@ async function selectSoundBank(bankId, {
     if (generation !== soundBankLifecycleGeneration) return false;
   }
   state.soundBank = requested;
+  updateSnapshot();
   if (markCustom) markPresetCustom();
   audio.setSoundBank(requested, state);
   updateReadouts();
@@ -3093,7 +3099,7 @@ export function rubixPlaybackSnapshot() {
     scoreIds: state.cube.stickers.map(({ id, position, normal }) => `${id}:${Object.values(position)}:${Object.values(normal)}`),
     visibility: { ...visibilityProfile },
     events: currentReadFrame().activeRoles.flatMap((role) => performanceEventsForRole(role))
-      .map(({ sticker, face, value, gain }) => ({ id: sticker.id, face, value, gain })),
+      .map(({ sticker, face, value, gain }) => ({ id: sticker.id, color: sticker.color, face, value, gain })),
     gates: audio.stickerMixer ? [...audio.stickerMixer.gates].flatMap(([id, buses]) =>
       [...buses.values()].map((gate) => ({
         id, active: activeIds.has(id), gain: gate.gain.value,

@@ -1,6 +1,8 @@
 import { restoreHiccupHeadWebcam } from "./helpers/hiccup-head-webcam-reference.mjs";
 import { restoreJawHarpControls } from "./helpers/jaw-harp-controls-reference.mjs";
 import { restoreHybrinxVolumeMeter } from "./helpers/hybrinx-volume-meter-reference.mjs";
+import { restoreRubixColorKit } from "./helpers/rubix-color-kit-reference.mjs";
+import { restoreRubixMobile } from "./helpers/rubix-mobile-reference.mjs";
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { readFile } from "node:fs/promises";
@@ -80,8 +82,8 @@ for (const entry of pointerReference.entries) {
   });
 
   test(`${entry.file}: surrounding code matches the frozen reference plus documented amendments`, async () => {
-    const source = await readFile(new URL(entry.file, root), "utf8");
-    let beforeRubixoids = restoreHybrinxVolumeMeter(restoreJawHarpControls(restoreHiccupHeadWebcam(source, entry.file), entry.file), entry.file);
+    const source = restoreRubixMobile(await readFile(new URL(entry.file, root), "utf8"), entry.file);
+    let beforeRubixoids = restoreHybrinxVolumeMeter(restoreJawHarpControls(restoreHiccupHeadWebcam(restoreRubixColorKit(source, entry.file), entry.file), entry.file), entry.file);
     for (const change of rubixoidsChanges.filter(change => change.file === entry.file)) {
       for (const replacement of [...change.replacements].reverse()) {
         assert.equal(beforeRubixoids.split(replacement.after).length - 1, 1, `${entry.file}: exact Rubixoids amendment`);

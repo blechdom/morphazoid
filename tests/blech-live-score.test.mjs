@@ -8,6 +8,20 @@ const sample = (notes = [note(0, 1), note(3, 1, 72)], extra = {}) => ({ id: 1, s
   analysis: { notes, durationBeats: 4, tempoMap: [{ beat: 0, bpm: 120 }], ...extra.analysis }, ...extra });
 const state = (samples, extra = {}) => ({ tempo: 120, samples, ...extra });
 const sorted = result => result.notes.toSorted((a, b) => a.start - b.start || a.pitch - b.pitch);
+
+test('reseeding splits a held visual gate while retaining its earlier performed notes', () => {
+  const clock = new MidiAutomataClock(), project = createBlechLiveProjector();
+  clock.configure({ columns: 8, lowestNote: 60, rule: 204, articulation: 'hold', rowBeats: .25 });
+  clock.setPlaying(true); clock.advance(.5);
+  const before = project(state([], { automata: clock.snapshot() }), { now: .25, lookAhead: 1, pastSeconds: 4 });
+  const old = before.notes.find(item => item.pitch === 64);
+  clock.configure({ seedRow: [1, 0, 0, 0, 1, 0, 0, 0] }); clock.reseed();
+  const after = project(state([], { automata: clock.snapshot() }), { now: .25, lookAhead: 1, pastSeconds: 4 });
+  const current = after.notes.find(item => item.pitch === 64);
+  assert.equal(current.start, 0); assert.notEqual(current.id, old.id);
+  assert.ok(after.pastNotes.some(item => item.pitch === 64 && item.start < 0));
+  assert.ok(after.notes.some(item => item.pitch === 60));
+});
 const coordinates = result => sorted(result).map(({ pitch, start, end }) => [pitch, start, end]);
 
 test('full live scores project held and upcoming notes, including successive loop cycles', () => {
@@ -138,4 +152,31 @@ test('resuming a held gate applies current effects without replaying canceled pr
   }), { now: 3, pastSeconds: 4 });
   assert.deepEqual(coordinates(resumed), [[84, 0, .75], [84, 1, 1.75]]);
   assert.ok(resumed.pastNotes.every(item => item.pitch !== 84));
+});
+
+test('positioned drops fall toward the keyboard during their delay and do not claim a played past', () => {
+  const project = createBlechLiveProjector();
+  const queued = sample([note(0, 1), note(2, .5, 72)], { positionBeats: 0, loop: true, pending: true, pendingBeats: 2 });
+  const initial = project(state([queued]), { now: 0, lookAhead: 4, pastSeconds: 4 });
+  assert.deepEqual(coordinates(initial), [[60, 1, 1.5], [72, 2, 2.25], [60, 3, 3.5], [72, 4, 4.25]]);
+  assert.equal(initial.held, 0); assert.equal(initial.pastNotes.length, 0);
+  const approaching = project(state([{ ...queued, pendingBeats: 1 }]), { now: .5, lookAhead: 4, pastSeconds: 4 });
+  assert.equal(sorted(approaching)[0].start, .5); assert.equal(sorted(approaching)[0].id, sorted(initial)[0].id);
+  assert.equal(approaching.held, 0); assert.equal(approaching.pastNotes.length, 0);
+  const arrived = project(state([{ ...queued, pending: false, pendingBeats: 0 }]), { now: 1, lookAhead: 4, pastSeconds: 4 });
+  assert.equal(sorted(arrived)[0].start, 0); assert.equal(sorted(arrived)[0].id, sorted(initial)[0].id); assert.equal(arrived.held, 1);
+  assert.equal(queued.positionBeats, 0); assert.equal(queued.cycle, 0, 'forecast does not advance the loop before its launch');
+});
+
+test('queued predictions follow master tempo, retain source timing when unlinked and vanish cleanly on stop', () => {
+  const project = createBlechLiveProjector(), queued = sample([note(0, 1), note(2, 1, 72)], {
+    positionBeats: 0, loop: false, pending: true, pendingBeats: 2,
+    analysis: { notes: [note(0, 1), note(2, 1, 72)], durationBeats: 4, tempoMap: [{ beat: 0, bpm: 60 }] },
+  });
+  assert.deepEqual(coordinates(project(state([queued], { tempo: 60 }), { now: 0, lookAhead: 6 })), [[60, 2, 3], [72, 4, 5]]);
+  assert.deepEqual(coordinates(project(state([queued], { tempo: 240 }), { now: 0, lookAhead: 6 })), [[60, .5, .75], [72, 1, 1.25]]);
+  assert.deepEqual(coordinates(project(state([{ ...queued, sync: false }], { tempo: 240 }), { now: 0, lookAhead: 6 })), [[60, .5, 1.5], [72, 2.5, 3.5]]);
+  assert.equal(project(state([{ ...queued, paused: true }]), { now: .2, pastSeconds: 4 }).notes.length, 0);
+  const stopped = project(state([]), { now: .5, pastSeconds: 4 });
+  assert.equal(stopped.notes.length, 0); assert.equal(stopped.pastNotes.length, 0); assert.equal(stopped.held, 0);
 });

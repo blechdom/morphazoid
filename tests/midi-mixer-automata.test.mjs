@@ -8,6 +8,36 @@ import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 
 const fixed = { columns: 8, lowestNote: 60, rule: 204, rowBeats: .5, program: 16, gain: .8 };
 
+test('reseed starts a separate held-note lineage at the current beat and retains performed history', () => {
+  const events = [], clock = new MidiAutomataClock({ emit: event => events.push(event) });
+  clock.configure({ ...fixed, articulation: 'hold' }); clock.setPlaying(true); clock.advance(.75);
+  const before = clock.snapshot(true), original = before.notes[0];
+  clock.configure({ seedRow: [1, 0, 0, 0, 1, 0, 0, 0] }); clock.reseed();
+  assert.equal(clock.playing, true); assert.equal(clock.beat, before.beat); assert.equal(clock.generation, before.generation + 1);
+  assert.deepEqual(clock.history.slice(0, -1), before.history);
+  assert.equal(clock.history.at(-1).reseed, true); assert.equal(clock.history.at(-1).startBeat, .75);
+  assert.deepEqual(events.slice(-3).map(event => [event.kind, event.a]), [[8, 64], [9, 60], [9, 64]]);
+  assert.equal(clock.notes.find(note => note.id === original.id).endBeat, .75);
+  assert.notEqual(clock.active.get(64).id, original.id, 'shared pitches reattack at the new lineage');
+  clock.advance(.25); const captured = captureAutomataMidi(clock.snapshot(true), 1);
+  assert.deepEqual(captured.analysis.notes.map(({ note, beat, duration }) => [note, beat, duration]), [[64, 0, .75], [60, .75, .25], [64, .75, .25]]);
+});
+
+test('paused reseed stages one new seed across snapshot handoff without sounding or clearing history', () => {
+  const events = [], clock = new MidiAutomataClock({ emit: event => events.push(event) });
+  clock.configure(fixed); clock.setPlaying(true); clock.advance(.7); clock.setPlaying(false);
+  const before = clock.snapshot(true), count = events.length;
+  clock.configure({ seedRow: [1, 0, 0, 0, 0, 0, 0, 0] }); clock.reseed();
+  assert.equal(clock.seedPending, true); assert.equal(clock.playing, false); assert.equal(events.length, count);
+  assert.equal(clock.beat, before.beat); assert.deepEqual(clock.row, before.row); assert.deepEqual(clock.history, before.history);
+  clock.configure({ seedRow: [0, 1, 0, 0, 0, 0, 0, 0] }); clock.reseed();
+  const restored = new MidiAutomataClock({ emit: event => events.push(event) }); restored.restore(clock.snapshot(true));
+  restored.rejoin(); assert.equal(events.length, count);
+  restored.setPlaying(true); assert.equal(restored.seedPending, false); assert.equal(restored.generation, before.generation + 1);
+  assert.deepEqual(restored.row, [0, 1, 0, 0, 0, 0, 0, 0]); assert.equal(events.at(-1).a, 61);
+  restored.setPlaying(false); restored.restart(); assert.equal(restored.seedPending, false); assert.deepEqual(restored.history, []);
+});
+
 test('the live seed and each descendant match the actual finite generator beyond its Rows limit', () => {
   for (const settings of [{ rule: 90, columns: 8, rows: 128 }, { family: 'totalistic-r2', rule: 22, columns: 48, density: .35, seed: 452, transform: 'shift-right', boundary: 'periodic', rows: 128 }]) {
     const expected = generateAutomataMidi(settings), clock = new MidiAutomataClock(); clock.configure(settings); clock.setPlaying(true);

@@ -288,6 +288,7 @@
                   aria-describedby="soundBankHelp soundBankStatus"
                 >
                   <option value="soft-fm" selected>Soft FM kit</option>
+                  <option value="color-kit">Color kit · Six sounds</option>
                   <option value="analog">Analog kit</option>
                   <option value="modal">Modal kit</option>
                   <option value="noise">Noise kit</option>
@@ -335,6 +336,7 @@
                 <input id="drumLevel" type="range" min="0" max="1" step="0.01" value="0.54" />
               </label>
               <div id="bankSoundControls"></div>
+              <div id="colorKey" class="rubix-color-key" hidden></div>
 
             </fieldset>
 
@@ -428,7 +430,7 @@
           </div>
         </details>
 
-        <div hidden aria-hidden="true"><span id="scoreSummary"></span><p id="scoreDescription"></p><div id="laneList" hidden></div><div id="colorKey" hidden></div></div>
+        <div hidden aria-hidden="true"><span id="scoreSummary"></span><p id="scoreDescription"></p><div id="laneList" hidden></div></div>
 
         <p class="audio-error" id="audioError" role="alert" hidden></p>
         <div class="reset-all-row rubix-reset-sound-row">

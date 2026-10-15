@@ -17,6 +17,7 @@ const native = {
   'pitched-morph': [transpose, ...pitch, choice('malletSet', 'Mallets', [['original', 'Marimba / Xylophone / Kalimba'], ['bright', 'Xylophone / Kalimba / Marimba'], ['keys', 'Harp / Harpsichord / Piano']], 'original', true), ...body, ...extra, range('morphWidth', 'Morph width', .3, 2.5, .01, 1.05, '×', true), pan],
   'karplus-strong': [transpose, ...pitch, range('attack', 'Attack', 0, .12, .001, 0, 's'), range('length', 'Decay', .1, 1, .01, 1, '×'), range('filter', 'Filter', 80, 20000, 10, 20000, 'Hz'), range('resonance', 'Resonance', 0, 8, .1, 0), range('drive', 'Drive', 1, 4, .05, 1, '×'), pan],
 };
+native['color-kit'] = native['soft-fm'].map(control => control.key === 'toneOffset' ? { ...control, value: -.04 } : control);
 const sharedIds = ['simd-chiptune', 'simd-303', 'simd-synth', 'soft-fm', 'analog', 'modal', 'noise', 'rattlesnake', 'pitched-morph', 'karplus-strong', 'sine'];
 const shared = [transpose, ...pitch, range('duration', 'Gate', .025, 1.2, .005, .28, 's'), range('attack', 'Attack', .001, .3, .001, .004, 's'), range('decay', 'Decay', .001, .6, .001, .045, 's'), range('sustain', 'Sustain', 0, 1, .01, .65, '%'), range('release', 'Release', .005, 1, .005, .055, 's'), range('brightness', 'Brightness', 0, 1, .01, .5, '%'), range('cutoff', 'Filter', 80, 18000, 10, 7000, 'Hz'), range('resonance', 'Resonance', 0, 12, .1, 1), range('drive', 'Drive', .2, 4, .05, 1.8, '×'), range('character', 'Character', 0, 1, .01, .25, '%'), pan];
 export const RUBIX_BANK_CONTROLS = Object.freeze(Object.fromEntries([

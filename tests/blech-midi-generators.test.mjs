@@ -14,9 +14,46 @@ test('expression grammar evaluates arithmetic with conventional exponent and una
 });
 
 test('expression language rejects executable syntax, unknown names, arity mistakes and unbounded input', () => {
-  for (const expression of ['globalThis', 'x.constructor', 'sin.constructor(1)', 'alert(1)', 'x=3', 'x[0]', 'x;1', '2x', 'Math.sin(x)', 'sin()', 'min(1)', 'sin(1,2)', '2+', '(2+3', '1e999', 'x'.repeat(257), '('.repeat(26) + '1' + ')'.repeat(26)]) assert.throws(() => compileMidiExpression(expression), undefined, expression);
-  assert.throws(() => compileMidiExpression('t'));
+  for (const expression of ['globalThis', 'x.constructor', 't.constructor', 'phase[0]', 'sin.constructor(1)', 'alert(1)', 'x=3', 'x[0]', 'x;1', '2x', 'Math.sin(x)', 'sin()', 'min(1)', 'sin(1,2)', '2+', '(2+3', '1e999', 'x'.repeat(257), '('.repeat(26) + '1' + ')'.repeat(26)]) assert.throws(() => compileMidiExpression(expression), undefined, expression);
+  assert.throws(() => compileMidiExpression('elapsed'));
+  assert.throws(() => compileMidiExpression('x', 't'));
   assert.throws(() => compileMidiExpression('x', 'constructor'));
+});
+
+test('drop time is normalized independently of the function domain and keeps existing parametric t', () => {
+  const expression = compileMidiExpression('x+2*t+phase');
+  assert.equal(expression(10, .25), 10.75);
+  assert.equal(expression(10), 10);
+  assert.equal(expression(10, -3), 10);
+  assert.equal(expression(10, 4), 13);
+  assert.equal(expression(10, Infinity), 10);
+  assert.equal(compileMidiExpression('t+phase', 't')(6, .5), 6.5);
+  const settings = { equation: '2*t-1', domainMin: 10, domainMax: 20, samples: 64 };
+  const short = mathArtwork({ ...settings, beats: 4 }), long = mathArtwork({ ...settings, beats: 16 });
+  assert.equal(short.notes[0].note, 0); assert.equal(short.notes.at(-1).note, 127);
+  assert.deepEqual(long.notes.map(n => n.note), short.notes.map(n => n.note));
+  assert.deepEqual(long.notes.map(n => n.beat), short.notes.map(n => n.beat * 4));
+  assert.deepEqual(mathArtwork({ ...settings, domainMin: -500, domainMax: -100 }).notes, mathArtwork(settings).notes);
+});
+
+test('the expanded bank adds 48 named presets, including 16 contours that evolve through a drop', () => {
+  assert.equal(MATH_PRESETS.length, 6 + 48);
+  assert.equal(new Set(MATH_PRESETS.map(p => p.id)).size, MATH_PRESETS.length);
+  assert.equal(new Set(MATH_PRESETS.map(p => p.name)).size, MATH_PRESETS.length);
+  assert.deepEqual(MATH_PRESETS.slice(0, 6).map(p => p.id), ['sine', 'teeth', 'interference', 'lissajous', 'spiral', 'heart']);
+  const evolving = MATH_PRESETS.filter(p => p.evolves);
+  assert.equal(evolving.length, 16);
+  for (const preset of evolving) {
+    const expression = compileMidiExpression(preset.equation);
+    const values = [.05, .5, .95].map(t => expression(.723, t));
+    assert.ok(values.every(Number.isFinite), preset.name);
+    assert.ok(new Set(values.map(value => value.toFixed(6))).size > 1, `${preset.name} changes at a fixed x as time advances`);
+  }
+  for (const preset of MATH_PRESETS) {
+    const artwork = mathArtwork({ ...preset, samples: 1024, width: 16, low: 48, high: 72, beats: .25 });
+    assert.ok(artwork.notes.length > 0 && artwork.notes.length <= MATH_LIMITS.notes, preset.name);
+    assert.ok(artwork.notes.every(n => Number.isInteger(n.note) && n.note >= 48 && n.note <= 72 && Number.isFinite(n.beat) && n.beat >= 0 && n.duration > 0 && n.beat + n.duration <= .25 + 1 / 960), preset.name);
+  }
 });
 
 test('every math preset creates deterministic, distinct, correctly counted MIDI without mutating options', () => {

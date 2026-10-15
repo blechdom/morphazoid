@@ -6,8 +6,11 @@ import { readAudioStatus } from './helpers/audio-probe.mjs';
 async function open(page) {
   await page.addInitScript(() => { globalThis.__artContexts = []; const Native = AudioContext; globalThis.AudioContext = class extends Native { constructor(...args) { super(...args); __artContexts.push(this); } }; });
   await page.goto('/blech-midi.html');
-  await expect(page.locator('#midiArtCreator > summary')).toBeVisible();
-  await page.locator('#midiArtCreator > summary').click();
+  await frameTab(page, 'art');
+}
+async function frameTab(page, id) {
+  await page.locator('#blechTab-frames').click(); await page.locator(`#blechTab-${id}`).click();
+  await expect(page.locator(`#blechPanel-${id === 'scripts' ? 'art' : id}`)).toBeVisible();
 }
 async function field(page, id, value) { await page.locator(`#art${id}`).evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); node.dispatchEvent(new Event('change', { bubbles: true })); }, value); }
 async function exported(page) { const pending = page.waitForEvent('download'); await page.locator('#artExport').click(); return parseMidi(await readFile(await (await pending).path())); }
@@ -33,24 +36,29 @@ test('image exports exact full-range geometry, layers overlap and their toggles 
 
 test('copy drawing, seeded scripts and curves create reusable independently looping pads', async ({ page }) => {
   test.setTimeout(60000); await open(page);
+  await frameTab(page, 'drawing');
   await page.getByRole('button', { name: 'Heart stamp', exact: true }).click();
+  await frameTab(page, 'scripts'); await page.locator('#artSource').selectOption('drawing');
   await page.locator('#artUseDrawing').click();
-  await expect(page.locator('#artSend')).toBeEnabled();
+  await expect(page.locator('#blechDropSend')).toBeEnabled();
   const original = await exported(page);
   await page.locator('#artScript').selectOption('scatter'); await field(page, 'Seed', 7);
   const a = await exported(page), b = await exported(page); expect(a.notes).toEqual(b.notes); expect(a.notes).not.toEqual(original.notes);
   await field(page, 'Seed', 8); expect((await exported(page)).notes).not.toEqual(a.notes);
   await page.locator('#artScript').selectOption('none'); await page.locator('.blech-art-settings > summary').last().click(); await page.locator('#artPitchCurve').selectOption('rise'); await field(page, 'PitchDepth', 12);
   const curved = await exported(page); expect(curved.notes.map(n => n.note)).not.toEqual(original.notes.map(n => n.note));
-  await page.locator('#artLoop').check(); await page.locator('#artSend').click();
+  await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
+  await frameTab(page, 'stamps');
   await expect(page.locator('#mixerSavedPads [data-saved-pad]')).toHaveCount(1);
   await expect(page.locator('#mixerSavedPads [data-pad-loop]')).toBeChecked();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
   expect(await page.evaluate(() => __artContexts.length)).toBe(0);
   await page.locator('#audioButton').click(); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true', { timeout: 20000 });
   await expect.poll(async () => (await readAudioStatus(page)).rms, { timeout: 10000 }).toBeGreaterThan(.001);
+  await frameTab(page, 'scripts');
   await page.locator('#artClear').click(); await expect(page.locator('#artPreview')).toHaveAttribute('data-notes', '0');
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
+  await frameTab(page, 'stamps');
   await page.locator('#mixerSavedPads [data-pad-play]').click(); await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
 });
 

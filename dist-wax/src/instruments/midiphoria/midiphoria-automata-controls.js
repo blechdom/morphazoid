@@ -1,4 +1,4 @@
-import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow } from './midiphoria-automata-midi.js';
+import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow, reseedAutomataMidiSettings } from './midiphoria-automata-midi.js';
 import { AUTOMATAPOEIA_RULES, AUTOMATAPOEIA_TOTALISTIC_RULES, AUTOMATAPOEIA_FAMILIES, AUTOMATAPOEIA_BOUNDARIES, AUTOMATAPOEIA_TRANSFORMS, automatapoeiaPreviewRows,
   automatapoeiaRowsPath } from '../cellular-automata/automatapoeia.js';
 
@@ -8,7 +8,7 @@ const formatBeats = value => Number(Number(value).toFixed(3)).toString();
 
 /** Finite score preparation by default; optional live mode delegates transport
  * and capture to its owner. Neither mode creates audio or advances a clock. */
-export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', actionLabel = 'Make MIDI', onGenerate, live: liveMode = false, onChange, onPlayPause, onRestart, onCapture } = {}) {
+export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', actionLabel = 'Make MIDI', onGenerate, live: liveMode = false, onChange, onPlayPause, onRestart, onReseed, onCapture } = {}) {
   const document = host.ownerDocument, window = document.defaultView ?? globalThis;
   const basePrefix = String(idPrefix).replace(/[^a-zA-Z0-9_-]/g, '-') || 'automataMidi';
   let prefix = basePrefix, suffix = 1;
@@ -43,6 +43,9 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
       } else settings[key] = value;
       if (key === 'seed' || key === 'density') settings.seedRow = null;
       invalidate(); updateRule(); if (picker.open) buildAtlas(); emitSettings();
+      if (liveMode && (key === 'seed' || key === 'density')) status.textContent =
+        !liveState.playing && (liveState.seedPending || liveState.generation < 0)
+          ? 'Seed prepared. Press Play to begin it.' : 'Seed prepared. Restart applies it; New seed chooses another.';
     });
     if (type !== 'select') on(input, 'change', () => { flushPreview(); input.value = String(settings[key]); });
     return input;
@@ -86,10 +89,11 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
   on(rate, 'change', () => { flushPreview(); });
   const density = field(live, 'Density', 'Seed density', 'density', 'range', { min: 0, max: 1, step: .01 });
   const densityOutput = id(el('output'), 'DensityOut'); density.parentElement.insertBefore(densityOutput, density);
-  field(live, 'Seed', 'Seed', 'seed', 'number', { min: 0, max: 4294967295, step: 1 });
-  const seedActions = el('div', 'automata-midi-seed-actions'), restart = button('Restart', 'Restart'), reroll = button('NextSeed', 'Reseed');
+  field(live, 'Seed', liveMode ? 'Prepared seed' : 'Seed', 'seed', 'number', { min: 0, max: 4294967295, step: 1 });
+  const seedActions = el('div', 'automata-midi-seed-actions'), restart = button('Restart', 'Restart'), reroll = button('NextSeed', liveMode ? 'New seed' : 'Reseed');
   restart.setAttribute('aria-label', liveMode ? 'Restart live evolution from its chosen seed' : 'Restart the prepared pattern from its current seed');
-  reroll.setAttribute('aria-label', liveMode ? 'Choose a random seed and restart live evolution' : 'Prepare a new seed without changing playing MIDI'); seedActions.append(restart, reroll); main.append(seedActions);
+  reroll.setAttribute('aria-label', liveMode ? 'Reseed live automata with a new pattern' : 'Prepare a new seed without changing playing MIDI'); seedActions.append(restart, reroll); main.append(seedActions);
+  if (liveMode) main.append(el('p', 'automata-midi-caption', 'Restart repeats the prepared seed and clears history. New seed keeps the earlier rows.'));
 
   const liveTransport = el('div', 'automata-midi-live-transport'), playPause = button('PlayPause', '▶');
   playPause.className = 'automata-midi-play-pause'; playPause.setAttribute('aria-label', 'Play live automata'); playPause.setAttribute('aria-pressed', 'false');
@@ -151,7 +155,18 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     settings = sanitizeAutomataMidiSettings(settings); syncFields(); refreshSeed();
     try { onChange?.(settingsCopy()); } catch (error) { report(error); }
   }
-  function restartLive() { try { const result = onRestart?.(); result?.catch(report); } catch (error) { report(error); } }
+  function restartLive() {
+    try {
+      const result = onRestart?.(); Promise.resolve(result).catch(report);
+      status.textContent = liveState.playing ? 'Restarted from the prepared seed.' : 'Prepared seed ready. Press Play to begin.';
+    } catch (error) { report(error); }
+  }
+  function reseedLive() {
+    try {
+      const result = (onReseed ?? onRestart)?.(); Promise.resolve(result).catch(report);
+      status.textContent = liveState.playing ? 'New seed playing. Earlier rows are kept.' : 'New seed ready. Press Play to begin it.';
+    } catch (error) { report(error); }
+  }
   function refreshSeed() {
     const row = automataMidiSeedRow(settings), count = row.reduce((total, value) => total + value, 0);
     seedStrip.setAttribute('viewBox', `0 0 128 1`); seedPath.setAttribute('d', automatapoeiaRowsPath([Array.from({ length: 128 }, (_, note) => row[note - settings.lowestNote] ?? 0)]));
@@ -164,13 +179,16 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     const playing = Boolean(liveState.playing), generation = Math.max(0, Number(liveState.generation) || 0);
     playPause.textContent = playing ? 'Ⅱ' : '▶'; playPause.setAttribute('aria-pressed', String(playing));
     playPause.setAttribute('aria-label', playing ? 'Pause live automata' : 'Play live automata');
-    liveStatus.value = `${playing ? 'Playing' : 'Paused'} · generation ${generation}`;
+    liveStatus.value = liveState.seedPending ? 'Paused · new seed ready' : `${playing ? 'Playing' : 'Paused'} · generation ${generation}`;
     const history = Array.isArray(liveState.history) ? liveState.history.slice(-64) : [];
     const rows = history.filter(item => Array.isArray(item) || Array.isArray(item?.row)).map(item => {
       const row = Array.isArray(item) ? item : item.row, base = item.lowestNote ?? settings.lowestNote;
       return Array.from({ length: 128 }, (_, note) => row[note - base] ?? 0);
     });
-    if (!rows.length) {
+    if (liveState.seedPending) {
+      const row = automataMidiSeedRow(settings);
+      rows.push(Array.from({ length: 128 }, (_, note) => row[note - settings.lowestNote] ?? 0));
+    } else if (!rows.length) {
       const row = Array.isArray(liveState.row) && liveState.row.length ? liveState.row : automataMidiSeedRow(settings);
       rows.push(Array.from({ length: 128 }, (_, note) => row[note - (liveState.rowSettings?.lowestNote ?? settings.lowestNote)] ?? 0));
     }
@@ -178,8 +196,8 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     if (rasterKey !== liveRasterKey) {
       liveRasterKey = rasterKey; preview.setAttribute('viewBox', `0 0 ${width} ${rows.length}`); previewPath.setAttribute('d', automatapoeiaRowsPath(rows));
     }
-    previewTitle.textContent = `Live automata history; generation ${generation}; newest row last`;
-    readout.textContent = `${playing ? 'Evolving' : 'Paused'} · ${settings.columns} pitches · ${formatBeats(1 / settings.rowBeats)} rows/beat`;
+    previewTitle.textContent = `Live automata history; generation ${generation}; ${liveState.seedPending ? 'prepared seed last, waiting for Play' : 'newest row last'}`;
+    readout.textContent = `${liveState.seedPending ? 'New seed ready · press Play' : playing ? 'Evolving' : 'Paused'} · ${settings.columns} pitches · ${formatBeats(1 / settings.rowBeats)} rows/beat`;
     capture.disabled = captureBusy || !history.length;
   }
   function capturedDownload(result) {
@@ -188,7 +206,7 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     revokeDownload(); url = window.URL.createObjectURL(new Blob([buffer], { type: 'audio/midi' }));
     download.href = url; download.download = `automata-capture-${settings.family}-${settings.rule}.mid`; download.hidden = false;
   }
-  on(playPause, 'click', () => { if (disposed) return; try { const result = onPlayPause?.(); result?.catch(report); } catch (error) { report(error); } });
+  on(playPause, 'click', () => { if (disposed) return; try { const result = onPlayPause?.(); Promise.resolve(result).catch(report); } catch (error) { report(error); } });
   on(capture, 'click', async () => {
     if (disposed || captureBusy || capture.disabled) return;
     const captureId = ++captureTicket; captureBusy = true; refreshLive();
@@ -321,7 +339,12 @@ export function mountAutomataMidiControls(host, { idPrefix = 'automataMidi', act
     const count = catalogFor(settings.family).length; selectRule((settings.rule + offset + count) % count);
   });
   on(restart, 'click', () => { if (liveMode) { restartLive(); return; } invalidate(); flushPreview(); if (score) status.textContent = `Prepared from seed ${settings.seed}. Playing MIDI is unchanged.`; });
-  on(reroll, 'click', () => { settings.seed = (settings.seed + 1) >>> 0; settings.seedRow = null; if (liveMode && settings.density <= .001) settings.density = .5; invalidate(); flushPreview(); if (liveMode) { emitSettings(); restartLive(); return; } if (score) status.textContent = settings.density <= .001 ? 'One centered cell. Raise Seed density to hear different seeds.' : `Prepared seed ${settings.seed}. Send when ready.`; });
+  on(reroll, 'click', () => {
+    settings = liveMode ? reseedAutomataMidiSettings(settings) : { ...settings, seed: (settings.seed + 1) >>> 0, seedRow: null };
+    invalidate(); flushPreview();
+    if (liveMode) { emitSettings(); reseedLive(); return; }
+    if (score) status.textContent = settings.density <= .001 ? 'One centered cell. Raise Seed density to hear different seeds.' : `Prepared seed ${settings.seed}. Send when ready.`;
+  });
   on(reset, 'click', () => {
     settings = { ...AUTOMATA_MIDI_DEFAULTS }; rememberedRules.clear(); rememberedRules.set('elementary', 30); rememberedRules.set('totalistic-r2', 20);
     search.value = ''; filter.value = 'all'; atlasFamily = null; invalidate(); syncFields(); if (picker.open) buildAtlas(); emitSettings();

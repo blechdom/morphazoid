@@ -35,7 +35,7 @@ export async function readMidiAsset(song, signal) {
   return binary.buffer;
 }
 
-export function mountMidiScoreView({ mount, controls, getTransport, getLiveState }) {
+export function mountMidiScoreView({ mount, controls, getTransport, getLiveState, onNoteOn, onNoteOff }) {
   const events = new AbortController();
   controls.innerHTML = `
     <h2>Black MIDI</h2>
@@ -70,7 +70,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     const diagnostics = score?.diagnostics ?? {};
     $('[data-score-detail]').textContent = `${lastStats.renderer || 'Preparing renderer'} · Peak ${count(score?.peakPolyphony)} held · ${count(lastStats.visible)} drawn / ${count(lastStats.candidateCount)} in view${lastStats.omitted ? ` · ${count(lastStats.omitted)} omitted from this frame (score counts remain complete)` : ''}${lastStats.liveVisible ? ` · ${count(lastStats.liveVisible)} live notes in view` : ''}${lastStats.liveTruncated ? ' · live preview capped' : ''}.${diagnostics.unclosed ? ` ${count(diagnostics.unclosed)} notes without an off event end at the track boundary.` : ''}${diagnostics.unmatchedOffs ? ` ${count(diagnostics.unmatchedOffs)} unmatched off events.` : ''}`;
   }
-  renderer = createBlackMidiVisualizer({ mount, getTransport, getLiveState,
+  renderer = createBlackMidiVisualizer({ mount, getTransport, getLiveState, onNoteOn, onNoteOff,
     onStatus(value) { $('[data-score-status]').textContent = value.message || ''; },
     onStats(stats) {
       lastStats = stats;
@@ -134,6 +134,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); unavailableCount = song.noteCount; $('[data-total]').value = count(song.noteCount); },
     setVisible(value) { renderer.setVisible(value); },
     setLiveSource(value) { renderer.setLiveSource(value); },
+    releaseKeyboard() { renderer.releaseKeyboard(); },
     dispose() { disposed = true; clear(); events.abort(); knobs.destroy(); renderer.dispose(); },
   };
 }

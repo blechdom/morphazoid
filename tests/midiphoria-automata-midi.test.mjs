@@ -1,9 +1,23 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { createHash } from 'node:crypto';
-import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
+import { AUTOMATA_MIDI_DEFAULTS, generateAutomataMidi, sanitizeAutomataMidiSettings, automataMidiSeedRow, reseedAutomataMidiSettings } from '../src/instruments/midiphoria/midiphoria-automata-midi.js';
 import { automatapoeiaNextRow, automatapoeiaTransformRow } from '../src/instruments/cellular-automata/automatapoeia.js';
 import { parseMidi, MIDI_SAMPLE_LIMITS } from '../src/instruments/midi-mixer/midi-mixer-model.js';
+
+test('New seed produces a distinct playable row at uniform and sparse extremes without mutating its input', () => {
+  for (const columns of [8, 48, 128]) for (const density of [0, .01, .5, .99, 1]) {
+    let current = { columns, density, seed: 0xffffffff, rule: 204, lowestNote: 0 };
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const before = structuredClone(current), row = automataMidiSeedRow(current), next = reseedAutomataMidiSettings(current);
+      const changed = automataMidiSeedRow(next);
+      assert.deepEqual(current, before); assert.ok(changed.some(Boolean)); assert.notDeepEqual(changed, row);
+      assert.deepEqual(reseedAutomataMidiSettings(current), next, 'the prepared result is reproducible');
+      assert.equal(next.columns, columns); assert.equal(next.rule, 204); assert.equal(next.lowestNote, 0);
+      current = next;
+    }
+  }
+});
 
 // Read actual MIDI bytes through the playback parser; recover each sounding cell
 // independently of the generator's convenience notes and raster metadata.

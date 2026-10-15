@@ -1,4 +1,17 @@
 import { LinearDrumAudio, LINEAR_DRUM_DEFAULTS } from "../linear-drums/linear-drums.js";
+import { DEFAULT_FM_DRUM_VOICES } from "../fm-drums/fm-drums.js";
+import { RUBIX_COLOR_KIT_VOICE_BY_COLOR } from "./rubix.js";
+
+const colorKitDecay = Object.freeze({ red: .30, green: .16, yellow: .05, blue: .15, white: .22, orange: .20 });
+
+/** Short individual envelopes leave room between Color kit hits. Saved voice edits remain proportional. */
+export function rubixSourceVoice(voice, voiceIndex, bankId) {
+  if (bankId !== "color-kit") return voice;
+  const color = Object.keys(RUBIX_COLOR_KIT_VOICE_BY_COLOR)
+    .find(key => RUBIX_COLOR_KIT_VOICE_BY_COLOR[key] === voiceIndex);
+  if (!color) return voice;
+  return { ...voice, decay: voice.decay * colorKitDecay[color] / DEFAULT_FM_DRUM_VOICES[voiceIndex].decay };
+}
 
 export const RUBIX_EXTRA_KITS = Object.freeze({
   rattlesnake: Object.freeze({ model: "hybrid", decay: 0.42 }),

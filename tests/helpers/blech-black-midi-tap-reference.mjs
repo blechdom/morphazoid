@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
 
 export const blechBlackMidiTapChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-black-midi-tap-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blechBlackMidiTapChange = JSON.parse(readFileSync(
 export function restoreBlechBlackMidiTap(source, file, { allowRestored = false } = {}) {
   const change = blechBlackMidiTapChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechChannelTiming(source, file, { allowRestored: true });
   const counts = change.markers.map(marker => source.split(marker).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact Blech Black MIDI Tap addition`;

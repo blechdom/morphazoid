@@ -43,8 +43,8 @@ test("Trackazoid ends finite tracks and Play restarts ended audio deterministica
 test("Trackazoid bounds tempo, loops and seeks, including non-finite user input", () => {
   const transport = new DeckTransport(); transport.load(10, 0);
   assert.equal(transport.setRate(Infinity, 0).rate, 1);
-  assert.equal(transport.setRate(-2, 0).rate, 0.84);
-  assert.equal(transport.setRate(50, 0).rate, 1.16);
+  assert.equal(transport.setRate(-2, 0).rate, 0.125);
+  assert.equal(transport.setRate(50, 0).rate, 8);
   assert.equal(transport.seek(-100, 0).position, 0);
   assert.equal(transport.seek(100, 0).position, 10);
   assert.equal(transport.seek(NaN, 0).position, 0);
@@ -75,14 +75,24 @@ test("Trackazoid future edits keep audible position intact and replace bounded p
   near(transport.snapshot(101.7).position, 11.35);
 });
 
-test("Trackazoid beat alignment handles unknown grids, track edges and octave mistakes", () => {
+test("Trackazoid beat alignment handles unknown grids and track edges without changing source BPM", () => {
   const grid = { bpm: 120, beatOffset: 0.2 };
   near(alignedPosition(0, grid, 0.5, 100), 0.45);
   near(alignedPosition(99.99, grid, 0.5, 100), 99.95);
   near(phaseDifference(0.45, grid, 0.25, { bpm: 120, beatOffset: 0 }), 0);
   assert.equal(phaseDifference(0, { bpm: null }, 0, grid), null);
   near(matchingRate(126, 114, 1), 114 / 126);
-  assert.equal(matchingRate(60, 126, 1), null);
+  near(matchingRate(60, 126, 1), 2.1);
+});
+
+test("Trackazoid admits 0.125×–8× speed and every supported original-tempo source pair", () => {
+  near(matchingRate(120, 120, 0.125), 0.125);
+  near(matchingRate(120, 120, 8), 8);
+  for (const rate of [0.1249, 8.001, 0, -1, NaN, Infinity]) assert.equal(matchingRate(120, 120, rate), null);
+  for (const bpm of [40, 90, 110, 174, 240]) for (const masterBpm of [40, 90, 110, 174, 240]) {
+    near(matchingRate(bpm, masterBpm, 1), masterBpm / bpm);
+  }
+  assert.equal(matchingRate(null, 120, 1), null);
 });
 
 test("Trackazoid quantized targets preserve phase across cues, offsets and track boundaries", () => {

@@ -3,7 +3,7 @@ import { encodeArtwork } from './blech-midi-art.js';
 import { drawGeneratorPreview, generatorRange } from './blech-midi-generator-preview.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
 
-export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, onDrop, onPreview, onEditDrawing } = {}) {
+export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, onDrop, onPreview, onPrepare, onEditDrawing } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   const sequence = new MidiFrameSequence();
   host.innerHTML = `<div class="blech-generator blech-frames">
@@ -19,6 +19,14 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   const $ = key => host.querySelector(`#blechFrames${key}`), canvas = $('Preview');
   let disposed = false, selected = -1, animation = null, lastTime = 0, phase = 0, displayed = -1, animate = false, serial = 0;
   const beats = () => Number($('Beats').value), tempo = () => Math.max(30, Math.min(300, Number(getTempo()) || 120));
+  const getSettings = () => ({ name: `Frames ${sequence.count}`, program: 'original', loop: $('Loop').checked });
+  const getScore = () => sequence.score(beats(), tempo());
+  function prepare() {
+    if (!onPrepare || disposed) return;
+    let score = null, error = '';
+    try { score = getScore(); } catch (caught) { error = caught.message; }
+    onPrepare({ score, settings: getSettings(), error });
+  }
   const render = (index = selected) => {
     if (disposed) return;
     drawGeneratorPreview(canvas, sequence.artwork(beats()), { frame: index, frames: sequence.count });
@@ -59,7 +67,7 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
     $('Drop').disabled = $('Score').disabled = noNotes; $('Animate').disabled = !sequence.count;
     $('BeatsOut').value = String(beats());
     $('Statistics').value = sequence.count ? `${sequence.count}/8 frames · ${sequence.noteCount.toLocaleString()} notes · ${sequence.count * beats()} beats` : 'No frames yet';
-    displayed = -1; render();
+    displayed = -1; render(); prepare();
   }
   function safely(fn) { try { fn(); $('Status').value = ''; reflect(); } catch (caught) { $('Status').value = caught.message; } }
   function capture(score = getDrawingScore?.(), name = `Drawing ${serial + 1}`) {
@@ -72,20 +80,20 @@ export function mountBlechFrames(host, { getDrawingScore, getTempo = () => 120, 
   on($('Back'), 'click', () => safely(() => { selected = sequence.move(selected, -1); }));
   on($('Forward'), 'click', () => safely(() => { selected = sequence.move(selected, 1); }));
   on($('Beats'), 'input', () => { lastTime = 0; reflect(); });
+  on($('Loop'), 'change', prepare);
   on($('Animate'), 'click', () => {
     if (animate) { stopAnimation(); render(); return; }
     if (!sequence.count) return;
     animate = true; phase = Math.max(0, selected); displayed = -1; lastTime = 0;
     $('Animate').setAttribute('aria-pressed', 'true'); $('Animate').textContent = 'Pause preview'; animation = requestAnimationFrame(tick);
   });
-  const getScore = () => sequence.score(beats(), tempo());
   on($('Drop'), 'click', async () => {
-    try { const score = getScore(); await onDrop?.(score, { name: `Frames ${sequence.count}`, program: 'original', loop: $('Loop').checked }); if (!disposed) $('Status').value = 'Sequence added to Layers. Pause or Stop it above.'; }
+    try { const score = getScore(); await onDrop?.(score, getSettings()); if (!disposed) $('Status').value = 'Sequence added to Layers. Pause or Stop it above.'; }
     catch (caught) { if (!disposed) $('Status').value = caught.message; }
   });
   on($('Score'), 'click', async () => { try { await onPreview?.(getScore()); } catch (caught) { if (!disposed) $('Status').value = caught.message; } });
   on($('Edit'), 'click', () => safely(() => { const frame = sequence.frames[selected]; onEditDrawing?.(encodeArtwork(frame.notes, { title: frame.name, durationBeats: frame.durationBeats, tempo: tempo() }), frame.name); }));
   const resize = new ResizeObserver(() => render(animate ? displayed : selected)); resize.observe(canvas);
   reflect(); const knobs = mountMixerKnobs(host);
-  return { getScore, capture, dispose() { if (disposed) return; disposed = true; stopAnimation(); events.abort(); resize.disconnect(); knobs.destroy(); sequence.clear(); host.replaceChildren(); } };
+  return { getScore, getSettings, capture, dispose() { if (disposed) return; disposed = true; stopAnimation(); events.abort(); resize.disconnect(); knobs.destroy(); sequence.clear(); host.replaceChildren(); } };
 }

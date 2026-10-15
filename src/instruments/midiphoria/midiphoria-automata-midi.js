@@ -49,6 +49,28 @@ export function automataMidiSeedRow(options = {}) {
   });
 }
 
+/** An explicit New seed must produce a distinct, nonempty starting pattern. */
+export function reseedAutomataMidiSettings(options = {}) {
+  const settings = sanitizeAutomataMidiSettings(options), previous = automataMidiSeedRow(settings);
+  settings.seedRow = null;
+  if (settings.density <= .001 || settings.density >= .999) settings.density = .5;
+  for (let pass = 0; pass < 2; pass++) {
+    for (let attempt = 0; attempt < 256; attempt++) {
+      settings.seed = (settings.seed + 1) >>> 0;
+      const row = automataMidiSeedRow(settings);
+      if (row.some(Boolean) && row.some((cell, index) => cell !== previous[index])) return settings;
+    }
+    // A very sparse/dense narrow row can repeat over many seeds. Keep the
+    // explicit action recoverable and reflect the new density in its control.
+    settings.density = .5;
+  }
+  const row = previous.slice(), column = settings.seed % settings.columns;
+  row[column] = 1 - row[column];
+  if (!row.some(Boolean)) row[(column + 1) % row.length] = 1;
+  settings.seedRow = row;
+  return settings;
+}
+
 /** Exact Automatapoeia rows become chromatic MIDI, with the seed heard first.
  * No resampling, scale snapping, cell thinning, or extra notes are introduced.
  */

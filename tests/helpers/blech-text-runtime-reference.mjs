@@ -1,5 +1,6 @@
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
 
 export const blechTextRuntimeChange = JSON.parse(readFileSync(
   new URL('../fixtures/blech-text-runtime-addition.json', import.meta.url), 'utf8',
@@ -9,6 +10,7 @@ export const blechTextRuntimeChange = JSON.parse(readFileSync(
 export function restoreBlechTextRuntime(source, file, { allowRestored = false } = {}) {
   const change = blechTextRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
+  source = restoreBlechChannelTiming(source, file, { allowRestored: true });
   const counts = change.markers.map(marker => source.split(marker).length - 1);
   if (allowRestored && counts.every(count => count === 0)) return source;
   const error = `${file}: exact BLECH MIDI text preparation runtime addition`;

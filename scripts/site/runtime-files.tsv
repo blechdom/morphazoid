@@ -2031,3 +2031,10 @@ copy+require	src/instruments/blech-midi/blech-midi-note-history.js
 
 # BLECH MIDI independent text preparation and falling-note preview.
 copy+require	src/instruments/blech-midi/blech-midi-text-controls.js
+
+# BLECH MIDI independent file tempo and linked playback ratios.
+copy+require	src/instruments/blech-midi/blech-midi-timing.js
+
+# BLECH MIDI prepared drops and compact stamp selection.
+copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
+copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js

@@ -174,6 +174,16 @@ export const RUBIX_DRUM_RIGHT_VOICE_BY_COLOR = Object.freeze({
   orange: 5,
 });
 
+/** Color kit keeps one contrasting voice per sticker color on every face. */
+export const RUBIX_COLOR_KIT_VOICE_BY_COLOR = Object.freeze({
+  white: 11,
+  yellow: 7,
+  green: 2,
+  blue: 10,
+  red: 0,
+  orange: 14,
+});
+
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
 
 /** Map a linear 0–100 control onto a perceptually useful 0.25×–12× speed curve. */
@@ -553,6 +563,14 @@ export function rubixDrumVoiceIndexForColor(color, lane = "drum-left") {
   throw new RangeError("Rubix drum lane must be drum-left or drum-right.");
 }
 
+/** Resolve the sounding drum identity without coupling it to camera position. */
+export function rubixDrumVoiceForColor(color, role = "drumLeft", bankId = "soft-fm") {
+  const safeColor = assertColor(color);
+  if (!RUBIX_SEQUENCE_ROLES.includes(role)) throw new RangeError("Unknown Rubix sequence role.");
+  if (bankId === "color-kit") return RUBIX_COLOR_KIT_VOICE_BY_COLOR[safeColor];
+  return rubixDrumVoiceIndexForColor(safeColor, role === "drumRight" ? "drum-right" : "drum-left");
+}
+
 const readOrderCache = new Map([
   [`row-major:${RUBIX_ROW_MAJOR_ORDER.length}`, RUBIX_ROW_MAJOR_ORDER],
   [`snake:${RUBIX_SNAKE_ORDER.length}`, RUBIX_SNAKE_ORDER],
@@ -633,7 +651,7 @@ export function rubixReadFrame(mode = "parallel", step = 0, cellCount = 9) {
  * Freeze the exact 3 * size^2 sticker view heard by one sequencer loop.
  * Each visible face is a lane; all derived audio arrays preserve row-major order.
  */
-export function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA) {
+export function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA, bankId = "soft-fm") {
   const source = assertCube(cube);
   const visibleFaces = visibleRubixFaces(camera);
   const acid = extractRubixFace(source, visibleFaces.acid.face);
@@ -674,11 +692,14 @@ export function createRubixSequenceSnapshot(cube, camera = DEFAULT_RUBIX_CAMERA)
       acidNormalized: Object.freeze(acid.map(({ color }) => (
         RUBIX_ACID_NORMALIZED_BY_COLOR[color]
       ))),
+      drumTopVoiceIndices: Object.freeze(acid.map(({ color }) => (
+        rubixDrumVoiceForColor(color, "acid", bankId)
+      ))),
       drumLeftVoiceIndices: Object.freeze(drumLeft.map(({ color }) => (
-        RUBIX_DRUM_LEFT_VOICE_BY_COLOR[color]
+        rubixDrumVoiceForColor(color, "drumLeft", bankId)
       ))),
       drumRightVoiceIndices: Object.freeze(drumRight.map(({ color }) => (
-        RUBIX_DRUM_RIGHT_VOICE_BY_COLOR[color]
+        rubixDrumVoiceForColor(color, "drumRight", bankId)
       ))),
     }),
     stickerIds,

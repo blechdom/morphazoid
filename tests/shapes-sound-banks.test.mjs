@@ -7,6 +7,8 @@ import { originalSynthSpecs } from "../src/instruments/shapes/original-audio.js"
 import { SHAPES_FULL_PRESETS, captureShapesPreset, applyShapesPreset, randomizeShapesPreset } from "../src/instruments/shapes/full-presets.js";
 import { ShapesKitAudio, shapesKitVoice } from "../src/instruments/shapes/kit-audio.js";
 import { SHAPES_PREPARED_KITS } from "../src/instruments/shapes/trigger-banks.js";
+import { restoreRubixColorKit } from "./helpers/rubix-color-kit-reference.mjs";
+import { restoreRubixMobile } from "./helpers/rubix-mobile-reference.mjs";
 
 for (const [dimension, forms] of Object.entries({
   "3d": ["profile", "cube", "pyramid", "octahedron", "prism", "cone", "cylinder", "sphere", "torus"],
@@ -124,6 +126,8 @@ test("feature reversal rejects missing or duplicated edits rather than weakening
   const {restoreShapesSoundBanks,shapesSoundBankChanges} = await import("./helpers/shapes-sound-banks-reference.mjs");
   const change = shapesSoundBankChanges[0];
   let source = await readFile(new URL(`../${change.file}`,import.meta.url),"utf8");
+  source = restoreRubixMobile(source, change.file);
+  source = restoreRubixColorKit(source, change.file);
   // Later Rubix edits must be reversed before testing the frozen Shapes edit.
   const later = JSON.parse(await readFile(new URL("../docs/rubixoids-runtime-changes.json", import.meta.url))).changes;
   for (const amendment of later.filter(entry => entry.file === change.file)) {

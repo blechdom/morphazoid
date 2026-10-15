@@ -58,12 +58,15 @@ async function input(page, id, value) {
   await page.locator(`#${id}`).evaluate((node, value) => { node.value = String(value); node.dispatchEvent(new Event('input', { bubbles: true })); }, value);
 }
 async function tab(page, name) {
+  if (['stamps', 'drawing'].includes(name)) await page.locator('#blechTab-frames').click();
   await page.locator(`#blechTab-${name}`).click();
   await expect(page.locator(`#blechPanel-${name}`)).toBeVisible();
 }
 async function drop(page) {
   const before = new Set((await snapshot(page)).samples.map(item => item.id));
-  await page.locator('#blechMathDrop').click();
+  await page.locator('#blechDropLoop').click();
+  await page.locator('#blechDropDelay').fill('0'); await page.locator('#blechDropDelay').press('Tab');
+  await page.locator('#blechDropSend').click();
   await expect.poll(async () => (await snapshot(page)).samples.length).toBe(before.size + 1);
   return (await snapshot(page)).samples.find(item => !before.has(item.id));
 }
@@ -81,8 +84,8 @@ test('each dropped equation has identifiable pause, resume and stop controls wit
   await expect(rows(page)).toHaveCount(2);
   await expect(row(page, first.id).locator('[data-layer-pause]')).toHaveAccessibleName(`Pause ${first.name} · ${first.id}`);
   await expect(row(page, second.id).locator('[data-layer-stop]')).toHaveAccessibleName(`Stop ${second.name} · ${second.id}`);
-  await expect(page.locator('#blechMathLoop')).toHaveAccessibleName('Loop new pattern');
-  await page.locator('#blechMathLoop').uncheck();
+  await expect(page.locator('#blechDropLoop')).toHaveAccessibleName('Loop');
+  await page.locator('#blechDropOnce').click();
   expect((await snapshot(page)).samples.every(item => item.loop)).toBe(true);
 
   await row(page, first.id).locator('[data-layer-pause]').click();

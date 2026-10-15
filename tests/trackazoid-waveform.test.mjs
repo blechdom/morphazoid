@@ -95,13 +95,14 @@ test("sync near the end chooses a phase-aligned point within the track or report
   near(syncTarget({ ...options, position: 0.2, duration: 0.4 }).position, 0.4);
 });
 
-test("sync admits exactly ±16 percent and rejects tempos beyond the deck range", () => {
+test("sync admits exactly 0.125× through 8× and rejects tempos beyond the deck range", () => {
   const options = { position: 2, bpm: 120, otherPosition: 3, otherBpm: 120, otherRate: 1 };
-  near(syncTarget({ ...options, otherRate: 0.84 }).rate, 0.84);
-  near(syncTarget({ ...options, otherRate: 1.16 }).rate, 1.16);
-  for (const otherRate of [0.839, 1.161, 0, -1, NaN, Infinity]) assert.equal(syncTarget({ ...options, otherRate }), null);
+  near(syncTarget({ ...options, otherRate: 0.125 }).rate, 0.125);
+  near(syncTarget({ ...options, otherRate: 8 }).rate, 8);
+  for (const otherRate of [0.124, 8.001, 0, -1, NaN, Infinity]) assert.equal(syncTarget({ ...options, otherRate }), null);
   assert.equal(syncTarget({ ...options, bpm: 0 }), null);
-  assert.equal(syncTarget({ ...options, otherBpm: 180 }), null);
+  near(syncTarget({ ...options, bpm: 174, otherBpm: 110 }).rate, 110 / 174);
+  near(syncTarget({ ...options, bpm: 110, otherBpm: 174 }).rate, 174 / 110);
 });
 
 test("track time readouts keep elapsed minutes and tenths at useful boundaries", () => {

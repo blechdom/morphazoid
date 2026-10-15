@@ -1,6 +1,8 @@
 /** Pure, seconds-based transport; audio rendering never depends on animation frames. */
-export const MIN_RATE = 0.84;
-export const MAX_RATE = 1.16;
+// Deliberately wide: every supported 40–240 BPM source pair can match at
+// original speed. Both native varispeed and key lock use the same bounds.
+export const MIN_RATE = 0.125;
+export const MAX_RATE = 8;
 
 export function clamp(value, low, high, fallback = low) {
   const number = Number(value);

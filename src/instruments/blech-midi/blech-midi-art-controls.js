@@ -1,14 +1,15 @@
 import { ART_LIMITS, ART_SCRIPTS, ART_CURVES, imageArtwork, transformArtwork, encodeArtwork, artworkStatistics } from './blech-midi-art.js';
+import { parseMidi } from '../midi-mixer/midi-mixer-model.js';
 
 const COLORS = ['#96f4cc', '#e9a1ff', '#ffd878', '#79beff', '#ff969d', '#c0e883', '#cea6ff', '#80e4e7'];
 const escape = value => String(value).replace(/[&<>"']/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[character]);
 const range = (id, label, min, max, step, value) => `<label class="control" for="art${id}"><span><b>${label}</b><output id="art${id}Out">${value}</output></span><input id="art${id}" type="range" min="${min}" max="${max}" step="${step}" value="${value}"></label>`;
 const curve = (id, label) => `<label>${label}<select id="art${id}">${ART_CURVES.map(name => `<option value="${name}">${name}</option>`).join('')}</select></label>`;
 
-export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, getTempo = () => 120 } = {}) {
+export function mountMidiArtCreator(host, { getDrawingScore, getSourceScore, onSend, onPreview, onPrepare, getTempo = () => 120 } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   host.innerHTML = `<summary>MIDI art creator</summary><div class="blech-art-body">
-    <div class="blech-art-actions"><label class="blech-art-upload deck-file">Image → MIDI<input id="artImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Image to MIDI"></label><button id="artUseDrawing" type="button">Copy drawing</button><button id="artClear" type="button">Clear layers</button></div>
+    <div class="blech-art-actions"><label id="artImageUpload" class="blech-art-upload deck-file">Image → MIDI<input id="artImage" type="file" accept="image/png,image/jpeg,image/webp,image/gif,image/bmp" aria-label="Image to MIDI"></label><label id="artSourceControl">Source<select id="artSource"><option value="drawing">Drawing</option><option value="stamp">Stamp</option><option value="image">Image</option></select></label><button id="artUseDrawing" type="button">Use source</button><button id="artClear" type="button">Clear layers</button></div>
     <div class="blech-art-scene"><canvas id="artPreview" width="960" height="420" aria-label="MIDI artwork layers: pitch left to right, time from bottom to top">Prepared notes overlap on one canvas. Layer colors identify their sources.</canvas><output id="artStatistics">Add an image, copy a drawing, or select a generator.</output></div>
     <div id="artLayers" class="blech-art-layers" role="group" aria-label="Artwork layers"></div>
     <label class="blech-art-check"><input id="artGhosts" type="checkbox" checked>Show original notes behind the result</label>
@@ -32,6 +33,15 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, 
   let layers = [], serial = 0, processed = { notes: [], durationBeats: 8 }, original = [], error = '', disposed = false, imageTicket = 0, raster = null, imageLayer = null, download = null, scheduled = null;
   const number = id => Number($(id).value);
   const options = () => ({ low: number('Low'), high: number('High'), beats: number('Beats'), velocity: number('Velocity'), threshold: number('Threshold'), invert: $('Invert').checked, retrigger: $('Retrigger').checked, velocityFromImage: $('ImageVelocity').checked, seed: number('Seed'), step: number('Step'), repeats: number('Repeats'), interval: number('Interval'), amount: number('Amount'), cycles: number('Cycles'), pitchCurve: $('PitchCurve').value, pitchDepth: number('PitchDepth'), velocityCurve: $('VelocityCurve').value, velocityDepth: number('VelocityDepth'), gateCurve: $('GateCurve').value, gateDepth: number('GateDepth') });
+  const getSettings = () => ({ name: `Artwork ${serial || 1}`, program: 'original', loop: $('Loop').checked });
+  const encode = () => encodeArtwork(processed.notes, { title: `MIDI artwork ${$('Script').selectedOptions[0].textContent}`, tempo: getTempo(), durationBeats: processed.durationBeats });
+  function setMode(mode) {
+    if (!['images', 'scripts'].includes(mode)) throw new Error('Use images or scripts for the artwork view.');
+    if (disposed) return;
+    $('ImageUpload').hidden = mode === 'scripts';
+    $('SourceControl').hidden = $('UseDrawing').hidden = mode === 'images';
+    host.dataset.artMode = mode;
+  }
   function revoke() { if (download) URL.revokeObjectURL(download); download = null; }
   function render() {
     if (disposed) return;
@@ -60,7 +70,7 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, 
       row.append(label, remove); $('Layers').append(row);
     }
   }
-  function update() {
+  function update(notify = true) {
     if (disposed) return;
     revoke();
     for (const input of host.querySelectorAll('input[type="range"]')) $(`${input.id.slice(3)}Out`).value = String(Number(Number(input.value).toFixed(4)));
@@ -81,6 +91,7 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, 
     $('Send').disabled = $('Export').disabled = Boolean(error) || !processed.notes.length;
     $('PreviewScore').disabled = !onPreview || $('Send').disabled;
     render();
+    if (notify && onPrepare) onPrepare({ score: error || !processed.notes.length ? null : encode(), settings: getSettings(), error: error || (!processed.notes.length ? 'Prepare an image, drawing, stamp or generated pattern first.' : '') });
   }
   function queueUpdate() { if (scheduled === null) scheduled = requestAnimationFrame(() => { scheduled = null; update(); }); }
   function addLayer(name, notes) {
@@ -103,16 +114,25 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, 
     } catch (caught) { bitmap?.close(); if (!disposed && ticket === imageTicket) $('Status').value = caught.message || 'Could not decode this image.'; }
   });
   on($('UseDrawing'), 'click', () => safely(() => {
-    const score = getDrawingScore?.(); if (!score?.buffer) throw new Error('Prepare a drawing above first.');
-    addLayer(`Drawing ${serial + 1}`, score.analysis.notes.map(n => ({ note: n.note, beat: n.beat, duration: n.duration, velocity: n.velocity })));
+    const source = $('Source').value;
+    if (source === 'image') {
+      if (!imageLayer) throw new Error('Upload an image in Images first.');
+      imageLayer.enabled = true; reflectLayers(); update(); return;
+    }
+    const score = getSourceScore?.(source) ?? (source === 'drawing' ? getDrawingScore?.() : null);
+    if (!score?.buffer) throw new Error(`Prepare a ${source} first.`);
+    const notes = (score.analysis ?? parseMidi(score.buffer)).notes;
+    if (!notes?.length) throw new Error(`Prepare a ${source} containing notes first.`);
+    addLayer(`${source === 'stamp' ? 'Stamp' : 'Drawing'} ${serial + 1}`, notes.map(n => ({ note: n.note, beat: n.beat, duration: n.duration, velocity: n.velocity })));
     update();
   }));
   on($('Clear'), 'click', () => { imageTicket++; layers = []; imageLayer = null; raster?.close(); raster = null; $('Script').value = 'none'; reflectLayers(); update(); });
   on($('Ghosts'), 'change', render);
+  on($('Loop'), 'change', () => update());
   for (const node of host.querySelectorAll('input[type="range"], #artSeed, #artInvert, #artRetrigger, #artImageVelocity, select')) on(node, node.matches('input[type="range"]') ? 'input' : 'change', queueUpdate);
   on($('Reseed'), 'click', () => { $('Seed').value = String(crypto.getRandomValues(new Uint32Array(1))[0]); update(); });
-  const score = () => { update(); if (error) throw new Error(error); return encodeArtwork(processed.notes, { title: `MIDI artwork ${$('Script').selectedOptions[0].textContent}`, tempo: getTempo(), durationBeats: processed.durationBeats }); };
-  on($('Send'), 'click', () => safely(() => { const snapshot = score(); onSend(snapshot, { name: `Artwork ${serial || 1}`, program: 'original', loop: $('Loop').checked }); $('Status').value = `${snapshot.analysis.noteCount.toLocaleString()} notes sent to an independent pad.`; }));
+  const score = () => { update(false); if (error) throw new Error(error); if (!processed.notes.length) throw new Error('Prepare an image, drawing, stamp or generated pattern first.'); return encode(); };
+  on($('Send'), 'click', () => safely(() => { const snapshot = score(); onSend?.(snapshot, getSettings()); $('Status').value = `${snapshot.analysis.noteCount.toLocaleString()} notes sent to an independent pad.`; }));
   on($('PreviewScore'), 'click', async () => {
     try { await onPreview?.(score()); }
     catch (caught) { if (!disposed) $('Status').value = caught.message; }
@@ -123,5 +143,5 @@ export function mountMidiArtCreator(host, { getDrawingScore, onSend, onPreview, 
   if (jump) on(jump, 'click', () => { host.open = true; });
   if (location.hash === '#midiArtCreator') host.open = true;
   update();
-  return { getScore: score, dispose() { if (disposed) return; disposed = true; imageTicket++; events.abort(); resize.disconnect(); if (scheduled !== null) cancelAnimationFrame(scheduled); raster?.close(); revoke(); layers = []; host.replaceChildren(); } };
+  return { getScore: score, getSettings, setMode, dispose() { if (disposed) return; disposed = true; imageTicket++; events.abort(); resize.disconnect(); if (scheduled !== null) cancelAnimationFrame(scheduled); raster?.close(); revoke(); layers = []; host.replaceChildren(); } };
 }
