@@ -1,3 +1,4 @@
+import { clamp, MAX_MIDI_MIXER_TEMPO } from './midi-mixer-model.js';
 import { MidiNoteEffects } from '../../midi-note-effects.js';
 import { SpessaSynthProcessor, SoundBankLoader, SpessaLog } from './vendor/spessasynth-core.js';
 import { mergeMidiParameters, sanitizeMidiParameters, sanitizeMidiSynthEffects, MIDI_GENERATOR_PARAMETERS, MIDI_SYNTH_EFFECT_PARAMETERS } from './midi-mixer-parameters.js';
@@ -192,7 +193,7 @@ class MidiMixerProcessor extends AudioWorkletProcessor {
         break;
       }
       case 'transport': if (!message.playing) this.sampleClock.stopAll(); this.clock.setTransport(message.playing, message.beat); break;
-      case 'tempo': this.clock.tempo = Math.max(30, Math.min(300, message.tempo)); this.noteFx.configure({ tempo: this.clock.tempo }); break;
+      case 'tempo': this.clock.tempo = clamp(message.tempo, 30, MAX_MIDI_MIXER_TEMPO, this.clock.tempo); this.noteFx.configure({ tempo: this.clock.tempo }); break;
       case 'weave': this.clock.setWeave(message.config, message.phase); break;
       case 'deck': this.clock.setDeck(message.index, message.config, message.channels); break;
       case 'crossfade':

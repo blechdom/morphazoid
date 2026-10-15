@@ -35,10 +35,10 @@ export async function readMidiAsset(song, signal) {
   return binary.buffer;
 }
 
-export function mountMidiScoreView({ mount, controls, getTransport, getLiveState, onNoteOn, onNoteOff }) {
+export function mountMidiScoreView({ mount, controls, getTransport, getLiveState, onNoteOn, onNoteOff, onNoteCount }) {
   const events = new AbortController();
   controls.innerHTML = `
-    <h2>Black MIDI</h2>
+    <h2>Visualizer</h2>
     <div class="midiphoria-score-stats" aria-label="MIDI score statistics">
       <span>Total notes <output data-total>—</output></span><span>Passed <output data-passed>0</output></span>
       <span>Notes / second <output data-nps>0</output></span><span>Held notes <output data-held>0</output></span><span>Live layers <output data-live>0</output></span>
@@ -76,6 +76,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
       lastStats = stats;
       for (const [key, value] of [['total', unavailableCount ?? stats.total], ['passed', stats.passed], ['nps', stats.notesPerSecond], ['held', stats.held + stats.liveHeld]]) $('[data-' + key + ']').value = count(value);
       $('[data-live]').value = count(stats.liveSources.length);
+      onNoteCount?.({ passed: unavailableCount != null ? null : score ? stats.passed : 0, total: unavailableCount ?? score?.total ?? null });
       details();
     },
   });
@@ -103,6 +104,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
     renderer.setScore(null); $('[data-tracks]').replaceChildren(); trackColors = {}; hiddenTracks = [];
     $('[data-score-status]').textContent = message; $('[data-score-detail]').textContent = '';
     $('[data-total]').value = '—'; for (const key of ['passed', 'nps', 'held']) $('[data-' + key + ']').value = '0';
+    onNoteCount?.({ passed: 0, total: null });
   }
   async function load(buffer, { signal } = {}) {
     clear('Reading complete MIDI score…');
@@ -131,7 +133,7 @@ export function mountMidiScoreView({ mount, controls, getTransport, getLiveState
   }
   configure();
   return { load, clear,
-    unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); unavailableCount = song.noteCount; $('[data-total]').value = count(song.noteCount); },
+    unavailable(song) { clear(`${count(song.noteCount)} notes · exceeds the 12 million-note preview limit. The complete original is available from Download full MIDI below; its audio edition can still play.`); unavailableCount = song.noteCount; $('[data-total]').value = count(song.noteCount); onNoteCount?.({ passed: null, total: song.noteCount }); },
     setVisible(value) { renderer.setVisible(value); },
     setLiveSource(value) { renderer.setLiveSource(value); },
     releaseKeyboard() { renderer.releaseKeyboard(); },
