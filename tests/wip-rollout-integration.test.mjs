@@ -2,6 +2,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFile } from 'node:fs/promises';
 import test from 'node:test';
+import { restoreWobbliniSite } from './helpers/wobblini-site-reference.mjs';
 import { readWipRolloutSiteReference, restoreWipRolloutSite, wipRolloutSiteChanges } from './helpers/wip-rollout-site-reference.mjs';
 
 const digest = source => createHash('sha256').update(source).digest('hex');
@@ -10,7 +11,7 @@ const root = new URL('../', import.meta.url);
 test('work-in-progress rollout amendments restore the exact preceding main source and reject missing or duplicate additions', async () => {
   assert.ok(wipRolloutSiteChanges.changes.length > 100);
   for (const change of wipRolloutSiteChanges.changes) {
-    const source = await readFile(new URL(change.file, root), 'utf8');
+    const source = restoreWobbliniSite(await readFile(new URL(change.file, root), 'utf8'), change.file, { allowRestored: true });
     const restored = restoreWipRolloutSite(source, change.file);
     assert.equal(digest(restored), change.sha256, `${change.file}: pre-rollout source preserved`);
     assert.equal(restoreWipRolloutSite(source, 'unrelated.js'), source);
