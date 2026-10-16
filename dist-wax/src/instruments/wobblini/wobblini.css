@@ -166,7 +166,7 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
 .wb-record-corners { display: none; }
 .wb-shell.is-records { max-width: 1320px; padding-top: 10px; }
 .is-records .wb-workspace { display: block; }
-.is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 0; max-width: 1160px; margin: 18px auto 0; }
+.is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: clamp(12px, 1.5vw, 20px); max-width: 1160px; margin: 18px auto 0; padding: 4px; }
 .wb-shell.is-records :is(.wb-mixer, .wb-wave-wrap, .wb-seek, .wb-loop-row, .wb-level-row, .wb-footer, .wb-detail) { display: none; }
 .is-records .wb-deck { aspect-ratio: 1; padding: 0; border: 0; background: transparent; box-shadow: none; }
 .wb-shell #syncAll.has-sync-warning { border-color: #ffbc69; background: #69481e; color: #fff0ce; }
@@ -202,8 +202,16 @@ body.wobblini-page { height: auto; min-height: 100vh; min-height: 100dvh; displa
   .wb-shell.is-records { padding-inline: 14px; }
   .is-records .wb-decks { grid-template-columns: repeat(2, minmax(0, 1fr)); margin-top: 10px; }
 }
-@media (max-height: 500px) and (min-width: 600px) {
+@media (max-height: 500px) and (min-width: 640px) {
   .is-records .wb-decks { grid-template-columns: repeat(4, minmax(0, 1fr)); margin-top: 8px; }
+}
+/* Keep the scratch ring clear of fixed-size corner controls on the smallest SE. */
+@media (max-width: 359px) {
+  .is-records .wb-decks { column-gap: 6px; padding-inline: 0; }
+  .is-records .wb-visual { inset: 16%; }
+}
+@media (max-height: 500px) and (min-width: 640px) and (max-width: 679px) {
+  .is-records .wb-visual { inset: 16%; }
 }
 
 /* The master strip stays within reach while record view hides deck editing. */
