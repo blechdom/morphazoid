@@ -93,6 +93,9 @@ test('selected layer edits alter the current MIDI pass while another layer keeps
   expect((await sampleState(page)).find(sample => sample.id === samples[0].id)?.loop ?? false).toBe(false);
   await expect.poll(async () => (await sampleState(page)).length).toBe(1);
   expect((await sources(page)).length).toBe(2);
+  // Keep the replay observable on a busy browser; the short pass above can
+  // naturally finish before a polling assertion gets its first sample.
+  await number(page, '[data-spigot-field="heightBeats"]', 8);
   await page.locator('[data-spigot-play]').click();
   await expect.poll(async () => (await sampleState(page)).length).toBe(2);
   await page.locator('[data-spigot-remove]').click();
