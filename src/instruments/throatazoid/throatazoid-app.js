@@ -44,6 +44,7 @@ import {
 } from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
+import { mountRecordedInput } from "../../families/voice-input/recorded-input.js";
 import {
   buildTractDiameterProfile,
   buildTractGeometry,
@@ -969,6 +970,8 @@ function physicalTractState(sounding, performance = state) {
   };
 }
 
+let recordedInputLive = false;
+
 function applyAudioParameters(immediate = false) {
   if (!graph || !audioContext) return;
   const performance = performanceStateAt(performanceTime);
@@ -982,7 +985,7 @@ function applyAudioParameters(immediate = false) {
   const mouthGain = oralOpening(oralClosure);
   const fricationGain = fricationOpening(oralClosure);
   const micLive = live
-    && state.mic
+    && (state.mic || recordedInputLive)
     && (state.sourceMode === "mic" || state.sourceMode === "hybrid");
   const glottisLive = live
     && (state.sourceMode === "glottis" || state.sourceMode === "hybrid");
@@ -4425,4 +4428,21 @@ registerHeaderPresets({
     updateUi();
   },
   randomize: randomizeThroatazoidPreset,
+});
+
+const recordedInput = mountRecordedInput({
+  control: microphoneInputControl,
+  host: { container: document.querySelector("aside.panel"), before: $("listenSummary").closest("details") },
+  prepare: async () => { await ensureAudioGraph(); },
+  getContext: () => audioContext,
+  getTarget: () => graph?.input,
+  isArmed: () => audioOutputEnabled && isAwake(),
+  multiplier: () => state.inputTrim,
+  onSourceChange: (next) => { if (next !== "mic") stopMicrophoneInput(); },
+  onLiveChange: (live) => {
+    recordedInputLive = live;
+    if (live && state.sourceMode === "glottis") state.sourceMode = "hybrid";
+    applyAudioParameters();
+    updateUi();
+  },
 });

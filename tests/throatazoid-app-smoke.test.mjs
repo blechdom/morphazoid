@@ -234,6 +234,16 @@ test("Throatazoid renders, awakens mic and glottis sources, and mutates specimen
     addEventListener(type, listener) { documentListeners.set(type, listener); },
   };
   installLiveInputDOM(globalThis.document, elements, listeners, html);
+  const createInputElement = globalThis.document.createElement;
+  globalThis.document.createElement = (tag) => {
+    const node = createInputElement(tag);
+    const found = new Map();
+    node.querySelector = (selector) => {
+      if (!found.has(selector)) found.set(selector, createInputElement("div"));
+      return found.get(selector);
+    };
+    return node;
+  };
   globalThis.HTMLInputElement = class {};
   globalThis.HTMLSelectElement = class {};
   globalThis.HTMLTextAreaElement = class {};
