@@ -103,6 +103,8 @@ const cards = Array.from({ length: 8 }, (_, i) => {
     }
   };
   placeControls(true);
+  // Keep a keyboard-held Cue focused until Play tells the engine to continue.
+  on($(`d${i}Play`), "pointerdown", event => { if (engine.getDeckState(i).cuePreviewing) event.preventDefault(); });
   on($(`d${i}Play`), "click", () => act(() => engine.toggle(i)));
   const releaseCue = bindCue($(`d${i}Cue`), () => i);
   on($(`d${i}SetCue`), "click", () => { engine.setCue(i); say(`Deck ${i + 1} cue saved at ${time(engine.getDeckState(i).cuePoint)}.`); });
@@ -407,6 +409,8 @@ function renderDeckSettings() {
   $("settingsKeyLock").setAttribute("aria-pressed", String(!!d.keyLock));
   $("settingsSlip").setAttribute("aria-pressed", String(!!d.slipEnabled));
   $("settingsCue").setAttribute("aria-pressed", String(!!d.cuePreviewing));
+  $("settingsPlay").setAttribute("aria-pressed", String(!!d.playing));
+  setIcon($("settingsPlay"), d.playing ? "pause" : "play", `${d.playing ? "Pause" : "Play"} deck ${number}`);
   text("settingsPitchOut", signed(d.pitchSemitones ?? 0) + " st");
   text("settingsTrimOut", signed(d.trimDb ?? 0) + " dB");
   text("settingsPanOut", Math.abs(d.pan) < .01 ? "Center" : `${d.pan < 0 ? "L" : "R"} ${Math.round(Math.abs(d.pan) * 100)}%`);
@@ -445,6 +449,8 @@ on($("settingsSpeedReset"), "click", () => { if (settingsDeck !== null) { engine
 on($("settingsSpeed"), "dblclick", () => $("settingsSpeedReset").click());
 on($("settingsSeek"), "input", (event) => { if (settingsDeck !== null) engine.seek(settingsDeck, Number(event.target.value)); });
 bindCue($("settingsCue"), () => settingsDeck);
+on($("settingsPlay"), "pointerdown", event => { if (settingsDeck !== null && engine.getDeckState(settingsDeck).cuePreviewing) event.preventDefault(); });
+on($("settingsPlay"), "click", () => { if (settingsDeck !== null) act(() => engine.toggle(settingsDeck)); });
 on($("settingsPitchReset"), "click", () => { if (settingsDeck !== null) engine.setDeck(settingsDeck, { pitchSemitones: 0 }); });
 on($("settingsAutoGain"), "change", event => { if (settingsDeck !== null) engine.setDeck(settingsDeck, { autoGain: event.target.checked }); });
 for (const [id, field] of [["settingsKeyLock", "keyLock"], ["settingsSlip", "slipEnabled"]]) on($(id), "click", () => {
