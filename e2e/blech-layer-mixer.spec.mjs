@@ -132,6 +132,15 @@ test.describe('coarse-pointer layer strips', () => {
       await page.setViewportSize(viewport); await open(page);
       const pair = await mixPair(page);
       await expectLayerPlacement(page, true);
+      if (viewport.width === 390) {
+        await page.locator('#blechMidiTitle').scrollIntoViewIfNeeded();
+        const firstLayer = row(page, pair[0].id).locator('[data-layer-select]');
+        expect(await firstLayer.evaluate(node => {
+          const box = node.getBoundingClientRect(), stage = document.querySelector('#creativeStage').getBoundingClientRect();
+          const hit = document.elementFromPoint(box.x + 10, box.y + box.height / 2);
+          return box.y >= stage.y && box.bottom <= stage.bottom && node.contains(hit);
+        })).toBe(true);
+      }
       for (const sample of pair) {
         const strip = row(page, sample.id);
         expect((await strip.boundingBox()).height).toBeLessThanOrEqual(54);
