@@ -72,6 +72,39 @@ header records the master mix. Local files are decoded in the browser and are
 not uploaded. This first version keeps files and mix state only for the current
 page session: reload clears them. It does not request microphone access.
 
+## Stereo shape mixer
+
+**Stereo shape** in Full decks and Tiny decks maps the eight stereo tracks to
+one stereo master mix. Each numbered point controls the same pan and volume as
+its deck: left to right is stereo pan, and top to bottom is 100% to 0% volume.
+Opening the mixer displays the current mix without changing it or turning
+Audio on. The toolbar's polygon button opens a larger native dialog in any
+view, including Records; the panel also has an expand button. Close it with
+the close button, Escape, or the backdrop.
+
+In **Move** mode, drag a numbered point to change one track, or drag the space
+around the points to move all eight together. **Rotate** turns their pan and
+volume positions around the group's center; **Stretch** changes stereo spread
+with horizontal movement and the spread of track volumes with vertical
+movement. These gestures change the actual mix. The octagon button explicitly
+arranges all eight tracks into a spread-out starting shape, changing both their
+pans and volumes. It is never applied just by opening the mixer.
+
+Select a track by its number or the Track menu, then use the **Pan** and
+**Volume** sliders for precise edits. A focused numbered point also accepts
+arrow keys; hold Shift for smaller movements. Expand **Shape controls** for
+keyboard-accessible **Turn**, **Width**, and **Height** sliders. These group
+controls work relative to the start of each gesture: on release, their handles
+return to 0° or 1× while the new mix stays in place.
+
+**Undo** restores the previous shape edit, one step only. Editing pan or volume
+elsewhere clears that shape undo. **Center pans** moves every track to the
+stereo center while preserving its volume. Muted tracks and tracks excluded by
+solo appear dimmed; their points still control their underlying pan and level.
+The shape shares the existing deck mixer and master output, so EQ, filters,
+mute/solo and crossfader routing still apply. Shape edits preserve playback,
+loops, Sync and the Audio state.
+
 ## Sync
 
 **Sync** is a persistent setting for each of the seven followers, with Deck 1
@@ -174,7 +207,8 @@ This is an original MVP inspired by the observable mixing workflow of
 [interface documentation](https://help.algoriddim.com/user-manual/djay-ios/getting-started/interface).
 The references motivate vinyl platters, decks, transport, cues, loops, EQ
 and crossfading;
-eight decks, the tiny view, and the wobble pad are Wobblini's own extension.
+eight decks, the tiny view, the stereo shape mixer, and the wobble pad are
+Wobblini's own extension.
 The distinction between master tempo and beat-phase sync is informed by
 [Native Instruments' Traktor concepts](https://docs.native-instruments.com/online-guides/traktor-pro-manual/en/global-concepts.html).
 Wobblini uses a fixed Deck 1 master and manual grids; it does not implement

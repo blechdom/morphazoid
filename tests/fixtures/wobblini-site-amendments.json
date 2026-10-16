@@ -61,7 +61,7 @@
       "replacements": [
         {
           "before": "copy+require\tassets/input-samples/expressive/provenance.json\n",
-          "after": "copy+require\tassets/input-samples/expressive/provenance.json\n\n# Wobblini: eight local-file decks and a shared filter wobble.\ncopy+require\tassets/instruments/wobblini.webp\ncopy+require\tdocs/wobblini.md\ncopy+require\tsrc/instruments/wobblini/wobblini-app.js\ncopy+require\tsrc/instruments/wobblini/wobblini.css\ncopy+require\tsrc/instruments/wobblini/wobblini-audio.js\ncopy+require\tsrc/instruments/wobblini/wobblini-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n"
+          "after": "copy+require\tassets/input-samples/expressive/provenance.json\n\n# Wobblini: eight local-file decks and a shared filter wobble.\ncopy+require\tassets/instruments/wobblini.webp\ncopy+require\tdocs/wobblini.md\ncopy+require\tsrc/instruments/wobblini/wobblini-app.js\ncopy+require\tsrc/instruments/wobblini/wobblini.css\ncopy+require\tsrc/instruments/wobblini/wobblini-audio.js\ncopy+require\tsrc/instruments/wobblini/wobblini-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-geometry-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-mixer.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-model.js\ncopy+require\tsrc/instruments/wobblini/wobblini-scratch-processor.js\n"
         }
       ]
     },
