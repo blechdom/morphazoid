@@ -128,6 +128,46 @@ test("records open as eight isolated circular decks with compact named icons and
   expect(errors).toEqual([]);
 });
 
+test("records retain compact master controls and paint source waveforms with live progress", async ({ page }) => {
+  const errors = diagnostics(page);
+  await ready(page, { view: "records" });
+  await expect(page.locator("#playButton")).toBeVisible();
+  await expect(page.locator("#stopButton")).toBeVisible();
+  await expect(page.locator("#master-bpm")).toBeVisible();
+  await expect(page.locator("#recordCrossfader")).toBeVisible();
+  for (let i = 0; i < 8; i++) {
+    const canvas = page.locator(`#d${i}RecordWave`);
+    await expect(canvas).toBeVisible();
+    await expect(canvas).toHaveAttribute("aria-hidden", "true");
+    await expect.poll(() => canvas.evaluate((node) => {
+      const pixels = node.getContext("2d").getImageData(0, 0, node.width, node.height).data;
+      let painted = 0;
+      for (let j = 3; j < pixels.length; j += 4) if (pixels[j] > 0) painted++;
+      return painted;
+    })).toBeGreaterThan(100);
+  }
+  const wave = page.locator("#d0RecordWave");
+  const demoImage = await wave.evaluate((canvas) => canvas.toDataURL());
+  await loadTone(page);
+  await expect.poll(() => wave.evaluate((canvas) => canvas.toDataURL())).not.toBe(demoImage);
+  await slider(page, "#recordCrossfader", 0.65);
+  expect((await state(page)).master.crossfader).toBeCloseTo(0.65, 2);
+  await expect(page.locator("#crossfader")).toHaveValue("0.65");
+  await page.locator("#playButton").click();
+  await expect.poll(async () => (await state(page)).decks.filter((deck) => deck.playing).length).toBe(8);
+  const runningImage = await wave.evaluate((canvas) => canvas.toDataURL());
+  await expect.poll(() => wave.evaluate((canvas) => canvas.toDataURL())).not.toBe(runningImage);
+  await expect.poll(async () => (await state(page)).decks[0].position).toBeGreaterThan(0.1);
+  expect((await state(page)).armed).toBe(false);
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  await page.locator("#stopButton").click();
+  const stopped = await state(page);
+  expect(stopped.decks.some((deck) => deck.playing)).toBe(false);
+  expect(stopped.decks.every((deck) => deck.position === 0)).toBe(true);
+  expect(stopped.armed).toBe(false);
+  expect(errors).toEqual([]);
+});
+
 test("vinyl pointer rotation produces forward and backward scratch audio and restores prior playback on release", async ({ page }) => {
   const errors = diagnostics(page);
   await ready(page); await loadTone(page);
