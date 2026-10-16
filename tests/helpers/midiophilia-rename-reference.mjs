@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 
@@ -7,6 +8,7 @@ const originalRecord = renamedRecord.replace('label: "Midiophilia"', 'label: "Mi
 
 /** Undo only the approved display-name change for pre-rename hash evidence. */
 export function restoreMidiophiliaRename(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (file !== registryFile) return source;
   assert.equal(source.split(renamedRecord).length - 1, 1,

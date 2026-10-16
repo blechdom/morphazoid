@@ -18,6 +18,14 @@ import {
   sampleColonySyrinxContour,
   sanitizeColonySyrinxState,
 } from "./monstroid.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  MONSTROID_FULL_PRESETS,
+  captureMonstroidPreset,
+  monstroidCallIdForSnapshot,
+  monstroidStateFromPreset,
+  randomizeMonstroidPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import {
@@ -3246,3 +3254,32 @@ setAudioPresentation(false);
 setTransport(false);
 renderTelemetry();
 globalThis.addEventListener("pagehide", cleanup, { once: true });
+
+registerHeaderPresets({
+  id: "monstroid", presets: MONSTROID_FULL_PRESETS,
+  capture: () => captureMonstroidPreset(state),
+  apply: snapshot => {
+    const next = monstroidStateFromPreset(snapshot, state);
+    invalidateSpatialAuditionIntent();
+    if (callActive) {
+      callActive = false;
+      transportPlaying = false;
+      activeCallId = null;
+      activeCallToken = null;
+      graph?.sourceNode?.port.postMessage({ type: "call", playing: false });
+    }
+    abandonSpatialAudition({ invalidateIntent: false });
+    selectedCallId = monstroidCallIdForSnapshot(snapshot);
+    state = next;
+    hydrateGraphLayoutFromState();
+    heldRoutes.clear();
+    deferredRouteReleases.clear();
+    syncControlsFromState();
+    setPlaybackPresentation();
+    postConfiguration();
+    syncBreathPresentation();
+    postBreath();
+    updateCallPresentation();
+  },
+  randomize: randomizeMonstroidPreset,
+});

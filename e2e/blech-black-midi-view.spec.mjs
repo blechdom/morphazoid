@@ -71,6 +71,7 @@ test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, 
   await page.locator('#blackLoopSong').check(); await arm(page);
   expect((await state(page)).contexts).toBe(1); await expect(page.locator('#blackPlayButton')).toBeEnabled(); await page.locator('#blackPlayButton').click(); await audible(page);
   await tab(page, 'drawing'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
+  await expect(page.locator('#blackPlayButton')).toBeHidden();
   await expect(page.locator('#blackSongSelect')).toBeHidden(); await expect(page.locator('#blackMidiViewport')).toBeVisible();
   await black(page); await expect(page.locator('#audioButton')).toHaveAttribute('aria-pressed', 'true'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await detail(page, 'Tracks & colors');
@@ -92,6 +93,7 @@ test('Blech Black MIDI keeps playback running with a complete 128-key keyboard, 
   await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await audible(page);
   await page.locator('#blackMidiControls [data-trails]').check();
+  await tab(page, 'files');
   await page.locator('#blackPlayButton').click(); await input(page, '#blackSongPosition', .3);
   await expect.poll(async () => (await state(page)).stats.position).toBe(.3);
   const starts = patternAnalysis.notes.map(note => beatsToSeconds(note.beat, patternAnalysis.tempoMap));
@@ -178,6 +180,9 @@ for (const viewport of [{ width: 1366, height: 768 }, { width: 1440, height: 900
   }
   if (viewport.width < 500) expect(layout.height).toBeGreaterThan(210);
   expect(layout.keyboard.height).toBeGreaterThan(8); expect(layout.keyboard.top).toBeGreaterThanOrEqual(layout.top); expect(layout.keyboard.bottom).toBeLessThanOrEqual(layout.bottom + 1);
+  // File controls live in Files; changing generators keeps the stage visible.
+  await expect(page.locator('#blackPlayButton')).toBeHidden();
+  await tab(page, 'files');
   // The shallow channel strip scrolls horizontally; every transport stays reachable.
   for (const selector of ['#blackLoopSong', '#blackSyncTempo', '#blackSongPosition']) {
     const control = page.locator(selector); await control.scrollIntoViewIfNeeded();
@@ -197,9 +202,11 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
   await page.locator('#previewDrawingMidi').click(); await expect(total(page)).toHaveText(drawing.noteCount.toLocaleString('en-US'));
   await page.locator('#drawingClear').click(); await expect(total(page)).toHaveText(drawing.noteCount.toLocaleString('en-US'));
   expect((await state(page)).contexts).toBe(0); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'false');
+  await tab(page, 'files');
   await page.locator('#blackLoopSong').check(); await arm(page); await page.locator('#blackPlayButton').click();
   await tab(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await audible(page);
   expect((await state(page)).contexts).toBe(1);
+  await tab(page, 'files');
   const icon = await page.locator('#blackPlayButton').evaluate(button => ({ background: getComputedStyle(button).backgroundColor, stroke: getComputedStyle(button.querySelector('.transport-pause')).stroke, visible: getComputedStyle(button.querySelector('.transport-pause')).display }));
   expect(icon.visible).not.toBe('none'); expect(icon.stroke).not.toBe(icon.background);
   await page.locator('#blackPlayButton').click();
@@ -207,10 +214,13 @@ test('drawing preview is an independent snapshot and file, pad and evolution tra
   await page.locator('#blackPlayButton').click(); await page.locator('#blechLiveLayers [data-layer-stop]').click();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0'); await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await tab(page, 'automata'); await page.locator('#automataMidiPlayPause').click(); await audible(page);
+  await tab(page, 'files');
   await page.locator('#blackSyncTempo').check(); await input(page, '#creativeTempo', 240);
   expect((await state(page)).player.rate).toBeCloseTo(2, 6);
-  await input(page, '#blackPlaybackRate', 8); expect((await state(page)).player.rate).toBe(8);
-  await expect(page.locator('#blackTempoStatus')).toContainText('rate limited to 0.01–8×');
+  await input(page, '#blackPlaybackRate', 8); expect((await state(page)).player.rate).toBe(16);
+  await expect(page.locator('#blackTempoStatus')).not.toContainText('limited');
+  await input(page, '#blackPlaybackRate', 64); expect((await state(page)).player.rate).toBe(64);
+  await expect(page.locator('#blackTempoStatus')).toContainText('rate limited to 0.01–64×');
   await input(page, '#outputLevel', 0); await expect.poll(async () => (await readAudioStatus(page)).peak).toBeLessThan(.0001);
   await expect(page.locator('#blackPlayButton')).toHaveAttribute('aria-pressed', 'true');
   await input(page, '#outputLevel', .5); await audible(page);

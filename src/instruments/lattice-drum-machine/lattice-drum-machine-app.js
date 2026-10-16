@@ -45,6 +45,13 @@ import {
 } from "../../articulation.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  LATTICE_DRUM_FULL_PRESETS,
+  captureLatticeDrumPreset,
+  randomizeLatticeDrumPreset,
+  validateLatticeDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const DEFAULT_TILING = 20;
@@ -1808,3 +1815,56 @@ new ResizeObserver(resizeCanvas).observe(stageWrap);
 reset();
 queueLatticeDrumPhasePreview();
 publishLatticeDrumTransportPreview();
+
+function applyLatticeDrumPreset(snapshot) {
+  validateLatticeDrumPreset(snapshot);
+  const engineChanged = snapshot.drumEngine !== state.drumEngine;
+  setMotionMode(snapshot.motionMode, false);
+  Object.assign(state, {
+    tilingType: snapshot.tilingType,
+    parameters: [...snapshot.parameters],
+    edgeCurves: [...snapshot.edgeCurves],
+    density: snapshot.density,
+    patternAngle: snapshot.patternAngle,
+    lineAngle: snapshot.lineAngle,
+    speed: snapshot.speed,
+    mappingMode: snapshot.mappingMode,
+    drumEngine: snapshot.drumEngine,
+    pitchDepth: snapshot.pitchDepth,
+    characterDepth: snapshot.characterDepth,
+    strikeLimit: snapshot.strikeLimit,
+  });
+  state.traversalDirection = snapshot.traversalDirection;
+  $("tilingType").value = String(state.tilingType);
+  $("density").value = String(state.density);
+  $("speed").value = String(state.speed);
+  $("patternAngle").value = String(state.patternAngle);
+  $("lineAngle").value = String(state.lineAngle);
+  $("mappingMode").value = state.mappingMode;
+  $("drumEngine").value = state.drumEngine;
+  $("pitchDepth").value = String(state.pitchDepth);
+  $("characterDepth").value = String(state.characterDepth);
+  $("strikeLimit").value = String(state.strikeLimit);
+  $("speedOut").textContent = `${state.speed.toFixed(3)} cyc/s`;
+  $("patternAngleOut").textContent = formatDegrees(state.patternAngle);
+  $("lineAngleOut").textContent = formatDegrees(state.lineAngle);
+  $("pitchDepthOut").textContent = `±${state.pitchDepth} st`;
+  $("characterDepthOut").textContent = `${Math.round(state.characterDepth * 100)}%`;
+  $("strikeLimitOut").textContent = String(state.strikeLimit);
+  updateTraversalControls();
+  if (engineChanged) {
+    lastStrikeTimes.clear();
+    setAudioState(state.audioOn);
+  }
+  updateMappingControls();
+  configureTilingControls();
+  invalidateGeometry();
+  if (engineChanged && state.audioOn) void enableAudio();
+}
+
+registerHeaderPresets({
+  id: "lattice-drum-machine", presets: LATTICE_DRUM_FULL_PRESETS,
+  capture: () => captureLatticeDrumPreset(state),
+  apply: applyLatticeDrumPreset,
+  randomize: randomizeLatticeDrumPreset,
+});

@@ -5,6 +5,13 @@ import { TrackLibrary } from "./library.js";
 import { WaveformView, formatTime, beatLoop } from "./waveform.js";
 import { createBeatAnalyzer, BEAT_ANALYSIS_VERSION } from "./beat-analysis-client.js";
 import { normalizeTrackMetadata, hasBeatGrid, withBeatAnalysis, withTrackPad, PAD_COUNT } from "./library-model.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  TRACKAZOID_FULL_PRESETS,
+  captureTrackazoidPreset,
+  randomizeTrackazoidPreset,
+  validateTrackazoidPreset,
+} from "./full-presets.js";
 import { DEMO_TRACKS, createDemoFile } from "./demo-tracks.js";
 
 const $ = (id) => document.getElementById(id);
@@ -813,3 +820,34 @@ const libraryReady = library.init().then(() => {
   $("trackazoid").dataset.ready = "true";
 }).catch(showError);
 frame = requestAnimationFrame(animate);
+
+const DECK_IDS = ["a", "b"];
+function applyTrackazoidPreset(snapshot) {
+  validateTrackazoidPreset(snapshot);
+  const set = (id, value) => { $(id).value = String(value); $(id).dispatchEvent(new Event("input", { bubbles: true })); };
+  const pitchChanges = [];
+  snapshot.decks.forEach((deck, index) => {
+    const id = DECK_IDS[index];
+    set(`${id}Gain`, deck.gain); set(`${id}low`, deck.eqLow); set(`${id}mid`, deck.eqMid); set(`${id}high`, deck.eqHigh);
+    set(`${id}Filter`, deck.filter);
+    engine.setQuantize(id, deck.quantize);
+    if (engine.snapshot(id).keyLock !== deck.keyLock) pitchChanges.push(setPitchMode([id], deck.keyLock));
+  });
+  set("crossfader", snapshot.crossfader);
+  updateDecks();
+  return pitchChanges.length ? Promise.all(pitchChanges).then(() => undefined) : undefined;
+}
+
+registerHeaderPresets({
+  id: "trackazoid", presets: TRACKAZOID_FULL_PRESETS,
+  capture: () => captureTrackazoidPreset({
+    crossfader: engine.crossfader,
+    decks: DECK_IDS.map(id => {
+      const deck = engine.decks[id], snapshot = engine.snapshot(id);
+      return { gain: deck.gain, eqLow: deck.eq.low, eqMid: deck.eq.mid, eqHigh: deck.eq.high, filter: deck.filter,
+        keyLock: snapshot.keyLock, quantize: snapshot.quantize };
+    }),
+  }),
+  apply: applyTrackazoidPreset,
+  randomize: randomizeTrackazoidPreset,
+});

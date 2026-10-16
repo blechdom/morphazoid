@@ -697,6 +697,64 @@ require	fm-drums.html
 copy+require	src/instruments/fm-drums/fm-drums.css
 copy+require	src/instruments/fm-drums/fm-drums-app.js
 copy+require	src/instruments/fm-drums/fm-drums.js
+copy+require	src/families/algorithmic-sequencers/full-presets.js
+copy+require	src/families/chaotic/chaotic-full-presets.js
+copy+require	src/families/chiptune/full-presets.js
+copy+require	src/families/graph-presets/drum-full-presets.js
+copy+require	src/families/syrinx/voice-presets.js
+copy+require	src/instruments/blowhole/full-presets.js
+copy+require	src/instruments/chaotic-fm/full-presets.js
+copy+require	src/instruments/chaotic-pm/full-presets.js
+copy+require	src/instruments/crickets/full-presets.js
+copy+require	src/instruments/digestazoid/full-presets.js
+copy+require	src/instruments/drum-roll-please/full-presets.js
+copy+require	src/instruments/enveloper/full-presets.js
+copy+require	src/instruments/fm-drums/full-presets.js
+copy+require	src/instruments/graphs/full-presets.js
+copy+require	src/instruments/graphs/graphs-state.js
+copy+require	src/instruments/harmonica/full-presets.js
+copy+require	src/instruments/hocket-loom/full-presets.js
+copy+require	src/instruments/hyper-drum-machine/full-presets.js
+copy+require	src/instruments/jaw-jam/full-presets.js
+copy+require	src/instruments/julia/full-presets.js
+copy+require	src/instruments/julie-saw/full-presets.js
+copy+require	src/instruments/l-system-drum-machine/full-presets.js
+copy+require	src/instruments/lattice-drum-machine/full-presets.js
+copy+require	src/instruments/lattice/tile-form-presets.js
+copy+require	src/instruments/linear-drums/full-presets.js
+copy+require	src/instruments/lumber/full-presets.js
+copy+require	src/instruments/monstroid/full-presets.js
+copy+require	src/instruments/object-forge/full-presets.js
+copy+require	src/instruments/ouroboros-borealis/full-presets.js
+copy+require	src/instruments/ouroboros/family-presets.js
+copy+require	src/instruments/ouroboros/full-presets.js
+copy+require	src/instruments/ouroborousel/full-presets.js
+copy+require	src/instruments/ourorourobouroboros/full-presets.js
+copy+require	src/instruments/pink-trombonazoid/full-presets.js
+copy+require	src/instruments/rattlesnake-skin/full-presets.js
+copy+require	src/instruments/rubixoids/sliding-puzzle/full-presets.js
+copy+require	src/instruments/sample-drums/full-presets.js
+copy+require	src/instruments/shader-synth-playground/full-presets.js
+copy+require	src/instruments/shape-drum-machine/full-presets.js
+copy+require	src/instruments/shepard-risset/full-presets.js
+copy+require	src/instruments/simd-synth/full-presets.js
+copy+require	src/instruments/sliding-puzzle/full-presets.js
+copy+require	src/instruments/solid-drum-machine/full-presets.js
+copy+require	src/instruments/spartial/full-presets.js
+copy+require	src/instruments/spiral-drum-machine/full-presets.js
+copy+require	src/instruments/spiral/full-presets.js
+copy+require	src/instruments/srtuss/full-presets.js
+copy+require	src/instruments/striped-staircase/full-presets.js
+copy+require	src/instruments/surround-field/full-presets.js
+copy+require	src/instruments/tesselation/full-presets.js
+copy+require	src/instruments/tesselation/tile-preset-helpers.js
+copy+require	src/instruments/throat-singing/full-presets.js
+copy+require	src/instruments/throatazoid/full-presets.js
+copy+require	src/instruments/trackazoid/full-presets.js
+copy+require	src/instruments/vocalzoid/full-presets.js
+copy+require	src/instruments/webgpu-303/full-presets.js
+copy+require	src/instruments/webgpu-synths/full-presets.js
+copy+require	src/instruments/weierstrass/full-presets.js
 copy+require	sample-drums.html
 copy+require	src/instruments/sample-drums/sample-drums.css
 copy+require	src/instruments/sample-drums/sample-drums-app.js
@@ -2061,6 +2119,11 @@ copy+require	src/instruments/blech-midi/blech-midi-timing.js
 # BLECH MIDI prepared drops and compact stamp selection.
 copy+require	src/instruments/blech-midi/blech-midi-drop-stage.js
 copy+require	src/instruments/blech-midi/blech-midi-stamp-picker.js
+
+# BLECH MIDI live spigots and direct canvas performance.
+copy+require	src/instruments/blech-midi/blech-midi-spigots.js
+copy+require	src/instruments/blech-midi/blech-midi-spigots.css
+copy+require	src/instruments/blech-midi/blech-midi-spigot-engine.js
 
 # Staircase Studies
 copy+require	src/instruments/striped-staircase-rust/app.js

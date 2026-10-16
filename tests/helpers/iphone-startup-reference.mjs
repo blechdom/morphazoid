@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -10,6 +11,7 @@ const changes = [
 
 /** Reverse only main's explicitly recorded iPhone updates for older references. */
 export function restoreIphoneStartup(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   for (const change of changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {

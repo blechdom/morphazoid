@@ -1,3 +1,8 @@
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  CHAOTIC_PM_FULL_PRESETS, CHAOTIC_PM_SETTINGS_KEYS, captureChaoticPmPreset,
+  randomizeChaoticPmPreset, validateChaoticPmPreset,
+} from "./full-presets.js";
 import {
   CHAOTIC_PM_DEFAULTS,
   CHAOTIC_PM_LIMITS,
@@ -1064,3 +1069,16 @@ updatePresetButtons();
 updateControlOutputs();
 beginResizeObservation();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "chaotic-pm", presets: CHAOTIC_PM_FULL_PRESETS,
+  capture: () => captureChaoticPmPreset(state),
+  randomize: randomizeChaoticPmPreset,
+  apply(raw) {
+    const snapshot = validateChaoticPmPreset(raw);
+    const matched = CHAOTIC_PM_PRESETS.find(preset => CHAOTIC_PM_SETTINGS_KEYS.every(
+      key => preset.settings[key] === snapshot.settings[key]));
+    applyPerformanceSettings(snapshot.performance);
+    applySettings(snapshot.settings, { presetId: matched?.id ?? null });
+  },
+});

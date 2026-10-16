@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import { restoreTrackazoidSite } from './trackazoid-site-reference.mjs';
 import { restoreBlechMidiSite } from './blech-midi-site-reference.mjs';
@@ -11,6 +12,7 @@ export const spartialGranularSiteChanges = JSON.parse(readFileSync(
 
 /** Reverse only SPARTIAL's reviewed granular catalogue and runtime rows before older evidence. */
 export function restoreSpartialGranularSite(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreTrackazoidSite(source, file, { allowRestored: true });
   source = restoreBlechMidiSite(source, file, { allowRestored: true });

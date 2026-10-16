@@ -3,6 +3,12 @@ import { readFile } from 'node:fs/promises';
 import { parseMidi } from '../src/instruments/midi-mixer/midi-mixer-model.js';
 import { readAudioStatus } from './helpers/audio-probe.mjs';
 
+async function openSavedDrops(page) {
+  const shelf = page.locator('#blechSavedDrops');
+  if (!(await shelf.evaluate(node => node.open))) await shelf.locator(':scope > summary').click();
+  await expect(shelf).toHaveAttribute('open', '');
+}
+
 async function open(page) {
   await page.addInitScript(() => { globalThis.__artContexts = []; const Native = AudioContext; globalThis.AudioContext = class extends Native { constructor(...args) { super(...args); __artContexts.push(this); } }; });
   await page.goto('/blech-midi.html');
@@ -48,7 +54,7 @@ test('copy drawing, seeded scripts and curves create reusable independently loop
   await page.locator('#artScript').selectOption('none'); await page.locator('.blech-art-settings > summary').last().click(); await page.locator('#artPitchCurve').selectOption('rise'); await field(page, 'PitchDepth', 12);
   const curved = await exported(page); expect(curved.notes.map(n => n.note)).not.toEqual(original.notes.map(n => n.note));
   await page.locator('#blechDropLoop').click(); await page.locator('#blechDropSend').click();
-  await frameTab(page, 'stamps');
+  await openSavedDrops(page);
   await expect(page.locator('#mixerSavedPads [data-saved-pad]')).toHaveCount(1);
   await expect(page.locator('#mixerSavedPads [data-pad-loop]')).toBeChecked();
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
@@ -58,7 +64,7 @@ test('copy drawing, seeded scripts and curves create reusable independently loop
   await frameTab(page, 'scripts');
   await page.locator('#artClear').click(); await expect(page.locator('#artPreview')).toHaveAttribute('data-notes', '0');
   await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '1');
-  await frameTab(page, 'stamps');
+  await openSavedDrops(page);
   await page.locator('#mixerSavedPads [data-pad-play]').click(); await expect(page.locator('#blechMidi')).toHaveAttribute('data-samples', '0');
 });
 

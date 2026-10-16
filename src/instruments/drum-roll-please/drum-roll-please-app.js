@@ -6,6 +6,8 @@ import {
   calculateDrumRollLayers,
   sanitizeDrumRollParams,
 } from "./drum-roll-please.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { DRUM_ROLL_FULL_PRESETS, captureDrumRollPreset, randomizeDrumRollPreset, validateDrumRollPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new DrumRollPleaseAudio(globalThis);
@@ -916,3 +918,14 @@ globalThis.addEventListener("pageshow", handlePageShow);
 renderPresetGrid();
 updateInterface();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "drum-roll-please", presets: DRUM_ROLL_FULL_PRESETS,
+  capture: () => captureDrumRollPreset(state.roll),
+  apply: snapshot => {
+    validateDrumRollPreset(snapshot);
+    state.roll = { ...createMemory({ ...DRUM_ROLL_DEFAULTS, ...snapshot }), presetId: null };
+    updateInterface({ rebuildPresets: true });
+  },
+  randomize: randomizeDrumRollPreset,
+});

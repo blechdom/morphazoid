@@ -737,3 +737,7 @@
     transition: none;
   }
 }
+
+.paint-inspector > [data-instrument-preset-host] {
+  grid-column: 1 / -1;
+}

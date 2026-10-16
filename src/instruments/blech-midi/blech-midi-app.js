@@ -13,6 +13,8 @@ import { mountBlechText } from './blech-midi-text-controls.js';
 import { mountBlechMath } from './blech-midi-math-controls.js';
 import { mountBlechFrames } from './blech-midi-frames-controls.js';
 import { mountBlechDropStage } from './blech-midi-drop-stage.js';
+import { createBlechSpigotEngine } from './blech-midi-spigot-engine.js';
+import { mountBlechSpigots } from './blech-midi-spigots.js';
 import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 
@@ -26,7 +28,9 @@ function mountBlechMidi() {
   $('blechLiveLayers').replaceChildren();
   let disposed = false, frame = null, lastReflect = -Infinity, downloadUrl = null, starting = false, audioIntent = false;
   let engine, performanceView, drawing, knobs, synthEffectEditor, noteEffectEditor, artCreator, filePlayer, mathTools, frameTools, textTools;
-  let dropStage, stampPicker, frameMode = 'stamps', automataSignature = '';
+  let masterPause = null;
+  let selectedSpigot = null;
+  let dropStage, stampPicker, spigots, spigotView, frameMode = 'stamps', automataSignature = '';
   const prepared = new Map();
   let bankChooser, effectsSignature = '';
   let sharedBank = null, bankQueue = Promise.resolve();
@@ -53,7 +57,12 @@ function mountBlechMidi() {
     if (options.loop !== undefined) dropStage.configure({ loop: options.loop });
     return dropStage.send();
   }
+  function configureLayer(id, patch) { const source = spigots?.bySample(id); return source ? spigots.configure(source.id, patch) : engine.configureSample(id, patch); }
   function reflectLayers(state) {
+    const sourceLayers = spigots?.getLayers() ?? [];
+    const closed = sourceLayers.filter(source => !source.active && source.lastSample).map(source => ({ ...source.lastSample, ...source.settings, id: source.sampleId, analysis: source.score.analysis, name: source.name, paused: true, closed: true, pending: false, pendingReplacement: null }));
+    state = { ...state, samples: [...state.samples, ...closed] };
+    spigotView?.refresh();
     const ids = new Set(state.samples.map(sample => sample.id));
     for (const [id, node] of layerNodes) if (!ids.has(id)) {
       const focused = node.contains(document.activeElement);
@@ -64,36 +73,39 @@ function mountBlechMidi() {
       let node = layerNodes.get(sample.id);
       if (!node) {
         node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
-        const copy = document.createElement('div'), name = document.createElement('span'), status = document.createElement('small');
-        const loopLabel = document.createElement('label'), loop = document.createElement('input'), pause = document.createElement('button'), stop = document.createElement('button');
-        copy.className = 'blech-layer-copy'; status.dataset.layerStatus = ''; name.dataset.layerName = '';
-        name.textContent = `${sample.name || 'Pattern'} · ${sample.id}`; name.title = name.textContent;
-        node.setAttribute('role', 'group'); node.setAttribute('aria-label', name.textContent);
-        loop.type = 'checkbox'; loop.dataset.layerLoop = ''; loop.setAttribute('aria-label', `Loop ${name.textContent}`);
-        loop.title = 'Turn off to finish this pass. Stop ends this layer immediately.';
-        loopLabel.append(loop, 'Loop');
-        pause.type = stop.type = 'button'; pause.dataset.layerPause = ''; stop.dataset.layerStop = '';
-        stop.textContent = 'Stop'; stop.setAttribute('aria-label', `Stop ${name.textContent}`); stop.title = 'Stop only this layer';
-        loop.addEventListener('change', () => engine.configureSample(sample.id, { loop: loop.checked }));
-        pause.addEventListener('click', () => {
+        node.innerHTML = `<div class="blech-layer-copy"><span data-layer-name></span><small data-layer-status class="sr-only"></small><div class="blech-layer-timeline"><canvas width="256" height="12" aria-label="Note activity across this layer"></canvas><i></i></div></div>
+          <button type="button" data-layer-pause></button>
+          <button type="button" data-layer-mute aria-pressed="false">M</button>
+          <button type="button" data-layer-solo aria-pressed="false">S</button>
+          <label class="blech-layer-loop" title="Loop this layer; turn off to finish this pass"><input type="checkbox" data-layer-loop><span aria-hidden="true">↻</span></label>
+          <label class="blech-layer-dial"><span>Vol</span><input type="range" min="0" max="1" step=".01" data-layer-gain><output class="sr-only" data-layer-gain-out></output></label>
+          <label class="blech-layer-channel"><span>Ch</span><select data-layer-channel><option value="">Orig</option>${Array.from({ length: 16 }, (_, i) => `<option value="${i}">${i + 1}${i === 9 ? ' D' : ''}</option>`).join('')}</select></label>
+          <label class="blech-layer-dial"><span>Pan</span><input type="range" min="-1" max="1" step=".01" value="0" data-layer-pan><output class="sr-only" data-layer-pan-out></output></label>
+          <button type="button" data-layer-stop title="Remove this layer">×</button>`;
+        node.setAttribute('role', 'group');
+        const control = key => node.querySelector(`[data-layer-${key}]`);
+        control('loop').addEventListener('change', event => { const source = spigots?.bySample(sample.id); if (source) spigots.loop(source.id, event.target.checked); else engine.configureSample(sample.id, { loop: event.target.checked }); });
+        control('pause').addEventListener('click', () => {
+          masterPause?.samples.delete(sample.id);
           const current = engine.state.samples.find(item => item.id === sample.id);
-          if (current) engine.setSamplePaused(sample.id, !current.paused);
+          const source = spigots?.bySample(sample.id);
+          if (source) spigots.togglePlay(source.id); else if (current) engine.setSamplePaused(sample.id, !current.paused);
         });
-        stop.addEventListener('click', () => engine.stopSample(sample.id));
-        const timeline = document.createElement('div'), map = document.createElement('canvas'), playhead = document.createElement('i');
-        timeline.className = 'blech-layer-timeline'; map.width = 256; map.height = 12;
-        map.setAttribute('aria-label', 'Note activity across this layer'); timeline.append(map, playhead);
-        const level = document.createElement('input'); level.type = 'range'; level.min = '0'; level.max = '1'; level.step = '.01'; level.className = 'blech-layer-level'; level.dataset.layerGain = ''; level.dataset.keepSlider = '';
-        level.setAttribute('aria-label', `Volume ${name.textContent}`);
-        level.addEventListener('input', () => engine.configureSample(sample.id, { gain: Number(level.value) }));
-        copy.append(name, status, timeline); node.append(copy, level, loopLabel, pause, stop);
+        for (const [key, field] of [['mute', 'muted'], ['solo', 'solo']]) control(key).addEventListener('click', () => {
+          const current = engine.state.samples.find(item => item.id === sample.id);
+          const source = spigots?.bySample(sample.id);
+          if (current || source) configureLayer(sample.id, { [field]: !(current ?? source.settings)[field] });
+        });
+        control('stop').addEventListener('click', () => { const source = spigots?.bySample(sample.id); if (source) spigots.remove(source.id); else engine.stopSample(sample.id); });
+        for (const key of ['gain', 'pan']) control(key).addEventListener('input', event => configureLayer(sample.id, { [key]: Number(event.target.value) }));
+        control('channel').addEventListener('change', event => configureLayer(sample.id, { channel: event.target.value === '' ? null : Number(event.target.value) }));
         layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
       }
       const name = `${sample.name || 'Pattern'} · ${sample.id}`;
       field(node.querySelector('[data-layer-name]'), name); node.querySelector('[data-layer-name]').title = name;
       node.setAttribute('aria-label', name);
       node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
-      node.querySelector('[data-layer-stop]').setAttribute('aria-label', `Stop ${name}`);
+      node.querySelector('[data-layer-stop]').setAttribute('aria-label', `Remove ${name}`);
       if (!node.querySelector('[data-layer-edit]') && performanceView?.getTextLayer(sample.id)) {
         const edit = document.createElement('button'); edit.type = 'button'; edit.dataset.layerEdit = ''; edit.textContent = 'Edit';
         edit.addEventListener('click', () => loadTextLayer(performanceView.getTextLayer(sample.id)));
@@ -102,7 +114,19 @@ function mountBlechMidi() {
       node.querySelector('[data-layer-edit]')?.setAttribute('aria-label', `Edit ${name}`);
       node.querySelector('[data-layer-loop]').checked = sample.loop;
       const level = node.querySelector('[data-layer-gain]');
-      if (document.activeElement !== level) level.value = String(sample.gain ?? .75);
+      value(level, sample.gain ?? .75);
+      field(node.querySelector('[data-layer-gain-out]'), `${Math.round((sample.gain ?? .75) * 100)}%`);
+      const pan = node.querySelector('[data-layer-pan]');
+      value(pan, sample.pan ?? 0); pan.setAttribute('aria-label', `Pan ${name}`);
+      field(node.querySelector('[data-layer-pan-out]'), sample.pan ? `${Math.round(Math.abs(sample.pan) * 100)}% ${sample.pan < 0 ? 'left' : 'right'}` : 'Center');
+      const channelSelect = node.querySelector('[data-layer-channel]');
+      value(channelSelect, sample.channel == null ? '' : sample.channel); channelSelect.setAttribute('aria-label', `MIDI channel ${name}`);
+      for (const [key, stateKey, title] of [['mute', 'muted', 'Mute'], ['solo', 'solo', 'Solo']]) {
+        const button = node.querySelector(`[data-layer-${key}]`);
+        button.setAttribute('aria-pressed', String(Boolean(sample[stateKey])));
+        button.setAttribute('aria-label', `${title} ${name}`); button.title = key === 'solo' ? 'Solo among dropped layers; keep their timing running' : 'Mute this layer; keep its timing running';
+      }
+      node.dataset.muted = String(Boolean(sample.effectiveMuted));
       level.setAttribute('aria-label', `Volume ${name}`);
       const timeline = node.querySelector('.blech-layer-timeline');
       timeline.querySelector('i').style.left = `${100 * Math.min(1, (sample.positionBeats ?? 0) / Math.max(.001, sample.durationBeats ?? sample.analysis.durationBeats))}%`;
@@ -114,14 +138,15 @@ function mountBlechMidi() {
         bins.forEach((count, x) => { const height = count ? Math.max(1, Math.sqrt(count / max) * 12) : 0; context.fillRect(x * 2, 12 - height, 2, height); });
       }
       node.dataset.paused = String(Boolean(sample.paused));
-      const pause = node.querySelector('[data-layer-pause]'), action = sample.paused ? 'Resume' : 'Pause';
-      field(pause, action); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
+      const pause = node.querySelector('[data-layer-pause]'), action = sample.closed ? 'Play' : sample.paused ? 'Resume' : 'Pause';
+      field(pause, sample.paused ? '▶' : 'Ⅱ'); pause.setAttribute('aria-label', `${action} ${node.getAttribute('aria-label')}`);
       pause.setAttribute('aria-pressed', String(Boolean(sample.paused)));
       pause.title = sample.paused ? 'Resume this layer from its paused position' : 'Pause only this layer';
-      const stateLabel = sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.loop ? 'Looping' : 'One shot';
+      const stateLabel = sample.closed ? 'Valve closed' : sample.pendingReplacement ? 'Update next loop' : sample.paused ? 'Paused' : sample.pending ? `In ${Number(sample.pendingBeats.toFixed(2))} beats` : sample.loop ? 'Looping' : 'One shot';
       const channel = sample.channel == null ? 'Original channels' : `Ch ${sample.channel + 1}`;
       const program = Number.isInteger(sample.midi?.program) && sample.midi.program >= 0 ? GM_PROGRAM_NAMES[sample.midi.program] : 'Original instruments';
       field(node.querySelector('[data-layer-status]'), `${stateLabel} · ${channel} · ${program}`);
+      node.querySelector('[data-layer-name]').title = `${name} · ${stateLabel} · ${channel} · ${program}`;
     }
     $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
@@ -148,6 +173,10 @@ function mountBlechMidi() {
     $('previewDrawingMidi').disabled = !drawing?.model.count;
     $('captureDrawingFrame').disabled = !drawing?.model.count;
     const paused = state.samples.filter(sample => sample.paused).length, playing = state.samples.length - paused;
+    const masterPlaying = Boolean(playing || state.automata?.playing || filePlayer?.getTransportState().playing);
+    $('blechMasterPlay').setAttribute('aria-pressed', String(masterPlaying));
+    $('blechMasterPlay').setAttribute('aria-label', masterPlaying ? 'Pause all playback' : 'Play or resume playback');
+    $('blechMasterPlay').title = masterPlaying ? 'Pause running sources together' : masterPause ? 'Resume sources paused together' : 'Play prepared source or resume paused layers';
     field($('creativePlaybackStatus'), `${playing} playing${paused ? ` · ${paused} paused` : ''}${state.automata?.playing ? ' + evolution' : ''}${enabled ? '' : ' · audio off'}`);
     $('blechMidi').dataset.audio = String(enabled);
     $('blechMidi').dataset.samples = String(state.samples.length);
@@ -217,24 +246,42 @@ function mountBlechMidi() {
   $('mixerSampleLevel').closest('label').querySelector('b').textContent = 'Layer volume';
   $('mixerSampleLevel').setAttribute('aria-label', 'Generated layer volume');
   $('mixerSampleLevel').closest('label').title = 'Volume of stamps, drawings, text, math and frame layers. Automatapoeia has its own volume.';
-  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), onPrepare: detail => preparedChanged('files', detail),
+  filePlayer = mountBlechFilePlayer($('blackMidiPlayer'), { engine, creditsHost: $('blackMidiCredits'), libraryHost: $('midiFilesTools'), settingsHost: $('midiVisualizerTools'), transportHost: $('blechFileTransport'), onPrepare: detail => preparedChanged('files', detail),
     onNoteCount: ({ passed, total }) => { $('blechFileNotes').value = passed == null ? '—' : passed.toLocaleString(); $('blechFileTotal').value = total == null ? '—' : total.toLocaleString(); },
     onKeyboardNote: () => { keyboardNoteCount++; reflect(); },
   });
+  spigots = createBlechSpigotEngine({ engine, sendScore: (score, options) => performanceView.sendScore(score, options), onChange: () => reflect(), onTransform: record => performanceView.setLayerSourceTransform(record.sampleId, record) });
   dropStage = mountBlechDropStage($('blechDropControls'), $('blackMidiViewport'), {
     getTempo: () => engine.state.tempo,
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
     onDrop: (score, options) => {
-      const sent = performanceView.sendScore(score, options);
+      const sent = spigots.create(dropStage.getSourceScore() ?? score, options);
       if (sent && activeKey() === 'drawing') { revokeDownload(); downloadUrl = URL.createObjectURL(new Blob([sent.buffer], { type: 'audio/midi' })); $('downloadDrawingMidi').href = downloadUrl; $('downloadDrawingMidi').hidden = false; }
       reflect(); return sent;
     },
     onSettings: settings => { knobs?.update($('blechDropGain')); if (settings.source === 'text' && $('blechTextLoop')) $('blechTextLoop').checked = settings.loop; },
-    onStop: source => { for (const sample of engine.state.samples) if (sample.source === source) engine.stopSample(sample.id); if (source === 'automata') engine.setAutomataPlaying(false); if (source === 'files') filePlayer.stop(); reflect(); },
+    onStop: source => { for (const sample of engine.state.samples) if (sample.source === source) { masterPause?.samples.delete(sample.id); spigots?.forgetSample(sample.id); engine.stopSample(sample.id); } if (source === 'automata') { if (masterPause) masterPause.automata = false; engine.setAutomataPlaying(false); } if (source === 'files') { if (masterPause) masterPause.file = null; filePlayer.stop(); } reflect(); },
   });
-  on($('midiVisualizerTools'), 'input', () => dropStage.refresh());
+  spigotView = mountBlechSpigots($('blackMidiViewport'), {
+    controlsHost: $('blechSpigotControls'),
+    getLayers: () => spigots.getLayers(),
+    getPreparedScore: () => ({ score: dropStage.getSourceScore(), settings: dropStage.getSettings() }),
+    getTempo: () => engine.state.tempo,
+    getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
+    onCreate: (score, settings) => spigots.create(score, settings),
+    onEdit: (id, settings) => spigots.edit(id, settings),
+    onToggleLoop: (id, enabled) => spigots.loop(id, enabled),
+    onTogglePlay: id => { const source = spigots.getLayers().find(layer => layer.id === id); if (source) masterPause?.samples.delete(source.sampleId); spigots.togglePlay(id); },
+    onRemove: id => spigots.remove(id),
+    onBrushStart: options => spigots.brushStart(options),
+    onBrushMove: (id, point) => spigots.brushMove(id, point),
+    onBrushEnd: (id, options) => spigots.brushEnd(id, options),
+    onModeChange: mode => dropStage.suspendInteractions(Boolean(selectedSpigot) || mode !== 'select'),
+    onSelectionChange: id => { selectedSpigot = id; dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
+  });
+  on($('midiVisualizerTools'), 'input', () => { dropStage.refresh(); spigotView.refresh(); });
   stampPicker = mountBlechStampPicker($('blechStampPicker'), { entries: performanceView.getStamps(), selectedId: 'heart', onSelect: id => { void performanceView.prepareStamp(id).then(() => { if (!disposed) stampPicker.update(performanceView.getStamps()); }).catch(error => field($('creativeStatus'), error.message)); } });
-  $('creativePadsHost').append($('mixerSavedPads'));
+  $('blechSavedDrops').append($('mixerSavedPads'));
   $('creativePadsHost').querySelector('.mixer-stamp-palette').hidden = true;
   $('mixerStampAgain').textContent = 'Refresh preview';
   $('creativeControlsHost').querySelector('.mixer-stamp-midi > summary').textContent = 'Layer MIDI controls';
@@ -262,7 +309,7 @@ function mountBlechMidi() {
   textTools = mountBlechText($('drawingMessageHost'), { getTempo: () => engine.state.tempo,
     getProgram: () => $('mixerSampleProgram').value,
     onDrop: onDrop('text'), onPrepare: detail => preparedChanged('text', detail),
-    onApply: (id, score, options) => performanceView.replaceScore(id, score, options),
+    onApply: (id, score, options) => { const result = performanceView.replaceScore(id, score, options); if (result) spigots.adoptText(id, score); return result; },
     getLayer: id => engine.state.samples.find(sample => sample.id === id) });
   function loadTextLayer(detail) {
     if (!detail) return;
@@ -311,13 +358,13 @@ function mountBlechMidi() {
     });
   }
   wireTabs(tabs, 'blechTab', activateTab); wireTabs(frameTabs, 'frameTab', activateFrame);
-  activateTab('files');
+  activateTab('math');
   const hashTab = () => {
     const name = { '#automata': 'automata', '#automataMidiTools': 'automata', '#drawingEditor': 'drawing', '#midiArtCreator': 'art', '#blackMidiPlayer': 'files', '#black-midi': 'files' }[location.hash];
     if (name) activateTab(name);
   };
   on(globalThis, 'hashchange', hashTab); hashTab();
-  on($('blechAutomataToggle'), 'click', () => { engine.setAutomataPlaying(!engine.state.automata.playing); reflect(); });
+  on($('blechAutomataToggle'), 'click', () => { if (masterPause) masterPause.automata = false; engine.setAutomataPlaying(!engine.state.automata.playing); reflect(); });
   function refreshSeedBridge(model = drawing?.model) {
     const row = Number($('drawingSeedRow').value) - 1;
     $('drawingSeedRowOut').value = String(row + 1);
@@ -374,7 +421,41 @@ function mountBlechMidi() {
     try { await filePlayer.previewScore(performanceView.getDrawingScore(), 'Your drawing'); }
     catch (error) { field($('creativeStatus'), error.message); }
   });
-  on($('creativeStop'), 'click', () => { performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); reflect(); });
+  // A master pause owns only sources it actually paused. Other controls retain
+  // their independent intent, and identity checks prevent old files or edited
+  // replacement layers from being revived by a later master resume.
+  function toggleMasterPlayback() {
+    if (disposed) return;
+    const state = engine.state, file = filePlayer.getTransportState();
+    const running = state.samples.filter(sample => !sample.paused);
+    if (running.length || state.automata.playing || file.playing) {
+      const snapshot = masterPause ?? { samples: new Map(), file: null, automata: false };
+      for (const sample of running) {
+        const paused = engine.setSamplePaused(sample.id, true);
+        if (paused) snapshot.samples.set(sample.id, { scoreVersion: paused.scoreVersion, playbackEpoch: paused.playbackEpoch });
+      }
+      if (file.playing) snapshot.file = filePlayer.pause();
+      if (state.automata.playing) { engine.setAutomataPlaying(false); snapshot.automata = true; }
+      masterPause = snapshot;
+    } else if (masterPause) {
+      const snapshot = masterPause; masterPause = null;
+      for (const sample of state.samples) {
+        const previous = snapshot.samples.get(sample.id);
+        if (sample.paused && previous && previous.scoreVersion === sample.scoreVersion && previous.playbackEpoch === sample.playbackEpoch) engine.setSamplePaused(sample.id, false);
+      }
+      if (snapshot.file) filePlayer.play(snapshot.file);
+      if (snapshot.automata) engine.setAutomataPlaying(true);
+    } else {
+      const paused = state.samples.filter(sample => sample.paused);
+      if (paused.length) for (const sample of paused) engine.setSamplePaused(sample.id, false);
+      else if (activeKey() === 'files') filePlayer.play();
+      else dropStage.send();
+    }
+    reflect();
+  }
+  on($('blechMasterPlay'), 'click', toggleMasterPlayback);
+  for (const id of ['automataMidiPlayPause', 'automataMidiRestart']) on($(id), 'click', () => { if (masterPause) masterPause.automata = false; });
+  on($('creativeStop'), 'click', () => { masterPause = null; spigotView?.cancelGesture(); spigots?.stopAll(); performanceView.stopSamples(); engine.setAutomataPlaying(false); filePlayer.stop(); filePlayer.releaseKeyboard(); reflect(); });
   on($('blechResetNoteCount'), 'click', () => { engine.resetNoteCount(); keyboardNoteCount = 0; reflect(); });
   for (const button of document.querySelectorAll('[data-drawing-stamp]')) on(button, 'click', () => drawing.stamp(button.dataset.drawingStamp));
   on($('creativeTempo'), 'input', () => {
@@ -439,7 +520,7 @@ function mountBlechMidi() {
   on($('blechShowBanks'), 'click', () => { $('blechTab-files').click(); $('mixerBankChooser').scrollIntoView({ block: 'nearest' }); $('mixerBankChooser').querySelector('summary')?.focus({ preventScroll: true }); });
   on($('audioButton'), 'click', async () => {
     audioIntent = !(starting ? audioIntent : engine.state.audioEnabled);
-    if (!audioIntent) { starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return; }
+    if (!audioIntent) { spigotView?.cancelGesture(); spigots?.stopAll(); masterPause = null; starting = false; performanceView.cancelPending(); engine.setAudioEnabled(false); filePlayer.setAudioEnabled(false); reflect(); return; }
     starting = true; field($('creativeStatus'), '');
     // Creating and resuming the native context stays inside this explicit gesture.
     const pending = engine.enableAudio(); reflect();
@@ -459,10 +540,10 @@ function mountBlechMidi() {
   on(globalThis, 'pagehide', () => {
     if (disposed) return;
     retainedDraft = drawing.model.pixels.map(row => [...row]);
-    disposed = true; audioIntent = false; bankChooser?.dispose(); revokeDownload(); events.abort();
+    disposed = true; audioIntent = false; masterPause = null; bankChooser?.dispose(); revokeDownload(); events.abort();
     if (frame !== null) cancelAnimationFrame(frame);
     $('drawingPlaybackOptions').querySelector('.mixer-stamp-switches')?.remove();
-    dropStage.dispose(); stampPicker.dispose(); frameAdvanced.remove(); prepared.clear(); textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
+    spigotView?.dispose(); spigots?.dispose(); dropStage.dispose(); stampPicker.dispose(); frameAdvanced.remove(); prepared.clear(); textTools.dispose(); mathTools.dispose(); frameTools.dispose(); artCreator.dispose(); filePlayer.dispose(); performanceView.dispose(); noteEffectEditor.destroy(); drawing.destroy(); synthEffectEditor.destroy(); knobs.destroy(); void engine.dispose();
   });
   performanceView.setView('draw'); performanceView.setActive(!document.hidden); reflect();
   if (!document.hidden) frame = requestAnimationFrame(tick);

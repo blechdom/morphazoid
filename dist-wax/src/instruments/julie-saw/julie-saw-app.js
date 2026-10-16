@@ -21,6 +21,14 @@ import {
   sweetSpotPosition,
   techniqueTracksSweetSpot,
 } from "./julie-saw.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  JULIE_SAW_FULL_PRESETS,
+  captureJulieSawPreset,
+  julieSawStateFromPreset,
+  randomizeJulieSawPreset,
+  validateJulieSawPreset,
+} from "./full-presets.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { unlockAudioContext } from "../../audio.js";
 import { resumeAudioContext, withAudioTimeout } from "../../audio-startup.js";
@@ -1581,3 +1589,16 @@ installGlobalLifecycle();
 updatePresentation();
 resizeCanvas(true);
 animationFrame = requestAnimationFrame(tick);
+
+registerHeaderPresets({
+  id: "julie-saw", presets: JULIE_SAW_FULL_PRESETS,
+  capture: () => captureJulieSawPreset(state),
+  apply: snapshot => {
+    state = julieSawStateFromPreset(snapshot, state);
+    if (state.autoPlay) transportStartedAt = performance.now();
+    postConfiguration();
+    if (state.autoPlay) postAutomaticState({ triggerCurrent: true });
+    updatePresentation();
+  },
+  randomize: randomizeJulieSawPreset,
+});

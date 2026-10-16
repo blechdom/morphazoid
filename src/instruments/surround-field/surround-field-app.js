@@ -27,6 +27,8 @@ import {
   SurroundFieldRecorder,
   buildStemArchive,
 } from "./surround-field-recorder.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { SURROUND_FULL_PRESETS, captureSurroundPreset, randomizeSurroundPreset, validateSurroundPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1597,4 +1599,32 @@ function initialize() {
   requestAnimationFrame(animate);
 }
 
+function applyFullPreset(snapshot) {
+  validateSurroundPreset(snapshot);
+  state.position = { x: snapshot.x, y: snapshot.y, z: snapshot.z };
+  state.focus = snapshot.focus;
+  state.orbitRate = snapshot.orbitRate;
+  state.voice = snapshot.voice;
+  state.color = snapshot.color;
+  state.release = snapshot.release;
+  state.motion = snapshot.motion;
+  state.motionPhase = 0;
+  state.motionStartedAt = performanceSeconds();
+  $("orbitRate").value = String(state.orbitRate);
+  $("focus").value = String(state.focus);
+  $("elevation").value = String(state.position.z);
+  $("color").value = String(state.color);
+  $("release").value = String(state.release);
+  audio.setColor(state.color);
+  updateSpatialDisplay();
+  syncAudioScheduler();
+  renderControls();
+}
+
 initialize();
+registerHeaderPresets({
+  id: "surround-field", presets: SURROUND_FULL_PRESETS,
+  capture: () => captureSurroundPreset(state),
+  apply: applyFullPreset,
+  randomize: randomizeSurroundPreset,
+});

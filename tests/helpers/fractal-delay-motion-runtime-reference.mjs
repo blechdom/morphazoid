@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -11,6 +12,7 @@ export const fractalMotionRuntimeChanges = JSON.parse(readFileSync(
 
 /** Peel only the reviewed motion helper row and the two exact tempo targets. */
 export function restoreFractalMotionRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;
   source = restoreMidiophiliaCreativeTempo(source, file, { allowRestored: true });

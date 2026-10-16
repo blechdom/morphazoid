@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ export const blechChannelTimingChanges = JSON.parse(readFileSync(
 /** Restore only the complete, uniquely anchored timing module and Tap owners. */
 export function restoreBlechChannelTiming(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreBlechDropRuntime(source, file, { allowRestored: true });
   const change = blechChannelTimingChanges.changes.find(change => change.file === file);

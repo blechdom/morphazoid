@@ -26,6 +26,10 @@ import {
   sampleBoundaryArc,
   samplePitchSignal,
 } from "./julia-similarity.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  JULIA_FULL_PRESETS, JULIA_NUMBER_SPECS, captureJuliaPreset, randomizeJuliaPreset, validateJuliaPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const LOOKAHEAD_SECONDS = 0.065;
@@ -189,6 +193,8 @@ function scheduleCanvasResize() {
 resizeCanvas();
 new ResizeObserver(scheduleCanvasResize).observe(stageWrap);
 
+const rangePainters = new Map();
+
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
@@ -210,6 +216,7 @@ function bindRange(id, key, formatter, afterChange) {
     scheduleFrame();
   });
   paint();
+  rangePainters.set(key, paint);
   return paint;
 }
 
@@ -1589,3 +1596,32 @@ window.addEventListener("pageshow", (event) => {
 setGeometryControls();
 scheduleBoundaryRebuild(true);
 scheduleFrame();
+
+function applyFullPreset(snapshot) {
+  validateJuliaPreset(snapshot);
+  stopSimilarityAudition();
+  Object.assign(state, snapshot, { viewZoom: 0, viewCenterX: 0, viewCenterY: 0, viewIterationBonus: 0 });
+  for (const key of Object.keys(JULIA_NUMBER_SPECS)) rangePainters.get(key)();
+  $("preset").value = state.presetId;
+  setGeometryControls();
+  updateViewUi();
+  $("directionButton").textContent = `Direction · ${state.direction > 0 ? "forward" : "reverse"}`;
+  updateSynthModeUi();
+  $("similarityExperiment").value = state.similarityExperiment;
+  setPressed($("positiveBranch"), state.similarityBranch > 0);
+  setPressed($("negativeBranch"), state.similarityBranch < 0);
+  audioOctavePosition = null;
+  similarityAudioPositions.clear();
+  pool.silence();
+  invalidateSimilarity();
+  updateSimilarityUi();
+  scheduleBoundaryRebuild(true);
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "julia", presets: JULIA_FULL_PRESETS,
+  capture: () => captureJuliaPreset(state),
+  apply: applyFullPreset,
+  randomize: randomizeJuliaPreset,
+});

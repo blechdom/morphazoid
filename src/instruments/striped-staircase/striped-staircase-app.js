@@ -15,6 +15,10 @@ import {
   zoomLevel,
 } from "./striped-staircase.js";
 import { VoicePool } from "../../audio.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  STAIRCASE_FULL_PRESETS, captureStaircasePreset, randomizeStaircasePreset, validateStaircasePreset,
+} from "./full-presets.js";
 import {
   contourVoiceTrajectory,
   createStaircaseShapeField,
@@ -43,6 +47,17 @@ const SOUND_SCHEME_LABELS = Object.freeze({
   rattlesnake: "Rattlesnake edge",
   decomposition: "spatial decomposition",
   ink: "white sound / black silence",
+});
+const TIMING_NOTES = Object.freeze({
+  equal: "Every depth step receives the same amount of time.",
+  geometry: "Fine, deep bands receive less time, so the staircase accelerates as its shapes shrink.",
+  dive: "The depth clock zooms toward the selected coordinate, then follows the same path back out.",
+});
+const PLAYBACK_NOTES = Object.freeze({
+  fill: "The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.",
+  edge: "Each branch of the animated wavy depth contour becomes a continuously changing oscillator.",
+  drums: "Depth changes, contour entrances, splits, and merges become contour-weighted attacks.",
+  ensemble: "Four synchronized heads read mass, contour, topology/rhythm, and micro-detail from the same moving depth contour.",
 });
 const pool = new VoicePool(24);
 
@@ -790,11 +805,7 @@ function bindControls() {
       for (const candidate of document.querySelectorAll("[data-timing]")) {
         candidate.setAttribute("aria-pressed", String(candidate === button));
       }
-      $("timingNote").textContent = state.timingMode === "geometry"
-        ? "Fine, deep bands receive less time, so the staircase accelerates as its shapes shrink."
-        : state.timingMode === "dive"
-          ? "The depth clock zooms toward the selected coordinate, then follows the same path back out."
-          : "Every depth step receives the same amount of time.";
+      $("timingNote").textContent = TIMING_NOTES[state.timingMode];
       $("diveOctaves").disabled = state.timingMode !== "dive";
       if (state.timingMode === "dive") {
         syncDiveCamera({ refine: true });
@@ -835,13 +846,7 @@ function bindControls() {
       for (const candidate of document.querySelectorAll("[data-playback]")) {
         candidate.setAttribute("aria-pressed", String(candidate === button));
       }
-      $("playbackModeNote").textContent = state.playbackMode === "edge"
-        ? "Each branch of the animated wavy depth contour becomes a continuously changing oscillator."
-        : state.playbackMode === "drums"
-          ? "Depth changes, contour entrances, splits, and merges become contour-weighted attacks."
-          : state.playbackMode === "ensemble"
-            ? "Four synchronized heads read mass, contour, topology/rhythm, and micro-detail from the same moving depth contour."
-          : "The animated depth contour sustains every simultaneous branch as it travels inward and bifurcates.";
+      $("playbackModeNote").textContent = PLAYBACK_NOTES[state.playbackMode];
       pool.silence();
       lastDrumTimeSlice = -1;
       updateInterface(true);
@@ -1122,3 +1127,62 @@ if (typeof ResizeObserver === "function") {
 }
 
 requestRender();
+
+const SOUND_SLIDER_KEYS = [
+  "baseFrequency", "pitchRange", "noiseAmount", "durationScale", "stereoSpread", "massLevel", "contourLevel", "rhythmLevel", "microLevel",
+];
+
+function pressByAttribute(attribute, value) {
+  for (const button of document.querySelectorAll(`[${attribute}]`)) {
+    button.setAttribute("aria-pressed", String(button.getAttribute(attribute) === value));
+  }
+}
+
+function applyFullPreset(snapshot) {
+  validateStaircasePreset(snapshot);
+  const camera = Object.freeze({ ...snapshot.camera });
+  const home = cameraFromView(viewById(snapshot.viewId));
+  Object.assign(state, {
+    motionMode: snapshot.motionMode, timingMode: snapshot.timingMode, palette: snapshot.palette,
+    playbackMode: snapshot.playbackMode, soundPolarity: snapshot.soundPolarity, colorSoundMode: snapshot.colorSoundMode,
+    speed: snapshot.speed, diveOctaves: snapshot.diveOctaves, selectedViewId: snapshot.viewId,
+    viewModified: ["centerX", "centerY", "scale"].some((key) => camera[key] !== home[key]),
+    settings: {
+      ...state.settings,
+      startIteration: snapshot.startIteration, maxIterations: snapshot.maxIterations, steps: snapshot.steps,
+      stripePeriod: snapshot.stripePeriod, edgeSoftness: snapshot.edgeSoftness,
+    },
+    ...Object.fromEntries(SOUND_SLIDER_KEYS.map((key) => [key, snapshot[key]])),
+  });
+  diveAnchorCamera = camera;
+  state.camera = camera;
+  syncDiveCamera();
+  for (const key of ["speed", "diveOctaves", ...SOUND_SLIDER_KEYS]) $(key).value = String(state[key]);
+  for (const key of ["startIteration", "maxIterations", "steps", "stripePeriod", "edgeSoftness"]) $(key).value = String(state.settings[key]);
+  $("diveOctaves").disabled = state.timingMode !== "dive";
+  $("colorSoundMode").value = state.colorSoundMode;
+  $("viewPreset").value = state.selectedViewId;
+  $("timingNote").textContent = TIMING_NOTES[state.timingMode];
+  $("playbackModeNote").textContent = PLAYBACK_NOTES[state.playbackMode];
+  pressByAttribute("data-mode", state.motionMode);
+  pressByAttribute("data-timing", state.timingMode);
+  pressByAttribute("data-palette", state.palette);
+  pressByAttribute("data-playback", state.playbackMode);
+  pressByAttribute("data-polarity", state.soundPolarity);
+  updateViewButtons();
+  buildRail();
+  pool.silence();
+  lastDrumTimeSlice = -1;
+  lastSoundedStep = -1;
+  updateInterface(true);
+  refreshFieldNow();
+  sonifyFrame(currentFrame(), { force: true });
+  requestRender();
+}
+
+registerHeaderPresets({
+  id: "striped-staircase", presets: STAIRCASE_FULL_PRESETS,
+  capture: () => captureStaircasePreset(state, diveAnchorCamera),
+  apply: applyFullPreset,
+  randomize: randomizeStaircasePreset,
+});

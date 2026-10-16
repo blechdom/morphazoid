@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { restoreBlechChannelTiming } from './blech-channel-timing-reference.mjs';
@@ -14,6 +15,7 @@ export const simdResonatorRuntimeChange = Object.freeze({
 
 /** Peel only this uniquely placed preset module, preserving older fixture hashes. */
 export function restoreSimdResonatorRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   const change = simdResonatorRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;

@@ -41,6 +41,11 @@ import {
   createHybrinxGestureStore,
 } from "../../instruments/hybrinx/hybrinx-timeline.js?v=hybrinx-20260821-3";
 import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  PARAMETER_MODULATOR_DEFINITIONS, SYRINX_FULL_PRESETS, TONGUED_BEASTS_FULL_PRESETS, applyVoiceHostState,
+  captureSyrinxPreset, captureTonguedBeastsPreset, randomizeSyrinxPreset, randomizeTonguedBeastsPreset,
+  validateSyrinxPreset, validateTonguedBeastsPreset,
+} from "./voice-presets.js";
 import { HYBRINX_FULL_PRESETS, captureHybrinxPreset, applyHybrinxPresetState, validateHybrinxFullPreset, randomizeHybrinxPreset } from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
@@ -158,27 +163,6 @@ const VIEWPORT_MODULATION_TARGETS = Object.freeze([
   "cavityCoupling",
   "tractLengthM",
   "mouthOpening",
-]);
-const PARAMETER_MODULATOR_DEFINITIONS = Object.freeze([
-  { target: "tonguePosition", elementId: "tonguePosition", family: "tongue", rateHz: 1.7, depth: 0.42, shape: "sine" },
-  { target: "tongueHeight", elementId: "tongueHeight", family: "tongue", rateHz: 3.1, depth: 0.48, shape: "triangle" },
-  { target: "tongueShape", elementId: "tongueShape", family: "tongue", rateHz: 0.73, depth: 0.52, shape: "sine" },
-  { target: "tongueTip", elementId: "tongueTip", family: "tongue", rateHz: 7.8, depth: 0.58, shape: "square" },
-  { target: "tongueExtension", elementId: "tongueExtension", family: "tongue", rateHz: 1.2, depth: 0.68, shape: "triangle" },
-  { target: "tongueCurl", elementId: "tongueCurl", family: "tongue", rateHz: 4.3, depth: 0.62, shape: "sine" },
-  { target: "tongueLateral", elementId: "tongueLateral", family: "tongue", rateHz: 2.4, depth: 0.54, shape: "square" },
-  { target: "pressure", elementId: "pressure", family: "host", rateHz: 0.82, depth: 0.5, shape: "triangle" },
-  { target: "tension", elementId: "tension", family: "host", rateHz: 5.4, depth: 0.34, shape: "sine" },
-  { target: "adduction", elementId: "adduction", family: "host", rateHz: 2.6, depth: 0.48, shape: "square" },
-  { target: "sourceScale", elementId: "sourceScale", family: "host", rateHz: 0.17, depth: 0.6, shape: "triangle" },
-  { target: "tractLengthM", elementId: "tractLength", family: "host", rateHz: 0.13, depth: 0.46, shape: "sine" },
-  { target: "mouthOpening", elementId: "mouthOpening", family: "host", rateHz: 3.7, depth: 0.72, shape: "square" },
-  { target: "cavityCoupling", elementId: "cavityCoupling", family: "host", rateHz: 0.47, depth: 0.62, shape: "sine" },
-  { target: "asymmetry", elementId: "asymmetry", family: "host", rateHz: 1.33, depth: 0.7, shape: "sample-hold" },
-  { target: "sourceBalance", elementId: "sourceBalance", family: "host", rateHz: 0.29, depth: 0.82, shape: "triangle" },
-  { target: "roughness", elementId: "roughness", family: "host", rateHz: 8.6, depth: 0.66, shape: "sample-hold" },
-  { target: "gestureRate", elementId: "gestureRate", family: "host", rateHz: 0.21, depth: 0.58, shape: "triangle" },
-  { target: "loopGapMs", elementId: "loopGap", family: "host", rateHz: 0.08, depth: 0.82, shape: "sample-hold" },
 ]);
 
 const IDLE_TONGUE_ARTICULATION = Object.freeze({
@@ -3241,6 +3225,58 @@ if (HYBRINX_MODE) registerHeaderPresets({
     updateModulationPresentation();
     updateHybrinxTimeline();
     updatePerformance(performance.now());
+    postConfiguration(performanceState, previousModel !== state.sourceModel);
+    audioDirty = true;
+  },
+});
+
+const creaturePresetHost = !HYBRINX_MODE && document.querySelector("[data-instrument-preset-host]");
+
+function applyCreatureHostScene(hostState) {
+  const previousModel = state.sourceModel;
+  state = applyVoiceHostState(hostState, state);
+  gesturePhase = 0;
+  loopGapRemainingMs = 0;
+  if (gesturePlaying) gestureStartTime = performance.now();
+  performanceState = manualBreath
+    ? { ...state, active: true }
+    : gesturePlaying
+      ? interpolateGesture(activeGesture(), 0, state)
+      : { ...state, active: false };
+  return previousModel;
+}
+
+if (creaturePresetHost && TONGUE_MODE) registerHeaderPresets({
+  id: "tongued-beasts", presets: TONGUED_BEASTS_FULL_PRESETS, randomize: randomizeTonguedBeastsPreset,
+  capture: () => captureTonguedBeastsPreset(state, tongueState, tongueMotionId, parameterModulators),
+  apply(snapshot) {
+    validateTonguedBeastsPreset(snapshot);
+    const previousModel = applyCreatureHostScene(snapshot.state);
+    tongueState = sanitizeTongueState(snapshot.tongue);
+    performanceTongueState = tongueState;
+    tongueArticulation = IDLE_TONGUE_ARTICULATION;
+    expandedViewportModulatorTarget = "";
+    parameterModulators.forEach((modulator, index) => {
+      Object.assign(modulator, snapshot.wiggles[index]);
+      updateParameterModulatorUI(modulator);
+    });
+    setTongueMotion(snapshot.motion, { announceChange: false, startAudio: false });
+    updateAnimalPresentation();
+    updatePerformancePresentation(performanceState);
+    postConfiguration(performanceState, previousModel !== state.sourceModel);
+    audioDirty = true;
+  },
+});
+else if (creaturePresetHost && UI_MODE) registerHeaderPresets({
+  id: "syrinx", presets: SYRINX_FULL_PRESETS, randomize: randomizeSyrinxPreset,
+  capture: () => captureSyrinxPreset(state, modulators),
+  apply(snapshot) {
+    validateSyrinxPreset(snapshot);
+    const previousModel = applyCreatureHostScene(snapshot.state);
+    snapshot.modulators.forEach((values, index) => setModulator(index, values));
+    updateAnimalPresentation();
+    updateModulationPresentation();
+    updatePerformancePresentation(performanceState);
     postConfiguration(performanceState, previousModel !== state.sourceModel);
     audioDirty = true;
   },

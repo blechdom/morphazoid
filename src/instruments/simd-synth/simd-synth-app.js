@@ -26,6 +26,13 @@ import {
   loadSimdSynthUserPresets,
   persistSimdSynthUserPresets,
 } from "../../simd-synth-user-presets.js";
+import { presetStateKey, registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SIMD_SYNTH_FULL_PRESETS,
+  captureSimdSynthPreset,
+  randomizeSimdSynthPreset,
+  validateSimdSynthPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const clamp = (value, minimum, maximum) => Math.min(maximum, Math.max(minimum, value));
@@ -1259,3 +1266,15 @@ globalThis.addEventListener("pagehide", () => {
   globalThis.removeEventListener("morphazoid:midi-input", handleMidiInput);
   void disableAudio({ quiet: true });
 }, { once: true });
+
+registerHeaderPresets({
+  id: "simd-synth", presets: SIMD_SYNTH_FULL_PRESETS,
+  capture: () => captureSimdSynthPreset(state.patch),
+  apply: snapshot => {
+    validateSimdSynthPreset(snapshot);
+    const key = presetStateKey(snapshot);
+    const match = SIMD_SYNTH_FULL_PRESETS.find(preset => presetStateKey(preset.snapshot) === key);
+    setPatch(snapshot, { presetId: match?.id ?? "custom", message: match ? `${match.label} loaded.` : "Patch loaded." });
+  },
+  randomize: randomizeSimdSynthPreset,
+});

@@ -3,25 +3,13 @@ import { SpartialAudio, spartialLayout, spartialSpeakers } from "./spartial-audi
 import { enhanceRangeKnob } from "../../ui/primitives/range-knob.js";
 import { mountSpartialRecording } from "./spartial-recording.js";
 import { SPARTIAL_ORGAN_STOPS, SPARTIAL_ORGAN_PRESETS, randomOrganRegistration } from "./spartial-organ.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import { SPARTIAL_FULL_PRESETS, captureSpartialPreset, randomizeSpartialPreset, spartialSettingsPatch, validateSpartialPreset } from "./full-presets.js";
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
 const KEYS = ["a", "w", "s", "e", "d", "f", "t", "g", "y", "h", "u", "j", "k"];
 const NOTE_NAMES = ["C", "C♯", "D", "E♭", "E", "F", "F♯", "G", "A♭", "A", "B♭", "B"];
-const PRESETS = [
-  { id: "still", name: "Still harmonics", spectrum: "full", mode: "single", motion: "off" },
-  { id: "halo", name: "Slow halo", spectrum: "soft", mode: "single", motion: "cw", beatsPerTurn: 32, attack: .5, release: 2.5, cascade: .06 },
-  { id: "rise", name: "Ascending glass", spectrum: "bright", mode: "single", motion: "off", partials: 24, cascade: .065, cascadeCurve: -.45, attack: .015, release: .65 },
-  { id: "fall", name: "Falling bells", spectrum: "bell", mode: "chord", chord: "fifth", motion: "off", cascadeOrder: "down", cascade: .08, cascadeCurve: .4, release: 2.2 },
-  { id: "organ", name: "Wide organ", spectrum: "odd", mode: "chord", chord: "major", motion: "off", partials: 24, cascade: 0, attack: .02, release: .35 },
-  { id: "hollow", name: "Hollow arc", spectrum: "hollow", mode: "single", motion: "off", cycles: .35, release: 1.8 },
-  { id: "counter", name: "Counterpoint", spectrum: "full", mode: "chord", chord: "sus", motion: "counter", beatsPerTurn: 16, cascade: .02, pattern: "alternate" },
-  { id: "squeeze", name: "Close cluster", spectrum: "cluster", mode: "single", motion: "off", cycles: .15, partials: 32, attack: .25 },
-  { id: "double", name: "Double spiral", spectrum: "even", mode: "single", motion: "ccw", beatsPerTurn: 16, cycles: 2, partials: 32, cascade: .015 },
-  { id: "scatter", name: "Scattered metal", spectrum: "bell", mode: "single", motion: "off", pattern: "scatter", partials: 24, cascadeOrder: "alternate", cascade: .045, cascadeVariation: .55 },
-  { id: "soft", name: "Soft minor seven", spectrum: "soft", mode: "chord", chord: "minor7", motion: "off", attack: .65, release: 3, cascade: .01 },
-  { id: "shimmer", name: "Expanded shimmer", spectrum: "bright", mode: "single", motion: "cw", beatsPerTurn: 64, stretch: 1.28, inharmonicity: .18, attack: .3, partials: 24 },
-];
 const GRAIN_PRESETS = [
   { id: "cloud", name: "Soft cloud", grainSize: 180, grainDensity: 24, grainScatter: 160 },
   { id: "rain", name: "Grain rain", grainSize: 24, grainDensity: 12, grainJitter: .45, grainScatter: 420, grainPattern: "scatter" },
@@ -30,15 +18,6 @@ const GRAIN_PRESETS = [
   { id: "flutter", name: "Close flutter", grainSize: 70, grainDensity: 48, grainJitter: .65, grainReverse: .35, grainSpread: .18 },
 ];
 const GRAIN_TEXTURE_KEYS = ["grainSize", "grainDensity", "grainLookback", "grainPosition", "grainScatter", "grainJitter", "grainPitch", "grainReverse", "grainSpread", "grainPattern"];
-PRESETS.push(
-  { id: "grain-cloud", name: "Surround grain cloud", spectrum: "soft", mode: "single", motion: "off", granularMix: .65, grainSize: 220, grainDensity: 32, grainScatter: 240, attack: .12 },
-  { id: "grain-rain", name: "Scattered grain rain", spectrum: "bright", mode: "single", motion: "off", granularMix: 1, grainSize: 25, grainDensity: 15, grainJitter: .5, grainScatter: 600, grainPattern: "scatter", cascade: 0 },
-  { id: "grain-reverse", name: "Reverse grain tide", spectrum: "full", mode: "chord", chord: "fifth", motion: "off", granularMix: .85, grainSize: 400, grainDensity: 12, grainReverse: 1, grainLookback: 900, grainScatter: 300, attack: .2 },
-  { id: "grain-shimmer", name: "Grain shimmer", spectrum: "bell", mode: "single", motion: "off", granularMix: .5, grainSize: 90, grainDensity: 36, grainPitch: 12, grainPattern: "alternate", grainScatter: 180 },
-  ...SPARTIAL_ORGAN_PRESETS.map(preset => ({ ...preset.settings, id: `organ-${preset.id}`, name: preset.name, organPreset: preset.id, spectrum: "full", mode: "single", motion: "off" })),
-  { id: "pitch-ripple", name: "Traveling pitch ripple", spectrum: "soft", mode: "single", motion: "off", pitchDepth: 32, modulationRate: .65, modulationRipple: 1.5, cascade: 0, attack: .15 },
-  { id: "amplitude-ripple", name: "Reverse amplitude ripple", spectrum: "full", mode: "single", motion: "off", amplitudeDepth: .8, modulationRate: 1.2, modulationRipple: -2, cascade: 0 },
-);
 const state = {
   settings: sanitizeSpartialSettings(SPARTIAL_DEFAULTS), mode: "single", root: 48,
   chord: "minor", chordIntervals: spartialChordIntervals("minor"), chordSeed: 419,
@@ -303,7 +282,6 @@ function updateCascadeTiming() {
   }));
 }
 function customPreset(spectrum = false) {
-  $("preset").value = "custom";
   if (spectrum) $("spectrumPreset").value = "custom";
 }
 function motionPatch() {
@@ -456,24 +434,20 @@ function buildPads() {
   $("octaveUp").disabled = state.keyboardBase >= 72;
   updatePerformance();
 }
-function spectralPreset(id) { return SPARTIAL_SPECTRAL_PRESETS.find(preset => preset.id === id) ?? SPARTIAL_SPECTRAL_PRESETS[0]; }
 function applyPreset(index) {
+  const count = SPARTIAL_FULL_PRESETS.length;
+  state.presetIndex = (index % count + count) % count;
+  applyFullSnapshot(SPARTIAL_FULL_PRESETS[state.presetIndex].snapshot);
+}
+function applyFullSnapshot(snapshot) {
+  validateSpartialPreset(snapshot);
   grainSourceRevision += 1;
   rememberPartialMapping();
-  state.presetIndex = (index + PRESETS.length) % PRESETS.length;
-  const preset = PRESETS[state.presetIndex];
-  const level = state.settings.level;
-  state.mode = preset.mode; state.chord = preset.chord ?? "minor";
-  state.chordIntervals = spartialChordIntervals(state.chord);
-  state.motion = preset.motion; state.beatsPerTurn = preset.beatsPerTurn ?? 16;
-  state.routingMode = "spread";
-  state.settings = sanitizeSpartialSettings({ ...SPARTIAL_DEFAULTS, ...spectralPreset(preset.spectrum).settings, ...preset, level, speakerCount: speakers().length });
-  patchSettings({}); buildSpectrum(); refreshLatch();
-  $("preset").value = preset.id;
+  state.mode = snapshot.mode; state.chord = snapshot.chord; state.chordIntervals = [...snapshot.chordIntervals];
+  state.motion = snapshot.motion; state.beatsPerTurn = snapshot.beatsPerTurn; state.routingMode = snapshot.routingMode;
+  patchSettings(spartialSettingsPatch(snapshot)); buildSpectrum(); refreshLatch();
   $("grainPreset").value = "custom";
-  const mappingPreset = preset.organPreset ?? preset.spectrum;
-  state.spectrumIndex = mappingPresets().findIndex(item => item.id === mappingPreset);
-  $("spectrumPreset").value = mappingPreset;
+  $("spectrumPreset").value = "custom"; state.spectrumIndex = -1;
 }
 function applySpectrum(index) {
   const presets = mappingPresets();
@@ -488,19 +462,6 @@ function randomSpectrum() {
   });
   buildSpectrum(); customPreset(true);
 }
-function randomInstrument() {
-  grainSourceRevision += 1;
-  rememberPartialMapping();
-  state.randomSeed += 101;
-  const randomized = randomSpartialInstrument(grainAvailability(), state.randomSeed);
-  state.settings = sanitizeSpartialSettings({ ...randomized.settings,
-    ...(randomized.settings.organMode === "partials" ? {} : organBankPatch()),
-  });
-  for (const key of ["mode", "chord", "chordIntervals", "motion", "beatsPerTurn", "routingMode"]) state[key] = randomized[key];
-  $("grainPreset").value = "custom";
-  patchSettings({});
-  buildSpectrum(); refreshLatch(); customPreset(true);
-}
 function populateSelect(element, items, withCustom = true) {
   element.replaceChildren(...items.map(({ id, name }) => {
     const option = document.createElement("option"); option.value = id; option.textContent = name; return option;
@@ -509,7 +470,7 @@ function populateSelect(element, items, withCustom = true) {
     const custom = document.createElement("option"); custom.value = "custom"; custom.textContent = "Custom"; custom.disabled = true; element.append(custom);
   }
 }
-populateSelect($("preset"), PRESETS); syncMappingMenu(); $("spectrumPreset").value = "full"; state.spectrumIndex = 0;
+syncMappingMenu(); $("spectrumPreset").value = "full"; state.spectrumIndex = 0;
 populateSelect($("grainPreset"), GRAIN_PRESETS); $("grainPreset").value = "custom";
 populateSelect($("chord"), SPARTIAL_CHORDS, false);
 for (let note = 24; note <= 84; note += 1) {
@@ -592,9 +553,6 @@ for (const id of ["mode", "root"]) $(id).addEventListener("change", () => {
 for (const [id, direction] of [["octaveDown", -1], ["octaveUp", 1]]) $(id).addEventListener("click", () => {
   releaseManualNotes(); state.keyboardBase = Math.max(24, Math.min(72, state.keyboardBase + direction * 12)); buildPads();
 });
-$("preset").addEventListener("change", () => applyPreset(PRESETS.findIndex(item => item.id === $("preset").value)));
-$("nextPreset").addEventListener("click", () => applyPreset(state.presetIndex + 1));
-$("randomPreset").addEventListener("click", randomInstrument);
 $("spectrumPreset").addEventListener("change", () => applySpectrum(mappingPresets().findIndex(item => item.id === $("spectrumPreset").value)));
 $("nextSpectrum").addEventListener("click", () => applySpectrum(state.spectrumIndex + 1));
 $("randomSpectrum").addEventListener("click", randomSpectrum);
@@ -767,6 +725,12 @@ function draw(now) {
 
 buildModulationMonitor(); buildPatch(); buildSpectrum(); buildPads(); syncControls(); updateAudioButton();
 frame = requestAnimationFrame(draw);
+registerHeaderPresets({
+  id: "spartial", presets: SPARTIAL_FULL_PRESETS,
+  capture: () => captureSpartialPreset(state),
+  apply: applyFullSnapshot,
+  randomize: randomizeSpartialPreset,
+});
 window.addEventListener("pagehide", event => {
   tempoKnob.cancelGesture();
   void recording.stop("interrupted");

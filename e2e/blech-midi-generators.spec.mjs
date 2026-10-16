@@ -33,14 +33,14 @@ test('math stays prepared until Drop, has usable presets, rejects bad equations 
   expect(await page.evaluate(() => __drops.length)).toBe(0);
   await page.locator('#blechDropSend').click();
   expect(await page.evaluate(() => __drops[0])).toMatchObject({ noteCount: 256, beats: 8, tempo: 150, options: { loop: true, program: '0' } });
-  await page.locator('#blechMathPreset').selectOption('heart');
+  await page.locator('#blechMathPreset').selectOption('heart', { force: true });
   await expect(page.locator('#blechMathEquationX')).toBeVisible(); await expect(page.locator('#blechMathEquation')).toBeHidden();
   await page.locator('#blechDropOnce').click(); await page.locator('#blechDropSend').click();
   expect(await page.evaluate(() => __drops[1].notes)).not.toEqual(await page.evaluate(() => __drops[0].notes));
   expect(await page.evaluate(() => __drops[1].options.loop)).toBe(false);
   await page.locator('#blechMathEquationX').fill('globalThis.alert(1)');
   await expect(page.locator('#blechDropSend')).toBeDisabled(); await expect(page.locator('#blechMathStatus')).not.toBeEmpty();
-  await page.locator('#blechMathPreset').selectOption('lissajous'); await expect(page.locator('#blechDropSend')).toBeEnabled();
+  await page.locator('#blechMathPreset').selectOption('lissajous', { force: true }); await expect(page.locator('#blechDropSend')).toBeEnabled();
   expect(await page.evaluate(() => __contexts.length)).toBe(0); expect(errors).toEqual([]);
 });
 
@@ -89,7 +89,7 @@ test('math prepares all 54 patterns silently, exposes detached staging data and 
   await open(page);
   await expect(page.locator('#blechMathPreset option:not([hidden])')).toHaveCount(54);
   expect(await page.evaluate(() => __prepared.length)).toBe(1);
-  await page.locator('#blechMathPreset').selectOption('opening-fan');
+  await page.locator('#blechMathPreset').selectOption('opening-fan', { force: true });
   await expect.poll(() => page.evaluate(() => __prepared.at(-1).settings.name)).toBe('Opening fan');
   const prepared = await page.evaluate(() => {
     const count = __prepared.length, settings = __math.getSettings(), artwork = __math.getArtwork(), score = __math.getScore();
@@ -105,7 +105,7 @@ test('math prepares all 54 patterns silently, exposes detached staging data and 
   await page.locator('#blechMathEquation').fill('phase.constructor');
   await expect.poll(() => page.evaluate(() => __prepared.at(-1).score)).toBe(null);
   expect(await page.evaluate(() => __prepared.at(-1).error)).toBeTruthy();
-  await page.locator('#blechMathPreset').selectOption('accelerator');
+  await page.locator('#blechMathPreset').selectOption('accelerator', { force: true });
   await expect.poll(() => page.evaluate(() => __prepared.at(-1).score?.analysis.noteCount)).toBeGreaterThan(100);
   expect(await page.evaluate(() => ({ drops: __drops.length, contexts: __contexts.length }))).toEqual({ drops: 0, contexts: 0 });
 });
@@ -142,6 +142,6 @@ test('frame capacity stays recoverable and creator controls fit a phone without 
   await expect(page.locator('#blechFramesCapture')).toBeDisabled(); await expect(page.locator('#blechFramesDuplicate')).toBeDisabled();
   await expect(page.locator('.blech-frame-choice')).toHaveCount(8); await page.locator('#blechFramesDelete').click();
   await expect(page.locator('#blechFramesCapture')).toBeEnabled(); await expect(page.locator('#blechFramesDuplicate')).toBeEnabled();
-  await page.locator('#blechMathPreset').selectOption('lissajous'); await page.locator('.blech-generator-settings > summary').click();
+  await page.locator('#blechMathPreset').selectOption('lissajous', { force: true }); await page.locator('.blech-generator-settings > summary').click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
 });

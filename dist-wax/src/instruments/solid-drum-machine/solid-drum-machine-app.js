@@ -32,6 +32,13 @@ import {
 } from "../../articulation.js";
 import { installShapesNativeBridge } from "../../families/geometry/shapes-native-bridge.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SOLID_DRUM_FULL_PRESETS,
+  captureSolidDrumPreset,
+  randomizeSolidDrumPreset,
+  validateSolidDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -1200,3 +1207,35 @@ paintMotionControls();
 paintRotationTarget();
 new ResizeObserver(resizeCanvas).observe(stageWrap);
 resizeCanvas();
+
+function applySolidDrumPreset(snapshot) {
+  validateSolidDrumPreset(snapshot);
+  state.solidType = snapshot.solidType;
+  $("solidType").value = state.solidType;
+  for (const key of [
+    "formScaleX", "formScaleY", "formScaleZ", "formSkewX", "formSkewZ",
+    "rotationXSpeed", "rotationYSpeed", "rotationZSpeed", "planeYawSpeed", "planePitchSpeed",
+    "speed", "subdivisions", "pitchDepth", "characterDepth", "strikeLimit",
+  ]) bridgeRange(key, snapshot[key]);
+  for (const key of [
+    "rotationXPlaying", "rotationYPlaying", "rotationZPlaying", "planeYawPlaying", "planePitchPlaying", "playing",
+  ]) state[key] = snapshot[key];
+  state.traversalDirection = snapshot.traversalDirection;
+  setMotionMode(snapshot.motionMode, false);
+  if (!snapshot.playing) bridgeRange("position", 0.5);
+  state.mappingMode = snapshot.mappingMode;
+  $("mappingMode").value = state.mappingMode;
+  paintTraversalControls();
+  paintMotionControls();
+  updateSummaries();
+  suppressSolidDrumContacts();
+  lastFrameTime = performance.now();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "solid-drum-machine", presets: SOLID_DRUM_FULL_PRESETS,
+  capture: () => captureSolidDrumPreset(state),
+  apply: applySolidDrumPreset,
+  randomize: randomizeSolidDrumPreset,
+});

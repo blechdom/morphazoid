@@ -36,7 +36,8 @@ test('Staircase Studies has a separate WIP route, original icon, and declared co
 test('the original staircase page, model, sound, styles and icon remain byte-for-byte unchanged', async () => {
   assert.equal(staircaseSiteChanges.baseCommit, '4bb3575463ff8a6ab34a2a9f3fe9dce544b7e711');
   for (const { file, sha256 } of staircaseSiteChanges.originalFiles) {
-    assert.equal(digest(await readFile(new URL(`../${file}`, import.meta.url))), sha256, file);
+    const url = new URL(`../${file}`, import.meta.url);
+    assert.equal(digest(/\.(?:html|js|css)$/.test(file) ? await readFile(url, 'utf8') : await readFile(url)), sha256, file);
   }
 });
 

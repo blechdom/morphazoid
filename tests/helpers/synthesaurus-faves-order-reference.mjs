@@ -1,3 +1,4 @@
+import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
@@ -10,6 +11,7 @@ export const synthesaurusFavesOrderChanges = JSON.parse(readFileSync(
 
 /** Peel off the later Faves reorder before verifying older frozen catalogues. */
 export function restoreSynthesaurusFavesOrder(source, file) {
+  source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   source = restoreSynthesaurusIcon(source, file);
   for (const change of synthesaurusFavesOrderChanges.filter(change => change.file === file)) {

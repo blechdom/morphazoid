@@ -1,5 +1,27 @@
 # Full-instrument preset rollout
 
+## October 15 — Shared preset row on 56 more instruments
+
+FM Drums, the Shape/Solid/Hyper/Graph/Lattice/Spiral/L-System/Sample drum machines,
+Rattlesnake, Rubixoids 2D, Tesselation, Spiral, Julia, Striped Staircase,
+Rattlesnake Skin, Trackazoid, Sliding Puzzle, Hocket Loom, Jaw Jam, Enveloper,
+Dentaphone, the WebGPU and SIMD 303/Chiptune/Synth pages, GPU Shader Synths, srtuss
+Master, Modular Shader Synth, Shepard–Risset, Drum Roll Please!, Surround for Safety,
+SPARTIAL, the voice/throat instruments, Syrinx, Tongued Beasts, Blowhole, Digestazoid,
+Crickets, Vocalzoid, the Ouroboros family, Lumber Loops, Chaotic FM/PM, Weierstrass,
+Graphs and Sorting Algorithms now show the shared preset menu, Next and dice as the
+first row of their control panel, in the Choose-menu style. Each bank has at least
+twelve complete scenes and each dice is a bounded, pure full-state randomizer.
+Audio, output level, transport, microphone and device state stay session-owned;
+preset actions never request a microphone and never arm Audio. Trackazoid presets are
+mixer scenes (crossfader and per-deck level, EQ, filter, pitch mode and quantize).
+Per-instrument tests live in `tests/<id>-presets.test.mjs`; the exact reviewed
+source, page and manifest edits are reversible through
+`tests/fixtures/header-presets-batch-site-amendments.json`. Human listening and
+physical microphone/touch acceptance remain unperformed. The Mic/File/sample input
+pulldown for microphone instruments is a separate follow-up; see
+[the audit](preset-input-audit-20261015.md).
+
 ## October 15 — Graphonic Calculator joins Faves
 
 Graphonic Calculator (`graphonic-calculator`, still listed under Work in Progress)

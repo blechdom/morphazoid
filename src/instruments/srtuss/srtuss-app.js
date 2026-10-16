@@ -32,6 +32,13 @@ import {
   srtussMasterPartMacros,
   srtussMasterParts,
 } from "./srtuss-master.js?v=20260908-voice-card-1";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SRTUSS_FULL_PRESETS,
+  captureSrtussPreset,
+  randomizeSrtussPreset,
+  validateSrtussPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const support = srtussSupport(globalThis);
@@ -2100,3 +2107,23 @@ if (state.presetId) replaceQuery({ presetId: state.presetId });
 else if (state.soundId) replaceQuery({ soundId: state.soundId });
 updateTimeline();
 markRuntimeReady();
+
+registerHeaderPresets({
+  id: "srtuss", presets: SRTUSS_FULL_PRESETS,
+  capture: () => captureSrtussPreset(state),
+  apply: async (snapshot) => {
+    validateSrtussPreset(snapshot);
+    restoreScene({
+      globals: { ...snapshot.globals, output: state.globals.output },
+      voices: snapshot.voices,
+      selectedVoiceId: state.selectedVoiceId,
+    });
+    sceneRevision += 1;
+    replaceQuery();
+    clearError();
+    renderAll();
+    engine?.setOutput(state.globals.output);
+    await commitScene({ message: "Loaded the full scene without restarting transport." });
+  },
+  randomize: randomizeSrtussPreset,
+});

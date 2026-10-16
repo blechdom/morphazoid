@@ -1,20 +1,27 @@
 import { MATH_PRESETS, mathArtwork, encodeMath } from './blech-midi-math.js';
 import { drawGeneratorPreview, generatorRange } from './blech-midi-generator-preview.js';
 import { mountMixerKnobs } from '../midi-mixer/midi-mixer-knobs.js';
+import { mountBlechStampPicker } from './blech-midi-stamp-picker.js';
+
+/** Catalogue geometry only: no MIDI encoding, playback, or full-density scores.
+ * It uses the same pitch-horizontal/time-up projection as the prepared drop. */
+export function mathPresetThumbnailArtwork(preset) {
+  return mathArtwork({ ...preset, samples: 96, width: 1, low: 0, high: 127 });
+}
 
 export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview, onPrepare } = {}) {
   const events = new AbortController(), on = (node, type, fn) => node.addEventListener(type, fn, { signal: events.signal });
   const range = (...args) => generatorRange('blechMath', ...args);
   const bound = (key, name, value) => `<label>${name}<input id="blechMath${key}" type="number" min="-1000000" max="1000000" step="any" value="${value}"></label>`;
   host.innerHTML = `<div class="blech-generator blech-math">
-    <div class="blech-generator-toolbar"><label>Pattern<select id="blechMathPreset">${MATH_PRESETS.map(preset => `<option value="${preset.id}">${preset.name}${preset.evolves ? ' · evolves' : ''}</option>`).join('')}<option value="custom" hidden>Custom</option></select></label>
+    <div class="blech-generator-toolbar"><div id="blechMathPicker"></div><select id="blechMathPreset" aria-label="Math pattern" hidden>${MATH_PRESETS.map(preset => `<option value="${preset.id}">${preset.name}${preset.evolves ? ' · evolves' : ''}</option>`).join('')}<option value="custom" hidden>Custom</option></select>
     <label>Graph<select id="blechMathMode"><option value="function">y = f(x, t)</option><option value="parametric">x(t), y(t)</option></select></label>
     <button id="blechMathDrop" class="mini-action" type="button">Drop pattern</button><label class="blech-generator-check"><input id="blechMathLoop" type="checkbox" checked>Loop new pattern</label></div>
     <div class="blech-math-equations"><label id="blechMathFunctionRow">y =<input id="blechMathEquation" type="text" value="sin(3*x)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Math expression y equals"></label>
     <label id="blechMathParamXRow" hidden>x(t) =<input id="blechMathEquationX" type="text" value="sin(3*t)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Parametric time x of t"></label>
     <label id="blechMathParamYRow" hidden>y(t) =<input id="blechMathEquationY" type="text" value="sin(4*t)" maxlength="256" spellcheck="false" autocomplete="off" aria-label="Parametric pitch y of t"></label></div>
     <div class="blech-generator-work"><canvas id="blechMathPreview" width="800" height="256" aria-label="Prepared math notes: pitch left to right, time bottom to top">Equation samples become MIDI notes.</canvas>
-    <div class="blech-generator-controls">${range('Beats', 'Length · beats', .25, 128, .25, 8)}${range('Width', 'Width · notes', 1, 16, 1, 1)}${range('Samples', 'Samples', 8, 1024, 1, 256)}${range('Gate', 'Note length', .05, 4, .05, .9)}${range('Low', 'Lowest pitch', 0, 127, 1, 0)}${range('High', 'Highest pitch', 0, 127, 1, 127)}${range('Velocity', 'Velocity', 1, 127, 1, 96)}</div></div>
+    <div class="blech-generator-controls">${range('Beats', 'Length · beats', .25, 128, .25, 8)}${range('Width', 'Stroke · notes', 1, 16, 1, 1)}${range('Samples', 'Samples', 8, 1024, 1, 256)}${range('Gate', 'Note length', .05, 4, .05, .9)}${range('Low', 'Lowest pitch', 0, 127, 1, 0)}${range('High', 'Highest pitch', 0, 127, 1, 127)}${range('Velocity', 'Velocity', 1, 127, 1, 96)}</div></div>
     <p class="blech-generator-hint">Each Drop adds a separate layer. Use Layers above to pause, stop or change its loop.</p>
     <output id="blechMathStatistics"></output><output id="blechMathStatus" role="status"></output>
     <details class="blech-generator-settings"><summary>Graph bounds &amp; functions</summary><div class="blech-generator-bounds">
@@ -24,6 +31,17 @@ export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview, 
     <button id="blechMathScore" class="mini-action" type="button" ${onPreview ? '' : 'hidden'}>Preview score</button>
   </div>`;
   const $ = key => host.querySelector(`#blechMath${key}`), canvas = $('Preview');
+  const picker = mountBlechStampPicker($('Picker'), {
+    entries: [...MATH_PRESETS.map(preset => ({
+      id: preset.id, title: preset.name, thumbnailStroke: 2, ...mathPresetThumbnailArtwork(preset),
+      group: `${preset.mode === 'parametric' ? 'Parametric' : 'Equation'}${preset.evolves ? ' · evolves over time' : ''}`,
+      keywords: [preset.equation, preset.equationX, preset.equationY].filter(Boolean).join(' '),
+    })), { id: 'custom', title: 'Custom equation', hidden: true }],
+    selectedId: $('Preset').value, label: 'Choose math pattern', placeholder: 'Find a shape or formula',
+    filterLabel: 'Filter math patterns', listLabel: 'Math patterns', emptyText: 'No matching math patterns',
+    onSelect(id) { $('Preset').value = id; $('Preset').dispatchEvent(new Event('change', { bubbles: true })); },
+  });
+  picker.element.classList.add('blech-math-picker');
   let disposed = false, queued = null, artwork = null, error = '', currentName = MATH_PRESETS[0].name;
   const fields = ['Equation', 'EquationX', 'EquationY', 'Mode', 'DomainMin', 'DomainMax', 'YMin', 'YMax', 'XMin', 'XMax', 'Beats', 'Width', 'Samples', 'Gate', 'Low', 'High', 'Velocity'];
   const options = () => Object.fromEntries(fields.map(key => [key[0].toLowerCase() + key.slice(1), $(key).type === 'range' || $(key).type === 'number' ? $(key).value === '' ? NaN : Number($(key).value) : $(key).value]));
@@ -43,13 +61,14 @@ export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview, 
   }
   function queue() {
     $('Preset').value = 'custom'; currentName = 'Custom equation';
+    picker.select('custom');
     if (queued === null) queued = requestAnimationFrame(() => { queued = null; update(); });
   }
   for (const key of fields) on($(key), $(key).tagName === 'SELECT' ? 'change' : 'input', queue);
   on($('Preset'), 'change', () => {
     const preset = MATH_PRESETS.find(item => item.id === $('Preset').value); if (!preset) return;
     for (const key of fields) { const value = preset[key[0].toLowerCase() + key.slice(1)]; if (value !== undefined) $(key).value = String(value); }
-    currentName = preset.name; update();
+    currentName = preset.name; picker.select(preset.id); update();
   });
   on($('Loop'), 'change', () => update());
   const getScore = () => { update(false); if (error) throw new Error(error); return encodeMath(getSettings(), getTempo()); };
@@ -61,5 +80,5 @@ export function mountBlechMath(host, { getTempo = () => 120, onDrop, onPreview, 
   on($('Score'), 'click', async () => { try { await onPreview?.(getScore()); } catch (caught) { if (!disposed) $('Status').value = caught.message; } });
   const resize = new ResizeObserver(render); resize.observe(canvas);
   update(); const knobs = mountMixerKnobs(host);
-  return { getScore, getSettings, getArtwork, dispose() { if (disposed) return; disposed = true; events.abort(); resize.disconnect(); knobs.destroy(); if (queued !== null) cancelAnimationFrame(queued); host.replaceChildren(); } };
+  return { getScore, getSettings, getArtwork, dispose() { if (disposed) return; disposed = true; events.abort(); resize.disconnect(); knobs.destroy(); picker.dispose(); if (queued !== null) cancelAnimationFrame(queued); host.replaceChildren(); } };
 }

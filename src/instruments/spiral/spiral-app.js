@@ -36,6 +36,10 @@ import {
 } from "../../articulation.js";
 import { emitMidiOutputPreview } from "../../midi-output-preview.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  SPIRAL_FULL_PRESETS, SPIRAL_NUMBER_SPECS, captureSpiralPreset, randomizeSpiralPreset, validateSpiralPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -411,6 +415,8 @@ function invalidateGeometry() {
   scheduleFrame();
 }
 
+const rangePainters = new Map();
+
 function bindRange(id, key, formatter, afterChange) {
   const input = $(id);
   const output = $(`${id}Out`);
@@ -425,6 +431,7 @@ function bindRange(id, key, formatter, afterChange) {
     scheduleFrame();
   });
   paint();
+  rangePainters.set(key, paint);
   return paint;
 }
 
@@ -1607,3 +1614,34 @@ emitZoomTimebasePreview();
 emitReaderTransportPreview();
 emitZoomTransportPreview();
 scheduleFrame();
+
+function applyFullPreset(snapshot) {
+  validateSpiralPreset(snapshot);
+  const { envelope, ...rest } = snapshot;
+  Object.assign(state, rest, { parameters: [...snapshot.parameters], edgeCurves: [...snapshot.edgeCurves] });
+  state.continuousPosition = state.position;
+  for (const key of Object.keys(SPIRAL_NUMBER_SPECS)) rangePainters.get(key)();
+  tilingSelect.value = String(state.tilingType);
+  configureTilingControls();
+  amplitudeControl.applyState(envelope);
+  $("soundMode").value = state.soundMode;
+  amplitudeControl.setVisible(state.soundMode !== "percussion");
+  $("percussionArticulation").hidden = state.soundMode !== "percussion";
+  $("pitchSource").value = state.pitchSource;
+  pool.silence();
+  resetContactTracking();
+  suppressContactOnsets();
+  suppressMidiPreviewNotes();
+  updateTimeControls();
+  updateSummaries();
+  paintLoopPhase();
+  invalidateGeometry();
+  scheduleFrame();
+}
+
+registerHeaderPresets({
+  id: "spiral", presets: SPIRAL_FULL_PRESETS,
+  capture: () => captureSpiralPreset(state, amplitudeControl),
+  apply: applyFullPreset,
+  randomize: randomizeSpiralPreset,
+});

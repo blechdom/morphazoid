@@ -4,6 +4,7 @@ import vm from "node:vm";
 import test from "node:test";
 import { parse } from "acorn";
 import * as model from "../src/instruments/shepard-risset/shepard-risset.js";
+import * as presetModule from "../src/instruments/shepard-risset/full-presets.js";
 
 const html = await readFile(new URL("../src/pages/shepard-risset.html", import.meta.url), "utf8");
 const source = await readFile(new URL("../src/instruments/shepard-risset/shepard-risset-app.js", import.meta.url), "utf8");
@@ -63,6 +64,8 @@ function boot(code = script) {
   };
   const context = vm.createContext({
     ...model,
+    ...presetModule,
+    registerHeaderPresets: () => {},
     ShepardRissetAudio: class {
       context = null;
       setParameters(parameters) { audioCalls.parameters.push(structuredClone(parameters)); }

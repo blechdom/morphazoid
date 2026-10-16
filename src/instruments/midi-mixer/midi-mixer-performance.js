@@ -3,7 +3,7 @@ import { mountAutomataMidiControls } from '../midiphoria/midiphoria-automata-con
 import { generateAutomataMidi } from '../midiphoria/midiphoria-automata-midi.js';
 import { GM_PROGRAM_NAMES, parseMidi } from './midi-mixer-model.js';
 import { createMidiFileStamp } from './midi-mixer-file-stamps.js';
-import { transformMidiStamp } from './midi-mixer-score-transform.js';
+import { rotateMidiStamp, transformMidiStamp } from './midi-mixer-score-transform.js';
 import { mountMidiParameterEditor } from './midi-mixer-midi-editor.js';
 import { MIXER_SAMPLE_STAMPS, mixerStampScore, nextMixerStampVariation, mixerMessageScore, mixerPerformanceScore } from './midi-mixer-performance-score.js';
 
@@ -549,18 +549,26 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     if (onPrepare) return prepareScore(editScore(score), 'Your drawing', { loop: $('mixerSampleLoop').checked });
     return playScore(score, 'Your drawing', '', $('mixerSampleProgram').value, { saveKind: 'drawing' });
   }
-  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false } = {}) {
+  function sendScore(score, { name = 'MIDI artwork', program = 'original', loop = false, channel = null, transpose = 0, delayBeats = 0, gain, source = '', quantize = false, widthNotes = null, heightBeats = null, authoredTranspose = null, sourceRotationDegrees = null } = {}) {
     if (disposed) return null;
     if (!(score?.buffer instanceof ArrayBuffer)) throw new Error('Prepare MIDI artwork before sending it.');
     // Each drop owns a copy: moving or rewriting the preparation never edits a
     // sounding layer. MIDI routing also carries its controllers and note-offs.
+    // Text remains editable as text. Keep its drop resize separately from the
+    // authored layout, so Apply can rebuild glyphs and retain that performance
+    // transform. Duration is a ratio, allowing the text duration control to keep
+    // working; width retains the chosen occupied pitch span for a new message.
+    const textResize = score.textSettings && (widthNotes !== null || heightBeats !== null)
+      ? { pitchWidth: widthNotes === null ? null : Math.round(clamp(widthNotes, 1, 128, 48)),
+        timeScale: heightBeats === null ? 1 : (score.analysis ?? parseMidi(score.buffer)).durationBeats / Math.max(.25, Number(score.textSettings.beats) || 8) }
+      : null;
     const snapshot = structuredClone(score), transformed = transformMidiStamp(snapshot, { channel, transpose });
     Object.assign(snapshot, transformed, { durationBeats: transformed.analysis.durationBeats });
     if (transformed.appliedTranspose || transformed.channel !== null) {
       snapshot.pixels = undefined;
       if (Array.isArray(snapshot.notes)) snapshot.notes = snapshot.notes.map(note => ({ ...note, note: note.note + transformed.appliedTranspose, ...(transformed.channel === null ? {} : { channel: transformed.channel }) }));
     }
-    const playback = { channel: transformed.channel, transpose: transformed.appliedTranspose, delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
+    const playback = { ...(textResize ? { textResize } : {}), channel: transformed.channel, transpose: authoredTranspose ?? transformed.appliedTranspose, ...(sourceRotationDegrees === null ? {} : { rotationDegrees: sourceRotationDegrees }), delayBeats: clamp(Number(delayBeats) || 0, 0, 512), source: String(source).slice(0, 64), quantize: Boolean(quantize), ...(gain === undefined ? {} : { gain: clamp(Number(gain) || 0, 0, 1) }) };
     snapshot.drop = { ...playback, program, loop: Boolean(loop) };
     cancelPending();
     return playScore(snapshot, String(name).slice(0, 128), '', program,
@@ -590,11 +598,23 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     const record = textRecord(sampleId);
     return record ? { sampleId, settings: structuredClone(record.score.textSettings) } : null;
   }
+  function setLayerSourceTransform(sampleId, { sourceScore, settings } = {}) {
+    const record = textRecord(sampleId); if (!record || !sourceScore?.textSettings || !settings) return;
+    record.playback.transpose = settings.transpose ?? 0;
+    record.playback.rotationDegrees = settings.rotationDegrees ?? 0;
+    record.playback.textResize = { pitchWidth: settings.widthNotes ?? null,
+      timeScale: settings.heightBeats == null ? 1 : settings.heightBeats / Math.max(.001, (sourceScore.analysis ?? parseMidi(sourceScore.buffer)).durationBeats) };
+  }
   function replaceScore(sampleId, score, { name, when = 'next-loop' } = {}) {
     const record = textRecord(sampleId);
     if (disposed || !record || !score?.textSettings) return false;
     const snapshot = structuredClone(score), label = String(name ?? record.label).slice(0, 128);
-    if (record.playback.channel !== null || record.playback.transpose) Object.assign(snapshot, transformMidiStamp(snapshot, record.playback), { pixels: undefined });
+    if (record.playback.rotationDegrees !== undefined) {
+      const resize = record.playback.textResize;
+      const rotated = rotateMidiStamp(snapshot.buffer, { rotationDegrees: record.playback.rotationDegrees, pitchWidth: resize?.pitchWidth ?? null,
+        heightBeats: resize?.timeScale ? parseMidi(snapshot.buffer).durationBeats * resize.timeScale : null });
+      Object.assign(snapshot, transformMidiStamp(rotated.buffer, record.playback), { pixels: undefined });
+    } else if (record.playback.channel !== null || record.playback.transpose || record.playback.textResize) Object.assign(snapshot, transformMidiStamp(snapshot, { ...record.playback, ...record.playback.textResize }), { pixels: undefined });
     const result = engine.replaceSample(sampleId, snapshot.buffer, { name: label, when });
     if (!result) return false;
     const previous = record.pendingTextEdit ?? { score: record.score, label: record.label };
@@ -621,7 +641,7 @@ export function mountMixerPerformance(host, { engine, getDrawing, visualizerHost
     messageForm, ...['mixerStampSeed', 'mixerStampTextMode', 'mixerStampDrawRow', 'mixerStampDrawBase'].map(id => $(id).closest('label')),
     $('mixerStampResetSource')];
   return {
-    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, getTextLayer, stopSamples, getDrawingScore, refresh, prepareStamp, getStamps,
+    cancelPending, cancelEdit, playDrawing, sendScore, replaceScore, setLayerSourceTransform, getTextLayer, stopSamples, getDrawingScore, refresh, prepareStamp, getStamps,
     getPreparedScore: () => prepared ? structuredClone(prepared.score) : null,
     getPreparedDrop: () => prepared ? structuredClone(prepared) : null,
     setAutomataSeed: row => automata.setSeedRow(row),

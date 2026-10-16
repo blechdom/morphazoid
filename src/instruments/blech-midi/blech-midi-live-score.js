@@ -90,7 +90,7 @@ export function createBlechLiveProjector() {
         : (() => { const data = { tempoMap: compileSampleTempoMap(sample.analysis.tempoMap) }; return sampleSecondsAt(data, sample.analysis.durationBeats) - sampleSecondsAt(data, sample.positionBeats); })();
       return { ...sample, ...sample.pendingReplacement, scoreVersion: sample.pendingReplacement.token, scoreRevision: sample.pendingReplacement.token,
         pendingReplacement: null, playbackEpoch: (sample.playbackEpoch ?? 0) + 1, resumedPositionBeats: 0, resumedCycle: (sample.cycle ?? 0) + 1,
-        cycle: (sample.cycle ?? 0) + 1, positionBeats: 0, forecastOnly: true, forecastOffset: remaining };
+        cycle: (sample.cycle ?? 0) + 1, positionBeats: 0, forecastOnly: true, forecastOffset: remaining + Math.max(0, sample.pendingReplacement.delayBeats ?? 0) * 60 / tempo };
     });
     // Completion evidence comes from the source clock. Absence alone may mean
     // an explicit stop, and must never turn an unplayed forecast into history.

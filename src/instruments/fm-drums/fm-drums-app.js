@@ -12,6 +12,13 @@ import {
   updateFmDrumVoiceFromMidi,
 } from "./fm-drums-midi.js";
 import { getSharedMidiManager } from "../../midi-manager.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  FM_DRUM_FULL_PRESETS,
+  captureFmDrumPreset,
+  randomizeFmDrumPreset,
+  validateFmDrumPreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const audio = new FmDrumAudio(globalThis);
@@ -453,3 +460,16 @@ window.addEventListener("pageshow", (event) => {
 });
 
 registerMidiClient();
+
+registerHeaderPresets({
+  id: "fm-drums", presets: FM_DRUM_FULL_PRESETS,
+  capture: () => captureFmDrumPreset(state.voices),
+  apply: snapshot => {
+    validateFmDrumPreset(snapshot);
+    const byId = new Map(snapshot.voices.map(voice => [voice.id, voice]));
+    state.voices = state.voices.map(voice => sanitizeFmDrumVoice({ ...voice, ...byId.get(voice.id) }));
+    renderPads();
+    renderEditor();
+  },
+  randomize: randomizeFmDrumPreset,
+});
