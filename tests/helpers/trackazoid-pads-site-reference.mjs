@@ -1,3 +1,4 @@
+import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
 import { restoreGraphonicCalculatorSite } from './graphonic-calculator-site-reference.mjs';
 import assert from 'node:assert/strict';
@@ -9,6 +10,7 @@ export const trackazoidPadsChanges = JSON.parse(readFileSync(
 
 /** Peel only the reviewed pad/demo additions before the older site proofs. */
 export function restoreTrackazoidPadsSite(source, file, { allowRestored = false } = {}) {
+  source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorSite(source, file, { allowRestored: true });
   if (typeof source !== 'string') return source;

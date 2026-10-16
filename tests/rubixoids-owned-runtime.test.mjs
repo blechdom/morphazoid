@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { rewriteModulePaths } from '../scripts/architecture/module-paths.mjs';
 import { readRuntimeManifest } from '../scripts/site/runtime-manifest.mjs';
 import { restoreHeaderPresetsBatchSite } from './helpers/header-presets-batch-site-reference.mjs';
+import { restoreMicInputBatchSite } from './helpers/mic-input-batch-site-reference.mjs';
 
 const root = new URL('../', import.meta.url);
 const proof = JSON.parse(await readFile(new URL('tests/fixtures/rubixoids-owned-runtime.json', root), 'utf8'));
@@ -29,7 +30,7 @@ test('owned Rubixoids runtime reverses exactly to frozen migration bytes without
     assert.notEqual(record.before, record.after);
     assert.match(record.sourceSha256, /^[a-f0-9]{64}$/);
     assert.match(record.copySha256, /^[a-f0-9]{64}$/);
-    let copied = restoreHeaderPresetsBatchSite(await readFile(new URL(record.after, root), 'utf8'), record.after);
+    let copied = restoreHeaderPresetsBatchSite(restoreMicInputBatchSite(await readFile(new URL(record.after, root), 'utf8'), record.after), record.after);
     for (const amendment of [...(record.amendments ?? [])].reverse()) {
       assert.equal(typeof amendment.before, 'string');
       assert.equal(typeof amendment.after, 'string');

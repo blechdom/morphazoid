@@ -73,6 +73,7 @@ export class StartingAudio {
     this.send({ type: "finish-record" });
     this.send({ type: "gain", value: 0 });
     this.stopMic();
+    this.onMute?.();
   }
   setInputGain(value) {
     this.inputGain = clamp(value, 0, 4, 1);

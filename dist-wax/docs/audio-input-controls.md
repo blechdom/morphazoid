@@ -57,6 +57,18 @@ Mic capture can run with master Audio off. Turn Audio on to hear the instrument.
 | [Synthesaurus](http://localhost:4430/synthesis.html?method=fx-biquad) | mic/file, sample loops |
 | [Input settings](http://localhost:4430/settings.html#inputTest) | test |
 
+**Mic / File / Samples (October 15).** Every page that has a microphone now offers an
+"Input source" pulldown with Mic, File and Samples, a file upload and looping bundled
+samples feeding the same path the microphone feeds: L-Systems, Graphs, Graph Delay,
+L-system Delay (JS), Fabric Filter, SIMD Audio Lab, Throatazoid, Alien Larynx, Morphynx,
+Micromorph, Lumber Loops, Loopini, Head Shed, Tape Worm, Loop Soup, Crab Loom, Freeze
+Point, Scatter Ghost, Exceptional, Gesturama, Hollowphonic, Recursion, Fractal Synthesis
+and Acoustic Manifold, joining the pages that already had them. Selecting a source never
+requests microphone permission or arms Audio; switching releases the previous source.
+The recorder pages record from a playing file or sample exactly as from the mic.
+Several pages share modules under `src/families/recorded-input/`; consolidating the
+per-family wrappers is a follow-up.
+
 Splice Ring, Onset Atlas, and Synaptic Resonance currently use demo audio and have no microphone capture. Strophe Lab, Nightingale Manifolds, and Crickets accept uploaded recordings but have no microphone capture.
 
 Implementation: `src/ui/patterns/audio-input-strip.js` provides pure UI, `src/audio-input-control.js` binds instrument-owned callbacks, and `src/audio-input-meter.js` measures independent channels through a silent tap. The catalogue gear retains device/channel preferences; it does not replace the input strip.

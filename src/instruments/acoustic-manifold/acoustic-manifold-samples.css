@@ -1,0 +1,32 @@
+.source-actions [hidden],
+.live-source [hidden] { display: none !important; }
+
+.acoustic-sample-input {
+  margin: 11px 0 0;
+  padding: 10px;
+  border: 1px solid var(--manifold-line);
+  background: var(--manifold-deep);
+  color: var(--manifold-muted);
+}
+.acoustic-sample-input .recorded-input__choice { font-size: 9px; letter-spacing: 0.08em; text-transform: uppercase; }
+.acoustic-sample-input select,
+.acoustic-sample-input button {
+  border: 1px solid var(--manifold-line-strong);
+  border-radius: 0;
+  background: var(--manifold-deep);
+  color: var(--manifold-ink);
+  font: inherit;
+  font-size: 11px;
+  min-height: 38px;
+}
+.acoustic-sample-input select { padding: 0 8px; }
+.acoustic-sample-input button:hover:not(:disabled) { border-color: rgb(168 230 106 / 0.46); background: var(--manifold-deep); }
+.acoustic-sample-input button[aria-pressed="true"] { border-color: var(--manifold-lime); color: var(--manifold-lime); background: var(--manifold-deep); }
+.acoustic-sample-input button:focus-visible,
+.acoustic-sample-input select:focus-visible { outline: 2px solid var(--manifold-lime); outline-offset: 2px; }
+.acoustic-sample-input p { color: var(--manifold-muted); }
+
+@media (pointer: coarse), (max-width: 720px) {
+  .acoustic-sample-input button,
+  .acoustic-sample-input select { min-height: 48px; min-width: 48px; }
+}

@@ -78,6 +78,19 @@
               <span id="demoInputNote">Built-in texture or microphone input feeds the grain pool.</span>
             </div>
             <button id="pluckButton" class="simd-primary-action simd-demo-action" type="button">PLAY GRAIN DEMO</button>
+            <select id="inputSource" aria-label="Input source">
+              <option value="mic">Mic / Line</option><option value="sample-file">Samples</option><option value="file">File</option>
+            </select>
+            <div id="recordedInputControls" class="simd-recorded-input" hidden>
+              <label id="inputSampleControl" for="inputSample"><span>Sample</span><span class="simd-sample-choice"><select id="inputSample" aria-label="Sample"></select><button id="inputSampleNext" type="button" aria-label="Next sample">›</button></span></label>
+              <div class="simd-input-transport">
+                <button id="inputPlay" type="button" aria-pressed="false">Play input</button>
+                <label for="inputLoop"><input id="inputLoop" type="checkbox" checked /> Loop</label>
+              </div>
+              <p id="inputStatus" class="simd-note" role="status"></p>
+              <p id="inputCredit" class="simd-note" hidden></p>
+            </div>
+            <input id="inputFile" type="file" accept="audio/*" hidden />
             <button id="micButton" class="simd-primary-action simd-mic-action" type="button" aria-pressed="false" aria-label="Enable microphone. Turn on Audio first and use headphones.">
               <span class="simd-mic-mark" aria-hidden="true"></span>
               <span><b id="micButtonLabel">ENABLE MICROPHONE</b><small id="micButtonHint">Audio first &middot; headphones</small></span>

@@ -43,7 +43,7 @@ test("Lumber Loops renders, records new rings, and explicitly replaces", async (
       contains(child) { return this.children.includes(child); },
       remove() { if (this.parentNode) this.parentNode.children = this.parentNode.children.filter(child => child !== this); },
       setAttribute(name, value) { attributes.set(`${id}:${name}`, String(value)); },
-      querySelector() { return { textContent: "", style: { setProperty() {} } }; },
+      querySelector() { return { textContent: "", style: { setProperty() {} }, dataset: {}, append() {}, setAttribute() {}, addEventListener() {}, classList: { add() {} } }; },
       querySelectorAll() { return []; },
       getBoundingClientRect() { return { left: 0, top: 0, width: 900, height: 600 }; },
       setPointerCapture() {},

@@ -41,7 +41,7 @@ async function openWorkspace(page, baseURL) {
   });
   expect((await page.goto("simd-chiptune.html", { waitUntil: "domcontentloaded" }))?.ok()).toBe(true);
   await settlePage(page);
-  await expect(page.locator("#simdPresetPicker > summary")).toBeVisible();
+  await expect(page.locator(".header-preset-picker > summary")).toBeVisible();
   await expect(page.locator("[data-character-voice]")).toHaveCount(7);
   return diagnostics;
 }
@@ -100,7 +100,7 @@ for (const layout of layouts) {
     const page = await context.newPage();
     try {
       const diagnostics = await openWorkspace(page, baseURL);
-      for (const selector of ["#simdPresetPicker > summary", "#nextPreset", "#randomizePatch", "#synthPlayButton", "#audioButton"]) {
+      for (const selector of [".header-preset-picker > summary", ".header-preset-next", ".header-preset-random", "#synthPlayButton", "#audioButton"]) {
         await expect(page.locator(selector)).toBeVisible();
         await expect(page.locator(selector)).toBeInViewport();
         const box = await page.locator(selector).boundingBox();
@@ -200,14 +200,14 @@ test("original characters, three pixel skins and Choose/Next presets preserve th
     expectContinuousClock(before, await clockSnapshot(page));
   }
   const beforePreset = await clockSnapshot(page);
-  await page.locator("#simdPresetPicker > summary").click();
-  const option = page.locator('#simdPresetPicker [data-preset-id]').nth(2);
+  await page.locator(".header-preset-picker > summary").click();
+  const option = page.locator('.header-preset-picker [data-preset-id]').nth(2);
   const chosenId = await option.getAttribute("data-preset-id");
   await option.click();
   expect((await capture(page)).activePresetId).toBe(chosenId);
   expectContinuousClock(beforePreset, await clockSnapshot(page));
   const beforeNext = await clockSnapshot(page);
-  await page.locator("#nextPreset").click();
+  await page.locator("#nextPreset, .header-preset-next").first().click();
   expect((await capture(page)).activePresetId).not.toBe(chosenId);
   expectContinuousClock(beforeNext, await clockSnapshot(page));
   await expect(page.locator("#audioButton")).toHaveAttribute("aria-pressed", "true");

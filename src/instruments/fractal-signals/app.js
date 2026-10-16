@@ -13,6 +13,7 @@ import { enhanceRangeKnob } from '../../ui/primitives/range-knob.js';
 import { createAudioStrip } from '../../ui/patterns/audio-strip.js';
 import { registerHeaderPresets } from '../../site/header-presets.js';
 import { mountAudioInputControl } from '../../audio-input-control.js';
+import { createFractalRecordedInput } from './recorded-input.js';
 
 const $ = id => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -64,6 +65,8 @@ let envelopeSyncing = false;
 let microphoneBusy = false;
 let microphoneMessage = '';
 let microphoneRequest = 0;
+let recordedInput = null, recordedReady = false;
+const inputActive = () => (recordedInput?.mode && recordedInput.mode !== 'mic' ? recordedInput.active : audio.microphoneActive);
 const modeMemory = new Map();
 const fields = new Map();
 const motionButtons = new Map();
@@ -99,6 +102,7 @@ async function toggleAudio() {
     telemetry = null;
     strip.setAudioState('off');
     status('Audio off');
+    recordedInput?.stop();
     await audio.stop();
     refreshMicrophone();
     return;
@@ -125,7 +129,8 @@ async function toggleAudio() {
 }
 
 function refreshMicrophone() {
-  const active = audio.microphoneActive;
+  recordedInput?.refresh();
+  const active = inputActive();
   inputControl?.refresh();
   for (const key of ['inputMix']) fields.get(key)?.field.setDisabled(!active);
   fields.get('profileMemory')?.field.setDisabled(!active);
@@ -154,18 +159,39 @@ inputGain.type = 'range'; inputGain.id = 'inputGain';
 inputGain.min = '0'; inputGain.max = '4'; inputGain.step = '.01'; inputGain.value = String(state.inputGain);
 const inputGainField = document.createElement('label');
 inputGainField.append(inputGain); $('sourceSection').append(inputGainField);
+const recordedFile = document.createElement('input');
+recordedFile.type = 'file'; recordedFile.accept = 'audio/*'; recordedFile.id = 'inputFile';
+const recordedContainer = document.createElement('div'); recordedContainer.id = 'recordedInput';
+$('sourceSection').append(recordedContainer);
+recordedInput = createFractalRecordedInput({
+  audio, container: recordedContainer, fileInput: recordedFile, isArmed: () => armed,
+  startNode: () => audio.start(state, structure, { phase, playing: false, level: 0, transport }),
+  onChange: () => { if (!disposed && recordedReady) refreshMicrophone(); },
+  onError: error => status(error?.message ?? String(error)),
+});
+const recordedMode = () => recordedInput.mode !== 'mic';
 const inputControl = mountAudioInputControl({
   container: $('microphone').closest('.source-section'),
   before: $('microphone').closest('.source-actions'), button: $('microphone'),
   gainInput: inputGain, gainValue: state.inputGain, gainMax: 4,
   onGainInput: value => updateState({ inputGain: value }),
   gainMultiplier: () => state.inputGain,
-  onStart: startMicrophone,
-  onStop() { ++microphoneRequest; microphoneBusy = false; audio.stopMicrophone(); refreshMicrophone(); },
-  getState: () => ({ active: audio.microphoneActive, pending: microphoneBusy, error: microphoneMessage }),
-  getSignal: () => ({ node: audio.microphoneNode, stream: audio.microphoneStream, channels: 1, multiplier: state.inputGain }),
+  onStart: () => (recordedMode() ? recordedInput.start() : startMicrophone()),
+  onStop() { if (recordedMode()) { recordedInput.stop(); return; } ++microphoneRequest; microphoneBusy = false; audio.stopMicrophone(); refreshMicrophone(); },
+  getState: () => (recordedMode()
+    ? { active: recordedInput.active, pending: recordedInput.pending, source: recordedInput.mode }
+    : { active: audio.microphoneActive, pending: microphoneBusy, error: microphoneMessage, source: 'mic' }),
+  getSignal: () => (recordedMode()
+    ? { node: recordedInput.signal(), channels: 2, multiplier: state.inputGain }
+    : { node: audio.microphoneNode, stream: audio.microphoneStream, channels: 1, multiplier: state.inputGain }),
+  sources: recordedInput.sources, sourceValue: 'mic', fileInput: recordedFile,
+  onSourceChange(value) {
+    ++microphoneRequest; microphoneBusy = false; microphoneMessage = '';
+    audio.stopMicrophone(); recordedInput.setMode(value); refreshMicrophone();
+  },
   hide: [$('microphone').closest('.source-actions'), $('microphoneStatus'), $('inputMeter'), inputGainField],
 });
+recordedReady = true;
 
 function reflectPlaying(value) {
   if (playing && !value && transport.completed) completedAt = performance.now();
@@ -287,7 +313,7 @@ function parameterInfo(key) {
 }
 function refreshModulation() {
   const info = modulationInfo();
-  const inputOnly = audio.microphoneActive && state.inputMix === 1 && (state.mode === 'echoes' || (state.mode === 'grammar' && state.engine !== 'pluck'));
+  const inputOnly = inputActive() && state.inputMix === 1 && (state.mode === 'echoes' || (state.mode === 'grammar' && state.engine !== 'pluck'));
   $('synthesisFm').textContent = info.choices[0]; $('synthesisPm').textContent = info.choices[1];
   $('synthesisFm').disabled = $('synthesisPm').disabled = inputOnly;
   $('modulationRow').querySelector('span').textContent = info.label.toUpperCase();
@@ -834,7 +860,7 @@ function drawStage(now) {
     ctx.beginPath(); ctx.moveTo(b.x, y); ctx.lineTo(b.x + b.w, y); ctx.stroke();
   }
   if (state.mode === 'texture') {
-    const liveBands = audio.microphoneActive ? telemetry?.inputBands : null;
+    const liveBands = inputActive() ? telemetry?.inputBands : null;
     const maximum = liveBands ? Math.max(.00001, ...liveBands) : 1;
     const bands = liveBands ? Array.from(liveBands, value => value / maximum) : sourceProfile?.bands;
     for (let i = 0; i < 16; i++) {
@@ -900,7 +926,7 @@ function drawStage(now) {
   ctx.beginPath(); ctx.moveTo(b.x, hy); ctx.lineTo(b.x + b.w, hy); ctx.moveTo(hx, b.y); ctx.lineTo(hx, b.y + b.h); ctx.stroke();
   ctx.setLineDash([]); ctx.globalAlpha = 1;
   circle(ctx, hx, hy, 10, '#091410'); circle(ctx, hx, hy, 9, accent, false); circle(ctx, hx, hy, 3, accent);
-  $('inputMeter').value = audio.microphoneActive ? clamp(telemetry?.inputRms ?? 0, 0, 1) : 0;
+  $('inputMeter').value = inputActive() ? clamp(telemetry?.inputRms ?? 0, 0, 1) : 0;
   const currentFrequency = closest && state.mode === 'grammar' ? state.base * 2 ** (branchPitch(displayedBranchGeometry, closest.point, visibleBranchFrame) * state.span * (state.pitchInvert ? -1 : 1)) : closest?.freq;
   $('frequencyReadout').textContent = state.mode !== 'texture' && closest && (playing || showingCompletion) ? `score ${Math.round(clamp(currentFrequency, 20, 20000))} Hz` : `root ${Math.round(state.base)} Hz`;
 }
@@ -965,6 +991,7 @@ async function dispose() {
   for (const { field, rotary } of fields.values()) { rotary?.destroy(); field.destroy(); }
   strip.destroy();
   inputControl.destroy();
+  recordedInput.destroy();
   await audio.destroy();
 }
 listen(window, 'pagehide', event => {
@@ -973,6 +1000,7 @@ listen(window, 'pagehide', event => {
   armed = false;
   telemetry = null;
   strip.setAudioState('off');
+  recordedInput.stop();
   void audio.stop();
   refreshMicrophone();
 });

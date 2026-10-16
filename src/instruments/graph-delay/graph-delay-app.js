@@ -18,6 +18,7 @@ import { unlockAudioContext } from "../../audio.js";
 import { connectAudioOutput } from "../../audio-output-manager.js";
 import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from "../../audio-input-settings.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { createRecordedInput, withRecordedInput } from "../../families/recorded-input/recorded-input-sources.js";
 
 const $ = (id) => document.getElementById(id);
 const EDGE_COLORS = [
@@ -2085,7 +2086,42 @@ $("audioButton").addEventListener("click", async () => {
     updateUi();
   } catch (error) { $("audioError").textContent = error.message; $("audioError").hidden = false; }
 });
-const audioInputControl = mountAudioInputControl({
+let recordedEntry = null;
+let refreshInputControl = () => {};
+function attachRecordedInput() {
+  if (mediaStream || !audioContext || !audioGraph || !recordedEntry || microphoneSource) return;
+  microphoneSource = recordedEntry;
+  inputAnalyser = audioContext.createAnalyser();
+  inputAnalyser.fftSize = 1024;
+  recordedEntry.connect(inputAnalyser);
+  connectMicrophoneToGraph();
+  state.mic = true;
+  updateUi();
+}
+function detachRecordedInput() {
+  if (mediaStream || !microphoneSource || microphoneSource !== recordedEntry) return;
+  stopMicrophone();
+}
+const recordedInput = createRecordedInput({
+  prepare: async () => {
+    if (!audioContext || audioContext.state === "closed") {
+      audioContext = new (globalThis.AudioContext || globalThis.webkitAudioContext)({ latencyHint: "interactive" });
+      unlockAudioContext(audioContext);
+    }
+    await audioContext.resume();
+    await preparePitchProcessor(audioContext);
+    if (!audioGraph) audioGraph = buildAudioGraph(audioContext);
+    if (!recordedEntry || recordedEntry.context !== audioContext) recordedEntry = audioContext.createGain();
+  },
+  getContext: () => audioContext, getTarget: () => recordedEntry,
+  isArmed: () => audioOutputEnabled,
+  onActiveChange: (active) => (active ? attachRecordedInput() : detachRecordedInput()),
+  onChange: () => refreshInputControl(),
+  onError: (error) => { $("audioError").textContent = error?.message || "Input could not be played."; $("audioError").hidden = false; },
+});
+recordedInput.mountBefore($("listenSection"));
+globalThis.addEventListener("pagehide", (event) => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });
+const audioInputControl = mountAudioInputControl(withRecordedInput({
   container: $("listenSection").parentElement, before: $("listenSection"),
   button: $("micButton"), gainInput: $("inputTrim"), gainOutput: $("inputTrimOut"),
   onGainInput: (value) => { state.inputTrim = value; applyAudioParameters(); },
@@ -2093,7 +2129,8 @@ const audioInputControl = mountAudioInputControl({
   getState: () => ({ active: state.mic, pending: state.starting, error: $("audioError").hidden ? "" : $("audioError").textContent }),
   getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),
   hide: [$("listenSection"), $("seedMicButton")],
-});
+}, recordedInput));
+refreshInputControl = () => audioInputControl.refresh();
 $("stopButton").addEventListener("click", () => panic());
 $("panicButton").addEventListener("click", () => panic());
 globalThis.addEventListener("keydown", (event) => {

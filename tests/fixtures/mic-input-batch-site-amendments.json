@@ -1,0 +1,719 @@
+{
+ "baseCommit": "9ce6c88c60217df9486b246f660b8ef0a0218eb5",
+ "changes": [
+  {
+   "file": "scripts/site/runtime-files.tsv",
+   "sha256": "c309e6c4c318051664ae1ffdc6894dcbd3b508535d192c3fc186f8e99b8ca403",
+   "replacements": [
+    {
+     "before": "copy+require\tsrc/processor-sample-player.js\ncopy+require\tsrc/processor-sample-player.css\ncopy+require\tsrc/families/barber-delay/full-presets.js\ncopy+require\tsrc/instruments/slippery-resynthesis/full-presets.js\n",
+     "after": "copy+require\tsrc/processor-sample-player.js\ncopy+require\tsrc/processor-sample-player.css\ncopy+require\tsrc/families/voice-input/recorded-input.css\ncopy+require\tsrc/families/voice-input/recorded-input.js\ncopy+require\tsrc/families/wave-lab/wave-lab-input-sources.css\ncopy+require\tsrc/families/wave-lab/wave-lab-input-sources.js\ncopy+require\tsrc/families/work-in-progress/hollowphonic-input.js\ncopy+require\tsrc/instruments/acoustic-manifold/acoustic-manifold-samples.css\ncopy+require\tsrc/instruments/acoustic-manifold/acoustic-manifold-samples.js\ncopy+require\tsrc/instruments/fractal-signals/recorded-input.js\ncopy+require\tsrc/instruments/gesturama/gesturama-input.js\ncopy+require\tsrc/instruments/graphs/recorded-input.js\ncopy+require\tsrc/instruments/l-systems/recorded-input.js\ncopy+require\tsrc/instruments/micmic/input-sources.js\ncopy+require\tsrc/instruments/micmic/native/recorded-input-player.js\ncopy+require\tsrc/instruments/moire-drone/input-sources.js\ncopy+require\tsrc/instruments/recursion/recursion-samples.js\ncopy+require\tsrc/families/recorded-input/recorded-input-model.js\ncopy+require\tsrc/families/recorded-input/recorded-input-panel.css\ncopy+require\tsrc/families/recorded-input/recorded-input-panel.js\ncopy+require\tsrc/recorded-input-player.css\ncopy+require\tsrc/families/recorded-input/recorded-input-sources.css\ncopy+require\tsrc/families/recorded-input/recorded-input-sources.js\ncopy+require\tsrc/families/recorded-input/recorder-input-sources.css\ncopy+require\tsrc/families/recorded-input/recorder-input-sources.js\ncopy+require\tsrc/families/barber-delay/full-presets.js\ncopy+require\tsrc/instruments/slippery-resynthesis/full-presets.js\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/simd-resonator/simd-resonator-app.js",
+   "sha256": "17fdfdbf09ac7a2167c147f6be6c2e14072e0615f955d0b67ae6e24fd0731669",
+   "replacements": [
+    {
+     "before": "  elements.inputLoop.checked = input.loop;\n  elements.inputPlay.textContent = input.pending ? \"Cancel loading\" : input.playing ? \"Stop input\" : \"Play input\";\n  elements.inputPlay.setAttribute(\"aria-pressed\", String(input.playing));\n  elements.inputPlay.setAttribute(\"aria-busy\", String(input.pending));\n",
+     "after": "  elements.inputLoop.checked = input.loop;\n  elements.inputPlay.textContent = input.pending ? \"Cancel loading\" : input.playing ? \"Stop input\" : \"Play input\";\n  elements.inputPlay.disabled = !MIC_ENGINES.has(state.engine);\n  elements.inputPlay.setAttribute(\"aria-pressed\", String(input.playing));\n  elements.inputPlay.setAttribute(\"aria-busy\", String(input.pending));\n"
+    },
+    {
+     "before": "  container: elements.micButton.parentElement, before: elements.micButton.nextElementSibling,\n  button: elements.micButton,\n  ...(!isLabSurface ? {\n    sourceSelect: elements.inputSource, sources: [{ value: \"mic\" }, { value: \"sample-file\" }, { value: \"file\" }],\n    sourceValue: \"mic\", fileInput: elements.inputFile,\n",
+     "after": "  container: elements.micButton.parentElement, before: elements.micButton.nextElementSibling,\n  button: elements.micButton,\n  ...(elements.inputSource ? {\n    sourceSelect: elements.inputSource, sources: [{ value: \"mic\" }, { value: \"sample-file\" }, { value: \"file\" }],\n    sourceValue: \"mic\", fileInput: elements.inputFile,\n"
+    },
+    {
+     "before": "  getState: () => ({ active: inputIsLive(), pending: state.micStarting || Boolean(recordedInput?.snapshot().pending),\n    supported: MIC_ENGINES.has(state.engine),\n    ...(!isLabSurface ? { source: recordedInput?.snapshot().mode === \"samples\" ? \"sample-file\" : recordedInput?.snapshot().mode ?? \"mic\" } : {}),\n  }),\n  getSignal: () => state.micStream ? { node: state.micGain, stream: state.micStream } : { node: state.recordedGain, channels: 2 },\n",
+     "after": "  getState: () => ({ active: inputIsLive(), pending: state.micStarting || Boolean(recordedInput?.snapshot().pending),\n    supported: MIC_ENGINES.has(state.engine),\n    ...(elements.inputSource ? { source: recordedInput?.snapshot().mode === \"samples\" ? \"sample-file\" : recordedInput?.snapshot().mode ?? \"mic\" } : {}),\n  }),\n  getSignal: () => state.micStream ? { node: state.micGain, stream: state.micStream } : { node: state.recordedGain, channels: 2 },\n"
+    },
+    {
+     "before": "  await changeRecordedInput(() => recordedInput.start());\n}\nif (!isLabSurface) {\n  recordedInput = createInputSource({\n    prepare: prepareRecordedInput, getContext: () => state.context, getTarget: () => state.recordedGain,\n    canPlay: () => state.outputArmed && state.audioReady && !state.disposed && !document.hidden,\n    onChange: input => {\n      if (input.playing && !state.inputWasPlaying) state.inputPlaybackRevision += 1;\n",
+     "after": "  await changeRecordedInput(() => recordedInput.start());\n}\nif (elements.inputSource) {\n  recordedInput = createInputSource({\n    prepare: prepareRecordedInput, getContext: () => state.context, getTarget: () => state.recordedGain,\n    canPlay: () => state.outputArmed && state.audioReady && !state.disposed && !document.hidden && MIC_ENGINES.has(state.engine),\n    onChange: input => {\n      if (input.playing && !state.inputWasPlaying) state.inputPlaybackRevision += 1;\n"
+    },
+    {
+     "before": "  elements.inputSample.replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample \u00b7 /, \"\"), option.id)));\n  elements.inputSample.addEventListener(\"change\", () => void changeRecordedInput(() => recordedInput.selectSample(elements.inputSample.value), { start: true }));\n  elements.inputLoop.addEventListener(\"change\", () => recordedInput.setLoop(elements.inputLoop.checked));\n  elements.inputPlay.addEventListener(\"click\", () => {\n",
+     "after": "  elements.inputSample.replaceChildren(...SAMPLE_INPUT_OPTIONS.map(option => new Option(option.label.replace(/^Sample \u00b7 /, \"\"), option.id)));\n  elements.inputSample.addEventListener(\"change\", () => void changeRecordedInput(() => recordedInput.selectSample(elements.inputSample.value), { start: true }));\n  document.querySelector(\"#inputSampleNext\")?.addEventListener(\"click\", () => {\n    const select = elements.inputSample; select.selectedIndex = (select.selectedIndex + 1) % select.options.length;\n    select.dispatchEvent(new Event(\"change\", { bubbles: true }));\n  });\n  elements.inputLoop.addEventListener(\"change\", () => recordedInput.setLoop(elements.inputLoop.checked));\n  elements.inputPlay.addEventListener(\"click\", () => {\n"
+    },
+    {
+     "before": "function chooseEngine(engine) {\n  if (!AVAILABLE_ENGINES.includes(engine) || engine === state.engine) return;\n  stopAudition(); setGate(false); if (!MIC_ENGINES.has(engine)) stopMicrophone({ announce: false });\n  state.engine = engine; state.pointerActive = false; state.pointerId = null; state.keyboardGate = false;\n  state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null; state.peak = 0; state.rms = 0;\n",
+     "after": "function chooseEngine(engine) {\n  if (!AVAILABLE_ENGINES.includes(engine) || engine === state.engine) return;\n  stopAudition(); setGate(false); if (!MIC_ENGINES.has(engine)) { stopMicrophone({ announce: false }); recordedInput?.stop(); }\n  state.engine = engine; state.pointerActive = false; state.pointerId = null; state.keyboardGate = false;\n  state.signalEnergy.fill(0); state.signalState.fill(0); state.fftInput.fill(0); state.fftOutput.fill(0); state.fftAnalysisMicros = null; state.peak = 0; state.rms = 0;\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/simd-resonator/simd-resonator.css",
+   "sha256": "6ac2227598caf699eb05b0425336fcef2bfd64d512eab9be7ef8c586bb78b2aa",
+   "replacements": [
+    {
+     "before": "  }\n}\n",
+     "after": "  }\n}\n\n.simd-sample-choice { display: flex; gap: 6px; min-width: 0; }\n.simd-sample-choice select { flex: 1; width: 0; min-width: 0; }\n.simd-sample-choice button { flex: 0 0 40px; min-height: 40px; }\n@media (pointer: coarse) {\n  .simd-sample-choice button, .simd-input-transport label { min-height: 48px; }\n  .simd-input-transport input[type=\"checkbox\"] { min-width: 24px; min-height: 24px; }\n}\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/wave-lab/wave-lab-shell.js",
+   "sha256": "1f7876a981136c59073b574c5ffa9d3a674137615d7ce5ccea633e23db709712",
+   "replacements": [
+    {
+     "before": "import { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\n\nconst MAX_RECORD_SECONDS = 8;\n",
+     "after": "import { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { createWaveLabInputSources } from \"./wave-lab-input-sources.js\";\n\nconst MAX_RECORD_SECONDS = 8;\n"
+    },
+    {
+     "before": "  let micError = \"\";\n  const outputGates = [];\n\n  const say = (text) => { if (statusEl) statusEl.textContent = text; };\n",
+     "after": "  let micError = \"\";\n  const outputGates = [];\n  let inputs = null;\n  let inputControl = null;\n  let inputError = \"\";\n\n  const say = (text) => { if (statusEl) statusEl.textContent = text; };\n"
+    },
+    {
+     "before": "      onTransport(state.running);\n      paintAudio();\n      say(state.running ? \"Audio on.\" : \"Audio on \u2014 press Play, or hold Record and make a sound.\");\n      if (micSource && graphInput) routeMic();\n",
+     "after": "      onTransport(state.running);\n      paintAudio();\n      inputs?.refresh();\n      say(state.running ? \"Audio on.\" : \"Audio on \u2014 press Play, or hold Record and make a sound.\");\n      if (micSource && graphInput) routeMic();\n"
+    },
+    {
+     "before": "    state.armed = false;\n    stopRecording();\n    releaseMic();\n    for (const gate of outputGates) gate.gain.setTargetAtTime(0, state.context.currentTime, .02);\n    onDisarm();\n    paintAudio();\n    say(\"Audio off \u2014 transport and recorded material are kept.\");\n  }\n",
+     "after": "    state.armed = false;\n    stopRecording();\n    inputs?.stop();\n    releaseMic();\n    for (const gate of outputGates) gate.gain.setTargetAtTime(0, state.context.currentTime, .02);\n    onDisarm();\n    paintAudio();\n    inputs?.refresh();\n    say(\"Audio off \u2014 transport and recorded material are kept.\");\n  }\n"
+    },
+    {
+     "before": "  async function startRecording() {\n    if (!state.armed) { say(\"Turn Audio on before recording.\"); return; }\n    try { if (!(await enableMic())) return; } catch { return; }\n    const ctx = state.context;\n    chunks = [];\n",
+     "after": "  async function startRecording() {\n    if (!state.armed) { say(\"Turn Audio on before recording.\"); return; }\n    if (inputs && inputs.mode !== \"mic\") {\n      if (!inputs.snapshot().playing) { say(\"Press Play on the file or sample first.\"); return; }\n    } else {\n      try { if (!(await enableMic())) return; } catch { return; }\n    }\n    const ctx = state.context;\n    chunks = [];\n"
+    },
+    {
+     "before": "    micError = \"\";\n    try { micSource?.disconnect(); } catch { /* already */ }\n    try { micTrim?.disconnect(); } catch { /* already */ }\n    for (const track of micStream?.getTracks?.() ?? []) track.stop();\n    micStream = null; micSource = null; micTrim = null; state.micReady = false;\n    inputControl.refresh();\n  }\n",
+     "after": "    micError = \"\";\n    try { micSource?.disconnect(); } catch { /* already */ }\n    if (!inputs || inputs.mode === \"mic\") {\n      try { micTrim?.disconnect(); } catch { /* already */ }\n      micTrim = null;\n    }\n    for (const track of micStream?.getTracks?.() ?? []) track.stop();\n    micStream = null; micSource = null; state.micReady = false;\n    inputControl.refresh();\n  }\n"
+    },
+    {
+     "before": "  function teardown() {\n    stopRecording();\n    releaseMic();\n    onDisarm();\n",
+     "after": "  function teardown() {\n    stopRecording();\n    inputs?.destroy();\n    inputs = null;\n    releaseMic();\n    onDisarm();\n"
+    },
+    {
+     "before": "  }\n\n  const inputControl = mountAudioInputControl({\n    container: recordButton?.closest(\".group\") ?? document.querySelector(\".starting-controls\"),\n    before: recordButton?.closest(\".record-row\"), gainValue: .9,\n    onStart: enableMic,\n    onStop() { stopRecording(); releaseMic(); },\n    getState: () => ({ active: state.micReady, pending: micPending, error: micError }),\n    getSignal: () => ({ node: micTrim, stream: micStream }),\n  });\n\n  audioButton?.addEventListener(\"click\", () => { if (state.armed) disarm(); else arm(); });\n",
+     "after": "  }\n\n  function ensureInputTrim() {\n    if (!micTrim) {\n      micTrim = inputControl.createGain(state.context);\n      configureAudioInputNode(micTrim);\n    }\n    if (graphInput) { try { micTrim.disconnect(graphInput); } catch { /* fresh */ } micTrim.connect(graphInput); }\n    if (dryGain) { try { micTrim.disconnect(dryGain); } catch { /* fresh */ } micTrim.connect(dryGain); }\n    return micTrim;\n  }\n\n  async function startRecordedInput() {\n    if (!state.armed) { say(\"Turn Audio on, then press Play.\"); return; }\n    inputError = \"\";\n    await inputs.start();\n  }\n\n  function chooseSource(value) {\n    stopRecording();\n    inputError = \"\";\n    if (value !== \"mic\") releaseMic();\n    inputs.selectMode(value);\n    inputControl.refresh();\n  }\n\n  const recordedMode = () => Boolean(inputs) && inputs.mode !== \"mic\";\n  const controlContainer = recordButton?.closest(\".group\") ?? document.querySelector(\".starting-controls\");\n  const controlBefore = recordButton?.closest(\".record-row\");\n  inputs = createWaveLabInputSources({\n    container: controlContainer, before: controlBefore,\n    prepare: prepareGraph, getContext: () => state.context, getTarget: ensureInputTrim,\n    isArmed: () => state.armed,\n    onChange: (snapshot) => { if (snapshot.playing) inputError = \"\"; inputControl?.refresh(); },\n    onError: (error) => { inputError = error?.message || String(error); inputControl?.refresh(); },\n  });\n  inputControl = mountAudioInputControl({\n    container: controlContainer,\n    before: controlBefore, gainValue: .9,\n    sources: inputs.sources, sourceValue: \"mic\", fileInput: inputs.fileInput,\n    onSourceChange: chooseSource,\n    onStart: () => (recordedMode() ? startRecordedInput() : enableMic()),\n    onStop() { if (recordedMode()) inputs.stop(); else { stopRecording(); releaseMic(); } },\n    getState() {\n      if (recordedMode()) {\n        const snapshot = inputs.snapshot();\n        return { source: inputs.mode, active: snapshot.playing, pending: snapshot.pending, error: inputError };\n      }\n      return { source: \"mic\", active: state.micReady, pending: micPending, error: micError };\n    },\n    getSignal: () => ({ node: micTrim, stream: recordedMode() ? null : micStream }),\n  });\n  if (controlBefore) controlContainer.insertBefore(inputs.panel, controlBefore);\n\n  audioButton?.addEventListener(\"click\", () => { if (state.armed) disarm(); else arm(); });\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/work-in-progress/audio.js",
+   "sha256": "07bddf763ae22eae8a58e1783311d4fe4644686825219c0c0431fd022ab78a07",
+   "replacements": [
+    {
+     "before": "    this.send({ type: \"gain\", value: 0 });\n    this.stopMic();\n  }\n  setInputGain(value) {\n",
+     "after": "    this.send({ type: \"gain\", value: 0 });\n    this.stopMic();\n    this.onMute?.();\n  }\n  setInputGain(value) {\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/work-in-progress/loop-network-app.js",
+   "sha256": "944182e86e612170bd07985ca062d3ae2713db7227398b5ad28e97cdd898d29f",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { STARTING_INSTRUMENTS } from \"./catalog.js\";\nimport { INSTRUMENT_HELP, formatParameter } from \"./help.js\";\n",
+     "after": "import { mountRecorderInput } from \"../recorded-input/recorder-input-sources.js\";\nimport { STARTING_INSTRUMENTS } from \"./catalog.js\";\nimport { INSTRUMENT_HELP, formatParameter } from \"./help.js\";\n"
+    },
+    {
+     "before": "  if (wasRecording && !next.recording) {\n    pendingRecord = null;\n    if (!keepMic) audio.stopMic();\n    status(next.lastRecording?.accepted ? \"Recording installed. Existing routes and other loops retained.\" : \"Recording stopped; previous audio retained.\");\n  }\n",
+     "after": "  if (wasRecording && !next.recording) {\n    pendingRecord = null;\n    if (!keepMic) recorder.releaseInput(() => audio.stopMic());\n    status(next.lastRecording?.accepted ? \"Recording installed. Existing routes and other loops retained.\" : \"Recording stopped; previous audio retained.\");\n  }\n"
+    },
+    {
+     "before": "  if (starting || audio.armed) {\n    starting = false; recordAttempt++; pendingRecord = null; micAttempt++; micPending = false; keepMic = false;\n    audio.mute(); strip.setAudioState(\"off\"); status(playing ? \"Audio is off \u2014 turn it on to hear playback\" : \"Audio off.\"); update(); return;\n  }\n  starting = true; strip.setAudioState(\"starting\");\n",
+     "after": "  if (starting || audio.armed) {\n    starting = false; recordAttempt++; pendingRecord = null; micAttempt++; micPending = false; keepMic = false;\n    recorder.stop(); audio.mute(); strip.setAudioState(\"off\"); status(playing ? \"Audio is off \u2014 turn it on to hear playback\" : \"Audio off.\"); update(); return;\n  }\n  starting = true; strip.setAudioState(\"starting\");\n"
+    },
+    {
+     "before": "  if (state.loops.length < 2 || !confirm(`Remove loop ${loop.label}, its recording and attached routes? Other loops keep playing.`)) return;\n  if (connecting === loop.id) connecting = null;\n  if (pendingRecord === loop.id) { recordAttempt++; pendingRecord = null; if (!keepMic) audio.stopMic(); }\n  if (state.recording?.loopId === loop.id) { send({ type: \"cancel-record\" }); if (!keepMic) audio.stopMic(); }\n  audio.fileGeneration++; send({ type: \"remove-loop\", loopId: loop.id });\n  status(`Removed loop ${loop.label} and only its attached routes.`);\n",
+     "after": "  if (state.loops.length < 2 || !confirm(`Remove loop ${loop.label}, its recording and attached routes? Other loops keep playing.`)) return;\n  if (connecting === loop.id) connecting = null;\n  if (pendingRecord === loop.id) { recordAttempt++; pendingRecord = null; if (!keepMic) recorder.releaseInput(() => audio.stopMic()); }\n  if (state.recording?.loopId === loop.id) { send({ type: \"cancel-record\" }); if (!keepMic) recorder.releaseInput(() => audio.stopMic()); }\n  audio.fileGeneration++; send({ type: \"remove-loop\", loopId: loop.id });\n  status(`Removed loop ${loop.label} and only its attached routes.`);\n"
+    },
+    {
+     "before": "const connectButton = button(tools, \"Connect selected\", () => beginConnect(selected), \"connectLoop\");\nconst micButton = document.createElement(\"button\"); micButton.id = \"microphoneButton\";\nconst micControl = mountAudioInputControl({\n  container: tools, before: tools.firstElementChild, button: micButton,\n  onStart: toggleMic,\n",
+     "after": "const connectButton = button(tools, \"Connect selected\", () => beginConnect(selected), \"connectLoop\");\nconst micButton = document.createElement(\"button\"); micButton.id = \"microphoneButton\";\nconst recorder = mountRecorderInput({\n  container: tools, before: tools.firstElementChild, button: micButton,\n  onStart: toggleMic,\n"
+    },
+    {
+     "before": "  getState: () => ({ active: Boolean(audio.stream), pending: micPending || pendingRecord !== null }),\n  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),\n});\nconst monitorLabel = document.createElement(\"label\"); monitorLabel.className = \"check-control\";\nconst monitor = document.createElement(\"input\"); monitor.type = \"checkbox\"; monitor.id = \"monitor\";\n",
+     "after": "  getState: () => ({ active: Boolean(audio.stream), pending: micPending || pendingRecord !== null }),\n  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),\n}, {\n  getContext: () => audio.context, targets: () => [audio.node],\n  prepare: async () => { if (!audio.node) await audio.arm(snapshot, { output: false }); await audio.context.resume(); },\n  onSourceLeave: () => { recordAttempt++; pendingRecord = null; send({ type: \"finish-record\" }); },\n});\nconst micControl = recorder.control;\nconst monitorLabel = document.createElement(\"label\"); monitorLabel.className = \"check-control\";\nconst monitor = document.createElement(\"input\"); monitor.type = \"checkbox\"; monitor.id = \"monitor\";\n"
+    },
+    {
+     "before": "  const loop = loopById(loopId); if (!loop) return;\n  if (filePending) { status(\"Wait for the current file load before recording.\"); return; }\n  if (pendingRecord === loopId) { recordAttempt++; pendingRecord = null; if (!keepMic) audio.stopMic(); update(); return; }\n  if (state.recording?.loopId === loopId) { send({ type: \"finish-record\" }); return; }\n  if (state.recording || pendingRecord) { status(\"Finish the current recording first.\"); return; }\n",
+     "after": "  const loop = loopById(loopId); if (!loop) return;\n  if (filePending) { status(\"Wait for the current file load before recording.\"); return; }\n  if (pendingRecord === loopId) { recordAttempt++; pendingRecord = null; if (!keepMic) recorder.releaseInput(() => audio.stopMic()); update(); return; }\n  if (state.recording?.loopId === loopId) { send({ type: \"finish-record\" }); return; }\n  if (state.recording || pendingRecord) { status(\"Finish the current recording first.\"); return; }\n"
+    },
+    {
+     "before": "  const attempt = ++recordAttempt; pendingRecord = loopId; update();\n  try {\n    const ok = await audio.startMic(snapshot);\n    if (ok && !disposed && attempt === recordAttempt && loopById(loopId)) {\n      send({ type: \"record\", loopId }); if (!tape) send({ type: \"params\", values: { demo: 0 } });\n",
+     "after": "  const attempt = ++recordAttempt; pendingRecord = loopId; update();\n  try {\n    const ok = await recorder.acquireInput(() => audio.startMic(snapshot));\n    if (ok && !disposed && attempt === recordAttempt && loopById(loopId)) {\n      send({ type: \"record\", loopId }); if (!tape) send({ type: \"params\", values: { demo: 0 } });\n"
+    }
+   ]
+  },
+  {
+   "file": "src/families/work-in-progress/work-in-progress-app.js",
+   "sha256": "549166af83d6e78f56c2dc3deaa41e19565ddc9e291e44522a25971fe0199128",
+   "replacements": [
+    {
+     "before": "import { CORES } from \"./cores.js\";\nimport { StartingAudio } from \"./audio.js\";\nimport { COLORS, renderInstrument, WORLD, polar, angleAt, tapeCenters, soupCenters, habitNodes } from \"./render.js\";\nimport { clamp } from \"./common.js\";\n",
+     "after": "import { CORES } from \"./cores.js\";\nimport { StartingAudio } from \"./audio.js\";\nimport { createHollowphonicInput } from \"./hollowphonic-input.js\";\nimport { COLORS, renderInstrument, WORLD, polar, angleAt, tapeCenters, soupCenters, habitNodes } from \"./render.js\";\nimport { clamp } from \"./common.js\";\n"
+    },
+    {
+     "before": "let audioAttempt = 0;\nlet micAttempt = 0, recordAttempt = 0;\nlet transform = { scale: 1, x: 0, y: 0, width: 1, height: 1 };\nconst abort = new AbortController();\n",
+     "after": "let audioAttempt = 0;\nlet micAttempt = 0, recordAttempt = 0;\nlet recordedInput = null, recordedFile = null;\nlet transform = { scale: 1, x: 0, y: 0, width: 1, height: 1 };\nconst abort = new AbortController();\n"
+    },
+    {
+     "before": "function addMic() {\n  micButton = document.createElement(\"button\"); micButton.id = \"microphoneButton\";\n  mountAudioInputControl({\n    container: $(\"instrumentTools\"), before: $(\"instrumentTools\").firstElementChild, button: micButton,\n    onStart: toggleMic,\n    onStop: () => {\n      micAttempt++; micPending = false; recordPending = false; recordAttempt++;\n      audio.send({ type: \"finish-record\" }); audio.stopMic(); updateTools();\n    },\n    onGainInput: (value) => audio.setInputGain(value),\n    getState: () => ({ active: Boolean(audio.stream), pending: micPending }),\n    getSignal: () => ({ node: audio.inputTrim, stream: audio.stream }),\n  });\n  const label = document.createElement(\"label\"); label.className = \"check-control\";\n",
+     "after": "function addMic() {\n  micButton = document.createElement(\"button\"); micButton.id = \"microphoneButton\";\n  let inputControl = null;\n  if (id === \"hollowphonic\") {\n    const container = document.createElement(\"div\"); container.id = \"recordedInput\";\n    const fileInput = document.createElement(\"input\"); fileInput.type = \"file\"; fileInput.accept = \"audio/*\"; fileInput.id = \"inputFile\";\n    $(\"instrumentTools\").append(container);\n    recordedInput = createHollowphonicInput({\n      audio, snapshot, container, fileInput, onError: (e) => error(e), onChange: () => inputControl?.refresh(),\n      selectInput: () => { if (params.source !== 3) { setParams({ source: 3 }); sourceSelect.value = \"3\"; } },\n    });\n    recordedFile = fileInput;\n  }\n  const recorded = () => recordedInput && recordedInput.mode !== \"mic\";\n  inputControl = mountAudioInputControl({\n    container: $(\"instrumentTools\"), before: $(\"instrumentTools\").firstElementChild, button: micButton,\n    onStart: () => (recorded() ? recordedInput.start() : toggleMic()),\n    onStop: () => {\n      micAttempt++; micPending = false; recordPending = false; recordAttempt++;\n      recordedInput?.stop();\n      audio.send({ type: \"finish-record\" }); audio.stopMic(); updateTools();\n    },\n    onGainInput: (value) => { audio.setInputGain(value); recordedInput?.setGain(value); },\n    getState: () => (recorded()\n      ? { active: recordedInput.snapshot().playing, pending: recordedInput.snapshot().pending, source: recordedInput.mode }\n      : { active: Boolean(audio.stream), pending: micPending, source: recordedInput?.mode }),\n    getSignal: () => (recorded() ? { node: recordedInput.signal(), channels: 2 } : { node: audio.inputTrim, stream: audio.stream }),\n    ...(recordedInput ? {\n      sources: recordedInput.sources, sourceValue: \"mic\", fileInput: recordedFile,\n      onSourceChange: (value) => {\n        micAttempt++; micPending = false; recordPending = false; recordAttempt++;\n        audio.send({ type: \"finish-record\" }); audio.stopMic(); recordedInput.setMode(value); updateTools();\n      },\n    } : {}),\n  });\n  const label = document.createElement(\"label\"); label.className = \"check-control\";\n"
+    },
+    {
+     "before": "function updateTools() {\n  if (disposed) return;\n  for (const el of $(\"selectors\").children) el.setAttribute(\"aria-pressed\", String(Number(el.dataset.select) === selected));\n  if (modeButton) {\n",
+     "after": "function updateTools() {\n  if (disposed) return;\n  recordedInput?.refresh();\n  for (const el of $(\"selectors\").children) el.setAttribute(\"aria-pressed\", String(Number(el.dataset.select) === selected));\n  if (modeButton) {\n"
+    },
+    {
+     "before": "    $(\"actionStatus\").textContent = params.source === 0\n      ? \"No continuous source. Tap a chamber or press Enter to strike.\"\n      : params.source === 3 && !audio.stream\n        ? \"Microphone source selected, but microphone is off. Enable microphone to hear it.\"\n        : `Source: ${[\"silent\", \"noise\", \"drone\", \"microphone\"][params.source]}${state.bypass ? \" \u00b7 wall bypassed\" : \" \u00b7 through resonators\"}.`;\n",
+     "after": "    $(\"actionStatus\").textContent = params.source === 0\n      ? \"No continuous source. Tap a chamber or press Enter to strike.\"\n      : params.source === 3 && !audio.stream && !recordedInput?.snapshot().playing\n        ? \"Microphone source selected, but microphone is off. Enable microphone to hear it.\"\n        : `Source: ${[\"silent\", \"noise\", \"drone\", \"microphone\"][params.source]}${state.bypass ? \" \u00b7 wall bypassed\" : \" \u00b7 through resonators\"}.`;\n"
+    },
+    {
+     "before": "  disposed = true; cancelAnimationFrame(renderId); resizeObserver.disconnect();\n  audioAttempt++;\n  abort.abort(); audioStrip.destroy(); void audio.close();\n});\nsyncControls(); updateTools(); renderId = requestAnimationFrame(frame);\n",
+     "after": "  disposed = true; cancelAnimationFrame(renderId); resizeObserver.disconnect();\n  audioAttempt++;\n  recordedInput?.destroy(); abort.abort(); audioStrip.destroy(); void audio.close();\n});\nsyncControls(); updateTools(); renderId = requestAnimationFrame(frame);\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/acoustic-manifold/acoustic-manifold-app.js",
+   "sha256": "1f50bc4bfcc83269bed8ec45cc30b7786d0a2a51e181f4ce445adc241bacab4a",
+   "replacements": [
+    {
+     "before": "  buildStropheTraversal,\n} from \"../nightingale-manifold/nightingale-manifold.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "  buildStropheTraversal,\n} from \"../nightingale-manifold/nightingale-manifold.js\";\nimport {\n  ACOUSTIC_INPUT_SOURCES,\n  createSampleLoader,\n  inputState,\n  mountAcousticInput,\n  normalizeInputMode,\n  sampleOriginId,\n} from \"./acoustic-manifold-samples.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  before: document.querySelector(\".live-source\").firstElementChild,\n  button: $(\"start-live-input\"),\n  onStart: startLiveInput,\n  onStop: stopOrCancelLive,\n  onGainInput: (value) => liveCapture?.setInputGain(value),\n  getState: () => ({ active: Boolean(liveCapture?.isRecording), pending: liveStarting, error: liveInputError, supported: !busy || captureIsActive() }),\n  getSignal: () => ({ levels: { left: $(\"live-input-meter\").value, right: 0 }, channels: 1 }),\n  hide: [$(\"capture-live-input\"), document.querySelector(\".live-meter-row\"), document.querySelector(\".live-note\"), document.querySelector(\".live-source > header\")],\n",
+     "after": "  before: document.querySelector(\".live-source\").firstElementChild,\n  button: $(\"start-live-input\"),\n  sources: ACOUSTIC_INPUT_SOURCES,\n  sourceValue: inputState.mode,\n  onSourceChange: switchInputMode,\n  fileInput: $(\"audio-file\"),\n  onStart: startInputToggle,\n  onStop: stopInputToggle,\n  onGainInput: (value) => liveCapture?.setInputGain(value),\n  getState: () => (inputState.mode !== \"mic\"\n    ? { active: !routeAudio.paused, pending: inputState.pending || pendingPlayback, error: inputState.error, supported: true }\n    : { active: Boolean(liveCapture?.isRecording), pending: liveStarting, error: liveInputError, supported: !busy || captureIsActive() }),\n  getSignal: () => ({ levels: { left: $(\"live-input-meter\").value, right: 0 }, channels: 1 }),\n  hide: [$(\"capture-live-input\"), document.querySelector(\".live-meter-row\"), document.querySelector(\".live-note\"), document.querySelector(\".live-source > header\")],\n"
+    },
+    {
+     "before": "});\n\nif (!ACOUSTIC_BUILT_IN_SOURCES.every((entry) => ACOUSTIC_PROFILES[entry.profileId])) {\n  setStatus(\"A built-in recording references a missing analysis profile.\", \"error\");\n",
+     "after": "});\n\nconst sampleLoader = createSampleLoader({ toMono: strongestChannel });\nlet acousticInput = null;\nlet sampleLoadToken = 0;\n\nfunction sampleIsLoaded(id) {\n  return Boolean(sourceSamples) && sourceOrigin?.id === sampleOriginId(id);\n}\n\nfunction cancelSampleLoad() {\n  if (!inputState.pending) return;\n  sampleLoadToken += 1;\n  inputState.pending = false;\n  cancelSourceLoad();\n  taskVersion += 1;\n  setBusy(false);\n}\n\nasync function loadSampleSource(id) {\n  if (busy || captureIsActive() || disposed) return false;\n  cancelSourceLoad();\n  stopPlayback(false, true);\n  const version = ++taskVersion;\n  const token = ++sampleLoadToken;\n  const controller = new AbortController();\n  sourceLoadController = controller;\n  inputState.pending = true;\n  inputState.error = \"\";\n  setBusy(true);\n  acousticInput?.refresh();\n  setStatus(\"Loading the bundled sample locally\u2026\");\n  try {\n    const loaded = await sampleLoader.load(id, { signal: controller.signal });\n    if (version !== taskVersion || token !== sampleLoadToken || inputState.mode !== \"samples\") return false;\n    sourceLoadController = null;\n    inputState.pending = false;\n    $(\"audio-file\").value = \"\";\n    setLoadedSource(loaded);\n    await analyzeSource();\n    return analysisMatchesProfile();\n  } catch (error) {\n    if (controller.signal.aborted || error?.name === \"AbortError\" || token !== sampleLoadToken) return false;\n    sourceLoadController = null;\n    inputState.error = `Sample could not load: ${error?.message || \"unknown audio error\"}`;\n    setBusy(false);\n    setStatus(inputState.error, \"error\");\n    return false;\n  } finally {\n    if (token === sampleLoadToken) inputState.pending = false;\n    acousticInput?.refresh();\n  }\n}\n\nasync function playLoadedSource() {\n  if (busy || captureIsActive() || disposed) return;\n  if (inputState.mode === \"samples\") {\n    const id = acousticInput.sampleId;\n    if (!sampleIsLoaded(id) && !(await loadSampleSource(id))) return;\n  }\n  if (!sourceSamples) return;\n  if (!analysisMatchesProfile()) await analyzeSource();\n  if (!analysisMatchesProfile() || !analysis.strophes.length) return;\n  if (!route.length) buildRoute();\n  if (route.length) await playIndices(route);\n}\n\nasync function selectSample(id) {\n  if (inputState.mode !== \"samples\") return;\n  const wasPlaying = !routeAudio.paused || pendingPlayback;\n  cancelSampleLoad();\n  stopPlayback(false, true);\n  if (busy || sampleIsLoaded(id)) return;\n  if (await loadSampleSource(id) && wasPlaying) await playLoadedSource();\n}\n\nfunction startInputToggle() {\n  if (inputState.mode === \"mic\") return startLiveInput();\n  if (inputState.mode === \"file\" && sourceOrigin?.kind !== \"upload\") {\n    $(\"audio-file\").click();\n    return undefined;\n  }\n  return playLoadedSource();\n}\n\nfunction stopInputToggle() {\n  if (inputState.mode === \"mic\") return stopOrCancelLive();\n  cancelSampleLoad();\n  stopPlayback(false, true);\n  return undefined;\n}\n\nfunction switchInputMode(value) {\n  const next = normalizeInputMode(value);\n  if (next === inputState.mode) return;\n  inputState.mode = next;\n  inputState.error = \"\";\n  cancelLiveCapture();\n  cancelSampleLoad();\n  stopPlayback(false, true);\n  setBusy(busy);\n  acousticInput?.refresh();\n}\n\nacousticInput = mountAcousticInput({\n  container: $(\"sample-input\"),\n  liveControls: [$(\"live-input-device\").closest(\"label\"), $(\"live-window-seconds\").closest(\"label\")],\n  fileLabels: [document.querySelector(\".source-actions .file-button\")],\n  loopInput: $(\"loop-route\"),\n  playbackEvents: routeAudio,\n  busyHost: $(\"acoustic-manifold-root\"),\n  getMode: () => inputState.mode,\n  isPlaying: () => !routeAudio.paused,\n  isPending: () => inputState.pending || pendingPlayback,\n  onSelect: selectSample,\n  onPlay: () => playLoadedSource(),\n  onStop: () => stopInputToggle(),\n});\n\nwindow.addEventListener(\"pagehide\", (event) => {\n  cancelSampleLoad();\n  if (!event.persisted) acousticInput.destroy();\n});\n\nif (!ACOUSTIC_BUILT_IN_SOURCES.every((entry) => ACOUSTIC_PROFILES[entry.profileId])) {\n  setStatus(\"A built-in recording references a missing analysis profile.\", \"error\");\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/alien-larynx/alien-larynx-app.js",
+   "sha256": "63ffc07e81e4b42c0fda478088142926b3539f6e5c7a18cd19c45b752e42b1f5",
+   "replacements": [
+    {
+     "before": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport {\n  buildTractDiameterProfile,\n",
+     "after": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { mountRecordedInput } from \"../../families/voice-input/recorded-input.js\";\nimport {\n  buildTractDiameterProfile,\n"
+    },
+    {
+     "before": "}\n\nfunction applyAudioParameters(immediate = false) {\n  if (!graph || !audioContext) return;\n",
+     "after": "}\n\nlet recordedInputLive = false;\n\nfunction applyAudioParameters(immediate = false) {\n  if (!graph || !audioContext) return;\n"
+    },
+    {
+     "before": "  const fricationGain = fricationOpening(oralClosure);\n  const micLive = live\n    && state.mic\n    && (state.sourceMode === \"mic\" || state.sourceMode === \"hybrid\");\n  const glottisLive = live\n",
+     "after": "  const fricationGain = fricationOpening(oralClosure);\n  const micLive = live\n    && (state.mic || recordedInputLive)\n    && (state.sourceMode === \"mic\" || state.sourceMode === \"hybrid\");\n  const glottisLive = live\n"
+    },
+    {
+     "before": "updateUi();\nframeHandle = requestAnimationFrame(frame);\n",
+     "after": "updateUi();\nframeHandle = requestAnimationFrame(frame);\n\nconst recordedInput = mountRecordedInput({\n  control: microphoneInputControl,\n  host: { container: document.querySelector(\"aside.panel\"), before: $(\"listenSummary\").closest(\"details\") },\n  prepare: async () => { await ensureAudioGraph(); },\n  getContext: () => audioContext,\n  getTarget: () => graph?.input,\n  isArmed: () => audioOutputEnabled && isAwake(),\n  multiplier: () => state.inputTrim,\n  onSourceChange: (next) => { if (next !== \"mic\") stopMicrophoneInput(); },\n  onLiveChange: (live) => {\n    recordedInputLive = live;\n    if (live && state.sourceMode === \"glottis\") state.sourceMode = \"hybrid\";\n    applyAudioParameters();\n    updateUi();\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/fractal-signals/app.js",
+   "sha256": "8cb0599da580f3efe413e7554a8d6a620ee0ce10078a6c738ca293b1552bd7b1",
+   "replacements": [
+    {
+     "before": "import { registerHeaderPresets } from '../../site/header-presets.js';\nimport { mountAudioInputControl } from '../../audio-input-control.js';\n\nconst $ = id => document.getElementById(id);\n",
+     "after": "import { registerHeaderPresets } from '../../site/header-presets.js';\nimport { mountAudioInputControl } from '../../audio-input-control.js';\nimport { createFractalRecordedInput } from './recorded-input.js';\n\nconst $ = id => document.getElementById(id);\n"
+    },
+    {
+     "before": "let microphoneMessage = '';\nlet microphoneRequest = 0;\nconst modeMemory = new Map();\nconst fields = new Map();\n",
+     "after": "let microphoneMessage = '';\nlet microphoneRequest = 0;\nlet recordedInput = null, recordedReady = false;\nconst inputActive = () => (recordedInput?.mode && recordedInput.mode !== 'mic' ? recordedInput.active : audio.microphoneActive);\nconst modeMemory = new Map();\nconst fields = new Map();\n"
+    },
+    {
+     "before": "    strip.setAudioState('off');\n    status('Audio off');\n    await audio.stop();\n    refreshMicrophone();\n",
+     "after": "    strip.setAudioState('off');\n    status('Audio off');\n    recordedInput?.stop();\n    await audio.stop();\n    refreshMicrophone();\n"
+    },
+    {
+     "before": "\nfunction refreshMicrophone() {\n  const active = audio.microphoneActive;\n  inputControl?.refresh();\n  for (const key of ['inputMix']) fields.get(key)?.field.setDisabled(!active);\n",
+     "after": "\nfunction refreshMicrophone() {\n  recordedInput?.refresh();\n  const active = inputActive();\n  inputControl?.refresh();\n  for (const key of ['inputMix']) fields.get(key)?.field.setDisabled(!active);\n"
+    },
+    {
+     "before": "const inputGainField = document.createElement('label');\ninputGainField.append(inputGain); $('sourceSection').append(inputGainField);\nconst inputControl = mountAudioInputControl({\n  container: $('microphone').closest('.source-section'),\n",
+     "after": "const inputGainField = document.createElement('label');\ninputGainField.append(inputGain); $('sourceSection').append(inputGainField);\nconst recordedFile = document.createElement('input');\nrecordedFile.type = 'file'; recordedFile.accept = 'audio/*'; recordedFile.id = 'inputFile';\nconst recordedContainer = document.createElement('div'); recordedContainer.id = 'recordedInput';\n$('sourceSection').append(recordedContainer);\nrecordedInput = createFractalRecordedInput({\n  audio, container: recordedContainer, fileInput: recordedFile, isArmed: () => armed,\n  startNode: () => audio.start(state, structure, { phase, playing: false, level: 0, transport }),\n  onChange: () => { if (!disposed && recordedReady) refreshMicrophone(); },\n  onError: error => status(error?.message ?? String(error)),\n});\nconst recordedMode = () => recordedInput.mode !== 'mic';\nconst inputControl = mountAudioInputControl({\n  container: $('microphone').closest('.source-section'),\n"
+    },
+    {
+     "before": "  onGainInput: value => updateState({ inputGain: value }),\n  gainMultiplier: () => state.inputGain,\n  onStart: startMicrophone,\n  onStop() { ++microphoneRequest; microphoneBusy = false; audio.stopMicrophone(); refreshMicrophone(); },\n  getState: () => ({ active: audio.microphoneActive, pending: microphoneBusy, error: microphoneMessage }),\n  getSignal: () => ({ node: audio.microphoneNode, stream: audio.microphoneStream, channels: 1, multiplier: state.inputGain }),\n  hide: [$('microphone').closest('.source-actions'), $('microphoneStatus'), $('inputMeter'), inputGainField],\n});\n\nfunction reflectPlaying(value) {\n",
+     "after": "  onGainInput: value => updateState({ inputGain: value }),\n  gainMultiplier: () => state.inputGain,\n  onStart: () => (recordedMode() ? recordedInput.start() : startMicrophone()),\n  onStop() { if (recordedMode()) { recordedInput.stop(); return; } ++microphoneRequest; microphoneBusy = false; audio.stopMicrophone(); refreshMicrophone(); },\n  getState: () => (recordedMode()\n    ? { active: recordedInput.active, pending: recordedInput.pending, source: recordedInput.mode }\n    : { active: audio.microphoneActive, pending: microphoneBusy, error: microphoneMessage, source: 'mic' }),\n  getSignal: () => (recordedMode()\n    ? { node: recordedInput.signal(), channels: 2, multiplier: state.inputGain }\n    : { node: audio.microphoneNode, stream: audio.microphoneStream, channels: 1, multiplier: state.inputGain }),\n  sources: recordedInput.sources, sourceValue: 'mic', fileInput: recordedFile,\n  onSourceChange(value) {\n    ++microphoneRequest; microphoneBusy = false; microphoneMessage = '';\n    audio.stopMicrophone(); recordedInput.setMode(value); refreshMicrophone();\n  },\n  hide: [$('microphone').closest('.source-actions'), $('microphoneStatus'), $('inputMeter'), inputGainField],\n});\nrecordedReady = true;\n\nfunction reflectPlaying(value) {\n"
+    },
+    {
+     "before": "function refreshModulation() {\n  const info = modulationInfo();\n  const inputOnly = audio.microphoneActive && state.inputMix === 1 && (state.mode === 'echoes' || (state.mode === 'grammar' && state.engine !== 'pluck'));\n  $('synthesisFm').textContent = info.choices[0]; $('synthesisPm').textContent = info.choices[1];\n  $('synthesisFm').disabled = $('synthesisPm').disabled = inputOnly;\n",
+     "after": "function refreshModulation() {\n  const info = modulationInfo();\n  const inputOnly = inputActive() && state.inputMix === 1 && (state.mode === 'echoes' || (state.mode === 'grammar' && state.engine !== 'pluck'));\n  $('synthesisFm').textContent = info.choices[0]; $('synthesisPm').textContent = info.choices[1];\n  $('synthesisFm').disabled = $('synthesisPm').disabled = inputOnly;\n"
+    },
+    {
+     "before": "  }\n  if (state.mode === 'texture') {\n    const liveBands = audio.microphoneActive ? telemetry?.inputBands : null;\n    const maximum = liveBands ? Math.max(.00001, ...liveBands) : 1;\n    const bands = liveBands ? Array.from(liveBands, value => value / maximum) : sourceProfile?.bands;\n",
+     "after": "  }\n  if (state.mode === 'texture') {\n    const liveBands = inputActive() ? telemetry?.inputBands : null;\n    const maximum = liveBands ? Math.max(.00001, ...liveBands) : 1;\n    const bands = liveBands ? Array.from(liveBands, value => value / maximum) : sourceProfile?.bands;\n"
+    },
+    {
+     "before": "  ctx.setLineDash([]); ctx.globalAlpha = 1;\n  circle(ctx, hx, hy, 10, '#091410'); circle(ctx, hx, hy, 9, accent, false); circle(ctx, hx, hy, 3, accent);\n  $('inputMeter').value = audio.microphoneActive ? clamp(telemetry?.inputRms ?? 0, 0, 1) : 0;\n  const currentFrequency = closest && state.mode === 'grammar' ? state.base * 2 ** (branchPitch(displayedBranchGeometry, closest.point, visibleBranchFrame) * state.span * (state.pitchInvert ? -1 : 1)) : closest?.freq;\n  $('frequencyReadout').textContent = state.mode !== 'texture' && closest && (playing || showingCompletion) ? `score ${Math.round(clamp(currentFrequency, 20, 20000))} Hz` : `root ${Math.round(state.base)} Hz`;\n",
+     "after": "  ctx.setLineDash([]); ctx.globalAlpha = 1;\n  circle(ctx, hx, hy, 10, '#091410'); circle(ctx, hx, hy, 9, accent, false); circle(ctx, hx, hy, 3, accent);\n  $('inputMeter').value = inputActive() ? clamp(telemetry?.inputRms ?? 0, 0, 1) : 0;\n  const currentFrequency = closest && state.mode === 'grammar' ? state.base * 2 ** (branchPitch(displayedBranchGeometry, closest.point, visibleBranchFrame) * state.span * (state.pitchInvert ? -1 : 1)) : closest?.freq;\n  $('frequencyReadout').textContent = state.mode !== 'texture' && closest && (playing || showingCompletion) ? `score ${Math.round(clamp(currentFrequency, 20, 20000))} Hz` : `root ${Math.round(state.base)} Hz`;\n"
+    },
+    {
+     "before": "  strip.destroy();\n  inputControl.destroy();\n  await audio.destroy();\n}\n",
+     "after": "  strip.destroy();\n  inputControl.destroy();\n  recordedInput.destroy();\n  await audio.destroy();\n}\n"
+    },
+    {
+     "before": "  telemetry = null;\n  strip.setAudioState('off');\n  void audio.stop();\n  refreshMicrophone();\n",
+     "after": "  telemetry = null;\n  strip.setAudioState('off');\n  recordedInput.stop();\n  void audio.stop();\n  refreshMicrophone();\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/gesturama/gesturama-app.js",
+   "sha256": "3065ab727cc56d5b7df615c2cd7aa9723bf56b49ad3276368ef2f07b2f4feda4",
+   "replacements": [
+    {
+     "before": "} from \"./gesturama-core.js\";\nimport { DrumEngine, MicrophoneRecorder } from \"./gesturama-audio.js\";\nimport { drawZones } from \"./gesturama-zones.js\";\n\n",
+     "after": "} from \"./gesturama-core.js\";\nimport { DrumEngine, MicrophoneRecorder } from \"./gesturama-audio.js\";\nimport { createGesturamaInput, inputStripState } from \"./gesturama-input.js\";\nimport { drawZones } from \"./gesturama-zones.js\";\n\n"
+    },
+    {
+     "before": "let microphonePromise = null;\nlet microphoneVersion = 0;\nconst inputControl = mountAudioInputControl({\n  container: document.querySelector(\"#gesturamaInput\"),\n  onStart: () => startMicrophone(),\n  onStop: () => stopMicrophone(),\n  getState: () => ({ active: Boolean(microphoneStream), pending: microphonePending }),\n  getSignal: () => ({ node: microphoneGain, stream: microphoneStream }),\n});\n\nasync function startMicrophone({ held = true } = {}) {\n",
+     "after": "let microphonePromise = null;\nlet microphoneVersion = 0;\nlet inputControl = null;\nconst inputFile = Object.assign(document.createElement(\"input\"), { type: \"file\", accept: \"audio/*\", id: \"gesturamaInputFile\" });\nconst recordedContainer = document.createElement(\"div\");\nrecordedContainer.id = \"gesturamaRecordedInput\";\nconst recordedInput = createGesturamaInput({\n  container: recordedContainer,\n  fileInput: inputFile,\n  prepare: async () => { await prepareRecordedGraph(); },\n  getContext: () => audio.context,\n  getTarget: () => microphoneGain,\n  isAudioOn: () => Boolean(audio.context) && !audio.muted,\n  onChange: () => inputControl?.refresh(),\n  onError: (error) => showToast(error?.message ?? String(error)),\n});\ninputControl = mountAudioInputControl({\n  container: document.querySelector(\"#gesturamaInput\"),\n  onStart: () => (recordedInput.recorded ? startRecordedInput() : startMicrophone()),\n  onStop: () => stopInput(),\n  getState: () => inputStripState(recordedInput.mode, recordedInput.snapshot(), { active: Boolean(microphoneStream), pending: microphonePending }),\n  getSignal: () => (recordedInput.recorded ? { node: microphoneGain, channels: 2 } : { node: microphoneGain, stream: microphoneStream }),\n  sources: recordedInput.sources,\n  sourceValue: \"mic\",\n  fileInput: inputFile,\n  onSourceChange: (value) => { stopInput(); recordedInput.setMode(value); inputControl.refresh(); },\n});\ndocument.querySelector(\"#gesturamaInput\").append(recordedContainer);\n\nasync function prepareRecordedGraph() {\n  const context = await audio.ensureStarted();\n  if (!recordedInput.recorded) return;\n  microphoneGain = inputControl.createGain(context);\n  if (!microphoneDestination) {\n    microphoneDestination = context.createMediaStreamDestination();\n    microphoneGain.connect(microphoneDestination);\n  }\n}\n\nasync function startRecordedInput({ held = true } = {}) {\n  const wasPlaying = recordedInput.snapshot().playing;\n  await recordedInput.start();\n  const { playing } = recordedInput.snapshot();\n  if (!playing) throw new Error(recordedInput.mode === \"file\" ? \"Choose an audio file first.\" : \"Sample input could not start.\");\n  if (held || wasPlaying) microphoneHeld = true;\n}\n\nfunction stopInput() {\n  recordedInput.stop();\n  recordedInput.setRecordArm(false);\n  stopMicrophone();\n}\n\nfunction releaseInput() {\n  recordedInput.stop();\n  recordedInput.setRecordArm(false);\n  releaseMicrophone();\n}\n\nasync function startMicrophone({ held = true } = {}) {\n"
+    },
+    {
+     "before": "function updateStatus() {\n  const audioOn = Boolean(audio.context) && !audio.muted;\n  elements.cameraStatus.textContent = state.cameraReady ? \"Camera live\" : \"Camera off\";\n  elements.cameraStatus.dataset.live = String(state.cameraReady);\n",
+     "after": "function updateStatus() {\n  const audioOn = Boolean(audio.context) && !audio.muted;\n  recordedInput.refresh();\n  elements.cameraStatus.textContent = state.cameraReady ? \"Camera live\" : \"Camera off\";\n  elements.cameraStatus.dataset.live = String(state.cameraReady);\n"
+    },
+    {
+     "before": "  state.recording = false;\n  stopRecordClock();\n  if (!microphoneHeld) releaseMicrophone();\n  inputControl.refresh();\n  if (buffer) {\n",
+     "after": "  state.recording = false;\n  stopRecordClock();\n  if (!microphoneHeld) releaseInput();\n  inputControl.refresh();\n  if (buffer) {\n"
+    },
+    {
+     "before": "  if (elements.recordSampleButton) elements.recordSampleButton.disabled = true;\n  try {\n    await startMicrophone({ held: false });\n    if (token !== state.recordToken || !microphoneDestination) return;\n    await recorder.start({ maxDurationMs: 8_000, stream: microphoneDestination.stream });\n",
+     "after": "  if (elements.recordSampleButton) elements.recordSampleButton.disabled = true;\n  try {\n    if (recordedInput.recorded) {\n      recordedInput.setRecordArm(true);\n      await startRecordedInput({ held: false });\n    } else await startMicrophone({ held: false });\n    if (token !== state.recordToken || !microphoneDestination) return;\n    await recorder.start({ maxDurationMs: 8_000, stream: microphoneDestination.stream });\n"
+    },
+    {
+     "before": "  } catch (error) {\n    if (token !== state.recordToken) return;\n    if (!microphoneHeld) releaseMicrophone();\n    updateSampleControls(\"Microphone unavailable\", \"error\");\n    showToast(error.message);\n",
+     "after": "  } catch (error) {\n    if (token !== state.recordToken) return;\n    if (!microphoneHeld) releaseInput();\n    updateSampleControls(\"Microphone unavailable\", \"error\");\n    showToast(error.message);\n"
+    },
+    {
+     "before": "  recorder.cancel();\n  inputControl.destroy();\n  releaseMicrophone();\n  clearScheduledHarpPlucks();\n",
+     "after": "  recorder.cancel();\n  inputControl.destroy();\n  recordedInput.destroy();\n  releaseMicrophone();\n  clearScheduledHarpPlucks();\n"
+    },
+    {
+     "before": "document.addEventListener(\"visibilitychange\", () => {\n  if (document.hidden) {\n    stopMicrophone();\n    clearScheduledHarpPlucks();\n  }\n",
+     "after": "document.addEventListener(\"visibilitychange\", () => {\n  if (document.hidden) {\n    stopInput();\n    clearScheduledHarpPlucks();\n  }\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/graph-delay/graph-delay-app.js",
+   "sha256": "d677a799d074402d613dbc5fad10cab77ea7841376fa998761b41ed03a684a53",
+   "replacements": [
+    {
+     "before": "import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from \"../../audio-input-settings.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n\nconst $ = (id) => document.getElementById(id);\n",
+     "after": "import { audioInputConstraints, configureAudioInputNode, loadAudioInputSettings, audioInputDescription } from \"../../audio-input-settings.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\nimport { createRecordedInput, withRecordedInput } from \"../../families/recorded-input/recorded-input-sources.js\";\n\nconst $ = (id) => document.getElementById(id);\n"
+    },
+    {
+     "before": "  } catch (error) { $(\"audioError\").textContent = error.message; $(\"audioError\").hidden = false; }\n});\nconst audioInputControl = mountAudioInputControl({\n  container: $(\"listenSection\").parentElement, before: $(\"listenSection\"),\n  button: $(\"micButton\"), gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n",
+     "after": "  } catch (error) { $(\"audioError\").textContent = error.message; $(\"audioError\").hidden = false; }\n});\nlet recordedEntry = null;\nlet refreshInputControl = () => {};\nfunction attachRecordedInput() {\n  if (mediaStream || !audioContext || !audioGraph || !recordedEntry || microphoneSource) return;\n  microphoneSource = recordedEntry;\n  inputAnalyser = audioContext.createAnalyser();\n  inputAnalyser.fftSize = 1024;\n  recordedEntry.connect(inputAnalyser);\n  connectMicrophoneToGraph();\n  state.mic = true;\n  updateUi();\n}\nfunction detachRecordedInput() {\n  if (mediaStream || !microphoneSource || microphoneSource !== recordedEntry) return;\n  stopMicrophone();\n}\nconst recordedInput = createRecordedInput({\n  prepare: async () => {\n    if (!audioContext || audioContext.state === \"closed\") {\n      audioContext = new (globalThis.AudioContext || globalThis.webkitAudioContext)({ latencyHint: \"interactive\" });\n      unlockAudioContext(audioContext);\n    }\n    await audioContext.resume();\n    await preparePitchProcessor(audioContext);\n    if (!audioGraph) audioGraph = buildAudioGraph(audioContext);\n    if (!recordedEntry || recordedEntry.context !== audioContext) recordedEntry = audioContext.createGain();\n  },\n  getContext: () => audioContext, getTarget: () => recordedEntry,\n  isArmed: () => audioOutputEnabled,\n  onActiveChange: (active) => (active ? attachRecordedInput() : detachRecordedInput()),\n  onChange: () => refreshInputControl(),\n  onError: (error) => { $(\"audioError\").textContent = error?.message || \"Input could not be played.\"; $(\"audioError\").hidden = false; },\n});\nrecordedInput.mountBefore($(\"listenSection\"));\nglobalThis.addEventListener(\"pagehide\", (event) => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });\nconst audioInputControl = mountAudioInputControl(withRecordedInput({\n  container: $(\"listenSection\").parentElement, before: $(\"listenSection\"),\n  button: $(\"micButton\"), gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n"
+    },
+    {
+     "before": "  getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),\n  hide: [$(\"listenSection\"), $(\"seedMicButton\")],\n});\n$(\"stopButton\").addEventListener(\"click\", () => panic());\n$(\"panicButton\").addEventListener(\"click\", () => panic());\n",
+     "after": "  getSignal: () => ({ node: microphoneSource, stream: mediaStream, multiplier: state.inputTrim }),\n  hide: [$(\"listenSection\"), $(\"seedMicButton\")],\n}, recordedInput));\nrefreshInputControl = () => audioInputControl.refresh();\n$(\"stopButton\").addEventListener(\"click\", () => panic());\n$(\"panicButton\").addEventListener(\"click\", () => panic());\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/graphs/graphs-app.js",
+   "sha256": "a9f73240fb86b453901e21d9a6808b937fda9d5e6871aa799ea8aecd2aa75c1a",
+   "replacements": [
+    {
+     "before": "import { GraphDelayAudio } from \"../graph-delay/graph-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { graphDistanceRatioFromTimeScale, graphsModeFor } from \"./graphs-suite.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n",
+     "after": "import { GraphDelayAudio } from \"../graph-delay/graph-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { createRecordedInput, withRecordedInput } from \"../../families/recorded-input/recorded-input-sources.js\";\nimport { attachRecordedGraphSource, detachRecordedGraphSource } from \"./recorded-input.js\";\nimport { graphDistanceRatioFromTimeScale, graphsModeFor } from \"./graphs-suite.js\";\nimport { canvasSizing } from \"../../graphics/canvas-sizing.js\";\n"
+    },
+    {
+     "before": "  if (ResizeObserverConstructor) new ResizeObserverConstructor(resizeCanvas).observe(stageWrap);\n  else resizeCanvas();\n  inputControl = mountAudioInputControl({\n    container: $(\"micBank\"), before: $(\"micBank\").querySelector(\".graphs-grid\"),\n    gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n",
+     "after": "  if (ResizeObserverConstructor) new ResizeObserverConstructor(resizeCanvas).observe(stageWrap);\n  else resizeCanvas();\n  let recordedEntry = null;\n  const recordedInput = createRecordedInput({\n    prepare: async () => {\n      engines.mic.setOutputEnabled(state.audio);\n      await engines.mic.initialize(micConfiguration());\n      if (!recordedEntry || recordedEntry.context !== engines.mic.context) recordedEntry = engines.mic.context.createGain();\n    },\n    getContext: () => engines.mic.context, getTarget: () => recordedEntry,\n    isArmed: () => state.audio, isAvailable: () => instrumentMode === \"mic\" && !disposed,\n    onActiveChange: (active) => {\n      if (active) attachRecordedGraphSource(engines.mic, recordedEntry);\n      else detachRecordedGraphSource(engines.mic, recordedEntry);\n      scheduleFrame();\n    },\n    onChange: () => inputControl?.refresh(),\n    onError: showError,\n    doc: documentObject,\n  });\n  recordedInput.mountBefore($(\"micBank\").querySelector(\".graphs-grid\"));\n  runtime.addEventListener?.(\"pagehide\", (event) => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });\n  inputControl = mountAudioInputControl(withRecordedInput({\n    container: $(\"micBank\"), before: $(\"micBank\").querySelector(\".graphs-grid\"),\n    gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n"
+    },
+    {
+     "before": "    onStop: () => { micInputGeneration++; engines.mic.stopMicrophone(); scheduleFrame(); },\n    hide: [$(\"inputTrim\").closest(\"label\"), $(\"inputMeter\")?.closest(\".graphs-mic-monitor\"), $(\"micBank\").querySelector(\".graphs-safety\")],\n  });\n  syncControls();\n  if (instrumentMode === \"drums\") renderDrumMap();\n",
+     "after": "    onStop: () => { micInputGeneration++; engines.mic.stopMicrophone(); scheduleFrame(); },\n    hide: [$(\"inputTrim\").closest(\"label\"), $(\"inputMeter\")?.closest(\".graphs-mic-monitor\"), $(\"micBank\").querySelector(\".graphs-safety\")],\n  }, recordedInput));\n  syncControls();\n  if (instrumentMode === \"drums\") renderDrumMap();\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/head-shed/head-shed-app.js",
+   "sha256": "f9f23b996c4df8af8a68ba1726f0a4d37051b361dafeb762596f762cee113eea",
+   "replacements": [
+    {
+     "before": "import { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\n",
+     "after": "import { mountRecorderInput } from \"../../families/recorded-input/recorder-input-sources.js\";\nimport { createProtoShell, renderDemoPhrase } from \"../../families/proto-graph/proto-shell.js?v=proto-20260918-1\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\n"
+    },
+    {
+     "before": "  },\n  onDisarm: () => {\n    releaseMic();\n    masterGain?.gain.setTargetAtTime(0, shell.context.currentTime, .02);\n    node?.port.postMessage({ type: \"param\", running: false });\n",
+     "after": "  },\n  onDisarm: () => {\n    releaseMic(); recorder.stop();\n    masterGain?.gain.setTargetAtTime(0, shell.context.currentTime, .02);\n    node?.port.postMessage({ type: \"param\", running: false });\n"
+    },
+    {
+     "before": "});\n\nconst inputControl = mountAudioInputControl({\n  container: $(\"micButton\").closest(\".group\"),\n  before: $(\"micButton\").closest(\".transport-row\"), button: $(\"micButton\"),\n",
+     "after": "});\n\nconst recorder = mountRecorderInput({\n  container: $(\"micButton\").closest(\".group\"),\n  before: $(\"micButton\").closest(\".transport-row\"), button: $(\"micButton\"),\n"
+    },
+    {
+     "before": "  getState: () => ({ active: Boolean(micStream), pending: micPending }),\n  getSignal: () => ({ node: micGain, stream: micStream }),\n});\n\nfor (const [id, key, fmt] of [\n",
+     "after": "  getState: () => ({ active: Boolean(micStream), pending: micPending }),\n  getSignal: () => ({ node: micGain, stream: micStream }),\n}, {\n  getContext: () => shell.context, targets: () => [node, dryGain],\n  prepare: async () => {\n    if (!shell.context) shell.state.context = new (globalThis.AudioContext || globalThis.webkitAudioContext)({ latencyHint: \"interactive\" });\n    await shell.context.resume();\n    await prepareGraph(shell.context);\n  },\n});\nconst inputControl = recorder.control;\n\nfor (const [id, key, fmt] of [\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/l-systems/l-systems-app.js",
+   "sha256": "3f02a89760bb72799d74ebf0cb45fefbfb98081679d438c49eff230eb4011e93",
+   "replacements": [
+    {
+     "before": "import { LSystemsMicDelayAudio } from \"./mic-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from \"./sound-engines.js\";\nimport { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from \"./branch-parameters.js\";\n",
+     "after": "import { LSystemsMicDelayAudio } from \"./mic-delay-audio.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { createRecordedInput, withRecordedInput } from \"../../families/recorded-input/recorded-input-sources.js\";\nimport { attachRecordedEngineSource, detachRecordedEngineSource, onEngineDisable } from \"./recorded-input.js\";\nimport { LSystemsSynthAudio, LSystemsDrumAudio, L_SYSTEMS_TRIGGER_STYLES, lSystemsPercussionVoice, lSystemTimbreGain } from \"./sound-engines.js\";\nimport { lSystemsTrace, allocateLSystemsHeads, branchDecayGain, micGenerationVoices } from \"./branch-parameters.js\";\n"
+    },
+    {
+     "before": "function boot() {\n  setupControls();\n  inputControl = mountAudioInputControl({\n    container: $(\"micBank\"), before: $(\"micBank\").querySelector(\".l-systems-grid\"),\n    gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n",
+     "after": "function boot() {\n  setupControls();\n  let recordedEntry = null;\n  const recordedInput = createRecordedInput({\n    prepare: async () => {\n      micEngine.setGeometryModel(state.geometryModel);\n      micEngine.setInputGain(state.mic.inputTrim);\n      await micEngine.initialize({ context: instrumentAudioContext() });\n      micEngine.setOutputEnabled(state.audio);\n      if (!recordedEntry || recordedEntry.context !== micEngine.context) recordedEntry = micEngine.context.createGain();\n    },\n    getContext: () => micEngine.context, getTarget: () => recordedEntry,\n    isArmed: () => state.audio, isAvailable: () => state.mode === \"mic\",\n    onActiveChange: active => {\n      if (active) attachRecordedEngineSource(micEngine, recordedEntry);\n      else detachRecordedEngineSource(micEngine, recordedEntry);\n      applyGlobalLevel(); scheduleFrame();\n    },\n    onChange: () => inputControl?.refresh(),\n    onError: error => { micInputError = error?.message || String(error); inputControl?.refresh(); },\n  });\n  onEngineDisable(micEngine, () => recordedInput.stop());\n  recordedInput.mountBefore($(\"micBank\").querySelector(\".l-systems-grid\"));\n  window.addEventListener(\"pagehide\", event => { if (event.persisted) recordedInput.stop(); else recordedInput.destroy(); });\n  inputControl = mountAudioInputControl(withRecordedInput({\n    container: $(\"micBank\"), before: $(\"micBank\").querySelector(\".l-systems-grid\"),\n    gainInput: $(\"inputTrim\"), gainOutput: $(\"inputTrimOut\"),\n"
+    },
+    {
+     "before": "    onStop: () => { micInputGeneration++; micInputError = \"\"; micEngine.stopMicrophone(); scheduleFrame(); },\n    hide: [$(\"inputTrim\").closest(\"label\"), $(\"micDescription\")],\n  });\n  setupAmplitude();\n  setupPresetBank();\n",
+     "after": "    onStop: () => { micInputGeneration++; micInputError = \"\"; micEngine.stopMicrophone(); scheduleFrame(); },\n    hide: [$(\"inputTrim\").closest(\"label\"), $(\"micDescription\")],\n  }, recordedInput));\n  setupAmplitude();\n  setupPresetBank();\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/loopini/loopini-app.js",
+   "sha256": "f7efe2dcd0f072865aee252c7f064733ec631683fc011f5d1dcee8c3f0a176fd",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { Loopini, clamp } from \"./loopini.js\";\nimport { LoopiniAudio } from \"./loopini-audio.js\";\n",
+     "after": "import { mountRecorderInput } from \"../../families/recorded-input/recorder-input-sources.js\";\nimport { Loopini, clamp } from \"./loopini.js\";\nimport { LoopiniAudio } from \"./loopini-audio.js\";\n"
+    },
+    {
+     "before": "  onAudioClick: toggleAudio, onLevelInput: (value) => audio.setLevel(value) });\n$(\"audioSlot\").replaceWith(strip);\nconst micControl = mountAudioInputControl({\n  container: document.querySelector(\".loopini-toolbar\"),\n  onStart: async () => { micPending = true; try { if (await audio.startMic()) keepMic = true; } finally { micPending = false; render(); } },\n",
+     "after": "  onAudioClick: toggleAudio, onLevelInput: (value) => audio.setLevel(value) });\n$(\"audioSlot\").replaceWith(strip);\nconst recorder = mountRecorderInput({\n  container: document.querySelector(\".loopini-toolbar\"),\n  onStart: async () => { micPending = true; try { if (await audio.startMic()) keepMic = true; } finally { micPending = false; render(); } },\n"
+    },
+    {
+     "before": "  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream, channels: 1 }),\n  hide: [$(\"micStatus\")],\n});\nconst pads = colors.map((color, id) => {\n  const slot = document.createElement(\"div\"); slot.className = \"loopini-slot\"; slot.style.setProperty(\"--loop-color\", color);\n",
+     "after": "  getSignal: () => ({ node: audio.inputTrim, stream: audio.stream, channels: 1 }),\n  hide: [$(\"micStatus\")],\n}, {\n  getContext: () => audio.context, targets: () => [audio.node],\n  prepare: async () => { if (!audio.node) await audio.arm({ output: false }); await audio.context.resume(); },\n  onSourceLeave: () => { recordAttempt++; pending = null; session = null; audio.send({ type: state.recording?.waiting ? \"cancel\" : \"finish\" }); },\n});\nconst micControl = recorder.control;\nconst pads = colors.map((color, id) => {\n  const slot = document.createElement(\"div\"); slot.className = \"loopini-slot\"; slot.style.setProperty(\"--loop-color\", color);\n"
+    },
+    {
+     "before": "  const attempt = ++audioAttempt;\n  if (audio.armed || starting) {\n    starting = false; demoAfterArm = false; keepMic = false; cancelTake(); audio.mute(); strip.setAudioState(\"off\");\n    say(\"Sound is off.\", \"Your loops are still here. Tap the speaker to hear them again.\"); render(); return;\n  }\n",
+     "after": "  const attempt = ++audioAttempt;\n  if (audio.armed || starting) {\n    starting = false; demoAfterArm = false; keepMic = false; cancelTake(); recorder.stop(); audio.mute(); strip.setAudioState(\"off\");\n    say(\"Sound is off.\", \"Your loops are still here. Tap the speaker to hear them again.\"); render(); return;\n  }\n"
+    },
+    {
+     "before": "}\nfunction cancelTake() {\n  recordAttempt++; pending = null; session = null; audio.send({ type: \"cancel\" }); if (!keepMic) audio.stopMic();\n}\nasync function record(id, mode = \"replace\") {\n",
+     "after": "}\nfunction cancelTake() {\n  recordAttempt++; pending = null; session = null; audio.send({ type: \"cancel\" }); if (!keepMic) recorder.releaseInput(() => audio.stopMic());\n}\nasync function record(id, mode = \"replace\") {\n"
+    },
+    {
+     "before": "    \"Allow the microphone when your browser asks. Tap the same icon or circle to cancel.\"); render();\n  try {\n    const allowed = await audio.startMic();\n    if (!allowed || disposed || attempt !== recordAttempt) return;\n    session = { id, mode, replacing: mode === \"replace\" && state.slots[id].filled, seen: false }; pending = null;\n",
+     "after": "    \"Allow the microphone when your browser asks. Tap the same icon or circle to cancel.\"); render();\n  try {\n    const allowed = await recorder.acquireInput(() => audio.startMic());\n    if (!allowed || disposed || attempt !== recordAttempt) return;\n    session = { id, mode, replacing: mode === \"replace\" && state.slots[id].filled, seen: false }; pending = null;\n"
+    },
+    {
+     "before": "  state = next;\n  if (session && next.recording?.id === session.id) session.seen = true;\n  else if (session?.seen && !next.recording) { session = null; if (!keepMic) audio.stopMic(); }\n  const key = `${state.notice}:${state.revision}:${state.recording?.waiting > 0}:${state.playing}`;\n  if (key !== noticeKey && pending === null) { noticeKey = key; announce(); }\n",
+     "after": "  state = next;\n  if (session && next.recording?.id === session.id) session.seen = true;\n  else if (session?.seen && !next.recording) { session = null; if (!keepMic) recorder.releaseInput(() => audio.stopMic()); }\n  const key = `${state.notice}:${state.revision}:${state.recording?.waiting > 0}:${state.playing}`;\n  if (key !== noticeKey && pending === null) { noticeKey = key; announce(); }\n"
+    },
+    {
+     "before": "function hide() {\n  if (speedDrag) endSpeedDrag({ pointerId: speedDrag.id }, true);\n  audioAttempt++; starting = false; keepMic = false; cancelTake(); void audio.suspend(); strip.setAudioState(\"off\");\n  state = { ...state, playing: false, recording: null };\n  say(\"Your sounds are still here.\", \"Tap Audio, then Play loops to continue.\"); render();\n",
+     "after": "function hide() {\n  if (speedDrag) endSpeedDrag({ pointerId: speedDrag.id }, true);\n  audioAttempt++; starting = false; keepMic = false; cancelTake(); recorder.stop(); void audio.suspend(); strip.setAudioState(\"off\");\n  state = { ...state, playing: false, recording: null };\n  say(\"Your sounds are still here.\", \"Tap Audio, then Play loops to continue.\"); render();\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/lumber/lumber-app.js",
+   "sha256": "7276a74facb0d5cfa9b010aac7e102378b33c2684fec6133d3ac3e69faf1a4da",
+   "replacements": [
+    {
+     "before": "import { clamp, levelToGain, unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\nimport {\n",
+     "after": "import { clamp, levelToGain, unlockAudioContext } from \"../../audio.js\";\nimport { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { mountRecorderInput } from \"../../families/recorded-input/recorder-input-sources.js\";\nimport { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\nimport {\n"
+    },
+    {
+     "before": "let microphonePromise = null;\nlet microphoneVersion = 0;\nconst inputControl = mountAudioInputControl({\n  container: $(\"lumberInput\"),\n  onStart: () => startMicrophone(),\n",
+     "after": "let microphonePromise = null;\nlet microphoneVersion = 0;\nconst recorder = mountRecorderInput({\n  container: $(\"lumberInput\"),\n  onStart: () => startMicrophone(),\n"
+    },
+    {
+     "before": "  getState: () => ({ active: Boolean(mediaStream), pending: microphonePending }),\n  getSignal: () => ({ node: microphoneGain, stream: mediaStream }),\n});\nlet captureProcessor = null;\nlet captureMute = null;\n",
+     "after": "  getState: () => ({ active: Boolean(mediaStream), pending: microphonePending }),\n  getSignal: () => ({ node: microphoneGain, stream: mediaStream }),\n}, {\n  getContext: () => audioContext, targets: () => [], prepare: ensureAudio,\n  onSourceLeave: previous => { if (previous !== \"mic\" && state.recording) void finishRecording({ playAfterCapture: false }); },\n});\nconst inputControl = recorder.control;\nconst recordingInput = () => (recorder.source === \"mic\" ? microphoneGain : recorder.bridge);\nlet captureProcessor = null;\nlet captureMute = null;\n"
+    },
+    {
+     "before": "  }\n  if (captureProcessor) {\n    try { microphoneGain?.disconnect(captureProcessor); } catch { /* no capture connection */ }\n  }\n  captureProcessor = null;\n",
+     "after": "  }\n  if (captureProcessor) {\n    try { microphoneGain?.disconnect(captureProcessor); recorder.bridge?.disconnect(captureProcessor); } catch { /* no capture connection */ }\n  }\n  captureProcessor = null;\n"
+    },
+    {
+     "before": "      try { node?.disconnect(); } catch { /* device already ended */ }\n    }\n    stopStream(mediaStream);\n    mediaStream = null;\n",
+     "after": "      try { node?.disconnect(); } catch { /* device already ended */ }\n    }\n    recorder.releaseInput();\n    stopStream(mediaStream);\n    mediaStream = null;\n"
+    },
+    {
+     "before": "    const audio = await ensureAudio();\n    if (generation !== captureGeneration || document.hidden) return;\n    await startMicrophone({ held: false });\n    if (generation !== captureGeneration || document.hidden || !mediaStream) return;\n\n    if (state.backingDuringRecord && state.playing) {\n",
+     "after": "    const audio = await ensureAudio();\n    if (generation !== captureGeneration || document.hidden) return;\n    const acquired = await recorder.acquireInput(async () => { await startMicrophone({ held: false }); return true; });\n    if (!acquired || generation !== captureGeneration || document.hidden || !recordingInput()) return;\n\n    if (state.backingDuringRecord && state.playing) {\n"
+    },
+    {
+     "before": "    }\n\n    if (generation !== captureGeneration || !microphoneGain) return;\n    releaseCapture({ releaseInput: false });\n    const createProcessor = audio.createScriptProcessor?.bind(audio)\n",
+     "after": "    }\n\n    if (generation !== captureGeneration || !recordingInput()) return;\n    releaseCapture({ releaseInput: false });\n    const createProcessor = audio.createScriptProcessor?.bind(audio)\n"
+    },
+    {
+     "before": "      }\n    };\n    microphoneGain.connect(captureProcessor);\n    captureProcessor.connect(captureMute);\n    captureMute.connect(audio.destination);\n",
+     "after": "      }\n    };\n    recordingInput().connect(captureProcessor);\n    captureProcessor.connect(captureMute);\n    captureMute.connect(audio.destination);\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/micmic/micmic-app.js",
+   "sha256": "c8133514c0e0b934a0de2f97ce5350544e240c55b207e503d909fac59c3641ba",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\n",
+     "after": "import { createMicmicRecordedInput } from \"./input-sources.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { registerHeaderPresets } from \"../../site/header-presets.js\";\n"
+    },
+    {
+     "before": "let mediaStream = null;\nlet microphoneSource = null;\nlet microphoneGeneration = 0;\nlet audioChanging = false;\n",
+     "after": "let mediaStream = null;\nlet microphoneSource = null;\nlet recordedInput = null;\nlet microphoneGeneration = 0;\nlet audioChanging = false;\n"
+    },
+    {
+     "before": "\nasync function startMicrophone() {\n  if (state.mic || state.starting || audioChanging) return;\n  const generation = ++microphoneGeneration;\n",
+     "after": "\nasync function startMicrophone() {\n  if (recordedInput?.isRecorded()) {\n    try { await recordedInput.start(); } catch (error) { showError(error.message); }\n    return;\n  }\n  if (state.mic || state.starting || audioChanging) return;\n  const generation = ++microphoneGeneration;\n"
+    },
+    {
+     "before": "\nfunction stopMicrophone(message = \"L-system Delay microphone off.\", shouldAnnounce = true) {\n  ++microphoneGeneration;\n  state.starting = false;\n",
+     "after": "\nfunction stopMicrophone(message = \"L-system Delay microphone off.\", shouldAnnounce = true) {\n  recordedInput?.stop();\n  ++microphoneGeneration;\n  state.starting = false;\n"
+    },
+    {
+     "before": "  )).length ?? 0;\n  canvas.setAttribute(\"aria-label\", `Live fitted L-system tree for L-system Delay. ${live ? state.frozen ? \"Input paused; recursive tail live\" : \"Microphone live\" : \"Microphone off\"}.`);\n  $(\"treeDescription\").textContent = `${systemLabel} with ${label} growth. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;\n}\n",
+     "after": "  )).length ?? 0;\n  canvas.setAttribute(\"aria-label\", `Live fitted L-system tree for L-system Delay. ${live ? state.frozen ? \"Input paused; recursive tail live\" : \"Microphone live\" : \"Microphone off\"}.`);\n  recordedInput?.refresh();\n  $(\"treeDescription\").textContent = `${systemLabel} with ${label} growth. ${generations} generations and ${segmentCount} connected segments; ${audibleCount} of ${voiceCount} ${pruningBiasLabel(state.pruningBias)} delayed descendant paths carry audible gain. Microphone loudness travels outward from the seed by vibrating the branches.`;\n}\n"
+    },
+    {
+     "before": "  },\n});\n",
+     "after": "  },\n});\nrecordedInput = createMicmicRecordedInput({\n  ensureGraph: async () => {\n    if (audioChanging || pitchDetailChanging) throw new Error(\"Audio is changing. Try again in a moment.\");\n    await ensureAudioGraph();\n    configureAudioInputNode(graph.input);\n  },\n  getContext: () => audioContext, getInputNode: () => graph?.input, isArmed: () => audioOutputEnabled,\n  onSourceChange: () => stopMicrophone(\"Input source changed.\", false),\n  onPlaybackChange: (playing) => {\n    if (playing) {\n      state.mic = true;\n      state.frozen = false;\n      clearEnvelopeHistory();\n      applyAudioParameters();\n      clearError();\n      announce(\"L-system Delay audio input on. Recorded input.\");\n    } else if (state.mic && recordedInput.isRecorded()) {\n      state.mic = false;\n      state.frozen = false;\n      applyAudioParameters(true);\n      hotSince = 0;\n      clearEnvelopeHistory();\n    }\n    updateUi();\n  },\n  onError: (error) => showError(error?.message || \"Input could not load.\"),\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/micromorph/micromorph-app.js",
+   "sha256": "a65ecdd4d8f3952163a3dfa677f130d3ea3a2447e85a10a0d93aa9b99aed24b9",
+   "replacements": [
+    {
+     "before": "import {\n  MICROMORPH_DEFAULTS,\n",
+     "after": "import { mountRecordedInput } from \"../../families/voice-input/recorded-input.js\";\nimport {\n  MICROMORPH_DEFAULTS,\n"
+    },
+    {
+     "before": "\ninitialize();\n",
+     "after": "\ninitialize();\n\nconst privacyCard = document.querySelector(\".micromorph-privacy-card\");\nconst recordedInput = mountRecordedInput({\n  control: inputControl,\n  host: { container: privacyCard.parentElement, before: privacyCard },\n  prepare: async () => {\n    await audio.initialize();\n    audio.clearSuspendTimer();\n    await audio.context.resume();\n  },\n  getContext: () => audio.context,\n  getTarget: () => audio.inputAnalyser,\n  isArmed: () => state.audioOn,\n  isEngaged: () => audio.enabled,\n  channels: () => 1,\n  multiplier: () => state.parameters.inputGain,\n  onSourceChange: (next) => {\n    if (next !== \"mic\") stopMicrophone(\"Microphone released.\").catch(showAudioError);\n  },\n  onLiveChange: (live) => {\n    if (live) {\n      audio.node.port.postMessage({ type: \"reset\" });\n      audio.node.port.postMessage({ type: \"active\", value: true });\n      audio.enabled = true;\n      audio.setOutputArmed(audio.outputArmed);\n      audio.setModelActive(modelIsReady());\n      updateInterface({ sendControls: false });\n    } else stopMicrophone(\"Recorded input stopped.\").catch(showAudioError);\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/moire-drone/moire-drone-app.js",
+   "sha256": "fc5b10e2ce3b635c52cc31b286856f31c21d60af80582b52c550530aca71b896",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport {\n",
+     "after": "import { installRecordedInput } from \"./input-sources.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport {\n"
+    },
+    {
+     "before": "resizeCanvas();\nanimationFrame = requestAnimationFrame(animate);\n",
+     "after": "resizeCanvas();\nanimationFrame = requestAnimationFrame(animate);\ninstallRecordedInput({ audio, isAudioOn: () => state.audioOn });\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/morphynx/morphynx-app.js",
+   "sha256": "5637ef19a72d759ca9e8eb7559468c935b15a3cb880ebf9b87a8f73aabaf935a",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\n",
+     "after": "import { mountRecordedInput } from \"../../families/voice-input/recorded-input.js\";\nimport { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { audioInputConstraints, configureAudioInputNode } from \"../../audio-input-settings.js\";\n"
+    },
+    {
+     "before": "resizeCanvas();\nanimationFrame = requestAnimationFrame(animate);\n",
+     "after": "resizeCanvas();\nanimationFrame = requestAnimationFrame(animate);\n\nlet recordedChain = null;\n\nfunction recordedVoiceChain() {\n  if (recordedChain?.context !== audioContext) {\n    const highpass = audioContext.createBiquadFilter();\n    highpass.type = \"highpass\";\n    highpass.frequency.value = 52;\n    highpass.Q.value = 0.7;\n    const filters = [0, 1, 2].map((index) => {\n      const filter = audioContext.createBiquadFilter();\n      filter.type = \"peaking\";\n      filter.Q.value = 2.4 + index * 0.55;\n      filter.gain.value = 7 - index * 1.5;\n      return filter;\n    });\n    recordedChain = { context: audioContext, highpass, filters };\n  }\n  return recordedChain;\n}\n\nfunction connectRecordedVoice() {\n  if (!graph || !audioContext || audioContext.state === \"closed\") return;\n  const { highpass, filters } = recordedVoiceChain();\n  graph.micInputGain.connect(highpass);\n  highpass.connect(filters[0]);\n  filters[0].connect(filters[1]);\n  filters[1].connect(filters[2]);\n  filters[2].connect(graph.micGain);\n  graph.micHighpass = highpass;\n  graph.micFilters = filters;\n}\n\nfunction disconnectRecordedVoice() {\n  if (!recordedChain) return;\n  const { highpass, filters } = recordedChain;\n  for (const node of [highpass, ...filters]) { try { node.disconnect(); } catch { /* already detached */ } }\n  if (graph?.micHighpass === highpass) { graph.micHighpass = null; graph.micFilters = []; }\n  recordedChain = null;\n}\n\nlet recordedChainTimer = 0;\n\nconst recordedInput = mountRecordedInput({\n  control: audioInputControl,\n  host: { container: document.querySelector(\".morphynx-panel\"), before: document.querySelector(\".morphynx-lab\") },\n  prepare: async () => {\n    await ensureAudio({ armOutput: false });\n    if (!graph) throw new Error(\"Morphynx audio is not ready.\");\n  },\n  getContext: () => audioContext,\n  getTarget: () => graph?.micInputGain,\n  isArmed: () => audioOn,\n  meterNode: () => graph?.micInputGain,\n  multiplier: () => 1,\n  channels: () => (graph?.micInputGain?.channelCount === 2 ? 2 : 1),\n  onSourceChange: (next) => {\n    if (next !== \"mic\") stopMicrophoneInput();\n    disconnectRecordedVoice();\n  },\n  onLiveChange: (live) => {\n    clearInterval(recordedChainTimer);\n    if (live) {\n      if (state.sourceMode === \"internal\") setSourceMode(\"hybrid\", { requestMicrophone: false });\n      connectRecordedVoice();\n      recordedChainTimer = setInterval(() => { if (graph?.micFilters !== recordedChain?.filters) connectRecordedVoice(); }, 250);\n    } else disconnectRecordedVoice();\n    configureAudio(performance.now(), true);\n  },\n});\n\nglobalThis.addEventListener(\"pagehide\", () => clearInterval(recordedChainTimer), { once: true });\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/recursion/recursion-app.js",
+   "sha256": "6042de4740b1c8f6c09142ad7d075b3f67c25f4dab17d196bd5a8313234f0663",
+   "replacements": [
+    {
+     "before": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { RECURSION_STUDIES, buildRecursionPlan } from \"./recursion.js\";\nimport { RecursiveAudioEngine } from \"./recursion-audio-engine.js\";\n",
+     "after": "import { mountAudioInputControl } from \"../../audio-input-control.js\";\nimport { mountRecursionSamples } from \"./recursion-samples.js\";\nimport { MAX_INPUT_FILE_BYTES } from \"../micmic/native/input-source.js\";\nimport { RECURSION_STUDIES, buildRecursionPlan } from \"./recursion.js\";\nimport { RecursiveAudioEngine } from \"./recursion-audio-engine.js\";\n"
+    },
+    {
+     "before": "  mic: Object.freeze({ readout: \"MIC\" }),\n  file: Object.freeze({ readout: \"AUDIO\" }),\n});\n\n",
+     "after": "  mic: Object.freeze({ readout: \"MIC\" }),\n  file: Object.freeze({ readout: \"AUDIO\" }),\n  samples: Object.freeze({ readout: \"SAMPLE\" }),\n});\n\n"
+    },
+    {
+     "before": "  if (!file) return;\n  inputError = \"\";\n  $(\"fileLabel\").textContent = \"Decoding\";\n  $(\"fileHint\").textContent = file.name;\n",
+     "after": "  if (!file) return;\n  inputError = \"\";\n  if (file.size > MAX_INPUT_FILE_BYTES) {\n    inputError = \"Choose an audio file smaller than 64 MiB.\";\n    micControl.refresh();\n    return;\n  }\n  $(\"fileLabel\").textContent = \"Decoding\";\n  $(\"fileHint\").textContent = file.name;\n"
+    },
+    {
+     "before": "});\n\nlet captureAttempt = 0;\nfunction stopMicCapture({ discard = false } = {}) {\n",
+     "after": "});\n\nlet recursionSamples = null;\nlet captureAttempt = 0;\nfunction stopMicCapture({ discard = false } = {}) {\n"
+    },
+    {
+     "before": "    inputError = \"\";\n    if (micControl.root.sourceSelect.value === \"file\") { $(\"audioFile\").click(); return; }\n    state.source = \"mic\"; paintSource(); updatePlan(); return captureMic();\n  },\n",
+     "after": "    inputError = \"\";\n    if (micControl.root.sourceSelect.value === \"file\") { $(\"audioFile\").click(); return; }\n    if (micControl.root.sourceSelect.value === \"samples\") { return recursionSamples?.activate(); }\n    state.source = \"mic\"; paintSource(); updatePlan(); return captureMic();\n  },\n"
+    },
+    {
+     "before": "  getState: () => ({ active: Boolean(audio.captureState), pending: audio.capturePending, error: inputError }),\n  getSignal: () => ({ levels: { left: audio.captureLevel, right: 0 }, channels: 1 }),\n  sources: [{ value: \"mic\", label: \"Mic\" }, { value: \"file\", label: \"File\" }],\n  onSourceChange: (value) => { stopMicCapture({ discard: true }); state.source = value; paintSource(); updatePlan(); },\n  fileInput: $(\"audioFile\"),\n  hide: [$(\"fileInputLabel\"), ...$(\"sourceButtons\").querySelectorAll('[data-source=\"mic\"], [data-source=\"file\"]')],\n});\n\nfunction frame() {\n",
+     "after": "  getState: () => ({ active: Boolean(audio.captureState), pending: audio.capturePending, error: inputError }),\n  getSignal: () => ({ levels: { left: audio.captureLevel, right: 0 }, channels: 1 }),\n  sources: [{ value: \"mic\", label: \"Mic\" }, { value: \"file\", label: \"File\" }, { value: \"samples\", label: \"Samples\" }],\n  onSourceChange: (value) => {\n    stopMicCapture({ discard: true }); state.source = value; paintSource(); updatePlan();\n    if (value === \"samples\") void recursionSamples?.activate(); else recursionSamples?.release();\n  },\n  fileInput: $(\"audioFile\"),\n  hide: [$(\"fileInputLabel\"), ...$(\"sourceButtons\").querySelectorAll('[data-source=\"mic\"], [data-source=\"file\"]')],\n});\n\nconst samplesHost = document.createElement(\"div\");\ndocument.querySelector(\".recursion-seed\").append(samplesHost);\nrecursionSamples = mountRecursionSamples({\n  container: samplesHost, audio, getSource: () => state.source, isAudioOn: () => state.audio,\n  isPlaying: () => state.playing, togglePlayback,\n  onSeed: () => { inputError = \"\"; paintSource(); updatePlan(); if (state.audio) queuePreparedRestart(); micControl.refresh(); },\n  onError: (error) => { inputError = error?.message || \"This sample could not be loaded.\"; micControl.refresh(); },\n});\nglobalThis.addEventListener?.(\"pagehide\", () => recursionSamples?.destroy(), { once: true });\n\nfunction frame() {\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/recursion/recursion-audio-engine.js",
+   "sha256": "0fb963b3f3b37a7535936fb776c134bd90f64dc0a9c9968042c7b291cbcaa011",
+   "replacements": [
+    {
+     "before": "\n  setExternalSeed(kind, channels, sampleRate, label) {\n    if (![\"mic\", \"file\"].includes(kind)) throw new RangeError(`Unknown external seed kind: ${kind}`);\n    const normalized = normalizeChannels(channels, { targetRms: 0.16, peakLimit: 0.86 });\n    this.externalSeeds.set(kind, {\n",
+     "after": "\n  setExternalSeed(kind, channels, sampleRate, label) {\n    if (![\"mic\", \"file\", \"samples\"].includes(kind)) throw new RangeError(`Unknown external seed kind: ${kind}`);\n    const normalized = normalizeChannels(channels, { targetRms: 0.16, peakLimit: 0.86 });\n    this.externalSeeds.set(kind, {\n"
+    },
+    {
+     "before": "    const decoded = await this.context.decodeAudioData(arrayBuffer.slice(0));\n    this.setExternalSeed(\"file\", copyAudioBufferChannels(decoded), decoded.sampleRate, label);\n  }\n\n",
+     "after": "    const decoded = await this.context.decodeAudioData(arrayBuffer.slice(0));\n    this.setExternalSeed(\"file\", copyAudioBufferChannels(decoded), decoded.sampleRate, label);\n  }\n\n  setSampleSeed(buffer, label) {\n    this.setExternalSeed(\"samples\", copyAudioBufferChannels(buffer), buffer.sampleRate, label);\n  }\n\n"
+    },
+    {
+     "before": "      throw new Error(sourceKind === \"mic\"\n        ? \"Capture a short microphone seed first.\"\n        : \"Choose a local audio file first.\");\n    }\n    if (entry.sampleRate === this.context.sampleRate) {\n",
+     "after": "      throw new Error(sourceKind === \"mic\"\n        ? \"Capture a short microphone seed first.\"\n        : sourceKind === \"samples\" ? \"Choose a bundled sample first.\" : \"Choose a local audio file first.\");\n    }\n    if (entry.sampleRate === this.context.sampleRate) {\n"
+    }
+   ]
+  },
+  {
+   "file": "src/instruments/throatazoid/throatazoid-app.js",
+   "sha256": "cdeb8992a6b689142e1d95e926d36306872b44fc061ab3846b1e0e91a2f01392",
+   "replacements": [
+    {
+     "before": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport {\n  buildTractDiameterProfile,\n",
+     "after": "import { connectAudioOutput } from \"../../audio-output-manager.js\";\nimport { unlockAudioContext } from \"../../audio.js\";\nimport { mountRecordedInput } from \"../../families/voice-input/recorded-input.js\";\nimport {\n  buildTractDiameterProfile,\n"
+    },
+    {
+     "before": "}\n\nfunction applyAudioParameters(immediate = false) {\n  if (!graph || !audioContext) return;\n",
+     "after": "}\n\nlet recordedInputLive = false;\n\nfunction applyAudioParameters(immediate = false) {\n  if (!graph || !audioContext) return;\n"
+    },
+    {
+     "before": "  const fricationGain = fricationOpening(oralClosure);\n  const micLive = live\n    && state.mic\n    && (state.sourceMode === \"mic\" || state.sourceMode === \"hybrid\");\n  const glottisLive = live\n",
+     "after": "  const fricationGain = fricationOpening(oralClosure);\n  const micLive = live\n    && (state.mic || recordedInputLive)\n    && (state.sourceMode === \"mic\" || state.sourceMode === \"hybrid\");\n  const glottisLive = live\n"
+    },
+    {
+     "before": "  randomize: randomizeThroatazoidPreset,\n});\n",
+     "after": "  randomize: randomizeThroatazoidPreset,\n});\n\nconst recordedInput = mountRecordedInput({\n  control: microphoneInputControl,\n  host: { container: document.querySelector(\"aside.panel\"), before: $(\"listenSummary\").closest(\"details\") },\n  prepare: async () => { await ensureAudioGraph(); },\n  getContext: () => audioContext,\n  getTarget: () => graph?.input,\n  isArmed: () => audioOutputEnabled && isAwake(),\n  multiplier: () => state.inputTrim,\n  onSourceChange: (next) => { if (next !== \"mic\") stopMicrophoneInput(); },\n  onLiveChange: (live) => {\n    recordedInputLive = live;\n    if (live && state.sourceMode === \"glottis\") state.sourceMode = \"hybrid\";\n    applyAudioParameters();\n    updateUi();\n  },\n});\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/acoustic-manifold.html",
+   "sha256": "05f69fe8eb55a76d3ca1117816fb0ced5d8671a4f53c3420d68b05a23432c7f4",
+   "replacements": [
+    {
+     "before": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/acoustic-manifold/acoustic-manifold.css\" />\n  </head>\n  <body class=\"manifold-page acoustic-manifold-page\">\n",
+     "after": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/acoustic-manifold/acoustic-manifold.css\" />\n    <link rel=\"stylesheet\" href=\"src/recorded-input-player.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/acoustic-manifold/acoustic-manifold-samples.css\" />\n  </head>\n  <body class=\"manifold-page acoustic-manifold-page\">\n"
+    },
+    {
+     "before": "              <label class=\"manifold-button file-button\" for=\"audio-file\">Choose local audio</label>\n            </div>\n\n            <label class=\"select-control source-select-control\" for=\"analysis-profile\">\n",
+     "after": "              <label class=\"manifold-button file-button\" for=\"audio-file\">Choose local audio</label>\n            </div>\n            <div id=\"sample-input\" aria-label=\"Bundled sample source\" role=\"group\" hidden></div>\n\n            <label class=\"select-control source-select-control\" for=\"analysis-profile\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/fractal-synthesis.html",
+   "sha256": "44aa4b0b3eb24a683865d666b07a52ab0066c295d32b5815c911093cc769a265",
+   "replacements": [
+    {
+     "before": "  <link rel=\"stylesheet\" href=\"style.css\" />\n  <link rel=\"stylesheet\" href=\"src/instruments/fractal-signals/style.css\" />\n</head>\n<body class=\"fractal-page\">\n",
+     "after": "  <link rel=\"stylesheet\" href=\"style.css\" />\n  <link rel=\"stylesheet\" href=\"src/instruments/fractal-signals/style.css\" />\n  <link rel=\"stylesheet\" href=\"src/recorded-input-player.css\" />\n</head>\n<body class=\"fractal-page\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/gesturama.html",
+   "sha256": "b5cfa6a89c4dabf17479d39f685e11d05a19bf47bfeda190ad9a6f5103472b61",
+   "replacements": [
+    {
+     "before": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/gesturama/gesturama.css\" />\n  </head>\n  <body class=\"gesturama-page\">\n",
+     "after": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/gesturama/gesturama.css\" />\n    <link rel=\"stylesheet\" href=\"src/recorded-input-player.css\" />\n  </head>\n  <body class=\"gesturama-page\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/graph-delay.html",
+   "sha256": "ed1402d89f4d24e1a8f31917fbb37096959419d449c7c5632445128482dcb79c",
+   "replacements": [
+    {
+     "before": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/micmic/micmic.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/graph-delay/graph-delay.css?v=20260726-switch-shapes\" />\n  </head>\n",
+     "after": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/micmic/micmic.css\" />\n    <link rel=\"stylesheet\" href=\"src/processor-sample-player.css\" />\n    <link rel=\"stylesheet\" href=\"src/families/recorded-input/recorded-input-sources.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/graph-delay/graph-delay.css?v=20260726-switch-shapes\" />\n  </head>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/graphs.html",
+   "sha256": "1aef158769e95d5b0db9acc1307966ba14bcdf23ddd4a231f751242c59bc7fad",
+   "replacements": [
+    {
+     "before": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/graphs/graphs.css\" />\n  </head>\n",
+     "after": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/processor-sample-player.css\" />\n    <link rel=\"stylesheet\" href=\"src/families/recorded-input/recorded-input-sources.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/graphs/graphs.css\" />\n  </head>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/hollowphonic.html",
+   "sha256": "0d3386b0f085b5265985931c0436901b95c697c1f87d2502a5cea9b66947bfab",
+   "replacements": [
+    {
+     "before": "  <link rel=\"stylesheet\" href=\"style.css\" />\n  <link rel=\"stylesheet\" href=\"src/families/work-in-progress/work-in-progress.css\" />\n</head>\n<body class=\"starting-instrument\" data-starting-instrument=\"hollowphonic\" style=\"--accent:#c9b0ed\">\n",
+     "after": "  <link rel=\"stylesheet\" href=\"style.css\" />\n  <link rel=\"stylesheet\" href=\"src/families/work-in-progress/work-in-progress.css\" />\n  <link rel=\"stylesheet\" href=\"src/recorded-input-player.css\" />\n</head>\n<body class=\"starting-instrument\" data-starting-instrument=\"hollowphonic\" style=\"--accent:#c9b0ed\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/l-mic.html",
+   "sha256": "d1779e11dec328b7ab3014376b17da89252105a3cf3d85287d0998e697000b18",
+   "replacements": [
+    {
+     "before": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/micmic/micmic.css\" />\n  </head>\n  <body class=\"micmic-page\">\n",
+     "after": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/micmic/micmic.css\" />\n    <link rel=\"stylesheet\" href=\"src/families/recorded-input/recorded-input-panel.css\" />\n  </head>\n  <body class=\"micmic-page\">\n"
+    },
+    {
+     "before": "            </div>\n          </details>\n        </div>\n        <details class=\"group control-section\" id=\"presetSection\" data-section=\"presets\">\n",
+     "after": "            </div>\n          </details>\n          <div class=\"micmic-recorded-input\">\n            <label class=\"control\" for=\"inputSourceKind\">\n              <span><b>Input source</b></span>\n              <select id=\"inputSourceKind\" aria-label=\"Input source\">\n                <option value=\"mic\">Mic</option>\n                <option value=\"file\">File</option>\n                <option value=\"samples\">Samples</option>\n              </select>\n            </label>\n            <div id=\"recordedInputPanel\"></div>\n            <input id=\"recordedInputFile\" type=\"file\" accept=\"audio/*\" hidden />\n          </div>\n        </div>\n        <details class=\"group control-section\" id=\"presetSection\" data-section=\"presets\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/l-systems.html",
+   "sha256": "f7960a1e1cdec7625fc6378a02c3010c4c4b4c6b1b94408f68516de1ef4ea7ed",
+   "replacements": [
+    {
+     "before": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/l-systems/l-systems.css\" />\n  </head>\n",
+     "after": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/processor-sample-player.css\" />\n    <link rel=\"stylesheet\" href=\"src/families/recorded-input/recorded-input-sources.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/l-systems/l-systems.css\" />\n  </head>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/moire-drone.html",
+   "sha256": "88c730903b1a87daef61e35d79e7703c59f24a486fe4bd85ee6af5e18455f683",
+   "replacements": [
+    {
+     "before": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/moire-drone/moire-drone.css\" />\n  </head>\n",
+     "after": "    <link rel=\"icon\" href=\"favicon.svg\" type=\"image/svg+xml\" />\n    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/families/recorded-input/recorded-input-panel.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/moire-drone/moire-drone.css\" />\n  </head>\n"
+    },
+    {
+     "before": "            <select id=\"sourceMode\">\n              <option value=\"noise\">Noise</option>\n              <option value=\"input\">Mic / Audio In</option>\n            </select>\n          </label>\n",
+     "after": "            <select id=\"sourceMode\">\n              <option value=\"noise\">Noise</option>\n              <option value=\"input\">Input (Mic / File / Samples)</option>\n            </select>\n          </label>\n"
+    },
+    {
+     "before": "            </label>\n            <p class=\"moire-control-help\" id=\"inputStatus\" role=\"status\">Turn Audio on, then connect a microphone or audio interface.</p>\n          </div>\n        </section>\n",
+     "after": "            </label>\n            <p class=\"moire-control-help\" id=\"inputStatus\" role=\"status\">Turn Audio on, then connect a microphone or audio interface.</p>\n          </div>\n          <div id=\"recordedSourceControls\" hidden>\n            <label class=\"control\" for=\"inputSourceKind\">\n              <span><b>Input source</b></span>\n              <select id=\"inputSourceKind\" aria-label=\"Input source\">\n                <option value=\"mic\">Mic / Audio In</option>\n                <option value=\"file\">File</option>\n                <option value=\"samples\">Samples</option>\n              </select>\n            </label>\n            <div id=\"recordedInputPanel\"></div>\n            <input id=\"recordedInputFile\" type=\"file\" accept=\"audio/*\" hidden />\n          </div>\n        </section>\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/recursion.html",
+   "sha256": "e04f323e19c1b953b6617ce91e62f7c28f768c137a17825bcbab7f7451fef877",
+   "replacements": [
+    {
+     "before": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/recursion/recursion.css\" />\n  </head>\n  <body class=\"recursion-page\">\n",
+     "after": "    <link rel=\"stylesheet\" href=\"style.css\" />\n    <link rel=\"stylesheet\" href=\"src/instruments/recursion/recursion.css\" />\n    <link rel=\"stylesheet\" href=\"src/recorded-input-player.css\" />\n  </head>\n  <body class=\"recursion-page\">\n"
+    }
+   ]
+  },
+  {
+   "file": "src/pages/simd-lab.html",
+   "sha256": "796438f24663f55f9af7567c9adb1e1246df38b9e9aecc8d39f90b70bf64ca0d",
+   "replacements": [
+    {
+     "before": "            </div>\n            <button id=\"pluckButton\" class=\"simd-primary-action simd-demo-action\" type=\"button\">PLAY GRAIN DEMO</button>\n            <button id=\"micButton\" class=\"simd-primary-action simd-mic-action\" type=\"button\" aria-pressed=\"false\" aria-label=\"Enable microphone. Turn on Audio first and use headphones.\">\n              <span class=\"simd-mic-mark\" aria-hidden=\"true\"></span>\n",
+     "after": "            </div>\n            <button id=\"pluckButton\" class=\"simd-primary-action simd-demo-action\" type=\"button\">PLAY GRAIN DEMO</button>\n            <select id=\"inputSource\" aria-label=\"Input source\">\n              <option value=\"mic\">Mic / Line</option><option value=\"sample-file\">Samples</option><option value=\"file\">File</option>\n            </select>\n            <div id=\"recordedInputControls\" class=\"simd-recorded-input\" hidden>\n              <label id=\"inputSampleControl\" for=\"inputSample\"><span>Sample</span><span class=\"simd-sample-choice\"><select id=\"inputSample\" aria-label=\"Sample\"></select><button id=\"inputSampleNext\" type=\"button\" aria-label=\"Next sample\">\u203a</button></span></label>\n              <div class=\"simd-input-transport\">\n                <button id=\"inputPlay\" type=\"button\" aria-pressed=\"false\">Play input</button>\n                <label for=\"inputLoop\"><input id=\"inputLoop\" type=\"checkbox\" checked /> Loop</label>\n              </div>\n              <p id=\"inputStatus\" class=\"simd-note\" role=\"status\"></p>\n              <p id=\"inputCredit\" class=\"simd-note\" hidden></p>\n            </div>\n            <input id=\"inputFile\" type=\"file\" accept=\"audio/*\" hidden />\n            <button id=\"micButton\" class=\"simd-primary-action simd-mic-action\" type=\"button\" aria-pressed=\"false\" aria-label=\"Enable microphone. Turn on Audio first and use headphones.\">\n              <span class=\"simd-mic-mark\" aria-hidden=\"true\"></span>\n"
+    }
+   ]
+  }
+ ]
+}
