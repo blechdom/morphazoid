@@ -7,6 +7,19 @@ import { collectControlInventory, exerciseRangeMathematics } from "./helpers/con
 const APP = "/src/instruments/wobblini/wobblini-app.js";
 const state = (page) => page.evaluate(async (url) => (await import(url)).engine.getState(), APP);
 
+async function unlockFiles(page) {
+  if (await page.locator("#fileAccess").getAttribute("aria-pressed") !== "true") await page.locator("#fileAccess").click();
+}
+
+async function openSettings(page, deck = 0) {
+  const button = page.locator(`#d${deck}Edit`);
+  await button.scrollIntoViewIfNeeded();
+  const box = await button.boundingBox();
+  await button.click({ position: { x: box.width * 0.7, y: box.height * 0.3 } });
+  await expect(page.locator("#deckSettings")).toBeVisible();
+  await expect(page.locator("#deckSettingsTitle")).toHaveText(`Deck ${deck + 1}`);
+}
+
 function diagnostics(page) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -29,6 +42,7 @@ async function ready(page, { view = "full" } = {}) {
 
 async function demos(page) {
   await ready(page);
+  await unlockFiles(page);
   await page.locator("#loadDemos").click();
   await expect.poll(async () => (await state(page)).decks.filter((deck) => deck.duration > 0 && !deck.loading).length).toBe(8);
 }
@@ -75,6 +89,7 @@ function wave({ seconds = 8, frequency = 997, level = 0.24 } = {}) {
 }
 
 async function loadTone(page, deck = 0) {
+  await unlockFiles(page);
   await page.locator(`#d${deck}File`).setInputFiles({ name: `QA tone ${deck + 1}.wav`, mimeType: "audio/wav", buffer: wave() });
   await expect.poll(async () => (await state(page)).decks[deck].kind).toBe("file");
   await expect.poll(async () => (await state(page)).decks[deck].loading).toBe(false);
@@ -90,46 +105,81 @@ async function ring(page, deck = 0) {
   return { platter, point };
 }
 
-test("records open as eight isolated circular decks with compact named icons and no implicit Audio", async ({ page }) => {
+test("record gears open one protected popup while center play and scratch require explicit Audio", async ({ page }) => {
   const errors = diagnostics(page);
   await ready(page, { view: "records" });
   await expect(page.locator(".wb-mixer")).toBeHidden();
+  await expect(page.locator(".wb-shell .mz-tap-tempo")).toHaveCount(0);
+  await expect(page.locator("#fileAccess")).toHaveAccessibleName("Unlock file loading");
+  await expect(page.locator("#loadDemos")).toBeDisabled();
+  await expect(page.locator("#deckSettings")).toHaveCount(1);
   for (let i = 0; i < 8; i++) {
-    const platter = page.locator(`#d${i}Platter`);
-    await expect(platter).toBeVisible();
-    const box = await platter.boundingBox();
-    expect(Math.abs(box.width - box.height), `Deck ${i + 1} is circular`).toBeLessThan(2);
+    const box = await page.locator(`#d${i}Platter`).boundingBox(), tile = await page.locator(`#deck${i}`).boundingBox();
+    expect(Math.abs(box.width - box.height)).toBeLessThan(2);
+    expect(Math.abs(tile.width - tile.height)).toBeLessThan(2);
+    expect(box.width).toBeLessThan(tile.width);
     await expect(page.locator(`#d${i}Play`)).toBeVisible();
-    for (const control of ["Gain", "Loop", "Assign", "Rate", "Seek"]) await expect(page.locator(`#d${i}${control}`)).toBeHidden();
+    await expect(page.locator(`#d${i}Edit`)).toHaveAccessibleName(`Track controls for deck ${i + 1}`);
+    await expect(page.locator(`#d${i}Edit`)).toHaveAttribute("aria-haspopup", "dialog");
+    for (const control of ["Load", "Cue", "Gain", "Loop", "Assign", "Rate", "Seek"]) await expect(page.locator(`#d${i}${control}`)).toBeHidden();
   }
+  await page.locator("#d0Play").click();
+  await expect.poll(async () => (await state(page)).decks[0].position).toBeGreaterThan(0.1);
+  const original = (await state(page)).decks[0];
+  await page.locator("#d0File").setInputFiles({ name: "Locked.wav", mimeType: "audio/wav", buffer: wave() });
+  await page.locator("#deck0").evaluate((node) => {
+    const transfer = new DataTransfer(); transfer.items.add(new File(["locked"], "Locked drop.wav", { type: "audio/wav" }));
+    node.dispatchEvent(new DragEvent("drop", { bubbles: true, dataTransfer: transfer }));
+  });
+  expect((await state(page)).decks[0].name).toBe(original.name);
+  expect((await state(page)).decks[0].playing).toBe(true);
+  await expect(page.locator("#replaceDialog")).toBeHidden();
+  await openSettings(page);
+  await expect(page.locator("#settingsLoad")).toBeDisabled();
+  await expect(page.locator("#settingsSync")).toBeDisabled();
+  await expect(page.locator("#closeDeckSettings")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(page.locator("#deckSettings")).toBeHidden();
+  await expect(page.locator("#d0Edit")).toBeFocused();
+  await page.locator("#stopButton").click(); await unlockFiles(page); await openSettings(page);
+  const chooserEvent = page.waitForEvent("filechooser");
+  await page.locator("#settingsLoad").click();
+  await (await chooserEvent).setFiles({ name: "Popup controls.wav", mimeType: "audio/wav", buffer: wave() });
+  await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
+  await expect(page.locator("#deckSettingsTrack")).toHaveText("Popup controls.wav");
+  await slider(page, "#settingsVolume", 0.45); await slider(page, "#settingsSpeed", 1.25);
+  expect((await state(page)).decks[0].gain).toBe(0.45); expect((await state(page)).decks[0].rate).toBe(1.25);
+  await page.locator("#settingsSpeedReset").click(); expect((await state(page)).decks[0].rate).toBe(1);
+  await page.locator("#settingsLoopLength").selectOption("4");
+  await page.locator("#closeDeckSettings").click();
+  for (const suffix of ["In", "Out", "Length"]) await expect(page.locator(`#d0Loop${suffix}`)).toBeVisible();
+  await expect(page.locator("#d0LoopLength")).toHaveText("4 beats");
+  await openSettings(page, 1); await expect(page.locator("#settingsSync")).toBeEnabled();
+  const dialog = await page.locator("#deckSettings").boundingBox();
+  await page.mouse.click(dialog.x - 5, dialog.y + 10);
+  await expect(page.locator("#deckSettings")).toBeHidden(); await expect(page.locator("#d1Edit")).toBeFocused();
   for (const view of ["records", "full", "records"]) {
     await page.locator(`#${view}View`).click();
-    const buttons = page.locator(".wb-shell button:visible");
-    for (const button of await buttons.all()) {
+    for (const button of await page.locator(".wb-shell button:visible").all()) {
       await expect(button).toHaveAccessibleName(/\S/);
-      expect((await button.innerText()).trim(), "instrument buttons display icons, with words retained in their accessible names").not.toMatch(/[a-z]{2,}/i);
+      expect((await button.innerText()).trim()).not.toMatch(/[a-z]{2,}/i);
     }
   }
-  const { point } = await ring(page);
-  const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
+  const { point } = await ring(page), start = point(0);
+  await page.mouse.move(start.x, start.y); await page.mouse.down();
   for (let i = 1; i <= 8; i++) { const p = point(i * Math.PI / 8); await page.mouse.move(p.x, p.y); }
   await page.mouse.up();
   const scratched = (await state(page)).decks[0];
-  expect(scratched.position).toBeGreaterThan(0.5);
-  expect(scratched.scratching).toBe(false); expect(scratched.playing).toBe(false);
-  expect((await state(page)).armed).toBe(false);
-  expect((await readAudioStatus(page)).connectionCount).toBe(0);
-  await page.locator("#d0Platter").focus();
-  const before = (await state(page)).decks[0].position;
-  await page.keyboard.press("ArrowRight");
-  expect((await state(page)).decks[0].position).toBeGreaterThan(before);
-  await page.keyboard.press("ArrowLeft");
-  expect((await state(page)).decks[0].position).toBeCloseTo(before, 2);
-  expect((await state(page)).armed).toBe(false);
+  expect(scratched.position).toBeGreaterThan(0.5); expect(scratched.scratching).toBe(false); expect(scratched.playing).toBe(false);
+  await page.locator("#d0Platter").focus(); const before = scratched.position;
+  await page.keyboard.press("ArrowRight"); expect((await state(page)).decks[0].position).toBeGreaterThan(before);
+  await page.keyboard.press("ArrowLeft"); expect((await state(page)).decks[0].position).toBeCloseTo(before, 2);
+  expect((await state(page)).armed).toBe(false); expect((await readAudioStatus(page)).connectionCount).toBe(0);
   expect(errors).toEqual([]);
 });
 
-test("records retain compact master controls and paint source waveforms with live progress", async ({ page }) => {
+test("records rotate with their waveform beneath a fixed needle and retain live source progress", async ({ page }) => {
+  await page.emulateMedia({ reducedMotion: "no-preference" });
   const errors = diagnostics(page);
   await ready(page, { view: "records" });
   await expect(page.locator("#playButton")).toBeVisible();
@@ -154,11 +204,24 @@ test("records retain compact master controls and paint source waveforms with liv
   await slider(page, "#recordCrossfader", 0.65);
   expect((await state(page)).master.crossfader).toBeCloseTo(0.65, 2);
   await expect(page.locator("#crossfader")).toHaveValue("0.65");
+  const record = page.locator("#deck0 .wb-record-surface"), needle = page.locator("#deck0 .wb-disc-needle");
+  expect(await wave.evaluate((canvas) => Boolean(canvas.closest(".wb-record-surface")))).toBe(true);
+  const fixedNeedle = await needle.evaluate((node) => getComputedStyle(node).transform);
+  const visual = () => page.evaluate(async (url) => {
+    const { engine } = await import(url);
+    return { angle: parseFloat(document.querySelector("#deck0 .wb-record-surface").style.getPropertyValue("--record-angle")) || 0, position: engine.getDeckState(0).position };
+  }, APP);
+  const before = await visual();
   await page.locator("#playButton").click();
   await expect.poll(async () => (await state(page)).decks.filter((deck) => deck.playing).length).toBe(8);
   const runningImage = await wave.evaluate((canvas) => canvas.toDataURL());
   await expect.poll(() => wave.evaluate((canvas) => canvas.toDataURL())).not.toBe(runningImage);
   await expect.poll(async () => (await state(page)).decks[0].position).toBeGreaterThan(0.1);
+  await expect.poll(async () => (await visual()).angle).toBeGreaterThan(before.angle + 10);
+  const after = await visual();
+  expect(Math.abs((after.angle - before.angle) - (after.position - before.position) / 1.8 * 360)).toBeLessThan(18);
+  expect(await needle.evaluate((node) => getComputedStyle(node).transform)).toBe(fixedNeedle);
+  await expect(record).toBeVisible();
   expect((await state(page)).armed).toBe(false);
   expect((await readAudioStatus(page)).connectionCount).toBe(0);
   await page.locator("#stopButton").click();
@@ -187,6 +250,9 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
       if (deck.scratching) node.scratchVelocities.push(deck.scratchVelocity);
     });
   }, APP);
+  const recordAngle = () => page.locator("#deck0 .wb-record-surface").evaluate((node) => parseFloat(node.style.getPropertyValue("--record-angle")) || 0);
+  const needleTransform = () => page.locator("#deck0 .wb-disc-needle").evaluate((node) => getComputedStyle(node).transform);
+  const initialAngle = await recordAngle(), initialNeedle = await needleTransform();
   const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
   await expect.poll(async () => (await state(page)).decks[0].scratching).toBe(true);
   let peak = 0;
@@ -196,6 +262,8 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
   }
   const forward = (await state(page)).decks[0];
   expect(forward.position).toBeGreaterThan(2.5);
+  expect(await recordAngle() - initialAngle).toBeCloseTo(180, 0);
+  expect(await needleTransform()).toBe(initialNeedle);
   expect(await platter.evaluate((node) => node.scratchVelocities.some((velocity) => velocity > 0))).toBe(true);
   await platter.evaluate((node) => { node.scratchVelocities = []; });
   expect(peak).toBeGreaterThan(0.0001);
@@ -206,6 +274,8 @@ test("vinyl pointer rotation produces forward and backward scratch audio and res
   }
   const backward = (await state(page)).decks[0];
   expect(backward.position).toBeLessThan(forward.position - 0.5);
+  expect(await recordAngle()).toBeCloseTo(initialAngle, 0);
+  expect(await needleTransform()).toBe(initialNeedle);
   expect(await platter.evaluate((node) => node.scratchVelocities.some((velocity) => velocity < 0))).toBe(true);
   expect(peak).toBeGreaterThan(0.0001);
   await page.mouse.up();
@@ -266,7 +336,7 @@ test("two real touch contacts retain separate platter ownership and release on c
     expect(stopped.decks.every((deck) => !deck.playing && !deck.scratching && deck.position === 0)).toBe(true);
     for (const { platter } of [first, second]) expect(await platter.evaluate((node) => node.hasPointerCapture(Number(node.dataset.testPointer)))).toBe(false);
     await silent(page);
-    const visuals = () => page.locator(".wb-disc-needle").evaluateAll((nodes) => nodes.map((node) => node.style.getPropertyValue("--disc-angle")));
+    const visuals = () => page.locator(".wb-record-surface").evaluateAll((nodes) => nodes.map((node) => node.style.getPropertyValue("--record-angle")));
     const stoppedVisuals = await visuals();
     expect(stoppedVisuals.every((angle) => angle.endsWith("deg"))).toBe(true);
     await session.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [contact(first, Math.PI / 2, 1), contact(second, -Math.PI / 2, 2)] });
@@ -391,13 +461,9 @@ test("a local WAV loads without Audio, and keyboard seek, cue, loop and tempo re
   const cued = (await state(page)).decks[0];
   expect(cued.playing).toBe(false); expect(cued.position).toBeCloseTo(cue, 3);
   await page.locator("#d0Edit").click();
-  const sourceTap = page.locator('#d0Details .wb-source-tempo .mz-tap-tempo');
-  await expect(sourceTap).toBeVisible();
-  await sourceTap.evaluate((button) => {
-    button.reset();
-    const start = performance.now();
-    button.tap(start); button.tap(start + 400); button.tap(start + 800);
-  });
+  await expect(page.locator(".wb-shell .mz-tap-tempo")).toHaveCount(0);
+  await page.locator("#d0Bpm").fill("150");
+  await page.locator("#d0Bpm").press("Tab");
   expect((await state(page)).decks[0].bpm).toBe(150);
   expect((await state(page)).decks[0].rate).toBe(1);
   expect((await state(page)).decks[0].playing).toBe(false);
@@ -413,6 +479,95 @@ test("a local WAV loads without Audio, and keyboard seek, cue, loop and tempo re
   expect(running.position).toBeGreaterThanOrEqual(running.loopStart);
   expect(running.position).toBeLessThan(running.loopEnd);
   expect(running.effectiveBpm).toBeCloseTo(180, 2);
+  expect(errors).toEqual([]);
+});
+
+test("global sync locks followers to deck one tempo and beat phase without arming Audio", async ({ page }) => {
+  const errors = diagnostics(page);
+  await demos(page);
+  await expect(page.locator("#syncAll")).toHaveAttribute("aria-pressed", "false");
+  for (const [i, bpm] of [120, 60, 90, 120, 150, 180, 100, 160].entries()) {
+    await slider(page, `#d${i}Bpm`, bpm);
+    await page.locator(`#d${i}Loop`).selectOption("4");
+    await slider(page, `#d${i}Seek`, 0.13 + i * 0.17);
+  }
+  await page.locator("#playButton").click();
+  await page.locator("#syncAll").click();
+  const locked = async (bpm) => {
+    await expect.poll(async () => {
+      const current = await state(page), master = current.decks[0];
+      return current.syncEnabled && current.decks.slice(1).every((deck) => {
+        const distance = Math.abs(deck.beatPhase - master.beatPhase);
+        return deck.syncActive && Math.abs(deck.effectiveBpm - bpm) < 0.01 && Math.min(distance, 1 - distance) < 0.025;
+      });
+    }).toBe(true);
+    const current = await state(page);
+    expect(current.masterDeck).toBe(0); expect(current.decks[0].isMaster).toBe(true);
+    expect(current.syncBpm).toBeCloseTo(bpm, 2);
+    expect(current.decks.every((deck) => deck.playing)).toBe(true);
+  };
+  await locked(120);
+  expect((await state(page)).armed).toBe(false);
+  expect((await readAudioStatus(page)).connectionCount).toBe(0);
+  for (const view of ["records", "tiny", "full"]) {
+    await page.locator(`#${view}View`).click();
+    await expect(page.locator("#syncAll")).toHaveAttribute("aria-pressed", "true");
+    await locked(120);
+  }
+  await arm(page); await audible(page, 300);
+  // Force early rendering before a native sync launch settles.
+  await page.evaluate(async (url) => {
+    const { engine } = await import(url); engine.setSyncEnabled(false); engine.setSyncEnabled(true);
+    document.querySelector("#recordsView").click();
+  }, APP);
+  await locked(120); await expect(page.locator("#deck1")).toHaveClass(/is-synced/);
+  await expect(page.locator("#d1Sync")).toContainText(/synced/i);
+  await page.locator("#fullView").click();
+  // Give the 60 BPM source headroom before raising the master above120 BPM.
+  await slider(page, "#d1Bpm", 80);
+  await slider(page, "#d0Rate", 1.1);
+  await locked(132);
+  await expect.poll(async () => Number(await page.locator("#master-bpm").inputValue())).toBe(132);
+  await page.locator("#recordsView").click();
+  const { platter, point } = await ring(page, 2);
+  const start = point(0); await page.mouse.move(start.x, start.y); await page.mouse.down();
+  expect((await state(page)).decks[2].syncActive).toBe(false);
+  expect((await state(page)).syncEnabled).toBe(true);
+  const end = point(Math.PI / 2); await page.mouse.move(end.x, end.y, { steps: 5 });
+  await page.mouse.up();
+  expect((await state(page)).decks[2].scratching).toBe(false);
+  await locked(132); await audible(page, 200);
+  await page.locator("#d0Play").click();
+  const paused = await state(page);
+  expect(paused.decks[0].playing).toBe(false);
+  expect(paused.decks.slice(1).every((deck) => deck.playing && !deck.syncActive)).toBe(true);
+  await page.locator("#d0Play").click(); await locked(132);
+  await openSettings(page, 3); await slider(page, "#settingsSpeed", 1.25);
+  await expect(page.locator("#settingsSync")).toHaveAttribute("aria-pressed", "false");
+  const independent = await state(page);
+  expect(independent.syncEnabled).toBe(true); expect(independent.syncAllEnabled).toBe(false);
+  expect(independent.decks[3].syncEnabled).toBe(false);
+  expect(independent.decks.slice(1).filter((deck) => deck.syncEnabled)).toHaveLength(6);
+  expect(independent.decks.every((deck) => deck.playing)).toBe(true);
+  await page.locator("#settingsSync").click(); await locked(132);
+  await page.locator("#settingsSpeedReset").click();
+  expect((await state(page)).decks[3].rate).toBe(1); expect((await state(page)).decks[3].syncEnabled).toBe(false);
+  await page.locator("#closeDeckSettings").click();
+  await expect(page.locator("#syncAll")).toHaveAttribute("aria-pressed", "false");
+  await page.locator("#syncAll").click(); await locked(132);
+  await page.locator("#fullView").click();
+  await slider(page, "#d2Bpm", 40);
+  await expect.poll(async () => (await state(page)).decks[2].syncError).toMatch(/\S/);
+  const rejected = await state(page);
+  expect(rejected.decks[2].syncActive).toBe(false);
+  expect(rejected.decks.every((deck) => deck.playing)).toBe(true);
+  expect(rejected.armed).toBe(true);
+  await expect(page.locator("#syncAll")).toHaveClass(/has-sync-warning/);
+  await expect(page.locator("#errorMessage")).toBeVisible();
+  await expect(page.locator("#errorMessage")).toContainText(rejected.decks[2].syncError);
+  await audible(page, 200);
+  await slider(page, "#d2Bpm", 90); await locked(132);
+  await expect(page.locator("#errorMessage")).toBeHidden();
   expect(errors).toEqual([]);
 });
 

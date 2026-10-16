@@ -391,3 +391,248 @@ test("Wobblini standard imports skip metadata preflight entirely", async () => {
   const h = harness({ metadataReader: () => { throw new Error("Unexpected metadata request"); } });
   assert.equal(await h.engine.loadFile(0, file()), true); assert.equal(h.decodes, 1); await h.engine.dispose();
 });
+
+
+function assertSynced(engine, ids = [1, 2, 3, 4, 5, 6, 7]) {
+  const master = engine.getDeckState(0);
+  for (const id of ids) {
+    const deck = engine.getDeckState(id), period = deck.syncBeatPeriod;
+    assert.equal(deck.syncError, null, `deck ${id + 1}: ${deck.syncError}`);
+    assert.equal(deck.syncActive, true, `deck ${id + 1} must actually be locked`);
+    near(deck.effectiveBpm, master.effectiveBpm);
+    const error = Math.abs(deck.beatPhase - master.beatPhase % period);
+    assert.ok(Math.min(error, period - error) < 1e-7, `deck ${id + 1} phase ${deck.beatPhase} vs master ${master.beatPhase}`);
+  }
+}
+
+test("Wobblini Sync locks all eight manual beat grids across BPM differences and many loops without arming Audio", async () => {
+  const h = harness(), { engine } = h;
+  for (const [id, bpm] of [120, 60, 90, 120, 150, 180, 200, 240].entries()) {
+    engine.setDeck(id, { bpm }); engine.setCue(id, id * 0.023); engine.seek(id, id * 0.13);
+  }
+  engine.setSyncEnabled(true); engine.playAll(); assertSynced(engine);
+  assert.equal(engine.getState().masterDeck, 0); assert.equal(engine.getState().syncBpm, 120);
+  assert.equal(engine.getDeckState(0).isMaster, true);
+  for (const time of [101.37, 107.89, 134.123]) { h.setWall(time); assertSynced(engine); }
+  assert.equal(h.creates, 0); assert.equal(engine.armed, false); await engine.dispose();
+});
+
+test("Wobblini later follower starts, source tempo edits and cue changes join the master's actual beat phase", async () => {
+  const h = harness(), { engine } = h;
+  engine.setSyncEnabled(true); engine.play(0); h.setWall(101.213);
+  engine.seek(1, 3.117); engine.setDeck(1, { bpm: 90 }); engine.play(1); assertSynced(engine, [1]);
+  assert.equal(engine.getDeckState(2).syncActive, false);
+  engine.setCue(1, 0.17); assertSynced(engine, [1]);
+  h.setWall(102.123); engine.setCue(0, 0.29); assertSynced(engine, [1]);
+  engine.setDeck(1, { bpm: 150 }); assertSynced(engine, [1]);
+  engine.seek(1, 2.31); assertSynced(engine, [1]);
+  engine.setLoop(1, 4); h.setWall(108.919); assertSynced(engine, [1]);
+  await engine.dispose();
+});
+
+test("Wobblini follower scratch temporarily releases phase and rejoins without changing playback intent", async () => {
+  const h = harness(), { engine } = h; engine.setSyncEnabled(true); engine.playAll(); h.setWall(100.23);
+  engine.beginScratch(1); engine.scratchTo(1, 3.127); h.setWall(100.67);
+  near(engine.getDeckState(1).position, 3.127); assert.equal(engine.getDeckState(1).syncActive, false);
+  engine.endScratch(1); assertSynced(engine);
+  engine.pause(2); engine.beginScratch(2); engine.scratchTo(2, 1.173); engine.endScratch(2);
+  assert.equal(engine.getDeckState(2).playing, false); assert.equal(engine.getDeckState(2).syncActive, false);
+  near(engine.getDeckState(2).position, 1.173);
+  engine.play(2); assertSynced(engine); assert.equal(h.creates, 0); await engine.dispose();
+});
+
+test("Wobblini master pause and scratch preserve followers until the master resumes and re-aligns them", async () => {
+  const h = harness(), { engine } = h; engine.setSyncEnabled(true); engine.playAll(); h.setWall(100.12);
+  engine.pause(0); const follower = engine.getDeckState(1).position; h.setWall(100.32);
+  near(engine.getDeckState(1).position, follower + 0.2); assert.equal(engine.getDeckState(1).syncActive, false);
+  engine.play(0); assertSynced(engine);
+  engine.beginScratch(0); engine.scratchTo(0, 4.177); h.setWall(100.8);
+  assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
+  engine.endScratch(0); assertSynced(engine);
+  engine.seek(0, 2.217); assertSynced(engine); await engine.dispose();
+});
+
+test("Wobblini sync range failures are explicit, preserve transports and recover when the ratio is valid", async () => {
+  const h = harness(), { engine } = h; engine.setLoop(1, 0); engine.setDeck(1, { bpm: 40 });
+  engine.setSyncEnabled(true); engine.playAll();
+  assert.match(engine.getDeckState(1).syncError, /outside 0.5×–2×/);
+  assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
+  near(engine.getDeckState(1).rate, 1); assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  engine.setDeck(1, { bpm: 60 }); assertSynced(engine);
+  engine.setDeck(0, { rate: 1.1 }); assert.match(engine.getDeckState(1).syncError, /outside/);
+  engine.setDeck(0, { rate: 0.9 }); assertSynced(engine); await engine.dispose();
+});
+
+test("Wobblini sync off preserves matched speeds and manual follower speed releases only that follower", async () => {
+  const h = harness(), { engine } = h; engine.setDeck(1, { bpm: 90 }); engine.setSyncEnabled(true); engine.playAll();
+  h.setWall(100.2); const before = engine.getDeckState(1); engine.setSyncEnabled(false);
+  near(engine.getDeckState(1).position, before.position); near(engine.getDeckState(1).rate, 4 / 3);
+  h.setWall(100.5); near(engine.getDeckState(1).position, before.position + 0.3 * 4 / 3);
+  engine.setSyncEnabled(true); engine.setDeck(1, { rate: 0.75 });
+  assert.equal(engine.getState().syncEnabled, true); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.getDeckState(1).syncEnabled, false); near(engine.getDeckState(1).rate, 0.75);
+  assert.equal(engine.getDeckState(1).playing, true); assert.equal(engine.getDeckState(1).syncError, null);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  engine.setSyncEnabled(true); assert.equal(engine.getState().syncAllEnabled, true); assertSynced(engine);
+  await engine.dispose();
+});
+
+test("Wobblini per-deck Sync selects individual followers without arming Audio or changing the fixed master", async () => {
+  const h = harness(), { engine } = h;
+  engine.setDeck(1, { bpm: 90 }); engine.setDeck(2, { bpm: 150 });
+  assert.equal(engine.getState().syncEnabled, false); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.setDeckSyncEnabled(0, true), false); assert.equal(engine.getDeckState(0).syncEnabled, false);
+  assert.equal(engine.setDeckSyncEnabled(1, true), true);
+  assert.equal(engine.getState().syncEnabled, true); assert.equal(engine.getState().syncAllEnabled, false);
+  assert.equal(engine.getDeckState(1).syncActive, false); near(engine.getDeckState(1).rate, 4 / 3);
+  engine.playAll(); h.setWall(100.237); assertSynced(engine, [1]);
+  near(engine.getDeckState(2).rate, 1); assert.equal(engine.getDeckState(2).syncActive, false);
+  engine.seek(2, 2.17); engine.setDeckSyncEnabled(2, true); assertSynced(engine, [1, 2]);
+  engine.setDeckSyncEnabled(1, false); engine.setDeckSyncEnabled(2, false);
+  assert.equal(engine.getState().syncEnabled, false);
+  assert.ok(engine.getState().decks.every(deck => !deck.syncEnabled && !deck.syncActive));
+  assert.equal(h.creates, 0); assert.equal(engine.armed, false); await engine.dispose();
+});
+
+test("Wobblini follower speed and 1x reset update native audio while other selected decks remain synced", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setDeck(1, { bpm: 90 }); engine.setSyncEnabled(true); await engine.arm(); engine.playAll();
+  context.currentTime += 0.2;
+  const others = engine.decks.slice(2).map(deck => deck.source), independent = engine.decks[1].source;
+  engine.setDeck(1, { rate: 0.75 });
+  assert.equal(engine.decks[1].source, independent); near(independent.source.playbackRate.value, 0.75);
+  assert.deepEqual(engine.decks.slice(2).map(deck => deck.source), others);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  engine.setDeck(0, { rate: 1.1 }); context.currentTime += 0.05;
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]); near(engine.getDeckState(1).rate, 0.75);
+  near(independent.source.playbackRate.value, 0.75);
+  engine.setDeckSyncEnabled(1, true); context.currentTime += 0.05; assertSynced(engine);
+  const resetSource = engine.decks[1].source; engine.setDeck(1, { rate: 1 });
+  near(resetSource.source.playbackRate.value, 1); near(engine.getDeckState(1).rate, 1);
+  assert.equal(engine.getDeckState(1).syncEnabled, false); assert.equal(engine.getState().syncEnabled, true);
+  assertSynced(engine, [2, 3, 4, 5, 6, 7]);
+  await engine.dispose();
+});
+
+test("Wobblini individual Sync release retains native playback and scopes warnings to requested followers", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setLoop(1, 0); engine.setDeck(1, { bpm: 40 }); engine.setLoop(2, 0); engine.setDeck(2, { bpm: 40 });
+  engine.setSyncEnabled(true); await engine.arm(); engine.playAll(); context.currentTime += 0.2;
+  assert.match(engine.getDeckState(1).syncError, /outside/); assert.match(engine.getDeckState(2).syncError, /outside/);
+  const before = engine.getDeckState(3), sources = engine.decks.map(deck => deck.source);
+  engine.setDeckSyncEnabled(3, false);
+  assert.deepEqual(engine.decks.map(deck => deck.source), sources);
+  near(engine.getDeckState(3).position, before.position); near(engine.getDeckState(3).rate, before.rate);
+  engine.setDeckSyncEnabled(1, false); assert.equal(engine.getDeckState(1).syncError, null);
+  assert.match(engine.getDeckState(2).syncError, /outside/);
+  engine.setSyncEnabled(false);
+  assert.ok(engine.getState().decks.every(deck => !deck.syncEnabled && !deck.syncActive && deck.syncError === null));
+  assert.ok(engine.getState().decks.every(deck => deck.playing)); await engine.dispose();
+});
+
+test("Wobblini selected memberships survive scratch, track replacement and explicit Audio rearming", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setDeckSyncEnabled(1, true); engine.setDeck(2, { rate: 1.25 }); engine.playAll();
+  engine.beginScratch(1); engine.scratchTo(1, 2.17); engine.endScratch(1); assertSynced(engine, [1]);
+  engine.beginScratch(2); engine.scratchTo(2, 3.13); engine.endScratch(2);
+  near(engine.getDeckState(2).position, 3.13); assert.equal(engine.getDeckState(2).syncEnabled, false);
+  engine.loadDemo(1); assertSynced(engine, [1]); await engine.loadFile(2, file());
+  near(engine.getDeckState(2).rate, 1.25); assert.equal(engine.getDeckState(2).syncEnabled, false);
+  await engine.arm(); context.currentTime += 0.05; assertSynced(engine, [1]);
+  await engine.setAudioEnabled(false); h.setWall(100.3); assertSynced(engine, [1]);
+  await engine.arm(); context.currentTime += 0.05; assertSynced(engine, [1]);
+  assert.equal(engine.getState().syncAllEnabled, false);
+  assert.deepEqual(engine.getState().decks.map(deck => deck.syncEnabled), [false, true, false, false, false, false, false, false]);
+  await engine.dispose();
+});
+
+test("Wobblini native Sync sources share a scheduled boundary and master speed propagates without early fade-out", async () => {
+  const h = harness(), { engine, context } = h;
+  engine.setDeck(1, { bpm: 90 }); engine.setDeck(2, { bpm: 180 });
+  engine.setSyncEnabled(true); await engine.arm(); engine.playAll();
+  assert.equal(h.sources.length, 8); assert.equal(new Set(h.sources.map(source => source.startTime)).size, 1);
+  near(h.sources[0].startTime, 5.016); context.currentTime = 5.2; assertSynced(engine);
+  const old = engine.decks[1].source; engine.setDeck(0, { rate: 1.1 });
+  const when = engine.decks[1].source.source.startTime;
+  assert.ok(when > context.currentTime); near(old.source.stopTime, when + 0.008);
+  for (let i = 1; i < 8; i++) near(engine.decks[i].source.source.startTime, when);
+  context.currentTime = 5.4; assertSynced(engine);
+  const replaced = engine.decks[2].source;
+  await engine.loadFile(2, file());
+  near(replaced.source.stopTime, engine.decks[2].source.source.startTime + 0.008);
+  context.currentTime += 0.05; assertSynced(engine);
+  engine.beginScratch(1); context.currentTime += 0.05; engine.scratchTo(1, 2.123); engine.endScratch(1);
+  context.currentTime += 0.05; assertSynced(engine);
+  await engine.setAudioEnabled(false); h.setWall(100.7); assertSynced(engine);
+  await engine.arm(); context.currentTime += 0.05; assertSynced(engine);
+  await engine.dispose();
+});
+
+test("Wobblini half-beat loops lock subdivisions and incompatible clipped loops report their limitation", async () => {
+  const h = harness(), { engine } = h; engine.setSyncEnabled(true); engine.playAll();
+  engine.setLoop(0, 0.5); h.setWall(101.23); assertSynced(engine);
+  assert.equal(engine.getDeckState(1).syncBeatPeriod, 0.5);
+  engine.setLoop(0, 16); engine.setLoop(1, 0.5); h.setWall(102.617); assertSynced(engine);
+  h.engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(1.17) });
+  await engine.loadFile(0, file()); engine.setLoop(0, 4);
+  assert.match(engine.getDeckState(1).syncError, /Deck 1's clipped loop/);
+  assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
+  engine.setLoop(0, 1); assertSynced(engine);
+  await engine.dispose();
+});
+
+test("Wobblini decoded master and follower loops use their source sample rates for native Sync and snapshots", async () => {
+  for (const sampleRate of [32000, 48000]) for (const masterBeats of [0.5, 16]) {
+    const followerBeats = masterBeats === 16 ? 0.5 : 16;
+    const durations = [masterBeats, followerBeats].map(beats => beats * 0.5 - 1 / sampleRate);
+    const h = harness({ decodeContextFactory: () => ({ decodeAudioData: async () => buffer(durations.shift(), sampleRate, 1) }) });
+    const { engine, context } = h;
+    await engine.loadFile(0, file()); await engine.loadFile(1, file());
+    engine.setLoop(0, masterBeats); engine.setLoop(1, followerBeats);
+    engine.setSyncEnabled(true); assert.equal(h.creates, 0);
+    await engine.arm(); engine.playAll(); context.currentTime += 0.05;
+    assertSynced(engine);
+    assert.equal(engine.getState().decks[1].syncBeatPeriod, 0.5);
+    for (const id of [0, 1]) {
+      const deck = engine.decks[id], source = deck.source.source;
+      assert.equal(source.buffer.sampleRate, sampleRate); assert.equal(source.loop, true);
+      near(source.loopEnd, deck.buffer.duration); near(source.startTime, 5.016);
+      near(engine.getDeckState(id).position, source.offset + (context.currentTime - source.startTime) * source.playbackRate.value);
+    }
+    engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(followerBeats * 0.5 - 2 / sampleRate, sampleRate, 1) });
+    await engine.loadFile(1, file()); engine.setLoop(1, followerBeats);
+    assert.match(engine.getDeckState(1).syncError, /This clipped loop/);
+    assert.equal(engine.getDeckState(1).syncActive, false); assert.equal(engine.getDeckState(1).playing, true);
+    engine.decodeContextFactory = () => ({ decodeAudioData: async () => buffer(masterBeats * 0.5 - 2 / sampleRate, sampleRate, 1) });
+    await engine.loadFile(0, file()); engine.setLoop(0, masterBeats);
+    for (const deck of engine.getState().decks.slice(1)) assert.match(deck.syncError, /Deck 1's clipped loop/);
+    await engine.dispose();
+  }
+});
+
+
+test("Wobblini master edits before a scheduled launch retain exact native and model timing", async () => {
+  const h = harness(), { engine, context } = h;
+  await engine.arm(); engine.setSyncEnabled(true); engine.playAll();
+  const launch = engine.decks[0].source.source.startTime;
+  context.currentTime += 0.004; engine.setDeck(0, { rate: 1.2 });
+  context.currentTime += 0.003; engine.setDeck(0, { bpm: 150 });
+  const masterSource = engine.decks[0].source.source;
+  near(masterSource.startTime, launch); near(engine.decks[0].state.anchorTime, launch);
+  for (const deck of engine.decks) near(deck.source.source.startTime, launch);
+  context.currentTime = launch + 0.1;
+  near(engine.getDeckState(0).position, masterSource.offset + 0.1 * masterSource.playbackRate.value);
+  assertSynced(engine); await engine.dispose();
+});
+
+test("Wobblini full snapshots project every phase from one shared clock read", async () => {
+  let wall = 100, calls = 0;
+  const h = harness({ now: () => { calls++; wall += 0.001; return wall; } });
+  h.engine.setSyncEnabled(true); h.engine.playAll();
+  calls = 0; const snapshot = h.engine.getState(); assert.equal(calls, 1);
+  for (const deck of snapshot.decks.slice(1)) {
+    const error = Math.abs(deck.beatPhase - snapshot.decks[0].beatPhase);
+    assert.ok(Math.min(error, 1 - error) < 1e-7);
+  }
+  await h.engine.dispose();
+});

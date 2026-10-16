@@ -15,6 +15,19 @@ async function attachJSON(testInfo, name, value) {
   await testInfo.attach(name, { path, contentType: "application/json" });
 }
 
+async function unlockFiles(page) {
+  if (await page.locator("#fileAccess").getAttribute("aria-pressed") !== "true") await page.locator("#fileAccess").tap();
+}
+
+async function openSettings(page, deck = 0) {
+  const button = page.locator(`#d${deck}Edit`);
+  await button.scrollIntoViewIfNeeded();
+  const box = await button.boundingBox();
+  await button.tap({ position: { x: box.width * 0.7, y: box.height * 0.3 } });
+  await expect(page.locator("#deckSettings")).toBeVisible();
+  await expect(page.locator("#deckSettingsTitle")).toHaveText(`Deck ${deck + 1}`);
+}
+
 function diagnostics(page) {
   const errors = [];
   page.on("pageerror", (error) => errors.push(error.message));
@@ -67,76 +80,118 @@ function wave({ seconds = 8, sampleRate = 24000 } = {}) {
 }
 
 async function loadTone(page) {
+  await unlockFiles(page);
   await page.locator("#d0File").setInputFiles({ name: "Mobile QA tone.wav", mimeType: "audio/wav", buffer: wave() });
   await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
   await expect.poll(async () => (await state(page)).decks[0].loading).toBe(false);
 }
 
-test("small phone layouts retain circular decks, native touch focus, and explicit Audio", async ({ page }, testInfo) => {
-  const errors = diagnostics(page);
-  await ready(page);
+test("small phone gears open usable track controls while records retain center play and touch scratching", async ({ page }, testInfo) => {
+  const errors = diagnostics(page); await ready(page);
   const capabilities = await page.evaluate(() => ({
-    userAgent: navigator.userAgent,
-    viewport: { width: innerWidth, height: innerHeight },
-    coarse: matchMedia("(pointer: coarse)").matches,
-    reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
-    audioWorklet: typeof AudioWorkletNode === "function",
-    dialog: typeof HTMLDialogElement.prototype.showModal === "function",
-    midi: typeof navigator.requestMIDIAccess === "function",
-    outputSelection: typeof AudioContext.prototype.setSinkId === "function",
+    userAgent: navigator.userAgent, viewport: { width: innerWidth, height: innerHeight },
+    coarse: matchMedia("(pointer: coarse)").matches, reducedMotion: matchMedia("(prefers-reduced-motion: reduce)").matches,
+    audioWorklet: typeof AudioWorkletNode === "function", dialog: typeof HTMLDialogElement.prototype.showModal === "function",
   }));
   await attachJSON(testInfo, "mobile-capabilities.json", capabilities);
-  expect(capabilities.coarse).toBe(true);
-  expect(capabilities.reducedMotion).toBe(true);
+  expect(capabilities.coarse).toBe(true); expect(capabilities.reducedMotion).toBe(true);
+  // A rotated square has its widest bounds at 45 degrees, even when its
+  // visible artwork is circular. Exercise that angle while transport is idle.
+  const rotated = await page.locator(".wb-record-surface").evaluateAll((surfaces) => {
+    const original = surfaces.map((node) => node.getAttribute("style"));
+    try {
+      for (const node of surfaces) {
+        // The shared reduced-motion rule still leaves a tiny transition.
+        node.style.setProperty("transition", "none", "important");
+        node.style.setProperty("--record-angle", "45deg");
+      }
+      return {
+        viewportWidth: innerWidth, scrollWidth: document.documentElement.scrollWidth,
+        cosines: surfaces.map((node) => new DOMMatrix(getComputedStyle(node).transform).a),
+      };
+    } finally {
+      surfaces.forEach((node, i) => original[i] === null ? node.removeAttribute("style") : node.setAttribute("style", original[i]));
+    }
+  });
+  expect(rotated.cosines).toHaveLength(8);
+  for (const cosine of rotated.cosines) expect(cosine).toBeCloseTo(Math.SQRT1_2, 3);
+  expect(rotated.scrollWidth, "rotating records must not widen the phone page").toBeLessThanOrEqual(rotated.viewportWidth);
   await expect(page.locator("#master-bpm")).toHaveAccessibleName("Master BPM");
   for (const selector of ["#audioButton", "#playButton"]) {
     const box = await page.locator(selector).boundingBox();
     expect(box.width).toBeGreaterThanOrEqual(48); expect(box.height).toBeGreaterThanOrEqual(48);
   }
   for (let i = 0; i < 8; i++) {
-    const platter = page.locator(`#d${i}Platter`);
-    await platter.scrollIntoViewIfNeeded();
-    const box = await platter.boundingBox();
-    expect(Math.abs(box.width - box.height)).toBeLessThan(2);
+    const platter = page.locator(`#d${i}Platter`); await page.locator(`#deck${i}`).scrollIntoViewIfNeeded();
+    const box = await platter.boundingBox(); expect(Math.abs(box.width - box.height)).toBeLessThan(2);
     await expect(platter).toHaveAccessibleName(`Scratch deck ${i + 1}`);
-    const badge = page.locator(`#deck${i} .wb-deck-number`);
-    await expect(badge).toHaveText(String(i + 1));
-    const badgeLayout = await badge.evaluate((node) => {
-      const box = node.getBoundingClientRect();
-      const overlaps = [...node.parentElement.querySelectorAll(".wb-disc, button, input, select")].filter((control) => {
-        const other = control.getBoundingClientRect();
-        return other.width > 0 && other.height > 0 && getComputedStyle(control).visibility !== "hidden"
-          && box.left < other.right && box.right > other.left && box.top < other.bottom && box.bottom > other.top;
-      }).map((control) => control.id);
-      return { x: box.x, y: box.y, right: box.right, bottom: box.bottom, width: innerWidth, height: innerHeight, overlaps };
+    const geometry = await page.locator(`#deck${i}`).evaluate((tile) => {
+      const disc = tile.querySelector(".wb-disc"), circle = disc.getBoundingClientRect();
+      return {
+        controls: ["Edit", "Play"].map((action) => {
+          const button = document.getElementById(`d${tile.dataset.deck}${action}`), box = button.getBoundingClientRect();
+          const x = action === "Edit" ? 0.7 : 0.5, y = action === "Edit" ? 0.3 : 0.5;
+          return { action, width: box.width, height: box.height, hit: button.contains(document.elementFromPoint(box.left + box.width * x, box.top + box.height * y)) };
+        }),
+        circleHits: Array.from({ length: 8 }, (_, j) => {
+          const angle = j / 8 * Math.PI * 2;
+          return disc.contains(document.elementFromPoint(circle.left + circle.width * (0.5 + 0.49 * Math.cos(angle)), circle.top + circle.height * (0.5 + 0.49 * Math.sin(angle))));
+        }),
+      };
     });
-    expect(badgeLayout.x).toBeGreaterThanOrEqual(0);
-    expect(badgeLayout.right).toBeLessThanOrEqual(badgeLayout.width);
-    expect(badgeLayout.y).toBeGreaterThanOrEqual(0);
-    expect(badgeLayout.bottom).toBeLessThanOrEqual(badgeLayout.height);
-    expect(badgeLayout.overlaps, "deck number stays clear of the platter and its controls").toEqual([]);
+    expect(geometry.circleHits, "gear does not steal the scratch circumference").toEqual(Array(8).fill(true));
+    for (const control of geometry.controls) {
+      expect(control.width, control.action).toBeGreaterThanOrEqual(48); expect(control.height, control.action).toBeGreaterThanOrEqual(48);
+      expect(control.hit, `${control.action} owns its visible target`).toBe(true);
+    }
+    await expect(page.locator(`#deck${i} .wb-deck-number`)).toHaveText(String(i + 1));
+    await expect(page.locator(`#d${i}Edit`)).toHaveAttribute("aria-haspopup", "dialog");
   }
-  const platter = page.locator("#d0Platter");
-  await platter.scrollIntoViewIfNeeded();
+  const platter = page.locator("#d0Platter"); await platter.scrollIntoViewIfNeeded();
   await platter.evaluate((node) => node.addEventListener("pointerdown", (event) => { node.dataset.testPointerType = event.pointerType; }, { once: true }));
-  await platter.tap({ position: { x: 16, y: 60 } });
-  await expect(platter).toBeFocused();
-  await expect(platter).toHaveAttribute("data-test-pointer-type", "touch");
+  const touchBox = await platter.boundingBox();
+  await platter.tap({ position: { x: touchBox.width * 0.85, y: touchBox.height * 0.5 } });
+  await expect(platter).toBeFocused(); await expect(platter).toHaveAttribute("data-test-pointer-type", "touch");
   expect((await state(page)).decks.some((deck) => deck.scratching || deck.playing)).toBe(false);
-  expect((await state(page)).armed).toBe(false);
+  await openSettings(page);
+  await expect(page.locator("#settingsLoad")).toBeDisabled(); await expect(page.locator("#settingsSync")).toBeDisabled();
+  await expect(page.locator("#closeDeckSettings")).toBeFocused();
+  const layout = await page.locator("#deckSettings").evaluate((node) => {
+    const r = node.getBoundingClientRect();
+    return { x: r.x, y: r.y, right: r.right, bottom: r.bottom, width: innerWidth, height: innerHeight, scrollWidth: node.scrollWidth, clientWidth: node.clientWidth };
+  });
+  expect(layout.x).toBeGreaterThanOrEqual(0); expect(layout.y).toBeGreaterThanOrEqual(0);
+  expect(layout.right).toBeLessThanOrEqual(layout.width); expect(layout.bottom).toBeLessThanOrEqual(layout.height);
+  expect(layout.scrollWidth).toBeLessThanOrEqual(layout.clientWidth + 1);
+  for (const id of ["settingsSpeed", "settingsVolume"]) {
+    const box = await page.locator(`#${id}Knob`).boundingBox();
+    expect(box.width).toBeGreaterThanOrEqual(88); expect(box.height).toBeGreaterThanOrEqual(88);
+  }
+  await page.screenshot({ path: testInfo.outputPath("phone-popup.png") });
+  await page.keyboard.press("Escape"); await expect(page.locator("#deckSettings")).toBeHidden();
+  await expect(page.locator("#d0Edit")).toBeFocused();
+  await unlockFiles(page); await openSettings(page);
+  const chooserEvent = page.waitForEvent("filechooser"); await page.locator("#settingsLoad").tap();
+  await (await chooserEvent).setFiles({ name: "Phone popup.wav", mimeType: "audio/wav", buffer: wave() });
+  await expect.poll(async () => (await state(page)).decks[0].kind).toBe("file");
+  await setRange(page, "#settingsVolume", 0.4); await setRange(page, "#settingsSpeed", 1.2);
+  expect((await state(page)).decks[0].gain).toBe(0.4); expect((await state(page)).decks[0].rate).toBe(1.2);
+  await page.locator("#settingsSpeedReset").tap(); expect((await state(page)).decks[0].rate).toBe(1);
+  await page.locator("#settingsLoopLength").selectOption("4"); await page.locator("#closeDeckSettings").tap();
+  await expect(page.locator("#d0LoopLength")).toHaveText("4 beats");
+  await expect(page.locator("#d0LoopIn")).toBeVisible(); await expect(page.locator("#d0LoopOut")).toBeVisible();
+  await page.locator("#d0Play").tap(); await expect.poll(async () => (await state(page)).decks[0].position).toBeGreaterThan(0.1);
+  await openSettings(page); await page.locator(".wb-settings-grid summary").tap(); await page.locator("#settingsCue").tap();
+  expect((await state(page)).decks[0].playing).toBe(false); expect((await state(page)).decks[0].position).toBe(0);
+  await page.locator("#closeDeckSettings").tap(); await openSettings(page, 1);
+  await expect(page.locator("#settingsSync")).toBeEnabled(); await expect(page.locator("#deckSettings")).toHaveCount(1);
+  const dialog = await page.locator("#deckSettings").boundingBox(); await page.touchscreen.tap(dialog.x - 5, dialog.y + 10);
+  await expect(page.locator("#deckSettings")).toBeHidden();
+  expect((await state(page)).armed).toBe(false); expect((await readAudioStatus(page)).connectionCount).toBe(0);
   for (const view of ["records", "tiny", "full"]) {
     await page.locator(`#${view}View`).tap();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true);
-    // Offscreen drawing is deliberately deferred. Visit each row before a full
-    // page artifact so its cached waveform has actually been painted.
-    for (let i = 0; i < 8; i++) {
-      await page.locator(`#deck${i}`).scrollIntoViewIfNeeded();
-      await page.waitForTimeout(80);
-    }
-    if (view !== "records") { await page.locator("#wobble-pad").scrollIntoViewIfNeeded(); await page.waitForTimeout(80); }
-    await page.evaluate(() => scrollTo(0, 0));
-    await page.waitForTimeout(80);
-    await page.screenshot({ path: testInfo.outputPath(`wobblini-${view}-${capabilities.viewport.width}.png`), fullPage: true });
+    await page.screenshot({ path: testInfo.outputPath(`phone-${view}.png`), fullPage: true });
   }
   expect(errors).toEqual([]);
 });
@@ -155,7 +210,7 @@ test("phone canvases cap resolution, reuse paused drawings, and skip offscreen d
   const profile = await state(page);
   expect(profile.resourceProfile).toBe("constrained");
   expect(profile.limits).toEqual({ fileBytes: 16 * 1024 * 1024, deckBytes: 16 * 1024 * 1024, bufferBytes: 64 * 1024 * 1024, decodeSampleRate: 32000 });
-  const resolution = await page.locator("#d0RecordWave").evaluate((canvas) => ({ backing: canvas.width, css: canvas.getBoundingClientRect().width, dpr: devicePixelRatio }));
+  const resolution = await page.locator("#d0RecordWave").evaluate((canvas) => ({ backing: canvas.width, css: canvas.clientWidth, dpr: devicePixelRatio }));
   expect(resolution.dpr).toBe(2);
   expect(Math.abs(resolution.backing - resolution.css)).toBeLessThanOrEqual(1);
   await page.waitForTimeout(250);
@@ -165,13 +220,15 @@ test("phone canvases cap resolution, reuse paused drawings, and skip offscreen d
   await page.locator("#playButton").tap();
   await page.waitForTimeout(150);
   const before = await page.evaluate(() => ({ ...window.testCanvasPaints }));
-  const needle = await page.locator("#deck0 .wb-disc-needle").evaluate((node) => node.style.getPropertyValue("--disc-angle"));
+  const needle = await page.locator("#deck0 .wb-disc-needle").evaluate((node) => getComputedStyle(node).transform);
+  const surface = await page.locator("#deck0 .wb-record-surface").evaluate((node) => node.style.getPropertyValue("--record-angle"));
   await page.waitForTimeout(600);
   const after = await page.evaluate(() => ({ ...window.testCanvasPaints }));
   expect(after.d0RecordWave).toBeGreaterThan(before.d0RecordWave);
   expect(after.d7RecordWave || 0).toBe(before.d7RecordWave || 0);
   expect(after.d0RecordWave - before.d0RecordWave).toBeLessThanOrEqual(28); // two clears per painted frame, 20 Hz budget
-  expect(await page.locator("#deck0 .wb-disc-needle").evaluate((node) => node.style.getPropertyValue("--disc-angle"))).toBe(needle);
+  expect(await page.locator("#deck0 .wb-disc-needle").evaluate((node) => getComputedStyle(node).transform)).toBe(needle);
+  expect(await page.locator("#deck0 .wb-record-surface").evaluate((node) => node.style.getPropertyValue("--record-angle"))).toBe(surface);
   await page.locator("#d7Platter").scrollIntoViewIfNeeded();
   await expect.poll(() => page.evaluate(() => window.testCanvasPaints.d7RecordWave || 0)).toBeGreaterThan(after.d7RecordWave || 0);
   expect((await state(page)).armed).toBe(false);
@@ -212,6 +269,7 @@ test("phone WAV import, native tempo focus, and crossfade change real output", a
     const decode = OfflineAudioContext.prototype.decodeAudioData;
     OfflineAudioContext.prototype.decodeAudioData = function (...args) { window.testDecodeCount++; return decode.apply(this, args); };
   });
+  await unlockFiles(page);
   await page.locator("#d0File").setInputFiles({ name: "Long mobile clip.wav", mimeType: "audio/wav", buffer: wave({ seconds: 132, sampleRate: 8000 }) });
   await expect(page.locator("#errorMessage")).toContainText("too long for the current import budget", { timeout: 15000 });
   expect((await state(page)).decks[0].kind).toBe("demo");

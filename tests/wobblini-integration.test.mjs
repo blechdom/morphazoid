@@ -33,11 +33,24 @@ test('Wobblini registers an eight-deck local-audio MVP with explicit Audio and c
     noteMode: 'processor', audioInput: false, midiOutput: false,
     startsAudio: false, computerKeyboardMode: 'page',
   });
-  assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href).map(({ selector, mapping }) => ({ selector, mapping })), [
-    { selector: '#master-bpm', mapping: { unit: 'bpm' } },
-    { selector: '.deck-bpm', mapping: { unit: 'bpm' } },
-    ...Array.from({ length: 8 }, (_, index) => ({ selector: `#d${index}Rate`, mapping: { unit: 'multiplier', referenceSelector: `#d${index}Bpm` } })),
-  ]);
+  assert.deepEqual(TAP_TEMPO_TARGETS.filter(target => target.route === item.href), [], 'Wobblini explicitly opts out of Tap controls');
+});
+
+test('Wobblini Tap opt-out preserves every preceding route registration and records the exception', async () => {
+  assert.deepEqual(wobbliniSiteChanges.unchanged.map(({ file }) => file), ['src/site/tap-tempo-targets.js']);
+  for (const { file, sha256 } of wobbliniSiteChanges.unchanged) {
+    const source = restoreWipRolloutSite(await readFile(new URL(file, root), 'utf8'), file);
+    assert.equal(digest(source), sha256, file);
+    assert.equal(restoreWobbliniSite(source, file), source, 'no amendments remain to reverse');
+    const drift = '\n// unrelated drift\n';
+    assert.equal(restoreWobbliniSite(source + drift, file), source + drift);
+    assert.notEqual(digest(restoreWobbliniSite(source + drift, file)), sha256, 'unrelated drift remains detectable');
+  }
+  const inventory = JSON.parse(await readFile(new URL('docs/tap-tempo-controls.json', root), 'utf8'));
+  assert.deepEqual(inventory.confirmed.filter(({ route }) => route === 'wobblini'), []);
+  const exceptions = inventory.excluded.filter(({ route }) => route === 'wobblini');
+  assert.equal(exceptions.length, 1);
+  assert.match(exceptions[0].reason, /explicit instrument design request removes Tap tempo/i);
 });
 
 test('Wobblini has real original artwork, an incoming fallback route, and required runtime assets', async () => {

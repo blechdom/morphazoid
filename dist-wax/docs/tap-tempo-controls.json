@@ -1,100 +1,6 @@
 {
   "confirmed": [
     {
-      "route": "wobblini",
-      "selector": "#d0Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d0Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d1Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d1Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d2Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d2Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d3Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d3Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d4Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d4Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d5Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d5Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d6Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d6Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#d7Rate",
-      "mapping": {
-        "unit": "multiplier",
-        "referenceSelector": "#d7Bpm"
-      },
-      "note": "Effective playback BPM relative to this deck\u2019s source BPM; retains the native rate bounds and events.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
-      "route": "wobblini",
-      "selector": "#master-bpm",
-      "mapping": { "unit": "bpm" },
-      "note": "Master tempo in BPM; transport and Audio remain independent.",
-      "source": "src/pages/wobblini.html"
-    },
-    {
-      "route": "wobblini",
-      "selector": ".deck-bpm",
-      "mapping": { "unit": "bpm" },
-      "note": "Source BPM metadata for each local deck; does not detect beats or arm Audio.",
-      "source": "src/instruments/wobblini/wobblini-app.js"
-    },
-    {
       "route": "fractal-delay",
       "selector": "#realMotionTempo",
       "mapping": { "unit": "bpm" },
@@ -2239,6 +2145,12 @@
     }
   ],
   "excluded": [
+    {
+      "route": "wobblini",
+      "selector": "#master-bpm, .deck-bpm, #d0Rate, #d1Rate, #d2Rate, #d3Rate, #d4Rate, #d5Rate, #d6Rate, #d7Rate",
+      "reason": "Explicit instrument design request removes Tap tempo controls; tempo is entered directly and Sync follows Deck 1.",
+      "source": "src/instruments/wobblini/wobblini-app.js"
+    },
     {
       "route": "lattice",
       "id": "shepardCycles",
