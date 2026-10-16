@@ -58,6 +58,22 @@ function mountBlechMidi() {
     return dropStage.send();
   }
   function configureLayer(id, patch) { const source = spigots?.bySample(id); return source ? spigots.configure(source.id, patch) : engine.configureSample(id, patch); }
+  function reflectLayerSelection() {
+    for (const node of layerNodes.values()) {
+      const selected = Boolean(selectedSpigot && node.dataset.spigotId === selectedSpigot);
+      node.dataset.selected = String(selected);
+      node.querySelector('[data-layer-name]').setAttribute('aria-pressed', String(selected));
+    }
+  }
+  function selectLayer(id, sampleId) {
+    let source = spigots?.getLayers().find(layer => layer.id === id);
+    if (!source && sampleId != null) {
+      const text = performanceView?.getTextLayer(sampleId);
+      source = spigots?.adoptSample(sampleId, text ? { textSettings: text.settings } : undefined);
+    }
+    if (!source) return;
+    spigotView?.setMode('select'); spigotView?.select(source.id);
+  }
   function reflectLayers(state) {
     const sourceLayers = spigots?.getLayers() ?? [];
     const closed = sourceLayers.filter(source => !source.active && source.lastSample).map(source => ({ ...source.lastSample, ...source.settings, id: source.sampleId, analysis: source.score.analysis, name: source.name, paused: true, closed: true, pending: false, pendingReplacement: null }));
@@ -73,17 +89,21 @@ function mountBlechMidi() {
       let node = layerNodes.get(sample.id);
       if (!node) {
         node = document.createElement('div'); node.className = 'blech-live-layer'; node.dataset.sampleId = sample.id;
-        node.innerHTML = `<div class="blech-layer-copy"><span data-layer-name></span><small data-layer-status class="sr-only"></small><div class="blech-layer-timeline"><canvas width="256" height="12" aria-label="Note activity across this layer"></canvas><i></i></div></div>
+        node.innerHTML = `<div class="blech-layer-copy"><button type="button" data-layer-name data-layer-select aria-pressed="false"></button><small data-layer-status class="sr-only"></small><div class="blech-layer-timeline"><canvas width="256" height="12" aria-label="Note activity across this layer"></canvas><i></i></div></div>
           <button type="button" data-layer-pause></button>
           <button type="button" data-layer-mute aria-pressed="false">M</button>
           <button type="button" data-layer-solo aria-pressed="false">S</button>
           <label class="blech-layer-loop" title="Loop this layer; turn off to finish this pass"><input type="checkbox" data-layer-loop><span aria-hidden="true">↻</span></label>
-          <label class="blech-layer-dial"><span>Vol</span><input type="range" min="0" max="1" step=".01" data-layer-gain><output class="sr-only" data-layer-gain-out></output></label>
-          <label class="blech-layer-channel"><span>Ch</span><select data-layer-channel><option value="">Orig</option>${Array.from({ length: 16 }, (_, i) => `<option value="${i}">${i + 1}${i === 9 ? ' D' : ''}</option>`).join('')}</select></label>
-          <label class="blech-layer-dial"><span>Pan</span><input type="range" min="-1" max="1" step=".01" value="0" data-layer-pan><output class="sr-only" data-layer-pan-out></output></label>
+          <label class="blech-layer-dial" title="Layer volume"><span class="sr-only">Volume</span><input type="range" min="0" max="1" step=".01" data-layer-gain><output class="sr-only" data-layer-gain-out></output></label>
+          <label class="blech-layer-channel" title="MIDI channel"><span class="sr-only">MIDI channel</span><select data-layer-channel><option value="">Orig</option>${Array.from({ length: 16 }, (_, i) => `<option value="${i}">${i + 1}${i === 9 ? ' D' : ''}</option>`).join('')}</select></label>
+          <label class="blech-layer-dial" title="Stereo pan"><span class="sr-only">Pan</span><input type="range" min="-1" max="1" step=".01" value="0" data-layer-pan><output class="sr-only" data-layer-pan-out></output></label>
           <button type="button" data-layer-stop title="Remove this layer">×</button>`;
         node.setAttribute('role', 'group');
         const control = key => node.querySelector(`[data-layer-${key}]`);
+        control('name').addEventListener('click', () => selectLayer(node.dataset.spigotId, sample.id));
+        node.addEventListener('click', event => {
+          if (!event.target.closest('button, input, select, label, a, [role="slider"]')) selectLayer(node.dataset.spigotId, sample.id);
+        });
         control('loop').addEventListener('change', event => { const source = spigots?.bySample(sample.id); if (source) spigots.loop(source.id, event.target.checked); else engine.configureSample(sample.id, { loop: event.target.checked }); });
         control('pause').addEventListener('click', () => {
           masterPause?.samples.delete(sample.id);
@@ -101,7 +121,10 @@ function mountBlechMidi() {
         control('channel').addEventListener('change', event => configureLayer(sample.id, { channel: event.target.value === '' ? null : Number(event.target.value) }));
         layerNodes.set(sample.id, node); $('blechLiveLayers').append(node);
       }
+      const source = spigots?.bySample(sample.id);
+      node.dataset.spigotId = source?.id ?? '';
       const name = `${sample.name || 'Pattern'} · ${sample.id}`;
+      node.querySelector('[data-layer-name]').setAttribute('aria-label', `Select ${name}`);
       field(node.querySelector('[data-layer-name]'), name); node.querySelector('[data-layer-name]').title = name;
       node.setAttribute('aria-label', name);
       node.querySelector('[data-layer-loop]').setAttribute('aria-label', `Loop ${name}`);
@@ -148,6 +171,7 @@ function mountBlechMidi() {
       field(node.querySelector('[data-layer-status]'), `${stateLabel} · ${channel} · ${program}`);
       node.querySelector('[data-layer-name]').title = `${name} · ${stateLabel} · ${channel} · ${program}`;
     }
+    reflectLayerSelection();
     $('blechLayersEmpty').hidden = Boolean(state.samples.length);
     const toggle = $('blechAutomataToggle');
     automataSeen ||= Boolean(state.automata?.playing);
@@ -256,6 +280,7 @@ function mountBlechMidi() {
     getView: () => ({ alignment: document.querySelector('[data-alignment]')?.value, lookAhead: Number(document.querySelector('[data-look]')?.value ?? 6), keyboardPosition: Number(document.querySelector('[data-present]')?.value ?? 60) / 100 }),
     onDrop: (score, options) => {
       const sent = spigots.create(dropStage.getSourceScore() ?? score, options);
+      if (sent) { spigotView?.setMode('select'); spigotView?.select(sent.id); }
       if (sent && activeKey() === 'drawing') { revokeDownload(); downloadUrl = URL.createObjectURL(new Blob([sent.buffer], { type: 'audio/midi' })); $('downloadDrawingMidi').href = downloadUrl; $('downloadDrawingMidi').hidden = false; }
       reflect(); return sent;
     },
@@ -277,7 +302,7 @@ function mountBlechMidi() {
     onBrushMove: (id, point) => spigots.brushMove(id, point),
     onBrushEnd: (id, options) => spigots.brushEnd(id, options),
     onModeChange: mode => dropStage.suspendInteractions(Boolean(selectedSpigot) || mode !== 'select'),
-    onSelectionChange: id => { selectedSpigot = id; dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
+    onSelectionChange: id => { selectedSpigot = id; reflectLayerSelection(); dropStage.suspendInteractions(Boolean(id) || spigotView?.getMode() !== 'select'); },
   });
   on($('midiVisualizerTools'), 'input', () => { dropStage.refresh(); spigotView.refresh(); });
   stampPicker = mountBlechStampPicker($('blechStampPicker'), { entries: performanceView.getStamps(), selectedId: 'heart', onSelect: id => { void performanceView.prepareStamp(id).then(() => { if (!disposed) stampPicker.update(performanceView.getStamps()); }).catch(error => field($('creativeStatus'), error.message)); } });
@@ -318,6 +343,7 @@ function mountBlechMidi() {
   const tabs = [...document.querySelectorAll('[data-blech-tab]')];
   const frameTabs = [...document.querySelectorAll('[data-frame-tab]')];
   function activateFrame(name, focus = false) {
+    spigotView?.select(null);
     frameMode = name;
     for (const tab of frameTabs) { const active = tab.dataset.frameTab === name; tab.setAttribute('aria-selected', String(active)); tab.tabIndex = active ? 0 : -1; }
     for (const id of ['stamps', 'drawing', 'art', 'sequence']) $('blechPanel-' + id).hidden = id !== (name === 'scripts' ? 'art' : name);
@@ -331,6 +357,7 @@ function mountBlechMidi() {
     showPrepared(name);
   }
   function activateTab(name, focus = false) {
+    if (!['sound', 'visuals'].includes(name)) spigotView?.select(null);
     if (['stamps', 'drawing', 'art', 'scripts', 'sequence'].includes(name)) { activateTab('frames'); activateFrame(name, focus); return; }
     const selected = tabs.find(tab => tab.dataset.blechTab === name) ?? tabs[0]; name = selected.dataset.blechTab;
     for (const tab of tabs) {

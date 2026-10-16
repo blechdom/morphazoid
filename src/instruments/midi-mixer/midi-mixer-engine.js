@@ -4,7 +4,7 @@ import { connectAudioOutput } from '../../audio-output-manager.js';
 import { parseMidi, clamp, defaultDeckConfig, sanitizeDeckConfig, loopLength, loopBounds, deckPosition, defaultWeaveConfig, sanitizeWeaveConfig, weavePosition, MIDI_SAMPLE_LIMITS, MAX_MIDI_MIXER_TEMPO } from './midi-mixer-model.js';
 import { sanitizeMidiParameters, sanitizeMidiSynthEffects, mergeMidiParameters } from './midi-mixer-parameters.js';
 import { reverseMidiAnalysis, buildMidiStateHistories, getMidiNoteGates, midiStateMessages } from './midi-mixer-reverse.js';
-import { compileSampleTempoMap, advanceSampleTiming, sampleReplacementBoundary, sampleTempoAt, sampleSecondsAt } from './midi-mixer-clock.js';
+import { compileSampleTempoMap, advanceSampleTiming, liveSampleReplacementTiming, sampleReplacementBoundary, sampleTempoAt, sampleSecondsAt } from './midi-mixer-clock.js';
 import { transformMidiStamp } from './midi-mixer-score-transform.js';
 import { MidiAutomataClock, captureAutomataMidi } from './midi-mixer-automata.js';
 export { MIDI_SAMPLE_LIMITS } from './midi-mixer-model.js';
@@ -181,7 +181,7 @@ export class MidiMixerEngine {
     const timing = advanceSampleTiming(sample.timing, sample.compiled, sample, Math.max(0, beat - sample.timingBeat), Math.max(0, seconds - sample.timingTime));
     this._countSampleNotes(sample, timing); return timing;
   }
-  _applySampleReplacement(sample, replacement, beat, seconds, pendingBeats = 0, cycle = sample.timing.cycle) {
+  _applySampleReplacement(sample, replacement, beat, seconds, pendingBeats = 0, cycle = sample.timing.cycle, liveTiming = null) {
     this._countSampleNotes(sample, cycle > sample.timing.cycle
       ? { positionBeats: sample.analysis.durationBeats, cycle: cycle - 1, pendingBeats: 0 }
       : sample.timing);
@@ -196,9 +196,17 @@ export class MidiMixerEngine {
     if (replacement.sourceBuffer) this._sampleBuffers.set(sample, replacement.sourceBuffer);
     sample.analysis = replacement.analysis; sample.compiled = replacement.compiled; sample.name = replacement.name;
     sample.scoreVersion = sample.scoreRevision = replacement.token; sample.replacedAt = seconds; sample.replacedEpoch = sample.playbackEpoch; sample.pendingReplacement = null;
-    sample.playbackEpoch++; sample.resumedPositionBeats = 0; sample.resumedCycle = cycle;
-    sample.timing = { positionBeats: 0, cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false }; sample.timingBeat = beat; sample.timingTime = seconds;
-    this._sampleNoteLedger.set(sample, { firstCycle: cycle, counted: 0 });
+    sample.timing = liveTiming ?? { positionBeats: 0, cycle, pendingBeats: Math.max(pendingBeats, replacement.delayBeats ?? 0), ended: false }; sample.timingBeat = beat; sample.timingTime = seconds;
+    sample.delayBeats = replacement.delayBeats ?? sample.delayBeats;
+    sample.playbackEpoch++; sample.resumedPositionBeats = sample.timing.positionBeats; sample.resumedCycle = sample.timing.cycle;
+    // Transformed notes before the retained phase were never newly performed.
+    // Seed their ledger without incrementing the user's generated-note count.
+    let counted = 0;
+    if (liveTiming) {
+      const starts = sample.compiled.held.start; let high = starts.length;
+      while (counted < high) { const middle = (counted + high) >>> 1; if (starts[middle] < liveTiming.positionBeats || starts[middle] === liveTiming.positionBeats && !liveTiming.pendingBeats) counted = middle + 1; else high = middle; }
+    }
+    this._sampleNoteLedger.set(sample, { firstCycle: sample.timing.cycle, counted });
   }
   // Completion metadata is display-only. Explicit stops and stolen slots never
   // enter this bounded window, so a renderer cannot turn canceled forecasts into
@@ -272,6 +280,17 @@ export class MidiMixerEngine {
     this._sampleBuffers.set(sample, sourceBuffer);
     this._samples.push(sample); this._sendSamples(); this._publish(); return this.state.samples.find(item => item.id === sample.id);
   }
+  /** A detached copy of a dropped layer's current routed score. Reading it does
+   * not retrigger, revise, or reconfigure the active sample. */
+  getSampleScore(id) {
+    if (this._disposed) return null;
+    const sample = this._samples.find(item => item.id === id);
+    if (!sample || !this.state.samples.some(item => item.id === id)) return null;
+    const source = this._sampleBuffers.get(sample); if (!source) return null;
+    const buffer = sample.channel == null ? source.slice(0) : transformMidiStamp(source, { channel: sample.channel }).buffer;
+    const analysis = parseMidi(buffer);
+    return { buffer, analysis, notes: analysis.notes, durationBeats: analysis.durationBeats, noteCount: analysis.noteCount, text: sample.name };
+  }
   replaceSample(id, buffer, { name, when = 'next-loop', delayBeats = 0 } = {}) {
     if (this._disposed) return false;
     const sample = this._samples.find(item => item.id === id); if (!sample) return false;
@@ -280,15 +299,18 @@ export class MidiMixerEngine {
     const analysis = sample.channel == null ? parseMidi(sourceBuffer) : transformMidiStamp(sourceBuffer, { channel: sample.channel }).analysis;
     if (analysis.notes.length > MIDI_SAMPLE_LIMITS.notes || analysis.events.length > MIDI_SAMPLE_LIMITS.events || analysis.channels.length > MIDI_SAMPLE_LIMITS.channels || analysis.durationBeats > MIDI_SAMPLE_LIMITS.beats) throw new Error('Use a stamp of at most 512 beats, 32,768 notes and 16 channels.');
     const compiled = compileDeck(analysis), state = this.state, timing = this._sampleTiming(sample, state.sampleBeat, state.sampleTime);
-    if (timing.ended || !sample.loop && !sample.paused && !timing.pendingBeats && timing.positionBeats > 0 && when !== 'restart') return false;
+    if (timing.ended || !sample.loop && !sample.paused && !timing.pendingBeats && timing.positionBeats > 0 && when !== 'restart' && when !== 'live') return false;
     sample.timing = timing; sample.timingBeat = state.sampleBeat; sample.timingTime = state.sampleTime;
     const previousScoreVersion = sample.scoreVersion;
     const replacement = { sourceBuffer, analysis, compiled, name: String(name ?? sample.name).slice(0, 128), token: ++sample.revision, delayBeats: clamp(delayBeats, 0, 64, 0) };
-    const immediate = when !== 'cycle-boundary' && (when === 'restart' || sample.paused || timing.pendingBeats > 0 || timing.positionBeats === 0 && timing.cycle === 0);
-    if (immediate) this._applySampleReplacement(sample, replacement, state.sampleBeat, state.sampleTime, timing.pendingBeats);
+    replacement.delayDelta = replacement.delayBeats - (sample.delayBeats ?? 0);
+    const live = when === 'live';
+    const liveTiming = live ? liveSampleReplacementTiming(timing, sample.compiled, compiled, { ...sample, delayDelta: replacement.delayDelta, tempo: this._tempo }) : null;
+    const immediate = live || when !== 'cycle-boundary' && (when === 'restart' || sample.paused || timing.pendingBeats > 0 || timing.positionBeats === 0 && timing.cycle === 0);
+    if (immediate) this._applySampleReplacement(sample, replacement, state.sampleBeat, state.sampleTime, timing.pendingBeats, timing.cycle, liveTiming);
     else sample.pendingReplacement = replacement;
     if (sample.sent) this._post({ type: 'sampleReplacement', slot: sample.slot, id: sample.id, revision: sample.revision, scoreVersion: previousScoreVersion,
-      replacement: { data: compiled, name: replacement.name, token: replacement.token, delayBeats: replacement.delayBeats }, program: sample.program, restart: immediate, defer: when === 'cycle-boundary' });
+      replacement: { data: compiled, name: replacement.name, token: replacement.token, delayBeats: replacement.delayBeats, delayDelta: replacement.delayDelta, tempo: this._tempo }, program: sample.program, live, restart: immediate, defer: when === 'cycle-boundary' });
     this._publish(); return this.state.samples.find(item => item.id === id) ?? false;
   }
   /** Grow a first-pass live drawing without releasing held notes or replaying its past.

@@ -135,7 +135,7 @@ export function createBlechLiveProjector() {
     // A frozen position plus an exact pause time can recover short gates that
     // sounded between display frames. Its score remains anchored at that time.
     const pausedSamples = availableSamples.filter(sample => sample.paused && !sample.pending && Number.isFinite(sample.pausedAt)
-      && !(sample.positionBeats === 0 && sample.replacedAt >= sample.pausedAt))
+      && !(sample.replacedAt >= sample.pausedAt && (sample.playbackEpoch ?? 0) > (sample.pausedEpoch ?? -1)))
       .map(sample => ({ ...sample, ...samplePlayback.get(playbackKey(sample)).voice }));
     const sourceList = [...activeSamples, ...pendingForecasts, ...replacementForecasts, ...pausedSamples, ...finishedSamples];
     const automata = state?.automata;
