@@ -16,6 +16,7 @@
     "src/tap-tempo.js",
     "src/output-recorder.js",
     "src/output-recorder-processor.js",
+    "src/output-recording-storage.js",
     "src/media-element-output.js",
     "src/midi-note-effects.js",
     "src/midi-note-effects-controls.js",
@@ -27,6 +28,7 @@
     "Keep shared audio/MIDI runtime utilities and the WASM engine/toolchain in their existing directories.",
     "Retain the shared MIDI note-effects scheduler and its editor at src/: Midiophilia, MIDI Mixer and Blech MIDI use them, while each instrument owns its audio and transport adapters.",
     "Retain the shared recorded-input player at src/: Candy Coil Delay, Sandy Syrup Delay and Slippery Resynthesis share its sample UI and bounded loader; each instrument keeps its own Audio arming and effect graph.",
+    "Retain browser recording storage at src/: the shared recorder offers continuous takes and numbered WAV recovery across instruments, with Wobblini selecting that mode by default.",
     "Regenerate dist-wax from source; do not edit generated files.",
     "The earlier source-module-layout map remains a historical preservation layer; compose this follow-up when resolving its retained modules."
   ]
