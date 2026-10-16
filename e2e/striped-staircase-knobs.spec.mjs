@@ -11,7 +11,7 @@ test.afterEach(async ({ page }) => expect(pageDiagnosticMessages(diagnostics.get
 async function open(page) {
   await page.goto('/striped-staircase-rust.html');
   await page.waitForFunction(() => window.__staircaseStudies?.snapshot().ready);
-  await page.locator('.study-section details > summary').click();
+  await page.locator('summary').filter({ hasText: 'Stripe structure' }).click();
 }
 
 async function expectNeedle(page, id) {

@@ -5,7 +5,7 @@
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Morphazoid" />
     <meta property="og:title" content="Staircase Studies — Morphazoid" />
-    <meta property="og:description" content="Four ways to hear Striped Staircase: branch rhythms, contours, harmonics and resonant bodies. A Rust-powered sonification instrument." />
+    <meta property="og:description" content="Hear Striped Staircase through five blendable contour studies: turning pitch, accents, branching, curvature and endless descent. A Rust-powered sonification instrument." />
     <meta property="og:url" content="https://morphazoid.com/striped-staircase-rust.html" />
     <meta property="og:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta property="og:image:secure_url" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
@@ -15,37 +15,72 @@
     <meta property="og:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="Staircase Studies — Morphazoid" />
-    <meta name="twitter:description" content="Four ways to hear Striped Staircase: branch rhythms, contours, harmonics and resonant bodies. A Rust-powered sonification instrument." />
+    <meta name="twitter:description" content="Hear Striped Staircase through five blendable contour studies: turning pitch, accents, branching, curvature and endless descent. A Rust-powered sonification instrument." />
     <meta name="twitter:image" content="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <meta name="twitter:image:alt" content="Morphazoid geometric wireframe logo on a dark background." />
     <link rel="image_src" href="https://morphazoid.com/assets/social/morphazoid-card-20260917.png" />
     <!-- morphazoid-social-preview:end --><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#080c12">
-<title>Staircase Studies — Morphazoid</title><meta name="description" content="Four ways to hear Striped Staircase: branch rhythms, contours, harmonics and resonant bodies. A Rust-powered sonification instrument.">
+<title>Staircase Studies — Morphazoid</title><meta name="description" content="Hear Striped Staircase through five blendable contour studies: turning pitch, accents, branching, curvature and endless descent. A Rust-powered sonification instrument.">
 <link rel="icon" href="favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="style.css"><link rel="stylesheet" href="src/instruments/striped-staircase-rust/studies.css"></head>
 <body class="staircase-studies-page"><header class="masthead">
 <a class="wordmark" href="./" aria-label="Morphazoid home"><span class="brand-mark" aria-hidden="true"><i></i><i></i><i></i></span><span>morphazoid</span></a>
 <nav class="tabs" aria-label="Morphazoid main menu"><a class="tab" href="striped-staircase.html">Striped Staircase</a><a class="tab active" href="striped-staircase-rust.html" aria-current="page">Staircase Studies</a></nav>
 <label class="mobile-instrument-nav"><span class="sr-only">Instrument</span><select class="mobile-instrument-select" aria-label="Instrument"><option value="striped-staircase-rust.html" selected>Staircase Studies</option><option value="striped-staircase.html">Striped Staircase</option></select></label>
 <div class="audio-strip" aria-label="Audio controls"><button class="audio-button" id="audioButton" type="button" aria-pressed="false"><span class="audio-glyph" aria-hidden="true">◉</span><span class="audio-copy"><b>Audio</b><small id="audioState">off</small></span></button>
-<label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">48%</output></span><input id="level" type="range" min="0" max="1" step="0.01" value="0.48"></label></div></header>
+<label class="header-level" for="level"><span><b>Volume</b><output id="levelOut" for="level">75%</output></span><input id="level" type="range" min="0" max="1" step="0.01" value="0.75"></label></div></header>
 <main class="studies-shell"><section class="studies-stage" aria-label="Striped Mandelbrot field"><div id="stageWrap">
 <canvas id="stage" tabindex="0" aria-label="Striped Mandelbrot. Drag to pan, wheel or pinch to zoom. Arrow keys pan; plus and minus zoom; Home resets the view." aria-describedby="canvasInstructions">Striped Mandelbrot escape depths.</canvas>
-<canvas id="contourOverlay" aria-hidden="true"></canvas><div class="studies-heading"><h1>Staircase Studies</h1><p id="modeHeading">Stripe rhythm</p><p id="rhythmReadout">Preparing branch traces…</p></div>
+<canvas id="contourOverlay" aria-hidden="true"></canvas><div class="studies-heading"><h1>Staircase Studies</h1><p id="modeHeading">Stripe rhythm</p><p id="tendrilReadout"><span id="tendrilLabel">Tendrils mapped</span> <output id="tendrilCount" aria-labelledby="tendrilLabel" aria-live="off">—</output></p><p id="rhythmReadout">Preparing branch traces…</p></div>
 <div class="view-actions"><button id="zoomOut" type="button" aria-label="Zoom out">−</button><button id="homeView" type="button" aria-label="Reset current view">⌂</button><button id="zoomIn" type="button" aria-label="Zoom in">+</button></div>
+<p id="stageLegend">Color = tendril · ● / ◆ = its two voices · tap a marker to isolate</p>
 <div class="field-readout"><span id="depthReadout">Depth</span><span id="coordinateReadout"></span></div>
 <div id="renderError" role="alert" hidden></div></div></section>
 <aside class="panel studies-panel" aria-label="Staircase Studies controls">
 <section class="study-section"><h2>Listen through</h2><div class="study-modes" role="group" aria-label="Sonification">
-<button data-mode="2" type="button" aria-pressed="true">Stripe rhythm</button><button data-mode="0" type="button" aria-pressed="false">Contour</button><button data-mode="1" type="button" aria-pressed="false">Harmonics</button><button data-mode="3" type="button" aria-pressed="false">Resonant body</button></div><p id="modeDescription" class="mode-description">White holds a note for each traced branch; black releases it.</p></section>
+<button data-mode="2" type="button" aria-pressed="true">Stripe rhythm</button><button data-mode="0" type="button" aria-pressed="false">Contour</button><button data-mode="1" type="button" aria-pressed="false">Harmonics</button><button data-mode="3" type="button" aria-pressed="false">Resonant body</button></div><p id="modeDescription" class="mode-description">White holds the traced voices; black releases them.</p></section>
 <section class="study-section"><div class="transport-row"><button id="playButton" class="play-button" data-primary-transport type="button" aria-pressed="false" aria-label="Play depth motion"><svg class="transport-play" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5 18 12 8 18.5Z"/></svg><svg class="transport-pause" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 6v12M16 6v12"/></svg></button><button id="holdButton" type="button" aria-pressed="false">Hold depth</button></div>
 <div class="study-knobs study-knobs--depth"><label class="control study-knob" for="progress"><span><b>Depth position</b><output id="progressOut" for="progress">0.175</output></span><input id="progress" type="range" min="0" max="1" step="0.001" value="0.175"></label>
-<label class="control study-knob" for="speed"><span><b>Depth speed</b><output id="speedOut" for="speed">0.035</output></span><input id="speed" type="range" min="0.005" max="0.5" step="0.001" value="0.035"></label></div></section><section class="study-section"><h2>Voice</h2><div class="study-knobs"><label class="control study-knob" for="baseFrequency"><span><b>Register</b><output id="baseFrequencyOut" for="baseFrequency">73</output></span><input id="baseFrequency" type="range" min="30" max="440" step="1" value="73"></label>
+<label class="control study-knob" for="speed"><span><b>Depth speed</b><output id="speedOut" for="speed">0.035</output></span><input id="speed" type="range" min="0.005" max="0.5" step="0.001" value="0.035"></label></div></section>
+<section class="study-section" id="pathControls"><h2>See what you hear</h2>
+<label class="path-toggle"><input id="showPaths" type="checkbox" checked> Show voice paths</label>
+<p class="playing-notes" id="pathLegend">Color identifies a tendril. ● and ◆ follow its two edge voices. Faint trails show their route through depth; bright outlines show the current contour. Filled markers = gate open; outlines = rest. Tap a marker to hear that tendril.</p>
+<label class="control" for="tendrilFocus"><span>Hear a tendril</span><select id="tendrilFocus"><option value="all">All mapped tendrils</option></select></label>
+<button id="allTendrils" type="button" class="spiral-passage" disabled>Hear all tendrils</button>
+<p id="focusReadout" class="playing-notes">All mapped tendrils · each pair follows two changing pitch paths.</p>
+<div class="stripe-options"><label class="path-toggle"><input id="showStripes" type="checkbox" checked> Show stripes as a time guide</label>
+<label class="path-toggle"><input id="stripeGate" type="checkbox" checked> Gate sound with stripes</label></div>
+<p class="playing-notes">Turn the gate off for continuous voices. Height, Frame X/Y and contour Turning change pitch within a stripe; Note-to-note turns changes pitch at note events.</p>
+</section>
+<section class="study-section"><h2>Voice</h2><div class="study-knobs"><label class="control study-knob" for="baseFrequency"><span><b>Register</b><output id="baseFrequencyOut" for="baseFrequency">73</output></span><input id="baseFrequency" type="range" min="30" max="440" step="1" value="73"></label>
 <label class="control study-knob" for="brightness"><span><b>Detail</b><output id="brightnessOut" for="brightness">0.55</output></span><input id="brightness" type="range" min="0" max="1" step="0.01" value="0.55"></label>
 <label class="control study-knob" for="body"><span><b>Release</b><output id="bodyOut" for="body">0.35</output></span><input id="body" type="range" min="0" max="1" step="0.01" value="0.35"></label></div></section>
+<section class="study-section" id="spiralControls"><h2>Follow the spiral</h2>
+<label class="control" for="spiralStudy"><span>Contour study</span><select id="spiralStudy"><option value="original">Original edges</option><option value="turning">1 · Turning pitch</option><option value="accents">2 · Turn accents</option><option value="forks">3 · Branching pitch</option><option value="curvature">4 · Curvature color</option><option value="endless">5 · Endless descent</option><option value="braid">Turning + forks + accents</option><option value="custom" disabled>Custom blend</option></select></label>
+<p class="playing-notes" id="spiralDescription">Choose an idea to hear it alone, or blend them with the five amount knobs.</p>
+<button id="branchingPassage" class="spiral-passage" type="button">Explore branching passage</button><p class="playing-notes">Spiral arms · default stripes · depth 0.81 · up to 16 tendrils. Keeps your Audio and Play state.</p>
+<div class="study-knobs spiral-amounts">
+<label class="control study-knob" for="turnAmount"><span><b>Turning</b><output id="turnAmountOut" for="turnAmount">Off</output></span><input id="turnAmount" type="range" min="0" max="1" step="0.01" value="0"></label>
+<label class="control study-knob" for="accentAmount"><span><b>Accents</b><output id="accentAmountOut" for="accentAmount">Off</output></span><input id="accentAmount" type="range" min="0" max="1" step="0.01" value="0"></label>
+<label class="control study-knob" for="forkAmount"><span><b>Forks</b><output id="forkAmountOut" for="forkAmount">Off</output></span><input id="forkAmount" type="range" min="0" max="1" step="0.01" value="0"></label>
+<label class="control study-knob" for="curvatureAmount"><span><b>Curvature</b><output id="curvatureAmountOut" for="curvatureAmount">Off</output></span><input id="curvatureAmount" type="range" min="0" max="1" step="0.01" value="0"></label>
+<label class="control study-knob" for="endlessAmount"><span><b>Endless</b><output id="endlessAmountOut" for="endlessAmount">Off</output></span><input id="endlessAmount" type="range" min="0" max="1" step="0.01" value="0"></label>
+</div>
+<details id="spiralTuning"><summary>Tune each mapping</summary><div class="spiral-tuning">
+<div class="spiral-tuning-row"><div><h3>1 · Turning pitch</h3><p class="playing-notes">Pitch distance per measured turn.</p><button type="button" data-study="turning" aria-label="Hear turning pitch alone">Hear alone</button></div><label class="control study-knob" for="turnSpan"><span><b>Turn range</b><output id="turnSpanOut" for="turnSpan">1.0 oct / turn</output></span><input id="turnSpan" type="range" min="0" max="3" step="0.05" value="1"></label></div>
+<div class="spiral-tuning-row"><div><h3>2 · Turn accents</h3><p class="playing-notes">Accents within each white stripe.</p><button type="button" data-study="accents" aria-label="Hear turn accents alone">Hear alone</button></div><label class="control study-knob" for="accentRate"><span><b>Accents / turn</b><output id="accentRateOut" for="accentRate">4.0 / turn</output></span><input id="accentRate" type="range" min="1" max="32" step="0.25" value="4"></label></div>
+<div class="spiral-tuning-row"><div><h3>3 · Branching pitch</h3><p class="playing-notes">How far related paths separate in pitch.</p><button type="button" data-study="forks" aria-label="Hear branching pitch alone">Hear alone</button></div><label class="control study-knob" for="forkSpan"><span><b>Fork range</b><output id="forkSpanOut" for="forkSpan">2.0 oct</output></span><input id="forkSpan" type="range" min="0" max="4" step="0.05" value="2"></label></div>
+<div class="spiral-tuning-row"><div><h3>4 · Curvature color</h3><p class="playing-notes">Sensitivity to tight bends.</p><button type="button" data-study="curvature" aria-label="Hear curvature color alone">Hear alone</button></div><label class="control study-knob" for="curvatureDrive"><span><b>Bend sensitivity</b><output id="curvatureDriveOut" for="curvatureDrive">1.0×</output></span><input id="curvatureDrive" type="range" min="0" max="4" step="0.05" value="1"></label></div>
+<div class="spiral-tuning-row"><div><h3>5 · Endless descent</h3><p class="playing-notes">A Shepard illusion driven by contour motion.</p><button type="button" data-study="endless" aria-label="Hear endless descent alone">Hear alone</button></div><label class="control" for="endlessDirection"><span>Direction</span><select id="endlessDirection"><option value="-1">Descend</option><option value="1">Ascend</option></select></label></div>
+</div></details>
+<p class="playing-notes">Stripe gating gives all five white notes and black rests; switch it off for continuous voices. Hold freezes the contour motion.</p>
+</section>
 <section class="study-section" id="pitchControls"><h2>Branch pitch</h2>
-<label class="control" for="pitchMapping"><span>Pitch reference</span><select id="pitchMapping"><option value="0">Height</option><option value="1" selected>Frame X/Y</option><option value="2">Relative turns</option></select></label>
+<label class="control" for="pitchSource"><span>Pitch paths</span><select id="pitchSource"><option value="1" selected>Block edges · two voices</option><option value="0">Branch centers · one voice</option></select></label>
+<p class="playing-notes" id="pitchPathDescription">The two marked edges of each moving block drive its voices. Circle and diamond keep their sides around bends.</p>
+<label class="control" for="pitchMapping"><span>Base pitch reference</span><select id="pitchMapping"><option value="0">Height</option><option value="1" selected>Frame X/Y</option><option value="2">Note-to-note turns</option></select></label>
+<p id="pitchContribution" class="playing-notes">Base reference 100% · contour turning 0% · branching 0%.</p>
 <div class="study-knobs study-knobs--pitch"><label class="control study-knob" for="pitchSpan"><span><b>Pitch span</b><output id="pitchSpanOut" for="pitchSpan">3.0 oct</output></span><input id="pitchSpan" type="range" min="0" max="6" step="0.1" value="3"></label>
-<label class="control study-knob" for="voiceLimit"><span><b>Voice limit</b><output id="voiceLimitOut" for="voiceLimit">256</output></span><input id="voiceLimit" type="range" min="1" max="512" step="1" value="256"></label></div>
+<label class="control study-knob" for="voiceLimit"><span><b>Voice limit</b><output id="voiceLimitOut" for="voiceLimit">256</output></span><input id="voiceLimit" type="range" min="2" max="512" step="2" value="256"></label></div>
 <p class="playing-notes" id="pitchDescription">X and Y set pitch from the frame center. Moving right or up raises it.</p></section>
 <section class="study-section"><h2>Explore</h2><label class="control" for="viewPreset"><span>Fractal location</span><select id="viewPreset"><option value="seahorse">Seahorse</option></select></label><label class="control" for="palette"><span>Palette</span><select id="palette"><option value="0">Glass</option><option value="1">Ember</option><option value="2">Ultraviolet</option><option value="3" selected>Ink</option></select></label>
 <details><summary>Stripe structure</summary><div class="study-knobs study-knobs--structure"><label class="control study-knob" for="startIteration"><span><b>First depth</b><output id="startIterationOut" for="startIteration">12</output></span><input id="startIteration" type="range" min="0" max="100" step="1" value="12"></label>

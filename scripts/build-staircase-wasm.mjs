@@ -12,7 +12,7 @@ const files = ['scripts/build-staircase-wasm.mjs', `${rust}/Cargo.toml`, `${rust
 const hash = bytes => createHash('sha256').update(bytes).digest('hex');
 const sourceHashes = async () => Object.fromEntries(await Promise.all(files.map(async file => [file, hash(await readFile(path.join(root, file)))])));
 const required = ['memory', 'stair_abi_version', 'stair_alloc', 'stair_free', 'stair_new', 'stair_drop', 'stair_table',
-  'stair_controls', 'stair_pitch', 'stair_transport', 'stair_seek', 'stair_process', 'stair_state', 'stair_state_len', 'stair_voice_capacity', 'stair_voice_state'];
+  'stair_controls', 'stair_pitch', 'stair_features', 'stair_studies', 'stair_focus', 'stair_gate', 'stair_transport', 'stair_seek', 'stair_process', 'stair_state', 'stair_state_len', 'stair_voice_capacity', 'stair_voice_state'];
 async function inspect(bytes) {
   const module = await WebAssembly.compile(bytes), imports = WebAssembly.Module.imports(module), exports = WebAssembly.Module.exports(module).map(item => item.name).sort();
   if (imports.length || required.some(name => !exports.includes(name))) throw new Error('The Rust staircase WASM ABI is invalid.');

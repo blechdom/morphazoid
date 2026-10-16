@@ -66,7 +66,7 @@ test('exact additive site and build changes restore prior bytes and reject missi
 test('packaging includes the complete worker and Rust runtime with reproducible build checks', async () => {
   const manifest = await readFile(new URL('../scripts/site/runtime-files.tsv', import.meta.url), 'utf8');
   for (const path of [
-    ...['app.js', 'engine.js', 'processor.js', 'field.js', 'worker.js', 'studies.css'].map(name => `src/instruments/striped-staircase-rust/${name}`),
+    ...['app.js', 'engine.js', 'processor.js', 'field.js', 'worker.js', 'spiral-studies.js', 'contour-paths.js', 'renderer.js', 'studies.css'].map(name => `src/instruments/striped-staircase-rust/${name}`),
     'assets/wasm/staircase.wasm', 'assets/wasm/staircase-build.json', 'docs/staircase-studies.md',
   ]) {
     assert.equal(manifest.split(`copy+require\t${path}\n`).length - 1, 1, path);

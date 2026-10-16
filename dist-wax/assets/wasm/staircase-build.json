@@ -1,14 +1,14 @@
 {
   "abi": 3,
   "target": "wasm32-unknown-unknown",
-  "compiler": "rustc 1.98.1 (48a229cea 2026-09-01)",
-  "bytes": 80862,
-  "wasmSha256": "3b2dd282e5786f8772645aeb688d08ba19e04df9d10f5917b879b5c0609085f3",
+  "compiler": "rustc 1.99.1 (58cf8f9c3 2026-10-13)",
+  "bytes": 92979,
+  "wasmSha256": "1f295dcdb4699603507df901ad2e3c9d7d797a99b037392fb0d12abe0b0bb515",
   "sourceHashes": {
-    "scripts/build-staircase-wasm.mjs": "b55a86bf6caef3d55bb57f5824d3325f5d87d7cc0b1691d97fe3d5430c0c0647",
+    "scripts/build-staircase-wasm.mjs": "95afd1d567258b1aaf3229424f20c04bfb01ef6d691875ff82b9af6a79c2d8f9",
     "src/instruments/striped-staircase-rust/rust/Cargo.lock": "61dd0e24aa6c8af25aed60017082a96e79dbbc143dd479feb801245bce144126",
     "src/instruments/striped-staircase-rust/rust/Cargo.toml": "9be1a2fb0154ddb1b248da7143888dfd70904fb7b8b449764e872eafb6e80817",
-    "src/instruments/striped-staircase-rust/rust/src/lib.rs": "cda71171a437a36f8132cc30dae167b65ff0799b3138e75b12819f10da56ddaa"
+    "src/instruments/striped-staircase-rust/rust/src/lib.rs": "9ea56300d0f1787dd045ea9f504e3e0cfbffdf8731be52bd59c5927381524020"
   },
   "imports": [],
   "exports": [
@@ -17,13 +17,17 @@
     "stair_alloc",
     "stair_controls",
     "stair_drop",
+    "stair_features",
+    "stair_focus",
     "stair_free",
+    "stair_gate",
     "stair_new",
     "stair_pitch",
     "stair_process",
     "stair_seek",
     "stair_state",
     "stair_state_len",
+    "stair_studies",
     "stair_table",
     "stair_transport",
     "stair_voice_capacity",

@@ -2049,6 +2049,9 @@ copy+require	src/instruments/striped-staircase-rust/engine.js
 copy+require	src/instruments/striped-staircase-rust/processor.js
 copy+require	src/instruments/striped-staircase-rust/field.js
 copy+require	src/instruments/striped-staircase-rust/worker.js
+copy+require	src/instruments/striped-staircase-rust/spiral-studies.js
+copy+require	src/instruments/striped-staircase-rust/contour-paths.js
+copy+require	src/instruments/striped-staircase-rust/renderer.js
 copy+require	src/instruments/striped-staircase-rust/studies.css
 copy+require	assets/wasm/staircase.wasm
 copy+require	assets/wasm/staircase-build.json

@@ -33,6 +33,9 @@ async function open(page) {
   await expect(page.locator('#pitchMapping')).toHaveValue('1');
   await expect(page.locator('#pitchSpan')).toHaveValue('3');
   await expect(page.locator('#voiceLimit')).toHaveValue('256');
+  await expect(page.locator('#pitchSource')).toHaveValue('1');
+  await page.locator('#pitchSource').selectOption('0');
+  await settled(page);
   await page.locator('#holdButton').click();
 }
 
@@ -82,6 +85,7 @@ test('Height and Frame X/Y map real branch positions to distinct pitches without
   const output = await sampleAudioEnvelope(page, { durationMs: 400 });
   expect(output.summary.maxRms).toBeGreaterThan(.00001); expect(output.summary.clippedSamples).toBe(0);
   await page.locator('#resetAll').click();
+  await expect(page.locator('#pitchSource')).toHaveValue('1');
   await expect(page.locator('#pitchMapping')).toHaveValue('1');
   await expect(page.locator('#pitchSpan')).toHaveValue('3');
   await expect(page.locator('#voiceLimit')).toHaveValue('256');
@@ -136,7 +140,7 @@ test('the 512-voice limit renders more than 256 real components through a 300 ms
   const scene = await page.evaluate(async () => {
     const { buildStaircaseField, readStaircaseRhythm } = await import('/src/instruments/striped-staircase-rust/field.js');
     const state = window.__staircaseStudies.snapshot(), rect = document.getElementById('stage').getBoundingClientRect();
-    const field = buildStaircaseField({ camera: state.camera, settings: state.settings, voiceLimit: 512, resolution: 112, aspect: rect.width / rect.height });
+    const field = buildStaircaseField({ camera: state.camera, settings: state.settings, pitchSource: state.pitchSource, voiceLimit: 512, resolution: 112, aspect: rect.width / rect.height });
     return Array.from({ length: 1001 }, (_, index) => {
       const progress = index / 1000, rhythm = readStaircaseRhythm(field, progress);
       return { progress, count: rhythm.count, white: rhythm.white };

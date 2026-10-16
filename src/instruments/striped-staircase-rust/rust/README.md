@@ -77,8 +77,14 @@ Each frame describes one depth along the original instrument's slide sweep:
 | 533 | Normalized contour turning roughness |
 | 534 | Actual smooth escape-depth threshold |
 | 535 | Original stripe period in escape-depth units |
-| 536–543 | Reserved zeros |
+| 536 | Paired-edge source flag: literal 1 groups adjacent edge weights; 0 keeps independent centers |
+| 537–543 | Reserved zeros |
 | 544–3615 | 512 branch slots, six values each: presence, centroid X, centroid Y, length/8, ID, parent ID |
+
+Slot 536 is an additive ABI 3 extension: old zero-filled tables keep independent
+center normalization. Only finite literal 1 enables pairs; other values become
+zero. It is categorical and is read from the incoming table, without blending
+the source flag across a field replacement.
 
 Branch presence, centroids and length are normalized 0–1. Centroid X goes
 left to right; centroid Y goes top to bottom. Absent slots retain position
@@ -107,16 +113,18 @@ an interpolation approximation. Source analysis belongs to the worker.
    partials, with brightness tilt and Nyquist fade. Their base is a continuous
    frequency without scale quantization. Centroid shifts stereo partial phase.
 2. **Stripe rhythm:** white (`floor(threshold / period * 2) % 2 == 1`) sustains
-   notes; black releases them. Each prepared branch has its own oscillator and
-   stereo position from centroid X. The selected mapping supplies pitch:
+   notes; black releases them. Each prepared branch has its own oscillator,
+   centered equally in both output channels at a fixed 0.5 gain per channel.
+   Position feeds pitch and note history only. The selected mapping supplies pitch:
    Height uses `baseHz * 2^(span * (0.5 - y))`; Frame XY uses
    `baseHz * 2^(span * ((0.5 - y) + (x - 0.5)) / 2)`.
-   Presence times length determines relative level; normalization bounds the
-   sum as branches split or merge. Detail adds soft second and third harmonics.
+   Presence times length determines relative level. Geometry power normalization
+   keeps independent voices audible as branches split or merge; see below.
+   Detail adds soft second and third harmonics.
    Release maps to 8–160 ms to -80 dB, followed by exact silence below 1e-9.
    Hold sustains white or remains silent in black. The stripe gate is shared
    because every contour in a depth frame has the same escape threshold: the
-   branches have separate pitches and positions, not independent rhythms.
+   branches have separate pitches, not independent rhythms.
    There is no independent beat scheduler or scale quantization. Scrubbing
    adopts the current white/black state without replaying skipped events.
    Scene replacement uses the incoming threshold directly, avoiding invented
@@ -128,6 +136,19 @@ an interpolation approximation. Source analysis belongs to the worker.
    practical; it is not a physical material model.
 
 ## Relative Turns and branch inheritance
+
+A measured voice returning after an absent interval takes a new Relative turns
+note from its own previous reference, even inside an already-white stripe.
+Holding a present voice does not repeatedly advance that history.
+
+The worker can supply one record per branch center or two records per measured
+block-edge pair. Paired records carry the actual edge X/Y positions, half the
+tendril's level weight, and persistent side identities. Tendril ID `t` maps to
+oscillator IDs `2*t-1` and `2*t`; parent IDs use the same side mapping. Thus the
+existing 512-oscillator capacity supports at most 256 paired tendrils. Both
+records share the depth gate and stay centered. The raw ABI and DSP mapping
+rules are identical for either pitch source; switching source installs a field
+and resets references while preserving the sample clock and transport.
 
 Each white onset is a note; a newly appearing branch also receives a note if
 the current stripe is white. The first note uses Frame XY. The first nonzero
@@ -162,7 +183,120 @@ memory. Zero-target, silent voices skip waveform work. The browser can select
 fewer than 512 branches; the capacity is a bounded implementation limit, not a
 claim that every device can run all voices without a dropout.
 
-All modes retain phases through switching and scene edits. Output rejects DC
-and uses a bounded soft limiter before the user's gain. The final sample is
-strictly inside ±1 for finite inputs. Automated tests establish mechanical
+For the browser's 64-frame tables, replacing a settled scene copies the current
+table into the reserved previous table. An interrupted fade (or another frame
+count) uses the existing interpolated collapse. Both paths preserve clocks and
+the 60 ms crossfade. The JS worklet renders audio before servicing a requested
+display snapshot and circulates one reusable voice buffer with the main thread;
+stalled display consumers cannot queue unbounded snapshots.
+
+## Level calibration
+
+For branch weight `w = presence * length`, independent centers use predicted
+power `sum(w²)`. Paired edges use `sum((wLeft + wRight)²)` so two coincident
+half-weight edges reproduce their original center's level. Each weight is
+divided by `max(0.08, sqrt(power), sum(w) / 4)`. This preserves attenuation as
+geometry vanishes and caps the boost over the former amplitude normalization
+at approximately 12 dB. The incoming frame's explicit paired-source flag selects
+the grouping. It never infers pairing from adjacent IDs or matching geometry.
+
+Stripe rhythm receives fixed ×6 makeup before the existing output filter and
+soft shaper. All modes retain phases through switching and scene edits. Output
+rejects DC, soft-shapes, then applies ×0.89 headroom, the smoothed user gain,
+and transport gate. The browser defaults to 75% Volume. Volume remains a linear
+output control after shaping; lowering it does not change saturation. The final
+sample stays inside ±0.89 at full Volume for finite inputs.
+
+This is fixed gain and geometry compensation, not an audio-following gain
+controller: black rests and release tails do not cause gain recovery. The
+existing soft shaper adds harmonics at the higher drive. It is not an
+oversampled true-peak limiter, and a measured LUFS result is passage-specific.
+See `docs/staircase-studies.md` and `scripts/analyze-staircase-loudness.mjs` for
+measurement conditions and reproduction. Automated tests establish mechanical
 safety and separation; listening is still required to judge timbre and usefulness.
+
+## Blendable spiral studies
+
+Two additional ABI 3 controls support visual inspection. `stair_focus(engine,
+firstId, secondId)` isolates exact field-local voice IDs, with `(0, 0)` restoring
+all voices. The second ID may be zero for a single center voice. Filtering happens
+after shared normalization; other voices release without resetting their phase,
+pitch history or clock. Mapped-voice diagnostics remain unfiltered. The host must
+clear focus when changing fields, since IDs have meaning within one prepared view.
+`stair_gate(engine, enabled)` defaults to 1. Setting it to 0 keeps rhythmic voices
+sustained through black depths while preserving measured stripe state and
+note-event history. Transport and geometry presence still control audibility.
+Default focus and gate preserve the original PCM exactly.
+
+The additive ABI 3 exports preserve the existing field, controls and 12-value
+state. With all five amounts zero, processing produces the exact pre-studies
+PCM; the regression suite pins a render from the previous binary.
+
+`stair_features(engine, float32Pointer, floatCount, frameCount)` installs the
+matching sidecar after `stair_table`, synchronously in the same worklet message.
+It has `frameCount * 512 * 6` values, and its frame count must equal the installed
+base field. Each oscillator record is `[id, signedTurns, forkOffset, curvature,
+travelTurns, confidence]`. ID is a categorical integer 1–32768; turns are bounded
+±1024, fork offset ±16, curvature/confidence 0–1 and absolute turn travel 0–2048.
+Every successful base-table install clears the accepted sidecar, so omitting a
+new sidecar cannot reuse a previous scene's motion.
+
+Only matching IDs with positive confidence are accepted. Adjacent records are
+interpolated only when both IDs match and both confidences are positive.
+Confidence zero holds previously accepted same-ID geometry; a fresh unsupported
+identity remains neutral. The worker measures consistently oriented local
+contour tangent changes, not winding around an exactly known spiral center.
+Certified local fork relationships are geometric evidence, not a proof of
+Mandelbrot ancestry. New trusted child features seed their first pitch directly;
+already-audible oscillators use separate short transition slews. Audio filters
+may retain an outgoing sound briefly, but no previous identity's feature history
+is assigned to a new identity.
+
+`stair_studies(engine, turnAmount, turnSpan, accentAmount, accentRate,
+forkAmount, forkSpan, curvatureAmount, curvatureDrive, endlessAmount,
+endlessDirection)` sets five independently blendable studies. Amounts are 0–1;
+turn span is 0–3 octaves/turn, accent rate 1–32 accents/turn, fork span 0–4,
+curvature drive 0–4, and endless direction −1/+1. Control changes slew over an
+18 ms time constant without seeking or resetting the sample clock.
+
+- **Turning:** accumulated signed local turns contribute continuous pitch.
+  **Forks:** the prepared parent-relative displacement contributes continuous
+  pitch divergence. Together their settled octave offset is
+  `baseOffset * (1 - max(turnAmount, forkAmount)) + clamp(turnAmount * turnSpan *
+  signedTurns + forkAmount * forkSpan * forkOffset, -6, 6)`.
+  Full amount replaces static XY/Height/Relative pitch influence; partial amounts
+  retain it. Active geometry pitch is bounded to 20 Hz…0.42 times sample rate.
+  This audible floor means sufficiently low descending curves flatten.
+- **Turn accents:** geometric absolute turn travel sets the phase of a cosine
+  gain shape. With amount `a`, mean `m = 1 - .325a`, and swing `s = .325a`, gain
+  is `(m + s*cos(2π*travelTurns*accentRate)) / sqrt(m²+s²/2)`. Full amount retains
+  approximately .49 gain at its trough and reaches 1.40 at its peak. Cycle power
+  compensation does not chase the audio envelope or fill black rests.
+- **Curvature:** measured curvature times drive raises local harmonic brightness
+  and adds fourth/fifth partials with a small level compensation. Harmonics fade
+  before Nyquist. Detail still controls the shared output filter, so low Detail
+  can soften the new partials.
+- **Endless descent/ascent:** an artistic Shepard illusion, driven by measured
+  absolute turn travel rather than elapsed time or arbitrary depth. Three octave
+  components use squared-sine windows with constant window power (9/8), divided
+  by its square root. Internal component phases transfer between octave lanes at
+  wraps; incoming/outgoing lanes have zero weight there. Low/high-frequency
+  components fade at the audible/Nyquist limits. Linear dry/wet blending can
+  produce a modest intermediate power dip. This is a perceptual construction,
+  not evidence that the actual geometry descends endlessly.
+
+White/black gating, paired weights, centered output, release, mute and transport
+remain unchanged. Features refresh from the audio sample clock every 32 samples,
+including during black rests; accents never become a free-running LFO. Hold
+fixes geometry, with only existing short control/transition slews settling.
+Voice diagnostics report the carrier pitch; Shepard octave components remain
+internal partials of the same logical oscillator. Both paired edges remain
+centered, and 512 logical oscillators remain the maximum.
+
+The octave bank and curvature source evaluate harmonics from bounded sine/cosine
+rotations and re-anchor them every geometry refresh. All buffers are allocated
+when the engine is created. Native tests count allocations through a full blend
+and table/feature installation; `tests/staircase-spiral-dsp.test.mjs` covers
+precise mappings, confidence/identity isolation, live transitions, timing,
+maximal hostile input, and real prepared geometry. These checks establish DSP
+behavior, not a listener's judgment of musical quality.
