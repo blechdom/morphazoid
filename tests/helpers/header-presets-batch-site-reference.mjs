@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -14,6 +15,7 @@ export const headerPresetsBatchSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed preset-row wiring, page hosts and runtime manifest rows. */
 export function restoreHeaderPresetsBatchSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWobbliniSite(source, file, { allowRestored: true });
   for (const change of headerPresetsBatchSiteChanges.changes.filter(change => change.file === file)) {

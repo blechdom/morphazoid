@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -10,6 +11,7 @@ export const staircaseSpiralOwnedChanges = JSON.parse(readFileSync(
  */
 export function restoreStaircaseSpiralOwned(source, file) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   const change = staircaseSpiralOwnedChanges.changes.find(item => item.file === file);
   if (!change) return source;
   for (const { before, after } of [...change.replacements].reverse()) {

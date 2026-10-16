@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -15,6 +16,7 @@ export const wipRolloutSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed Work-in-Progress preset rows, input consolidation and runtime manifest rows. */
 export function restoreWipRolloutSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   for (const change of wipRolloutSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {

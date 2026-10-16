@@ -81,9 +81,17 @@ export function arclength(item) {
       lengths[i] = lengths[i - 1] + (Number.isFinite(step) ? step : 0);
     }
     const length = lengths[count - 1];
-    if (length > 0) { runs.push({ segment, lengths, start: total, end: total + length }); total += length; }
+    if (length > 0) runs.push({ segment, lengths, length });
   }
-  item.arclength = { total, runs };
+  // Stitching can leave hairline fragments; they are not branches a head should ride.
+  const longest = runs.reduce((max, run) => Math.max(max, run.length), 0);
+  const kept = [];
+  for (const run of runs) {
+    if (run.length < longest * 1e-6) continue;
+    kept.push({ segment: run.segment, lengths: run.lengths, start: total, end: total + run.length });
+    total += run.length;
+  }
+  item.arclength = { total, runs: kept };
   return item.arclength;
 }
 
@@ -234,8 +242,9 @@ export function headGuide(settings, view, head, phase) {
 export function collectContacts(geometry, settings, view, travel) {
   const offsets = headOffsets(settings);
   const heads = offsets.map((offset, index) => {
+    const headTravel = headDirection(settings, index) * travel + offset;
     const phase = headPhase(headDirection(settings, index) * travel, offset, settings.motion);
-    return { index, phase, guide: headGuide(settings, view, index, phase) };
+    return { index, phase, travel: headTravel, guide: headGuide(settings, view, index, phase) };
   });
   const contacts = [];
   const region = readerRegion(settings, view);

@@ -5,6 +5,8 @@ import { updateHeadOffset } from "../../playheads.js";
 import { rebaseContinuousPosition, rebasePingPongPosition } from "../../articulation.js";
 import { formatCoordinate, homeView, panView, squareView, zoomView } from "./camera.js";
 import { TraceAudio, traceVoiceTargets } from "./audio.js";
+import { DRUM_COUNT, DRUM_PITCH, DRUM_PLACEMENTS, DRUM_VOICES, crossedTriggers, rowTriggers, triggerVoice } from "./triggers.js";
+import { FmDrumAudio } from "../fm-drums/fm-drums.js";
 import {
   COLORS, DEFAULT_PRESET_ID, DEFAULT_RANGE, PRESETS, SLIDER_DEFAULTS, SWEEP_TEMPO, addRow, addSliders, advanceSliders, analyzeState, applySnapshot,
   ensureSliders, randomizeState, removeRow, sanitizeRange, sanitizeSettings, sanitizeSlider, sanitizeView, setParameterValue, snapshotOf, sweepSecondsFromTempo, sweepTempoFromSeconds, updateRow,
@@ -24,6 +26,8 @@ const PLAYBACK_NOTES = Object.freeze({
   line: "A line sweeps the view; every curve it crosses sounds.",
   radar: "A ray turns about the play region's centre (the origin when following the view); every curve it crosses sounds.",
 });
+const PLACEMENT_LABELS = Object.freeze({ x: "X grid", y: "Y grid", xy: "X + Y grid", equidistant: "Equidistant on curve" });
+const PLOTTABLE_KINDS = new Set(["explicit-y", "explicit-x", "implicit", "polar", "parametric", "function"]);
 const KIND_LABELS = Object.freeze({
   "explicit-y": "y as a function of x", "explicit-x": "x as a function of y", implicit: "implicit curve", polar: "polar curve",
   parametric: "parametric curve", point: "point", inequality: "shaded region", function: "function", value: "value",
@@ -41,7 +45,8 @@ let geometry = [];
 let geometryDirty = true;
 let playing = false, armed = false, starting = false, disposed = false, ready = false;
 let sweepAnchor = { time: 0, travel: 0, source: "frame" };
-let reading = null;
+let reading = null, previousHeads = null, triggers = [], triggersDirty = true, drumHits = 0;
+const hitTimes = new Map();
 let hover = null, selectedId = null, drag = null;
 let frameId = 0, lastFrameTime = 0, saveTimer = 0, positionDragging = false;
 let level = 0.5;
@@ -50,9 +55,12 @@ const pointers = new Map();
 const sliderDirections = new Map();
 
 const audio = new TraceAudio({ onError(error) { armed = false; strip.setAudioState("error"); showAudioError(error.message); } });
-const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", level, max: 1, onAudioClick: toggleAudio, onLevelInput(value) { level = value; audio.setLevel(value); } });
+const drums = new FmDrumAudio(globalThis);
+const strip = createAudioStrip({ buttonId: "audioButton", levelId: "level", level, max: 1, onAudioClick: toggleAudio, onLevelInput(value) { level = value; audio.setLevel(value); drums.setHostGain(value); } });
 $("audioHost").replaceWith(strip);
 audio.setLevel(level);
+drums.setOutput(0.72);
+drums.setHostGain(level);
 
 function loadInitialState() {
   const fallback = () => applySnapshot(PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID).snapshot);
@@ -86,6 +94,7 @@ function setState(next, { rebuild = true } = {}) {
   const withSliders = ensureSliders(state, analysis);
   if (withSliders !== state) { state = withSliders; analysis = analyzeState(state); }
   if (rebuild) geometryDirty = true;
+  triggersDirty = true;
   renderRows();
   syncSettings();
   presets?.refresh();
@@ -147,6 +156,33 @@ function syncPosition(travel) {
   if (document.activeElement !== input && !positionDragging) input.value = String(phase);
   input.setAttribute("aria-valuetext", formatPosition(phase));
   $("positionOut").value = formatPosition(phase);
+}
+
+function buildTriggers(roles) {
+  const list = [];
+  for (const item of geometry) {
+    const row = roles.get(item.id);
+    if (row?.role !== "drums" || item.kind === "point") continue;
+    for (const trigger of rowTriggers(item, row.drum, state.settings, state.view)) list.push({ ...trigger, rowId: row.id, color: item.color, drum: row.drum });
+  }
+  return list;
+}
+
+function fireTriggers(heads, roles) {
+  if (!playing) { previousHeads = heads; return; }
+  const fired = crossedTriggers(triggers, state.settings, state.view, previousHeads, heads);
+  previousHeads = heads;
+  if (!fired.length) return;
+  const now = performance.now() / 1000;
+  const sounded = new Set();
+  for (const { trigger } of fired) {
+    hitTimes.set(trigger.id, now);
+    drumHits++;
+    if (!armed || sounded.has(trigger.rowId + trigger.index)) continue;
+    sounded.add(trigger.rowId + trigger.index);
+    drums.trigger(triggerVoice(trigger.drum, trigger, state.settings, state.view)).catch(() => {});
+  }
+  if (hitTimes.size > 512) for (const [id, time] of hitTimes) if (now - time > 1) hitTimes.delete(id);
 }
 
 function regionOverlay() {
@@ -229,7 +265,7 @@ async function toggleAudio() {
   if (armed || starting) {
     starting = false; armed = false;
     strip.setAudioState("off");
-    await audio.stop();
+    await Promise.all([audio.stop(), drums.close()]);
     if (!disposed) status(playing ? "Audio off · the sweep continues silently." : "Audio off.");
     return;
   }
@@ -239,6 +275,8 @@ async function toggleAudio() {
     await audio.start();
     if (disposed) return;
     audio.setLevel(level);
+    await drums.start({ context: audio.context });
+    drums.setHostGain(level);
     armed = true;
     strip.setAudioState("on");
     status(playing ? "Audio on · the playhead reads every visible curve." : "Audio on · press Play to sweep the view.");
@@ -270,10 +308,15 @@ function frame(timestamp) {
   const { width, height } = viewSize();
   if (geometryDirty) { geometry = buildGeometry(analysis, state, state.view, width, height); geometryDirty = false; }
   const travel = currentTravel(clockNow());
-  reading = collectContacts(geometry, state.settings, state.view, travel);
+  const roles = new Map(state.rows.map((row) => [row.id, row]));
+  reading = collectContacts(geometry.filter((item) => roles.get(item.id)?.role !== "drums"), state.settings, state.view, travel);
+  if (triggersDirty) { triggers = buildTriggers(roles); triggersDirty = false; }
+  fireTriggers(reading.heads, roles);
   syncPosition(travel);
   if (armed && playing) audio.update(traceVoiceTargets(reading.contacts, { view: reading.region, center: reading.center, octaves: state.settings.traceOctaves, source: state.settings.pitchSource }));
-  renderer.draw({ view: state.view, geometry, grid: display.grid, labels: display.labels, reading, hover, selectedId, region: regionOverlay() });
+  const now = performance.now() / 1000;
+  renderer.draw({ view: state.view, geometry, grid: display.grid, labels: display.labels, reading, hover, selectedId, region: regionOverlay(), triggers: triggers.map((trigger) => ({ x: trigger.x, y: trigger.y, color: trigger.color, hit: hitTimes.has(trigger.id) ? now - hitTimes.get(trigger.id) : null })) });
+  if (hitTimes.size && [...hitTimes.values()].some((time) => now - time < 0.3)) requestFrame();
   ready = true;
   canvas.dataset.ready = "true";
   if (playing || animating) requestFrame();
@@ -315,7 +358,7 @@ function createRowElement(row) {
     <button class="expression-swatch" type="button" aria-pressed="true"></button>
     <input class="expression-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" />
     <div class="expression-status"></div>
-    <div class="expression-actions"><button class="row-color" type="button" title="Next color">◐</button><button class="row-delete" type="button" title="Delete">×</button></div>
+    <div class="expression-actions"><button class="row-role" type="button" title="Play this curve as drum triggers" aria-pressed="false" hidden>♩</button><button class="row-color" type="button" title="Next color">◐</button><button class="row-delete" type="button" title="Delete">×</button></div>
     <div class="expression-extra"></div>`;
   return item;
 }
@@ -332,6 +375,12 @@ function updateRowElement(item, row, info, index) {
   input.setAttribute("aria-label", `Expression ${number}`);
   if (document.activeElement !== input && input.value !== row.text) input.value = row.text;
   item.querySelector(".row-color").setAttribute("aria-label", `Change color of expression ${number}`);
+  const role = item.querySelector(".row-role");
+  role.hidden = !PLOTTABLE_KINDS.has(info.kind) || !info.plot;
+  role.setAttribute("aria-pressed", String(row.role === "drums"));
+  role.setAttribute("aria-label", `${row.role === "drums" ? "Play expression" : "Trigger drums from expression"} ${number}`);
+  role.textContent = row.role === "drums" ? "♩" : "∿";
+  item.classList.toggle("is-drums", row.role === "drums");
   item.querySelector(".row-delete").setAttribute("aria-label", `Delete expression ${number}`);
   renderStatus(item.querySelector(".expression-status"), row, info);
   renderExtra(item.querySelector(".expression-extra"), row, info, number);
@@ -368,16 +417,32 @@ function renderStatus(node, row, info) {
 
 function renderExtra(node, row, info, number) {
   const name = info.definition?.name ?? "";
-  const kind = info.kind === "parameter" && row.slider ? "slider" : info.kind === "polar" || info.kind === "parametric" ? "range" : "none";
+  const kind = info.kind === "parameter" && row.slider ? "slider" : row.role === "drums" && info.plot ? (info.kind === "polar" || info.kind === "parametric" ? "drum-range" : "drum") : info.kind === "polar" || info.kind === "parametric" ? "range" : "none";
   if (node.dataset.kind !== kind) {
     node.dataset.kind = kind;
     node.replaceChildren();
     if (kind === "slider") {
       node.innerHTML = `<div class="expression-slider"><input class="slider-min" type="number" step="any" /><input class="slider-value" type="range" /><input class="slider-max" type="number" step="any" /><button class="slider-play" type="button" aria-pressed="false">▶</button></div>
         <div class="expression-slider-options" hidden><select class="slider-mode"><option value="bounce">Bounce</option><option value="loop">Loop</option><option value="once">Play once</option></select><select class="slider-speed"><option value="0.25">¼×</option><option value="0.5">½×</option><option value="1">1×</option><option value="2">2×</option><option value="4">4×</option></select></div>`;
-    } else if (kind === "range") {
+    } else if (kind === "range" || kind === "drum-range") {
       node.innerHTML = `<div class="expression-range"><span class="range-label"></span><input class="range-low" type="number" step="any" /><span>to</span><input class="range-high" type="number" step="any" /></div>`;
     }
+    if (kind === "drum" || kind === "drum-range") {
+      const block = document.createElement("div");
+      block.className = "expression-drum";
+      block.innerHTML = `<select class="drum-placement">${DRUM_PLACEMENTS.map((placement) => `<option value="${placement}">${PLACEMENT_LABELS[placement]}</option>`).join("")}</select><input class="drum-count" type="number" min="${DRUM_COUNT.min}" max="${DRUM_COUNT.max}" step="1" /><select class="drum-voice">${DRUM_VOICES.map((voice) => `<option value="${voice.id}">${voice.name}</option>`).join("")}</select><label class="drum-pitch-label"><span>Pitch ±</span><input class="drum-pitch" type="number" min="${DRUM_PITCH.min}" max="${DRUM_PITCH.max}" step="1" /></label>`;
+      node.append(block);
+    }
+  }
+  if (kind === "drum" || kind === "drum-range") {
+    const { placement, count, voice, pitch } = row.drum;
+    const placementSelect = node.querySelector(".drum-placement"), countInput = node.querySelector(".drum-count"), voiceSelect = node.querySelector(".drum-voice"), pitchInput = node.querySelector(".drum-pitch");
+    placementSelect.setAttribute("aria-label", `Trigger placement for expression ${number}`); countInput.setAttribute("aria-label", `Trigger count for expression ${number}`);
+    voiceSelect.setAttribute("aria-label", `Drum voice for expression ${number}`); pitchInput.setAttribute("aria-label", `Pitch bend range in semitones for expression ${number}`);
+    if (document.activeElement !== placementSelect) placementSelect.value = placement;
+    if (document.activeElement !== countInput) countInput.value = String(count);
+    if (document.activeElement !== voiceSelect) voiceSelect.value = voice;
+    if (document.activeElement !== pitchInput) pitchInput.value = String(pitch);
   }
   if (kind === "slider") {
     const { min, max, step, animating } = row.slider;
@@ -400,7 +465,7 @@ function renderExtra(node, row, info, number) {
     modeSelect.setAttribute("aria-label", `${name} animation mode`); speedSelect.setAttribute("aria-label", `${name} animation speed`);
     if (document.activeElement !== modeSelect) modeSelect.value = mode;
     if (document.activeElement !== speedSelect) speedSelect.value = String(speed);
-  } else if (kind === "range") {
+  } else if (kind === "range" || kind === "drum-range") {
     const [from, to] = row.range ?? DEFAULT_RANGE;
     const variable = info.kind === "polar" ? "θ" : "t";
     node.querySelector(".range-label").textContent = `${variable} from`;
@@ -548,7 +613,11 @@ listen(list, "change", (event) => {
   const id = item.dataset.rowId;
   const row = state.rows[rowIndex(id)];
   if (!row) return;
-  if (event.target.classList.contains("slider-mode")) setState(updateRow(state, id, { slider: { ...row.slider, mode: event.target.value } }), { rebuild: false });
+  if (event.target.classList.contains("drum-placement")) setState(updateRow(state, id, { drum: { ...row.drum, placement: event.target.value } }), { rebuild: false });
+  else if (event.target.classList.contains("drum-count")) setState(updateRow(state, id, { drum: { ...row.drum, count: Number(event.target.value) } }), { rebuild: false });
+  else if (event.target.classList.contains("drum-voice")) setState(updateRow(state, id, { drum: { ...row.drum, voice: event.target.value } }), { rebuild: false });
+  else if (event.target.classList.contains("drum-pitch")) setState(updateRow(state, id, { drum: { ...row.drum, pitch: Number(event.target.value) } }), { rebuild: false });
+  else if (event.target.classList.contains("slider-mode")) setState(updateRow(state, id, { slider: { ...row.slider, mode: event.target.value } }), { rebuild: false });
   else if (event.target.classList.contains("slider-speed")) setState(updateRow(state, id, { slider: { ...row.slider, speed: Number(event.target.value) } }), { rebuild: false });
   else if (event.target.classList.contains("slider-min") || event.target.classList.contains("slider-max")) {
     const slider = sanitizeSlider({ ...row.slider, min: event.target.classList.contains("slider-min") ? Number(event.target.value) : row.slider.min, max: event.target.classList.contains("slider-max") ? Number(event.target.value) : row.slider.max });
@@ -568,6 +637,7 @@ listen(list, "click", (event) => {
   const button = event.target.closest("button");
   if (!button) return;
   if (button.classList.contains("expression-swatch")) setState(updateRow(state, id, { visible: !row.visible }));
+  else if (button.classList.contains("row-role")) { const drumsNext = row.role !== "drums"; setState(updateRow(state, id, { role: drumsNext ? "drums" : "contour", drum: drumsNext ? (row.drum ?? {}) : null }), { rebuild: false }); status(drumsNext ? "This curve now fires drum triggers; choose their placement, count and voice below it." : "This curve sounds as a contour again."); }
   else if (button.classList.contains("row-color")) setState(updateRow(state, id, { color: COLORS[(COLORS.indexOf(row.color) + 1) % COLORS.length] }));
   else if (button.classList.contains("row-delete")) { const index = rowIndex(id); setState(removeRow(state, id)); const neighbor = state.rows[Math.min(index, state.rows.length - 1)]; if (!(neighbor && focusRowInput(neighbor.id))) $("newExpression").focus(); }
   else if (button.classList.contains("slider-play")) { setState(updateRow(state, id, { slider: { ...row.slider, animating: !row.slider.animating } })); }
@@ -628,6 +698,7 @@ listen($("playButton"), "click", () => setPlaying(!playing));
 listen($("resetAll"), "click", () => {
   setPlaying(false);
   setTravel(0);
+  hitTimes.clear(); previousHeads = null;
   sliderDirections.clear();
   setState(applySnapshot(PRESETS.find((preset) => preset.id === DEFAULT_PRESET_ID).snapshot));
   status("Reset to the opening scene. Audio stays as it was.");
@@ -835,6 +906,7 @@ export function diagnosticSnapshot() {
     ready, disposed, playing, armed, starting,
     audioTime: audio.currentTime,
     travel: currentTravel(sweepAnchor.source === "audio" && audio.currentTime !== null ? audio.currentTime : performance.now() / 1000),
+    drums: { triggers: triggers.map((trigger) => ({ id: trigger.id, rowId: trigger.rowId, x: trigger.x, y: trigger.y, s: trigger.s, branch: trigger.branch })), hits: drumHits },
     reading: reading ? { mode: state.settings.playback, heads: reading.heads.map((head) => ({ index: head.index, phase: head.phase, kind: head.guide.kind, axis: head.guide.axis ?? null })), contacts: reading.contacts.length, region: reading.region, center: reading.center, branches: new Set(reading.contacts.map((contact) => `${contact.id}:${contact.branch ?? "p"}`)).size, sample: reading.contacts.slice(0, 24).map((contact) => ({ id: contact.id, head: contact.head, branch: contact.branch ?? null, x: contact.x, y: contact.y })) } : null,
     timbre: { ...audio.timbreSettings },
     view: { ...state.view },
@@ -857,7 +929,7 @@ export async function dispose() {
   abort.abort();
   observer?.disconnect();
   presets?.destroy();
-  await audio.destroy();
+  await Promise.all([audio.destroy(), drums.close()]);
   armed = false;
   playing = false;
 }

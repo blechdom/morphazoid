@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
@@ -13,6 +14,7 @@ export const spartialSiteChanges = JSON.parse(readFileSync(
 
 /** Remove only SPARTIAL's exact records before checking older frozen evidence. */
 export function restoreSpartialSite(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });

@@ -1,5 +1,6 @@
 import { analyzeRows, parameterText } from "./expressions.js";
 import { FORMULA_LIBRARY } from "./formulas.js";
+import { ROW_ROLES, sanitizeDrum } from "./triggers.js";
 import { LINE_AXES, MAX_HEADS, MOTION_MODES, PITCH_SOURCES, PLAYBACK_MODES } from "./readers.js";
 import { canonicalHeadOffsets, sanitizeHeadOffsets } from "../../playheads.js";
 import { DEFAULT_RANGE } from "./geometry.js";
@@ -51,6 +52,8 @@ export function sanitizeRow(row, index = 0) {
     visible: source.visible !== false,
     slider: sanitizeSlider(source.slider),
     range: sanitizeRange(source.range),
+    role: ROW_ROLES.includes(source.role) ? source.role : "contour",
+    drum: source.role === "drums" ? sanitizeDrum(source.drum) : null,
   };
 }
 
@@ -140,10 +143,12 @@ export function createState(overrides = {}) {
 
 /** Preset-owned scene without session identity: ids, slider motion direction and trailing empty rows are dropped. */
 export function snapshotOf(state) {
-  const rows = state.rows.map(({ text, color, visible, slider, range }) => ({
+  const rows = state.rows.map(({ text, color, visible, slider, range, role, drum }) => ({
     text, color, visible,
     slider: slider ? { min: slider.min, max: slider.max, step: slider.step, animating: slider.animating, mode: slider.mode, speed: slider.speed } : null,
     range: range ? [range[0], range[1]] : null,
+    role: role === "drums" ? "drums" : "contour",
+    drum: role === "drums" && drum ? { ...drum } : null,
   }));
   while (rows.length && !rows.at(-1).text.trim()) rows.pop();
   return { rows, view: { ...state.view }, settings: { ...state.settings } };
@@ -252,7 +257,7 @@ export function advanceSliders(state, analysis, deltaSeconds, directions) {
 const scene = (id, label, rows, view, settings = {}) => ({
   id, label,
   snapshot: {
-    rows: rows.map((row, index) => ({ text: row.text, color: row.color ?? COLORS[index % COLORS.length], visible: row.visible ?? true, slider: row.slider === undefined ? null : sanitizeSlider(row.slider), range: row.range ?? null })),
+    rows: rows.map((row, index) => ({ text: row.text, color: row.color ?? COLORS[index % COLORS.length], visible: row.visible ?? true, slider: row.slider === undefined ? null : sanitizeSlider(row.slider), range: row.range ?? null, role: row.role ?? "contour", drum: row.role === "drums" ? sanitizeDrum(row.drum) : null })),
     view: { ...view },
     settings: sanitizeSettings({ ...DEFAULT_SETTINGS, ...settings }),
   },
@@ -324,6 +329,17 @@ export const PRESETS = Object.freeze([
   scene("consonant-ratios", "Consonant ratios", [
     { text: "y = sin(x)" }, { text: "y = sin(2x) + 2.5" }, { text: "y = sin(1.5x) + 5" }, { text: "y = sin(1.25x) + 7.5" }, { text: "y = sin(1.0595x) + 10" },
   ], view(0, 4 * Math.PI, -1.5, 11.5), { sweepSeconds: 10 }),
+  scene("drum-grid", "Drum grid & bass line", [
+    { text: "y = 3sin(x) + 4", role: "drums", drum: { placement: "x", count: 8, voice: "fm-kick" } },
+    { text: "y = 2cos(2x) - 1", role: "drums", drum: { placement: "equidistant", count: 6, voice: "closed-hat" } },
+    slider("a = 1", 0.25, 3), { text: "y = -4 + sin(a x)" },
+  ], view(0, 4 * Math.PI, -7, 9), { sweepSeconds: 4 }),
+  scene("polyrhythm-curves", "Polyrhythm curves", [
+    { text: "y = sin(x)", role: "drums", drum: { placement: "x", count: 4, voice: "sub-kick" } },
+    { text: "y = sin(x) + 2.5", role: "drums", drum: { placement: "x", count: 3, voice: "snap-snare" } },
+    { text: "y = sin(x) + 5", role: "drums", drum: { placement: "equidistant", count: 7, voice: "rim-shot", pitch: 12 } },
+    { text: "y = 0.5 sin(3x) - 3" },
+  ], view(0, 4 * Math.PI, -5, 7), { sweepSeconds: 6 }),
   ...FORMULA_LIBRARY.map((formula) => scene(formula.id, formula.label, formula.rows, formula.view, formula.settings)),
 ]);
 

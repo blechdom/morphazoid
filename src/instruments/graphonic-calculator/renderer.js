@@ -49,7 +49,7 @@ export class GraphRenderer {
     return createCamera(view, this.width, this.height);
   }
 
-  draw({ view, geometry = [], grid = true, labels = true, reading = null, hover = null, selectedId = null, region = null }) {
+  draw({ view, geometry = [], grid = true, labels = true, reading = null, hover = null, selectedId = null, region = null, triggers = [] }) {
     const context = this.context;
     if (!context) return;
     const camera = this.camera(view);
@@ -62,9 +62,31 @@ export class GraphRenderer {
     this.drawPoints(context, camera, geometry, selectedId);
     if (labels) this.drawAxisLabels(context, camera, view, ticks);
     if (region?.active) this.drawUnplayed(context, camera, region.rect);
+    if (triggers.length) this.drawTriggers(context, camera, triggers);
     if (reading) this.drawReading(context, camera, reading);
     if (region) this.drawRegion(context, camera, region);
     if (hover) this.drawHover(context, camera, hover);
+  }
+
+  /** Drum triggers are diamonds on their curve; a fresh hit swells and fills, then fades over 250 ms. */
+  drawTriggers(context, camera, triggers) {
+    context.save();
+    for (const trigger of triggers) {
+      const [px, py] = camera.toPixel(trigger.x, trigger.y);
+      if (!Number.isFinite(px) || !Number.isFinite(py) || px < -12 || px > this.width + 12 || py < -12 || py > this.height + 12) continue;
+      const glow = trigger.hit === null || trigger.hit === undefined ? 0 : Math.max(0, 1 - trigger.hit / 0.25);
+      const size = 5 + glow * 6;
+      context.beginPath();
+      context.moveTo(px, py - size); context.lineTo(px + size, py); context.lineTo(px, py + size); context.lineTo(px - size, py); context.closePath();
+      context.fillStyle = glow ? trigger.color : PALETTE.background;
+      context.globalAlpha = glow ? 0.35 + glow * 0.65 : 1;
+      context.fill();
+      context.globalAlpha = 1;
+      context.strokeStyle = trigger.color;
+      context.lineWidth = 1.5;
+      context.stroke();
+    }
+    context.restore();
   }
 
   regionCorners(camera, rect) {

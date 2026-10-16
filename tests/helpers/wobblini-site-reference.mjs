@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -10,6 +11,7 @@ export const wobbliniSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed Wobblini additions; preserve unrelated source drift. */
 export function restoreWobbliniSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreEsi32Site(source, file, { allowRestored: true });
   for (const change of wobbliniSiteChanges.changes.filter(change => change.file === file)) {

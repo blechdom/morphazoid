@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
@@ -16,6 +17,7 @@ export const processorSamplesSiteChanges = JSON.parse(readFileSync(new URL('../f
  * Existing historical hashes and their unknown-drift guards remain intact. */
 export function restoreProcessorSamplesSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });

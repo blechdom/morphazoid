@@ -1,0 +1,15 @@
+{
+  "baseCommit": "5837198cfa80c2c3c2bb3cdacc7d221c631a156d",
+  "changes": [
+    {
+      "file": "scripts/site/runtime-files.tsv",
+      "sha256": "9e89381442ca712541839cf70b6d0eb6b11e79f23d3a4c7b19f92ef985ccdf35",
+      "replacements": [
+        {
+          "before": "copy+require\tsrc/instruments/graphonic-calculator/style.css\n",
+          "after": "copy+require\tsrc/instruments/graphonic-calculator/style.css\ncopy+require\tsrc/instruments/graphonic-calculator/triggers.js\n"
+        }
+      ]
+    }
+  ]
+}

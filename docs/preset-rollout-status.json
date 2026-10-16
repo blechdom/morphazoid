@@ -5,7 +5,7 @@
   "source": "Review branch directory checkpoint 03619ff rebased onto origin/main ef6e593; pending pointer, family rename and preset drafts restored; no push or deployment",
   "counts": {
     "implemented": 51,
-    "fullPresets": 2141,
+    "fullPresets": 2143,
     "favesImplemented": 18,
     "activeRemaining": 60,
     "regularRemaining": 131
@@ -981,7 +981,7 @@
       "href": "graphonic-calculator.html",
       "category": "math",
       "scope": "fave",
-      "presets": 130,
+      "presets": 132,
       "status": "implemented-verification-pending"
     },
     {

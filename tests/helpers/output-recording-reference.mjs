@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
@@ -16,6 +17,7 @@ const sha256 = source => createHash("sha256").update(source).digest("hex");
 
 /** Independently reverse recording hooks on either approved UI baseline. */
 export function restoreOutputRecordingHooks(source, file) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
@@ -33,6 +35,7 @@ export function restoreOutputRecordingHooks(source, file) {
 
 /** Retain the original proof: accept only its exact baseline or approved UI. */
 export function restoreVoiceControls(source, file) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
@@ -53,6 +56,7 @@ export function restoreVoiceControls(source, file) {
 
 /** Reverse only the exact live-flow extension; preserve both prior baselines. */
 export function restoreLiveFlow(source, file) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
@@ -73,6 +77,7 @@ export function restoreLiveFlow(source, file) {
 
 /** Compose approved runtime extensions without changing historical hashes. */
 export function restoreOutputRecording(source, file) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });

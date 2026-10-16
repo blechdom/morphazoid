@@ -334,3 +334,33 @@ test("on a phone the open instrument chooser covers the preset bar, not the othe
   expect(covering).toBe(true);
   await context.close();
 });
+
+test("a curve can switch to drum triggers that fire as the playhead passes while another curve keeps sounding", async ({ page }) => {
+  await open(page);
+  const parabola = page.locator(".expression-row").first();
+  await expect(parabola.locator(".row-role")).toBeVisible();
+  await parabola.locator(".row-role").click();
+  await expect(parabola.locator(".row-role")).toHaveAttribute("aria-pressed", "true");
+  await expect(parabola.locator(".drum-placement")).toBeVisible();
+  let state = await snapshot(page);
+  expect(state.rows[0].kind).toBe("explicit-y");
+  expect(state.drums.triggers.length).toBeGreaterThan(0);
+  expect(state.drums.triggers.every((trigger) => trigger.rowId === state.rows[0].id)).toBe(true);
+  const gridCount = state.drums.triggers.length;
+  await parabola.locator(".drum-placement").selectOption("equidistant");
+  await parabola.locator(".drum-count").fill("5");
+  await parabola.locator(".drum-count").dispatchEvent("change");
+  await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBe(5);
+  expect((await snapshot(page)).drums.triggers.map((trigger) => trigger.s)).toEqual([0.1, 0.3, 0.5, 0.7, 0.9]);
+  await parabola.locator(".drum-voice").selectOption("snap-snare");
+  await parabola.locator(".drum-placement").selectOption("xy");
+  await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBeGreaterThan(gridCount);
+  await page.locator("#playButton").click();
+  await expect.poll(async () => (await snapshot(page)).drums.hits, { timeout: 8000 }).toBeGreaterThan(0);
+  await expect.poll(async () => (await snapshot(page)).reading.contacts).toBeGreaterThan(0);
+  state = await snapshot(page);
+  expect(state.reading.sample.every((contact) => contact.id !== state.rows[0].id)).toBe(true);
+  await parabola.locator(".row-role").click();
+  await expect.poll(async () => (await snapshot(page)).drums.triggers.length).toBe(0);
+  expect((await snapshot(page)).rows[0].kind).toBe("explicit-y");
+});

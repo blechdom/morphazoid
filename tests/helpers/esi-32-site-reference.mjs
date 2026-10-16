@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 
@@ -6,6 +7,7 @@ export const esi32SiteChanges = JSON.parse(readFileSync(new URL('../../docs/esi-
 /** Peel only the ESI-32 additions before checking earlier frozen metadata. */
 export function restoreEsi32Site(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   for (const change of esi32SiteChanges.changes.filter(change => change.file === file)) {
     for (const replacement of [...change.replacements].reverse()) {
       const count = source.split(replacement.after).length - 1;

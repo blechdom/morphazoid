@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import { restoreWobbliniControlsSite } from './wobblini-controls-site-reference.mjs';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -12,6 +13,7 @@ export const graphonicCalculatorMathSiteChanges = JSON.parse(readFileSync(
 /** Reverse only the reviewed Math category addition that moved the Graphonic Calculator out of Work in Progress. */
 export function restoreGraphonicCalculatorMathSite(source, file, { allowRestored = false } = {}) {
   if (typeof source !== 'string') return source;
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   source = restoreWobbliniControlsSite(source, file, { allowRestored: true });
   for (const change of graphonicCalculatorMathSiteChanges.changes.filter(change => change.file === file)) {
     for (const { before, after } of [...change.replacements].reverse()) {

@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorDrumsSite } from './graphonic-calculator-drums-site-reference.mjs';
 import assert from 'node:assert/strict';
 
 const prefix = 'src/instruments/striped-staircase-rust/';
@@ -17,6 +18,7 @@ export const staircaseSpiralRuntimeChange = Object.freeze({
  * guard deliberately requires all three modules in its current stanza.
  */
 export function restoreStaircaseSpiralRuntime(source, file, { allowRestored = false } = {}) {
+  source = restoreGraphonicCalculatorDrumsSite(source, file, { allowRestored: true });
   const change = staircaseSpiralRuntimeChange;
   if (typeof source !== 'string' || file !== change.file) return source;
   const counts = change.paths.map(path => source.split(path).length - 1);

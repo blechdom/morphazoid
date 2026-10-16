@@ -45,7 +45,7 @@ test('Graphonic Calculator is the Math instrument with conservative MIDI and exp
   const required = new Set(manifest.entries.filter(entry => entry.policy.includes('require')).map(entry => entry.path));
   for (const file of [
     'graphonic-calculator.html', 'docs/graphonic-calculator.md', 'assets/instruments/graphonic-calculator.webp',
-    ...['app', 'audio', 'camera', 'expressions', 'geometry', 'model', 'parser', 'renderer', 'sampler'].map(name => `src/instruments/graphonic-calculator/${name}.js`),
+    ...['app', 'audio', 'camera', 'expressions', 'formulas', 'geometry', 'model', 'parser', 'readers', 'renderer', 'sampler', 'triggers'].map(name => `src/instruments/graphonic-calculator/${name}.js`),
     'src/instruments/graphonic-calculator/style.css',
   ]) assert.ok(required.has(file), `${file} is a required release file`);
 });
@@ -100,4 +100,22 @@ test('the Math category amendment restores the exact preceding main bytes and pe
   const registry = await readFile(new URL('src/site/instrument-registry.js', root), 'utf8');
   assert.match(restoreMath(registry, 'src/site/instrument-registry.js'), /freezeGroup\("wip", "Work in Progress", \[\n    \{ id: "wobblini"[^\n]*\n    \{ id: "graphonic-calculator"/, 'the WIP row returns so the older Graphonic Calculator and Wobblini guards still match');
   assert.equal(TOOL_GROUPS.findIndex(group => group.id === 'math'), TOOL_GROUPS.findIndex(group => group.id === 'wip') - 1, 'Math sits directly before Work in Progress');
+});
+
+test('the drum-trigger runtime row restores the exact preceding main manifest and peels before every older guard', async () => {
+  const { graphonicCalculatorDrumsSiteChanges: drums, restoreGraphonicCalculatorDrumsSite: restoreDrums, readGraphonicCalculatorDrumsSiteReference } = await import('./helpers/graphonic-calculator-drums-site-reference.mjs');
+  assert.match(drums.baseCommit, /^[0-9a-f]{40}$/);
+  assert.deepEqual(drums.changes.map(change => change.file), ['scripts/site/runtime-files.tsv']);
+  for (const change of drums.changes) {
+    const url = new URL(change.file, root);
+    const source = await readFile(url, 'utf8');
+    const restored = restoreDrums(source, change.file);
+    assert.equal(digest(restored), change.sha256, `${change.file}: pre-drums source preserved`);
+    assert.equal(await readGraphonicCalculatorDrumsSiteReference(url, 'utf8'), restored);
+    assert.equal(restoreDrums(restored, change.file, { allowRestored: true }), restored);
+    assert.throws(() => restoreDrums(restored, change.file), /exact Graphonic Calculator drums site amendment/);
+    for (const { after } of change.replacements) assert.match(after, /graphonic-calculator\/triggers\.js/);
+  }
+  const manifest = await readRuntimeManifest();
+  assert.deepEqual(manifest.entries.filter(entry => entry.path === 'src/instruments/graphonic-calculator/triggers.js').map(entry => entry.policy), ['copy+require']);
 });
