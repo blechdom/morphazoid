@@ -33,25 +33,25 @@ export function periodicWaveCoefficients(voice, timbre) {
  * the view) becomes pitch across `octaves`; horizontal position becomes stereo placement.
  * Contacts outside the view fall silent.
  */
-export function traceVoiceTarget({ x, y, view, octaves = 2, source = "height" }) {
+export function traceVoiceTarget({ x, y, view, center, octaves = 2, source = "height" }) {
   const silent = { frequency: TRACE_BASE_HZ, pan: 0, gain: 0 };
   const ySpan = view.yMax - view.yMin, xSpan = view.xMax - view.xMin;
   if (!Number.isFinite(x) || !Number.isFinite(y) || ySpan <= 0 || xSpan <= 0) return silent;
   if (x < view.xMin || x > view.xMax || y < view.yMin || y > view.yMax) return silent;
-  const value = Math.min(1, Math.max(0, pitchValue({ x, y }, source, view)));
+  const value = Math.min(1, Math.max(0, pitchValue({ x, y }, source, view, center)));
   const position = (x - view.xMin) / xSpan;
   return { frequency: TRACE_BASE_HZ * 2 ** (octaves * value), pan: position * 2 - 1, gain: 1 };
 }
 
 /** Turn reader contacts into at most `limit` audible voice targets, keyed per curve, head and branch. */
-export function traceVoiceTargets(contacts, { view, octaves, source = "height", limit = TRACE_VOICES }) {
+export function traceVoiceTargets(contacts, { view, center, octaves, source = "height", limit = TRACE_VOICES }) {
   const counts = new Map();
   const targets = [];
   for (const contact of contacts) {
     const key = `${contact.id}:${contact.head ?? 0}:${contact.branch ?? "p"}`;
     const index = counts.get(key) ?? 0;
     counts.set(key, index + 1);
-    targets.push({ id: `${key}:${index}`, ...traceVoiceTarget({ x: contact.x, y: contact.y, view, octaves, source }) });
+    targets.push({ id: `${key}:${index}`, ...traceVoiceTarget({ x: contact.x, y: contact.y, view, center, octaves, source }) });
   }
   const audible = targets.filter((target) => target.gain > 0).slice(0, limit);
   const normalization = audible.length ? TRACE_LEVEL / Math.sqrt(audible.length) : 0;

@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
@@ -7,6 +8,7 @@ import { readFileSync } from 'node:fs';
 import { restoreMidiphoriaSite } from './midiphoria-site-reference.mjs';
 export const labSiteAdditions = JSON.parse(readFileSync(new URL('../fixtures/l-system-labs-site-additions.json', import.meta.url), 'utf8'));
 export function restoreLSystemLabSite(source, file) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });

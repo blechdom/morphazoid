@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
@@ -15,6 +16,7 @@ const sha256 = source => createHash("sha256").update(source).digest("hex");
 
 /** Independently reverse recording hooks on either approved UI baseline. */
 export function restoreOutputRecordingHooks(source, file) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
@@ -31,6 +33,7 @@ export function restoreOutputRecordingHooks(source, file) {
 
 /** Retain the original proof: accept only its exact baseline or approved UI. */
 export function restoreVoiceControls(source, file) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
@@ -50,6 +53,7 @@ export function restoreVoiceControls(source, file) {
 
 /** Reverse only the exact live-flow extension; preserve both prior baselines. */
 export function restoreLiveFlow(source, file) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });
@@ -69,6 +73,7 @@ export function restoreLiveFlow(source, file) {
 
 /** Compose approved runtime extensions without changing historical hashes. */
 export function restoreOutputRecording(source, file) {
+  source = restoreGraphonicCalculatorMathSite(source, file, { allowRestored: true });
   source = restoreWipRolloutSite(source, file, { allowRestored: true });
   source = restoreMicInputBatchSite(source, file, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, file, { allowRestored: true });

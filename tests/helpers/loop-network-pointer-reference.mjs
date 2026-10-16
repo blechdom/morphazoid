@@ -1,3 +1,4 @@
+import { restoreGraphonicCalculatorMathSite } from './graphonic-calculator-math-site-reference.mjs';
 import { restoreWipRolloutSite } from './wip-rollout-site-reference.mjs';
 import { restoreMicInputBatchSite } from './mic-input-batch-site-reference.mjs';
 import { restoreHeaderPresetsBatchSite } from './header-presets-batch-site-reference.mjs';
@@ -41,6 +42,7 @@ const amendments = {
 
 /** Reverse only the scaled-pointer/selected-gate fix, proved by loop-network-pointer.spec.mjs. */
 export function restoreLoopNetworkPointers(source, relative) {
+  source = restoreGraphonicCalculatorMathSite(source, relative, { allowRestored: true });
   source = restoreWipRolloutSite(source, relative, { allowRestored: true });
   source = restoreMicInputBatchSite(source, relative, { allowRestored: true });
   source = restoreHeaderPresetsBatchSite(source, relative, { allowRestored: true });
