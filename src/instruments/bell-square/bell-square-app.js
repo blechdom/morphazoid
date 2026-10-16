@@ -6,6 +6,13 @@ import {
   simulateBellSquare,
 } from "./bell-square.js";
 import { canvasSizing } from "../../graphics/canvas-sizing.js";
+import { registerHeaderPresets } from "../../site/header-presets.js";
+import {
+  BELL_SQUARE_FULL_PRESETS,
+  captureBellSquarePreset,
+  randomizeBellSquarePreset,
+  validateBellSquarePreset,
+} from "./full-presets.js";
 
 const $ = (id) => document.getElementById(id);
 const TAU = Math.PI * 2;
@@ -866,3 +873,14 @@ updateTransport();
 updateAudioInterface();
 refreshSimulation();
 resizeCanvas();
+
+registerHeaderPresets({
+  id: "bell-square", presets: BELL_SQUARE_FULL_PRESETS,
+  capture: () => captureBellSquarePreset(state),
+  apply: snapshot => {
+    validateBellSquarePreset(snapshot);
+    Object.assign(state, snapshot);
+    refreshSimulation();
+  },
+  randomize: randomizeBellSquarePreset,
+});
