@@ -69,7 +69,7 @@ for (const layout of layouts) {
     try {
       const diagnostics = await open(page, baseURL);
       await page.locator('[data-voice-view="lead"]').click();
-      for (const selector of ['#simdPresetPicker > summary', '#nextPreset', '#randomizePatch', '#audioButton', '#synthPlayButton',
+      for (const selector of ['.header-preset-picker > summary', '.header-preset-next', '.header-preset-random', '#audioButton', '#synthPlayButton',
         '#knobControls [data-param-key="transpose"]', '[data-character-mute="lead"]', '[data-character-solo="lead"]',
         '[data-performer-volume="lead"] [role="slider"]']) await expectHit(page.locator(selector));
       for (const selector of ['#audioButton', '#synthPlayButton']) {

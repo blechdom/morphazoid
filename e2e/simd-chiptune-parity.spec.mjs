@@ -72,8 +72,12 @@ test("SIMD Chiptune preserves the original complete preset bank with immediate s
     const first = await expectStateParity(pages);
     expect(first.parameters.fadeIn).toBe(1);
     const seen = new Set([first.activePresetId]);
+    // The shared row's first Next loads the first scene, which is the startup scene.
+    await pages[1].locator(".header-preset-next").click();
+    expect((await capture(pages[1])).activePresetId).toBe(first.activePresetId);
     for (let index = 0; index < ids.length; index += 1) {
-      for (const page of pages) await page.locator("#nextPreset").click();
+      await pages[0].locator("#nextPreset").click();
+      await pages[1].locator(".header-preset-next").click();
       const state = await expectStateParity(pages);
       if (state.activePresetId === first.activePresetId) {
         expect(index + 1).toBe(ids.length);
@@ -99,7 +103,7 @@ test("SIMD starts stay immediate after randomize and reset while saved intro edi
   expect((await capture(page)).parameters.fadeIn).toBe(.01);
 
   for (let iteration = 0; iteration < 2; iteration += 1) {
-    await page.locator("#randomizePatch").click();
+    await page.locator("#randomizePatch, .header-preset-random").first().click();
     const randomized = await capture(page);
     expect(randomized.activePresetId).toBe("custom");
     expect(randomized.parameters.fadeIn).toBeGreaterThanOrEqual(.01);
@@ -218,7 +222,8 @@ test("forced scalar audio preserves live edits, level response, and worklet prog
   const connections = (await readAudioStatus(page)).connectionCount;
   const originalPreset = (await capture(page)).activePresetId;
 
-  await page.locator("#nextPreset").click();
+  await page.locator(".header-preset-next").click();
+  await page.locator(".header-preset-next").click();
   const selected = await capture(page);
   expect(selected.activePresetId).not.toBe(originalPreset);
   const originalTone = selected.parameters.upperOneTone;

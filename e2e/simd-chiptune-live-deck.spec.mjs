@@ -62,7 +62,7 @@ for (const layout of layouts) {
       await expect(page.locator('#simdLegacyControls')).toBeHidden();
       await expect(page.locator('[data-voice-length]')).toHaveCount(0);
       await expect(page.locator('.simd-voice-footer [data-sequence-param]')).toHaveCount(0);
-      for (const selector of ['#simdPresetPicker > summary', '#nextPreset', '#randomizePatch', '#audioButton', '#synthPlayButton']) {
+      for (const selector of ['.header-preset-picker > summary', '.header-preset-next', '.header-preset-random', '#audioButton', '#synthPlayButton']) {
         await expectHitTarget(page.locator(selector));
         if (layout.coarse && ['#audioButton', '#synthPlayButton'].includes(selector)) {
           const box = await page.locator(selector).boundingBox();

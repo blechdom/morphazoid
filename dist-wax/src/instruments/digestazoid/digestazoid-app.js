@@ -205,7 +205,6 @@ function updateUI() {
     if (output) output.textContent = spec.format(state[spec.key]);
   }
   $("listeningMode").value = state.listeningMode;
-  $("presetSelect").value = state.presetId;
   const preset = digestazoidPreset(state.presetId);
   $("presetDescription").textContent = preset?.description
     ?? "A pressurized wet body with gas, bile-like liquid, yielding sludge, sticky valves, and compliant tissue.";
@@ -234,17 +233,6 @@ function setState(patch, { configure = true } = {}) {
 function updateMasterLevel() {
   if (!graph?.masterGain || !audioContext) return;
   graph.masterGain.gain.setTargetAtTime(clamp(state.level, 0, 0.8), audioContext.currentTime, 0.025);
-}
-
-function initializePresets() {
-  const select = $("presetSelect");
-  select.replaceChildren();
-  for (const preset of DIGESTAZOID_PRESETS) {
-    const option = document.createElement("option");
-    option.value = preset.id;
-    option.textContent = preset.label;
-    select.append(option);
-  }
 }
 
 async function createAudioGraph() {
@@ -415,31 +403,6 @@ function applyPreset(id) {
   postConfiguration();
   graph?.sourceNode?.port.postMessage({ type: "reset", state });
   announce(`${digestazoidPreset(id)?.label ?? "Digestive"} body loaded.`);
-}
-
-function randomizeBody() {
-  const randomBetween = (minimum, maximum) => minimum + Math.random() * (maximum - minimum);
-  setState({
-    gas: randomBetween(0.12, 0.92),
-    liquid: randomBetween(0.08, 0.86),
-    sludge: randomBetween(0.04, 0.82),
-    viscosity: randomBetween(0.12, 0.94),
-    bubbleSizeMm: randomBetween(3, 18),
-    peristalsisRate: randomBetween(6, 62),
-    peristalsisDepth: randomBetween(0.22, 0.94),
-    stomachCompliance: randomBetween(0.2, 0.92),
-    gutTension: randomBetween(0.16, 0.9),
-    upperValve: randomBetween(0.22, 0.86),
-    pyloricValve: randomBetween(0.16, 0.88),
-    lowerValve: randomBetween(0.18, 0.88),
-    outletStretch: randomBetween(0.08, 0.9),
-    turbulence: randomBetween(0.18, 0.86),
-    wetness: randomBetween(0.18, 0.96),
-    bodyResonance: randomBetween(0.18, 0.88),
-  });
-  graph?.sourceNode?.port.postMessage({ type: "reset", state });
-  triggerGesture(["growl", "burble", "bubble", "slosh", "burple"][Math.floor(Math.random() * 5)], 0.68);
-  announce("The meal was contaminated again inside bounded physical limits.");
 }
 
 function resetInstrument() {
@@ -1228,13 +1191,6 @@ function bindEvents() {
     else ensureAudio();
   });
   $("digestButton").addEventListener("click", togglePerforming);
-  $("presetSelect").addEventListener("change", () => applyPreset($("presetSelect").value));
-  $("nextPresetButton").addEventListener("click", () => {
-    const current = Math.max(0, DIGESTAZOID_PRESETS.findIndex((preset) => preset.id === state.presetId));
-    const next = DIGESTAZOID_PRESETS[(current + 1) % DIGESTAZOID_PRESETS.length];
-    applyPreset(next.id);
-  });
-  $("randomizeButton").addEventListener("click", randomizeBody);
   $("resetButton").addEventListener("click", resetInstrument);
   document.querySelectorAll("[data-gesture]").forEach((button) => {
     button.addEventListener("pointerdown", (event) => {
@@ -1306,7 +1262,6 @@ function bindEvents() {
   }, { once: true });
 }
 
-initializePresets();
 bindEvents();
 updateUI();
 resizeCanvas();
